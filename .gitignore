@@ -1,0 +1,17 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+.vs/
+
+# Build artifacts
+bin/
+obj/
+
+# Builds
+builds/
+
+# Temp files
+*.tmp
+
+# Auto-generated version file
+scripts/VersionGenerated.g.cs

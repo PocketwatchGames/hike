@@ -1,0 +1,31 @@
+<Project Sdk="Godot.NET.Sdk/4.6.0">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tools/**" />
+  </ItemGroup>
+  <Target Name="GenerateVersion" BeforeTargets="CoreCompile">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitHashValue" />
+    </Exec>
+    <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="BuildNumber" />
+    </Exec>
+    <ItemGroup>
+      <VersionLine Include="public static partial class Version" />
+      <VersionLine Include="{" />
+      <VersionLine Include="%09public const string GitHash = &quot;$(GitHashValue.Trim())&quot;%3B" />
+      <VersionLine Include="%09public const int Build = $(BuildNumber.Trim())%3B" />
+      <VersionLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="scripts/VersionGenerated.g.cs" Lines="@(VersionLine)" Overwrite="true" />
+  </Target>
+  <Target Name="GenerateLocKeys" BeforeTargets="CoreCompile"
+          Inputs="resources/localization/english.tsv"
+          Outputs="scripts/localization/LocKeys.g.cs">
+    <Exec Command="dotnet run --project tools/LocGenerator -- resources/localization/english.tsv scripts/localization/LocKeys.g.cs" />
+  </Target>
+</Project>

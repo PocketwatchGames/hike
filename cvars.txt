@@ -1,0 +1,3 @@
+// CVar configuration file
+// Commands are executed on startup
+// Lines starting with // are comments

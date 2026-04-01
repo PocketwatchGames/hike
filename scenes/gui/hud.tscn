@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://c7r0drbmx8ob5"]
+
+[ext_resource type="Script" uid="uid://bho327tgdqbxw" path="res://scripts/gui/Hud.cs" id="1_ahhtf"]
+
+[sub_resource type="Resource" id="Resource_86rft"]
+metadata/__load_path__ = "res://scenes/gui/game_tool_button.tscn"
+
+[sub_resource type="Resource" id="Resource_624ws"]
+metadata/__load_path__ = "res://resources/gui/tool_button_group.tres"
+
+[sub_resource type="Resource" id="Resource_qxonp"]
+metadata/__load_path__ = "res://resources/gui/time_scale_button_group.tres"
+
+[sub_resource type="Resource" id="Resource_ueg55"]
+metadata/__load_path__ = "res://scenes/gui/raw_material_item.tscn"
+
+[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("turnLabel", "moneyLabel", "toolContainerRecent", "toolContainerStandard", "toolContainerShelter", "toolContainerFood", "toolContainerCivic", "toolContainerMilitary", "toolContainerProduction", "endTurnButton", "activityNode", "activityLabel", "infoPanelTerrain", "infoPanelStructure", "infoPanelSquad", "demolishButton", "upgradeButton", "leaderPortrait", "structureStatsPanel", "splitSlider", "rawMaterialListContainer", "populationLabel", "healthBar", "happinessBar")]
+script = ExtResource("1_ahhtf")
+toolButtonScene = SubResource("Resource_86rft")
+buttonGroup = SubResource("Resource_624ws")
+timeScaleButtonGroup = SubResource("Resource_qxonp")
+rawMaterialItemScene = SubResource("Resource_ueg55")
+turnLabel = NodePath("")
+moneyLabel = NodePath("")
+toolContainerRecent = NodePath("")
+toolContainerStandard = NodePath("")
+toolContainerShelter = NodePath("")
+toolContainerFood = NodePath("")
+toolContainerCivic = NodePath("")
+toolContainerMilitary = NodePath("")
+toolContainerProduction = NodePath("")
+endTurnButton = NodePath("")
+activityNode = NodePath("")
+activityLabel = NodePath("")
+infoPanelTerrain = NodePath("")
+infoPanelStructure = NodePath("")
+infoPanelSquad = NodePath("")
+demolishButton = NodePath("")
+upgradeButton = NodePath("")
+leaderPortrait = NodePath("")
+structureStatsPanel = NodePath("")
+splitSlider = NodePath("")
+rawMaterialListContainer = NodePath("")
+populationLabel = NodePath("")
+healthBar = NodePath("")
+happinessBar = NodePath("")
+
+[node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10

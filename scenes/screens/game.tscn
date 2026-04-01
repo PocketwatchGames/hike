@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://cqcbx0hocclf4"]
+
+[ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
+[ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
+[ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/PauseMenu.tscn" id="17_0v2ir"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
+
+[sub_resource type="Sky" id="Sky_oni8f"]
+sky_material = SubResource("ShaderMaterial_s3n12")
+
+[sub_resource type="Environment" id="Environment_e0wmo"]
+background_mode = 2
+sky = SubResource("Sky_oni8f")
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.3
+reflected_light_source = 2
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.1
+fog_light_energy = 0.75
+volumetric_fog_density = 0.01
+volumetric_fog_albedo = Color(0.5, 0.5, 0.5, 1)
+volumetric_fog_sky_affect = 0.0
+
+[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_e0wmo"]
+
+[sub_resource type="Resource" id="Resource_o78e0"]
+metadata/__load_path__ = "res://scenes/gui/game_tool_button.tscn"
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_ln6eb"]
+
+[sub_resource type="ButtonGroup" id="ButtonGroup_4ji0l"]
+
+[sub_resource type="Resource" id="Resource_0q6jn"]
+metadata/__load_path__ = "res://scenes/gui/raw_material_item.tscn"
+
+[node name="Game" type="Node3D" unique_id=590494561]
+script = ExtResource("1_mu8e5")
+
+[node name="MainCamera" type="Camera3D" parent="." unique_id=159032169]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
+fov = 20.0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1455759092]
+environment = SubResource("Environment_e0wmo")
+camera_attributes = SubResource("CameraAttributesPractical_e0wmo")
+
+[node name="SunLight" type="DirectionalLight3D" parent="." unique_id=1871209991]
+light_color = Color(0.73, 0.62098664, 0.49640003, 1)
+light_bake_mode = 0
+light_cull_mask = 3
+sky_mode = 1
+
+[node name="WorldHUD" type="Node2D" parent="." unique_id=151387425]
+
+[node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameManager") instance=ExtResource("4_lbhrr")]
+toolButtonScene = SubResource("Resource_o78e0")
+buttonGroup = SubResource("ButtonGroup_ln6eb")
+timeScaleButtonGroup = SubResource("ButtonGroup_4ji0l")
+rawMaterialItemScene = SubResource("Resource_0q6jn")
+gameManager = NodePath("..")
+
+[node name="PauseMenu" parent="." unique_id=1047961363 node_paths=PackedStringArray("gameManager") instance=ExtResource("17_0v2ir")]
+visible = false
+gameManager = NodePath("..")
