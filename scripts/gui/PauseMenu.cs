@@ -3,13 +3,13 @@ using System;
 
 public partial class PauseMenu : PanelContainer
 {
-	[Export] public GameManager gameManager;
+	[Export] public GameClient gameClient;
 	[Export] public Label versionLabel;
 
 	override public void _Ready()
 	{
-		Visible = gameManager.paused;
-		gameManager.onPauseToggled += (p) => { Visible = p; };
+		Visible = gameClient.paused;
+		gameClient.onPauseToggled += (p) => { Visible = p; };
 		if (versionLabel != null)
 		{
 			versionLabel.Text = Version.Full;
@@ -24,23 +24,23 @@ public partial class PauseMenu : PanelContainer
 		}
 		if (e.IsActionPressed("TogglePause"))
 		{
-			gameManager.TogglePause();
+			gameClient.TogglePause();
 			GetViewport().SetInputAsHandled();
 		}
 	}
 
 	public void OnResumeButtonPressed()
 	{
-		gameManager.TogglePause();
+		gameClient.TogglePause();
 	}
 	public void OnQuitButtonPressed()
 	{
-		gameManager.QuitToMenu();
+		gameClient.QuitToMenu();
 	}
 
 	public void OnSaveButtonPressed()
 	{
-		gameManager.Save();
+		gameClient.Save();
 	}
 
 }

@@ -36,8 +36,8 @@ public partial class Main : Node
 	{
 		_currentScreen = GameScene.Instantiate<Node>();
 		AddChild(_currentScreen);
-		(_currentScreen as GameManager).Init();
-		(_currentScreen as GameManager).onQuitToMenu += () =>
+		(_currentScreen as GameClient).Init();
+		(_currentScreen as GameClient).onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();
 			StartMainMenu();

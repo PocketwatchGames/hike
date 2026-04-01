@@ -7,14 +7,13 @@ public static class SaveGame
 {
 	private const int SAVE_VERSION = 1;
 
-	public static void Save(SimState state, string filePath, int cameraTileIndex)
+	public static void Save(string filePath)
 	{
 		using var stream = new FileStream(filePath, FileMode.Create);
 		using var w = new BinaryWriter(stream);
 
 		// --- Header ---
 		w.Write(SAVE_VERSION);
-		w.Write(state.data.ResourcePath);
 	}
 
 	public static void Load(string filePath)
@@ -28,9 +27,6 @@ public static class SaveGame
 		{
 			throw new InvalidDataException($"Unsupported save version: {version}");
 		}
-		var data = GD.Load<SimData>(r.ReadString());
-
-		return;
 	}
 
 	// --- Helpers ---

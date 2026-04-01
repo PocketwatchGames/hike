@@ -8,6 +8,7 @@ public partial class GameClient : Node3D
 	[Export] public Camera3D camera;
 	[Export] public Hud hud;
 	[Export] public Node2D worldHUD;
+	[Export] public PackedScene hudTextScene;
 
 	public Action onInit;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
@@ -16,25 +17,13 @@ public partial class GameClient : Node3D
 
 	public bool paused { get; private set; } = false;
 
+	private static readonly double[] timeScales = { 1.0, 2.0, 4.0 };
+	private int timeScaleIndex = 0;
+
 	public void Init()
 	{
 		onHudText += OnHudTextRequested;
-		UpdateCameraTransform();
-
 		onInit?.Invoke();
-	}
-
-	void UpdateCameraTransform()
-	{
-		Vector3 localDir = new Vector3(
-			Mathf.Cos(_cameraLatitude) * Mathf.Sin(_cameraLongitude),
-			Mathf.Sin(_cameraLatitude),
-			Mathf.Cos(_cameraLatitude) * Mathf.Cos(_cameraLongitude)
-		);
-		float distance = Mathf.Lerp(_maxCameraDistance, _minCameraDistance, _cameraZoom);
-
-		camera.Position = planet.GlobalTransform.Basis * localDir * distance;
-		camera.LookAt(Vector3.Zero, planet.GlobalTransform.Basis * Vector3.Up);
 	}
 
 	public override void _Process(double deltaTime)
@@ -43,28 +32,6 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-
-		float cameraDt = (float)deltaTime; // camera movement is independent of game speed
-
-		// // Camera orbit controls
-		// if (Input.IsActionPressed("MoveLeft"))
-		// {
-		// 	_cameraLongitude -= cameraSpeed * cameraDt;
-		// }
-		// if (Input.IsActionPressed("MoveRight"))
-		// {
-		// 	_cameraLongitude += cameraSpeed * cameraDt;
-		// }
-		// if (Input.IsActionPressed("MoveUp"))
-		// {
-		// 	_cameraLatitude += cameraSpeed * cameraDt;
-		// }
-		// if (Input.IsActionPressed("MoveDown"))
-		// {
-		// 	_cameraLatitude -= cameraSpeed * cameraDt;
-		// }
-
-		UpdateCameraTransform();
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -73,9 +40,9 @@ public partial class GameClient : Node3D
 		base._PhysicsProcess(adjustedDT);
 		if (!paused && adjustedDT > 0)
 		{
-//			sim.Tick((ulong)(adjustedDT * 1000));
 		}
 	}
+
 	public override void _UnhandledInput(InputEvent e)
 	{
 		base._UnhandledInput(e);
@@ -106,7 +73,7 @@ public partial class GameClient : Node3D
 
 	public void Save()
 	{
-		SaveGame.Save();
+		SaveGame.Save(CVars.savePath.Value);
 	}
 
 	public void QuitToMenu()

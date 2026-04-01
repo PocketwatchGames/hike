@@ -26,16 +26,6 @@ volumetric_fog_sky_affect = 0.0
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_e0wmo"]
 
-[sub_resource type="Resource" id="Resource_o78e0"]
-metadata/__load_path__ = "res://scenes/gui/game_tool_button.tscn"
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_ln6eb"]
-
-[sub_resource type="ButtonGroup" id="ButtonGroup_4ji0l"]
-
-[sub_resource type="Resource" id="Resource_0q6jn"]
-metadata/__load_path__ = "res://scenes/gui/raw_material_item.tscn"
-
 [node name="Game" type="Node3D" unique_id=590494561]
 script = ExtResource("1_mu8e5")
 
@@ -55,12 +45,8 @@ sky_mode = 1
 
 [node name="WorldHUD" type="Node2D" parent="." unique_id=151387425]
 
-[node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameManager") instance=ExtResource("4_lbhrr")]
-toolButtonScene = SubResource("Resource_o78e0")
-buttonGroup = SubResource("ButtonGroup_ln6eb")
-timeScaleButtonGroup = SubResource("ButtonGroup_4ji0l")
-rawMaterialItemScene = SubResource("Resource_0q6jn")
-gameManager = NodePath("..")
+[node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
+gameClient = NodePath("..")
 
 [node name="PauseMenu" parent="." unique_id=1047961363 node_paths=PackedStringArray("gameManager") instance=ExtResource("17_0v2ir")]
 visible = false
