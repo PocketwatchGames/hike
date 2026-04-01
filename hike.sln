@@ -1,6 +1,6 @@
 ﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pwg_starter", "pwg_starter.csproj", "{9173BFA2-111B-4A10-A4B0-0D1CF9E2F1FB}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "hike", "hike.csproj", "{9173BFA2-111B-4A10-A4B0-0D1CF9E2F1FB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

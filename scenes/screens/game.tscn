@@ -48,6 +48,6 @@ sky_mode = 1
 [node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
 gameClient = NodePath("..")
 
-[node name="PauseMenu" parent="." unique_id=1047961363 node_paths=PackedStringArray("gameManager") instance=ExtResource("17_0v2ir")]
+[node name="PauseMenu" parent="." unique_id=1047961363 node_paths=PackedStringArray("gameClient") instance=ExtResource("17_0v2ir")]
 visible = false
-gameManager = NodePath("..")
+gameClient = NodePath("..")

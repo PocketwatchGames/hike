@@ -23,7 +23,7 @@ theme_override_constants/margin_top = 100
 [node name="Title" type="Label" parent="MarginContainer" unique_id=637082008]
 layout_mode = 2
 theme_override_font_sizes/font_size = 72
-text = "Genghis Prawn Rules the World"
+text = "HIKE"
 horizontal_alignment = 1
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=1148292927]

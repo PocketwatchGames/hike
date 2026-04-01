@@ -10,14 +10,14 @@ config_version=5
 
 [application]
 
-config/name="PWG Starter"
+config/name="Hike"
 run/main_scene="uid://c46haqwwl2h4s"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [dotnet]
 
-project/assembly_name="pwg_starter"
+project/assembly_name="hike"
 
 [input]
 
