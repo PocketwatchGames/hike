@@ -115,7 +115,7 @@ public partial class GameClient : Node3D
 		{
 			Vector3 hitPosition = (Vector3)result["position"];
 			_cameraClip = hitPosition.Y - CAMERA_CLIP_EPSILON;
-			_clipCapPlane.Visible = true;
+			_clipCapPlane.Visible = CVars.ceilingCap.Value;
 			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _cameraClip - CAP_PLANE_Y_BIAS, playerPos.Z);
 		}
 		else

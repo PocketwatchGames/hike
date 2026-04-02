@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, cull_front, depth_draw_never;
+render_mode unshaded, cull_front, depth_draw_never, blend_add;
 stencil_mode write, compare_always, 1;
 
 global uniform float camera_clip;
