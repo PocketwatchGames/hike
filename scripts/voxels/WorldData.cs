@@ -11,6 +11,8 @@ public class WorldData
     private const int TREES_PER_CHUNK_MIN = 0;
     private const int TREES_PER_CHUNK_MAX = 4;
     private const int BUILDING_HEIGHT = 4;
+    private const int TORCHES_PER_HOUSE_MIN = 1;
+    private const int TORCHES_PER_HOUSE_MAX = 3;
 
     public readonly Vector3I Min;
     public readonly Vector3I Max;
@@ -23,6 +25,83 @@ public class WorldData
         Min = new Vector3I(-SIZE_X / 2, -1, -SIZE_Z / 2);
         Max = new Vector3I(Min.X + SIZE_X - 1, Min.Y + SIZE_Y - 1, Min.Z + SIZE_Z - 1);
         Generate();
+    }
+
+    // World-coordinate accessors for cross-chunk light propagation
+
+    private static Vector3I WorldToChunkCoord(int wx, int wy, int wz)
+    {
+        return new Vector3I(
+            (int)Math.Floor((double)wx / ChunkData.SIZE),
+            (int)Math.Floor((double)wy / ChunkData.SIZE),
+            (int)Math.Floor((double)wz / ChunkData.SIZE)
+        );
+    }
+
+    private static int Mod(int a, int m)
+    {
+        return ((a % m) + m) % m;
+    }
+
+    public bool IsInBounds(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        return _chunks.ContainsKey(cc);
+    }
+
+    public VoxelType GetVoxelWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return VoxelType.Air;
+        }
+        return chunk.Voxels[Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE)];
+    }
+
+    public int GetSunlightWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return 0;
+        }
+        return chunk.GetSunlight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE));
+    }
+
+    public void SetSunlightWorld(int wx, int wy, int wz, int level)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return;
+        }
+        chunk.SetSunlight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE), level);
+    }
+
+    public int GetBlockLightWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return 0;
+        }
+        return chunk.GetBlockLight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE));
+    }
+
+    public void SetBlockLightWorld(int wx, int wy, int wz, int level)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return;
+        }
+        chunk.SetBlockLight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE), level);
+    }
+
+    public int GetLightLevelWorld(int wx, int wy, int wz)
+    {
+        return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
     }
 
     public ChunkData GetChunk(Vector3I coord)
@@ -59,14 +138,18 @@ public class WorldData
         }
 
         // Generate props on surface chunks after all voxels are placed
+        var blockLightSources = new List<(Vector3 position, int level)>();
         for (int x = Min.X; x <= Max.X; x++)
         {
             for (int z = Min.Z; z <= Max.Z; z++)
             {
                 var coord = new Vector3I(x, 0, z);
-                GenerateProps(coord);
+                GenerateProps(coord, blockLightSources);
             }
         }
+
+        // Compute volumetric lighting after all geometry and light sources are placed
+        LightEngine.ComputeLighting(this, blockLightSources);
     }
 
     private static void GenerateChunk(ChunkData data)
@@ -98,7 +181,7 @@ public class WorldData
         }
     }
 
-    private void GenerateProps(Vector3I chunkCoord)
+    private void GenerateProps(Vector3I chunkCoord, List<(Vector3 position, int level)> blockLightSources)
     {
         ChunkData data = _chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
@@ -136,9 +219,74 @@ public class WorldData
             props.Add(new PropData(PropType.Tree, new Vector3(worldX, worldY, worldZ)));
         }
 
+        // Place torches inside houses
+        GenerateTorches(data, chunkCoord, rng, props, blockLightSources);
+
         if (props.Count > 0)
         {
             _props[chunkCoord] = props;
+        }
+    }
+
+    private static void GenerateTorches(ChunkData data, Vector3I chunkCoord, Random rng,
+        List<PropData> props, List<(Vector3 position, int level)> blockLightSources)
+    {
+        // Detect if this chunk has a house by checking for Wood walls at y=1
+        bool hasHouse = false;
+        int houseMinX = ChunkData.SIZE, houseMaxX = 0;
+        int houseMinZ = ChunkData.SIZE, houseMaxZ = 0;
+        for (int x = 0; x < ChunkData.SIZE; x++)
+        {
+            for (int z = 0; z < ChunkData.SIZE; z++)
+            {
+                if (data.Voxels[x, 1, z] == VoxelType.Wood)
+                {
+                    hasHouse = true;
+                    houseMinX = Math.Min(houseMinX, x);
+                    houseMaxX = Math.Max(houseMaxX, x);
+                    houseMinZ = Math.Min(houseMinZ, z);
+                    houseMaxZ = Math.Max(houseMaxZ, z);
+                }
+            }
+        }
+
+        if (!hasHouse)
+        {
+            return;
+        }
+
+        // Place torches inside the house (interior area, excluding walls)
+        int interiorMinX = houseMinX + 1;
+        int interiorMaxX = houseMaxX - 1;
+        int interiorMinZ = houseMinZ + 1;
+        int interiorMaxZ = houseMaxZ - 1;
+
+        if (interiorMinX > interiorMaxX || interiorMinZ > interiorMaxZ)
+        {
+            return;
+        }
+
+        int torchCount = rng.Next(TORCHES_PER_HOUSE_MIN, TORCHES_PER_HOUSE_MAX + 1);
+        for (int i = 0; i < torchCount; i++)
+        {
+            int localX = rng.Next(interiorMinX, interiorMaxX + 1);
+            int localZ = rng.Next(interiorMinZ, interiorMaxZ + 1);
+
+            // Only place on floor with air above
+            if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+            {
+                continue;
+            }
+
+            float worldX = chunkCoord.X * ChunkData.SIZE + localX + 0.5f;
+            float worldY = chunkCoord.Y * ChunkData.SIZE + 1f;
+            float worldZ = chunkCoord.Z * ChunkData.SIZE + localZ + 0.5f;
+
+            var torchPos = new Vector3(worldX, worldY, worldZ);
+            props.Add(new PropData(PropType.Torch, torchPos));
+
+            PropDefinition torchDef = PropDefinition.Definitions[PropType.Torch];
+            blockLightSources.Add((torchPos, torchDef.LightEmission));
         }
     }
 

@@ -1,15 +1,34 @@
+using System;
 using Godot;
 
 public partial class ChunkMesh : Node3D
 {
     public bool CollisionReady { get; private set; }
 
-    private static readonly StandardMaterial3D SharedMaterial;
+    // Minecraft-style face brightness multipliers for pseudo-3D depth
+    private const float FACE_SHADE_TOP = 1.0f;
+    private const float FACE_SHADE_BOTTOM = 0.5f;
+    private const float FACE_SHADE_NORTH_SOUTH = 0.8f;
+    private const float FACE_SHADE_EAST_WEST = 0.6f;
+    private const float MIN_AMBIENT_LIGHT = 0.06f;
+
+    private static readonly float[] FaceShading =
+    {
+        FACE_SHADE_TOP,         // Top
+        FACE_SHADE_BOTTOM,      // Bottom
+        FACE_SHADE_NORTH_SOUTH, // North
+        FACE_SHADE_NORTH_SOUTH, // South
+        FACE_SHADE_EAST_WEST,   // West
+        FACE_SHADE_EAST_WEST,   // East
+    };
+
+    private static readonly ShaderMaterial SharedMaterial;
 
     static ChunkMesh()
     {
-        SharedMaterial = new StandardMaterial3D();
-        SharedMaterial.VertexColorUseAsAlbedo = true;
+        var shader = GD.Load<Shader>("res://shaders/voxel_clip.gdshader");
+        SharedMaterial = new ShaderMaterial();
+        SharedMaterial.Shader = shader;
     }
 
     // Face definitions: each face is 4 vertices (2 triangles) with indices 0-1-2, 0-2-3
@@ -61,7 +80,7 @@ public partial class ChunkMesh : Node3D
         new() { Vertices = EastFace, Normal = Vector3.Right, NeighborOffset = new Vector3I(1, 0, 0) },
     };
 
-    public static ChunkMesh Create(ChunkData data)
+    public static ChunkMesh Create(ChunkData data, Func<int, int, int, int> getLightLevel)
     {
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
@@ -69,11 +88,11 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkData.SIZE,
             data.ChunkCoord.Z * ChunkData.SIZE
         );
-        chunk.BuildMesh(data);
+        chunk.BuildMesh(data, getLightLevel);
         return chunk;
     }
 
-    private void BuildMesh(ChunkData data)
+    private void BuildMesh(ChunkData data, Func<int, int, int, int> getLightLevel)
     {
         if (IsAllAir(data))
         {
@@ -84,6 +103,10 @@ public partial class ChunkMesh : Node3D
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
         st.SetMaterial(SharedMaterial);
+
+        int chunkWorldX = data.ChunkCoord.X * ChunkData.SIZE;
+        int chunkWorldY = data.ChunkCoord.Y * ChunkData.SIZE;
+        int chunkWorldZ = data.ChunkCoord.Z * ChunkData.SIZE;
 
         bool hasAnyFace = false;
 
@@ -99,11 +122,12 @@ public partial class ChunkMesh : Node3D
                         continue;
                     }
 
-                    Color color = VoxelTypeInfo.Colors[type];
+                    Color baseColor = VoxelTypeInfo.Colors[type];
                     Vector3 offset = new(x, y, z);
 
-                    foreach (FaceDefinition face in Faces)
+                    for (int faceIndex = 0; faceIndex < Faces.Length; faceIndex++)
                     {
+                        FaceDefinition face = Faces[faceIndex];
                         int nx = x + face.NeighborOffset.X;
                         int ny = y + face.NeighborOffset.Y;
                         int nz = z + face.NeighborOffset.Z;
@@ -112,6 +136,17 @@ public partial class ChunkMesh : Node3D
                         {
                             continue;
                         }
+
+                        // Look up light level at the air voxel adjacent to this face
+                        int worldNx = chunkWorldX + nx;
+                        int worldNy = chunkWorldY + ny;
+                        int worldNz = chunkWorldZ + nz;
+                        int lightLevel = getLightLevel(worldNx, worldNy, worldNz);
+
+                        // Combine light level with face-direction shading
+                        float lightFactor = Math.Max(lightLevel / (float)LightEngine.MAX_LIGHT, MIN_AMBIENT_LIGHT);
+                        float shade = FaceShading[faceIndex] * lightFactor;
+                        Color color = new Color(baseColor.R * shade, baseColor.G * shade, baseColor.B * shade);
 
                         st.SetNormal(face.Normal);
                         st.SetColor(color);
@@ -149,11 +184,13 @@ public partial class ChunkMesh : Node3D
         }
 
         ArrayMesh mesh = st.Commit();
-        var meshInstance = new MeshInstance3D();
-        meshInstance.Mesh = mesh;
-        AddChild(meshInstance);
 
-        meshInstance.CreateTrimeshCollision();
+        var visual = new MeshInstance3D();
+        visual.Mesh = mesh;
+        visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        AddChild(visual);
+
+        visual.CreateTrimeshCollision();
         CollisionReady = true;
     }
 

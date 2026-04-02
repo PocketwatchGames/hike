@@ -13,6 +13,9 @@ public partial class GameClient : Node3D
 	[Export] public float cameraPitchDegrees = -65;
 	[Export] public float cameraDistance = 20;
 
+	private const float CAMERA_CLIP_EPSILON = 0.1f;
+	private float _cameraClip = float.PositiveInfinity;
+
 	public Action onInit;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
 	public Action<bool> onPauseToggled;
@@ -74,6 +77,33 @@ public partial class GameClient : Node3D
 		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
 
+		UpdateCameraClip();
+		_voxelWorld.CullProps(_cameraClip);
+	}
+
+	private void UpdateCameraClip()
+	{
+		Vector3 playerPos = _player.GlobalPosition;
+		float cameraY = camera.GlobalPosition.Y;
+		Vector3 rayFrom = playerPos;
+		Vector3 rayTo = new Vector3(playerPos.X, cameraY, playerPos.Z);
+
+		var spaceState = GetWorld3D().DirectSpaceState;
+		var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
+		query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+		var result = spaceState.IntersectRay(query);
+
+		if (result.Count > 0)
+		{
+			Vector3 hitPosition = (Vector3)result["position"];
+			_cameraClip = hitPosition.Y - CAMERA_CLIP_EPSILON;
+		}
+		else
+		{
+			_cameraClip = float.PositiveInfinity;
+		}
+
+		RenderingServer.GlobalShaderParameterSet("camera_clip", _cameraClip);
 	}
 
 	public override void _PhysicsProcess(double delta)

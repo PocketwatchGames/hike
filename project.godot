@@ -63,3 +63,10 @@ MoveRight={
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+
+[shader_globals]
+
+camera_clip={
+"type": "float",
+"value": 1e+20
+}

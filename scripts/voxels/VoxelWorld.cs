@@ -202,7 +202,7 @@ public partial class VoxelWorld : Node3D
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data);
+                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetLightLevelWorld);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
 
@@ -218,6 +218,17 @@ public partial class VoxelWorld : Node3D
                     }
                     _loadedProps[coord] = propInstances;
                 }
+            }
+        }
+    }
+
+    public void CullProps(float cameraClip)
+    {
+        foreach (List<PropInstance> props in _loadedProps.Values)
+        {
+            foreach (PropInstance prop in props)
+            {
+                prop.Visible = prop.GlobalPosition.Y < cameraClip;
             }
         }
     }
