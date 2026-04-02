@@ -1,8 +1,9 @@
 [gd_scene format=3 uid="uid://cqcbx0hocclf4"]
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
+[ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/gui/hud_text.tscn" id="2_o78e0"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
-[ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/PauseMenu.tscn" id="17_0v2ir"]
+[ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
 
@@ -26,22 +27,94 @@ volumetric_fog_sky_affect = 0.0
 
 [sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_e0wmo"]
 
-[node name="Game" type="Node3D" unique_id=590494561]
+[sub_resource type="WorldBoundaryShape3D" id="WorldBoundaryShape3D_o78e0"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_o78e0"]
+albedo_color = Color(0.19833843, 0.19833843, 0.19833843, 1)
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_ln6eb"]
+material = SubResource("StandardMaterial3D_o78e0")
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_o78e0"]
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ln6eb"]
+size = Vector3(2, 2, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_4ji0l"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_0q6jn"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kauht"]
+size = Vector3(2, 0.5, 2)
+
+[sub_resource type="BoxMesh" id="BoxMesh_o78e0"]
+size = Vector3(2, 0.5, 2)
+
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "worldHUD")]
 script = ExtResource("1_mu8e5")
+camera = NodePath("MainCamera")
+hud = NodePath("HUD")
+worldHUD = NodePath("WorldHUD")
+hudTextScene = ExtResource("2_o78e0")
 
 [node name="MainCamera" type="Camera3D" parent="." unique_id=159032169]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
+projection = 1
 fov = 20.0
+size = 20.0
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1455759092]
 environment = SubResource("Environment_e0wmo")
 camera_attributes = SubResource("CameraAttributesPractical_e0wmo")
 
 [node name="SunLight" type="DirectionalLight3D" parent="." unique_id=1871209991]
+transform = Transform3D(1, 0, 0, 0, 0.81310076, 0.582123, 0, -0.582123, 0.81310076, 0, 0, 0)
 light_color = Color(0.73, 0.62098664, 0.49640003, 1)
 light_bake_mode = 0
 light_cull_mask = 3
+shadow_enabled = true
 sky_mode = 1
+
+[node name="Node3D" type="Node3D" parent="." unique_id=438900987]
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Node3D" unique_id=1248316265]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Node3D/StaticBody3D" unique_id=1663006223]
+shape = SubResource("WorldBoundaryShape3D_o78e0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Node3D/StaticBody3D" unique_id=600034502]
+transform = Transform3D(10, 0, 0, 0, 10, 0, 0, 0, 10, 0, 0, 0)
+mesh = SubResource("PlaneMesh_ln6eb")
+
+[node name="StaticBody3D2" type="StaticBody3D" parent="Node3D" unique_id=366730059]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Node3D/StaticBody3D2" unique_id=2138849392]
+shape = SubResource("BoxShape3D_o78e0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Node3D/StaticBody3D2" unique_id=381708562]
+mesh = SubResource("BoxMesh_ln6eb")
+
+[node name="StaticBody3D3" type="StaticBody3D" parent="Node3D" unique_id=1381239633]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.9888482, 0.5, 0)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Node3D/StaticBody3D3" unique_id=772806638]
+shape = SubResource("BoxShape3D_4ji0l")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Node3D/StaticBody3D3" unique_id=1262898052]
+mesh = SubResource("BoxMesh_0q6jn")
+
+[node name="StaticBody3D4" type="StaticBody3D" parent="Node3D" unique_id=1865192808]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.989, 0.25, 2.012)
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Node3D/StaticBody3D4" unique_id=2016803353]
+shape = SubResource("BoxShape3D_kauht")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Node3D/StaticBody3D4" unique_id=667319466]
+mesh = SubResource("BoxMesh_o78e0")
 
 [node name="WorldHUD" type="Node2D" parent="." unique_id=151387425]
 

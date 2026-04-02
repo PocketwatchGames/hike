@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dgrtrypoc0c1v"]
 
 [ext_resource type="Script" uid="uid://d1bww0pr5ary6" path="res://scripts/gui/GuiMainMenu.cs" id="1_l6cm7"]
+[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/game/player.tscn" id="2_tgk1t"]
 
 [node name="MainMenu" type="Control" unique_id=316901958 node_paths=PackedStringArray("versionLabel")]
 layout_mode = 3
@@ -10,6 +11,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_l6cm7")
+playerScene = ExtResource("2_tgk1t")
 versionLabel = NodePath("VersionContainer/Panel/MarginContainer/Label")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=496607952]

@@ -3,8 +3,9 @@ using System;
 
 public partial class GuiMainMenu : Node
 {
+	[Export] public PackedScene playerScene;
 	[Export] public Label versionLabel;
-	[Signal] public delegate void OnNewGameEventHandler();
+	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 
 	public override void _Ready()
@@ -17,7 +18,7 @@ public partial class GuiMainMenu : Node
 
 	public void NewGameStandard()
 	{
-		EmitSignal(SignalName.OnNewGame);
+		EmitSignal(SignalName.OnNewGame, new Vector3(0,4,0), playerScene);
 	}
 
 	public void LoadGame()

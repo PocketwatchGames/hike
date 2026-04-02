@@ -7,7 +7,7 @@
             "type": "process",
             "args": [
                 "build",
-                "${workspaceFolder}/tools/loc_generator/LocGenerator.csproj",
+                "${workspaceFolder}/hike.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -19,7 +19,7 @@
             "type": "process",
             "args": [
                 "publish",
-                "${workspaceFolder}/tools/loc_generator/LocGenerator.csproj",
+                "${workspaceFolder}/hike.csproj",
                 "/property:GenerateFullPaths=true",
                 "/consoleloggerparameters:NoSummary;ForceNoAlign"
             ],
@@ -33,7 +33,7 @@
                 "watch",
                 "run",
                 "--project",
-                "${workspaceFolder}/tools/loc_generator/LocGenerator.csproj"
+                "${workspaceFolder}/hike.csproj"
             ],
             "problemMatcher": "$msCompile"
         }

@@ -9,21 +9,37 @@ public partial class GameClient : Node3D
 	[Export] public Hud hud;
 	[Export] public Node2D worldHUD;
 	[Export] public PackedScene hudTextScene;
+	float _cameraPitchRadians => Mathf.DegToRad(cameraPitchDegrees);
+	[Export] public float cameraPitchDegrees = -65;
+	[Export] public float cameraDistance = 20;
 
 	public Action onInit;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
+	
 
 	public bool paused { get; private set; } = false;
 
 	private static readonly double[] timeScales = { 1.0, 2.0, 4.0 };
 	private int timeScaleIndex = 0;
 
-	public void Init()
+	Vector2 _inputDir = Vector2.Zero;
+	float _cameraYaw = 45;
+	CharacterBody3D _player;
+
+	public void Init(Vector3 playerPosition, PackedScene playerScene)
 	{
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
+
+		_player = playerScene.Instantiate<CharacterBody3D>();
+		AddChild(_player);
+		_player.GlobalPosition = playerPosition;
+		_player.GlobalRotation = Vector3.Zero;
+
+		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
+		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
 	}
 
 	public override void _Process(double deltaTime)
@@ -32,14 +48,32 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
+		Vector2 inputDir = Vector2.Zero;
+		inputDir.X -= Input.GetActionStrength("MoveLeft");
+		inputDir.X += Input.GetActionStrength("MoveRight");
+		inputDir.Y -= Input.GetActionStrength("MoveUp");
+		inputDir.Y += Input.GetActionStrength("MoveDown");
+		_inputDir = inputDir.LengthSquared() > 1 ? inputDir.Normalized() : inputDir;
+		_cameraYaw = camera.GlobalRotation.Y;
+
+		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
+		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
+
 	}
 
 	public override void _PhysicsProcess(double delta)
 	{
-		double adjustedDT = delta * timeScales[timeScaleIndex];
-		base._PhysicsProcess(adjustedDT);
-		if (!paused && adjustedDT > 0)
+		float dt = (float)delta;
+		base._PhysicsProcess(delta);
+		if (!paused && dt > 0)
 		{
+			Vector3 cameraRelativeMovement = new Vector3(_inputDir.X, 0, _inputDir.Y).Rotated(Vector3.Up, _cameraYaw);
+			_player.Velocity = cameraRelativeMovement * 5;
+			if (!_player.IsOnFloor())
+			{
+				_player.Velocity += Vector3.Down * 9.8f;
+			}
+			_player.MoveAndSlide();
 		}
 	}
 

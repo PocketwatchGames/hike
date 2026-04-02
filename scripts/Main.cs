@@ -19,24 +19,24 @@ public partial class Main : Node
 		StartMainMenu();
 	}
 
-	void NewGame()
+	void NewGame(Vector3 playerPosition, PackedScene playerScene)
 	{
 		_currentScreen.QueueFree();
-		StartGame();
+		StartGame(playerPosition, playerScene);
 	}
 
 	void LoadGame(string savePath)
 	{
-		_currentScreen.QueueFree();
+		//_currentScreen.QueueFree();
 		//var (worldState, cameraTileIndex, localTeam) = SaveGame.Load(savePath);
-		StartGame();
+		//StartGame();
 	}
 
-	void StartGame()
+	void StartGame(Vector3 playerPosition, PackedScene playerScene)
 	{
 		_currentScreen = GameScene.Instantiate<Node>();
 		AddChild(_currentScreen);
-		(_currentScreen as GameClient).Init();
+		(_currentScreen as GameClient).Init(playerPosition, playerScene);
 		(_currentScreen as GameClient).onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();
