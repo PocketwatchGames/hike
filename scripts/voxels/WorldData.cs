@@ -8,10 +8,15 @@ public class WorldData
     public const int SIZE_Y = 3;
     public const int SIZE_Z = 8;
 
+    private const int TREES_PER_CHUNK_MIN = 0;
+    private const int TREES_PER_CHUNK_MAX = 4;
+    private const int BUILDING_HEIGHT = 4;
+
     public readonly Vector3I Min;
     public readonly Vector3I Max;
 
     private readonly Dictionary<Vector3I, ChunkData> _chunks = new();
+    private readonly Dictionary<Vector3I, List<PropData>> _props = new();
 
     public WorldData()
     {
@@ -31,6 +36,12 @@ public class WorldData
         return _chunks.ContainsKey(coord);
     }
 
+    public List<PropData> GetProps(Vector3I coord)
+    {
+        _props.TryGetValue(coord, out List<PropData> props);
+        return props;
+    }
+
     private void Generate()
     {
         for (int x = Min.X; x <= Max.X; x++)
@@ -44,6 +55,16 @@ public class WorldData
                     GenerateChunk(chunk);
                     _chunks[coord] = chunk;
                 }
+            }
+        }
+
+        // Generate props on surface chunks after all voxels are placed
+        for (int x = Min.X; x <= Max.X; x++)
+        {
+            for (int z = Min.Z; z <= Max.Z; z++)
+            {
+                var coord = new Vector3I(x, 0, z);
+                GenerateProps(coord);
             }
         }
     }
@@ -74,6 +95,50 @@ public class WorldData
             }
 
             GenerateHouse(data);
+        }
+    }
+
+    private void GenerateProps(Vector3I chunkCoord)
+    {
+        ChunkData data = _chunks[chunkCoord];
+        var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
+        int treeCount = rng.Next(TREES_PER_CHUNK_MIN, TREES_PER_CHUNK_MAX + 1);
+        var props = new List<PropData>();
+
+        for (int i = 0; i < treeCount; i++)
+        {
+            int localX = rng.Next(1, ChunkData.SIZE - 1);
+            int localZ = rng.Next(1, ChunkData.SIZE - 1);
+
+            // Only place on grass with clear air above (up through max building height)
+            if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+            {
+                continue;
+            }
+            bool blocked = false;
+            for (int y = 1; y <= BUILDING_HEIGHT; y++)
+            {
+                if (data.GetVoxel(localX, y, localZ) != VoxelType.Air)
+                {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked)
+            {
+                continue;
+            }
+
+            float worldX = chunkCoord.X * ChunkData.SIZE + localX + 0.5f;
+            float worldY = chunkCoord.Y * ChunkData.SIZE + 1f;
+            float worldZ = chunkCoord.Z * ChunkData.SIZE + localZ + 0.5f;
+
+            props.Add(new PropData(PropType.Tree, new Vector3(worldX, worldY, worldZ)));
+        }
+
+        if (props.Count > 0)
+        {
+            _props[chunkCoord] = props;
         }
     }
 

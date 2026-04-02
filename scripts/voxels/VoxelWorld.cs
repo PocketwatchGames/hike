@@ -8,6 +8,7 @@ public partial class VoxelWorld : Node3D
     private const int MAX_LOAD_DISTANCE = 5;
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
+    private readonly Dictionary<Vector3I, List<PropInstance>> _loadedProps = new();
     private Vector3I _lastPlayerChunkCoord;
     private Func<Vector3> _getPlayerPosition;
     private WorldData _worldData;
@@ -180,6 +181,15 @@ public partial class VoxelWorld : Node3D
         {
             _loadedChunks[coord].QueueFree();
             _loadedChunks.Remove(coord);
+
+            if (_loadedProps.TryGetValue(coord, out List<PropInstance> props))
+            {
+                foreach (PropInstance prop in props)
+                {
+                    prop.QueueFree();
+                }
+                _loadedProps.Remove(coord);
+            }
         }
 
         // Load new chunks from world data
@@ -195,6 +205,19 @@ public partial class VoxelWorld : Node3D
                 ChunkMesh mesh = ChunkMesh.Create(data);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
+
+                List<PropData> propDataList = _worldData.GetProps(coord);
+                if (propDataList != null)
+                {
+                    var propInstances = new List<PropInstance>();
+                    foreach (PropData propData in propDataList)
+                    {
+                        PropInstance prop = PropInstance.Create(propData);
+                        AddChild(prop);
+                        propInstances.Add(prop);
+                    }
+                    _loadedProps[coord] = propInstances;
+                }
             }
         }
     }
