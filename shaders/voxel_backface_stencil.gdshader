@@ -1,0 +1,18 @@
+shader_type spatial;
+render_mode unshaded, cull_front, depth_draw_never;
+stencil_mode write, compare_always, 1;
+
+global uniform float camera_clip;
+
+varying vec3 world_vertex;
+
+void vertex() {
+	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
+void fragment() {
+	if (world_vertex.y > camera_clip) {
+		discard;
+	}
+	ALBEDO = vec3(0.0);
+}

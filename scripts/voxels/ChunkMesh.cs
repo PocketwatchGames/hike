@@ -23,12 +23,17 @@ public partial class ChunkMesh : Node3D
     };
 
     private static readonly ShaderMaterial SharedMaterial;
+    private static readonly ShaderMaterial BackfaceStencilMaterial;
 
     static ChunkMesh()
     {
         var shader = GD.Load<Shader>("res://shaders/voxel_clip.gdshader");
         SharedMaterial = new ShaderMaterial();
         SharedMaterial.Shader = shader;
+
+        var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
+        BackfaceStencilMaterial = new ShaderMaterial();
+        BackfaceStencilMaterial.Shader = backfaceShader;
     }
 
     // Face index constants
@@ -289,6 +294,12 @@ public partial class ChunkMesh : Node3D
         visual.Mesh = mesh;
         visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         AddChild(visual);
+
+        var backface = new MeshInstance3D();
+        backface.Mesh = mesh;
+        backface.MaterialOverride = BackfaceStencilMaterial;
+        backface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        AddChild(backface);
 
         visual.CreateTrimeshCollision();
         CollisionReady = true;

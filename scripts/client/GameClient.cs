@@ -15,6 +15,7 @@ public partial class GameClient : Node3D
 	[Export] public float stepHeight = 0.5f;
 
 	private const float CAMERA_CLIP_EPSILON = 0.1f;
+	private const float CAP_PLANE_Y_BIAS = 0.5f;
 	private float _cameraClip = float.PositiveInfinity;
 
 	public Action onInit;
@@ -32,6 +33,7 @@ public partial class GameClient : Node3D
 	float _cameraYaw = 45;
 	Player _player;
 	VoxelWorld _voxelWorld;
+	MeshInstance3D _clipCapPlane;
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene)
 	{
@@ -56,6 +58,21 @@ public partial class GameClient : Node3D
 		_player.GlobalRotation = Vector3.Zero;
 
 		_voxelWorld.SetPlayerPositionSource(() => _player.GlobalPosition);
+
+		var capShader = GD.Load<Shader>("res://shaders/clip_cap.gdshader");
+		var capMaterial = new ShaderMaterial();
+		capMaterial.Shader = capShader;
+		capMaterial.RenderPriority = 1;
+
+		var planeMesh = new PlaneMesh();
+		planeMesh.Size = new Vector2(1000, 1000);
+
+		_clipCapPlane = new MeshInstance3D();
+		_clipCapPlane.Mesh = planeMesh;
+		_clipCapPlane.MaterialOverride = capMaterial;
+		_clipCapPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+		_clipCapPlane.Visible = false;
+		AddChild(_clipCapPlane);
 
 		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
@@ -98,10 +115,13 @@ public partial class GameClient : Node3D
 		{
 			Vector3 hitPosition = (Vector3)result["position"];
 			_cameraClip = hitPosition.Y - CAMERA_CLIP_EPSILON;
+			_clipCapPlane.Visible = true;
+			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _cameraClip - CAP_PLANE_Y_BIAS, playerPos.Z);
 		}
 		else
 		{
 			_cameraClip = float.PositiveInfinity;
+			_clipCapPlane.Visible = false;
 		}
 
 		RenderingServer.GlobalShaderParameterSet("camera_clip", _cameraClip);
