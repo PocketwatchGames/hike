@@ -72,6 +72,10 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 - `EffectOneShot` - One-shot particle effect lifecycle manager
 - `LinqExtensions` - MaxBy, MinBy, RemoveAtSwap helpers
 
+### Voxel System (`scripts/voxels/`)
+
+Streaming voxel world with chunk-based loading. `VoxelWorld` (Node3D) manages a 3x3x3 region of chunks around the player, loading/unloading as the player crosses chunk boundaries. `ChunkData` stores a 16x16x16 voxel array per chunk. `ChunkMesh` generates a culled mesh via `SurfaceTool` with per-vertex colors and trimesh collision. `VoxelType` enum defines voxel types (Air, Stone, Grass, Dirt, Sand). Player spawning is deferred until the spawn chunk's collision is ready.
+
 ## Documentation
 
 ### Save/Load System (`scripts/SaveGame.cs`)

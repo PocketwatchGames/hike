@@ -34,9 +34,12 @@ public partial class GameClient : Node3D
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
 
+		var worldData = new WorldData();
+
 		_voxelWorld = new VoxelWorld();
 		AddChild(_voxelWorld);
-		_voxelWorld.Initialize(playerPosition);
+		_voxelWorld.SetCamera(camera);
+		_voxelWorld.Initialize(worldData, playerPosition);
 
 		while (!_voxelWorld.IsSpawnChunkReady(playerPosition))
 		{

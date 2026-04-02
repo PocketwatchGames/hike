@@ -11,34 +11,6 @@ public class ChunkData
     {
         ChunkCoord = chunkCoord;
         Voxels = new VoxelType[SIZE, SIZE, SIZE];
-        Generate();
-    }
-
-    private void Generate()
-    {
-        if (ChunkCoord.Y < 0)
-        {
-            for (int x = 0; x < SIZE; x++)
-            {
-                for (int y = 0; y < SIZE; y++)
-                {
-                    for (int z = 0; z < SIZE; z++)
-                    {
-                        Voxels[x, y, z] = VoxelType.Stone;
-                    }
-                }
-            }
-        }
-        else if (ChunkCoord.Y == 0)
-        {
-            for (int x = 0; x < SIZE; x++)
-            {
-                for (int z = 0; z < SIZE; z++)
-                {
-                    Voxels[x, 0, z] = VoxelType.Grass;
-                }
-            }
-        }
     }
 
     public VoxelType GetVoxel(int x, int y, int z)
