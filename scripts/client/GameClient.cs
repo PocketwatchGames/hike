@@ -27,16 +27,28 @@ public partial class GameClient : Node3D
 	Vector2 _inputDir = Vector2.Zero;
 	float _cameraYaw = 45;
 	CharacterBody3D _player;
+	VoxelWorld _voxelWorld;
 
-	public void Init(Vector3 playerPosition, PackedScene playerScene)
+	public async void Init(Vector3 playerPosition, PackedScene playerScene)
 	{
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
+
+		_voxelWorld = new VoxelWorld();
+		AddChild(_voxelWorld);
+		_voxelWorld.Initialize(playerPosition);
+
+		while (!_voxelWorld.IsSpawnChunkReady(playerPosition))
+		{
+			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+		}
 
 		_player = playerScene.Instantiate<CharacterBody3D>();
 		AddChild(_player);
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;
+
+		_voxelWorld.SetPlayerPositionSource(() => _player.GlobalPosition);
 
 		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
@@ -44,7 +56,7 @@ public partial class GameClient : Node3D
 
 	public override void _Process(double deltaTime)
 	{
-		if (ConsoleUI.IsOpen || paused)
+		if (_player == null || ConsoleUI.IsOpen || paused)
 		{
 			return;
 		}
@@ -65,7 +77,7 @@ public partial class GameClient : Node3D
 	{
 		float dt = (float)delta;
 		base._PhysicsProcess(delta);
-		if (!paused && dt > 0)
+		if (_player != null && !paused && dt > 0)
 		{
 			Vector3 cameraRelativeMovement = new Vector3(_inputDir.X, 0, _inputDir.Y).Rotated(Vector3.Up, _cameraYaw);
 			_player.Velocity = cameraRelativeMovement * 5;
