@@ -1,17 +1,26 @@
 [gd_scene format=3 uid="uid://cn3tkwyerft7v"]
 
+[ext_resource type="Script" uid="uid://cs5o5c0rouhsv" path="res://scripts/gameplay/Player.cs" id="1_6w7gq"]
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
+radius = 0.25
+height = 1.5
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
 albedo_color = Color(1, 0.5411765, 1, 1)
 
 [sub_resource type="CapsuleMesh" id="CapsuleMesh_1uit0"]
 material = SubResource("StandardMaterial3D_1uit0")
+radius = 0.35
+height = 1.5
 
-[node name="Player" type="CharacterBody3D" unique_id=372758848]
+[node name="Player" type="CharacterBody3D" unique_id=251008422]
+script = ExtResource("1_6w7gq")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=1267120486]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1610472919]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 mesh = SubResource("CapsuleMesh_1uit0")

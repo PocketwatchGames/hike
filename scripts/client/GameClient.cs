@@ -26,7 +26,7 @@ public partial class GameClient : Node3D
 
 	Vector2 _inputDir = Vector2.Zero;
 	float _cameraYaw = 45;
-	CharacterBody3D _player;
+	Player _player;
 	VoxelWorld _voxelWorld;
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene)
@@ -46,7 +46,7 @@ public partial class GameClient : Node3D
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
 
-		_player = playerScene.Instantiate<CharacterBody3D>();
+		_player = playerScene.Instantiate<Player>();
 		AddChild(_player);
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;
