@@ -10,7 +10,12 @@ public class WorldData
 
     private const int TREES_PER_CHUNK_MIN = 0;
     private const int TREES_PER_CHUNK_MAX = 4;
+    private const int STRUCTURE_COUNT = 3;
+    private const int BUILDING_MIN_DIMENSION = 12;
+    private const int BUILDING_MAX_DIMENSION = 24;
     private const int BUILDING_HEIGHT = 4;
+    private const int FLOORS_MIN = 1;
+    private const int FLOORS_MAX = 3;
     private const int TORCHES_PER_HOUSE_MIN = 1;
     private const int TORCHES_PER_HOUSE_MAX = 3;
 
@@ -99,6 +104,16 @@ public class WorldData
         chunk.SetBlockLight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE), level);
     }
 
+    public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        {
+            return;
+        }
+        chunk.Voxels[Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE)] = type;
+    }
+
     public int GetLightLevelWorld(int wx, int wy, int wz)
     {
         return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
@@ -136,6 +151,9 @@ public class WorldData
                 }
             }
         }
+
+        // Generate world-space structures after all terrain chunks exist
+        GenerateStructures();
 
         // Generate props on surface chunks after all voxels are placed
         var blockLightSources = new List<(Vector3 position, int level)>();
@@ -176,8 +194,6 @@ public class WorldData
                     data.Voxels[x, 0, z] = VoxelType.Grass;
                 }
             }
-
-            GenerateHouse(data);
         }
     }
 
@@ -290,36 +306,50 @@ public class WorldData
         }
     }
 
-    private static void GenerateHouse(ChunkData data)
+    private void GenerateStructures()
+    {
+        int worldMinX = Min.X * ChunkData.SIZE;
+        int worldMaxX = (Max.X + 1) * ChunkData.SIZE - 1;
+        int worldMinZ = Min.Z * ChunkData.SIZE;
+        int worldMaxZ = (Max.Z + 1) * ChunkData.SIZE - 1;
+
+        var rng = new Random(HashCode.Combine(SIZE_X, SIZE_Z, 42));
+
+        // Fixed building just north of spawn (player spawns at 0,4,0)
+        int spawnBuildingWidth = 20;
+        int spawnBuildingDepth = 16;
+        GenerateHouse(rng, -spawnBuildingWidth / 2, -5, spawnBuildingWidth, spawnBuildingDepth, 3);
+
+    }
+
+    private void GenerateHouse(Random rng, int originX, int originZ, int widthX, int widthZ, int numFloors)
     {
         const int CEILING_HEIGHT = 3;
         const int DOOR_HEIGHT = 2;
-        const int MIN_DIMENSION = 5;
-        const int MAX_DIMENSION = 9;
         const int WINDOW_Y = 2;
         const int WALL_TOP = CEILING_HEIGHT + 1;
+        const int GROUND_Y = 0;
 
-        var rng = new Random(HashCode.Combine(data.ChunkCoord.X, data.ChunkCoord.Z));
-        int widthX = rng.Next(MIN_DIMENSION, MAX_DIMENSION + 1);
-        int widthZ = rng.Next(MIN_DIMENSION, MAX_DIMENSION + 1);
-
-        int startX = (ChunkData.SIZE - widthX) / 2;
-        int startZ = (ChunkData.SIZE - widthZ) / 2;
+        int startX = originX;
+        int startZ = originZ;
         int endX = startX + widthX - 1;
         int endZ = startZ + widthZ - 1;
 
-        // Walls and roof
-        for (int y = 1; y <= WALL_TOP; y++)
+        // Walls and ceilings for all floors
+        int baseY = GROUND_Y + 1;
+        int totalHeight = numFloors * WALL_TOP;
+        for (int wy = baseY; wy < baseY + totalHeight; wy++)
         {
-            for (int x = startX; x <= endX; x++)
+            int localY = wy - baseY;
+            for (int wx = startX; wx <= endX; wx++)
             {
-                for (int z = startZ; z <= endZ; z++)
+                for (int wz = startZ; wz <= endZ; wz++)
                 {
-                    bool isWall = x == startX || x == endX || z == startZ || z == endZ;
-                    bool isRoof = y == WALL_TOP;
-                    if (isWall || isRoof)
+                    bool isWall = wx == startX || wx == endX || wz == startZ || wz == endZ;
+                    bool isCeiling = ((localY + 1) % WALL_TOP == 0);
+                    if (isWall || isCeiling)
                     {
-                        data.Voxels[x, y, z] = isRoof ? VoxelType.Stone : VoxelType.Wood;
+                        SetVoxelWorld(wx, wy, wz, isCeiling ? VoxelType.Stone : VoxelType.Wood);
                     }
                 }
             }
@@ -337,7 +367,7 @@ public class WorldData
         };
 
         int doorCount = rng.Next(1, 5);
-        int windowCount = rng.Next(1, 5);
+        int windowCount = rng.Next(2, 8);
 
         // Shuffle wall order so doors/windows distribute randomly across walls
         ShuffleArray(rng, walls);
@@ -358,15 +388,16 @@ public class WorldData
             }
             doorWalls.Add(wallIndex);
             int pos = rng.Next(rangeStart, rangeEnd + 1);
-            for (int y = 1; y <= DOOR_HEIGHT; y++)
+            for (int dy = 0; dy < DOOR_HEIGHT; dy++)
             {
+                int wy = baseY + dy;
                 if (wall[3] <= 1)
                 {
-                    data.Voxels[pos, y, wall[2]] = VoxelType.Air;
+                    SetVoxelWorld(pos, wy, wall[2], VoxelType.Air);
                 }
                 else
                 {
-                    data.Voxels[wall[2], y, pos] = VoxelType.Air;
+                    SetVoxelWorld(wall[2], wy, pos, VoxelType.Air);
                 }
             }
         }
@@ -382,6 +413,7 @@ public class WorldData
         }
 
         // Place windows (1 voxel hole at y=2) — only on walls without doors
+        int windowY = baseY + WINDOW_Y - 1;
         for (int i = 0; i < windowCount && windowWalls.Count > 0; i++)
         {
             int[] wall = windowWalls[i % windowWalls.Count];
@@ -394,11 +426,79 @@ public class WorldData
             int pos = rng.Next(rangeStart, rangeEnd + 1);
             if (wall[3] <= 1)
             {
-                data.Voxels[pos, WINDOW_Y, wall[2]] = VoxelType.Air;
+                SetVoxelWorld(pos, windowY, wall[2], VoxelType.Air);
             }
             else
             {
-                data.Voxels[wall[2], WINDOW_Y, pos] = VoxelType.Air;
+                SetVoxelWorld(wall[2], windowY, pos, VoxelType.Air);
+            }
+        }
+
+        // Add staircases for multi-floor buildings, alternating corners
+        if (numFloors > 1)
+        {
+            int cornerAX = startX + 2;
+            int cornerAZ = startZ + 2;
+            int cornerBX = endX - 2;
+            int cornerBZ = endZ - 2;
+            for (int floor = 0; floor < numFloors - 1; floor++)
+            {
+                if (floor % 2 == 0)
+                {
+                    GenerateStaircase(cornerAX, cornerAZ, floor, WALL_TOP, baseY);
+                }
+                else
+                {
+                    GenerateStaircase(cornerBX, cornerBZ, floor, WALL_TOP, baseY);
+                }
+            }
+        }
+    }
+
+    // Staircase spiral pattern: (dx, dz) offsets from center, actions per y-level
+    // 0=keep, 1=full block, 2=slab, 3=air
+    private const int STAIR_KEEP = 0;
+    private const int STAIR_FULL = 1;
+    private const int STAIR_SLAB = 2;
+    private const int STAIR_AIR = 3;
+
+    private static readonly (int dx, int dz, int[] yActions)[] StaircasePattern =
+    {
+        (-1,  1, new[] { STAIR_SLAB, STAIR_AIR,  STAIR_AIR,  STAIR_KEEP }),
+        (-1,  0, new[] { STAIR_FULL, STAIR_AIR,  STAIR_AIR,  STAIR_AIR  }),
+        (-1, -1, new[] { STAIR_FULL, STAIR_SLAB, STAIR_AIR,  STAIR_AIR  }),
+        ( 0, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_AIR,  STAIR_AIR  }),
+        ( 1, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_SLAB, STAIR_AIR  }),
+        ( 1,  0, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_AIR  }),
+        ( 1,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_SLAB }),
+        ( 0,  0, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
+        ( 0,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
+    };
+
+    private void GenerateStaircase(int centerX, int centerZ, int floor, int wallTop, int baseY)
+    {
+        int floorBaseY = baseY + floor * wallTop;
+
+        foreach (var (dx, dz, yActions) in StaircasePattern)
+        {
+            int wx = centerX + dx;
+            int wz = centerZ + dz;
+
+            for (int i = 0; i < 4; i++)
+            {
+                int wy = floorBaseY + i;
+                switch (yActions[i])
+                {
+                    case STAIR_FULL:
+                        SetVoxelWorld(wx, wy, wz, VoxelType.Wood);
+                        break;
+                    case STAIR_SLAB:
+                        SetVoxelWorld(wx, wy, wz, VoxelType.WoodSlabBottom);
+                        break;
+                    case STAIR_AIR:
+                        SetVoxelWorld(wx, wy, wz, VoxelType.Air);
+                        break;
+                }
             }
         }
     }

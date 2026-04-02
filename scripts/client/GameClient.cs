@@ -12,6 +12,7 @@ public partial class GameClient : Node3D
 	float _cameraPitchRadians => Mathf.DegToRad(cameraPitchDegrees);
 	[Export] public float cameraPitchDegrees = -65;
 	[Export] public float cameraDistance = 20;
+	[Export] public float stepHeight = 0.5f;
 
 	private const float CAMERA_CLIP_EPSILON = 0.1f;
 	private float _cameraClip = float.PositiveInfinity;
@@ -118,7 +119,39 @@ public partial class GameClient : Node3D
 			{
 				_player.Velocity += Vector3.Down * 9.8f;
 			}
+
+			// Step up: lift the player before moving so they can clear small obstacles
+			bool wasOnFloor = _player.IsOnFloor();
+			Vector3 posBeforeStep = _player.GlobalPosition;
+			if (wasOnFloor)
+			{
+				_player.GlobalPosition += Vector3.Up * stepHeight;
+			}
+
 			_player.MoveAndSlide();
+
+			// Step down: snap back to the ground after moving
+			if (wasOnFloor)
+			{
+				KinematicCollision3D stepDownResult = _player.MoveAndCollide(Vector3.Down * stepHeight, true);
+				if (stepDownResult != null)
+				{
+					_player.GlobalPosition = stepDownResult.GetPosition();
+				}
+				else if (_player.IsOnFloor())
+				{
+					// No collision within step height — already on floor, leave as-is
+				}
+				else
+				{
+					// No ground found within step height — revert the lift
+					_player.GlobalPosition = new Vector3(
+						_player.GlobalPosition.X,
+						posBeforeStep.Y,
+						_player.GlobalPosition.Z
+					);
+				}
+			}
 		}
 	}
 

@@ -31,54 +31,149 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.Shader = shader;
     }
 
+    // Face index constants
+    private const int FACE_TOP = 0;
+    private const int FACE_BOTTOM = 1;
+    private const int FACE_NORTH = 2;
+    private const int FACE_SOUTH = 3;
+    private const int FACE_WEST = 4;
+    private const int FACE_EAST = 5;
+
     // Face definitions: each face is 4 vertices (2 triangles) with indices 0-1-2, 0-2-3
     // Vertices are in counter-clockwise order when viewed from outside the cube.
-    private static readonly Vector3[] TopFace =
+
+    // Full block faces
+    private static readonly Vector3[][] FullBlockFaces =
     {
-        new(0, 1, 0), new(0, 1, 1), new(1, 1, 1), new(1, 1, 0),
+        new Vector3[] { new(0, 1, 0), new(0, 1, 1), new(1, 1, 1), new(1, 1, 0) },       // Top
+        new Vector3[] { new(0, 0, 0), new(1, 0, 0), new(1, 0, 1), new(0, 0, 1) },       // Bottom
+        new Vector3[] { new(0, 0, 0), new(0, 1, 0), new(1, 1, 0), new(1, 0, 0) },       // North (-Z)
+        new Vector3[] { new(0, 0, 1), new(1, 0, 1), new(1, 1, 1), new(0, 1, 1) },       // South (+Z)
+        new Vector3[] { new(0, 0, 0), new(0, 0, 1), new(0, 1, 1), new(0, 1, 0) },       // West (-X)
+        new Vector3[] { new(1, 0, 0), new(1, 1, 0), new(1, 1, 1), new(1, 0, 1) },       // East (+X)
     };
 
-    private static readonly Vector3[] BottomFace =
+    // Bottom slab faces (y = 0 to 0.5)
+    private static readonly Vector3[][] BottomSlabFaces =
     {
-        new(0, 0, 0), new(1, 0, 0), new(1, 0, 1), new(0, 0, 1),
+        new Vector3[] { new(0, 0.5f, 0), new(0, 0.5f, 1), new(1, 0.5f, 1), new(1, 0.5f, 0) }, // Top
+        new Vector3[] { new(0, 0, 0), new(1, 0, 0), new(1, 0, 1), new(0, 0, 1) },              // Bottom
+        new Vector3[] { new(0, 0, 0), new(0, 0.5f, 0), new(1, 0.5f, 0), new(1, 0, 0) },        // North
+        new Vector3[] { new(0, 0, 1), new(1, 0, 1), new(1, 0.5f, 1), new(0, 0.5f, 1) },        // South
+        new Vector3[] { new(0, 0, 0), new(0, 0, 1), new(0, 0.5f, 1), new(0, 0.5f, 0) },        // West
+        new Vector3[] { new(1, 0, 0), new(1, 0.5f, 0), new(1, 0.5f, 1), new(1, 0, 1) },        // East
     };
 
-    private static readonly Vector3[] NorthFace = // -Z
+    // Top slab faces (y = 0.5 to 1)
+    private static readonly Vector3[][] TopSlabFaces =
     {
-        new(0, 0, 0), new(0, 1, 0), new(1, 1, 0), new(1, 0, 0),
+        new Vector3[] { new(0, 1, 0), new(0, 1, 1), new(1, 1, 1), new(1, 1, 0) },              // Top
+        new Vector3[] { new(0, 0.5f, 0), new(1, 0.5f, 0), new(1, 0.5f, 1), new(0, 0.5f, 1) },  // Bottom
+        new Vector3[] { new(0, 0.5f, 0), new(0, 1, 0), new(1, 1, 0), new(1, 0.5f, 0) },        // North
+        new Vector3[] { new(0, 0.5f, 1), new(1, 0.5f, 1), new(1, 1, 1), new(0, 1, 1) },        // South
+        new Vector3[] { new(0, 0.5f, 0), new(0, 0.5f, 1), new(0, 1, 1), new(0, 1, 0) },        // West
+        new Vector3[] { new(1, 0.5f, 0), new(1, 1, 0), new(1, 1, 1), new(1, 0.5f, 1) },        // East
     };
 
-    private static readonly Vector3[] SouthFace = // +Z
+    private static readonly Vector3[] FaceNormals =
     {
-        new(0, 0, 1), new(1, 0, 1), new(1, 1, 1), new(0, 1, 1),
+        Vector3.Up,
+        Vector3.Down,
+        new Vector3(0, 0, -1),
+        new Vector3(0, 0, 1),
+        Vector3.Left,
+        Vector3.Right,
     };
 
-    private static readonly Vector3[] WestFace = // -X
+    private static readonly Vector3I[] FaceNeighborOffsets =
     {
-        new(0, 0, 0), new(0, 0, 1), new(0, 1, 1), new(0, 1, 0),
+        new(0, 1, 0),
+        new(0, -1, 0),
+        new(0, 0, -1),
+        new(0, 0, 1),
+        new(-1, 0, 0),
+        new(1, 0, 0),
     };
 
-    private static readonly Vector3[] EastFace = // +X
+    private static Vector3[][] GetFaceSet(VoxelType type)
     {
-        new(1, 0, 0), new(1, 1, 0), new(1, 1, 1), new(1, 0, 1),
-    };
-
-    private struct FaceDefinition
-    {
-        public Vector3[] Vertices;
-        public Vector3 Normal;
-        public Vector3I NeighborOffset;
+        if (VoxelTypeInfo.IsBottomSlab(type))
+        {
+            return BottomSlabFaces;
+        }
+        if (VoxelTypeInfo.IsTopSlab(type))
+        {
+            return TopSlabFaces;
+        }
+        return FullBlockFaces;
     }
 
-    private static readonly FaceDefinition[] Faces =
+    /// <summary>
+    /// Determines whether a face of the current voxel is fully occluded by its neighbor.
+    /// A face is occluded only if the neighbor completely covers it.
+    /// </summary>
+    private static bool FaceIsOccluded(VoxelType self, int faceIndex, VoxelType neighbor)
     {
-        new() { Vertices = TopFace, Normal = Vector3.Up, NeighborOffset = new Vector3I(0, 1, 0) },
-        new() { Vertices = BottomFace, Normal = Vector3.Down, NeighborOffset = new Vector3I(0, -1, 0) },
-        new() { Vertices = NorthFace, Normal = new Vector3(0, 0, -1), NeighborOffset = new Vector3I(0, 0, -1) },
-        new() { Vertices = SouthFace, Normal = new Vector3(0, 0, 1), NeighborOffset = new Vector3I(0, 0, 1) },
-        new() { Vertices = WestFace, Normal = Vector3.Left, NeighborOffset = new Vector3I(-1, 0, 0) },
-        new() { Vertices = EastFace, Normal = Vector3.Right, NeighborOffset = new Vector3I(1, 0, 0) },
-    };
+        if (!VoxelTypeInfo.IsSolid(neighbor))
+        {
+            return false;
+        }
+
+        bool selfIsSlab = VoxelTypeInfo.IsSlab(self);
+        bool neighborIsSlab = VoxelTypeInfo.IsSlab(neighbor);
+
+        // Full block neighbor covers the entire cell
+        if (!neighborIsSlab)
+        {
+            if (!selfIsSlab)
+            {
+                return true;
+            }
+            // Slab interior faces are not at the cell boundary, so they can't be occluded
+            if (VoxelTypeInfo.IsBottomSlab(self) && faceIndex == FACE_TOP)
+            {
+                return false;
+            }
+            if (VoxelTypeInfo.IsTopSlab(self) && faceIndex == FACE_BOTTOM)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        // Neighbor is a slab — it only covers half the cell
+        if (!selfIsSlab)
+        {
+            // Full block top face: occluded if neighbor above is a bottom slab (covers y=0 boundary)
+            if (faceIndex == FACE_TOP)
+            {
+                return VoxelTypeInfo.IsBottomSlab(neighbor);
+            }
+            // Full block bottom face: occluded if neighbor below is a top slab (covers y=1 boundary)
+            if (faceIndex == FACE_BOTTOM)
+            {
+                return VoxelTypeInfo.IsTopSlab(neighbor);
+            }
+            // Full block side: slab never fully covers a full-height side
+            return false;
+        }
+
+        // Both are slabs
+        bool selfIsBottom = VoxelTypeInfo.IsBottomSlab(self);
+
+        if (faceIndex == FACE_TOP)
+        {
+            // Bottom slab top face is interior — never occluded
+            return !selfIsBottom && VoxelTypeInfo.IsBottomSlab(neighbor);
+        }
+        if (faceIndex == FACE_BOTTOM)
+        {
+            // Top slab bottom face is interior — never occluded
+            return selfIsBottom && VoxelTypeInfo.IsTopSlab(neighbor);
+        }
+        // Side faces: occluded only if slabs share the same vertical range
+        return selfIsBottom == VoxelTypeInfo.IsBottomSlab(neighbor);
+    }
 
     public static ChunkMesh Create(ChunkData data, Func<int, int, int, int> getLightLevel)
     {
@@ -125,14 +220,17 @@ public partial class ChunkMesh : Node3D
                     Color baseColor = VoxelTypeInfo.Colors[type];
                     Vector3 offset = new(x, y, z);
 
-                    for (int faceIndex = 0; faceIndex < Faces.Length; faceIndex++)
-                    {
-                        FaceDefinition face = Faces[faceIndex];
-                        int nx = x + face.NeighborOffset.X;
-                        int ny = y + face.NeighborOffset.Y;
-                        int nz = z + face.NeighborOffset.Z;
+                    Vector3[][] faceSet = GetFaceSet(type);
 
-                        if (VoxelTypeInfo.IsSolid(data.GetVoxel(nx, ny, nz)))
+                    for (int faceIndex = 0; faceIndex < 6; faceIndex++)
+                    {
+                        Vector3I neighborOffset = FaceNeighborOffsets[faceIndex];
+                        int nx = x + neighborOffset.X;
+                        int ny = y + neighborOffset.Y;
+                        int nz = z + neighborOffset.Z;
+
+                        VoxelType neighbor = data.GetVoxel(nx, ny, nz);
+                        if (FaceIsOccluded(type, faceIndex, neighbor))
                         {
                             continue;
                         }
@@ -148,28 +246,30 @@ public partial class ChunkMesh : Node3D
                         float shade = FaceShading[faceIndex] * lightFactor;
                         Color color = new Color(baseColor.R * shade, baseColor.G * shade, baseColor.B * shade);
 
-                        st.SetNormal(face.Normal);
-                        st.SetColor(color);
+                        Vector3[] verts = faceSet[faceIndex];
+                        Vector3 normal = FaceNormals[faceIndex];
 
                         // Triangle 1: 0-2-1
-                        st.AddVertex(face.Vertices[0] + offset);
-                        st.SetNormal(face.Normal);
+                        st.SetNormal(normal);
                         st.SetColor(color);
-                        st.AddVertex(face.Vertices[2] + offset);
-                        st.SetNormal(face.Normal);
+                        st.AddVertex(verts[0] + offset);
+                        st.SetNormal(normal);
                         st.SetColor(color);
-                        st.AddVertex(face.Vertices[1] + offset);
+                        st.AddVertex(verts[2] + offset);
+                        st.SetNormal(normal);
+                        st.SetColor(color);
+                        st.AddVertex(verts[1] + offset);
 
                         // Triangle 2: 0-3-2
-                        st.SetNormal(face.Normal);
+                        st.SetNormal(normal);
                         st.SetColor(color);
-                        st.AddVertex(face.Vertices[0] + offset);
-                        st.SetNormal(face.Normal);
+                        st.AddVertex(verts[0] + offset);
+                        st.SetNormal(normal);
                         st.SetColor(color);
-                        st.AddVertex(face.Vertices[3] + offset);
-                        st.SetNormal(face.Normal);
+                        st.AddVertex(verts[3] + offset);
+                        st.SetNormal(normal);
                         st.SetColor(color);
-                        st.AddVertex(face.Vertices[2] + offset);
+                        st.AddVertex(verts[2] + offset);
 
                         hasAnyFace = true;
                     }
