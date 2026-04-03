@@ -16,7 +16,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 shape = SubResource("CylinderShape3D_trunk")
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=1014885173]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28044546, 3.4008954, -0.23478961)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28044546, -0.114443064, -0.23478961)
+offset = Vector2(0, 116)
 pixel_size = 0.03
 billboard = 2
 texture = ExtResource("2_7o05m")

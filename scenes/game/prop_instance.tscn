@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://bsmtetbht2efj"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_qqwgy"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_body"]
+
+[node name="PropInstance" type="Node3D" unique_id=815995922]
+script = ExtResource("1_qqwgy")
+
+[node name="Body" type="StaticBody3D" parent="." unique_id=881143434]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=2144395807]
+shape = SubResource("BoxShape3D_body")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=448149874]
+pixel_size = 0.05
+billboard = 2
+
+[node name="Light" type="OmniLight3D" parent="." unique_id=403471035]
+light_energy = 1.5
+light_cull_mask = 2
+omni_attenuation = 1.5

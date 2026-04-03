@@ -1,6 +1,7 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://bk5u04vwxlhas"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/Door.cs" id="1_door"]
+[ext_resource type="Script" uid="uid://c3a4l0n4knjyq" path="res://scripts/gameplay/Door.cs" id="1_door"]
+[ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/door_01.png" id="2_k0lqv"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1, 2, 1)
@@ -8,24 +9,27 @@ size = Vector3(1, 2, 1)
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(2, 2, 2)
 
-[node name="Door" type="Node3D"]
+[node name="Door" type="Node3D" unique_id=964775259]
 script = ExtResource("1_door")
+DoorTexture = ExtResource("2_k0lqv")
 
-[node name="BlockCollider" type="StaticBody3D" parent="."]
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=730201462]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=311926449]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="InteractArea" type="Area3D" parent="."]
+[node name="InteractArea" type="Area3D" parent="." unique_id=75244038]
 collision_layer = 4
 collision_mask = 0
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea" unique_id=1493302336]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="DoorSprite" type="Sprite3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+[node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.16317177, 0)
+offset = Vector2(0, 50)
+pixel_size = 0.02
 billboard = 2
-pixel_size = 0.05
+texture = ExtResource("2_k0lqv")

@@ -16,6 +16,7 @@ public partial class VoxelWorld : Node3D
     private WorldState _worldData;
     private LightMap _lightMap;
     private Camera3D _camera;
+    private float _spriteYScale = 1.0f;
 
     public void Initialize(WorldState worldData, Vector3 spawnPosition)
     {
@@ -26,9 +27,10 @@ public partial class VoxelWorld : Node3D
         UpdateLoadedChunks();
     }
 
-    public void SetCamera(Camera3D camera)
+    public void SetCamera(GameCamera camera)
     {
         _camera = camera;
+        _spriteYScale = camera.SpriteYScale;
     }
 
     public void SetPlayerPositionSource(Func<Vector3> getter)
@@ -227,7 +229,7 @@ public partial class VoxelWorld : Node3D
                     var propInstances = new List<PropInstance>();
                     foreach (PropGenData propData in propDataList)
                     {
-                        PropInstance prop = PropInstance.Create(propData);
+                        PropInstance prop = PropInstance.Create(propData, _spriteYScale);
                         AddChild(prop);
                         propInstances.Add(prop);
                     }
@@ -242,8 +244,8 @@ public partial class VoxelWorld : Node3D
                     {
                         Node3D interactive = interactiveData.Type switch
                         {
-                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this),
-                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this),
+                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this, _spriteYScale),
+                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this, _spriteYScale),
                             _ => null,
                         };
                         if (interactive != null)
