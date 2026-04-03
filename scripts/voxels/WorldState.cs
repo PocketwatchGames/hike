@@ -9,7 +9,7 @@ public class WorldState
 
     private readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     private readonly Dictionary<Vector3I, List<PropGenData>> _props = new();
-    private readonly Dictionary<Vector3I, List<InteractiveGenData>> _interactives = new();
+    private readonly Dictionary<Vector3I, List<InteractiveData>> _interactives = new();
 
     public WorldState(WorldGenData genData)
     {
@@ -123,22 +123,22 @@ public class WorldState
         return props;
     }
 
-    public List<InteractiveGenData> GetInteractives(Vector3I coord)
+    public List<InteractiveData> GetInteractives(Vector3I coord)
     {
-        _interactives.TryGetValue(coord, out List<InteractiveGenData> interactives);
+        _interactives.TryGetValue(coord, out List<InteractiveData> interactives);
         return interactives;
     }
 
-    private void AddInteractive(InteractiveGenData data)
+    private void AddInteractive(InteractiveData data)
     {
         Vector3I cc = WorldToChunkCoord(
             (int)Math.Floor(data.WorldPosition.X),
             (int)Math.Floor(data.WorldPosition.Y),
             (int)Math.Floor(data.WorldPosition.Z)
         );
-        if (!_interactives.TryGetValue(cc, out List<InteractiveGenData> list))
+        if (!_interactives.TryGetValue(cc, out List<InteractiveData> list))
         {
-            list = new List<InteractiveGenData>();
+            list = new List<InteractiveData>();
             _interactives[cc] = list;
         }
         list.Add(data);
@@ -442,7 +442,7 @@ public class WorldState
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
-            AddInteractive(new InteractiveGenData(
+            AddInteractive(new InteractiveData(
                 InteractiveType.Torch,
                 torchPos,
                 0f,
@@ -547,7 +547,7 @@ public class WorldState
                 int wy = baseY + dy;
                 SetVoxelWorld(doorWx, wy, doorWz, VoxelType.Barrier);
             }
-            AddInteractive(new InteractiveGenData(
+            AddInteractive(new InteractiveData(
                 InteractiveType.Door,
                 new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
                 doorRotY,

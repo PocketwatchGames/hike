@@ -1,13 +1,14 @@
 using Godot;
 
-public class InteractiveGenData
+public class InteractiveData
 {
     public readonly InteractiveType Type;
     public readonly Vector3 WorldPosition;
     public readonly float RotationY;
     public readonly PackedScene Scene;
+    public bool Active = true;
 
-    public InteractiveGenData(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene)
+    public InteractiveData(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene)
     {
         Type = type;
         WorldPosition = worldPosition;

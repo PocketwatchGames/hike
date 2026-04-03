@@ -135,6 +135,8 @@ public partial class Player : CharacterBody3D
 				_curInteractive = _highlightInteractive;
 				_curInteractive.Complete();
 				_curInteractive = null;
+				RemoveHighlight();
+				ApplyHighlight((Node3D)_highlightInteractive);
 			}
 		}
 	}

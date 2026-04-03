@@ -8,6 +8,7 @@ public partial class Torch : Node3D, IInteractive
     [Export] private Texture2D UnlitTexture;
 
     private bool _active = true;
+    private InteractiveData _interactiveData;
     private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
@@ -37,6 +38,7 @@ public partial class Torch : Node3D, IInteractive
     public void Complete()
     {
         _active = !_active;
+        _interactiveData.Active = _active;
 
         // Toggle visual flame appearance
         _torchSprite.Texture = _active ? LitTexture : UnlitTexture;
@@ -58,10 +60,18 @@ public partial class Torch : Node3D, IInteractive
         }
     }
 
-    public static Torch Create(InteractiveGenData data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
+    public void RestoreState()
+    {
+        _active = _interactiveData.Active;
+        _torchSprite.Texture = _active ? LitTexture : UnlitTexture;
+        _light.Visible = _active;
+    }
+
+    public static Torch Create(InteractiveData data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
+        instance._interactiveData = data;
         instance._worldData = worldData;
         instance._voxelWorld = voxelWorld;
         instance._spriteYScale = spriteYScale;

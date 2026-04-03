@@ -236,11 +236,11 @@ public partial class VoxelWorld : Node3D
                     _loadedProps[coord] = propInstances;
                 }
 
-                List<InteractiveGenData> interactiveDataList = _worldData.GetInteractives(coord);
+                List<InteractiveData> interactiveDataList = _worldData.GetInteractives(coord);
                 if (interactiveDataList != null)
                 {
                     var interactiveInstances = new List<Node3D>();
-                    foreach (InteractiveGenData interactiveData in interactiveDataList)
+                    foreach (InteractiveData interactiveData in interactiveDataList)
                     {
                         Node3D interactive = interactiveData.Type switch
                         {
@@ -255,6 +255,19 @@ public partial class VoxelWorld : Node3D
                         }
                     }
                     _loadedInteractives[coord] = interactiveInstances;
+
+                    // Restore state must happen after AddChild so _Ready has run
+                    foreach (Node3D interactive in interactiveInstances)
+                    {
+                        if (interactive is Door door)
+                        {
+                            door.RestoreState();
+                        }
+                        else if (interactive is Torch torch)
+                        {
+                            torch.RestoreState();
+                        }
+                    }
                 }
             }
         }
