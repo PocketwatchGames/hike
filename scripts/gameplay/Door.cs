@@ -7,7 +7,7 @@ public partial class Door : Node3D, IInteractive
     [Export] private Sprite3D _doorSprite;
 
     private bool _open;
-    private InteractiveData _interactiveData;
+    private InteractiveSpawnState _interactiveState;
     private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
@@ -32,7 +32,7 @@ public partial class Door : Node3D, IInteractive
     public void Complete()
     {
         _open = !_open;
-        _interactiveData.Active = !_open;
+        _interactiveState.Active = !_open;
 
         // Toggle movement blocker
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
@@ -56,17 +56,17 @@ public partial class Door : Node3D, IInteractive
 
     public void RestoreState()
     {
-        _open = !_interactiveData.Active;
+        _open = !_interactiveState.Active;
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
         _doorSprite.Visible = !_open;
     }
 
-    public static Door Create(InteractiveData data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
+    public static Door Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
-        instance._interactiveData = data;
+        instance._interactiveState = data;
         instance._worldData = worldData;
         instance._voxelWorld = voxelWorld;
         instance._spriteYScale = spriteYScale;

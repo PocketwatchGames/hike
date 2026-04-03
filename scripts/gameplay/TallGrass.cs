@@ -27,7 +27,7 @@ public partial class TallGrass : Area3D
 		}
 	}
 
-	public static TallGrass Create(PropGenData data, float spriteYScale)
+	public static TallGrass Create(PropSpawnState data, float spriteYScale)
 	{
 		var instance = data.Scene.Instantiate<TallGrass>();
 		instance.Position = data.WorldPosition;

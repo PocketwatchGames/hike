@@ -1,6 +1,6 @@
 using Godot;
 
-public class InteractiveData
+public class InteractiveSpawnState
 {
     public readonly InteractiveType Type;
     public readonly Vector3 WorldPosition;
@@ -8,7 +8,7 @@ public class InteractiveData
     public readonly PackedScene Scene;
     public bool Active = true;
 
-    public InteractiveData(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene)
+    public InteractiveSpawnState(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene)
     {
         Type = type;
         WorldPosition = worldPosition;

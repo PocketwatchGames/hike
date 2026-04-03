@@ -2,7 +2,7 @@ using Godot;
 
 public partial class PropInstance : Node3D
 {
-    public static PropInstance Create(PropGenData data, float spriteYScale)
+    public static PropInstance Create(PropSpawnState data, float spriteYScale)
     {
         var instance = data.Scene.Instantiate<PropInstance>();
         instance.Position = data.WorldPosition;

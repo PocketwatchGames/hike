@@ -223,11 +223,11 @@ public partial class VoxelWorld : Node3D
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
 
-                List<PropGenData> propDataList = _worldData.GetProps(coord);
+                List<PropSpawnState> propDataList = _worldData.GetProps(coord);
                 if (propDataList != null)
                 {
                     var propInstances = new List<Node3D>();
-                    foreach (PropGenData propData in propDataList)
+                    foreach (PropSpawnState propData in propDataList)
                     {
                         Node3D prop = propData.Type switch
                         {
@@ -240,11 +240,11 @@ public partial class VoxelWorld : Node3D
                     _loadedProps[coord] = propInstances;
                 }
 
-                List<InteractiveData> interactiveDataList = _worldData.GetInteractives(coord);
+                List<InteractiveSpawnState> interactiveDataList = _worldData.GetInteractives(coord);
                 if (interactiveDataList != null)
                 {
                     var interactiveInstances = new List<Node3D>();
-                    foreach (InteractiveData interactiveData in interactiveDataList)
+                    foreach (InteractiveSpawnState interactiveData in interactiveDataList)
                     {
                         Node3D interactive = interactiveData.Type switch
                         {

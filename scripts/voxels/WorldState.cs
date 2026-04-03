@@ -8,8 +8,8 @@ public class WorldState
     public readonly Vector3I Max;
 
     private readonly Dictionary<Vector3I, ChunkState> _chunks = new();
-    private readonly Dictionary<Vector3I, List<PropGenData>> _props = new();
-    private readonly Dictionary<Vector3I, List<InteractiveData>> _interactives = new();
+    private readonly Dictionary<Vector3I, List<PropSpawnState>> _props = new();
+    private readonly Dictionary<Vector3I, List<InteractiveSpawnState>> _interactives = new();
 
     public WorldState(WorldGenData genData)
     {
@@ -117,28 +117,28 @@ public class WorldState
         return _chunks.ContainsKey(coord);
     }
 
-    public List<PropGenData> GetProps(Vector3I coord)
+    public List<PropSpawnState> GetProps(Vector3I coord)
     {
-        _props.TryGetValue(coord, out List<PropGenData> props);
+        _props.TryGetValue(coord, out List<PropSpawnState> props);
         return props;
     }
 
-    public List<InteractiveData> GetInteractives(Vector3I coord)
+    public List<InteractiveSpawnState> GetInteractives(Vector3I coord)
     {
-        _interactives.TryGetValue(coord, out List<InteractiveData> interactives);
+        _interactives.TryGetValue(coord, out List<InteractiveSpawnState> interactives);
         return interactives;
     }
 
-    private void AddInteractive(InteractiveData data)
+    private void AddInteractive(InteractiveSpawnState data)
     {
         Vector3I cc = WorldToChunkCoord(
             (int)Math.Floor(data.WorldPosition.X),
             (int)Math.Floor(data.WorldPosition.Y),
             (int)Math.Floor(data.WorldPosition.Z)
         );
-        if (!_interactives.TryGetValue(cc, out List<InteractiveData> list))
+        if (!_interactives.TryGetValue(cc, out List<InteractiveSpawnState> list))
         {
-            list = new List<InteractiveData>();
+            list = new List<InteractiveSpawnState>();
             _interactives[cc] = list;
         }
         list.Add(data);
@@ -320,7 +320,7 @@ public class WorldState
         ChunkState data = _chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
         int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
-        var props = new List<PropGenData>();
+        var props = new List<PropSpawnState>();
 
         for (int i = 0; i < treeCount; i++)
         {
@@ -350,7 +350,7 @@ public class WorldState
             float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
-            props.Add(new PropGenData(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
+            props.Add(new PropSpawnState(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
         }
 
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
@@ -373,7 +373,7 @@ public class WorldState
                     continue;
                 }
 
-                props.Add(new PropGenData(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
+                props.Add(new PropSpawnState(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
             }
         }
 
@@ -442,7 +442,7 @@ public class WorldState
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
-            AddInteractive(new InteractiveData(
+            AddInteractive(new InteractiveSpawnState(
                 InteractiveType.Torch,
                 torchPos,
                 0f,
@@ -547,7 +547,7 @@ public class WorldState
                 int wy = baseY + dy;
                 SetVoxelWorld(doorWx, wy, doorWz, VoxelType.Barrier);
             }
-            AddInteractive(new InteractiveData(
+            AddInteractive(new InteractiveSpawnState(
                 InteractiveType.Door,
                 new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
                 doorRotY,
