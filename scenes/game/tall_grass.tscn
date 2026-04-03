@@ -2,8 +2,13 @@
 
 [ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="2_tallgrass"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/tall_grass_01.png" id="3_dhrga"]
+[ext_resource type="Shader" path="res://shaders/sprite_lit.gdshader" id="4_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_grass"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sprite"]
+shader = ExtResource("4_shader")
+shader_parameter/sprite_texture = ExtResource("3_dhrga")
 
 [node name="TallGrass" type="Area3D"]
 collision_layer = 8
@@ -15,6 +20,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_grass")
 
 [node name="Sprite" type="Sprite3D" parent="."]
+material_override = SubResource("ShaderMaterial_sprite")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.07902223, 0)
 offset = Vector2(0, 64)
 billboard = 2

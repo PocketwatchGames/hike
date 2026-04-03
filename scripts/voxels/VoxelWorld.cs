@@ -235,6 +235,7 @@ public partial class VoxelWorld : Node3D
                             _ => PropInstance.Create(propData, _spriteYScale),
                         };
                         AddChild(prop);
+                        SetLightMapUniforms(prop);
                         propInstances.Add(prop);
                     }
                     _loadedProps[coord] = propInstances;
@@ -255,6 +256,7 @@ public partial class VoxelWorld : Node3D
                         if (interactive != null)
                         {
                             AddChild(interactive);
+                            SetLightMapUniforms(interactive);
                             interactiveInstances.Add(interactive);
                         }
                     }
@@ -338,6 +340,19 @@ public partial class VoxelWorld : Node3D
             foreach (Node3D prop in props)
             {
                 prop.Visible = prop.GlobalPosition.Y < cameraClip;
+            }
+        }
+    }
+
+    private void SetLightMapUniforms(Node3D node)
+    {
+        foreach (Node child in node.GetChildren())
+        {
+            if (child is Sprite3D sprite && sprite.MaterialOverride is ShaderMaterial mat)
+            {
+                mat.SetShaderParameter("light_map", _lightMap.Texture);
+                mat.SetShaderParameter("light_map_origin", _lightMap.Origin);
+                mat.SetShaderParameter("light_map_inv_size", Vector3.One / _lightMap.Size);
             }
         }
     }

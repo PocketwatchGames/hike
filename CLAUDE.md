@@ -110,3 +110,5 @@ Two MSBuild targets run before compilation:
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.
 - `[Export]` attributes for editor-configurable references.
+- Godot resources (materials, shaders, meshes, etc.) should not be created programmatically at runtime. Instead, create them as `.tres`/`.tscn` files in the Godot editor and wire them into scripts via `[Export]` variables.
+- Static user-defined data belongs in Godot `Resource` subclasses named `[Object]Data` (e.g., `WeaponData`). Dynamic runtime state belongs in classes named `[Object]State` (e.g., `WeaponState`). Never use "Data" to refer to dynamic/mutable properties.

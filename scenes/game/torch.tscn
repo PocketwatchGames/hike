@@ -4,15 +4,23 @@
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/torch_01_lit.png" id="2_ty0ga"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" path="res://scripts/gameplay/Light.cs" id="4_light"]
+[ext_resource type="Shader" path="res://shaders/sprite_lit.gdshader" id="5_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(0.5, 1, 0.5)
 
-[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_torchSprite", "_light")]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lit"]
+shader = ExtResource("5_shader")
+shader_parameter/sprite_texture = ExtResource("2_ty0ga")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_unlit"]
+shader = ExtResource("5_shader")
+shader_parameter/sprite_texture = ExtResource("3_m4hkm")
+
+[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light")]
 script = ExtResource("1_torch")
-LitTexture = ExtResource("2_ty0ga")
-UnlitTexture = ExtResource("3_m4hkm")
-_torchSprite = NodePath("TorchSprite")
+_litSprite = NodePath("LitSprite")
+_unlitSprite = NodePath("UnlitSprite")
 _light = NodePath("Light")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=32198536]
@@ -23,11 +31,20 @@ collision_layer = 4
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="TorchSprite" type="Sprite3D" parent="." unique_id=222554796]
+[node name="LitSprite" type="Sprite3D" parent="." unique_id=222554796]
+material_override = SubResource("ShaderMaterial_lit")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.044090033, 0)
 offset = Vector2(0, 50)
 billboard = 2
 texture = ExtResource("2_ty0ga")
+
+[node name="UnlitSprite" type="Sprite3D" parent="."]
+material_override = SubResource("ShaderMaterial_unlit")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.044090033, 0)
+visible = false
+offset = Vector2(0, 50)
+billboard = 2
+texture = ExtResource("3_m4hkm")
 
 [node name="Light" type="Node3D" parent="." node_paths=PackedStringArray("_light")]
 script = ExtResource("4_light")

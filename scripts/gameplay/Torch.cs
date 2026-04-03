@@ -2,9 +2,8 @@ using Godot;
 
 public partial class Torch : Node3D, IInteractive
 {
-    [Export] private Texture2D LitTexture;
-    [Export] private Texture2D UnlitTexture;
-    [Export] private Sprite3D _torchSprite;
+    [Export] private Sprite3D _litSprite;
+    [Export] private Sprite3D _unlitSprite;
     [Export] private Light _light;
 
     private bool _active = true;
@@ -13,8 +12,9 @@ public partial class Torch : Node3D, IInteractive
 
     public override void _Ready()
     {
-        _torchSprite.Texture = LitTexture;
-        _torchSprite.Scale = new Vector3(1, _spriteYScale, 1);
+        _litSprite.Scale = new Vector3(1, _spriteYScale, 1);
+        _unlitSprite.Scale = new Vector3(1, _spriteYScale, 1);
+        UpdateVisuals();
     }
 
     public bool CanInteract()
@@ -32,15 +32,21 @@ public partial class Torch : Node3D, IInteractive
         _active = !_active;
         _interactiveState.Active = _active;
 
-        _torchSprite.Texture = _active ? LitTexture : UnlitTexture;
+        UpdateVisuals();
         _light.SetActive(_active);
     }
 
     public void RestoreState()
     {
         _active = _interactiveState.Active;
-        _torchSprite.Texture = _active ? LitTexture : UnlitTexture;
+        UpdateVisuals();
         _light.SetActive(_active);
+    }
+
+    private void UpdateVisuals()
+    {
+        _litSprite.Visible = _active;
+        _unlitSprite.Visible = !_active;
     }
 
     public static Torch Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
@@ -57,5 +63,4 @@ public partial class Torch : Node3D, IInteractive
         instance._light.Initialize(worldData, voxelWorld, baseWorldPos);
         return instance;
     }
-
 }

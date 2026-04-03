@@ -2,9 +2,14 @@
 
 [ext_resource type="Script" uid="uid://c3a4l0n4knjyq" path="res://scripts/gameplay/Door.cs" id="1_door"]
 [ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/door_01.png" id="2_k0lqv"]
+[ext_resource type="Shader" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1, 2, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_sprite"]
+shader = ExtResource("3_shader")
+shader_parameter/sprite_texture = ExtResource("2_k0lqv")
 
 [node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_doorSprite")]
 script = ExtResource("1_door")
@@ -26,6 +31,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
 [node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
+material_override = SubResource("ShaderMaterial_sprite")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.16317177, 0)
 offset = Vector2(0, 50)
 pixel_size = 0.02

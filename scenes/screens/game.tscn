@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/gui/hud_text.tscn" id="2_o78e0"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
-[ext_resource type="Script" path="res://scripts/client/GameCamera.cs" id="camera_script"]
+[ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
@@ -15,7 +15,7 @@ sky_material = SubResource("ShaderMaterial_s3n12")
 [sub_resource type="Environment" id="Environment_e0wmo"]
 background_mode = 2
 sky = SubResource("Sky_oni8f")
-ambient_light_source = 2
+ambient_light_source = 1
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.3
 reflected_light_source = 2
@@ -45,12 +45,11 @@ hudTextScene = ExtResource("2_o78e0")
 outlineMaterial = ExtResource("outline_mat")
 
 [node name="MainCamera" type="Camera3D" parent="." unique_id=159032169]
-script = ExtResource("camera_script")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
-distance = 25
 projection = 1
 fov = 20.0
 size = 20.0
+script = ExtResource("camera_script")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1455759092]
 environment = SubResource("Environment_e0wmo")
