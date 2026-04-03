@@ -19,17 +19,14 @@ public partial class Player : CharacterBody3D
 	private readonly List<TallGrass> _tallGrassCollisions = new();
 	private float _terrainSpeed = 1f;
 
-	private static Shader _stencilShader;
 	private static Shader _outlineShader;
-	private Sprite3D _highlightSprite;
-	private Material _highlightOriginalMaterial;
+	private Sprite3D _highlightOverlay;
 
 	public override void _Ready()
 	{
 		CollisionLayer = 2; // Layer 2 (bit 1) — players
 		CollisionMask = 1;  // Collide with environment only
 
-		_stencilShader = GD.Load<Shader>("res://shaders/highlight_stencil.gdshader");
 		_outlineShader = GD.Load<Shader>("res://shaders/highlight_outline.gdshader");
 
 		var interactArea = new Area3D();
@@ -185,36 +182,40 @@ public partial class Player : CharacterBody3D
 
 	private void ApplyHighlight(Node3D node)
 	{
-		Sprite3D sprite = FindChildSprite(node);
-		if (sprite == null)
+		Sprite3D source = FindChildSprite(node);
+		if (source == null || !source.Visible)
 		{
 			return;
 		}
 
-		_highlightSprite = sprite;
-		_highlightOriginalMaterial = sprite.MaterialOverride;
+		var overlay = new Sprite3D();
+		overlay.Name = "HighlightOverlay";
+		overlay.Texture = source.Texture;
+		overlay.Transform = source.Transform;
+		overlay.Offset = source.Offset;
+		overlay.PixelSize = source.PixelSize;
+		overlay.Billboard = source.Billboard;
+		overlay.TextureFilter = source.TextureFilter;
+		overlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
 
-		var outlineMat = new ShaderMaterial();
-		outlineMat.Shader = _outlineShader;
-		outlineMat.SetShaderParameter("texture_albedo", sprite.Texture);
-		outlineMat.SetShaderParameter("outline_color", outlineColor);
-		outlineMat.SetShaderParameter("outline_width", outlineWidth);
+		var mat = new ShaderMaterial();
+		mat.Shader = _outlineShader;
+		mat.SetShaderParameter("texture_albedo", source.Texture);
+		mat.SetShaderParameter("outline_color", outlineColor);
+		mat.SetShaderParameter("outline_width", outlineWidth);
+		mat.RenderPriority = 10;
 
-		var stencilMat = new ShaderMaterial();
-		stencilMat.Shader = _stencilShader;
-		stencilMat.SetShaderParameter("texture_albedo", sprite.Texture);
-		stencilMat.NextPass = outlineMat;
-
-		sprite.MaterialOverride = stencilMat;
+		overlay.MaterialOverride = mat;
+		node.AddChild(overlay);
+		_highlightOverlay = overlay;
 	}
 
 	private void RemoveHighlight()
 	{
-		if (_highlightSprite != null)
+		if (_highlightOverlay != null && IsInstanceValid(_highlightOverlay))
 		{
-			_highlightSprite.MaterialOverride = _highlightOriginalMaterial;
-			_highlightSprite = null;
-			_highlightOriginalMaterial = null;
+			_highlightOverlay.QueueFree();
+			_highlightOverlay = null;
 		}
 	}
 

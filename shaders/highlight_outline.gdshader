@@ -1,6 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, cull_disabled, unshaded;
-stencil_mode read, compare_not_equal, 2;
+render_mode blend_mix, depth_draw_never, depth_test_disabled, cull_disabled, unshaded;
 
 uniform sampler2D texture_albedo : filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.8, 1.0);
@@ -17,6 +16,9 @@ void vertex() {
 }
 
 void fragment() {
+	// Discard interior pixels so the real object shows through
+	if (texture(texture_albedo, UV).a > 0.5) discard;
+
 	// How many texels one screen pixel covers on each axis
 	vec2 tex_size = vec2(textureSize(texture_albedo, 0));
 	float texels_per_screen_px_x = abs(dFdx(UV.x)) * tex_size.x;
