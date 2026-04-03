@@ -1,6 +1,6 @@
 using Godot;
 
-public class ChunkData
+public class ChunkState
 {
     public const int SIZE = 16;
 
@@ -8,7 +8,7 @@ public class ChunkData
     public readonly VoxelType[,,] Voxels;
     public readonly byte[,,] Light; // High nibble = sunlight (0-15), low nibble = block light (0-15)
 
-    public ChunkData(Vector3I chunkCoord)
+    public ChunkState(Vector3I chunkCoord)
     {
         ChunkCoord = chunkCoord;
         Voxels = new VoxelType[SIZE, SIZE, SIZE];

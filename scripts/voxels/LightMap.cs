@@ -17,15 +17,15 @@ public class LightMap
     public Vector3 Size { get; }
     public ImageTexture3D Texture => _texture;
 
-    public LightMap(WorldData world)
+    public LightMap(WorldState world)
     {
-        _originX = world.Min.X * ChunkData.SIZE;
-        _originY = world.Min.Y * ChunkData.SIZE;
-        _originZ = world.Min.Z * ChunkData.SIZE;
+        _originX = world.Min.X * ChunkState.SIZE;
+        _originY = world.Min.Y * ChunkState.SIZE;
+        _originZ = world.Min.Z * ChunkState.SIZE;
 
-        _width = (world.Max.X + 1) * ChunkData.SIZE - _originX;
-        _height = (world.Max.Y + 1) * ChunkData.SIZE - _originY;
-        _depth = (world.Max.Z + 1) * ChunkData.SIZE - _originZ;
+        _width = (world.Max.X + 1) * ChunkState.SIZE - _originX;
+        _height = (world.Max.Y + 1) * ChunkState.SIZE - _originY;
+        _depth = (world.Max.Z + 1) * ChunkState.SIZE - _originZ;
 
         Origin = new Vector3(_originX, _originY, _originZ);
         Size = new Vector3(_width, _height, _depth);
@@ -41,7 +41,7 @@ public class LightMap
         Update(world);
     }
 
-    public void Update(WorldData world)
+    public void Update(WorldState world)
     {
         for (int cz = world.Min.Z; cz <= world.Max.Z; cz++)
         {
@@ -49,23 +49,23 @@ public class LightMap
             {
                 for (int cx = world.Min.X; cx <= world.Max.X; cx++)
                 {
-                    ChunkData chunk = world.GetChunk(new Vector3I(cx, cy, cz));
+                    ChunkState chunk = world.GetChunk(new Vector3I(cx, cy, cz));
                     if (chunk == null)
                     {
                         continue;
                     }
 
-                    int baseX = cx * ChunkData.SIZE - _originX;
-                    int baseY = cy * ChunkData.SIZE - _originY;
-                    int baseZ = cz * ChunkData.SIZE - _originZ;
+                    int baseX = cx * ChunkState.SIZE - _originX;
+                    int baseY = cy * ChunkState.SIZE - _originY;
+                    int baseZ = cz * ChunkState.SIZE - _originZ;
 
-                    for (int lz = 0; lz < ChunkData.SIZE; lz++)
+                    for (int lz = 0; lz < ChunkState.SIZE; lz++)
                     {
                         byte[] pixels = _slicePixels[baseZ + lz];
-                        for (int ly = 0; ly < ChunkData.SIZE; ly++)
+                        for (int ly = 0; ly < ChunkState.SIZE; ly++)
                         {
                             int rowOffset = (baseY + ly) * _width + baseX;
-                            for (int lx = 0; lx < ChunkData.SIZE; lx++)
+                            for (int lx = 0; lx < ChunkState.SIZE; lx++)
                             {
                                 int sun = chunk.GetSunlight(lx, ly, lz);
                                 int block = chunk.GetBlockLight(lx, ly, lz);

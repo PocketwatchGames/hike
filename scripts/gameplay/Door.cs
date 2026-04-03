@@ -7,7 +7,7 @@ public partial class Door : Node3D, IInteractive
     private const int DOOR_HEIGHT_UNITS = 2;
 
     private bool _open;
-    private WorldData _worldData;
+    private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
     private StaticBody3D _blockCollider;
@@ -56,10 +56,9 @@ public partial class Door : Node3D, IInteractive
         _voxelWorld.RebuildNearbyChunkMeshes(GlobalPosition, changed);
     }
 
-    public static Door Create(InteractiveData data, WorldData worldData, VoxelWorld voxelWorld)
+    public static Door Create(InteractiveGenData data, WorldState worldData, VoxelWorld voxelWorld)
     {
-        var scene = GD.Load<PackedScene>("res://scenes/game/door.tscn");
-        var instance = scene.Instantiate<Door>();
+        var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
         instance._worldData = worldData;

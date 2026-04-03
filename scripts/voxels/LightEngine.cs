@@ -13,20 +13,20 @@ public static class LightEngine
         new(0, 0, 1), new(0, 0, -1),
     };
 
-    public static void ComputeLighting(WorldData world, List<(Vector3 position, int level)> blockLightSources)
+    public static void ComputeLighting(WorldState world, List<(Vector3 position, int level)> blockLightSources)
     {
         ComputeSunlight(world);
         ComputeBlockLight(world, blockLightSources);
     }
 
-    private static void ComputeSunlight(WorldData world)
+    private static void ComputeSunlight(WorldState world)
     {
-        int minWx = world.Min.X * ChunkData.SIZE;
-        int maxWx = (world.Max.X + 1) * ChunkData.SIZE;
-        int minWy = world.Min.Y * ChunkData.SIZE;
-        int topWy = (world.Max.Y + 1) * ChunkData.SIZE - 1;
-        int minWz = world.Min.Z * ChunkData.SIZE;
-        int maxWz = (world.Max.Z + 1) * ChunkData.SIZE;
+        int minWx = world.Min.X * ChunkState.SIZE;
+        int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
+        int minWy = world.Min.Y * ChunkState.SIZE;
+        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
+        int minWz = world.Min.Z * ChunkState.SIZE;
+        int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
 
         var queue = new Queue<(int x, int y, int z)>();
 
@@ -52,7 +52,7 @@ public static class LightEngine
         SpreadLight(world, queue, isSunlight: true);
     }
 
-    private static void ComputeBlockLight(WorldData world, List<(Vector3 position, int level)> sources)
+    private static void ComputeBlockLight(WorldState world, List<(Vector3 position, int level)> sources)
     {
         var queue = new Queue<(int x, int y, int z)>();
 
@@ -78,7 +78,7 @@ public static class LightEngine
         SpreadLight(world, queue, isSunlight: false);
     }
 
-    private static void SpreadLight(WorldData world, Queue<(int x, int y, int z)> queue, bool isSunlight)
+    private static void SpreadLight(WorldState world, Queue<(int x, int y, int z)> queue, bool isSunlight)
     {
         while (queue.Count > 0)
         {
@@ -134,7 +134,7 @@ public static class LightEngine
     /// Phase 1: BFS removal — zero out light that passed through the changed voxels.
     /// Phase 2: BFS fill — re-propagate from neighbors that still have light.
     /// </summary>
-    public static void UpdateLighting(WorldData world, List<Vector3I> changedPositions)
+    public static void UpdateLighting(WorldState world, List<Vector3I> changedPositions)
     {
         UpdateChannel(world, changedPositions, isSunlight: true);
         UpdateChannel(world, changedPositions, isSunlight: false);
@@ -144,7 +144,7 @@ public static class LightEngine
     /// Propagate light outward from positions that already have a light value set.
     /// Use after placing a new light source.
     /// </summary>
-    public static void PropagateLighting(WorldData world, List<Vector3I> sourcePositions)
+    public static void PropagateLighting(WorldState world, List<Vector3I> sourcePositions)
     {
         var queue = new Queue<(int x, int y, int z)>();
         foreach (Vector3I pos in sourcePositions)
@@ -154,7 +154,7 @@ public static class LightEngine
         SpreadLight(world, queue, isSunlight: false);
     }
 
-    private static void UpdateChannel(WorldData world, List<Vector3I> changedPositions, bool isSunlight)
+    private static void UpdateChannel(WorldState world, List<Vector3I> changedPositions, bool isSunlight)
     {
         var removeQueue = new Queue<(int x, int y, int z, int level)>();
         var refillQueue = new Queue<(int x, int y, int z)>();

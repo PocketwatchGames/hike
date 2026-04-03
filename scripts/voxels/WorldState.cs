@@ -2,65 +2,21 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-public class WorldData
+public class WorldState
 {
-    public const int SIZE_X = 8;
-    public const int SIZE_Y = 3;
-    public const int SIZE_Z = 8;
-
-    private const int TREES_PER_CHUNK_MIN = 0;
-    private const int TREES_PER_CHUNK_MAX = 4;
-    private const int STRUCTURE_COUNT = 3;
-    private const int BUILDING_MIN_DIMENSION = 12;
-    private const int BUILDING_MAX_DIMENSION = 24;
-    private const int BUILDING_HEIGHT = 4;
-    private const int FLOORS_MIN = 1;
-    private const int FLOORS_MAX = 3;
-    private const int TORCHES_PER_HOUSE_MIN = 1;
-    private const int TORCHES_PER_HOUSE_MAX = 3;
-    private const int ELEVATION_MULTIPLIER = 20;
-    private const float CAVE_THRESHOLD = 0.4f;
-    private const int DIRT_DEPTH = 3;
-    private const int TERRAIN_NOISE_SEED = 12345;
-    private const int CAVE_NOISE_SEED = 67890;
-    private const int SPAWN_BUILDING_WIDTH = 20;
-    private const int SPAWN_BUILDING_DEPTH = 16;
-    private const int SPAWN_BUILDING_ORIGIN_X = -SPAWN_BUILDING_WIDTH / 2;
-    private const int SPAWN_BUILDING_ORIGIN_Z = -5;
-    private const int SPAWN_FLAT_PADDING = 4;
-    private const int SPAWN_FLAT_MIN_X = SPAWN_BUILDING_ORIGIN_X - SPAWN_FLAT_PADDING;
-    private const int SPAWN_FLAT_MAX_X = SPAWN_BUILDING_ORIGIN_X + SPAWN_BUILDING_WIDTH - 1 + SPAWN_FLAT_PADDING;
-    private const int SPAWN_FLAT_MIN_Z = SPAWN_BUILDING_ORIGIN_Z - SPAWN_FLAT_PADDING;
-    private const int SPAWN_FLAT_MAX_Z = SPAWN_BUILDING_ORIGIN_Z + SPAWN_BUILDING_DEPTH - 1 + SPAWN_FLAT_PADDING;
-
     public readonly Vector3I Min;
     public readonly Vector3I Max;
 
-    private readonly Dictionary<Vector3I, ChunkData> _chunks = new();
-    private readonly Dictionary<Vector3I, List<PropData>> _props = new();
-    private readonly Dictionary<Vector3I, List<InteractiveData>> _interactives = new();
-    private readonly FastNoiseLite _terrainNoise;
-    private readonly FastNoiseLite _caveNoise;
-    private List<(Vector3 position, int level)> _blockLightSources;
+    private readonly Dictionary<Vector3I, ChunkState> _chunks = new();
+    private readonly Dictionary<Vector3I, List<PropGenData>> _props = new();
+    private readonly Dictionary<Vector3I, List<InteractiveGenData>> _interactives = new();
 
-    public WorldData()
+    public WorldState(WorldGenData genData)
     {
-        Min = new Vector3I(-SIZE_X / 2, -1, -SIZE_Z / 2);
-        Max = new Vector3I(Min.X + SIZE_X - 1, Min.Y + SIZE_Y - 1, Min.Z + SIZE_Z - 1);
+        Min = new Vector3I(-genData.SizeX / 2, -1, -genData.SizeZ / 2);
+        Max = new Vector3I(Min.X + genData.SizeX - 1, Min.Y + genData.SizeY - 1, Min.Z + genData.SizeZ - 1);
 
-        _terrainNoise = new FastNoiseLite();
-        _terrainNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        _terrainNoise.Seed = TERRAIN_NOISE_SEED;
-        _terrainNoise.Frequency = 0.02f;
-        _terrainNoise.FractalOctaves = 4;
-
-        _caveNoise = new FastNoiseLite();
-        _caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        _caveNoise.Seed = CAVE_NOISE_SEED;
-        _caveNoise.Frequency = 0.05f;
-        _caveNoise.FractalOctaves = 2;
-
-        Generate();
+        Generate(genData);
     }
 
     // World-coordinate accessors for cross-chunk light propagation
@@ -68,9 +24,9 @@ public class WorldData
     private static Vector3I WorldToChunkCoord(int wx, int wy, int wz)
     {
         return new Vector3I(
-            (int)Math.Floor((double)wx / ChunkData.SIZE),
-            (int)Math.Floor((double)wy / ChunkData.SIZE),
-            (int)Math.Floor((double)wz / ChunkData.SIZE)
+            (int)Math.Floor((double)wx / ChunkState.SIZE),
+            (int)Math.Floor((double)wy / ChunkState.SIZE),
+            (int)Math.Floor((double)wz / ChunkState.SIZE)
         );
     }
 
@@ -88,61 +44,61 @@ public class WorldData
     public VoxelType GetVoxelWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return VoxelType.Air;
         }
-        return chunk.Voxels[Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE)];
+        return chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
     }
 
     public int GetSunlightWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return 0;
         }
-        return chunk.GetSunlight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE));
+        return chunk.GetSunlight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
     }
 
     public void SetSunlightWorld(int wx, int wy, int wz, int level)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.SetSunlight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE), level);
+        chunk.SetSunlight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
     }
 
     public int GetBlockLightWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return 0;
         }
-        return chunk.GetBlockLight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE));
+        return chunk.GetBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
     }
 
     public void SetBlockLightWorld(int wx, int wy, int wz, int level)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.SetBlockLight(Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE), level);
+        chunk.SetBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
     }
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
-        if (!_chunks.TryGetValue(cc, out ChunkData chunk))
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.Voxels[Mod(wx, ChunkData.SIZE), Mod(wy, ChunkData.SIZE), Mod(wz, ChunkData.SIZE)] = type;
+        chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = type;
     }
 
     public int GetLightLevelWorld(int wx, int wy, int wz)
@@ -150,9 +106,9 @@ public class WorldData
         return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
     }
 
-    public ChunkData GetChunk(Vector3I coord)
+    public ChunkState GetChunk(Vector3I coord)
     {
-        _chunks.TryGetValue(coord, out ChunkData data);
+        _chunks.TryGetValue(coord, out ChunkState data);
         return data;
     }
 
@@ -161,35 +117,58 @@ public class WorldData
         return _chunks.ContainsKey(coord);
     }
 
-    public List<PropData> GetProps(Vector3I coord)
+    public List<PropGenData> GetProps(Vector3I coord)
     {
-        _props.TryGetValue(coord, out List<PropData> props);
+        _props.TryGetValue(coord, out List<PropGenData> props);
         return props;
     }
 
-    public List<InteractiveData> GetInteractives(Vector3I coord)
+    public List<InteractiveGenData> GetInteractives(Vector3I coord)
     {
-        _interactives.TryGetValue(coord, out List<InteractiveData> interactives);
+        _interactives.TryGetValue(coord, out List<InteractiveGenData> interactives);
         return interactives;
     }
 
-    private void AddInteractive(InteractiveData data)
+    private void AddInteractive(InteractiveGenData data)
     {
         Vector3I cc = WorldToChunkCoord(
             (int)Math.Floor(data.WorldPosition.X),
             (int)Math.Floor(data.WorldPosition.Y),
             (int)Math.Floor(data.WorldPosition.Z)
         );
-        if (!_interactives.TryGetValue(cc, out List<InteractiveData> list))
+        if (!_interactives.TryGetValue(cc, out List<InteractiveGenData> list))
         {
-            list = new List<InteractiveData>();
+            list = new List<InteractiveGenData>();
             _interactives[cc] = list;
         }
         list.Add(data);
     }
 
-    private void Generate()
+    private void Generate(WorldGenData genData)
     {
+        var terrainNoise = new FastNoiseLite();
+        terrainNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        terrainNoise.Seed = genData.TerrainNoiseSeed;
+        terrainNoise.Frequency = 0.02f;
+        terrainNoise.FractalOctaves = 4;
+
+        var caveNoise = new FastNoiseLite();
+        caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        caveNoise.Seed = genData.CaveNoiseSeed;
+        caveNoise.Frequency = 0.05f;
+        caveNoise.FractalOctaves = 2;
+
+        var grassNoise = new FastNoiseLite();
+        grassNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        grassNoise.Seed = genData.GrassNoiseSeed;
+        grassNoise.Frequency = 0.1f;
+        grassNoise.FractalOctaves = 2;
+
+        int spawnFlatMinX = genData.SpawnBuildingOriginX - genData.SpawnFlatPadding;
+        int spawnFlatMaxX = genData.SpawnBuildingOriginX + genData.SpawnBuildingWidth - 1 + genData.SpawnFlatPadding;
+        int spawnFlatMinZ = genData.SpawnBuildingOriginZ - genData.SpawnFlatPadding;
+        int spawnFlatMaxZ = genData.SpawnBuildingOriginZ + genData.SpawnBuildingDepth - 1 + genData.SpawnFlatPadding;
+
         for (int x = Min.X; x <= Max.X; x++)
         {
             for (int y = Min.Y; y <= Max.Y; y++)
@@ -197,15 +176,16 @@ public class WorldData
                 for (int z = Min.Z; z <= Max.Z; z++)
                 {
                     var coord = new Vector3I(x, y, z);
-                    var chunk = new ChunkData(coord);
-                    GenerateChunk(chunk);
+                    var chunk = new ChunkState(coord);
+                    GenerateChunk(chunk, genData, terrainNoise, caveNoise,
+                        spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
                     _chunks[coord] = chunk;
                 }
             }
         }
 
         // Generate world-space structures after all terrain chunks exist
-        GenerateStructures();
+        GenerateStructures(genData);
 
         // Generate props on surface chunks after all voxels are placed
         var blockLightSources = new List<(Vector3 position, int level)>();
@@ -214,13 +194,12 @@ public class WorldData
             for (int z = Min.Z; z <= Max.Z; z++)
             {
                 var coord = new Vector3I(x, 0, z);
-                GenerateProps(coord, blockLightSources);
+                GenerateProps(coord, genData, grassNoise, blockLightSources);
             }
         }
 
         // Compute volumetric lighting after all geometry and light sources are placed
-        _blockLightSources = blockLightSources;
-        LightEngine.ComputeLighting(this, _blockLightSources);
+        LightEngine.ComputeLighting(this, blockLightSources);
     }
 
     public void UpdateLightingAt(List<Vector3I> changedPositions)
@@ -233,27 +212,29 @@ public class WorldData
         LightEngine.PropagateLighting(this, sourcePositions);
     }
 
-    private void GenerateChunk(ChunkData data)
+    private void GenerateChunk(ChunkState data, WorldGenData genData,
+        FastNoiseLite terrainNoise, FastNoiseLite caveNoise,
+        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
-        int chunkWorldX = data.ChunkCoord.X * ChunkData.SIZE;
-        int chunkWorldY = data.ChunkCoord.Y * ChunkData.SIZE;
-        int chunkWorldZ = data.ChunkCoord.Z * ChunkData.SIZE;
+        int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
+        int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
+        int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
 
-        for (int x = 0; x < ChunkData.SIZE; x++)
+        for (int x = 0; x < ChunkState.SIZE; x++)
         {
-            for (int z = 0; z < ChunkData.SIZE; z++)
+            for (int z = 0; z < ChunkState.SIZE; z++)
             {
                 int wx = chunkWorldX + x;
                 int wz = chunkWorldZ + z;
 
-                float noiseVal = _terrainNoise.GetNoise2D(wx, wz);
-                bool isSpawnFlat = wx >= SPAWN_FLAT_MIN_X && wx <= SPAWN_FLAT_MAX_X
-                    && wz >= SPAWN_FLAT_MIN_Z && wz <= SPAWN_FLAT_MAX_Z;
-                float rawHeight = isSpawnFlat ? 0f : Math.Max(0f, ELEVATION_MULTIPLIER * noiseVal);
+                float noiseVal = terrainNoise.GetNoise2D(wx, wz);
+                bool isSpawnFlat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
+                    && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
+                float rawHeight = isSpawnFlat ? 0f : Math.Max(0f, genData.ElevationMultiplier * noiseVal);
                 int solidHeight = (int)rawHeight;
                 bool hasSlab = !isSpawnFlat && (rawHeight - solidHeight) >= 0.5f;
 
-                for (int y = 0; y < ChunkData.SIZE; y++)
+                for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
 
@@ -277,10 +258,10 @@ public class WorldData
                     bool topSolid = true;
                     if (wy > 0)
                     {
-                        float caveLow = _caveNoise.GetNoise3D(wx, wy + 0.25f, wz);
-                        float caveHigh = _caveNoise.GetNoise3D(wx, wy + 0.75f, wz);
-                        bottomSolid = caveLow <= CAVE_THRESHOLD;
-                        topSolid = caveHigh <= CAVE_THRESHOLD;
+                        float caveLow = caveNoise.GetNoise3D(wx, wy + 0.25f, wz);
+                        float caveHigh = caveNoise.GetNoise3D(wx, wy + 0.75f, wz);
+                        bottomSolid = caveLow <= genData.CaveThreshold;
+                        topSolid = caveHigh <= genData.CaveThreshold;
                     }
 
                     // For terrain surface slabs, only the bottom half has geometry
@@ -303,7 +284,7 @@ public class WorldData
                         bottomSlabType = VoxelType.GrassSlabBottom;
                         topSlabType = VoxelType.StoneSlabTop;
                     }
-                    else if (wy >= solidHeight - DIRT_DEPTH)
+                    else if (wy >= solidHeight - genData.DirtDepth)
                     {
                         fullType = VoxelType.Dirt;
                         bottomSlabType = VoxelType.DirtSlabBottom;
@@ -333,17 +314,18 @@ public class WorldData
         }
     }
 
-    private void GenerateProps(Vector3I chunkCoord, List<(Vector3 position, int level)> blockLightSources)
+    private void GenerateProps(Vector3I chunkCoord, WorldGenData genData,
+        FastNoiseLite grassNoise, List<(Vector3 position, int level)> blockLightSources)
     {
-        ChunkData data = _chunks[chunkCoord];
+        ChunkState data = _chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
-        int treeCount = rng.Next(TREES_PER_CHUNK_MIN, TREES_PER_CHUNK_MAX + 1);
-        var props = new List<PropData>();
+        int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
+        var props = new List<PropGenData>();
 
         for (int i = 0; i < treeCount; i++)
         {
-            int localX = rng.Next(1, ChunkData.SIZE - 1);
-            int localZ = rng.Next(1, ChunkData.SIZE - 1);
+            int localX = rng.Next(1, ChunkState.SIZE - 1);
+            int localZ = rng.Next(1, ChunkState.SIZE - 1);
 
             // Only place on grass with clear air above (up through max building height)
             if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
@@ -351,7 +333,7 @@ public class WorldData
                 continue;
             }
             bool blocked = false;
-            for (int y = 1; y <= BUILDING_HEIGHT; y++)
+            for (int y = 1; y <= genData.BuildingHeight; y++)
             {
                 if (data.GetVoxel(localX, y, localZ) != VoxelType.Air)
                 {
@@ -364,15 +346,39 @@ public class WorldData
                 continue;
             }
 
-            float worldX = chunkCoord.X * ChunkData.SIZE + localX + 0.5f;
-            float worldY = chunkCoord.Y * ChunkData.SIZE + 1f;
-            float worldZ = chunkCoord.Z * ChunkData.SIZE + localZ + 0.5f;
+            float worldX = chunkCoord.X * ChunkState.SIZE + localX + 0.5f;
+            float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
+            float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
-            props.Add(new PropData(PropType.Tree, new Vector3(worldX, worldY, worldZ)));
+            props.Add(new PropGenData(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
+        }
+
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+            {
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+
+                if (grassNoise.GetNoise2D(wx, wz) < genData.GrassThreshold)
+                {
+                    continue;
+                }
+                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                {
+                    continue;
+                }
+                if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+                {
+                    continue;
+                }
+
+                props.Add(new PropGenData(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
+            }
         }
 
         // Place torches inside houses as interactives
-        GenerateTorches(data, chunkCoord, rng, blockLightSources);
+        GenerateTorches(data, chunkCoord, genData, rng, blockLightSources);
 
         if (props.Count > 0)
         {
@@ -380,16 +386,16 @@ public class WorldData
         }
     }
 
-    private void GenerateTorches(ChunkData data, Vector3I chunkCoord, Random rng,
-        List<(Vector3 position, int level)> blockLightSources)
+    private void GenerateTorches(ChunkState data, Vector3I chunkCoord, WorldGenData genData,
+        Random rng, List<(Vector3 position, int level)> blockLightSources)
     {
         // Detect if this chunk has a house by checking for Wood walls at y=1
         bool hasHouse = false;
-        int houseMinX = ChunkData.SIZE, houseMaxX = 0;
-        int houseMinZ = ChunkData.SIZE, houseMaxZ = 0;
-        for (int x = 0; x < ChunkData.SIZE; x++)
+        int houseMinX = ChunkState.SIZE, houseMaxX = 0;
+        int houseMinZ = ChunkState.SIZE, houseMaxZ = 0;
+        for (int x = 0; x < ChunkState.SIZE; x++)
         {
-            for (int z = 0; z < ChunkData.SIZE; z++)
+            for (int z = 0; z < ChunkState.SIZE; z++)
             {
                 if (data.Voxels[x, 1, z] == VoxelType.Wood)
                 {
@@ -419,7 +425,7 @@ public class WorldData
         }
 
         const int TORCH_LIGHT_EMISSION = 14;
-        int torchCount = rng.Next(TORCHES_PER_HOUSE_MIN, TORCHES_PER_HOUSE_MAX + 1);
+        int torchCount = rng.Next(genData.TorchesPerHouseMin, genData.TorchesPerHouseMax + 1);
         for (int i = 0; i < torchCount; i++)
         {
             int localX = rng.Next(interiorMinX, interiorMaxX + 1);
@@ -431,37 +437,32 @@ public class WorldData
                 continue;
             }
 
-            float worldX = chunkCoord.X * ChunkData.SIZE + localX + 0.5f;
-            float worldY = chunkCoord.Y * ChunkData.SIZE + 1f;
-            float worldZ = chunkCoord.Z * ChunkData.SIZE + localZ + 0.5f;
+            float worldX = chunkCoord.X * ChunkState.SIZE + localX + 0.5f;
+            float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
+            float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
-            AddInteractive(new InteractiveData(
+            AddInteractive(new InteractiveGenData(
                 InteractiveType.Torch,
                 torchPos,
-                0f
+                0f,
+                genData.TorchScene
             ));
 
             blockLightSources.Add((torchPos, TORCH_LIGHT_EMISSION));
         }
     }
 
-    private void GenerateStructures()
+    private void GenerateStructures(WorldGenData genData)
     {
-        int worldMinX = Min.X * ChunkData.SIZE;
-        int worldMaxX = (Max.X + 1) * ChunkData.SIZE - 1;
-        int worldMinZ = Min.Z * ChunkData.SIZE;
-        int worldMaxZ = (Max.Z + 1) * ChunkData.SIZE - 1;
-
-        var rng = new Random(HashCode.Combine(SIZE_X, SIZE_Z, 42));
+        var rng = new Random(HashCode.Combine(genData.SizeX, genData.SizeZ, 42));
 
         // Fixed building just north of spawn (player spawns at 0,4,0)
-        GenerateHouse(rng, SPAWN_BUILDING_ORIGIN_X, SPAWN_BUILDING_ORIGIN_Z,
-            SPAWN_BUILDING_WIDTH, SPAWN_BUILDING_DEPTH, 3);
-
+        GenerateHouse(rng, genData, genData.SpawnBuildingOriginX, genData.SpawnBuildingOriginZ,
+            genData.SpawnBuildingWidth, genData.SpawnBuildingDepth, 3);
     }
 
-    private void GenerateHouse(Random rng, int originX, int originZ, int widthX, int widthZ, int numFloors)
+    private void GenerateHouse(Random rng, WorldGenData genData, int originX, int originZ, int widthX, int widthZ, int numFloors)
     {
         const int CEILING_HEIGHT = 3;
         const int DOOR_HEIGHT = 2;
@@ -546,10 +547,11 @@ public class WorldData
                 int wy = baseY + dy;
                 SetVoxelWorld(doorWx, wy, doorWz, VoxelType.Barrier);
             }
-            AddInteractive(new InteractiveData(
+            AddInteractive(new InteractiveGenData(
                 InteractiveType.Door,
                 new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
-                doorRotY
+                doorRotY,
+                genData.DoorScene
             ));
         }
 

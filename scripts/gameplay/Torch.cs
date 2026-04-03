@@ -6,7 +6,7 @@ public partial class Torch : Node3D, IInteractive
     private const int TORCH_LIGHT_EMISSION = 14;
 
     private bool _active = true;
-    private WorldData _worldData;
+    private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
     private Sprite3D _torchSprite;
@@ -54,10 +54,9 @@ public partial class Torch : Node3D, IInteractive
         }
     }
 
-    public static Torch Create(InteractiveData data, WorldData worldData, VoxelWorld voxelWorld)
+    public static Torch Create(InteractiveGenData data, WorldState worldData, VoxelWorld voxelWorld)
     {
-        var scene = GD.Load<PackedScene>("res://scenes/game/torch.tscn");
-        var instance = scene.Instantiate<Torch>();
+        var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
         instance._worldData = worldData;
         instance._voxelWorld = voxelWorld;

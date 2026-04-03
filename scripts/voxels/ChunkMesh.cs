@@ -165,22 +165,22 @@ public partial class ChunkMesh : Node3D
     }
 
     public static ChunkMesh Create(
-        ChunkData data,
+        ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         LightMap lightMap)
     {
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
-            data.ChunkCoord.X * ChunkData.SIZE,
-            data.ChunkCoord.Y * ChunkData.SIZE,
-            data.ChunkCoord.Z * ChunkData.SIZE
+            data.ChunkCoord.X * ChunkState.SIZE,
+            data.ChunkCoord.Y * ChunkState.SIZE,
+            data.ChunkCoord.Z * ChunkState.SIZE
         );
         chunk.BuildMesh(data, getVoxel, lightMap);
         return chunk;
     }
 
     private void BuildMesh(
-        ChunkData data,
+        ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         LightMap lightMap)
     {
@@ -195,17 +195,17 @@ public partial class ChunkMesh : Node3D
         st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
-        int chunkWorldX = data.ChunkCoord.X * ChunkData.SIZE;
-        int chunkWorldY = data.ChunkCoord.Y * ChunkData.SIZE;
-        int chunkWorldZ = data.ChunkCoord.Z * ChunkData.SIZE;
+        int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
+        int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
+        int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
 
         bool hasAnyFace = false;
 
-        for (int x = 0; x < ChunkData.SIZE; x++)
+        for (int x = 0; x < ChunkState.SIZE; x++)
         {
-            for (int y = 0; y < ChunkData.SIZE; y++)
+            for (int y = 0; y < ChunkState.SIZE; y++)
             {
-                for (int z = 0; z < ChunkData.SIZE; z++)
+                for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     VoxelType type = data.Voxels[x, y, z];
                     if (!VoxelTypeInfo.IsSolid(type) || type == VoxelType.Barrier)
@@ -306,13 +306,13 @@ public partial class ChunkMesh : Node3D
         CollisionReady = true;
     }
 
-    private static bool IsAllAir(ChunkData data)
+    private static bool IsAllAir(ChunkState data)
     {
-        for (int x = 0; x < ChunkData.SIZE; x++)
+        for (int x = 0; x < ChunkState.SIZE; x++)
         {
-            for (int y = 0; y < ChunkData.SIZE; y++)
+            for (int y = 0; y < ChunkState.SIZE; y++)
             {
-                for (int z = 0; z < ChunkData.SIZE; z++)
+                for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     if (data.Voxels[x, y, z] != VoxelType.Air)
                     {

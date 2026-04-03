@@ -19,10 +19,10 @@ public partial class Main : Node
 		StartMainMenu();
 	}
 
-	void NewGame(Vector3 playerPosition, PackedScene playerScene)
+	void NewGame(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
 	{
 		_currentScreen.QueueFree();
-		StartGame(playerPosition, playerScene);
+		StartGame(playerPosition, playerScene, worldGenData);
 	}
 
 	void LoadGame(string savePath)
@@ -32,11 +32,12 @@ public partial class Main : Node
 		//StartGame();
 	}
 
-	void StartGame(Vector3 playerPosition, PackedScene playerScene)
+	void StartGame(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData)
 	{
+		var worldState = new WorldState(worldGenData);
 		_currentScreen = GameScene.Instantiate<Node>();
 		AddChild(_currentScreen);
-		(_currentScreen as GameClient).Init(playerPosition, playerScene);
+		(_currentScreen as GameClient).Init(playerPosition, playerScene, worldState);
 		(_currentScreen as GameClient).onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();

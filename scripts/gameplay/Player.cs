@@ -14,6 +14,8 @@ public partial class Player : CharacterBody3D
 	private IInteractive _curInteractive;
 	private IInteractive _highlightInteractive;
 	private readonly List<IInteractive> _interactiveCollisions = new();
+	private readonly List<TallGrass> _tallGrassCollisions = new();
+	private float _terrainSpeed = 1f;
 
 	public override void _Ready()
 	{
@@ -32,6 +34,22 @@ public partial class Player : CharacterBody3D
 		interactArea.AreaExited += OnInteractAreaExited;
 
 		AddChild(interactArea);
+
+		var terrainArea = new Area3D();
+		terrainArea.CollisionLayer = 0;
+		terrainArea.CollisionMask = 8; // Layer 4 (bit 3) — terrain modifiers
+
+		var terrainShape = new SphereShape3D();
+		terrainShape.Radius = 0.3f;
+		var terrainCollision = new CollisionShape3D();
+		terrainCollision.Shape = terrainShape;
+		terrainCollision.Position = new Vector3(0f, 0.5f, 0f);
+		terrainArea.AddChild(terrainCollision);
+
+		terrainArea.AreaEntered += OnTerrainAreaEntered;
+		terrainArea.AreaExited += OnTerrainAreaExited;
+
+		AddChild(terrainArea);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -44,11 +62,14 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		UpdateTerrainSpeed();
+
 		float speed = moveSpeed;
 		if (Input.IsActionPressed("Sneak"))
 		{
 			speed = sneakSpeed;
 		}
+		speed *= _terrainSpeed;
 
 		Vector3 cameraRelativeMovement = new Vector3(InputDir.X, 0, InputDir.Y).Rotated(Vector3.Up, CameraYaw);
 		Velocity = cameraRelativeMovement * speed;
@@ -150,6 +171,31 @@ public partial class Player : CharacterBody3D
 		if (parent is IInteractive interactive)
 		{
 			_interactiveCollisions.Remove(interactive);
+		}
+	}
+
+	private void UpdateTerrainSpeed()
+	{
+		_terrainSpeed = 1f;
+		foreach (TallGrass grass in _tallGrassCollisions)
+		{
+			_terrainSpeed *= grass.speed;
+		}
+	}
+
+	private void OnTerrainAreaEntered(Area3D area)
+	{
+		if (area is TallGrass tallGrass)
+		{
+			_tallGrassCollisions.Add(tallGrass);
+		}
+	}
+
+	private void OnTerrainAreaExited(Area3D area)
+	{
+		if (area is TallGrass tallGrass)
+		{
+			_tallGrassCollisions.Remove(tallGrass);
 		}
 	}
 }

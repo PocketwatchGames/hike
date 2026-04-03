@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://srhprcjm6tmo"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Texture2D" uid="uid://dox3xx26oghi4" path="res://assets/textures/tree_01.png" id="2_7o05m"]
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]
+height = 5.0
+
+[node name="PropInstance" type="Node3D" unique_id=1516630868]
+script = ExtResource("1_prop")
+
+[node name="Body" type="StaticBody3D" parent="." unique_id=1512262399]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=798222123]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+shape = SubResource("CylinderShape3D_trunk")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=1014885173]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28044546, 3.4008954, -0.23478961)
+pixel_size = 0.03
+billboard = 2
+texture = ExtResource("2_7o05m")

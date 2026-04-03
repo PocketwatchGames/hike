@@ -36,22 +36,20 @@ public partial class GameClient : Node3D
 	float _destYaw = 45;
 	bool _cameraClipAlways = false;
 	Player _player;
-	VoxelWorld _voxelWorld;
+	VoxelWorld _voxelState;
 	MeshInstance3D _clipCapPlane;
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene)
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState)
 	{
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
 
-		var worldData = new WorldData();
+		_voxelState = new VoxelWorld();
+		AddChild(_voxelState);
+		_voxelState.SetCamera(camera);
+		_voxelState.Initialize(worldState, playerPosition);
 
-		_voxelWorld = new VoxelWorld();
-		AddChild(_voxelWorld);
-		_voxelWorld.SetCamera(camera);
-		_voxelWorld.Initialize(worldData, playerPosition);
-
-		while (!_voxelWorld.IsSpawnChunkReady(playerPosition))
+		while (!_voxelState.IsSpawnChunkReady(playerPosition))
 		{
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
@@ -61,7 +59,7 @@ public partial class GameClient : Node3D
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;
 
-		_voxelWorld.SetPlayerPositionSource(() => _player.GlobalPosition);
+		_voxelState.SetPlayerPositionSource(() => _player.GlobalPosition);
 
 		var capShader = GD.Load<Shader>("res://shaders/clip_cap.gdshader");
 		var capMaterial = new ShaderMaterial();
@@ -104,7 +102,7 @@ public partial class GameClient : Node3D
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
 
 		UpdateCameraClip();
-		_voxelWorld.CullProps(_cameraClip);
+		_voxelState.CullProps(_cameraClip);
 	}
 
 	private void UpdateCameraClip()

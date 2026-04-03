@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://6yefvnijgm0y"]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="2_tallgrass"]
+[ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/tall_grass_01.png" id="3_dhrga"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_grass"]
+
+[node name="PropInstance2" type="Node3D" unique_id=25637826]
+script = ExtResource("1_prop")
+
+[node name="TallGrass" type="Area3D" parent="." unique_id=258953999]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("2_tallgrass")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TallGrass" unique_id=1762191049]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_grass")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=591286638]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+billboard = 2
+texture = ExtResource("3_dhrga")

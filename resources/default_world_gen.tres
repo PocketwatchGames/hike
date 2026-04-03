@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="WorldGenData" format=3]
+
+[ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/WorldGenData.cs" id="1_script"]
+[ext_resource type="PackedScene" uid="uid://srhprcjm6tmo" path="res://scenes/game/tree.tscn" id="2_tree"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/game/tall_grass.tscn" id="3_grass"]
+[ext_resource type="PackedScene" path="res://scenes/game/door.tscn" id="4_door"]
+[ext_resource type="PackedScene" path="res://scenes/game/torch.tscn" id="5_torch"]
+
+[resource]
+script = ExtResource("1_script")
+SizeX = 8
+SizeY = 3
+SizeZ = 8
+TerrainNoiseSeed = 12345
+CaveNoiseSeed = 67890
+GrassNoiseSeed = 31415
+ElevationMultiplier = 20.0
+CaveThreshold = 0.4
+GrassThreshold = 0.3
+DirtDepth = 3
+TreesPerChunkMin = 0
+TreesPerChunkMax = 4
+BuildingHeight = 4
+TorchesPerHouseMin = 1
+TorchesPerHouseMax = 3
+SpawnBuildingWidth = 20
+SpawnBuildingDepth = 16
+SpawnBuildingOriginX = -10
+SpawnBuildingOriginZ = -5
+SpawnFlatPadding = 4
+TreeScene = ExtResource("2_tree")
+TallGrassScene = ExtResource("3_grass")
+DoorScene = ExtResource("4_door")
+TorchScene = ExtResource("5_torch")

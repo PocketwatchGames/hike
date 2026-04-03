@@ -13,11 +13,11 @@ public partial class VoxelWorld : Node3D
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
     private Vector3I _lastPlayerChunkCoord;
     private Func<Vector3> _getPlayerPosition;
-    private WorldData _worldData;
+    private WorldState _worldData;
     private LightMap _lightMap;
     private Camera3D _camera;
 
-    public void Initialize(WorldData worldData, Vector3 spawnPosition)
+    public void Initialize(WorldState worldData, Vector3 spawnPosition)
     {
         _worldData = worldData;
         _lightMap = new LightMap(worldData);
@@ -58,23 +58,23 @@ public partial class VoxelWorld : Node3D
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)
     {
         return new Vector3I(
-            Mathf.FloorToInt(worldPos.X / ChunkData.SIZE),
-            Mathf.FloorToInt(worldPos.Y / ChunkData.SIZE),
-            Mathf.FloorToInt(worldPos.Z / ChunkData.SIZE)
+            Mathf.FloorToInt(worldPos.X / ChunkState.SIZE),
+            Mathf.FloorToInt(worldPos.Y / ChunkState.SIZE),
+            Mathf.FloorToInt(worldPos.Z / ChunkState.SIZE)
         );
     }
 
     private void CreateWorldBoundary()
     {
         Vector3 minWorld = new Vector3(
-            _worldData.Min.X * ChunkData.SIZE,
-            _worldData.Min.Y * ChunkData.SIZE,
-            _worldData.Min.Z * ChunkData.SIZE
+            _worldData.Min.X * ChunkState.SIZE,
+            _worldData.Min.Y * ChunkState.SIZE,
+            _worldData.Min.Z * ChunkState.SIZE
         );
         Vector3 maxWorld = new Vector3(
-            (_worldData.Max.X + 1) * ChunkData.SIZE,
-            (_worldData.Max.Y + 1) * ChunkData.SIZE,
-            (_worldData.Max.Z + 1) * ChunkData.SIZE
+            (_worldData.Max.X + 1) * ChunkState.SIZE,
+            (_worldData.Max.Y + 1) * ChunkState.SIZE,
+            (_worldData.Max.Z + 1) * ChunkState.SIZE
         );
         Vector3 center = (minWorld + maxWorld) / 2f;
         Vector3 size = maxWorld - minWorld;
@@ -159,10 +159,10 @@ public partial class VoxelWorld : Node3D
 
                         Aabb chunkAabb = new Aabb(
                             new Vector3(
-                                coord.X * ChunkData.SIZE,
-                                coord.Y * ChunkData.SIZE,
-                                coord.Z * ChunkData.SIZE),
-                            new Vector3(ChunkData.SIZE, ChunkData.SIZE, ChunkData.SIZE)
+                                coord.X * ChunkState.SIZE,
+                                coord.Y * ChunkState.SIZE,
+                                coord.Z * ChunkState.SIZE),
+                            new Vector3(ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE)
                         );
 
                         if (IsAabbInFrustum(chunkAabb, frustumPlanes))
@@ -212,7 +212,7 @@ public partial class VoxelWorld : Node3D
         {
             if (!_loadedChunks.ContainsKey(coord))
             {
-                ChunkData data = _worldData.GetChunk(coord);
+                ChunkState data = _worldData.GetChunk(coord);
                 if (data == null)
                 {
                     continue;
@@ -221,11 +221,11 @@ public partial class VoxelWorld : Node3D
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
 
-                List<PropData> propDataList = _worldData.GetProps(coord);
+                List<PropGenData> propDataList = _worldData.GetProps(coord);
                 if (propDataList != null)
                 {
                     var propInstances = new List<PropInstance>();
-                    foreach (PropData propData in propDataList)
+                    foreach (PropGenData propData in propDataList)
                     {
                         PropInstance prop = PropInstance.Create(propData);
                         AddChild(prop);
@@ -234,11 +234,11 @@ public partial class VoxelWorld : Node3D
                     _loadedProps[coord] = propInstances;
                 }
 
-                List<InteractiveData> interactiveDataList = _worldData.GetInteractives(coord);
+                List<InteractiveGenData> interactiveDataList = _worldData.GetInteractives(coord);
                 if (interactiveDataList != null)
                 {
                     var interactiveInstances = new List<Node3D>();
-                    foreach (InteractiveData interactiveData in interactiveDataList)
+                    foreach (InteractiveGenData interactiveData in interactiveDataList)
                     {
                         Node3D interactive = interactiveData.Type switch
                         {
@@ -298,7 +298,7 @@ public partial class VoxelWorld : Node3D
                 continue;
             }
 
-            ChunkData data = _worldData.GetChunk(coord);
+            ChunkState data = _worldData.GetChunk(coord);
             if (data == null)
             {
                 continue;
