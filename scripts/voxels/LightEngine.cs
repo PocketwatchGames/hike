@@ -128,4 +128,137 @@ public static class LightEngine
             }
         }
     }
+
+    /// <summary>
+    /// Incremental light update after voxels change.
+    /// Phase 1: BFS removal — zero out light that passed through the changed voxels.
+    /// Phase 2: BFS fill — re-propagate from neighbors that still have light.
+    /// </summary>
+    public static void UpdateLighting(WorldData world, List<Vector3I> changedPositions)
+    {
+        UpdateChannel(world, changedPositions, isSunlight: true);
+        UpdateChannel(world, changedPositions, isSunlight: false);
+    }
+
+    /// <summary>
+    /// Propagate light outward from positions that already have a light value set.
+    /// Use after placing a new light source.
+    /// </summary>
+    public static void PropagateLighting(WorldData world, List<Vector3I> sourcePositions)
+    {
+        var queue = new Queue<(int x, int y, int z)>();
+        foreach (Vector3I pos in sourcePositions)
+        {
+            queue.Enqueue((pos.X, pos.Y, pos.Z));
+        }
+        SpreadLight(world, queue, isSunlight: false);
+    }
+
+    private static void UpdateChannel(WorldData world, List<Vector3I> changedPositions, bool isSunlight)
+    {
+        var removeQueue = new Queue<(int x, int y, int z, int level)>();
+        var refillQueue = new Queue<(int x, int y, int z)>();
+
+        foreach (Vector3I pos in changedPositions)
+        {
+            bool isNowAir = world.GetVoxelWorld(pos.X, pos.Y, pos.Z) == VoxelType.Air;
+            int level = isSunlight
+                ? world.GetSunlightWorld(pos.X, pos.Y, pos.Z)
+                : world.GetBlockLightWorld(pos.X, pos.Y, pos.Z);
+
+            if (isNowAir && level > 0)
+            {
+                // Air voxel whose light was reduced (e.g. light source removed) —
+                // run removal BFS to clear propagated light, then refill.
+                removeQueue.Enqueue((pos.X, pos.Y, pos.Z, level));
+                if (isSunlight)
+                {
+                    world.SetSunlightWorld(pos.X, pos.Y, pos.Z, 0);
+                }
+                else
+                {
+                    world.SetBlockLightWorld(pos.X, pos.Y, pos.Z, 0);
+                }
+            }
+            else if (isNowAir)
+            {
+                // Voxel became transparent — seed refill from lit neighbors
+                foreach (Vector3I offset in Neighbors)
+                {
+                    int nx = pos.X + offset.X;
+                    int ny = pos.Y + offset.Y;
+                    int nz = pos.Z + offset.Z;
+
+                    if (!world.IsInBounds(nx, ny, nz))
+                    {
+                        continue;
+                    }
+
+                    int neighborLevel = isSunlight
+                        ? world.GetSunlightWorld(nx, ny, nz)
+                        : world.GetBlockLightWorld(nx, ny, nz);
+
+                    if (neighborLevel > 0)
+                    {
+                        refillQueue.Enqueue((nx, ny, nz));
+                    }
+                }
+            }
+            else if (level > 0)
+            {
+                // Voxel became solid — remove light that was passing through
+                removeQueue.Enqueue((pos.X, pos.Y, pos.Z, level));
+                if (isSunlight)
+                {
+                    world.SetSunlightWorld(pos.X, pos.Y, pos.Z, 0);
+                }
+                else
+                {
+                    world.SetBlockLightWorld(pos.X, pos.Y, pos.Z, 0);
+                }
+            }
+        }
+
+        // Phase 1: Removal BFS — zero out light downstream of newly-solid voxels
+        while (removeQueue.Count > 0)
+        {
+            var (x, y, z, level) = removeQueue.Dequeue();
+
+            foreach (Vector3I offset in Neighbors)
+            {
+                int nx = x + offset.X;
+                int ny = y + offset.Y;
+                int nz = z + offset.Z;
+
+                if (!world.IsInBounds(nx, ny, nz))
+                {
+                    continue;
+                }
+
+                int neighborLevel = isSunlight
+                    ? world.GetSunlightWorld(nx, ny, nz)
+                    : world.GetBlockLightWorld(nx, ny, nz);
+
+                if (neighborLevel > 0 && neighborLevel < level)
+                {
+                    removeQueue.Enqueue((nx, ny, nz, neighborLevel));
+                    if (isSunlight)
+                    {
+                        world.SetSunlightWorld(nx, ny, nz, 0);
+                    }
+                    else
+                    {
+                        world.SetBlockLightWorld(nx, ny, nz, 0);
+                    }
+                }
+                else if (neighborLevel >= level)
+                {
+                    refillQueue.Enqueue((nx, ny, nz));
+                }
+            }
+        }
+
+        // Phase 2: Re-propagate from remaining lit neighbors
+        SpreadLight(world, refillQueue, isSunlight);
+    }
 }

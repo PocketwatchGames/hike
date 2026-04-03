@@ -13,6 +13,9 @@ public enum VoxelType : byte
     StoneSlabTop,
     WoodSlabBottom,
     WoodSlabTop,
+    GrassSlabBottom,
+    DirtSlabBottom,
+    Barrier,
 }
 
 public static class VoxelTypeInfo
@@ -28,6 +31,8 @@ public static class VoxelTypeInfo
         { VoxelType.StoneSlabTop, new Color(0.5f, 0.5f, 0.5f) },
         { VoxelType.WoodSlabBottom, new Color(0.6f, 0.4f, 0.2f) },
         { VoxelType.WoodSlabTop, new Color(0.6f, 0.4f, 0.2f) },
+        { VoxelType.GrassSlabBottom, new Color(0.3f, 0.65f, 0.2f) },
+        { VoxelType.DirtSlabBottom, new Color(0.55f, 0.35f, 0.15f) },
     };
 
     public static bool IsSolid(VoxelType type)
@@ -37,13 +42,13 @@ public static class VoxelTypeInfo
 
     public static bool IsSlab(VoxelType type)
     {
-        return type is VoxelType.StoneSlabBottom or VoxelType.StoneSlabTop
-            or VoxelType.WoodSlabBottom or VoxelType.WoodSlabTop;
+        return IsBottomSlab(type) || IsTopSlab(type);
     }
 
     public static bool IsBottomSlab(VoxelType type)
     {
-        return type is VoxelType.StoneSlabBottom or VoxelType.WoodSlabBottom;
+        return type is VoxelType.StoneSlabBottom or VoxelType.WoodSlabBottom
+            or VoxelType.GrassSlabBottom or VoxelType.DirtSlabBottom;
     }
 
     public static bool IsTopSlab(VoxelType type)

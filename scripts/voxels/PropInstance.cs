@@ -27,9 +27,7 @@ public partial class PropInstance : Node3D
         sprite.Billboard = BaseMaterial3D.BillboardModeEnum.FixedY;
         sprite.PixelSize = 0.05f;
         sprite.Position = new Vector3(0f, def.SpriteSize.Y / 2f, 0f);
-        sprite.Texture = data.Type == PropType.Torch
-            ? CreateTorchTexture(def)
-            : CreatePlaceholderTexture(def);
+        sprite.Texture = CreatePlaceholderTexture(def);
         instance.AddChild(sprite);
 
         // Light-emitting props get a small OmniLight for visual flair on nearby objects
@@ -115,54 +113,4 @@ public partial class PropInstance : Node3D
         return ImageTexture.CreateFromImage(image);
     }
 
-    private static ImageTexture CreateTorchTexture(PropDefinition def)
-    {
-        const int PIXELS_PER_UNIT = 20;
-        int width = (int)(def.SpriteSize.X * PIXELS_PER_UNIT);
-        int height = (int)(def.SpriteSize.Y * PIXELS_PER_UNIT);
-
-        var image = Image.CreateEmpty(width, height, false, Image.Format.Rgba8);
-
-        Color stick = new Color(0.5f, 0.35f, 0.15f);
-        Color flameCore = new Color(1.0f, 0.9f, 0.3f);
-        Color flameOuter = new Color(1.0f, 0.5f, 0.1f);
-
-        int stickWidth = Mathf.Max(width / 5, 2);
-        int stickStartX = (width - stickWidth) / 2;
-        int stickTopY = height / 3;
-
-        // Draw stick
-        for (int x = stickStartX; x < stickStartX + stickWidth; x++)
-        {
-            for (int y = stickTopY; y < height; y++)
-            {
-                image.SetPixel(x, y, stick);
-            }
-        }
-
-        // Draw flame (ellipse at top of stick)
-        int flameCenterX = width / 2;
-        int flameCenterY = stickTopY - height / 8;
-        int flameRadiusX = Mathf.Max(width / 4, 3);
-        int flameRadiusY = Mathf.Max(height / 5, 4);
-        for (int x = 0; x < width; x++)
-        {
-            for (int y = 0; y < stickTopY + 2; y++)
-            {
-                float dx = (float)(x - flameCenterX) / flameRadiusX;
-                float dy = (float)(y - flameCenterY) / flameRadiusY;
-                float dist = dx * dx + dy * dy;
-                if (dist <= 0.3f)
-                {
-                    image.SetPixel(x, y, flameCore);
-                }
-                else if (dist <= 1f)
-                {
-                    image.SetPixel(x, y, flameOuter);
-                }
-            }
-        }
-
-        return ImageTexture.CreateFromImage(image);
-    }
 }

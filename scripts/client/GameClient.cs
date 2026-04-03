@@ -12,10 +12,12 @@ public partial class GameClient : Node3D
 	float _cameraPitchRadians => Mathf.DegToRad(cameraPitchDegrees);
 	[Export] public float cameraPitchDegrees = -65;
 	[Export] public float cameraDistance = 20;
-	[Export] public float stepHeight = 0.5f;
+	[Export] public float cameraRotationTime = 0.5f;
+
 
 	private const float CAMERA_CLIP_EPSILON = 0.1f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
+	private const float CAMERA_CLIP_ALWAYS_HEIGHT = 3f;
 	private float _cameraClip = float.PositiveInfinity;
 
 	public Action onInit;
@@ -31,6 +33,8 @@ public partial class GameClient : Node3D
 
 	Vector2 _inputDir = Vector2.Zero;
 	float _cameraYaw = 45;
+	float _destYaw = 45;
+	bool _cameraClipAlways = false;
 	Player _player;
 	VoxelWorld _voxelWorld;
 	MeshInstance3D _clipCapPlane;
@@ -75,6 +79,8 @@ public partial class GameClient : Node3D
 		AddChild(_clipCapPlane);
 
 		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
+		_destYaw = camera.GlobalRotation.Y;
+		_cameraYaw = _destYaw;
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
 	}
 
@@ -90,7 +96,9 @@ public partial class GameClient : Node3D
 		inputDir.Y -= Input.GetActionStrength("MoveUp");
 		inputDir.Y += Input.GetActionStrength("MoveDown");
 		_inputDir = inputDir.LengthSquared() > 1 ? inputDir.Normalized() : inputDir;
-		_cameraYaw = camera.GlobalRotation.Y;
+
+		float t = 1f - Mathf.Pow(0.01f, (float)deltaTime / cameraRotationTime);
+		_cameraYaw = Mathf.LerpAngle(_cameraYaw, _destYaw, t);
 
 		camera.GlobalRotation = new Vector3(_cameraPitchRadians, _cameraYaw, 0);
 		camera.GlobalPosition = _player.GlobalPosition + camera.GlobalTransform.Basis.Z * cameraDistance;
@@ -111,10 +119,19 @@ public partial class GameClient : Node3D
 		query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
 		var result = spaceState.IntersectRay(query);
 
+		float alwaysClip = playerPos.Y + CAMERA_CLIP_ALWAYS_HEIGHT - CAMERA_CLIP_EPSILON;
+
 		if (result.Count > 0)
 		{
 			Vector3 hitPosition = (Vector3)result["position"];
-			_cameraClip = hitPosition.Y - CAMERA_CLIP_EPSILON;
+			float ceilingClip = hitPosition.Y - CAMERA_CLIP_EPSILON;
+			_cameraClip = _cameraClipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
+			_clipCapPlane.Visible = CVars.ceilingCap.Value;
+			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _cameraClip - CAP_PLANE_Y_BIAS, playerPos.Z);
+		}
+		else if (_cameraClipAlways)
+		{
+			_cameraClip = alwaysClip;
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
 			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _cameraClip - CAP_PLANE_Y_BIAS, playerPos.Z);
 		}
@@ -129,49 +146,11 @@ public partial class GameClient : Node3D
 
 	public override void _PhysicsProcess(double delta)
 	{
-		float dt = (float)delta;
 		base._PhysicsProcess(delta);
-		if (_player != null && !paused && dt > 0)
+		if (_player != null && !paused)
 		{
-			Vector3 cameraRelativeMovement = new Vector3(_inputDir.X, 0, _inputDir.Y).Rotated(Vector3.Up, _cameraYaw);
-			_player.Velocity = cameraRelativeMovement * 5;
-			if (!_player.IsOnFloor())
-			{
-				_player.Velocity += Vector3.Down * 9.8f;
-			}
-
-			// Step up: lift the player before moving so they can clear small obstacles
-			bool wasOnFloor = _player.IsOnFloor();
-			Vector3 posBeforeStep = _player.GlobalPosition;
-			if (wasOnFloor)
-			{
-				_player.GlobalPosition += Vector3.Up * stepHeight;
-			}
-
-			_player.MoveAndSlide();
-
-			// Step down: snap back to the ground after moving
-			if (wasOnFloor)
-			{
-				KinematicCollision3D stepDownResult = _player.MoveAndCollide(Vector3.Down * stepHeight, true);
-				if (stepDownResult != null)
-				{
-					_player.GlobalPosition = stepDownResult.GetPosition();
-				}
-				else if (_player.IsOnFloor())
-				{
-					// No collision within step height — already on floor, leave as-is
-				}
-				else
-				{
-					// No ground found within step height — revert the lift
-					_player.GlobalPosition = new Vector3(
-						_player.GlobalPosition.X,
-						posBeforeStep.Y,
-						_player.GlobalPosition.Z
-					);
-				}
-			}
+			_player.InputDir = _inputDir;
+			_player.CameraYaw = _cameraYaw;
 		}
 	}
 
@@ -190,6 +169,22 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
+
+		if (e.IsActionPressed("CameraLeft"))
+		{
+			_destYaw += Mathf.DegToRad(90);
+		}
+
+		if (e.IsActionPressed("CameraRight"))
+		{
+			_destYaw -= Mathf.DegToRad(90);
+		}
+
+		if (e.IsActionPressed("CameraDown"))
+		{
+			_cameraClipAlways = !_cameraClipAlways;
+		}
+
 	}
 
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)

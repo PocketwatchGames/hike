@@ -9,14 +9,18 @@ public partial class VoxelWorld : Node3D
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
     private readonly Dictionary<Vector3I, List<PropInstance>> _loadedProps = new();
+    private readonly Dictionary<Vector3I, List<Node3D>> _loadedInteractives = new();
+    private readonly Queue<Vector3I> _meshRebuildQueue = new();
     private Vector3I _lastPlayerChunkCoord;
     private Func<Vector3> _getPlayerPosition;
     private WorldData _worldData;
+    private LightMap _lightMap;
     private Camera3D _camera;
 
     public void Initialize(WorldData worldData, Vector3 spawnPosition)
     {
         _worldData = worldData;
+        _lightMap = new LightMap(worldData);
         _lastPlayerChunkCoord = WorldToChunkCoord(spawnPosition);
         CreateWorldBoundary();
         UpdateLoadedChunks();
@@ -40,6 +44,8 @@ public partial class VoxelWorld : Node3D
 
     public override void _Process(double delta)
     {
+        ProcessMeshRebuildQueue();
+
         if (_getPlayerPosition == null || _camera == null)
         {
             return;
@@ -190,6 +196,15 @@ public partial class VoxelWorld : Node3D
                 }
                 _loadedProps.Remove(coord);
             }
+
+            if (_loadedInteractives.TryGetValue(coord, out List<Node3D> interactives))
+            {
+                foreach (Node3D interactive in interactives)
+                {
+                    interactive.QueueFree();
+                }
+                _loadedInteractives.Remove(coord);
+            }
         }
 
         // Load new chunks from world data
@@ -202,7 +217,7 @@ public partial class VoxelWorld : Node3D
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetLightLevelWorld);
+                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _lightMap);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
 
@@ -218,7 +233,82 @@ public partial class VoxelWorld : Node3D
                     }
                     _loadedProps[coord] = propInstances;
                 }
+
+                List<InteractiveData> interactiveDataList = _worldData.GetInteractives(coord);
+                if (interactiveDataList != null)
+                {
+                    var interactiveInstances = new List<Node3D>();
+                    foreach (InteractiveData interactiveData in interactiveDataList)
+                    {
+                        Node3D interactive = interactiveData.Type switch
+                        {
+                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this),
+                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this),
+                            _ => null,
+                        };
+                        if (interactive != null)
+                        {
+                            AddChild(interactive);
+                            interactiveInstances.Add(interactive);
+                        }
+                    }
+                    _loadedInteractives[coord] = interactiveInstances;
+                }
             }
+        }
+    }
+
+    private const int MAX_REBUILDS_PER_FRAME = 3;
+
+    public void UpdateLighting(List<Vector3I> changedPositions)
+    {
+        _worldData.UpdateLightingAt(changedPositions);
+        _lightMap.Update(_worldData);
+    }
+
+    public void PropagateLighting(List<Vector3I> sourcePositions)
+    {
+        _worldData.PropagateLightingAt(sourcePositions);
+        _lightMap.Update(_worldData);
+    }
+
+    public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
+    {
+        UpdateLighting(changedPositions);
+
+        // Queue nearby chunks for rebuild across multiple frames
+        Vector3I center = WorldToChunkCoord(worldPos);
+        foreach (Vector3I coord in _loadedChunks.Keys)
+        {
+            if (Math.Abs(coord.X - center.X) <= 1 && Math.Abs(coord.Y - center.Y) <= 1 && Math.Abs(coord.Z - center.Z) <= 1)
+            {
+                _meshRebuildQueue.Enqueue(coord);
+            }
+        }
+    }
+
+    private void ProcessMeshRebuildQueue()
+    {
+        int rebuilt = 0;
+        while (_meshRebuildQueue.Count > 0 && rebuilt < MAX_REBUILDS_PER_FRAME)
+        {
+            Vector3I coord = _meshRebuildQueue.Dequeue();
+            if (!_loadedChunks.TryGetValue(coord, out ChunkMesh oldMesh))
+            {
+                continue;
+            }
+
+            ChunkData data = _worldData.GetChunk(coord);
+            if (data == null)
+            {
+                continue;
+            }
+
+            oldMesh.QueueFree();
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _lightMap);
+            AddChild(mesh);
+            _loadedChunks[coord] = mesh;
+            rebuilt++;
         }
     }
 

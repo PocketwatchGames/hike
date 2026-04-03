@@ -5,22 +5,6 @@ public partial class ChunkMesh : Node3D
 {
     public bool CollisionReady { get; private set; }
 
-    // Minecraft-style face brightness multipliers for pseudo-3D depth
-    private const float FACE_SHADE_TOP = 1.0f;
-    private const float FACE_SHADE_BOTTOM = 0.5f;
-    private const float FACE_SHADE_NORTH_SOUTH = 0.8f;
-    private const float FACE_SHADE_EAST_WEST = 0.6f;
-    private const float MIN_AMBIENT_LIGHT = 0.06f;
-
-    private static readonly float[] FaceShading =
-    {
-        FACE_SHADE_TOP,         // Top
-        FACE_SHADE_BOTTOM,      // Bottom
-        FACE_SHADE_NORTH_SOUTH, // North
-        FACE_SHADE_NORTH_SOUTH, // South
-        FACE_SHADE_EAST_WEST,   // West
-        FACE_SHADE_EAST_WEST,   // East
-    };
 
     private static readonly ShaderMaterial SharedMaterial;
     private static readonly ShaderMaterial BackfaceStencilMaterial;
@@ -119,7 +103,7 @@ public partial class ChunkMesh : Node3D
     /// </summary>
     private static bool FaceIsOccluded(VoxelType self, int faceIndex, VoxelType neighbor)
     {
-        if (!VoxelTypeInfo.IsSolid(neighbor))
+        if (!VoxelTypeInfo.IsSolid(neighbor) || neighbor == VoxelType.Barrier)
         {
             return false;
         }
@@ -180,7 +164,10 @@ public partial class ChunkMesh : Node3D
         return selfIsBottom == VoxelTypeInfo.IsBottomSlab(neighbor);
     }
 
-    public static ChunkMesh Create(ChunkData data, Func<int, int, int, int> getLightLevel)
+    public static ChunkMesh Create(
+        ChunkData data,
+        Func<int, int, int, VoxelType> getVoxel,
+        LightMap lightMap)
     {
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
@@ -188,11 +175,14 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkData.SIZE,
             data.ChunkCoord.Z * ChunkData.SIZE
         );
-        chunk.BuildMesh(data, getLightLevel);
+        chunk.BuildMesh(data, getVoxel, lightMap);
         return chunk;
     }
 
-    private void BuildMesh(ChunkData data, Func<int, int, int, int> getLightLevel)
+    private void BuildMesh(
+        ChunkData data,
+        Func<int, int, int, VoxelType> getVoxel,
+        LightMap lightMap)
     {
         if (IsAllAir(data))
         {
@@ -202,6 +192,7 @@ public partial class ChunkMesh : Node3D
 
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
+        st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
         int chunkWorldX = data.ChunkCoord.X * ChunkData.SIZE;
@@ -217,7 +208,7 @@ public partial class ChunkMesh : Node3D
                 for (int z = 0; z < ChunkData.SIZE; z++)
                 {
                     VoxelType type = data.Voxels[x, y, z];
-                    if (!VoxelTypeInfo.IsSolid(type))
+                    if (!VoxelTypeInfo.IsSolid(type) || type == VoxelType.Barrier)
                     {
                         continue;
                     }
@@ -230,50 +221,54 @@ public partial class ChunkMesh : Node3D
                     for (int faceIndex = 0; faceIndex < 6; faceIndex++)
                     {
                         Vector3I neighborOffset = FaceNeighborOffsets[faceIndex];
-                        int nx = x + neighborOffset.X;
-                        int ny = y + neighborOffset.Y;
-                        int nz = z + neighborOffset.Z;
+                        int worldNx = chunkWorldX + x + neighborOffset.X;
+                        int worldNy = chunkWorldY + y + neighborOffset.Y;
+                        int worldNz = chunkWorldZ + z + neighborOffset.Z;
 
-                        VoxelType neighbor = data.GetVoxel(nx, ny, nz);
+                        VoxelType neighbor = getVoxel(worldNx, worldNy, worldNz);
                         if (FaceIsOccluded(type, faceIndex, neighbor))
                         {
                             continue;
                         }
 
-                        // Look up light level at the air voxel adjacent to this face
-                        int worldNx = chunkWorldX + nx;
-                        int worldNy = chunkWorldY + ny;
-                        int worldNz = chunkWorldZ + nz;
-                        int lightLevel = getLightLevel(worldNx, worldNy, worldNz);
-
-                        // Combine light level with face-direction shading
-                        float lightFactor = Math.Max(lightLevel / (float)LightEngine.MAX_LIGHT, MIN_AMBIENT_LIGHT);
-                        float shade = FaceShading[faceIndex] * lightFactor;
-                        Color color = new Color(baseColor.R * shade, baseColor.G * shade, baseColor.B * shade);
-
                         Vector3[] verts = faceSet[faceIndex];
                         Vector3 normal = FaceNormals[faceIndex];
 
+                        // CUSTOM0 holds the world-space position of the adjacent air voxel
+                        // so the shader can sample the light map there.
+                        Vector3 lightSamplePos = new Vector3(
+                            worldNx + 0.5f,
+                            worldNy + 0.5f,
+                            worldNz + 0.5f
+                        );
+                        Color custom0 = new Color(lightSamplePos.X, lightSamplePos.Y, lightSamplePos.Z, 0f);
+
                         // Triangle 1: 0-2-1
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[0] + offset);
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[2] + offset);
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[1] + offset);
 
                         // Triangle 2: 0-3-2
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[0] + offset);
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[3] + offset);
                         st.SetNormal(normal);
-                        st.SetColor(color);
+                        st.SetColor(baseColor);
+                        st.SetCustom(0, custom0);
                         st.AddVertex(verts[2] + offset);
 
                         hasAnyFace = true;
@@ -293,6 +288,12 @@ public partial class ChunkMesh : Node3D
         var visual = new MeshInstance3D();
         visual.Mesh = mesh;
         visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+
+        var mat = SharedMaterial.Duplicate() as ShaderMaterial;
+        mat.SetShaderParameter("light_map", lightMap.Texture);
+        mat.SetShaderParameter("light_map_origin", lightMap.Origin);
+        mat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
+        visual.MaterialOverride = mat;
         AddChild(visual);
 
         var backface = new MeshInstance3D();
