@@ -8,7 +8,7 @@ public partial class VoxelWorld : Node3D
     private const int MAX_LOAD_DISTANCE = 5;
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
-    private readonly Dictionary<Vector3I, List<PropInstance>> _loadedProps = new();
+    private readonly Dictionary<Vector3I, List<Node3D>> _loadedProps = new();
     private readonly Dictionary<Vector3I, List<Node3D>> _loadedInteractives = new();
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
     private Vector3I _lastPlayerChunkCoord;
@@ -190,9 +190,9 @@ public partial class VoxelWorld : Node3D
             _loadedChunks[coord].QueueFree();
             _loadedChunks.Remove(coord);
 
-            if (_loadedProps.TryGetValue(coord, out List<PropInstance> props))
+            if (_loadedProps.TryGetValue(coord, out List<Node3D> props))
             {
-                foreach (PropInstance prop in props)
+                foreach (Node3D prop in props)
                 {
                     prop.QueueFree();
                 }
@@ -226,10 +226,14 @@ public partial class VoxelWorld : Node3D
                 List<PropGenData> propDataList = _worldData.GetProps(coord);
                 if (propDataList != null)
                 {
-                    var propInstances = new List<PropInstance>();
+                    var propInstances = new List<Node3D>();
                     foreach (PropGenData propData in propDataList)
                     {
-                        PropInstance prop = PropInstance.Create(propData, _spriteYScale);
+                        Node3D prop = propData.Type switch
+                        {
+                            PropType.TallGrass => TallGrass.Create(propData, _spriteYScale),
+                            _ => PropInstance.Create(propData, _spriteYScale),
+                        };
                         AddChild(prop);
                         propInstances.Add(prop);
                     }
@@ -329,9 +333,9 @@ public partial class VoxelWorld : Node3D
 
     public void CullProps(float cameraClip)
     {
-        foreach (List<PropInstance> props in _loadedProps.Values)
+        foreach (List<Node3D> props in _loadedProps.Values)
         {
-            foreach (PropInstance prop in props)
+            foreach (Node3D prop in props)
             {
                 prop.Visible = prop.GlobalPosition.Y < cameraClip;
             }

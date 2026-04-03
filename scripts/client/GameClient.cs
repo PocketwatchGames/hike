@@ -9,6 +9,7 @@ public partial class GameClient : Node3D
 	[Export] public Hud hud;
 	[Export] public Node2D worldHUD;
 	[Export] public PackedScene hudTextScene;
+	[Export] public ShaderMaterial outlineMaterial;
 
 	public Action onInit;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
@@ -37,6 +38,7 @@ public partial class GameClient : Node3D
 		}
 
 		_player = playerScene.Instantiate<Player>();
+		_player.outlineMaterial = outlineMaterial;
 		AddChild(_player);
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;

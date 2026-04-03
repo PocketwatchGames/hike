@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="Script" path="res://scripts/client/GameCamera.cs" id="camera_script"]
+[ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
 
@@ -41,6 +42,7 @@ camera = NodePath("MainCamera")
 hud = NodePath("HUD")
 worldHUD = NodePath("WorldHUD")
 hudTextScene = ExtResource("2_o78e0")
+outlineMaterial = ExtResource("outline_mat")
 
 [node name="MainCamera" type="Camera3D" parent="." unique_id=159032169]
 script = ExtResource("camera_script")

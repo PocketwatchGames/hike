@@ -7,9 +7,9 @@ public partial class Player : CharacterBody3D
 	[Export] public float stepHeight = 0.5f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
-	[Export] public Color outlineColor = new(1f, 1f, 0.8f, 1f);
-	[Export] public float outlineWidth = 2f;
+	[Export] public Area3D interactArea;
 
+	public ShaderMaterial outlineMaterial;
 	public Vector2 InputDir { get; set; }
 	public float CameraYaw { get; set; }
 
@@ -19,7 +19,6 @@ public partial class Player : CharacterBody3D
 	private readonly List<TallGrass> _tallGrassCollisions = new();
 	private float _terrainSpeed = 1f;
 
-	private static Shader _outlineShader;
 	private Sprite3D _highlightOverlay;
 
 	public override void _Ready()
@@ -27,39 +26,15 @@ public partial class Player : CharacterBody3D
 		CollisionLayer = 2; // Layer 2 (bit 1) — players
 		CollisionMask = 1;  // Collide with environment only
 
-		_outlineShader = GD.Load<Shader>("res://shaders/highlight_outline.gdshader");
+		_highlightOverlay = new Sprite3D();
+		_highlightOverlay.Name = "HighlightOverlay";
+		_highlightOverlay.MaterialOverride = outlineMaterial;
+		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
+		_highlightOverlay.Visible = false;
+		AddChild(_highlightOverlay);
 
-		var interactArea = new Area3D();
-		interactArea.CollisionLayer = 0;
-		interactArea.CollisionMask = 4; // Layer 3 (bit 2) — interactive areas
-
-		var shape = new SphereShape3D();
-		shape.Radius = 1.5f;
-		var collisionShape = new CollisionShape3D();
-		collisionShape.Shape = shape;
-		collisionShape.Position = new Vector3(0f, 0.75f, 0f);
-		interactArea.AddChild(collisionShape);
-
-		interactArea.AreaEntered += OnInteractAreaEntered;
-		interactArea.AreaExited += OnInteractAreaExited;
-
-		AddChild(interactArea);
-
-		var terrainArea = new Area3D();
-		terrainArea.CollisionLayer = 0;
-		terrainArea.CollisionMask = 8; // Layer 4 (bit 3) — terrain modifiers
-
-		var terrainShape = new SphereShape3D();
-		terrainShape.Radius = 0.3f;
-		var terrainCollision = new CollisionShape3D();
-		terrainCollision.Shape = terrainShape;
-		terrainCollision.Position = new Vector3(0f, 0.5f, 0f);
-		terrainArea.AddChild(terrainCollision);
-
-		terrainArea.AreaEntered += OnTerrainAreaEntered;
-		terrainArea.AreaExited += OnTerrainAreaExited;
-
-		AddChild(terrainArea);
+		interactArea.BodyEntered += OnInteractBodyEntered;
+		interactArea.BodyExited += OnInteractBodyExited;
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -188,35 +163,21 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
-		var overlay = new Sprite3D();
-		overlay.Name = "HighlightOverlay";
-		overlay.Texture = source.Texture;
-		overlay.Transform = source.Transform;
-		overlay.Offset = source.Offset;
-		overlay.PixelSize = source.PixelSize;
-		overlay.Billboard = source.Billboard;
-		overlay.TextureFilter = source.TextureFilter;
-		overlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
-
-		var mat = new ShaderMaterial();
-		mat.Shader = _outlineShader;
-		mat.SetShaderParameter("texture_albedo", source.Texture);
-		mat.SetShaderParameter("outline_color", outlineColor);
-		mat.SetShaderParameter("outline_width", outlineWidth);
-		mat.RenderPriority = 10;
-
-		overlay.MaterialOverride = mat;
-		node.AddChild(overlay);
-		_highlightOverlay = overlay;
+		_highlightOverlay.Texture = source.Texture;
+		_highlightOverlay.Transform = source.Transform;
+		_highlightOverlay.Offset = source.Offset;
+		_highlightOverlay.PixelSize = source.PixelSize;
+		_highlightOverlay.Billboard = source.Billboard;
+		_highlightOverlay.TextureFilter = source.TextureFilter;
+		outlineMaterial.SetShaderParameter("texture_albedo", source.Texture);
+		_highlightOverlay.Reparent(node, false);
+		_highlightOverlay.Visible = true;
 	}
 
 	private void RemoveHighlight()
 	{
-		if (_highlightOverlay != null && IsInstanceValid(_highlightOverlay))
-		{
-			_highlightOverlay.QueueFree();
-			_highlightOverlay = null;
-		}
+		_highlightOverlay.Visible = false;
+		_highlightOverlay.Reparent(this, false);
 	}
 
 	private static Sprite3D FindChildSprite(Node node)
@@ -231,19 +192,19 @@ public partial class Player : CharacterBody3D
 		return null;
 	}
 
-	private void OnInteractAreaEntered(Area3D area)
+	private void OnInteractBodyEntered(Node3D body)
 	{
-		Node parent = area.GetParent();
-		if (parent is IInteractive interactive)
+		IInteractive interactive = body as IInteractive ?? body.GetParent() as IInteractive;
+		if (interactive != null)
 		{
 			_interactiveCollisions.Add(interactive);
 		}
 	}
 
-	private void OnInteractAreaExited(Area3D area)
+	private void OnInteractBodyExited(Node3D body)
 	{
-		Node parent = area.GetParent();
-		if (parent is IInteractive interactive)
+		IInteractive interactive = body as IInteractive ?? body.GetParent() as IInteractive;
+		if (interactive != null)
 		{
 			_interactiveCollisions.Remove(interactive);
 		}
@@ -258,19 +219,13 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private void OnTerrainAreaEntered(Area3D area)
+	public void AddTerrainModifier(TallGrass tallGrass)
 	{
-		if (area is TallGrass tallGrass)
-		{
-			_tallGrassCollisions.Add(tallGrass);
-		}
+		_tallGrassCollisions.Add(tallGrass);
 	}
 
-	private void OnTerrainAreaExited(Area3D area)
+	public void RemoveTerrainModifier(TallGrass tallGrass)
 	{
-		if (area is TallGrass tallGrass)
-		{
-			_tallGrassCollisions.Remove(tallGrass);
-		}
+		_tallGrassCollisions.Remove(tallGrass);
 	}
 }

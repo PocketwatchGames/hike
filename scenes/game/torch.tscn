@@ -5,19 +5,21 @@
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/torch_01_unlit.png" id="3_m4hkm"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(2, 2, 2)
+size = Vector3(0.5, 1, 0.5)
 
-[node name="Torch" type="Node3D" unique_id=2008818935]
+[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_torchSprite", "_light")]
 script = ExtResource("1_torch")
 LitTexture = ExtResource("2_ty0ga")
 UnlitTexture = ExtResource("3_m4hkm")
+_torchSprite = NodePath("TorchSprite")
+_light = NodePath("TorchLight")
 
-[node name="InteractArea" type="Area3D" parent="." unique_id=1329045867]
-collision_layer = 4
-collision_mask = 0
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea" unique_id=1963554683]
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=32198536]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+collision_layer = 4
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1963554683]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
 [node name="TorchSprite" type="Sprite3D" parent="." unique_id=222554796]

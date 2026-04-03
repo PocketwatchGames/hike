@@ -6,12 +6,11 @@
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1, 2, 1)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(2, 2, 2)
-
-[node name="Door" type="Node3D" unique_id=964775259]
+[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_doorSprite")]
 script = ExtResource("1_door")
 DoorTexture = ExtResource("2_k0lqv")
+_blockCollider = NodePath("BlockCollider")
+_doorSprite = NodePath("DoorSprite")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=730201462]
 
@@ -19,13 +18,12 @@ DoorTexture = ExtResource("2_k0lqv")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="InteractArea" type="Area3D" parent="." unique_id=75244038]
+[node name="InteractiveCollider" type="StaticBody3D" parent="." unique_id=235746202]
 collision_layer = 4
-collision_mask = 0
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractArea" unique_id=1493302336]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveCollider" unique_id=864043579]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_interact")
+shape = SubResource("BoxShape3D_block")
 
 [node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.16317177, 0)

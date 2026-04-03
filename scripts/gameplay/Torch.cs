@@ -6,6 +6,8 @@ public partial class Torch : Node3D, IInteractive
 
     [Export] private Texture2D LitTexture;
     [Export] private Texture2D UnlitTexture;
+    [Export] private Sprite3D _torchSprite;
+    [Export] private OmniLight3D _light;
 
     private bool _active = true;
     private InteractiveData _interactiveData;
@@ -13,16 +15,11 @@ public partial class Torch : Node3D, IInteractive
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
     private float _spriteYScale = 1.0f;
-    private Sprite3D _torchSprite;
-    private OmniLight3D _light;
 
     public override void _Ready()
     {
-        _torchSprite = GetNode<Sprite3D>("TorchSprite");
         _torchSprite.Texture = LitTexture;
         _torchSprite.Scale = new Vector3(1, _spriteYScale, 1);
-
-        _light = GetNode<OmniLight3D>("TorchLight");
     }
 
     public bool CanInteract()

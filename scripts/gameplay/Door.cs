@@ -3,22 +3,18 @@ using Godot;
 public partial class Door : Node3D, IInteractive
 {
     [Export] private Texture2D DoorTexture;
+    [Export] private StaticBody3D _blockCollider;
+    [Export] private Sprite3D _doorSprite;
 
     private bool _open;
     private InteractiveData _interactiveData;
     private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
-    private StaticBody3D _blockCollider;
-    private Area3D _interactArea;
     private float _spriteYScale = 1.0f;
-    private Sprite3D _doorSprite;
 
     public override void _Ready()
     {
-        _blockCollider = GetNode<StaticBody3D>("BlockCollider");
-        _interactArea = GetNode<Area3D>("InteractArea");
-        _doorSprite = GetNode<Sprite3D>("DoorSprite");
         _doorSprite.Texture = DoorTexture;
         _doorSprite.Scale = new Vector3(1, _spriteYScale, 1);
     }
