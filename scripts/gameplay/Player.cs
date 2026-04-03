@@ -26,6 +26,9 @@ public partial class Player : CharacterBody3D
 
 	public override void _Ready()
 	{
+		CollisionLayer = 2; // Layer 2 (bit 1) — players
+		CollisionMask = 1;  // Collide with environment only
+
 		_stencilShader = GD.Load<Shader>("res://shaders/highlight_stencil.gdshader");
 		_outlineShader = GD.Load<Shader>("res://shaders/highlight_outline.gdshader");
 
