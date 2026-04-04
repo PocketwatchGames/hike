@@ -215,7 +215,7 @@ public partial class Player : CharacterBody3D
 		_terrainSpeed = 1f;
 		foreach (TallGrass grass in _tallGrassCollisions)
 		{
-			_terrainSpeed *= grass.speed;
+			_terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
 		}
 	}
 

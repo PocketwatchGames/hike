@@ -4,6 +4,9 @@
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/loot.png" id="3_hags0"]
 [ext_resource type="Shader" uid="uid://5d0r50dxiaiy" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
 
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
+bounce = 0.5
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_loot"]
@@ -63,10 +66,14 @@ _data = {
 &"PickedUp": SubResource("Animation_pickedup")
 }
 
-[node name="Loot" type="Area3D" unique_id=1610781501]
+[node name="Loot" type="RigidBody3D" unique_id=1610781501 node_paths=PackedStringArray("_collisionShape", "CollisionShape3D", "_animationPlayer", "AnimationPlayer", "_pickupArea", "PickupArea")]
 collision_layer = 8
-collision_mask = 0
+collision_mask = 1
+physics_material_override = SubResource("PhysicsMaterial_loot")
 script = ExtResource("1_loot")
+_collisionShape = NodePath("CollisionShape3D")
+_animationPlayer = NodePath("AnimationPlayer")
+_pickupArea = NodePath("PickupArea")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=172604426]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
@@ -78,6 +85,14 @@ offset = Vector2(0, 20)
 pixel_size = 0.02
 billboard = 2
 texture = ExtResource("3_hags0")
+
+[node name="PickupArea" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+
+[node name="PickupShape" type="CollisionShape3D" parent="PickupArea"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_loot")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1993268754]
 libraries/ = SubResource("AnimationLibrary_loot")

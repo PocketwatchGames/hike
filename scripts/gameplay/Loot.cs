@@ -1,38 +1,53 @@
 using System;
 using Godot;
 
-public partial class Loot : Area3D
+public partial class Loot : RigidBody3D
 {
+	[Export] private CollisionShape3D _collisionShape;
+	[Export] private AnimationPlayer _animationPlayer;
+	[Export] private Area3D _pickupArea;
+
 	private PropSpawnState _spawnData;
-	private CollisionShape3D _collisionShape;
-	private AnimationPlayer _animationPlayer;
 	private bool _pickedUp;
 	private Action<Loot> _onPickedUp;
+	private Vector3 _initialImpulse;
 
 	public override void _Ready()
 	{
-		CollisionMask |= 2; // Layer 2 (bit 1) — detect players
-		BodyEntered += OnBodyEntered;
+		_pickupArea.BodyEntered += OnBodyEntered;
+		_pickupArea.Monitoring = false;
 
-		foreach (Node child in GetChildren())
+		if (_initialImpulse != Vector3.Zero)
 		{
-			if (child is CollisionShape3D col)
-			{
-				_collisionShape = col;
-			}
-			else if (child is AnimationPlayer anim)
-			{
-				_animationPlayer = anim;
-			}
+			ApplyCentralImpulse(_initialImpulse);
 		}
-
-		if (_animationPlayer != null)
+		else
 		{
-			_animationPlayer.Play("Bob");
+			Settle();
 		}
 	}
 
-	private void OnBodyEntered(Node3D body)
+	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
+	{
+		if (_pickedUp || Freeze)
+		{
+			return;
+		}
+
+		if (state.LinearVelocity.LengthSquared() < 0.25f && state.GetContactCount() > 0)
+		{
+			Settle();
+		}
+	}
+
+	private void Settle()
+	{
+		Freeze = true;
+		_pickupArea.Monitoring = true;
+		_animationPlayer.Play("Bob");
+	}
+
+	private void OnBodyEntered(Node body)
 	{
 		if (_pickedUp)
 		{
@@ -59,22 +74,10 @@ public partial class Loot : Area3D
 			_spawnData.PickedUp = true;
 		}
 
-		if (_collisionShape != null)
-		{
-			_collisionShape.Disabled = true;
-		}
-
+		_collisionShape.Disabled = true;
 		_onPickedUp?.Invoke(this);
-
-		if (_animationPlayer != null)
-		{
-			_animationPlayer.AnimationFinished += OnPickedUpFinished;
-			_animationPlayer.Play("PickedUp");
-		}
-		else
-		{
-			QueueFree();
-		}
+		_animationPlayer.AnimationFinished += OnPickedUpFinished;
+		_animationPlayer.Play("PickedUp");
 	}
 
 	private void OnPickedUpFinished(StringName animName)
@@ -82,12 +85,13 @@ public partial class Loot : Area3D
 		QueueFree();
 	}
 
-	public static Loot Create(PropSpawnState data, Action<Loot> onPickedUp)
+	public static Loot Create(PropSpawnState data, Action<Loot> onPickedUp, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
 		instance._onPickedUp = onPickedUp;
+		instance._initialImpulse = impulse;
 		return instance;
 	}
 }
