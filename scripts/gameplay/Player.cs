@@ -228,4 +228,9 @@ public partial class Player : CharacterBody3D
 	{
 		_tallGrassCollisions.Remove(tallGrass);
 	}
+
+	public void OnLootCollision(Loot loot)
+	{
+		loot.PickUp();
+	}
 }

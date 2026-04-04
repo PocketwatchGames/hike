@@ -5,6 +5,7 @@ public class PropSpawnState
     public readonly PropType Type;
     public readonly Vector3 WorldPosition;
     public readonly PackedScene Scene;
+    public bool PickedUp;
 
     public PropSpawnState(PropType type, Vector3 worldPosition, PackedScene scene)
     {

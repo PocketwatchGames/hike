@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cpojv1vduc1fy"
-path.s3tc="res://.godot/imported/torch_01_unlit.png-57d349ca8c3e0796378113feaa2d3b5d.s3tc.ctex"
+uid="uid://5ws78r3gdab7"
+path.s3tc="res://.godot/imported/loot.png-7f5904eeca26cd601f35c653aac49fc7.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/textures/torch_01_unlit.png"
-dest_files=["res://.godot/imported/torch_01_unlit.png-57d349ca8c3e0796378113feaa2d3b5d.s3tc.ctex"]
+source_file="res://assets/textures/loot.png"
+dest_files=["res://.godot/imported/loot.png-7f5904eeca26cd601f35c653aac49fc7.s3tc.ctex"]
 
 [params]
 

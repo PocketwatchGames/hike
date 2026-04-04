@@ -1,0 +1,83 @@
+[gd_scene format=3 uid="uid://jlh3xsibvf00"]
+
+[ext_resource type="Script" uid="uid://bqqg5l6u5hqng" path="res://scripts/gameplay/Loot.cs" id="1_loot"]
+[ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/loot.png" id="3_hags0"]
+[ext_resource type="Shader" uid="uid://5d0r50dxiaiy" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_loot"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/sprite_texture = ExtResource("3_hags0")
+shader_parameter/light_map_origin = Vector3(0, 0, 0)
+shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
+
+[sub_resource type="Animation" id="Animation_bob"]
+resource_name = "Bob"
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite:position:y")
+tracks/0/interp = 2
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.5, 1),
+"transitions": PackedFloat32Array(1, 1, 1),
+"update": 0,
+"values": [0.0, 1.0, 0.0]
+}
+
+[sub_resource type="Animation" id="Animation_pickedup"]
+resource_name = "PickedUp"
+length = 0.67
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath(".:position:y")
+tracks/0/interp = 1
+tracks/0/loop_wrap = false
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.67),
+"transitions": PackedFloat32Array(1, 1),
+"update": 0,
+"values": [0.0, 5.0]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Sprite:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = false
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.67),
+"transitions": PackedFloat32Array(1, 2.9281716),
+"update": 0,
+"values": [Vector3(1, 1, 1), Vector3(0, 0, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_loot"]
+_data = {
+&"Bob": SubResource("Animation_bob"),
+&"PickedUp": SubResource("Animation_pickedup")
+}
+
+[node name="Loot" type="Area3D" unique_id=1610781501]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("1_loot")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=172604426]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_loot")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=650643215]
+material_override = SubResource("ShaderMaterial_loot")
+offset = Vector2(0, 20)
+pixel_size = 0.02
+billboard = 2
+texture = ExtResource("3_hags0")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1993268754]
+libraries/ = SubResource("AnimationLibrary_loot")

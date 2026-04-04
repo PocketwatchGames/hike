@@ -377,6 +377,34 @@ public class WorldState
             }
         }
 
+        // Generate loot on grass surfaces
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+            {
+                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                {
+                    continue;
+                }
+                if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+                {
+                    continue;
+                }
+                if (rng.NextDouble() >= genData.LootChance)
+                {
+                    continue;
+                }
+
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                props.Add(new PropSpawnState(
+                    PropType.Loot,
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    genData.LootScene
+                ));
+            }
+        }
+
         // Place torches inside houses as interactives
         GenerateTorches(data, chunkCoord, genData, rng, blockLightSources);
 

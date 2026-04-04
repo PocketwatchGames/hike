@@ -229,9 +229,15 @@ public partial class VoxelWorld : Node3D
                     var propInstances = new List<Node3D>();
                     foreach (PropSpawnState propData in propDataList)
                     {
+                        if (propData.PickedUp)
+                        {
+                            continue;
+                        }
+
                         Node3D prop = propData.Type switch
                         {
                             PropType.TallGrass => TallGrass.Create(propData, _spriteYScale),
+                            PropType.Loot => Loot.Create(propData, _spriteYScale, OnLootPickedUp),
                             _ => PropInstance.Create(propData, _spriteYScale),
                         };
                         AddChild(prop);
@@ -340,6 +346,17 @@ public partial class VoxelWorld : Node3D
             foreach (Node3D prop in props)
             {
                 prop.Visible = prop.GlobalPosition.Y < cameraClip;
+            }
+        }
+    }
+
+    private void OnLootPickedUp(Loot loot)
+    {
+        foreach (List<Node3D> props in _loadedProps.Values)
+        {
+            if (props.Remove(loot))
+            {
+                break;
             }
         }
     }
