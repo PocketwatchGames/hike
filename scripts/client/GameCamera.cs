@@ -11,7 +11,6 @@ public partial class GameCamera : Camera3D
 	private const float CLIP_ALWAYS_HEIGHT = 3f;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
-	public float SpriteYScale => 1.0f / Mathf.Cos(Mathf.Abs(_pitchRadians));
 	private float _clip = float.PositiveInfinity;
 	private float _yaw = 45;
 	private float _destYaw = 45;

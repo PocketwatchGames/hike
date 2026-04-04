@@ -11,12 +11,10 @@ public partial class Door : Node3D, IInteractive
     private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
-    private float _spriteYScale = 1.0f;
 
     public override void _Ready()
     {
         _doorSprite.Texture = DoorTexture;
-        _doorSprite.Scale = new Vector3(1, _spriteYScale, 1);
     }
 
     public bool CanInteract()
@@ -61,7 +59,7 @@ public partial class Door : Node3D, IInteractive
         _doorSprite.Visible = !_open;
     }
 
-    public static Door Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
+    public static Door Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
@@ -69,7 +67,6 @@ public partial class Door : Node3D, IInteractive
         instance._interactiveState = data;
         instance._worldData = worldData;
         instance._voxelWorld = voxelWorld;
-        instance._spriteYScale = spriteYScale;
         instance._baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y),

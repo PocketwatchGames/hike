@@ -82,20 +82,12 @@ public partial class Loot : Area3D
 		QueueFree();
 	}
 
-	public static Loot Create(PropSpawnState data, float spriteYScale, Action<Loot> onPickedUp)
+	public static Loot Create(PropSpawnState data, Action<Loot> onPickedUp)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
 		instance._onPickedUp = onPickedUp;
-		foreach (Node child in instance.GetChildren())
-		{
-			if (child is Sprite3D sprite)
-			{
-				sprite.Scale = new Vector3(1, spriteYScale, 1);
-				break;
-			}
-		}
 		return instance;
 	}
 }

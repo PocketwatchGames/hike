@@ -27,6 +27,11 @@ void vertex() {
 		vec4(0.0, 0.0, 0.0, 1.0)
 	);
 	world_origin = MODEL_MATRIX[3].xyz;
+
+	// Compensate for isometric camera pitch squishing Y-billboarded sprites
+	vec3 cam_forward = INV_VIEW_MATRIX[2].xyz;
+	float pitch = asin(abs(cam_forward.y));
+	VERTEX.y *= 1.0 / cos(pitch);
 }
 
 void fragment() {

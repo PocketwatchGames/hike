@@ -8,12 +8,9 @@ public partial class Torch : Node3D, IInteractive
 
     private bool _active = true;
     private InteractiveSpawnState _interactiveState;
-    private float _spriteYScale = 1.0f;
 
     public override void _Ready()
     {
-        _litSprite.Scale = new Vector3(1, _spriteYScale, 1);
-        _unlitSprite.Scale = new Vector3(1, _spriteYScale, 1);
         UpdateVisuals();
     }
 
@@ -49,12 +46,11 @@ public partial class Torch : Node3D, IInteractive
         _unlitSprite.Visible = !_active;
     }
 
-    public static Torch Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld, float spriteYScale)
+    public static Torch Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._spriteYScale = spriteYScale;
         var baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y),

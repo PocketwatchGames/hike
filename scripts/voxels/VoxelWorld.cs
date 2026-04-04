@@ -16,7 +16,6 @@ public partial class VoxelWorld : Node3D
     private WorldState _worldData;
     private LightMap _lightMap;
     private Camera3D _camera;
-    private float _spriteYScale = 1.0f;
 
     public void Initialize(WorldState worldData, Vector3 spawnPosition)
     {
@@ -30,7 +29,6 @@ public partial class VoxelWorld : Node3D
     public void SetCamera(GameCamera camera)
     {
         _camera = camera;
-        _spriteYScale = camera.SpriteYScale;
     }
 
     public void SetPlayerPositionSource(Func<Vector3> getter)
@@ -236,9 +234,9 @@ public partial class VoxelWorld : Node3D
 
                         Node3D prop = propData.Type switch
                         {
-                            PropType.TallGrass => TallGrass.Create(propData, _spriteYScale),
-                            PropType.Loot => Loot.Create(propData, _spriteYScale, OnLootPickedUp),
-                            _ => PropInstance.Create(propData, _spriteYScale),
+                            PropType.TallGrass => TallGrass.Create(propData),
+                            PropType.Loot => Loot.Create(propData, OnLootPickedUp),
+                            _ => PropInstance.Create(propData),
                         };
                         AddChild(prop);
                         SetLightMapUniforms(prop);
@@ -255,8 +253,8 @@ public partial class VoxelWorld : Node3D
                     {
                         Node3D interactive = interactiveData.Type switch
                         {
-                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this, _spriteYScale),
-                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this, _spriteYScale),
+                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this),
+                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this),
                             _ => null,
                         };
                         if (interactive != null)
