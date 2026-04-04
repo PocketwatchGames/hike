@@ -4,6 +4,7 @@ using Godot;
 public partial class Chest : Node3D, IInteractive
 {
     [Export] private Sprite3D _chestSprite;
+    [Export] private Sprite3D _openSprite;
 
     private bool _open;
     private InteractiveSpawnState _interactiveState;
@@ -19,11 +20,17 @@ public partial class Chest : Node3D, IInteractive
         return CanInteract();
     }
 
+    private void UpdateVisuals()
+    {
+        _chestSprite.Visible = !_open;
+        _openSprite.Visible = _open;
+    }
+
     public void Complete()
     {
         _open = true;
         _interactiveState.Active = false;
-        _chestSprite.Visible = false;
+        UpdateVisuals();
 
         var rng = new Random();
         const float SPEED = 5f;
@@ -48,7 +55,7 @@ public partial class Chest : Node3D, IInteractive
     public void RestoreState()
     {
         _open = !_interactiveState.Active;
-        _chestSprite.Visible = !_open;
+        UpdateVisuals();
     }
 
     public static Chest Create(InteractiveSpawnState data, VoxelWorld voxelWorld)
@@ -57,6 +64,7 @@ public partial class Chest : Node3D, IInteractive
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
         instance._voxelWorld = voxelWorld;
+        instance.UpdateVisuals();
         return instance;
     }
 }

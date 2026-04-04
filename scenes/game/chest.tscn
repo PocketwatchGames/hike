@@ -2,20 +2,32 @@
 
 [ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/Chest.cs" id="1_chest"]
 [ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/chest.png" id="3_3b5dt"]
+[ext_resource type="Texture2D" uid="uid://cx86jqqudni8y" path="res://assets/textures/chest_open.png" id="3_20syw"]
 [ext_resource type="Shader" uid="uid://5d0r50dxiaiy" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_sprite"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_20syw"]
 render_priority = 0
 shader = ExtResource("3_shader")
 shader_parameter/sprite_texture = ExtResource("3_3b5dt")
 shader_parameter/light_map_origin = Vector3(0, 0, 0)
 shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
 
-[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite")]
+[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_17q7g"]
+load_path = "res://.godot/imported/chest_open.png-555157f87c20032fbc7f6ff9a6890cd4.s3tc.ctex"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_nkyvn"]
+render_priority = 0
+shader = ExtResource("3_shader")
+shader_parameter/sprite_texture = SubResource("CompressedTexture2D_17q7g")
+shader_parameter/light_map_origin = Vector3(0, 0, 0)
+shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
+
+[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite", "_openSprite")]
 script = ExtResource("1_chest")
 _chestSprite = NodePath("ChestSprite")
+_openSprite = NodePath("OpenSprite")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
 
@@ -32,8 +44,16 @@ shape = SubResource("BoxShape3D_block")
 
 [node name="ChestSprite" type="Sprite3D" parent="." unique_id=1950719213]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.51434654, 0)
-material_override = SubResource("ShaderMaterial_sprite")
+material_override = SubResource("ShaderMaterial_20syw")
 offset = Vector2(0, 50)
 pixel_size = 0.02
 billboard = 2
 texture = ExtResource("3_3b5dt")
+
+[node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.51434654, 0)
+material_override = SubResource("ShaderMaterial_nkyvn")
+offset = Vector2(0, 50)
+pixel_size = 0.02
+billboard = 2
+texture = ExtResource("3_20syw")
