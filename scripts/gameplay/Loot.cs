@@ -19,6 +19,9 @@ public partial class Loot : RigidBody3D
 
 		if (_initialImpulse != Vector3.Zero)
 		{
+			CanSleep = false;
+			ContactMonitor = true;
+			MaxContactsReported = 1;
 			ApplyCentralImpulse(_initialImpulse);
 		}
 		else
@@ -91,6 +94,14 @@ public partial class Loot : RigidBody3D
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
 		instance._onPickedUp = onPickedUp;
+		instance._initialImpulse = impulse;
+		return instance;
+	}
+
+	public static Loot Create(PackedScene scene, Vector3 position, Vector3 impulse)
+	{
+		var instance = scene.Instantiate<Loot>();
+		instance.Position = position;
 		instance._initialImpulse = impulse;
 		return instance;
 	}

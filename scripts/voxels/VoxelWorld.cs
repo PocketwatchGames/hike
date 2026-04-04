@@ -255,6 +255,7 @@ public partial class VoxelWorld : Node3D
                         {
                             InteractiveType.Door => Door.Create(interactiveData, _worldData, this),
                             InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this),
+                            InteractiveType.Chest => Chest.Create(interactiveData, this),
                             _ => null,
                         };
                         if (interactive != null)
@@ -276,6 +277,10 @@ public partial class VoxelWorld : Node3D
                         else if (interactive is Torch torch)
                         {
                             torch.RestoreState();
+                        }
+                        else if (interactive is Chest chest)
+                        {
+                            chest.RestoreState();
                         }
                     }
                 }
@@ -359,7 +364,7 @@ public partial class VoxelWorld : Node3D
         }
     }
 
-    private void SetLightMapUniforms(Node3D node)
+    public void SetLightMapUniforms(Node3D node)
     {
         foreach (Node child in node.GetChildren())
         {
