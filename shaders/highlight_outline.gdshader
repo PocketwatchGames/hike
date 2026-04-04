@@ -6,13 +6,24 @@ uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.8, 1.0);
 uniform float outline_width : hint_range(1.0, 5.0) = 2.0;
 
 void vertex() {
-	// Fixed-Y billboard: face camera while preserving model scale
+	// Y-billboard: rotate model to face camera around the Y axis only
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(
-		vec4(INV_VIEW_MATRIX[0].xyz * length(MODEL_MATRIX[0].xyz), 0.0),
-		vec4(0.0, 1.0, 0.0, 0.0) * length(MODEL_MATRIX[1].xyz),
-		vec4(INV_VIEW_MATRIX[2].xyz * length(MODEL_MATRIX[2].xyz), 0.0),
+		vec4(normalize(cross(vec3(0.0, 1.0, 0.0), INV_VIEW_MATRIX[2].xyz)), 0.0),
+		vec4(0.0, 1.0, 0.0, 0.0),
+		vec4(normalize(cross(INV_VIEW_MATRIX[0].xyz, vec3(0.0, 1.0, 0.0))), 0.0),
 		MODEL_MATRIX[3]
 	);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(
+		vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0),
+		vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0),
+		vec4(0.0, 0.0, 0.0, 1.0)
+	);
+
+	// Compensate for isometric camera pitch squishing Y-billboarded sprites
+	vec3 cam_forward = INV_VIEW_MATRIX[2].xyz;
+	float pitch = asin(abs(cam_forward.y));
+	VERTEX.y *= 1.0 / cos(pitch);
 }
 
 void fragment() {

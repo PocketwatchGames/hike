@@ -1,36 +1,39 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://4owmi6208pgj"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/Chest.cs" id="1_chest"]
-[ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/door_01.png" id="2_tex"]
-[ext_resource type="Shader" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
+[ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/Chest.cs" id="1_chest"]
+[ext_resource type="Texture2D" uid="uid://cxu0m67ovyyb3" path="res://assets/textures/chest.png" id="3_3b5dt"]
+[ext_resource type="Shader" uid="uid://5d0r50dxiaiy" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(1, 1, 1)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sprite"]
+render_priority = 0
 shader = ExtResource("3_shader")
-shader_parameter/sprite_texture = ExtResource("2_tex")
+shader_parameter/sprite_texture = ExtResource("3_3b5dt")
+shader_parameter/light_map_origin = Vector3(0, 0, 0)
+shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
 
-[node name="Chest" type="Node3D" node_paths=PackedStringArray("_chestSprite")]
+[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite")]
 script = ExtResource("1_chest")
 _chestSprite = NodePath("ChestSprite")
 
-[node name="BlockCollider" type="StaticBody3D" parent="."]
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1890238440]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="InteractiveCollider" type="StaticBody3D" parent="."]
+[node name="InteractiveCollider" type="StaticBody3D" parent="." unique_id=990210865]
 collision_layer = 4
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveCollider"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveCollider" unique_id=81883003]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="ChestSprite" type="Sprite3D" parent="."]
+[node name="ChestSprite" type="Sprite3D" parent="." unique_id=1950719213]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.51434654, 0)
 material_override = SubResource("ShaderMaterial_sprite")
 offset = Vector2(0, 50)
 pixel_size = 0.02
 billboard = 2
-texture = ExtResource("2_tex")
+texture = ExtResource("3_3b5dt")
