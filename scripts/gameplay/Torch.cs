@@ -1,5 +1,6 @@
 using Godot;
 
+[GlobalClass]
 public partial class Torch : Node3D, IInteractive
 {
     [Export] private Sprite3D _litSprite;
@@ -7,7 +8,7 @@ public partial class Torch : Node3D, IInteractive
     [Export] private Light _light;
 
     private bool _active = true;
-    private InteractiveSpawnState _interactiveState;
+    private TorchSpawnState _interactiveState;
 
     public override void _Ready()
     {
@@ -46,7 +47,7 @@ public partial class Torch : Node3D, IInteractive
         _unlitSprite.Visible = !_active;
     }
 
-    public static Torch Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
+    public static Torch Create(TorchSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;

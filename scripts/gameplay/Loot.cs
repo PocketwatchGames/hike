@@ -1,6 +1,6 @@
-using System;
 using Godot;
 
+[GlobalClass]
 public partial class Loot : RigidBody3D
 {
 	[Export] private CollisionShape3D _collisionShape;
@@ -9,7 +9,7 @@ public partial class Loot : RigidBody3D
 
 	private PropSpawnState _spawnData;
 	private bool _pickedUp;
-	private Action<Loot> _onPickedUp;
+	private VoxelWorld _voxelWorld;
 	private Vector3 _initialImpulse;
 
 	public override void _Ready()
@@ -78,7 +78,7 @@ public partial class Loot : RigidBody3D
 		}
 
 		_collisionShape.Disabled = true;
-		_onPickedUp?.Invoke(this);
+		_voxelWorld?.RemoveProp(this);
 		_animationPlayer.AnimationFinished += OnPickedUpFinished;
 		_animationPlayer.Play("PickedUp");
 	}
@@ -88,20 +88,12 @@ public partial class Loot : RigidBody3D
 		QueueFree();
 	}
 
-	public static Loot Create(PropSpawnState data, Action<Loot> onPickedUp, Vector3 impulse = default)
+	public static Loot Create(PropSpawnState data, VoxelWorld voxelWorld, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
-		instance._onPickedUp = onPickedUp;
-		instance._initialImpulse = impulse;
-		return instance;
-	}
-
-	public static Loot Create(PackedScene scene, Vector3 position, Vector3 impulse)
-	{
-		var instance = scene.Instantiate<Loot>();
-		instance.Position = position;
+		instance._voxelWorld = voxelWorld;
 		instance._initialImpulse = impulse;
 		return instance;
 	}

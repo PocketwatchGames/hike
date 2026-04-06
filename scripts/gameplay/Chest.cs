@@ -1,13 +1,14 @@
 using System;
 using Godot;
 
+[GlobalClass]
 public partial class Chest : Node3D, IInteractive
 {
     [Export] private Sprite3D _chestSprite;
     [Export] private Sprite3D _openSprite;
 
     private bool _open;
-    private InteractiveSpawnState _interactiveState;
+    private ChestSpawnState _interactiveState;
     private VoxelWorld _voxelWorld;
 
     public bool CanInteract()
@@ -46,9 +47,7 @@ public partial class Chest : Node3D, IInteractive
                 horizontalSpeed * Mathf.Sin(angle)
             );
 
-            Loot loot = Loot.Create(_interactiveState.LootScene, GlobalPosition + Vector3.Up, impulse);
-            GetParent().AddChild(loot);
-            _voxelWorld.SetLightMapUniforms(loot);
+            _voxelWorld.SpawnLoot(_interactiveState.LootScene, GlobalPosition + Vector3.Up, impulse);
         }
     }
 
@@ -58,7 +57,7 @@ public partial class Chest : Node3D, IInteractive
         UpdateVisuals();
     }
 
-    public static Chest Create(InteractiveSpawnState data, VoxelWorld voxelWorld)
+    public static Chest Create(ChestSpawnState data, VoxelWorld voxelWorld)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;

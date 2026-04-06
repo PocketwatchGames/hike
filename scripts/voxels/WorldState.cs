@@ -9,6 +9,7 @@ public class WorldState
 
     private readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     private readonly Dictionary<Vector3I, List<PropSpawnState>> _props = new();
+    private readonly Dictionary<Vector3I, List<MobSpawnState>> _mobs = new();
     private readonly Dictionary<Vector3I, List<InteractiveSpawnState>> _interactives = new();
 
     public WorldState(WorldGenData genData)
@@ -121,6 +122,23 @@ public class WorldState
     {
         _props.TryGetValue(coord, out List<PropSpawnState> props);
         return props;
+    }
+
+    public void AddProp(PropSpawnState prop)
+    {
+        Vector3I coord = VoxelWorld.WorldToChunkCoord(prop.WorldPosition);
+        if (!_props.TryGetValue(coord, out List<PropSpawnState> props))
+        {
+            props = new List<PropSpawnState>();
+            _props[coord] = props;
+        }
+        props.Add(prop);
+    }
+
+   public List<MobSpawnState> GetMobs(Vector3I coord)
+    {
+        _mobs.TryGetValue(coord, out List<MobSpawnState> mobs);
+        return mobs;
     }
 
     public List<InteractiveSpawnState> GetInteractives(Vector3I coord)
@@ -321,6 +339,7 @@ public class WorldState
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
         int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
         var props = new List<PropSpawnState>();
+        var mobs = new List<MobSpawnState>();
 
         for (int i = 0; i < treeCount; i++)
         {
@@ -377,6 +396,34 @@ public class WorldState
             }
         }
 
+        // Generate goblins on grass surfaces
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+            {
+                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                {
+                    continue;
+                }
+                if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+                {
+                    continue;
+                }
+                if (rng.NextDouble() >= genData.GoblinChance)
+                {
+                    continue;
+                }
+
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                mobs.Add(new MobSpawnState(
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    0f,
+                    genData.GoblinScene
+                ));
+            }
+        }
+
         // Generate loot on grass surfaces
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
         {
@@ -426,14 +473,10 @@ public class WorldState
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 int lootCount = rng.Next(genData.ChestLootCountMin, genData.ChestLootCountMax + 1);
-                AddInteractive(new InteractiveSpawnState(
-                    InteractiveType.Chest,
-                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
-                    0f,
+                AddInteractive(new ChestSpawnState(new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
                     genData.ChestScene,
                     lootCount,
-                    genData.LootScene
-                ));
+                    genData.LootScene));
             }
         }
 
@@ -443,6 +486,10 @@ public class WorldState
         if (props.Count > 0)
         {
             _props[chunkCoord] = props;
+        }
+        if (mobs.Count > 0)
+        {
+            _mobs[chunkCoord] = mobs;
         }
     }
 
@@ -502,12 +549,7 @@ public class WorldState
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
-            AddInteractive(new InteractiveSpawnState(
-                InteractiveType.Torch,
-                torchPos,
-                0f,
-                genData.TorchScene
-            ));
+            AddInteractive(new TorchSpawnState(torchPos, genData.TorchScene));
 
             blockLightSources.Add((torchPos, TORCH_LIGHT_EMISSION));
         }
@@ -607,12 +649,9 @@ public class WorldState
                 int wy = baseY + dy;
                 SetVoxelWorld(doorWx, wy, doorWz, VoxelType.Barrier);
             }
-            AddInteractive(new InteractiveSpawnState(
-                InteractiveType.Door,
-                new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
+            AddInteractive(new DoorSpawnState(new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
                 doorRotY,
-                genData.DoorScene
-            ));
+                genData.DoorScene));
         }
 
         // Collect walls without doors for window placement

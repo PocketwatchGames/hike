@@ -2,6 +2,7 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
+[GlobalClass]
 public partial class Player : CharacterBody3D
 {
 	[Export] public float stepHeight = 0.5f;

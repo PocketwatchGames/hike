@@ -1,28 +1,44 @@
 using Godot;
 
-public class InteractiveSpawnState
+public abstract class InteractiveSpawnState
 {
-    public readonly InteractiveType Type;
     public readonly Vector3 WorldPosition;
-    public readonly float RotationY;
     public readonly PackedScene Scene;
     public bool Active = true;
 
-    // Chest-specific
+    protected InteractiveSpawnState(Vector3 worldPosition, PackedScene scene)
+    {
+        WorldPosition = worldPosition;
+        Scene = scene;
+    }
+}
+
+public class DoorSpawnState : InteractiveSpawnState
+{
+    public readonly float RotationY;
+
+    public DoorSpawnState(Vector3 worldPosition, float rotationY, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+        RotationY = rotationY;
+    }
+}
+
+public class TorchSpawnState : InteractiveSpawnState
+{
+    public TorchSpawnState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+}
+
+public class ChestSpawnState : InteractiveSpawnState
+{
     public readonly int LootCount;
     public readonly PackedScene LootScene;
 
-    public InteractiveSpawnState(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene)
-    {
-        Type = type;
-        WorldPosition = worldPosition;
-        RotationY = rotationY;
-        Scene = scene;
-    }
-
-    public InteractiveSpawnState(InteractiveType type, Vector3 worldPosition, float rotationY, PackedScene scene,
-        int lootCount, PackedScene lootScene)
-        : this(type, worldPosition, rotationY, scene)
+    public ChestSpawnState(Vector3 worldPosition, PackedScene scene, int lootCount, PackedScene lootScene)
+        : base(worldPosition, scene)
     {
         LootCount = lootCount;
         LootScene = lootScene;

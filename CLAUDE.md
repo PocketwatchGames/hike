@@ -106,6 +106,7 @@ Two MSBuild targets run before compilation:
 
 ## Key Conventions
 
+- Any class derived from a Godot Node (or Resource) must be tagged with `[GlobalClass]`.
 - No namespaces; all classes are global scope.
 - Event communication uses C# `Action` delegates and Godot `[Signal]` attributes.
 - Factory methods (`Create()`) for instantiating scene-backed objects.

@@ -33,10 +33,12 @@ public partial class WorldGenData : Resource
     [Export] public PackedScene TallGrassScene = GD.Load<PackedScene>("res://scenes/game/tall_grass.tscn");
     [Export] public PackedScene DoorScene = GD.Load<PackedScene>("res://scenes/game/door.tscn");
     [Export] public PackedScene TorchScene = GD.Load<PackedScene>("res://scenes/game/torch.tscn");
+    [Export] public PackedScene GoblinScene = GD.Load<PackedScene>("res://scenes/game/goblin.tscn");
 
     [Export] public float LootChance = 0.005f;
     [Export] public PackedScene LootScene = GD.Load<PackedScene>("res://scenes/game/loot.tscn");
 
+    [Export] public float GoblinChance = 0.005f;
     [Export] public float ChestChance = 0.002f;
     [Export] public int ChestLootCountMin = 3;
     [Export] public int ChestLootCountMax = 6;

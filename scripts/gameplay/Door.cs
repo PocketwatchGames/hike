@@ -1,5 +1,6 @@
 using Godot;
 
+[GlobalClass]
 public partial class Door : Node3D, IInteractive
 {
     [Export] private Texture2D DoorTexture;
@@ -7,7 +8,7 @@ public partial class Door : Node3D, IInteractive
     [Export] private Sprite3D _doorSprite;
 
     private bool _open;
-    private InteractiveSpawnState _interactiveState;
+    private DoorSpawnState _interactiveState;
     private WorldState _worldData;
     private VoxelWorld _voxelWorld;
     private Vector3I _baseWorldPos;
@@ -59,7 +60,7 @@ public partial class Door : Node3D, IInteractive
         _doorSprite.Visible = !_open;
     }
 
-    public static Door Create(InteractiveSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
+    public static Door Create(DoorSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;

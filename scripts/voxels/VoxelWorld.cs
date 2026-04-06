@@ -9,6 +9,7 @@ public partial class VoxelWorld : Node3D
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
     private readonly Dictionary<Vector3I, List<Node3D>> _loadedProps = new();
+    private readonly Dictionary<Vector3I, List<Node3D>> _loadedMobs = new();
     private readonly Dictionary<Vector3I, List<Node3D>> _loadedInteractives = new();
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
     private Vector3I _lastPlayerChunkCoord;
@@ -235,7 +236,7 @@ public partial class VoxelWorld : Node3D
                         Node3D prop = propData.Type switch
                         {
                             PropType.TallGrass => TallGrass.Create(propData),
-                            PropType.Loot => Loot.Create(propData, OnLootPickedUp),
+                            PropType.Loot => Loot.Create(propData, this),
                             _ => PropInstance.Create(propData),
                         };
                         AddChild(prop);
@@ -245,17 +246,35 @@ public partial class VoxelWorld : Node3D
                     _loadedProps[coord] = propInstances;
                 }
 
+                List<MobSpawnState> mobDataList = _worldData.GetMobs(coord);
+                if (mobDataList != null)
+                {
+                    var mobInstances = new List<Node3D>();
+                    foreach (MobSpawnState mobData in mobDataList)
+                    {
+                        if (mobData.Alive == false)
+                        {
+                            continue;
+                        }
+
+                        Node3D mob = Mob.Create(mobData);
+                        AddChild(mob);
+                        mobInstances.Add(mob);
+                    }
+                    _loadedMobs[coord] = mobInstances;
+                }
+
                 List<InteractiveSpawnState> interactiveDataList = _worldData.GetInteractives(coord);
                 if (interactiveDataList != null)
                 {
                     var interactiveInstances = new List<Node3D>();
                     foreach (InteractiveSpawnState interactiveData in interactiveDataList)
                     {
-                        Node3D interactive = interactiveData.Type switch
+                        Node3D interactive = interactiveData switch
                         {
-                            InteractiveType.Door => Door.Create(interactiveData, _worldData, this),
-                            InteractiveType.Torch => Torch.Create(interactiveData, _worldData, this),
-                            InteractiveType.Chest => Chest.Create(interactiveData, this),
+                            DoorSpawnState door => Door.Create(door, _worldData, this),
+                            TorchSpawnState torch => Torch.Create(torch, _worldData, this),
+                            ChestSpawnState chest => Chest.Create(chest, this),
                             _ => null,
                         };
                         if (interactive != null)
@@ -353,11 +372,41 @@ public partial class VoxelWorld : Node3D
         }
     }
 
-    private void OnLootPickedUp(Loot loot)
+    public Loot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
+    {
+        var spawnState = new PropSpawnState(PropType.Loot, position, scene);
+        _worldData.AddProp(spawnState);
+        Loot loot = Loot.Create(spawnState, this, impulse);
+        AddChild(loot);
+        SetLightMapUniforms(loot);
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_loadedProps.TryGetValue(coord, out List<Node3D> props))
+        {
+            props = new List<Node3D>();
+            _loadedProps[coord] = props;
+        }
+        props.Add(loot);
+
+        return loot;
+    }
+
+    public void RemoveProp(Node3D prop)
     {
         foreach (List<Node3D> props in _loadedProps.Values)
         {
-            if (props.Remove(loot))
+            if (props.Remove(prop))
+            {
+                break;
+            }
+        }
+    }
+
+    public void RemoveMob(Node3D mob)
+    {
+        foreach (List<Node3D> mobs in _loadedMobs.Values)
+        {
+            if (mobs.Remove(mob))
             {
                 break;
             }
