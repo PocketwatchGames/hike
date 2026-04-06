@@ -7,7 +7,7 @@ uniform sampler3D light_map : filter_nearest;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 
-const float MIN_AMBIENT = 0.06;
+const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
 varying float shaded_light;

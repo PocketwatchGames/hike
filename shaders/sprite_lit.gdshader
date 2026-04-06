@@ -8,7 +8,7 @@ uniform sampler3D light_map : filter_linear;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 
-const float MIN_AMBIENT = 0.06;
+const float MIN_AMBIENT = 0.0;
 
 varying flat vec3 world_origin;
 

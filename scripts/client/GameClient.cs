@@ -18,9 +18,9 @@ public partial class GameClient : Node3D
 
 	public bool paused { get; private set; } = false;
 
-	Vector2 _inputDir = Vector2.Zero;
 	Player _player;
 	VoxelWorld _voxelState;
+	Vector2 _mousePosition;
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState)
 	{
@@ -55,12 +55,7 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
-		Vector2 inputDir = Vector2.Zero;
-		inputDir.X -= Input.GetActionStrength("MoveLeft");
-		inputDir.X += Input.GetActionStrength("MoveRight");
-		inputDir.Y -= Input.GetActionStrength("MoveUp");
-		inputDir.Y += Input.GetActionStrength("MoveDown");
-		_inputDir = inputDir.LengthSquared() > 1 ? inputDir.Normalized() : inputDir;
+		_player.ProcessInput(camera.Yaw);
 
 		camera.UpdateCamera(deltaTime, _player.GlobalPosition);
 		_voxelState.CullProps(camera.Clip);
@@ -69,11 +64,6 @@ public partial class GameClient : Node3D
 	public override void _PhysicsProcess(double delta)
 	{
 		base._PhysicsProcess(delta);
-		if (_player != null && !paused)
-		{
-			_player.InputDir = _inputDir;
-			_player.CameraYaw = camera.Yaw;
-		}
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -90,6 +80,20 @@ public partial class GameClient : Node3D
 		if (paused)
 		{
 			return;
+		}
+
+		if (e is InputEventMouseMotion mouseMotion)
+		{
+			if (_player != null)
+			{
+				_mousePosition += mouseMotion.Relative;
+				float mouseSensitivity = 0.1f;
+				if (_mousePosition.LengthSquared() > 1.0f / (mouseSensitivity * mouseSensitivity)) // Prevent overflow from large mouse movements
+				{
+					_mousePosition = _mousePosition.Normalized() / mouseSensitivity;
+				}
+				_player.ProcessMouseMotion(_mousePosition, camera.Yaw);
+			}
 		}
 
 		if (e.IsActionPressed("CameraLeft"))

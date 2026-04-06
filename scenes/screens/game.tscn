@@ -15,10 +15,8 @@ sky_material = SubResource("ShaderMaterial_s3n12")
 [sub_resource type="Environment" id="Environment_e0wmo"]
 background_mode = 2
 sky = SubResource("Sky_oni8f")
-ambient_light_source = 1
 ambient_light_color = Color(1, 1, 1, 1)
-ambient_light_energy = 0.3
-reflected_light_source = 2
+ambient_light_energy = 0.0
 glow_intensity = 0.8
 glow_bloom = 0.1
 fog_enabled = true

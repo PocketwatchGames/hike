@@ -11,9 +11,6 @@ public partial class Player : CharacterBody3D
 	[Export] public Area3D interactArea;
 
 	public ShaderMaterial outlineMaterial;
-	public Vector2 InputDir { get; set; }
-	public float CameraYaw { get; set; }
-
 	private IInteractive _curInteractive;
 	private IInteractive _highlightInteractive;
 	private readonly List<IInteractive> _interactiveCollisions = new();
@@ -21,6 +18,9 @@ public partial class Player : CharacterBody3D
 	private float _terrainSpeed = 1f;
 
 	private Sprite3D _highlightOverlay;
+	Vector3 _inputMove = Vector3.Zero;
+	Vector3 _inputLook = Vector3.Zero;
+	bool _lastInputWasGamepad;
 
 	public override void _Ready()
 	{
@@ -57,11 +57,19 @@ public partial class Player : CharacterBody3D
 		}
 		speed *= _terrainSpeed;
 
-		Vector3 cameraRelativeMovement = new Vector3(InputDir.X, 0, InputDir.Y).Rotated(Vector3.Up, CameraYaw);
-		Velocity = cameraRelativeMovement * speed;
+		Velocity = _inputMove * speed;
 		if (!IsOnFloor())
 		{
 			Velocity += Vector3.Down * 9.8f;
+		}
+
+		if (_inputLook != Vector3.Zero)
+		{
+			Rotation = new Vector3(0, Mathf.Atan2(_inputLook.X, _inputLook.Z), 0);
+		}
+		else if (_inputMove != Vector3.Zero)
+		{
+			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
 		}
 
 		// Step up: lift the player before moving so they can clear small obstacles
@@ -112,6 +120,38 @@ public partial class Player : CharacterBody3D
 				ApplyHighlight((Node3D)_highlightInteractive);
 			}
 		}
+
+		if (Input.IsActionJustPressed("AttackRanged"))
+		{
+
+		}
+	}
+	
+	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
+	{
+		_inputLook = new Vector3(mousePos.X, 0, mousePos.Y).Rotated(Vector3.Up, cameraYaw);
+
+		_lastInputWasGamepad = false;
+	}
+	public void ProcessInput(float cameraYaw)
+	{
+		Vector2 move = Vector2.Zero;
+		move.X -= Input.GetActionStrength("MoveLeft");
+		move.X += Input.GetActionStrength("MoveRight");
+		move.Y -= Input.GetActionStrength("MoveUp");
+		move.Y += Input.GetActionStrength("MoveDown");
+		move = move.LengthSquared() > 1 ? move.Normalized() : move;
+		_inputMove = new Vector3(move.X, 0, move.Y).Rotated(Vector3.Up, cameraYaw);
+
+		Vector2 look = Vector2.Zero;
+		look.X -= Input.GetActionStrength("LookLeft");
+		look.X += Input.GetActionStrength("LookRight");
+		look.Y -= Input.GetActionStrength("LookUp");
+		look.Y += Input.GetActionStrength("LookDown");
+		look = look.LengthSquared() > 1 ? look.Normalized() : look;
+		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
+
+		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
 	}
 
 	private void UpdateHighlightInteractive()

@@ -10,6 +10,9 @@ material = SubResource("StandardMaterial3D_1uit0")
 radius = 0.35
 height = 1.5
 
+[sub_resource type="BoxMesh" id="BoxMesh_hfanx"]
+size = Vector3(0.5, 0.2, 0.1)
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
 height = 1.5
@@ -22,6 +25,10 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1610472919]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 mesh = SubResource("CapsuleMesh_1uit0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D" unique_id=1119554106]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4410479, 0.311585)
+mesh = SubResource("BoxMesh_hfanx")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
