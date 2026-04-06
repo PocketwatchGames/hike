@@ -168,7 +168,7 @@ public partial class World : Node3D
         {
             foreach (MobSpawnState mobData in mobDataList)
             {
-                if (mobData.Alive == false)
+                if (!mobData.Alive)
                 {
                     continue;
                 }

@@ -7,7 +7,7 @@ public partial class TallGrass : Area3D
 
 	public override void _Ready()
 	{
-		CollisionMask |= 2; // Layer 2 (bit 1) — detect players
+		CollisionMask |= (uint)ECollisionLayer.Player;
 		BodyEntered += OnBodyEntered;
 		BodyExited += OnBodyExited;
 	}

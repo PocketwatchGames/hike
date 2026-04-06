@@ -9,6 +9,7 @@ public partial class Player : CharacterBody3D
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
+	[Export] public float meleeRadius = 2f;
 	[Export] public Area3D interactArea;
 
 	public ShaderMaterial outlineMaterial;
@@ -21,14 +22,15 @@ public partial class Player : CharacterBody3D
 	public bool grounded;
 
 	private Sprite3D _highlightOverlay;
+	private MeshInstance3D _debugMeleeSphere;
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 	bool _lastInputWasGamepad;
 
 	public override void _Ready()
 	{
-		CollisionLayer = 2; // Layer 2 (bit 1) — players
-		CollisionMask = 1;  // Collide with environment only
+		CollisionLayer = (uint)ECollisionLayer.Player;
+		CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Mob);
 
 		_highlightOverlay = new Sprite3D();
 		_highlightOverlay.Name = "HighlightOverlay";
@@ -39,6 +41,19 @@ public partial class Player : CharacterBody3D
 
 		interactArea.BodyEntered += OnInteractBodyEntered;
 		interactArea.BodyExited += OnInteractBodyExited;
+
+		var sphereMesh = new SphereMesh();
+		sphereMesh.Radius = meleeRadius;
+		sphereMesh.Height = meleeRadius * 2f;
+		var material = new StandardMaterial3D();
+		material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
+		material.AlbedoColor = new Color(1f, 0f, 0f, 0.3f);
+		material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
+		sphereMesh.Material = material;
+		_debugMeleeSphere = new MeshInstance3D();
+		_debugMeleeSphere.Mesh = sphereMesh;
+		_debugMeleeSphere.Visible = false;
+		AddChild(_debugMeleeSphere);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -142,9 +157,10 @@ public partial class Player : CharacterBody3D
 		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
 
 		// Handle interact input
-		if (Input.IsActionJustReleased("Interact") && _highlightInteractive != null)
+		if (Input.IsActionJustReleased("Interact"))
 		{
-			if (_highlightInteractive.CanActorInteract(this))
+			GD.Print($"[Interact] highlight={_highlightInteractive?.GetType().Name ?? "null"}, canAct={_highlightInteractive?.CanActorInteract(this)}, collisions={_interactiveCollisions.Count}");
+			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
 				_curInteractive = _highlightInteractive;
 				_curInteractive.Complete();
@@ -161,6 +177,11 @@ public partial class Player : CharacterBody3D
 				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
 				grounded = false;
 			}
+		}
+
+		if (Input.IsActionJustReleased("AttackMelee"))
+		{
+			PerformMeleeAttack();
 		}
 
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
@@ -261,6 +282,31 @@ public partial class Player : CharacterBody3D
 		{
 			_interactiveCollisions.Remove(interactive);
 		}
+	}
+
+	private void PerformMeleeAttack()
+	{
+		var spaceState = GetWorld3D().DirectSpaceState;
+		var shape = new SphereShape3D();
+		shape.Radius = meleeRadius;
+
+		var query = new PhysicsShapeQueryParameters3D();
+		query.Shape = shape;
+		query.Transform = new Transform3D(Basis.Identity, GlobalPosition);
+		query.CollisionMask = (uint)ECollisionLayer.Mob;
+
+		var results = spaceState.IntersectShape(query);
+		foreach (var result in results)
+		{
+			var collider = result["collider"].Obj;
+			if (collider is Mob mob)
+			{
+				mob.Hit();
+			}
+		}
+
+		_debugMeleeSphere.Visible = true;
+		GetTree().CreateTimer(0.15).Timeout += () => _debugMeleeSphere.Visible = false;
 	}
 
 	private void UpdateTerrainSpeed()

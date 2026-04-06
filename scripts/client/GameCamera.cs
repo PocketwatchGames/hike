@@ -66,7 +66,7 @@ public partial class GameCamera : Camera3D
 
 		var spaceState = GetWorld3D().DirectSpaceState;
 		var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
-		query.CollisionMask = 1;
+		query.CollisionMask = (uint)ECollisionLayer.Environment;
 		var result = spaceState.IntersectRay(query);
 
 		float alwaysClip = playerPos.Y + CLIP_ALWAYS_HEIGHT - CLIP_EPSILON;
