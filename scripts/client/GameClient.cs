@@ -19,7 +19,7 @@ public partial class GameClient : Node3D
 	public bool paused { get; private set; } = false;
 
 	Player _player;
-	VoxelWorld _voxelState;
+	World _world;
 	Vector2 _mousePosition;
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState)
@@ -27,23 +27,23 @@ public partial class GameClient : Node3D
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
 
-		_voxelState = new VoxelWorld();
-		AddChild(_voxelState);
-		_voxelState.SetCamera(camera);
-		_voxelState.Initialize(worldState, playerPosition);
+		_world = new World();
+		AddChild(_world);
+		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
 
-		while (!_voxelState.IsSpawnChunkReady(playerPosition))
+		while (!_world.IsSpawnChunkReady(playerPosition))
 		{
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
 
 		_player = playerScene.Instantiate<Player>();
 		_player.outlineMaterial = outlineMaterial;
+		_player.world = _world;
 		AddChild(_player);
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;
 
-		_voxelState.SetPlayerPositionSource(() => _player.GlobalPosition);
+		_world.SetPlayer(_player);
 
 		camera.Init(this);
 		camera.SetInitialPosition(_player.GlobalPosition);
@@ -58,7 +58,7 @@ public partial class GameClient : Node3D
 		_player.ProcessInput(camera.Yaw);
 
 		camera.UpdateCamera(deltaTime, _player.GlobalPosition);
-		_voxelState.CullProps(camera.Clip);
+		CullProps(camera.Clip);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -111,6 +111,17 @@ public partial class GameClient : Node3D
 			camera.ToggleClipAlways();
 		}
 
+	}
+
+	void CullProps(float cameraClip)
+	{
+		foreach (List<Node3D> entities in _world.ActiveEntities.Values)
+		{
+			foreach (Node3D entity in entities)
+			{
+				entity.Visible = entity.GlobalPosition.Y < cameraClip;
+			}
+		}
 	}
 
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)

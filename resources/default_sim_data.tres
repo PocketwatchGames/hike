@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
+
+[ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
+
+[resource]
+script = ExtResource("1_1meao")
+metadata/_custom_type_script = "uid://chvgahtb671mg"

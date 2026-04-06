@@ -47,7 +47,7 @@ public partial class Torch : Node3D, IInteractive
         _unlitSprite.Visible = !_active;
     }
 
-    public static Torch Create(TorchSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
+    public static Torch Create(TorchSpawnState data, WorldState worldData, World world)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
@@ -57,7 +57,7 @@ public partial class Torch : Node3D, IInteractive
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light.Initialize(worldData, voxelWorld, baseWorldPos);
+        instance._light.Initialize(worldData, world, baseWorldPos);
         return instance;
     }
 }

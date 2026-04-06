@@ -7,14 +7,14 @@ public partial class Light : Node3D
     [Export] private int _lightEmission = 14;
 
     private WorldState _worldData;
-    private VoxelWorld _voxelWorld;
+    private World _world;
     private Vector3I _baseWorldPos;
     private bool _active = true;
 
-    public void Initialize(WorldState worldData, VoxelWorld voxelWorld, Vector3I baseWorldPos)
+    public void Initialize(WorldState worldData, World world, Vector3I baseWorldPos)
     {
         _worldData = worldData;
-        _voxelWorld = voxelWorld;
+        _world = world;
         _baseWorldPos = baseWorldPos;
     }
 
@@ -28,11 +28,11 @@ public partial class Light : Node3D
         if (_active)
         {
             _worldData.SetBlockLightWorld(_baseWorldPos.X, _baseWorldPos.Y, _baseWorldPos.Z, _lightEmission);
-            _voxelWorld.PropagateLighting(positions);
+            _world.PropagateLighting(positions);
         }
         else
         {
-            _voxelWorld.UpdateLighting(positions);
+            _world.UpdateLighting(positions);
         }
     }
 }

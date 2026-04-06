@@ -8,9 +8,11 @@ public partial class Player : CharacterBody3D
 	[Export] public float stepHeight = 0.5f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
+	[Export] public float jumpSpeed = 5f;
 	[Export] public Area3D interactArea;
 
 	public ShaderMaterial outlineMaterial;
+	public World world;
 	private IInteractive _curInteractive;
 	private IInteractive _highlightInteractive;
 	private readonly List<IInteractive> _interactiveCollisions = new();
@@ -60,7 +62,7 @@ public partial class Player : CharacterBody3D
 		Velocity = _inputMove * speed;
 		if (!IsOnFloor())
 		{
-			Velocity += Vector3.Down * 9.8f;
+			Velocity += Vector3.Down * world.SimData.Gravity;
 		}
 
 		if (_inputLook != Vector3.Zero)
@@ -108,23 +110,6 @@ public partial class Player : CharacterBody3D
 		// Update highlight interactive
 		UpdateHighlightInteractive();
 
-		// Handle interact input
-		if (Input.IsActionJustReleased("Interact") && _highlightInteractive != null)
-		{
-			if (_highlightInteractive.CanActorInteract(this))
-			{
-				_curInteractive = _highlightInteractive;
-				_curInteractive.Complete();
-				_curInteractive = null;
-				RemoveHighlight();
-				ApplyHighlight((Node3D)_highlightInteractive);
-			}
-		}
-
-		if (Input.IsActionJustPressed("AttackRanged"))
-		{
-
-		}
 	}
 	
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
@@ -150,6 +135,24 @@ public partial class Player : CharacterBody3D
 		look.Y += Input.GetActionStrength("LookDown");
 		look = look.LengthSquared() > 1 ? look.Normalized() : look;
 		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
+
+		// Handle interact input
+		if (Input.IsActionJustReleased("Interact") && _highlightInteractive != null)
+		{
+			if (_highlightInteractive.CanActorInteract(this))
+			{
+				_curInteractive = _highlightInteractive;
+				_curInteractive.Complete();
+				_curInteractive = null;
+				RemoveHighlight();
+				ApplyHighlight((Node3D)_highlightInteractive);
+			}
+		}
+
+		if (Input.IsActionJustPressed("Jump") && IsOnFloor())
+		{
+			Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
+		}
 
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
 	}
@@ -225,7 +228,7 @@ public partial class Player : CharacterBody3D
 	{
 		foreach (Node child in node.GetChildren())
 		{
-			if (child is Sprite3D sprite)
+			if (child is Sprite3D sprite && sprite.Visible)
 			{
 				return sprite;
 			}

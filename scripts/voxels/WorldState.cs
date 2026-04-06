@@ -6,6 +6,7 @@ public class WorldState
 {
     public readonly Vector3I Min;
     public readonly Vector3I Max;
+    public SimData SimData;
 
     private readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     private readonly Dictionary<Vector3I, List<PropSpawnState>> _props = new();
@@ -16,6 +17,7 @@ public class WorldState
     {
         Min = new Vector3I(-genData.SizeX / 2, -1, -genData.SizeZ / 2);
         Max = new Vector3I(Min.X + genData.SizeX - 1, Min.Y + genData.SizeY - 1, Min.Z + genData.SizeZ - 1);
+        SimData = genData.SimData;
 
         Generate(genData);
     }
@@ -126,7 +128,7 @@ public class WorldState
 
     public void AddProp(PropSpawnState prop)
     {
-        Vector3I coord = VoxelWorld.WorldToChunkCoord(prop.WorldPosition);
+        Vector3I coord = World.WorldToChunkCoord(prop.WorldPosition);
         if (!_props.TryGetValue(coord, out List<PropSpawnState> props))
         {
             props = new List<PropSpawnState>();

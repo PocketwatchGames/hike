@@ -9,7 +9,7 @@ public partial class Chest : Node3D, IInteractive
 
     private bool _open;
     private ChestSpawnState _interactiveState;
-    private VoxelWorld _voxelWorld;
+    private World _world;
 
     public bool CanInteract()
     {
@@ -47,7 +47,7 @@ public partial class Chest : Node3D, IInteractive
                 horizontalSpeed * Mathf.Sin(angle)
             );
 
-            _voxelWorld.SpawnLoot(_interactiveState.LootScene, GlobalPosition + Vector3.Up, impulse);
+            _world.SpawnLoot(_interactiveState.LootScene, GlobalPosition + Vector3.Up, impulse);
         }
     }
 
@@ -57,12 +57,12 @@ public partial class Chest : Node3D, IInteractive
         UpdateVisuals();
     }
 
-    public static Chest Create(ChestSpawnState data, VoxelWorld voxelWorld)
+    public static Chest Create(ChestSpawnState data, World world)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
-        instance._voxelWorld = voxelWorld;
+        instance._world = world;
         instance.UpdateVisuals();
         return instance;
     }

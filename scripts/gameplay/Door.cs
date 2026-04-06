@@ -10,7 +10,7 @@ public partial class Door : Node3D, IInteractive
     private bool _open;
     private DoorSpawnState _interactiveState;
     private WorldState _worldData;
-    private VoxelWorld _voxelWorld;
+    private World _world;
     private Vector3I _baseWorldPos;
 
     public override void _Ready()
@@ -50,7 +50,7 @@ public partial class Door : Node3D, IInteractive
             _baseWorldPos,
             _baseWorldPos + Vector3I.Up,
         };
-        _voxelWorld.RebuildNearbyChunkMeshes(GlobalPosition, changed);
+        _world.RebuildNearbyChunkMeshes(GlobalPosition, changed);
     }
 
     public void RestoreState()
@@ -60,14 +60,14 @@ public partial class Door : Node3D, IInteractive
         _doorSprite.Visible = !_open;
     }
 
-    public static Door Create(DoorSpawnState data, WorldState worldData, VoxelWorld voxelWorld)
+    public static Door Create(DoorSpawnState data, WorldState worldData, World world)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
         instance._interactiveState = data;
         instance._worldData = worldData;
-        instance._voxelWorld = voxelWorld;
+        instance._world = world;
         instance._baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y),

@@ -3,6 +3,8 @@ using Godot;
 [GlobalClass]
 public partial class WorldGenData : Resource
 {
+    [Export] public SimData SimData = GD.Load<SimData>("res://resources/default_sim_data.tres");
+
     [Export] public int SizeX = 8;
     [Export] public int SizeY = 3;
     [Export] public int SizeZ = 8;

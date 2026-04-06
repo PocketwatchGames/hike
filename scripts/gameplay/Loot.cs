@@ -9,7 +9,7 @@ public partial class Loot : RigidBody3D
 
 	private PropSpawnState _spawnData;
 	private bool _pickedUp;
-	private VoxelWorld _voxelWorld;
+	private World _world;
 	private Vector3 _initialImpulse;
 
 	public override void _Ready()
@@ -78,7 +78,7 @@ public partial class Loot : RigidBody3D
 		}
 
 		_collisionShape.Disabled = true;
-		_voxelWorld?.RemoveProp(this);
+		_world?.RemoveEntity(this);
 		_animationPlayer.AnimationFinished += OnPickedUpFinished;
 		_animationPlayer.Play("PickedUp");
 	}
@@ -88,12 +88,12 @@ public partial class Loot : RigidBody3D
 		QueueFree();
 	}
 
-	public static Loot Create(PropSpawnState data, VoxelWorld voxelWorld, Vector3 impulse = default)
+	public static Loot Create(PropSpawnState data, World world, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
-		instance._voxelWorld = voxelWorld;
+		instance._world = world;
 		instance._initialImpulse = impulse;
 		return instance;
 	}

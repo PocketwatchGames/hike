@@ -72,9 +72,9 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 - `EffectOneShot` - One-shot particle effect lifecycle manager
 - `LinqExtensions` - MaxBy, MinBy, RemoveAtSwap helpers
 
-### Voxel System (`scripts/voxels/`)
+### World (`scripts/World.cs`) and Voxel System (`scripts/voxels/`)
 
-Streaming voxel world with chunk-based loading. `VoxelWorld` (Node3D) manages a 3x3x3 region of chunks around the player, loading/unloading as the player crosses chunk boundaries. `ChunkData` stores a 16x16x16 voxel array per chunk. `ChunkMesh` generates a culled mesh via `SurfaceTool` with per-vertex colors and trimesh collision. `VoxelType` enum defines voxel types (Air, Stone, Grass, Dirt, Sand). Player spawning is deferred until the spawn chunk's collision is ready.
+`World` (Node3D) is the central hub that all world simulation entities (Player, Mob, Loot, Door, Torch, Chest) reference. It owns entity dictionaries for loaded props, mobs, and interactives, manages entity spawning/cleanup, world boundary walls, and delegates voxel operations to `ChunkManager`. `ChunkManager` (Node3D, child of World) handles streaming chunk mesh loading/unloading with frustum culling, the mesh rebuild queue, and the `LightMap`. It notifies World via `OnChunkLoaded`/`OnChunkUnloaded` callbacks so World can spawn or clean up entities for each chunk. `ChunkState` stores a 16x16x16 voxel array per chunk. `ChunkMesh` generates a culled mesh via `SurfaceTool` with per-vertex colors and trimesh collision. `VoxelType` enum defines voxel types (Air, Stone, Grass, Dirt, Sand). Player spawning is deferred until the spawn chunk's collision is ready.
 
 ## Documentation
 
