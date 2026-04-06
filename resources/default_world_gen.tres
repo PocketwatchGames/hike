@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3]
 
 [ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/WorldGenData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/default_sim_data.tres" id="2_sim"]
 [ext_resource type="PackedScene" uid="uid://srhprcjm6tmo" path="res://scenes/game/tree.tscn" id="2_tree"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/game/tall_grass.tscn" id="3_grass"]
 [ext_resource type="PackedScene" path="res://scenes/game/door.tscn" id="4_door"]
@@ -8,6 +9,7 @@
 
 [resource]
 script = ExtResource("1_script")
+SimData = ExtResource("2_sim")
 SizeX = 8
 SizeY = 3
 SizeZ = 8

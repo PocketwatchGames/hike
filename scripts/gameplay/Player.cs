@@ -8,7 +8,7 @@ public partial class Player : CharacterBody3D
 	[Export] public float stepHeight = 0.5f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
-	[Export] public float jumpSpeed = 5f;
+	[Export] public float jumpSpeed = 18f;
 	[Export] public Area3D interactArea;
 
 	public ShaderMaterial outlineMaterial;
@@ -18,6 +18,7 @@ public partial class Player : CharacterBody3D
 	private readonly List<IInteractive> _interactiveCollisions = new();
 	private readonly List<TallGrass> _tallGrassCollisions = new();
 	private float _terrainSpeed = 1f;
+	public bool grounded;
 
 	private Sprite3D _highlightOverlay;
 	Vector3 _inputMove = Vector3.Zero;
@@ -59,10 +60,13 @@ public partial class Player : CharacterBody3D
 		}
 		speed *= _terrainSpeed;
 
-		Velocity = _inputMove * speed;
-		if (!IsOnFloor())
+		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
+		if (!grounded)
 		{
-			Velocity += Vector3.Down * world.SimData.Gravity;
+			Velocity += Vector3.Down * world.SimData.Gravity * dt;
+		} else
+		{
+			Velocity = new Vector3(Velocity.X, -1f, Velocity.Z); // Small downward force to keep grounded
 		}
 
 		if (_inputLook != Vector3.Zero)
@@ -75,26 +79,22 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Step up: lift the player before moving so they can clear small obstacles
-		bool wasOnFloor = IsOnFloor();
 		Vector3 posBeforeStep = GlobalPosition;
-		if (wasOnFloor)
+		if (grounded)
 		{
 			GlobalPosition += Vector3.Up * stepHeight;
 		}
 
+		bool wasOnFloor = grounded;
 		MoveAndSlide();
 
 		// Step down: snap back to the ground after moving
 		if (wasOnFloor)
 		{
-			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * stepHeight, true);
+			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * stepHeight);
 			if (stepDownResult != null)
 			{
-				GlobalPosition = stepDownResult.GetPosition();
-			}
-			else if (IsOnFloor())
-			{
-				// No collision within step height — already on floor, leave as-is
+				grounded = stepDownResult.GetNormal().Dot(Vector3.Up) > 0.5f;
 			}
 			else
 			{
@@ -104,7 +104,12 @@ public partial class Player : CharacterBody3D
 					posBeforeStep.Y,
 					GlobalPosition.Z
 				);
+				grounded = false;
 			}
+		}
+		else
+		{
+			grounded = IsOnFloor();
 		}
 
 		// Update highlight interactive
@@ -149,9 +154,13 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		if (Input.IsActionJustPressed("Jump") && IsOnFloor())
+		if (Input.IsActionJustPressed("Jump"))
 		{
-			Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
+			if (grounded)
+			{
+				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
+				grounded = false;
+			}
 		}
 
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
