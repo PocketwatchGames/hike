@@ -4,9 +4,10 @@ using System;
 public partial class GuiMainMenu : Node
 {
 	[Export] public PackedScene playerScene;
+	[Export] public PlayerSpawnData playerSpawnData;
 	[Export] public WorldGenData worldGenData;
 	[Export] public Label versionLabel;
-	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, WorldGenData worldGenData);
+	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 
 	public override void _Ready()
@@ -19,7 +20,7 @@ public partial class GuiMainMenu : Node
 
 	public void NewGameStandard()
 	{
-		EmitSignal(SignalName.OnNewGame, new Vector3(0,4,0), playerScene, worldGenData);
+		EmitSignal(SignalName.OnNewGame, new Vector3(0,4,0), playerScene, playerSpawnData, worldGenData);
 	}
 
 	public void LoadGame()

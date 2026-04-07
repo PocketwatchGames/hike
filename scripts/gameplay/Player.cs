@@ -9,21 +9,19 @@ public partial class Player : CharacterBody3D
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
-	[Export] public float meleeRadius = 2f;
-	[Export] public float meleeRange = 1f;
 	[Export] public Area3D interactArea;
 
-	public ShaderMaterial outlineMaterial;
-	public World world;
-	private IInteractive _curInteractive;
-	private IInteractive _highlightInteractive;
-	private readonly List<IInteractive> _interactiveCollisions = new();
-	private readonly List<TallGrass> _tallGrassCollisions = new();
-	private float _terrainSpeed = 1f;
-	public bool grounded;
+	public Action<Node3D> onHighlightChanged;
 
-	private Sprite3D _highlightOverlay;
-	private MeshInstance3D _debugMeleeSphere;
+	World _world;
+	IInteractive _curInteractive;
+	IInteractive _highlightInteractive;
+	readonly List<IInteractive> _interactiveCollisions = new();
+	readonly List<TallGrass> _tallGrassCollisions = new();
+	float _terrainSpeed = 1f;
+	bool _grounded;
+	readonly WeaponState[] _weapons = new WeaponState[(int)EItemSlot.Count];
+
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 	bool _lastInputWasGamepad;
@@ -33,29 +31,15 @@ public partial class Player : CharacterBody3D
 		CollisionLayer = (uint)ECollisionLayer.Player;
 		CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Mob);
 
-		_highlightOverlay = new Sprite3D();
-		_highlightOverlay.Name = "HighlightOverlay";
-		_highlightOverlay.MaterialOverride = outlineMaterial;
-		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
-		_highlightOverlay.Visible = false;
-		AddChild(_highlightOverlay);
-
 		interactArea.BodyEntered += OnInteractBodyEntered;
 		interactArea.BodyExited += OnInteractBodyExited;
+	}
 
-		var sphereMesh = new SphereMesh();
-		sphereMesh.Radius = meleeRadius;
-		sphereMesh.Height = meleeRadius * 2f;
-		var material = new StandardMaterial3D();
-		material.Transparency = BaseMaterial3D.TransparencyEnum.Alpha;
-		material.AlbedoColor = new Color(1f, 0f, 0f, 0.3f);
-		material.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded;
-		sphereMesh.Material = material;
-		_debugMeleeSphere = new MeshInstance3D();
-		_debugMeleeSphere.Mesh = sphereMesh;
-		_debugMeleeSphere.Visible = false;
-		_debugMeleeSphere.TopLevel = true;
-		AddChild(_debugMeleeSphere);
+	public void Initialize(PlayerSpawnData spawnData, World world)
+	{
+		_world = world;
+		_weapons[(int)EItemSlot.Melee] = new WeaponState(spawnData.meleeWeaponData);
+		_weapons[(int)EItemSlot.Ranged] = new WeaponState(spawnData.rangedWeaponData);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -78,9 +62,9 @@ public partial class Player : CharacterBody3D
 		speed *= _terrainSpeed;
 
 		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
-		if (!grounded)
+		if (!_grounded)
 		{
-			Velocity += Vector3.Down * world.SimData.Gravity * dt;
+			Velocity += Vector3.Down * _world.SimData.Gravity * dt;
 		} else
 		{
 			Velocity = new Vector3(Velocity.X, -1f, Velocity.Z); // Small downward force to keep grounded
@@ -95,14 +79,23 @@ public partial class Player : CharacterBody3D
 			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
 		}
 
+		string[] weaponActions = new[] { "AttackMelee", "AttackRanged" };
+		for (int i=0;i<(int)EItemSlot.Count;i++)
+		{
+			if (_weapons[i] != null)
+			{
+				ProcessWeapon(_weapons[i], Input.IsActionPressed(weaponActions[i]), dt);
+			}
+		}
+
 		// Step up: lift the player before moving so they can clear small obstacles
 		Vector3 posBeforeStep = GlobalPosition;
-		if (grounded)
+		if (_grounded)
 		{
 			GlobalPosition += Vector3.Up * stepHeight;
 		}
 
-		bool wasOnFloor = grounded;
+		bool wasOnFloor = _grounded;
 		MoveAndSlide();
 
 		// Step down: snap back to the ground after moving
@@ -111,7 +104,7 @@ public partial class Player : CharacterBody3D
 			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * stepHeight);
 			if (stepDownResult != null)
 			{
-				grounded = stepDownResult.GetNormal().Dot(Vector3.Up) > 0.5f;
+				_grounded = stepDownResult.GetNormal().Dot(Vector3.Up) > 0.5f;
 			}
 			else
 			{
@@ -121,12 +114,12 @@ public partial class Player : CharacterBody3D
 					posBeforeStep.Y,
 					GlobalPosition.Z
 				);
-				grounded = false;
+				_grounded = false;
 			}
 		}
 		else
 		{
-			grounded = IsOnFloor();
+			_grounded = IsOnFloor();
 		}
 
 		// Update highlight interactive
@@ -166,17 +159,17 @@ public partial class Player : CharacterBody3D
 				_curInteractive = _highlightInteractive;
 				_curInteractive.Complete();
 				_curInteractive = null;
-				RemoveHighlight();
-				ApplyHighlight((Node3D)_highlightInteractive);
+				onHighlightChanged?.Invoke(null);
+				onHighlightChanged?.Invoke(_highlightInteractive as Node3D);
 			}
 		}
 
 		if (Input.IsActionJustPressed("Jump"))
 		{
-			if (grounded)
+			if (_grounded)
 			{
 				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
-				grounded = false;
+				_grounded = false;
 			}
 		}
 
@@ -187,8 +180,8 @@ public partial class Player : CharacterBody3D
 
 		if (Input.IsActionJustReleased("AttackRanged"))
 		{
+			PerformRangedAttack();
 		}
-
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
 	}
 
@@ -226,49 +219,8 @@ public partial class Player : CharacterBody3D
 
 		if (_highlightInteractive != prevHighlight)
 		{
-			RemoveHighlight();
-			if (_highlightInteractive is Node3D highlightNode)
-			{
-				ApplyHighlight(highlightNode);
-			}
+			onHighlightChanged?.Invoke(_highlightInteractive as Node3D);
 		}
-	}
-
-	private void ApplyHighlight(Node3D node)
-	{
-		Sprite3D source = FindChildSprite(node);
-		if (source == null || !source.Visible)
-		{
-			return;
-		}
-
-		_highlightOverlay.Texture = source.Texture;
-		_highlightOverlay.Transform = source.Transform;
-		_highlightOverlay.Offset = source.Offset;
-		_highlightOverlay.PixelSize = source.PixelSize;
-		_highlightOverlay.Billboard = source.Billboard;
-		_highlightOverlay.TextureFilter = source.TextureFilter;
-		outlineMaterial.SetShaderParameter("texture_albedo", source.Texture);
-		_highlightOverlay.Reparent(node, false);
-		_highlightOverlay.Visible = true;
-	}
-
-	private void RemoveHighlight()
-	{
-		_highlightOverlay.Visible = false;
-		_highlightOverlay.Reparent(this, false);
-	}
-
-	private static Sprite3D FindChildSprite(Node node)
-	{
-		foreach (Node child in node.GetChildren())
-		{
-			if (child is Sprite3D sprite && sprite.Visible)
-			{
-				return sprite;
-			}
-		}
-		return null;
 	}
 
 	private void OnInteractBodyEntered(Node3D body)
@@ -291,14 +243,15 @@ public partial class Player : CharacterBody3D
 
 	private void PerformMeleeAttack()
 	{
+		WeaponState meleeWeapon = _weapons[(int)EItemSlot.Melee];
 		var spaceState = GetWorld3D().DirectSpaceState;
 		var shape = new SphereShape3D();
-		shape.Radius = meleeRadius;
+		shape.Radius = meleeWeapon.data.meleeRadius;
 
 		var query = new PhysicsShapeQueryParameters3D();
 		query.Shape = shape;
 		Vector3 forward = GlobalTransform.Basis.Z;
-		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * meleeRange);
+		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * meleeWeapon.data.meleeRange);
 		query.CollisionMask = (uint)ECollisionLayer.Mob;
 
 		var results = spaceState.IntersectShape(query);
@@ -311,9 +264,32 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		_debugMeleeSphere.GlobalPosition = GlobalPosition + forward * meleeRange;
-		_debugMeleeSphere.Visible = true;
-		GetTree().CreateTimer(0.15).Timeout += () => _debugMeleeSphere.Visible = false;
+		DebugSphere.Create(
+			_world,
+			new Color(1f, 0f, 0f, 0.3f),
+			0.15f,
+			GlobalPosition + forward * meleeWeapon.data.meleeRange,
+			meleeWeapon.data.meleeRadius
+		);
+	}
+
+	void ProcessWeapon(WeaponState weapon, bool inputPressed, float dt)
+	{
+		if (weapon == null || weapon.data == null)
+		{
+			return;
+		}
+	}
+
+
+
+	private void PerformRangedAttack()
+	{
+		WeaponState rangedWeapon = _weapons[(int)EItemSlot.Ranged];
+		if (rangedWeapon == null || rangedWeapon.data == null)
+		{
+			return;
+		}
 	}
 
 	private void UpdateTerrainSpeed()

@@ -21,8 +21,19 @@ public partial class GameClient : Node3D
 	Player _player;
 	World _world;
 	Vector2 _mousePosition;
+	Sprite3D _highlightOverlay;
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, WorldState worldState)
+	public override void _Ready()
+	{
+		_highlightOverlay = new Sprite3D();
+		_highlightOverlay.Name = "HighlightOverlay";
+		_highlightOverlay.MaterialOverride = outlineMaterial;
+		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
+		_highlightOverlay.Visible = false;
+		AddChild(_highlightOverlay);
+	}
+
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
 	{
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
@@ -37,9 +48,9 @@ public partial class GameClient : Node3D
 		}
 
 		_player = playerScene.Instantiate<Player>();
-		_player.outlineMaterial = outlineMaterial;
-		_player.world = _world;
+		_player.onHighlightChanged += OnPlayerHighlightChanged;
 		AddChild(_player);
+		_player.Initialize(playerSpawnData, _world);
 		_player.GlobalPosition = playerPosition;
 		_player.GlobalRotation = Vector3.Zero;
 
@@ -122,6 +133,52 @@ public partial class GameClient : Node3D
 				entity.Visible = entity.GlobalPosition.Y < cameraClip;
 			}
 		}
+	}
+
+	void OnPlayerHighlightChanged(Node3D node)
+	{
+		RemoveHighlight();
+		if (node != null)
+		{
+			ApplyHighlight(node);
+		}
+	}
+
+	void ApplyHighlight(Node3D node)
+	{
+		Sprite3D source = FindChildSprite(node);
+		if (source == null || !source.Visible)
+		{
+			return;
+		}
+
+		_highlightOverlay.Texture = source.Texture;
+		_highlightOverlay.Transform = source.Transform;
+		_highlightOverlay.Offset = source.Offset;
+		_highlightOverlay.PixelSize = source.PixelSize;
+		_highlightOverlay.Billboard = source.Billboard;
+		_highlightOverlay.TextureFilter = source.TextureFilter;
+		outlineMaterial.SetShaderParameter("texture_albedo", source.Texture);
+		_highlightOverlay.Reparent(node, false);
+		_highlightOverlay.Visible = true;
+	}
+
+	void RemoveHighlight()
+	{
+		_highlightOverlay.Visible = false;
+		_highlightOverlay.Reparent(this, false);
+	}
+
+	static Sprite3D FindChildSprite(Node node)
+	{
+		foreach (Node child in node.GetChildren())
+		{
+			if (child is Sprite3D sprite && sprite.Visible)
+			{
+				return sprite;
+			}
+		}
+		return null;
 	}
 
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
