@@ -6,10 +6,24 @@ public partial class Chest : Node3D, IInteractive
 {
     [Export] private Sprite3D _chestSprite;
     [Export] private Sprite3D _openSprite;
+    [Export] private HurtBox _hurtBox;
 
     private bool _open;
     private ChestSpawnState _interactiveState;
     private World _world;
+
+    public override void _Ready()
+    {
+        if (_hurtBox != null)
+        {
+            _hurtBox.OnHit = OnHurtBoxHit;
+        }
+    }
+
+    private void OnHurtBoxHit(DamageData data, Node source)
+    {
+        GD.Print($"Chest hit for {data?.healthDamage} from {source?.Name}");
+    }
 
     public bool CanInteract()
     {

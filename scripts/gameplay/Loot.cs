@@ -6,6 +6,7 @@ public partial class Loot : RigidBody3D
 	[Export] private CollisionShape3D _collisionShape;
 	[Export] private AnimationPlayer _animationPlayer;
 	[Export] private Area3D _pickupArea;
+	[Export] private HurtBox _hurtBox;
 
 	private PropSpawnState _spawnData;
 	private bool _pickedUp;
@@ -16,6 +17,11 @@ public partial class Loot : RigidBody3D
 	{
 		_pickupArea.BodyEntered += OnBodyEntered;
 		_pickupArea.Monitoring = false;
+
+		if (_hurtBox != null)
+		{
+			_hurtBox.OnHit = OnHurtBoxHit;
+		}
 
 		if (_initialImpulse != Vector3.Zero)
 		{
@@ -48,6 +54,11 @@ public partial class Loot : RigidBody3D
 		Freeze = true;
 		_pickupArea.Monitoring = true;
 		_animationPlayer.Play("Bob");
+	}
+
+	private void OnHurtBoxHit(DamageData data, Node source)
+	{
+		GD.Print($"Loot hit for {data?.healthDamage} from {source?.Name}");
 	}
 
 	private void OnBodyEntered(Node body)

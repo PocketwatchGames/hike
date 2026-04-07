@@ -6,6 +6,7 @@ public partial class Door : Node3D, IInteractive
     [Export] private Texture2D DoorTexture;
     [Export] private StaticBody3D _blockCollider;
     [Export] private Sprite3D _doorSprite;
+    [Export] private HurtBox _hurtBox;
 
     private bool _open;
     private DoorSpawnState _interactiveState;
@@ -16,6 +17,16 @@ public partial class Door : Node3D, IInteractive
     public override void _Ready()
     {
         _doorSprite.Texture = DoorTexture;
+
+        if (_hurtBox != null)
+        {
+            _hurtBox.OnHit = OnHurtBoxHit;
+        }
+    }
+
+    private void OnHurtBoxHit(DamageData data, Node source)
+    {
+        GD.Print($"Door hit for {data?.healthDamage} from {source?.Name}");
     }
 
     public bool CanInteract()

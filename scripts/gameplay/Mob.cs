@@ -8,7 +8,10 @@ public partial class Mob : RigidBody3D
     [Export] private AnimationPlayer _animationPlayer;
     [Export] private Node3D _mesh;
     [Export] private Sprite3D _sprite;
+    [Export] private HurtBox _hurtBox;
     [Export] private bool _alive = true;
+
+    public float health = 1f;
 
     private MobSpawnState _spawnData;
 
@@ -17,13 +20,46 @@ public partial class Mob : RigidBody3D
         CollisionLayer = (uint)ECollisionLayer.Mob;
         CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
 
-        if (!_alive)
+        if (_hurtBox != null)
         {
-            ApplyDeadVisual();
+            _hurtBox.OnHit = Hit;
         }
     }
 
-    public void Hit()
+    public override void _Process(double delta)
+    {
+        base._Process(delta);
+        if (_mesh != null)
+        {
+            _mesh.Scale = _alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
+        }
+    }
+
+    public void Hit(DamageData data, Node damageSource)
+    {
+        if (!_alive)
+        {
+            return;
+        }
+
+        Damage(data);
+    }
+
+    public void Damage(DamageData data)
+    {
+        if (data == null)
+        {
+            return;
+        }
+
+        health -= data.healthDamage;
+        if (health <= 0f)
+        {
+            Die();
+        }
+    }
+
+    private void Die()
     {
         if (!_alive)
         {
@@ -34,16 +70,6 @@ public partial class Mob : RigidBody3D
         if (_spawnData != null)
         {
             _spawnData.Alive = false;
-        }
-
-        ApplyDeadVisual();
-    }
-
-    private void ApplyDeadVisual()
-    {
-        if (_mesh != null)
-        {
-            _mesh.Scale = new Vector3(1f, 0.25f, 1f);
         }
     }
 

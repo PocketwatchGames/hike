@@ -10,6 +10,7 @@ public partial class Player : CharacterBody3D
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public Area3D interactArea;
+	[Export] private HurtBox _hurtBox;
 
 	public Action<Node3D> onHighlightChanged;
 
@@ -38,6 +39,16 @@ public partial class Player : CharacterBody3D
 
 		interactArea.BodyEntered += OnInteractBodyEntered;
 		interactArea.BodyExited += OnInteractBodyExited;
+
+		if (_hurtBox != null)
+		{
+			_hurtBox.OnHit = OnHurtBoxHit;
+		}
+	}
+
+	private void OnHurtBoxHit(DamageData data, Node source)
+	{
+		GD.Print($"Player hit for {data?.healthDamage} from {source?.Name}");
 	}
 
 	public void Initialize(PlayerSpawnData spawnData, World world)
@@ -305,23 +316,21 @@ public partial class Player : CharacterBody3D
 
 	void DoWeaponEvent(WeaponState weapon, EItemSlot slot)
 	{
-		var spaceState = GetWorld3D().DirectSpaceState;
-		var shape = new SphereShape3D();
-		shape.Radius = weapon.data.meleeRadius;
-
+		Vector3 damagePos = GlobalPosition + GlobalTransform.Basis.Z * weapon.data.meleeRange;
 		var query = new PhysicsShapeQueryParameters3D();
-		query.Shape = shape;
-		Vector3 forward = GlobalTransform.Basis.Z;
-		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * weapon.data.meleeRange);
-		query.CollisionMask = (uint)ECollisionLayer.Mob;
+		query.Shape = new SphereShape3D() { Radius = weapon.data.meleeRadius };
+		query.Transform = new Transform3D(Basis.Identity, damagePos);
+		query.CollisionMask = (uint)ECollisionLayer.HurtBox;
+		query.CollideWithAreas = true;
+		query.CollideWithBodies = false;
 
-		var results = spaceState.IntersectShape(query);
+		var results = GetWorld3D().DirectSpaceState.IntersectShape(query);
 		foreach (var result in results)
 		{
 			var collider = result["collider"].Obj;
-			if (collider is Mob mob)
+			if (collider is HurtBox hurtBox && hurtBox != _hurtBox)
 			{
-				mob.Hit();
+				hurtBox.Hit(weapon.data.damageData, this);
 			}
 		}
 
@@ -329,7 +338,7 @@ public partial class Player : CharacterBody3D
 			_world,
 			new Color(1f, 0f, 0f, 0.3f),
 			0.15f,
-			GlobalPosition + forward * weapon.data.meleeRange,
+			damagePos,
 			weapon.data.meleeRadius
 		);
 	}
