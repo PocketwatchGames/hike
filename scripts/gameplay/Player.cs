@@ -25,6 +25,8 @@ public partial class Player : CharacterBody3D
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 	bool _lastInputWasGamepad;
+	static readonly string[] _weaponActions = new[] { "AttackMelee", "AttackRanged" };
+
 
 	public override void _Ready()
 	{
@@ -79,12 +81,11 @@ public partial class Player : CharacterBody3D
 			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
 		}
 
-		string[] weaponActions = new[] { "AttackMelee", "AttackRanged" };
 		for (int i=0;i<(int)EItemSlot.Count;i++)
 		{
 			if (_weapons[i] != null)
 			{
-				ProcessWeapon(_weapons[i], Input.IsActionPressed(weaponActions[i]), dt);
+				ProcessWeapon(_weapons[i], i, Input.IsActionPressed(_weaponActions[i]), dt);
 			}
 		}
 
@@ -173,14 +174,20 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		if (Input.IsActionJustReleased("AttackMelee"))
+		for (int i=0;i<(int)EItemSlot.Count;i++)
 		{
-			PerformMeleeAttack();
-		}
-
-		if (Input.IsActionJustReleased("AttackRanged"))
-		{
-			PerformRangedAttack();
+			if (_weapons[i] == null)
+			{
+				continue;
+			}
+			if (Input.IsActionJustPressed(_weaponActions[i]))
+			{
+				WeaponPress(_weapons[i], i);
+			}
+			if (Input.IsActionJustReleased(_weaponActions[i]))
+			{
+				WeaponRelease(_weapons[i], i);
+			}
 		}
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
 	}
@@ -273,7 +280,33 @@ public partial class Player : CharacterBody3D
 		);
 	}
 
-	void ProcessWeapon(WeaponState weapon, bool inputPressed, float dt)
+	void WeaponPress(WeaponState weapon, int slot)
+	{
+		ulong curTime = Time.GetTicksMsec();
+		if (weapon.cooldownTime > curTime || weapon.data == null)
+		{
+			return;
+		}
+
+		switch ((EItemSlot)slot)
+		{
+			case EItemSlot.Melee:
+				PerformMeleeAttack();
+				break;
+			case EItemSlot.Ranged:
+				PerformRangedAttack();
+				break;
+		}
+
+		weapon.cooldownTime = curTime + (ulong)(1000*weapon.data.cooldownTime);
+	}
+
+	void WeaponRelease(WeaponState weapon, int slot)
+	{
+		// Currently no charge or hold mechanics, so nothing to do on release
+	}
+
+	void ProcessWeapon(WeaponState weapon, int slot, bool inputPressed, float dt)
 	{
 		if (weapon == null || weapon.data == null)
 		{

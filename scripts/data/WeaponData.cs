@@ -5,4 +5,5 @@ public partial class WeaponData : Resource
 {
 	[Export] public float meleeRadius = 2f;
 	[Export] public float meleeRange = 1f;
+	[Export] public float cooldownTime = 0.5f;
 }

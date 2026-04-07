@@ -1,7 +1,7 @@
 public class WeaponState
 {
 	public WeaponData data;
-	public uint cooldownTime;
+	public ulong cooldownTime;
 	public int ammo;
 
 	public WeaponState(WeaponData data)
