@@ -37,8 +37,8 @@ public partial class Player : CharacterBody3D
 		CollisionLayer = (uint)ECollisionLayer.Player;
 		CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Mob);
 
-		interactArea.BodyEntered += OnInteractBodyEntered;
-		interactArea.BodyExited += OnInteractBodyExited;
+		interactArea.AreaEntered += OnInteractAreaEntered;
+		interactArea.AreaExited += OnInteractAreaExited;
 
 		if (_hurtBox != null)
 		{
@@ -254,21 +254,19 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private void OnInteractBodyEntered(Node3D body)
+	private void OnInteractAreaEntered(Area3D area)
 	{
-		IInteractive interactive = body as IInteractive ?? body.GetParent() as IInteractive;
-		if (interactive != null)
+		if (area is InteractiveBox box && box.Interactive != null)
 		{
-			_interactiveCollisions.Add(interactive);
+			_interactiveCollisions.Add(box.Interactive);
 		}
 	}
 
-	private void OnInteractBodyExited(Node3D body)
+	private void OnInteractAreaExited(Area3D area)
 	{
-		IInteractive interactive = body as IInteractive ?? body.GetParent() as IInteractive;
-		if (interactive != null)
+		if (area is InteractiveBox box && box.Interactive != null)
 		{
-			_interactiveCollisions.Remove(interactive);
+			_interactiveCollisions.Remove(box.Interactive);
 		}
 	}
 

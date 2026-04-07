@@ -1,9 +1,15 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b6n2vvhvirjdk"]
 
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="1_g3jvp"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_v7ytl"]
+
+[sub_resource type="Resource" id="Resource_24m13"]
+script = ExtResource("1_v7ytl")
+healthDamage = 10.0
 
 [resource]
 script = ExtResource("1_g3jvp")
 activeTime = 0.0
 activateOnRelease = true
+damageData = SubResource("Resource_24m13")
 metadata/_custom_type_script = "uid://dfbdsehg1sfpm"

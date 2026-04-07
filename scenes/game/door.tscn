@@ -2,10 +2,14 @@
 
 [ext_resource type="Script" uid="uid://c3a4l0n4knjyq" path="res://scripts/gameplay/Door.cs" id="1_door"]
 [ext_resource type="Script" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" path="res://scripts/gameplay/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/door_01.png" id="2_k0lqv"]
 [ext_resource type="Shader" path="res://shaders/sprite_lit.gdshader" id="3_shader"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(1, 2, 1)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sprite"]
@@ -25,12 +29,16 @@ _hurtBox = NodePath("HurtBox")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="InteractiveCollider" type="StaticBody3D" parent="." unique_id=235746202]
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveCollider" unique_id=864043579]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_block")
+shape = SubResource("BoxShape3D_interact")
 
 [node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
 material_override = SubResource("ShaderMaterial_sprite")

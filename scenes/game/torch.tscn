@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://dnbg3pwmomno5"]
 
 [ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/Torch.cs" id="1_torch"]
+[ext_resource type="Script" path="res://scripts/gameplay/InteractiveBox.cs" id="6_interactivebox"]
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/torch_01_lit.png" id="2_ty0ga"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" path="res://scripts/gameplay/Light.cs" id="4_light"]
@@ -23,11 +24,15 @@ _litSprite = NodePath("LitSprite")
 _unlitSprite = NodePath("UnlitSprite")
 _light = NodePath("Light")
 
-[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=32198536]
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("6_interactivebox")
+_interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1963554683]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
