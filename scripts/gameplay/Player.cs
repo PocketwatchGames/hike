@@ -140,6 +140,18 @@ public partial class Player : CharacterBody3D
 		// Update highlight interactive
 		UpdateHighlightInteractive();
 
+		// Aiming preview
+		Vector3 aimOrigin = GlobalPosition + Vector3.Up;
+		Vector3 aimEnd = aimOrigin + GlobalTransform.Basis.Z * 5f;
+		DebugBox.Create(
+			_world,
+			new Color(1f, 1f, 1f, 0.15f),
+			0.05f,
+			aimOrigin,
+			aimEnd,
+			0.1f,
+			0.1f
+		);
 	}
 	
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
@@ -314,7 +326,20 @@ public partial class Player : CharacterBody3D
 
 	void DoWeaponEvent(WeaponState weapon, EItemSlot slot, WeaponEvent weaponEvent)
 	{
-		Vector3 damagePos = GlobalPosition + GlobalTransform.Basis.Z * weaponEvent.meleeRange;
+		switch (weaponEvent.type)
+		{
+			case EWeaponEventType.Melee:
+				DoMeleeWeaponEvent(weapon, weaponEvent);
+				break;
+			case EWeaponEventType.Hitscan:
+				DoHitscanWeaponEvent(weapon, weaponEvent);
+				break;
+		}
+	}
+
+	void DoMeleeWeaponEvent(WeaponState weapon, WeaponEvent weaponEvent)
+	{
+		Vector3 damagePos = GlobalPosition + Vector3.Up + GlobalTransform.Basis.Z * weaponEvent.meleeRange;
 		var query = new PhysicsShapeQueryParameters3D();
 		query.Shape = new SphereShape3D() { Radius = weaponEvent.meleeRadius };
 		query.Transform = new Transform3D(Basis.Identity, damagePos);
@@ -338,6 +363,62 @@ public partial class Player : CharacterBody3D
 			0.15f,
 			damagePos,
 			weaponEvent.meleeRadius
+		);
+	}
+
+	void DoHitscanWeaponEvent(WeaponState weapon, WeaponEvent weaponEvent)
+	{
+		Vector3 origin = GlobalPosition + Vector3.Up;
+		Vector3 direction = GlobalTransform.Basis.Z;
+		Vector3 rayEnd = origin + direction * weaponEvent.hitScanRange;
+
+		var spaceState = GetWorld3D().DirectSpaceState;
+
+		Godot.Collections.Array<Rid> bodyExclude = [GetRid()];
+
+		// Find the nearest environment hit to clip the ray against world geometry.
+		var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
+		envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+		envQuery.CollideWithAreas = false;
+		envQuery.CollideWithBodies = true;
+		envQuery.Exclude = bodyExclude;
+		var envResult = spaceState.IntersectRay(envQuery);
+
+		Vector3 hitPos = rayEnd;
+		if (envResult.Count > 0)
+		{
+			hitPos = (Vector3)envResult["position"];
+		}
+
+		// Cast against hurtboxes up to the clipped end point.
+		var hurtQuery = PhysicsRayQueryParameters3D.Create(origin, hitPos);
+		hurtQuery.CollisionMask = (uint)ECollisionLayer.HurtBox;
+		hurtQuery.CollideWithAreas = true;
+		hurtQuery.CollideWithBodies = false;
+		if (_hurtBox != null)
+		{
+			hurtQuery.Exclude = [_hurtBox.GetRid()];
+		}
+
+		var hurtResult = spaceState.IntersectRay(hurtQuery);
+		if (hurtResult.Count > 0)
+		{
+			var collider = hurtResult["collider"].Obj;
+			if (collider is HurtBox hurtBox && hurtBox != _hurtBox)
+			{
+				hurtBox.Hit(weapon.data.damageData, this);
+				hitPos = (Vector3)hurtResult["position"];
+			}
+		}
+
+		DebugBox.Create(
+			_world,
+			new Color(1f, 0f, 0f, 0.3f),
+			0.15f,
+			origin,
+			hitPos,
+			0.1f,
+			0.1f
 		);
 	}
 
