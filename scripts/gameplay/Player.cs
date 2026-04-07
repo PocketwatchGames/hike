@@ -273,11 +273,11 @@ public partial class Player : CharacterBody3D
 	void WeaponActivate(WeaponState weapon, int slot)
 	{
 		ulong curTime = Time.GetTicksMsec();
-		if (weapon.data.activeTime == 0)
-		{
-			DoWeaponEvent(weapon, (EItemSlot)slot);
-		}
+		weapon.lastWeaponEventIndex = -1;
+		_weaponActivateTime = curTime;
+		_activeWeaponSlot = slot;
 		weapon.cooldownTime = curTime + (ulong)(1000 * (weapon.data.cooldownTime + weapon.data.activeTime));
+		ProcessWeaponEvents(weapon, slot);
 	}
 	void WeaponPress(WeaponState weapon, int slot)
 	{
@@ -312,11 +312,11 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	void DoWeaponEvent(WeaponState weapon, EItemSlot slot)
+	void DoWeaponEvent(WeaponState weapon, EItemSlot slot, WeaponEvent weaponEvent)
 	{
-		Vector3 damagePos = GlobalPosition + GlobalTransform.Basis.Z * weapon.data.meleeRange;
+		Vector3 damagePos = GlobalPosition + GlobalTransform.Basis.Z * weaponEvent.meleeRange;
 		var query = new PhysicsShapeQueryParameters3D();
-		query.Shape = new SphereShape3D() { Radius = weapon.data.meleeRadius };
+		query.Shape = new SphereShape3D() { Radius = weaponEvent.meleeRadius };
 		query.Transform = new Transform3D(Basis.Identity, damagePos);
 		query.CollisionMask = (uint)ECollisionLayer.HurtBox;
 		query.CollideWithAreas = true;
@@ -337,8 +337,30 @@ public partial class Player : CharacterBody3D
 			new Color(1f, 0f, 0f, 0.3f),
 			0.15f,
 			damagePos,
-			weapon.data.meleeRadius
+			weaponEvent.meleeRadius
 		);
+	}
+
+	void ProcessWeaponEvents(WeaponState weapon, int slot)
+	{
+		if (weapon.data == null || weapon.data.events == null)
+		{
+			return;
+		}
+		ulong curTime = Time.GetTicksMsec();
+		for (int i = weapon.lastWeaponEventIndex + 1; i < weapon.data.events.Count; i++)
+		{
+			WeaponEvent weaponEvent = weapon.data.events[i];
+			if (curTime >= _weaponActivateTime + weaponEvent.time)
+			{
+				DoWeaponEvent(weapon, (EItemSlot)slot, weaponEvent);
+				weapon.lastWeaponEventIndex = i;
+			}
+			else
+			{
+				break;
+			}
+		}
 	}
 
 	void ProcessWeapon(WeaponState weapon, int slot, bool inputPressed, float dt)
@@ -346,6 +368,10 @@ public partial class Player : CharacterBody3D
 		if (weapon == null || weapon.data == null)
 		{
 			return;
+		}
+		if (_activeWeaponSlot == slot)
+		{
+			ProcessWeaponEvents(weapon, slot);
 		}
 	}
 

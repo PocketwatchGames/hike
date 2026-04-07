@@ -2,14 +2,20 @@
 
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="1_g3jvp"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_v7ytl"]
+[ext_resource type="Script" uid="uid://bjaql72lk0o74" path="res://scripts/data/WeaponEvent.cs" id="2_24m13"]
 
 [sub_resource type="Resource" id="Resource_24m13"]
 script = ExtResource("1_v7ytl")
 healthDamage = 10.0
+
+[sub_resource type="Resource" id="Resource_v5fom"]
+script = ExtResource("2_24m13")
+metadata/_custom_type_script = "uid://bjaql72lk0o74"
 
 [resource]
 script = ExtResource("1_g3jvp")
 activeTime = 0.0
 activateOnRelease = true
 damageData = SubResource("Resource_24m13")
+events = Array[ExtResource("2_24m13")]([SubResource("Resource_v5fom")])
 metadata/_custom_type_script = "uid://dfbdsehg1sfpm"
