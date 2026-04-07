@@ -21,6 +21,9 @@ public partial class Player : CharacterBody3D
 	float _terrainSpeed = 1f;
 	bool _grounded;
 	readonly WeaponState[] _weapons = new WeaponState[(int)EItemSlot.Count];
+	int? _activeWeaponSlot;
+	ulong _weaponPressTime;
+	ulong _weaponActivateTime;
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
@@ -174,7 +177,7 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		for (int i=0;i<(int)EItemSlot.Count;i++)
+		for (int i = 0; i < (int)EItemSlot.Count; i++)
 		{
 			if (_weapons[i] == null)
 			{
@@ -190,6 +193,16 @@ public partial class Player : CharacterBody3D
 			}
 		}
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
+	}
+	
+	int? GetActiveWeapon()
+	{
+		if (_activeWeaponSlot.HasValue)
+		{
+			WeaponState activeWeapon = _weapons[_activeWeaponSlot.Value];
+			return activeWeapon != null && activeWeapon.data != null && Time.GetTicksMsec() < _weaponActivateTime + activeWeapon.data.activeTime ? _activeWeaponSlot : null;
+		}
+		return null;
 	}
 
 	private void UpdateHighlightInteractive()
@@ -248,17 +261,58 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private void PerformMeleeAttack()
+	void WeaponActivate(WeaponState weapon, int slot)
 	{
-		WeaponState meleeWeapon = _weapons[(int)EItemSlot.Melee];
+		ulong curTime = Time.GetTicksMsec();
+		if (weapon.data.activeTime == 0)
+		{
+			DoWeaponEvent(weapon, (EItemSlot)slot);
+		}
+		weapon.cooldownTime = curTime + (ulong)(1000 * (weapon.data.cooldownTime + weapon.data.activeTime));
+	}
+	void WeaponPress(WeaponState weapon, int slot)
+	{
+		ulong curTime = Time.GetTicksMsec();
+		int? activeWeapon = GetActiveWeapon();
+		if (weapon.cooldownTime > curTime || weapon.data == null || activeWeapon.HasValue)
+		{
+			return;
+		}
+
+		if (weapon.data.activateOnRelease)
+		{
+			_weaponActivateTime = curTime;
+			_weaponPressTime = curTime;
+			_activeWeaponSlot = slot;
+		}
+		else
+		{
+			WeaponActivate(weapon, slot);
+		}
+	}
+
+	void WeaponRelease(WeaponState weapon, int slot)
+	{
+		if (weapon.data == null || _activeWeaponSlot != slot)
+		{
+			return;
+		}
+		if (weapon.data.activateOnRelease)
+		{
+			WeaponActivate(weapon, slot);
+		}
+	}
+
+	void DoWeaponEvent(WeaponState weapon, EItemSlot slot)
+	{
 		var spaceState = GetWorld3D().DirectSpaceState;
 		var shape = new SphereShape3D();
-		shape.Radius = meleeWeapon.data.meleeRadius;
+		shape.Radius = weapon.data.meleeRadius;
 
 		var query = new PhysicsShapeQueryParameters3D();
 		query.Shape = shape;
 		Vector3 forward = GlobalTransform.Basis.Z;
-		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * meleeWeapon.data.meleeRange);
+		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * weapon.data.meleeRange);
 		query.CollisionMask = (uint)ECollisionLayer.Mob;
 
 		var results = spaceState.IntersectShape(query);
@@ -275,51 +329,14 @@ public partial class Player : CharacterBody3D
 			_world,
 			new Color(1f, 0f, 0f, 0.3f),
 			0.15f,
-			GlobalPosition + forward * meleeWeapon.data.meleeRange,
-			meleeWeapon.data.meleeRadius
+			GlobalPosition + forward * weapon.data.meleeRange,
+			weapon.data.meleeRadius
 		);
-	}
-
-	void WeaponPress(WeaponState weapon, int slot)
-	{
-		ulong curTime = Time.GetTicksMsec();
-		if (weapon.cooldownTime > curTime || weapon.data == null)
-		{
-			return;
-		}
-
-		switch ((EItemSlot)slot)
-		{
-			case EItemSlot.Melee:
-				PerformMeleeAttack();
-				break;
-			case EItemSlot.Ranged:
-				PerformRangedAttack();
-				break;
-		}
-
-		weapon.cooldownTime = curTime + (ulong)(1000*weapon.data.cooldownTime);
-	}
-
-	void WeaponRelease(WeaponState weapon, int slot)
-	{
-		// Currently no charge or hold mechanics, so nothing to do on release
 	}
 
 	void ProcessWeapon(WeaponState weapon, int slot, bool inputPressed, float dt)
 	{
 		if (weapon == null || weapon.data == null)
-		{
-			return;
-		}
-	}
-
-
-
-	private void PerformRangedAttack()
-	{
-		WeaponState rangedWeapon = _weapons[(int)EItemSlot.Ranged];
-		if (rangedWeapon == null || rangedWeapon.data == null)
 		{
 			return;
 		}
