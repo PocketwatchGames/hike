@@ -10,6 +10,7 @@ public partial class Player : CharacterBody3D
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float meleeRadius = 2f;
+	[Export] public float meleeRange = 1f;
 	[Export] public Area3D interactArea;
 
 	public ShaderMaterial outlineMaterial;
@@ -53,6 +54,7 @@ public partial class Player : CharacterBody3D
 		_debugMeleeSphere = new MeshInstance3D();
 		_debugMeleeSphere.Mesh = sphereMesh;
 		_debugMeleeSphere.Visible = false;
+		_debugMeleeSphere.TopLevel = true;
 		AddChild(_debugMeleeSphere);
 	}
 
@@ -159,7 +161,6 @@ public partial class Player : CharacterBody3D
 		// Handle interact input
 		if (Input.IsActionJustReleased("Interact"))
 		{
-			GD.Print($"[Interact] highlight={_highlightInteractive?.GetType().Name ?? "null"}, canAct={_highlightInteractive?.CanActorInteract(this)}, collisions={_interactiveCollisions.Count}");
 			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
 				_curInteractive = _highlightInteractive;
@@ -182,6 +183,10 @@ public partial class Player : CharacterBody3D
 		if (Input.IsActionJustReleased("AttackMelee"))
 		{
 			PerformMeleeAttack();
+		}
+
+		if (Input.IsActionJustReleased("AttackRanged"))
+		{
 		}
 
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
@@ -292,7 +297,8 @@ public partial class Player : CharacterBody3D
 
 		var query = new PhysicsShapeQueryParameters3D();
 		query.Shape = shape;
-		query.Transform = new Transform3D(Basis.Identity, GlobalPosition);
+		Vector3 forward = GlobalTransform.Basis.Z;
+		query.Transform = new Transform3D(Basis.Identity, GlobalPosition + forward * meleeRange);
 		query.CollisionMask = (uint)ECollisionLayer.Mob;
 
 		var results = spaceState.IntersectShape(query);
@@ -305,6 +311,7 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
+		_debugMeleeSphere.GlobalPosition = GlobalPosition + forward * meleeRange;
 		_debugMeleeSphere.Visible = true;
 		GetTree().CreateTimer(0.15).Timeout += () => _debugMeleeSphere.Visible = false;
 	}
