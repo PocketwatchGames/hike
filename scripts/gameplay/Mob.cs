@@ -4,7 +4,7 @@ using Godot;
 public enum EAggroState
 {
     Idle,
-    Suspicious,
+    Seek,
     Alert
 }
 
@@ -135,13 +135,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
         float aggroDelta = 0f;
         Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
-        float distanceToPlayer = toPlayer.LengthSquared();
-        if (distanceToPlayer < mobData.VisionRange * mobData.VisionRange)
+        float distanceSqToPlayer = toPlayer.LengthSquared();
+        float visibilityDistance = mobData.VisionRange * Mathf.Pow(Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
+        if (aggroState == EAggroState.Idle || aggroState == EAggroState.Seek)
         {
-            aggroDelta = 1f - (distanceToPlayer / (mobData.VisionRange * mobData.VisionRange));
-            aggroDelta *= Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z));
-            aggroDelta *= _world.player.visibility;
+            visibilityDistance *= _world.player.visibility;
         }
+        aggroDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
         if (aggroDelta > 0f)
         {
             float eyeHeight = 1.5f;
@@ -158,17 +158,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
         if (aggroDelta > mobData.MinAggroDelta)
         {
-            aggro = Mathf.Clamp(aggro + aggroDelta * mobData.AggroIncreaseSpeed * delta, 0f, 1f);
+            aggro = Mathf.Clamp(aggro + aggroDelta / (1.0f - mobData.MinAggroDelta) * mobData.AggroIncreaseSpeed * delta, 0f, 1f);
             if (aggro >= mobData.AggroThresholdAlert)
             {
                 aggroState = EAggroState.Alert;
             }
-            else if (aggro >= mobData.AggroThresholdSuspicious)
-            {
-                aggroState = EAggroState.Suspicious;
-            }
 
-            if (aggroState == EAggroState.Alert)
+            if (aggroState == EAggroState.Alert || aggroState == EAggroState.Seek)
             {
                 alertRelaxationTime = Time.GetTicksMsec() + (ulong)(mobData.AlertRelaxationTime * 1000);
             }
@@ -177,9 +173,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             if (aggroState == EAggroState.Alert)
             {
+                aggroState = EAggroState.Seek;
+            }
+
+            if (aggroState == EAggroState.Seek) {
                 if (Time.GetTicksMsec() >= alertRelaxationTime)
                 {
-                    aggroState = EAggroState.Suspicious;
+                    aggroState = EAggroState.Idle;
                 }
             }
             else

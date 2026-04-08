@@ -4,4 +4,6 @@
 
 [resource]
 script = ExtResource("1_vvowg")
+VisionRange = 20.0
+AggroIncreaseSpeed = 2.0
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

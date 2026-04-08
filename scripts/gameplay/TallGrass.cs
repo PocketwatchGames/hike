@@ -4,7 +4,7 @@ using Godot;
 public partial class TallGrass : Area3D, IWorldEntity
 {
 	[Export] public float speed = 0.5f;
-	[Export] public float camouflage = 0.25f;
+	[Export] public float camouflage = 0.1f;
 
 	public override void _Ready()
 	{

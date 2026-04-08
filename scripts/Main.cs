@@ -34,7 +34,7 @@ public partial class Main : Node
 
 	void StartGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
 	{
-		var worldState = new WorldState(worldGenData);
+		var worldState = WorldGen.Generate(worldGenData);
 		_currentScreen = GameScene.Instantiate<Node>();
 		AddChild(_currentScreen);
 		(_currentScreen as GameClient).Init(playerPosition, playerScene, playerSpawnData, worldState);

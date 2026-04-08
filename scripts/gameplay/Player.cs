@@ -10,7 +10,7 @@ public partial class Player : CharacterBody3D
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float visibilityLightMax = 0.75f;
-	[Export] public float visibilityMovementMin = 0.25f;
+	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2;
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
