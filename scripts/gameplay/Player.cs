@@ -9,6 +9,9 @@ public partial class Player : CharacterBody3D
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
+	[Export] public float visibilityLightMax = 0.75f;
+	[Export] public float visibilityMovementMin = 0.25f;
+	[Export] public float visibilityMovementPower = 2;
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 
@@ -21,6 +24,8 @@ public partial class Player : CharacterBody3D
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
+
+	public float visibility = 1f;
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
@@ -76,6 +81,7 @@ public partial class Player : CharacterBody3D
 		speed *= _terrainSpeed;
 
 		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
+
 		if (!_grounded)
 		{
 			Velocity += Vector3.Down * _world.SimData.Gravity * dt;
@@ -134,6 +140,7 @@ public partial class Player : CharacterBody3D
 		{
 			_grounded = IsOnFloor();
 		}
+		UpdateVisibility();
 
 		// Update highlight interactive
 		UpdateHighlightInteractive();
@@ -277,6 +284,24 @@ public partial class Player : CharacterBody3D
 		{
 			_terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
 		}
+	}
+
+	private void UpdateVisibility()
+	{
+		int wx = Mathf.FloorToInt(GlobalPosition.X);
+		int wy = Mathf.FloorToInt(GlobalPosition.Y);
+		int wz = Mathf.FloorToInt(GlobalPosition.Z);
+		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(wx, wy, wz) / ((float)LightEngine.MAX_LIGHT * visibilityLightMax), 0, 1);
+
+		float speedFactor = moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / moveSpeed, visibilityMovementPower), visibilityMovementMin, 1f) : 1f;
+
+		float camouflage = 0f;
+		foreach (TallGrass grass in _tallGrassCollisions)
+		{
+			camouflage = Mathf.Max(camouflage, grass.camouflage);
+		}
+
+		visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
 	}
 
 	public void AddTerrainModifier(TallGrass tallGrass)

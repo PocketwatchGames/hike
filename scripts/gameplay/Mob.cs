@@ -140,6 +140,21 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             aggroDelta = 1f - (distanceToPlayer / (mobData.VisionRange * mobData.VisionRange));
             aggroDelta *= Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z));
+            aggroDelta *= _world.player.visibility;
+        }
+        if (aggroDelta > 0f)
+        {
+            float eyeHeight = 1.5f;
+            Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+            Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+            var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+            query.CollideWithAreas = false;
+            query.CollideWithBodies = true;
+            var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+            if (result.Count > 0)
+            {
+                aggroDelta = 0f;
+            }
         }
         if (aggroDelta > mobData.MinAggroDelta)
         {
