@@ -39,6 +39,7 @@ public partial class GameClient : Node3D
 		onInit?.Invoke();
 
 		_world = new World();
+		_world.onMobSpawned += OnMobSpawned;
 		AddChild(_world);
 		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
 
@@ -182,6 +183,14 @@ public partial class GameClient : Node3D
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
 	{
 		HudText.Create(hudTextScene, camera, position, text, fadeMs, verticalMovement, color, this);
+	}
+
+	void OnMobSpawned(Mob mob)
+	{
+		if (mob.HudScene != null)
+		{
+			MobHUD.Create(mob.HudScene, camera, mob, worldHUD);
+		}
 	}
 
 	public void TogglePause()

@@ -6,7 +6,7 @@
 
 [sub_resource type="Resource" id="Resource_1lqds"]
 script = ExtResource("1_74r8i")
-healthDamage = 10.0
+healthDamage = 0.5
 
 [sub_resource type="Resource" id="Resource_cbqpt"]
 script = ExtResource("2_1lqds")

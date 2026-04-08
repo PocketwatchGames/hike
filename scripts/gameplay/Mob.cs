@@ -9,9 +9,12 @@ public partial class Mob : RigidBody3D
     [Export] private Node3D _mesh;
     [Export] private Sprite3D _sprite;
     [Export] private HurtBox _hurtBox;
-    [Export] private bool _alive = true;
-
-    public float health = 1f;
+    [Export] public Node3D HudAnchor;
+    [Export] public PackedScene HudScene;
+    public bool alive;
+    public float maxHealth;
+    public float health;
+    public float aggro;
 
     private MobSpawnState _spawnState;
     World _world;
@@ -40,7 +43,10 @@ public partial class Mob : RigidBody3D
         _spawnState = spawnState;
         Position = spawnState.WorldPosition;
         Rotation = new Vector3(0, spawnState.RotationY, 0);
-        _alive = spawnState.Alive;
+        alive = spawnState.Alive;
+        health = spawnState.Health;
+        maxHealth = spawnState.MaxHealth;
+        aggro = spawnState.Aggro;
         world.AddChild(this);
     }
 
@@ -50,13 +56,13 @@ public partial class Mob : RigidBody3D
         base._Process(delta);
         if (_mesh != null)
         {
-            _mesh.Scale = _alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
+            _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
         }
     }
 
     public void Hit(DamageData data, Node damageSource)
     {
-        if (!_alive)
+        if (!alive)
         {
             return;
         }
@@ -80,12 +86,12 @@ public partial class Mob : RigidBody3D
 
     private void Die()
     {
-        if (!_alive)
+        if (!alive)
         {
             return;
         }
 
-        _alive = false;
+        alive = false;
         if (_spawnState != null)
         {
             _spawnState.Alive = false;

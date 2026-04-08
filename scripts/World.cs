@@ -11,6 +11,8 @@ public partial class World : Node3D
 
     public IReadOnlyDictionary<Vector3I, List<Node3D>> ActiveEntities => _activeEntities;
 
+    public Action<Mob> onMobSpawned;
+
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
@@ -172,8 +174,9 @@ public partial class World : Node3D
                     continue;
                 }
 
-                Node3D mob = Mob.Create(this, mobData);
+                Mob mob = Mob.Create(this, mobData);
                 entities.Add(mob);
+                onMobSpawned?.Invoke(mob);
             }
         }
 

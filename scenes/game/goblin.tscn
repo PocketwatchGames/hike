@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_hfanx"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/game/mob_hud.tscn" id="3_mobhud"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
 albedo_color = Color(1, 0.5411765, 1, 1)
@@ -18,11 +19,13 @@ size = Vector3(0.5, 0.2, 0.1)
 radius = 0.35
 height = 1.5
 
-[node name="Mob" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox")]
+[node name="Mob" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor")]
 script = ExtResource("1_hfanx")
 _collisionShape = NodePath("MovementCollision")
 _mesh = NodePath("MeshInstance3D")
 _hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("Node3D")
+HudScene = ExtResource("3_mobhud")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1610472919]
@@ -45,3 +48,6 @@ script = ExtResource("2_hurtbox")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=35722461]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
+
+[node name="Node3D" type="Node3D" parent="." unique_id=1599354847]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
