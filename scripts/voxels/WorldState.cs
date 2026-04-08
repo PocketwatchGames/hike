@@ -14,9 +14,7 @@ public class WorldState
     public ulong GameTimeMs;
 
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
-    public readonly Dictionary<Vector3I, List<PropSimState>> _props = new();
-    public readonly Dictionary<Vector3I, List<MobSimState>> _mobs = new();
-    public readonly Dictionary<Vector3I, List<InteractiveSimState>> _interactives = new();
+    public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
 
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
@@ -123,48 +121,21 @@ public class WorldState
         return _chunks.ContainsKey(coord);
     }
 
-    public List<PropSimState> GetProps(Vector3I coord)
+    public List<EntitySimState> GetEntities(Vector3I coord)
     {
-        _props.TryGetValue(coord, out List<PropSimState> props);
-        return props;
+        _entities.TryGetValue(coord, out List<EntitySimState> entities);
+        return entities;
     }
 
-    public void AddProp(PropSimState prop)
+    public void AddEntity(EntitySimState entity)
     {
-        Vector3I coord = World.WorldToChunkCoord(prop.WorldPosition);
-        if (!_props.TryGetValue(coord, out List<PropSimState> props))
+        Vector3I coord = World.WorldToChunkCoord(entity.WorldPosition);
+        if (!_entities.TryGetValue(coord, out List<EntitySimState> entities))
         {
-            props = new List<PropSimState>();
-            _props[coord] = props;
+            entities = new List<EntitySimState>();
+            _entities[coord] = entities;
         }
-        props.Add(prop);
-    }
-
-   public List<MobSimState> GetMobs(Vector3I coord)
-    {
-        _mobs.TryGetValue(coord, out List<MobSimState> mobs);
-        return mobs;
-    }
-
-    public List<InteractiveSimState> GetInteractives(Vector3I coord)
-    {
-        _interactives.TryGetValue(coord, out List<InteractiveSimState> interactives);
-        return interactives;
-    }
-
-    public void AddInteractive(InteractiveSimState data)
-    {
-        Vector3I cc = WorldToChunkCoord(
-            (int)Math.Floor(data.WorldPosition.X),
-            (int)Math.Floor(data.WorldPosition.Y),
-            (int)Math.Floor(data.WorldPosition.Z)
-        );
-        if (!_interactives.TryGetValue(cc, out List<InteractiveSimState> list))
-        {
-            list = new List<InteractiveSimState>();
-            _interactives[cc] = list;
-        }
-        list.Add(data);
+        entities.Add(entity);
     }
 
     public void UpdateLightingAt(List<Vector3I> changedPositions)

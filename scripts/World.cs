@@ -130,7 +130,7 @@ public partial class World : Node3D
     public Loot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
     {
         var simState = new PropSimState(PropType.Loot, position, scene);
-        _worldState.AddProp(simState);
+        _worldState.AddEntity(simState);
         Loot loot = Loot.Create(this, simState, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
@@ -158,26 +158,19 @@ public partial class World : Node3D
     private void LoadEntitiesForChunk(Vector3I coord)
     {
         var entities = new List<Node3D>();
-        SpawnFromStates(_worldState.GetProps(coord), entities);
-        SpawnFromStates(_worldState.GetMobs(coord), entities);
-        SpawnFromStates(_worldState.GetInteractives(coord), entities);
-        _activeEntities[coord] = entities;
-    }
-
-    private void SpawnFromStates<T>(List<T> states, List<Node3D> entities) where T : EntitySimState
-    {
-        if (states == null)
+        List<EntitySimState> states = _worldState.GetEntities(coord);
+        if (states != null)
         {
-            return;
-        }
-        foreach (T state in states)
-        {
-            Node3D entity = state.CreateEntity(this);
-            if (entity != null)
+            foreach (EntitySimState state in states)
             {
-                RegisterEntity(entity, entities);
+                Node3D entity = state.CreateEntity(this);
+                if (entity != null)
+                {
+                    RegisterEntity(entity, entities);
+                }
             }
         }
+        _activeEntities[coord] = entities;
     }
 
     private void RegisterEntity(Node3D entity, List<Node3D> entities)

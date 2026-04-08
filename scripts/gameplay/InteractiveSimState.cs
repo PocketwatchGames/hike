@@ -1,17 +1,8 @@
 using Godot;
 
-public abstract class InteractiveSimState : EntitySimState
+public class DoorSimState : EntitySimState
 {
     public bool Active = true;
-
-    protected InteractiveSimState(Vector3 worldPosition, PackedScene scene)
-        : base(worldPosition, scene)
-    {
-    }
-}
-
-public class DoorSimState : InteractiveSimState
-{
     public readonly float RotationY;
 
     public DoorSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
@@ -26,8 +17,10 @@ public class DoorSimState : InteractiveSimState
     }
 }
 
-public class TorchSimState : InteractiveSimState
+public class TorchSimState : EntitySimState
 {
+    public bool Active = true;
+
     public TorchSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
@@ -39,8 +32,9 @@ public class TorchSimState : InteractiveSimState
     }
 }
 
-public class ChestSimState : InteractiveSimState
+public class ChestSimState : EntitySimState
 {
+    public bool Active = true;
     public readonly int LootCount;
     public readonly PackedScene LootScene;
 
