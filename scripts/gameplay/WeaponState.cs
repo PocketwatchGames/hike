@@ -8,5 +8,6 @@ public class WeaponState
 	public WeaponState(WeaponData data)
 	{
 		this.data = data;
+		ammo = data.maxAmmo;
 	}
 }

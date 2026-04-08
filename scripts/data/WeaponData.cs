@@ -8,6 +8,7 @@ public partial class WeaponData : Resource
 	[Export] public float activeTime = 0.5f;
 	[Export] public bool activateOnRelease = false;
 	[Export] public bool useAmmo = false;
+	[Export] public int maxAmmo = 0;
 	[Export] public DamageData damageData;
 	[Export] public Array<WeaponEvent> events = new();
 }

@@ -1,11 +1,19 @@
 using Godot;
 
+public enum EWeaponState
+{
+	Ready,
+	Charging,
+	Active
+}
+
 public partial class Player : CharacterBody3D
 {
 	readonly WeaponState[] _weapons = new WeaponState[(int)EItemSlot.Count];
 	int? _activeWeaponSlot;
 	ulong _weaponPressTime;
 	ulong _weaponActivateTime;
+	EWeaponState _weaponState;
 
 	static readonly string[] _weaponActions = new[] { "AttackMelee", "AttackRanged" };
 
@@ -25,15 +33,14 @@ public partial class Player : CharacterBody3D
 		weapon.lastWeaponEventIndex = -1;
 		_weaponActivateTime = curTime;
 		_activeWeaponSlot = slot;
+		_weaponState = EWeaponState.Active;
 		weapon.cooldownTime = curTime + (ulong)(1000 * (weapon.data.cooldownTime + weapon.data.activeTime));
 		ProcessWeaponEvents(weapon, slot);
 	}
 
 	bool CanUseWeapon(WeaponState weapon)
 	{
-		ulong curTime = Time.GetTicksMsec();
-		int? activeWeapon = GetActiveWeapon();
-		return activeWeapon.HasValue || weapon.data != null && weapon.cooldownTime <= curTime && (!weapon.data.useAmmo || weapon.ammo > 0);
+		return !GetActiveWeapon().HasValue && weapon.data != null && weapon.cooldownTime <= Time.GetTicksMsec() && (!weapon.data.useAmmo || weapon.ammo > 0);
 	}
 
 	void WeaponPress(WeaponState weapon, int slot)
@@ -44,11 +51,12 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		_activeWeaponSlot = slot;
 		if (weapon.data.activateOnRelease)
 		{
+			_weaponState = EWeaponState.Charging;
 			_weaponActivateTime = curTime;
 			_weaponPressTime = curTime;
-			_activeWeaponSlot = slot;
 		}
 		else
 		{
@@ -58,7 +66,7 @@ public partial class Player : CharacterBody3D
 
 	void WeaponRelease(WeaponState weapon, int slot)
 	{
-		if (weapon.data == null || _activeWeaponSlot != slot)
+		if (weapon.data == null || _activeWeaponSlot != slot || _weaponState != EWeaponState.Charging)
 		{
 			return;
 		}
@@ -197,9 +205,14 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		if (_activeWeaponSlot == slot)
+		if (_activeWeaponSlot == slot && _weaponState == EWeaponState.Active)
 		{
 			ProcessWeaponEvents(weapon, slot);
+			if (Time.GetTicksMsec() >= _weaponActivateTime + weapon.data.activeTime)
+			{
+				_activeWeaponSlot = null;
+				_weaponState = EWeaponState.Ready;
+			}
 		}
 	}
 }

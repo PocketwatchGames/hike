@@ -1,3 +1,19 @@
 [gd_scene format=3 uid="uid://bl6a5qa4h47dj"]
 
 [node name="MobHealth" type="Node2D" unique_id=294671808]
+
+[node name="ProgressBar" type="ProgressBar" parent="." unique_id=934549068]
+custom_minimum_size = Vector2(32, 32)
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -32.0
+offset_right = 16.0
+grow_horizontal = 2
+grow_vertical = 0
+max_value = 1.0
+fill_mode = 3
+show_percentage = false
