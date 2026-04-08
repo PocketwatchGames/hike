@@ -8,7 +8,7 @@ public partial class Loot : RigidBody3D, IWorldEntity
 	[Export] private Area3D _pickupArea;
 	[Export] private HurtBox _hurtBox;
 
-	private PropSpawnState _spawnData;
+	private PropSimState _simState;
 	private bool _pickedUp;
 	private World _world;
 	private Vector3 _initialImpulse;
@@ -83,9 +83,9 @@ public partial class Loot : RigidBody3D, IWorldEntity
 
 		_pickedUp = true;
 
-		if (_spawnData != null)
+		if (_simState != null)
 		{
-			_spawnData.PickedUp = true;
+			_simState.PickedUp = true;
 		}
 
 		_collisionShape.Disabled = true;
@@ -104,14 +104,25 @@ public partial class Loot : RigidBody3D, IWorldEntity
 		world.SetLightMapUniforms(this);
 	}
 
-	public static Loot Create(World world, PropSpawnState data, Vector3 impulse = default)
+	public static Loot Create(World world, PropSimState data, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
-		instance._spawnData = data;
+		instance._simState = data;
 		instance._world = world;
 		instance._initialImpulse = impulse;
 		world.AddChild(instance);
 		return instance;
+	}
+
+	public override void _ExitTree()
+	{
+		// Sync the physics-driven position back to the persistent sim state so
+		// chunk unload / save captures where the loot actually settled.
+		if (_simState != null && !_pickedUp)
+		{
+			_simState.WorldPosition = Position;
+		}
+		base._ExitTree();
 	}
 }

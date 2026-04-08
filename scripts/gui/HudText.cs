@@ -5,28 +5,30 @@ public partial class HudText : Control
 {
 	[Export] public Label label;
 
+	World _world;
 	Camera3D _camera;
 	Vector3 _worldPosition;
-	ulong _fadeMs;
+	ulong _fadeEndGameTimeMs;
 	ulong _fadeDurationMs;
 	float _verticalMovement;
 
 
-	public static void Create(PackedScene scene, Camera3D camera, Vector3 worldPosition, string text, ulong fadeMs, float verticalMovement, Color color, Node parent)
+	public static void Create(PackedScene scene, World world, Camera3D camera, Vector3 worldPosition, string text, ulong fadeMs, float verticalMovement, Color color, Node parent)
 	{
 		var hudText = scene.Instantiate<HudText>();
-		hudText.Init(camera, worldPosition, text, fadeMs, verticalMovement, color, parent);
+		hudText.Init(world, camera, worldPosition, text, fadeMs, verticalMovement, color, parent);
 	}
 
-	void Init(Camera3D camera, Vector3 worldPosition, string text, ulong fadeMs, float verticalMovement, Color color, Node parent)
+	void Init(World world, Camera3D camera, Vector3 worldPosition, string text, ulong fadeMs, float verticalMovement, Color color, Node parent)
 	{
+		_world = world;
 		_camera = camera;
 		_worldPosition = worldPosition;
 		label.Text = text;
 		label.Modulate = color;
 		_verticalMovement = verticalMovement;
 		_fadeDurationMs = fadeMs;
-		_fadeMs = _fadeDurationMs + Time.GetTicksMsec();
+		_fadeEndGameTimeMs = _fadeDurationMs + _world.GameTimeMs;
 		if (parent != null)
 		{
 			parent.AddChild(this);
@@ -49,13 +51,13 @@ public partial class HudText : Control
 	// Called every frame. 'delta' is the elapsed time since the previous frame.
 	public override void _Process(double delta)
 	{
-		ulong timeMs = Time.GetTicksMsec();
-		if (timeMs >= _fadeMs)
+		ulong timeMs = _world.GameTimeMs;
+		if (timeMs >= _fadeEndGameTimeMs)
 		{
 			QueueFree();
 			return;
 		}
-		float t = 1.0f - (float)(_fadeMs - timeMs) / _fadeDurationMs;
+		float t = 1.0f - (float)(_fadeEndGameTimeMs - timeMs) / _fadeDurationMs;
 		UpdateScreenPosition(t);
 		label.Modulate = new Color(label.Modulate.R, label.Modulate.G, label.Modulate.B, 1.0f - Mathf.Pow(t, 2));
 	}

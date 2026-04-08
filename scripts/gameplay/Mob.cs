@@ -19,17 +19,18 @@ public partial class Mob : RigidBody3D, IWorldEntity
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
 
-    public bool alive;
-    public float maxHealth;
-    public float health;
-    public float aggro;
-    public ulong alertRelaxationTime;
-    public EAggroState aggroState;
+    // Canonical sim state lives in MobSimState. The Mob node is a view; these
+    // properties forward through so call sites and animations stay terse.
+    public bool alive { get => _simState.Alive; set => _simState.Alive = value; }
+    public float maxHealth => _simState.MaxHealth;
+    public float health { get => _simState.Health; set => _simState.Health = value; }
+    public float aggro { get => _simState.Aggro; set => _simState.Aggro = value; }
+    public EAggroState aggroState { get => _simState.AggroState; set => _simState.AggroState = value; }
 
-    private MobSpawnState _spawnState;
+    private MobSimState _simState;
     World _world;
 
-    public static Mob Create(World world, MobSpawnState data)
+    public static Mob Create(World world, MobSimState data)
     {
         var instance = data.Scene.Instantiate<Mob>();
         instance.Initialize(world, data);
@@ -49,21 +50,34 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     public void OnSpawned(World world)
     {
-        TreeExiting += () => world.onMobRemoved?.Invoke(this);
+        TreeExiting += () =>
+        {
+            SyncToSimState();
+            world.onMobRemoved?.Invoke(this);
+        };
         world.onMobSpawned?.Invoke(this);
     }
 
-    public void Initialize(World world, MobSpawnState spawnState)
+    public void Initialize(World world, MobSimState simState)
     {
         _world = world;
-        _spawnState = spawnState;
-        Position = spawnState.WorldPosition;
-        Rotation = new Vector3(0, spawnState.RotationY, 0);
-        alive = spawnState.Alive;
-        health = spawnState.Health;
-        maxHealth = spawnState.MaxHealth;
-        aggro = spawnState.Aggro;
+        _simState = simState;
+        Position = simState.WorldPosition;
+        Rotation = new Vector3(0, simState.RotationY, 0);
         world.AddChild(this);
+    }
+
+    // Writes the node's current transform back into the persistent sim state so
+    // that when this Mob is freed (chunk unload, save), the saved position is
+    // current rather than the original spawn position.
+    private void SyncToSimState()
+    {
+        if (_simState == null)
+        {
+            return;
+        }
+        _simState.WorldPosition = Position;
+        _simState.RotationY = Rotation.Y;
     }
 
 
@@ -80,6 +94,23 @@ public partial class Mob : RigidBody3D, IWorldEntity
     {
         base._PhysicsProcess(delta);
         UpdateAggro((float)delta);
+
+        if (alive && aggroState == EAggroState.Alert && _world.player != null)
+        {
+            Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
+            toPlayer.Y = 0f;
+            if (toPlayer.LengthSquared() > 0.01f)
+            {
+                toPlayer = toPlayer.Normalized();
+                Vector3 desiredVelocity = toPlayer * 3f;
+                Vector3 velocityChange = desiredVelocity - new Vector3(LinearVelocity.X, 0f, LinearVelocity.Z);
+                ApplyCentralImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
+
+                float targetYaw = Mathf.Atan2(toPlayer.X, toPlayer.Z);
+                float yawDelta = Mathf.Wrap(targetYaw - Rotation.Y, -Mathf.Pi, Mathf.Pi);
+                AngularVelocity = new Vector3(0f, yawDelta * 8f, 0f);
+            }
+        }
     }
 
     public void Hit(DamageData data, Node damageSource)
@@ -114,10 +145,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
 
         alive = false;
-        if (_spawnState != null)
-        {
-            _spawnState.Alive = false;
-        }
     }
 
     private void UpdateAggro(float delta)
@@ -127,7 +154,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
             return;
         }
 
-        MobData mobData = _spawnState.MobData;
+        MobData mobData = _simState.MobData;
         if (mobData == null)
         {
             return;
@@ -166,7 +193,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
             if (aggroState == EAggroState.Alert || aggroState == EAggroState.Seek)
             {
-                alertRelaxationTime = Time.GetTicksMsec() + (ulong)(mobData.AlertRelaxationTime * 1000);
+                _simState.AlertRelaxationTimeMs = _world.GameTimeMs + (ulong)(mobData.AlertRelaxationTime * 1000);
             }
         }
         else
@@ -177,7 +204,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
             }
 
             if (aggroState == EAggroState.Seek) {
-                if (Time.GetTicksMsec() >= alertRelaxationTime)
+                if (_world.GameTimeMs >= _simState.AlertRelaxationTimeMs)
                 {
                     aggroState = EAggroState.Idle;
                 }

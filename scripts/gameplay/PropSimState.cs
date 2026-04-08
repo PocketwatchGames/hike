@@ -1,11 +1,11 @@
 using Godot;
 
-public class PropSpawnState : EntitySpawnState
+public class PropSimState : EntitySimState
 {
     public readonly PropType Type;
     public bool PickedUp;
 
-    public PropSpawnState(PropType type, Vector3 worldPosition, PackedScene scene)
+    public PropSimState(PropType type, Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
         Type = type;

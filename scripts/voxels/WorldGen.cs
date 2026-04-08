@@ -195,8 +195,8 @@ public static class WorldGen
         ChunkState data = ws._chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
         int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
-        var props = new List<PropSpawnState>();
-        var mobs = new List<MobSpawnState>();
+        var props = new List<PropSimState>();
+        var mobs = new List<MobSimState>();
 
         for (int i = 0; i < treeCount; i++)
         {
@@ -226,7 +226,7 @@ public static class WorldGen
             float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
-            props.Add(new PropSpawnState(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
+            props.Add(new PropSimState(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
         }
 
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
@@ -249,7 +249,7 @@ public static class WorldGen
                     continue;
                 }
 
-                props.Add(new PropSpawnState(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
+                props.Add(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
             }
         }
 
@@ -273,9 +273,9 @@ public static class WorldGen
 
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                mobs.Add(new MobSpawnState(
+                mobs.Add(new MobSimState(
                     new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
-                    0f,
+                    rng.Next() * Mathf.Pi * 2f,
                     genData.GoblinScene,
                     genData.GoblinData
                 ));
@@ -302,7 +302,7 @@ public static class WorldGen
 
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                props.Add(new PropSpawnState(
+                props.Add(new PropSimState(
                     PropType.Loot,
                     new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
                     genData.LootScene
@@ -331,7 +331,7 @@ public static class WorldGen
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 int lootCount = rng.Next(genData.ChestLootCountMin, genData.ChestLootCountMax + 1);
-                ws.AddInteractive(new ChestSpawnState(new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                ws.AddInteractive(new ChestSimState(new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
                     genData.ChestScene,
                     lootCount,
                     genData.LootScene));
@@ -407,7 +407,7 @@ public static class WorldGen
             float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
-            ws.AddInteractive(new TorchSpawnState(torchPos, genData.TorchScene));
+            ws.AddInteractive(new TorchSimState(torchPos, genData.TorchScene));
 
             blockLightSources.Add((torchPos, TORCH_LIGHT_EMISSION));
         }
@@ -507,7 +507,7 @@ public static class WorldGen
                 int wy = baseY + dy;
                 ws.SetVoxelWorld(doorWx, wy, doorWz, VoxelType.Barrier);
             }
-            ws.AddInteractive(new DoorSpawnState(new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
+            ws.AddInteractive(new DoorSimState(new Vector3(doorWx + 0.5f, baseY, doorWz + 0.5f),
                 doorRotY,
                 genData.DoorScene));
         }

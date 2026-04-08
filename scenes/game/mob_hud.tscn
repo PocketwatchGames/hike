@@ -2,6 +2,14 @@
 
 [ext_resource type="Script" uid="uid://bhirtbc35e6n8" path="res://scripts/gui/MobHUD.cs" id="1_rse1u"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xqdoc"]
+bg_color = Color(0.6, 0, 0, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
 [node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_aggroBar")]
 script = ExtResource("1_rse1u")
 _healthBar = NodePath("Health")
@@ -35,6 +43,7 @@ offset_top = -32.0
 offset_right = 16.0
 grow_horizontal = 2
 grow_vertical = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_xqdoc")
 max_value = 1.0
 fill_mode = 3
 show_percentage = false

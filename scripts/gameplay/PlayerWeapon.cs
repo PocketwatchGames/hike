@@ -22,14 +22,14 @@ public partial class Player : CharacterBody3D
 		if (_activeWeaponSlot.HasValue)
 		{
 			WeaponState activeWeapon = _weapons[_activeWeaponSlot.Value];
-			return activeWeapon != null && activeWeapon.data != null && Time.GetTicksMsec() < _weaponActivateTime + activeWeapon.data.activeTime ? _activeWeaponSlot : null;
+			return activeWeapon != null && activeWeapon.data != null && _world.GameTimeMs < _weaponActivateTime + activeWeapon.data.activeTime ? _activeWeaponSlot : null;
 		}
 		return null;
 	}
 
 	void WeaponActivate(WeaponState weapon, int slot)
 	{
-		ulong curTime = Time.GetTicksMsec();
+		ulong curTime = _world.GameTimeMs;
 		weapon.lastWeaponEventIndex = -1;
 		_weaponActivateTime = curTime;
 		_activeWeaponSlot = slot;
@@ -40,12 +40,12 @@ public partial class Player : CharacterBody3D
 
 	bool CanUseWeapon(WeaponState weapon)
 	{
-		return !GetActiveWeapon().HasValue && weapon.data != null && weapon.cooldownTime <= Time.GetTicksMsec() && (!weapon.data.useAmmo || weapon.ammo > 0);
+		return !GetActiveWeapon().HasValue && weapon.data != null && weapon.cooldownTime <= _world.GameTimeMs && (!weapon.data.useAmmo || weapon.ammo > 0);
 	}
 
 	void WeaponPress(WeaponState weapon, int slot)
 	{
-		ulong curTime = Time.GetTicksMsec();
+		ulong curTime = _world.GameTimeMs;
 		if (!CanUseWeapon(weapon))
 		{
 			return;
@@ -183,7 +183,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		ulong curTime = Time.GetTicksMsec();
+		ulong curTime = _world.GameTimeMs;
 		for (int i = weapon.lastWeaponEventIndex + 1; i < weapon.data.events.Count; i++)
 		{
 			WeaponEvent weaponEvent = weapon.data.events[i];
@@ -208,7 +208,7 @@ public partial class Player : CharacterBody3D
 		if (_activeWeaponSlot == slot && _weaponState == EWeaponState.Active)
 		{
 			ProcessWeaponEvents(weapon, slot);
-			if (Time.GetTicksMsec() >= _weaponActivateTime + weapon.data.activeTime)
+			if (_world.GameTimeMs >= _weaponActivateTime + weapon.data.activeTime)
 			{
 				_activeWeaponSlot = null;
 				_weaponState = EWeaponState.Ready;

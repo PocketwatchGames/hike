@@ -9,7 +9,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export] private HurtBox _hurtBox;
 
     private bool _open;
-    private DoorSpawnState _interactiveState;
+    private DoorSimState _interactiveState;
     private WorldState _worldData;
     private World _world;
     private Vector3I _baseWorldPos;
@@ -69,7 +69,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         _world.RebuildNearbyChunkMeshes(GlobalPosition, changed);
     }
 
-    public static Door Create(World world, DoorSpawnState data)
+    public static Door Create(World world, DoorSimState data)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;

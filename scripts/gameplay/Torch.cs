@@ -8,7 +8,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     [Export] private Light _light;
 
     private bool _active = true;
-    private TorchSpawnState _interactiveState;
+    private TorchSimState _interactiveState;
 
     public override void _Ready()
     {
@@ -45,7 +45,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         _unlitSprite.Visible = !_active;
     }
 
-    public static Torch Create(World world, TorchSpawnState data)
+    public static Torch Create(World world, TorchSimState data)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;

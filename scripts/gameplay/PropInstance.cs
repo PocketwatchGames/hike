@@ -8,7 +8,7 @@ public partial class PropInstance : Node3D, IWorldEntity
         world.SetLightMapUniforms(this);
     }
 
-    public static PropInstance Create(World world, PropSpawnState data)
+    public static PropInstance Create(World world, PropSimState data)
     {
         var instance = data.Scene.Instantiate<PropInstance>();
         instance.Position = data.WorldPosition;

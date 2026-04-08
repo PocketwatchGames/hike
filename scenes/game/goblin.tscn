@@ -20,6 +20,8 @@ radius = 0.35
 height = 1.5
 
 [node name="Mob" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
 script = ExtResource("1_hfanx")
 _collisionShape = NodePath("MovementCollision")
 _mesh = NodePath("MeshInstance3D")

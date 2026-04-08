@@ -66,6 +66,7 @@ public partial class GameClient : Node3D
 		{
 			return;
 		}
+		_world.Tick(deltaTime);
 		_player.ProcessInput(camera.Yaw);
 
 		camera.UpdateCamera(deltaTime, _player.GlobalPosition);
@@ -183,7 +184,7 @@ public partial class GameClient : Node3D
 
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
 	{
-		HudText.Create(hudTextScene, camera, position, text, fadeMs, verticalMovement, color, this);
+		HudText.Create(hudTextScene, _world, camera, position, text, fadeMs, verticalMovement, color, this);
 	}
 
 	void OnMobSpawned(Mob mob)

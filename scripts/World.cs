@@ -6,6 +6,7 @@ public partial class World : Node3D
 {
     public SimData SimData => _worldState.SimData;
     public WorldState WorldState => _worldState;
+    public ulong GameTimeMs => _worldState.GameTimeMs;
 
     private const int ENTITY_LOAD_RADIUS = 2;
 
@@ -38,6 +39,14 @@ public partial class World : Node3D
     {
         _player = player;
         LoadEntitiesInRadius(WorldToChunkCoord(_player.GlobalPosition));
+    }
+
+    // Advances simulation time. Called by GameClient each unpaused frame so the
+    // sim clock freezes when the game is paused. Persistent storage lives in
+    // WorldState so the clock survives save/load.
+    public void Tick(double delta)
+    {
+        _worldState.GameTimeMs += (ulong)(delta * 1000.0);
     }
 
     public override void _Process(double delta)
@@ -120,9 +129,9 @@ public partial class World : Node3D
 
     public Loot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
     {
-        var spawnState = new PropSpawnState(PropType.Loot, position, scene);
-        _worldState.AddProp(spawnState);
-        Loot loot = Loot.Create(this, spawnState, impulse);
+        var simState = new PropSimState(PropType.Loot, position, scene);
+        _worldState.AddProp(simState);
+        Loot loot = Loot.Create(this, simState, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
@@ -155,7 +164,7 @@ public partial class World : Node3D
         _activeEntities[coord] = entities;
     }
 
-    private void SpawnFromStates<T>(List<T> states, List<Node3D> entities) where T : EntitySpawnState
+    private void SpawnFromStates<T>(List<T> states, List<Node3D> entities) where T : EntitySimState
     {
         if (states == null)
         {

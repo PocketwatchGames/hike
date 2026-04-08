@@ -1,20 +1,20 @@
 using Godot;
 
-public abstract class InteractiveSpawnState : EntitySpawnState
+public abstract class InteractiveSimState : EntitySimState
 {
     public bool Active = true;
 
-    protected InteractiveSpawnState(Vector3 worldPosition, PackedScene scene)
+    protected InteractiveSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
     }
 }
 
-public class DoorSpawnState : InteractiveSpawnState
+public class DoorSimState : InteractiveSimState
 {
     public readonly float RotationY;
 
-    public DoorSpawnState(Vector3 worldPosition, float rotationY, PackedScene scene)
+    public DoorSimState(Vector3 worldPosition, float rotationY, PackedScene scene)
         : base(worldPosition, scene)
     {
         RotationY = rotationY;
@@ -26,9 +26,9 @@ public class DoorSpawnState : InteractiveSpawnState
     }
 }
 
-public class TorchSpawnState : InteractiveSpawnState
+public class TorchSimState : InteractiveSimState
 {
-    public TorchSpawnState(Vector3 worldPosition, PackedScene scene)
+    public TorchSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
     }
@@ -39,12 +39,12 @@ public class TorchSpawnState : InteractiveSpawnState
     }
 }
 
-public class ChestSpawnState : InteractiveSpawnState
+public class ChestSimState : InteractiveSimState
 {
     public readonly int LootCount;
     public readonly PackedScene LootScene;
 
-    public ChestSpawnState(Vector3 worldPosition, PackedScene scene, int lootCount, PackedScene lootScene)
+    public ChestSimState(Vector3 worldPosition, PackedScene scene, int lootCount, PackedScene lootScene)
         : base(worldPosition, scene)
     {
         LootCount = lootCount;

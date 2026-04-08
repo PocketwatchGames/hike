@@ -8,10 +8,15 @@ public class WorldState
     public readonly Vector3I Max;
     public SimData SimData;
 
+    // Persistent simulation clock in milliseconds. Advanced by World.Tick while
+    // unpaused; serialized with the rest of the world state so cooldowns,
+    // AI timers, etc. survive save/load.
+    public ulong GameTimeMs;
+
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
-    public readonly Dictionary<Vector3I, List<PropSpawnState>> _props = new();
-    public readonly Dictionary<Vector3I, List<MobSpawnState>> _mobs = new();
-    public readonly Dictionary<Vector3I, List<InteractiveSpawnState>> _interactives = new();
+    public readonly Dictionary<Vector3I, List<PropSimState>> _props = new();
+    public readonly Dictionary<Vector3I, List<MobSimState>> _mobs = new();
+    public readonly Dictionary<Vector3I, List<InteractiveSimState>> _interactives = new();
 
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
@@ -118,45 +123,45 @@ public class WorldState
         return _chunks.ContainsKey(coord);
     }
 
-    public List<PropSpawnState> GetProps(Vector3I coord)
+    public List<PropSimState> GetProps(Vector3I coord)
     {
-        _props.TryGetValue(coord, out List<PropSpawnState> props);
+        _props.TryGetValue(coord, out List<PropSimState> props);
         return props;
     }
 
-    public void AddProp(PropSpawnState prop)
+    public void AddProp(PropSimState prop)
     {
         Vector3I coord = World.WorldToChunkCoord(prop.WorldPosition);
-        if (!_props.TryGetValue(coord, out List<PropSpawnState> props))
+        if (!_props.TryGetValue(coord, out List<PropSimState> props))
         {
-            props = new List<PropSpawnState>();
+            props = new List<PropSimState>();
             _props[coord] = props;
         }
         props.Add(prop);
     }
 
-   public List<MobSpawnState> GetMobs(Vector3I coord)
+   public List<MobSimState> GetMobs(Vector3I coord)
     {
-        _mobs.TryGetValue(coord, out List<MobSpawnState> mobs);
+        _mobs.TryGetValue(coord, out List<MobSimState> mobs);
         return mobs;
     }
 
-    public List<InteractiveSpawnState> GetInteractives(Vector3I coord)
+    public List<InteractiveSimState> GetInteractives(Vector3I coord)
     {
-        _interactives.TryGetValue(coord, out List<InteractiveSpawnState> interactives);
+        _interactives.TryGetValue(coord, out List<InteractiveSimState> interactives);
         return interactives;
     }
 
-    public void AddInteractive(InteractiveSpawnState data)
+    public void AddInteractive(InteractiveSimState data)
     {
         Vector3I cc = WorldToChunkCoord(
             (int)Math.Floor(data.WorldPosition.X),
             (int)Math.Floor(data.WorldPosition.Y),
             (int)Math.Floor(data.WorldPosition.Z)
         );
-        if (!_interactives.TryGetValue(cc, out List<InteractiveSpawnState> list))
+        if (!_interactives.TryGetValue(cc, out List<InteractiveSimState> list))
         {
-            list = new List<InteractiveSpawnState>();
+            list = new List<InteractiveSimState>();
             _interactives[cc] = list;
         }
         list.Add(data);

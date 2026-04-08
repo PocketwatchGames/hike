@@ -9,7 +9,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private HurtBox _hurtBox;
 
     private bool _open;
-    private ChestSpawnState _interactiveState;
+    private ChestSimState _interactiveState;
     private World _world;
 
     public override void _Ready()
@@ -70,7 +70,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         }
     }
 
-    public static Chest Create(World world, ChestSpawnState data)
+    public static Chest Create(World world, ChestSimState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;
