@@ -1,7 +1,7 @@
 using Godot;
 
 [GlobalClass]
-public partial class TallGrass : Area3D
+public partial class TallGrass : Area3D, IWorldEntity
 {
 	[Export] public float speed = 0.5f;
 
@@ -10,6 +10,11 @@ public partial class TallGrass : Area3D
 		CollisionMask |= (uint)ECollisionLayer.Player;
 		BodyEntered += OnBodyEntered;
 		BodyExited += OnBodyExited;
+	}
+
+	public void OnSpawned(World world)
+	{
+		world.SetLightMapUniforms(this);
 	}
 
 	private void OnBodyEntered(Node3D body)

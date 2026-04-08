@@ -12,12 +12,15 @@ public partial class World : Node3D
     public IReadOnlyDictionary<Vector3I, List<Node3D>> ActiveEntities => _activeEntities;
 
     public Action<Mob> onMobSpawned;
+    public Action<Mob> onMobRemoved;
 
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private Player _player;
     private Vector3I _lastEntityChunkCoord;
+
+    public Player player => _player;
 
     public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition)
     {
@@ -101,6 +104,11 @@ public partial class World : Node3D
         _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);
     }
 
+    public void SetLightMapUniforms(Node3D node)
+    {
+        _chunkManager.SetLightMapUniforms(node);
+    }
+
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)
     {
         return new Vector3I(
@@ -115,7 +123,6 @@ public partial class World : Node3D
         var spawnState = new PropSpawnState(PropType.Loot, position, scene);
         _worldState.AddProp(spawnState);
         Loot loot = Loot.Create(this, spawnState, impulse);
-        _chunkManager.SetLightMapUniforms(loot);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
@@ -123,7 +130,7 @@ public partial class World : Node3D
             entities = new List<Node3D>();
             _activeEntities[coord] = entities;
         }
-        entities.Add(loot);
+        RegisterEntity(loot, entities);
 
         return loot;
     }
@@ -142,65 +149,35 @@ public partial class World : Node3D
     private void LoadEntitiesForChunk(Vector3I coord)
     {
         var entities = new List<Node3D>();
-
-        List<PropSpawnState> propDataList = _worldState.GetProps(coord);
-        if (propDataList != null)
-        {
-            foreach (PropSpawnState propData in propDataList)
-            {
-                if (propData.PickedUp)
-                {
-                    continue;
-                }
-
-                Node3D prop = propData.Type switch
-                {
-                    PropType.TallGrass => TallGrass.Create(this, propData),
-                    PropType.Loot => Loot.Create(this, propData),
-                    _ => PropInstance.Create(this, propData),
-                };
-                _chunkManager.SetLightMapUniforms(prop);
-                entities.Add(prop);
-            }
-        }
-
-        List<MobSpawnState> mobDataList = _worldState.GetMobs(coord);
-        if (mobDataList != null)
-        {
-            foreach (MobSpawnState mobData in mobDataList)
-            {
-                if (!mobData.Alive)
-                {
-                    continue;
-                }
-
-                Mob mob = Mob.Create(this, mobData);
-                entities.Add(mob);
-                onMobSpawned?.Invoke(mob);
-            }
-        }
-
-        List<InteractiveSpawnState> interactiveDataList = _worldState.GetInteractives(coord);
-        if (interactiveDataList != null)
-        {
-            foreach (InteractiveSpawnState interactiveData in interactiveDataList)
-            {
-                Node3D interactive = interactiveData switch
-                {
-                    DoorSpawnState door => Door.Create(this, door),
-                    TorchSpawnState torch => Torch.Create(this, torch),
-                    ChestSpawnState chest => Chest.Create(this, chest),
-                    _ => null,
-                };
-                if (interactive != null)
-                {
-                    _chunkManager.SetLightMapUniforms(interactive);
-                    entities.Add(interactive);
-                }
-            }
-        }
-
+        SpawnFromStates(_worldState.GetProps(coord), entities);
+        SpawnFromStates(_worldState.GetMobs(coord), entities);
+        SpawnFromStates(_worldState.GetInteractives(coord), entities);
         _activeEntities[coord] = entities;
+    }
+
+    private void SpawnFromStates<T>(List<T> states, List<Node3D> entities) where T : EntitySpawnState
+    {
+        if (states == null)
+        {
+            return;
+        }
+        foreach (T state in states)
+        {
+            Node3D entity = state.CreateEntity(this);
+            if (entity != null)
+            {
+                RegisterEntity(entity, entities);
+            }
+        }
+    }
+
+    private void RegisterEntity(Node3D entity, List<Node3D> entities)
+    {
+        if (entity is IWorldEntity worldEntity)
+        {
+            worldEntity.OnSpawned(this);
+        }
+        entities.Add(entity);
     }
 
     private static void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)

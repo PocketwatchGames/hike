@@ -1,15 +1,12 @@
 using Godot;
 
-public abstract class InteractiveSpawnState
+public abstract class InteractiveSpawnState : EntitySpawnState
 {
-    public readonly Vector3 WorldPosition;
-    public readonly PackedScene Scene;
     public bool Active = true;
 
     protected InteractiveSpawnState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
     {
-        WorldPosition = worldPosition;
-        Scene = scene;
     }
 }
 
@@ -22,6 +19,11 @@ public class DoorSpawnState : InteractiveSpawnState
     {
         RotationY = rotationY;
     }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Door.Create(world, this);
+    }
 }
 
 public class TorchSpawnState : InteractiveSpawnState
@@ -29,6 +31,11 @@ public class TorchSpawnState : InteractiveSpawnState
     public TorchSpawnState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Torch.Create(world, this);
     }
 }
 
@@ -42,5 +49,10 @@ public class ChestSpawnState : InteractiveSpawnState
     {
         LootCount = lootCount;
         LootScene = lootScene;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Chest.Create(world, this);
     }
 }

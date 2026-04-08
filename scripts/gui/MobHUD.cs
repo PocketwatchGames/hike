@@ -23,6 +23,7 @@ public partial class MobHUD : Node2D
 		{
 			parent.AddChild(this);
 		}
+		_mob.TreeExiting += QueueFree;
 		Update();
 	}
 
@@ -48,15 +49,14 @@ public partial class MobHUD : Node2D
 		{
 			_healthBar.Value = _mob.health;
 		}
+		if (_aggroBar != null)
+		{
+			_aggroBar.Value = _mob.aggro;
+		}
 	}
 
 	public override void _Process(double delta)
 	{
-		if (!IsInstanceValid(_mob))
-		{
-			QueueFree();
-			return;
-		}
 		Update();
 	}
 }

@@ -1,7 +1,7 @@
 using Godot;
 
 [GlobalClass]
-public partial class Loot : RigidBody3D
+public partial class Loot : RigidBody3D, IWorldEntity
 {
 	[Export] private CollisionShape3D _collisionShape;
 	[Export] private AnimationPlayer _animationPlayer;
@@ -97,6 +97,11 @@ public partial class Loot : RigidBody3D
 	private void OnPickedUpFinished(StringName animName)
 	{
 		QueueFree();
+	}
+
+	public void OnSpawned(World world)
+	{
+		world.SetLightMapUniforms(this);
 	}
 
 	public static Loot Create(World world, PropSpawnState data, Vector3 impulse = default)

@@ -2,7 +2,7 @@ using System;
 using Godot;
 
 [GlobalClass]
-public partial class Chest : Node3D, IInteractive
+public partial class Chest : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Sprite3D _chestSprite;
     [Export] private Sprite3D _openSprite;
@@ -23,6 +23,11 @@ public partial class Chest : Node3D, IInteractive
     private void OnHurtBoxHit(DamageData data, Node source)
     {
         GD.Print($"Chest hit for {data?.healthDamage} from {source?.Name}");
+    }
+
+    public void OnSpawned(World world)
+    {
+        world.SetLightMapUniforms(this);
     }
 
     public bool CanInteract()

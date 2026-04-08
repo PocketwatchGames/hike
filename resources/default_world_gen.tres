@@ -1,36 +1,19 @@
-[gd_resource type="Resource" script_class="WorldGenData" format=3]
+[gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
 
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/game/chest.tscn" id="1_nkrag"]
 [ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/WorldGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/default_sim_data.tres" id="2_sim"]
 [ext_resource type="PackedScene" uid="uid://srhprcjm6tmo" path="res://scenes/game/tree.tscn" id="2_tree"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/goblin.tres" id="3_2t2hn"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/game/tall_grass.tscn" id="3_grass"]
-[ext_resource type="PackedScene" path="res://scenes/game/door.tscn" id="4_door"]
-[ext_resource type="PackedScene" path="res://scenes/game/torch.tscn" id="5_torch"]
+[ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/game/door.tscn" id="4_door"]
+[ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/game/goblin.tscn" id="4_rlrbr"]
+[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/game/torch.tscn" id="5_torch"]
+[ext_resource type="PackedScene" uid="uid://jlh3xsibvf00" path="res://scenes/game/loot.tscn" id="5_x26p4"]
 
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
-SizeX = 8
-SizeY = 3
-SizeZ = 8
-TerrainNoiseSeed = 12345
-CaveNoiseSeed = 67890
-GrassNoiseSeed = 31415
-ElevationMultiplier = 20.0
 CaveThreshold = 0.4
 GrassThreshold = 0.3
-DirtDepth = 3
-TreesPerChunkMin = 0
-TreesPerChunkMax = 4
-BuildingHeight = 4
-TorchesPerHouseMin = 1
-TorchesPerHouseMax = 3
-SpawnBuildingWidth = 20
-SpawnBuildingDepth = 16
-SpawnBuildingOriginX = -10
-SpawnBuildingOriginZ = -5
-SpawnFlatPadding = 4
-TreeScene = ExtResource("2_tree")
-TallGrassScene = ExtResource("3_grass")
-DoorScene = ExtResource("4_door")
-TorchScene = ExtResource("5_torch")
+GoblinData = ExtResource("3_2t2hn")

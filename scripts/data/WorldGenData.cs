@@ -36,6 +36,7 @@ public partial class WorldGenData : Resource
     [Export] public PackedScene DoorScene = GD.Load<PackedScene>("res://scenes/game/door.tscn");
     [Export] public PackedScene TorchScene = GD.Load<PackedScene>("res://scenes/game/torch.tscn");
     [Export] public PackedScene GoblinScene = GD.Load<PackedScene>("res://scenes/game/goblin.tscn");
+    [Export] public MobData GoblinData;
 
     [Export] public float LootChance = 0.005f;
     [Export] public PackedScene LootScene = GD.Load<PackedScene>("res://scenes/game/loot.tscn");

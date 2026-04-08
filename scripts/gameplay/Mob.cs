@@ -1,8 +1,15 @@
 using System;
 using Godot;
 
+public enum EAggroState
+{
+    Idle,
+    Suspicious,
+    Alert
+}
+
 [GlobalClass]
-public partial class Mob : RigidBody3D
+public partial class Mob : RigidBody3D, IWorldEntity
 {
     [Export] private CollisionShape3D _collisionShape;
     [Export] private AnimationPlayer _animationPlayer;
@@ -11,10 +18,13 @@ public partial class Mob : RigidBody3D
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
+
     public bool alive;
     public float maxHealth;
     public float health;
     public float aggro;
+    public ulong alertRelaxationTime;
+    public EAggroState aggroState;
 
     private MobSpawnState _spawnState;
     World _world;
@@ -35,6 +45,12 @@ public partial class Mob : RigidBody3D
         {
             _hurtBox.OnHit = Hit;
         }
+    }
+
+    public void OnSpawned(World world)
+    {
+        TreeExiting += () => world.onMobRemoved?.Invoke(this);
+        world.onMobSpawned?.Invoke(this);
     }
 
     public void Initialize(World world, MobSpawnState spawnState)
@@ -58,6 +74,12 @@ public partial class Mob : RigidBody3D
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
         }
+    }
+
+    override public void _PhysicsProcess(double delta)
+    {
+        base._PhysicsProcess(delta);
+        UpdateAggro((float)delta);
     }
 
     public void Hit(DamageData data, Node damageSource)
@@ -95,6 +117,60 @@ public partial class Mob : RigidBody3D
         if (_spawnState != null)
         {
             _spawnState.Alive = false;
+        }
+    }
+
+    private void UpdateAggro(float delta)
+    {
+        if (!alive || _world.player == null)
+        {
+            return;
+        }
+
+        MobData mobData = _spawnState.MobData;
+        if (mobData == null)
+        {
+            return;
+        }
+
+        float aggroDelta = 0f;
+        Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
+        float distanceToPlayer = toPlayer.LengthSquared();
+        if (distanceToPlayer < mobData.VisionRange * mobData.VisionRange)
+        {
+            aggroDelta = 1f - (distanceToPlayer / (mobData.VisionRange * mobData.VisionRange));
+            aggroDelta *= Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z));
+        }
+        if (aggroDelta > mobData.MinAggroDelta)
+        {
+            aggro = Mathf.Clamp(aggro + aggroDelta * mobData.AggroIncreaseSpeed * delta, 0f, 1f);
+            if (aggro >= mobData.AggroThresholdAlert)
+            {
+                aggroState = EAggroState.Alert;
+            }
+            else if (aggro >= mobData.AggroThresholdSuspicious)
+            {
+                aggroState = EAggroState.Suspicious;
+            }
+
+            if (aggroState == EAggroState.Alert)
+            {
+                alertRelaxationTime = Time.GetTicksMsec() + (ulong)(mobData.AlertRelaxationTime * 1000);
+            }
+        }
+        else
+        {
+            if (aggroState == EAggroState.Alert)
+            {
+                if (Time.GetTicksMsec() >= alertRelaxationTime)
+                {
+                    aggroState = EAggroState.Suspicious;
+                }
+            }
+            else
+            {
+                aggro = Mathf.Clamp(aggro - mobData.AggroRelaxationSpeed * delta, 0f, 1f);
+            }
         }
     }
 

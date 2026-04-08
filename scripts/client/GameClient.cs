@@ -40,6 +40,7 @@ public partial class GameClient : Node3D
 
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
+		_world.onMobRemoved += OnMobRemoved;
 		AddChild(_world);
 		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
 
@@ -191,6 +192,10 @@ public partial class GameClient : Node3D
 		{
 			MobHUD.Create(mob.HudScene, camera, mob, worldHUD);
 		}
+	}
+
+	void OnMobRemoved(Mob mob)
+	{
 	}
 
 	public void TogglePause()

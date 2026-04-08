@@ -421,7 +421,8 @@ public class WorldState
                 mobs.Add(new MobSpawnState(
                     new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
                     0f,
-                    genData.GoblinScene
+                    genData.GoblinScene,
+                    genData.GoblinData
                 ));
             }
         }

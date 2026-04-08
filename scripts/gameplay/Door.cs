@@ -1,7 +1,7 @@
 using Godot;
 
 [GlobalClass]
-public partial class Door : Node3D, IInteractive
+public partial class Door : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Texture2D DoorTexture;
     [Export] private StaticBody3D _blockCollider;
@@ -27,6 +27,11 @@ public partial class Door : Node3D, IInteractive
     private void OnHurtBoxHit(DamageData data, Node source)
     {
         GD.Print($"Door hit for {data?.healthDamage} from {source?.Name}");
+    }
+
+    public void OnSpawned(World world)
+    {
+        world.SetLightMapUniforms(this);
     }
 
     public bool CanInteract()

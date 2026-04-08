@@ -1,7 +1,7 @@
 using Godot;
 
 [GlobalClass]
-public partial class Torch : Node3D, IInteractive
+public partial class Torch : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Sprite3D _litSprite;
     [Export] private Sprite3D _unlitSprite;
@@ -13,6 +13,11 @@ public partial class Torch : Node3D, IInteractive
     public override void _Ready()
     {
         UpdateVisuals();
+    }
+
+    public void OnSpawned(World world)
+    {
+        world.SetLightMapUniforms(this);
     }
 
     public bool CanInteract()
