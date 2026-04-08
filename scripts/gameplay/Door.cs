@@ -64,26 +64,25 @@ public partial class Door : Node3D, IInteractive
         _world.RebuildNearbyChunkMeshes(GlobalPosition, changed);
     }
 
-    public void RestoreState()
-    {
-        _open = !_interactiveState.Active;
-        _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
-        _doorSprite.Visible = !_open;
-    }
-
-    public static Door Create(DoorSpawnState data, WorldState worldData, World world)
+    public static Door Create(World world, DoorSpawnState data)
     {
         var instance = data.Scene.Instantiate<Door>();
         instance.Position = data.WorldPosition;
         instance.RotationDegrees = new Vector3(0, Mathf.RadToDeg(data.RotationY), 0);
         instance._interactiveState = data;
-        instance._worldData = worldData;
+        instance._worldData = world.WorldState;
         instance._world = world;
         instance._baseWorldPos = new Vector3I(
             Mathf.FloorToInt(data.WorldPosition.X),
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
+        world.AddChild(instance);
+
+        instance._open = !data.Active;
+        instance._blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = instance._open;
+        instance._doorSprite.Visible = !instance._open;
+
         return instance;
     }
 

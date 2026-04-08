@@ -50,9 +50,7 @@ public partial class GameClient : Node3D
 		_player = playerScene.Instantiate<Player>();
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
 		AddChild(_player);
-		_player.Initialize(playerSpawnData, _world);
-		_player.GlobalPosition = playerPosition;
-		_player.GlobalRotation = Vector3.Zero;
+		_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
 
 		_world.SetPlayer(_player);
 

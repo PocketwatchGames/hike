@@ -99,13 +99,14 @@ public partial class Loot : RigidBody3D
 		QueueFree();
 	}
 
-	public static Loot Create(PropSpawnState data, World world, Vector3 impulse = default)
+	public static Loot Create(World world, PropSpawnState data, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;
 		instance._spawnData = data;
 		instance._world = world;
 		instance._initialImpulse = impulse;
+		world.AddChild(instance);
 		return instance;
 	}
 }

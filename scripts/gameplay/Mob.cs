@@ -13,7 +13,15 @@ public partial class Mob : RigidBody3D
 
     public float health = 1f;
 
-    private MobSpawnState _spawnData;
+    private MobSpawnState _spawnState;
+    World _world;
+
+    public static Mob Create(World world, MobSpawnState data)
+    {
+        var instance = data.Scene.Instantiate<Mob>();
+        instance.Initialize(world, data);
+        return instance;
+    }
 
     public override void _Ready()
     {
@@ -25,6 +33,17 @@ public partial class Mob : RigidBody3D
             _hurtBox.OnHit = Hit;
         }
     }
+
+    public void Initialize(World world, MobSpawnState spawnState)
+    {
+        _world = world;
+        _spawnState = spawnState;
+        Position = spawnState.WorldPosition;
+        Rotation = new Vector3(0, spawnState.RotationY, 0);
+        _alive = spawnState.Alive;
+        world.AddChild(this);
+    }
+
 
     public override void _Process(double delta)
     {
@@ -67,20 +86,10 @@ public partial class Mob : RigidBody3D
         }
 
         _alive = false;
-        if (_spawnData != null)
+        if (_spawnState != null)
         {
-            _spawnData.Alive = false;
+            _spawnState.Alive = false;
         }
-    }
-
-    public static Mob Create(MobSpawnState data)
-    {
-        var instance = data.Scene.Instantiate<Mob>();
-        instance.Position = data.WorldPosition;
-        instance.Rotation = new Vector3(0, data.RotationY, 0);
-        instance._alive = data.Alive;
-        instance._spawnData = data;
-        return instance;
     }
 
 }

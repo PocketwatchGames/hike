@@ -5,6 +5,7 @@ using Godot;
 public partial class World : Node3D
 {
     public SimData SimData => _worldState.SimData;
+    public WorldState WorldState => _worldState;
 
     private const int ENTITY_LOAD_RADIUS = 2;
 
@@ -111,8 +112,7 @@ public partial class World : Node3D
     {
         var spawnState = new PropSpawnState(PropType.Loot, position, scene);
         _worldState.AddProp(spawnState);
-        Loot loot = Loot.Create(spawnState, this, impulse);
-        AddChild(loot);
+        Loot loot = Loot.Create(this, spawnState, impulse);
         _chunkManager.SetLightMapUniforms(loot);
 
         Vector3I coord = WorldToChunkCoord(position);
@@ -139,7 +139,7 @@ public partial class World : Node3D
 
     private void LoadEntitiesForChunk(Vector3I coord)
     {
-        var instances = new List<Node3D>();
+        var entities = new List<Node3D>();
 
         List<PropSpawnState> propDataList = _worldState.GetProps(coord);
         if (propDataList != null)
@@ -153,13 +153,12 @@ public partial class World : Node3D
 
                 Node3D prop = propData.Type switch
                 {
-                    PropType.TallGrass => TallGrass.Create(propData),
-                    PropType.Loot => Loot.Create(propData, this),
-                    _ => PropInstance.Create(propData),
+                    PropType.TallGrass => TallGrass.Create(this, propData),
+                    PropType.Loot => Loot.Create(this, propData),
+                    _ => PropInstance.Create(this, propData),
                 };
-                AddChild(prop);
                 _chunkManager.SetLightMapUniforms(prop);
-                instances.Add(prop);
+                entities.Add(prop);
             }
         }
 
@@ -173,53 +172,32 @@ public partial class World : Node3D
                     continue;
                 }
 
-                Node3D mob = Mob.Create(mobData);
-                AddChild(mob);
-                instances.Add(mob);
+                Node3D mob = Mob.Create(this, mobData);
+                entities.Add(mob);
             }
         }
 
         List<InteractiveSpawnState> interactiveDataList = _worldState.GetInteractives(coord);
         if (interactiveDataList != null)
         {
-            var interactivesToRestore = new List<Node3D>();
             foreach (InteractiveSpawnState interactiveData in interactiveDataList)
             {
                 Node3D interactive = interactiveData switch
                 {
-                    DoorSpawnState door => Door.Create(door, _worldState, this),
-                    TorchSpawnState torch => Torch.Create(torch, _worldState, this),
-                    ChestSpawnState chest => Chest.Create(chest, this),
+                    DoorSpawnState door => Door.Create(this, door),
+                    TorchSpawnState torch => Torch.Create(this, torch),
+                    ChestSpawnState chest => Chest.Create(this, chest),
                     _ => null,
                 };
                 if (interactive != null)
                 {
-                    AddChild(interactive);
                     _chunkManager.SetLightMapUniforms(interactive);
-                    instances.Add(interactive);
-                    interactivesToRestore.Add(interactive);
-                }
-            }
-
-            // Restore state must happen after AddChild so _Ready has run
-            foreach (Node3D interactive in interactivesToRestore)
-            {
-                if (interactive is Door door)
-                {
-                    door.RestoreState();
-                }
-                else if (interactive is Torch torch)
-                {
-                    torch.RestoreState();
-                }
-                else if (interactive is Chest chest)
-                {
-                    chest.RestoreState();
+                    entities.Add(interactive);
                 }
             }
         }
 
-        _activeEntities[coord] = instances;
+        _activeEntities[coord] = entities;
     }
 
     private static void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)

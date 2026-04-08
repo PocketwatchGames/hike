@@ -3,7 +3,8 @@ using Godot;
 public enum EWeaponEventType
 {
 	Melee,
-	Hitscan
+	Hitscan,
+	UseAmmo
 }
 
 [GlobalClass]

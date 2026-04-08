@@ -46,9 +46,12 @@ public partial class Player : CharacterBody3D
 		GD.Print($"Player hit for {data?.healthDamage} from {source?.Name}");
 	}
 
-	public void Initialize(PlayerSpawnData spawnData, World world)
+	public void Initialize(World world, PlayerSpawnData spawnData, Vector3 position, Vector3 rotation)
 	{
 		_world = world;
+		GlobalPosition = position;
+		Rotation = rotation;
+		_grounded = false;
 		_weapons[(int)EItemSlot.Melee] = new WeaponState(spawnData.meleeWeaponData);
 		_weapons[(int)EItemSlot.Ranged] = new WeaponState(spawnData.rangedWeaponData);
 	}

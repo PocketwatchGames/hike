@@ -34,20 +34,13 @@ public partial class Torch : Node3D, IInteractive
         _light.SetActive(_active);
     }
 
-    public void RestoreState()
-    {
-        _active = _interactiveState.Active;
-        UpdateVisuals();
-        _light.SetActive(_active);
-    }
-
     private void UpdateVisuals()
     {
         _litSprite.Visible = _active;
         _unlitSprite.Visible = !_active;
     }
 
-    public static Torch Create(TorchSpawnState data, WorldState worldData, World world)
+    public static Torch Create(World world, TorchSpawnState data)
     {
         var instance = data.Scene.Instantiate<Torch>();
         instance.Position = data.WorldPosition;
@@ -57,7 +50,13 @@ public partial class Torch : Node3D, IInteractive
             Mathf.FloorToInt(data.WorldPosition.Y),
             Mathf.FloorToInt(data.WorldPosition.Z)
         );
-        instance._light.Initialize(worldData, world, baseWorldPos);
+        instance._light.Initialize(world.WorldState, world, baseWorldPos);
+        world.AddChild(instance);
+
+        instance._active = data.Active;
+        instance.UpdateVisuals();
+        instance._light.SetActive(instance._active);
+
         return instance;
     }
 }

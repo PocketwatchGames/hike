@@ -28,10 +28,11 @@ public partial class TallGrass : Area3D
 		}
 	}
 
-	public static TallGrass Create(PropSpawnState data)
+	public static TallGrass Create(World world, PropSpawnState data)
 	{
 		var instance = data.Scene.Instantiate<TallGrass>();
 		instance.Position = data.WorldPosition;
+		world.AddChild(instance);
 		return instance;
 	}
 }

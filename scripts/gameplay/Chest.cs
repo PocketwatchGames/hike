@@ -65,19 +65,17 @@ public partial class Chest : Node3D, IInteractive
         }
     }
 
-    public void RestoreState()
-    {
-        _open = !_interactiveState.Active;
-        UpdateVisuals();
-    }
-
-    public static Chest Create(ChestSpawnState data, World world)
+    public static Chest Create(World world, ChestSpawnState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
         instance._world = world;
+        world.AddChild(instance);
+
+        instance._open = !data.Active;
         instance.UpdateVisuals();
+
         return instance;
     }
 }
