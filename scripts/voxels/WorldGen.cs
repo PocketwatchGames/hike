@@ -273,7 +273,7 @@ public static class WorldGen
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 var mobState = new MobSimState(
                     new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
-                    rng.Next() * Mathf.Pi * 2f,
+                    (float)(rng.NextDouble() * Mathf.Pi * 2f),
                     genData.GoblinScene,
                     genData.GoblinData
                 );

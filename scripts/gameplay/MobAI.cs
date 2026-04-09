@@ -10,7 +10,6 @@ public struct AIOutput
     public Vector3 targetPos;
 //    public Actor target;
     public float pathSuccessDistance;
-    public float repathFrequency;
     public bool inCombat;
     public bool burrow;
     public InvestigateState? investigation;
@@ -56,8 +55,8 @@ public struct InvestigateState
 {
     public Vector3 position;
     public float range;
-    public uint cancelTime;
-    public uint pauseTime;
+    public ulong cancelTime;
+    public ulong pauseTime;
 }
 
 
@@ -351,5 +350,16 @@ public partial class Mob
             // Mirror perception into aggro for multi-target selection in TickAI.
             target.aggro = target.perception;
         }
+    }
+
+    public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs)
+    {
+        investigation = new InvestigateState
+        {
+            position = position,
+            range = range,
+            cancelTime = _world.GameTimeMs + cancelTimeMs,
+            pauseTime = pauseTimeMs,
+        };
     }
 }

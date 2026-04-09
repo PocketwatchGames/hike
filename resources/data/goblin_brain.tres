@@ -8,6 +8,9 @@
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]
 [ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="8_wander"]
+[ext_resource type="Script" uid="uid://dponrg4578kvd" path="res://scripts/data/behaviors/InvestigateBehaviorData.cs" id="9_investigate"]
+[ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="10_has_investigation"]
+[ext_resource type="Script" uid="uid://dqaisfhv1c0sk" path="res://scripts/data/behaviors/conditions/NoInvestigationCondition.cs" id="11_no_investigation"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -15,16 +18,27 @@ script = ExtResource("3_idle")
 [sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
 script = ExtResource("6_aggro_acquired")
 
+[sub_resource type="Resource" id="Resource_cond_has_investigation"]
+script = ExtResource("10_has_investigation")
+
+[sub_resource type="Resource" id="Resource_cond_no_investigation"]
+script = ExtResource("11_no_investigation")
+
 [sub_resource type="Resource" id="Resource_idle_to_attack"]
 script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Attack"
 
+[sub_resource type="Resource" id="Resource_idle_to_investigate"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"Investigate"
+
 [sub_resource type="Resource" id="Resource_idle_node"]
 script = ExtResource("2_node")
 name = &"Idle"
 data = SubResource("Resource_idle")
-transitions = [SubResource("Resource_idle_to_attack")]
+transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_investigate")]
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
@@ -51,14 +65,38 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Attack"
 
+[sub_resource type="Resource" id="Resource_wander_to_investigate"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"Investigate"
+
 [sub_resource type="Resource" id="Resource_wander_node"]
 script = ExtResource("2_node")
 name = &"Wander"
 data = SubResource("Resource_wander")
-transitions = [SubResource("Resource_wander_to_attack")]
+transitions = [SubResource("Resource_wander_to_attack"), SubResource("Resource_wander_to_investigate")]
+
+[sub_resource type="Resource" id="Resource_investigate"]
+script = ExtResource("9_investigate")
+
+[sub_resource type="Resource" id="Resource_investigate_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_investigate_to_idle"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_no_investigation")
+destination = &"Idle"
+
+[sub_resource type="Resource" id="Resource_investigate_node"]
+script = ExtResource("2_node")
+name = &"Investigate"
+data = SubResource("Resource_investigate")
+transitions = [SubResource("Resource_investigate_to_attack"), SubResource("Resource_investigate_to_idle")]
 
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_wander_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_wander_node"), SubResource("Resource_investigate_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

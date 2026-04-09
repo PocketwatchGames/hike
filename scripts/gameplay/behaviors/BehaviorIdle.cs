@@ -8,7 +8,6 @@ public partial class BehaviorIdle : BehaviorBase
     private const float ReturnToSpawnDistance = 1.0f;
     private const float ReturnSpeed = 0.25f;
     private const float PathSuccessDistance = 0.5f;
-    private const float RepathFrequency = 5.0f;
 
     private readonly IdleBehaviorData _data;
 
@@ -31,7 +30,6 @@ public partial class BehaviorIdle : BehaviorBase
             output.pathTarget = me.spawnPosition;
             output.speed = ReturnSpeed;
             output.pathSuccessDistance = PathSuccessDistance;
-            output.repathFrequency = RepathFrequency;
         }
         else
         {

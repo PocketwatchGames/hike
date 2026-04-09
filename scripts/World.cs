@@ -160,6 +160,23 @@ public partial class World : Node3D
         return loot;
     }
 
+    // Single iteration primitive for "all loaded entities of type T". Call sites
+    // should use this rather than walking _activeEntities directly, so a future
+    // typed cache (e.g. List<Mob>) can be swapped in here without touching them.
+    public IEnumerable<T> GetEntities<T>() where T : Node3D
+    {
+        foreach (List<Node3D> entities in _activeEntities.Values)
+        {
+            foreach (Node3D entity in entities)
+            {
+                if (entity is T t)
+                {
+                    yield return t;
+                }
+            }
+        }
+    }
+
     public void RemoveEntity(Node3D entity)
     {
         foreach (List<Node3D> entities in _activeEntities.Values)

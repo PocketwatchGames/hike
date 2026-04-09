@@ -57,7 +57,6 @@ public partial class BehaviorWander : BehaviorBase
                 output.pathTarget = _patrolPoint.Value;
                 output.speed = 0.25f;
                 output.pathSuccessDistance = 0.5f;
-                output.repathFrequency = 5.0f;
             }
             else
             {

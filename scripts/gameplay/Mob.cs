@@ -26,6 +26,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public Vector3 spawnPosition => _simState.SpawnPosition;
     public float spawnRotationY => _simState.SpawnRotationY;
     public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
+    public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
     // Perception/triggered forward through the first perception slot (the player
     // in singleplayer). Multi-target logic operates directly on PerceptionTargets
     // in TickAI; these accessors exist for the HUD and inline Mob logic that only
@@ -60,6 +61,9 @@ public partial class Mob : RigidBody3D, IWorldEntity
     {
         CollisionLayer = (uint)ECollisionLayer.Mob;
         CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
+        // Angular damping brakes yaw torque so the mob settles on its target
+        // facing without overshooting into an oscillation.
+        AngularDamp = 10f;
 
         if (_hurtBox != null)
         {
@@ -133,37 +137,75 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             TickAI((float)delta, out AIOutput aiOutput);
 
+            // An explicit aiOutput.yaw always wins so behaviors like BehaviorAttack
+            // can keep facing the player while circling to a reposition point.
+            // Otherwise, if we're walking toward a path target, face that direction.
+            float? targetYaw = aiOutput.yaw;
+
             if (aiOutput.pathTarget.HasValue)
             {
-                LinearDamp = 0f;
-
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
                 if (toTarget.LengthSquared() > 0.01f)
                 {
+                    LinearDamp = 0f;
                     toTarget = toTarget.Normalized();
                     Vector3 desiredVelocity = toTarget * 3f * _terrainSpeed;
                     Vector3 velocityChange = desiredVelocity - new Vector3(LinearVelocity.X, 0f, LinearVelocity.Z);
                     ApplyCentralImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
 
-                    float targetYaw = Mathf.Atan2(toTarget.X, toTarget.Z);
-                    float yawDelta = Mathf.Wrap(targetYaw - Rotation.Y, -Mathf.Pi, Mathf.Pi);
-                    AngularVelocity = new Vector3(0f, yawDelta * 8f, 0f);
+                    if (!targetYaw.HasValue)
+                    {
+                        targetYaw = Mathf.Atan2(toTarget.X, toTarget.Z);
+                    }
+                }
+                else
+                {
+                    // Arrived at the path target — brake so we don't drift past it.
+                    LinearDamp = 8f;
                 }
             }
             else
             {
                 LinearDamp = 8f;
-                if (aiOutput.yaw.HasValue)
-                {
-                    float yawDelta = Mathf.Wrap(aiOutput.yaw.Value - Rotation.Y, -Mathf.Pi, Mathf.Pi);
-                    AngularVelocity = new Vector3(0f, yawDelta * 8f, 0f);
-                }
-                else
-                {
-                    AngularVelocity = Vector3.Zero;
-                }
             }
+
+            if (targetYaw.HasValue)
+            {
+                float yawDelta = Mathf.Wrap(targetYaw.Value - Rotation.Y, -Mathf.Pi, Mathf.Pi);
+                // Torque toward the target yaw; AngularDamp (set in _Ready) provides
+                // the braking term so the mob doesn't overshoot and oscillate.
+                ApplyTorqueImpulse(new Vector3(0f, yawDelta * 20f * Mass, 0f));
+            }
+
+            if (aiOutput.resetInvestigation)
+            {
+                _simState.Investigation = default;
+            }
+            else if (aiOutput.investigation.HasValue)
+            {
+                _simState.Investigation = aiOutput.investigation.Value;
+            }
+            if (aiOutput.yell)
+            {
+                _simState.PlayerPerception = 1;
+                _simState.PlayerPerceptionState = EPlayerPerceptionState.Seen;
+                _simState.PlayerPerceptionRelaxationTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.PlayerSeenRelaxationTime * 1000);
+                float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
+                foreach (Mob mob in _world.GetEntities<Mob>())
+                {
+                    if (mob == this)
+                    {
+                        continue;
+                    }
+                    if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
+                    {
+                        mob.Investigate(aiOutput.targetPos, 8, 30000, 3000);
+                    }
+                }
+                _simState.Yelled = true;
+            }
+
         }
         else
         {

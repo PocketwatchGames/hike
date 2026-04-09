@@ -18,6 +18,8 @@ public partial class MobData : Resource
     [Export] public float PlayerPerceptionSpeed = 5f;
     [Export] public bool canBurrow = false;
     [Export] public float hideRange = 20f;
+    [Export] public float maxHealth = 10f;
+    [Export] public float yellVolume = 15;
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;
