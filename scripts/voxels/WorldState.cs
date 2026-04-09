@@ -8,6 +8,12 @@ public class WorldState
     public readonly Vector3I Max;
     public SimData SimData;
 
+    // Default spawn point baked into the world. Set by the loader (from the
+    // world file header) or by Main when starting a procedurally-generated
+    // game. The packed world file persists this so a save can recreate the
+    // intended starting position.
+    public Vector3 Spawn;
+
     // Persistent simulation clock in milliseconds. Advanced by World.Tick while
     // unpaused; serialized with the rest of the world state so cooldowns,
     // AI timers, etc. survive save/load.

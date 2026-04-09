@@ -4,6 +4,12 @@ using Godot;
 
 public partial class World : Node3D
 {
+    // Reference to the active world, used by static contexts (CVars, etc.)
+    // that need to reach into the running game without a node-tree lookup.
+    // Set in Initialize, cleared on tree exit. Only one game world is active
+    // at a time so a single static slot is sufficient.
+    public static World Current { get; private set; }
+
     public SimData SimData => _worldState.SimData;
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
@@ -33,6 +39,16 @@ public partial class World : Node3D
         _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition);
 
         CreateWorldBoundary();
+
+        Current = this;
+    }
+
+    public override void _ExitTree()
+    {
+        if (Current == this)
+        {
+            Current = null;
+        }
     }
 
     public void SetPlayer(Player player)

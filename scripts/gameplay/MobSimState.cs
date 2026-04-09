@@ -19,12 +19,22 @@ public class MobSimState : EntitySimState
     public bool Alive;
     public float MaxHealth;
     public float Health;
-    public float Aggro;
-    public EAggroState AggroState;
     public float PlayerPerception;
     public ulong PlayerPerceptionRelaxationTimeMs;
     public EPlayerPerceptionState PlayerPerceptionState;
-    public ulong AlertRelaxationTimeMs;
+    public InvestigateState? Investigation;
+    public bool Yelled;
+    // One perception slot per potential target. Currently sized to 1 (the player);
+    // the array shape is kept so multiplayer can add slots without reshuffling.
+    public PerceptionState[] PerceptionTargets = new PerceptionState[1];
+
+    // UpdatePerception is throttled to PerceptionTickInterval seconds. Each frame
+    // accumulates delta into PerceptionTickAccumulator; when it overflows the
+    // interval, UpdatePerception runs with the accumulated delta and the
+    // accumulator is reset. The accumulator is seeded with a random offset at
+    // construction so different mobs raycast on different frames (jitter).
+    public const float PerceptionTickInterval = 0.1f;
+    public float PerceptionTickAccumulator;
 
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
         : base(worldPosition, scene)
@@ -34,12 +44,10 @@ public class MobSimState : EntitySimState
         Alive = true;
         MaxHealth = 1f;
         Health = 1f;
-        Aggro = 0f;
-        AggroState = EAggroState.Idle;
         PlayerPerception = 0f;
         PlayerPerceptionState = EPlayerPerceptionState.Hidden;
         PlayerPerceptionRelaxationTimeMs = 0;
-        AlertRelaxationTimeMs = 0;
+        PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
     }
 
     public override Node3D CreateEntity(World world)

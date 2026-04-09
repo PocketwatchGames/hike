@@ -1,13 +1,6 @@
 using System.Collections.Generic;
 using Godot;
 
-public enum EAggroState
-{
-    Idle,
-    Seek,
-    Alert
-}
-
 [GlobalClass]
 public partial class Mob : RigidBody3D, IWorldEntity
 {
@@ -26,9 +19,25 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public bool alive { get => _simState.Alive; set => _simState.Alive = value; }
     public float maxHealth => _simState.MaxHealth;
     public float health { get => _simState.Health; set => _simState.Health = value; }
-    public float aggro { get => _simState.Aggro; set => _simState.Aggro = value; }
-    public EAggroState aggroState { get => _simState.AggroState; set => _simState.AggroState = value; }
     public EPlayerPerceptionState playerPerceptionState { get => _simState.PlayerPerceptionState; set => _simState.PlayerPerceptionState = value; }
+    public MobData mobData => _simState.MobData;
+    public StringName defaultBehavior => mobData != null ? mobData.defaultBehavior : (StringName)"Idle";
+    public Vector3 weaponPosition => GlobalPosition;
+    public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
+    // Perception/triggered forward through the first perception slot (the player
+    // in singleplayer). Multi-target logic operates directly on PerceptionTargets
+    // in TickAI; these accessors exist for the HUD and inline Mob logic that only
+    // cares about the primary target.
+    public float perception
+    {
+        get => _simState.PerceptionTargets[0].perception;
+        set => _simState.PerceptionTargets[0].perception = value;
+    }
+    public bool triggered
+    {
+        get => _simState.PerceptionTargets[0].triggered;
+        set => _simState.PerceptionTargets[0].triggered = value;
+    }
 
     private MobSimState _simState;
     World _world;
@@ -71,6 +80,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
         _simState = simState;
         Position = simState.WorldPosition;
         Rotation = new Vector3(0, simState.RotationY, 0);
+        InitBehaviors();
         world.AddChild(this);
     }
 
@@ -102,27 +112,46 @@ public partial class Mob : RigidBody3D, IWorldEntity
     {
         base._PhysicsProcess(delta);
 
-        UpdateVisibility();
-        UpdateAggro((float)delta);
-
         UpdateTerrainSpeed();
+        UpdateVisibility();
+
+        // Perception is throttled — accumulate delta and only run when the
+        // interval is reached, so per-mob raycast cost stays low at density.
+        // The accumulated delta is passed in so the perception integrator
+        // ramps over the same total time regardless of tick rate.
+        _simState.PerceptionTickAccumulator += (float)delta;
+        if (_simState.PerceptionTickAccumulator >= MobSimState.PerceptionTickInterval)
+        {
+            UpdatePerception(_simState.PerceptionTickAccumulator);
+            _simState.PerceptionTickAccumulator = 0f;
+        }
+
         if (alive)
         {
-            if (aggroState == EAggroState.Alert && _world.player != null)
+            TickAI((float)delta, out AIOutput aiOutput);
+
+            if (aiOutput.pathTarget.HasValue)
             {
-                Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
-                toPlayer.Y = 0f;
-                if (toPlayer.LengthSquared() > 0.01f)
+                LinearDamp = 0f;
+
+                Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
+                toTarget.Y = 0f;
+                if (toTarget.LengthSquared() > 0.01f)
                 {
-                    toPlayer = toPlayer.Normalized();
-                    Vector3 desiredVelocity = toPlayer * 3f * _terrainSpeed;
+                    toTarget = toTarget.Normalized();
+                    Vector3 desiredVelocity = toTarget * 3f * _terrainSpeed;
                     Vector3 velocityChange = desiredVelocity - new Vector3(LinearVelocity.X, 0f, LinearVelocity.Z);
                     ApplyCentralImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
 
-                    float targetYaw = Mathf.Atan2(toPlayer.X, toPlayer.Z);
+                    float targetYaw = Mathf.Atan2(toTarget.X, toTarget.Z);
                     float yawDelta = Mathf.Wrap(targetYaw - Rotation.Y, -Mathf.Pi, Mathf.Pi);
                     AngularVelocity = new Vector3(0f, yawDelta * 8f, 0f);
                 }
+            }
+            else
+            {
+                LinearDamp = 8f;
+                AngularVelocity = Vector3.Zero;
             }
         }
         else
@@ -200,147 +229,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public void RemoveTerrainModifier(TallGrass tallGrass)
     {
         _tallGrassCollisions.Remove(tallGrass);
-    }
-
-    private void UpdateAggro(float delta)
-    {
-        if (!alive || _world.player == null)
-        {
-            return;
-        }
-
-        MobData mobData = _simState.MobData;
-        if (mobData == null)
-        {
-            return;
-        }
-
-        Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
-        float distanceSqToPlayer = toPlayer.LengthSquared();
-
-        // Player to mob
-        {
-            float visibilityDistance = _world.player.data.visionRange * visibility;
-            float aggroDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
-            if (aggroDelta > _world.player.data.perceptionMinimum)
-            {
-                float eyeHeight = 1.5f;
-                Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                query.CollideWithAreas = false;
-                query.CollideWithBodies = true;
-                var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
-                if (result.Count > 0)
-                {
-                    aggroDelta = 0f;
-                }
-            }
-            else
-            {
-                aggroDelta = 0f;
-            }
-            if (aggroDelta > 0)
-            {
-                if (aggroDelta >= _world.player.data.perceptionInstant)
-                {
-                    _simState.PlayerPerception = 1;
-                }
-                else
-                {
-                    _simState.PlayerPerception = Mathf.Min(1.0f, _simState.PlayerPerception + aggroDelta * delta * mobData.PlayerPerceptionSpeed);
-                }
-                if (_simState.PlayerPerception >= 1)
-                {
-                    _simState.PlayerPerceptionState = EPlayerPerceptionState.Seen;
-                }
-                else if (_simState.PlayerPerception >= _world.player.data.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
-                {
-                    _simState.PlayerPerceptionState = EPlayerPerceptionState.Detected;
-                }
-
-                if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-                {
-                    _simState.PlayerPerceptionRelaxationTimeMs = _world.GameTimeMs + (ulong)(mobData.PlayerSeenRelaxationTime * 1000);
-                    perceptionProgress = 1;
-                } else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Detected)
-                {
-                    perceptionProgress = Mathf.Clamp((_simState.PlayerPerception - _world.player.data.perceptionDetectedThreshold) / (1.0f - _world.player.data.perceptionDetectedThreshold), 0f, 1f);
-                }
-            }
-            else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-            {
-                if (_world.GameTimeMs >= _simState.PlayerPerceptionRelaxationTimeMs)
-                {
-                    if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-                    {
-                        _simState.PlayerPerceptionState = EPlayerPerceptionState.Hidden;
-                    }
-                    _simState.PlayerPerception = 0;
-                }
-            }
-            else
-            {
-                _simState.PlayerPerception = Mathf.Max(0f, _simState.PlayerPerception - mobData.PlayerPerceptionRelaxationSpeed * delta);
-            }
-        }
-
-        // Mob to player
-        {
-            float aggroDelta = 0f;
-            float visibilityDistance = mobData.VisionRange * Mathf.Pow(Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
-            if (aggroState == EAggroState.Idle || aggroState == EAggroState.Seek)
-            {
-                visibilityDistance *= _world.player.visibility;
-            }
-            aggroDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
-            if (aggroDelta > 0f)
-            {
-                float eyeHeight = 1.5f;
-                Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                query.CollideWithAreas = false;
-                query.CollideWithBodies = true;
-                var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
-                if (result.Count > 0)
-                {
-                    aggroDelta = 0f;
-                }
-            }
-            if (aggroDelta > mobData.MinAggroDelta)
-            {
-                aggro = Mathf.Clamp(aggro + aggroDelta / (1.0f - mobData.MinAggroDelta) * mobData.AggroIncreaseSpeed * delta, 0f, 1f);
-                if (aggro >= mobData.AggroThresholdAlert)
-                {
-                    aggroState = EAggroState.Alert;
-                }
-
-                if (aggroState == EAggroState.Alert || aggroState == EAggroState.Seek)
-                {
-                    _simState.AlertRelaxationTimeMs = _world.GameTimeMs + (ulong)(mobData.AlertRelaxationTime * 1000);
-                }
-            }
-            else
-            {
-                if (aggroState == EAggroState.Alert)
-                {
-                    aggroState = EAggroState.Seek;
-                }
-
-                if (aggroState == EAggroState.Seek)
-                {
-                    if (_world.GameTimeMs >= _simState.AlertRelaxationTimeMs)
-                    {
-                        aggroState = EAggroState.Idle;
-                    }
-                }
-                else
-                {
-                    aggro = Mathf.Clamp(aggro - mobData.AggroRelaxationSpeed * delta, 0f, 1f);
-                }
-            }
-        }
     }
 
 }
