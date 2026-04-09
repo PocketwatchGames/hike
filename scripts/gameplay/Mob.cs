@@ -27,6 +27,9 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public float spawnRotationY => _simState.SpawnRotationY;
     public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
     public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
+    public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
+    public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
+    public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
     // Perception/triggered forward through the first perception slot (the player
     // in singleplayer). Multi-target logic operates directly on PerceptionTargets
     // in TickAI; these accessors exist for the HUD and inline Mob logic that only
@@ -50,6 +53,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
     float _terrainSpeed = 1f;
     public float visibility = 1f;
 
+    // Captured in _Ready so burrow can drop the mesh and restore it. The drop
+    // is sized from the collision capsule so kun_kun (short) and goblin (tall)
+    // both end up about 3/4 of their body underground.
+    private Vector3 _meshRestPosition;
+    private float _meshBurrowDrop;
+
     public static Mob Create(World world, MobSimState data)
     {
         var instance = data.Scene.Instantiate<Mob>();
@@ -69,6 +78,17 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _hurtBox.OnHit = Hit;
         }
+
+        if (_mesh != null)
+        {
+            _meshRestPosition = _mesh.Position;
+        }
+        float capsuleHeight = 1.5f;
+        if (_collisionShape?.Shape is CapsuleShape3D capsule)
+        {
+            capsuleHeight = capsule.Height;
+        }
+        _meshBurrowDrop = capsuleHeight * 0.75f;
     }
 
     public void OnSpawned(World world)
@@ -112,6 +132,33 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
             _mesh.Visible = _simState.PlayerPerceptionState != EPlayerPerceptionState.Hidden;
+            // Burrow visual: fully burrowed mobs sit 3/4 underground, and
+            // burrowing mobs lerp smoothly from rest to that depth over the
+            // mob's burrowTime window. Dropping the mesh in local space (not
+            // the rigid body) keeps physics and collision put — the mob is
+            // still standing, just hiding.
+            float burrowT = 0f;
+            if (burrowed)
+            {
+                burrowT = 1f;
+            }
+            else if (burrowing)
+            {
+                float totalMs = _simState.MobData.burrowTime * 1000f;
+                if (totalMs > 0f)
+                {
+                    ulong now = _world.GameTimeMs;
+                    float remaining = burrowTimeMs > now ? burrowTimeMs - now : 0f;
+                    burrowT = Mathf.Clamp(1f - remaining / totalMs, 0f, 1f);
+                }
+                else
+                {
+                    burrowT = 1f;
+                }
+            }
+            Vector3 meshPos = _meshRestPosition;
+            meshPos.Y -= _meshBurrowDrop * burrowT;
+            _mesh.Position = meshPos;
         }
     }
 
@@ -205,7 +252,28 @@ public partial class Mob : RigidBody3D, IWorldEntity
                 }
                 _simState.Yelled = true;
             }
-
+            // Two-phase burrow. When aiOutput.burrow first goes true we start
+            // a Burrowing descent and arm burrowTime. Once the timer elapses
+            // we flip to fully Burrowed. As soon as the behavior stops
+            // requesting burrow we clear both flags and the mesh pops back up.
+            if (aiOutput.burrow)
+            {
+                if (!burrowing && !burrowed)
+                {
+                    burrowing = true;
+                    burrowTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.burrowTime * 1000f);
+                }
+                else if (burrowing && _world.GameTimeMs >= burrowTimeMs)
+                {
+                    burrowing = false;
+                    burrowed = true;
+                }
+            }
+            else
+            {
+                burrowing = false;
+                burrowed = false;
+            }
         }
         else
         {
@@ -216,12 +284,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     public void Hit(DamageData data, Node damageSource)
     {
-        if (!alive)
+        if (!alive || burrowed)
         {
             return;
         }
 
         Damage(data);
+
     }
 
     public void Damage(DamageData data)

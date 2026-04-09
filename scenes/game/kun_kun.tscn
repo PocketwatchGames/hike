@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://cK0kUnKunHike1"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/game/mob_hud.tscn" id="3_mobhud"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kk0"]
+albedo_color = Color(0.9, 0.75, 0.4, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_kk0"]
+material = SubResource("StandardMaterial3D_kk0")
+radius = 0.3
+height = 0.9
+
+[sub_resource type="BoxMesh" id="BoxMesh_kk0"]
+size = Vector3(0.4, 0.15, 0.08)
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
+radius = 0.3
+height = 0.9
+
+[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_mesh = NodePath("MeshInstance3D")
+_hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("Node3D")
+HudScene = ExtResource("3_mobhud")
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+mesh = SubResource("CapsuleMesh_kk0")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0.25)
+mesh = SubResource("BoxMesh_kk0")
+
+[node name="MovementCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("CapsuleShape3D_kk0")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+shape = SubResource("CapsuleShape3D_kk0")
+
+[node name="Node3D" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)

@@ -285,6 +285,36 @@ public static class WorldGen
             }
         }
 
+        // Generate kun_kun on grass surfaces. Non-dangerous mobs that flee the
+        // player and burrow once they get far enough away.
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+            {
+                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                {
+                    continue;
+                }
+                if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+                {
+                    continue;
+                }
+                if (rng.NextDouble() >= genData.KunKunChance)
+                {
+                    continue;
+                }
+
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                ws.AddEntity(new MobSimState(
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    (float)(rng.NextDouble() * Mathf.Pi * 2f),
+                    genData.KunKunScene,
+                    genData.KunKunData
+                ));
+            }
+        }
+
         // Generate loot on grass surfaces
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
         {

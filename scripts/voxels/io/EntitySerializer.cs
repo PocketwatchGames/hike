@@ -64,6 +64,9 @@ public static class EntitySerializer
                 WriteVec3(w, mob.SpawnPosition);
                 w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
+                w.Write(mob.Burrowed);
+                w.Write(mob.Burrowing);
+                w.Write(mob.BurrowTimeMs);
                 w.Write(mob.MaxHealth);
                 w.Write(mob.Health);
                 w.Write(mob.PerceptionTargets[0].perception);
@@ -127,6 +130,9 @@ public static class EntitySerializer
                 Vector3 spawnPos = ReadVec3(r);
                 float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
+                bool burrowed = r.ReadBoolean();
+                bool burrowing = r.ReadBoolean();
+                ulong burrowTimeMs = r.ReadUInt64();
                 float maxHealth = r.ReadSingle();
                 float health = r.ReadSingle();
                 float targetPerception = r.ReadSingle();
@@ -142,6 +148,9 @@ public static class EntitySerializer
                     mob.InitialBehavior = initialBehavior;
                 }
                 mob.Alive = alive;
+                mob.Burrowed = burrowed;
+                mob.Burrowing = burrowing;
+                mob.BurrowTimeMs = burrowTimeMs;
                 mob.MaxHealth = maxHealth;
                 mob.Health = health;
                 mob.PerceptionTargets[0].perception = targetPerception;

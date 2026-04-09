@@ -26,6 +26,14 @@ public class MobSimState : EntitySimState
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
     public bool Alive;
+    // Burrow is a two-phase state machine: Burrowing is the descent window
+    // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
+    // GameTimeMs at which the descent completes, and Burrowed is the fully-
+    // hidden state once the countdown elapses. All three clear the moment
+    // aiOutput.burrow stops being set.
+    public bool Burrowing;
+    public ulong BurrowTimeMs;
+    public bool Burrowed;
     public float MaxHealth;
     public float Health;
     public float PlayerPerception;

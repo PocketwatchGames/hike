@@ -17,6 +17,10 @@ public partial class MobData : Resource
     [Export] public float PlayerPerceptionRelaxationSpeed = 3f;
     [Export] public float PlayerPerceptionSpeed = 5f;
     [Export] public bool canBurrow = false;
+    // Seconds from the moment a mob starts burrowing to when it's fully
+    // underground and uninteractable. During this window the mesh is sinking
+    // but the mob is still hittable.
+    [Export] public float burrowTime = 1.5f;
     [Export] public float hideRange = 20f;
     [Export] public float maxHealth = 10f;
     [Export] public float yellVolume = 15;
