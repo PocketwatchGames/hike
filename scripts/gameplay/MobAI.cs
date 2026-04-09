@@ -122,7 +122,15 @@ public partial class Mob
             }
         }
 
-        _curBehavior = brain.idleBehavior;
+        StringName initial = _simState.InitialBehavior;
+        if (initial != null && _behaviors.ContainsKey(initial))
+        {
+            _curBehavior = initial;
+        }
+        else
+        {
+            _curBehavior = brain.idleBehavior;
+        }
     }
 
     private void TickAI(float deltaTime, out AIOutput output)

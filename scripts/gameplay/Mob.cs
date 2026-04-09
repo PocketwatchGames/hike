@@ -21,7 +21,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public EPlayerPerceptionState playerPerceptionState { get => _simState.PlayerPerceptionState; set => _simState.PlayerPerceptionState = value; }
     public MobData mobData => _simState.MobData;
-    public StringName defaultBehavior => mobData != null ? mobData.defaultBehavior : (StringName)"Idle";
+    public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
     public Vector3 weaponPosition => GlobalPosition;
     public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
     // Perception/triggered forward through the first perception slot (the player
@@ -41,6 +41,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     private MobSimState _simState;
     World _world;
+    public World World => _world;
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;

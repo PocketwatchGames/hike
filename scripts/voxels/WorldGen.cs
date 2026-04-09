@@ -271,12 +271,17 @@ public static class WorldGen
 
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                ws.AddEntity(new MobSimState(
+                var mobState = new MobSimState(
                     new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
                     rng.Next() * Mathf.Pi * 2f,
                     genData.GoblinScene,
                     genData.GoblinData
-                ));
+                );
+                if (rng.NextDouble() < 1)
+                {
+                    mobState.InitialBehavior = "Wander";
+                }
+                ws.AddEntity(mobState);
             }
         }
 

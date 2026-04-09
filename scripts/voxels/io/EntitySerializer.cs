@@ -69,6 +69,7 @@ public static class EntitySerializer
                 w.Write(mob.PlayerPerception);
                 w.Write(mob.PlayerPerceptionRelaxationTimeMs);
                 w.Write((byte)mob.PlayerPerceptionState);
+                w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
                 break;
 
             case DoorSimState door:
@@ -129,8 +130,13 @@ public static class EntitySerializer
                 float playerPerception = r.ReadSingle();
                 ulong perceptionRelaxMs = r.ReadUInt64();
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
+                string initialBehavior = r.ReadString();
 
                 var mob = new MobSimState(pos, rotationY, scene, mobData);
+                if (!string.IsNullOrEmpty(initialBehavior))
+                {
+                    mob.InitialBehavior = initialBehavior;
+                }
                 mob.Alive = alive;
                 mob.MaxHealth = maxHealth;
                 mob.Health = health;

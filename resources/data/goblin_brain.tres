@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BrainData" load_steps=12 format=3]
+[gd_resource type="Resource" script_class="BrainData" load_steps=15 format=3]
 
 [ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="1_brain"]
 [ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_node"]
@@ -7,12 +7,17 @@
 [ext_resource type="Script" path="res://scripts/data/behaviors/AttackBehaviorData.cs" id="5_attack"]
 [ext_resource type="Script" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
 [ext_resource type="Script" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]
+[ext_resource type="Script" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="8_wander"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
+
+[sub_resource type="Resource" id="Resource_wander"]
+script = ExtResource("8_wander")
+pauseTimeRange = Vector2(2, 5)
 
 [sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
 script = ExtResource("6_aggro_acquired")
@@ -30,6 +35,11 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_lost")
 destination = &"Idle"
 
+[sub_resource type="Resource" id="Resource_wander_to_attack"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Attack"
+
 [sub_resource type="Resource" id="Resource_idle_node"]
 script = ExtResource("2_node")
 name = &"Idle"
@@ -42,8 +52,14 @@ name = &"Attack"
 data = SubResource("Resource_attack")
 transitions = [SubResource("Resource_attack_to_idle")]
 
+[sub_resource type="Resource" id="Resource_wander_node"]
+script = ExtResource("2_node")
+name = &"Wander"
+data = SubResource("Resource_wander")
+transitions = [SubResource("Resource_wander_to_attack")]
+
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_attack_node"), SubResource("Resource_wander_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

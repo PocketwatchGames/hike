@@ -16,6 +16,9 @@ public class MobSimState : EntitySimState
     // RotationY (and inherited WorldPosition) are kept current by Mob.SyncToSimState
     // before the node is freed on chunk unload.
     public float RotationY;
+    // Optional per-mob override for the behavior the mob starts in (and returns to
+    // when a behavior returns Complete). Null means use the brain's idleBehavior.
+    public StringName InitialBehavior;
     public bool Alive;
     public float MaxHealth;
     public float Health;
