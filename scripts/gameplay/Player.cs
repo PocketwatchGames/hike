@@ -9,9 +9,13 @@ public partial class Player : CharacterBody3D
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
+	[Export] public float visionRange = 25f;
 	[Export] public float visibilityLightMax = 0.75f;
 	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2;
+	[Export] public float perceptionMinimum = 0.01f;
+	[Export] public float perceptionInstant = 0.5f;
+	[Export] public float perceptionDetectedThreshold = 0.25f;
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 
@@ -288,10 +292,7 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateVisibility()
 	{
-		int wx = Mathf.FloorToInt(GlobalPosition.X);
-		int wy = Mathf.FloorToInt(GlobalPosition.Y);
-		int wz = Mathf.FloorToInt(GlobalPosition.Z);
-		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(wx, wy, wz) / ((float)LightEngine.MAX_LIGHT * visibilityLightMax), 0, 1);
+		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition) / ((float)LightEngine.MAX_LIGHT * visibilityLightMax), 0, 1);
 
 		float speedFactor = moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / moveSpeed, visibilityMovementPower), visibilityMovementMin, 1f) : 1f;
 

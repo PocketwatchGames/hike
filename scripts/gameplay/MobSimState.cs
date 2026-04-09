@@ -1,5 +1,12 @@
 using Godot;
 
+public enum EPlayerPerceptionState
+{
+    Hidden,
+    Detected,
+    Seen
+}
+
 public class MobSimState : EntitySimState
 {
     public readonly MobData MobData;
@@ -14,8 +21,9 @@ public class MobSimState : EntitySimState
     public float Health;
     public float Aggro;
     public EAggroState AggroState;
-    // Game-time absolute (WorldState.GameTimeMs based) at which alert relaxes.
-    // Persistent because game time is persistent.
+    public float PlayerPerception;
+    public ulong PlayerPerceptionRelaxationTimeMs;
+    public EPlayerPerceptionState PlayerPerceptionState;
     public ulong AlertRelaxationTimeMs;
 
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
@@ -28,6 +36,10 @@ public class MobSimState : EntitySimState
         Health = 1f;
         Aggro = 0f;
         AggroState = EAggroState.Idle;
+        PlayerPerception = 0f;
+        PlayerPerceptionState = EPlayerPerceptionState.Hidden;
+        PlayerPerceptionRelaxationTimeMs = 0;
+        AlertRelaxationTimeMs = 0;
     }
 
     public override Node3D CreateEntity(World world)

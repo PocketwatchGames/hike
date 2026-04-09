@@ -109,6 +109,13 @@ public class WorldState
     {
         return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
     }
+    public int GetLightLevelWorld(Vector3 position)
+    {
+        int wx = Mathf.FloorToInt(position.X);
+        int wy = Mathf.FloorToInt(position.Y);
+        int wz = Mathf.FloorToInt(position.Z);
+        return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
+    }
 
     public ChunkState GetChunk(Vector3I coord)
     {

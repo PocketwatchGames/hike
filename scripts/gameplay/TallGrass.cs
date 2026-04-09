@@ -8,7 +8,7 @@ public partial class TallGrass : Area3D, IWorldEntity
 
 	public override void _Ready()
 	{
-		CollisionMask |= (uint)ECollisionLayer.Player;
+		CollisionMask |= (uint)(ECollisionLayer.Player | ECollisionLayer.Mob);
 		BodyEntered += OnBodyEntered;
 		BodyExited += OnBodyExited;
 	}
@@ -24,6 +24,10 @@ public partial class TallGrass : Area3D, IWorldEntity
 		{
 			player.AddTerrainModifier(this);
 		}
+		else if (body is Mob mob)
+		{
+			mob.AddTerrainModifier(this);
+		}
 	}
 
 	private void OnBodyExited(Node3D body)
@@ -31,6 +35,10 @@ public partial class TallGrass : Area3D, IWorldEntity
 		if (body is Player player)
 		{
 			player.RemoveTerrainModifier(this);
+		}
+		else if (body is Mob mob)
+		{
+			mob.RemoveTerrainModifier(this);
 		}
 	}
 

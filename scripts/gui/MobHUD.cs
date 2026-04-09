@@ -5,6 +5,7 @@ public partial class MobHUD : Node2D
 {
 	[Export] private ProgressBar _healthBar;
 	[Export] private ProgressBar _aggroBar;
+	[Export] private ProgressBar _perceptionBar;
 
 	Camera3D _camera;
 	Mob _mob;
@@ -29,7 +30,7 @@ public partial class MobHUD : Node2D
 
 	void Update()
 	{
-		if (!_mob.alive || (_mob.health >= _mob.maxHealth && _mob.aggro <= 0f))
+		if (!_mob.alive || (_mob.health >= _mob.maxHealth && _mob.aggro <= 0f) || _mob.playerPerceptionState == EPlayerPerceptionState.Hidden)
 		{
 			Visible = false;
 			return;
@@ -41,8 +42,9 @@ public partial class MobHUD : Node2D
 			return;
 		}
 
-		_aggroBar.Visible = _mob.aggro > 0 && _mob.aggro < 1;
-		_healthBar.Visible = _mob.aggro >= 1 || (_mob.aggro <= 0 && _mob.health < _mob.maxHealth);
+		_aggroBar.Visible = _mob.aggro > 0 && _mob.aggro < 1 && _mob.playerPerceptionState == EPlayerPerceptionState.Seen;
+		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
+		_healthBar.Visible = (_mob.aggro >= 1 || (_mob.aggro <= 0 && _mob.health < _mob.maxHealth)) && _mob.playerPerceptionState == EPlayerPerceptionState.Seen;
 		Visible = true;
 		Position = _camera.UnprojectPosition(worldPosition);
 		if (_healthBar != null)
@@ -52,6 +54,10 @@ public partial class MobHUD : Node2D
 		if (_aggroBar != null)
 		{
 			_aggroBar.Value = _mob.aggro;
+		}
+		if (_perceptionBar != null)
+		{
+			_perceptionBar.Value = _mob.perceptionProgress;
 		}
 	}
 
