@@ -5,17 +5,7 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class Player : CharacterBody3D
 {
-	[Export] public float stepHeight = 0.5f;
-	[Export] public float moveSpeed = 7f;
-	[Export] public float sneakSpeed = 3f;
-	[Export] public float jumpSpeed = 18f;
-	[Export] public float visionRange = 25f;
-	[Export] public float visibilityLightMax = 0.75f;
-	[Export] public float visibilityMovementMin = 0.5f;
-	[Export] public float visibilityMovementPower = 2;
-	[Export] public float perceptionMinimum = 0.01f;
-	[Export] public float perceptionInstant = 0.5f;
-	[Export] public float perceptionDetectedThreshold = 0.25f;
+	[Export] public PlayerData data;
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 
@@ -77,10 +67,10 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed();
 
-		float speed = moveSpeed;
+		float speed = data.moveSpeed;
 		if (Input.IsActionPressed("Sneak"))
 		{
-			speed = sneakSpeed;
+			speed = data.sneakSpeed;
 		}
 		speed *= _terrainSpeed;
 
@@ -115,7 +105,7 @@ public partial class Player : CharacterBody3D
 		Vector3 posBeforeStep = GlobalPosition;
 		if (_grounded)
 		{
-			GlobalPosition += Vector3.Up * stepHeight;
+			GlobalPosition += Vector3.Up * data.stepHeight;
 		}
 
 		bool wasOnFloor = _grounded;
@@ -124,7 +114,7 @@ public partial class Player : CharacterBody3D
 		// Step down: snap back to the ground after moving
 		if (wasOnFloor)
 		{
-			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * stepHeight);
+			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
 			if (stepDownResult != null)
 			{
 				_grounded = stepDownResult.GetNormal().Dot(Vector3.Up) > 0.5f;
@@ -204,7 +194,7 @@ public partial class Player : CharacterBody3D
 		{
 			if (_grounded)
 			{
-				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
+				Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
 				_grounded = false;
 			}
 		}
@@ -292,9 +282,9 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateVisibility()
 	{
-		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition) / ((float)LightEngine.MAX_LIGHT * visibilityLightMax), 0, 1);
+		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition) / ((float)LightEngine.MAX_LIGHT * data.visibilityLightMax), 0, 1);
 
-		float speedFactor = moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / moveSpeed, visibilityMovementPower), visibilityMovementMin, 1f) : 1f;
+		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 
 		float camouflage = 0f;
 		foreach (TallGrass grass in _tallGrassCollisions)

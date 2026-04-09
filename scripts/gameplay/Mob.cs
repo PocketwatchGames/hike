@@ -220,9 +220,9 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
         // Player to mob
         {
-            float visibilityDistance = _world.player.visionRange * visibility;
+            float visibilityDistance = _world.player.data.visionRange * visibility;
             float aggroDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
-            if (aggroDelta > _world.player.perceptionMinimum)
+            if (aggroDelta > _world.player.data.perceptionMinimum)
             {
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
@@ -242,7 +242,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
             }
             if (aggroDelta > 0)
             {
-                if (aggroDelta >= _world.player.perceptionInstant)
+                if (aggroDelta >= _world.player.data.perceptionInstant)
                 {
                     _simState.PlayerPerception = 1;
                 }
@@ -254,7 +254,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
                 {
                     _simState.PlayerPerceptionState = EPlayerPerceptionState.Seen;
                 }
-                else if (_simState.PlayerPerception >= _world.player.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
+                else if (_simState.PlayerPerception >= _world.player.data.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
                 {
                     _simState.PlayerPerceptionState = EPlayerPerceptionState.Detected;
                 }
@@ -265,7 +265,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
                     perceptionProgress = 1;
                 } else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Detected)
                 {
-                    perceptionProgress = Mathf.Clamp((_simState.PlayerPerception - _world.player.perceptionDetectedThreshold) / (1.0f - _world.player.perceptionDetectedThreshold), 0f, 1f);
+                    perceptionProgress = Mathf.Clamp((_simState.PlayerPerception - _world.player.data.perceptionDetectedThreshold) / (1.0f - _world.player.data.perceptionDetectedThreshold), 0f, 1f);
                 }
             }
             else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
