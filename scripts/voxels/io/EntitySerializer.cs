@@ -61,6 +61,8 @@ public static class EntitySerializer
                 WriteScene(w, mob.Scene);
                 WriteResource(w, mob.MobData);
                 w.Write(mob.RotationY);
+                WriteVec3(w, mob.SpawnPosition);
+                w.Write(mob.SpawnRotationY);
                 w.Write(mob.Alive);
                 w.Write(mob.MaxHealth);
                 w.Write(mob.Health);
@@ -122,6 +124,8 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 var mobData = ReadResource<MobData>(r);
                 float rotationY = r.ReadSingle();
+                Vector3 spawnPos = ReadVec3(r);
+                float spawnRotationY = r.ReadSingle();
                 bool alive = r.ReadBoolean();
                 float maxHealth = r.ReadSingle();
                 float health = r.ReadSingle();
@@ -132,7 +136,7 @@ public static class EntitySerializer
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
 
-                var mob = new MobSimState(pos, rotationY, scene, mobData);
+                var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 if (!string.IsNullOrEmpty(initialBehavior))
                 {
                     mob.InitialBehavior = initialBehavior;

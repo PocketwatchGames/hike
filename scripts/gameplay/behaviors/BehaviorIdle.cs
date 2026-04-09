@@ -2,6 +2,14 @@ using Godot;
 
 public partial class BehaviorIdle : BehaviorBase
 {
+    // Distance from spawn beyond which the mob walks home instead of standing
+    // still. Small enough that normal idle jostling doesn't trigger a return,
+    // large enough to cover the patrol radius used by BehaviorWander.
+    private const float ReturnToSpawnDistance = 1.0f;
+    private const float ReturnSpeed = 0.25f;
+    private const float PathSuccessDistance = 0.5f;
+    private const float RepathFrequency = 5.0f;
+
     private readonly IdleBehaviorData _data;
 
     public BehaviorIdle(IdleBehaviorData data)
@@ -15,7 +23,21 @@ public partial class BehaviorIdle : BehaviorBase
         {
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
-        output.speed = 0f;
+
+        Vector3 toSpawn = me.spawnPosition - me.GlobalPosition;
+        toSpawn.Y = 0f;
+        if (toSpawn.LengthSquared() > ReturnToSpawnDistance * ReturnToSpawnDistance)
+        {
+            output.pathTarget = me.spawnPosition;
+            output.speed = ReturnSpeed;
+            output.pathSuccessDistance = PathSuccessDistance;
+            output.repathFrequency = RepathFrequency;
+        }
+        else
+        {
+            output.speed = 0f;
+            output.yaw = me.spawnRotationY;
+        }
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 }

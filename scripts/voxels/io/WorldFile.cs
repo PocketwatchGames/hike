@@ -23,7 +23,7 @@ using Godot;
 public static class WorldFile
 {
     public const uint MAGIC = 0x454B4948; // 'HIKE' little-endian
-    public const uint VERSION = 1;
+    public const uint VERSION = 2;
 
     public struct IndexEntry
     {

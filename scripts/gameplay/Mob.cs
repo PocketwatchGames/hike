@@ -23,6 +23,8 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public MobData mobData => _simState.MobData;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
     public Vector3 weaponPosition => GlobalPosition;
+    public Vector3 spawnPosition => _simState.SpawnPosition;
+    public float spawnRotationY => _simState.SpawnRotationY;
     public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
     // Perception/triggered forward through the first perception slot (the player
     // in singleplayer). Multi-target logic operates directly on PerceptionTargets
@@ -152,7 +154,15 @@ public partial class Mob : RigidBody3D, IWorldEntity
             else
             {
                 LinearDamp = 8f;
-                AngularVelocity = Vector3.Zero;
+                if (aiOutput.yaw.HasValue)
+                {
+                    float yawDelta = Mathf.Wrap(aiOutput.yaw.Value - Rotation.Y, -Mathf.Pi, Mathf.Pi);
+                    AngularVelocity = new Vector3(0f, yawDelta * 8f, 0f);
+                }
+                else
+                {
+                    AngularVelocity = Vector3.Zero;
+                }
             }
         }
         else

@@ -277,7 +277,7 @@ public static class WorldGen
                     genData.GoblinScene,
                     genData.GoblinData
                 );
-                if (rng.NextDouble() < 1)
+                if (rng.NextDouble() < 0.25f)
                 {
                     mobState.InitialBehavior = "Wander";
                 }

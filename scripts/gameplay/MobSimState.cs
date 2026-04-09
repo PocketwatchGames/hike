@@ -16,6 +16,12 @@ public class MobSimState : EntitySimState
     // RotationY (and inherited WorldPosition) are kept current by Mob.SyncToSimState
     // before the node is freed on chunk unload.
     public float RotationY;
+    // Authored spawn transform, used by Idle to send the mob home after it has
+    // been pulled away (combat, wander) and to restore its original facing.
+    // Captured at construction from the initial WorldPosition/RotationY, so it
+    // reflects where the mob first appeared rather than where it is currently.
+    public readonly Vector3 SpawnPosition;
+    public readonly float SpawnRotationY;
     // Optional per-mob override for the behavior the mob starts in (and returns to
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
@@ -40,9 +46,18 @@ public class MobSimState : EntitySimState
     public float PerceptionTickAccumulator;
 
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
+        : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData)
+    {
+    }
+
+    // Full constructor used by the deserializer so a mob restored from disk
+    // keeps its authored spawn transform even if its current position has drifted.
+    public MobSimState(Vector3 worldPosition, float rotationY, Vector3 spawnPosition, float spawnRotationY, PackedScene scene, MobData mobData)
         : base(worldPosition, scene)
     {
         RotationY = rotationY;
+        SpawnPosition = spawnPosition;
+        SpawnRotationY = spawnRotationY;
         MobData = mobData;
         Alive = true;
         MaxHealth = 1f;
