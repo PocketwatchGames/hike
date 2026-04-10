@@ -4,7 +4,7 @@ public enum EPlayerPerceptionState
 {
     Hidden,
     Detected,
-    Seen
+    Discovered
 }
 
 public class MobSimState : EntitySimState
@@ -37,7 +37,8 @@ public class MobSimState : EntitySimState
     public float MaxHealth;
     public float Health;
     public float PlayerPerception;
-    public ulong PlayerPerceptionRelaxationTimeMs;
+    public ulong MemoryTimeMs;
+    public ulong VisibleTimeMs;
     public EPlayerPerceptionState PlayerPerceptionState;
     public InvestigateState? Investigation;
     public bool Yelled;
@@ -72,7 +73,7 @@ public class MobSimState : EntitySimState
         Health = 1f;
         PlayerPerception = 0f;
         PlayerPerceptionState = EPlayerPerceptionState.Hidden;
-        PlayerPerceptionRelaxationTimeMs = 0;
+        MemoryTimeMs = 0;
         PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
     }
 

@@ -42,9 +42,9 @@ public partial class MobHUD : Node2D
 			return;
 		}
 
-		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerPerceptionState == EPlayerPerceptionState.Seen;
+		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerPerceptionState == EPlayerPerceptionState.Discovered;
 		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-		_healthBar.Visible = (_mob.triggered || (_mob.perception <= 0 && _mob.health < _mob.maxHealth)) && _mob.playerPerceptionState == EPlayerPerceptionState.Seen;
+		_healthBar.Visible = (_mob.triggered || (_mob.perception <= 0 && _mob.health < _mob.maxHealth)) && _mob.playerPerceptionState == EPlayerPerceptionState.Discovered;
 		Visible = true;
 		Position = _camera.UnprojectPosition(worldPosition);
 		if (_healthBar != null)

@@ -245,6 +245,7 @@ public partial class Mob
             {
                 perceptionDelta = 0f;
             }
+
             if (perceptionDelta > 0)
             {
                 if (perceptionDelta >= _world.player.data.perceptionInstant)
@@ -255,40 +256,42 @@ public partial class Mob
                 {
                     _simState.PlayerPerception = Mathf.Min(1.0f, _simState.PlayerPerception + perceptionDelta * delta * mobData.PlayerPerceptionSpeed);
                 }
-                if (_simState.PlayerPerception >= 1)
-                {
-                    _simState.PlayerPerceptionState = EPlayerPerceptionState.Seen;
-                }
-                else if (_simState.PlayerPerception >= _world.player.data.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
-                {
-                    _simState.PlayerPerceptionState = EPlayerPerceptionState.Detected;
-                }
-
-                if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-                {
-                    _simState.PlayerPerceptionRelaxationTimeMs = _world.GameTimeMs + (ulong)(mobData.PlayerSeenRelaxationTime * 1000);
-                    perceptionProgress = 1;
-                }
-                else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Detected)
-                {
-                    perceptionProgress = Mathf.Clamp((_simState.PlayerPerception - _world.player.data.perceptionDetectedThreshold) / (1.0f - _world.player.data.perceptionDetectedThreshold), 0f, 1f);
-                }
-            }
-            else if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-            {
-                if (_world.GameTimeMs >= _simState.PlayerPerceptionRelaxationTimeMs)
-                {
-                    if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Seen)
-                    {
-                        _simState.PlayerPerceptionState = EPlayerPerceptionState.Hidden;
-                    }
-                    _simState.PlayerPerception = 0;
-                }
             }
             else
             {
                 _simState.PlayerPerception = Mathf.Max(0f, _simState.PlayerPerception - mobData.PlayerPerceptionRelaxationSpeed * delta);
             }
+
+
+            if (_simState.PlayerPerception >= 1)
+            {
+                _simState.PlayerPerceptionState = EPlayerPerceptionState.Discovered;
+            }
+            else if (_simState.PlayerPerception >= _world.player.data.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
+            {
+                _simState.PlayerPerceptionState = EPlayerPerceptionState.Detected;
+            }
+
+            if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Discovered)
+            {
+                if (perceptionDelta > 0)
+                {
+                    _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
+                    _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(mobData.VisibleTime * 1000);
+                }
+                else 
+                {
+                    if (LinearVelocity.LengthSquared() > 0.01f)
+                    {
+                        _simState.MemoryTimeMs = (ulong)Mathf.Min(_simState.MemoryTimeMs, _world.GameTimeMs + (ulong)(mobData.MemoryMovingTime * 1000));
+                    }
+                    if (_simState.PlayerPerception <= 0 && _world.GameTimeMs >= _simState.MemoryTimeMs)
+                    {
+                        _simState.PlayerPerceptionState = EPlayerPerceptionState.Hidden;
+                    }
+                }
+            }
+
         }
 
         // Mob to player — updates PerceptionTargets[0] for the singleplayer case.

@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/game/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="Material" path="res://resources/materials/silhouette.tres" id="4_silhouette"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kk0"]
 albedo_color = Color(0.9, 0.75, 0.4, 1)
@@ -28,6 +29,7 @@ _mesh = NodePath("MeshInstance3D")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
+_silhouetteMaterial = ExtResource("4_silhouette")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="."]

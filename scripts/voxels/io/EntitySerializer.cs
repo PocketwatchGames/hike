@@ -72,7 +72,7 @@ public static class EntitySerializer
                 w.Write(mob.PerceptionTargets[0].perception);
                 w.Write(mob.PerceptionTargets[0].triggered);
                 w.Write(mob.PlayerPerception);
-                w.Write(mob.PlayerPerceptionRelaxationTimeMs);
+                w.Write(mob.MemoryTimeMs);
                 w.Write((byte)mob.PlayerPerceptionState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
                 break;
@@ -138,7 +138,7 @@ public static class EntitySerializer
                 float targetPerception = r.ReadSingle();
                 bool targetTriggered = r.ReadBoolean();
                 float playerPerception = r.ReadSingle();
-                ulong perceptionRelaxMs = r.ReadUInt64();
+                ulong memoryTimeMs = r.ReadUInt64();
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
 
@@ -157,7 +157,7 @@ public static class EntitySerializer
                 mob.PerceptionTargets[0].triggered = targetTriggered;
                 mob.PerceptionTargets[0].aggro = targetPerception;
                 mob.PlayerPerception = playerPerception;
-                mob.PlayerPerceptionRelaxationTimeMs = perceptionRelaxMs;
+                mob.MemoryTimeMs = memoryTimeMs;
                 mob.PlayerPerceptionState = perceptionState;
                 return mob;
             }

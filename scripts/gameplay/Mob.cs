@@ -11,6 +11,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
+    [Export] private Material _silhouetteMaterial;
 
     public float perceptionProgress;
 
@@ -58,6 +59,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     // both end up about 3/4 of their body underground.
     private Vector3 _meshRestPosition;
     private float _meshBurrowDrop;
+    private bool _silhouetteApplied;
 
     public static Mob Create(World world, MobSimState data)
     {
@@ -132,6 +134,19 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
             _mesh.Visible = _simState.PlayerPerceptionState != EPlayerPerceptionState.Hidden;
+
+            // Silhouette: mob is Discovered but no longer directly visible,
+            // yet still within memory window — render as a black shape.
+            bool shouldSilhouette = _silhouetteMaterial != null
+                && _simState.PlayerPerceptionState == EPlayerPerceptionState.Discovered
+                && _world.GameTimeMs >= _simState.VisibleTimeMs
+                && _world.GameTimeMs < _simState.MemoryTimeMs;
+            if (shouldSilhouette != _silhouetteApplied)
+            {
+                ApplySilhouette(_mesh, shouldSilhouette);
+                _silhouetteApplied = shouldSilhouette;
+            }
+
             // Burrow visual: fully burrowed mobs sit 3/4 underground, and
             // burrowing mobs lerp smoothly from rest to that depth over the
             // mob's burrowTime window. Dropping the mesh in local space (not
@@ -236,8 +251,8 @@ public partial class Mob : RigidBody3D, IWorldEntity
             if (aiOutput.yell)
             {
                 _simState.PlayerPerception = 1;
-                _simState.PlayerPerceptionState = EPlayerPerceptionState.Seen;
-                _simState.PlayerPerceptionRelaxationTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.PlayerSeenRelaxationTime * 1000);
+                _simState.PlayerPerceptionState = EPlayerPerceptionState.Discovered;
+                _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
                 float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
                 foreach (Mob mob in _world.GetEntities<Mob>())
                 {
@@ -341,6 +356,18 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
 
         visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
+    }
+
+    private void ApplySilhouette(Node node, bool on)
+    {
+        if (node is MeshInstance3D mesh)
+        {
+            mesh.MaterialOverride = on ? _silhouetteMaterial : null;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            ApplySilhouette(child, on);
+        }
     }
 
     public void AddTerrainModifier(TallGrass tallGrass)

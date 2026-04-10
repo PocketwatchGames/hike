@@ -13,7 +13,9 @@ public partial class MobData : Resource
     [Export] public float visibilityMovementMin = 0.5f;
     [Export] public float visibilityMovementPower = 2;
     [Export] public float maxVisibilitySpeed = 5f;
-    [Export] public float PlayerSeenRelaxationTime = 3f;
+    [Export] public float MemoryStationaryTime = 60f;
+    [Export] public float VisibleTime = 0.1f;
+    [Export] public float MemoryMovingTime = 3f;
     [Export] public float PlayerPerceptionRelaxationSpeed = 3f;
     [Export] public float PlayerPerceptionSpeed = 5f;
     [Export] public bool canBurrow = false;
