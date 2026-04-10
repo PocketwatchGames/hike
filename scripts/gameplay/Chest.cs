@@ -7,6 +7,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private Sprite3D _chestSprite;
     [Export] private Sprite3D _openSprite;
     [Export] private HurtBox _hurtBox;
+    [Export] private float _interactTime = 3;
 
     private bool _open;
     private ChestSimState _interactiveState;
@@ -38,6 +39,11 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     public bool CanActorInteract(Player player)
     {
         return CanInteract();
+    }
+
+    public ulong GetInteractTime(Player player)
+    {
+        return (ulong)(_interactTime * 1000);
     }
 
     private void UpdateVisuals()

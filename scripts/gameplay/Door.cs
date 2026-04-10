@@ -44,6 +44,11 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         return CanInteract();
     }
 
+    public ulong GetInteractTime(Player player)
+    {
+        return 0;
+    }
+
     public void Complete()
     {
         _open = !_open;

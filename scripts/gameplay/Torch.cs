@@ -30,6 +30,11 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         return CanInteract();
     }
 
+    public ulong GetInteractTime(Player player)
+    {
+        return 0;
+    }
+
     public void Complete()
     {
         _active = !_active;

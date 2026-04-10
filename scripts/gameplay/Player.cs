@@ -14,6 +14,7 @@ public partial class Player : CharacterBody3D
 	World _world;
 	IInteractive _curInteractive;
 	IInteractive _highlightInteractive;
+	ulong _interactCompleteTimeMs;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
@@ -67,6 +68,26 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed();
 
+		if (_curInteractive != null)
+		{
+			if (_curInteractive.CanActorInteract(this))
+			{
+				if (_world.GameTimeMs >= _interactCompleteTimeMs)
+				{
+					_curInteractive.Complete();
+					_curInteractive = null;
+					_highlightInteractive = null;
+					onHighlightChanged?.Invoke(null);
+				}
+			}
+			else
+			{
+				_curInteractive = null;
+				_highlightInteractive = null;
+				onHighlightChanged?.Invoke(null);
+			}
+		}
+
 		float speed = data.moveSpeed;
 		if (Input.IsActionPressed("Sneak"))
 		{
@@ -91,7 +112,7 @@ public partial class Player : CharacterBody3D
 		else if (_inputMove != Vector3.Zero)
 		{
 			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
-		}
+		}		
 
 		for (int i=0;i<(int)EItemSlot.Count;i++)
 		{
@@ -183,10 +204,18 @@ public partial class Player : CharacterBody3D
 			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
 				_curInteractive = _highlightInteractive;
-				_curInteractive.Complete();
-				_curInteractive = null;
-				onHighlightChanged?.Invoke(null);
-				onHighlightChanged?.Invoke(_highlightInteractive as Node3D);
+				ulong interactTimeMs = _curInteractive.GetInteractTime(this);
+				if (interactTimeMs == 0)
+				{
+					_curInteractive.Complete();
+					_curInteractive = null;
+					_highlightInteractive = null;
+					onHighlightChanged?.Invoke(null);
+				}
+				else
+				{
+					_interactCompleteTimeMs = _world.GameTimeMs + interactTimeMs;
+				}
 			}
 		}
 
