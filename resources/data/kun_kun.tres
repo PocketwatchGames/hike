@@ -7,6 +7,7 @@
 script = ExtResource("1_mobdata")
 visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
+PlayerPerceptionSpeed = 0.1
 canBurrow = true
 hideRange = 8.0
 brain = ExtResource("2_brain")

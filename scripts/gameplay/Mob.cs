@@ -13,14 +13,21 @@ public partial class Mob : RigidBody3D, IWorldEntity
     [Export] public PackedScene HudScene;
     [Export] private Material _silhouetteMaterial;
 
-    public float perceptionProgress;
+    public float perceptionProgress
+    {
+        get
+        {
+            float threshold = _world?.player?.data?.detectedThreshold ?? 0.1f;
+            return Mathf.Clamp((_simState.PlayerPerception - threshold) / (1f - threshold), 0f, 1f);
+        }
+    }
 
     // Canonical sim state lives in MobSimState. The Mob node is a view; these
     // properties forward through so call sites and animations stay terse.
     public bool alive { get => _simState.Alive; set => _simState.Alive = value; }
     public float maxHealth => _simState.MaxHealth;
     public float health { get => _simState.Health; set => _simState.Health = value; }
-    public EPlayerPerceptionState playerPerceptionState { get => _simState.PlayerPerceptionState; set => _simState.PlayerPerceptionState = value; }
+    public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     public MobData mobData => _simState.MobData;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
     public Vector3 weaponPosition => GlobalPosition;
@@ -31,6 +38,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
     public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
+    public bool playerCanSee => _world.GameTimeMs < _simState.VisibleTimeMs;
     // Perception/triggered forward through the first perception slot (the player
     // in singleplayer). Multi-target logic operates directly on PerceptionTargets
     // in TickAI; these accessors exist for the HUD and inline Mob logic that only
@@ -52,8 +60,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
-    public float visibility = 1f;
-
     // Captured in _Ready so burrow can drop the mesh and restore it. The drop
     // is sized from the collision capsule so kun_kun (short) and goblin (tall)
     // both end up about 3/4 of their body underground.
@@ -133,12 +139,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
         if (_mesh != null)
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
-            _mesh.Visible = _simState.PlayerPerceptionState != EPlayerPerceptionState.Hidden;
+            _mesh.Visible = _simState.DiscoveryState == EPlayerPerceptionState.Discovered && _simState.MemoryTimeMs > _world.GameTimeMs;
 
             // Silhouette: mob is Discovered but no longer directly visible,
             // yet still within memory window — render as a black shape.
             bool shouldSilhouette = _silhouetteMaterial != null
-                && _simState.PlayerPerceptionState == EPlayerPerceptionState.Discovered
+                && _simState.DiscoveryState == EPlayerPerceptionState.Discovered
                 && _world.GameTimeMs >= _simState.VisibleTimeMs
                 && _world.GameTimeMs < _simState.MemoryTimeMs;
             if (shouldSilhouette != _silhouetteApplied)
@@ -182,7 +188,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
         base._PhysicsProcess(delta);
 
         UpdateTerrainSpeed();
-        UpdateVisibility();
 
         // Perception is throttled — accumulate delta and only run when the
         // interval is reached, so per-mob raycast cost stays low at density.
@@ -251,7 +256,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
             if (aiOutput.yell)
             {
                 _simState.PlayerPerception = 1;
-                _simState.PlayerPerceptionState = EPlayerPerceptionState.Discovered;
+                _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
                 _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
                 float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
                 foreach (Mob mob in _world.GetEntities<Mob>())
@@ -339,23 +344,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
         }
-    }
-
-    private void UpdateVisibility()
-    {
-        float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition) / ((float)LightEngine.MAX_LIGHT * _simState.MobData.visibilityLightMax), 0, 1);
-
-        float speedFactor = _simState.MobData.maxVisibilitySpeed > 0f
-            ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / _simState.MobData.maxVisibilitySpeed, _simState.MobData.visibilityMovementPower), _simState.MobData.visibilityMovementMin, 1f)
-            : 1f;
-
-        float camouflage = 0f;
-        foreach (TallGrass grass in _tallGrassCollisions)
-        {
-            camouflage = Mathf.Max(camouflage, grass.camouflage);
-        }
-
-        visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
     }
 
     private void ApplySilhouette(Node node, bool on)

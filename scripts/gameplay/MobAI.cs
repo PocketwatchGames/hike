@@ -225,8 +225,25 @@ public partial class Mob
 
         // Player to mob
         {
+            // Sample light above the rigid-body origin so mobs that settle
+            // slightly below the ground surface still read a valid light level.
+            float eyeHeightLight = 1f;
+            float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f)) / ((float)LightEngine.MAX_LIGHT * _simState.MobData.visibilityLightMax), 0, 1);
+
+            float speedFactor = _simState.MobData.maxVisibilitySpeed > 0f
+                ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / _simState.MobData.maxVisibilitySpeed, _simState.MobData.visibilityMovementPower), _simState.MobData.visibilityMovementMin, 1f)
+                : 1f;
+
+            float camouflage = 0f;
+            foreach (TallGrass grass in _tallGrassCollisions)
+            {
+                camouflage = Mathf.Max(camouflage, grass.camouflage);
+            }
+
+            float visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
+
             float visibilityDistance = _world.player.data.visionRange * visibility;
-            float perceptionDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
+            float perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), _world.player.data.VisionDistancePower);
             if (perceptionDelta > _world.player.data.perceptionMinimum)
             {
                 float eyeHeight = 1.5f;
@@ -254,25 +271,25 @@ public partial class Mob
                 }
                 else
                 {
-                    _simState.PlayerPerception = Mathf.Min(1.0f, _simState.PlayerPerception + perceptionDelta * delta * mobData.PlayerPerceptionSpeed);
+                    _simState.PlayerPerception = Mathf.Min(1.0f, _simState.PlayerPerception + perceptionDelta * delta * _world.player.data.PerceptionIncreaseSpeed);
                 }
             }
             else
             {
-                _simState.PlayerPerception = Mathf.Max(0f, _simState.PlayerPerception - mobData.PlayerPerceptionRelaxationSpeed * delta);
+                _simState.PlayerPerception = Mathf.Max(0f, _simState.PlayerPerception - _world.player.data.PerceptionRelaxationSpeed * delta);
             }
 
 
             if (_simState.PlayerPerception >= 1)
             {
-                _simState.PlayerPerceptionState = EPlayerPerceptionState.Discovered;
+                _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
             }
-            else if (_simState.PlayerPerception >= _world.player.data.perceptionDetectedThreshold && _simState.PlayerPerceptionState == EPlayerPerceptionState.Hidden)
+            else if (_simState.PlayerPerception >= _world.player.data.detectedThreshold && _simState.DiscoveryState == EPlayerPerceptionState.Hidden)
             {
-                _simState.PlayerPerceptionState = EPlayerPerceptionState.Detected;
+                _simState.DiscoveryState = EPlayerPerceptionState.Detected;
             }
 
-            if (_simState.PlayerPerceptionState == EPlayerPerceptionState.Discovered)
+            if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)
             {
                 if (perceptionDelta > 0)
                 {
@@ -287,7 +304,7 @@ public partial class Mob
                     }
                     if (_simState.PlayerPerception <= 0 && _world.GameTimeMs >= _simState.MemoryTimeMs)
                     {
-                        _simState.PlayerPerceptionState = EPlayerPerceptionState.Hidden;
+                        _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
                     }
                 }
             }
@@ -305,7 +322,7 @@ public partial class Mob
             {
                 visibilityDistance *= _world.player.visibility;
             }
-            float perceptionDelta = Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1);
+            float perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionDistancePower);
 
             bool canSee = false;
             if (perceptionDelta > 0f)

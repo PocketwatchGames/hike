@@ -39,7 +39,7 @@ public class MobSimState : EntitySimState
     public float PlayerPerception;
     public ulong MemoryTimeMs;
     public ulong VisibleTimeMs;
-    public EPlayerPerceptionState PlayerPerceptionState;
+    public EPlayerPerceptionState DiscoveryState;
     public InvestigateState? Investigation;
     public bool Yelled;
     // One perception slot per potential target. Currently sized to 1 (the player);
@@ -72,7 +72,7 @@ public class MobSimState : EntitySimState
         MaxHealth = 1f;
         Health = 1f;
         PlayerPerception = 0f;
-        PlayerPerceptionState = EPlayerPerceptionState.Hidden;
+        DiscoveryState = EPlayerPerceptionState.Hidden;
         MemoryTimeMs = 0;
         PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
     }

@@ -5,6 +5,7 @@ public partial class MobData : Resource
 {
     [Export] public float VisionRange = 15f;
     [Export] public float VisionDotPower = 0.5f;
+    [Export] public float VisionDistancePower = 2f;
     [Export] public float PerceptionIncreaseSpeed = 0.5f;
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
@@ -16,8 +17,6 @@ public partial class MobData : Resource
     [Export] public float MemoryStationaryTime = 60f;
     [Export] public float VisibleTime = 0.1f;
     [Export] public float MemoryMovingTime = 3f;
-    [Export] public float PlayerPerceptionRelaxationSpeed = 3f;
-    [Export] public float PlayerPerceptionSpeed = 5f;
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking

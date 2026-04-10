@@ -73,7 +73,7 @@ public static class EntitySerializer
                 w.Write(mob.PerceptionTargets[0].triggered);
                 w.Write(mob.PlayerPerception);
                 w.Write(mob.MemoryTimeMs);
-                w.Write((byte)mob.PlayerPerceptionState);
+                w.Write((byte)mob.DiscoveryState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
                 break;
 
@@ -158,7 +158,7 @@ public static class EntitySerializer
                 mob.PerceptionTargets[0].aggro = targetPerception;
                 mob.PlayerPerception = playerPerception;
                 mob.MemoryTimeMs = memoryTimeMs;
-                mob.PlayerPerceptionState = perceptionState;
+                mob.DiscoveryState = perceptionState;
                 return mob;
             }
             case Tag.Door:

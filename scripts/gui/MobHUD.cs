@@ -30,7 +30,7 @@ public partial class MobHUD : Node2D
 
 	void Update()
 	{
-		if (!_mob.alive || (_mob.health >= _mob.maxHealth && _mob.perception <= 0f) || _mob.playerPerceptionState == EPlayerPerceptionState.Hidden)
+		if (!_mob.alive || (_mob.health >= _mob.maxHealth && _mob.playerCanSee) || _mob.playerPerceptionState == EPlayerPerceptionState.Hidden)
 		{
 			Visible = false;
 			return;
@@ -42,9 +42,9 @@ public partial class MobHUD : Node2D
 			return;
 		}
 
-		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerPerceptionState == EPlayerPerceptionState.Discovered;
+		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
 		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-		_healthBar.Visible = (_mob.triggered || (_mob.perception <= 0 && _mob.health < _mob.maxHealth)) && _mob.playerPerceptionState == EPlayerPerceptionState.Discovered;
+		_healthBar.Visible = _mob.triggered || (_mob.playerPerceptionState == EPlayerPerceptionState.Discovered && _mob.playerCanSee && _mob.health < _mob.maxHealth);
 		Visible = true;
 		Position = _camera.UnprojectPosition(worldPosition);
 		if (_healthBar != null)

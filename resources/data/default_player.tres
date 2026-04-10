@@ -4,3 +4,4 @@
 
 [resource]
 script = ExtResource("1_mknwc")
+perceptionMinimum = 0.0
