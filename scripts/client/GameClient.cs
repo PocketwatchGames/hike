@@ -9,6 +9,7 @@ public partial class GameClient : Node3D
 	[Export] public Hud hud;
 	[Export] public Node2D worldHUD;
 	[Export] public PackedScene hudTextScene;
+	[Export] public PackedScene interactHudScene;
 	[Export] public ShaderMaterial outlineMaterial;
 
 	public Action onInit;
@@ -22,6 +23,7 @@ public partial class GameClient : Node3D
 	World _world;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
+	InteractHUD _interactHUD;
 
 	public override void _Ready()
 	{
@@ -51,6 +53,7 @@ public partial class GameClient : Node3D
 
 		_player = playerScene.Instantiate<Player>();
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
+		_player.onInteractChanged += OnPlayerInteractChanged;
 		AddChild(_player);
 		_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
 
@@ -185,6 +188,19 @@ public partial class GameClient : Node3D
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
 	{
 		HudText.Create(hudTextScene, _world, camera, position, text, fadeMs, verticalMovement, color, this);
+	}
+
+	void OnPlayerInteractChanged(IInteractive interactive)
+	{
+		if (_interactHUD != null)
+		{
+			_interactHUD.QueueFree();
+			_interactHUD = null;
+		}
+		if (interactive != null && interactHudScene != null)
+		{
+			_interactHUD = InteractHUD.Create(interactHudScene, camera, _player, interactive, worldHUD);
+		}
 	}
 
 	void OnMobSpawned(Mob mob)

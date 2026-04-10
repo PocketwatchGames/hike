@@ -8,6 +8,8 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private Sprite3D _openSprite;
     [Export] private HurtBox _hurtBox;
     [Export] private float _interactTime = 3;
+    [Export] private Node3D _hudNode;
+    public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _open;
     private ChestSimState _interactiveState;

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_hfanx"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/game/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/gui/mob_hud.tscn" id="3_mobhud"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
 albedo_color = Color(1, 0.5411765, 1, 1)

@@ -10,6 +10,7 @@ public partial class Player : CharacterBody3D
 	[Export] private HurtBox _hurtBox;
 
 	public Action<Node3D> onHighlightChanged;
+	public Action<IInteractive> onInteractChanged;
 
 	World _world;
 	IInteractive _curInteractive;
@@ -22,9 +23,42 @@ public partial class Player : CharacterBody3D
 
 	public float visibility = 1f;
 
+	public IInteractive HighlightInteractive => _highlightInteractive;
+	public float ClientInteractProgress
+	{
+		get
+		{
+			if (_curInteractive == null || _world == null)
+			{
+				return 0f;
+			}
+			ulong interactTimeMs = _curInteractive.GetInteractTime(this);
+			if (interactTimeMs == 0)
+			{
+				return 0f;
+			}
+			ulong now = _world.GameTimeMs;
+			if (now >= _interactCompleteTimeMs)
+			{
+				return 1f;
+			}
+			ulong remaining = _interactCompleteTimeMs - now;
+			return 1f - (float)remaining / interactTimeMs;
+		}
+	}
+
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 	bool _lastInputWasGamepad;
+
+	void SetCurInteractive(IInteractive value)
+	{
+		if (_curInteractive != value)
+		{
+			_curInteractive = value;
+			onInteractChanged?.Invoke(value);
+		}
+	}
 
 
 	public override void _Ready()
@@ -75,14 +109,14 @@ public partial class Player : CharacterBody3D
 				if (_world.GameTimeMs >= _interactCompleteTimeMs)
 				{
 					_curInteractive.Complete();
-					_curInteractive = null;
+					SetCurInteractive(null);
 					_highlightInteractive = null;
 					onHighlightChanged?.Invoke(null);
 				}
 			}
 			else
 			{
-				_curInteractive = null;
+				SetCurInteractive(null);
 				_highlightInteractive = null;
 				onHighlightChanged?.Invoke(null);
 			}
@@ -203,12 +237,12 @@ public partial class Player : CharacterBody3D
 		{
 			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
-				_curInteractive = _highlightInteractive;
+				SetCurInteractive(_highlightInteractive);
 				ulong interactTimeMs = _curInteractive.GetInteractTime(this);
 				if (interactTimeMs == 0)
 				{
 					_curInteractive.Complete();
-					_curInteractive = null;
+					SetCurInteractive(null);
 					_highlightInteractive = null;
 					onHighlightChanged?.Invoke(null);
 				}

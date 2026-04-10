@@ -7,6 +7,8 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export] private StaticBody3D _blockCollider;
     [Export] private Sprite3D _doorSprite;
     [Export] private HurtBox _hurtBox;
+    [Export] private Node3D _hudNode;
+    public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _open;
     private DoorSimState _interactiveState;

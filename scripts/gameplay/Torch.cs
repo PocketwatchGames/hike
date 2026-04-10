@@ -6,6 +6,8 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     [Export] private Sprite3D _litSprite;
     [Export] private Sprite3D _unlitSprite;
     [Export] private Light _light;
+    [Export] private Node3D _hudNode;
+    public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _active = true;
     private TorchSimState _interactiveState;

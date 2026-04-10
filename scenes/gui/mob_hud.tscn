@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bl6a5qa4h47dj"]
 
-[ext_resource type="Script" uid="uid://bhirtbc35e6n8" path="res://scripts/gui/MobHUD.cs" id="1_rse1u"]
+[ext_resource type="Script" uid="uid://bhirtbc35e6n8" path="res://scripts/gui/MobHUD.cs" id="1_1douw"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xqdoc"]
 bg_color = Color(0.6, 0, 0, 1)
@@ -11,7 +11,7 @@ corner_radius_bottom_left = 6
 corner_detail = 6
 
 [node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_aggroBar", "_perceptionBar")]
-script = ExtResource("1_rse1u")
+script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
 _aggroBar = NodePath("Aggro")
 _perceptionBar = NodePath("Perception")
