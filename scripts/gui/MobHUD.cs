@@ -44,7 +44,7 @@ public partial class MobHUD : Node2D
 
 		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
 		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-		_healthBar.Visible = _mob.triggered || (_mob.playerPerceptionState == EPlayerPerceptionState.Discovered && _mob.playerCanSee && _mob.health < _mob.maxHealth);
+		_healthBar.Visible = (_mob.triggered || (_mob.playerCanSee && _mob.health < _mob.maxHealth)) && !_mob.burrowed;
 		if (!_aggroBar.Visible && !_perceptionBar.Visible && !_healthBar.Visible)
 		{
 			Visible = false;
