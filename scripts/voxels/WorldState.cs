@@ -151,6 +151,16 @@ public class WorldState
         entities.Add(entity);
     }
 
+    public bool RemoveEntity(EntitySimState entity)
+    {
+        Vector3I coord = World.WorldToChunkCoord(entity.WorldPosition);
+        if (_entities.TryGetValue(coord, out List<EntitySimState> entities))
+        {
+            return entities.Remove(entity);
+        }
+        return false;
+    }
+
     public void UpdateLightingAt(List<Vector3I> changedPositions)
     {
         LightEngine.UpdateLighting(this, changedPositions);

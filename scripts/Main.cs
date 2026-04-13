@@ -5,6 +5,7 @@ public partial class Main : Node
 {
 	[Export] public PackedScene MainMenuScene;
 	[Export] public PackedScene GameScene;
+	[Export] public PackedScene EditorScene;
 
 	Node _currentScreen;
 
@@ -57,7 +58,7 @@ public partial class Main : Node
 		};
 	}
 
-	static WorldState LoadWorldFromFile(string path)
+	public static WorldState LoadWorldFromFile(string path)
 	{
 		var source = new WorldFileChunkSource(path);
 		var worldState = new WorldState(source.Min, source.Max, source.SimData);
@@ -82,11 +83,50 @@ public partial class Main : Node
 		return worldState;
 	}
 
+	void StartEditor(WorldGenData worldGenData)
+	{
+		_currentScreen.QueueFree();
+
+		string worldFilePath = CVars.worldFile.Value;
+		string osPath = ProjectSettings.GlobalizePath(worldFilePath);
+		GD.Print($"[Editor] worldFile cvar='{worldFilePath}', osPath='{osPath}', exists={System.IO.File.Exists(osPath)}");
+		WorldState worldState;
+		if (!string.IsNullOrEmpty(worldFilePath) && System.IO.File.Exists(osPath))
+		{
+			try
+			{
+				GD.Print("[Editor] Loading world from file");
+				worldState = LoadWorldFromFile(worldFilePath);
+			}
+			catch (System.Exception e)
+			{
+				GD.PrintErr($"[Editor] Failed to load world file: {e.Message}");
+				GD.Print("[Editor] Creating empty world instead");
+				worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+			}
+		}
+		else
+		{
+			GD.Print("[Editor] Creating empty world");
+			worldState = WorldEditor.CreateEmptyWorld(worldGenData);
+		}
+
+		_currentScreen = EditorScene.Instantiate<Node>();
+		AddChild(_currentScreen);
+		(_currentScreen as WorldEditor).Init(worldState);
+		(_currentScreen as WorldEditor).onQuitToMenu += () =>
+		{
+			_currentScreen.QueueFree();
+			StartMainMenu();
+		};
+	}
+
 	void StartMainMenu()
 	{
 		_currentScreen = MainMenuScene.Instantiate<Node>();
 		(_currentScreen as GuiMainMenu).OnNewGame += NewGame;
 		(_currentScreen as GuiMainMenu).OnLoadGame += LoadGame;
+		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;
 		AddChild(_currentScreen);
 	}
 

@@ -59,6 +59,11 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Load Game"
 
+[node name="WorldEditorButton" type="Button" parent="PanelContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 32
+text = "World Editor"
+
 [node name="VersionContainer" type="MarginContainer" parent="." unique_id=31600513]
 layout_mode = 1
 anchors_preset = 3
@@ -89,3 +94,4 @@ text = "v0.00.001"
 
 [connection signal="pressed" from="PanelContainer/VBoxContainer/NewGameButton" to="." method="NewGameStandard"]
 [connection signal="pressed" from="PanelContainer/VBoxContainer/LoadGameButton" to="." method="LoadGame"]
+[connection signal="pressed" from="PanelContainer/VBoxContainer/WorldEditorButton" to="." method="StartEditor"]

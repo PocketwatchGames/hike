@@ -21,6 +21,7 @@ public partial class GameCamera : Camera3D
 	public float Clip => _clip;
 	public float Yaw => _yaw;
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
+	public bool ManualClipMode { get; set; } = false;
 
 	public void Init(Node parent)
 	{
@@ -69,7 +70,10 @@ public partial class GameCamera : Camera3D
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
 		GlobalPosition = playerPosition + GlobalTransform.Basis.Z * distance;
 
-		UpdateClip(playerPosition);
+		if (!ManualClipMode)
+		{
+			UpdateClip(playerPosition);
+		}
 	}
 
 	private void UpdateClip(Vector3 playerPos)
@@ -126,5 +130,23 @@ public partial class GameCamera : Camera3D
 	public void ToggleClipAlways()
 	{
 		_clipAlways = !_clipAlways;
+	}
+
+	public void SetClip(float clipY, Vector3 centerPos)
+	{
+		_clip = clipY;
+		if (_clip < float.PositiveInfinity)
+		{
+			_clipCapPlane.Visible = CVars.ceilingCap.Value;
+			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_waterCapPlane.Visible = true;
+			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+		}
+		else
+		{
+			_clipCapPlane.Visible = false;
+			_waterCapPlane.Visible = false;
+		}
+		RenderingServer.GlobalShaderParameterSet("camera_clip", _clip);
 	}
 }

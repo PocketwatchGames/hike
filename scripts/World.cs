@@ -31,6 +31,7 @@ public partial class World : Node3D
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private Player _player;
+    private bool _editorMode;
     private Vector3I _lastEntityChunkCoord;
 
     public Player player => _player;
@@ -83,7 +84,12 @@ public partial class World : Node3D
             return;
         }
 
-        Vector3I currentCoord = WorldToChunkCoord(_player.GlobalPosition);
+        UpdateEntityLoading(_player.GlobalPosition);
+    }
+
+    public void UpdateEntityLoading(Vector3 center)
+    {
+        Vector3I currentCoord = WorldToChunkCoord(center);
         if (currentCoord == _lastEntityChunkCoord)
         {
             return;
@@ -92,6 +98,11 @@ public partial class World : Node3D
 
         RebuildDesiredEntityChunks(currentCoord);
         SyncEntitiesToDesired();
+    }
+
+    public void EnableEditorMode()
+    {
+        _editorMode = true;
     }
 
     private void RebuildDesiredEntityChunks(Vector3I center)
@@ -136,7 +147,7 @@ public partial class World : Node3D
 
     private void OnChunkLoaded(Vector3I coord)
     {
-        if (_player == null)
+        if (!_editorMode && _player == null)
         {
             return;
         }
@@ -246,6 +257,24 @@ public partial class World : Node3D
                 break;
             }
         }
+    }
+
+    public void UnloadChunkEntities(Vector3I coord)
+    {
+        OnChunkUnloaded(coord);
+    }
+
+    public void LoadChunkEntities(Vector3I coord)
+    {
+        if (!_chunkManager.IsChunkLoaded(coord))
+        {
+            return;
+        }
+        if (_activeEntities.ContainsKey(coord))
+        {
+            return;
+        }
+        LoadEntitiesForChunk(coord);
     }
 
     private void LoadEntitiesForChunk(Vector3I coord)

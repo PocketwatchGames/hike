@@ -9,6 +9,7 @@ public partial class GuiMainMenu : Node
 	[Export] public Label versionLabel;
 	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
+	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData);
 
 	public override void _Ready()
 	{
@@ -28,4 +29,8 @@ public partial class GuiMainMenu : Node
 		EmitSignal(SignalName.OnLoadGame, CVars.savePath.Value);
 	}
 
+	public void StartEditor()
+	{
+		EmitSignal(SignalName.OnStartEditor, worldGenData);
+	}
 }

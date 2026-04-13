@@ -1,0 +1,96 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/editor/WorldEditor.cs" id="1_editor"]
+[ext_resource type="Script" path="res://scripts/client/GameCamera.cs" id="2_camera"]
+[ext_resource type="Script" path="res://scripts/editor/EditorHud.cs" id="3_hud"]
+[ext_resource type="Resource" path="res://resources/default_world_gen.tres" id="4_worldgen"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_editor"]
+
+[sub_resource type="Sky" id="Sky_editor"]
+sky_material = SubResource("ShaderMaterial_editor")
+
+[sub_resource type="Environment" id="Environment_editor"]
+background_mode = 2
+sky = SubResource("Sky_editor")
+ambient_light_color = Color(1, 1, 1, 1)
+ambient_light_energy = 0.0
+glow_intensity = 0.8
+glow_bloom = 0.1
+fog_enabled = true
+fog_mode = 1
+fog_light_color = Color(0, 0, 0, 1)
+fog_light_energy = 0.75
+fog_density = 1.0
+fog_sky_affect = 0.0
+fog_depth_begin = 28.0
+fog_depth_end = 45.0
+volumetric_fog_enabled = true
+volumetric_fog_density = 0.01
+volumetric_fog_albedo = Color(0, 0, 0, 1)
+volumetric_fog_sky_affect = 0.0
+
+[sub_resource type="CameraAttributesPractical" id="CameraAttributes_editor"]
+
+[node name="WorldEditor" type="Node3D" node_paths=PackedStringArray("camera", "editorHud")]
+script = ExtResource("1_editor")
+camera = NodePath("MainCamera")
+editorHud = NodePath("EditorHud")
+worldGenData = ExtResource("4_worldgen")
+
+[node name="MainCamera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
+projection = 1
+fov = 20.0
+size = 20.0
+script = ExtResource("2_camera")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_editor")
+camera_attributes = SubResource("CameraAttributes_editor")
+
+[node name="SunLight" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.81310076, 0.582123, 0, -0.582123, 0.81310076, 0, 0, 0)
+light_color = Color(0.73, 0.62098664, 0.49640003, 1)
+light_bake_mode = 0
+light_cull_mask = 3
+shadow_enabled = true
+sky_mode = 1
+
+[node name="EditorHud" type="CanvasLayer" parent="." node_paths=PackedStringArray("modeLabel", "typeLabel", "clipLabel", "coordsLabel", "helpLabel")]
+script = ExtResource("3_hud")
+modeLabel = NodePath("MarginContainer/VBoxContainer/ModeLabel")
+typeLabel = NodePath("MarginContainer/VBoxContainer/TypeLabel")
+clipLabel = NodePath("MarginContainer/VBoxContainer/ClipLabel")
+coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
+helpLabel = NodePath("MarginContainer/VBoxContainer/HelpLabel")
+
+[node name="MarginContainer" type="MarginContainer" parent="EditorHud"]
+anchors_preset = 0
+offset_right = 600.0
+offset_bottom = 200.0
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="EditorHud/MarginContainer"]
+layout_mode = 2
+
+[node name="ModeLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Mode: Voxel"
+
+[node name="TypeLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Stone [1/13]"
+
+[node name="ClipLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Clip: None"
+
+[node name="CoordsLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Pos: (0.0, 0.0, 0.0)"
+
+[node name="HelpLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "LMB: Place | Ctrl+LMB: Delete | Q/E: Cycle | Tab: Mode | R/F: Up/Down | Z/C: Rotate | Ctrl+S: Save | Esc: Quit"

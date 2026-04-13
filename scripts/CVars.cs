@@ -11,7 +11,7 @@ public static class CVars
 
     // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
-    public static CVarString worldFile = new CVarString("world_file", "");
+    public static CVarString worldFile = new CVarString("world_file", "user://world.hike");
 
     // Action: writes the currently-loaded WorldState to disk at the given
     // path. Useful for converting a WorldGen-generated world into a packed
