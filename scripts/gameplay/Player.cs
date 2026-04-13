@@ -20,6 +20,7 @@ public partial class Player : CharacterBody3D
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
+	bool _aiming;
 
 	public float visibility = 1f;
 
@@ -122,7 +123,9 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		float speed = data.moveSpeed;
+		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && _lastInputWasGamepad);
+
+		float speed = _aiming ? Mathf.Lerp(0.75f, 0.25f, (1f - _inputLook.Dot(_inputMove)) / 2) * data.moveSpeed : data.moveSpeed;
 		if (Input.IsActionPressed("Sneak"))
 		{
 			speed = data.sneakSpeed;

@@ -294,7 +294,7 @@ public partial class Mob
                 if (perceptionDelta > 0)
                 {
                     _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
-                    _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(mobData.VisibleTime * 1000);
+                    _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
                 }
                 else 
                 {

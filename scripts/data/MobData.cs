@@ -15,7 +15,6 @@ public partial class MobData : Resource
     [Export] public float visibilityMovementPower = 2;
     [Export] public float maxVisibilitySpeed = 5f;
     [Export] public float MemoryStationaryTime = 60f;
-    [Export] public float VisibleTime = 0.1f;
     [Export] public float MemoryMovingTime = 3f;
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
@@ -25,6 +24,7 @@ public partial class MobData : Resource
     [Export] public float hideRange = 20f;
     [Export] public float maxHealth = 10f;
     [Export] public float yellVolume = 15;
+    [Export] public float maxSpeed = 4f;
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;

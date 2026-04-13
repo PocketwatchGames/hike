@@ -5,6 +5,10 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
+    // each frame for alive mobs. Used to diagnose yaw oscillation.
+    public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
+
     // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
     public static CVarString worldFile = new CVarString("world_file", "");

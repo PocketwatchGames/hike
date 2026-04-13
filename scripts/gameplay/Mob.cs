@@ -78,9 +78,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     {
         CollisionLayer = (uint)ECollisionLayer.Mob;
         CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
-        // Angular damping brakes yaw torque so the mob settles on its target
-        // facing without overshooting into an oscillation.
-        AngularDamp = 10f;
+        AxisLockAngularY = true;
 
         if (_hurtBox != null)
         {
@@ -213,22 +211,24 @@ public partial class Mob : RigidBody3D, IWorldEntity
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
-                if (toTarget.LengthSquared() > 0.01f)
+                float dist = toTarget.Length();
+                float arrivalDist = Mathf.Max(aiOutput.pathSuccessDistance, 0.1f);
+                if (dist > arrivalDist)
                 {
+                    float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
                     LinearDamp = 0f;
-                    toTarget = toTarget.Normalized();
-                    Vector3 desiredVelocity = toTarget * 3f * _terrainSpeed;
+                    Vector3 dir = toTarget / dist;
+                    Vector3 desiredVelocity = dir * _simState.MobData.maxSpeed * aiOutput.speed * _terrainSpeed * speedScale;
                     Vector3 velocityChange = desiredVelocity - new Vector3(LinearVelocity.X, 0f, LinearVelocity.Z);
                     ApplyCentralImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
 
                     if (!targetYaw.HasValue)
                     {
-                        targetYaw = Mathf.Atan2(toTarget.X, toTarget.Z);
+                        targetYaw = Mathf.Atan2(dir.X, dir.Z);
                     }
                 }
                 else
                 {
-                    // Arrived at the path target — brake so we don't drift past it.
                     LinearDamp = 8f;
                 }
             }
@@ -240,9 +240,15 @@ public partial class Mob : RigidBody3D, IWorldEntity
             if (targetYaw.HasValue)
             {
                 float yawDelta = Mathf.Wrap(targetYaw.Value - Rotation.Y, -Mathf.Pi, Mathf.Pi);
-                // Torque toward the target yaw; AngularDamp (set in _Ready) provides
-                // the braking term so the mob doesn't overshoot and oscillate.
-                ApplyTorqueImpulse(new Vector3(0f, yawDelta * 20f * Mass, 0f));
+                const float MaxTurnSpeed = 6f;
+                float maxStep = MaxTurnSpeed * (float)delta;
+                float step = Mathf.Clamp(yawDelta, -maxStep, maxStep);
+                Rotation = new Vector3(Rotation.X, Rotation.Y + step, Rotation.Z);
+
+                if (CVars.debugMobYaw.Value)
+                {
+                    GD.Print($"[yaw] {Name} target={targetYaw.Value:F3} cur={Rotation.Y:F3} delta={yawDelta:F3} step={step:F3} behavior={_curBehavior}");
+                }
             }
 
             if (aiOutput.resetInvestigation)
@@ -335,6 +341,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
 
         alive = false;
+        AxisLockAngularY = false;
     }
 
     private void UpdateTerrainSpeed()

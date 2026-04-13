@@ -5,9 +5,17 @@ using Godot;
 [GlobalClass]
 public partial class ChunkManager : Node3D
 {
-    private const int NEARBY_RADIUS = 1;
-    private const int MAX_LOAD_DISTANCE = 5;
+    // Always-loaded sphere around the player. Sized to cover the camera's reach so
+    // world-space entity spawning (World.ENTITY_LOAD_RADIUS) can rely on chunks
+    // being present regardless of camera angle — rotating the camera must not be
+    // able to reveal un-spawned mobs/props.
+    private const int NEARBY_RADIUS = 6;
+    private const int NEARBY_RADIUS_SQ = NEARBY_RADIUS * NEARBY_RADIUS;
+    private const int MAX_LOAD_DISTANCE = 10;
     private const int MAX_REBUILDS_PER_FRAME = 3;
+
+    public event Action<Vector3I> onChunkLoaded;
+    public event Action<Vector3I> onChunkUnloaded;
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
@@ -89,13 +97,19 @@ public partial class ChunkManager : Node3D
     {
         var desired = new HashSet<Vector3I>();
 
-        // Always load immediate surroundings for collision/gameplay
+        // Always load a sphere of chunks around the player for collision, gameplay,
+        // and entity spawning. Spherical (not cubic) so the load boundary is at the
+        // same world-space distance in every direction.
         for (int x = -NEARBY_RADIUS; x <= NEARBY_RADIUS; x++)
         {
             for (int y = -NEARBY_RADIUS; y <= NEARBY_RADIUS; y++)
             {
                 for (int z = -NEARBY_RADIUS; z <= NEARBY_RADIUS; z++)
                 {
+                    if (x * x + y * y + z * z > NEARBY_RADIUS_SQ)
+                    {
+                        continue;
+                    }
                     desired.Add(_lastPlayerChunkCoord + new Vector3I(x, y, z));
                 }
             }
@@ -152,6 +166,7 @@ public partial class ChunkManager : Node3D
         }
         foreach (Vector3I coord in toRemove)
         {
+            onChunkUnloaded?.Invoke(coord);
             _loadedChunks[coord].QueueFree();
             _loadedChunks.Remove(coord);
         }
@@ -169,7 +184,7 @@ public partial class ChunkManager : Node3D
                 ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _lightMap);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
-
+                onChunkLoaded?.Invoke(coord);
             }
         }
     }

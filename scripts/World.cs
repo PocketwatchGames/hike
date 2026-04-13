@@ -14,7 +14,12 @@ public partial class World : Node3D
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
 
-    private const int ENTITY_LOAD_RADIUS = 2;
+    // Spherical radius (in chunks) for spawning entities around the player. Must be
+    // <= ChunkManager.NEARBY_RADIUS so chunk collision is guaranteed to exist when
+    // an entity spawns. Kept symmetric in world space (not frustum-culled) so
+    // rotating the camera never reveals un-spawned entities.
+    private const int ENTITY_LOAD_RADIUS = 5;
+    private const int ENTITY_LOAD_RADIUS_SQ = ENTITY_LOAD_RADIUS * ENTITY_LOAD_RADIUS;
 
     public IReadOnlyDictionary<Vector3I, List<Node3D>> ActiveEntities => _activeEntities;
 
@@ -22,6 +27,7 @@ public partial class World : Node3D
     public Action<Mob> onMobRemoved;
 
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
+    private readonly HashSet<Vector3I> _desiredEntityChunks = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private Player _player;
@@ -36,6 +42,8 @@ public partial class World : Node3D
 
         _chunkManager = new ChunkManager();
         AddChild(_chunkManager);
+        _chunkManager.onChunkLoaded += OnChunkLoaded;
+        _chunkManager.onChunkUnloaded += OnChunkUnloaded;
         _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition);
 
         CreateWorldBoundary();
@@ -54,7 +62,10 @@ public partial class World : Node3D
     public void SetPlayer(Player player)
     {
         _player = player;
-        LoadEntitiesInRadius(WorldToChunkCoord(_player.GlobalPosition));
+        Vector3I center = WorldToChunkCoord(_player.GlobalPosition);
+        _lastEntityChunkCoord = center;
+        RebuildDesiredEntityChunks(center);
+        SyncEntitiesToDesired();
     }
 
     // Advances simulation time. Called by GameClient each unpaused frame so the
@@ -79,34 +90,78 @@ public partial class World : Node3D
         }
         _lastEntityChunkCoord = currentCoord;
 
-        LoadEntitiesInRadius(currentCoord);
+        RebuildDesiredEntityChunks(currentCoord);
+        SyncEntitiesToDesired();
     }
 
-    private void LoadEntitiesInRadius(Vector3I center)
+    private void RebuildDesiredEntityChunks(Vector3I center)
     {
-        var desired = new HashSet<Vector3I>();
+        _desiredEntityChunks.Clear();
         for (int x = -ENTITY_LOAD_RADIUS; x <= ENTITY_LOAD_RADIUS; x++)
         {
             for (int y = -ENTITY_LOAD_RADIUS; y <= ENTITY_LOAD_RADIUS; y++)
             {
                 for (int z = -ENTITY_LOAD_RADIUS; z <= ENTITY_LOAD_RADIUS; z++)
                 {
-                    desired.Add(center + new Vector3I(x, y, z));
+                    if (x * x + y * y + z * z > ENTITY_LOAD_RADIUS_SQ)
+                    {
+                        continue;
+                    }
+                    _desiredEntityChunks.Add(center + new Vector3I(x, y, z));
                 }
             }
         }
+    }
 
-        // Unload entities in chunks that left range
-        UnloadEntitiesOutsideSet(desired, _activeEntities);
+    private void SyncEntitiesToDesired()
+    {
+        // Despawn entities in chunks that left range
+        UnloadEntitiesOutsideSet(_desiredEntityChunks, _activeEntities);
 
-        // Load entities in newly in-range chunks (only if voxels are loaded)
-        foreach (Vector3I coord in desired)
+        // Spawn entities in chunks that are in range and already have their mesh loaded.
+        // Chunks whose mesh hasn't loaded yet will get picked up by OnChunkLoaded.
+        foreach (Vector3I coord in _desiredEntityChunks)
         {
-            if (!_activeEntities.ContainsKey(coord) && _chunkManager.IsChunkLoaded(coord))
+            if (_activeEntities.ContainsKey(coord))
             {
-                LoadEntitiesForChunk(coord);
+                continue;
             }
+            if (!_chunkManager.IsChunkLoaded(coord))
+            {
+                continue;
+            }
+            LoadEntitiesForChunk(coord);
         }
+    }
+
+    private void OnChunkLoaded(Vector3I coord)
+    {
+        if (_player == null)
+        {
+            return;
+        }
+        if (!_desiredEntityChunks.Contains(coord))
+        {
+            return;
+        }
+        if (_activeEntities.ContainsKey(coord))
+        {
+            return;
+        }
+        LoadEntitiesForChunk(coord);
+    }
+
+    private void OnChunkUnloaded(Vector3I coord)
+    {
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            return;
+        }
+        foreach (Node3D node in entities)
+        {
+            node.QueueFree();
+        }
+        _activeEntities.Remove(coord);
     }
 
     public bool IsSpawnChunkReady(Vector3 spawnPosition)
