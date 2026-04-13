@@ -8,6 +8,8 @@ public partial class ChunkMesh : Node3D
 
     private static readonly ShaderMaterial SharedMaterial;
     private static readonly ShaderMaterial BackfaceStencilMaterial;
+    private static readonly ShaderMaterial WaterMaterial;
+    private static readonly ShaderMaterial WaterBackfaceMaterial;
 
     static ChunkMesh()
     {
@@ -18,6 +20,16 @@ public partial class ChunkMesh : Node3D
         var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
         BackfaceStencilMaterial = new ShaderMaterial();
         BackfaceStencilMaterial.Shader = backfaceShader;
+        BackfaceStencilMaterial.RenderPriority = 0;
+
+        var waterShader = GD.Load<Shader>("res://shaders/voxel_water.gdshader");
+        WaterMaterial = new ShaderMaterial();
+        WaterMaterial.Shader = waterShader;
+
+        var waterBackfaceShader = GD.Load<Shader>("res://shaders/voxel_water_backface.gdshader");
+        WaterBackfaceMaterial = new ShaderMaterial();
+        WaterBackfaceMaterial.Shader = waterBackfaceShader;
+        WaterBackfaceMaterial.RenderPriority = -1;
     }
 
     // Face index constants
@@ -104,6 +116,19 @@ public partial class ChunkMesh : Node3D
     private static bool FaceIsOccluded(VoxelType self, int faceIndex, VoxelType neighbor)
     {
         if (!VoxelTypeInfo.IsSolid(neighbor) || neighbor == VoxelType.Barrier)
+        {
+            // Transparent voxels don't occlude opaque faces
+            // But transparent faces are occluded by same-type transparent neighbors
+            if (VoxelTypeInfo.IsTransparent(self) && self == neighbor)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        // Solid neighbors never occlude transparent voxels — their faces must
+        // remain so the transparent geometry is visible against the terrain
+        if (VoxelTypeInfo.IsTransparent(self))
         {
             return false;
         }
@@ -195,11 +220,17 @@ public partial class ChunkMesh : Node3D
         st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
+        var stWater = new SurfaceTool();
+        stWater.Begin(Mesh.PrimitiveType.Triangles);
+        stWater.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+        stWater.SetMaterial(WaterMaterial);
+
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
         int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
         int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
 
         bool hasAnyFace = false;
+        bool hasAnyWaterFace = false;
 
         for (int x = 0; x < ChunkState.SIZE; x++)
         {
@@ -208,10 +239,13 @@ public partial class ChunkMesh : Node3D
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     VoxelType type = data.Voxels[x, y, z];
-                    if (!VoxelTypeInfo.IsSolid(type) || type == VoxelType.Barrier)
+                    if (type == VoxelType.Air || type == VoxelType.Barrier)
                     {
                         continue;
                     }
+
+                    bool isTransparent = VoxelTypeInfo.IsTransparent(type);
+                    SurfaceTool target = isTransparent ? stWater : st;
 
                     Color baseColor = VoxelTypeInfo.Colors[type];
                     Vector3 offset = new(x, y, z);
@@ -234,75 +268,130 @@ public partial class ChunkMesh : Node3D
                         Vector3[] verts = faceSet[faceIndex];
                         Vector3 normal = FaceNormals[faceIndex];
 
-                        // CUSTOM0 holds the world-space position of the adjacent air voxel
-                        // so the shader can sample the light map there.
-                        Vector3 lightSamplePos = new Vector3(
-                            worldNx + 0.5f,
-                            worldNy + 0.5f,
-                            worldNz + 0.5f
-                        );
+                        // CUSTOM0 holds the world-space position for light map sampling.
+                        // Opaque voxels sample from the adjacent air voxel.
+                        // Transparent voxels (water) sample from themselves, since light
+                        // propagates through them and the neighbor may be solid (light=0).
+                        Vector3 lightSamplePos;
+                        if (isTransparent)
+                        {
+                            lightSamplePos = new Vector3(
+                                chunkWorldX + x + 0.5f,
+                                chunkWorldY + y + 0.5f,
+                                chunkWorldZ + z + 0.5f
+                            );
+                        }
+                        else
+                        {
+                            lightSamplePos = new Vector3(
+                                worldNx + 0.5f,
+                                worldNy + 0.5f,
+                                worldNz + 0.5f
+                            );
+                        }
                         Color custom0 = new Color(lightSamplePos.X, lightSamplePos.Y, lightSamplePos.Z, 0f);
 
                         // Triangle 1: 0-2-1
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[0] + offset);
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[2] + offset);
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[1] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[0] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[2] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[1] + offset);
 
                         // Triangle 2: 0-3-2
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[0] + offset);
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[3] + offset);
-                        st.SetNormal(normal);
-                        st.SetColor(baseColor);
-                        st.SetCustom(0, custom0);
-                        st.AddVertex(verts[2] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[0] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[3] + offset);
+                        target.SetNormal(normal);
+                        target.SetColor(baseColor);
+                        target.SetCustom(0, custom0);
+                        target.AddVertex(verts[2] + offset);
 
-                        hasAnyFace = true;
+                        if (isTransparent)
+                        {
+                            hasAnyWaterFace = true;
+                        }
+                        else
+                        {
+                            hasAnyFace = true;
+                        }
                     }
                 }
             }
         }
 
-        if (!hasAnyFace)
+        if (!hasAnyFace && !hasAnyWaterFace)
         {
             CollisionReady = true;
             return;
         }
 
-        ArrayMesh mesh = st.Commit();
+        if (hasAnyFace)
+        {
+            ArrayMesh mesh = st.Commit();
 
-        var visual = new MeshInstance3D();
-        visual.Mesh = mesh;
-        visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            var visual = new MeshInstance3D();
+            visual.Mesh = mesh;
+            visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 
-        var mat = SharedMaterial.Duplicate() as ShaderMaterial;
-        mat.SetShaderParameter("light_map", lightMap.Texture);
-        mat.SetShaderParameter("light_map_origin", lightMap.Origin);
-        mat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
-        visual.MaterialOverride = mat;
-        AddChild(visual);
+            var mat = SharedMaterial.Duplicate() as ShaderMaterial;
+            mat.SetShaderParameter("light_map", lightMap.Texture);
+            mat.SetShaderParameter("light_map_origin", lightMap.Origin);
+            mat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
+            visual.MaterialOverride = mat;
+            AddChild(visual);
 
-        var backface = new MeshInstance3D();
-        backface.Mesh = mesh;
-        backface.MaterialOverride = BackfaceStencilMaterial;
-        backface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-        AddChild(backface);
+            var backface = new MeshInstance3D();
+            backface.Mesh = mesh;
+            backface.MaterialOverride = BackfaceStencilMaterial;
+            backface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            AddChild(backface);
 
-        visual.CreateTrimeshCollision();
+            visual.CreateTrimeshCollision();
+        }
+
+        if (hasAnyWaterFace)
+        {
+            ArrayMesh waterMesh = stWater.Commit();
+
+            var waterVisual = new MeshInstance3D();
+            waterVisual.Mesh = waterMesh;
+            waterVisual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+
+            var waterMat = WaterMaterial.Duplicate() as ShaderMaterial;
+            waterMat.SetShaderParameter("light_map", lightMap.Texture);
+            waterMat.SetShaderParameter("light_map_origin", lightMap.Origin);
+            waterMat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
+            waterVisual.MaterialOverride = waterMat;
+            AddChild(waterVisual);
+
+            var waterBackface = new MeshInstance3D();
+            waterBackface.Mesh = waterMesh;
+            waterBackface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            waterBackface.MaterialOverride = WaterBackfaceMaterial;
+            AddChild(waterBackface);
+
+            // Non-blocking trigger volume for water enter/exit events
+            var waterTrigger = new WaterTrigger();
+            var waterShape = waterMesh.CreateTrimeshShape();
+            var waterCollision = new CollisionShape3D();
+            waterCollision.Shape = waterShape;
+            waterTrigger.AddChild(waterCollision);
+            AddChild(waterTrigger);
+        }
+
         CollisionReady = true;
     }
 

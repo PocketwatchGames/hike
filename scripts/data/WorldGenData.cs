@@ -15,6 +15,7 @@ public partial class WorldGenData : Resource
 
     [Export] public float ElevationMultiplier = 20;
     [Export] public float CaveThreshold = 0.4f;
+    [Export] public float WaterThreshold = 0.05f;
     [Export] public float GrassThreshold = 0.3f;
     [Export] public int DirtDepth = 3;
 

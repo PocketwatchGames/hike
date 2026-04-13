@@ -9,4 +9,5 @@ public enum ECollisionLayer
     Prop = 8,
     Mob = 16,
     HurtBox = 32,
+    Water = 64,
 }

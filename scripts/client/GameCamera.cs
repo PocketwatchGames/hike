@@ -16,9 +16,11 @@ public partial class GameCamera : Camera3D
 	private float _destYaw = 45;
 	private bool _clipAlways = false;
 	private MeshInstance3D _clipCapPlane;
+	private MeshInstance3D _waterCapPlane;
 
 	public float Clip => _clip;
 	public float Yaw => _yaw;
+	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 
 	public void Init(Node parent)
 	{
@@ -36,6 +38,18 @@ public partial class GameCamera : Camera3D
 		_clipCapPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 		_clipCapPlane.Visible = false;
 		parent.AddChild(_clipCapPlane);
+
+		var waterCapShader = GD.Load<Shader>("res://shaders/water_clip_cap.gdshader");
+		var waterCapMaterial = new ShaderMaterial();
+		waterCapMaterial.Shader = waterCapShader;
+		waterCapMaterial.RenderPriority = 2;
+
+		_waterCapPlane = new MeshInstance3D();
+		_waterCapPlane.Mesh = planeMesh;
+		_waterCapPlane.MaterialOverride = waterCapMaterial;
+		_waterCapPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+		_waterCapPlane.Visible = false;
+		parent.AddChild(_waterCapPlane);
 
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
 		_destYaw = GlobalRotation.Y;
@@ -78,17 +92,22 @@ public partial class GameCamera : Camera3D
 			_clip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
 			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
+			_waterCapPlane.Visible = true;
+			_waterCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
 		}
 		else if (_clipAlways)
 		{
 			_clip = alwaysClip;
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
 			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
+			_waterCapPlane.Visible = true;
+			_waterCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
 		}
 		else
 		{
 			_clip = float.PositiveInfinity;
 			_clipCapPlane.Visible = false;
+			_waterCapPlane.Visible = false;
 		}
 
 		RenderingServer.GlobalShaderParameterSet("camera_clip", _clip);

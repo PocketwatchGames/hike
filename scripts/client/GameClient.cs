@@ -61,6 +61,11 @@ public partial class GameClient : Node3D
 
 		camera.Init(this);
 		camera.SetInitialPosition(_player.GlobalPosition);
+
+		if (camera.WaterCapPlane.MaterialOverride is ShaderMaterial waterCapMat)
+		{
+			_world.SetLightMapUniforms(waterCapMat);
+		}
 	}
 
 	public override void _Process(double deltaTime)

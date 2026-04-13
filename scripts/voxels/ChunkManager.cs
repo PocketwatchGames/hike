@@ -86,11 +86,16 @@ public partial class ChunkManager : Node3D
         {
             if (child is Sprite3D sprite && sprite.MaterialOverride is ShaderMaterial mat)
             {
-                mat.SetShaderParameter("light_map", _lightMap.Texture);
-                mat.SetShaderParameter("light_map_origin", _lightMap.Origin);
-                mat.SetShaderParameter("light_map_inv_size", Vector3.One / _lightMap.Size);
+                SetLightMapUniforms(mat);
             }
         }
+    }
+
+    public void SetLightMapUniforms(ShaderMaterial mat)
+    {
+        mat.SetShaderParameter("light_map", _lightMap.Texture);
+        mat.SetShaderParameter("light_map_origin", _lightMap.Origin);
+        mat.SetShaderParameter("light_map_inv_size", Vector3.One / _lightMap.Size);
     }
 
     private void UpdateLoadedChunks()

@@ -2,6 +2,13 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
+public enum EWaterState
+{
+	None,
+	Shallow,
+	Swimming,
+}
+
 [GlobalClass]
 public partial class Player : CharacterBody3D
 {
@@ -11,6 +18,8 @@ public partial class Player : CharacterBody3D
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
+	public Action<Player> OnWaterEnter;
+	public Action<Player> OnWaterExit;
 
 	World _world;
 	IInteractive _curInteractive;
@@ -21,8 +30,12 @@ public partial class Player : CharacterBody3D
 	float _terrainSpeed = 1f;
 	bool _grounded;
 	bool _aiming;
+	EWaterState _waterState = EWaterState.None;
+	float _waterSurfaceY;
+	int _waterOverlapCount;
 
 	public float visibility = 1f;
+	public EWaterState WaterState => _waterState;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public float ClientInteractProgress
@@ -102,6 +115,7 @@ public partial class Player : CharacterBody3D
 		}
 
 		UpdateTerrainSpeed();
+		UpdateWaterState();
 
 		if (_curInteractive != null)
 		{
@@ -132,12 +146,26 @@ public partial class Player : CharacterBody3D
 		}
 		speed *= _terrainSpeed;
 
+		if (_waterState == EWaterState.Shallow)
+		{
+			speed *= data.shallowWaterSpeed;
+		}
+		else if (_waterState == EWaterState.Swimming)
+		{
+			speed = data.swimSpeed;
+		}
+
 		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
 
-		if (!_grounded)
+		if (_waterState == EWaterState.Swimming)
+		{
+			ApplyWaterPhysics(dt);
+		}
+		else if (!_grounded)
 		{
 			Velocity += Vector3.Down * _world.SimData.Gravity * dt;
-		} else
+		}
+		else
 		{
 			Velocity = new Vector3(Velocity.X, -1f, Velocity.Z); // Small downward force to keep grounded
 		}
@@ -160,8 +188,10 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Step up: lift the player before moving so they can clear small obstacles
+		// Disabled while swimming — the player is floating, not walking
 		Vector3 posBeforeStep = GlobalPosition;
-		if (_grounded)
+		bool useStepUp = _grounded && _waterState != EWaterState.Swimming;
+		if (useStepUp)
 		{
 			GlobalPosition += Vector3.Up * data.stepHeight;
 		}
@@ -170,7 +200,7 @@ public partial class Player : CharacterBody3D
 		MoveAndSlide();
 
 		// Step down: snap back to the ground after moving
-		if (wasOnFloor)
+		if (wasOnFloor && _waterState != EWaterState.Swimming)
 		{
 			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
 			if (stepDownResult != null)
@@ -191,6 +221,12 @@ public partial class Player : CharacterBody3D
 		else
 		{
 			_grounded = IsOnFloor();
+		}
+
+		// Swimming overrides grounding — player is floating
+		if (_waterState == EWaterState.Swimming)
+		{
+			_grounded = false;
 		}
 		UpdateVisibility();
 
@@ -258,7 +294,11 @@ public partial class Player : CharacterBody3D
 
 		if (Input.IsActionJustPressed("Jump"))
 		{
-			if (_grounded)
+			if (_waterState == EWaterState.Swimming)
+			{
+				Velocity = new Vector3(Velocity.X, data.swimVerticalSpeed, Velocity.Z);
+			}
+			else if (_grounded)
 			{
 				Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
 				_grounded = false;
@@ -369,6 +409,86 @@ public partial class Player : CharacterBody3D
 	public void RemoveTerrainModifier(TallGrass tallGrass)
 	{
 		_tallGrassCollisions.Remove(tallGrass);
+	}
+
+	public void WaterAreaEntered()
+	{
+		_waterOverlapCount++;
+		if (_waterOverlapCount == 1)
+		{
+			OnWaterEnter?.Invoke(this);
+		}
+	}
+
+	public void WaterAreaExited()
+	{
+		_waterOverlapCount--;
+		if (_waterOverlapCount == 0)
+		{
+			OnWaterExit?.Invoke(this);
+		}
+	}
+
+	private void UpdateWaterState()
+	{
+		int fx = Mathf.FloorToInt(GlobalPosition.X);
+		int fy = Mathf.FloorToInt(GlobalPosition.Y);
+		int fz = Mathf.FloorToInt(GlobalPosition.Z);
+
+		VoxelType voxelAtFeet = _world.WorldState.GetVoxelWorld(fx, fy, fz);
+		if (voxelAtFeet != VoxelType.Water)
+		{
+			_waterState = EWaterState.None;
+			return;
+		}
+
+		VoxelType voxelAtBody = _world.WorldState.GetVoxelWorld(fx, fy + 1, fz);
+		VoxelType voxelBelow = _world.WorldState.GetVoxelWorld(fx, fy - 1, fz);
+
+		if (voxelAtBody == VoxelType.Water)
+		{
+			_waterState = EWaterState.Swimming;
+		}
+		else if (VoxelTypeInfo.IsSolid(voxelBelow))
+		{
+			_waterState = EWaterState.Shallow;
+		}
+		else
+		{
+			_waterState = EWaterState.Swimming;
+		}
+
+		// Compute water surface Y by scanning upward
+		int scanY = fy;
+		while (_world.WorldState.GetVoxelWorld(fx, scanY, fz) == VoxelType.Water)
+		{
+			scanY++;
+		}
+		_waterSurfaceY = scanY;
+	}
+
+	private void ApplyWaterPhysics(float dt)
+	{
+		float targetY = _waterSurfaceY - data.waterSurfaceOffset;
+		float depthBelowSurface = targetY - GlobalPosition.Y;
+
+		if (depthBelowSurface > 0f)
+		{
+			Velocity += Vector3.Up * Mathf.Min(depthBelowSurface, 1f) * data.buoyancyAcceleration * dt;
+		}
+		else
+		{
+			Velocity += Vector3.Down * data.buoyancyAcceleration * 0.5f * dt;
+		}
+
+		// Drag to damp vertical oscillation
+		Velocity = new Vector3(Velocity.X, Velocity.Y - Velocity.Y * data.waterDrag * dt, Velocity.Z);
+
+		// Clamp sinking speed
+		if (Velocity.Y < -data.waterSinkSpeed)
+		{
+			Velocity = new Vector3(Velocity.X, -data.waterSinkSpeed, Velocity.Z);
+		}
 	}
 
 	public void OnLootCollision(Loot loot)

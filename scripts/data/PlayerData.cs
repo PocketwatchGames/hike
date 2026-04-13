@@ -17,4 +17,12 @@ public partial class PlayerData : Resource
 	[Export] public float detectedThreshold = 0.1f;
 	[Export] public float PerceptionRelaxationSpeed = 0.1f;
 	[Export] public float PerceptionIncreaseSpeed = 0.25f;
+
+	[Export] public float shallowWaterSpeed = 0.5f;
+	[Export] public float swimSpeed = 3.5f;
+	[Export] public float swimVerticalSpeed = 4f;
+	[Export] public float waterSinkSpeed = 2f;
+	[Export] public float buoyancyAcceleration = 15f;
+	[Export] public float waterDrag = 5f;
+	[Export] public float waterSurfaceOffset = 1f;
 }

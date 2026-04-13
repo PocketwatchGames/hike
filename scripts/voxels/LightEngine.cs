@@ -31,18 +31,26 @@ public static class LightEngine
         var queue = new Queue<(int x, int y, int z)>();
 
         // Cast sunlight rays downward from the top of the world.
-        // Sunlight propagates straight down with no decay.
+        // Sunlight propagates straight down with no decay through air,
+        // but attenuates through transparent voxels like water.
         for (int wx = minWx; wx < maxWx; wx++)
         {
             for (int wz = minWz; wz < maxWz; wz++)
             {
+                int sunLevel = MAX_LIGHT;
                 for (int wy = topWy; wy >= minWy; wy--)
                 {
-                    if (world.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+                    VoxelType sunVoxel = world.GetVoxelWorld(wx, wy, wz);
+                    if (sunVoxel != VoxelType.Air && !VoxelTypeInfo.IsTransparent(sunVoxel))
                     {
                         break;
                     }
-                    world.SetSunlightWorld(wx, wy, wz, MAX_LIGHT);
+                    sunLevel -= VoxelTypeInfo.LightAttenuation(sunVoxel);
+                    if (sunLevel <= 0)
+                    {
+                        break;
+                    }
+                    world.SetSunlightWorld(wx, wy, wz, sunLevel);
                     queue.Enqueue((wx, wy, wz));
                 }
             }
@@ -66,7 +74,8 @@ public static class LightEngine
             {
                 continue;
             }
-            if (world.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+            VoxelType blkVoxel = world.GetVoxelWorld(wx, wy, wz);
+            if (blkVoxel != VoxelType.Air && !VoxelTypeInfo.IsTransparent(blkVoxel))
             {
                 continue;
             }
@@ -92,8 +101,6 @@ public static class LightEngine
                 continue;
             }
 
-            int newLevel = currentLevel - 1;
-
             foreach (Vector3I offset in Neighbors)
             {
                 int nx = x + offset.X;
@@ -104,7 +111,14 @@ public static class LightEngine
                 {
                     continue;
                 }
-                if (world.GetVoxelWorld(nx, ny, nz) != VoxelType.Air)
+                VoxelType spreadVoxel = world.GetVoxelWorld(nx, ny, nz);
+                if (spreadVoxel != VoxelType.Air && !VoxelTypeInfo.IsTransparent(spreadVoxel))
+                {
+                    continue;
+                }
+
+                int newLevel = currentLevel - 1 - VoxelTypeInfo.LightAttenuation(spreadVoxel);
+                if (newLevel <= 0)
                 {
                     continue;
                 }
@@ -161,7 +175,8 @@ public static class LightEngine
 
         foreach (Vector3I pos in changedPositions)
         {
-            bool isNowAir = world.GetVoxelWorld(pos.X, pos.Y, pos.Z) == VoxelType.Air;
+            VoxelType updVoxel = world.GetVoxelWorld(pos.X, pos.Y, pos.Z);
+            bool isNowAir = updVoxel == VoxelType.Air || VoxelTypeInfo.IsTransparent(updVoxel);
             int level = isSunlight
                 ? world.GetSunlightWorld(pos.X, pos.Y, pos.Z)
                 : world.GetBlockLightWorld(pos.X, pos.Y, pos.Z);

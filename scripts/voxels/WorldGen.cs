@@ -106,84 +106,49 @@ public static class WorldGen
                 bool isSpawnFlat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
                     && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
                 float rawHeight = isSpawnFlat ? 0f : Math.Max(0f, genData.ElevationMultiplier * noiseVal);
-                int solidHeight = (int)rawHeight;
-                bool hasSlab = !isSpawnFlat && (rawHeight - solidHeight) >= 0.5f;
+                int solidHeight = (int)Math.Round(rawHeight);
 
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
 
-                    // Determine terrain fill before cave carving
-                    bool isTerrainSlab;
-                    if (hasSlab && wy == solidHeight + 1)
-                    {
-                        isTerrainSlab = true;
-                    }
-                    else if (wy <= solidHeight)
-                    {
-                        isTerrainSlab = false;
-                    }
-                    else
+                    if (wy > solidHeight)
                     {
                         continue;
                     }
 
-                    // Dual-sample cave noise at bottom and top halves of the voxel
-                    bool bottomSolid = true;
-                    bool topSolid = true;
+                    // Cave carving
                     if (wy > 0)
                     {
-                        float caveLow = caveNoise.GetNoise3D(wx, wy + 0.25f, wz);
-                        float caveHigh = caveNoise.GetNoise3D(wx, wy + 0.75f, wz);
-                        bottomSolid = caveLow <= genData.CaveThreshold;
-                        topSolid = caveHigh <= genData.CaveThreshold;
-                    }
-
-                    // For terrain surface slabs, only the bottom half has geometry
-                    if (isTerrainSlab)
-                    {
-                        if (bottomSolid)
+                        float caveVal = caveNoise.GetNoise3D(wx, wy, wz);
+                        if (caveVal > genData.CaveThreshold)
                         {
-                            data.Voxels[x, y, z] = VoxelType.GrassSlabBottom;
+                            continue;
                         }
-                        continue;
                     }
 
                     // Determine material by depth from surface
                     VoxelType fullType;
-                    VoxelType bottomSlabType;
-                    VoxelType topSlabType;
-                    if (wy == solidHeight && !hasSlab)
+                    if (wy == solidHeight)
                     {
                         fullType = VoxelType.Grass;
-                        bottomSlabType = VoxelType.GrassSlabBottom;
-                        topSlabType = VoxelType.StoneSlabTop;
                     }
                     else if (wy >= solidHeight - genData.DirtDepth)
                     {
                         fullType = VoxelType.Dirt;
-                        bottomSlabType = VoxelType.DirtSlabBottom;
-                        topSlabType = VoxelType.StoneSlabTop;
                     }
                     else
                     {
                         fullType = VoxelType.Stone;
-                        bottomSlabType = VoxelType.StoneSlabBottom;
-                        topSlabType = VoxelType.StoneSlabTop;
                     }
 
-                    if (bottomSolid && topSolid)
-                    {
-                        data.Voxels[x, y, z] = fullType;
-                    }
-                    else if (bottomSolid)
-                    {
-                        data.Voxels[x, y, z] = bottomSlabType;
-                    }
-                    else if (topSolid)
-                    {
-                        data.Voxels[x, y, z] = topSlabType;
-                    }
+                    // Check if this voxel should be water instead of solid.
+                    // Water only appears at or below ground level (wy <= 0) so the
+                    // surface stays mostly planar like a water table.
+                    float waterVal = caveNoise.GetNoise3D(wx, wy, wz);
+                    bool isWater = wy <= 0 && Math.Abs(waterVal) < genData.WaterThreshold;
+
+                    data.Voxels[x, y, z] = isWater ? VoxelType.Water : fullType;
                 }
             }
         }

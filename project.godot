@@ -155,3 +155,13 @@ camera_clip={
 "type": "float",
 "value": 1e+20
 }
+
+water_alpha_max={
+"type": "float",
+"value": 1.0
+}
+
+water_depth_scale={
+"type": "float",
+"value": 3.0
+}
