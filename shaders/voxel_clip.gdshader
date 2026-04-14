@@ -7,6 +7,8 @@ uniform sampler3D light_map : filter_nearest;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 
+uniform sampler2DArray tile_array : filter_nearest, repeat_enable;
+
 uniform sampler2D shadow_map : filter_linear;
 global uniform vec3 shadow_origin;
 global uniform vec3 shadow_axis_u;
@@ -20,9 +22,13 @@ const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
 varying float shaded_light;
+varying vec3 world_normal;
+varying flat float tile_index;
 
 void vertex() {
 	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	world_normal = NORMAL;
+	tile_index = CUSTOM0.w;
 
 	// Sample light from the air voxel adjacent to this face
 	vec3 uvw = (CUSTOM0.xyz - light_map_origin) * light_map_inv_size;
@@ -70,7 +76,17 @@ void fragment() {
 		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
 	}
 
-	ALBEDO = COLOR.rgb * shaded_light * shadow_tint;
+	vec3 an = abs(world_normal);
+	vec2 tile_uv;
+	if (an.y > 0.5) {
+		tile_uv = vec2(world_vertex.x, world_vertex.z);
+	} else if (an.x > 0.5) {
+		tile_uv = vec2(world_vertex.z, -world_vertex.y);
+	} else {
+		tile_uv = vec2(world_vertex.x, -world_vertex.y);
+	}
+	vec4 tex_color = texture(tile_array, vec3(tile_uv, tile_index));
+	ALBEDO = tex_color.rgb * COLOR.rgb * shaded_light * shadow_tint;
 	if (world_vertex.y > camera_clip) {
 		discard;
 	}

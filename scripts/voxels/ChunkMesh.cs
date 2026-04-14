@@ -16,6 +16,8 @@ public partial class ChunkMesh : Node3D
         var shader = GD.Load<Shader>("res://shaders/voxel_clip.gdshader");
         SharedMaterial = new ShaderMaterial();
         SharedMaterial.Shader = shader;
+        var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
+        SharedMaterial.SetShaderParameter("tile_array", tileArray);
 
         var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
         BackfaceStencilMaterial = new ShaderMaterial();
@@ -291,7 +293,8 @@ public partial class ChunkMesh : Node3D
                                 worldNz + 0.5f
                             );
                         }
-                        Color custom0 = new Color(lightSamplePos.X, lightSamplePos.Y, lightSamplePos.Z, 0f);
+                        int tileId = VoxelTypeInfo.GetTileForFace(type, faceIndex);
+                        Color custom0 = new Color(lightSamplePos.X, lightSamplePos.Y, lightSamplePos.Z, tileId);
 
                         // Triangle 1: 0-2-1
                         target.SetNormal(normal);
