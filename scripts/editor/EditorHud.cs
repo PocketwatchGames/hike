@@ -5,6 +5,7 @@ public partial class EditorHud : CanvasLayer
 {
     [Export] public Label modeLabel;
     [Export] public Label typeLabel;
+    [Export] public Label heightLabel;
     [Export] public Label clipLabel;
     [Export] public Label coordsLabel;
     [Export] public Label helpLabel;
@@ -13,7 +14,15 @@ public partial class EditorHud : CanvasLayer
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Place | Ctrl+LMB: Delete | Q/E: Cycle | Tab: Mode | R/F: Up/Down | Z/C: Rotate | Ctrl+S: Save | Esc: Quit";
+            helpLabel.Text = "LMB: Place | Ctrl+LMB: Delete | Alt+LMB: Replace | Q/E: Cycle | 0-9: Paint Height | Tab: Mode | R/F: Up/Down | Z/C: Rotate | Ctrl+S: Save | Esc: Quit";
+        }
+    }
+
+    public void UpdatePaintHeight(int height)
+    {
+        if (heightLabel != null)
+        {
+            heightLabel.Text = $"Paint Height: {height}";
         }
     }
 

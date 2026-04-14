@@ -57,10 +57,11 @@ light_cull_mask = 3
 shadow_enabled = true
 sky_mode = 1
 
-[node name="EditorHud" type="CanvasLayer" parent="." node_paths=PackedStringArray("modeLabel", "typeLabel", "clipLabel", "coordsLabel", "helpLabel")]
+[node name="EditorHud" type="CanvasLayer" parent="." node_paths=PackedStringArray("modeLabel", "typeLabel", "heightLabel", "clipLabel", "coordsLabel", "helpLabel")]
 script = ExtResource("3_hud")
 modeLabel = NodePath("MarginContainer/VBoxContainer/ModeLabel")
 typeLabel = NodePath("MarginContainer/VBoxContainer/TypeLabel")
+heightLabel = NodePath("MarginContainer/VBoxContainer/HeightLabel")
 clipLabel = NodePath("MarginContainer/VBoxContainer/ClipLabel")
 coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
 helpLabel = NodePath("MarginContainer/VBoxContainer/HelpLabel")
@@ -82,6 +83,10 @@ text = "Mode: Voxel"
 [node name="TypeLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Stone [1/13]"
+
+[node name="HeightLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Paint Height: 1"
 
 [node name="ClipLabel" type="Label" parent="EditorHud/MarginContainer/VBoxContainer"]
 layout_mode = 2

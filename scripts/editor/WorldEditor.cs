@@ -13,6 +13,7 @@ public partial class WorldEditor : Node3D
 
     private const float MOVE_SPEED = 20f;
     private const float CLIP_START_OFFSET = 10f;
+    private const float CLIP_VISUAL_BIAS = 0.05f;
 
     private static readonly VoxelType[] PlaceableTypes =
     {
@@ -34,6 +35,12 @@ public partial class WorldEditor : Node3D
     private int _voxelTypeIndex = 0;
     private int _entityTypeIndex = 0;
     private bool _entityMode = false;
+    private int _paintHeight = 1;
+    private bool _dragActive = false;
+    private bool _dragDeleting = false;
+    private bool _dragReplacing = false;
+    private int _dragBaseY = 0;
+    private readonly HashSet<Vector3I> _lastPaintedBlocks = new HashSet<Vector3I>();
     private int _debugFrameCount = 0;
 
     public void Init(WorldState worldState)
@@ -85,7 +92,7 @@ public partial class WorldEditor : Node3D
         camera.Init(this);
         camera.ManualClipMode = true;
         camera.SetInitialPosition(_cursorPosition);
-        camera.SetClip(_clipY, _cursorPosition);
+        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
 
         GD.Print($"[Editor] Camera pos={camera.GlobalPosition}, rot={camera.GlobalRotation}");
         GD.Print($"[Editor] Camera projection={camera.Projection}, size={camera.Size}");
@@ -126,7 +133,7 @@ public partial class WorldEditor : Node3D
         }
 
         camera.UpdateCamera(deltaTime, _cursorPosition);
-        camera.SetClip(_clipY, _cursorPosition);
+        camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);
 
@@ -204,7 +211,7 @@ public partial class WorldEditor : Node3D
             return;
         }
 
-        // Ctrl+S save
+        // Ctrl+S save, number keys for paint height
         if (e is InputEventKey keyEvent && keyEvent.Pressed && !keyEvent.Echo)
         {
             if (keyEvent.Keycode == Key.S && keyEvent.CtrlPressed)
@@ -213,72 +220,162 @@ public partial class WorldEditor : Node3D
                 GetViewport().SetInputAsHandled();
                 return;
             }
+
+            if (keyEvent.Keycode >= Key.Key0 && keyEvent.Keycode <= Key.Key9 && !keyEvent.CtrlPressed)
+            {
+                int digit = (int)(keyEvent.Keycode - Key.Key0);
+                _paintHeight = digit == 0 ? 10 : digit;
+                UpdateHud();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
         }
 
-        // Left click: place/delete
-        if (e is InputEventMouseButton mouseButton && mouseButton.Pressed && mouseButton.ButtonIndex == MouseButton.Left)
+        // Left click: place/delete/replace (with drag support in voxel mode)
+        if (e is InputEventMouseButton mouseButton && mouseButton.ButtonIndex == MouseButton.Left)
         {
-            bool ctrlHeld = mouseButton.CtrlPressed;
-            if (_entityMode)
+            if (mouseButton.Pressed)
             {
-                HandleEntityClick(mouseButton.Position, ctrlHeld);
+                bool ctrlHeld = mouseButton.CtrlPressed;
+                bool altHeld = mouseButton.AltPressed;
+                if (_entityMode)
+                {
+                    HandleEntityClick(mouseButton.Position, ctrlHeld);
+                }
+                else
+                {
+                    bool overwrite = ctrlHeld || altHeld;
+                    if (ComputeVoxelTarget(mouseButton.Position, overwrite, out Vector3I hitBlock, out Vector3I baseTarget))
+                    {
+                        _lastPaintedBlocks.Clear();
+                        PaintColumnAt(baseTarget, ctrlHeld);
+                        _dragActive = true;
+                        _dragDeleting = ctrlHeld;
+                        _dragReplacing = altHeld && !ctrlHeld;
+                        _dragBaseY = baseTarget.Y;
+                    }
+                }
+                GetViewport().SetInputAsHandled();
             }
             else
             {
-                HandleVoxelClick(mouseButton.Position, ctrlHeld);
+                _dragActive = false;
+                _dragDeleting = false;
+                _dragReplacing = false;
+                _lastPaintedBlocks.Clear();
             }
-            GetViewport().SetInputAsHandled();
+        }
+
+        if (e is InputEventMouseMotion mouseMotion && _dragActive)
+        {
+            bool delete = _dragDeleting;
+            bool overwrite = _dragDeleting || _dragReplacing;
+            if (ComputeVoxelTarget(mouseMotion.Position, overwrite, out Vector3I hitBlock, out Vector3I baseTarget))
+            {
+                // Skip if the ray hits a block we just painted (for place) or if the
+                // base target is one we already modified.
+                if (baseTarget.Y == _dragBaseY
+                    && !_lastPaintedBlocks.Contains(baseTarget)
+                    && !_lastPaintedBlocks.Contains(hitBlock))
+                {
+                    PaintColumnAt(baseTarget, delete);
+                }
+            }
         }
     }
 
-    private void HandleVoxelClick(Vector2 screenPos, bool delete)
+    private bool ComputeVoxelTarget(Vector2 screenPos, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget)
     {
+        hitBlock = default;
+        baseTarget = default;
+
+        Vector3 hitPos;
+        Vector3 hitNormal;
+
+        // If a clip is active, first check whether the ray starts inside a solid
+        // block at the clip plane. Trimesh colliders are single-sided, so a ray
+        // originating inside geometry would pass through without any hit. Detect
+        // this case by sampling the voxel at the ray/clip-plane intersection and,
+        // if it's solid, synthesize a hit on the top of that block.
+        if (_clipY < float.PositiveInfinity)
+        {
+            Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
+            Vector3 rayDir = camera.ProjectRayNormal(screenPos);
+            if (rayDir.Y < 0f)
+            {
+                float clipPlaneY = _clipY - CLIP_VISUAL_BIAS;
+                float t = (clipPlaneY - rayOrigin.Y) / rayDir.Y;
+                Vector3 planeHit = rayOrigin + rayDir * t;
+                int vx = Mathf.FloorToInt(planeHit.X);
+                int vz = Mathf.FloorToInt(planeHit.Z);
+                int vy = Mathf.FloorToInt(_clipY) - 1;
+                VoxelType voxel = _worldState.GetVoxelWorld(vx, vy, vz);
+                if (voxel != VoxelType.Air && voxel != VoxelType.Water)
+                {
+                    hitPos = new Vector3(planeHit.X, clipPlaneY, planeHit.Z);
+                    hitNormal = Vector3.Up;
+                    FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget);
+                    return true;
+                }
+            }
+        }
+
         var result = Raycast(screenPos);
         if (result.Count == 0)
         {
-            return;
+            return false;
         }
 
-        Vector3 hitPos = (Vector3)result["position"];
-        Vector3 hitNormal = (Vector3)result["normal"];
+        hitPos = (Vector3)result["position"];
+        hitNormal = (Vector3)result["normal"];
 
-        if (delete)
+        FinalizeTarget(hitPos, hitNormal, overwriteHitBlock, out hitBlock, out baseTarget);
+        return true;
+    }
+
+    private static void FinalizeTarget(Vector3 hitPos, Vector3 hitNormal, bool overwriteHitBlock, out Vector3I hitBlock, out Vector3I baseTarget)
+    {
+        hitBlock = new Vector3I(
+            Mathf.FloorToInt(hitPos.X - hitNormal.X * 0.5f),
+            Mathf.FloorToInt(hitPos.Y - hitNormal.Y * 0.5f),
+            Mathf.FloorToInt(hitPos.Z - hitNormal.Z * 0.5f));
+
+        if (overwriteHitBlock)
         {
-            // Delete the block that was hit
-            Vector3I target = new Vector3I(
-                Mathf.FloorToInt(hitPos.X - hitNormal.X * 0.5f),
-                Mathf.FloorToInt(hitPos.Y - hitNormal.Y * 0.5f),
-                Mathf.FloorToInt(hitPos.Z - hitNormal.Z * 0.5f)
-            );
-            if (target.Y >= Mathf.FloorToInt(_clipY))
-            {
-                return;
-            }
-            _worldState.SetVoxelWorld(target.X, target.Y, target.Z, VoxelType.Air);
-            AfterVoxelEdit(target);
+            baseTarget = hitBlock;
         }
         else
         {
-            // Place a block adjacent to the hit face
-            Vector3I target = new Vector3I(
+            baseTarget = new Vector3I(
                 Mathf.FloorToInt(hitPos.X + hitNormal.X * 0.5f),
                 Mathf.FloorToInt(hitPos.Y + hitNormal.Y * 0.5f),
-                Mathf.FloorToInt(hitPos.Z + hitNormal.Z * 0.5f)
-            );
-            if (target.Y >= Mathf.FloorToInt(_clipY))
-            {
-                return;
-            }
-            _worldState.SetVoxelWorld(target.X, target.Y, target.Z, PlaceableTypes[_voxelTypeIndex]);
-            AfterVoxelEdit(target);
+                Mathf.FloorToInt(hitPos.Z + hitNormal.Z * 0.5f));
         }
     }
 
-    private void AfterVoxelEdit(Vector3I target)
+    private void PaintColumnAt(Vector3I baseTarget, bool delete)
     {
-        var changed = new List<Vector3I> { target };
-        _world.UpdateLighting(changed);
-        _world.RebuildNearbyChunkMeshes(new Vector3(target.X, target.Y, target.Z), changed);
+        int clipFloor = Mathf.FloorToInt(_clipY);
+        VoxelType type = delete ? VoxelType.Air : PlaceableTypes[_voxelTypeIndex];
+        var changed = new List<Vector3I>();
+
+        for (int i = 0; i < _paintHeight; i++)
+        {
+            Vector3I target = new Vector3I(baseTarget.X, baseTarget.Y + i, baseTarget.Z);
+            if (target.Y >= clipFloor)
+            {
+                break;
+            }
+            _worldState.SetVoxelWorld(target.X, target.Y, target.Z, type);
+            changed.Add(target);
+            _lastPaintedBlocks.Add(target);
+        }
+
+        if (changed.Count > 0)
+        {
+            _world.UpdateLighting(changed);
+            _world.RebuildNearbyChunkMeshes(new Vector3(baseTarget.X, baseTarget.Y, baseTarget.Z), changed);
+        }
     }
 
     private void HandleEntityClick(Vector2 screenPos, bool delete)
@@ -462,6 +559,20 @@ public partial class WorldEditor : Node3D
     {
         Vector3 rayOrigin = camera.ProjectRayOrigin(screenPos);
         Vector3 rayDir = camera.ProjectRayNormal(screenPos);
+
+        // If a clip is active, start the ray just below the clip plane so we
+        // don't hit collision geometry above the clip that was culled visually.
+        if (_clipY < float.PositiveInfinity && rayDir.Y < 0f)
+        {
+            const float CLIP_RAY_EXTRA = 0.01f;
+            float targetY = _clipY - CLIP_VISUAL_BIAS - CLIP_RAY_EXTRA;
+            if (rayOrigin.Y > targetY)
+            {
+                float t = (targetY - rayOrigin.Y) / rayDir.Y;
+                rayOrigin += rayDir * t;
+            }
+        }
+
         Vector3 rayEnd = rayOrigin + rayDir * 200f;
 
         var spaceState = GetWorld3D().DirectSpaceState;
@@ -504,6 +615,7 @@ public partial class WorldEditor : Node3D
         {
             editorHud.UpdateVoxelMode(PlaceableTypes[_voxelTypeIndex].ToString(), _voxelTypeIndex, PlaceableTypes.Length);
         }
+        editorHud.UpdatePaintHeight(_paintHeight);
     }
 
     private void CullProps(float cameraClip)
