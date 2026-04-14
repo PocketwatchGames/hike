@@ -3,7 +3,7 @@ using Godot;
 public partial class GameCamera : Camera3D
 {
 	[Export] public float pitchDegrees = -65;
-	[Export] public float distance = 20;
+	[Export] public float distance = 80;
 	[Export] public float rotationTime = 0.5f;
 
 	private const float CLIP_EPSILON = 0.1f;

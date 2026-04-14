@@ -52,7 +52,7 @@ public partial class MobHUD : Node2D
 		}
 
 		Visible = true;
-		Position = _camera.UnprojectPosition(worldPosition);
+		Position = GameClient.Current.ProjectToScreen(worldPosition);
 		if (_healthBar != null)
 		{
 			_healthBar.Value = _mob.health;

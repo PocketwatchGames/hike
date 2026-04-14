@@ -39,7 +39,7 @@ public partial class InteractHUD : Node2D
 		}
 
 		Visible = true;
-		Position = _camera.UnprojectPosition(worldPosition);
+		Position = GameClient.Current.ProjectToScreen(worldPosition);
 		if (_interactTimer != null)
 		{
 			_interactTimer.Value = _player.ClientInteractProgress;

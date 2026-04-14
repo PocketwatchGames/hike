@@ -17,16 +17,15 @@ shader = ExtResource("3_shader")
 shader_parameter/sprite_texture = ExtResource("3_3b5dt")
 shader_parameter/light_map_origin = Vector3(0, 0, 0)
 shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
-
-[sub_resource type="CompressedTexture2D" id="CompressedTexture2D_17q7g"]
-load_path = "res://.godot/imported/chest_open.png-555157f87c20032fbc7f6ff9a6890cd4.s3tc.ctex"
+shader_parameter/sprite_size = Vector2i(12, 12)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_nkyvn"]
 render_priority = 0
 shader = ExtResource("3_shader")
-shader_parameter/sprite_texture = SubResource("CompressedTexture2D_17q7g")
+shader_parameter/sprite_texture = ExtResource("3_20syw")
 shader_parameter/light_map_origin = Vector3(0, 0, 0)
 shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
+shader_parameter/sprite_size = Vector2i(16, 16)
 
 [node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite", "_openSprite", "_hurtBox", "_hudNode")]
 script = ExtResource("1_chest")
@@ -53,19 +52,17 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
 [node name="ChestSprite" type="Sprite3D" parent="." unique_id=1950719213]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.51434654, 0)
 material_override = SubResource("ShaderMaterial_20syw")
-offset = Vector2(0, 50)
-pixel_size = 0.02
-billboard = 2
+centered = false
+offset = Vector2(-6, 0)
+pixel_size = 1.0
 texture = ExtResource("3_3b5dt")
 
 [node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.51434654, 0)
 material_override = SubResource("ShaderMaterial_nkyvn")
-offset = Vector2(0, 50)
-pixel_size = 0.02
-billboard = 2
+centered = false
+offset = Vector2(-8, 0)
+pixel_size = 1.0
 texture = ExtResource("3_20syw")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]

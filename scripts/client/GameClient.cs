@@ -5,12 +5,18 @@ using System.Linq;
 
 public partial class GameClient : Node3D
 {
+	public static GameClient Current { get; private set; }
+
 	[Export] public GameCamera camera;
 	[Export] public Hud hud;
-	[Export] public Node2D worldHUD;
+	[Export] public Node worldHUD;
+	[Export] public SubViewport sceneViewport;
+	[Export] public MeshInstance3D bloomQuad;
+	[Export] public ShaderMaterial upscaleMaterial;
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
 	[Export] public ShaderMaterial outlineMaterial;
+	[Export] public ShaderMaterial postProcessMaterial;
 
 	public Action onInit;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
@@ -24,15 +30,39 @@ public partial class GameClient : Node3D
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
+	Vector2 _subpixelTexelOffset;
+
+	public int PixelScale => Math.Max(1, CVars.pixelScale.Value);
+
+	public Vector2 ProjectToScreen(Vector3 worldPos)
+	{
+		// The upscale shader flips V (sample at 1 - inner_uv.y) to
+		// compensate for Godot's Y-up viewport texture storage. That flip
+		// inverts the direction of uv_offset.y relative to uv_offset.x, so
+		// the Y correction here adds the subpixel offset where X subtracts.
+		Vector2 innerPx = camera.UnprojectPosition(worldPos);
+		return new Vector2(
+			(innerPx.X - _subpixelTexelOffset.X) * PixelScale,
+			(innerPx.Y + _subpixelTexelOffset.Y) * PixelScale);
+	}
 
 	public override void _Ready()
 	{
+		Current = this;
 		_highlightOverlay = new Sprite3D();
 		_highlightOverlay.Name = "HighlightOverlay";
 		_highlightOverlay.MaterialOverride = outlineMaterial;
 		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
 		_highlightOverlay.Visible = false;
-		AddChild(_highlightOverlay);
+		sceneViewport.AddChild(_highlightOverlay);
+
+		GetTree().Root.SizeChanged += UpdateViewportSize;
+		UpdateViewportSize();
+
+		if (upscaleMaterial != null)
+		{
+			upscaleMaterial.SetShaderParameter("inner_tex", sceneViewport.GetTexture());
+		}
 	}
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
@@ -43,7 +73,7 @@ public partial class GameClient : Node3D
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
-		AddChild(_world);
+		sceneViewport.AddChild(_world);
 		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
 
 		while (!_world.IsSpawnChunkReady(playerPosition))
@@ -54,12 +84,12 @@ public partial class GameClient : Node3D
 		_player = playerScene.Instantiate<Player>();
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
 		_player.onInteractChanged += OnPlayerInteractChanged;
-		AddChild(_player);
+		sceneViewport.AddChild(_player);
 		_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
 
 		_world.SetPlayer(_player);
 
-		camera.Init(this);
+		camera.Init(sceneViewport);
 		camera.SetInitialPosition(_player.GlobalPosition);
 
 		if (camera.WaterCapPlane.MaterialOverride is ShaderMaterial waterCapMat)
@@ -78,7 +108,99 @@ public partial class GameClient : Node3D
 		_player.ProcessInput(camera.Yaw);
 
 		camera.UpdateCamera(deltaTime, _player.GlobalPosition);
+		SnapCameraAndUpdateUpscale();
 		CullProps(camera.Clip);
+		UpdatePostProcess();
+	}
+
+	void UpdateViewportSize()
+	{
+		if (sceneViewport == null)
+		{
+			return;
+		}
+		Vector2I screenSize = GetTree().Root.Size;
+		int scale = Math.Max(1, CVars.pixelScale.Value);
+		// +1 pixel padding on each axis for subpixel camera offset.
+		int innerW = (screenSize.X + scale - 1) / scale + 1;
+		int innerH = (screenSize.Y + scale - 1) / scale + 1;
+		sceneViewport.Size = new Vector2I(innerW, innerH);
+
+		if (upscaleMaterial != null)
+		{
+			Vector2 uvScale = new Vector2(
+				(float)screenSize.X / (scale * innerW),
+				(float)screenSize.Y / (scale * innerH));
+			upscaleMaterial.SetShaderParameter("uv_scale", uvScale);
+		}
+	}
+
+	void SnapCameraAndUpdateUpscale()
+	{
+		if (sceneViewport == null || upscaleMaterial == null)
+		{
+			return;
+		}
+
+		int scale = Math.Max(1, CVars.pixelScale.Value);
+		Vector2I screenSize = GetTree().Root.Size;
+		Vector2I innerSize = sceneViewport.Size;
+
+		// World units per inner-viewport texel. Orthographic camera.Size is
+		// the vertical world extent mapped across innerSize.Y texels (Godot
+		// derives horizontal size from viewport aspect, so texel width in
+		// world equals this too). The camera must snap in multiples of this
+		// so every voxel edge projects to the same sub-texel offset frame
+		// to frame — otherwise wall pixels crawl within each chunky block.
+		float chunky = camera.Size / Mathf.Max(1, innerSize.Y);
+		RenderingServer.GlobalShaderParameterSet("sprite_chunky", chunky);
+
+		Vector3 pos = camera.GlobalPosition;
+		Basis basis = camera.GlobalBasis;
+		Vector3 right = basis.X;
+		Vector3 up = basis.Y;
+		Vector3 forward = basis.Z;
+
+		float rx = right.Dot(pos);
+		float ry = up.Dot(pos);
+		float rz = forward.Dot(pos);
+
+		float sx = Mathf.Floor(rx / chunky) * chunky;
+		float sy = Mathf.Floor(ry / chunky) * chunky;
+		float fracX = rx - sx;
+		float fracY = ry - sy;
+
+		camera.GlobalPosition = sx * right + sy * up + rz * forward;
+
+		// fracX/fracY in [0, chunky); convert to texel units (in [0,1) of a
+		// single inner texel) and then to UV.
+		float texFracX = fracX / chunky;
+		float texFracY = fracY / chunky;
+		Vector2 uvOffset = new Vector2(texFracX / innerSize.X, texFracY / innerSize.Y);
+		_subpixelTexelOffset = new Vector2(texFracX, texFracY);
+
+		upscaleMaterial.SetShaderParameter("uv_offset", uvOffset);
+		// uv_scale may drift if pixel_scale is changed at runtime without a
+		// window resize; refresh it every frame so the CVar toggle works live.
+		Vector2 uvScale = new Vector2(
+			(float)screenSize.X / (scale * innerSize.X),
+			(float)screenSize.Y / (scale * innerSize.Y));
+		upscaleMaterial.SetShaderParameter("uv_scale", uvScale);
+
+		if (sceneViewport.Size.X != innerSize.X || sceneViewport.Size.Y != innerSize.Y)
+		{
+			UpdateViewportSize();
+		}
+	}
+
+	void UpdatePostProcess()
+	{
+		if (postProcessMaterial != null)
+		{
+			postProcessMaterial.SetShaderParameter("vignette_radius", CVars.vignetteRadius.Value);
+			postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
+			postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
+		}
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -175,7 +297,7 @@ public partial class GameClient : Node3D
 	void RemoveHighlight()
 	{
 		_highlightOverlay.Visible = false;
-		_highlightOverlay.Reparent(this, false);
+		_highlightOverlay.Reparent(sceneViewport, false);
 	}
 
 	static Sprite3D FindChildSprite(Node node)

@@ -204,4 +204,13 @@ public class CVarString : CVar
 		: base(name, CVarType.String, defaultValue, onChanged)
 	{
 	}
+
+	public override string Set(string newValue)
+	{
+		if (newValue == "\"\"")
+		{
+			newValue = "";
+		}
+		return base.Set(newValue);
+	}
 }

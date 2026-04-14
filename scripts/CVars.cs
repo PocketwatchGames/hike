@@ -5,13 +5,22 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // Post-process. Vignette cvars feed the post_process canvas_item shader;
+    // GameClient pushes them each frame. Pixel-art scale controls the chunky
+    // pixel size (linear); 1 disables chunking. DOF removed — reintroduce
+    // inside the scene environment later if wanted.
+    public static CVarFloat vignetteRadius = new CVarFloat("vignette_radius", 0.55f);
+    public static CVarFloat vignetteSoftness = new CVarFloat("vignette_softness", 0.45f);
+    public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
+    public static CVarInt pixelScale = new CVarInt("pixel_scale", 4);
+
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
 
     // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
-    public static CVarString worldFile = new CVarString("world_file", "user://world.hike");
+    public static CVarString worldFile = new CVarString("world_file", ""); // user://world.hike
 
     // Action: writes the currently-loaded WorldState to disk at the given
     // path. Useful for converting a WorldGen-generated world into a packed

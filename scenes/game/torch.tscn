@@ -16,6 +16,8 @@ shader = ExtResource("5_shader")
 shader_parameter/sprite_texture = ExtResource("2_ty0ga")
 shader_parameter/light_map_origin = Vector3(0, 0, 0)
 shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
+shader_parameter/sprite_offset = Vector2(-2, 0)
+shader_parameter/sprite_size = Vector2i(4, 13)
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_unlit"]
 render_priority = 0
@@ -23,6 +25,8 @@ shader = ExtResource("5_shader")
 shader_parameter/sprite_texture = ExtResource("3_m4hkm")
 shader_parameter/light_map_origin = Vector3(0, 0, 0)
 shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
+shader_parameter/sprite_offset = Vector2(-2, 0)
+shader_parameter/sprite_size = Vector2i(4, 13)
 
 [node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light", "_hudNode")]
 script = ExtResource("1_torch")
@@ -44,18 +48,18 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
 [node name="LitSprite" type="Sprite3D" parent="." unique_id=222554796]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.044090033, 0)
 material_override = SubResource("ShaderMaterial_lit")
-offset = Vector2(0, 50)
-billboard = 2
+centered = false
+offset = Vector2(-2, 0)
+pixel_size = 1.0
 texture = ExtResource("2_ty0ga")
 
 [node name="UnlitSprite" type="Sprite3D" parent="." unique_id=579226933]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.044090033, 0)
 visible = false
 material_override = SubResource("ShaderMaterial_unlit")
-offset = Vector2(0, 50)
-billboard = 2
+centered = false
+offset = Vector2(-2, 0)
+pixel_size = 1.0
 texture = ExtResource("3_m4hkm")
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661 node_paths=PackedStringArray("_light")]

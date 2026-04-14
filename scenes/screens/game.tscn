@@ -7,55 +7,95 @@
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
+[ext_resource type="Material" path="res://resources/materials/post_process.tres" id="post_process_mat"]
+[ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
 
 [sub_resource type="Sky" id="Sky_oni8f"]
 sky_material = SubResource("ShaderMaterial_s3n12")
 
-[sub_resource type="Environment" id="Environment_e0wmo"]
+[sub_resource type="Environment" id="Environment_scene"]
 background_mode = 2
 sky = SubResource("Sky_oni8f")
 ambient_light_color = Color(1, 1, 1, 1)
 ambient_light_energy = 0.0
-glow_intensity = 0.8
-glow_bloom = 0.1
 fog_enabled = true
 fog_mode = 1
 fog_light_color = Color(0, 0, 0, 1)
 fog_light_energy = 0.75
 fog_density = 1.0
 fog_sky_affect = 0.0
-fog_depth_begin = 28.0
-fog_depth_end = 45.0
+fog_depth_begin = 88.0
+fog_depth_end = 105.0
 volumetric_fog_enabled = true
 volumetric_fog_density = 0.01
 volumetric_fog_albedo = Color(0, 0, 0, 1)
 volumetric_fog_sky_affect = 0.0
 
-[sub_resource type="CameraAttributesPractical" id="CameraAttributesPractical_e0wmo"]
+[sub_resource type="Environment" id="Environment_bloom"]
+background_mode = 3
+ambient_light_energy = 0.0
+tonemap_mode = 0
+glow_enabled = true
+glow_intensity = 0.8
+glow_bloom = 0.1
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "worldHUD")]
+[sub_resource type="QuadMesh" id="QuadMesh_bloom"]
+size = Vector2(2, 2)
+
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "worldHUD", "sceneViewport", "bloomQuad")]
 script = ExtResource("1_mu8e5")
-camera = NodePath("MainCamera")
+camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("HUD")
 worldHUD = NodePath("WorldHUD")
+sceneViewport = NodePath("SceneViewport")
+bloomQuad = NodePath("BloomQuad")
+upscaleMaterial = ExtResource("upscale_mat")
 hudTextScene = ExtResource("2_o78e0")
 interactHudScene = ExtResource("3_0q6jn")
 outlineMaterial = ExtResource("outline_mat")
+postProcessMaterial = ExtResource("post_process_mat")
 
-[node name="MainCamera" type="Camera3D" parent="." unique_id=159032169]
+[node name="OuterEnv" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_bloom")
+
+[node name="OuterCamera" type="Camera3D" parent="."]
+projection = 1
+size = 2.0
+near = 0.01
+far = 10.0
+current = true
+
+[node name="BloomQuad" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+mesh = SubResource("QuadMesh_bloom")
+cast_shadow = 0
+extra_cull_margin = 16384.0
+material_override = ExtResource("upscale_mat")
+
+[node name="SceneViewport" type="SubViewport" parent="."]
+own_world_3d = true
+handle_input_locally = false
+msaa_3d = 0
+use_hdr_2d = true
+size = Vector2i(480, 270)
+render_target_update_mode = 4
+
+[node name="MainCamera" type="Camera3D" parent="SceneViewport" unique_id=159032169]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
 projection = 1
+current = true
 fov = 20.0
 size = 20.0
+near = 5.0
+far = 200.0
 script = ExtResource("camera_script")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=1455759092]
-environment = SubResource("Environment_e0wmo")
-camera_attributes = SubResource("CameraAttributesPractical_e0wmo")
+[node name="InnerEnv" type="WorldEnvironment" parent="SceneViewport" unique_id=1455759092]
+environment = SubResource("Environment_scene")
 
-[node name="SunLight" type="DirectionalLight3D" parent="." unique_id=1871209991]
+[node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
 transform = Transform3D(1, 0, 0, 0, 0.81310076, 0.582123, 0, -0.582123, 0.81310076, 0, 0, 0)
 light_color = Color(0.73, 0.62098664, 0.49640003, 1)
 light_bake_mode = 0
@@ -63,7 +103,16 @@ light_cull_mask = 3
 shadow_enabled = true
 sky_mode = 1
 
-[node name="WorldHUD" type="Node2D" parent="." unique_id=151387425]
+[node name="PostProcess" type="CanvasLayer" parent="."]
+layer = 0
+
+[node name="Vignette" type="ColorRect" parent="PostProcess"]
+material = ExtResource("post_process_mat")
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="WorldHUD" type="CanvasLayer" parent="." unique_id=151387425]
 
 [node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
 gameClient = NodePath("..")

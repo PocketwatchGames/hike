@@ -44,7 +44,7 @@ public partial class HudText : Control
 			return;
 		}
 		Visible = true;
-		Vector2 screenPos = _camera.UnprojectPosition(_worldPosition);
+		Vector2 screenPos = GameClient.Current.ProjectToScreen(_worldPosition);
 		Position = screenPos + new Vector2(0, -_verticalMovement * Mathf.Pow(t, 2));
 	}
 
