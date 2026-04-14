@@ -177,3 +177,35 @@ water_depth_scale={
 "type": "float",
 "value": 3.0
 }
+sun_world_dir={
+"type": "vec3",
+"value": Vector3(-0.215, -0.819, -0.532)
+}
+sun_color={
+"type": "vec3",
+"value": Vector3(1.0, 0.92, 0.72)
+}
+horizon_color={
+"type": "vec3",
+"value": Vector3(0.72, 0.82, 0.92)
+}
+zenith_color={
+"type": "vec3",
+"value": Vector3(0.25, 0.48, 0.82)
+}
+cloud_color={
+"type": "vec3",
+"value": Vector3(1.0, 0.98, 0.95)
+}
+cloud_scroll={
+"type": "vec2",
+"value": Vector2(0.004, 0.002)
+}
+cloud_scale={
+"type": "float",
+"value": 2.5
+}
+cloud_coverage={
+"type": "float",
+"value": 0.45
+}

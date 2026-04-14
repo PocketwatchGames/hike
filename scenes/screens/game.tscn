@@ -1,6 +1,8 @@
 [gd_scene format=3 uid="uid://cqcbx0hocclf4"]
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
+[ext_resource type="Script" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
+[ext_resource type="Shader" path="res://shaders/sky.gdshader" id="sky_shader"]
 [ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/gui/hud_text.tscn" id="2_o78e0"]
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/gui/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
@@ -11,6 +13,7 @@
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_s3n12"]
+shader = ExtResource("sky_shader")
 
 [sub_resource type="Sky" id="Sky_oni8f"]
 sky_material = SubResource("ShaderMaterial_s3n12")
@@ -102,6 +105,9 @@ light_bake_mode = 0
 light_cull_mask = 3
 shadow_enabled = true
 sky_mode = 1
+
+[node name="SkyController" type="Node3D" parent="."]
+script = ExtResource("sky_controller_script")
 
 [node name="PostProcess" type="CanvasLayer" parent="."]
 layer = 0
