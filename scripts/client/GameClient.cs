@@ -285,11 +285,32 @@ public partial class GameClient : Node3D
 
 		_highlightOverlay.Texture = source.Texture;
 		_highlightOverlay.Transform = source.Transform;
+		_highlightOverlay.Centered = source.Centered;
 		_highlightOverlay.Offset = source.Offset;
 		_highlightOverlay.PixelSize = source.PixelSize;
 		_highlightOverlay.Billboard = source.Billboard;
 		_highlightOverlay.TextureFilter = source.TextureFilter;
-		outlineMaterial.SetShaderParameter("texture_albedo", source.Texture);
+		outlineMaterial.SetShaderParameter("sprite_texture", source.Texture);
+		// Mirror the source sprite's texel addressing so the outline snaps to
+		// the same pixel grid as sprite_lit's snapped anchor.
+		Vector2I spriteSize;
+		Vector2I regionOrigin;
+		if (source.RegionEnabled)
+		{
+			Rect2 r = source.RegionRect;
+			spriteSize = new Vector2I((int)r.Size.X, (int)r.Size.Y);
+			regionOrigin = new Vector2I((int)r.Position.X, (int)r.Position.Y);
+			_highlightOverlay.RegionEnabled = true;
+			_highlightOverlay.RegionRect = r;
+		}
+		else
+		{
+			spriteSize = new Vector2I(source.Texture.GetWidth(), source.Texture.GetHeight());
+			regionOrigin = Vector2I.Zero;
+			_highlightOverlay.RegionEnabled = false;
+		}
+		outlineMaterial.SetShaderParameter("sprite_size", spriteSize);
+		outlineMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
 		_highlightOverlay.Reparent(node, false);
 		_highlightOverlay.Visible = true;
 	}
