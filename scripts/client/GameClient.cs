@@ -27,6 +27,7 @@ public partial class GameClient : Node3D
 
 	Player _player;
 	World _world;
+	ShadowMapRenderer _shadowRenderer;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -70,11 +71,29 @@ public partial class GameClient : Node3D
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
 
+		// Shadow renderer owns its own World3D (via SubViewport.own_world_3d),
+		// so it sits at the GameClient root rather than inside sceneViewport.
+		// Must exist before World.Initialize so chunk materials can bind the
+		// shadow ViewportTexture at construction time. sceneViewport is
+		// removed and re-added so it registers with the RenderingServer
+		// after the shadow viewport — the scene then samples this frame's
+		// shadow map instead of last frame's, which would lag static shadows
+		// one frame behind player motion.
+		_shadowRenderer = new ShadowMapRenderer();
+		AddChild(_shadowRenderer);
+		MoveChild(_shadowRenderer, 0);
+
+		Node parent = sceneViewport.GetParent();
+		int sceneIndex = sceneViewport.GetIndex();
+		parent.RemoveChild(sceneViewport);
+		parent.AddChild(sceneViewport);
+		parent.MoveChild(sceneViewport, sceneIndex);
+
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		sceneViewport.AddChild(_world);
-		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
+		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition, _shadowRenderer.ShadowMap);
 
 		while (!_world.IsSpawnChunkReady(playerPosition))
 		{
@@ -154,6 +173,17 @@ public partial class GameClient : Node3D
 		// to frame — otherwise wall pixels crawl within each chunky block.
 		float chunky = camera.Size / Mathf.Max(1, innerSize.Y);
 		RenderingServer.GlobalShaderParameterSet("sprite_chunky", chunky);
+
+		// Vertical stretch = 1/cos(camera pitch) — compensates for the main
+		// camera's tilt so one source pixel = one screen pixel. The shadow
+		// caster uses the same stretch to match the visible sprite's
+		// world-space height, keeping shadow length consistent with the view.
+		// Vertical stretch = 1/cos(camera pitch) — compensates for the main
+		// camera's tilt so one source pixel = one screen pixel.
+		Vector3 mainForward = camera.GlobalBasis.Z;
+		float mainPitch = Mathf.Asin(Mathf.Clamp(Mathf.Abs(mainForward.Y), 0f, 1f));
+		float spriteStretch = 1f / Mathf.Max(Mathf.Cos(mainPitch), 1e-4f);
+		RenderingServer.GlobalShaderParameterSet("sprite_stretch", spriteStretch);
 
 		Vector3 pos = camera.GlobalPosition;
 		Basis basis = camera.GlobalBasis;

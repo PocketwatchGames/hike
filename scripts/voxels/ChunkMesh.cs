@@ -192,7 +192,8 @@ public partial class ChunkMesh : Node3D
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        LightMap lightMap)
+        LightMap lightMap,
+        Texture2D shadowMap)
     {
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
@@ -200,14 +201,15 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, lightMap);
+        chunk.BuildMesh(data, getVoxel, lightMap, shadowMap);
         return chunk;
     }
 
     private void BuildMesh(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        LightMap lightMap)
+        LightMap lightMap,
+        Texture2D shadowMap)
     {
         if (IsAllAir(data))
         {
@@ -350,6 +352,7 @@ public partial class ChunkMesh : Node3D
             mat.SetShaderParameter("light_map", lightMap.Texture);
             mat.SetShaderParameter("light_map_origin", lightMap.Origin);
             mat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
+            mat.SetShaderParameter("shadow_map", shadowMap);
             visual.MaterialOverride = mat;
             AddChild(visual);
 

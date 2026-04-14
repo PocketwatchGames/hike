@@ -19,6 +19,16 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
+    // Shadow-casting sun direction (unit vector, the direction light travels)
+    // and strength [0, 1]. Simulation state so time-of-day can drive them;
+    // ShadowMapRenderer reads these each frame. CVars.shadowStrength is a
+    // multiplier applied on top for visual tuning.
+    public Vector3 ShadowLightDirection = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
+    public float ShadowStrength = 0.3f;
+    // Tint applied to fully shadowed fragments. (0,0,0) = pure black shadow,
+    // (0.3, 0.4, 0.6) = cool blue-tinted, (1,1,1) = no visible shadow.
+    public Color ShadowColor = new Color(0f, 0.2f, 0.5f);
+
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
 

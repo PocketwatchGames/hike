@@ -36,7 +36,7 @@ public partial class World : Node3D
 
     public Player player => _player;
 
-    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition)
+    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition, Texture2D shadowMap)
     {
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
@@ -45,7 +45,7 @@ public partial class World : Node3D
         AddChild(_chunkManager);
         _chunkManager.onChunkLoaded += OnChunkLoaded;
         _chunkManager.onChunkUnloaded += OnChunkUnloaded;
-        _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition);
+        _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition, shadowMap);
 
         CreateWorldBoundary();
 

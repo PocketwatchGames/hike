@@ -96,7 +96,7 @@ script = ExtResource("camera_script")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(1, 0, 0, 0, 0.81310076, 0.582123, 0, -0.582123, 0.81310076, 0, 0, 0)
+transform = Transform3D(0.927184, -0.306858, 0.215, 0, 0.573576, 0.819152, -0.374607, -0.759556, 0.532169, 0, 0, 0)
 light_color = Color(0.73, 0.62098664, 0.49640003, 1)
 light_bake_mode = 0
 light_cull_mask = 3

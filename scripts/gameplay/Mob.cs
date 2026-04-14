@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity
+public partial class Mob : RigidBody3D, IWorldEntity, IShadowFilter
 {
     [Export] private CollisionShape3D _collisionShape;
     [Export] private AnimationPlayer _animationPlayer;
@@ -39,6 +39,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
     public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
     public bool playerCanSee => _world.GameTimeMs < _simState.VisibleTimeMs;
+    // Same gate as _mesh.Visible in _Process: the player must have the mob
+    // in the Discovered state and its memory timer must still be live.
+    // Shadows follow this visibility — not the scene-tree Visible flag,
+    // which can also be toggled by the main camera's ceiling-clip cull.
+    public bool CastsShadow => _simState != null
+        && _simState.DiscoveryState == EPlayerPerceptionState.Discovered
+        && _simState.MemoryTimeMs > _world.GameTimeMs;
     // Perception/triggered forward through the first perception slot (the player
     // in singleplayer). Multi-target logic operates directly on PerceptionTargets
     // in TickAI; these accessors exist for the HUD and inline Mob logic that only

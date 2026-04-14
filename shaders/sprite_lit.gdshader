@@ -24,9 +24,18 @@ uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
+uniform sampler2D shadow_map : filter_linear;
 
 global uniform float camera_clip;
 global uniform float sprite_chunky;
+global uniform float sprite_stretch;
+global uniform vec3 shadow_origin;
+global uniform vec3 shadow_axis_u;
+global uniform vec3 shadow_axis_v;
+global uniform vec3 shadow_depth_axis;
+global uniform float shadow_strength;
+global uniform vec3 shadow_color;
+const float SHADOW_DEPTH_BIAS = 0.002;
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -36,8 +45,7 @@ void vertex() {
 
 	vec3 cam_forward = INV_VIEW_MATRIX[2].xyz;
 	vec3 sprite_right = normalize(cross(vec3(0.0, 1.0, 0.0), cam_forward));
-	float pitch = asin(clamp(abs(cam_forward.y), 0.0, 1.0));
-	float stretch = 1.0 / max(cos(pitch), 1e-4);
+	float stretch = max(sprite_stretch, 1e-4);
 	float chunky = max(sprite_chunky, 1e-6);
 
 	vec3 vertex_world = world_origin
@@ -73,7 +81,31 @@ void fragment() {
 	vec3 uvw = (world_origin - light_map_origin) * light_map_inv_size;
 	float light = textureLod(light_map, uvw, 0.0).r;
 
+	// Shadow map is sampled using the flat per-vertex world_origin (the sprite
+	// anchor), not a per-pixel reconstructed world position. The shadow
+	// projection axes have a Y component, so using per-pixel Y would smear
+	// horizontal stripes that move with the camera.
+	vec3 rel = world_origin - shadow_origin;
+	vec2 suv = vec2(dot(rel, shadow_axis_u), dot(rel, shadow_axis_v)) + 0.5;
+	vec3 shadow_tint = vec3(1.0);
+	if (suv.x >= 0.0 && suv.x <= 1.0 && suv.y >= 0.0 && suv.y <= 1.0) {
+		vec2 base_uv = vec2(suv.x, 1.0 - suv.y);
+		float receiver_depth = dot(rel, shadow_depth_axis);
+		float pcf_radius = 1.5 / 1024.0;
+		float shadow_sum = 0.0;
+		float d0 = texture(shadow_map, base_uv + vec2(-pcf_radius, -pcf_radius)).r;
+		float d1 = texture(shadow_map, base_uv + vec2( pcf_radius, -pcf_radius)).r;
+		float d2 = texture(shadow_map, base_uv + vec2(-pcf_radius,  pcf_radius)).r;
+		float d3 = texture(shadow_map, base_uv + vec2( pcf_radius,  pcf_radius)).r;
+		shadow_sum += step(d0 + SHADOW_DEPTH_BIAS, receiver_depth);
+		shadow_sum += step(d1 + SHADOW_DEPTH_BIAS, receiver_depth);
+		shadow_sum += step(d2 + SHADOW_DEPTH_BIAS, receiver_depth);
+		shadow_sum += step(d3 + SHADOW_DEPTH_BIAS, receiver_depth);
+		float shadow_amount = shadow_sum * 0.25 * shadow_strength;
+		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
+	}
+
 	NORMAL = vec3(0.0, 1.0, 0.0);
 	ALBEDO = tex.rgb;
-	EMISSION = tex.rgb * light;
+	EMISSION = tex.rgb * light * shadow_tint;
 }
