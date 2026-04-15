@@ -19,10 +19,14 @@ global uniform float shadow_strength;
 global uniform vec3 shadow_color;
 const float SHADOW_DEPTH_BIAS = 0.002;
 
+global uniform vec3 sun_world_dir;
+global uniform vec3 fill_world_dir;
+global uniform vec3 sun_tint_color;
+global uniform vec3 fill_tint_color;
+
 const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
-varying float face_shade;
 varying vec3 world_normal;
 varying flat float tile_index;
 
@@ -30,17 +34,6 @@ void vertex() {
 	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = NORMAL;
 	tile_index = CUSTOM0.w;
-
-	// Face direction shading from normal
-	vec3 n = NORMAL;
-	vec3 an = abs(n);
-	if (an.y > 0.5) {
-		face_shade = n.y > 0.0 ? 1.0 : 0.5;
-	} else if (an.z > 0.5) {
-		face_shade = 0.8;
-	} else {
-		face_shade = 0.6;
-	}
 }
 
 void fragment() {
@@ -84,9 +77,17 @@ void fragment() {
 	vec3 light_sample_pos = world_vertex + world_normal * 0.5;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	float light = max(texture(light_map, uvw).r, MIN_AMBIENT);
-	float shaded_light = face_shade * light;
 
-	ALBEDO = tex_color.rgb * COLOR.rgb * shaded_light * shadow_tint;
+	// "Reverse" directional shading: each light darkens faces by its tint
+	// color in proportion to how much they face away from it. Faces facing
+	// the light are unaffected (multiplied by 1).
+	vec3 n = normalize(world_normal);
+	float sun_facing = max(0.0, dot(n, -sun_world_dir));
+	float fill_facing = max(0.0, dot(n, -fill_world_dir));
+	vec3 sun_tint = mix(sun_tint_color, vec3(1.0), sun_facing);
+	vec3 fill_tint = mix(fill_tint_color, vec3(1.0), fill_facing);
+
+	ALBEDO = tex_color.rgb * COLOR.rgb * light * shadow_tint * sun_tint * fill_tint;
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = debug_solid;
 	}

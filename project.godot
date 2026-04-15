@@ -246,3 +246,15 @@ shadow_color={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+fill_world_dir={
+"type": "vec3",
+"value": Vector3(0, -0.574, 0)
+}
+sun_tint_color={
+"type": "vec3",
+"value": Vector3(0.05, 0.15, 0.35)
+}
+fill_tint_color={
+"type": "vec3",
+"value": Vector3(0.4, 0.25, 0.0)
+}
