@@ -15,6 +15,11 @@ run/main_scene="uid://c46haqwwl2h4s"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+
 [dotnet]
 
 project/assembly_name="hike"
@@ -173,30 +178,6 @@ sprite_stretch={
 "type": "float",
 "value": 1.0
 }
-shadow_origin={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_axis_u={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_axis_v={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_depth_axis={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_strength={
-"type": "float",
-"value": 0.0
-}
-shadow_color={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
 water_alpha_max={
 "type": "float",
 "value": 1.0
@@ -236,4 +217,28 @@ cloud_scale={
 cloud_coverage={
 "type": "float",
 "value": 0.45
+}
+shadow_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_axis_u={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_axis_v={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_depth_axis={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_strength={
+"type": "float",
+"value": 0.0
+}
+shadow_color={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
 }

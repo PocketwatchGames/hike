@@ -15,20 +15,16 @@ uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
 const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
-varying float shaded_light;
+varying vec3 world_normal;
+varying float face_shade;
 
 void vertex() {
 	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-
-	// Sample light from the water voxel itself
-	vec3 uvw = (CUSTOM0.xyz - light_map_origin) * light_map_inv_size;
-	float light = textureLod(light_map, uvw, 0.0).r;
-	light = max(light, MIN_AMBIENT);
+	world_normal = NORMAL;
 
 	// Face direction shading from normal
 	vec3 n = NORMAL;
 	vec3 an = abs(n);
-	float face_shade;
 	if (an.y > 0.5) {
 		face_shade = n.y > 0.0 ? 1.0 : 0.5;
 	} else if (an.z > 0.5) {
@@ -36,8 +32,6 @@ void vertex() {
 	} else {
 		face_shade = 0.6;
 	}
-
-	shaded_light = face_shade * light;
 }
 
 void fragment() {
@@ -57,6 +51,13 @@ void fragment() {
 
 	float thickness = abs(scene_view.z - frag_view.z);
 	float depth_factor = clamp(thickness / water_depth_scale, 0.0, 1.0);
+
+	// Sample lightmap per-pixel for smooth interpolation across the face.
+	// Water samples from itself: push 0.5 along -normal to land in the water voxel center.
+	vec3 light_sample_pos = world_vertex - world_normal * 0.5;
+	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
+	float light = max(texture(light_map, uvw).r, MIN_AMBIENT);
+	float shaded_light = face_shade * light;
 
 	// Deeper water is darker and more opaque
 	vec3 color = mix(COLOR.rgb, water_deep_tint, depth_factor);
