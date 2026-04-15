@@ -18,9 +18,7 @@ public partial class WorldEditor : Node3D
     private static readonly VoxelType[] PlaceableTypes =
     {
         VoxelType.Stone, VoxelType.Grass, VoxelType.Dirt, VoxelType.Sand,
-        VoxelType.Wood, VoxelType.StoneSlabBottom, VoxelType.StoneSlabTop,
-        VoxelType.WoodSlabBottom, VoxelType.WoodSlabTop, VoxelType.GrassSlabBottom,
-        VoxelType.DirtSlabBottom, VoxelType.Barrier, VoxelType.Water,
+        VoxelType.Wood, VoxelType.Barrier, VoxelType.Water,
     };
 
     private static readonly string[] EntityNames =

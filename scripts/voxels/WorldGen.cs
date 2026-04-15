@@ -7,18 +7,17 @@ public static class WorldGen
     // Staircase spiral pattern: (dx, dz) offsets from center, actions per y-level
     private const int STAIR_KEEP = 0;
     private const int STAIR_FULL = 1;
-    private const int STAIR_SLAB = 2;
-    private const int STAIR_AIR = 3;
+    private const int STAIR_AIR = 2;
 
     private static readonly (int dx, int dz, int[] yActions)[] StaircasePattern =
     {
-        (-1,  1, new[] { STAIR_SLAB, STAIR_AIR,  STAIR_AIR,  STAIR_KEEP }),
+        (-1,  1, new[] { STAIR_FULL, STAIR_AIR,  STAIR_AIR,  STAIR_KEEP }),
         (-1,  0, new[] { STAIR_FULL, STAIR_AIR,  STAIR_AIR,  STAIR_AIR  }),
-        (-1, -1, new[] { STAIR_FULL, STAIR_SLAB, STAIR_AIR,  STAIR_AIR  }),
+        (-1, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_AIR,  STAIR_AIR  }),
         ( 0, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_AIR,  STAIR_AIR  }),
-        ( 1, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_SLAB, STAIR_AIR  }),
+        ( 1, -1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_AIR  }),
         ( 1,  0, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_AIR  }),
-        ( 1,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_SLAB }),
+        ( 1,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
         ( 0,  0, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
         ( 0,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
     };
@@ -147,7 +146,7 @@ public static class WorldGen
                     // surface stays mostly planar like a water table.
                     float waterVal = caveNoise.GetNoise3D(wx, wy, wz);
                     bool isWater = wy <= 0 && Math.Abs(waterVal) < genData.WaterThreshold;
-
+                    isWater = false;
                     data.Voxels[x, y, z] = isWater ? VoxelType.Water : fullType;
                 }
             }
@@ -404,11 +403,11 @@ public static class WorldGen
 
     private static void GenerateStructures(WorldState ws, WorldGenData genData)
     {
-        var rng = new Random(HashCode.Combine(genData.SizeX, genData.SizeZ, 42));
+        // var rng = new Random(HashCode.Combine(genData.SizeX, genData.SizeZ, 42));
 
-        // Fixed building just north of spawn (player spawns at 0,4,0)
-        GenerateHouse(ws, rng, genData, genData.SpawnBuildingOriginX, genData.SpawnBuildingOriginZ,
-            genData.SpawnBuildingWidth, genData.SpawnBuildingDepth, 3);
+        // // Fixed building just north of spawn (player spawns at 0,4,0)
+        // GenerateHouse(ws, rng, genData, genData.SpawnBuildingOriginX, genData.SpawnBuildingOriginZ,
+        //     genData.SpawnBuildingWidth, genData.SpawnBuildingDepth, 3);
     }
 
     private static void GenerateHouse(WorldState ws, Random rng, WorldGenData genData, int originX, int originZ, int widthX, int widthZ, int numFloors)
@@ -570,9 +569,6 @@ public static class WorldGen
                 {
                     case STAIR_FULL:
                         ws.SetVoxelWorld(wx, wy, wz, VoxelType.Wood);
-                        break;
-                    case STAIR_SLAB:
-                        ws.SetVoxelWorld(wx, wy, wz, VoxelType.WoodSlabBottom);
                         break;
                     case STAIR_AIR:
                         ws.SetVoxelWorld(wx, wy, wz, VoxelType.Air);

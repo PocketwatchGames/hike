@@ -69,9 +69,14 @@ public class CVar
 		}
 
 		_value = newValue;
+		UpdateCache();
 		OnChanged?.Invoke(this);
 		return null;
 	}
+
+	// Subclasses override to refresh their typed `_cached` field from `_value`.
+	// Called before OnChanged so callbacks reading `.Value` see the new value.
+	protected virtual void UpdateCache() { }
 
 	public void Execute()
 	{
@@ -124,15 +129,9 @@ public class CVarInt : CVar
 		_cached = defaultValue;
 	}
 
-	public override string Set(string newValue)
+	protected override void UpdateCache()
 	{
-		string error = base.Set(newValue);
-		if (error == null)
-		{
-			_cached = int.Parse(_value);
-		}
-
-		return error;
+		_cached = int.Parse(_value);
 	}
 }
 
@@ -152,15 +151,9 @@ public class CVarFloat : CVar
 		_cached = defaultValue;
 	}
 
-	public override string Set(string newValue)
+	protected override void UpdateCache()
 	{
-		string error = base.Set(newValue);
-		if (error == null)
-		{
-			_cached = float.Parse(_value, CultureInfo.InvariantCulture);
-		}
-
-		return error;
+		_cached = float.Parse(_value, CultureInfo.InvariantCulture);
 	}
 }
 
@@ -180,15 +173,9 @@ public class CVarBool : CVar
 		_cached = defaultValue;
 	}
 
-	public override string Set(string newValue)
+	protected override void UpdateCache()
 	{
-		string error = base.Set(newValue);
-		if (error == null)
-		{
-			_cached = _value == "1" || _value.Equals("true", StringComparison.OrdinalIgnoreCase);
-		}
-
-		return error;
+		_cached = _value == "1" || _value.Equals("true", StringComparison.OrdinalIgnoreCase);
 	}
 }
 

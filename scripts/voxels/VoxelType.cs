@@ -4,19 +4,13 @@ using Godot;
 public enum VoxelType : byte
 {
     Air = 0,
-    Stone,
-    Grass,
-    Dirt,
-    Sand,
-    Wood,
-    StoneSlabBottom,
-    StoneSlabTop,
-    WoodSlabBottom,
-    WoodSlabTop,
-    GrassSlabBottom,
-    DirtSlabBottom,
-    Barrier,
-    Water,
+    Stone = 1,
+    Grass = 2,
+    Dirt = 3,
+    Sand = 4,
+    Wood = 5,
+    Barrier = 6,
+    Water = 7,
 }
 
 public static class VoxelTypeInfo
@@ -28,12 +22,6 @@ public static class VoxelTypeInfo
         { VoxelType.Dirt, new Color(1f, 1f, 1f) },
         { VoxelType.Sand, new Color(1f, 1f, 1f) },
         { VoxelType.Wood, new Color(1f, 1f, 1f) },
-        { VoxelType.StoneSlabBottom, new Color(1f, 1f, 1f) },
-        { VoxelType.StoneSlabTop, new Color(1f, 1f, 1f) },
-        { VoxelType.WoodSlabBottom, new Color(1f, 1f, 1f) },
-        { VoxelType.WoodSlabTop, new Color(1f, 1f, 1f) },
-        { VoxelType.GrassSlabBottom, new Color(1f, 1f, 1f) },
-        { VoxelType.DirtSlabBottom, new Color(1f, 1f, 1f) },
         { VoxelType.Water, new Color(0.6f, 0.85f, 1f) },
     };
 
@@ -71,12 +59,6 @@ public static class VoxelTypeInfo
         { VoxelType.Dirt, new(TILE_DIRT) },
         { VoxelType.Sand, new(TILE_SAND) },
         { VoxelType.Wood, new(TILE_WOOD_END, TILE_WOOD_SIDE, TILE_WOOD_END) },
-        { VoxelType.StoneSlabBottom, new(TILE_STONE) },
-        { VoxelType.StoneSlabTop, new(TILE_STONE) },
-        { VoxelType.WoodSlabBottom, new(TILE_WOOD_END, TILE_WOOD_SIDE, TILE_WOOD_END) },
-        { VoxelType.WoodSlabTop, new(TILE_WOOD_END, TILE_WOOD_SIDE, TILE_WOOD_END) },
-        { VoxelType.GrassSlabBottom, new(TILE_GRASS_TOP, TILE_GRASS_SIDE, TILE_DIRT) },
-        { VoxelType.DirtSlabBottom, new(TILE_DIRT) },
         { VoxelType.Water, new(TILE_WATER) },
     };
 
@@ -122,19 +104,4 @@ public static class VoxelTypeInfo
         return 0;
     }
 
-    public static bool IsSlab(VoxelType type)
-    {
-        return IsBottomSlab(type) || IsTopSlab(type);
-    }
-
-    public static bool IsBottomSlab(VoxelType type)
-    {
-        return type is VoxelType.StoneSlabBottom or VoxelType.WoodSlabBottom
-            or VoxelType.GrassSlabBottom or VoxelType.DirtSlabBottom;
-    }
-
-    public static bool IsTopSlab(VoxelType type)
-    {
-        return type is VoxelType.StoneSlabTop or VoxelType.WoodSlabTop;
-    }
 }

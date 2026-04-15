@@ -21,7 +21,7 @@ public partial class GuiMainMenu : Node
 
 	public void NewGameStandard()
 	{
-		EmitSignal(SignalName.OnNewGame, new Vector3(0,4,0), playerScene, playerSpawnData, worldGenData);
+		EmitSignal(SignalName.OnNewGame, new Vector3(0,24,0), playerScene, playerSpawnData, worldGenData);
 	}
 
 	public void LoadGame()

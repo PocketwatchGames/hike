@@ -2,6 +2,7 @@ shader_type spatial;
 render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
 
 global uniform float camera_clip;
+global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
 
 uniform sampler3D light_map : filter_linear;
 uniform vec3 light_map_origin;
@@ -68,16 +69,15 @@ void fragment() {
 		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
 	}
 
-	vec3 an = abs(world_normal);
-	vec2 tile_uv;
-	if (an.y > 0.5) {
-		tile_uv = vec2(world_vertex.x, world_vertex.z);
-	} else if (an.x > 0.5) {
-		tile_uv = vec2(world_vertex.z, -world_vertex.y);
-	} else {
-		tile_uv = vec2(world_vertex.x, -world_vertex.y);
-	}
-	vec4 tex_color = texture(tile_array, vec3(tile_uv, tile_index));
+	// Triplanar blend — DC vertices have arbitrary normals, so a dominant-axis
+	// pick produces visible seams. Sample the tile on all three planes and
+	// blend by |normal|^k.
+	vec3 blend = pow(abs(world_normal), vec3(4.0));
+	blend /= (blend.x + blend.y + blend.z + 1e-5);
+	vec4 tex_xy = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, tile_index));
+	vec4 tex_xz = texture(tile_array, vec3(world_vertex.x,  world_vertex.z, tile_index));
+	vec4 tex_yz = texture(tile_array, vec3(world_vertex.z, -world_vertex.y, tile_index));
+	vec4 tex_color = tex_xz * blend.y + tex_xy * blend.z + tex_yz * blend.x;
 
 	// Sample lightmap per-pixel so it interpolates smoothly across the face.
 	// Push 0.5 along the normal to land in the adjacent air voxel's center plane.
@@ -87,6 +87,9 @@ void fragment() {
 	float shaded_light = face_shade * light;
 
 	ALBEDO = tex_color.rgb * COLOR.rgb * shaded_light * shadow_tint;
+	if (dot(debug_solid, vec3(1.0)) > 0.001) {
+		ALBEDO = debug_solid;
+	}
 	if (world_vertex.y > camera_clip) {
 		discard;
 	}

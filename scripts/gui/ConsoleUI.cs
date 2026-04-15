@@ -171,7 +171,7 @@ public partial class ConsoleUI : CanvasLayer
 			_completionMatches = CVarRegistry.GetCompletions(_completionPrefix);
 			_completionIndex = 0;
 		}
-		else
+		else if (_completionMatches.Count > 0)
 		{
 			_completionIndex = (_completionIndex + 1) % _completionMatches.Count;
 		}

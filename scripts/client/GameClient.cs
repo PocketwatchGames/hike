@@ -33,6 +33,13 @@ public partial class GameClient : Node3D
 	InteractHUD _interactHUD;
 	Vector2 _subpixelTexelOffset;
 
+	const float FLYCAM_SPEED = 20f;
+	const float FLYCAM_BOOST = 5f;
+	const float FLYCAM_LOOK_SENSITIVITY = 0.005f;
+	float _flyYaw;
+	float _flyPitch;
+	bool _flyInitialized;
+
 	public int PixelScale => Math.Max(1, CVars.pixelScale.Value);
 
 	public Vector2 ProjectToScreen(Vector3 worldPos)
@@ -126,10 +133,51 @@ public partial class GameClient : Node3D
 		_world.Tick(deltaTime);
 		_player.ProcessInput(camera.Yaw);
 
-		camera.UpdateCamera(deltaTime, _player.GlobalPosition);
-		SnapCameraAndUpdateUpscale();
-		CullProps(camera.Clip);
+		if (CVars.debugFlyCam.Value)
+		{
+			UpdateFlyCamera(deltaTime);
+			CullProps(float.PositiveInfinity);
+		}
+		else
+		{
+			_flyInitialized = false;
+			camera.UpdateCamera(deltaTime, _player.GlobalPosition);
+			SnapCameraAndUpdateUpscale();
+			CullProps(camera.Clip);
+		}
 		UpdatePostProcess();
+	}
+
+	void UpdateFlyCamera(double deltaTime)
+	{
+		if (!_flyInitialized)
+		{
+			Vector3 rot = camera.GlobalRotation;
+			_flyPitch = rot.X;
+			_flyYaw = rot.Y;
+			camera.SetClip(float.PositiveInfinity, camera.GlobalPosition);
+			_flyInitialized = true;
+		}
+
+		float dt = (float)deltaTime;
+		Vector3 move = Vector3.Zero;
+		if (Input.IsPhysicalKeyPressed(Key.W)) { move.Z -= 1f; }
+		if (Input.IsPhysicalKeyPressed(Key.S)) { move.Z += 1f; }
+		if (Input.IsPhysicalKeyPressed(Key.A)) { move.X -= 1f; }
+		if (Input.IsPhysicalKeyPressed(Key.D)) { move.X += 1f; }
+		if (Input.IsPhysicalKeyPressed(Key.Space)) { move.Y += 1f; }
+		if (Input.IsPhysicalKeyPressed(Key.Ctrl)) { move.Y -= 1f; }
+
+		float speed = FLYCAM_SPEED;
+		if (Input.IsPhysicalKeyPressed(Key.Shift)) { speed *= FLYCAM_BOOST; }
+
+		camera.GlobalRotation = new Vector3(_flyPitch, _flyYaw, 0);
+		if (move.LengthSquared() > 0f)
+		{
+			Basis basis = camera.GlobalBasis;
+			Vector3 worldMove = (basis.X * move.X + basis.Z * move.Z) + Vector3.Up * move.Y;
+			camera.GlobalPosition += worldMove.Normalized() * speed * dt;
+		}
 	}
 
 	void UpdateViewportSize()
@@ -256,6 +304,13 @@ public partial class GameClient : Node3D
 
 		if (e is InputEventMouseMotion mouseMotion)
 		{
+			if (CVars.debugFlyCam.Value && Input.IsMouseButtonPressed(MouseButton.Right))
+			{
+				_flyYaw -= mouseMotion.Relative.X * FLYCAM_LOOK_SENSITIVITY;
+				_flyPitch -= mouseMotion.Relative.Y * FLYCAM_LOOK_SENSITIVITY;
+				_flyPitch = Mathf.Clamp(_flyPitch, -Mathf.Pi / 2f + 0.01f, Mathf.Pi / 2f - 0.01f);
+				return;
+			}
 			if (_player != null)
 			{
 				_mousePosition += mouseMotion.Relative;

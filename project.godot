@@ -170,6 +170,10 @@ camera_clip={
 "type": "float",
 "value": 1e+20
 }
+debug_solid={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
 sprite_chunky={
 "type": "float",
 "value": 0.0738
