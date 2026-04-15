@@ -4,12 +4,14 @@ render_mode blend_mix, depth_draw_never, cull_back, unshaded;
 global uniform float camera_clip;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
-uniform sampler3D light_map : filter_linear;
-uniform vec3 light_map_origin;
-uniform vec3 light_map_inv_size;
-uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.4;
+global uniform sampler3D light_map : filter_linear;
+global uniform vec3 light_map_origin;
+global uniform vec3 light_map_inv_size;
+global uniform float light_falloff_exp;
+uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.3;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
+uniform vec3 water_shallow_tint : source_color = vec3(0.35, 0.7, 0.7);
 uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
 
 const float MIN_AMBIENT = 0.0;
@@ -56,11 +58,11 @@ void fragment() {
 	// Water samples from itself: push 0.5 along -normal to land in the water voxel center.
 	vec3 light_sample_pos = world_vertex - world_normal * 0.5;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
-	float light = max(texture(light_map, uvw).r, MIN_AMBIENT);
+	float light = max(pow(texture(light_map, uvw).r, light_falloff_exp), MIN_AMBIENT);
 	float shaded_light = face_shade * light;
 
 	// Deeper water is darker and more opaque
-	vec3 color = mix(COLOR.rgb, water_deep_tint, depth_factor);
+	vec3 color = mix(water_shallow_tint, water_deep_tint, depth_factor);
 	ALBEDO = color * shaded_light;
 	ALPHA = mix(water_alpha_min, water_alpha_max, depth_factor);
 }

@@ -72,6 +72,14 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_solid", v);
     });
 
+    // Power applied to the lightmap value in voxel/sprite/water shaders.
+    // 1.0 = linear (raw BFS value), >1 darkens the mid-range so dim sunlight
+    // bleed reads as proper darkness while bright areas stay bright.
+    public static CVarFloat lightFalloffExp = new CVarFloat("light_falloff_exp", 2f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
+    });
+
     // When set to "x y z", the ChunkMesh only builds that single chunk (others
     // produce no geometry). Useful for isolating a chunk when debugging DC.
     // Empty string = all chunks build normally.
@@ -91,6 +99,76 @@ public static class CVars
         {
             ChunkMesh.OnlyChunkFilter = new Godot.Vector3I(x, y, z);
         }
+    });
+
+    // Prints the voxel + light state at the player's current voxel and the
+    // 5 voxels above it. Use to verify whether a "dark" cave actually has 0
+    // sunlight (or is being lit by lateral BFS through some opening).
+    public static CVar lightProbe = new CVar("light_probe", (cvar) =>
+    {
+        if (World.Current == null || World.Current.player == null)
+        {
+            Godot.GD.Print("light_probe: no active world / player.");
+            return;
+        }
+        Godot.Vector3 p = World.Current.player.GlobalPosition;
+        int px = Godot.Mathf.FloorToInt(p.X);
+        int py = Godot.Mathf.FloorToInt(p.Y);
+        int pz = Godot.Mathf.FloorToInt(p.Z);
+        WorldState ws = World.Current.WorldState;
+        Godot.GD.Print($"light_probe at ({px},{py},{pz}):");
+        for (int dy = 0; dy <= 5; dy++)
+        {
+            int wy = py + dy;
+            VoxelType v = ws.GetVoxelWorld(px, wy, pz);
+            int sun = ws.GetSunlightWorld(px, wy, pz);
+            int blk = ws.GetBlockLightWorld(px, wy, pz);
+            Godot.GD.Print($"  y={wy}: voxel={v} sun={sun} block={blk}");
+        }
+    });
+
+    // Scans a 30x30 area around the player at the player's voxel-Y and prints
+    // any column where the air voxel directly above the player's Y is sunlit
+    // (sun > 0). Use to locate the opening that's leaking sunlight into a
+    // supposedly-sealed cave.
+    public static CVar lightLeak = new CVar("light_leak", (cvar) =>
+    {
+        if (World.Current == null || World.Current.player == null)
+        {
+            Godot.GD.Print("light_leak: no active world / player.");
+            return;
+        }
+        Godot.Vector3 p = World.Current.player.GlobalPosition;
+        int px = Godot.Mathf.FloorToInt(p.X);
+        int py = Godot.Mathf.FloorToInt(p.Y);
+        int pz = Godot.Mathf.FloorToInt(p.Z);
+        WorldState ws = World.Current.WorldState;
+        const int RADIUS = 15;
+        int playerSun = ws.GetSunlightWorld(px, py, pz);
+        Godot.GD.Print($"light_leak around ({px},{py},{pz}) playerSun={playerSun}: scanning air at y={py} with sun > player.sun, sorted by distance");
+        var hits = new System.Collections.Generic.List<(int dist, int wx, int wz, int sun)>();
+        for (int dx = -RADIUS; dx <= RADIUS; dx++)
+        {
+            for (int dz = -RADIUS; dz <= RADIUS; dz++)
+            {
+                int wx = px + dx, wz = pz + dz;
+                VoxelType v = ws.GetVoxelWorld(wx, py, wz);
+                if (v != VoxelType.Air) { continue; }
+                int sun = ws.GetSunlightWorld(wx, py, wz);
+                if (sun > playerSun)
+                {
+                    hits.Add((System.Math.Abs(dx) + System.Math.Abs(dz), wx, wz, sun));
+                }
+            }
+        }
+        hits.Sort((a, b) => a.dist.CompareTo(b.dist));
+        int show = System.Math.Min(20, hits.Count);
+        for (int i = 0; i < show; i++)
+        {
+            var h = hits[i];
+            Godot.GD.Print($"  dist={h.dist} ({h.wx},{py},{h.wz}) sun={h.sun}");
+        }
+        if (hits.Count == 0) { Godot.GD.Print("  no brighter air found in radius."); }
     });
 
     // Prints the player's current world position and chunk coord.

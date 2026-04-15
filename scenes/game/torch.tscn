@@ -1,32 +1,15 @@
-[gd_scene format=3 uid="uid://dnbg3pwmomno5"]
+[gd_scene load_steps=8 format=3 uid="uid://dnbg3pwmomno5"]
 
 [ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/Torch.cs" id="1_torch"]
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/torch_01_lit.png" id="2_ty0ga"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="4_light"]
-[ext_resource type="Shader" uid="uid://5d0r50dxiaiy" path="res://shaders/sprite_lit.gdshader" id="5_shader"]
-[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="6_interactivebox"]
+[ext_resource type="Script" path="res://scripts/gameplay/LitSprite.cs" id="5_litsprite"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="6_spritemat"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="7_interactivebox"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(0.5, 1, 0.5)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_lit"]
-render_priority = 0
-shader = ExtResource("5_shader")
-shader_parameter/sprite_texture = ExtResource("2_ty0ga")
-shader_parameter/light_map_origin = Vector3(0, 0, 0)
-shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
-shader_parameter/sprite_offset = Vector2(-2, 0)
-shader_parameter/sprite_size = Vector2i(4, 13)
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_unlit"]
-render_priority = 0
-shader = ExtResource("5_shader")
-shader_parameter/sprite_texture = ExtResource("3_m4hkm")
-shader_parameter/light_map_origin = Vector3(0, 0, 0)
-shader_parameter/light_map_inv_size = Vector3(0, 0, 0)
-shader_parameter/sprite_offset = Vector2(-2, 0)
-shader_parameter/sprite_size = Vector2i(4, 13)
 
 [node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light", "_hudNode")]
 script = ExtResource("1_torch")
@@ -40,7 +23,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 collision_layer = 4
 collision_mask = 0
 monitoring = false
-script = ExtResource("6_interactivebox")
+script = ExtResource("7_interactivebox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1949507899]
@@ -48,19 +31,17 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
 [node name="LitSprite" type="Sprite3D" parent="." unique_id=222554796]
-material_override = SubResource("ShaderMaterial_lit")
-centered = false
-offset = Vector2(-2, 0)
-pixel_size = 1.0
 texture = ExtResource("2_ty0ga")
+script = ExtResource("5_litsprite")
+SpriteSize = Vector2i(4, 13)
+MaterialTemplate = ExtResource("6_spritemat")
 
 [node name="UnlitSprite" type="Sprite3D" parent="." unique_id=579226933]
 visible = false
-material_override = SubResource("ShaderMaterial_unlit")
-centered = false
-offset = Vector2(-2, 0)
-pixel_size = 1.0
 texture = ExtResource("3_m4hkm")
+script = ExtResource("5_litsprite")
+SpriteSize = Vector2i(4, 13)
+MaterialTemplate = ExtResource("6_spritemat")
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661 node_paths=PackedStringArray("_light")]
 script = ExtResource("4_light")

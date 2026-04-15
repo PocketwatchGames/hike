@@ -19,9 +19,10 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, ambient_light_disabled,
 // exact integer source pixel — no UV interpolation drift.
 
 uniform sampler2D sprite_texture : source_color, filter_nearest;
-uniform sampler3D light_map : filter_linear;
-uniform vec3 light_map_origin;
-uniform vec3 light_map_inv_size;
+global uniform sampler3D light_map : filter_linear;
+global uniform vec3 light_map_origin;
+global uniform vec3 light_map_inv_size;
+global uniform float light_falloff_exp;
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
 uniform sampler2D shadow_map : filter_linear;
@@ -79,7 +80,7 @@ void fragment() {
 	}
 
 	vec3 uvw = (world_origin - light_map_origin) * light_map_inv_size;
-	float light = textureLod(light_map, uvw, 0.0).r;
+	float light = pow(textureLod(light_map, uvw, 0.0).r, light_falloff_exp);
 
 	// Shadow map is sampled using the flat per-vertex world_origin (the sprite
 	// anchor), not a per-pixel reconstructed world position. The shadow

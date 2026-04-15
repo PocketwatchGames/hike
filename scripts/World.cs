@@ -195,16 +195,6 @@ public partial class World : Node3D
         _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);
     }
 
-    public void SetLightMapUniforms(Node3D node)
-    {
-        _chunkManager.SetLightMapUniforms(node);
-    }
-
-    public void SetLightMapUniforms(ShaderMaterial mat)
-    {
-        _chunkManager.SetLightMapUniforms(mat);
-    }
-
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)
     {
         return new Vector3I(

@@ -11,6 +11,15 @@ public enum VoxelType : byte
     Wood = 5,
     Barrier = 6,
     Water = 7,
+    // "Auto" terrain: shader picks tile from surface slope (grass/dirt/stone)
+    // and the mesher overrides to sand near water. Use this for natural land
+    // instead of Grass/Dirt/Stone/Sand, which are kept as authored overrides.
+    Terrain = 8,
+    // "Auto" terrain variant for path bands. Same water→sand override, but
+    // shader never picks grass: any slope reads as dirt; only steep cliffs
+    // become stone. Used for the smooth slopes WorldGen carves between
+    // quantized plateaus.
+    TerrainPath = 9,
 }
 
 public static class VoxelTypeInfo
@@ -23,6 +32,8 @@ public static class VoxelTypeInfo
         { VoxelType.Sand, new Color(1f, 1f, 1f) },
         { VoxelType.Wood, new Color(1f, 1f, 1f) },
         { VoxelType.Water, new Color(0.6f, 0.85f, 1f) },
+        { VoxelType.Terrain, new Color(1f, 1f, 1f) },
+        { VoxelType.TerrainPath, new Color(1f, 1f, 1f) },
     };
 
     // Texture array layer indices. Must match the layer order in
@@ -35,6 +46,12 @@ public static class VoxelTypeInfo
     public const int TILE_WOOD_END = 5;
     public const int TILE_WOOD_SIDE = 6;
     public const int TILE_WATER = 7;
+    // Sentinel id passed through CUSTOM0 to the shader. The shader detects
+    // values >= TILE_AUTO_THRESHOLD and picks the real tile by surface slope.
+    public const int TILE_AUTO = 255;
+    // Path-band sentinel: same idea but shader uses tighter slope rules
+    // (never grass; dirt by default; stone only on steep faces).
+    public const int TILE_AUTO_PATH = 254;
 
     public readonly struct TileFaces
     {
@@ -60,7 +77,31 @@ public static class VoxelTypeInfo
         { VoxelType.Sand, new(TILE_SAND) },
         { VoxelType.Wood, new(TILE_WOOD_END, TILE_WOOD_SIDE, TILE_WOOD_END) },
         { VoxelType.Water, new(TILE_WATER) },
+        { VoxelType.Terrain, new(TILE_AUTO) },
+        { VoxelType.TerrainPath, new(TILE_AUTO_PATH) },
     };
+
+    // Per-voxel-type "noisiness" of texture-tile borders. 0 = crisp boundary
+    // along the triangle bisector (good for man-made walls). Higher = more
+    // jagged/irregular border between this tile and a neighbouring tile (good
+    // for organic terrain). Sampled per-vertex and interpolated, then used in
+    // voxel_clip.gdshader to perturb the barycentric argmax with 3D noise.
+    public static readonly Dictionary<VoxelType, float> BlendNoise = new()
+    {
+        { VoxelType.Stone, 0.0f },
+        { VoxelType.Grass, 0.55f },
+        { VoxelType.Dirt,  0.55f },
+        { VoxelType.Sand,  0.55f },
+        { VoxelType.Wood,  0.0f },
+        { VoxelType.Water, 0.0f },
+        { VoxelType.Terrain, 0.55f },
+        { VoxelType.TerrainPath, 0.55f },
+    };
+
+    public static float GetBlendNoise(VoxelType type)
+    {
+        return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
+    }
 
     public static int GetTileForFace(VoxelType type, int faceIndex)
     {

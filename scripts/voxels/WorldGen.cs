@@ -22,6 +22,12 @@ public static class WorldGen
         ( 0,  1, new[] { STAIR_FULL, STAIR_FULL, STAIR_FULL, STAIR_FULL }),
     };
 
+    // World y at and below this level is filled with water wherever terrain
+    // doesn't reach up to it. Terrain perlin noise is allowed to dip below
+    // this value, producing natural lakes and oceans. Set to -1 so the
+    // baseline land surface (y = 0) sits one voxel above the water table.
+    public const int WATER_LEVEL = -4;
+
     public static WorldState Generate(WorldGenData genData)
     {
         var min = new Vector3I(-genData.SizeX / 2, -1, -genData.SizeZ / 2);
@@ -37,7 +43,7 @@ public static class WorldGen
         var caveNoise = new FastNoiseLite();
         caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         caveNoise.Seed = genData.CaveNoiseSeed;
-        caveNoise.Frequency = 0.05f;
+        caveNoise.Frequency = 0.025f;
         caveNoise.FractalOctaves = 2;
 
         var grassNoise = new FastNoiseLite();
@@ -45,6 +51,24 @@ public static class WorldGen
         grassNoise.Seed = genData.GrassNoiseSeed;
         grassNoise.Frequency = 0.1f;
         grassNoise.FractalOctaves = 2;
+
+        var pathNoise = new FastNoiseLite();
+        pathNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        pathNoise.Seed = genData.PathNoiseSeed;
+        pathNoise.Frequency = 0.05f;
+        pathNoise.FractalOctaves = 2;
+
+        var riverNoise = new FastNoiseLite();
+        riverNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        riverNoise.Seed = genData.RiverNoiseSeed;
+        riverNoise.Frequency = 0.015f;
+        riverNoise.FractalOctaves = 2;
+
+        var forestNoise = new FastNoiseLite();
+        forestNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        forestNoise.Seed = genData.ForestNoiseSeed;
+        forestNoise.Frequency = genData.ForestNoiseFrequency;
+        forestNoise.FractalOctaves = 2;
 
         int spawnFlatMinX = genData.SpawnBuildingOriginX - genData.SpawnFlatPadding;
         int spawnFlatMaxX = genData.SpawnBuildingOriginX + genData.SpawnBuildingWidth - 1 + genData.SpawnFlatPadding;
@@ -59,7 +83,7 @@ public static class WorldGen
                 {
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
-                    GenerateChunk(chunk, genData, terrainNoise, caveNoise,
+                    GenerateChunk(chunk, genData, terrainNoise, caveNoise, pathNoise, riverNoise,
                         spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
                     ws._chunks[coord] = chunk;
                 }
@@ -76,7 +100,8 @@ public static class WorldGen
             for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
             {
                 var coord = new Vector3I(x, 0, z);
-                GenerateProps(ws, coord, genData, grassNoise, blockLightSources);
+                GenerateProps(ws, coord, genData, terrainNoise, caveNoise, grassNoise, pathNoise, riverNoise, forestNoise, blockLightSources,
+                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
             }
         }
 
@@ -86,8 +111,103 @@ public static class WorldGen
         return ws;
     }
 
+    // Shared with GenerateProps so the prop "is this a flat grassy spot?"
+    // check evaluates the same noise field as terrain generation.
+    private static float RawHeightAt(int wx, int wz, FastNoiseLite terrainNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
+        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+    {
+        bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
+            && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
+        if (flat)
+        {
+            return 0f;
+        }
+        float raw = genData.ElevationMultiplier * terrainNoise.GetNoise2D(wx, wz);
+        // Quantize to plateau steps; smoothly fall back to the raw height in
+        // path bands (where |pathNoise| > PathThreshold) so paths form ramps
+        // between plateaus instead of sharp cliffs. Below water level we keep
+        // the raw (smooth) height so basin floors aren't terraced under water.
+        float step = Math.Max(0.0001f, genData.PlateauStep);
+        float plateau = Mathf.Round(raw / step) * step;
+        float pathiness = Math.Abs(pathNoise.GetNoise2D(wx, wz));
+        float t = 1f - Mathf.SmoothStep(genData.PathThreshold, genData.PathThreshold + genData.PathBlendBand, pathiness);
+        float h = Mathf.Lerp(plateau, raw, t);
+        if (h < WATER_LEVEL)
+        {
+            h = raw;
+        }
+
+        // River carving: in river bands, lower terrain that sits close to the
+        // water level down below it. Influence falls off the higher the
+        // surrounding terrain rises, so rivers don't gouge into mountains.
+        float riverness = Math.Abs(riverNoise.GetNoise2D(wx, wz));
+        float rt = 1f - Mathf.SmoothStep(genData.RiverThreshold, genData.RiverThreshold + genData.RiverBlendBand, riverness);
+        if (rt > 0f)
+        {
+            float aboveWater = Math.Max(0f, h - WATER_LEVEL);
+            float proximity = 1f - Mathf.Clamp(aboveWater / Math.Max(0.0001f, genData.RiverInfluenceMaxHeight), 0f, 1f);
+            h = Mathf.Lerp(h, WATER_LEVEL - genData.RiverDepth, rt * proximity);
+        }
+
+        return h;
+    }
+
+    // True iff (wx, wz) is a flat, dry land column with its surface at world
+    // y=0. Used by GenerateProps to decide where trees/grass/loot/mobs go now
+    // that the surface voxel type is uniformly Terrain (the visual look comes
+    // from the shader's slope rule, so prop placement has to recompute slope
+    // from the source noise).
+    private static bool IsFlatDryGrassAt(int wx, int wz,
+        FastNoiseLite terrainNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
+        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+    {
+        // tan(10°) ≈ 0.176 — flatter than this is "grassy".
+        const float DIRT_SLOPE_MIN = 0.176f;
+
+        float h = RawHeightAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+        int solidHeight = (int)Math.Round(h);
+        // Grass only on the lowest dry plateau (surface at y=0). Underwater,
+        // shore, and elevated plateaus stay free of grass/trees/mobs/loot.
+        if (solidHeight != 0)
+        {
+            return false;
+        }
+        float dxF = Math.Abs(
+            RawHeightAt(wx + 1, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
+            - RawHeightAt(wx - 1, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
+        ) * 0.5f;
+        float dzF = Math.Abs(
+            RawHeightAt(wx, wz + 1, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
+            - RawHeightAt(wx, wz - 1, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
+        ) * 0.5f;
+        return Math.Max(dxF, dzF) <= DIRT_SLOPE_MIN;
+    }
+
+    // Plateau-step caves: the top CaveLayerHeight voxels of every plateau
+    // step (the band immediately under each plateau ceiling) are cave
+    // candidates, gated by 3D cave noise. This produces tiered cave systems
+    // whose ceilings line up with plateau elevations and whose openings show
+    // up in cliff faces between adjacent plateau levels.
+    private static bool IsCaveAt(int wx, int wy, int wz, FastNoiseLite caveNoise, WorldGenData genData)
+    {
+        if (wy <= WATER_LEVEL)
+        {
+            return false;
+        }
+        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int rem = ((wy % step) + step) % step;
+        // rem == 0 is the plateau-ceiling row (a solid surface column would
+        // expose its surface here); rem in [step - CaveLayerHeight, step - 1]
+        // is the band immediately below that ceiling.
+        if (rem < step - genData.CaveLayerHeight)
+        {
+            return false;
+        }
+        return Mathf.Abs(caveNoise.GetNoise3D(wx, wy, wz)) < genData.CaveThreshold;
+    }
+
     private static void GenerateChunk(ChunkState data, WorldGenData genData,
-        FastNoiseLite terrainNoise, FastNoiseLite caveNoise,
+        FastNoiseLite terrainNoise, FastNoiseLite caveNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise,
         int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
@@ -101,94 +221,109 @@ public static class WorldGen
                 int wx = chunkWorldX + x;
                 int wz = chunkWorldZ + z;
 
-                float noiseVal = terrainNoise.GetNoise2D(wx, wz);
-                bool isSpawnFlat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
-                    && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
-                float rawHeight = isSpawnFlat ? 0f : Math.Max(0f, genData.ElevationMultiplier * noiseVal);
+                float rawHeight = RawHeightAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
+                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
                 int solidHeight = (int)Math.Round(rawHeight);
 
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
 
-                    if (wy > solidHeight)
+                    // Caves carve interior voxels only — never the surface
+                    // voxel (wy == solidHeight) so the ground stays intact.
+                    bool solid = wy <= solidHeight && !(wy < solidHeight && IsCaveAt(wx, wy, wz, caveNoise, genData));
+
+                    if (!solid)
                     {
+                        if (wy <= WATER_LEVEL)
+                        {
+                            data.Voxels[x, y, z] = VoxelType.Water;
+                        }
                         continue;
                     }
 
-                    // Cave carving
-                    if (wy > 0)
+                    // Top of underwater/shore terrain becomes sand.
+                    if (wy == solidHeight && solidHeight <= WATER_LEVEL)
                     {
-                        float caveVal = caveNoise.GetNoise3D(wx, wy, wz);
-                        if (caveVal > genData.CaveThreshold)
-                        {
-                            continue;
-                        }
-                    }
-
-                    // Determine material by depth from surface
-                    VoxelType fullType;
-                    if (wy == solidHeight)
-                    {
-                        fullType = VoxelType.Grass;
-                    }
-                    else if (wy >= solidHeight - genData.DirtDepth)
-                    {
-                        fullType = VoxelType.Dirt;
+                        data.Voxels[x, y, z] = VoxelType.Sand;
                     }
                     else
                     {
-                        fullType = VoxelType.Stone;
+                        data.Voxels[x, y, z] = VoxelType.Terrain;
                     }
-
-                    // Check if this voxel should be water instead of solid.
-                    // Water only appears at or below ground level (wy <= 0) so the
-                    // surface stays mostly planar like a water table.
-                    float waterVal = caveNoise.GetNoise3D(wx, wy, wz);
-                    bool isWater = wy <= 0 && Math.Abs(waterVal) < genData.WaterThreshold;
-                    isWater = false;
-                    data.Voxels[x, y, z] = isWater ? VoxelType.Water : fullType;
                 }
             }
         }
     }
 
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
-        FastNoiseLite grassNoise, List<(Vector3 position, int level)> blockLightSources)
+        FastNoiseLite terrainNoise, FastNoiseLite caveNoise,
+        FastNoiseLite grassNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, FastNoiseLite forestNoise,
+        List<(Vector3 position, int level)> blockLightSources,
+        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
+        bool IsGrassyAt(int wx, int wz) => IsFlatDryGrassAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
+            spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
         ChunkState data = ws._chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
         int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
 
-        for (int i = 0; i < treeCount; i++)
-        {
-            int localX = rng.Next(1, ChunkState.SIZE - 1);
-            int localZ = rng.Next(1, ChunkState.SIZE - 1);
+        var treedCells = new HashSet<(int, int)>();
 
-            // Only place on grass with clear air above (up through max building height)
-            if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+        bool TryPlaceTree(int localX, int localZ)
+        {
+            if (treedCells.Contains((localX, localZ)))
             {
-                continue;
+                return false;
             }
-            bool blocked = false;
+            int wx = chunkCoord.X * ChunkState.SIZE + localX;
+            int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+            if (!IsGrassyAt(wx, wz))
+            {
+                return false;
+            }
             for (int y = 1; y <= genData.BuildingHeight; y++)
             {
                 if (data.GetVoxel(localX, y, localZ) != VoxelType.Air)
                 {
-                    blocked = true;
-                    break;
+                    return false;
                 }
             }
-            if (blocked)
+            ws.AddEntity(new PropSimState(PropType.Tree,
+                new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                genData.TreeScene));
+            treedCells.Add((localX, localZ));
+            return true;
+        }
+
+        for (int i = 0; i < treeCount; i++)
+        {
+            TryPlaceTree(rng.Next(1, ChunkState.SIZE - 1), rng.Next(1, ChunkState.SIZE - 1));
+        }
+
+        // Forest pockets: where forest noise is high, attempt a tree at every
+        // grid cell with density that ramps up from the threshold. Sampling
+        // per cell (not per chunk) means forest edges fade naturally instead
+        // of snapping on chunk seams.
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
             {
-                continue;
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                float f = forestNoise.GetNoise2D(wx, wz);
+                if (f < genData.ForestThreshold)
+                {
+                    continue;
+                }
+                float t = (f - genData.ForestThreshold) / Math.Max(0.0001f, 1f - genData.ForestThreshold);
+                float density = genData.ForestDensity * Mathf.Clamp(t, 0f, 1f);
+                if (rng.NextDouble() >= density)
+                {
+                    continue;
+                }
+                TryPlaceTree(localX, localZ);
             }
-
-            float worldX = chunkCoord.X * ChunkState.SIZE + localX + 0.5f;
-            float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
-            float worldZ = chunkCoord.Z * ChunkState.SIZE + localZ + 0.5f;
-
-            ws.AddEntity(new PropSimState(PropType.Tree, new Vector3(worldX, worldY, worldZ), genData.TreeScene));
         }
 
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
@@ -202,7 +337,7 @@ public static class WorldGen
                 {
                     continue;
                 }
-                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                if (!IsGrassyAt(chunkCoord.X * ChunkState.SIZE + localX, chunkCoord.Z * ChunkState.SIZE + localZ))
                 {
                     continue;
                 }
@@ -220,7 +355,7 @@ public static class WorldGen
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
             {
-                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                if (!IsGrassyAt(chunkCoord.X * ChunkState.SIZE + localX, chunkCoord.Z * ChunkState.SIZE + localZ))
                 {
                     continue;
                 }
@@ -255,7 +390,7 @@ public static class WorldGen
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
             {
-                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                if (!IsGrassyAt(chunkCoord.X * ChunkState.SIZE + localX, chunkCoord.Z * ChunkState.SIZE + localZ))
                 {
                     continue;
                 }
@@ -284,7 +419,7 @@ public static class WorldGen
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
             {
-                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                if (!IsGrassyAt(chunkCoord.X * ChunkState.SIZE + localX, chunkCoord.Z * ChunkState.SIZE + localZ))
                 {
                     continue;
                 }
@@ -312,7 +447,7 @@ public static class WorldGen
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
             {
-                if (data.Voxels[localX, 0, localZ] != VoxelType.Grass)
+                if (!IsGrassyAt(chunkCoord.X * ChunkState.SIZE + localX, chunkCoord.Z * ChunkState.SIZE + localZ))
                 {
                     continue;
                 }
@@ -403,11 +538,11 @@ public static class WorldGen
 
     private static void GenerateStructures(WorldState ws, WorldGenData genData)
     {
-        // var rng = new Random(HashCode.Combine(genData.SizeX, genData.SizeZ, 42));
+        var rng = new Random(HashCode.Combine(genData.SizeX, genData.SizeZ, 42));
 
-        // // Fixed building just north of spawn (player spawns at 0,4,0)
-        // GenerateHouse(ws, rng, genData, genData.SpawnBuildingOriginX, genData.SpawnBuildingOriginZ,
-        //     genData.SpawnBuildingWidth, genData.SpawnBuildingDepth, 3);
+        // Fixed building just north of spawn (player spawns at 0,4,0)
+        GenerateHouse(ws, rng, genData, genData.SpawnBuildingOriginX, genData.SpawnBuildingOriginZ,
+            genData.SpawnBuildingWidth, genData.SpawnBuildingDepth, 3);
     }
 
     private static void GenerateHouse(WorldState ws, Random rng, WorldGenData genData, int originX, int originZ, int widthX, int widthZ, int numFloors)

@@ -25,6 +25,21 @@ public partial class SkyController : Node3D
     [Export] public float fillPitchDegrees = 35f;
     [Export] public float fillYawOffsetDegrees = 135f;
 
+    public override void _Ready()
+    {
+        ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
+        ShaderGlobals.Register("fill_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+        ShaderGlobals.Register("sun_tint_color", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("fill_tint_color", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(sunColor));
+        ShaderGlobals.Register("horizon_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(horizonColor));
+        ShaderGlobals.Register("zenith_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(zenithColor));
+        ShaderGlobals.Register("cloud_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(cloudColor));
+        ShaderGlobals.Register("cloud_scroll", RenderingServer.GlobalShaderParameterType.Vec2, cloudScroll);
+        ShaderGlobals.Register("cloud_scale", RenderingServer.GlobalShaderParameterType.Float, cloudScale);
+        ShaderGlobals.Register("cloud_coverage", RenderingServer.GlobalShaderParameterType.Float, cloudCoverage);
+    }
+
     public override void _Process(double delta)
     {
         Vector3 sunDir = World.Current?.WorldState?.ShadowLightDirection ?? new Vector3(-0.215f, -0.819f, -0.532f);

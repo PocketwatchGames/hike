@@ -51,6 +51,7 @@ public static class ChunkMesherDC
     public static void Build(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
+        Func<int, int, int, bool> chunkExists,
         SurfaceTool st,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
         out bool hasAnyFace)
@@ -75,6 +76,7 @@ public static class ChunkMesherDC
 
         var cellVert = new Vector3[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellAmp = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellHas = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
 
         for (int x = CELL_LO; x <= CELL_HI; x++)
@@ -133,22 +135,25 @@ public static class ChunkMesherDC
 
                     cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = vertLocal;
                     cellHas[CellIdx(x), CellIdx(y), CellIdx(z)] = true;
-                    cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = PickTileForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp);
+                    cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
+                    cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
                     activeCells++;
                 }
             }
         }
 
-        // Emit quads for edges owned by this chunk: edges whose "lower" corner
-        // is at a local coord in [0, N-1] along the edge's axis. Neighbour chunks
-        // own the edges at their own [0, N-1]; each edge is emitted exactly once.
+        // Emit quads for edges owned by this chunk: all three corner indices of
+        // the edge's lower endpoint must lie in [0, N-1]. Edges on a +X/+Y/+Z
+        // chunk face are owned by the neighbour (they appear there at index 0
+        // along that axis), so each shared edge is emitted exactly once.
         for (int cx = 0; cx <= N; cx++)
         {
             for (int cy = 0; cy <= N; cy++)
             {
                 for (int cz = 0; cz <= N; cz++)
                 {
-                    if (cx < N && EmitX)
+                    if (cx < N && cy < N && cz < N && EmitX)
                     {
                         sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
                         sbyte b = density[CornerIdx(cx + 1), CornerIdx(cy), CornerIdx(cz)];
@@ -157,7 +162,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile,
+                                cellHas, cellVert, cellTile, cellAmp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -169,7 +174,7 @@ public static class ChunkMesherDC
                                 ref quadsSkipped);
                         }
                     }
-                    if (cy < N && EmitY)
+                    if (cy < N && cx < N && cz < N && EmitY)
                     {
                         sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
                         sbyte b = density[CornerIdx(cx), CornerIdx(cy + 1), CornerIdx(cz)];
@@ -181,7 +186,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile,
+                                cellHas, cellVert, cellTile, cellAmp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -193,7 +198,7 @@ public static class ChunkMesherDC
                                 ref quadsSkipped);
                         }
                     }
-                    if (cz < N && EmitZ)
+                    if (cz < N && cx < N && cy < N && EmitZ)
                     {
                         sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
                         sbyte b = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz + 1)];
@@ -202,7 +207,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile,
+                                cellHas, cellVert, cellTile, cellAmp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -213,6 +218,102 @@ public static class ChunkMesherDC
                                 ref quadsEmitted,
                                 ref quadsSkipped);
                         }
+                    }
+                }
+            }
+        }
+
+        // World-boundary apron emission: at the -X / -Y / -Z faces of a chunk
+        // that has no neighbour on that side, the sign-change edge between
+        // corner -1 and 0 would normally be owned by the (nonexistent) chunk
+        // below/behind/left of us. Emit it here so the world is closed and
+        // backfaces exist for the ceiling-clip shader to terminate against.
+        bool noNegX = !chunkExists(chunkWorldX - 1, chunkWorldY, chunkWorldZ);
+        bool noNegY = !chunkExists(chunkWorldX, chunkWorldY - 1, chunkWorldZ);
+        bool noNegZ = !chunkExists(chunkWorldX, chunkWorldY, chunkWorldZ - 1);
+
+        if (noNegX && EmitX)
+        {
+            int cx = -1;
+            for (int cy = 0; cy < N; cy++)
+            {
+                for (int cz = 0; cz < N; cz++)
+                {
+                    sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
+                    sbyte b = density[CornerIdx(cx + 1), CornerIdx(cy), CornerIdx(cz)];
+                    if ((a < 0) != (b < 0))
+                    {
+                        s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
+                        EmitQuad(
+                            st,
+                            cellHas, cellVert, cellTile, cellAmp,
+                            chunkWorldX, chunkWorldY, chunkWorldZ,
+                            cx, cy - 1, cz - 1,
+                            cx, cy,     cz - 1,
+                            cx, cy,     cz,
+                            cx, cy - 1, cz,
+                            flip: a < 0,
+                            ref hasAnyFace,
+                            ref quadsEmitted,
+                            ref quadsSkipped);
+                    }
+                }
+            }
+        }
+
+        if (noNegY && EmitY)
+        {
+            int cy = -1;
+            for (int cx = 0; cx < N; cx++)
+            {
+                for (int cz = 0; cz < N; cz++)
+                {
+                    sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
+                    sbyte b = density[CornerIdx(cx), CornerIdx(cy + 1), CornerIdx(cz)];
+                    if ((a < 0) != (b < 0))
+                    {
+                        s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
+                        EmitQuad(
+                            st,
+                            cellHas, cellVert, cellTile, cellAmp,
+                            chunkWorldX, chunkWorldY, chunkWorldZ,
+                            cx - 1, cy, cz - 1,
+                            cx - 1, cy, cz,
+                            cx,     cy, cz,
+                            cx,     cy, cz - 1,
+                            flip: a < 0,
+                            ref hasAnyFace,
+                            ref quadsEmitted,
+                            ref quadsSkipped);
+                    }
+                }
+            }
+        }
+
+        if (noNegZ && EmitZ)
+        {
+            int cz = -1;
+            for (int cx = 0; cx < N; cx++)
+            {
+                for (int cy = 0; cy < N; cy++)
+                {
+                    sbyte a = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)];
+                    sbyte b = density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz + 1)];
+                    if ((a < 0) != (b < 0))
+                    {
+                        s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
+                        EmitQuad(
+                            st,
+                            cellHas, cellVert, cellTile, cellAmp,
+                            chunkWorldX, chunkWorldY, chunkWorldZ,
+                            cx - 1, cy - 1, cz,
+                            cx,     cy - 1, cz,
+                            cx,     cy,     cz,
+                            cx - 1, cy,     cz,
+                            flip: a < 0,
+                            ref hasAnyFace,
+                            ref quadsEmitted,
+                            ref quadsSkipped);
                     }
                 }
             }
@@ -231,7 +332,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile,
+        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile, float[,,] cellAmp,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -260,25 +361,25 @@ public static class ChunkMesherDC
         Vector3 v2 = cellVert[i2x, i2y, i2z] + new Vector3(x2, y2, z2);
         Vector3 v3 = cellVert[i3x, i3y, i3z] + new Vector3(x3, y3, z3);
 
-        Vector3 w0 = v0 + new Vector3(cwX, cwY, cwZ);
-        Vector3 w1 = v1 + new Vector3(cwX, cwY, cwZ);
-        Vector3 w2 = v2 + new Vector3(cwX, cwY, cwZ);
-        Vector3 w3 = v3 + new Vector3(cwX, cwY, cwZ);
-
         int t0 = cellTile[i0x, i0y, i0z];
         int t1 = cellTile[i1x, i1y, i1z];
         int t2 = cellTile[i2x, i2y, i2z];
         int t3 = cellTile[i3x, i3y, i3z];
 
+        float a0 = cellAmp[i0x, i0y, i0z];
+        float a1 = cellAmp[i1x, i1y, i1z];
+        float a2 = cellAmp[i2x, i2y, i2z];
+        float a3 = cellAmp[i3x, i3y, i3z];
+
         if (flip)
         {
-            AddTri(st, v0, v2, v1, w0, w2, w1, t0, t2, t1);
-            AddTri(st, v0, v3, v2, w0, w3, w2, t0, t3, t2);
+            AddTri(st, v0, v2, v1, t0, t2, t1, a0, a2, a1);
+            AddTri(st, v0, v3, v2, t0, t3, t2, a0, a3, a2);
         }
         else
         {
-            AddTri(st, v0, v1, v2, w0, w1, w2, t0, t1, t2);
-            AddTri(st, v0, v2, v3, w0, w2, w3, t0, t2, t3);
+            AddTri(st, v0, v1, v2, t0, t1, t2, a0, a1, a2);
+            AddTri(st, v0, v2, v3, t0, t2, t3, a0, a2, a3);
         }
 
         if (DebugLog)
@@ -304,23 +405,32 @@ public static class ChunkMesherDC
         hasAnyFace = true;
     }
 
+    // Encodes per-triangle texture-blend data:
+    //  - CUSTOM0 = (tile_a, tile_b, tile_c, amp_self): first three are constant
+    //    across the triangle so any fragment can index all three corners' tiles;
+    //    .w is per-vertex blend-noise amplitude (interpolated to fragment).
+    //  - COLOR.rgb = bary indicator (1,0,0)/(0,1,0)/(0,0,1). Linearly interpolated
+    //    by the rasterizer so fragment.COLOR.rgb is the barycentric weight vector.
     private static void AddTri(SurfaceTool st,
         Vector3 a, Vector3 b, Vector3 c,
-        Vector3 wa, Vector3 wb, Vector3 wc,
-        int ta, int tb, int tc)
+        int ta, int tb, int tc,
+        float ampA, float ampB, float ampC)
     {
-        Color white = new Color(1f, 1f, 1f);
-        st.SetColor(white); st.SetCustom(0, new Color(wa.X, wa.Y, wa.Z, ta)); st.AddVertex(a);
-        st.SetColor(white); st.SetCustom(0, new Color(wb.X, wb.Y, wb.Z, tb)); st.AddVertex(b);
-        st.SetColor(white); st.SetCustom(0, new Color(wc.X, wc.Y, wc.Z, tc)); st.AddVertex(c);
+        Color custA = new Color(ta, tb, tc, ampA);
+        Color custB = new Color(ta, tb, tc, ampB);
+        Color custC = new Color(ta, tb, tc, ampC);
+        st.SetColor(new Color(1f, 0f, 0f, 1f)); st.SetCustom(0, custA); st.AddVertex(a);
+        st.SetColor(new Color(0f, 1f, 0f, 1f)); st.SetCustom(0, custB); st.AddVertex(b);
+        st.SetColor(new Color(0f, 0f, 1f, 1f)); st.SetCustom(0, custC); st.AddVertex(c);
     }
 
-    // Pick a tile for the cell. Extended cells (x, y, or z outside [0, N-1])
-    // fall back to a neighbour lookup via getVoxel.
-    private static int PickTileForCell(
+    // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
+    // or z outside [0, N-1]) fall back to a neighbour lookup via getVoxel.
+    private static void PickTileAndAmpForCell(
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
-        int cwX, int cwY, int cwZ)
+        int cwX, int cwY, int cwZ,
+        out int tile, out float amp)
     {
         VoxelType self;
         if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N)
@@ -331,25 +441,38 @@ public static class ChunkMesherDC
         {
             self = getVoxel(cwX + x, cwY + y, cwZ + z);
         }
+        VoxelType dominant = VoxelType.Air;
         if (VoxelTypeInfo.IsSolid(self) && self != VoxelType.Barrier)
         {
-            return VoxelTypeInfo.GetTileForFace(self, 0);
+            dominant = self;
         }
-        for (int dx = -1; dx <= 1; dx++)
+        else
         {
-            for (int dy = -1; dy <= 1; dy++)
+            for (int dx = -1; dx <= 1 && dominant == VoxelType.Air; dx++)
             {
-                for (int dz = -1; dz <= 1; dz++)
+                for (int dy = -1; dy <= 1 && dominant == VoxelType.Air; dy++)
                 {
-                    if (dx == 0 && dy == 0 && dz == 0) { continue; }
-                    VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                    if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
+                    for (int dz = -1; dz <= 1 && dominant == VoxelType.Air; dz++)
                     {
-                        return VoxelTypeInfo.GetTileForFace(v, 0);
+                        if (dx == 0 && dy == 0 && dz == 0) { continue; }
+                        VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                        if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
+                        {
+                            dominant = v;
+                        }
                     }
                 }
             }
         }
-        return 0;
+
+        if (dominant == VoxelType.Air)
+        {
+            tile = 0;
+            amp = 0f;
+            return;
+        }
+
+        tile = VoxelTypeInfo.GetTileForFace(dominant, 0);
+        amp = VoxelTypeInfo.GetBlendNoise(dominant);
     }
 }

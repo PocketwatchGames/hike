@@ -40,13 +40,13 @@ public partial class ShadowMapRenderer : Node3D
         _meshCasterMaterial = new ShaderMaterial();
         _meshCasterMaterial.Shader = meshCasterShader;
 
-        RegisterGlobalParam("shadow_origin", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
-        RegisterGlobalParam("shadow_axis_u", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
-        RegisterGlobalParam("shadow_axis_v", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
-        RegisterGlobalParam("shadow_depth_axis", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
-        RegisterGlobalParam("shadow_strength", RenderingServer.GlobalShaderParameterType.Float, 0f);
-        RegisterGlobalParam("shadow_color", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
-        RegisterGlobalParam("sprite_stretch", RenderingServer.GlobalShaderParameterType.Float, 1f);
+        ShaderGlobals.Register("shadow_origin", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("shadow_axis_u", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("shadow_axis_v", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("shadow_depth_axis", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("shadow_strength", RenderingServer.GlobalShaderParameterType.Float, 0f);
+        ShaderGlobals.Register("shadow_color", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("sprite_stretch", RenderingServer.GlobalShaderParameterType.Float, 1f);
 
         _viewport = new SubViewport();
         _viewport.Size = new Vector2I(VIEWPORT_SIZE, VIEWPORT_SIZE);
@@ -307,20 +307,4 @@ public partial class ShadowMapRenderer : Node3D
         proxy.Mesh = source.Mesh;
     }
 
-    // RenderingServer.GlobalShaderParameterGet is editor-only, so we can't
-    // ask the server whether a global is already registered. Track it here
-    // instead; the set survives for the process lifetime, matching the
-    // lifetime of the globals inside RenderingServer.
-    private static readonly HashSet<StringName> _registeredGlobals = new();
-
-    private static void RegisterGlobalParam(string name, RenderingServer.GlobalShaderParameterType type, Variant defaultValue)
-    {
-        StringName key = name;
-        if (_registeredGlobals.Contains(key))
-        {
-            return;
-        }
-        RenderingServer.GlobalShaderParameterSet(key, defaultValue);
-        _registeredGlobals.Add(key);
-    }
 }

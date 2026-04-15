@@ -34,6 +34,14 @@ public partial class ChunkManager : Node3D
         _shadowMap = shadowMap;
         _getPlayerPosition = getPlayerPosition;
         _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
+
+        // light_map is a runtime-constructed Texture3D, so it can't be declared
+        // in project.godot (sampler globals there require a static res:// path).
+        ShaderGlobals.RegisterRuntime("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
+        ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
+        ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
+        ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+
         UpdateLoadedChunks();
     }
 
@@ -80,24 +88,6 @@ public partial class ChunkManager : Node3D
                 _meshRebuildQueue.Enqueue(coord);
             }
         }
-    }
-
-    public void SetLightMapUniforms(Node3D node)
-    {
-        foreach (Node child in node.GetChildren())
-        {
-            if (child is Sprite3D sprite && sprite.MaterialOverride is ShaderMaterial mat)
-            {
-                SetLightMapUniforms(mat);
-            }
-        }
-    }
-
-    public void SetLightMapUniforms(ShaderMaterial mat)
-    {
-        mat.SetShaderParameter("light_map", _lightMap.Texture);
-        mat.SetShaderParameter("light_map_origin", _lightMap.Origin);
-        mat.SetShaderParameter("light_map_inv_size", Vector3.One / _lightMap.Size);
     }
 
     private void UpdateLoadedChunks()
@@ -188,7 +178,7 @@ public partial class ChunkManager : Node3D
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _lightMap, _shadowMap);
+                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds, _shadowMap);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
                 onChunkLoaded?.Invoke(coord);
@@ -214,7 +204,7 @@ public partial class ChunkManager : Node3D
             }
 
             oldMesh.QueueFree();
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _lightMap, _shadowMap);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds, _shadowMap);
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;

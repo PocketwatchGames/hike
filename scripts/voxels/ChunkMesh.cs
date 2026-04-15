@@ -40,7 +40,7 @@ public partial class ChunkMesh : Node3D
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        LightMap lightMap,
+        Func<int, int, int, bool> chunkExists,
         Texture2D shadowMap)
     {
         var chunk = new ChunkMesh();
@@ -49,14 +49,14 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, lightMap, shadowMap);
+        chunk.BuildMesh(data, getVoxel, chunkExists, shadowMap);
         return chunk;
     }
 
     private void BuildMesh(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        LightMap lightMap,
+        Func<int, int, int, bool> chunkExists,
         Texture2D shadowMap)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
@@ -75,7 +75,7 @@ public partial class ChunkMesh : Node3D
         st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
-        ChunkMesherDC.Build(data, getVoxel, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
+        ChunkMesherDC.Build(data, getVoxel, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();
@@ -117,9 +117,6 @@ public partial class ChunkMesh : Node3D
             visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 
             var mat = SharedMaterial.Duplicate() as ShaderMaterial;
-            mat.SetShaderParameter("light_map", lightMap.Texture);
-            mat.SetShaderParameter("light_map_origin", lightMap.Origin);
-            mat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
             mat.SetShaderParameter("shadow_map", shadowMap);
             visual.MaterialOverride = mat;
             AddChild(visual);
@@ -142,9 +139,6 @@ public partial class ChunkMesh : Node3D
             waterVisual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
 
             var waterMat = WaterMaterial.Duplicate() as ShaderMaterial;
-            waterMat.SetShaderParameter("light_map", lightMap.Texture);
-            waterMat.SetShaderParameter("light_map_origin", lightMap.Origin);
-            waterMat.SetShaderParameter("light_map_inv_size", Vector3.One / lightMap.Size);
             waterVisual.MaterialOverride = waterMat;
             AddChild(waterVisual);
 

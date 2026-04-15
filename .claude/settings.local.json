@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"sprite_lit\" c:/Users/andy/source/hike/scenes/game/*.tscn)"
+    ]
+  }
+}

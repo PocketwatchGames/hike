@@ -17,10 +17,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         UpdateVisuals();
     }
 
-    public void OnSpawned(World world)
-    {
-        world.SetLightMapUniforms(this);
-    }
+    public void OnSpawned(World world) { }
 
     public bool CanInteract()
     {

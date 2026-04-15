@@ -62,7 +62,7 @@ public struct InvestigateState
 
 public partial class Mob
 {
-    private Vector3? _fleePosition;
+//    private Vector3? _fleePosition;
     private StringName _curBehavior;
     private readonly System.Collections.Generic.Dictionary<StringName, BehaviorBase> _behaviors = new();
 

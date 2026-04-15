@@ -154,6 +154,19 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
 
 Both base classes are non-abstract (`virtual` with `GD.PushError` fallback) so `[GlobalClass]` plays nicely with Godot's editor picker. Subclasses must be tagged `[GlobalClass]` to surface in the inspector.
 
+### Shader Global Uniforms (`scripts/utils/ShaderGlobals.cs`)
+
+Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at startup, in the `_Ready` of whatever owns its per-frame `Set` calls (e.g. `SkyController`, `ShadowMapRenderer`, `ChunkManager`). Use one of two methods depending on where the global lives:
+
+- **`ShaderGlobals.Register(name, type, defaultValue)`** — for globals also declared in `project.godot`'s `[shader_globals]` section. The engine creates the variable at startup; this call seeds the C# default value before the first material that uses it compiles. Use for scalar/vector globals with sensible static defaults that you also want visible in the editor's Project Settings UI.
+- **`ShaderGlobals.RegisterRuntime(name, type, value)`** — for globals NOT in `project.godot`. Calls `RenderingServer.GlobalShaderParameterAdd` directly. **Required for sampler globals** whose value is a runtime-constructed texture (e.g. `light_map` is an `ImageTexture3D` with no `res://` path). Also useful for any global whose only meaningful value is computed at runtime.
+
+**Why both:** the runtime `RenderingServer.GlobalShaderParameterGet` and `GetList` APIs are editor-only, so we can't auto-detect at runtime whether a name is already declared in `project.godot`. The caller knows; pick the right method.
+
+**Why initialize from C# at all:** a standalone launch (e.g. via VS Code → `Godot.exe`) compiles shaders very early and a global that hasn't been seeded yet either fails with `Global uniform '<name>' does not exist` (for runtime-only globals) or compiles with stale values (for project.godot-declared globals). Both methods must run before the first material that uses the global compiles.
+
+**Sampler globals gotcha:** do NOT put a sampler global in `project.godot` with `value: null` — Godot will try to load `res://<null>` as a resource on startup. Sampler globals either need a real texture path in `project.godot`, or they should be added at runtime via `RegisterRuntime`.
+
 ### Build-Time Code Generation (`hike.csproj`)
 
 Two MSBuild targets run before compilation:

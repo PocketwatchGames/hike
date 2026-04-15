@@ -3,9 +3,10 @@ render_mode blend_mix, depth_draw_never, unshaded;
 stencil_mode read, compare_equal, 2;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
-uniform sampler3D light_map : filter_linear;
-uniform vec3 light_map_origin;
-uniform vec3 light_map_inv_size;
+global uniform sampler3D light_map : filter_linear;
+global uniform vec3 light_map_origin;
+global uniform vec3 light_map_inv_size;
+global uniform float light_falloff_exp;
 uniform vec3 water_color : source_color = vec3(0.15, 0.5, 0.95);
 uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
 uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.4;
@@ -18,7 +19,7 @@ void fragment() {
 
 	// Sample lighting at the cap plane position
 	vec3 uvw = (world_pos - light_map_origin) * light_map_inv_size;
-	float light = textureLod(light_map, uvw, 0.0).r;
+	float light = pow(textureLod(light_map, uvw, 0.0).r, light_falloff_exp);
 
 	// Compute water thickness from depth buffer
 	float scene_depth = textureLod(depth_tex, SCREEN_UV, 0.0).r;

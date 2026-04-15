@@ -296,7 +296,10 @@ public partial class Player : CharacterBody3D
 		{
 			if (_waterState == EWaterState.Swimming)
 			{
-				Velocity = new Vector3(Velocity.X, data.swimVerticalSpeed, Velocity.Z);
+				float surfaceTargetY = _waterSurfaceY - data.waterSurfaceOffset;
+				bool atSurface = GlobalPosition.Y >= surfaceTargetY - 0.1f;
+				float verticalSpeed = atSurface ? data.jumpSpeed : data.swimVerticalSpeed;
+				Velocity = new Vector3(Velocity.X, verticalSpeed, Velocity.Z);
 			}
 			else if (_grounded)
 			{

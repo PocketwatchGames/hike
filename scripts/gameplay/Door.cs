@@ -31,10 +31,7 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         GD.Print($"Door hit for {data?.healthDamage} from {source?.Name}");
     }
 
-    public void OnSpawned(World world)
-    {
-        world.SetLightMapUniforms(this);
-    }
+    public void OnSpawned(World world) { }
 
     public bool CanInteract()
     {

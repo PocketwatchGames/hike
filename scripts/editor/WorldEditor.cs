@@ -95,11 +95,6 @@ public partial class WorldEditor : Node3D
         GD.Print($"[Editor] Camera pos={camera.GlobalPosition}, rot={camera.GlobalRotation}");
         GD.Print($"[Editor] Camera projection={camera.Projection}, size={camera.Size}");
 
-        if (camera.WaterCapPlane.MaterialOverride is ShaderMaterial waterCapMat)
-        {
-            _world.SetLightMapUniforms(waterCapMat);
-        }
-
         UpdateHud();
         GD.Print("[Editor] Init complete");
     }
@@ -670,7 +665,7 @@ public partial class WorldEditor : Node3D
                 {
                     for (int z = 0; z < ChunkState.SIZE; z++)
                     {
-                        chunk.Voxels[x, 0, z] = VoxelType.Grass;
+                        chunk.Voxels[x, 0, z] = VoxelType.Terrain;
                     }
                 }
             }

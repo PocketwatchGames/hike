@@ -99,10 +99,7 @@ public partial class Loot : RigidBody3D, IWorldEntity
 		QueueFree();
 	}
 
-	public void OnSpawned(World world)
-	{
-		world.SetLightMapUniforms(this);
-	}
+	public void OnSpawned(World world) { }
 
 	public static Loot Create(World world, PropSimState data, Vector3 impulse = default)
 	{

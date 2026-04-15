@@ -3,10 +3,7 @@ using Godot;
 [GlobalClass]
 public partial class PropInstance : Node3D, IWorldEntity
 {
-    public void OnSpawned(World world)
-    {
-        world.SetLightMapUniforms(this);
-    }
+    public void OnSpawned(World world) { }
 
     public static PropInstance Create(World world, PropSimState data)
     {

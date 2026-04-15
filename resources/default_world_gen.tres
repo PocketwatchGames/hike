@@ -10,13 +10,12 @@
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/game/goblin.tscn" id="4_rlrbr"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/game/torch.tscn" id="5_torch"]
 [ext_resource type="PackedScene" uid="uid://jlh3xsibvf00" path="res://scenes/game/loot.tscn" id="5_x26p4"]
-[ext_resource type="Resource" path="res://resources/data/kun_kun.tres" id="6_kunkun_data"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/kun_kun.tres" id="6_kunkun_data"]
 [ext_resource type="PackedScene" path="res://scenes/game/kun_kun.tscn" id="7_kunkun_scene"]
 
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
-CaveThreshold = 0.4
 GrassThreshold = 0.3
 GoblinData = ExtResource("3_2t2hn")
 KunKunData = ExtResource("6_kunkun_data")

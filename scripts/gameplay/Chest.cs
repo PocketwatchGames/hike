@@ -28,10 +28,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         GD.Print($"Chest hit for {data?.healthDamage} from {source?.Name}");
     }
 
-    public void OnSpawned(World world)
-    {
-        world.SetLightMapUniforms(this);
-    }
+    public void OnSpawned(World world) { }
 
     public bool CanInteract()
     {

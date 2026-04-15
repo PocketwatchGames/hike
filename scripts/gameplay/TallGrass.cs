@@ -13,10 +13,7 @@ public partial class TallGrass : Area3D, IWorldEntity
 		BodyExited += OnBodyExited;
 	}
 
-	public void OnSpawned(World world)
-	{
-		world.SetLightMapUniforms(this);
-	}
+	public void OnSpawned(World world) { }
 
 	private void OnBodyEntered(Node3D body)
 	{
