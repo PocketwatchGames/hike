@@ -169,6 +169,34 @@ sprite_chunky={
 "type": "float",
 "value": 0.0738
 }
+sprite_stretch={
+"type": "float",
+"value": 1.0
+}
+shadow_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_axis_u={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_axis_v={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_depth_axis={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+shadow_strength={
+"type": "float",
+"value": 0.0
+}
+shadow_color={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
 water_alpha_max={
 "type": "float",
 "value": 1.0
@@ -183,7 +211,7 @@ sun_world_dir={
 }
 sun_color={
 "type": "vec3",
-"value": Vector3(1.0, 0.92, 0.72)
+"value": Vector3(1, 0.92, 0.72)
 }
 horizon_color={
 "type": "vec3",
@@ -195,7 +223,7 @@ zenith_color={
 }
 cloud_color={
 "type": "vec3",
-"value": Vector3(1.0, 0.98, 0.95)
+"value": Vector3(1, 0.98, 0.95)
 }
 cloud_scroll={
 "type": "vec2",

@@ -3,7 +3,7 @@ render_mode blend_mix, depth_draw_never, unshaded;
 stencil_mode read, compare_equal, 2;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
-uniform sampler3D light_map : filter_nearest;
+uniform sampler3D light_map : filter_linear;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 uniform vec3 water_color : source_color = vec3(0.15, 0.5, 0.95);

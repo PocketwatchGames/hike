@@ -4,7 +4,7 @@ render_mode blend_mix, depth_draw_never, cull_back, unshaded;
 global uniform float camera_clip;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
-uniform sampler3D light_map : filter_nearest;
+uniform sampler3D light_map : filter_linear;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.4;

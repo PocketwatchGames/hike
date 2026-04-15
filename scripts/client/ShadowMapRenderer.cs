@@ -320,7 +320,7 @@ public partial class ShadowMapRenderer : Node3D
         {
             return;
         }
-        RenderingServer.GlobalShaderParameterAdd(key, type, defaultValue);
+        RenderingServer.GlobalShaderParameterSet(key, defaultValue);
         _registeredGlobals.Add(key);
     }
 }

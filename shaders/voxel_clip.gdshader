@@ -3,7 +3,7 @@ render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
 
 global uniform float camera_clip;
 
-uniform sampler3D light_map : filter_nearest;
+uniform sampler3D light_map : filter_linear;
 uniform vec3 light_map_origin;
 uniform vec3 light_map_inv_size;
 
@@ -21,7 +21,7 @@ const float SHADOW_DEPTH_BIAS = 0.002;
 const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
-varying float shaded_light;
+varying float face_shade;
 varying vec3 world_normal;
 varying flat float tile_index;
 
@@ -30,15 +30,9 @@ void vertex() {
 	world_normal = NORMAL;
 	tile_index = CUSTOM0.w;
 
-	// Sample light from the air voxel adjacent to this face
-	vec3 uvw = (CUSTOM0.xyz - light_map_origin) * light_map_inv_size;
-	float light = textureLod(light_map, uvw, 0.0).r;
-	light = max(light, MIN_AMBIENT);
-
 	// Face direction shading from normal
 	vec3 n = NORMAL;
 	vec3 an = abs(n);
-	float face_shade;
 	if (an.y > 0.5) {
 		face_shade = n.y > 0.0 ? 1.0 : 0.5;
 	} else if (an.z > 0.5) {
@@ -46,8 +40,6 @@ void vertex() {
 	} else {
 		face_shade = 0.6;
 	}
-
-	shaded_light = face_shade * light;
 }
 
 void fragment() {
@@ -86,6 +78,14 @@ void fragment() {
 		tile_uv = vec2(world_vertex.x, -world_vertex.y);
 	}
 	vec4 tex_color = texture(tile_array, vec3(tile_uv, tile_index));
+
+	// Sample lightmap per-pixel so it interpolates smoothly across the face.
+	// Push 0.5 along the normal to land in the adjacent air voxel's center plane.
+	vec3 light_sample_pos = world_vertex + world_normal * 0.5;
+	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
+	float light = max(texture(light_map, uvw).r, MIN_AMBIENT);
+	float shaded_light = face_shade * light;
+
 	ALBEDO = tex_color.rgb * COLOR.rgb * shaded_light * shadow_tint;
 	if (world_vertex.y > camera_clip) {
 		discard;
