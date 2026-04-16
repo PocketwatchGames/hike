@@ -103,6 +103,21 @@ public static class VoxelTypeInfo
         return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
     }
 
+    // Voxels flagged here cause the DC mesher to snap cell vertices onto the
+    // voxel grid (majority-side rule per axis) and flat-shade adjacent quads,
+    // producing 90-degree corners where walls meet floors/ceilings and at
+    // building outer edges. Smooth-shaded organic terrain leaves this false.
+    public static readonly Dictionary<VoxelType, bool> SharpEdges = new()
+    {
+        { VoxelType.Stone, true },
+        { VoxelType.Wood,  true },
+    };
+
+    public static bool IsSharp(VoxelType type)
+    {
+        return SharpEdges.TryGetValue(type, out bool v) && v;
+    }
+
     public static int GetTileForFace(VoxelType type, int faceIndex)
     {
         if (!Tiles.TryGetValue(type, out TileFaces faces))

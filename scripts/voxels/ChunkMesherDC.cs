@@ -78,6 +78,7 @@ public static class ChunkMesherDC
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellAmp = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellHas = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellSharp = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
 
         for (int x = CELL_LO; x <= CELL_HI; x++)
         {
@@ -111,33 +112,61 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    Vector3 accum = Vector3.Zero;
-                    int count = 0;
-                    foreach (var (ca, cb) in CellEdges)
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp, out bool sharp);
+
+                    Vector3 vertLocal;
+                    if (sharp)
                     {
-                        bool aIn = dArr[ca] < 0;
-                        bool bIn = dArr[cb] < 0;
-                        if (aIn == bIn)
+                        // Majority-side rule: push the vertex onto the voxel
+                        // grid wherever the inside mask is lopsided along an
+                        // axis, so walls meet floors at 90 degrees and
+                        // building outer corners stay square. Coordinate
+                        // values are 0, 0.5, or 1 — coplanar neighbours get
+                        // the same vertex position and stay flat.
+                        int lowX = 0, highX = 0, lowY = 0, highY = 0, lowZ = 0, highZ = 0;
+                        for (int ci = 0; ci < 8; ci++)
                         {
-                            continue;
+                            if (dArr[ci] >= 0) { continue; }
+                            var (ox, oy, oz) = CornerOffsets[ci];
+                            if (ox == 0) { lowX++; } else { highX++; }
+                            if (oy == 0) { lowY++; } else { highY++; }
+                            if (oz == 0) { lowZ++; } else { highZ++; }
                         }
-                        var (ax, ay, az) = CornerOffsets[ca];
-                        var (bx, by, bz) = CornerOffsets[cb];
-                        float da = dArr[ca];
-                        float db = dArr[cb];
-                        float t = da / (da - db);
-                        accum.X += ax + (bx - ax) * t;
-                        accum.Y += ay + (by - ay) * t;
-                        accum.Z += az + (bz - az) * t;
-                        count++;
+                        float sx = lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f);
+                        float sy = lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f);
+                        float sz = lowZ > highZ ? 0f : (highZ > lowZ ? 1f : 0.5f);
+                        vertLocal = new Vector3(sx, sy, sz);
                     }
-                    Vector3 vertLocal = accum / count;
+                    else
+                    {
+                        Vector3 accum = Vector3.Zero;
+                        int count = 0;
+                        foreach (var (ca, cb) in CellEdges)
+                        {
+                            bool aIn = dArr[ca] < 0;
+                            bool bIn = dArr[cb] < 0;
+                            if (aIn == bIn)
+                            {
+                                continue;
+                            }
+                            var (ax, ay, az) = CornerOffsets[ca];
+                            var (bx, by, bz) = CornerOffsets[cb];
+                            float da = dArr[ca];
+                            float db = dArr[cb];
+                            float t = da / (da - db);
+                            accum.X += ax + (bx - ax) * t;
+                            accum.Y += ay + (by - ay) * t;
+                            accum.Z += az + (bz - az) * t;
+                            count++;
+                        }
+                        vertLocal = accum / count;
+                    }
 
                     cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = vertLocal;
                     cellHas[CellIdx(x), CellIdx(y), CellIdx(z)] = true;
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp);
                     cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
+                    cellSharp[CellIdx(x), CellIdx(y), CellIdx(z)] = sharp;
                     activeCells++;
                 }
             }
@@ -162,7 +191,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile, cellAmp,
+                                cellHas, cellVert, cellTile, cellAmp, cellSharp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -186,7 +215,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile, cellAmp,
+                                cellHas, cellVert, cellTile, cellAmp, cellSharp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -207,7 +236,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellTile, cellAmp,
+                                cellHas, cellVert, cellTile, cellAmp, cellSharp,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -246,7 +275,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellTile, cellAmp,
+                            cellHas, cellVert, cellTile, cellAmp, cellSharp,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -275,7 +304,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellTile, cellAmp,
+                            cellHas, cellVert, cellTile, cellAmp, cellSharp,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -304,7 +333,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellTile, cellAmp,
+                            cellHas, cellVert, cellTile, cellAmp, cellSharp,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -332,7 +361,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile, float[,,] cellAmp,
+        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile, float[,,] cellAmp, bool[,,] cellSharp,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -370,6 +399,14 @@ public static class ChunkMesherDC
         float a1 = cellAmp[i1x, i1y, i1z];
         float a2 = cellAmp[i2x, i2y, i2z];
         float a3 = cellAmp[i3x, i3y, i3z];
+
+        // All-sharp quads opt out of normal averaging so a wall meeting a
+        // floor reads as a crease. Coplanar sharp quads still look flat
+        // because GenerateNormals emits the same per-triangle normal for
+        // each of them.
+        bool allSharp = cellSharp[i0x, i0y, i0z] && cellSharp[i1x, i1y, i1z]
+            && cellSharp[i2x, i2y, i2z] && cellSharp[i3x, i3y, i3z];
+        st.SetSmoothGroup(allSharp ? uint.MaxValue : 0u);
 
         if (flip)
         {
@@ -426,11 +463,14 @@ public static class ChunkMesherDC
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
     // or z outside [0, N-1]) fall back to a neighbour lookup via getVoxel.
+    // A cell is sharp if ANY solid voxel in its 27-neighbourhood is flagged
+    // SharpEdges — so a Wood wall voxel next to natural Terrain still pulls
+    // its shared cells into the grid-snap path.
     private static void PickTileAndAmpForCell(
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
         int cwX, int cwY, int cwZ,
-        out int tile, out float amp)
+        out int tile, out float amp, out bool sharp)
     {
         VoxelType self;
         if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N)
@@ -442,24 +482,31 @@ public static class ChunkMesherDC
             self = getVoxel(cwX + x, cwY + y, cwZ + z);
         }
         VoxelType dominant = VoxelType.Air;
+        sharp = false;
         if (VoxelTypeInfo.IsSolid(self) && self != VoxelType.Barrier)
         {
             dominant = self;
-        }
-        else
-        {
-            for (int dx = -1; dx <= 1 && dominant == VoxelType.Air; dx++)
+            if (VoxelTypeInfo.IsSharp(self))
             {
-                for (int dy = -1; dy <= 1 && dominant == VoxelType.Air; dy++)
+                sharp = true;
+            }
+        }
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
                 {
-                    for (int dz = -1; dz <= 1 && dominant == VoxelType.Air; dz++)
+                    if (dx == 0 && dy == 0 && dz == 0) { continue; }
+                    VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier) { continue; }
+                    if (dominant == VoxelType.Air)
                     {
-                        if (dx == 0 && dy == 0 && dz == 0) { continue; }
-                        VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
-                        if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
-                        {
-                            dominant = v;
-                        }
+                        dominant = v;
+                    }
+                    if (VoxelTypeInfo.IsSharp(v))
+                    {
+                        sharp = true;
                     }
                 }
             }

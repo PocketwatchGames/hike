@@ -184,7 +184,7 @@ sun_intensity={
 }
 sun_color={
 "type": "vec3",
-"value": Vector3(1, 0.96, 0.88)
+"value": Vector3(1, 0.92, 0.72)
 }
 cloud_shadow_scale={
 "type": "float",
@@ -225,10 +225,6 @@ water_depth_scale={
 sun_world_dir={
 "type": "vec3",
 "value": Vector3(-0.215, -0.819, -0.532)
-}
-sun_color={
-"type": "vec3",
-"value": Vector3(1, 0.92, 0.72)
 }
 horizon_color={
 "type": "vec3",
