@@ -48,6 +48,13 @@ public static class ChunkMesherDC
     public static bool EmitY = true;
     public static bool EmitZ = true;
 
+    // Vertical reach for the "cell is underground" test. A cell gets the
+    // sharp/grid-snap treatment when any solid voxel lives within this many
+    // voxels directly above it, so tunnel ceilings and upper walls read as
+    // flat planes even when carved from smooth natural terrain. Tall caves
+    // won't fully flatten below this — that's fine, ceilings matter most.
+    public const int CaveCeilingReach = 6;
+
     public static void Build(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
@@ -78,7 +85,7 @@ public static class ChunkMesherDC
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellAmp = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellHas = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
-        var cellSharp = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellSharp = new VoxelTypeInfo.SharpAxes[CELL_DIM, CELL_DIM, CELL_DIM];
 
         for (int x = CELL_LO; x <= CELL_HI; x++)
         {
@@ -112,61 +119,58 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp, out bool sharp);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp, out VoxelTypeInfo.SharpAxes sharpMask);
 
-                    Vector3 vertLocal;
-                    if (sharp)
+                    // Per-axis majority counts (for snapped coords) and the
+                    // edge-midpoint accumulator (for smooth coords). Computed
+                    // in one pass so axes can be mixed: snap Y + smooth X,Z
+                    // gives flat ceilings with organic walls, for example.
+                    int lowX = 0, highX = 0, lowY = 0, highY = 0, lowZ = 0, highZ = 0;
+                    for (int ci = 0; ci < 8; ci++)
                     {
-                        // Majority-side rule: push the vertex onto the voxel
-                        // grid wherever the inside mask is lopsided along an
-                        // axis, so walls meet floors at 90 degrees and
-                        // building outer corners stay square. Coordinate
-                        // values are 0, 0.5, or 1 — coplanar neighbours get
-                        // the same vertex position and stay flat.
-                        int lowX = 0, highX = 0, lowY = 0, highY = 0, lowZ = 0, highZ = 0;
-                        for (int ci = 0; ci < 8; ci++)
-                        {
-                            if (dArr[ci] >= 0) { continue; }
-                            var (ox, oy, oz) = CornerOffsets[ci];
-                            if (ox == 0) { lowX++; } else { highX++; }
-                            if (oy == 0) { lowY++; } else { highY++; }
-                            if (oz == 0) { lowZ++; } else { highZ++; }
-                        }
-                        float sx = lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f);
-                        float sy = lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f);
-                        float sz = lowZ > highZ ? 0f : (highZ > lowZ ? 1f : 0.5f);
-                        vertLocal = new Vector3(sx, sy, sz);
-                    }
-                    else
-                    {
-                        Vector3 accum = Vector3.Zero;
-                        int count = 0;
-                        foreach (var (ca, cb) in CellEdges)
-                        {
-                            bool aIn = dArr[ca] < 0;
-                            bool bIn = dArr[cb] < 0;
-                            if (aIn == bIn)
-                            {
-                                continue;
-                            }
-                            var (ax, ay, az) = CornerOffsets[ca];
-                            var (bx, by, bz) = CornerOffsets[cb];
-                            float da = dArr[ca];
-                            float db = dArr[cb];
-                            float t = da / (da - db);
-                            accum.X += ax + (bx - ax) * t;
-                            accum.Y += ay + (by - ay) * t;
-                            accum.Z += az + (bz - az) * t;
-                            count++;
-                        }
-                        vertLocal = accum / count;
+                        if (dArr[ci] >= 0) { continue; }
+                        var (ox, oy, oz) = CornerOffsets[ci];
+                        if (ox == 0) { lowX++; } else { highX++; }
+                        if (oy == 0) { lowY++; } else { highY++; }
+                        if (oz == 0) { lowZ++; } else { highZ++; }
                     }
 
-                    cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = vertLocal;
+                    Vector3 accum = Vector3.Zero;
+                    int count = 0;
+                    foreach (var (ca, cb) in CellEdges)
+                    {
+                        bool aIn = dArr[ca] < 0;
+                        bool bIn = dArr[cb] < 0;
+                        if (aIn == bIn)
+                        {
+                            continue;
+                        }
+                        var (ax, ay, az) = CornerOffsets[ca];
+                        var (bx, by, bz) = CornerOffsets[cb];
+                        float da = dArr[ca];
+                        float db = dArr[cb];
+                        float t = da / (da - db);
+                        accum.X += ax + (bx - ax) * t;
+                        accum.Y += ay + (by - ay) * t;
+                        accum.Z += az + (bz - az) * t;
+                        count++;
+                    }
+
+                    float vx = (sharpMask & VoxelTypeInfo.SharpAxes.X) != 0
+                        ? (lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f))
+                        : accum.X / count;
+                    float vy = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0
+                        ? (lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f))
+                        : accum.Y / count;
+                    float vz = (sharpMask & VoxelTypeInfo.SharpAxes.Z) != 0
+                        ? (lowZ > highZ ? 0f : (highZ > lowZ ? 1f : 0.5f))
+                        : accum.Z / count;
+
+                    cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = new Vector3(vx, vy, vz);
                     cellHas[CellIdx(x), CellIdx(y), CellIdx(z)] = true;
                     cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
-                    cellSharp[CellIdx(x), CellIdx(y), CellIdx(z)] = sharp;
+                    cellSharp[CellIdx(x), CellIdx(y), CellIdx(z)] = sharpMask;
                     activeCells++;
                 }
             }
@@ -198,6 +202,7 @@ public static class ChunkMesherDC
                                 cx, cy,     cz,
                                 cx, cy - 1, cz,
                                 flip: a < 0,
+                                edgeAxis: VoxelTypeInfo.SharpAxes.X,
                                 ref hasAnyFace,
                                 ref quadsEmitted,
                                 ref quadsSkipped);
@@ -222,6 +227,7 @@ public static class ChunkMesherDC
                                 cx,     cy, cz,
                                 cx,     cy, cz - 1,
                                 flip: a < 0,
+                                edgeAxis: VoxelTypeInfo.SharpAxes.Y,
                                 ref hasAnyFace,
                                 ref quadsEmitted,
                                 ref quadsSkipped);
@@ -243,6 +249,7 @@ public static class ChunkMesherDC
                                 cx,     cy,     cz,
                                 cx - 1, cy,     cz,
                                 flip: a < 0,
+                                edgeAxis: VoxelTypeInfo.SharpAxes.Z,
                                 ref hasAnyFace,
                                 ref quadsEmitted,
                                 ref quadsSkipped);
@@ -282,6 +289,7 @@ public static class ChunkMesherDC
                             cx, cy,     cz,
                             cx, cy - 1, cz,
                             flip: a < 0,
+                            edgeAxis: VoxelTypeInfo.SharpAxes.X,
                             ref hasAnyFace,
                             ref quadsEmitted,
                             ref quadsSkipped);
@@ -311,6 +319,7 @@ public static class ChunkMesherDC
                             cx,     cy, cz,
                             cx,     cy, cz - 1,
                             flip: a < 0,
+                            edgeAxis: VoxelTypeInfo.SharpAxes.Y,
                             ref hasAnyFace,
                             ref quadsEmitted,
                             ref quadsSkipped);
@@ -340,6 +349,7 @@ public static class ChunkMesherDC
                             cx,     cy,     cz,
                             cx - 1, cy,     cz,
                             flip: a < 0,
+                            edgeAxis: VoxelTypeInfo.SharpAxes.Z,
                             ref hasAnyFace,
                             ref quadsEmitted,
                             ref quadsSkipped);
@@ -361,13 +371,14 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile, float[,,] cellAmp, bool[,,] cellSharp,
+        bool[,,] cellHas, Vector3[,,] cellVert, int[,,] cellTile, float[,,] cellAmp, VoxelTypeInfo.SharpAxes[,,] cellSharp,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
         int x2, int y2, int z2,
         int x3, int y3, int z3,
         bool flip,
+        VoxelTypeInfo.SharpAxes edgeAxis,
         ref bool hasAnyFace,
         ref int quadsEmitted,
         ref int quadsSkipped)
@@ -400,12 +411,15 @@ public static class ChunkMesherDC
         float a2 = cellAmp[i2x, i2y, i2z];
         float a3 = cellAmp[i3x, i3y, i3z];
 
-        // All-sharp quads opt out of normal averaging so a wall meeting a
-        // floor reads as a crease. Coplanar sharp quads still look flat
-        // because GenerateNormals emits the same per-triangle normal for
-        // each of them.
-        bool allSharp = cellSharp[i0x, i0y, i0z] && cellSharp[i1x, i1y, i1z]
-            && cellSharp[i2x, i2y, i2z] && cellSharp[i3x, i3y, i3z];
+        // Flat-shade a quad only when all 4 surrounding cells flag the
+        // quad's own edge-axis as sharp. That way a Y-only sharp mask
+        // creases floor/ceiling quads but keeps wall quads (X- or Z-edge)
+        // smooth-shaded. Coplanar triangles within a flat-shaded region
+        // still look smooth because their per-triangle normals match.
+        bool allSharp = (cellSharp[i0x, i0y, i0z] & edgeAxis) != 0
+            && (cellSharp[i1x, i1y, i1z] & edgeAxis) != 0
+            && (cellSharp[i2x, i2y, i2z] & edgeAxis) != 0
+            && (cellSharp[i3x, i3y, i3z] & edgeAxis) != 0;
         st.SetSmoothGroup(allSharp ? uint.MaxValue : 0u);
 
         if (flip)
@@ -463,14 +477,16 @@ public static class ChunkMesherDC
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
     // or z outside [0, N-1]) fall back to a neighbour lookup via getVoxel.
-    // A cell is sharp if ANY solid voxel in its 27-neighbourhood is flagged
-    // SharpEdges — so a Wood wall voxel next to natural Terrain still pulls
-    // its shared cells into the grid-snap path.
+    // A cell's sharp mask is the OR of SharpEdges flags from every solid
+    // voxel in its 27-neighbourhood, so a Wood wall voxel next to natural
+    // Terrain still pulls its shared cells into the grid-snap path on the
+    // axes Wood cares about. Underground cells get SharpAxes.Y layered on
+    // top so cave ceilings read as flat planes regardless of material.
     private static void PickTileAndAmpForCell(
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
         int cwX, int cwY, int cwZ,
-        out int tile, out float amp, out bool sharp)
+        out int tile, out float amp, out VoxelTypeInfo.SharpAxes sharpMask)
     {
         VoxelType self;
         if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N)
@@ -482,14 +498,11 @@ public static class ChunkMesherDC
             self = getVoxel(cwX + x, cwY + y, cwZ + z);
         }
         VoxelType dominant = VoxelType.Air;
-        sharp = false;
+        sharpMask = VoxelTypeInfo.SharpAxes.None;
         if (VoxelTypeInfo.IsSolid(self) && self != VoxelType.Barrier)
         {
             dominant = self;
-            if (VoxelTypeInfo.IsSharp(self))
-            {
-                sharp = true;
-            }
+            sharpMask |= VoxelTypeInfo.GetSharpAxes(self);
         }
         for (int dx = -1; dx <= 1; dx++)
         {
@@ -504,10 +517,25 @@ public static class ChunkMesherDC
                     {
                         dominant = v;
                     }
-                    if (VoxelTypeInfo.IsSharp(v))
-                    {
-                        sharp = true;
-                    }
+                    sharpMask |= VoxelTypeInfo.GetSharpAxes(v);
+                }
+            }
+        }
+
+        // Underground cells (tunnel/cave ceilings and upper walls) pick up
+        // Y-sharp so cave ceilings read as flat horizontal planes instead of
+        // subtly sloped — even for natural terrain types that would otherwise
+        // stay smooth. Only Y is forced here; X/Z stay smooth so cave walls
+        // keep their organic curvature.
+        if ((sharpMask & VoxelTypeInfo.SharpAxes.Y) == 0)
+        {
+            for (int k = 1; k <= CaveCeilingReach; k++)
+            {
+                VoxelType above = getVoxel(cwX + x, cwY + y + k, cwZ + z);
+                if (VoxelTypeInfo.IsSolid(above) && above != VoxelType.Barrier)
+                {
+                    sharpMask |= VoxelTypeInfo.SharpAxes.Y;
+                    break;
                 }
             }
         }

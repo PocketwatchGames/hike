@@ -103,19 +103,36 @@ public static class VoxelTypeInfo
         return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
     }
 
-    // Voxels flagged here cause the DC mesher to snap cell vertices onto the
-    // voxel grid (majority-side rule per axis) and flat-shade adjacent quads,
-    // producing 90-degree corners where walls meet floors/ceilings and at
-    // building outer edges. Smooth-shaded organic terrain leaves this false.
-    public static readonly Dictionary<VoxelType, bool> SharpEdges = new()
+    // Per-axis opt-in to the DC mesher's sharp-corner path. Each flagged
+    // axis: (1) snaps the cell's vertex coord on that axis to 0/0.5/1 via the
+    // majority-side rule, and (2) flat-shades quads around edges of that axis
+    // (so floor <-> wall transitions read as creases). Mask axes independently:
+    //   SharpAxes.Y alone  → flat floors/ceilings, walls keep organic curve.
+    //   SharpAxes.All      → fully blocky, square building edges in all axes.
+    [System.Flags]
+    public enum SharpAxes
     {
-        { VoxelType.Stone, true },
-        { VoxelType.Wood,  true },
+        None = 0,
+        X = 1,
+        Y = 2,
+        Z = 4,
+        All = X | Y | Z,
+    }
+
+    public static readonly Dictionary<VoxelType, SharpAxes> SharpEdges = new()
+    {
+        { VoxelType.Stone, SharpAxes.All },
+        { VoxelType.Wood,  SharpAxes.All },
     };
+
+    public static SharpAxes GetSharpAxes(VoxelType type)
+    {
+        return SharpEdges.TryGetValue(type, out SharpAxes v) ? v : SharpAxes.None;
+    }
 
     public static bool IsSharp(VoxelType type)
     {
-        return SharpEdges.TryGetValue(type, out bool v) && v;
+        return GetSharpAxes(type) != SharpAxes.None;
     }
 
     public static int GetTileForFace(VoxelType type, int faceIndex)
