@@ -18,14 +18,6 @@ public static class CVars
     public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
     public static CVarInt pixelScale = new CVarInt("pixel_scale", 4);
 
-    // Strength of the projected-shadow darkening (0 = no shadows, 1 = full
-    // darkening of affected fragments). Consumed by voxel_clip and sprite_lit
-    // via the shadow_strength global shader uniform.
-    // Multiplier applied on top of WorldState.ShadowStrength (the sim-driven
-    // value). 1.0 keeps the simulation's strength unchanged; 0 disables
-    // shadows entirely. Useful for visual tuning without touching sim state.
-    public static CVarFloat shadowStrengthMultiplier = new CVarFloat("shadow_strength_mul", 1f);
-
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
@@ -87,6 +79,16 @@ public static class CVars
     public static CVarFloat sunIntensity = new CVarFloat("sun_intensity", 0.85f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("sun_intensity", ((CVarFloat)cvar).Value);
+    });
+
+    // Fraction of the BFS sun mask treated as sky-bounce ambient that survives
+    // the directional shadow. The remaining (1 - sun_ambient) is "direct sun"
+    // that the shadow can kill. Read by both shaders (voxel_clip, sprite_lit)
+    // AND WorldState.GetPerceivedLight, so visual and gameplay stay in sync.
+    // 0 = pitch-black hard shadows, 1 = directional shadow ignored.
+    public static CVarFloat sunAmbient = new CVarFloat("sun_ambient", 0.4f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("sun_ambient", ((CVarFloat)cvar).Value);
     });
 
     // RGB tint applied to the sun visibility mask. Day/night will drive this:

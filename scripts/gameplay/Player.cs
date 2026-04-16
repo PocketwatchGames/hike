@@ -391,7 +391,7 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateVisibility()
 	{
-		float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition) / ((float)LightEngine.MAX_LIGHT * data.visibilityLightMax), 0, 1);
+		float lightFactor = Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition) / data.visibilityLightMax, 0, 1);
 
 		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 

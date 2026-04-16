@@ -19,15 +19,12 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
-    // Shadow-casting sun direction (unit vector, the direction light travels)
-    // and strength [0, 1]. Simulation state so time-of-day can drive them;
-    // ShadowMapRenderer reads these each frame. CVars.shadowStrength is a
-    // multiplier applied on top for visual tuning.
+    // Sun direction (unit vector, the direction light travels). Read by
+    // SkyController for sky/tint shading and by World.IsPointInDirectionalSun
+    // for the gameplay shadow-reach raycast. The visible directional shadow
+    // is Godot's DirectionalLight3D in game.tscn — its transform should be
+    // kept in sync with this when day/night arrives.
     public Vector3 ShadowLightDirection = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
-    public float ShadowStrength = 0.3f;
-    // Tint applied to fully shadowed fragments. (0,0,0) = pure black shadow,
-    // (0.3, 0.4, 0.6) = cool blue-tinted, (1,1,1) = no visible shadow.
-    public Color ShadowColor = new Color(0f, 0.2f, 0.5f);
 
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
@@ -170,6 +167,45 @@ public class WorldState
         int wy = Mathf.FloorToInt(position.Y);
         int wz = Mathf.FloorToInt(position.Z);
         return GetLightLevelWorld(wx, wy, wz);
+    }
+
+    // Perceived brightness at a point, in the same model the shaders use, so
+    // gameplay decisions (stealth, mob spawn, etc.) match what the player sees.
+    // Mirrors voxel_clip.gdshader / sprite_lit.gdshader:
+    //   sun = (bfs_sun / MAX_LIGHT) * sun_intensity
+    //         * (sun_ambient + (sunReachesPoint ? (1 - sun_ambient) : 0))
+    //   block = max(r, g, b) / 255
+    //   perceived = max(sun, block)   (additive in shader, but max here matches
+    //                                  how callers reason about "lit vs dark")
+    // sunReachesPoint is the result of a directional-shadow raycast: true if
+    // the point is in direct sun, false if a tree / cliff / cave is in the way.
+    // Callers without physics access (pure-sim code) can pass false to get the
+    // shadow-ambient-only value, which is the conservative answer for stealth.
+    // Returns float in [0, 1+]; over-bright is possible when block lights stack.
+    public float GetPerceivedLightWorld(int wx, int wy, int wz, bool sunReachesPoint)
+    {
+        int sunBfs = GetSunlightWorld(wx, wy, wz);
+        GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
+
+        float sunMask = (float)sunBfs / LightEngine.MAX_LIGHT;
+        float ambient = CVars.sunAmbient.Value;
+        float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
+        float sun = sunMask * CVars.sunIntensity.Value * sunFactor;
+
+        if (r > 255) { r = 255; }
+        if (g > 255) { g = 255; }
+        if (b > 255) { b = 255; }
+        float block = Math.Max(r, Math.Max(g, b)) / 255f;
+
+        return Math.Max(sun, block);
+    }
+
+    public float GetPerceivedLightWorld(Vector3 position, bool sunReachesPoint)
+    {
+        int wx = Mathf.FloorToInt(position.X);
+        int wy = Mathf.FloorToInt(position.Y);
+        int wz = Mathf.FloorToInt(position.Z);
+        return GetPerceivedLightWorld(wx, wy, wz, sunReachesPoint);
     }
 
     public ChunkState GetChunk(Vector3I coord)

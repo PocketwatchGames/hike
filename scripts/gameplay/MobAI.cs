@@ -228,7 +228,7 @@ public partial class Mob
             // Sample light above the rigid-body origin so mobs that settle
             // slightly below the ground surface still read a valid light level.
             float eyeHeightLight = 1f;
-            float lightFactor = Mathf.Clamp(_world.WorldState.GetLightLevelWorld(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f)) / ((float)LightEngine.MAX_LIGHT * _simState.MobData.visibilityLightMax), 0, 1);
+            float lightFactor = Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f)) / _simState.MobData.visibilityLightMax, 0, 1);
 
             float speedFactor = _simState.MobData.maxVisibilitySpeed > 0f
                 ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / _simState.MobData.maxVisibilitySpeed, _simState.MobData.visibilityMovementPower), _simState.MobData.visibilityMovementMin, 1f)

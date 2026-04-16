@@ -26,6 +26,7 @@ global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
+global uniform float sun_ambient;
 global uniform float cloud_shadow_scale;
 global uniform float cloud_speed;
 global uniform vec2 cloud_direction;
@@ -33,18 +34,10 @@ global uniform float cloud_cutoff;
 global uniform float cloud_power;
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
-uniform sampler2D shadow_map : filter_linear;
 
 global uniform float camera_clip;
 global uniform float sprite_chunky;
 global uniform float sprite_stretch;
-global uniform vec3 shadow_origin;
-global uniform vec3 shadow_axis_u;
-global uniform vec3 shadow_axis_v;
-global uniform vec3 shadow_depth_axis;
-global uniform float shadow_strength;
-global uniform vec3 shadow_color;
-const float SHADOW_DEPTH_BIAS = 0.002;
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -104,7 +97,13 @@ void fragment() {
 		discard;
 	}
 
-	vec3 uvw = (world_origin - light_map_origin) * light_map_inv_size;
+	// Sprite anchor sits on the ground — i.e. at the top face of a solid
+	// voxel — so sampling at world_origin lands inside that solid voxel and
+	// reads 0 light. Push up half a voxel into the air above so we read the
+	// adjacent air-voxel's light. (Same trick voxel_clip uses with normal
+	// offset, but for a sprite "up" is always the relevant direction.)
+	vec3 light_sample_pos = world_origin + vec3(0.0, 0.5, 0.0);
+	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
 	// Cloud shadows disabled — see voxel_clip.gdshader for rationale.
@@ -112,31 +111,18 @@ void fragment() {
 	vec3 block_lit = lm.gba;
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
-	// Shadow map is sampled using the flat per-vertex world_origin (the sprite
-	// anchor), not a per-pixel reconstructed world position. The shadow
-	// projection axes have a Y component, so using per-pixel Y would smear
-	// horizontal stripes that move with the camera.
-	vec3 rel = world_origin - shadow_origin;
-	vec2 suv = vec2(dot(rel, shadow_axis_u), dot(rel, shadow_axis_v)) + 0.5;
-	vec3 shadow_tint = vec3(1.0);
-	if (suv.x >= 0.0 && suv.x <= 1.0 && suv.y >= 0.0 && suv.y <= 1.0) {
-		vec2 base_uv = vec2(suv.x, 1.0 - suv.y);
-		float receiver_depth = dot(rel, shadow_depth_axis);
-		float pcf_radius = 1.5 / 1024.0;
-		float shadow_sum = 0.0;
-		float d0 = texture(shadow_map, base_uv + vec2(-pcf_radius, -pcf_radius)).r;
-		float d1 = texture(shadow_map, base_uv + vec2( pcf_radius, -pcf_radius)).r;
-		float d2 = texture(shadow_map, base_uv + vec2(-pcf_radius,  pcf_radius)).r;
-		float d3 = texture(shadow_map, base_uv + vec2( pcf_radius,  pcf_radius)).r;
-		shadow_sum += step(d0 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d1 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d2 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d3 + SHADOW_DEPTH_BIAS, receiver_depth);
-		float shadow_amount = shadow_sum * 0.25 * shadow_strength;
-		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
-	}
-
 	NORMAL = vec3(0.0, 1.0, 0.0);
-	ALBEDO = tex.rgb;
-	EMISSION = tex.rgb * light * shadow_tint;
+	// Match voxel_clip's split so sprites and terrain shadow consistently:
+	//   ALBEDO   = direct sun color (scaled by ATTENUATION in light())
+	//   EMISSION = ambient sky bounce + block light (never shadowed)
+	// Final pixel = ALBEDO * ATTENUATION + EMISSION (ambient_light_disabled).
+	ALBEDO = tex.rgb * sun_lit * (1.0 - sun_ambient);
+	EMISSION = tex.rgb * (block_lit + sun_lit * sun_ambient);
+}
+
+void light() {
+	// ATTENUATION on a DirectionalLight3D is the shadow factor only — used as
+	// a pure mask. No LIGHT_COLOR / NdotL so sprites' billboarded fake normal
+	// doesn't introduce a fake lambert term.
+	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
 }

@@ -156,7 +156,7 @@ Both base classes are non-abstract (`virtual` with `GD.PushError` fallback) so `
 
 ### Shader Global Uniforms (`scripts/utils/ShaderGlobals.cs`)
 
-Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at startup, in the `_Ready` of whatever owns its per-frame `Set` calls (e.g. `SkyController`, `ShadowMapRenderer`, `ChunkManager`). Use one of two methods depending on where the global lives:
+Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at startup, in the `_Ready` of whatever owns its per-frame `Set` calls (e.g. `SkyController`, `ChunkManager`). Use one of two methods depending on where the global lives:
 
 - **`ShaderGlobals.Register(name, type, defaultValue)`** — for globals also declared in `project.godot`'s `[shader_globals]` section. The engine creates the variable at startup; this call seeds the C# default value before the first material that uses it compiles. Use for scalar/vector globals with sensible static defaults that you also want visible in the editor's Project Settings UI.
 - **`ShaderGlobals.RegisterRuntime(name, type, value)`** — for globals NOT in `project.godot`. Calls `RenderingServer.GlobalShaderParameterAdd` directly. **Required for sampler globals** whose value is a runtime-constructed texture (e.g. `light_map` is an `ImageTexture3D` with no `res://` path). Also useful for any global whose only meaningful value is computed at runtime.

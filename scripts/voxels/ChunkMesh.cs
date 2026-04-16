@@ -40,8 +40,7 @@ public partial class ChunkMesh : Node3D
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, bool> chunkExists,
-        Texture2D shadowMap)
+        Func<int, int, int, bool> chunkExists)
     {
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
@@ -49,15 +48,14 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, chunkExists, shadowMap);
+        chunk.BuildMesh(data, getVoxel, chunkExists);
         return chunk;
     }
 
     private void BuildMesh(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
-        Func<int, int, int, bool> chunkExists,
-        Texture2D shadowMap)
+        Func<int, int, int, bool> chunkExists)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
         {
@@ -114,11 +112,9 @@ public partial class ChunkMesh : Node3D
 
             var visual = new MeshInstance3D();
             visual.Mesh = mesh;
-            visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
 
-            var mat = SharedMaterial.Duplicate() as ShaderMaterial;
-            mat.SetShaderParameter("shadow_map", shadowMap);
-            visual.MaterialOverride = mat;
+            visual.MaterialOverride = SharedMaterial;
             AddChild(visual);
 
             var backface = new MeshInstance3D();

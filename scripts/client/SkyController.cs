@@ -10,12 +10,13 @@ public partial class SkyController : Node3D
 {
     [Export] public Color horizonColor = new Color(0.72f, 0.82f, 0.92f);
     [Export] public Color zenithColor = new Color(0.25f, 0.48f, 0.82f);
-    [Export] public Color sunColor = new Color(1.0f, 0.92f, 0.72f);
+    [Export] public Color sunColor = new Color(1.0f, 0.96f, 0.88f);
     // Sky cloud visuals (sky_common.gdshaderinc). cloud_scale is shared with
     // the terrain cloud shadow system — both use the same global.
     [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
     [Export] public Vector2 cloudScroll = new Vector2(0.004f, 0.002f);
     [Export] public float cloudCoverage = 0.45f;
+    [Export] public float cloudScale = 0.15f;
     // Reverse directional shading: each tint is the color a face is multiplied
     // by when it faces fully away from the corresponding light. White = no
     // effect; darker/saturated colors darken and tint backfacing surfaces.
@@ -37,6 +38,9 @@ public partial class SkyController : Node3D
         ShaderGlobals.Register("cloud_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(cloudColor));
         ShaderGlobals.Register("cloud_scroll", RenderingServer.GlobalShaderParameterType.Vec2, cloudScroll);
         ShaderGlobals.Register("cloud_coverage", RenderingServer.GlobalShaderParameterType.Float, cloudCoverage);
+        // cloud_scale is NOT declared in project.godot's [shader_globals], so we
+        // register it at runtime via RegisterRuntime (per CLAUDE.md guidance).
+        ShaderGlobals.RegisterRuntime("cloud_scale", RenderingServer.GlobalShaderParameterType.Float, cloudScale);
     }
 
     public override void _Process(double delta)
@@ -52,6 +56,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_color", ColorToVec3(cloudColor));
         RenderingServer.GlobalShaderParameterSet("cloud_scroll", cloudScroll);
         RenderingServer.GlobalShaderParameterSet("cloud_coverage", cloudCoverage);
+        RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(zenithColor));
     }
 

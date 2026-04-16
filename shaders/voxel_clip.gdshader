@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, unshaded;
+render_mode blend_mix, depth_draw_opaque, cull_back, ambient_light_disabled, specular_disabled;
 
 global uniform float camera_clip;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
@@ -12,9 +12,13 @@ global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 // Day/night-driven scalars for the sun. sun_intensity is overall brightness
-// (0..1+); sun_color is the RGB tint (warm dawn, cool noon, etc.).
+// (0..1+); sun_color is the RGB tint (warm dawn, cool noon, etc.). sun_ambient
+// is the fraction of BFS sun mask treated as sky-bounce ambient that survives
+// the directional shadow — see fragment() / light() and GetPerceivedLight in
+// WorldState.cs (kept in sync so visual and gameplay agree).
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
+global uniform float sun_ambient;
 
 global uniform float cloud_shadow_scale;
 global uniform float cloud_speed;
@@ -46,15 +50,6 @@ const float SLOPE_DIRT_HI = 0.60;
 // Path slope rule: dirt above PATH_STONE_HI, stone below PATH_STONE_LO.
 const float SLOPE_PATH_STONE_LO = 0.35;
 const float SLOPE_PATH_STONE_HI = 0.55;
-
-uniform sampler2D shadow_map : filter_linear;
-global uniform vec3 shadow_origin;
-global uniform vec3 shadow_axis_u;
-global uniform vec3 shadow_axis_v;
-global uniform vec3 shadow_depth_axis;
-global uniform float shadow_strength;
-global uniform vec3 shadow_color;
-const float SHADOW_DEPTH_BIAS = 0.002;
 
 global uniform vec3 sun_world_dir;
 global uniform vec3 fill_world_dir;
@@ -111,31 +106,6 @@ float vnoise(vec3 p) {
 }
 
 void fragment() {
-	vec3 rel = world_vertex - shadow_origin;
-	vec2 suv = vec2(dot(rel, shadow_axis_u), dot(rel, shadow_axis_v)) + 0.5;
-	vec3 shadow_tint = vec3(1.0);
-	if (suv.x >= 0.0 && suv.x <= 1.0 && suv.y >= 0.0 && suv.y <= 1.0) {
-		// 4-tap PCF: run the depth test at four small offsets around the
-		// receiver and average the binary results. Uses the Y-flip to
-		// compensate for Godot SubViewport textures sampling upside-down.
-		vec2 base_uv = vec2(suv.x, 1.0 - suv.y);
-		float receiver_depth = dot(rel, shadow_depth_axis);
-		float pcf_radius = 1.5 / 1024.0;
-		float shadow_sum = 0.0;
-		float d0 = texture(shadow_map, base_uv + vec2(-pcf_radius, -pcf_radius)).r;
-		float d1 = texture(shadow_map, base_uv + vec2( pcf_radius, -pcf_radius)).r;
-		float d2 = texture(shadow_map, base_uv + vec2(-pcf_radius,  pcf_radius)).r;
-		float d3 = texture(shadow_map, base_uv + vec2( pcf_radius,  pcf_radius)).r;
-		shadow_sum += step(d0 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d1 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d2 + SHADOW_DEPTH_BIAS, receiver_depth);
-		shadow_sum += step(d3 + SHADOW_DEPTH_BIAS, receiver_depth);
-		float shadow_amount = shadow_sum * 0.25 * shadow_strength;
-		// tint = 1 - amount*(1-color): with color=(0,0,0) collapses to
-		// 1-amount (pure darkening); color=(1,1,1) gives 1 (no shadow).
-		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
-	}
-
 	// Pick which corner's tile this fragment shows. COLOR.rgb was set per
 	// vertex to (1,0,0)/(0,1,0)/(0,0,1) so the rasterizer's linear interpolation
 	// gives us the barycentric weights for free. Perturb each weight with a
@@ -224,7 +194,6 @@ void fragment() {
 	// float cloud = pow(clamp((cloud_noise - cloud_cutoff) / (1.0 - cloud_cutoff), 0.0, 1.0), cloud_power);
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
 	vec3 block_lit = lm.gba;
-	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
 
 	// "Reverse" directional shading: each light darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
@@ -235,11 +204,31 @@ void fragment() {
 	vec3 sun_tint = mix(sun_tint_color, vec3(1.0), sun_facing);
 	vec3 fill_tint = mix(fill_tint_color, vec3(1.0), fill_facing);
 
-	ALBEDO = tex_color.rgb * light * shadow_tint * sun_tint * fill_tint;
+	vec3 base = tex_color.rgb * sun_tint * fill_tint;
+
+	// Split the lighting across ALBEDO and EMISSION so light() can shadow
+	// just the direct portion of the sun via ATTENUATION. The BFS sun mask
+	// is treated as part-direct, part-ambient-skylight (see sun_ambient):
+	//   ALBEDO    = direct sun color  (scaled by ATTENUATION in light())
+	//   EMISSION  = ambient sky bounce + block light (always-on)
+	// With ambient_light_disabled, ALBEDO contributes only via DIFFUSE_LIGHT,
+	// so the final pixel = ALBEDO * ATTENUATION + EMISSION.
+	ALBEDO = base * sun_lit * (1.0 - sun_ambient);
+	EMISSION = base * (block_lit + sun_lit * sun_ambient);
+
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
-		ALBEDO = debug_solid;
+		ALBEDO = vec3(0.0);
+		EMISSION = debug_solid;
 	}
 	if (world_vertex.y > camera_clip) {
 		discard;
 	}
+}
+
+void light() {
+	// ATTENUATION on a DirectionalLight3D is the shadow attenuation only
+	// (no lambert pre-mul), so we use it as a pure shadow mask. We deliberately
+	// don't include LIGHT_COLOR or NdotL here — sun color/direction stylization
+	// is already baked into ALBEDO via sun_color and sun_tint in fragment().
+	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
 }

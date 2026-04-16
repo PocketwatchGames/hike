@@ -163,6 +163,8 @@ EditorDown={
 [rendering]
 
 rendering_device/driver.windows="d3d12"
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=4
+lights_and_shadows/directional_shadow/size=4096
 
 [shader_globals]
 
@@ -181,6 +183,10 @@ light_falloff_exp={
 sun_intensity={
 "type": "float",
 "value": 0.85
+}
+sun_ambient={
+"type": "float",
+"value": 0.4
 }
 sun_color={
 "type": "vec3",
@@ -245,30 +251,6 @@ cloud_scroll={
 cloud_coverage={
 "type": "float",
 "value": 0.45
-}
-shadow_origin={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_axis_u={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_axis_v={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_depth_axis={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
-}
-shadow_strength={
-"type": "float",
-"value": 0.0
-}
-shadow_color={
-"type": "vec3",
-"value": Vector3(0, 0, 0)
 }
 fill_world_dir={
 "type": "vec3",

@@ -81,7 +81,7 @@ public partial class WorldEditor : Node3D
         AddChild(_world);
         GD.Print("[Editor] World added to tree");
 
-        _world.Initialize(worldState, _cursorPosition, camera, () => _cursorPosition, null);
+        _world.Initialize(worldState, _cursorPosition, camera, () => _cursorPosition);
         GD.Print("[Editor] World initialized");
 
         _world.EnableEditorMode();

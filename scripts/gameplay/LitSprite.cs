@@ -10,6 +10,17 @@ using Godot;
 // All other Sprite3D fiddly bits (centered, offset, pixel_size, region_*)
 // are derived from the above so authors don't have to keep them in sync.
 //
+// Shadows: the visible LitSprite never casts (CastShadow.Off). At runtime
+// it spawns two hidden children:
+//   - A sun-billboarded shadow caster Sprite3D (CastShadow.ShadowsOnly) that
+//     contributes its silhouette to Godot's directional shadow atlas. The
+//     caster's vertex math sun-aligns automatically because INV_VIEW_MATRIX
+//     during the shadow pass is the directional light's camera. Set
+//     CastsShadow = false to suppress this (e.g. an undiscovered mob).
+//   - An AO Decal projecting straight down for ground-contact darkening.
+//     This works in any environment (cave, surface) and is independent of
+//     directional shadow — the visual "this thing is on this floor" cue.
+//
 // In the editor this node falls back to Sprite3D's default unshaded path so
 // the sprite is visible while authoring colliders. The sprite_lit shader is
 // applied at runtime by Duplicate()ing the shared MaterialTemplate and
@@ -35,12 +46,57 @@ public partial class LitSprite : Sprite3D
     private Vector2I _regionOrigin = Vector2I.Zero;
 
     [Export] public ShaderMaterial MaterialTemplate { get; set; }
+    [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
+    [Export] public Texture2D AoDecalTexture { get; set; }
+
+    // Width/depth (in world units) of the AO decal projected under the
+    // sprite. Defaults to roughly cover a 1-voxel sprite footprint.
+    [Export] public float AoDecalSize { get; set; } = 1.5f;
+    // Vertical extent of the decal projection box. Larger = floating sprites
+    // can still find a floor below them; the built-in distance fade keeps
+    // the blob from looking weirdly strong at extreme hover heights.
+    [Export] public float AoDecalDepth { get; set; } = 4.0f;
+
+    // Toggle for hiding the directional-shadow contribution at runtime
+    // (e.g. an undiscovered mob should be totally absent from the scene
+    // including its shadow). Updated by owners that need it; the visible
+    // sprite stays unaffected.
+    public bool CastsShadow
+    {
+        get => _castsShadow;
+        set
+        {
+            if (_castsShadow == value) { return; }
+            _castsShadow = value;
+            if (_shadowProxy != null)
+            {
+                _shadowProxy.CastShadow = _castsShadow
+                    ? ShadowCastingSetting.ShadowsOnly
+                    : ShadowCastingSetting.Off;
+            }
+        }
+    }
+    private bool _castsShadow = true;
 
     private bool _ready;
+    private Sprite3D _shadowProxy;
+    private Decal _aoDecal;
 
     public override void _Ready()
     {
         _ready = true;
+        // The visible sprite never casts directly — the proxy below does, with
+        // sun-aligned billboard math. Casting from the visible (camera-aligned)
+        // sprite produces edge-on slivers from the sun's POV.
+        CastShadow = ShadowCastingSetting.Off;
+        // Fall back to canonical resources so scenes don't have to re-wire
+        // every LitSprite when the shadow + AO system is added. Scene-level
+        // overrides still win.
+        if (!Engine.IsEditorHint())
+        {
+            ShadowCasterTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_shadow_caster.tres");
+            AoDecalTexture ??= GD.Load<Texture2D>("res://resources/materials/ao_blob.tres");
+        }
         TextureChanged += Apply;
         Apply();
     }
@@ -88,6 +144,69 @@ public partial class LitSprite : Sprite3D
         mat.SetShaderParameter("sprite_size", _spriteSize);
         mat.SetShaderParameter("sprite_region_origin", _regionOrigin);
         MaterialOverride = mat;
+
+        EnsureShadowProxy();
+        EnsureAoDecal();
+    }
+
+    private void EnsureShadowProxy()
+    {
+        if (ShadowCasterTemplate == null || Texture == null)
+        {
+            return;
+        }
+        if (_shadowProxy == null)
+        {
+            _shadowProxy = new Sprite3D();
+            _shadowProxy.Name = "ShadowProxy";
+            _shadowProxy.Centered = false;
+            _shadowProxy.PixelSize = 1.0f;
+            _shadowProxy.CastShadow = _castsShadow
+                ? ShadowCastingSetting.ShadowsOnly
+                : ShadowCastingSetting.Off;
+            _shadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+            // Visible-pass output is suppressed by ShadowsOnly anyway, but we
+            // still need the mesh to have valid bounds. Sprite3D handles that.
+            AddChild(_shadowProxy);
+        }
+        _shadowProxy.Texture = Texture;
+        _shadowProxy.Offset = Offset;
+        _shadowProxy.RegionEnabled = RegionEnabled;
+        _shadowProxy.RegionRect = RegionRect;
+
+        var smat = (ShaderMaterial)ShadowCasterTemplate.Duplicate();
+        smat.SetShaderParameter("sprite_texture", Texture);
+        smat.SetShaderParameter("sprite_size", _spriteSize);
+        smat.SetShaderParameter("sprite_region_origin", _regionOrigin);
+        _shadowProxy.MaterialOverride = smat;
+    }
+
+    private void EnsureAoDecal()
+    {
+        if (AoDecalTexture == null)
+        {
+            return;
+        }
+        if (_aoDecal == null)
+        {
+            _aoDecal = new Decal();
+            _aoDecal.Name = "AoDecal";
+            // Project straight down. Decal's local -Y is the projection axis,
+            // so positioning it slightly above the anchor with a tall depth
+            // means floating sprites still find a floor below them.
+            _aoDecal.Position = new Vector3(0f, AoDecalDepth * 0.5f, 0f);
+            _aoDecal.Size = new Vector3(AoDecalSize, AoDecalDepth, AoDecalSize);
+            _aoDecal.AlbedoMix = 1.0f;
+            _aoDecal.Modulate = new Color(1f, 1f, 1f, 1f);
+            // Fade with distance from the projection origin so floating
+            // sprites get a faint, larger AO suggestion rather than the same
+            // hard blob as a grounded sprite.
+            _aoDecal.DistanceFadeEnabled = true;
+            _aoDecal.DistanceFadeBegin = 4f;
+            _aoDecal.DistanceFadeLength = 2f;
+            AddChild(_aoDecal);
+        }
+        _aoDecal.TextureAlbedo = AoDecalTexture;
     }
 
     private static float GetEditorPixelSize()

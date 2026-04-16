@@ -36,7 +36,7 @@ public partial class World : Node3D
 
     public Player player => _player;
 
-    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition, Texture2D shadowMap)
+    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition)
     {
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
@@ -45,7 +45,7 @@ public partial class World : Node3D
         AddChild(_chunkManager);
         _chunkManager.onChunkLoaded += OnChunkLoaded;
         _chunkManager.onChunkUnloaded += OnChunkUnloaded;
-        _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition, shadowMap);
+        _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition);
 
         CreateWorldBoundary();
 
@@ -203,6 +203,38 @@ public partial class World : Node3D
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
     {
         _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);
+    }
+
+    // Constants for the sun-reach raycast. Origin is offset off the surface so
+    // a query point sitting on a face doesn't self-hit. Distance only needs to
+    // clear nearby occluders (cliffs, tree trunks, cave roofs) — the sun is
+    // infinitely far but a few dozen voxels of clearance is enough to know
+    // whether we're in the open.
+    private const float SUN_RAY_ORIGIN_OFFSET = 0.05f;
+    private const float SUN_RAY_DISTANCE = 64f;
+
+    // True if a ray cast from `pos` toward the sun reaches open sky without
+    // hitting environment geometry. Mirrors the directional-shadow term used
+    // by the shaders; gameplay code should call this per-actor (not per-voxel)
+    // because each call costs one Jolt query.
+    public bool IsPointInDirectionalSun(Vector3 pos)
+    {
+        Vector3 toSun = -_worldState.ShadowLightDirection;
+        Vector3 from = pos + toSun * SUN_RAY_ORIGIN_OFFSET;
+        Vector3 to = from + toSun * SUN_RAY_DISTANCE;
+        var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+        return result.Count == 0;
+    }
+
+    // Convenience: perceived brightness at `pos` matching the shader model,
+    // including the directional-shadow term. Skip the raycast with
+    // `checkDirectionalShadow = false` for cheap callers (e.g. plant growth)
+    // that don't care whether direct sun is geometrically blocked.
+    public float GetPerceivedLight(Vector3 pos, bool checkDirectionalShadow = true)
+    {
+        bool inSun = !checkDirectionalShadow || IsPointInDirectionalSun(pos);
+        return _worldState.GetPerceivedLightWorld(pos, inSun);
     }
 
     public static Vector3I WorldToChunkCoord(Vector3 worldPos)

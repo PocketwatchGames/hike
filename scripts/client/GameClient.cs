@@ -27,7 +27,6 @@ public partial class GameClient : Node3D
 
 	Player _player;
 	World _world;
-	ShadowMapRenderer _shadowRenderer;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -78,29 +77,11 @@ public partial class GameClient : Node3D
 		onHudText += OnHudTextRequested;
 		onInit?.Invoke();
 
-		// Shadow renderer owns its own World3D (via SubViewport.own_world_3d),
-		// so it sits at the GameClient root rather than inside sceneViewport.
-		// Must exist before World.Initialize so chunk materials can bind the
-		// shadow ViewportTexture at construction time. sceneViewport is
-		// removed and re-added so it registers with the RenderingServer
-		// after the shadow viewport — the scene then samples this frame's
-		// shadow map instead of last frame's, which would lag static shadows
-		// one frame behind player motion.
-		_shadowRenderer = new ShadowMapRenderer();
-		AddChild(_shadowRenderer);
-		MoveChild(_shadowRenderer, 0);
-
-		Node parent = sceneViewport.GetParent();
-		int sceneIndex = sceneViewport.GetIndex();
-		parent.RemoveChild(sceneViewport);
-		parent.AddChild(sceneViewport);
-		parent.MoveChild(sceneViewport, sceneIndex);
-
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		sceneViewport.AddChild(_world);
-		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition, _shadowRenderer.ShadowMap);
+		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
 
 		while (!_world.IsSpawnChunkReady(playerPosition))
 		{

@@ -24,14 +24,12 @@ public partial class ChunkManager : Node3D
     private WorldState _worldData;
     private LightMap _lightMap;
     private Camera3D _camera;
-    private Texture2D _shadowMap;
 
-    public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, Func<Vector3> getPlayerPosition, Texture2D shadowMap)
+    public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, Func<Vector3> getPlayerPosition)
     {
         _worldData = worldData;
         _lightMap = new LightMap(worldData);
         _camera = camera;
-        _shadowMap = shadowMap;
         _getPlayerPosition = getPlayerPosition;
         _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
 
@@ -219,7 +217,7 @@ public partial class ChunkManager : Node3D
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds, _shadowMap);
+                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
                 onChunkLoaded?.Invoke(coord);
@@ -245,7 +243,7 @@ public partial class ChunkManager : Node3D
             }
 
             oldMesh.QueueFree();
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds, _shadowMap);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.IsInBounds);
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;
