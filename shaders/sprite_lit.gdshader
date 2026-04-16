@@ -19,10 +19,18 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, ambient_light_disabled,
 // exact integer source pixel — no UV interpolation drift.
 
 uniform sampler2D sprite_texture : source_color, filter_nearest;
+// RGBA8 light map: R = sun mask, GBA = post-pow block light per RGB channel.
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
+global uniform float sun_intensity;
+global uniform vec3 sun_color;
+global uniform float cloud_shadow_scale;
+global uniform float cloud_speed;
+global uniform vec2 cloud_direction;
+global uniform float cloud_cutoff;
+global uniform float cloud_power;
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
 uniform sampler2D shadow_map : filter_linear;
@@ -40,6 +48,23 @@ const float SHADOW_DEPTH_BIAS = 0.002;
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
+
+float hash13(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+float vnoise(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	float n000 = hash13(i); float n100 = hash13(i + vec3(1,0,0));
+	float n010 = hash13(i + vec3(0,1,0)); float n110 = hash13(i + vec3(1,1,0));
+	float n001 = hash13(i + vec3(0,0,1)); float n101 = hash13(i + vec3(1,0,1));
+	float n011 = hash13(i + vec3(0,1,1)); float n111 = hash13(i + vec3(1,1,1));
+	return mix(mix(mix(n000,n100,f.x), mix(n010,n110,f.x), f.y),
+	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
+}
 
 void vertex() {
 	world_origin = MODEL_MATRIX[3].xyz;
@@ -80,7 +105,12 @@ void fragment() {
 	}
 
 	vec3 uvw = (world_origin - light_map_origin) * light_map_inv_size;
-	float light = pow(textureLod(light_map, uvw, 0.0).r, light_falloff_exp);
+	vec4 lm = textureLod(light_map, uvw, 0.0);
+	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Cloud shadows disabled — see voxel_clip.gdshader for rationale.
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	vec3 block_lit = lm.gba;
+	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
 	// Shadow map is sampled using the flat per-vertex world_origin (the sprite
 	// anchor), not a per-pixel reconstructed world position. The shadow

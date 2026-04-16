@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/gui/mob_hud.tscn" id="3_mobhud"]
 [ext_resource type="Material" path="res://resources/materials/silhouette.tres" id="4_silhouette"]
+[ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="5_ku16y"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
 albedo_color = Color(1, 0.5411765, 1, 1)
@@ -55,3 +56,7 @@ shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=1599354847]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
+
+[node name="CarrierLight" type="Node3D" parent="." unique_id=1054950918]
+script = ExtResource("5_ku16y")
+metadata/_custom_type_script = "uid://de7or1xx11ad5"

@@ -10,7 +10,8 @@ public partial class WorldGenData : Resource
     [Export] public int SizeZ = 8;
 
     [Export] public int TerrainNoiseSeed = 12345;
-    [Export] public int CaveNoiseSeed = 67890;
+    [Export] public int TunnelNoiseSeed = 67890;
+    [Export] public int CaveNoiseSeed = 86420;
     [Export] public int GrassNoiseSeed = 31415;
     [Export] public int PathNoiseSeed = 24680;
     [Export] public int RiverNoiseSeed = 13579;
@@ -24,12 +25,21 @@ public partial class WorldGenData : Resource
     [Export] public float PlateauStep = 4f;
     [Export] public float PathThreshold = 0.1f;
     [Export] public float PathBlendBand = 0.05f;
-    [Export] public float CaveThreshold = 0.1f;
-    // Caves are carved as horizontal slabs at the bottom of each plateau step
-    // (the lowest CaveLayerHeight voxels of each step boundary), gated by 3D
-    // cave noise. This produces tiered cave systems whose floors line up with
-    // plateau elevations.
-    [Export] public int CaveLayerHeight = 3;
+    [Export] public float TunnelThreshold = 0.1f;
+    // Tunnels are carved as horizontal slabs at the bottom of each plateau
+    // step (the lowest TunnelLayerHeight voxels of each step boundary), gated
+    // by 3D tunnel noise. This produces tiered tunnel systems whose floors
+    // line up with plateau elevations.
+    [Export] public int TunnelLayerHeight = 3;
+    // Caves are swiss-cheese style holes carved through terrain wherever
+    // |caveNoise3D| > CaveThreshold. Floors are smooth (follow the noise
+    // surface), ceilings snap up to the next plateau-step boundary so caves
+    // remain at least CaveMinHeight tall and can serve as walkable paths.
+    // Caves never breach the surface (no craters) and never connect to
+    // tunnels via half-height openings — by construction they are >=3 tall.
+    [Export] public float CaveNoiseFrequency = 0.04f;
+    [Export] public float CaveThreshold = 0.25f;
+    [Export] public int CaveMinHeight = 3;
     // Rivers: where |riverNoise| < RiverThreshold and the underlying terrain
     // height is within RiverInfluenceMaxHeight of the water level, the column
     // is carved down to RiverDepth (below water level) so it floods.
@@ -54,6 +64,9 @@ public partial class WorldGenData : Resource
 
     [Export] public int TorchesPerHouseMin = 1;
     [Export] public int TorchesPerHouseMax = 3;
+    // Per cave-floor spawn roll. Caves are dim, so a low rate still produces
+    // visibly lit pockets without flooding every tunnel with torches.
+    [Export] public float CaveTorchChance = 0.0025f;
 
     [Export] public int SpawnBuildingWidth = 20;
     [Export] public int SpawnBuildingDepth = 16;

@@ -674,7 +674,7 @@ public partial class WorldEditor : Node3D
         ws.Spawn = new Vector3(0, 1, 0);
 
         // Compute initial sunlight so the world isn't pitch black
-        LightEngine.ComputeLighting(ws, new List<(Vector3 position, int level)>());
+        LightEngine.ComputeSunlight(ws);
 
         return ws;
     }

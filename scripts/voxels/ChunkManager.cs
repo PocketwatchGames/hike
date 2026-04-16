@@ -41,6 +41,16 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // Day/night-driven sun controls. Intensity is overall brightness;
+        // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
+        // Both default to "noon" values; the day/night sim will write them.
+        ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, CVars.sunIntensity.Value);
+        ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
+        ShaderGlobals.Register("cloud_shadow_scale", RenderingServer.GlobalShaderParameterType.Float, 0.005f);
+        ShaderGlobals.Register("cloud_speed", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+        ShaderGlobals.Register("cloud_direction", RenderingServer.GlobalShaderParameterType.Vec2, new Vector2(0.7f, 0.3f));
+        ShaderGlobals.Register("cloud_cutoff", RenderingServer.GlobalShaderParameterType.Float, 0.4f);
+        ShaderGlobals.Register("cloud_power", RenderingServer.GlobalShaderParameterType.Float, 3.0f);
 
         UpdateLoadedChunks();
     }
@@ -62,18 +72,49 @@ public partial class ChunkManager : Node3D
 
         _lastPlayerChunkCoord = World.WorldToChunkCoord(_getPlayerPosition());
         UpdateLoadedChunks();
+
+        // Drain any direct WorldState writes (e.g. CarrierLight per-frame
+        // deposits) into LightMap, then flush. This is the single per-frame
+        // upload point — all light changes within this frame batch here.
+        DrainLightChunkDirty();
+        _lightMap.Flush(_worldData, _loadedChunks.Keys);
     }
 
     public void UpdateLighting(List<Vector3I> changedPositions)
     {
-        _worldData.UpdateLightingAt(changedPositions);
-        _lightMap.Update(_worldData);
+        _worldData.OnVoxelsChanged(changedPositions);
+        DrainLightChunkDirty();
     }
 
-    public void PropagateLighting(List<Vector3I> sourcePositions)
+    public void AddLightSource(LightSource source)
     {
-        _worldData.PropagateLightingAt(sourcePositions);
-        _lightMap.Update(_worldData);
+        _worldData.AddLightSource(source);
+        DrainLightChunkDirty();
+    }
+
+    public void RemoveLightSource(LightSource source)
+    {
+        _worldData.RemoveLightSource(source);
+        DrainLightChunkDirty();
+    }
+
+    public void SetLightAmplitude(LightSource source, float amplitude)
+    {
+        _worldData.SetLightAmplitude(source, amplitude);
+        DrainLightChunkDirty();
+    }
+
+    // Moves dirty marks from WorldState into LightMap. The actual encode +
+    // upload happens once per frame in _Process; this lets carrier lights
+    // do remove+add per frame without paying for two uploads each time.
+    private void DrainLightChunkDirty()
+    {
+        if (_worldData.LightChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.LightChunkDirty)
+        {
+            _lightMap.MarkChunkDirty(coord);
+        }
+        _worldData.LightChunkDirty.Clear();
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

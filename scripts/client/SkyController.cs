@@ -11,11 +11,11 @@ public partial class SkyController : Node3D
     [Export] public Color horizonColor = new Color(0.72f, 0.82f, 0.92f);
     [Export] public Color zenithColor = new Color(0.25f, 0.48f, 0.82f);
     [Export] public Color sunColor = new Color(1.0f, 0.92f, 0.72f);
+    // Sky cloud visuals (sky_common.gdshaderinc). cloud_scale is shared with
+    // the terrain cloud shadow system — both use the same global.
     [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
     [Export] public Vector2 cloudScroll = new Vector2(0.004f, 0.002f);
-    [Export] public float cloudScale = 2.5f;
     [Export] public float cloudCoverage = 0.45f;
-
     // Reverse directional shading: each tint is the color a face is multiplied
     // by when it faces fully away from the corresponding light. White = no
     // effect; darker/saturated colors darken and tint backfacing surfaces.
@@ -36,7 +36,6 @@ public partial class SkyController : Node3D
         ShaderGlobals.Register("zenith_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(zenithColor));
         ShaderGlobals.Register("cloud_color", RenderingServer.GlobalShaderParameterType.Vec3, ColorToVec3(cloudColor));
         ShaderGlobals.Register("cloud_scroll", RenderingServer.GlobalShaderParameterType.Vec2, cloudScroll);
-        ShaderGlobals.Register("cloud_scale", RenderingServer.GlobalShaderParameterType.Float, cloudScale);
         ShaderGlobals.Register("cloud_coverage", RenderingServer.GlobalShaderParameterType.Float, cloudCoverage);
     }
 
@@ -50,11 +49,10 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("fill_tint_color", ColorToVec3(fillTintColor));
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(sunColor));
         RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(horizonColor));
-        RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(zenithColor));
         RenderingServer.GlobalShaderParameterSet("cloud_color", ColorToVec3(cloudColor));
         RenderingServer.GlobalShaderParameterSet("cloud_scroll", cloudScroll);
-        RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_coverage", cloudCoverage);
+        RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(zenithColor));
     }
 
     private static Vector3 ComputeFillDirection(Vector3 sunDir, float pitchDeg, float yawOffsetDeg)

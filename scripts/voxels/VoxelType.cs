@@ -134,13 +134,13 @@ public static class VoxelTypeInfo
     /// <summary>
     /// Extra light attenuation when light passes through a transparent voxel.
     /// Returns 0 for air (no extra cost), positive for water etc.
-    /// Added on top of the normal 1-per-block decay.
+    /// Added on top of the normal LightEngine.FALLOFF_PER_VOXEL decay.
     /// </summary>
     public static int LightAttenuation(VoxelType type)
     {
         if (type == VoxelType.Water)
         {
-            return 2;
+            return 8;
         }
         return 0;
     }

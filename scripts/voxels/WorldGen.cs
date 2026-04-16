@@ -40,10 +40,16 @@ public static class WorldGen
         terrainNoise.Frequency = 0.02f;
         terrainNoise.FractalOctaves = 4;
 
+        var tunnelNoise = new FastNoiseLite();
+        tunnelNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        tunnelNoise.Seed = genData.TunnelNoiseSeed;
+        tunnelNoise.Frequency = 0.025f;
+        tunnelNoise.FractalOctaves = 2;
+
         var caveNoise = new FastNoiseLite();
         caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         caveNoise.Seed = genData.CaveNoiseSeed;
-        caveNoise.Frequency = 0.025f;
+        caveNoise.Frequency = genData.CaveNoiseFrequency;
         caveNoise.FractalOctaves = 2;
 
         var grassNoise = new FastNoiseLite();
@@ -83,30 +89,37 @@ public static class WorldGen
                 {
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
-                    GenerateChunk(chunk, genData, terrainNoise, caveNoise, pathNoise, riverNoise,
+                    GenerateChunk(chunk, genData, terrainNoise, tunnelNoise, pathNoise, riverNoise,
                         spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
                     ws._chunks[coord] = chunk;
                 }
             }
         }
 
+        // Carve swiss-cheese caves through terrain. Runs after terrain+tunnel
+        // generation so cave carving sees the full solid column and can
+        // connect tunnels vertically where they overlap.
+        GenerateCaves(ws, genData, caveNoise);
+
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
 
-        // Generate props on surface chunks after all voxels are placed
-        var blockLightSources = new List<(Vector3 position, int level)>();
+        // Generate props on surface chunks after all voxels are placed.
+        // Block-light sources are no longer pre-propagated here — torch
+        // entities register themselves with WorldState.LightSources when
+        // they spawn, which runs the BFS footprint at that point.
         for (int x = ws.Min.X; x <= ws.Max.X; x++)
         {
             for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
             {
                 var coord = new Vector3I(x, 0, z);
-                GenerateProps(ws, coord, genData, terrainNoise, caveNoise, grassNoise, pathNoise, riverNoise, forestNoise, blockLightSources,
+                GenerateProps(ws, coord, genData, terrainNoise, tunnelNoise, grassNoise, pathNoise, riverNoise, forestNoise,
                     spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
             }
         }
 
-        // Compute volumetric lighting after all geometry and light sources are placed
-        LightEngine.ComputeLighting(ws, blockLightSources);
+        // Compute sunlight after all geometry exists.
+        LightEngine.ComputeSunlight(ws);
 
         return ws;
     }
@@ -183,12 +196,12 @@ public static class WorldGen
         return Math.Max(dxF, dzF) <= DIRT_SLOPE_MIN;
     }
 
-    // Plateau-step caves: the top CaveLayerHeight voxels of every plateau
-    // step (the band immediately under each plateau ceiling) are cave
-    // candidates, gated by 3D cave noise. This produces tiered cave systems
-    // whose ceilings line up with plateau elevations and whose openings show
-    // up in cliff faces between adjacent plateau levels.
-    private static bool IsCaveAt(int wx, int wy, int wz, FastNoiseLite caveNoise, WorldGenData genData)
+    // Plateau-step tunnels: the top TunnelLayerHeight voxels of every plateau
+    // step (the band immediately under each plateau ceiling) are tunnel
+    // candidates, gated by 3D tunnel noise. This produces tiered tunnel
+    // systems whose ceilings line up with plateau elevations and whose
+    // openings show up in cliff faces between adjacent plateau levels.
+    private static bool IsTunnelAt(int wx, int wy, int wz, FastNoiseLite tunnelNoise, WorldGenData genData)
     {
         if (wy <= WATER_LEVEL)
         {
@@ -196,23 +209,37 @@ public static class WorldGen
         }
         int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
         int rem = ((wy % step) + step) % step;
-        // rem == 0 is the plateau-ceiling row (a solid surface column would
-        // expose its surface here); rem in [step - CaveLayerHeight, step - 1]
-        // is the band immediately below that ceiling.
-        if (rem < step - genData.CaveLayerHeight)
+        if (rem < step - genData.TunnelLayerHeight)
         {
             return false;
         }
-        return Mathf.Abs(caveNoise.GetNoise3D(wx, wy, wz)) < genData.CaveThreshold;
+        // Sample at the band's base (rem=0 row) so all voxels in the band
+        // share the same noise value — guarantees the band carves all-or-nothing
+        // and never leaves sub-3-tall openings. Math.Floor (not C# integer
+        // division) so negative wy snaps down, not toward zero.
+        int bandBase = (int)Math.Floor((double)wy / step) * step;
+        return Mathf.Abs(tunnelNoise.GetNoise3D(wx, bandBase, wz)) < genData.TunnelThreshold;
     }
 
     private static void GenerateChunk(ChunkState data, WorldGenData genData,
-        FastNoiseLite terrainNoise, FastNoiseLite caveNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise,
+        FastNoiseLite terrainNoise, FastNoiseLite tunnelNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise,
         int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
         int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
         int chunkWorldZ = data.ChunkCoord.Z * ChunkState.SIZE;
+        int tunnelStep = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+
+        // True iff this column's surface reaches the plateau ceiling above wy,
+        // so the rem=0 voxel at bandTop is solid and can serve as a tunnel
+        // roof. Without this, columns whose solidHeight lands mid-band (in
+        // path-blend regions) would carve a tunnel with no ceiling above it,
+        // producing 1- and 2-tall openings the player can't fit through.
+        bool ColumnSupportsTunnel(int wy, int columnSolidHeight)
+        {
+            int bandTop = (int)Math.Floor((double)wy / tunnelStep) * tunnelStep + tunnelStep;
+            return columnSolidHeight >= bandTop;
+        }
 
         for (int x = 0; x < ChunkState.SIZE; x++)
         {
@@ -229,9 +256,12 @@ public static class WorldGen
                 {
                     int wy = chunkWorldY + y;
 
-                    // Caves carve interior voxels only — never the surface
-                    // voxel (wy == solidHeight) so the ground stays intact.
-                    bool solid = wy <= solidHeight && !(wy < solidHeight && IsCaveAt(wx, wy, wz, caveNoise, genData));
+                    // Caves carve only when the column reaches the plateau
+                    // ceiling above the band — that ceiling row (rem=0) is
+                    // never carved by IsCaveAt, so it serves as the cave roof
+                    // and we get a guaranteed full-height cave.
+                    bool solid = wy <= solidHeight
+                        && !(ColumnSupportsTunnel(wy, solidHeight) && IsTunnelAt(wx, wy, wz, tunnelNoise, genData));
 
                     if (!solid)
                     {
@@ -247,6 +277,13 @@ public static class WorldGen
                     {
                         data.Voxels[x, y, z] = VoxelType.Sand;
                     }
+                    // Cave floor: the solid voxel directly beneath a carved
+                    // cave voxel reads as sand so cave interiors look distinct
+                    // from surface terrain.
+                    else if (wy + 1 < solidHeight && ColumnSupportsTunnel(wy + 1, solidHeight) && IsTunnelAt(wx, wy + 1, wz, tunnelNoise, genData))
+                    {
+                        data.Voxels[x, y, z] = VoxelType.Sand;
+                    }
                     else
                     {
                         data.Voxels[x, y, z] = VoxelType.Terrain;
@@ -256,14 +293,110 @@ public static class WorldGen
         }
     }
 
+    // Swiss-cheese caves: 3D noise carves blob-shaped holes through solid
+    // terrain. Floors follow the noise surface (smooth); ceilings snap up to
+    // the next plateau-step boundary so the rem=0 row above each cave stays
+    // solid and acts as a flat roof. Caves never breach the surface and are
+    // discarded if shorter than CaveMinHeight, guaranteeing walkable paths.
+    private static void GenerateCaves(WorldState ws, WorldGenData genData, FastNoiseLite caveNoise)
+    {
+        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        bool IsNaturallyCarved(int wx, int wy, int wz)
+        {
+            return Math.Abs(caveNoise.GetNoise3D(wx, wy, wz)) > genData.CaveThreshold;
+        }
+
+        // Highest solid (non-Air, non-Water) voxel in this column. Anything
+        // above is sky; we never want to carve into sky (no craters).
+        int FindSurface(int wx, int wz)
+        {
+            for (int wy = worldMaxY; wy >= worldMinY; wy--)
+            {
+                var v = ws.GetVoxelWorld(wx, wy, wz);
+                if (v != VoxelType.Air && v != VoxelType.Water)
+                {
+                    return wy;
+                }
+            }
+            return worldMinY - 1;
+        }
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int surfaceY = FindSurface(wx, wz);
+                if (surfaceY <= worldMinY)
+                {
+                    continue;
+                }
+
+                // Walk the column bottom-up finding runs of natural carve.
+                // worldMinY is preserved as bedrock, so start one above.
+                int wy = worldMinY + 1;
+                while (wy <= surfaceY)
+                {
+                    if (!IsNaturallyCarved(wx, wy, wz))
+                    {
+                        wy++;
+                        continue;
+                    }
+                    int runLo = wy;
+                    while (wy <= surfaceY && IsNaturallyCarved(wx, wy, wz))
+                    {
+                        wy++;
+                    }
+                    int runHi = wy - 1;
+
+                    // Snap top up to the next plateau-step boundary. If the
+                    // snap reaches above surface, that's fine — the cave just
+                    // breaches as an open-topped pit.
+                    int ceilingY = (int)Math.Floor((double)runHi / step) * step + step;
+                    if (ceilingY - runLo < genData.CaveMinHeight)
+                    {
+                        continue;
+                    }
+
+                    for (int cy = runLo; cy < ceilingY; cy++)
+                    {
+                        var fill = cy <= WATER_LEVEL ? VoxelType.Water : VoxelType.Air;
+                        ws.SetVoxelWorld(wx, cy, wz, fill);
+                    }
+                }
+            }
+        }
+    }
+
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
-        FastNoiseLite terrainNoise, FastNoiseLite caveNoise,
+        FastNoiseLite terrainNoise, FastNoiseLite tunnelNoise,
         FastNoiseLite grassNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, FastNoiseLite forestNoise,
-        List<(Vector3 position, int level)> blockLightSources,
         int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
-        bool IsGrassyAt(int wx, int wz) => IsFlatDryGrassAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
-            spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+        // Grass requires both the noise-derived "would be grassy" check AND a
+        // solid voxel at y=0 with air at y=1 in the actual world data — caves
+        // can carve through the surface, in which case props would otherwise
+        // float over an open hole.
+        bool IsGrassyAt(int wx, int wz)
+        {
+            if (!IsFlatDryGrassAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
+                spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ))
+            {
+                return false;
+            }
+            var ground = ws.GetVoxelWorld(wx, 0, wz);
+            if (ground == VoxelType.Air || ground == VoxelType.Water)
+            {
+                return false;
+            }
+            return ws.GetVoxelWorld(wx, 1, wz) == VoxelType.Air;
+        }
         ChunkState data = ws._chunks[chunkCoord];
         var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
         int treeCount = rng.Next(genData.TreesPerChunkMin, genData.TreesPerChunkMax + 1);
@@ -470,12 +603,94 @@ public static class WorldGen
             }
         }
 
+        // Cave pockets: scan the full vertical column and spawn mobs/chests/
+        // loot/torches anywhere there's a 2-voxel air pocket with a solid
+        // floor and a ceiling within reach (the "is enclosed" test is what
+        // distinguishes cave pockets from open surface).
+        const int HEAD_CLEARANCE = 2;
+        const int CAVE_CEILING_PROBE = 6;
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        for (int localX = 0; localX < ChunkState.SIZE; localX++)
+        {
+            for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+            {
+                int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                for (int wy = worldMinY + 1; wy <= worldMaxY - HEAD_CLEARANCE; wy++)
+                {
+                    var below = ws.GetVoxelWorld(wx, wy - 1, wz);
+                    if (below == VoxelType.Air || below == VoxelType.Water)
+                    {
+                        continue;
+                    }
+                    bool clear = true;
+                    for (int c = 0; c < HEAD_CLEARANCE; c++)
+                    {
+                        if (ws.GetVoxelWorld(wx, wy + c, wz) != VoxelType.Air)
+                        {
+                            clear = false;
+                            break;
+                        }
+                    }
+                    if (!clear)
+                    {
+                        continue;
+                    }
+                    bool isCave = false;
+                    for (int c = HEAD_CLEARANCE; c <= CAVE_CEILING_PROBE; c++)
+                    {
+                        if (ws.GetVoxelWorld(wx, wy + c, wz) != VoxelType.Air)
+                        {
+                            isCave = true;
+                            break;
+                        }
+                    }
+                    if (!isCave)
+                    {
+                        continue;
+                    }
+
+                    var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
+                    if (rng.NextDouble() < genData.GoblinChance)
+                    {
+                        var mobState = new MobSimState(pos,
+                            (float)(rng.NextDouble() * Mathf.Pi * 2f),
+                            genData.GoblinScene, genData.GoblinData);
+                        if (rng.NextDouble() < 0.25f)
+                        {
+                            mobState.InitialBehavior = "Wander";
+                        }
+                        ws.AddEntity(mobState);
+                    }
+                    if (rng.NextDouble() < genData.KunKunChance)
+                    {
+                        ws.AddEntity(new MobSimState(pos,
+                            (float)(rng.NextDouble() * Mathf.Pi * 2f),
+                            genData.KunKunScene, genData.KunKunData));
+                    }
+                    if (rng.NextDouble() < genData.LootChance)
+                    {
+                        ws.AddEntity(new PropSimState(PropType.Loot, pos, genData.LootScene));
+                    }
+                    if (rng.NextDouble() < genData.ChestChance)
+                    {
+                        int lootCount = rng.Next(genData.ChestLootCountMin, genData.ChestLootCountMax + 1);
+                        ws.AddEntity(new ChestSimState(pos, genData.ChestScene, lootCount, genData.LootScene));
+                    }
+                    if (rng.NextDouble() < genData.CaveTorchChance)
+                    {
+                        ws.AddEntity(new TorchSimState(pos, genData.TorchScene));
+                    }
+                }
+            }
+        }
+
         // Place torches inside houses as interactives
-        GenerateTorches(ws, data, chunkCoord, genData, rng, blockLightSources);
+        GenerateTorches(ws, data, chunkCoord, genData, rng);
     }
 
-    private static void GenerateTorches(WorldState ws, ChunkState data, Vector3I chunkCoord, WorldGenData genData,
-        Random rng, List<(Vector3 position, int level)> blockLightSources)
+    private static void GenerateTorches(WorldState ws, ChunkState data, Vector3I chunkCoord, WorldGenData genData, Random rng)
     {
         // Detect if this chunk has a house by checking for Wood walls at y=1
         bool hasHouse = false;
@@ -512,18 +727,27 @@ public static class WorldGen
             return;
         }
 
-        const int TORCH_LIGHT_EMISSION = 14;
         int torchCount = rng.Next(genData.TorchesPerHouseMin, genData.TorchesPerHouseMax + 1);
+        var used = new HashSet<(int, int)>();
+        // Bound retries so a small/full house can't spin forever trying to find
+        // a free slot. With a typical 4x4 interior and a couple torches this
+        // converges in 1-2 tries each iteration.
+        const int MAX_PLACEMENT_ATTEMPTS = 8;
         for (int i = 0; i < torchCount; i++)
         {
-            int localX = rng.Next(interiorMinX, interiorMaxX + 1);
-            int localZ = rng.Next(interiorMinZ, interiorMaxZ + 1);
-
-            // Only place on floor with air above
-            if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air)
+            int localX = 0, localZ = 0;
+            bool placed = false;
+            for (int attempt = 0; attempt < MAX_PLACEMENT_ATTEMPTS; attempt++)
             {
-                continue;
+                localX = rng.Next(interiorMinX, interiorMaxX + 1);
+                localZ = rng.Next(interiorMinZ, interiorMaxZ + 1);
+                if (used.Contains((localX, localZ))) { continue; }
+                if (data.GetVoxel(localX, 1, localZ) != VoxelType.Air) { continue; }
+                placed = true;
+                break;
             }
+            if (!placed) { continue; }
+            used.Add((localX, localZ));
 
             float worldX = chunkCoord.X * ChunkState.SIZE + localX + 0.5f;
             float worldY = chunkCoord.Y * ChunkState.SIZE + 1f;
@@ -531,8 +755,6 @@ public static class WorldGen
 
             var torchPos = new Vector3(worldX, worldY, worldZ);
             ws.AddEntity(new TorchSimState(torchPos, genData.TorchScene));
-
-            blockLightSources.Add((torchPos, TORCH_LIGHT_EMISSION));
         }
     }
 

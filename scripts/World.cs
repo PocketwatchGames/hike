@@ -185,9 +185,19 @@ public partial class World : Node3D
         _chunkManager.UpdateLighting(changedPositions);
     }
 
-    public void PropagateLighting(List<Vector3I> sourcePositions)
+    public void AddLightSource(LightSource source)
     {
-        _chunkManager.PropagateLighting(sourcePositions);
+        _chunkManager.AddLightSource(source);
+    }
+
+    public void RemoveLightSource(LightSource source)
+    {
+        _chunkManager.RemoveLightSource(source);
+    }
+
+    public void SetLightAmplitude(LightSource source, float amplitude)
+    {
+        _chunkManager.SetLightAmplitude(source, amplitude);
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

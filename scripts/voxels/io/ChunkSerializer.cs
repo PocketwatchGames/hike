@@ -3,17 +3,20 @@ using System.IO;
 using Godot;
 
 // Single-chunk binary encode/decode. Layout per blob:
-//   voxels  : 4096 bytes  (raw VoxelType byte per cell, SIZE^3 row-major X,Y,Z)
-//   light   : 4096 bytes  (raw packed nibble byte per cell — matches ChunkState.Light)
-//   entities: type-tagged list (see EntitySerializer)
+//   voxels   : 4096 bytes (raw VoxelType byte per cell, SIZE^3 row-major X,Y,Z)
+//   sunlight : 4096 bytes (one byte per cell, value 0-15)
+//   entities : type-tagged list (see EntitySerializer)
+//
+// BlockLight is NOT serialized — it's the additive sum of contributions from
+// LightSources, and it's recomputed on world load when each torch entity
+// spawns and registers itself.
 public static class ChunkSerializer
 {
     public const int VOXEL_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
-    public const int LIGHT_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
+    public const int SUNLIGHT_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
 
     public static void Write(BinaryWriter w, ChunkState chunk, List<EntitySimState> entities)
     {
-        // Voxels
         for (int x = 0; x < ChunkState.SIZE; x++)
         {
             for (int y = 0; y < ChunkState.SIZE; y++)
@@ -25,14 +28,13 @@ public static class ChunkSerializer
             }
         }
 
-        // Light (packed nibbles already)
         for (int x = 0; x < ChunkState.SIZE; x++)
         {
             for (int y = 0; y < ChunkState.SIZE; y++)
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    w.Write(chunk.Light[x, y, z]);
+                    w.Write(chunk.Sunlight[x, y, z]);
                 }
             }
         }
@@ -61,7 +63,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    chunk.Light[x, y, z] = r.ReadByte();
+                    chunk.Sunlight[x, y, z] = r.ReadByte();
                 }
             }
         }

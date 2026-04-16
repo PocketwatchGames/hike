@@ -5,9 +5,22 @@ global uniform float camera_clip;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
 
+// RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
+// pow'd in this shader). GBA = per-color-channel block light, post-pow at
+// deposit time so overlapping lights add their perceptual brightness directly.
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
+// Day/night-driven scalars for the sun. sun_intensity is overall brightness
+// (0..1+); sun_color is the RGB tint (warm dawn, cool noon, etc.).
+global uniform float sun_intensity;
+global uniform vec3 sun_color;
+
+global uniform float cloud_shadow_scale;
+global uniform float cloud_speed;
+global uniform vec2 cloud_direction;
+global uniform float cloud_cutoff;
+global uniform float cloud_power;
 
 uniform sampler2DArray tile_array : filter_nearest, repeat_enable;
 
@@ -197,7 +210,21 @@ void fragment() {
 	vec3 n_norm = normalize(world_normal);
 	vec3 light_sample_pos = world_vertex + n_norm * 0.5;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
-	float light = max(pow(texture(light_map, uvw).r, light_falloff_exp), MIN_AMBIENT);
+	vec4 lm = texture(light_map, uvw);
+	// Cloud shadow: noise-driven soft occlusion on the sun channel, tinting
+	// toward shadow_color. Only affects sun-lit areas; block light (torches)
+	// is unaffected. Cloud pattern moves over time for a living sky feel.
+	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Cloud shadow infrastructure is in place (uniforms, noise function) but
+	// disabled until terrain self-shadowing is added. Without real sun
+	// occlusion the cloud effect creates artifacts at indoor/outdoor
+	// transitions. Once the shadow map includes terrain, fold cloud noise
+	// into the shadow term instead of the sun channel.
+	// float cloud_noise = vnoise(vec3(world_vertex.xz * cloud_shadow_scale + TIME * cloud_speed * cloud_direction, 0.0));
+	// float cloud = pow(clamp((cloud_noise - cloud_cutoff) / (1.0 - cloud_cutoff), 0.0, 1.0), cloud_power);
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	vec3 block_lit = lm.gba;
+	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
 
 	// "Reverse" directional shading: each light darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing

@@ -80,6 +80,36 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
     });
 
+    // Multiplier applied to the sun-visibility lightmap channel. <1 keeps
+    // sunlit areas below max brightness so block lights (torches) have
+    // headroom to add visibly on top. Will be driven by the day/night
+    // simulation once it exists; today it's a static tuning value.
+    public static CVarFloat sunIntensity = new CVarFloat("sun_intensity", 0.85f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("sun_intensity", ((CVarFloat)cvar).Value);
+    });
+
+    // RGB tint applied to the sun visibility mask. Day/night will drive this:
+    // warm at dawn/dusk, cool at noon. Parsed from "r g b" floats. The shader
+    // sees a vec3 — the day/night sim will eventually call SetSunColor instead
+    // of going through this CVar each frame, so the parsing cost only matters
+    // for console tweaks.
+    private static Godot.Vector3 _sunColorValue = new Godot.Vector3(1f, 0.96f, 0.88f);
+    public static Godot.Vector3 SunColor => _sunColorValue;
+    public static CVarString sunColor = new CVarString("sun_color", "1 0.96 0.88", (cvar) =>
+    {
+        string s = ((CVarString)cvar).Value.Trim();
+        string[] parts = s.Split(' ', System.StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 3
+            && float.TryParse(parts[0], out float r)
+            && float.TryParse(parts[1], out float g)
+            && float.TryParse(parts[2], out float b))
+        {
+            _sunColorValue = new Godot.Vector3(r, g, b);
+            Godot.RenderingServer.GlobalShaderParameterSet("sun_color", _sunColorValue);
+        }
+    });
+
     // When set to "x y z", the ChunkMesh only builds that single chunk (others
     // produce no geometry). Useful for isolating a chunk when debugging DC.
     // Empty string = all chunks build normally.
@@ -122,8 +152,8 @@ public static class CVars
             int wy = py + dy;
             VoxelType v = ws.GetVoxelWorld(px, wy, pz);
             int sun = ws.GetSunlightWorld(px, wy, pz);
-            int blk = ws.GetBlockLightWorld(px, wy, pz);
-            Godot.GD.Print($"  y={wy}: voxel={v} sun={sun} block={blk}");
+            ws.GetBlockLightWorld(px, wy, pz, out int br, out int bg, out int bb);
+            Godot.GD.Print($"  y={wy}: voxel={v} sun={sun} block=({br},{bg},{bb})");
         }
     });
 
@@ -182,6 +212,24 @@ public static class CVars
         Godot.Vector3 p = World.Current.player.GlobalPosition;
         Godot.Vector3I c = World.WorldToChunkCoord(p);
         Godot.GD.Print($"player pos=({p.X:F1}, {p.Y:F1}, {p.Z:F1})  chunk=({c.X}, {c.Y}, {c.Z})");
+    });
+
+    // Cloud shadow parameters. Tunable at runtime via console.
+    public static CVarFloat cloudScale = new CVarFloat("cloud_shadow_scale", 0.005f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_shadow_scale", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat cloudSpeed = new CVarFloat("cloud_speed", 0.3f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_speed", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat cloudCutoff = new CVarFloat("cloud_cutoff", 0.4f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_cutoff", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat cloudPower = new CVarFloat("cloud_power", 3.0f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_power", ((CVarFloat)cvar).Value);
     });
 
     // Path to a packed world file (`.hike`). When non-empty at game start,

@@ -32,6 +32,18 @@ public class WorldState
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
 
+    // Active block-light sources. Each entry contributes additively to the
+    // BlockLight channel via its cached footprint. Added/removed through
+    // LightEngine.AddLightSource / RemoveLightSource.
+    public readonly List<LightSource> LightSources = new();
+
+    // Set of chunk coords whose stored sunlight or block-light arrays have
+    // been written since the last LightMap upload. ChunkManager drains this
+    // after each light operation so the GPU upload only re-encodes touched
+    // chunks. Populated automatically by SetSunlightWorld / AddBlockLightWorld
+    // / SubtractBlockLightWorld — callers don't need to remember.
+    public readonly HashSet<Vector3I> LightChunkDirty = new();
+
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
         Min = min;
@@ -89,26 +101,40 @@ public class WorldState
             return;
         }
         chunk.SetSunlight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
+        LightChunkDirty.Add(cc);
     }
 
-    public int GetBlockLightWorld(int wx, int wy, int wz)
+    public void GetBlockLightWorld(int wx, int wy, int wz, out int r, out int g, out int b)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
-            return 0;
+            r = 0; g = 0; b = 0;
+            return;
         }
-        return chunk.GetBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+        chunk.GetBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), out r, out g, out b);
     }
 
-    public void SetBlockLightWorld(int wx, int wy, int wz, int level)
+    public void AddBlockLightWorld(int wx, int wy, int wz, int r, int g, int b)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.SetBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
+        chunk.AddBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b);
+        LightChunkDirty.Add(cc);
+    }
+
+    public void SubtractBlockLightWorld(int wx, int wy, int wz, int r, int g, int b)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SubtractBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b);
+        LightChunkDirty.Add(cc);
     }
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
@@ -121,16 +147,29 @@ public class WorldState
         chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = type;
     }
 
+    // Combined "how lit is this voxel" used by AI visibility checks. Returns
+    // a value in [0, LightEngine.MAX_LIGHT]. Sunlight is already in that
+    // space; block light is per-channel byte-scale post-pow values, so we
+    // collapse to luminance and rescale.
     public int GetLightLevelWorld(int wx, int wy, int wz)
     {
-        return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
+        int sun = GetSunlightWorld(wx, wy, wz);
+        GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
+        // Rec.601 luminance, integer-scaled. Each channel saturates at 255
+        // for the GPU but the stored ushort can be larger; clamp here too.
+        if (r > 255) { r = 255; }
+        if (g > 255) { g = 255; }
+        if (b > 255) { b = 255; }
+        int lum = (r * 299 + g * 587 + b * 114) / 1000;             // 0..255
+        int blkScaled = (lum * LightEngine.MAX_LIGHT) / 255;        // 0..MAX_LIGHT
+        return Math.Max(sun, blkScaled);
     }
     public int GetLightLevelWorld(Vector3 position)
     {
         int wx = Mathf.FloorToInt(position.X);
         int wy = Mathf.FloorToInt(position.Y);
         int wz = Mathf.FloorToInt(position.Z);
-        return Math.Max(GetSunlightWorld(wx, wy, wz), GetBlockLightWorld(wx, wy, wz));
+        return GetLightLevelWorld(wx, wy, wz);
     }
 
     public ChunkState GetChunk(Vector3I coord)
@@ -171,13 +210,23 @@ public class WorldState
         return false;
     }
 
-    public void UpdateLightingAt(List<Vector3I> changedPositions)
+    public void OnVoxelsChanged(List<Vector3I> changedPositions)
     {
-        LightEngine.UpdateLighting(this, changedPositions);
+        LightEngine.OnVoxelsChanged(this, changedPositions);
     }
 
-    public void PropagateLightingAt(List<Vector3I> sourcePositions)
+    public void AddLightSource(LightSource source)
     {
-        LightEngine.PropagateLighting(this, sourcePositions);
+        LightEngine.AddLightSource(this, source);
+    }
+
+    public void RemoveLightSource(LightSource source)
+    {
+        LightEngine.RemoveLightSource(this, source);
+    }
+
+    public void SetLightAmplitude(LightSource source, float amplitude)
+    {
+        LightEngine.SetAmplitude(this, source, amplitude);
     }
 }
