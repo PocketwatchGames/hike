@@ -28,6 +28,14 @@ public static class WorldGen
     // baseline land surface (y = 0) sits one voxel above the water table.
     public const int WATER_LEVEL = -4;
 
+    // Ground-hugging fog that clings to the water surface. Density peaks at
+    // water level and linearly fades to 0 over FOG_FALLOFF_HEIGHT voxels above.
+    // Only open-air voxels in the initial chunk pass get seeded — caves and
+    // tunnels carved later stay fog-free, which is the effect we want (the
+    // fog reads as lake/river mist, not enclosed-cave atmosphere).
+    public const int FOG_FALLOFF_HEIGHT = 8;
+    public const int FOG_MAX_DENSITY = 255;
+
     public static WorldState Generate(WorldGenData genData)
     {
         var min = new Vector3I(-genData.SizeX / 2, -1, -genData.SizeZ / 2);
@@ -100,6 +108,12 @@ public static class WorldGen
         // generation so cave carving sees the full solid column and can
         // connect tunnels vertically where they overlap.
         GenerateCaves(ws, genData, caveNoise);
+
+        // Place fog after all terrain is final. The pass skips enclosed
+        // voxels (tunnels, caves, anything with solid geometry directly
+        // overhead) so fog only shows up in genuinely open-to-sky air above
+        // water level.
+        GenerateFog(ws);
 
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
@@ -269,6 +283,9 @@ public static class WorldGen
                         {
                             data.Voxels[x, y, z] = VoxelType.Water;
                         }
+                        // Fog isn't placed here — it's a separate pass after
+                        // GenerateCaves so it can see the final geometry and
+                        // skip enclosed spaces. See GenerateFog.
                         continue;
                     }
 
@@ -287,6 +304,61 @@ public static class WorldGen
                     else
                     {
                         data.Voxels[x, y, z] = VoxelType.Terrain;
+                    }
+                }
+            }
+        }
+    }
+
+    // Ground-hugging fog above water, only placed in voxels with an
+    // unobstructed vertical column to the top of the world. Runs after
+    // terrain + caves so tunnel/cave interiors (which have solid geometry
+    // overhead) are naturally excluded. Column-local: no dependency between
+    // (wx, wz) pairs, streaming-friendly.
+    private static void GenerateFog(WorldState ws)
+    {
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        int fogTopY = WATER_LEVEL + FOG_FALLOFF_HEIGHT;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                // Highest non-air voxel in the column (solid OR water). Air
+                // above this has a clear line up to the sky; air at or
+                // below is enclosed (cave, tunnel, below overhang).
+                int highestNonAir = worldMinY - 1;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    if (ws.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+                    {
+                        highestNonAir = wy;
+                        break;
+                    }
+                }
+
+                int fogStartY = Math.Max(highestNonAir + 1, WATER_LEVEL + 1);
+                for (int wy = fogStartY; wy <= fogTopY && wy <= worldMaxY; wy++)
+                {
+                    // The "open to sky" test above already implies Air here,
+                    // but check anyway in case a future voxel type (e.g. a
+                    // glass roof) isn't covered by the ceiling scan.
+                    if (ws.GetVoxelWorld(wx, wy, wz) != VoxelType.Air)
+                    {
+                        continue;
+                    }
+                    int heightAboveWater = wy - WATER_LEVEL;
+                    float t = (float)heightAboveWater / FOG_FALLOFF_HEIGHT;
+                    int density = (int)(FOG_MAX_DENSITY * (1f - t));
+                    if (density > 0)
+                    {
+                        ws.SetFogWorld(wx, wy, wz, density);
                     }
                 }
             }

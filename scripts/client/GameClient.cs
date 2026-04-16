@@ -13,6 +13,7 @@ public partial class GameClient : Node3D
 	[Export] public SubViewport sceneViewport;
 	[Export] public MeshInstance3D bloomQuad;
 	[Export] public ShaderMaterial upscaleMaterial;
+	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
 	[Export] public ShaderMaterial outlineMaterial;
@@ -81,7 +82,7 @@ public partial class GameClient : Node3D
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		sceneViewport.AddChild(_world);
-		_world.Initialize(worldState, playerPosition, camera, () => _player?.GlobalPosition ?? playerPosition);
+		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
 
 		while (!_world.IsSpawnChunkReady(playerPosition))
 		{

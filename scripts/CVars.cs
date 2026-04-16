@@ -9,6 +9,37 @@ public static class CVars
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);
 
+    // Fog shader debug mode (see shaders/fog_volumetric.gdshader):
+    //   0 = normal fog render
+    //   1 = visualize reconstructed surface world Y as grayscale
+    //   2 = visualize fog_map density sampled at surface
+    public static CVarInt fogDebug = new CVarInt("fog_debug", 0, (cvar) =>
+    {
+        World.Current?.SetFogDebugMode(((CVarInt)cvar).Value);
+    });
+
+    // Master fog toggle. Set to 0 to disable all fog contribution without
+    // editing the material — useful for isolating rendering artifacts
+    // against a fog-free baseline.
+    public static CVarBool fogEnabled = new CVarBool("fog_enabled", true, (cvar) =>
+    {
+        World.Current?.SetFogEnabled(((CVarBool)cvar).Value);
+    });
+
+    // Swap the MainCamera between orthographic and narrow-FOV perspective.
+    // Perspective mode is primarily a workaround so Godot's volumetric fog
+    // froxel pipeline actually renders — it's known to misbehave / produce
+    // nothing under ortho cameras in 4.x. FOV is chosen to roughly match the
+    // ortho view extent so gameplay framing stays identical.
+    public static CVarBool cameraPerspective = new CVarBool("camera_perspective", false, (cvar) =>
+    {
+        var client = GameClient.Current;
+        if (client != null && client.camera != null)
+        {
+            client.camera.ApplyProjection(((CVarBool)cvar).Value);
+        }
+    });
+
     // Post-process. Vignette cvars feed the post_process canvas_item shader;
     // GameClient pushes them each frame. Pixel-art scale controls the chunky
     // pixel size (linear); 1 disables chunking. DOF removed — reintroduce

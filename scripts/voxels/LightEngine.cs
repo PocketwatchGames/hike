@@ -47,6 +47,23 @@ public static class LightEngine
     // max-level white torch reads ~200-255 GPU bytes at the source voxel.
     private const float SEED_PER_LEVEL = 40.0f;
 
+    // --- Fog-scaled attenuation ------------------------------------------
+    //
+    // Fog density (byte, per voxel, see ChunkState.FogDensity) adds extra
+    // attenuation to light propagation so torches and sunbeams dim faster
+    // in foggy air. Linear in density — zero fog = unchanged behavior.
+    //
+    // Sun BFS is integer-stepped with FALLOFF_PER_VOXEL=4. FOG_SUN_FALLOFF_255
+    // is the extra falloff subtracted per voxel at maximum density (255);
+    // intermediate densities scale linearly via integer math.
+    //
+    // Block-light diffusion uses per-iteration ABSORPTION_RATE=0.08. FOG_BLOCK
+    // _ABSORPTION_255 is the *additional* absorption applied at max density,
+    // so foggy cells retain less of their energy each iteration. Kept small
+    // relative to ABSORPTION_RATE so the total retention stays well-behaved.
+    public const int FOG_SUN_FALLOFF_255 = 4;
+    private const float FOG_BLOCK_ABSORPTION_255 = 0.04f;
+
     private static readonly Vector3I[] Neighbors =
     {
         new(1, 0, 0), new(-1, 0, 0),
@@ -78,6 +95,7 @@ public static class LightEngine
                         break;
                     }
                     sunLevel -= VoxelTypeInfo.LightAttenuation(v);
+                    sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255;
                     if (sunLevel <= 0)
                     {
                         break;
@@ -203,10 +221,12 @@ public static class LightEngine
         int oy = source.Position.Y - reach;
         int oz = source.Position.Z - reach;
 
-        // Sample world opacity once into a flat bool array. Avoids repeated
-        // VoxelType lookups inside the iteration loop, which otherwise
-        // dominate the relaxation cost.
+        // Sample world opacity + fog absorption once into flat arrays. Avoids
+        // repeated VoxelType / fog lookups inside the iteration loop, which
+        // otherwise dominate the relaxation cost. fogAbsorb is the extra
+        // per-iteration absorption due to fog density at each voxel.
         var open = new bool[total];
+        var fogAbsorb = new float[total];
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -214,8 +234,10 @@ public static class LightEngine
                 int rowBase = (lz * dim + ly) * dim;
                 for (int lx = 0; lx < dim; lx++)
                 {
-                    VoxelType v = world.GetVoxelWorld(ox + lx, oy + ly, oz + lz);
+                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
+                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
                     open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
+                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
                 }
             }
         }
@@ -258,7 +280,7 @@ public static class LightEngine
                     int seedIdx = ((reach + cz) * dim + (reach + cy)) * dim + (reach + cx);
                     if (!open[seedIdx]) { continue; }
 
-                    Diffuse(open, dim, total, iterations,
+                    Diffuse(open, fogAbsorb, dim, total, iterations,
                         seedIdx, seedR * w, seedG * w, seedB * w,
                         tempR, tempG, tempB, scrR, scrG, scrB);
 
@@ -338,6 +360,7 @@ public static class LightEngine
         int oz = position.Z - reach;
 
         var open = new bool[total];
+        var fogAbsorb = new float[total];
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -345,8 +368,10 @@ public static class LightEngine
                 int rowBase = (lz * dim + ly) * dim;
                 for (int lx = 0; lx < dim; lx++)
                 {
-                    VoxelType v = world.GetVoxelWorld(ox + lx, oy + ly, oz + lz);
+                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
+                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
                     open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
+                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
                 }
             }
         }
@@ -390,7 +415,7 @@ public static class LightEngine
 
                     if (!open[seedIdx]) { continue; }
 
-                    Diffuse(open, dim, total, iterations,
+                    Diffuse(open, fogAbsorb, dim, total, iterations,
                         seedIdx, baseR, baseG, baseB,
                         kernels.R[c], kernels.G[c], kernels.B[c],
                         scratchR, scratchG, scratchB);
@@ -427,8 +452,11 @@ public static class LightEngine
     // Single-seed iterative diffusion with absorption + re-injection.
     // Shared by both ComputeFootprint (static lights) and ComputeCornerKernels
     // (carrier lights). Writes results into outR/G/B; scrR/G/B are scratch.
+    // fogAbsorb[idx] is extra per-iteration absorption at each voxel due to
+    // local fog density — 0 in clear air, up to FOG_BLOCK_ABSORPTION_255 at
+    // max fog. Clamped so total absorption never exceeds 1 (energy negative).
     private static void Diffuse(
-        bool[] open, int dim, int total, int iterations,
+        bool[] open, float[] fogAbsorb, int dim, int total, int iterations,
         int seedIdx, float seedR, float seedG, float seedB,
         float[] outR, float[] outG, float[] outB,
         float[] scrR, float[] scrG, float[] scrB)
@@ -458,9 +486,11 @@ public static class LightEngine
                             continue;
                         }
 
-                        float selfR = outR[idx] * (1f - ABSORPTION_RATE);
-                        float selfG = outG[idx] * (1f - ABSORPTION_RATE);
-                        float selfB = outB[idx] * (1f - ABSORPTION_RATE);
+                        float keep = 1f - ABSORPTION_RATE - fogAbsorb[idx];
+                        if (keep < 0f) { keep = 0f; }
+                        float selfR = outR[idx] * keep;
+                        float selfG = outG[idx] * keep;
+                        float selfB = outB[idx] * keep;
 
                         float sumR = 0f, sumG = 0f, sumB = 0f;
                         int openCount = 0;
@@ -525,7 +555,8 @@ public static class LightEngine
                 VoxelType v = world.GetVoxelWorld(nx, ny, nz);
                 if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) { continue; }
 
-                int newLevel = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v);
+                int fogFalloff = (world.GetFogWorld(nx, ny, nz) * FOG_SUN_FALLOFF_255) / 255;
+                int newLevel = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff;
                 if (newLevel <= 0) { continue; }
 
                 if (newLevel > world.GetSunlightWorld(nx, ny, nz))

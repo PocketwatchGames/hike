@@ -23,15 +23,35 @@ public partial class ChunkManager : Node3D
     private Func<Vector3> _getPlayerPosition;
     private WorldState _worldData;
     private LightMap _lightMap;
+    private FogMap _fogMap;
+    private ShaderMaterial _fogMaterial;
     private Camera3D _camera;
 
-    public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, Func<Vector3> getPlayerPosition)
+    public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldData = worldData;
         _lightMap = new LightMap(worldData);
+        _fogMap = new FogMap(worldData);
+        _fogMaterial = fogMaterial;
         _camera = camera;
         _getPlayerPosition = getPlayerPosition;
         _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
+
+        // Fog is rendered by a screen-space raymarching shader (see
+        // shaders/fog_volumetric.gdshader), not by Godot's built-in FogVolume
+        // — that pipeline requires a perspective camera, which breaks our
+        // pixel-snapping art style. Fog uniforms are per-material (not global)
+        // because this shader is the only consumer, and per-material uniforms
+        // compile cleanly in the editor.
+        if (_fogMaterial != null)
+        {
+            _fogMaterial.SetShaderParameter("fog_map", _fogMap.Texture);
+            _fogMaterial.SetShaderParameter("fog_map_origin", _fogMap.Origin);
+            _fogMaterial.SetShaderParameter("fog_map_inv_size", Vector3.One / _fogMap.Size);
+            _fogMaterial.SetShaderParameter("debug_mode", CVars.fogDebug.Value);
+            _fogMaterial.SetShaderParameter("fog_enabled", CVars.fogEnabled.Value);
+            _fogMaterial.SetShaderParameter("water_level", (float)WorldGen.WATER_LEVEL);
+        }
 
         // light_map is a runtime-constructed Texture3D, so it can't be declared
         // in project.godot (sampler globals there require a static res:// path).
@@ -76,6 +96,9 @@ public partial class ChunkManager : Node3D
         // upload point — all light changes within this frame batch here.
         DrainLightChunkDirty();
         _lightMap.Flush(_worldData, _loadedChunks.Keys);
+
+        DrainFogChunkDirty();
+        _fogMap.Flush(_worldData, _loadedChunks.Keys);
     }
 
     public void UpdateLighting(List<Vector3I> changedPositions)
@@ -102,6 +125,16 @@ public partial class ChunkManager : Node3D
         DrainLightChunkDirty();
     }
 
+    public void SetFogDebugMode(int mode)
+    {
+        _fogMaterial?.SetShaderParameter("debug_mode", mode);
+    }
+
+    public void SetFogEnabled(bool enabled)
+    {
+        _fogMaterial?.SetShaderParameter("fog_enabled", enabled);
+    }
+
     // Moves dirty marks from WorldState into LightMap. The actual encode +
     // upload happens once per frame in _Process; this lets carrier lights
     // do remove+add per frame without paying for two uploads each time.
@@ -113,6 +146,16 @@ public partial class ChunkManager : Node3D
             _lightMap.MarkChunkDirty(coord);
         }
         _worldData.LightChunkDirty.Clear();
+    }
+
+    private void DrainFogChunkDirty()
+    {
+        if (_worldData.FogChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.FogChunkDirty)
+        {
+            _fogMap.MarkChunkDirty(coord);
+        }
+        _worldData.FogChunkDirty.Clear();
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

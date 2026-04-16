@@ -23,8 +23,30 @@ public partial class GameCamera : Camera3D
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
 
+	// Perspective FOV (degrees) that yields the same vertical view extent as
+	// the orthographic Size at distance = 80. tan(FOV/2) = Size / (2 * dist)
+	// → FOV = 2 * atan(20 / 160) ≈ 14.25°. Narrow enough that perspective
+	// distortion is barely noticeable while still letting Godot's volumetric
+	// fog froxel pipeline (which assumes perspective) render.
+	private const float PERSPECTIVE_FOV_FOR_ORTHO_MATCH = 14.25f;
+
+	public void ApplyProjection(bool perspective)
+	{
+		if (perspective)
+		{
+			Projection = ProjectionType.Perspective;
+			Fov = PERSPECTIVE_FOV_FOR_ORTHO_MATCH;
+		}
+		else
+		{
+			Projection = ProjectionType.Orthogonal;
+		}
+	}
+
 	public void Init(Node parent)
 	{
+		ApplyProjection(CVars.cameraPerspective.Value);
+
 		var capShader = GD.Load<Shader>("res://shaders/clip_cap.gdshader");
 		var capMaterial = new ShaderMaterial();
 		capMaterial.Shader = capShader;

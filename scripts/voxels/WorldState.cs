@@ -41,6 +41,11 @@ public class WorldState
     // / SubtractBlockLightWorld — callers don't need to remember.
     public readonly HashSet<Vector3I> LightChunkDirty = new();
 
+    // Same pattern for FogMap. Populated automatically by SetFogWorld.
+    // Currently only worldgen writes fog, so this only trips if something
+    // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
+    public readonly HashSet<Vector3I> FogChunkDirty = new();
+
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
         Min = min;
@@ -132,6 +137,31 @@ public class WorldState
         }
         chunk.SubtractBlockLight(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), r, g, b);
         LightChunkDirty.Add(cc);
+    }
+
+    // Fog density at a world-space voxel, byte 0-255. 0 = clear air, 255 =
+    // thickest. Unloaded chunks return 0 — the streaming-correct default so a
+    // chunk outside the resident window reads as "no fog data here" rather
+    // than bleeding fog across the window edge.
+    public int GetFogWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        return chunk.GetFog(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetFogWorld(int wx, int wy, int wz, int density)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetFog(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), density);
+        FogChunkDirty.Add(cc);
     }
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)

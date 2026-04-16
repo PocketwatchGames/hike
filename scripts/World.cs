@@ -36,7 +36,7 @@ public partial class World : Node3D
 
     public Player player => _player;
 
-    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, Func<Vector3> getPlayerPosition)
+    public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
@@ -45,7 +45,7 @@ public partial class World : Node3D
         AddChild(_chunkManager);
         _chunkManager.onChunkLoaded += OnChunkLoaded;
         _chunkManager.onChunkUnloaded += OnChunkUnloaded;
-        _chunkManager.Initialize(worldState, spawnPosition, camera, getPlayerPosition);
+        _chunkManager.Initialize(worldState, spawnPosition, camera, fogMaterial, getPlayerPosition);
 
         CreateWorldBoundary();
 
@@ -198,6 +198,16 @@ public partial class World : Node3D
     public void SetLightAmplitude(LightSource source, float amplitude)
     {
         _chunkManager.SetLightAmplitude(source, amplitude);
+    }
+
+    public void SetFogDebugMode(int mode)
+    {
+        _chunkManager?.SetFogDebugMode(mode);
+    }
+
+    public void SetFogEnabled(bool enabled)
+    {
+        _chunkManager?.SetFogEnabled(enabled);
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

@@ -23,6 +23,16 @@ public class ChunkState
     public readonly ushort[,,] BlockLightG;
     public readonly ushort[,,] BlockLightB;
 
+    // Fog density: 0 = clear air, 255 = thickest fog. Two consumers:
+    //   - LightEngine BFS uses this as extra per-step falloff so torches dim
+    //     faster in fog (step 5 of the roadmap).
+    //   - A Godot FogVolume binds this as its density texture so god rays /
+    //     volumetric scattering carve correctly through caves vs foggy
+    //     clearings (step 6 of the roadmap).
+    // Chunk-local by design — an unloaded neighbor reads as 0, which is the
+    // correct streaming default (no fog where there's no data).
+    public readonly byte[,,] FogDensity;
+
     public ChunkState(Vector3I chunkCoord)
     {
         ChunkCoord = chunkCoord;
@@ -31,6 +41,7 @@ public class ChunkState
         BlockLightR = new ushort[SIZE, SIZE, SIZE];
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
         BlockLightB = new ushort[SIZE, SIZE, SIZE];
+        FogDensity = new byte[SIZE, SIZE, SIZE];
     }
 
     public VoxelType GetVoxel(int x, int y, int z)
@@ -88,5 +99,21 @@ public class ChunkState
         BlockLightR[x, y, z] = sr < 0 ? (ushort)0 : (ushort)sr;
         BlockLightG[x, y, z] = sg < 0 ? (ushort)0 : (ushort)sg;
         BlockLightB[x, y, z] = sb < 0 ? (ushort)0 : (ushort)sb;
+    }
+
+    public int GetFog(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return FogDensity[x, y, z];
+    }
+
+    public void SetFog(int x, int y, int z, int density)
+    {
+        if (density < 0) { density = 0; }
+        if (density > 255) { density = 255; }
+        FogDensity[x, y, z] = (byte)density;
     }
 }
