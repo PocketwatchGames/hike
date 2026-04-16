@@ -40,6 +40,7 @@ public partial class ChunkMesh : Node3D
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
+        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, bool> chunkExists)
     {
         var chunk = new ChunkMesh();
@@ -48,13 +49,14 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, chunkExists);
+        chunk.BuildMesh(data, getVoxel, getShape, chunkExists);
         return chunk;
     }
 
     private void BuildMesh(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
+        Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, bool> chunkExists)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
@@ -71,9 +73,10 @@ public partial class ChunkMesh : Node3D
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
         st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
+        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RFloat);
         st.SetMaterial(SharedMaterial);
 
-        ChunkMesherDC.Build(data, getVoxel, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
+        ChunkMesherDC.Build(data, getVoxel, getShape, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();
@@ -91,10 +94,11 @@ public partial class ChunkMesh : Node3D
 
         if (hasAnyFace)
         {
-            // DC winding is driven by sign of the edge's corner densities, but
-            // the mesher relies on a post-pass for vertex normals — cheap and
-            // avoids per-vertex gradient sampling in the mesher itself.
-            st.GenerateNormals();
+            // Normals are authored per-vertex by the mesher from the 8-corner
+            // density gradient. Don't call GenerateNormals — run per-chunk it
+            // would average only the owner chunk's triangles at boundary
+            // vertices, producing normals that disagree with the neighbour's
+            // and a visible slope-pick seam along chunk borders.
             ArrayMesh mesh = st.Commit();
 
             if (ChunkMesherDC.DebugLog)

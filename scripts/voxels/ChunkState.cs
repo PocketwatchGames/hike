@@ -7,6 +7,17 @@ public class ChunkState
     public readonly Vector3I ChunkCoord;
     public readonly VoxelType[,,] Voxels;
 
+    // Per-voxel shape tag: stores VoxelTypeInfo.SharpAxes flags as a byte.
+    // This is the shape channel — orthogonal to VoxelType (the material
+    // channel). Worldgen writes it when placing voxels; the DC mesher reads
+    // it to decide per-axis Y/X/Z snapping. Declaring intent here replaces
+    // the mesher's old geometric heuristics (cliff-top probe, CaveCeilingReach).
+    // Authoring map:
+    //   Building voxels (Stone/Wood/Barrier) → All    (fully blocky)
+    //   Flat natural terrain / cave floor+ceiling → Y (snap vertical, smooth lateral)
+    //   Ramps / path-band slopes → None               (smooth interpolation)
+    public readonly byte[,,] Shape;
+
     // Sunlight: byte 0..LightEngine.MAX_LIGHT. Single source, max-fill BFS so
     // there's no overlap to worry about. Color tinting (sunset, etc.) happens
     // in the shader via the sun_color uniform — the storage is just a mask.
@@ -37,6 +48,7 @@ public class ChunkState
     {
         ChunkCoord = chunkCoord;
         Voxels = new VoxelType[SIZE, SIZE, SIZE];
+        Shape = new byte[SIZE, SIZE, SIZE];
         Sunlight = new byte[SIZE, SIZE, SIZE];
         BlockLightR = new ushort[SIZE, SIZE, SIZE];
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
@@ -51,6 +63,20 @@ public class ChunkState
             return VoxelType.Air;
         }
         return Voxels[x, y, z];
+    }
+
+    public VoxelTypeInfo.SharpAxes GetShape(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return VoxelTypeInfo.SharpAxes.None;
+        }
+        return (VoxelTypeInfo.SharpAxes)Shape[x, y, z];
+    }
+
+    public void SetShape(int x, int y, int z, VoxelTypeInfo.SharpAxes shape)
+    {
+        Shape[x, y, z] = (byte)shape;
     }
 
     public int GetSunlight(int x, int y, int z)

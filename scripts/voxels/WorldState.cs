@@ -85,6 +85,26 @@ public class WorldState
         return chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
     }
 
+    public VoxelTypeInfo.SharpAxes GetShapeWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return VoxelTypeInfo.SharpAxes.None;
+        }
+        return chunk.GetShape(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetShapeWorld(int wx, int wy, int wz, VoxelTypeInfo.SharpAxes shape)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetShape(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), shape);
+    }
+
     public int GetSunlightWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
@@ -166,12 +186,21 @@ public class WorldState
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)
     {
+        SetVoxelWorld(wx, wy, wz, type, VoxelTypeInfo.GetDefaultShape(type));
+    }
+
+    public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type, VoxelTypeInfo.SharpAxes shape)
+    {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)] = type;
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        chunk.Voxels[lx, ly, lz] = type;
+        chunk.Shape[lx, ly, lz] = (byte)shape;
     }
 
     // Combined "how lit is this voxel" used by AI visibility checks. Returns

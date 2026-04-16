@@ -105,8 +105,8 @@ public static class VoxelTypeInfo
 
     // Per-axis opt-in to the DC mesher's sharp-corner path. Each flagged
     // axis: (1) snaps the cell's vertex coord on that axis to 0/0.5/1 via the
-    // majority-side rule, and (2) flat-shades quads around edges of that axis
-    // (so floor <-> wall transitions read as creases). Mask axes independently:
+    // majority-side rule, and (2) for X|Y|Z together, flat-shades quads (so
+    // floor <-> wall transitions read as creases). Mask axes independently:
     //   SharpAxes.Y alone  → flat floors/ceilings, walls keep organic curve.
     //   SharpAxes.All      → fully blocky, square building edges in all axes.
     [System.Flags]
@@ -119,20 +119,27 @@ public static class VoxelTypeInfo
         All = X | Y | Z,
     }
 
-    public static readonly Dictionary<VoxelType, SharpAxes> SharpEdges = new()
+    // Default shape flag to stamp at each voxel when its material is written
+    // and the caller doesn't override. The mesher reads the stamped per-voxel
+    // shape (ChunkState.Shape) — not this table — so worldgen can override
+    // per-voxel (e.g. tag path-band ramp columns as None while the rest of
+    // the Terrain surface stays Y). Keep this table authoritative for the
+    // "default intent" of a material: buildings fully blocky, natural ground
+    // snaps on Y only, ramps stay smooth.
+    public static readonly Dictionary<VoxelType, SharpAxes> DefaultShape = new()
     {
-        { VoxelType.Stone, SharpAxes.All },
-        { VoxelType.Wood,  SharpAxes.All },
+        { VoxelType.Stone,       SharpAxes.All },
+        { VoxelType.Wood,        SharpAxes.All },
+        { VoxelType.Grass,       SharpAxes.Y },
+        { VoxelType.Dirt,        SharpAxes.Y },
+        { VoxelType.Sand,        SharpAxes.Y },
+        { VoxelType.Terrain,     SharpAxes.Y },
+        { VoxelType.TerrainPath, SharpAxes.None },
     };
 
-    public static SharpAxes GetSharpAxes(VoxelType type)
+    public static SharpAxes GetDefaultShape(VoxelType type)
     {
-        return SharpEdges.TryGetValue(type, out SharpAxes v) ? v : SharpAxes.None;
-    }
-
-    public static bool IsSharp(VoxelType type)
-    {
-        return GetSharpAxes(type) != SharpAxes.None;
+        return DefaultShape.TryGetValue(type, out SharpAxes v) ? v : SharpAxes.None;
     }
 
     public static int GetTileForFace(VoxelType type, int faceIndex)

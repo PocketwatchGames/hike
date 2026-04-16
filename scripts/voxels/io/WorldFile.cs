@@ -23,8 +23,9 @@ using Godot;
 public static class WorldFile
 {
     public const uint MAGIC = 0x454B4948; // 'HIKE' little-endian
-    // v4: chunk payload gained a fog-density byte array after sunlight.
-    public const uint VERSION = 4;
+    // v5: chunk payload gained a per-voxel Shape byte (SharpAxes) channel between
+    //     Voxels and Sunlight, plus a fog-density byte array after Sunlight.
+    public const uint VERSION = 5;
 
     public struct IndexEntry
     {
