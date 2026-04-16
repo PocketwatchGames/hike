@@ -4,6 +4,7 @@ using Godot;
 
 // Single-chunk binary encode/decode. Layout per blob:
 //   voxels   : 4096 bytes (raw VoxelType byte per cell, SIZE^3 row-major X,Y,Z)
+//   shape    : 4096 bytes (SharpAxes byte per cell — the mesher's sharp-axis tag)
 //   sunlight : 4096 bytes (one byte per cell, value 0-15)
 //   entities : type-tagged list (see EntitySerializer)
 //
@@ -13,6 +14,7 @@ using Godot;
 public static class ChunkSerializer
 {
     public const int VOXEL_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
+    public const int SHAPE_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int SUNLIGHT_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
 
     public static void Write(BinaryWriter w, ChunkState chunk, List<EntitySimState> entities)
@@ -24,6 +26,17 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     w.Write((byte)chunk.Voxels[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    w.Write(chunk.Shape[x, y, z]);
                 }
             }
         }
@@ -53,6 +66,17 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     chunk.Voxels[x, y, z] = (VoxelType)r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    chunk.Shape[x, y, z] = r.ReadByte();
                 }
             }
         }

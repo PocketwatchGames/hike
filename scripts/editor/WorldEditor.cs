@@ -666,6 +666,7 @@ public partial class WorldEditor : Node3D
                     for (int z = 0; z < ChunkState.SIZE; z++)
                     {
                         chunk.Voxels[x, 0, z] = VoxelType.Terrain;
+                        chunk.Shape[x, 0, z] = (byte)VoxelTypeInfo.SharpAxes.Y;
                     }
                 }
             }

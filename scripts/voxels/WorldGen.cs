@@ -101,6 +101,15 @@ public static class WorldGen
         // connect tunnels vertically where they overlap.
         GenerateCaves(ws, genData, caveNoise);
 
+        // Mark every buried solid voxel adjacent to carved air/water as Y.
+        // Runs after all terrain and cave carving, so it sees the final
+        // geometry. Catches cave ceilings, floors, walls, and noise-carved
+        // "island" voxels (stalactites) in one pass — regardless of the
+        // column's outdoor ramp status. The `buried` gate (solid voxel above
+        // somewhere in the column) keeps the outdoor surface voxel untouched
+        // so plateau vs. ramp behavior at the surface is preserved.
+        MarkCaveSurfaceShapes(ws);
+
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
 
@@ -196,6 +205,36 @@ public static class WorldGen
         return Math.Max(dxF, dzF) <= DIRT_SLOPE_MIN;
     }
 
+    // A column is a "ramp" if its surface height comes out of the smooth
+    // (non-quantized) branch of RawHeightAt: path bands where we blend raw→plateau,
+    // river bands where we carve down to water, or the spawn-area flat patch (which
+    // itself is flat but covered below). Surface voxels in ramp columns get
+    // shape=None so DC smooths across them; non-ramp (flat plateau) columns get
+    // shape=Y so the mesher snaps their surface to the voxel grid. This is the
+    // authored replacement for the old cliff-top / cave-ceiling heuristics.
+    private static bool IsRampColumn(int wx, int wz,
+        FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
+        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+    {
+        bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
+            && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
+        if (flat)
+        {
+            return false;
+        }
+        float pathiness = Math.Abs(pathNoise.GetNoise2D(wx, wz));
+        if (pathiness < genData.PathThreshold + genData.PathBlendBand)
+        {
+            return true;
+        }
+        float riverness = Math.Abs(riverNoise.GetNoise2D(wx, wz));
+        if (riverness < genData.RiverThreshold + genData.RiverBlendBand)
+        {
+            return true;
+        }
+        return false;
+    }
+
     // Plateau-step tunnels: the top TunnelLayerHeight voxels of every plateau
     // step (the band immediately under each plateau ceiling) are tunnel
     // candidates, gated by 3D tunnel noise. This produces tiered tunnel
@@ -252,6 +291,15 @@ public static class WorldGen
                     spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
                 int solidHeight = (int)Math.Round(rawHeight);
 
+                // Per-column shape: ramps get None (smooth), everything else Y
+                // (snap vertical). Applied to every solid voxel in the column —
+                // buried voxels still carry the tag so they feed the 3x3x3 OR
+                // at neighbouring surface cells (e.g. a cave ceiling picks up Y
+                // from the Terrain voxel above it via the mesher's neighbour OR).
+                bool isRamp = IsRampColumn(wx, wz, pathNoise, riverNoise, genData,
+                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+                byte columnShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
+
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
@@ -288,6 +336,24 @@ public static class WorldGen
                     {
                         data.Voxels[x, y, z] = VoxelType.Terrain;
                     }
+
+                    // Cave interior surfaces always snap flat, regardless of
+                    // whether the outdoor ridge above this column is a plateau
+                    // or a path-band ramp. Without this override a cave carved
+                    // under a ramp column inherits the column's None tag, the
+                    // ceiling vertex interpolates downward, and the ceiling
+                    // pokes below the clip plane into the player's view.
+                    // A voxel is a cave surface if the cell directly above it
+                    // OR directly below it is a carved tunnel cell.
+                    bool aboveIsCarved = wy + 1 <= solidHeight
+                        && ColumnSupportsTunnel(wy + 1, solidHeight)
+                        && IsTunnelAt(wx, wy + 1, wz, tunnelNoise, genData);
+                    bool belowIsCarved = wy - 1 >= 0
+                        && ColumnSupportsTunnel(wy - 1, solidHeight)
+                        && IsTunnelAt(wx, wy - 1, wz, tunnelNoise, genData);
+                    data.Shape[x, y, z] = (aboveIsCarved || belowIsCarved)
+                        ? (byte)VoxelTypeInfo.SharpAxes.Y
+                        : columnShape;
                 }
             }
         }
@@ -369,9 +435,84 @@ public static class WorldGen
                         var fill = cy <= WATER_LEVEL ? VoxelType.Water : VoxelType.Air;
                         ws.SetVoxelWorld(wx, cy, wz, fill);
                     }
+
+                    // Force Y on the solid voxels bracketing the carved run
+                    // (cave ceiling at ceilingY, cave floor at runLo-1), so the
+                    // cave surface snaps flat regardless of whether this
+                    // column's outdoor height came from the ramp branch of the
+                    // height function. Cave interior geometry is its own ruleset.
+                    ws.SetShapeWorld(wx, ceilingY, wz, VoxelTypeInfo.SharpAxes.Y);
+                    if (runLo - 1 >= worldMinY)
+                    {
+                        ws.SetShapeWorld(wx, runLo - 1, wz, VoxelTypeInfo.SharpAxes.Y);
+                    }
                 }
             }
         }
+    }
+
+    // Sweep every column, find the topmost solid voxel, and mark any *buried*
+    // solid voxel (i.e. below the top) that has an air/water 6-neighbour as
+    // SharpAxes.Y. This is the authored form of "cave interior surfaces snap
+    // flat" — ceilings, floors, lateral walls of tunnels, and the noise-carved
+    // island voxels that sit inside a cave all qualify, and they all want the
+    // same ruleset regardless of whether the outdoor column above is a plateau
+    // or a path-band ramp. The `buried` gate leaves the outdoor surface voxel
+    // alone so plateau-vs-ramp shape at the surface is whatever GenerateChunk
+    // already wrote.
+    private static void MarkCaveSurfaceShapes(WorldState ws)
+    {
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int topY = worldMinY - 1;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    var v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
+                    {
+                        topY = wy;
+                        break;
+                    }
+                }
+                if (topY <= worldMinY)
+                {
+                    continue;
+                }
+
+                for (int wy = worldMinY; wy < topY; wy++)
+                {
+                    var v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+                    {
+                        continue;
+                    }
+                    if (IsAirOrWater(ws, wx - 1, wy, wz)
+                        || IsAirOrWater(ws, wx + 1, wy, wz)
+                        || IsAirOrWater(ws, wx, wy - 1, wz)
+                        || IsAirOrWater(ws, wx, wy + 1, wz)
+                        || IsAirOrWater(ws, wx, wy, wz - 1)
+                        || IsAirOrWater(ws, wx, wy, wz + 1))
+                    {
+                        ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool IsAirOrWater(WorldState ws, int wx, int wy, int wz)
+    {
+        var v = ws.GetVoxelWorld(wx, wy, wz);
+        return v == VoxelType.Air || v == VoxelType.Water;
     }
 
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,

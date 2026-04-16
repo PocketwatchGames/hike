@@ -69,6 +69,11 @@ varying vec3 world_normal;
 varying flat vec3 tile_ids;
 // Per-vertex blend-noise amplitude, interpolated to fragments.
 varying float blend_amp;
+// Per-vertex sharpness in [0,1]. 0 = use interpolated smooth NORMAL,
+// 1 = use dFdx/dFdy-derived face normal (hard flat-shaded crease). Authored
+// per-cell by the DC mesher: 1 for authored-sharp materials (Stone/Wood),
+// 0 for soft terrain. Interpolates across mixed quads so creases soften.
+varying float sharpness;
 
 // Tunes the spatial frequency of the per-tile-edge noise. Higher = finer
 // jitter along the boundary; too high looks like static, too low looks like
@@ -80,6 +85,7 @@ void vertex() {
 	world_normal = NORMAL;
 	tile_ids = CUSTOM0.xyz;
 	blend_amp = CUSTOM0.w;
+	sharpness = CUSTOM1.x;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -136,6 +142,17 @@ void fragment() {
 		shadow_tint = vec3(1.0) - shadow_amount * (vec3(1.0) - shadow_color);
 	}
 
+	// Per-fragment shading normal: lerp between the interpolated smooth NORMAL
+	// (sharpness=0) and a dFdx/dFdy-derived face normal (sharpness=1). The
+	// derivative form gives the current triangle's plane — same look as a
+	// SurfaceTool flat-shade group, but without needing one, so we can vary
+	// smoothness smoothly per vertex. Flip the derivative normal into the same
+	// hemisphere as the smooth normal to stay invariant to rasterizer winding.
+	vec3 face_n_raw = cross(dFdx(world_vertex), dFdy(world_vertex));
+	vec3 smooth_n = normalize(world_normal);
+	vec3 face_n = normalize(face_n_raw * sign(dot(face_n_raw, smooth_n) + 1e-6));
+	vec3 shaded_normal = normalize(mix(smooth_n, face_n, clamp(sharpness, 0.0, 1.0)));
+
 	// Pick which corner's tile this fragment shows. COLOR.rgb was set per
 	// vertex to (1,0,0)/(0,1,0)/(0,0,1) so the rasterizer's linear interpolation
 	// gives us the barycentric weights for free. Perturb each weight with a
@@ -162,14 +179,14 @@ void fragment() {
 	// Triplanar blend — DC vertices have arbitrary normals, so a dominant-axis
 	// pick produces visible seams. Sample the tile on all three planes and
 	// blend by |normal|^k.
-	vec3 blend = pow(abs(world_normal), vec3(4.0));
+	vec3 blend = pow(abs(shaded_normal), vec3(4.0));
 	blend /= (blend.x + blend.y + blend.z + 1e-5);
 
 	vec4 tex_color;
 	if (tile_index >= TILE_AUTO_THRESHOLD) {
 		// AUTO terrain: pick grass/dirt/stone from surface slope and blend
 		// across the slope thresholds so the transition isn't a hard band.
-		float s = clamp(world_normal.y, 0.0, 1.0);
+		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_grass = smoothstep(SLOPE_GRASS_LO, SLOPE_GRASS_HI, s);
 		float w_not_stone = smoothstep(SLOPE_DIRT_LO, SLOPE_DIRT_HI, s);
 		float w_stone = 1.0 - w_not_stone;
@@ -186,7 +203,7 @@ void fragment() {
 		tex_color = t_grass * w_grass + t_dirt * w_dirt + t_stone * w_stone;
 	} else if (tile_index >= TILE_AUTO_PATH_THRESHOLD) {
 		// AUTO_PATH terrain: only dirt or stone, picked by slope.
-		float s = clamp(world_normal.y, 0.0, 1.0);
+		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_dirt = smoothstep(SLOPE_PATH_STONE_LO, SLOPE_PATH_STONE_HI, s);
 		float w_stone = 1.0 - w_dirt;
 		vec4 t_dirt = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_DIRT)) * blend.z
@@ -207,8 +224,7 @@ void fragment() {
 	// Push 0.5 along the outward normal so the sample lands in the adjacent
 	// air voxel — without this, DC vertices on cave walls would sample inside
 	// the solid (or worse, near a sunlit-air neighbour) and caves would glow.
-	vec3 n_norm = normalize(world_normal);
-	vec3 light_sample_pos = world_vertex + n_norm * 0.5;
+	vec3 light_sample_pos = world_vertex + shaded_normal * 0.5;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
 	// Cloud shadow: noise-driven soft occlusion on the sun channel, tinting
@@ -229,9 +245,8 @@ void fragment() {
 	// "Reverse" directional shading: each light darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
 	// the light are unaffected (multiplied by 1).
-	vec3 n = normalize(world_normal);
-	float sun_facing = max(0.0, dot(n, -sun_world_dir));
-	float fill_facing = max(0.0, dot(n, -fill_world_dir));
+	float sun_facing = max(0.0, dot(shaded_normal, -sun_world_dir));
+	float fill_facing = max(0.0, dot(shaded_normal, -fill_world_dir));
 	vec3 sun_tint = mix(sun_tint_color, vec3(1.0), sun_facing);
 	vec3 fill_tint = mix(fill_tint_color, vec3(1.0), fill_facing);
 
