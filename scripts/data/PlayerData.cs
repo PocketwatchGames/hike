@@ -4,9 +4,11 @@ using Godot;
 public partial class PlayerData : Resource
 {
 	[Export] public float stepHeight = 0.5f;
+	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
+	[Export] public float jumpHoldGravityScale = 0.5f;
 	[Export] public float visionRange = 25f;
 	[Export] public float VisionDistancePower = 2f;
 	[Export] public float visibilityLightMax = 0.75f;
@@ -25,4 +27,5 @@ public partial class PlayerData : Resource
 	[Export] public float buoyancyAcceleration = 15f;
 	[Export] public float waterDrag = 5f;
 	[Export] public float waterSurfaceOffset = 1f;
+	[Export] public float waterJumpOffset = 1.5f;
 }

@@ -33,6 +33,8 @@ public partial class Player : CharacterBody3D
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
+	ulong _coyoteTimeEndMs;
+	bool _jumpHeld;
 
 	public float visibility = 1f;
 	public EWaterState WaterState => _waterState;
@@ -163,7 +165,8 @@ public partial class Player : CharacterBody3D
 		}
 		else if (!_grounded)
 		{
-			Velocity += Vector3.Down * _world.SimData.Gravity * dt;
+			float gravity = (_jumpHeld && Velocity.Y > 0) ? _world.SimData.Gravity * data.jumpHoldGravityScale : _world.SimData.Gravity;
+			Velocity += Vector3.Down * gravity * dt;
 		}
 		else
 		{
@@ -223,10 +226,20 @@ public partial class Player : CharacterBody3D
 			_grounded = IsOnFloor();
 		}
 
+		if (_grounded)
+		{
+			_jumpHeld = false;
+			_coyoteTimeEndMs = 0;
+		}
+
 		// Swimming overrides grounding — player is floating
 		if (_waterState == EWaterState.Swimming)
 		{
 			_grounded = false;
+		}
+		if (wasOnFloor && !_grounded)
+		{
+			_coyoteTimeEndMs = _world.GameTimeMs + (ulong)(data.coyoteTime * 1000);
 		}
 		UpdateVisibility();
 
@@ -294,18 +307,21 @@ public partial class Player : CharacterBody3D
 
 		if (Input.IsActionJustPressed("Jump"))
 		{
-			if (_waterState == EWaterState.Swimming)
-			{
-				float surfaceTargetY = _waterSurfaceY - data.waterSurfaceOffset;
-				bool atSurface = GlobalPosition.Y >= surfaceTargetY - 0.1f;
-				float verticalSpeed = atSurface ? data.jumpSpeed : data.swimVerticalSpeed;
-				Velocity = new Vector3(Velocity.X, verticalSpeed, Velocity.Z);
-			}
-			else if (_grounded)
+			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || (_waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset))
 			{
 				Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
 				_grounded = false;
+				_coyoteTimeEndMs = 0;
+				_jumpHeld = true;
 			}
+			else if (_waterState == EWaterState.Swimming)
+			{
+				Velocity = new Vector3(Velocity.X, data.swimVerticalSpeed, Velocity.Z);
+			}
+		}
+		else if (!Input.IsActionPressed("Jump"))
+		{
+			_jumpHeld = false;
 		}
 
 		for (int i = 0; i < (int)EItemSlot.Count; i++)
