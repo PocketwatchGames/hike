@@ -26,6 +26,69 @@ public static class CVars
         World.Current?.SetFogEnabled(((CVarBool)cvar).Value);
     });
 
+    // God-ray ("light shaft") intensity: scales the sun in-scatter term in
+    // the fog raymarch. 0 disables shafts. Default is high (8) to
+    // compensate for the isotropic-by-default phase — see shader comment.
+    public static CVarFloat fogShafts = new CVarFloat("fog_shafts", 8.0f, (cvar) =>
+    {
+        World.Current?.SetFogShaftIntensity(((CVarFloat)cvar).Value);
+    });
+
+    // Block-light halo intensity: scales the torch/lamp in-scatter term.
+    public static CVarFloat fogHalos = new CVarFloat("fog_halos", 6.0f, (cvar) =>
+    {
+        World.Current?.SetFogHaloIntensity(((CVarFloat)cvar).Value);
+    });
+
+    // Henyey-Greenstein scattering anisotropy. 0 = isotropic (uniform haze),
+    // positive = forward-scattering (shafts brightest when looking toward
+    // the sun). Default 0 because the isometric camera's fixed pitch
+    // rarely faces the sun, so a forward peak kills shaft visibility.
+    public static CVarFloat fogAnisotropy = new CVarFloat("fog_anisotropy", 0.0f, (cvar) =>
+    {
+        World.Current?.SetFogAnisotropy(((CVarFloat)cvar).Value);
+    });
+
+    // Animated dust-mote strength inside shafts. 0 = static beams, 1 = beams
+    // pulse between 0 and 2x intensity as motes drift through them.
+    public static CVarFloat fogDust = new CVarFloat("fog_dust", 0.55f, (cvar) =>
+    {
+        World.Current?.SetFogDustStrength(((CVarFloat)cvar).Value);
+    });
+
+    // Atmospheric baseline fog density. The authored fog_map covers only a
+    // thin water-mist band, so outside it the march has nothing to scatter
+    // through and no shafts form. This uniform fills the air everywhere
+    // with a subtle dust layer so beams appear wherever terrain blocks sun.
+    // Keep small (0.02-0.10); higher values fog out the scene uniformly
+    // and shafts stop reading as distinct beams.
+    public static CVarFloat fogAmbient = new CVarFloat("fog_ambient", 0.15f, (cvar) =>
+    {
+        World.Current?.SetFogAmbientDensity(((CVarFloat)cvar).Value);
+    });
+
+    // How aggressively a full cloud shadow darkens direct sun on terrain /
+    // sprites / water. 1.0 = full cloud leaves only block light (dramatic);
+    // 0.6 leaves the ambient sky-bounce portion lit (subtle); 0 disables.
+    public static CVarFloat cloudStrength = new CVarFloat("cloud_strength", 1.0f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", ((CVarFloat)cvar).Value);
+    });
+
+    // Noise-to-cloud remap: values ABOVE cloud_threshold start being cloud,
+    // cloud_sharpness controls how narrow the transition is (0 = soft
+    // gradient, 1 = hard step). Lower threshold = more cloud coverage.
+    // Shared between sky dome rendering and ground cloud shadows so what
+    // you see overhead matches the shadows cast on the ground.
+    public static CVarFloat cloudThreshold = new CVarFloat("cloud_threshold", 0.5f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_threshold", ((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat cloudSharpness = new CVarFloat("cloud_sharpness", 0.7f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("cloud_sharpness", ((CVarFloat)cvar).Value);
+    });
+
     // Swap the MainCamera between orthographic and narrow-FOV perspective.
     // Perspective mode is primarily a workaround so Godot's volumetric fog
     // froxel pipeline actually renders — it's known to misbehave / produce
@@ -247,25 +310,7 @@ public static class CVars
         Godot.GD.Print($"player pos=({p.X:F1}, {p.Y:F1}, {p.Z:F1})  chunk=({c.X}, {c.Y}, {c.Z})");
     });
 
-    // Cloud shadow parameters. Tunable at runtime via console.
-    public static CVarFloat cloudScale = new CVarFloat("cloud_shadow_scale", 0.005f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_shadow_scale", ((CVarFloat)cvar).Value);
-    });
-    public static CVarFloat cloudSpeed = new CVarFloat("cloud_speed", 0.3f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_speed", ((CVarFloat)cvar).Value);
-    });
-    public static CVarFloat cloudCutoff = new CVarFloat("cloud_cutoff", 0.4f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_cutoff", ((CVarFloat)cvar).Value);
-    });
-    public static CVarFloat cloudPower = new CVarFloat("cloud_power", 3.0f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_power", ((CVarFloat)cvar).Value);
-    });
-
-    // Path to a packed world file (`.hike`). When non-empty at game start,
+// Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
     public static CVarString worldFile = new CVarString("world_file", ""); // user://world.hike
 

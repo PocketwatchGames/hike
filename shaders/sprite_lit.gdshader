@@ -27,11 +27,17 @@ global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
 global uniform float sun_ambient;
-global uniform float cloud_shadow_scale;
-global uniform float cloud_speed;
-global uniform vec2 cloud_direction;
-global uniform float cloud_cutoff;
-global uniform float cloud_power;
+// Cloud occlusion parameters shared with the sky + fog + voxel + water
+// shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
+// these to project cloud shadows along the sun direction. sun_world_dir
+// must also be declared; add it before the include.
+global uniform vec3 sun_world_dir;
+global uniform vec2 cloud_scroll;
+global uniform float cloud_scale;
+global uniform float cloud_threshold;
+global uniform float cloud_sharpness;
+global uniform float cloud_shadow_strength;
+#include "res://shaders/cloud_shadow.gdshaderinc"
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
 
@@ -106,8 +112,12 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Cloud shadows disabled — see voxel_clip.gdshader for rationale.
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	// Cloud shadow applied to sun_lit so it affects both direct and ambient
+	// (matches voxel_clip). Sampled at the sprite anchor so the whole sprite
+	// gets one consistent cloud value.
+	float cloud = cloud_shadow_ground(world_origin, TIME);
+	float sun_dim = 1.0 - cloud * cloud_shadow_strength;
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * sun_dim;
 	vec3 block_lit = lm.gba;
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
@@ -124,5 +134,7 @@ void light() {
 	// ATTENUATION on a DirectionalLight3D is the shadow factor only — used as
 	// a pure mask. No LIGHT_COLOR / NdotL so sprites' billboarded fake normal
 	// doesn't introduce a fake lambert term.
+	// Cloud shadow is folded into sun_lit in fragment() (see there) so it
+	// affects ambient-sky bounce too, not just direct sun.
 	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
 }

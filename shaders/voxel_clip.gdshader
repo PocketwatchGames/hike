@@ -20,11 +20,24 @@ global uniform float sun_intensity;
 global uniform vec3 sun_color;
 global uniform float sun_ambient;
 
-global uniform float cloud_shadow_scale;
-global uniform float cloud_speed;
-global uniform vec2 cloud_direction;
-global uniform float cloud_cutoff;
-global uniform float cloud_power;
+// Sun direction for the cloud-shadow include. Declared BEFORE the include
+// because the include's function body references sun_world_dir, and GLSL
+// requires identifiers to be declared before use. Other sun-direction uses
+// below (reverse directional shading) pick up this same declaration.
+global uniform vec3 sun_world_dir;
+
+// Cloud occlusion parameters shared with the sky + fog + sprite + water
+// shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
+// these to project cloud shadows along the sun direction.
+global uniform vec2 cloud_scroll;
+global uniform float cloud_scale;
+global uniform float cloud_threshold;
+global uniform float cloud_sharpness;
+// How much of the sun's total brightness a full cloud blocks on terrain.
+// 1.0 = full cloud leaves block light only; 0.6 ≈ old ATTENUATION-only
+// behaviour (direct sun killed, ambient sky bounce survives).
+global uniform float cloud_shadow_strength;
+#include "res://shaders/cloud_shadow.gdshaderinc"
 
 uniform sampler2DArray tile_array : filter_nearest, repeat_enable;
 
@@ -51,7 +64,7 @@ const float SLOPE_DIRT_HI = 0.60;
 const float SLOPE_PATH_STONE_LO = 0.35;
 const float SLOPE_PATH_STONE_HI = 0.55;
 
-global uniform vec3 sun_world_dir;
+// sun_world_dir declared above (before the cloud_shadow include).
 global uniform vec3 fill_world_dir;
 global uniform vec3 sun_tint_color;
 global uniform vec3 fill_tint_color;
@@ -197,18 +210,14 @@ void fragment() {
 	vec3 light_sample_pos = world_vertex + shaded_normal * 0.5;
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
-	// Cloud shadow: noise-driven soft occlusion on the sun channel, tinting
-	// toward shadow_color. Only affects sun-lit areas; block light (torches)
-	// is unaffected. Cloud pattern moves over time for a living sky feel.
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Cloud shadow infrastructure is in place (uniforms, noise function) but
-	// disabled until terrain self-shadowing is added. Without real sun
-	// occlusion the cloud effect creates artifacts at indoor/outdoor
-	// transitions. Once the shadow map includes terrain, fold cloud noise
-	// into the shadow term instead of the sun channel.
-	// float cloud_noise = vnoise(vec3(world_vertex.xz * cloud_shadow_scale + TIME * cloud_speed * cloud_direction, 0.0));
-	// float cloud = pow(clamp((cloud_noise - cloud_cutoff) / (1.0 - cloud_cutoff), 0.0, 1.0), cloud_power);
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	// Cloud shadow applied here (not via ATTENUATION in light()) so a full
+	// cloud can darken BOTH the direct-sun and sky-bounce portions of the
+	// sun term. cloud_shadow_ground is Y-independent to avoid faceted
+	// polygon-edge artifacts on sloped triangles.
+	float cloud = cloud_shadow_ground(world_vertex, TIME);
+	float sun_dim = 1.0 - cloud * cloud_shadow_strength;
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * sun_dim;
 	vec3 block_lit = lm.gba;
 
 	// "Reverse" directional shading: each light darkens faces by its tint
@@ -245,5 +254,9 @@ void light() {
 	// (no lambert pre-mul), so we use it as a pure shadow mask. We deliberately
 	// don't include LIGHT_COLOR or NdotL here — sun color/direction stylization
 	// is already baked into ALBEDO via sun_color and sun_tint in fragment().
+	//
+	// Cloud shadow is already folded into sun_lit in fragment() (see there),
+	// so we just pass ATTENUATION through here. Terrain self-shadow from the
+	// directional light still applies normally.
 	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
 }

@@ -191,26 +191,6 @@ sun_color={
 "type": "vec3",
 "value": Vector3(1, 0.92, 0.72)
 }
-cloud_shadow_scale={
-"type": "float",
-"value": 0.005
-}
-cloud_speed={
-"type": "float",
-"value": 0.3
-}
-cloud_direction={
-"type": "vec2",
-"value": Vector2(0.7, 0.3)
-}
-cloud_cutoff={
-"type": "float",
-"value": 0.4
-}
-cloud_power={
-"type": "float",
-"value": 3.0
-}
 sprite_chunky={
 "type": "float",
 "value": 0.0738
@@ -247,9 +227,29 @@ cloud_scroll={
 "type": "vec2",
 "value": Vector2(0.004, 0.002)
 }
-cloud_coverage={
+cloud_threshold={
 "type": "float",
-"value": 0.45
+"value": 0.5
+}
+cloud_sharpness={
+"type": "float",
+"value": 0.7
+}
+cloud_scale={
+"type": "float",
+"value": 0.15
+}
+cloud_altitude={
+"type": "float",
+"value": 60.0
+}
+cloud_shadow_strength={
+"type": "float",
+"value": 1.0
+}
+cloud_noise_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/cloud_noise.tres"
 }
 fill_world_dir={
 "type": "vec3",

@@ -37,6 +37,27 @@ public partial class ChunkManager : Node3D
         _getPlayerPosition = getPlayerPosition;
         _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
 
+        // IMPORTANT: register all global uniforms BEFORE touching any shader
+        // material, because setting a parameter on a ShaderMaterial compiles
+        // the shader if it hasn't compiled yet, and compilation fails if any
+        // referenced global uniform is not yet registered. fog_volumetric,
+        // voxel_clip, sprite_lit, voxel_water and water_clip_cap all read
+        // `light_map`, so registering it after the fog material setup was
+        // what caused "Global uniform 'light_map' does not exist" errors
+        // on game start.
+        //
+        // light_map is a runtime-constructed Texture3D, so it can't be declared
+        // in project.godot (sampler globals there require a static res:// path).
+        ShaderGlobals.RegisterRuntime("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
+        ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
+        ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
+        ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // Day/night-driven sun controls. Intensity is overall brightness;
+        // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
+        // Both default to "noon" values; the day/night sim will write them.
+        ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, CVars.sunIntensity.Value);
+        ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
+
         // Fog is rendered by a screen-space raymarching shader (see
         // shaders/fog_volumetric.gdshader), not by Godot's built-in FogVolume
         // — that pipeline requires a perspective camera, which breaks our
@@ -52,23 +73,6 @@ public partial class ChunkManager : Node3D
             _fogMaterial.SetShaderParameter("fog_enabled", CVars.fogEnabled.Value);
             _fogMaterial.SetShaderParameter("water_level", (float)WorldGen.WATER_LEVEL);
         }
-
-        // light_map is a runtime-constructed Texture3D, so it can't be declared
-        // in project.godot (sampler globals there require a static res:// path).
-        ShaderGlobals.RegisterRuntime("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
-        ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
-        ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
-        ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
-        // Day/night-driven sun controls. Intensity is overall brightness;
-        // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
-        // Both default to "noon" values; the day/night sim will write them.
-        ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, CVars.sunIntensity.Value);
-        ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
-        ShaderGlobals.Register("cloud_shadow_scale", RenderingServer.GlobalShaderParameterType.Float, 0.005f);
-        ShaderGlobals.Register("cloud_speed", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
-        ShaderGlobals.Register("cloud_direction", RenderingServer.GlobalShaderParameterType.Vec2, new Vector2(0.7f, 0.3f));
-        ShaderGlobals.Register("cloud_cutoff", RenderingServer.GlobalShaderParameterType.Float, 0.4f);
-        ShaderGlobals.Register("cloud_power", RenderingServer.GlobalShaderParameterType.Float, 3.0f);
 
         UpdateLoadedChunks();
     }
@@ -133,6 +137,31 @@ public partial class ChunkManager : Node3D
     public void SetFogEnabled(bool enabled)
     {
         _fogMaterial?.SetShaderParameter("fog_enabled", enabled);
+    }
+
+    public void SetFogShaftIntensity(float value)
+    {
+        _fogMaterial?.SetShaderParameter("sun_shaft_intensity", value);
+    }
+
+    public void SetFogHaloIntensity(float value)
+    {
+        _fogMaterial?.SetShaderParameter("block_halo_intensity", value);
+    }
+
+    public void SetFogAnisotropy(float value)
+    {
+        _fogMaterial?.SetShaderParameter("scatter_anisotropy", value);
+    }
+
+    public void SetFogDustStrength(float value)
+    {
+        _fogMaterial?.SetShaderParameter("dust_strength", value);
+    }
+
+    public void SetFogAmbientDensity(float value)
+    {
+        _fogMaterial?.SetShaderParameter("ambient_density", value);
     }
 
     // Moves dirty marks from WorldState into LightMap. The actual encode +

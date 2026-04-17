@@ -14,7 +14,8 @@ global uniform vec3 horizon_color;
 global uniform vec3 zenith_color;
 global uniform vec2 cloud_scroll;
 global uniform float cloud_scale;
-global uniform float cloud_coverage;
+global uniform float cloud_threshold;
+global uniform float cloud_sharpness;
 global uniform vec3 cloud_color;
 
 float sky_hash(vec2 p)
@@ -69,7 +70,10 @@ vec3 sample_sky(vec3 dir, float t)
 	// sits the layer in the lower half of the sky so the zenith stays open.
 	vec2 cuv = (dir.xz / max(abs(dir.y), 0.15)) * cloud_scale + cloud_scroll * t;
 	float c = sky_fbm(cuv);
-	float cloud_mask = smoothstep(1.0 - cloud_coverage, 1.0 - cloud_coverage * 0.5, c);
+	// Same threshold/sharpness remap the ground-shadow path uses, so sky
+	// cloud density matches the shadow density the clouds cast.
+	float band = max(1e-4, 1.0 - cloud_sharpness);
+	float cloud_mask = smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);
 	float cloud_band = smoothstep(0.0, 0.35, up) * (1.0 - smoothstep(0.4, 0.95, up));
 	base = mix(base, cloud_color, cloud_mask * cloud_band);
 

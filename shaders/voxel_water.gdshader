@@ -10,12 +10,17 @@ global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
-global uniform float cloud_shadow_scale;
-global uniform float cloud_speed;
-global uniform vec2 cloud_direction;
-global uniform float cloud_cutoff;
-global uniform float cloud_power;
-global uniform vec3 shadow_color;
+// Cloud occlusion parameters shared with the sky + fog + voxel + sprite
+// shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
+// these to project cloud shadows along the sun direction. sun_world_dir
+// must also be declared; add it before the include.
+global uniform vec3 sun_world_dir;
+global uniform vec2 cloud_scroll;
+global uniform float cloud_scale;
+global uniform float cloud_threshold;
+global uniform float cloud_sharpness;
+global uniform float cloud_shadow_strength;
+#include "res://shaders/cloud_shadow.gdshaderinc"
 uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.3;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
@@ -85,8 +90,11 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Cloud shadows disabled — see voxel_clip.gdshader for rationale.
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	// Water is `unshaded` (no light() stage / no ATTENUATION available), so
+	// cloud shadow multiplies sun_lit directly. Block light (lm.gba) stays
+	// unaffected — torches shining on water don't care about clouds.
+	float cloud = cloud_shadow_ground(world_vertex, TIME);
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (1.0 - cloud * cloud_shadow_strength);
 	vec3 block_lit = lm.gba;
 	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
 	vec3 shaded_light = face_shade * light;
