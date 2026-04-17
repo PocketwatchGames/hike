@@ -8,7 +8,7 @@ public partial class PlayerData : Resource
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
-	[Export] public float jumpHoldGravityScale = 0.5f;
+	[Export] public float jumpHoldGravityScale = 0.65f;
 	[Export] public float visionRange = 25f;
 	[Export] public float VisionDistancePower = 2f;
 	[Export] public float visibilityLightMax = 0.75f;
