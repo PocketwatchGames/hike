@@ -35,6 +35,12 @@ public partial class Main : Node
 
 	void StartGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
 	{
+		// Upload the active world's kit palette to the terrain shader before
+		// any chunk mesh is built. Disk-loaded worlds currently share the same
+		// kit registry as WorldGen — a later .hike change will embed kit paths
+		// in the file header so exported worlds can own their palette.
+		ChunkMesh.SetKits(worldGenData.Kits);
+
 		WorldState worldState;
 		string worldFilePath = CVars.worldFile.Value;
 		if (!string.IsNullOrEmpty(worldFilePath))

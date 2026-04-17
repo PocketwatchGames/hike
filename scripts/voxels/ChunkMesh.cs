@@ -37,10 +37,41 @@ public partial class ChunkMesh : Node3D
         WaterBackfaceMaterial.RenderPriority = -1;
     }
 
+    // Must match MAX_KITS in voxel_clip.gdshader.
+    private const int MAX_KITS = 16;
+
+    // Upload the active world's environment kit palette to the terrain
+    // material's uniform arrays. The shader indexes these arrays via the
+    // per-vertex KitId packed into CUSTOM1.yzw by the mesher. Call once at
+    // world start after WorldGenData is available and before any chunk mesh
+    // first renders; subsequent calls are a no-op if kits haven't changed.
+    public static void SetKits(EnvironmentKitData[] kits)
+    {
+        // kit_tiles[i] = (flat, wall, edge_overlay, _unused). The shader reads
+        //   .x/.y for the flat↔wall smoothstep blend and .z for the overlay
+        //   layer sampled wherever the fragment's voxel has OverlayId=edge.
+        // kit_bands[i] = (wall_lo, wall_hi, _unused, _unused). One transition:
+        //   y < wall_lo → 100% wall; y > wall_hi → 100% flat.
+        var tiles = new Vector4[MAX_KITS];
+        var bands = new Vector4[MAX_KITS];
+        int n = kits != null ? Math.Min(kits.Length, MAX_KITS) : 0;
+        for (int i = 0; i < n; i++)
+        {
+            var kit = kits[i];
+            if (kit == null) { continue; }
+            tiles[i] = new Vector4(kit.FlatTile, kit.WallTile, kit.EdgeOverlayTile, 0f);
+            bands[i] = new Vector4(kit.WallBand.X, kit.WallBand.Y, 0f, 0f);
+        }
+        SharedMaterial.SetShaderParameter("kit_tiles", tiles);
+        SharedMaterial.SetShaderParameter("kit_bands", bands);
+    }
+
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists)
     {
         var chunk = new ChunkMesh();
@@ -49,7 +80,7 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, getShape, chunkExists);
+        chunk.BuildMesh(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists);
         return chunk;
     }
 
@@ -57,6 +88,8 @@ public partial class ChunkMesh : Node3D
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
@@ -73,10 +106,16 @@ public partial class ChunkMesh : Node3D
         var st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
         st.SetCustomFormat(0, SurfaceTool.CustomFormat.RgbaFloat);
-        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RFloat);
+        // CUSTOM1: (sharpness, kit_a, kit_b, kit_c). .x drives smooth-vs-flat
+        // shading; .yzw is the triangle's three corner kit ids (constant across
+        // the tri so the shader can barycentric-pick, same pattern as tile ids).
+        st.SetCustomFormat(1, SurfaceTool.CustomFormat.RgbaFloat);
+        // CUSTOM2: (overlay_a, overlay_b, overlay_c, _). Per-corner authored
+        // overlay ids for the AUTO terrain branch.
+        st.SetCustomFormat(2, SurfaceTool.CustomFormat.RgbaFloat);
         st.SetMaterial(SharedMaterial);
 
-        ChunkMesherDC.Build(data, getVoxel, getShape, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
+        ChunkMesherDC.Build(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();
