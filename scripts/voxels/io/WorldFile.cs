@@ -25,7 +25,10 @@ public static class WorldFile
     public const uint MAGIC = 0x454B4948; // 'HIKE' little-endian
     // v5: chunk payload gained a per-voxel Shape byte (SharpAxes) channel between
     //     Voxels and Sunlight, plus a fog-density byte array after Sunlight.
-    public const uint VERSION = 5;
+    // v6: chunk payload appended a per-voxel KitId byte (index into the
+    //     world's EnvironmentKitData[]) after fog-density, before entities.
+    // v7: chunk payload appended a per-voxel OverlayId byte after KitId.
+    public const uint VERSION = 7;
 
     public struct IndexEntry
     {

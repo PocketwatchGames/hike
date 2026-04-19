@@ -52,10 +52,10 @@ const float TILE_DIRT = 1.0;
 const float TILE_GRASS_TOP = 2.0;
 // "Auto" sentinels — when a vertex carries one of these ids, the fragment
 // picks the real tile from surface slope. Two variants:
-//   TILE_AUTO (255):      grass / dirt / stone by slope (default natural land).
-//   TILE_AUTO_PATH (254): never grass; dirt by default; stone if steep. Used
-//                         where authored content wants a worn/earthen look
-//                         regardless of slope.
+//   TILE_AUTO (255):      flat / slope / wall driven by the per-vertex KitId.
+//   TILE_AUTO_PATH (254): never flat-grass; dirt by default; stone if steep.
+//                         Authored content wants a worn/earthen look
+//                         regardless of slope. Will become a kit overlay.
 // Must match VoxelTypeInfo.TILE_AUTO / TILE_AUTO_PATH.
 const float TILE_AUTO_PATH_THRESHOLD = 253.5;
 const float TILE_AUTO_THRESHOLD = 254.5;
@@ -85,16 +85,24 @@ uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
 uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
 uniform float detail_normal_strength = 0.35;
 
-// Slope bands for AUTO terrain. world_normal.y = 1 = flat-up, 0 = vertical.
-const float SLOPE_GRASS_LO = 0.85;
-const float SLOPE_GRASS_HI = 0.95;
-const float SLOPE_DIRT_LO = 0.40;
-const float SLOPE_DIRT_HI = 0.60;
-// Path slope rule: dirt above PATH_STONE_HI, stone below PATH_STONE_LO.
+// Path slope rule: dirt above PATH_STONE_HI, stone below PATH_STONE_LO. This
+// AUTO_PATH branch stays kit-independent for now — it'll fold into a per-kit
+// overlay system later.
 const float SLOPE_PATH_STONE_LO = 0.35;
 const float SLOPE_PATH_STONE_HI = 0.55;
 
-// sun_world_dir declared above (before the cloud_shadow include).
+// Per-kit palette uploaded by ChunkMesh.SetKits at world start.
+//   kit_tiles[i] = (flat, wall, edge_overlay, _) tile_array layer indices.
+//   kit_bands[i] = (wall_lo, wall_hi, _, _). One smoothstep: y<wall_lo = wall,
+//                   y>wall_hi = flat. No intermediate slope tile — authored
+//                   dirt/edge appearance comes from the overlay layer.
+// Index = the per-vertex KitId picked via barycentric argmax (parallel to
+// tile_ids picking). MAX_KITS sized for headroom; only the first
+// WorldGenData.Kits.Length entries are meaningful.
+const int MAX_KITS = 16;
+uniform vec4 kit_tiles[MAX_KITS];
+uniform vec4 kit_bands[MAX_KITS];
+
 global uniform vec3 fill_world_dir;
 global uniform vec3 sun_tint_color;
 global uniform vec3 fill_tint_color;
@@ -116,6 +124,16 @@ varying float sharpness;
 // Written in fragment(), read in light() so cloud shadow composes with
 // the directional shadow atlas as min() rather than multiply — see light().
 varying float cloud_dim;
+// Kit ids for the 3 corners of this triangle (constant across the tri).
+// Barycentric argmax picks which corner's kit wins at each fragment (parallel
+// to tile_ids), so kit boundaries blend with the same noise-jittered edge as
+// tile boundaries.
+varying flat vec3 kit_ids;
+// Per-corner authored overlay ids. 0 = no overlay, paint the kit's flat/wall
+// tile as-is; non-zero = sample the kit's edge-overlay tile and blend over.
+// Picked by the same barycentric argmax as tile_ids and kit_ids so boundaries
+// inherit the shared noise-jittered edge.
+varying flat vec3 overlay_ids;
 
 // Tunes the spatial frequency of the per-tile-edge noise. Higher = finer
 // jitter along the boundary; too high looks like static, too low looks like
@@ -128,6 +146,8 @@ void vertex() {
 	tile_ids = CUSTOM0.xyz;
 	blend_amp = CUSTOM0.w;
 	sharpness = CUSTOM1.x;
+	kit_ids = CUSTOM1.yzw;
+	overlay_ids = CUSTOM2.xyz;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -226,12 +246,20 @@ void fragment() {
 	vec3 jitter = (vec3(n0, n1, n2) - 0.5) * blend_amp;
 	vec3 weights = bary + jitter;
 	float tile_index;
+	float kit_index;
+	float overlay_index;
 	if (weights.x >= weights.y && weights.x >= weights.z) {
 		tile_index = tile_ids.x;
+		kit_index = kit_ids.x;
+		overlay_index = overlay_ids.x;
 	} else if (weights.y >= weights.z) {
 		tile_index = tile_ids.y;
+		kit_index = kit_ids.y;
+		overlay_index = overlay_ids.y;
 	} else {
 		tile_index = tile_ids.z;
+		kit_index = kit_ids.z;
+		overlay_index = overlay_ids.z;
 	}
 
 	// Triplanar blend — DC vertices have arbitrary normals, so a dominant-axis
@@ -242,21 +270,37 @@ void fragment() {
 
 	vec4 tex_color;
 	if (tile_index >= TILE_AUTO_THRESHOLD) {
-		// AUTO terrain: pick grass/dirt/stone from surface slope and blend
-		// across the slope thresholds so the transition isn't a hard band.
-		// Each of the three concrete tiles runs through sample_tile so it
-		// gets its own variant/band resolution.
+		// AUTO terrain: per-kit flat↔wall via a single smoothstep on normal.y.
+		// No intermediate slope tile — dirt/edge appearance is painted by the
+		// overlay layer only where worldgen authored OverlayId != 0. Keeps
+		// cliff tops sharp (no auto dirt ring) and makes dirt an intentional
+		// marker for walkable slopes and small features. Each concrete tile
+		// runs through sample_tile so kit tiles that happen to be variant-
+		// capable bases (e.g. grass) get per-fragment band/variant resolution.
+		int kit_idx = clamp(int(kit_index), 0, MAX_KITS - 1);
+		vec4 tiles = kit_tiles[kit_idx];
+		vec4 bands = kit_bands[kit_idx];
 		float s = clamp(shaded_normal.y, 0.0, 1.0);
-		float w_grass = smoothstep(SLOPE_GRASS_LO, SLOPE_GRASS_HI, s);
-		float w_not_stone = smoothstep(SLOPE_DIRT_LO, SLOPE_DIRT_HI, s);
-		float w_stone = 1.0 - w_not_stone;
-		float w_dirt = max(0.0, w_not_stone - w_grass);
-		vec4 t_grass = sample_tile(TILE_GRASS_TOP, world_vertex, blend);
-		vec4 t_dirt  = sample_tile(TILE_DIRT,      world_vertex, blend);
-		vec4 t_stone = sample_tile(TILE_STONE,     world_vertex, blend);
-		tex_color = t_grass * w_grass + t_dirt * w_dirt + t_stone * w_stone;
+		float w_flat = smoothstep(bands.x, bands.y, s);
+		float w_wall = 1.0 - w_flat;
+		vec4 t_flat = sample_tile(tiles.x, world_vertex, blend);
+		vec4 t_wall = sample_tile(tiles.y, world_vertex, blend);
+		tex_color = t_flat * w_flat + t_wall * w_wall;
+
+		// Overlay pass: if this fragment's voxel has a non-zero OverlayId,
+		// paint the kit's edge tile on top. tiles.z holds the edge overlay
+		// tile index; only the flat surface gets it (a wall cliff face with
+		// overlay authored would still read as the kit's wall tile).
+		if (overlay_index > 0.5) {
+			vec4 t_overlay = sample_tile(tiles.z, world_vertex, blend);
+			// Blend based on how flat the surface is — overlay rides on top of
+			// flat ground, fades out on walls (otherwise a cliff-face voxel
+			// stamped edge would overwrite the wall tile).
+			tex_color = mix(tex_color, t_overlay, w_flat);
+		}
 	} else if (tile_index >= TILE_AUTO_PATH_THRESHOLD) {
-		// AUTO_PATH terrain: only dirt or stone, picked by slope.
+		// AUTO_PATH terrain: only dirt or stone, picked by slope. Kit-
+		// independent for now — folds into a per-kit overlay system later.
 		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_dirt = smoothstep(SLOPE_PATH_STONE_LO, SLOPE_PATH_STONE_HI, s);
 		float w_stone = 1.0 - w_dirt;

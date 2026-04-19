@@ -4,6 +4,13 @@ using Godot;
 
 public static class WorldGen
 {
+    // Kit ids — indices into WorldGenData.Kits. Must match the order in
+    // default_world_gen.tres. Per-voxel kit lets caves below a temperate
+    // surface read as cave-palette while the surface above stays temperate.
+    private const byte KIT_TEMPERATE = 0;
+    private const byte KIT_CAVE = 1;
+    private const byte KIT_UNDERWATER = 2;
+
     // Staircase spiral pattern: (dx, dz) offsets from center, actions per y-level
     private const int STAIR_KEEP = 0;
     private const int STAIR_FULL = 1;
@@ -123,6 +130,17 @@ public static class WorldGen
         // somewhere in the column) keeps the outdoor surface voxel untouched
         // so plateau vs. ramp behavior at the surface is preserved.
         MarkCaveSurfaceShapes(ws);
+
+        // Per-voxel neighborhood slope pass: stamp OverlayId=edge on 1-voxel
+        // bumps, walkable ramps, and small plateau steps. The shader's
+        // per-fragment slope on a box-smoothed normal cannot see features the
+        // smoothing averages away; this authored signal puts them back.
+        // Currently disabled — the ±EDGE_SCAN_WINDOW / diff-threshold heuristic
+        // doesn't map cleanly to the terrain shapes we actually generate, so
+        // overlays end up in the wrong places. Revisit once we have a clearer
+        // read on which features need the dirt treatment (probably driven by
+        // authored tags from the editor rather than derived from geometry).
+        // StampEdgeOverlays(ws);
 
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
@@ -337,22 +355,15 @@ public static class WorldGen
                         continue;
                     }
 
-                    // Top of underwater/shore terrain becomes sand.
-                    if (wy == solidHeight && solidHeight <= WATER_LEVEL)
-                    {
-                        data.Voxels[x, y, z] = VoxelType.Sand;
-                    }
-                    // Cave floor: the solid voxel directly beneath a carved
-                    // cave voxel reads as sand so cave interiors look distinct
-                    // from surface terrain.
-                    else if (wy + 1 < solidHeight && ColumnSupportsTunnel(wy + 1, solidHeight) && IsTunnelAt(wx, wy + 1, wz, tunnelNoise, genData))
-                    {
-                        data.Voxels[x, y, z] = VoxelType.Sand;
-                    }
-                    else
-                    {
-                        data.Voxels[x, y, z] = VoxelType.Terrain;
-                    }
+                    // Every natural solid voxel is Terrain — the shader picks
+                    // the tile from the per-voxel KitId (see below) + surface
+                    // normal.y. The 27-voxel majority vote in the mesher now
+                    // resolves to Terrain everywhere, so cliff faces, cave
+                    // walls, and seabeds all flow through the AUTO branch and
+                    // read from their kit's palette. Explicit materials
+                    // (Wood/Stone walls from structures) overwrite this later
+                    // via SetVoxelWorld and take the non-AUTO shader path.
+                    data.Voxels[x, y, z] = VoxelType.Terrain;
 
                     // Cave interior surfaces always snap flat, regardless of
                     // whether the outdoor ridge above this column is a plateau
@@ -371,6 +382,15 @@ public static class WorldGen
                     data.Shape[x, y, z] = (aboveIsCarved || belowIsCarved)
                         ? (byte)VoxelTypeInfo.SharpAxes.Y
                         : columnShape;
+
+                    // Kit assignment: submerged voxels get the underwater kit,
+                    // everything else starts temperate. Cave interiors are
+                    // re-tagged to KIT_CAVE by MarkCaveSurfaceShapes after the
+                    // swiss-cheese cave carving pass — that's where the "buried
+                    // solid adjacent to carved air/water" heuristic lives, so
+                    // we let it own cave kit assignment uniformly across both
+                    // the tunnel and cave paths.
+                    data.KitId[x, y, z] = wy <= WATER_LEVEL ? KIT_UNDERWATER : KIT_TEMPERATE;
                 }
             }
         }
@@ -575,6 +595,12 @@ public static class WorldGen
                         || IsAirOrWater(ws, wx, wy, wz + 1))
                     {
                         ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
+                        // Same "buried + adjacent to carved" heuristic that
+                        // identifies a cave-interior surface. Stamp the cave
+                        // kit so the shader can later paint it distinctly from
+                        // the temperate surface above. Overrides KIT_UNDERWATER
+                        // for below-water caves — the cave palette wins there.
+                        ws.SetKitIdWorld(wx, wy, wz, KIT_CAVE);
                     }
                 }
             }
@@ -585,6 +611,109 @@ public static class WorldGen
     {
         var v = ws.GetVoxelWorld(wx, wy, wz);
         return v == VoxelType.Air || v == VoxelType.Water;
+    }
+
+    // Overlay id values. 0 = no overlay. Wire values are stable — append, don't
+    // reuse, so .hike files written by old worldgen keep loading.
+    private const byte OVERLAY_NONE = 0;
+    private const byte OVERLAY_EDGE = 1;
+
+    // How many voxels above/below `wy` to scan the neighbor column for its
+    // local surface. Anything beyond this is treated as a cliff and skipped
+    // (the kit's wall tile already paints cliff faces; overlays are for
+    // walkable slopes the smooth normal can't see).
+    private const int EDGE_SCAN_WINDOW = 4;
+    // Neighbor-diff threshold at/above which we stamp OVERLAY_EDGE. 1 = any
+    // non-flat cardinal neighbor (1-voxel bumps, ramps). Raise to 2+ for
+    // smaller overlay coverage.
+    private const int EDGE_MIN_DIFF = 1;
+    // Neighbor-diff at/above which we stop stamping edge — the feature is a
+    // real cliff and the wall band owns it.
+    private const int EDGE_MAX_DIFF = 3;
+
+    // Stamp OVERLAY_EDGE on "surface voxels" (solid with air directly above)
+    // whose local neighborhood slope is in [EDGE_MIN_DIFF, EDGE_MAX_DIFF-1].
+    // Per-voxel, not per-column: correctly handles cave floors, overhangs, and
+    // ledges because the ±EDGE_SCAN_WINDOW clip keeps each voxel's comparison
+    // local to its own walkable layer.
+    private static void StampEdgeOverlays(WorldState ws)
+    {
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        int[] dx = { 1, -1, 0, 0 };
+        int[] dz = { 0, 0, 1, -1 };
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                for (int wy = worldMinY; wy < worldMaxY; wy++)
+                {
+                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
+                    {
+                        continue;
+                    }
+
+                    int maxDiff = 0;
+                    for (int i = 0; i < 4; i++)
+                    {
+                        int nx = wx + dx[i];
+                        int nz = wz + dz[i];
+                        int neighborDiff = FindNearestSurfaceDiff(ws, nx, wy, nz, EDGE_SCAN_WINDOW);
+                        if (neighborDiff > maxDiff)
+                        {
+                            maxDiff = neighborDiff;
+                        }
+                    }
+
+                    if (maxDiff >= EDGE_MIN_DIFF && maxDiff < EDGE_MAX_DIFF)
+                    {
+                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_EDGE);
+                    }
+                }
+            }
+        }
+    }
+
+    // True iff the voxel at (wx, wy, wz) is solid (non-Barrier) and has air or
+    // water directly above. That's the definition of "walkable surface" used by
+    // the overlay pass — applies to plateau tops, cave floors, ledges alike.
+    private static bool IsSurfaceVoxel(WorldState ws, int wx, int wy, int wz)
+    {
+        var self = ws.GetVoxelWorld(wx, wy, wz);
+        if (!VoxelTypeInfo.IsSolid(self) || self == VoxelType.Barrier)
+        {
+            return false;
+        }
+        var above = ws.GetVoxelWorld(wx, wy + 1, wz);
+        return !VoxelTypeInfo.IsSolid(above) || above == VoxelType.Barrier;
+    }
+
+    // Returns the vertical distance from `wy` to the nearest surface voxel in
+    // the column at (wx, wz), searching ±window. Returns `window` if no
+    // surface is found (treat as cliff — no overlay).
+    private static int FindNearestSurfaceDiff(WorldState ws, int wx, int wy, int wz, int window)
+    {
+        int best = window;
+        for (int d = 0; d <= window; d++)
+        {
+            if (IsSurfaceVoxel(ws, wx, wy + d, wz))
+            {
+                if (d < best) { best = d; }
+                break;
+            }
+            if (d != 0 && IsSurfaceVoxel(ws, wx, wy - d, wz))
+            {
+                if (d < best) { best = d; }
+                break;
+            }
+        }
+        return best;
     }
 
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,

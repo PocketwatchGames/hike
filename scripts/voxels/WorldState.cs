@@ -105,6 +105,46 @@ public class WorldState
         chunk.SetShape(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), shape);
     }
 
+    public int GetKitIdWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        return chunk.GetKitId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetKitIdWorld(int wx, int wy, int wz, int kitId)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetKitId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), kitId);
+    }
+
+    public int GetOverlayIdWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        return chunk.GetOverlayId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetOverlayIdWorld(int wx, int wy, int wz, int overlayId)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetOverlayId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), overlayId);
+    }
+
     public int GetSunlightWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);

@@ -12,10 +12,14 @@
 [ext_resource type="PackedScene" uid="uid://jlh3xsibvf00" path="res://scenes/game/loot.tscn" id="5_x26p4"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/kun_kun.tres" id="6_kunkun_data"]
 [ext_resource type="PackedScene" path="res://scenes/game/kun_kun.tscn" id="7_kunkun_scene"]
+[ext_resource type="Resource" path="res://resources/data/kit_temperate.tres" id="8_kit_temperate"]
+[ext_resource type="Resource" path="res://resources/data/kit_cave.tres" id="9_kit_cave"]
+[ext_resource type="Resource" path="res://resources/data/kit_underwater.tres" id="10_kit_underwater"]
 
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
+Kits = [ExtResource("8_kit_temperate"), ExtResource("9_kit_cave"), ExtResource("10_kit_underwater")]
 GrassThreshold = 0.3
 GoblinData = ExtResource("3_2t2hn")
 KunKunData = ExtResource("6_kunkun_data")

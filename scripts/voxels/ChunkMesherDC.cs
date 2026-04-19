@@ -58,6 +58,8 @@ public static class ChunkMesherDC
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists,
         SurfaceTool st,
         int chunkWorldX, int chunkWorldY, int chunkWorldZ,
@@ -127,6 +129,16 @@ public static class ChunkMesherDC
 
         var cellVert = new Vector3[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-cell dominant kit id. Same 27-voxel majority vote as the tile
+        // pick, but counting KitId instead of VoxelType. Triangles carry three
+        // corner kits via CUSTOM1.yzw so the shader can barycentric-blend at
+        // kit boundaries the same way it does for tile boundaries.
+        var cellKit = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-cell dominant overlay id. Unlike kit/tile, the vote ignores
+        // OverlayId=0 — most buried voxels carry zero, so a naive majority
+        // would drown out a single surface voxel stamped with an overlay. The
+        // rule is "any non-zero wins, tie-broken by count."
+        var cellOverlay = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellAmp = new float[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellHas = new bool[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-vertex sharpness in [0,1]: 0 = fully smooth (rely on interpolated
@@ -172,7 +184,7 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getKitId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -235,6 +247,8 @@ public static class ChunkMesherDC
                     cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = new Vector3(vx, vy, vz);
                     cellHas[CellIdx(x), CellIdx(y), CellIdx(z)] = true;
                     cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
+                    cellKit[CellIdx(x), CellIdx(y), CellIdx(z)] = kitId;
+                    cellOverlay[CellIdx(x), CellIdx(y), CellIdx(z)] = overlayId;
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
                     cellSharpness[CellIdx(x), CellIdx(y), CellIdx(z)] = sharpness;
 
@@ -286,7 +300,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -310,7 +324,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -331,7 +345,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -366,7 +380,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -395,7 +409,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -424,7 +438,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -457,7 +471,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -486,7 +500,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -515,7 +529,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -543,7 +557,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, float[,,] cellAmp, float[,,] cellSharpness,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellKit, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -577,6 +591,16 @@ public static class ChunkMesherDC
         int t2 = cellTile[i2x, i2y, i2z];
         int t3 = cellTile[i3x, i3y, i3z];
 
+        int k0 = cellKit[i0x, i0y, i0z];
+        int k1 = cellKit[i1x, i1y, i1z];
+        int k2 = cellKit[i2x, i2y, i2z];
+        int k3 = cellKit[i3x, i3y, i3z];
+
+        int o0 = cellOverlay[i0x, i0y, i0z];
+        int o1 = cellOverlay[i1x, i1y, i1z];
+        int o2 = cellOverlay[i2x, i2y, i2z];
+        int o3 = cellOverlay[i3x, i3y, i3z];
+
         float a0 = cellAmp[i0x, i0y, i0z];
         float a1 = cellAmp[i1x, i1y, i1z];
         float a2 = cellAmp[i2x, i2y, i2z];
@@ -594,13 +618,13 @@ public static class ChunkMesherDC
 
         if (flip)
         {
-            AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, a0, a2, a1, s0, s2, s1);
-            AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, a0, a3, a2, s0, s3, s2);
+            AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1);
+            AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2);
         }
         else
         {
-            AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, a0, a1, a2, s0, s1, s2);
-            AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, a0, a2, a3, s0, s2, s3);
+            AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2);
+            AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3);
         }
 
         if (DebugLog)
@@ -630,27 +654,35 @@ public static class ChunkMesherDC
     //  - CUSTOM0 = (tile_a, tile_b, tile_c, amp_self): first three are constant
     //    across the triangle so any fragment can index all three corners' tiles;
     //    .w is per-vertex blend-noise amplitude (interpolated to fragment).
-    //  - CUSTOM1.x = per-vertex sharpness in [0,1]. Shader lerps between the
-    //    interpolated smooth NORMAL and the dFdx/dFdy face normal by this value,
-    //    so hard-material cells read as flat-shaded and soft terrain stays smooth.
+    //  - CUSTOM1 = (sharpness, kit_a, kit_b, kit_c). .x is per-vertex sharpness
+    //    in [0,1]; shader lerps between the interpolated smooth NORMAL and the
+    //    dFdx/dFdy face normal by this value, so hard-material cells read as
+    //    flat-shaded and soft terrain stays smooth. .yzw are the triangle's
+    //    three corner kit ids — constant across the tri, same pattern as tiles.
+    //  - CUSTOM2 = (overlay_a, overlay_b, overlay_c, _unused). Per-corner
+    //    authored overlay ids; the shader picks the same corner the tile/kit
+    //    pick chose so overlay boundaries inherit the organic edge jitter.
     //  - COLOR.rgb = bary indicator (1,0,0)/(0,1,0)/(0,0,1). Linearly interpolated
     //    by the rasterizer so fragment.COLOR.rgb is the barycentric weight vector.
     private static void AddTri(SurfaceTool st,
         Vector3 a, Vector3 b, Vector3 c,
         Vector3 na, Vector3 nb, Vector3 nc,
         int ta, int tb, int tc,
+        int ka, int kb, int kc,
+        int oa, int ob, int oc,
         float ampA, float ampB, float ampC,
         float sharpA, float sharpB, float sharpC)
     {
         Color custA = new Color(ta, tb, tc, ampA);
         Color custB = new Color(ta, tb, tc, ampB);
         Color custC = new Color(ta, tb, tc, ampC);
-        Color sharpCustA = new Color(sharpA, 0f, 0f, 0f);
-        Color sharpCustB = new Color(sharpB, 0f, 0f, 0f);
-        Color sharpCustC = new Color(sharpC, 0f, 0f, 0f);
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, 1f)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, 1f)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, 1f)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.AddVertex(c);
+        Color sharpCustA = new Color(sharpA, ka, kb, kc);
+        Color sharpCustB = new Color(sharpB, ka, kb, kc);
+        Color sharpCustC = new Color(sharpC, ka, kb, kc);
+        Color overlayCust = new Color(oa, ob, oc, 0f);
+        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, 1f)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCust); st.AddVertex(a);
+        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, 1f)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCust); st.AddVertex(b);
+        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, 1f)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCust); st.AddVertex(c);
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
@@ -663,40 +695,74 @@ public static class ChunkMesherDC
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
+        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getOverlayId,
         int cwX, int cwY, int cwZ,
-        out int tile, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant)
+        out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant)
     {
-        VoxelType self;
-        if (x >= 0 && x < N && y >= 0 && y < N && z >= 0 && z < N)
-        {
-            self = data.GetVoxel(x, y, z);
-        }
-        else
-        {
-            self = getVoxel(cwX + x, cwY + y, cwZ + z);
-        }
-        dominant = VoxelType.Air;
+        // Dominant material: majority vote over the cell's 3x3x3 contributing
+        // neighbourhood. DC cells don't "own" the voxels at their 8 corner
+        // positions — corners are grid points, and the min-rule in
+        // Density.CornerDensity means a corner reads INSIDE if ANY of the 8
+        // voxels touching it is solid. So a top-face cell sits one row above
+        // the surface and has ALL corner-position voxels in air; the solid
+        // voxels that actually produced the sign change live one row below.
+        // Voting across the 3x3x3 covers every voxel whose density contributes
+        // to any of this cell's 8 corners.
+        //
+        // The previous "first solid seen" rule scanned the same 27 voxels but
+        // accepted whichever lex-order match came first, so a wall-edge cell
+        // with self=Air picked up grass from a far non-cliff column. Majority
+        // weights each type by how much of the neighbourhood it occupies, so
+        // a cliff-face cell with dirt-heavy surroundings reads as dirt.
+        Span<int> counts = stackalloc int[16];
+        Span<int> kitCounts = stackalloc int[256];
+        Span<int> overlayCounts = stackalloc int[256];
         sharpMask = VoxelTypeInfo.SharpAxes.None;
-        if (VoxelTypeInfo.IsSolid(self) && self != VoxelType.Barrier)
-        {
-            dominant = self;
-            sharpMask |= getShape(cwX + x, cwY + y, cwZ + z);
-        }
         for (int dx = -1; dx <= 1; dx++)
         {
             for (int dy = -1; dy <= 1; dy++)
             {
                 for (int dz = -1; dz <= 1; dz++)
                 {
-                    if (dx == 0 && dy == 0 && dz == 0) { continue; }
                     VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier) { continue; }
-                    if (dominant == VoxelType.Air)
-                    {
-                        dominant = v;
-                    }
+                    counts[(int)v]++;
                     sharpMask |= getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    kitCounts[getKitId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
+                    int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    if (o != 0) { overlayCounts[o]++; }
                 }
+            }
+        }
+        dominant = VoxelType.Air;
+        int bestCount = 0;
+        for (int i = 0; i < counts.Length; i++)
+        {
+            if (counts[i] > bestCount)
+            {
+                bestCount = counts[i];
+                dominant = (VoxelType)i;
+            }
+        }
+        kitId = 0;
+        int bestKitCount = 0;
+        for (int i = 0; i < kitCounts.Length; i++)
+        {
+            if (kitCounts[i] > bestKitCount)
+            {
+                bestKitCount = kitCounts[i];
+                kitId = i;
+            }
+        }
+        overlayId = 0;
+        int bestOverlayCount = 0;
+        for (int i = 1; i < overlayCounts.Length; i++)
+        {
+            if (overlayCounts[i] > bestOverlayCount)
+            {
+                bestOverlayCount = overlayCounts[i];
+                overlayId = i;
             }
         }
 

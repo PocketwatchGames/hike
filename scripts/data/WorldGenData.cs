@@ -5,6 +5,10 @@ public partial class WorldGenData : Resource
 {
     [Export] public SimData SimData;
 
+    // Environment kits used for AUTO terrain. Index in this array == KitId
+    // stored per-voxel in ChunkState. Index 0 is the fallback / default kit.
+    [Export] public EnvironmentKitData[] Kits = System.Array.Empty<EnvironmentKitData>();
+
     [Export] public int SizeX = 8;
     [Export] public int SizeY = 3;
     [Export] public int SizeZ = 8;

@@ -18,6 +18,22 @@ public class ChunkState
     //   Ramps / path-band slopes → None               (smooth interpolation)
     public readonly byte[,,] Shape;
 
+    // Per-voxel environment kit id. Index into WorldGenData.Kits. Orthogonal to
+    // VoxelType: a voxel tagged VoxelType.Terrain with KitId=2 means "AUTO land
+    // that reads from the underwater kit's palette." Per-voxel (not per-column)
+    // so caves beneath overhangs can use a different kit than the surface above.
+    // The DC mesher majority-votes KitId over each cell's 27-voxel neighborhood
+    // the same way it picks the dominant VoxelType.
+    public readonly byte[,,] KitId;
+
+    // Per-voxel authored overlay. 0 = none. Non-zero values select a kit-owned
+    // overlay tile painted on top of the kit's base (flat/wall) tile. Used for
+    // features the per-fragment shader slope can't see on a box-smoothed normal
+    // — 1-voxel bumps, walkable ramps, eroded edges — which worldgen detects
+    // via per-voxel neighborhood slope and stamps here. Majority-voted in the
+    // mesher parallel to VoxelType and KitId.
+    public readonly byte[,,] OverlayId;
+
     // Sunlight: byte 0..LightEngine.MAX_LIGHT. Single source, max-fill BFS so
     // there's no overlap to worry about. Color tinting (sunset, etc.) happens
     // in the shader via the sun_color uniform — the storage is just a mask.
@@ -49,6 +65,8 @@ public class ChunkState
         ChunkCoord = chunkCoord;
         Voxels = new VoxelType[SIZE, SIZE, SIZE];
         Shape = new byte[SIZE, SIZE, SIZE];
+        KitId = new byte[SIZE, SIZE, SIZE];
+        OverlayId = new byte[SIZE, SIZE, SIZE];
         Sunlight = new byte[SIZE, SIZE, SIZE];
         BlockLightR = new ushort[SIZE, SIZE, SIZE];
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
@@ -77,6 +95,34 @@ public class ChunkState
     public void SetShape(int x, int y, int z, VoxelTypeInfo.SharpAxes shape)
     {
         Shape[x, y, z] = (byte)shape;
+    }
+
+    public int GetKitId(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return KitId[x, y, z];
+    }
+
+    public void SetKitId(int x, int y, int z, int kitId)
+    {
+        KitId[x, y, z] = (byte)kitId;
+    }
+
+    public int GetOverlayId(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return OverlayId[x, y, z];
+    }
+
+    public void SetOverlayId(int x, int y, int z, int overlayId)
+    {
+        OverlayId[x, y, z] = (byte)overlayId;
     }
 
     public int GetSunlight(int x, int y, int z)

@@ -269,7 +269,7 @@ public partial class ChunkManager : Node3D
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.IsInBounds);
+                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetKitIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
                 AddChild(mesh);
                 _loadedChunks[coord] = mesh;
                 onChunkLoaded?.Invoke(coord);
@@ -295,7 +295,7 @@ public partial class ChunkManager : Node3D
             }
 
             oldMesh.QueueFree();
-            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.IsInBounds);
+            ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetKitIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
             AddChild(mesh);
             _loadedChunks[coord] = mesh;
             rebuilt++;
