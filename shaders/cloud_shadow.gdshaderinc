@@ -94,3 +94,20 @@ float cloud_shadow_ground(vec3 world_pos, float time)
     vec2 cloud_xz = world_pos.xz + to_sun.xz * t;
     return cs_sample(cloud_xz, time);
 }
+
+// Shaft-specific variant — re-projects along the sun (Y-coherent) and
+// applies a caller-provided sharpness instead of the scene-wide
+// cloud_sharpness. Lets the fog shader crank shaft contrast high
+// without affecting sky dome or terrain-shadow softness, which
+// typically want softer cloud edges.
+float cloud_shadow_shafts(vec3 world_pos, float time, float shaft_sharpness)
+{
+    vec3 to_sun = -normalize(sun_world_dir);
+    float up = max(to_sun.y, 0.15);
+    float t = (cloud_altitude - world_pos.y) / up;
+    vec2 cloud_xz = world_pos.xz + to_sun.xz * t;
+    vec2 cuv = cloud_xz * CLOUD_TEX_TILING + cloud_scroll * time;
+    float c = texture(cloud_noise_tex, cuv).r;
+    float band = max(1e-4, 1.0 - shaft_sharpness);
+    return smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);
+}

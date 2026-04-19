@@ -108,7 +108,7 @@ mesh = SubResource("QuadMesh_fog")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(0.927184, -0.306858, 0.215, 0, 0.573576, 0.819152, -0.374607, -0.759556, 0.532169, 0, 0, 0)
+transform = Transform3D(0.8660254, -0.38302222, 0.32139382, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 0, 0, 0)
 light_angular_distance = 1.5
 light_bake_mode = 0
 light_cull_mask = 3
@@ -116,10 +116,24 @@ shadow_enabled = true
 shadow_blur = 2.0
 sky_mode = 1
 
-[node name="SkyController" type="Node3D" parent="." unique_id=1861679395]
+[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight")]
 script = ExtResource("sky_controller_script")
-cloudScroll = Vector2(0.04, 0.02)
+sunLight = NodePath("../SceneViewport/SunLight")
+cloudThreshold = 0.35
+cloudSharpness = 0.85
 cloudAltitude = 50.0
+cloudShadowStrength = 0.5
+fogMaterial = ExtResource("fog_volumetric_mat")
+dustDensity = 0.0479
+dustBandHeight = 8.0
+dustNoiseStrength = 1.0
+dustNoiseScale = 0.062
+dustNoiseThreshold = 0.0
+dustNoiseSharpness = 0.0
+sunShaftIntensity = 32.0
+blockHaloIntensity = 32.0
+shaftCameraFadeDegrees = 45.0
+moteStrength = 0.55
 
 [node name="PostProcess" type="CanvasLayer" parent="." unique_id=1349076879]
 layer = 0

@@ -210,29 +210,9 @@ public partial class World : Node3D
         _chunkManager?.SetFogEnabled(enabled);
     }
 
-    public void SetFogShaftIntensity(float value)
+    public void SetFogVolumetricEnabled(bool enabled)
     {
-        _chunkManager?.SetFogShaftIntensity(value);
-    }
-
-    public void SetFogHaloIntensity(float value)
-    {
-        _chunkManager?.SetFogHaloIntensity(value);
-    }
-
-    public void SetFogAnisotropy(float value)
-    {
-        _chunkManager?.SetFogAnisotropy(value);
-    }
-
-    public void SetFogDustStrength(float value)
-    {
-        _chunkManager?.SetFogDustStrength(value);
-    }
-
-    public void SetFogAmbientDensity(float value)
-    {
-        _chunkManager?.SetFogAmbientDensity(value);
+        _chunkManager?.SetFogVolumetricEnabled(enabled);
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

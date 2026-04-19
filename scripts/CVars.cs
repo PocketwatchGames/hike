@@ -18,75 +18,104 @@ public static class CVars
         World.Current?.SetFogDebugMode(((CVarInt)cvar).Value);
     });
 
-    // Master fog toggle. Set to 0 to disable all fog contribution without
-    // editing the material — useful for isolating rendering artifacts
-    // against a fog-free baseline.
+    // Gates AUTHORED voxel fog contribution only (fog_map). Dust + shafts
+    // + halos keep working when this is off — they come from dust_density
+    // and block-light accumulation which are independent of the fog_map.
     public static CVarBool fogEnabled = new CVarBool("fog_enabled", true, (cvar) =>
     {
         World.Current?.SetFogEnabled(((CVarBool)cvar).Value);
     });
 
-    // God-ray ("light shaft") intensity: scales the sun in-scatter term in
-    // the fog raymarch. 0 disables shafts. Default is high (8) to
-    // compensate for the isotropic-by-default phase — see shader comment.
-    public static CVarFloat fogShafts = new CVarFloat("fog_shafts", 8.0f, (cvar) =>
+    // Master kill-switch for the ENTIRE volumetric fog pass — haze, shafts,
+    // halos, dust, everything. When false, the fog shader early-outs to
+    // transparent before any raymarching or texture work. Use on low-spec
+    // machines as a graphics option, or toggle while profiling to see how
+    // much of the frame budget the fog pass accounts for.
+    public static CVarBool fogVolumetricEnabled = new CVarBool("fog_volumetric", true, (cvar) =>
     {
-        World.Current?.SetFogShaftIntensity(((CVarFloat)cvar).Value);
+        World.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
     });
 
-    // Block-light halo intensity: scales the torch/lamp in-scatter term.
-    public static CVarFloat fogHalos = new CVarFloat("fog_halos", 6.0f, (cvar) =>
+    // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
+    // inscatter shafts, animated dust — is owned by the SkyController
+    // node in scenes/screens/game.tscn as [Export] fields. Weather and
+    // time-of-day systems mutate those fields and call SkyController.Apply()
+    // to push to the GPU. It doesn't belong in CVars because it's simulation
+    // state, not a player option / tunable const / debug tool / cheat.
+
+    // Toggle for whether cloud occlusion contributes to shaft gating.
+    // Debug/tuning aid — with clouds off, shafts are shaped purely by
+    // the screen-space geometry raymarch (tree / terrain silhouettes),
+    // which is the "Tessellator look." With clouds on, cloud shadow
+    // modulates on top. Either way, cloud shadows on TERRAIN / sprites /
+    // water are unaffected (those come from cloud_shadow_ground).
+    public static CVarBool fogCloudShafts = new CVarBool("fog_cloud_shafts", true, (cvar) =>
     {
-        World.Current?.SetFogHaloIntensity(((CVarFloat)cvar).Value);
+        if (SkyController.Current != null)
+        {
+            SkyController.Current.cloudShaftWeight = ((CVarBool)cvar).Value ? 1.0f : 0.0f;
+        }
     });
 
-    // Henyey-Greenstein scattering anisotropy. 0 = isotropic (uniform haze),
-    // positive = forward-scattering (shafts brightest when looking toward
-    // the sun). Default 0 because the isometric camera's fixed pitch
-    // rarely faces the sun, so a forward peak kills shaft visibility.
-    public static CVarFloat fogAnisotropy = new CVarFloat("fog_anisotropy", 0.0f, (cvar) =>
+    // Apply a weather preset to SkyController. Debug/testing tool — a real
+    // weather system will drive the same exports procedurally over time.
+    // Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.
+    public static CVarString weather = new CVarString("weather", "", (cvar) =>
     {
-        World.Current?.SetFogAnisotropy(((CVarFloat)cvar).Value);
-    });
-
-    // Animated dust-mote strength inside shafts. 0 = static beams, 1 = beams
-    // pulse between 0 and 2x intensity as motes drift through them.
-    public static CVarFloat fogDust = new CVarFloat("fog_dust", 0.55f, (cvar) =>
-    {
-        World.Current?.SetFogDustStrength(((CVarFloat)cvar).Value);
-    });
-
-    // Atmospheric baseline fog density. The authored fog_map covers only a
-    // thin water-mist band, so outside it the march has nothing to scatter
-    // through and no shafts form. This uniform fills the air everywhere
-    // with a subtle dust layer so beams appear wherever terrain blocks sun.
-    // Keep small (0.02-0.10); higher values fog out the scene uniformly
-    // and shafts stop reading as distinct beams.
-    public static CVarFloat fogAmbient = new CVarFloat("fog_ambient", 0.15f, (cvar) =>
-    {
-        World.Current?.SetFogAmbientDensity(((CVarFloat)cvar).Value);
-    });
-
-    // How aggressively a full cloud shadow darkens direct sun on terrain /
-    // sprites / water. 1.0 = full cloud leaves only block light (dramatic);
-    // 0.6 leaves the ambient sky-bounce portion lit (subtle); 0 disables.
-    public static CVarFloat cloudStrength = new CVarFloat("cloud_strength", 1.0f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", ((CVarFloat)cvar).Value);
-    });
-
-    // Noise-to-cloud remap: values ABOVE cloud_threshold start being cloud,
-    // cloud_sharpness controls how narrow the transition is (0 = soft
-    // gradient, 1 = hard step). Lower threshold = more cloud coverage.
-    // Shared between sky dome rendering and ground cloud shadows so what
-    // you see overhead matches the shadows cast on the ground.
-    public static CVarFloat cloudThreshold = new CVarFloat("cloud_threshold", 0.5f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_threshold", ((CVarFloat)cvar).Value);
-    });
-    public static CVarFloat cloudSharpness = new CVarFloat("cloud_sharpness", 0.7f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("cloud_sharpness", ((CVarFloat)cvar).Value);
+        var sky = SkyController.Current;
+        if (sky == null) { return; }
+        string name = ((CVarString)cvar).Value.Trim().ToLowerInvariant();
+        switch (name)
+        {
+            case "":
+                return;
+            case "clear":
+                sky.fogDensity = 0.03f;
+                sky.dustDensity = 0.003f;
+                sky.cloudThreshold = 0.75f;
+                sky.cloudSharpness = 0.4f;
+                sky.cloudShadowStrength = 0.7f;
+                break;
+            case "partly_cloudy":
+                sky.fogDensity = 0.04f;
+                sky.dustDensity = 0.005f;
+                sky.cloudThreshold = 0.55f;
+                sky.cloudSharpness = 0.6f;
+                sky.cloudShadowStrength = 0.85f;
+                break;
+            case "overcast":
+                sky.fogDensity = 0.06f;
+                sky.dustDensity = 0.008f;
+                sky.cloudThreshold = 0.25f;
+                sky.cloudSharpness = 0.3f;
+                sky.cloudShadowStrength = 0.9f;
+                break;
+            case "foggy":
+                sky.fogDensity = 0.25f;
+                sky.dustDensity = 0.02f;
+                sky.cloudThreshold = 0.4f;
+                sky.cloudSharpness = 0.3f;
+                sky.cloudShadowStrength = 0.75f;
+                break;
+            case "dusty":
+                sky.fogDensity = 0.03f;
+                sky.dustDensity = 0.035f;
+                sky.cloudThreshold = 0.7f;
+                sky.cloudSharpness = 0.6f;
+                sky.cloudShadowStrength = 0.8f;
+                break;
+            case "stormy":
+                sky.fogDensity = 0.12f;
+                sky.dustDensity = 0.02f;
+                sky.cloudThreshold = 0.2f;
+                sky.cloudSharpness = 0.8f;
+                sky.cloudShadowStrength = 1.0f;
+                break;
+            default:
+                Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.");
+                return;
+        }
+        sky.Apply();
     });
 
     // Swap the MainCamera between orthographic and narrow-FOV perspective.

@@ -139,29 +139,9 @@ public partial class ChunkManager : Node3D
         _fogMaterial?.SetShaderParameter("fog_enabled", enabled);
     }
 
-    public void SetFogShaftIntensity(float value)
+    public void SetFogVolumetricEnabled(bool enabled)
     {
-        _fogMaterial?.SetShaderParameter("sun_shaft_intensity", value);
-    }
-
-    public void SetFogHaloIntensity(float value)
-    {
-        _fogMaterial?.SetShaderParameter("block_halo_intensity", value);
-    }
-
-    public void SetFogAnisotropy(float value)
-    {
-        _fogMaterial?.SetShaderParameter("scatter_anisotropy", value);
-    }
-
-    public void SetFogDustStrength(float value)
-    {
-        _fogMaterial?.SetShaderParameter("dust_strength", value);
-    }
-
-    public void SetFogAmbientDensity(float value)
-    {
-        _fogMaterial?.SetShaderParameter("ambient_density", value);
+        _fogMaterial?.SetShaderParameter("fog_volumetric_enabled", enabled);
     }
 
     // Moves dirty marks from WorldState into LightMap. The actual encode +
