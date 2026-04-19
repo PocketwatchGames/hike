@@ -60,12 +60,19 @@ const float TILE_GRASS_TOP = 2.0;
 const float TILE_AUTO_PATH_THRESHOLD = 253.5;
 const float TILE_AUTO_THRESHOLD = 254.5;
 
-// Per base-tile variant config: .x = num elevation bands, .y = variants per
-// band. Indexed by base layer id; entries we never index may be stale. Keep
-// TILE_VARIANT_TABLE_SIZE in sync with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE.
-// A (1,1) entry means "no variation" — the effective layer equals the base.
-const int TILE_VARIANT_TABLE_SIZE = 32;
-uniform vec2 tile_variants[TILE_VARIANT_TABLE_SIZE];
+// Per base-tile variant config indexed by base layer id:
+//   .x = num elevation bands
+//   .y = variants per band
+//   .z = world-to-UV scale (1 = 1 tile per world unit; <1 = larger pattern
+//        spanning multiple voxels — right for overlay patches so they don't
+//        read as copy-paste-per-voxel)
+//   .w = reserved
+// Entries we never index may be stale; keep TILE_VARIANT_TABLE_SIZE in sync
+// with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE. A (1,1,1,_) entry means "no
+// variation" — the effective layer equals the base and UVs match the voxel
+// grain.
+const int TILE_VARIANT_TABLE_SIZE = 64;
+uniform vec4 tile_variants[TILE_VARIANT_TABLE_SIZE];
 uniform float band_origin_y = 0.0;
 uniform float band_height = 32.0;
 
@@ -92,10 +99,13 @@ const float SLOPE_PATH_STONE_LO = 0.35;
 const float SLOPE_PATH_STONE_HI = 0.55;
 
 // Per-kit palette uploaded by ChunkMesh.SetKits at world start.
-//   kit_tiles[i] = (flat, wall, edge_overlay, _) tile_array layer indices.
+//   kit_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
+//                   reserved (overlay is no longer a kit property — it is
+//                   authored per-voxel as a direct tile_array base index).
 //   kit_bands[i] = (wall_lo, wall_hi, _, _). One smoothstep: y<wall_lo = wall,
 //                   y>wall_hi = flat. No intermediate slope tile — authored
-//                   dirt/edge appearance comes from the overlay layer.
+//                   dirt/field/clover/etc. appearance comes from the global
+//                   overlay pass below.
 // Index = the per-vertex KitId picked via barycentric argmax (parallel to
 // tile_ids picking). MAX_KITS sized for headroom; only the first
 // WorldGenData.Kits.Length entries are meaningful.
@@ -160,17 +170,28 @@ float hash13(vec3 p) {
 
 // Resolve the concrete tile_array layer from a tile's base layer plus
 // elevation band (world Y) and position-hashed variant. Tiles configured
-// with (1,1) collapse to base_layer — identical to the pre-variant code.
-float resolve_layer(float base_layer, vec3 world_pos) {
+// with (1,1,1,_) collapse to base_layer with unscaled UVs — identical to
+// the pre-variant code.
+//
+// `uv_scale` is reported back so sample_tile can keep a single tile_variants
+// lookup per sample; the variant hash uses scaled world_pos too, so all
+// fragments inside one splatter-sized region agree on their variant pick.
+float resolve_layer(float base_layer, vec3 world_pos, out float uv_scale) {
 	int id = clamp(int(base_layer), 0, TILE_VARIANT_TABLE_SIZE - 1);
-	vec2 cfg = tile_variants[id];
+	vec4 cfg = tile_variants[id];
 	float bands = max(1.0, cfg.x);
 	float per_band = max(1.0, cfg.y);
-	float band = clamp(floor((world_pos.y - band_origin_y) / band_height), 0.0, bands - 1.0);
-	// floor() makes the variant pick stable within each unit voxel so
-	// adjacent fragments in the same voxel pick the same tile, but
-	// neighbouring voxels vary.
-	float h = hash13(floor(world_pos) + vec3(37.2, 11.7, 91.3));
+	uv_scale = cfg.z > 0.0 ? cfg.z : 1.0;
+	// Bands are a function of elevation (world Y), not texture scale —
+	// terrain's geographic Y banding is independent of any overlay's
+	// tiling scale. Modulus so bands cycle forever up and down (GLSL mod
+	// handles negative Y correctly: mod(-1, 4) = 3).
+	float band = mod(floor((world_pos.y - band_origin_y) / band_height), bands);
+	// Variant granularity follows the texture scale so one splatter-sized
+	// region picks one variant. At scale=1 this is per-voxel (the original
+	// behavior); at scale=0.25 it's per-4-voxel-region.
+	vec3 scaled = world_pos * uv_scale;
+	float h = hash13(floor(scaled) + vec3(37.2, 11.7, 91.3));
 	float variant = clamp(floor(h * per_band), 0.0, per_band - 1.0);
 	return base_layer + band * per_band + variant;
 }
@@ -178,10 +199,12 @@ float resolve_layer(float base_layer, vec3 world_pos) {
 // Triplanar sample of a tile with variant/band resolution. `blend` is the
 // axis weight vector computed from the shading normal in fragment().
 vec4 sample_tile(float base_layer, vec3 world_pos, vec3 blend) {
-	float layer = resolve_layer(base_layer, world_pos);
-	vec4 tex_xy = texture(tile_array, vec3(world_pos.x, -world_pos.y, layer));
-	vec4 tex_xz = texture(tile_array, vec3(world_pos.x,  world_pos.z, layer));
-	vec4 tex_yz = texture(tile_array, vec3(world_pos.z, -world_pos.y, layer));
+	float uv_scale;
+	float layer = resolve_layer(base_layer, world_pos, uv_scale);
+	vec3 wp = world_pos * uv_scale;
+	vec4 tex_xy = texture(tile_array, vec3(wp.x, -wp.y, layer));
+	vec4 tex_xz = texture(tile_array, vec3(wp.x,  wp.z, layer));
+	vec4 tex_yz = texture(tile_array, vec3(wp.z, -wp.y, layer));
 	return tex_xz * blend.y + tex_xy * blend.z + tex_yz * blend.x;
 }
 float vnoise(vec3 p) {
@@ -287,16 +310,22 @@ void fragment() {
 		vec4 t_wall = sample_tile(tiles.y, world_vertex, blend);
 		tex_color = t_flat * w_flat + t_wall * w_wall;
 
-		// Overlay pass: if this fragment's voxel has a non-zero OverlayId,
-		// paint the kit's edge tile on top. tiles.z holds the edge overlay
-		// tile index; only the flat surface gets it (a wall cliff face with
-		// overlay authored would still read as the kit's wall tile).
+		// Overlay pass: OverlayId is a direct tile_array base layer (0 = none,
+		// non-zero = any overlay tile in the global catalog — dirt, field,
+		// clover, moss, etc.). Decoupling from kits lets one kit carry mixed
+		// overlays across voxels. Variants on the overlay base layer are
+		// resolved automatically by sample_tile → resolve_layer, so overlays
+		// with multiple art variants (e.g. 4 dirt splatters) just need the
+		// right tile_variants entry.
+		//
+		// The overlay's own alpha channel drives blend strength, so authored
+		// soft edges in the PNG read as partial coverage. Multiplied by w_flat
+		// so overlays ride on top of flat ground and fade out on walls (a
+		// cliff face carrying an overlay id would otherwise overwrite its
+		// wall tile).
 		if (overlay_index > 0.5) {
-			vec4 t_overlay = sample_tile(tiles.z, world_vertex, blend);
-			// Blend based on how flat the surface is — overlay rides on top of
-			// flat ground, fades out on walls (otherwise a cliff-face voxel
-			// stamped edge would overwrite the wall tile).
-			tex_color = mix(tex_color, t_overlay, w_flat);
+			vec4 t_overlay = sample_tile(overlay_index, world_vertex, blend);
+			tex_color.rgb = mix(tex_color.rgb, t_overlay.rgb, w_flat * t_overlay.a);
 		}
 	} else if (tile_index >= TILE_AUTO_PATH_THRESHOLD) {
 		// AUTO_PATH terrain: only dirt or stone, picked by slope. Kit-

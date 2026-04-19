@@ -32,18 +32,19 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("detail_normal", detailNormal);
 
         // Populate the per-tile variant table. Entry i carries (num_bands,
-        // variants_per_band) for the tile whose base layer is i; unused slots
-        // stay at (1,1) so any accidental index collapses to "no variation".
+        // variants_per_band, uv_scale, _) for the tile whose base layer is i;
+        // unused slots stay at (1,1,1,0) so any accidental index collapses to
+        // "no variation, 1 tile per world unit".
         var variantTable = new Godot.Collections.Array();
         for (int i = 0; i < VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE; i++)
         {
             if (VoxelTypeInfo.TileVariants.TryGetValue(i, out var info))
             {
-                variantTable.Add(new Vector2(info.Bands, info.VariantsPerBand));
+                variantTable.Add(new Vector4(info.Bands, info.VariantsPerBand, info.UvScale, 0f));
             }
             else
             {
-                variantTable.Add(new Vector2(1, 1));
+                variantTable.Add(new Vector4(1, 1, 1, 0));
             }
         }
         SharedMaterial.SetShaderParameter("tile_variants", variantTable);
@@ -79,10 +80,11 @@ public partial class ChunkMesh : Node3D
     // first renders; subsequent calls are a no-op if kits haven't changed.
     public static void SetKits(EnvironmentKitData[] kits)
     {
-        // kit_tiles[i] = (flat, wall, edge_overlay, _unused). The shader reads
-        //   .x/.y for the flat↔wall smoothstep blend and .z for the overlay
-        //   layer sampled wherever the fragment's voxel has OverlayId=edge.
-        // kit_bands[i] = (wall_lo, wall_hi, _unused, _unused). One transition:
+        // kit_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for the
+        //   flat↔wall smoothstep blend. Overlays are authored per-voxel as a
+        //   direct tile_array base-layer index (see OverlayId), not owned by
+        //   the kit, so .z/.w are reserved.
+        // kit_bands[i] = (wall_lo, wall_hi, _, _). One transition:
         //   y < wall_lo → 100% wall; y > wall_hi → 100% flat.
         var tiles = new Vector4[MAX_KITS];
         var bands = new Vector4[MAX_KITS];
@@ -91,7 +93,7 @@ public partial class ChunkMesh : Node3D
         {
             var kit = kits[i];
             if (kit == null) { continue; }
-            tiles[i] = new Vector4(kit.FlatTile, kit.WallTile, kit.EdgeOverlayTile, 0f);
+            tiles[i] = new Vector4(kit.FlatTile, kit.WallTile, 0f, 0f);
             bands[i] = new Vector4(kit.WallBand.X, kit.WallBand.Y, 0f, 0f);
         }
         SharedMaterial.SetShaderParameter("kit_tiles", tiles);

@@ -61,6 +61,16 @@ public static class VoxelTypeInfo
     public const int TILE_WOOD_END = 20;
     public const int TILE_WOOD_SIDE = 21;
     public const int TILE_WATER = 22;
+    // Cobblestone: 1 band × 4 variants (cobblestone1..cobblestone4). Opaque
+    // base tile; kits can point FlatTile or WallTile here for stone-paved
+    // regions.
+    public const int TILE_COBBLESTONE = 23;
+    // Overlay base layers. These sample with their alpha channel driving
+    // blend strength — authored with soft edges in the PNG so coverage reads
+    // as a patch rather than a tile fill. Worldgen writes one of these into
+    // OverlayId per voxel; 0 means "no overlay".
+    public const int TILE_DIRT_OVERLAY = 27;   // 1 band × 4 variants (dirt1..4).
+    public const int TILE_FIELD_OVERLAY = 31;  // 1 band × 1 variant (field.png).
     // Sentinel id passed through CUSTOM0 to the shader. The shader detects
     // values >= TILE_AUTO_THRESHOLD and picks the real tile by surface slope.
     public const int TILE_AUTO = 255;
@@ -71,23 +81,33 @@ public static class VoxelTypeInfo
     // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
     // Must be >= 1 + max base layer in use. Keep modest — every entry is a
     // vec2 shipped with the material.
-    public const int TILE_VARIANT_TABLE_SIZE = 32;
+    public const int TILE_VARIANT_TABLE_SIZE = 64;
 
     public readonly struct TileVariantInfo
     {
         // Number of elevation bands. The shader picks a band from world Y
-        // via floor((y - BandOriginY) / BandHeight), clamped to [0, Bands-1].
-        // Each band occupies `VariantsPerBand` contiguous layers.
+        // via mod(floor((y - BandOriginY) / BandHeight), Bands), so bands
+        // cycle forever up and down. Each band occupies `VariantsPerBand`
+        // contiguous layers.
         public readonly int Bands;
         // Random variants within each band. Picked from a hash of the voxel
         // integer position, so all fragments within one voxel pick the same
         // variant but neighbouring voxels vary.
         public readonly int VariantsPerBand;
+        // World-to-UV scale. 1.0 = one full texture repeat per world unit
+        // (the voxel grain). Values < 1 make the pattern larger than a
+        // voxel, so a single authored splatter spans multiple voxels — right
+        // for overlays like dirt patches or fields where per-voxel tiling
+        // reads as copy-paste repetition. The variant-pick hash also uses
+        // this scale, so all voxels inside one splatter-sized region agree
+        // on which variant to show.
+        public readonly float UvScale;
 
-        public TileVariantInfo(int bands, int variantsPerBand)
+        public TileVariantInfo(int bands, int variantsPerBand, float uvScale = 1f)
         {
             Bands = bands;
             VariantsPerBand = variantsPerBand;
+            UvScale = uvScale;
         }
 
         public int LayerCount => Bands * VariantsPerBand;
@@ -97,7 +117,7 @@ public static class VoxelTypeInfo
     // band 0 starts; BandHeight is how tall each band is in world units.
     // Matches corresponding uniforms in voxel_clip.gdshader.
     public const float TILE_BAND_ORIGIN_Y = 0f;
-    public const float TILE_BAND_HEIGHT = 32f;
+    public const float TILE_BAND_HEIGHT = 4f;
 
     // Per-tile variant config. Defaults are (1,1) for every tile — a tile
     // that hasn't had variant art authored yet behaves exactly as it did
@@ -106,14 +126,20 @@ public static class VoxelTypeInfo
     // .png's layer count to match.
     public static readonly Dictionary<int, TileVariantInfo> TileVariants = new()
     {
-        { TILE_STONE,      new(1, 1) },
-        { TILE_DIRT,       new(1, 1) },
-        { TILE_GRASS_TOP,  new(4, 4) },
-        { TILE_GRASS_SIDE, new(1, 1) },
-        { TILE_SAND,       new(1, 1) },
-        { TILE_WOOD_END,   new(1, 1) },
-        { TILE_WOOD_SIDE,  new(1, 1) },
-        { TILE_WATER,      new(1, 1) },
+        { TILE_STONE,         new(1, 1) },
+        { TILE_DIRT,          new(1, 1) },
+        { TILE_GRASS_TOP,     new(4, 4, 0.125f) },
+        { TILE_GRASS_SIDE,    new(1, 1) },
+        { TILE_SAND,          new(1, 1) },
+        { TILE_WOOD_END,      new(1, 1) },
+        { TILE_WOOD_SIDE,     new(1, 1) },
+        { TILE_WATER,         new(1, 1) },
+        { TILE_COBBLESTONE,   new(1, 4) },
+        // Overlays sample at a larger scale than voxels so authored splatters
+        // read as single patches spanning multiple voxels instead of tiling
+        // the same PNG per voxel. 0.25 = one splatter per 4-world-unit area.
+        { TILE_DIRT_OVERLAY,  new(1, 4, 0.25f) },
+        { TILE_FIELD_OVERLAY, new(1, 1, 0.25f) },
     };
 
     public readonly struct TileFaces

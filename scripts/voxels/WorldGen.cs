@@ -131,7 +131,7 @@ public static class WorldGen
         // so plateau vs. ramp behavior at the surface is preserved.
         MarkCaveSurfaceShapes(ws);
 
-        // Per-voxel neighborhood slope pass: stamp OverlayId=edge on 1-voxel
+        // Per-voxel neighborhood slope pass: stamp OverlayId=dirt on 1-voxel
         // bumps, walkable ramps, and small plateau steps. The shader's
         // per-fragment slope on a box-smoothed normal cannot see features the
         // smoothing averages away; this authored signal puts them back.
@@ -141,6 +141,12 @@ public static class WorldGen
         // read on which features need the dirt treatment (probably driven by
         // authored tags from the editor rather than derived from geometry).
         // StampEdgeOverlays(ws);
+
+        // Scatter procedural overlays (dirt patches, field/clover patches) on
+        // temperate-kit surface voxels. Noise-driven placement is a rough
+        // starting point so the authored overlay art shows up in generated
+        // worlds; replace with authored tags once the custom editor lands.
+        StampProceduralOverlays(ws);
 
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
@@ -613,10 +619,15 @@ public static class WorldGen
         return v == VoxelType.Air || v == VoxelType.Water;
     }
 
-    // Overlay id values. 0 = no overlay. Wire values are stable — append, don't
-    // reuse, so .hike files written by old worldgen keep loading.
+    // Overlay id values. 0 = no overlay. A non-zero OverlayId is a direct
+    // tile_array base-layer index sampled by voxel_clip.gdshader with its
+    // own alpha channel driving blend strength. Any tile in the global
+    // catalog can be used as an overlay — add new OVERLAY_* constants rather
+    // than reusing numbers so .hike files written with old values keep
+    // mapping to the right tile when new tiles are added ahead of them.
     private const byte OVERLAY_NONE = 0;
-    private const byte OVERLAY_EDGE = 1;
+    private const byte OVERLAY_DIRT = VoxelTypeInfo.TILE_DIRT_OVERLAY;
+    private const byte OVERLAY_FIELD = VoxelTypeInfo.TILE_FIELD_OVERLAY;
 
     // How many voxels above/below `wy` to scan the neighbor column for its
     // local surface. Anything beyond this is treated as a cliff and skipped
@@ -631,7 +642,73 @@ public static class WorldGen
     // real cliff and the wall band owns it.
     private const int EDGE_MAX_DIFF = 3;
 
-    // Stamp OVERLAY_EDGE on "surface voxels" (solid with air directly above)
+    // Placement tuning for the procedural overlay scatter. Noise patches at
+    // these frequencies produce ~10–30-voxel blobs; thresholds choose
+    // roughly 10–20% coverage per type, with field winning over dirt where
+    // they overlap. Feel free to tweak or replace with authored placement.
+    private const int OVERLAY_DIRT_SEED = 4242;
+    private const int OVERLAY_FIELD_SEED = 7373;
+    private const float OVERLAY_DIRT_FREQ = 0.2f;
+    private const float OVERLAY_FIELD_FREQ = 0.015f;
+    private const float OVERLAY_DIRT_THRESHOLD = 0.9f;
+    private const float OVERLAY_FIELD_THRESHOLD = 0.10f;
+
+    // Noise-scatter dirt and field overlays on temperate-kit surface voxels.
+    // Only top-surface voxels (solid with air above) are candidates so buried
+    // geometry and cliff faces stay untouched. Kit gate restricts placement
+    // to temperate — sand (underwater/cave) and cave palette stay clean.
+    private static void StampProceduralOverlays(WorldState ws)
+    {
+        var dirtNoise = new FastNoiseLite();
+        dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        dirtNoise.Seed = OVERLAY_DIRT_SEED;
+        dirtNoise.Frequency = OVERLAY_DIRT_FREQ;
+        dirtNoise.FractalOctaves = 2;
+
+        var fieldNoise = new FastNoiseLite();
+        fieldNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        fieldNoise.Seed = OVERLAY_FIELD_SEED;
+        fieldNoise.Frequency = OVERLAY_FIELD_FREQ;
+        fieldNoise.FractalOctaves = 2;
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                for (int wy = worldMinY; wy < worldMaxY; wy++)
+                {
+                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
+                    {
+                        continue;
+                    }
+                    if (ws.GetKitIdWorld(wx, wy, wz) != KIT_TEMPERATE)
+                    {
+                        continue;
+                    }
+
+                    // Field wins — denser grass masks muddy ground beneath.
+                    if (fieldNoise.GetNoise2D(wx, wz) > OVERLAY_FIELD_THRESHOLD)
+                    {
+                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_FIELD);
+                        continue;
+                    }
+                    if (dirtNoise.GetNoise2D(wx, wz) > OVERLAY_DIRT_THRESHOLD)
+                    {
+                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
+                    }
+                }
+            }
+        }
+    }
+
+    // Stamp OVERLAY_DIRT on "surface voxels" (solid with air directly above)
     // whose local neighborhood slope is in [EDGE_MIN_DIFF, EDGE_MAX_DIFF-1].
     // Per-voxel, not per-column: correctly handles cave floors, overhangs, and
     // ledges because the ±EDGE_SCAN_WINDOW clip keeps each voxel's comparison
@@ -673,7 +750,7 @@ public static class WorldGen
 
                     if (maxDiff >= EDGE_MIN_DIFF && maxDiff < EDGE_MAX_DIFF)
                     {
-                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_EDGE);
+                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
                     }
                 }
             }

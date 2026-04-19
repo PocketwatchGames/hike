@@ -7,6 +7,5 @@ script = ExtResource("1_kit")
 KitName = "Temperate"
 FlatTile = 2
 WallTile = 0
-EdgeOverlayTile = 1
 WallBand = Vector2(0.3, 0.75)
 BlendAmp = 0.55
