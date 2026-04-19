@@ -15,11 +15,13 @@
 [ext_resource type="Resource" path="res://resources/data/kit_temperate.tres" id="8_kit_temperate"]
 [ext_resource type="Resource" path="res://resources/data/kit_cave.tres" id="9_kit_cave"]
 [ext_resource type="Resource" path="res://resources/data/kit_underwater.tres" id="10_kit_underwater"]
+[ext_resource type="Resource" path="res://resources/data/detail_grass.tres" id="11_detail_grass"]
 
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
 Kits = [ExtResource("8_kit_temperate"), ExtResource("9_kit_cave"), ExtResource("10_kit_underwater")]
+DetailGroups = [ExtResource("11_detail_grass")]
 GrassThreshold = 0.3
 GoblinData = ExtResource("3_2t2hn")
 KunKunData = ExtResource("6_kunkun_data")

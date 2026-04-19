@@ -9,6 +9,11 @@ public partial class WorldGenData : Resource
     // stored per-voxel in ChunkState. Index 0 is the fallback / default kit.
     [Export] public EnvironmentKitData[] Kits = System.Array.Empty<EnvironmentKitData>();
 
+    // Detail-sprite scatter palette. The per-voxel DetailGroup channel stores
+    // a 1-based index into this array (0 = no detail), so DetailGroups[0] is
+    // the *first* authored group, referenced by DetailGroup=1.
+    [Export] public DetailGroupData[] DetailGroups = System.Array.Empty<DetailGroupData>();
+
     [Export] public int SizeX = 8;
     [Export] public int SizeY = 3;
     [Export] public int SizeZ = 8;

@@ -40,6 +40,7 @@ public partial class Main : Node
 		// kit registry as WorldGen — a later .hike change will embed kit paths
 		// in the file header so exported worlds can own their palette.
 		ChunkMesh.SetKits(worldGenData.Kits);
+		ChunkMesh.SetDetailGroups(worldGenData.DetailGroups);
 
 		WorldState worldState;
 		string worldFilePath = CVars.worldFile.Value;

@@ -28,7 +28,9 @@ public static class WorldFile
     // v6: chunk payload appended a per-voxel KitId byte (index into the
     //     world's EnvironmentKitData[]) after fog-density, before entities.
     // v7: chunk payload appended a per-voxel OverlayId byte after KitId.
-    public const uint VERSION = 7;
+    // v8: chunk payload appended per-voxel DetailGroup + DetailStrength bytes
+    //     after OverlayId — painted detail-sprite scatter (grass/flowers/etc).
+    public const uint VERSION = 8;
 
     public struct IndexEntry
     {

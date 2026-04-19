@@ -147,6 +147,7 @@ public static class WorldGen
         // starting point so the authored overlay art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
         StampProceduralOverlays(ws);
+        StampDetailScatter(ws);
 
         // Generate world-space structures after all terrain chunks exist
         GenerateStructures(ws, genData);
@@ -653,6 +654,17 @@ public static class WorldGen
     private const float OVERLAY_DIRT_THRESHOLD = 0.9f;
     private const float OVERLAY_FIELD_THRESHOLD = 0.10f;
 
+    // Test placement for detail-sprite scatter. Paints DetailGroup=1 (i.e.
+    // WorldGenData.DetailGroups[0]) on temperate surface voxels wherever
+    // detailNoise exceeds the threshold; strength is the noise value remapped
+    // to [DETAIL_STRENGTH_MIN, 255]. Replace with authored brushes once the
+    // editor lands; the runtime is happy with no DetailGroups configured (the
+    // scatter pass short-circuits) so this is safe to leave on.
+    private const int DETAIL_NOISE_SEED = 9191;
+    private const float DETAIL_NOISE_FREQ = 0.06f;
+    private const float DETAIL_NOISE_THRESHOLD = -0.1f;
+    private const int DETAIL_STRENGTH_MIN = 80;
+
     // Noise-scatter dirt and field overlays on temperate-kit surface voxels.
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
@@ -703,6 +715,58 @@ public static class WorldGen
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
                     }
+                }
+            }
+        }
+    }
+
+    // Test placement for the painted detail-sprite scatter. Walks every
+    // temperate-kit surface voxel and stamps DetailGroup=1 with a noise-driven
+    // strength wherever detailNoise > threshold. The runtime scatter pass
+    // looks up DetailGroups[0] for group=1 and silently does nothing if the
+    // palette is empty, so this is safe to leave on even before any sprite art
+    // is authored.
+    private static void StampDetailScatter(WorldState ws)
+    {
+        var detailNoise = new FastNoiseLite();
+        detailNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        detailNoise.Seed = DETAIL_NOISE_SEED;
+        detailNoise.Frequency = DETAIL_NOISE_FREQ;
+        detailNoise.FractalOctaves = 2;
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                for (int wy = worldMinY; wy < worldMaxY; wy++)
+                {
+                    if (!IsSurfaceVoxel(ws, wx, wy, wz))
+                    {
+                        continue;
+                    }
+                    if (ws.GetKitIdWorld(wx, wy, wz) != KIT_TEMPERATE)
+                    {
+                        continue;
+                    }
+
+                    float n = detailNoise.GetNoise2D(wx, wz);
+                    if (n <= DETAIL_NOISE_THRESHOLD)
+                    {
+                        continue;
+                    }
+
+                    // Map noise (threshold..1) to (DETAIL_STRENGTH_MIN..255).
+                    float t = (n - DETAIL_NOISE_THRESHOLD) / (1f - DETAIL_NOISE_THRESHOLD);
+                    int strength = DETAIL_STRENGTH_MIN + (int)(t * (255 - DETAIL_STRENGTH_MIN));
+                    ws.SetDetailGroupWorld(wx, wy, wz, 1);
+                    ws.SetDetailStrengthWorld(wx, wy, wz, strength);
                 }
             }
         }

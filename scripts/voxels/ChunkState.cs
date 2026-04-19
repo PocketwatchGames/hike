@@ -34,6 +34,19 @@ public class ChunkState
     // mesher parallel to VoxelType and KitId.
     public readonly byte[,,] OverlayId;
 
+    // Painted detail-sprite scatter. Stored on the SOLID surface voxel (same
+    // location convention as OverlayId) — the scatter pass places sprites on
+    // top of the voxel.
+    //   DetailGroup    : index into the world's DetailGroupData[] palette.
+    //                    0 = no detail. Non-zero picks a group whose entries
+    //                    are weighted-sampled per scattered instance.
+    //   DetailStrength : 0..255, scatter density. 0 = no instances; 255 =
+    //                    every candidate slot fills. Each candidate slot rolls
+    //                    a per-slot hash and keeps the instance if the hash
+    //                    falls under strength/255.
+    public readonly byte[,,] DetailGroup;
+    public readonly byte[,,] DetailStrength;
+
     // Sunlight: byte 0..LightEngine.MAX_LIGHT. Single source, max-fill BFS so
     // there's no overlap to worry about. Color tinting (sunset, etc.) happens
     // in the shader via the sun_color uniform — the storage is just a mask.
@@ -67,6 +80,8 @@ public class ChunkState
         Shape = new byte[SIZE, SIZE, SIZE];
         KitId = new byte[SIZE, SIZE, SIZE];
         OverlayId = new byte[SIZE, SIZE, SIZE];
+        DetailGroup = new byte[SIZE, SIZE, SIZE];
+        DetailStrength = new byte[SIZE, SIZE, SIZE];
         Sunlight = new byte[SIZE, SIZE, SIZE];
         BlockLightR = new ushort[SIZE, SIZE, SIZE];
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
@@ -123,6 +138,36 @@ public class ChunkState
     public void SetOverlayId(int x, int y, int z, int overlayId)
     {
         OverlayId[x, y, z] = (byte)overlayId;
+    }
+
+    public int GetDetailGroup(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return DetailGroup[x, y, z];
+    }
+
+    public void SetDetailGroup(int x, int y, int z, int groupId)
+    {
+        DetailGroup[x, y, z] = (byte)groupId;
+    }
+
+    public int GetDetailStrength(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return DetailStrength[x, y, z];
+    }
+
+    public void SetDetailStrength(int x, int y, int z, int strength)
+    {
+        if (strength < 0) { strength = 0; }
+        if (strength > 255) { strength = 255; }
+        DetailStrength[x, y, z] = (byte)strength;
     }
 
     public int GetSunlight(int x, int y, int z)

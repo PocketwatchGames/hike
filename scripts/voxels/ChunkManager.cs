@@ -58,6 +58,15 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, CVars.sunIntensity.Value);
         ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
 
+        // Detail-sprite player-push globals. Read by detail_sprite.gdshader;
+        // seeded here so the shader compiles cleanly on first use even when
+        // no detail meshes are authored yet. GameClient writes per-frame
+        // updates from the player's position. (Wind globals are owned by
+        // SkyController — see its Wind ExportGroup.)
+        ShaderGlobals.RegisterRuntime("player_pos", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.RegisterRuntime("player_radius", RenderingServer.GlobalShaderParameterType.Float, 0f);
+        ShaderGlobals.RegisterRuntime("player_strength", RenderingServer.GlobalShaderParameterType.Float, 0f);
+
         // Fog is rendered by a screen-space raymarching shader (see
         // shaders/fog_volumetric.gdshader), not by Godot's built-in FogVolume
         // — that pipeline requires a perspective camera, which breaks our

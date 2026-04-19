@@ -59,6 +59,26 @@ public partial class SkyController : Node3D
     [Export] public float fillPitchDegrees = 35f;
     [Export] public float fillYawOffsetDegrees = 135f;
 
+    [ExportGroup("Wind")]
+    // Authored direction of wind in world XZ. Y component is ignored; the
+    // detail-sprite shader only sways horizontally.
+    [Export] public Vector3 windDirection = new Vector3(0.7f, 0f, 0.7f);
+    // Base sway amplitude in world units, measured at the top of a 1m-tall
+    // sprite. Taller sprites bend proportionally more (the shader's bend curve
+    // is height^2). Modulated by gusts at runtime — see gustStrength.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float windAmplitude = 0.05f;
+    // How fast individual blades oscillate (Hz). Each blade picks a phase
+    // from its world position so a field doesn't sway in lock-step.
+    [Export(PropertyHint.Range, "0,5,0.01")] public float windFrequency = 1.5f;
+    // Gust strength: peak multiplier added to windAmplitude during a gust.
+    // 0 = no gusts (constant wind). 0.6 = peak gust is 1.6× base. 2 = peak
+    // gust is 3× base (visible bursts). Gusts modulate amplitude only;
+    // frequency is held constant so blades don't visibly speed up.
+    [Export(PropertyHint.Range, "0,3,0.01")] public float gustStrength = 0.6f;
+    // Gust cycle frequency (Hz). 0.15 = roughly one full gust cycle every
+    // ~7 seconds; lower values produce slower, more sustained surges.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float gustFrequency = 0.15f;
+
     [ExportGroup("Clouds")]
     [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
     [Export] public Vector2 cloudScroll = new Vector2(0.004f, 0.002f);
@@ -198,6 +218,14 @@ public partial class SkyController : Node3D
         {
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("fill_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+
+            // Wind globals consumed by detail_sprite.gdshader. Runtime-only
+            // (not in project.godot's [shader_globals]) so RegisterRuntime
+            // creates them; gated on !IsEditorHint because [Tool] would
+            // otherwise re-add them in the editor where they don't apply.
+            ShaderGlobals.RegisterRuntime("wind_dir", RenderingServer.GlobalShaderParameterType.Vec3, windDirection.Normalized());
+            ShaderGlobals.RegisterRuntime("wind_amplitude", RenderingServer.GlobalShaderParameterType.Float, windAmplitude);
+            ShaderGlobals.RegisterRuntime("wind_frequency", RenderingServer.GlobalShaderParameterType.Float, windFrequency);
         }
         Apply();
     }
@@ -265,6 +293,20 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
+
+        // --- Wind --------------------------------------------------------
+        // Two-octave low-frequency sin sum for naturally uneven gusts —
+        // single-sin gives a metronome rhythm that reads as fake. Output
+        // is normalized to [0, 1] then scaled by gustStrength so the final
+        // amplitude multiplier stays in [1, 1 + gustStrength].
+        float t = Time.GetTicksMsec() / 1000f;
+        float gustWave = Mathf.Sin(t * gustFrequency * Mathf.Tau) * 0.7f
+                       + Mathf.Sin(t * gustFrequency * 1.7f * Mathf.Tau + 1.3f) * 0.3f;
+        float gust01 = (gustWave + 1f) * 0.5f;
+        float amplitude = windAmplitude * (1f + gust01 * gustStrength);
+        RenderingServer.GlobalShaderParameterSet("wind_dir", windDirection.Normalized());
+        RenderingServer.GlobalShaderParameterSet("wind_amplitude", amplitude);
+        RenderingServer.GlobalShaderParameterSet("wind_frequency", windFrequency);
 
         // --- Fog material uniforms ---------------------------------------
         if (fogMaterial != null)

@@ -73,6 +73,13 @@ public partial class ChunkMesh : Node3D
     // Must match MAX_KITS in voxel_clip.gdshader.
     private const int MAX_KITS = 16;
 
+    // World-scoped palettes cached statically so ChunkMesh.Create can pass
+    // them to ChunkDetailScatter without threading them through every
+    // chunk-build call. Set once at world start (Main.StartGame); a future
+    // streaming refactor that swaps worlds should re-call both setters.
+    private static EnvironmentKitData[] _activeKits;
+    private static DetailGroupData[] _activeDetailGroups;
+
     // Upload the active world's environment kit palette to the terrain
     // material's uniform arrays. The shader indexes these arrays via the
     // per-vertex KitId packed into CUSTOM1.yzw by the mesher. Call once at
@@ -80,6 +87,7 @@ public partial class ChunkMesh : Node3D
     // first renders; subsequent calls are a no-op if kits haven't changed.
     public static void SetKits(EnvironmentKitData[] kits)
     {
+        _activeKits = kits;
         // kit_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for the
         //   flat↔wall smoothstep blend. Overlays are authored per-voxel as a
         //   direct tile_array base-layer index (see OverlayId), not owned by
@@ -98,6 +106,15 @@ public partial class ChunkMesh : Node3D
         }
         SharedMaterial.SetShaderParameter("kit_tiles", tiles);
         SharedMaterial.SetShaderParameter("kit_bands", bands);
+    }
+
+    // Detail-sprite palette for ChunkDetailScatter. Index 0 of the per-voxel
+    // DetailGroup channel means "no detail", so groups[0] is referenced as
+    // DetailGroup=1. See DetailGroupData / ChunkDetailScatter for the scatter
+    // contract.
+    public static void SetDetailGroups(DetailGroupData[] groups)
+    {
+        _activeDetailGroups = groups;
     }
 
     public static ChunkMesh Create(
@@ -150,6 +167,11 @@ public partial class ChunkMesh : Node3D
         st.SetMaterial(SharedMaterial);
 
         ChunkMesherDC.Build(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
+
+        // Detail-sprite scatter (grass, flowers, etc.). Lives parallel to the
+        // terrain mesh — same chunk lifetime, no separate eviction needed.
+        // Skips internally when the chunk has no painted detail.
+        ChunkDetailScatter.Build(data, getVoxel, getKitId, _activeKits, _activeDetailGroups, this);
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();

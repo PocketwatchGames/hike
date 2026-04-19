@@ -101,6 +101,12 @@ public partial class GameClient : Node3D
 		camera.SetInitialPosition(_player.GlobalPosition);
 	}
 
+	// Push radius and bend strength for the detail-sprite shader's player
+	// reaction. ~0.6m matches the player's foot footprint; 0.25m bend reads
+	// as grass parting around the player's legs without snapping flat.
+	private const float DETAIL_PLAYER_RADIUS = 0.6f;
+	private const float DETAIL_PLAYER_STRENGTH = 0.25f;
+
 	public override void _Process(double deltaTime)
 	{
 		if (_player == null || ConsoleUI.IsOpen || paused)
@@ -109,6 +115,13 @@ public partial class GameClient : Node3D
 		}
 		_world.Tick(deltaTime);
 		_player.ProcessInput(camera.Yaw);
+
+		// Per-frame push to the detail_sprite shader so grass bends around
+		// the player. Single global, sub-byte cost; written every frame so
+		// stale values don't persist when the player teleports.
+		RenderingServer.GlobalShaderParameterSet("player_pos", _player.GlobalPosition);
+		RenderingServer.GlobalShaderParameterSet("player_radius", DETAIL_PLAYER_RADIUS);
+		RenderingServer.GlobalShaderParameterSet("player_strength", DETAIL_PLAYER_STRENGTH);
 
 		if (CVars.debugFlyCam.Value)
 		{

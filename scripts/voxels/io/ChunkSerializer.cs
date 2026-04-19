@@ -9,6 +9,8 @@ using Godot;
 //   fog      : 4096 bytes (one byte per cell, 0 = clear, 255 = thickest)
 //   kitId    : 4096 bytes (environment-kit index per cell)
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
+//   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
+//   detailStrength : 4096 bytes (0..255 scatter density)
 //   entities : type-tagged list (see EntitySerializer)
 //
 // BlockLight is NOT serialized — it's the additive sum of contributions from
@@ -26,6 +28,8 @@ public static class ChunkSerializer
     public const int FOG_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int KIT_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int OVERLAY_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
+    public const int DETAIL_GROUP_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
+    public const int DETAIL_STRENGTH_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
 
     public static void Write(BinaryWriter w, ChunkState chunk, List<EntitySimState> entities)
     {
@@ -91,6 +95,28 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     w.Write(chunk.OverlayId[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    w.Write(chunk.DetailGroup[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    w.Write(chunk.DetailStrength[x, y, z]);
                 }
             }
         }
@@ -164,6 +190,28 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     chunk.OverlayId[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    chunk.DetailGroup[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.SIZE; z++)
+                {
+                    chunk.DetailStrength[x, y, z] = r.ReadByte();
                 }
             }
         }
