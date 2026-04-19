@@ -82,6 +82,10 @@ varying float blend_amp;
 // per-cell by the DC mesher: 1 for authored-sharp materials (Stone/Wood),
 // 0 for soft terrain. Interpolates across mixed quads so creases soften.
 varying float sharpness;
+// Fragment→light varying. 1 = unclouded, 0 = fully overcast.
+// Written in fragment(), read in light() so cloud shadow composes with
+// the directional shadow atlas as min() rather than multiply — see light().
+varying float cloud_dim;
 
 // Tunes the spatial frequency of the per-tile-edge noise. Higher = finer
 // jitter along the boundary; too high looks like static, too low looks like
@@ -211,13 +215,15 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Cloud shadow applied here (not via ATTENUATION in light()) so a full
-	// cloud can darken BOTH the direct-sun and sky-bounce portions of the
-	// sun term. cloud_shadow_ground is Y-independent to avoid faceted
-	// polygon-edge artifacts on sloped triangles.
+	// Cloud shadow: pass to light() via cloud_dim so it composes with
+	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
+	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
+	// cloud-dimmed below — clouds do occlude sky light.
+	// cloud_shadow_ground is Y-independent to avoid faceted polygon-edge
+	// artifacts on sloped triangles.
 	float cloud = cloud_shadow_ground(world_vertex, TIME);
-	float sun_dim = 1.0 - cloud * cloud_shadow_strength;
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * sun_dim;
+	cloud_dim = 1.0 - cloud * cloud_shadow_strength;
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
 	vec3 block_lit = lm.gba;
 
 	// "Reverse" directional shading: each light darkens faces by its tint
@@ -238,7 +244,7 @@ void fragment() {
 	// With ambient_light_disabled, ALBEDO contributes only via DIFFUSE_LIGHT,
 	// so the final pixel = ALBEDO * ATTENUATION + EMISSION.
 	ALBEDO = base * sun_lit * (1.0 - sun_ambient);
-	EMISSION = base * (block_lit + sun_lit * sun_ambient);
+	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);
@@ -250,13 +256,15 @@ void fragment() {
 }
 
 void light() {
-	// ATTENUATION on a DirectionalLight3D is the shadow attenuation only
-	// (no lambert pre-mul), so we use it as a pure shadow mask. We deliberately
-	// don't include LIGHT_COLOR or NdotL here — sun color/direction stylization
-	// is already baked into ALBEDO via sun_color and sun_tint in fragment().
+	// ATTENUATION is Godot's directional shadow atlas — terrain self-shadow
+	// plus sprite shadow proxies, already composed correctly in the atlas.
+	// No LIGHT_COLOR / NdotL: sun color/direction stylization is baked into
+	// ALBEDO via sun_color and sun_tint in fragment().
 	//
-	// Cloud shadow is already folded into sun_lit in fragment() (see there),
-	// so we just pass ATTENUATION through here. Terrain self-shadow from the
-	// directional light still applies normally.
-	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
+	// Cloud shadow (cloud_dim from fragment()) and the shadow atlas both
+	// occlude direct sun. Compose as min(): whichever is darker wins,
+	// instead of multiplying them — standing in a cast shadow on a cloudy
+	// day should read as one shadow, not two stacked. Ambient sky-bounce
+	// is still cloud-dimmed in EMISSION (see fragment()).
+	DIFFUSE_LIGHT += ALBEDO * min(ATTENUATION, cloud_dim);
 }

@@ -11,6 +11,7 @@ public partial class ChunkMesh : Node3D
 
     private static readonly ShaderMaterial SharedMaterial;
     private static readonly ShaderMaterial BackfaceStencilMaterial;
+    private static readonly ShaderMaterial ShadowCasterMaterial;
     private static readonly ShaderMaterial WaterMaterial;
     private static readonly ShaderMaterial WaterBackfaceMaterial;
 
@@ -26,6 +27,10 @@ public partial class ChunkMesh : Node3D
         BackfaceStencilMaterial = new ShaderMaterial();
         BackfaceStencilMaterial.Shader = backfaceShader;
         BackfaceStencilMaterial.RenderPriority = 0;
+
+        var shadowCasterShader = GD.Load<Shader>("res://shaders/voxel_shadow_caster.gdshader");
+        ShadowCasterMaterial = new ShaderMaterial();
+        ShadowCasterMaterial.Shader = shadowCasterShader;
 
         var waterShader = GD.Load<Shader>("res://shaders/voxel_water.gdshader");
         WaterMaterial = new ShaderMaterial();
@@ -116,8 +121,13 @@ public partial class ChunkMesh : Node3D
 
             var visual = new MeshInstance3D();
             visual.Mesh = mesh;
-            visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.On;
-
+            // Shadow-casting is delegated to the shadow-proxy below. The
+            // voxel_clip shader discards fragments above camera_clip for
+            // the ceiling cutaway, and that discard runs in the shadow
+            // pass too — so if this visible mesh cast shadows, terrain
+            // above the cutaway would stop throwing shadows down onto
+            // the visible interior.
+            visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             visual.MaterialOverride = SharedMaterial;
             AddChild(visual);
 
@@ -126,6 +136,14 @@ public partial class ChunkMesh : Node3D
             backface.MaterialOverride = BackfaceStencilMaterial;
             backface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             AddChild(backface);
+
+            // Non-clipping shadow proxy — casts the full terrain silhouette
+            // into the directional shadow atlas regardless of camera_clip.
+            var shadowCaster = new MeshInstance3D();
+            shadowCaster.Mesh = mesh;
+            shadowCaster.MaterialOverride = ShadowCasterMaterial;
+            shadowCaster.CastShadow = GeometryInstance3D.ShadowCastingSetting.ShadowsOnly;
+            AddChild(shadowCaster);
 
             visual.CreateTrimeshCollision();
         }

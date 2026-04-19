@@ -47,6 +47,10 @@ global uniform float sprite_stretch;
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
+// Fragment→light varying. 1 = unclouded, 0 = fully overcast.
+// Written in fragment(), read in light() so cloud shadow composes with
+// the directional shadow atlas as min() rather than multiply — see light().
+varying float cloud_dim;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -112,12 +116,14 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Cloud shadow applied to sun_lit so it affects both direct and ambient
-	// (matches voxel_clip). Sampled at the sprite anchor so the whole sprite
+	// Cloud shadow: pass to light() via cloud_dim so it composes with
+	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
+	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
+	// cloud-dimmed below. Sampled at the sprite anchor so the whole sprite
 	// gets one consistent cloud value.
 	float cloud = cloud_shadow_ground(world_origin, TIME);
-	float sun_dim = 1.0 - cloud * cloud_shadow_strength;
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * sun_dim;
+	cloud_dim = 1.0 - cloud * cloud_shadow_strength;
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
 	vec3 block_lit = lm.gba;
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
@@ -127,14 +133,18 @@ void fragment() {
 	//   EMISSION = ambient sky bounce + block light (never shadowed)
 	// Final pixel = ALBEDO * ATTENUATION + EMISSION (ambient_light_disabled).
 	ALBEDO = tex.rgb * sun_lit * (1.0 - sun_ambient);
-	EMISSION = tex.rgb * (block_lit + sun_lit * sun_ambient);
+	EMISSION = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
 }
 
 void light() {
-	// ATTENUATION on a DirectionalLight3D is the shadow factor only — used as
-	// a pure mask. No LIGHT_COLOR / NdotL so sprites' billboarded fake normal
-	// doesn't introduce a fake lambert term.
-	// Cloud shadow is folded into sun_lit in fragment() (see there) so it
-	// affects ambient-sky bounce too, not just direct sun.
-	DIFFUSE_LIGHT += ALBEDO * ATTENUATION;
+	// ATTENUATION is Godot's directional shadow atlas — terrain + sprite
+	// shadow proxies, already composed correctly in the atlas. No LIGHT_COLOR
+	// / NdotL so sprites' billboarded fake normal doesn't introduce a fake
+	// lambert term.
+	//
+	// Cloud shadow (cloud_dim from fragment()) and the shadow atlas both
+	// occlude direct sun. Compose as min(): whichever is darker wins, not
+	// product — so a cast shadow + cloud shadow read as one shadow, not two
+	// stacked. Ambient sky-bounce is still cloud-dimmed in EMISSION.
+	DIFFUSE_LIGHT += ALBEDO * min(ATTENUATION, cloud_dim);
 }

@@ -119,6 +119,7 @@ sky_mode = 1
 [node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight")]
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
+sunAmbient = 0.2
 cloudThreshold = 0.35
 cloudSharpness = 0.85
 cloudAltitude = 50.0

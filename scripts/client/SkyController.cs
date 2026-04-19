@@ -42,6 +42,14 @@ public partial class SkyController : Node3D
     // disagree with terrain shadows if the node transform is edited.
     [Export] public DirectionalLight3D sunLight;
     [Export] public Color sunColor = new Color(1.0f, 0.96f, 0.88f);
+    // Fraction of the BFS sun mask treated as sky-bounce ambient that survives
+    // the directional shadow. The remaining (1 - sunAmbient) is "direct sun"
+    // that the shadow can kill. Read by voxel_clip / sprite_lit shaders AND
+    // WorldState.GetPerceivedLight so visual and gameplay stay in sync.
+    // 0 = pitch-black hard shadows, 1 = directional shadow ignored.
+    // Weather systems raise this for overcast days (diffuse sky, no crisp
+    // shadows) and lower it for clear days (punchy direct sun).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunAmbient = 0.4f;
     // Reverse directional shading: each tint is the color a face is multiplied
     // by when it faces fully away from the corresponding light. White = no
     // effect; darker/saturated colors darken and tint backfacing surfaces.
@@ -245,6 +253,7 @@ public partial class SkyController : Node3D
     {
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(sunColor));
+        RenderingServer.GlobalShaderParameterSet("sun_ambient", sunAmbient);
         RenderingServer.GlobalShaderParameterSet("sun_tint_color", ColorToVec3(sunTintColor));
         RenderingServer.GlobalShaderParameterSet("fill_tint_color", ColorToVec3(fillTintColor));
         RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(horizonColor));

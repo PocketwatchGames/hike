@@ -247,7 +247,7 @@ public class WorldState
         GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
 
         float sunMask = (float)sunBfs / LightEngine.MAX_LIGHT;
-        float ambient = CVars.sunAmbient.Value;
+        float ambient = SkyController.Current?.sunAmbient ?? 0.4f;
         float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
         float sun = sunMask * CVars.sunIntensity.Value * sunFactor;
 

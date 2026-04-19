@@ -204,16 +204,6 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("sun_intensity", ((CVarFloat)cvar).Value);
     });
 
-    // Fraction of the BFS sun mask treated as sky-bounce ambient that survives
-    // the directional shadow. The remaining (1 - sun_ambient) is "direct sun"
-    // that the shadow can kill. Read by both shaders (voxel_clip, sprite_lit)
-    // AND WorldState.GetPerceivedLight, so visual and gameplay stay in sync.
-    // 0 = pitch-black hard shadows, 1 = directional shadow ignored.
-    public static CVarFloat sunAmbient = new CVarFloat("sun_ambient", 0.4f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("sun_ambient", ((CVarFloat)cvar).Value);
-    });
-
     // RGB tint applied to the sun visibility mask. Day/night will drive this:
     // warm at dawn/dusk, cool at noon. Parsed from "r g b" floats. The shader
     // sees a vec3 — the day/night sim will eventually call SetSunColor instead
