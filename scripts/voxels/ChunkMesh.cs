@@ -23,6 +23,33 @@ public partial class ChunkMesh : Node3D
         var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
         SharedMaterial.SetShaderParameter("tile_array", tileArray);
 
+        // Macro detail overlay + glancing-angle ground normal. Both are
+        // low-cost noise textures; the shader defaults for freq/strength live
+        // alongside the uniform declarations in voxel_clip.gdshader.
+        var detailNoise = GD.Load<Texture2D>("res://assets/textures/voxels/detail_noise.tres");
+        SharedMaterial.SetShaderParameter("detail_noise", detailNoise);
+        var detailNormal = GD.Load<Texture2D>("res://assets/textures/voxels/detail_normal.tres");
+        SharedMaterial.SetShaderParameter("detail_normal", detailNormal);
+
+        // Populate the per-tile variant table. Entry i carries (num_bands,
+        // variants_per_band) for the tile whose base layer is i; unused slots
+        // stay at (1,1) so any accidental index collapses to "no variation".
+        var variantTable = new Godot.Collections.Array();
+        for (int i = 0; i < VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE; i++)
+        {
+            if (VoxelTypeInfo.TileVariants.TryGetValue(i, out var info))
+            {
+                variantTable.Add(new Vector2(info.Bands, info.VariantsPerBand));
+            }
+            else
+            {
+                variantTable.Add(new Vector2(1, 1));
+            }
+        }
+        SharedMaterial.SetShaderParameter("tile_variants", variantTable);
+        SharedMaterial.SetShaderParameter("band_origin_y", VoxelTypeInfo.TILE_BAND_ORIGIN_Y);
+        SharedMaterial.SetShaderParameter("band_height", VoxelTypeInfo.TILE_BAND_HEIGHT);
+
         var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
         BackfaceStencilMaterial = new ShaderMaterial();
         BackfaceStencilMaterial.Shader = backfaceShader;

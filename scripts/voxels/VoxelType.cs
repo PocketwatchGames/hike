@@ -38,20 +38,83 @@ public static class VoxelTypeInfo
 
     // Texture array layer indices. Must match the layer order in
     // res://assets/textures/voxels/voxel_tiles.png (top-to-bottom).
+    //
+    // The value stored in each constant is the BASE layer — the first layer
+    // of a contiguous block belonging to that tile. Tiles that ship only one
+    // layer occupy exactly one slot (their base layer). Tiles with variants
+    // occupy Bands * VariantsPerBand layers starting at their base; the
+    // shader resolves the concrete layer per-fragment from world Y (band) and
+    // a hash of the voxel position (variant). See TileVariants below and
+    // `resolve_layer` in voxel_clip.gdshader.
+    //
+    // When adding variants to an existing tile, expand its block and shift
+    // all tiles with higher base indices forward by the added count. Both
+    // this table and the .png layer count must change together.
     public const int TILE_STONE = 0;
     public const int TILE_DIRT = 1;
+    // Grass top occupies layers 2..17 — 4 elevation bands × 4 variants each
+    // (level1_1..level4_4 in assets/textures/voxels/). Layout is band-major:
+    // layer 2+band*4+variant.
     public const int TILE_GRASS_TOP = 2;
-    public const int TILE_GRASS_SIDE = 3;
-    public const int TILE_SAND = 4;
-    public const int TILE_WOOD_END = 5;
-    public const int TILE_WOOD_SIDE = 6;
-    public const int TILE_WATER = 7;
+    public const int TILE_GRASS_SIDE = 18;
+    public const int TILE_SAND = 19;
+    public const int TILE_WOOD_END = 20;
+    public const int TILE_WOOD_SIDE = 21;
+    public const int TILE_WATER = 22;
     // Sentinel id passed through CUSTOM0 to the shader. The shader detects
     // values >= TILE_AUTO_THRESHOLD and picks the real tile by surface slope.
     public const int TILE_AUTO = 255;
     // Path-band sentinel: same idea but shader uses tighter slope rules
     // (never grass; dirt by default; stone only on steep faces).
     public const int TILE_AUTO_PATH = 254;
+
+    // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
+    // Must be >= 1 + max base layer in use. Keep modest — every entry is a
+    // vec2 shipped with the material.
+    public const int TILE_VARIANT_TABLE_SIZE = 32;
+
+    public readonly struct TileVariantInfo
+    {
+        // Number of elevation bands. The shader picks a band from world Y
+        // via floor((y - BandOriginY) / BandHeight), clamped to [0, Bands-1].
+        // Each band occupies `VariantsPerBand` contiguous layers.
+        public readonly int Bands;
+        // Random variants within each band. Picked from a hash of the voxel
+        // integer position, so all fragments within one voxel pick the same
+        // variant but neighbouring voxels vary.
+        public readonly int VariantsPerBand;
+
+        public TileVariantInfo(int bands, int variantsPerBand)
+        {
+            Bands = bands;
+            VariantsPerBand = variantsPerBand;
+        }
+
+        public int LayerCount => Bands * VariantsPerBand;
+    }
+
+    // Band quantization for the shader. BandOriginY is the world Y where
+    // band 0 starts; BandHeight is how tall each band is in world units.
+    // Matches corresponding uniforms in voxel_clip.gdshader.
+    public const float TILE_BAND_ORIGIN_Y = 0f;
+    public const float TILE_BAND_HEIGHT = 32f;
+
+    // Per-tile variant config. Defaults are (1,1) for every tile — a tile
+    // that hasn't had variant art authored yet behaves exactly as it did
+    // before this system existed (samples its base layer directly). Expand
+    // an entry when you add variant/band art for that tile and grow the
+    // .png's layer count to match.
+    public static readonly Dictionary<int, TileVariantInfo> TileVariants = new()
+    {
+        { TILE_STONE,      new(1, 1) },
+        { TILE_DIRT,       new(1, 1) },
+        { TILE_GRASS_TOP,  new(4, 4) },
+        { TILE_GRASS_SIDE, new(1, 1) },
+        { TILE_SAND,       new(1, 1) },
+        { TILE_WOOD_END,   new(1, 1) },
+        { TILE_WOOD_SIDE,  new(1, 1) },
+        { TILE_WATER,      new(1, 1) },
+    };
 
     public readonly struct TileFaces
     {

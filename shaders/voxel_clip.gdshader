@@ -42,8 +42,13 @@ global uniform float cloud_shadow_strength;
 uniform sampler2DArray tile_array : filter_nearest, repeat_enable;
 
 // Tile layer indices — must match VoxelTypeInfo.TILE_* in C#.
+// Values are the BASE layer of a tile's contiguous variant block. The real
+// sampled layer is resolved per-fragment in `resolve_layer` from the base,
+// the elevation band (world Y), and a position hash.
 const float TILE_STONE = 0.0;
 const float TILE_DIRT = 1.0;
+// Grass top's base is 2; variants/bands occupy layers 2..17 — resolved in
+// resolve_layer() from the tile_variants[] entry at index 2.
 const float TILE_GRASS_TOP = 2.0;
 // "Auto" sentinels — when a vertex carries one of these ids, the fragment
 // picks the real tile from surface slope. Two variants:
@@ -54,6 +59,31 @@ const float TILE_GRASS_TOP = 2.0;
 // Must match VoxelTypeInfo.TILE_AUTO / TILE_AUTO_PATH.
 const float TILE_AUTO_PATH_THRESHOLD = 253.5;
 const float TILE_AUTO_THRESHOLD = 254.5;
+
+// Per base-tile variant config: .x = num elevation bands, .y = variants per
+// band. Indexed by base layer id; entries we never index may be stale. Keep
+// TILE_VARIANT_TABLE_SIZE in sync with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE.
+// A (1,1) entry means "no variation" — the effective layer equals the base.
+const int TILE_VARIANT_TABLE_SIZE = 32;
+uniform vec2 tile_variants[TILE_VARIANT_TABLE_SIZE];
+uniform float band_origin_y = 0.0;
+uniform float band_height = 32.0;
+
+// Low-frequency grayscale overlay multiplied into albedo. Breaks up obvious
+// tiling in large stretches of the same material without needing multi-tile
+// variants. Sampled on world_vertex.xz so top-facing ground gets the most
+// benefit; sides read the same pattern projected straight down, which is
+// acceptable for an isometric view.
+uniform sampler2D detail_noise : filter_linear, repeat_enable;
+uniform float detail_noise_freq = 0.03125;  // ~1/32 world units per cycle.
+uniform float detail_noise_strength = 0.2;
+
+// Detail normal perturbation on the ground. Sampled as a tangent-space
+// normal map in the XZ plane; its influence is scaled by how much the
+// surface faces up, so cliffs stay clean and ground gets the break-up.
+uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
+uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
+uniform float detail_normal_strength = 0.35;
 
 // Slope bands for AUTO terrain. world_normal.y = 1 = flat-up, 0 = vertical.
 const float SLOPE_GRASS_LO = 0.85;
@@ -107,6 +137,33 @@ float hash13(vec3 p) {
 	p *= 17.0;
 	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
+
+// Resolve the concrete tile_array layer from a tile's base layer plus
+// elevation band (world Y) and position-hashed variant. Tiles configured
+// with (1,1) collapse to base_layer — identical to the pre-variant code.
+float resolve_layer(float base_layer, vec3 world_pos) {
+	int id = clamp(int(base_layer), 0, TILE_VARIANT_TABLE_SIZE - 1);
+	vec2 cfg = tile_variants[id];
+	float bands = max(1.0, cfg.x);
+	float per_band = max(1.0, cfg.y);
+	float band = clamp(floor((world_pos.y - band_origin_y) / band_height), 0.0, bands - 1.0);
+	// floor() makes the variant pick stable within each unit voxel so
+	// adjacent fragments in the same voxel pick the same tile, but
+	// neighbouring voxels vary.
+	float h = hash13(floor(world_pos) + vec3(37.2, 11.7, 91.3));
+	float variant = clamp(floor(h * per_band), 0.0, per_band - 1.0);
+	return base_layer + band * per_band + variant;
+}
+
+// Triplanar sample of a tile with variant/band resolution. `blend` is the
+// axis weight vector computed from the shading normal in fragment().
+vec4 sample_tile(float base_layer, vec3 world_pos, vec3 blend) {
+	float layer = resolve_layer(base_layer, world_pos);
+	vec4 tex_xy = texture(tile_array, vec3(world_pos.x, -world_pos.y, layer));
+	vec4 tex_xz = texture(tile_array, vec3(world_pos.x,  world_pos.z, layer));
+	vec4 tex_yz = texture(tile_array, vec3(world_pos.z, -world_pos.y, layer));
+	return tex_xz * blend.y + tex_xy * blend.z + tex_yz * blend.x;
+}
 float vnoise(vec3 p) {
 	vec3 i = floor(p);
 	vec3 f = fract(p);
@@ -139,6 +196,20 @@ void fragment() {
 	vec3 smooth_n = normalize(world_normal);
 	vec3 face_n = normalize(face_n_raw * sign(dot(face_n_raw, smooth_n) + 1e-6));
 	vec3 shaded_normal = normalize(mix(smooth_n, face_n, clamp(sharpness, 0.0, 1.0)));
+
+	// Detail normal map perturbation on the ground plane. Sampled in XZ only;
+	// the influence is scaled by how ground-facing the surface is so vertical
+	// walls keep their clean silhouette. This is a cheap way to give glancing-
+	// angle ground some texture at isometric viewing angles without painting
+	// the perturbation into every tile.
+	vec2 dn_uv = world_vertex.xz * detail_normal_freq;
+	vec3 dn_sample = texture(detail_normal, dn_uv).xyz * 2.0 - 1.0;
+	// Normal map tangent basis for the XZ plane: tangent-x → world_x,
+	// tangent-y → world_z, tangent-z → world_y (up). Reconstruct a world-
+	// space normal from the sample.
+	vec3 dn_world = normalize(vec3(dn_sample.x, dn_sample.z, dn_sample.y));
+	float ground_weight = clamp(shaded_normal.y, 0.0, 1.0);
+	shaded_normal = normalize(mix(shaded_normal, dn_world, detail_normal_strength * ground_weight));
 
 	// Pick which corner's tile this fragment shows. COLOR.rgb was set per
 	// vertex to (1,0,0)/(0,1,0)/(0,0,1) so the rasterizer's linear interpolation
@@ -173,39 +244,35 @@ void fragment() {
 	if (tile_index >= TILE_AUTO_THRESHOLD) {
 		// AUTO terrain: pick grass/dirt/stone from surface slope and blend
 		// across the slope thresholds so the transition isn't a hard band.
+		// Each of the three concrete tiles runs through sample_tile so it
+		// gets its own variant/band resolution.
 		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_grass = smoothstep(SLOPE_GRASS_LO, SLOPE_GRASS_HI, s);
 		float w_not_stone = smoothstep(SLOPE_DIRT_LO, SLOPE_DIRT_HI, s);
 		float w_stone = 1.0 - w_not_stone;
 		float w_dirt = max(0.0, w_not_stone - w_grass);
-		vec4 t_grass = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_GRASS_TOP)) * blend.z
-			+ texture(tile_array, vec3(world_vertex.x,  world_vertex.z, TILE_GRASS_TOP)) * blend.y
-			+ texture(tile_array, vec3(world_vertex.z, -world_vertex.y, TILE_GRASS_TOP)) * blend.x;
-		vec4 t_dirt = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_DIRT)) * blend.z
-			+ texture(tile_array, vec3(world_vertex.x,  world_vertex.z, TILE_DIRT)) * blend.y
-			+ texture(tile_array, vec3(world_vertex.z, -world_vertex.y, TILE_DIRT)) * blend.x;
-		vec4 t_stone = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_STONE)) * blend.z
-			+ texture(tile_array, vec3(world_vertex.x,  world_vertex.z, TILE_STONE)) * blend.y
-			+ texture(tile_array, vec3(world_vertex.z, -world_vertex.y, TILE_STONE)) * blend.x;
+		vec4 t_grass = sample_tile(TILE_GRASS_TOP, world_vertex, blend);
+		vec4 t_dirt  = sample_tile(TILE_DIRT,      world_vertex, blend);
+		vec4 t_stone = sample_tile(TILE_STONE,     world_vertex, blend);
 		tex_color = t_grass * w_grass + t_dirt * w_dirt + t_stone * w_stone;
 	} else if (tile_index >= TILE_AUTO_PATH_THRESHOLD) {
 		// AUTO_PATH terrain: only dirt or stone, picked by slope.
 		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_dirt = smoothstep(SLOPE_PATH_STONE_LO, SLOPE_PATH_STONE_HI, s);
 		float w_stone = 1.0 - w_dirt;
-		vec4 t_dirt = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_DIRT)) * blend.z
-			+ texture(tile_array, vec3(world_vertex.x,  world_vertex.z, TILE_DIRT)) * blend.y
-			+ texture(tile_array, vec3(world_vertex.z, -world_vertex.y, TILE_DIRT)) * blend.x;
-		vec4 t_stone = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, TILE_STONE)) * blend.z
-			+ texture(tile_array, vec3(world_vertex.x,  world_vertex.z, TILE_STONE)) * blend.y
-			+ texture(tile_array, vec3(world_vertex.z, -world_vertex.y, TILE_STONE)) * blend.x;
+		vec4 t_dirt  = sample_tile(TILE_DIRT,  world_vertex, blend);
+		vec4 t_stone = sample_tile(TILE_STONE, world_vertex, blend);
 		tex_color = t_dirt * w_dirt + t_stone * w_stone;
 	} else {
-		vec4 tex_xy = texture(tile_array, vec3(world_vertex.x, -world_vertex.y, tile_index));
-		vec4 tex_xz = texture(tile_array, vec3(world_vertex.x,  world_vertex.z, tile_index));
-		vec4 tex_yz = texture(tile_array, vec3(world_vertex.z, -world_vertex.y, tile_index));
-		tex_color = tex_xz * blend.y + tex_xy * blend.z + tex_yz * blend.x;
+		tex_color = sample_tile(tile_index, world_vertex, blend);
 	}
+
+	// Macro detail overlay: a low-frequency grayscale noise multiplied into
+	// albedo as a small brightness modulation. Breaks up same-tile repetition
+	// over large areas without adding any texture-array variants.
+	float macro = texture(detail_noise, world_vertex.xz * detail_noise_freq).r;
+	float overlay = mix(1.0 - detail_noise_strength, 1.0 + detail_noise_strength, macro);
+	tex_color.rgb *= overlay;
 
 	// Sample lightmap per-pixel so it interpolates smoothly across the face.
 	// Push 0.5 along the outward normal so the sample lands in the adjacent
