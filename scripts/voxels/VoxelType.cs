@@ -192,64 +192,7 @@ public static class VoxelTypeInfo
         return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
     }
 
-    // Representative *unlit* average color per base tile. Sampled by the
-    // detail-sprite scatter to bake the bottom-fade ground tint into each
-    // instance's INSTANCE_CUSTOM, so a sprite's base blends into whatever
-    // ground it's planted on. These are authored eyeball averages of each
-    // tile's PNG — tweak when art changes. Lighting is applied at runtime by
-    // the same light_map sampler the terrain uses, so storing the unlit color
-    // (not the lit one) is what makes the sprite fade match the ground under
-    // any sun/torch condition. Missing entries fall through to a neutral gray.
-    public static readonly Dictionary<int, Color> TileAlbedo = new()
-    {
-        { TILE_STONE,         new Color(0.50f, 0.50f, 0.52f) },
-        { TILE_DIRT,          new Color(0.42f, 0.30f, 0.20f) },
-        { TILE_GRASS_TOP,     new Color(0.45f, 0.60f, 0.25f) },
-        { TILE_GRASS_SIDE,    new Color(0.42f, 0.30f, 0.20f) },
-        { TILE_SAND,          new Color(0.85f, 0.78f, 0.55f) },
-        { TILE_WOOD_END,      new Color(0.55f, 0.40f, 0.25f) },
-        { TILE_WOOD_SIDE,     new Color(0.55f, 0.40f, 0.25f) },
-        { TILE_WATER,         new Color(0.30f, 0.55f, 0.75f) },
-        { TILE_COBBLESTONE,   new Color(0.45f, 0.45f, 0.47f) },
-        { TILE_DIRT_OVERLAY,  new Color(0.42f, 0.30f, 0.20f) },
-        { TILE_FIELD_OVERLAY, new Color(0.78f, 0.70f, 0.30f) },
-    };
 
-    private static readonly Color FALLBACK_TILE_ALBEDO = new Color(0.5f, 0.5f, 0.5f);
-
-    public static Color GetTileAlbedo(int tileBaseLayer)
-    {
-        return TileAlbedo.TryGetValue(tileBaseLayer, out Color c) ? c : FALLBACK_TILE_ALBEDO;
-    }
-
-    /// <summary>
-    /// Resolves the unlit ground color a detail sprite should fade into when
-    /// planted on top of this voxel. Mirrors the tile-pick logic the terrain
-    /// shader uses for the *flat* face (top of the voxel): for AUTO terrain
-    /// the kit's FlatTile wins; otherwise the voxel type's Top face. Overlays
-    /// are intentionally ignored — they're patchy by design and using the base
-    /// tile gives a stable fade across overlay-painted vs bare voxels.
-    /// </summary>
-    public static Color GetGroundAlbedo(VoxelType type, int kitId, EnvironmentKitData[] kits)
-    {
-        if (!Tiles.TryGetValue(type, out TileFaces faces))
-        {
-            return FALLBACK_TILE_ALBEDO;
-        }
-        int topTile = faces.Top;
-        if (topTile == TILE_AUTO || topTile == TILE_AUTO_PATH)
-        {
-            if (kits != null && kitId >= 0 && kitId < kits.Length && kits[kitId] != null)
-            {
-                topTile = kits[kitId].FlatTile;
-            }
-            else
-            {
-                topTile = TILE_GRASS_TOP;
-            }
-        }
-        return GetTileAlbedo(topTile);
-    }
 
     // Per-axis opt-in to the DC mesher's sharp-corner path. Each flagged
     // axis: (1) snaps the cell's vertex coord on that axis to 0/0.5/1 via the

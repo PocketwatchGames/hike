@@ -33,12 +33,6 @@ public partial class DetailEntry : Resource
     // when the runtime material is built.
     [Export] public Texture2D Texture;
 
-    // Bottom-fade band in world units. The bottom `FadeHeight` of the sprite
-    // blends from Texture into the per-instance ground color (baked at
-    // scatter time). 0.625 ≈ 10 source pixels at 16 px/unit; 0.738 ≈ 10
-    // source pixels at the project's 0.0738 m/px sprite scale.
-    [Export] public float FadeHeight = 0.625f;
-
     // Sampling weight within the parent group. The group picks an entry by
     // weighted choice — entries with weight 2.0 appear twice as often as
     // entries with weight 1.0. Weights are not normalized; they're relative.
@@ -79,7 +73,6 @@ public partial class DetailEntry : Resource
         {
             mat.SetShaderParameter("sprite_texture", Texture);
         }
-        mat.SetShaderParameter("fade_height", FadeHeight);
         _materialCache = mat;
         return mat;
     }

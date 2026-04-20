@@ -1,12 +1,9 @@
 [gd_resource type="Resource" script_class="DetailGroupData" format=3 uid="uid://hv046le0b30u"]
 
-[ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/tall_grass_01.png" id="2_tex"]
+[ext_resource type="Texture2D" uid="uid://cc6as7l6ipqvo" path="res://assets/textures/grass_01.png" id="2_mxn6u"]
 [ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="3_entry_script"]
 [ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="4_group_script"]
 
-; Mesh shape only — no material. ChunkDetailScatter sets material_override on
-; the MultiMeshInstance3D from DetailEntry.GetMaterial() at scatter time, so
-; the mesh's surface material is ignored.
 [sub_resource type="QuadMesh" id="QuadMesh_grass"]
 size = Vector2(1.18, 1.25)
 center_offset = Vector3(0, 0.625, 0)
@@ -14,8 +11,7 @@ center_offset = Vector3(0, 0.625, 0)
 [sub_resource type="Resource" id="Resource_grass_entry"]
 script = ExtResource("3_entry_script")
 Mesh = SubResource("QuadMesh_grass")
-Texture = ExtResource("2_tex")
-FadeHeight = 0.738
+Texture = ExtResource("2_mxn6u")
 ScaleMin = 0.7
 ScaleMax = 1.3
 

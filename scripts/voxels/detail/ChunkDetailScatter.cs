@@ -8,10 +8,13 @@ using Godot;
 // blades in a chunk cost the same draw-call budget as one. Per-instance:
 //   - position    : voxel center + sub-voxel jitter, sitting on top of the
 //                   solid voxel that owns the DetailGroup paint
-//   - basis       : random yaw (per DetailEntry) + uniform scale jitter
-//   - custom data : (ground_color.rgb, _) — the unlit albedo of the voxel
-//                   directly below, used by the shader's bottom-edge fade so
-//                   the sprite blends into the terrain it's planted on
+//   - basis       : random yaw (when DetailEntry.RandomYaw) + uniform scale jitter
+//   - custom data : (normal.xyz, _) — world-space surface normal estimated
+//                   from the painted voxel's neighbour heights. The shader
+//                   projects this onto the screen plane and uses it as the
+//                   sprite's up axis so blades on a slope lean with the
+//                   slope when viewed across the slope, and read as upright
+//                   when viewed along the slope.
 //
 // All scatter inputs (placement, weighted entry pick, scale, yaw) hash from
 // (chunkCoord, x, y, z, slot) so the same chunk re-scattered produces the
@@ -26,11 +29,16 @@ public static class ChunkDetailScatter
     // could find and free them without touching the terrain meshes.
     private const string MULTIMESH_NAME_PREFIX = "DetailScatter_";
 
+    // ±range scanned per neighbour column when estimating surface height for
+    // the normal. Covers single-voxel ledges; larger steps are treated as
+    // cliffs and the column's height is left as-is (returns wy unchanged),
+    // which is the right behaviour for grass at a cliff edge — we don't want
+    // it leaning hard down the cliff face.
+    private const int NORMAL_SCAN_RANGE = 2;
+
     public static void Build(
         ChunkState data,
         System.Func<int, int, int, VoxelType> getVoxel,
-        System.Func<int, int, int, int> getKitId,
-        EnvironmentKitData[] kits,
         DetailGroupData[] groups,
         Node3D parent)
     {
@@ -39,9 +47,8 @@ public static class ChunkDetailScatter
             return;
         }
 
-        // Bucket per (group, entry) so each (mesh, material) pair becomes one
-        // MultiMesh. Same mesh referenced by two entries would otherwise need
-        // an extra dedupe pass — DetailEntry is the bucketing key on purpose
+        // Bucket per DetailEntry so each (mesh, material) becomes one MultiMesh
+        // — one draw call per (chunk, entry). DetailEntry is the bucketing key
         // so weight/scale/yaw vary independently per entry.
         var buckets = new Dictionary<DetailEntry, List<InstanceData>>();
 
@@ -50,6 +57,9 @@ public static class ChunkDetailScatter
         float[] cumulativeWeights = null;
 
         Vector3I chunkCoord = data.ChunkCoord;
+        int chunkWx = chunkCoord.X * ChunkState.SIZE;
+        int chunkWy = chunkCoord.Y * ChunkState.SIZE;
+        int chunkWz = chunkCoord.Z * ChunkState.SIZE;
 
         for (int x = 0; x < ChunkState.SIZE; x++)
         {
@@ -79,13 +89,12 @@ public static class ChunkDetailScatter
                         continue;
                     }
 
-                    // Sprite sits on top of the painted (solid) voxel; sample
-                    // *that* voxel's tile for the ground-fade color so the
-                    // bottom of the sprite matches what the player sees the
-                    // sprite touching, not the air voxel above.
-                    VoxelType groundVoxel = getVoxel(x, y, z);
-                    int groundKit = getKitId(x, y, z);
-                    Color groundColor = VoxelTypeInfo.GetGroundAlbedo(groundVoxel, groundKit, kits);
+                    // Estimate the surface normal from neighbour heights once
+                    // per painted voxel; all instances scattered on this voxel
+                    // share the same normal. The shader uses this to roll
+                    // sprites in their billboard plane so they lean with the
+                    // slope when viewed across it.
+                    Vector3 normal = ComputeSurfaceNormal(chunkWx + x, chunkWy + y, chunkWz + z, getVoxel);
 
                     EnsureCumulativeWeights(group, ref cumulativeWeights, out float totalWeight);
                     if (totalWeight <= 0f)
@@ -145,7 +154,7 @@ public static class ChunkDetailScatter
                             list = new List<InstanceData>();
                             buckets[entry] = list;
                         }
-                        list.Add(new InstanceData { Transform = transform, GroundColor = groundColor });
+                        list.Add(new InstanceData { Transform = transform, Normal = normal });
                     }
                 }
             }
@@ -169,8 +178,8 @@ public static class ChunkDetailScatter
             for (int i = 0; i < instances.Count; i++)
             {
                 mm.SetInstanceTransform(i, instances[i].Transform);
-                Color g = instances[i].GroundColor;
-                mm.SetInstanceCustomData(i, new Color(g.R, g.G, g.B, 0f));
+                Vector3 n = instances[i].Normal;
+                mm.SetInstanceCustomData(i, new Color(n.X, n.Y, n.Z, 0f));
             }
 
             var mmi = new MultiMeshInstance3D();
@@ -253,9 +262,47 @@ public static class ChunkDetailScatter
         return h;
     }
 
+    // Central-difference surface normal at world (wx, wy, wz). Looks at the
+    // four cardinal neighbour columns, finds each one's surface height within
+    // ±NORMAL_SCAN_RANGE of wy, and forms the gradient. Columns with no
+    // surface in range fall back to wy, which produces a flat-direction
+    // contribution — correct for cliff edges where we want grass to read as
+    // perpendicular to the local surface, not leaning hard down the cliff.
+    private static Vector3 ComputeSurfaceNormal(int wx, int wy, int wz, System.Func<int, int, int, VoxelType> getVoxel)
+    {
+        float yE = SurfaceYAt(wx + 1, wy, wz, getVoxel);
+        float yW = SurfaceYAt(wx - 1, wy, wz, getVoxel);
+        float yN = SurfaceYAt(wx, wy, wz + 1, getVoxel);
+        float yS = SurfaceYAt(wx, wy, wz - 1, getVoxel);
+        float dyx = (yE - yW) * 0.5f;
+        float dyz = (yN - yS) * 0.5f;
+        return new Vector3(-dyx, 1f, -dyz).Normalized();
+    }
+
+    // Search outward from wy for the first solid voxel with air directly above
+    // — that voxel's y is the column's surface height. ±NORMAL_SCAN_RANGE
+    // tolerates single-voxel ledges; beyond that we treat the column as a
+    // cliff and return wy unchanged.
+    private static float SurfaceYAt(int wx, int wy, int wz, System.Func<int, int, int, VoxelType> getVoxel)
+    {
+        for (int radius = 0; radius <= NORMAL_SCAN_RANGE; radius++)
+        {
+            for (int sign = -1; sign <= 1; sign += 2)
+            {
+                if (radius == 0 && sign == -1) { continue; }
+                int y = wy + sign * radius;
+                if (VoxelTypeInfo.IsSolid(getVoxel(wx, y, wz)) && !VoxelTypeInfo.IsSolid(getVoxel(wx, y + 1, wz)))
+                {
+                    return y;
+                }
+            }
+        }
+        return wy;
+    }
+
     private struct InstanceData
     {
         public Transform3D Transform;
-        public Color GroundColor;
+        public Vector3 Normal;
     }
 }
