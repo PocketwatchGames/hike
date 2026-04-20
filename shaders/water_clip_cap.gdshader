@@ -3,27 +3,46 @@ render_mode blend_mix, depth_draw_never, unshaded;
 stencil_mode read, compare_equal, 2;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float sun_intensity;
-global uniform vec3 sun_color;
-// Cloud occlusion parameters shared with the sky + fog + voxel + sprite
-// shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
-// these to project cloud shadows along the sun direction.
-global uniform vec3 sun_world_dir;
-global uniform vec2 cloud_scroll;
-global uniform float cloud_scale;
-global uniform float cloud_threshold;
-global uniform float cloud_sharpness;
+#include "res://shaders/sky_common.gdshaderinc"
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+
 uniform vec3 water_color : source_color = vec3(0.15, 0.5, 0.95);
 uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
 uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.4;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
+
+// Water animation / reflection globals — same authored set as
+// voxel_water.gdshader so ripples and reflections read continuously
+// across the ceiling-cutaway cap.
+global uniform float ripple_scale_a;
+global uniform float ripple_scale_b;
+global uniform vec2 ripple_scroll_a;
+global uniform vec2 ripple_scroll_b;
+global uniform float ripple_strength;
+global uniform float fresnel_power;
+global uniform float reflection_strength;
+global uniform float glint_sharpness;
+global uniform float glint_strength;
+global uniform float ssr_max_distance;
+global uniform float ssr_steps;
+global uniform float ssr_thickness;
+global uniform vec3 foam_color;
+global uniform float foam_depth;
+global uniform float foam_scale;
+global uniform vec2 foam_scroll;
+global uniform float foam_strength;
+global uniform float foam_threshold;
+global uniform float foam_sharpness;
+
+const int SSR_MAX_STEPS = 24;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -42,8 +61,27 @@ float vnoise(vec3 p) {
 	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
 }
 
+float ripple_height(vec2 world_xz, float time) {
+	vec2 uv_a = world_xz * ripple_scale_a + ripple_scroll_a * time;
+	vec2 uv_b = world_xz * ripple_scale_b + ripple_scroll_b * time;
+	return (vnoise(vec3(uv_a, 0.0)) + vnoise(vec3(uv_b, 0.0))) * 0.5;
+}
+
+vec3 ripple_normal(vec2 world_xz, float time) {
+	float eps = 0.1;
+	float h = ripple_height(world_xz, time);
+	float hx = ripple_height(world_xz + vec2(eps, 0.0), time);
+	float hz = ripple_height(world_xz + vec2(0.0, eps), time);
+	vec3 n = vec3(-(hx - h) / eps, 1.0, -(hz - h) / eps);
+	return normalize(mix(vec3(0.0, 1.0, 0.0), normalize(n), ripple_strength));
+}
+
 void fragment() {
 	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+
+	// The cap is the horizontal slice of water at the cutaway plane. Treat
+	// it as a +Y facing surface so ripples and reflections apply uniformly.
+	vec3 n = ripple_normal(world_pos.xz, TIME);
 
 	vec3 uvw = (world_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
@@ -51,7 +89,8 @@ void fragment() {
 	// Unshaded (no light() / ATTENUATION), so cloud shadow folds directly
 	// into sun_lit. Block light stays unaffected.
 	float cloud = cloud_shadow_ground(world_pos, TIME);
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (1.0 - cloud * cloud_shadow_strength);
+	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
 	vec3 block_lit = lm.gba;
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
@@ -69,7 +108,60 @@ void fragment() {
 	float depth_factor = clamp(thickness / water_depth_scale, 0.0, 1.0);
 
 	// Deeper water is darker and more opaque — matches front face logic
-	vec3 color = mix(water_color, water_deep_tint, depth_factor);
-	ALBEDO = color * light;
-	ALPHA = mix(water_alpha_min, water_alpha_max, depth_factor);
+	vec3 base_color = mix(water_color, water_deep_tint, depth_factor);
+	vec3 water_col = base_color * light;
+
+	// Shoreline foam — scrolling noise band where thickness < foam_depth.
+	float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
+	vec2 fuv = world_pos.xz * foam_scale + foam_scroll * TIME;
+	float fn = vnoise(vec3(fuv, 0.0));
+	float band = max(1e-4, 1.0 - foam_sharpness);
+	float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
+	float foam_amount = shallow * mask * foam_strength;
+	water_col = mix(water_col, foam_color * light, foam_amount);
+
+	// Reflection path — same logic as voxel_water.gdshader.
+	vec3 view_to_frag = normalize(world_pos - CAMERA_POSITION_WORLD);
+	vec3 refl = reflect(view_to_frag, n);
+	float fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
+
+	vec3 sky_col = sample_sky_from(world_pos, refl, TIME) * sun_mask * cloud_sun;
+	float glint = pow(max(0.0, dot(refl, -normalize(sun_world_dir))), glint_sharpness);
+	sky_col += sun_color * glint * glint_strength * sun_mask * cloud_sun;
+
+	vec3 ssr_col = vec3(0.0);
+	float ssr_alpha = 0.0;
+	float step_world = ssr_max_distance / max(ssr_steps, 1.0);
+	vec3 ray_origin = world_pos + n * 0.05;
+	for (int i = 1; i <= SSR_MAX_STEPS; i++) {
+		if (float(i) > ssr_steps) { break; }
+		vec3 p = ray_origin + refl * (step_world * float(i));
+		vec4 clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(p, 1.0);
+		if (clip.w <= 0.0) { break; }
+		vec3 ndc = clip.xyz / clip.w;
+		if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0 || ndc.z < -1.0 || ndc.z > 1.0) { break; }
+		vec2 uv = ndc.xy * 0.5 + 0.5;
+		float d = textureLod(depth_tex, uv, 0.0).r;
+		float pz = ndc.z * 0.5 + 0.5;
+		if (d < pz) {
+			vec4 hit_ndc = vec4(ndc.xy, d * 2.0 - 1.0, 1.0);
+			vec4 hit_view = INV_PROJECTION_MATRIX * hit_ndc;
+			hit_view /= hit_view.w;
+			vec4 p_view = VIEW_MATRIX * vec4(p, 1.0);
+			if (abs(hit_view.z - p_view.z) < ssr_thickness + step_world) {
+				vec2 edge = abs(uv * 2.0 - 1.0);
+				float edge_fade = 1.0 - smoothstep(0.85, 1.0, max(edge.x, edge.y));
+				ssr_col = textureLod(screen_tex, uv, 0.0).rgb;
+				ssr_alpha = edge_fade;
+			}
+			break;
+		}
+	}
+
+	vec3 refl_col = mix(sky_col, ssr_col, ssr_alpha);
+	float refl_mix = fresnel * reflection_strength;
+	vec3 final_col = mix(water_col, refl_col, refl_mix);
+
+	ALBEDO = final_col;
+	ALPHA = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
 }

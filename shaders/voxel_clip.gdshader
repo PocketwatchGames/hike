@@ -37,6 +37,8 @@ global uniform float cloud_sharpness;
 // 1.0 = full cloud leaves block light only; 0.6 ≈ old ATTENUATION-only
 // behaviour (direct sun killed, ambient sky bounce survives).
 global uniform float cloud_shadow_strength;
+global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
+global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
 uniform sampler2DArray tile_array : filter_nearest, repeat_enable;

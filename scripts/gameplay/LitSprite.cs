@@ -47,7 +47,13 @@ public partial class LitSprite : Sprite3D
 
     [Export] public ShaderMaterial MaterialTemplate { get; set; }
     [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
+    [Export] public ShaderMaterial ReflectionTemplate { get; set; }
     [Export] public Texture2D AoDecalTexture { get; set; }
+
+    // How far below the sprite feet to search for a water surface. 16
+    // voxels handles a sprite standing on a pier over a deep lake; beyond
+    // that the reflection is so dimmed by water depth tint it won't read.
+    [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
 
     // Width/depth (in world units) of the AO decal projected under the
     // sprite. Defaults to roughly cover a 1-voxel sprite footprint.
@@ -80,6 +86,8 @@ public partial class LitSprite : Sprite3D
 
     private bool _ready;
     private Sprite3D _shadowProxy;
+    private Sprite3D _reflection;
+    private ShaderMaterial _reflectionMaterial;
     private Decal _aoDecal;
 
     public override void _Ready()
@@ -95,6 +103,7 @@ public partial class LitSprite : Sprite3D
         if (!Engine.IsEditorHint())
         {
             ShadowCasterTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_shadow_caster.tres");
+            ReflectionTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_reflection.tres");
             AoDecalTexture ??= GD.Load<Texture2D>("res://resources/materials/ao_blob.tres");
         }
         TextureChanged += Apply;
@@ -147,6 +156,16 @@ public partial class LitSprite : Sprite3D
 
         EnsureShadowProxy();
         EnsureAoDecal();
+        EnsureReflection();
+    }
+
+    public override void _Process(double delta)
+    {
+        if (!_ready || Engine.IsEditorHint())
+        {
+            return;
+        }
+        UpdateReflection();
     }
 
     private void EnsureShadowProxy()
@@ -179,6 +198,102 @@ public partial class LitSprite : Sprite3D
         smat.SetShaderParameter("sprite_size", _spriteSize);
         smat.SetShaderParameter("sprite_region_origin", _regionOrigin);
         _shadowProxy.MaterialOverride = smat;
+    }
+
+    private void EnsureReflection()
+    {
+        if (ReflectionTemplate == null || Texture == null)
+        {
+            return;
+        }
+        if (_reflection == null)
+        {
+            _reflection = new Sprite3D();
+            _reflection.Name = "WaterReflection";
+            _reflection.Centered = false;
+            _reflection.PixelSize = 1.0f;
+            _reflection.CastShadow = ShadowCastingSetting.Off;
+            _reflection.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+            _reflection.Visible = false;
+            AddChild(_reflection);
+        }
+        _reflection.Texture = Texture;
+        _reflection.Offset = Offset;
+        _reflection.RegionEnabled = RegionEnabled;
+        _reflection.RegionRect = RegionRect;
+
+        _reflectionMaterial = (ShaderMaterial)ReflectionTemplate.Duplicate();
+        _reflectionMaterial.SetShaderParameter("sprite_texture", Texture);
+        _reflectionMaterial.SetShaderParameter("sprite_size", _spriteSize);
+        _reflectionMaterial.SetShaderParameter("sprite_region_origin", _regionOrigin);
+        _reflection.MaterialOverride = _reflectionMaterial;
+    }
+
+    // Per-frame: query the water surface Y under this sprite, position the
+    // flipped copy on the opposite side of the surface, and push source
+    // position into the shader (reflection lighting matches the sprite's
+    // source voxel, not wherever the reflection happens to land).
+    private void UpdateReflection()
+    {
+        if (_reflection == null || _reflectionMaterial == null)
+        {
+            return;
+        }
+        Vector3 src = GlobalPosition;
+        float? waterY = FindWaterSurfaceY(src);
+        if (!waterY.HasValue)
+        {
+            _reflection.Visible = false;
+            return;
+        }
+        // Mirror the sprite's anchor across the water surface. The child's
+        // LOCAL position is the delta from parent; 2*(water_y - src.y).
+        _reflection.Position = new Vector3(0f, 2f * (waterY.Value - src.Y), 0f);
+        _reflection.Visible = true;
+        _reflectionMaterial.SetShaderParameter("water_y", waterY.Value);
+        _reflectionMaterial.SetShaderParameter("source_world_pos", src);
+    }
+
+    // Return the world Y of the nearest water surface at this sprite's XZ
+    // column. Handles two cases:
+    //   (a) Sprite IS in water (swimming): walk upward until we exit
+    //       water; the exit voxel's bottom face is the surface.
+    //   (b) Sprite is above water: walk downward until we hit water;
+    //       that voxel's top face is the surface.
+    // Null if no water is within search depth.
+    private float? FindWaterSurfaceY(Vector3 world)
+    {
+        WorldState ws = World.Current?.WorldState;
+        if (ws == null)
+        {
+            return null;
+        }
+        int wx = Mathf.FloorToInt(world.X);
+        int wz = Mathf.FloorToInt(world.Z);
+        int startY = Mathf.FloorToInt(world.Y);
+
+        if (ws.GetVoxelWorld(wx, startY, wz) == VoxelType.Water)
+        {
+            int maxY = startY + WaterReflectionSearchDepth;
+            for (int y = startY + 1; y <= maxY; y++)
+            {
+                if (ws.GetVoxelWorld(wx, y, wz) != VoxelType.Water)
+                {
+                    return y;
+                }
+            }
+            return null;
+        }
+
+        int minY = startY - WaterReflectionSearchDepth;
+        for (int y = startY - 1; y >= minY; y--)
+        {
+            if (ws.GetVoxelWorld(wx, y, wz) == VoxelType.Water)
+            {
+                return y + 1;
+            }
+        }
+        return null;
     }
 
     private void EnsureAoDecal()

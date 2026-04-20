@@ -37,6 +37,8 @@ global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
 global uniform float cloud_shadow_strength;
+global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
+global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);

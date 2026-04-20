@@ -271,3 +271,111 @@ light_map_inv_size={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+ripple_scale_a={
+"type": "float",
+"value": 0.4
+}
+ripple_scale_b={
+"type": "float",
+"value": 1.1
+}
+ripple_scroll_a={
+"type": "vec2",
+"value": Vector2(0.15, 0.08)
+}
+ripple_scroll_b={
+"type": "vec2",
+"value": Vector2(-0.1, 0.13)
+}
+ripple_strength={
+"type": "float",
+"value": 0.15
+}
+fresnel_power={
+"type": "float",
+"value": 3.0
+}
+reflection_strength={
+"type": "float",
+"value": 0.6
+}
+glint_sharpness={
+"type": "float",
+"value": 64.0
+}
+glint_strength={
+"type": "float",
+"value": 2.0
+}
+ssr_max_distance={
+"type": "float",
+"value": 30.0
+}
+ssr_steps={
+"type": "float",
+"value": 12.0
+}
+ssr_thickness={
+"type": "float",
+"value": 1.0
+}
+foam_color={
+"type": "vec3",
+"value": Vector3(0.95, 0.98, 1)
+}
+foam_depth={
+"type": "float",
+"value": 0.8
+}
+foam_scale={
+"type": "float",
+"value": 2.5
+}
+foam_scroll={
+"type": "vec2",
+"value": Vector2(0.12, -0.07)
+}
+foam_strength={
+"type": "float",
+"value": 0.9
+}
+foam_threshold={
+"type": "float",
+"value": 0.45
+}
+foam_sharpness={
+"type": "float",
+"value": 0.6
+}
+water_debug={
+"type": "int",
+"value": 0
+}
+debug_magenta_clouds={
+"type": "int",
+"value": 0
+}
+wind_dir={
+"type": "vec3",
+"value": Vector3(0.7, 0, 0.7)
+}
+wind_amplitude={
+"type": "float",
+"value": 0.05
+}
+wind_frequency={
+"type": "float",
+"value": 1.5
+}
+player_pos={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+player_radius={
+"type": "float",
+"value": 0
+}
+player_strength={
+"type": "float",
+"value": 0
+}

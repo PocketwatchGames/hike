@@ -1,39 +1,25 @@
-[gd_resource type="Resource" script_class="DetailGroupData" load_steps=8 format=3]
+[gd_resource type="Resource" script_class="DetailGroupData" format=3 uid="uid://hv046le0b30u"]
 
-[ext_resource type="Shader" path="res://shaders/detail_sprite.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/tall_grass_01.png" id="2_tex"]
-[ext_resource type="Script" path="res://scripts/voxels/detail/DetailEntry.cs" id="3_entry_script"]
-[ext_resource type="Script" path="res://scripts/voxels/detail/DetailGroupData.cs" id="4_group_script"]
+[ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="3_entry_script"]
+[ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="4_group_script"]
 
-; ShaderMaterial for the grass sprite. Sprite texture wired in here so the
-; mesh's surface-0 material is fully self-contained.
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_grass"]
-render_priority = 0
-shader = ExtResource("1_shader")
-shader_parameter/sprite_texture = ExtResource("2_tex")
-shader_parameter/fade_height = 0.738
-
-; QuadMesh sized to match the project's sprite convention (pixel_size 0.0738
-; m/px), with center_offset so the bottom edge sits at Y=0 — the shader's
-; wind/fade math keys off VERTEX.y, so the base must be at the local origin.
-; tall_grass_01.png is 16x17 px → 1.18 x 1.25 world units.
+; Mesh shape only — no material. ChunkDetailScatter sets material_override on
+; the MultiMeshInstance3D from DetailEntry.GetMaterial() at scatter time, so
+; the mesh's surface material is ignored.
 [sub_resource type="QuadMesh" id="QuadMesh_grass"]
-material = SubResource("ShaderMaterial_grass")
 size = Vector2(1.18, 1.25)
 center_offset = Vector3(0, 0.625, 0)
 
-; Single DetailEntry referencing the mesh. Add more entries (different
-; meshes/materials) to vary the scattered sprites within the group.
 [sub_resource type="Resource" id="Resource_grass_entry"]
 script = ExtResource("3_entry_script")
 Mesh = SubResource("QuadMesh_grass")
-Weight = 1.0
+Texture = ExtResource("2_tex")
+FadeHeight = 0.738
 ScaleMin = 0.7
 ScaleMax = 1.3
-RandomYaw = false
 
 [resource]
 script = ExtResource("4_group_script")
 GroupName = "grass"
-Entries = [SubResource("Resource_grass_entry")]
-InstancesPerVoxel = 4
+Entries = Array[ExtResource("3_entry_script")]([SubResource("Resource_grass_entry")])

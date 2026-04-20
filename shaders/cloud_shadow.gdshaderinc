@@ -21,15 +21,13 @@
 // this file (they are already owned by sky_common / SkyController, so we
 // don't redeclare them here to avoid multi-decl errors):
 //
-//   global uniform vec3 sun_world_dir;    // SkyController
-//   global uniform vec2 cloud_scroll;     // SkyController (units/sec in XZ)
-//   global uniform float cloud_threshold; // noise value above which = cloud
-//   global uniform float cloud_sharpness; // 0 = soft edges, 1 = hard step
-//
-// This file owns `cloud_altitude` and the cloud noise sampler.
-
-global uniform float cloud_altitude;
-global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
+//   global uniform vec3 sun_world_dir;                         // SkyController
+//   global uniform vec2 cloud_scroll;                          // SkyController (units/sec in XZ)
+//   global uniform float cloud_threshold;                      // noise value above which = cloud
+//   global uniform float cloud_sharpness;                      // 0 = soft edges, 1 = hard step
+//   global uniform sampler2D cloud_noise_tex                   // baked seamless FBM (owned by sky_common;
+//       : filter_linear, repeat_enable;                        //  if you don't include sky_common, declare locally)
+//   global uniform float cloud_altitude;                       // owned by sky_common; declare locally if not included
 
 // World-unit → texture-UV multiplier. Smaller values make cloud features
 // span more world units (broader shadows). At 0.01 and a 512² texture

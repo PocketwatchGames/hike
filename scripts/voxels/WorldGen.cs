@@ -942,6 +942,46 @@ public static class WorldGen
             }
         }
 
+        // Debug: seed trees IN water bodies to exercise the partial-
+        // submerge sprite-reflection case. Feet sit at the TOP water
+        // voxel's bottom face (one voxel below the surface), so the
+        // lowest slice of the sprite is submerged and the reflection
+        // shader's water-clip discard has something to do.
+        //
+        // Only runs for the chunk that owns water_top+1 in its Y range,
+        // so the placed entity routes into the same chunk that's
+        // currently generating — preserves per-chunk entity ownership.
+        if (CVars.debugWaterTrees.Value)
+        {
+            int waterTop = WATER_LEVEL;
+            int chunkYMin = chunkCoord.Y * ChunkState.SIZE;
+            int chunkYMax = chunkYMin + ChunkState.SIZE - 1;
+            if (waterTop + 1 >= chunkYMin && waterTop + 1 <= chunkYMax)
+            {
+                for (int localX = 1; localX < ChunkState.SIZE; localX += 2)
+                {
+                    for (int localZ = 1; localZ < ChunkState.SIZE; localZ += 2)
+                    {
+                        int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                        int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                        if (ws.GetVoxelWorld(wx, waterTop, wz) != VoxelType.Water)
+                        {
+                            continue;
+                        }
+                        if (ws.GetVoxelWorld(wx, waterTop + 1, wz) != VoxelType.Air)
+                        {
+                            continue;
+                        }
+                        // Feet one voxel BELOW the surface: the tree's
+                        // base visibly sticks through the water.
+                        ws.AddEntity(new PropSimState(PropType.Tree,
+                            new Vector3(wx + 0.5f, waterTop, wz + 0.5f),
+                            genData.TreeScene));
+                    }
+                }
+            }
+        }
+
         for (int localX = 0; localX < ChunkState.SIZE; localX++)
         {
             for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)

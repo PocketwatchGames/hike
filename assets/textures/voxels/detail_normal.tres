@@ -8,7 +8,7 @@ fractal_octaves = 3
 [resource]
 width = 256
 height = 256
+noise = SubResource("FastNoiseLite_detail_n")
 seamless = true
 as_normal_map = true
 bump_strength = 6.0
-noise = SubResource("FastNoiseLite_detail_n")

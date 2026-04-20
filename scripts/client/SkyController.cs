@@ -79,6 +79,90 @@ public partial class SkyController : Node3D
     // ~7 seconds; lower values produce slower, more sustained surges.
     [Export(PropertyHint.Range, "0,1,0.001")] public float gustFrequency = 0.15f;
 
+    [ExportGroup("Water — Ripples")]
+    // Two procedural noise layers sampled in world XZ sum into the water
+    // surface's height field; its finite-difference gradient perturbs the
+    // shading normal. Two scales + two scroll directions break up tiling
+    // so the surface doesn't read as a single noise pattern.
+    [Export] public float rippleScaleA = 0.4f;
+    [Export] public float rippleScaleB = 1.1f;
+    [Export] public Vector2 rippleScrollA = new Vector2(0.15f, 0.08f);
+    [Export] public Vector2 rippleScrollB = new Vector2(-0.1f, 0.13f);
+    // Blend between flat +Y and the gradient-perturbed normal. 0 = mirror-
+    // smooth, 1 = fully gradient (reads as choppy). 0.1-0.2 reads as
+    // gentle ripples in the pixel-art style.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rippleStrength = 0.15f;
+
+    [ExportGroup("Water — Reflections")]
+    // Fresnel shape: at glancing view angles the surface reflects more.
+    // Lower = more pervasive reflection; higher = mirror only at the
+    // grazing edge. The iso camera mostly views water at ~30-45° so
+    // lower powers suit this game.
+    [Export(PropertyHint.Range, "1,8,0.1")] public float fresnelPower = 3.0f;
+    // Maximum reflection contribution. Fresnel rolls this off toward the
+    // camera direction; this caps the grazing-angle peak.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float reflectionStrength = 0.6f;
+    // Specular sun glint — pinprick where the reflection ray aligns with
+    // the direction to the sun. Sharpness controls pinprick size.
+    [Export(PropertyHint.Range, "4,512,1")] public float glintSharpness = 64.0f;
+    [Export(PropertyHint.Range, "0,8,0.1")] public float glintStrength = 2.0f;
+
+    [ExportGroup("Water — Shoreline Foam")]
+    // Lighter band where water meets solid terrain (thickness from the
+    // depth buffer falls below foamDepth). Animated via scrolling noise
+    // in world XZ so the foam line reads as surf, not a static halo.
+    [Export] public Color foamColor = new Color(0.95f, 0.98f, 1.0f);
+    // Water column depth below which foam starts fading in. Measured in
+    // view-space world units — ~0.5-1.5 reads as a real shoreline width.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float foamDepth = 0.8f;
+    // Noise tiling (higher = smaller foam patches).
+    [Export(PropertyHint.Range, "0.1,8,0.05")] public float foamScale = 2.5f;
+    [Export] public Vector2 foamScroll = new Vector2(0.12f, -0.07f);
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float foamStrength = 0.9f;
+    // Noise threshold + sharpness: values ABOVE threshold become foam;
+    // sharpness controls the transition (0 = soft gradient, 1 = hard step).
+    // Matches the cloud_shadow.gdshaderinc remap shape.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.45f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamSharpness = 0.6f;
+
+    [ExportGroup("Water — Debug")]
+    // Switch the water shader's ALBEDO output to visualize intermediate
+    // stages. Leave at 0 for normal rendering.
+    //   0 = normal
+    //   1 = fresnel (grayscale: black = head-on, white = grazing)
+    //   2 = raw sky reflection color (sky dome + glint, pre-fresnel mix)
+    //   3 = SSR hit mask (green = hit, red = miss, blue = off-screen)
+    //   4 = perturbed normal XZ (red = X, green = Z, blue = top-face flag)
+    //   5 = sun mask from lightmap (grayscale)
+    //   6 = combined reflection color (sky mixed with SSR, pre-fresnel)
+    //   7 = foam amount (grayscale)
+    //   8 = water depth factor (grayscale: black = shallow, white = deep)
+    //   9 = cloud_shadow_ground() sampled at the water fragment — should
+    //       scroll in lockstep with the cloud shadows on terrain next to
+    //       the water. If it does, TIME and cloud_scroll are flowing
+    //       correctly in the water shader.
+    [Export(PropertyHint.Range, "0,9,1")] public int waterDebug = 0;
+
+    // When true, sample_sky() replaces cloud_color with bright magenta in
+    // both the sky dome AND any reflection that calls it. Clouds drifting
+    // in the sky and their mirror in the water should move together —
+    // that's the visual proof the reflection carries the same cloud pattern.
+    [Export] public bool debugMagentaClouds = false;
+
+    [ExportGroup("Water — Screenspace Reflection")]
+    // Screen-space raymarch that captures terrain silhouettes (cliffs,
+    // tree lines) and sprites standing in/behind water. Marches along
+    // the reflection ray in world space; each step projects to NDC and
+    // tests depth_tex. Off-screen misses fade via the edge mask.
+    [Export(PropertyHint.Range, "1,60,0.1")] public float ssrMaxDistance = 30.0f;
+    // Step count. Shader caps the compile-time loop at SSR_MAX_STEPS
+    // (24); raising beyond that has no effect.
+    [Export(PropertyHint.Range, "1,24,1")] public float ssrSteps = 12.0f;
+    // View-space thickness tolerance for accepting a depth hit. Small =
+    // misses thin geometry; large = ray can tunnel past the correct hit
+    // and latch onto something behind it.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float ssrThickness = 1.0f;
+
     [ExportGroup("Clouds")]
     [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
     [Export] public Vector2 cloudScroll = new Vector2(0.004f, 0.002f);
@@ -218,15 +302,15 @@ public partial class SkyController : Node3D
         {
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("fill_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
-
-            // Wind globals consumed by detail_sprite.gdshader. Runtime-only
-            // (not in project.godot's [shader_globals]) so RegisterRuntime
-            // creates them; gated on !IsEditorHint because [Tool] would
-            // otherwise re-add them in the editor where they don't apply.
-            ShaderGlobals.RegisterRuntime("wind_dir", RenderingServer.GlobalShaderParameterType.Vec3, windDirection.Normalized());
-            ShaderGlobals.RegisterRuntime("wind_amplitude", RenderingServer.GlobalShaderParameterType.Float, windAmplitude);
-            ShaderGlobals.RegisterRuntime("wind_frequency", RenderingServer.GlobalShaderParameterType.Float, windFrequency);
         }
+
+        // Wind globals (wind_dir / wind_amplitude / wind_frequency) live in
+        // project.godot's [shader_globals], so they exist from editor startup
+        // — Apply() can write to them every frame in [Tool] mode without
+        // hitting the "global_shader_uniforms.variables.has(p_name)" assert.
+        // Don't try to register them here: in [Tool] mode a script reload
+        // resets ShaderGlobals._registered while leaving the underlying
+        // RenderingServer state untouched, and re-Add fails noisily.
         Apply();
     }
 
@@ -293,6 +377,29 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
+
+        // --- Water -------------------------------------------------------
+        RenderingServer.GlobalShaderParameterSet("ripple_scale_a", rippleScaleA);
+        RenderingServer.GlobalShaderParameterSet("ripple_scale_b", rippleScaleB);
+        RenderingServer.GlobalShaderParameterSet("ripple_scroll_a", rippleScrollA);
+        RenderingServer.GlobalShaderParameterSet("ripple_scroll_b", rippleScrollB);
+        RenderingServer.GlobalShaderParameterSet("ripple_strength", rippleStrength);
+        RenderingServer.GlobalShaderParameterSet("fresnel_power", fresnelPower);
+        RenderingServer.GlobalShaderParameterSet("reflection_strength", reflectionStrength);
+        RenderingServer.GlobalShaderParameterSet("glint_sharpness", glintSharpness);
+        RenderingServer.GlobalShaderParameterSet("glint_strength", glintStrength);
+        RenderingServer.GlobalShaderParameterSet("ssr_max_distance", ssrMaxDistance);
+        RenderingServer.GlobalShaderParameterSet("ssr_steps", ssrSteps);
+        RenderingServer.GlobalShaderParameterSet("ssr_thickness", ssrThickness);
+        RenderingServer.GlobalShaderParameterSet("foam_color", ColorToVec3(foamColor));
+        RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);
+        RenderingServer.GlobalShaderParameterSet("foam_scale", foamScale);
+        RenderingServer.GlobalShaderParameterSet("foam_scroll", foamScroll);
+        RenderingServer.GlobalShaderParameterSet("foam_strength", foamStrength);
+        RenderingServer.GlobalShaderParameterSet("foam_threshold", foamThreshold);
+        RenderingServer.GlobalShaderParameterSet("foam_sharpness", foamSharpness);
+        RenderingServer.GlobalShaderParameterSet("water_debug", waterDebug);
+        RenderingServer.GlobalShaderParameterSet("debug_magenta_clouds", debugMagentaClouds ? 1 : 0);
 
         // --- Wind --------------------------------------------------------
         // Two-octave low-frequency sin sum for naturally uneven gusts —

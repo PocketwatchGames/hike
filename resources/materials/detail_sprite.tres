@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+; Shared template material for detail-sprite scatter. DetailEntry.GetMaterial()
+; loads + duplicates this and stamps per-entry parameters (sprite_texture,
+; fade_height) on the duplicate. Edit shader-wide defaults here; per-entry
+; overrides go on the DetailEntry resource.
+
+[ext_resource type="Shader" path="res://shaders/detail_sprite.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")

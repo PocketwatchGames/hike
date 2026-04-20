@@ -58,6 +58,8 @@ global uniform float sun_intensity;
 global uniform vec2 cloud_scroll;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
+global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
+global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
 uniform vec3 fog_color : source_color = vec3(0.85, 0.88, 0.95);

@@ -181,6 +181,12 @@ public static class ChunkDetailScatter
             // fragment shader still receives shadow attenuation on the sprite
             // itself so it darkens correctly when the terrain shadows it.
             mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            // Override the mesh's authored surface material with the runtime-
+            // built ShaderMaterial that has Texture + FadeHeight stamped from
+            // the DetailEntry. See DetailEntry.GetMaterial for the rationale
+            // (editor can't compile detail_sprite.gdshader, so per-entry
+            // material .tres files lose their parameters on save).
+            mmi.MaterialOverride = entry.GetMaterial();
             parent.AddChild(mmi);
         }
     }
