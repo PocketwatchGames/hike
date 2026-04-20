@@ -192,6 +192,30 @@ public static class VoxelTypeInfo
         return BlendNoise.TryGetValue(type, out float v) ? v : 0f;
     }
 
+    // Representative "ground color" per voxel type, used to tint the bottom of
+    // detail sprites so blades visually root into the surface they sit on.
+    // Biased ~40% darker than the authored ground tones so the tint doubles
+    // as a fake contact-AO — the darkened base reads as self-shadowing where
+    // the blade meets the ground rather than a flat color match.
+    public static readonly Dictionary<VoxelType, Color> GroundTint = new()
+    {
+        { VoxelType.Stone,       new Color(0.22f, 0.22f, 0.22f) },
+        { VoxelType.Grass,       new Color(0.16f, 0.22f, 0.09f) },
+        { VoxelType.Dirt,        new Color(0.16f, 0.11f, 0.08f) },
+        { VoxelType.Sand,        new Color(0.38f, 0.32f, 0.22f) },
+        { VoxelType.Wood,        new Color(0.22f, 0.15f, 0.09f) },
+        // Terrain resolves to grass_top on the slopes where detail grass
+        // actually spawns (gentle/flat ground). Treat as grass.
+        { VoxelType.Terrain,     new Color(0.16f, 0.22f, 0.09f) },
+        // TerrainPath never picks grass in the shader — worn dirt/stone only.
+        { VoxelType.TerrainPath, new Color(0.16f, 0.11f, 0.08f) },
+    };
+
+    public static Color GetGroundTint(VoxelType type)
+    {
+        return GroundTint.TryGetValue(type, out Color c) ? c : new Color(0.4f, 0.4f, 0.4f);
+    }
+
 
 
     // Per-axis opt-in to the DC mesher's sharp-corner path. Each flagged

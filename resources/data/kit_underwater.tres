@@ -9,3 +9,4 @@ FlatTile = 19
 WallTile = 0
 WallBand = Vector2(0.3, 0.75)
 BlendAmp = 0.55
+GroundTint = Color(0.22, 0.22, 0.18, 1)

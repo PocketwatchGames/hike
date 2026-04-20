@@ -37,4 +37,13 @@ public partial class EnvironmentKitData : Resource
     // Edge-jitter amplitude at boundaries with adjacent voxel types / kits.
     // 0 = straight bisector (crisp, for man-made walls). Higher = more jagged.
     [Export] public float BlendAmp = 0.55f;
+
+    // Detail-sprite root tint for blades/flowers scattered on an AUTO-Terrain
+    // voxel belonging to this kit. ChunkDetailScatter uses this to tint the
+    // bottom texels of each sprite so blades read as rooted in this kit's
+    // ground. Bias it ~50% darker than the authored FlatTile average so the
+    // tint doubles as a fake contact-AO at the blade base. Authored-override
+    // VoxelTypes (Grass/Dirt/Sand/etc.) bypass this and use
+    // VoxelTypeInfo.GroundTint instead.
+    [Export] public Color GroundTint = new Color(0.16f, 0.22f, 0.09f);
 }

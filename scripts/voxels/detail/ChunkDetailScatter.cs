@@ -3,20 +3,27 @@ using Godot;
 
 // Builds MultiMeshInstance3D children for one chunk's painted detail sprites.
 //
-// One MultiMesh is emitted per (chunk, DetailEntry.Mesh) — i.e. one draw call
-// per sprite type per chunk, regardless of instance count. Hundreds of grass
+// One MultiMesh is emitted per (chunk, DetailEntry) — i.e. one draw call per
+// sprite type per chunk, regardless of instance count. Hundreds of grass
 // blades in a chunk cost the same draw-call budget as one. Per-instance:
 //   - position    : voxel center + sub-voxel jitter, sitting on top of the
 //                   solid voxel that owns the DetailGroup paint
-//   - basis       : random yaw (when DetailEntry.RandomYaw) + uniform scale jitter
+//   - basis       : non-uniform scale (tex_width_world, tex_height_world, 1)
+//                   * per-instance random ScaleMin..ScaleMax multiplier. The
+//                   shader reads scale_x / scale_y separately so texture
+//                   aspect drives the sprite shape automatically.
 //   - custom data : (normal.xyz, _) — world-space surface normal estimated
 //                   from the painted voxel's neighbour heights. The shader
 //                   projects this onto the screen plane and uses it as the
 //                   sprite's up axis so blades on a slope lean with the
 //                   slope when viewed across the slope, and read as upright
 //                   when viewed along the slope.
+//   - color       : (r,g,b,1) — VoxelTypeInfo.GroundTint of the solid voxel
+//                   under the sprite. Shader lerps the bottom few pixels of
+//                   the sprite toward this color so blades read as rooted in
+//                   the ground instead of floating.
 //
-// All scatter inputs (placement, weighted entry pick, scale, yaw) hash from
+// All scatter inputs (placement, weighted entry pick, scale) hash from
 // (chunkCoord, x, y, z, slot) so the same chunk re-scattered produces the
 // same layout — chunk reload doesn't shuffle the field.
 public static class ChunkDetailScatter
@@ -29,6 +36,27 @@ public static class ChunkDetailScatter
     // could find and free them without touching the terrain meshes.
     private const string MULTIMESH_NAME_PREFIX = "DetailScatter_";
 
+    // World-to-texture-pixel ratio shared by every detail sprite. 16 matches
+    // the voxel tile grid (gen_voxel_tiles.py TILE = 16) so sprites sit at
+    // the same pixel density as the terrain they scatter over. Changing this
+    // resizes every scatter uniformly.
+    public const float PIXELS_PER_UNIT = 16f;
+
+    // Shared unit quad used by every detail sprite. Size (1, 1) so the
+    // scatter's per-instance basis scale lands in world units directly;
+    // CenterOffset shifts VERTEX.y to [0, 1] to match the shader's
+    // "base at Y=0" convention.
+    private static QuadMesh _sharedUnitQuad;
+    private static QuadMesh GetUnitQuad()
+    {
+        _sharedUnitQuad ??= new QuadMesh
+        {
+            Size = new Vector2(1f, 1f),
+            CenterOffset = new Vector3(0f, 0.5f, 0f),
+        };
+        return _sharedUnitQuad;
+    }
+
     // ±range scanned per neighbour column when estimating surface height for
     // the normal. Covers single-voxel ledges; larger steps are treated as
     // cliffs and the column's height is left as-is (returns wy unchanged),
@@ -39,7 +67,9 @@ public static class ChunkDetailScatter
     public static void Build(
         ChunkState data,
         System.Func<int, int, int, VoxelType> getVoxel,
+        System.Func<int, int, int, int> getKitId,
         DetailGroupData[] groups,
+        EnvironmentKitData[] kits,
         Node3D parent)
     {
         if (groups == null || groups.Length == 0)
@@ -96,6 +126,32 @@ public static class ChunkDetailScatter
                     // slope when viewed across it.
                     Vector3 normal = ComputeSurfaceNormal(chunkWx + x, chunkWy + y, chunkWz + z, getVoxel);
 
+                    // Ground tint for rooting the sprite's base visually. All
+                    // instances on this voxel share the same tint. AUTO-Terrain
+                    // voxels inherit their kit's GroundTint (because the actual
+                    // rendered tile comes from the kit's FlatTile, not from the
+                    // VoxelType); authored-override types and TerrainPath keep
+                    // the fixed VoxelType tint (TerrainPath is always dirt in
+                    // the shader, independent of kit).
+                    VoxelType voxelType = getVoxel(chunkWx + x, chunkWy + y, chunkWz + z);
+                    Color groundTint;
+                    if (voxelType == VoxelType.Terrain && kits != null)
+                    {
+                        int kitId = getKitId(chunkWx + x, chunkWy + y, chunkWz + z);
+                        if (kitId >= 0 && kitId < kits.Length && kits[kitId] != null)
+                        {
+                            groundTint = kits[kitId].GroundTint;
+                        }
+                        else
+                        {
+                            groundTint = VoxelTypeInfo.GetGroundTint(voxelType);
+                        }
+                    }
+                    else
+                    {
+                        groundTint = VoxelTypeInfo.GetGroundTint(voxelType);
+                    }
+
                     EnsureCumulativeWeights(group, ref cumulativeWeights, out float totalWeight);
                     if (totalWeight <= 0f)
                     {
@@ -117,7 +173,7 @@ public static class ChunkDetailScatter
 
                         uint entryRoll = Hash(chunkCoord, x, y, z, slot, 1);
                         DetailEntry entry = PickEntry(group, cumulativeWeights, totalWeight, entryRoll);
-                        if (entry == null || entry.Mesh == null)
+                        if (entry == null || entry.Texture == null)
                         {
                             continue;
                         }
@@ -134,19 +190,21 @@ public static class ChunkDetailScatter
                         float jz = INSET + (((posRoll >> 16) & 0xFFFF) / 65535f) * SPAN;
 
                         float scaleT = (shapeRoll & 0xFFFF) / 65535f;
-                        float scale = Mathf.Lerp(entry.ScaleMin, entry.ScaleMax, scaleT);
+                        float scaleMult = Mathf.Lerp(entry.ScaleMin, entry.ScaleMax, scaleT);
 
-                        float yaw = 0f;
-                        if (entry.RandomYaw)
-                        {
-                            yaw = (((shapeRoll >> 16) & 0xFFFF) / 65535f) * Mathf.Tau;
-                        }
+                        // Per-instance world size comes from the texture's
+                        // pixel dimensions divided by PIXELS_PER_UNIT, so
+                        // trimming a PNG shrinks the sprite automatically.
+                        // ScaleMult is the per-instance ScaleMin..ScaleMax
+                        // roll — layered on as a uniform multiplier.
+                        float worldW = entry.Texture.GetWidth() / PIXELS_PER_UNIT * scaleMult;
+                        float worldH = entry.Texture.GetHeight() / PIXELS_PER_UNIT * scaleMult;
 
                         // Sit on top of the solid voxel. y+1 is the air-voxel
                         // floor in chunk-local coords; the chunk node's
                         // Position already adds the world offset.
                         var localPos = new Vector3(x + jx, y + 1f, z + jz);
-                        var basis = new Basis(Vector3.Up, yaw).Scaled(new Vector3(scale, scale, scale));
+                        var basis = Basis.Identity.Scaled(new Vector3(worldW, worldH, 1f));
                         var transform = new Transform3D(basis, localPos);
 
                         if (!buckets.TryGetValue(entry, out List<InstanceData> list))
@@ -154,7 +212,7 @@ public static class ChunkDetailScatter
                             list = new List<InstanceData>();
                             buckets[entry] = list;
                         }
-                        list.Add(new InstanceData { Transform = transform, Normal = normal });
+                        list.Add(new InstanceData { Transform = transform, Normal = normal, GroundTint = groundTint });
                     }
                 }
             }
@@ -173,18 +231,20 @@ public static class ChunkDetailScatter
             var mm = new MultiMesh();
             mm.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
             mm.UseCustomData = true;
-            mm.Mesh = entry.Mesh;
+            mm.UseColors = true;
+            mm.Mesh = GetUnitQuad();
             mm.InstanceCount = instances.Count;
             for (int i = 0; i < instances.Count; i++)
             {
                 mm.SetInstanceTransform(i, instances[i].Transform);
                 Vector3 n = instances[i].Normal;
                 mm.SetInstanceCustomData(i, new Color(n.X, n.Y, n.Z, 0f));
+                mm.SetInstanceColor(i, instances[i].GroundTint);
             }
 
             var mmi = new MultiMeshInstance3D();
             mmi.Multimesh = mm;
-            mmi.Name = MULTIMESH_NAME_PREFIX + entry.Mesh.ResourceName;
+            mmi.Name = MULTIMESH_NAME_PREFIX + (entry.Texture != null ? entry.Texture.ResourceName : "unnamed");
             // Detail sprites don't cast shadows — at sprite scale the shadow
             // atlas footprint per blade is sub-pixel and just adds noise. The
             // fragment shader still receives shadow attenuation on the sprite
@@ -304,5 +364,6 @@ public static class ChunkDetailScatter
     {
         public Transform3D Transform;
         public Vector3 Normal;
+        public Color GroundTint;
     }
 }

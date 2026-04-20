@@ -79,6 +79,12 @@ public partial class ChunkMesh : Node3D
     // streaming refactor that swaps worlds should re-call SetDetailGroups.
     private static DetailGroupData[] _activeDetailGroups;
 
+    // World-scoped kit palette. Cached alongside _activeDetailGroups so
+    // ChunkDetailScatter can resolve each painted voxel's kit to its
+    // GroundTint without threading the array through every chunk-build call.
+    private static EnvironmentKitData[] _activeKits;
+    public static EnvironmentKitData[] ActiveKits => _activeKits;
+
     // Upload the active world's environment kit palette to the terrain
     // material's uniform arrays. The shader indexes these arrays via the
     // per-vertex KitId packed into CUSTOM1.yzw by the mesher. Call once at
@@ -86,6 +92,7 @@ public partial class ChunkMesh : Node3D
     // first renders; subsequent calls are a no-op if kits haven't changed.
     public static void SetKits(EnvironmentKitData[] kits)
     {
+        _activeKits = kits;
         // kit_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for the
         //   flat↔wall smoothstep blend. Overlays are authored per-voxel as a
         //   direct tile_array base-layer index (see OverlayId), not owned by
@@ -169,7 +176,7 @@ public partial class ChunkMesh : Node3D
         // Detail-sprite scatter (grass, flowers, etc.). Lives parallel to the
         // terrain mesh — same chunk lifetime, no separate eviction needed.
         // Skips internally when the chunk has no painted detail.
-        ChunkDetailScatter.Build(data, getVoxel, _activeDetailGroups, this);
+        ChunkDetailScatter.Build(data, getVoxel, getKitId, _activeDetailGroups, _activeKits, this);
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();

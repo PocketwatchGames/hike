@@ -21,6 +21,15 @@ render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light
 
 uniform sampler2D sprite_texture : source_color, filter_nearest;
 
+// Ground-rooting: the bottom N texels of the sprite lerp toward COLOR.rgb,
+// which ChunkDetailScatter sets per-instance from VoxelTypeInfo.GroundTint
+// of the voxel below. Kills the "sprite floating above the ground" read at
+// iso angles. smoothstep gives a gradient within the band; per texel-column
+// noise jitters the start of the fade so the tinted region has an irregular
+// pixel-art boundary rather than a clean horizontal band.
+uniform float ground_fade_pixels : hint_range(0.0, 8.0) = 3.0;
+uniform float ground_fade_noise_pixels : hint_range(0.0, 8.0) = 1.5;
+
 // --- Lighting globals (shared with sprite_lit / voxel_clip) ---
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
@@ -95,7 +104,13 @@ void vertex() {
 	// sprite_stretch (= 1/cos(camera_pitch)). Foreshortening only affects
 	// vertical world distance under iso pitch; horizontal world distance is
 	// already in the screen plane and needs no compensation.
-	float scale = length(MODEL_MATRIX[0].xyz);
+	// Non-uniform per-instance scale: the scatter packs texture width and
+	// height (in world units) into MODEL_MATRIX columns 0 and 1 respectively,
+	// so sprites natively sit at their texture's pixel aspect without any
+	// authored mesh-size tuning. ScaleMin/ScaleMax multiplier is folded in
+	// uniformly on top.
+	float scale_x = length(MODEL_MATRIX[0].xyz);
+	float scale_y = length(MODEL_MATRIX[1].xyz);
 	vec3 cam_back = INV_VIEW_MATRIX[2].xyz;
 	vec3 sprite_right_yaw = normalize(cross(vec3(0.0, 1.0, 0.0), cam_back));
 	vec3 sprite_up_yaw = vec3(0.0, 1.0, 0.0);
@@ -131,13 +146,21 @@ void vertex() {
 	sprite_up_rolled.y *= sprite_stretch;
 
 	vec3 vertex_world = world_origin
-		+ VERTEX.x * scale * sprite_right_rolled
-		+ VERTEX.y * scale * sprite_up_rolled;
+		+ VERTEX.x * scale_x * sprite_right_rolled
+		+ VERTEX.y * scale_y * sprite_up_rolled;
 
 	// Bend reference height in *unstretched* world units so wind amplitude
 	// doesn't grow when the camera tilts more.
-	float h = max(VERTEX.y * scale, 0.0);
+	float h = max(VERTEX.y * scale_y, 0.0);
 	float bend = h * h;
+
+	// Random horizontal mirror per instance — picks a different hash offset
+	// from the sway phase so mirror doesn't correlate with wind timing.
+	// Breaks up the read of a repeating sprite across a field without extra
+	// art variants. UV flip only (geometry stays put); the texture is
+	// sampled from the opposite side at the fragment stage.
+	float mirror = step(0.5, hash12(world_origin.xz + vec2(7.31, 13.71)));
+	UV.x = mix(UV.x, 1.0 - UV.x, mirror);
 
 	// Per-sprite phase from the instance origin so a field doesn't sway in
 	// lock-step. Two octaves at coprime frequencies for non-repeating motion.
@@ -172,6 +195,23 @@ void fragment() {
 	if (tex.a < 0.5) {
 		discard;
 	}
+
+	// Ground root blend — smoothly lerp the bottom N texels of the sprite
+	// toward the per-instance ground tint (COLOR, set by ChunkDetailScatter).
+	// Per texel-column hash offsets the fade threshold so the boundary is
+	// irregular (pixel-art "drip"), while smoothstep keeps the interior
+	// gradient reading as real lerp rather than a flat color block.
+	// Quantizing the hash input to the texel grid (not raw UV.x) keeps the
+	// boundary stable under filter_nearest — all screen fragments within one
+	// texel agree on threshold, so there's no sub-texel shimmer. Per-instance
+	// offset decorrelates adjacent blades.
+	vec2 tex_size = vec2(textureSize(sprite_texture, 0));
+	float texel_col = floor(UV.x * tex_size.x);
+	float col_hash = hash12(vec2(texel_col, world_origin.x * 17.0 + world_origin.z * 23.0));
+	float jitter_px = (col_hash - 0.5) * ground_fade_noise_pixels;
+	float threshold = 1.0 - (ground_fade_pixels + jitter_px) / tex_size.y;
+	float ground_blend = smoothstep(threshold, 1.0, UV.y);
+	tex.rgb = mix(tex.rgb, COLOR.rgb, ground_blend);
 
 	// Sample the light map at the sprite's anchor (root). Per-fragment
 	// sampling would shimmer as the sprite sways; a single anchor sample
