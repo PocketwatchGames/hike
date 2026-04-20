@@ -53,7 +53,7 @@ global uniform float cloud_altitude;
 // shaded pixel ends up ~2× brighter than the authored texture — which is
 // what made terrain look washed out under debug_unlit while detail sprites
 // (declared with source_color) matched their sources.
-uniform sampler2DArray tile_array : source_color, filter_nearest, repeat_enable;
+uniform sampler2DArray tile_array : source_color, filter_nearest_mipmap, repeat_enable;
 
 // Tile layer indices — must match VoxelTypeInfo.TILE_* in C#.
 // Values are the BASE layer of a tile's contiguous variant block. The real

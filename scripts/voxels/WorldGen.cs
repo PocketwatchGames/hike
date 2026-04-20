@@ -111,6 +111,13 @@ public static class WorldGen
             }
         }
 
+        // Tag the submerged shell as KIT_UNDERWATER. Runs after every chunk
+        // (and its water voxels) exist so we can check actual water adjacency
+        // instead of "wy <= WATER_LEVEL" — a y-only rule paints buried rock
+        // under above-water cliffs as underwater, and the mesher's 27-voxel
+        // kit vote then bleeds sand onto cliff faces nowhere near water.
+        TagSubmergedKits(ws);
+
         // Carve swiss-cheese caves through terrain. Runs after terrain+tunnel
         // generation so cave carving sees the full solid column and can
         // connect tunnels vertically where they overlap.
@@ -390,14 +397,14 @@ public static class WorldGen
                         ? (byte)VoxelTypeInfo.SharpAxes.Y
                         : columnShape;
 
-                    // Kit assignment: submerged voxels get the underwater kit,
-                    // everything else starts temperate. Cave interiors are
-                    // re-tagged to KIT_CAVE by MarkCaveSurfaceShapes after the
-                    // swiss-cheese cave carving pass — that's where the "buried
-                    // solid adjacent to carved air/water" heuristic lives, so
-                    // we let it own cave kit assignment uniformly across both
-                    // the tunnel and cave paths.
-                    data.KitId[x, y, z] = wy <= WATER_LEVEL ? KIT_UNDERWATER : KIT_TEMPERATE;
+                    // Kit assignment: default every solid voxel to temperate.
+                    // TagSubmergedKits runs after all chunks/water exist and
+                    // re-tags the submerged shell to KIT_UNDERWATER based on
+                    // actual water adjacency, so buried rock under above-water
+                    // cliffs stays temperate (no sand bleed on cliff faces).
+                    // Cave interiors are later re-tagged to KIT_CAVE by
+                    // MarkCaveSurfaceShapes.
+                    data.KitId[x, y, z] = KIT_TEMPERATE;
                 }
             }
         }
@@ -551,14 +558,17 @@ public static class WorldGen
     }
 
     // Sweep every column, find the topmost solid voxel, and mark any *buried*
-    // solid voxel (i.e. below the top) that has an air/water 6-neighbour as
-    // SharpAxes.Y. This is the authored form of "cave interior surfaces snap
-    // flat" — ceilings, floors, lateral walls of tunnels, and the noise-carved
-    // island voxels that sit inside a cave all qualify, and they all want the
-    // same ruleset regardless of whether the outdoor column above is a plateau
-    // or a path-band ramp. The `buried` gate leaves the outdoor surface voxel
-    // alone so plateau-vs-ramp shape at the surface is whatever GenerateChunk
-    // already wrote.
+    // solid voxel (i.e. below the top) that borders a cave-interior air/water
+    // cell as SharpAxes.Y + KIT_CAVE. This is the authored form of "cave
+    // interior surfaces snap flat" — ceilings, floors, lateral walls of
+    // tunnels, and noise-carved island voxels all qualify.
+    //
+    // "Cave-interior" air is air/water that has solid above it somewhere in
+    // its column — i.e. enclosed by a ceiling. A cliff face voxel ALSO sits
+    // "buried" in its own (tall) column and is adjacent to air, but that air
+    // is open to sky (no solid above in its own shorter column), so the
+    // cave check filters it out. Without that filter every cliff face gets
+    // KIT_CAVE, whose FlatTile is sand, and stone cliffs grow sand bases.
     private static void MarkCaveSurfaceShapes(WorldState ws)
     {
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -568,20 +578,43 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
+        int sizeX = worldMaxX - worldMinX + 1;
+        int sizeZ = worldMaxZ - worldMinZ + 1;
+        int[,] columnTopY = new int[sizeX, sizeZ];
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                int topY = worldMinY - 1;
+                int t = worldMinY - 1;
                 for (int wy = worldMaxY; wy >= worldMinY; wy--)
                 {
                     var v = ws.GetVoxelWorld(wx, wy, wz);
                     if (VoxelTypeInfo.IsSolid(v) && v != VoxelType.Barrier)
                     {
-                        topY = wy;
+                        t = wy;
                         break;
                     }
                 }
+                columnTopY[wx - worldMinX, wz - worldMinZ] = t;
+            }
+        }
+
+        bool IsCaveAirOrWater(int wx, int wy, int wz)
+        {
+            int ax = wx - worldMinX;
+            int az = wz - worldMinZ;
+            if (ax < 0 || ax >= sizeX || az < 0 || az >= sizeZ) { return false; }
+            var v = ws.GetVoxelWorld(wx, wy, wz);
+            if (v != VoxelType.Air && v != VoxelType.Water) { return false; }
+            // "Has solid above" = under a ceiling = cave interior, not cliff-side open sky.
+            return wy < columnTopY[ax, az];
+        }
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int topY = columnTopY[wx - worldMinX, wz - worldMinZ];
                 if (topY <= worldMinY)
                 {
                     continue;
@@ -594,19 +627,18 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    if (IsAirOrWater(ws, wx - 1, wy, wz)
-                        || IsAirOrWater(ws, wx + 1, wy, wz)
-                        || IsAirOrWater(ws, wx, wy - 1, wz)
-                        || IsAirOrWater(ws, wx, wy + 1, wz)
-                        || IsAirOrWater(ws, wx, wy, wz - 1)
-                        || IsAirOrWater(ws, wx, wy, wz + 1))
+                    if (IsCaveAirOrWater(wx - 1, wy, wz)
+                        || IsCaveAirOrWater(wx + 1, wy, wz)
+                        || IsCaveAirOrWater(wx, wy - 1, wz)
+                        || IsCaveAirOrWater(wx, wy + 1, wz)
+                        || IsCaveAirOrWater(wx, wy, wz - 1)
+                        || IsCaveAirOrWater(wx, wy, wz + 1))
                     {
                         ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
-                        // Same "buried + adjacent to carved" heuristic that
-                        // identifies a cave-interior surface. Stamp the cave
-                        // kit so the shader can later paint it distinctly from
-                        // the temperate surface above. Overrides KIT_UNDERWATER
-                        // for below-water caves — the cave palette wins there.
+                        // Stamp the cave kit so the shader can paint it
+                        // distinctly from the temperate surface above.
+                        // Overrides KIT_UNDERWATER for submerged caves —
+                        // the cave palette wins there.
                         ws.SetKitIdWorld(wx, wy, wz, KIT_CAVE);
                     }
                 }
@@ -614,10 +646,64 @@ public static class WorldGen
         }
     }
 
-    private static bool IsAirOrWater(WorldState ws, int wx, int wy, int wz)
+    // Chebyshev radius for the water-adjacency search in TagSubmergedKits.
+    // Must be >= 2: the mesher's kit vote is a 3x3x3 neighbourhood around a
+    // DC cell corner, so a seabed cell's vote sees one layer of seabed (would
+    // be KIT_UNDERWATER) plus one layer of buried rock just below (would be
+    // KIT_TEMPERATE). With a 1-voxel shell the two layers tie at 9–9 and the
+    // lower-index kit (temperate) wins — seabed reads as grass. A 2-voxel
+    // shell tags both layers underwater so the vote goes 18–0.
+    private const int SUBMERGED_KIT_RADIUS = 2;
+
+    // Re-tag solid voxels at or below WATER_LEVEL to KIT_UNDERWATER iff they
+    // sit within SUBMERGED_KIT_RADIUS of a water voxel. Runs after every
+    // chunk exists so the water pass has already filled every non-solid
+    // wy<=WATER_LEVEL cell with VoxelType.Water. Semantic "near water" beats
+    // the old "wy<=WATER_LEVEL" rule because the latter paints deeply buried
+    // rock under cliffs as underwater — then the mesher's 27-voxel kit vote
+    // for nearby DC cells drags that sand onto the visible cliff face.
+    private static void TagSubmergedKits(WorldState ws)
     {
-        var v = ws.GetVoxelWorld(wx, wy, wz);
-        return v == VoxelType.Air || v == VoxelType.Water;
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                for (int wy = worldMinY; wy <= WATER_LEVEL; wy++)
+                {
+                    var v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier)
+                    {
+                        continue;
+                    }
+
+                    bool nearWater = false;
+                    for (int dy = -SUBMERGED_KIT_RADIUS; dy <= SUBMERGED_KIT_RADIUS && !nearWater; dy++)
+                    {
+                        for (int dx = -SUBMERGED_KIT_RADIUS; dx <= SUBMERGED_KIT_RADIUS && !nearWater; dx++)
+                        {
+                            for (int dz = -SUBMERGED_KIT_RADIUS; dz <= SUBMERGED_KIT_RADIUS && !nearWater; dz++)
+                            {
+                                if (ws.GetVoxelWorld(wx + dx, wy + dy, wz + dz) == VoxelType.Water)
+                                {
+                                    nearWater = true;
+                                }
+                            }
+                        }
+                    }
+
+                    if (nearWater)
+                    {
+                        ws.SetKitIdWorld(wx, wy, wz, KIT_UNDERWATER);
+                    }
+                }
+            }
+        }
     }
 
     // Overlay id values. 0 = no overlay. A non-zero OverlayId is a direct

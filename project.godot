@@ -24,6 +24,10 @@ window/size/viewport_height=1080
 
 project/assembly_name="hike"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/voxel_atlas_stitcher/plugin.cfg")
+
 [input]
 
 ToggleConsole={

@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Temperate"
-WallBand = Vector2(0.3, 0.75)
+WallBand = Vector2(0.55, 0.85)
 BlendAmp = 0.55
 GroundTint = Color(0.17244, 0.18, 0.115200005, 1)
