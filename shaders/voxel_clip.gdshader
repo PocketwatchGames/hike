@@ -89,6 +89,11 @@ const int TILE_VARIANT_TABLE_SIZE = 64;
 uniform vec4 tile_variants[TILE_VARIANT_TABLE_SIZE];
 uniform float band_origin_y = 0.0;
 uniform float band_height = 32.0;
+// Crossfade width across an elevation-band seam, expressed as a fraction of
+// band_height. 0 = hard step (original behavior); larger values smooth the
+// transition between a tile's adjacent band layers. Both bands share the
+// variant hash so the crossfade doesn't also flip splatter variant.
+uniform float band_blend : hint_range(0.0, 0.5) = 0.15;
 
 // Low-frequency grayscale overlay multiplied into albedo. Breaks up obvious
 // tiling in large stretches of the same material without needing multi-tile
@@ -188,15 +193,23 @@ float hash13(vec3 p) {
 	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-// Resolve the concrete tile_array layer from a tile's base layer plus
-// elevation band (world Y) and position-hashed variant. Tiles configured
-// with (1,1,1,_) collapse to base_layer with unscaled UVs — identical to
-// the pre-variant code.
+// Resolve the two adjacent tile_array layers a fragment straddles (the
+// lower band + the band above it, wrapped modulo `bands`) along with the
+// crossfade weight `band_t` in [0,1] and the texture's world-to-UV scale.
+// band_t ramps from 0 to 1 across the top `band_blend` fraction of each
+// band so mid-band fragments return band_t=0 and sample only layer_lo,
+// matching the pre-blend behavior.
 //
-// `uv_scale` is reported back so sample_tile can keep a single tile_variants
-// lookup per sample; the variant hash uses scaled world_pos too, so all
-// fragments inside one splatter-sized region agree on their variant pick.
-float resolve_layer(float base_layer, vec3 world_pos, out float uv_scale) {
+// Tiles configured with (1,1,1,_) collapse to layer_lo == layer_hi so the
+// crossfade is a no-op. The variant hash is position-based and shared
+// across both layers so the crossfade doesn't also swap splatter variant.
+void resolve_layer(
+		float base_layer,
+		vec3 world_pos,
+		out float layer_lo,
+		out float layer_hi,
+		out float band_t,
+		out float uv_scale) {
 	int id = clamp(int(base_layer), 0, TILE_VARIANT_TABLE_SIZE - 1);
 	vec4 cfg = tile_variants[id];
 	float bands = max(1.0, cfg.x);
@@ -206,26 +219,46 @@ float resolve_layer(float base_layer, vec3 world_pos, out float uv_scale) {
 	// terrain's geographic Y banding is independent of any overlay's
 	// tiling scale. Modulus so bands cycle forever up and down (GLSL mod
 	// handles negative Y correctly: mod(-1, 4) = 3).
-	float band = mod(floor((world_pos.y - band_origin_y) / band_height), bands);
+	float b = (world_pos.y - band_origin_y) / band_height;
+	float base_band = floor(b);
+	float frac = b - base_band;
+	float band_lo = mod(base_band, bands);
+	float band_hi = mod(base_band + 1.0, bands);
+	band_t = smoothstep(1.0 - band_blend, 1.0, frac);
 	// Variant granularity follows the texture scale so one splatter-sized
 	// region picks one variant. At scale=1 this is per-voxel (the original
 	// behavior); at scale=0.25 it's per-4-voxel-region.
 	vec3 scaled = world_pos * uv_scale;
 	float h = hash13(floor(scaled) + vec3(37.2, 11.7, 91.3));
 	float variant = clamp(floor(h * per_band), 0.0, per_band - 1.0);
-	return base_layer + band * per_band + variant;
+	layer_lo = base_layer + band_lo * per_band + variant;
+	layer_hi = base_layer + band_hi * per_band + variant;
 }
 
 // Triplanar sample of a tile with variant/band resolution. `blend` is the
-// axis weight vector computed from the shading normal in fragment().
+// axis weight vector computed from the shading normal in fragment(). When
+// a fragment falls inside the elevation-band crossfade window we sample
+// both the lower and upper band layers and lerp; outside the window we
+// skip the second sample entirely.
 vec4 sample_tile(float base_layer, vec3 world_pos, vec3 blend) {
+	float layer_lo;
+	float layer_hi;
+	float band_t;
 	float uv_scale;
-	float layer = resolve_layer(base_layer, world_pos, uv_scale);
+	resolve_layer(base_layer, world_pos, layer_lo, layer_hi, band_t, uv_scale);
 	vec3 wp = world_pos * uv_scale;
-	vec4 tex_xy = texture(tile_array, vec3(wp.x, -wp.y, layer));
-	vec4 tex_xz = texture(tile_array, vec3(wp.x,  wp.z, layer));
-	vec4 tex_yz = texture(tile_array, vec3(wp.z, -wp.y, layer));
-	return tex_xz * blend.y + tex_xy * blend.z + tex_yz * blend.x;
+	vec4 lo_xy = texture(tile_array, vec3(wp.x, -wp.y, layer_lo));
+	vec4 lo_xz = texture(tile_array, vec3(wp.x,  wp.z, layer_lo));
+	vec4 lo_yz = texture(tile_array, vec3(wp.z, -wp.y, layer_lo));
+	vec4 tex_lo = lo_xz * blend.y + lo_xy * blend.z + lo_yz * blend.x;
+	if (band_t > 0.0) {
+		vec4 hi_xy = texture(tile_array, vec3(wp.x, -wp.y, layer_hi));
+		vec4 hi_xz = texture(tile_array, vec3(wp.x,  wp.z, layer_hi));
+		vec4 hi_yz = texture(tile_array, vec3(wp.z, -wp.y, layer_hi));
+		vec4 tex_hi = hi_xz * blend.y + hi_xy * blend.z + hi_yz * blend.x;
+		return mix(tex_lo, tex_hi, band_t);
+	}
+	return tex_lo;
 }
 float vnoise(vec3 p) {
 	vec3 i = floor(p);

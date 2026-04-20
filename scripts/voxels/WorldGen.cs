@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 public static class WorldGen
@@ -43,6 +44,12 @@ public static class WorldGen
     public const int FOG_FALLOFF_HEIGHT = 8;
     public const int FOG_MAX_DENSITY = 255;
 
+    // Horizontal cells per 1 vertical voxel on the ramp skirt cast by a taller
+    // plateau into its lower neighbour. With PlateauStep=4, slope=1 produces
+    // a 4-cell ramp that rises one full plateau step — steep (45°) but
+    // narrow, matching the "ramps should be a handful of cells wide" spec.
+    private const int RAMP_SLOPE = 1;
+
     public static WorldState Generate(WorldGenData genData)
     {
         var min = new Vector3I(-genData.SizeX / 2, -1, -genData.SizeZ / 2);
@@ -73,17 +80,17 @@ public static class WorldGen
         grassNoise.Frequency = 0.1f;
         grassNoise.FractalOctaves = 2;
 
-        var pathNoise = new FastNoiseLite();
-        pathNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        pathNoise.Seed = genData.PathNoiseSeed;
-        pathNoise.Frequency = 0.05f;
-        pathNoise.FractalOctaves = 2;
-
-        var riverNoise = new FastNoiseLite();
-        riverNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        riverNoise.Seed = genData.RiverNoiseSeed;
-        riverNoise.Frequency = 0.015f;
-        riverNoise.FractalOctaves = 2;
+        // Dedicated low-frequency gate noise. Its zero-crossings mark
+        // plateau-boundary segments that get ramped; everything else stays a
+        // cliff. Lower frequency than pathNoise so the world has just a
+        // handful of long, sparse ramp zones rather than dozens of short
+        // meanders. Seeded off PathNoiseSeed so the pattern is stable with
+        // the rest of the world-gen seed.
+        var rampGateNoise = new FastNoiseLite();
+        rampGateNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        rampGateNoise.Seed = genData.PathNoiseSeed;
+        rampGateNoise.Frequency = 0.015f;
+        rampGateNoise.FractalOctaves = 1;
 
         var forestNoise = new FastNoiseLite();
         forestNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -96,6 +103,13 @@ public static class WorldGen
         int spawnFlatMinZ = genData.SpawnBuildingOriginZ - genData.SpawnFlatPadding;
         int spawnFlatMaxZ = genData.SpawnBuildingOriginZ + genData.SpawnBuildingDepth - 1 + genData.SpawnFlatPadding;
 
+        // Build the integer height field once up front. Chunk and prop
+        // generation read from this map instead of re-evaluating noise per
+        // voxel — the shape is also authored here (plateau / ramp / river)
+        // so geometry is noise-free by construction.
+        var heightMap = BuildHeightMap(ws, genData, terrainNoise, rampGateNoise,
+            spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+
         for (int x = ws.Min.X; x <= ws.Max.X; x++)
         {
             for (int y = ws.Min.Y; y <= ws.Max.Y; y++)
@@ -104,8 +118,7 @@ public static class WorldGen
                 {
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
-                    GenerateChunk(chunk, genData, terrainNoise, tunnelNoise, pathNoise, riverNoise,
-                        spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+                    GenerateChunk(chunk, genData, tunnelNoise, heightMap);
                     ws._chunks[coord] = chunk;
                 }
             }
@@ -168,117 +181,427 @@ public static class WorldGen
             for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
             {
                 var coord = new Vector3I(x, 0, z);
-                GenerateProps(ws, coord, genData, terrainNoise, tunnelNoise, grassNoise, pathNoise, riverNoise, forestNoise,
-                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+                GenerateProps(ws, coord, genData, grassNoise, forestNoise, heightMap);
             }
         }
 
         // Compute sunlight after all geometry exists.
         LightEngine.ComputeSunlight(ws);
 
+        _lastHeightMap = heightMap;
+        _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
         return ws;
     }
 
-    // Shared with GenerateProps so the prop "is this a flat grassy spot?"
-    // check evaluates the same noise field as terrain generation.
-    private static float RawHeightAt(int wx, int wz, FastNoiseLite terrainNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
+    // Set at the end of Generate so debug dumps / console commands can
+    // inspect the height field without the caller having to plumb it through.
+    private static HeightMap? _lastHeightMap;
+    private static int _lastPlateauStep = 1;
+
+    // Writes three PPM images (plateau, height, ramp mask) and a stats text
+    // file to `dir`. Called from the `worldgen_debug` console command and
+    // from the headless auto-dump path in Main.
+    public static void DumpDebug(string dir)
+    {
+        if (!_lastHeightMap.HasValue)
+        {
+            GD.PrintErr("worldgen_debug: no world has been generated yet.");
+            return;
+        }
+        HeightMap hm = _lastHeightMap.Value;
+        System.IO.Directory.CreateDirectory(dir);
+
+        int sizeX = hm.Plateau.GetLength(0);
+        int sizeZ = hm.Plateau.GetLength(1);
+        int total = sizeX * sizeZ;
+
+        var plateauHist = new Dictionary<int, int>();
+        var heightHist = new Dictionary<int, int>();
+        var liftHist = new Dictionary<int, int>();
+        int rampCells = 0;
+        int plateauCells = 0;
+        int minP = int.MaxValue, maxP = int.MinValue;
+        int minH = int.MaxValue, maxH = int.MinValue;
+        for (int x = 0; x < sizeX; x++)
+        {
+            for (int z = 0; z < sizeZ; z++)
+            {
+                int p = hm.Plateau[x, z];
+                int h = hm.Height[x, z];
+                plateauHist.TryGetValue(p, out int pc); plateauHist[p] = pc + 1;
+                heightHist.TryGetValue(h, out int hc); heightHist[h] = hc + 1;
+                int lift = h - p;
+                liftHist.TryGetValue(lift, out int lc); liftHist[lift] = lc + 1;
+                if (lift > 0) { rampCells++; } else { plateauCells++; }
+                if (p < minP) { minP = p; }
+                if (p > maxP) { maxP = p; }
+                if (h < minH) { minH = h; }
+                if (h > maxH) { maxH = h; }
+            }
+        }
+
+        // Plateau-transition count: how often adjacent columns have different
+        // plateaus, split by |delta|. This is the key signal for "does the
+        // plateau field actually look plateau-y, or is it a stippled mess?".
+        var transHist = new Dictionary<int, int>();
+        int transCount = 0;
+        int adjPairs = 0;
+        for (int x = 0; x < sizeX; x++)
+        {
+            for (int z = 0; z < sizeZ; z++)
+            {
+                int p = hm.Plateau[x, z];
+                if (x + 1 < sizeX)
+                {
+                    int d = Math.Abs(hm.Plateau[x + 1, z] - p);
+                    transHist.TryGetValue(d, out int tc); transHist[d] = tc + 1;
+                    if (d > 0) { transCount++; }
+                    adjPairs++;
+                }
+                if (z + 1 < sizeZ)
+                {
+                    int d = Math.Abs(hm.Plateau[x, z + 1] - p);
+                    transHist.TryGetValue(d, out int tc); transHist[d] = tc + 1;
+                    if (d > 0) { transCount++; }
+                    adjPairs++;
+                }
+            }
+        }
+
+        using (var sw = new System.IO.StreamWriter($"{dir}/stats.txt"))
+        {
+            sw.WriteLine($"World: {sizeX} x {sizeZ} = {total} columns");
+            sw.WriteLine($"RAMP_SLOPE={RAMP_SLOPE}, PlateauStep={_lastPlateauStep}, rampRadius={_lastPlateauStep * RAMP_SLOPE}");
+            sw.WriteLine();
+            sw.WriteLine($"Ramp cells: {rampCells} ({100.0 * rampCells / total:F1}%)");
+            sw.WriteLine($"Plain plateau cells: {plateauCells} ({100.0 * plateauCells / total:F1}%)");
+            sw.WriteLine($"Plateau range: [{minP}, {maxP}]");
+            sw.WriteLine($"Height range:  [{minH}, {maxH}]");
+            sw.WriteLine();
+            sw.WriteLine($"Adjacent-plateau transitions: {transCount} / {adjPairs} pairs ({100.0 * transCount / adjPairs:F1}%)");
+            sw.WriteLine("Transition-delta histogram (|Δplateau| between adjacent columns : count):");
+            foreach (var kv in transHist.OrderBy(k => k.Key))
+            {
+                sw.WriteLine($"  {kv.Key,4}: {kv.Value}");
+            }
+            sw.WriteLine();
+            sw.WriteLine("Plateau histogram:");
+            foreach (var kv in plateauHist.OrderBy(k => k.Key))
+            {
+                sw.WriteLine($"  {kv.Key,4}: {kv.Value}");
+            }
+            sw.WriteLine();
+            sw.WriteLine("Height histogram:");
+            foreach (var kv in heightHist.OrderBy(k => k.Key))
+            {
+                sw.WriteLine($"  {kv.Key,4}: {kv.Value}");
+            }
+            sw.WriteLine();
+            sw.WriteLine("Ramp lift histogram (h - plateau : count):");
+            foreach (var kv in liftHist.OrderBy(k => k.Key))
+            {
+                sw.WriteLine($"  {kv.Key,4}: {kv.Value}");
+            }
+        }
+
+        WritePlateauPpm($"{dir}/plateau.ppm", hm.Plateau, minP, maxP, _lastPlateauStep);
+        WritePlateauPpm($"{dir}/height.ppm", hm.Height, minH, maxH, _lastPlateauStep);
+        WriteRampPpm($"{dir}/ramp.ppm", hm);
+
+        GD.Print($"worldgen_debug: wrote {dir}/stats.txt, plateau.ppm, height.ppm, ramp.ppm");
+    }
+
+    // Paints each plateau step as a distinct hue (so 4-voxel bands read as
+    // flat color patches) and darkens within a band by the voxel offset from
+    // the band's base (so ramp lift inside a band shows up as a gradient).
+    private static void WritePlateauPpm(string path, int[,] field, int min, int max, int step)
+    {
+        int w = field.GetLength(0);
+        int h = field.GetLength(1);
+        using var fs = System.IO.File.Create(path);
+        byte[] header = System.Text.Encoding.ASCII.GetBytes($"P6\n{w} {h}\n255\n");
+        fs.Write(header, 0, header.Length);
+        byte[] row = new byte[w * 3];
+        for (int z = h - 1; z >= 0; z--)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int v = field[x, z];
+                int bandIndex = (int)Math.Floor((double)v / Math.Max(1, step));
+                int within = v - bandIndex * step;
+                // Cycle a 6-color palette by band; dim within the band.
+                (byte r, byte g, byte b) palette = PaletteFor(bandIndex);
+                float shade = 1f - 0.6f * within / Math.Max(1, step);
+                row[x * 3 + 0] = (byte)Math.Clamp(palette.r * shade, 0, 255);
+                row[x * 3 + 1] = (byte)Math.Clamp(palette.g * shade, 0, 255);
+                row[x * 3 + 2] = (byte)Math.Clamp(palette.b * shade, 0, 255);
+            }
+            fs.Write(row, 0, row.Length);
+        }
+    }
+
+    private static (byte r, byte g, byte b) PaletteFor(int bandIndex)
+    {
+        // Signed mod for stable coloring of negative bands.
+        int m = ((bandIndex % 8) + 8) % 8;
+        return m switch
+        {
+            0 => (80, 160, 80),    // green (plateau 0 = grass)
+            1 => (180, 160, 80),   // tan
+            2 => (200, 120, 80),   // orange
+            3 => (180, 80, 80),    // red
+            4 => (160, 80, 160),   // purple
+            5 => (80, 80, 200),    // blue
+            6 => (80, 160, 200),   // cyan
+            _ => (200, 200, 80),   // yellow
+        };
+    }
+
+    private static void WriteRampPpm(string path, HeightMap hm)
+    {
+        int w = hm.Plateau.GetLength(0);
+        int h = hm.Plateau.GetLength(1);
+        using var fs = System.IO.File.Create(path);
+        byte[] header = System.Text.Encoding.ASCII.GetBytes($"P6\n{w} {h}\n255\n");
+        fs.Write(header, 0, header.Length);
+        byte[] row = new byte[w * 3];
+        for (int z = h - 1; z >= 0; z--)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int lift = hm.Height[x, z] - hm.Plateau[x, z];
+                if (lift == 0)
+                {
+                    row[x * 3 + 0] = 32;
+                    row[x * 3 + 1] = 32;
+                    row[x * 3 + 2] = 32;
+                }
+                else
+                {
+                    // Bright red scales with lift magnitude.
+                    int shade = Math.Clamp(80 + lift * 40, 0, 255);
+                    row[x * 3 + 0] = (byte)shade;
+                    row[x * 3 + 1] = 0;
+                    row[x * 3 + 2] = 0;
+                }
+            }
+            fs.Write(row, 0, row.Length);
+        }
+    }
+
+    // Precomputed per-column height data for the whole world. Both arrays are
+    // indexed as [wx - WorldMinX, wz - WorldMinZ].
+    //
+    //   Plateau: the "natural" terrain height — `round(noise / step) * step`,
+    //            or 0 inside the spawn-flat region. Always a plateau multiple.
+    //
+    //   Height:  the final integer surface height — plateau, optionally
+    //            lifted by the ramp skirt cast from a nearby higher plateau.
+    //            This is what chunk generation fills solid voxels up to.
+    //
+    // A column is a ramp iff Height > Plateau; otherwise it's a plain
+    // plateau. This is the authored input to the mesher's shape-snapping rule.
+    private readonly struct HeightMap
+    {
+        public readonly int WorldMinX;
+        public readonly int WorldMinZ;
+        public readonly int WorldMaxX;
+        public readonly int WorldMaxZ;
+        public readonly int[,] Plateau;
+        public readonly int[,] Height;
+
+        public HeightMap(int worldMinX, int worldMaxX, int worldMinZ, int worldMaxZ, int[,] plateau, int[,] height)
+        {
+            WorldMinX = worldMinX;
+            WorldMaxX = worldMaxX;
+            WorldMinZ = worldMinZ;
+            WorldMaxZ = worldMaxZ;
+            Plateau = plateau;
+            Height = height;
+        }
+
+        public int GetHeight(int wx, int wz)
+        {
+            return Height[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        public int GetPlateau(int wx, int wz)
+        {
+            return Plateau[wx - WorldMinX, wz - WorldMinZ];
+        }
+
+        public bool IsRamp(int wx, int wz)
+        {
+            return GetHeight(wx, wz) > GetPlateau(wx, wz);
+        }
+    }
+
+    // Build the integer height field for the whole world. Two passes:
+    //   1. Per-column plateau: `round(noise / step) * step`, or 0 inside the
+    //      spawn-flat region.
+    //   2. Ramp skirt: every non-flat column scans neighbors within
+    //      `rampRadius` and, for each higher-plateau neighbor, contributes a
+    //      candidate lift. The lift is capped at one plateau step above the
+    //      column's own plateau so ramps always span exactly one step — a
+    //      2-step cliff stays a cliff with a single-step ramp at its base,
+    //      never a funny half-height hill. The column's final height is the
+    //      maximum of its own plateau and every candidate.
+    //
+    // Lift formula: `targetPlateau - ceil(dist / slope)`. The ceiling matters
+    // — with integer floor, dist=1 produces zero lift loss, so cells directly
+    // adjacent to a higher plateau would stamp a bulge at plateau height.
+    private static HeightMap BuildHeightMap(WorldState ws, WorldGenData genData,
+        FastNoiseLite terrainNoise, FastNoiseLite rampGateNoise,
         int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
     {
-        bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
-            && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
-        if (flat)
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int sizeX = worldMaxX - worldMinX + 1;
+        int sizeZ = worldMaxZ - worldMinZ + 1;
+
+        int[,] plateau = new int[sizeX, sizeZ];
+        bool[,] rampAnchor = new bool[sizeX, sizeZ];
+        float stepF = Math.Max(1f, genData.PlateauStep);
+        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        // Strict anchor band — `|pathNoise|` below this marks the core of a
+        // ramp zone. Kept tight so anchors form thin, sparse meanders rather
+        // than a blanket. Anchors get dilated below to give ramp skirts room
+        // to form.
+        const float RAMP_ANCHOR_BAND = 0.015f;
+
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
-            return 0f;
-        }
-        float raw = genData.ElevationMultiplier * terrainNoise.GetNoise2D(wx, wz);
-        // Quantize to plateau steps; smoothly fall back to the raw height in
-        // path bands (where |pathNoise| > PathThreshold) so paths form ramps
-        // between plateaus instead of sharp cliffs. Below water level we keep
-        // the raw (smooth) height so basin floors aren't terraced under water.
-        float step = Math.Max(0.0001f, genData.PlateauStep);
-        float plateau = Mathf.Round(raw / step) * step;
-        float pathiness = Math.Abs(pathNoise.GetNoise2D(wx, wz));
-        float t = 1f - Mathf.SmoothStep(genData.PathThreshold, genData.PathThreshold + genData.PathBlendBand, pathiness);
-        float h = Mathf.Lerp(plateau, raw, t);
-        if (h < WATER_LEVEL)
-        {
-            h = raw;
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int lx = wx - worldMinX;
+                int lz = wz - worldMinZ;
+
+                bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
+                    && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
+                if (flat)
+                {
+                    plateau[lx, lz] = 0;
+                    continue;
+                }
+
+                float raw = genData.ElevationMultiplier * terrainNoise.GetNoise2D(wx, wz);
+                plateau[lx, lz] = (int)(Mathf.Round(raw / stepF) * stepF);
+                rampAnchor[lx, lz] = Math.Abs(rampGateNoise.GetNoise2D(wx, wz)) < RAMP_ANCHOR_BAND;
+            }
         }
 
-        // River carving: in river bands, lower terrain that sits close to the
-        // water level down below it. Influence falls off the higher the
-        // surrounding terrain rises, so rivers don't gouge into mountains.
-        float riverness = Math.Abs(riverNoise.GetNoise2D(wx, wz));
-        float rt = 1f - Mathf.SmoothStep(genData.RiverThreshold, genData.RiverThreshold + genData.RiverBlendBand, riverness);
-        if (rt > 0f)
+        // Dilate anchor mask by `rampRadius` cells — one full scan-radius's
+        // worth on each side of the raw anchor line, so the lift scan has a
+        // fully eligible neighbourhood and always produces a complete skirt.
+        bool[,] rampEligible = new bool[sizeX, sizeZ];
+        int rampRadiusConst = step * RAMP_SLOPE;
+        int dilateRadius = rampRadiusConst;
+        for (int lx = 0; lx < sizeX; lx++)
         {
-            float aboveWater = Math.Max(0f, h - WATER_LEVEL);
-            float proximity = 1f - Mathf.Clamp(aboveWater / Math.Max(0.0001f, genData.RiverInfluenceMaxHeight), 0f, 1f);
-            h = Mathf.Lerp(h, WATER_LEVEL - genData.RiverDepth, rt * proximity);
+            for (int lz = 0; lz < sizeZ; lz++)
+            {
+                for (int dx = -dilateRadius; dx <= dilateRadius && !rampEligible[lx, lz]; dx++)
+                {
+                    int nx = lx + dx;
+                    if (nx < 0 || nx >= sizeX)
+                    {
+                        continue;
+                    }
+                    for (int dz = -dilateRadius; dz <= dilateRadius; dz++)
+                    {
+                        int nz = lz + dz;
+                        if (nz < 0 || nz >= sizeZ)
+                        {
+                            continue;
+                        }
+                        if (rampAnchor[nx, nz])
+                        {
+                            rampEligible[lx, lz] = true;
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
-        return h;
+        int[,] height = new int[sizeX, sizeZ];
+        // One step of rise takes `step * RAMP_SLOPE` horizontal cells; that's
+        // also the scan radius since anything farther would only contribute
+        // a zero (or clamped-away) lift.
+        int rampRadius = step * RAMP_SLOPE;
+        for (int wx = worldMinX; wx <= worldMaxX; wx++)
+        {
+            for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
+            {
+                int lx = wx - worldMinX;
+                int lz = wz - worldMinZ;
+
+                bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
+                    && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
+                int myPlateau = plateau[lx, lz];
+                int best = myPlateau;
+
+                // Spawn-flat columns must stay at y=0. Non-ramp-eligible
+                // columns skip the scan too: only cells inside the dilated
+                // ramp band can be lifted.
+                if (!flat && rampEligible[lx, lz])
+                {
+                    int oneStepUp = myPlateau + step;
+                    for (int dx = -rampRadius; dx <= rampRadius; dx++)
+                    {
+                        int nx = wx + dx;
+                        if (nx < worldMinX || nx > worldMaxX)
+                        {
+                            continue;
+                        }
+                        for (int dz = -rampRadius; dz <= rampRadius; dz++)
+                        {
+                            int nz = wz + dz;
+                            if (nz < worldMinZ || nz > worldMaxZ)
+                            {
+                                continue;
+                            }
+                            if (dx == 0 && dz == 0)
+                            {
+                                continue;
+                            }
+                            int neighborPlateau = plateau[nx - worldMinX, nz - worldMinZ];
+                            if (neighborPlateau <= myPlateau)
+                            {
+                                continue;
+                            }
+                            // Clamp to one step up so a taller plateau farther
+                            // out can't out-vote a closer single-step plateau.
+                            int target = Math.Min(neighborPlateau, oneStepUp);
+                            int dist = Math.Max(Math.Abs(dx), Math.Abs(dz));
+                            int verticalDrop = (dist + RAMP_SLOPE - 1) / RAMP_SLOPE;
+                            int candidate = target - verticalDrop;
+                            if (candidate > best)
+                            {
+                                best = candidate;
+                            }
+                        }
+                    }
+                }
+
+                height[lx, lz] = best;
+            }
+        }
+
+        return new HeightMap(worldMinX, worldMaxX, worldMinZ, worldMaxZ, plateau, height);
     }
 
     // True iff (wx, wz) is a flat, dry land column with its surface at world
-    // y=0. Used by GenerateProps to decide where trees/grass/loot/mobs go now
-    // that the surface voxel type is uniformly Terrain (the visual look comes
-    // from the shader's slope rule, so prop placement has to recompute slope
-    // from the source noise).
-    private static bool IsFlatDryGrassAt(int wx, int wz,
-        FastNoiseLite terrainNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
-        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+    // y=0. Grass/trees/mobs/loot place only on these. Post-refactor the
+    // heightfield is integer everywhere, so "flat" is simply "height equals
+    // plateau" (no ramp lift) "and plateau equals 0" (lowest tier). River
+    // columns have height < 0, above-water plateaus have plateau > 0, so both
+    // fall out automatically.
+    private static bool IsFlatDryGrassAt(int wx, int wz, HeightMap heightMap)
     {
-        // tan(10°) ≈ 0.176 — flatter than this is "grassy".
-        const float DIRT_SLOPE_MIN = 0.176f;
-
-        float h = RawHeightAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
-        int solidHeight = (int)Math.Round(h);
-        // Grass only on the lowest dry plateau (surface at y=0). Underwater,
-        // shore, and elevated plateaus stay free of grass/trees/mobs/loot.
-        if (solidHeight != 0)
-        {
-            return false;
-        }
-        float dxF = Math.Abs(
-            RawHeightAt(wx + 1, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
-            - RawHeightAt(wx - 1, wz, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
-        ) * 0.5f;
-        float dzF = Math.Abs(
-            RawHeightAt(wx, wz + 1, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
-            - RawHeightAt(wx, wz - 1, terrainNoise, pathNoise, riverNoise, genData, spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ)
-        ) * 0.5f;
-        return Math.Max(dxF, dzF) <= DIRT_SLOPE_MIN;
-    }
-
-    // A column is a "ramp" if its surface height comes out of the smooth
-    // (non-quantized) branch of RawHeightAt: path bands where we blend raw→plateau,
-    // river bands where we carve down to water, or the spawn-area flat patch (which
-    // itself is flat but covered below). Surface voxels in ramp columns get
-    // shape=None so DC smooths across them; non-ramp (flat plateau) columns get
-    // shape=Y so the mesher snaps their surface to the voxel grid. This is the
-    // authored replacement for the old cliff-top / cave-ceiling heuristics.
-    private static bool IsRampColumn(int wx, int wz,
-        FastNoiseLite pathNoise, FastNoiseLite riverNoise, WorldGenData genData,
-        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
-    {
-        bool flat = wx >= spawnFlatMinX && wx <= spawnFlatMaxX
-            && wz >= spawnFlatMinZ && wz <= spawnFlatMaxZ;
-        if (flat)
-        {
-            return false;
-        }
-        float pathiness = Math.Abs(pathNoise.GetNoise2D(wx, wz));
-        if (pathiness < genData.PathThreshold + genData.PathBlendBand)
-        {
-            return true;
-        }
-        float riverness = Math.Abs(riverNoise.GetNoise2D(wx, wz));
-        if (riverness < genData.RiverThreshold + genData.RiverBlendBand)
-        {
-            return true;
-        }
-        return false;
+        return heightMap.GetHeight(wx, wz) == 0 && heightMap.GetPlateau(wx, wz) == 0;
     }
 
     // Plateau-step tunnels: the top TunnelLayerHeight voxels of every plateau
@@ -307,8 +630,7 @@ public static class WorldGen
     }
 
     private static void GenerateChunk(ChunkState data, WorldGenData genData,
-        FastNoiseLite terrainNoise, FastNoiseLite tunnelNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise,
-        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+        FastNoiseLite tunnelNoise, HeightMap heightMap)
     {
         int chunkWorldX = data.ChunkCoord.X * ChunkState.SIZE;
         int chunkWorldY = data.ChunkCoord.Y * ChunkState.SIZE;
@@ -317,9 +639,9 @@ public static class WorldGen
 
         // True iff this column's surface reaches the plateau ceiling above wy,
         // so the rem=0 voxel at bandTop is solid and can serve as a tunnel
-        // roof. Without this, columns whose solidHeight lands mid-band (in
-        // path-blend regions) would carve a tunnel with no ceiling above it,
-        // producing 1- and 2-tall openings the player can't fit through.
+        // roof. Without this, columns whose solidHeight lands mid-band would
+        // carve a tunnel with no ceiling above it, producing 1- and 2-tall
+        // openings the player can't fit through.
         bool ColumnSupportsTunnel(int wy, int columnSolidHeight)
         {
             int bandTop = (int)Math.Floor((double)wy / tunnelStep) * tunnelStep + tunnelStep;
@@ -333,17 +655,15 @@ public static class WorldGen
                 int wx = chunkWorldX + x;
                 int wz = chunkWorldZ + z;
 
-                float rawHeight = RawHeightAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
-                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
-                int solidHeight = (int)Math.Round(rawHeight);
+                int solidHeight = heightMap.GetHeight(wx, wz);
 
-                // Per-column shape: ramps get None (smooth), everything else Y
-                // (snap vertical). Applied to every solid voxel in the column —
-                // buried voxels still carry the tag so they feed the 3x3x3 OR
-                // at neighbouring surface cells (e.g. a cave ceiling picks up Y
-                // from the Terrain voxel above it via the mesher's neighbour OR).
-                bool isRamp = IsRampColumn(wx, wz, pathNoise, riverNoise, genData,
-                    spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ);
+                // Per-column shape: ramp cells get None (smooth), everything
+                // else Y (snap vertical). Applied to every solid voxel in the
+                // column — buried voxels still carry the tag so they feed the
+                // 3x3x3 OR at neighbouring surface cells (e.g. a cave ceiling
+                // picks up Y from the Terrain voxel above it via the mesher's
+                // neighbour OR).
+                bool isRamp = heightMap.IsRamp(wx, wz);
                 byte columnShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
 
                 for (int y = 0; y < ChunkState.SIZE; y++)
@@ -944,18 +1264,15 @@ public static class WorldGen
     }
 
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
-        FastNoiseLite terrainNoise, FastNoiseLite tunnelNoise,
-        FastNoiseLite grassNoise, FastNoiseLite pathNoise, FastNoiseLite riverNoise, FastNoiseLite forestNoise,
-        int spawnFlatMinX, int spawnFlatMaxX, int spawnFlatMinZ, int spawnFlatMaxZ)
+        FastNoiseLite grassNoise, FastNoiseLite forestNoise, HeightMap heightMap)
     {
-        // Grass requires both the noise-derived "would be grassy" check AND a
-        // solid voxel at y=0 with air at y=1 in the actual world data — caves
-        // can carve through the surface, in which case props would otherwise
-        // float over an open hole.
+        // Grass requires both the heightmap "this is a flat y=0 column" check
+        // AND a solid voxel at y=0 with air at y=1 in the actual world data —
+        // caves can carve through the surface, in which case props would
+        // otherwise float over an open hole.
         bool IsGrassyAt(int wx, int wz)
         {
-            if (!IsFlatDryGrassAt(wx, wz, terrainNoise, pathNoise, riverNoise, genData,
-                spawnFlatMinX, spawnFlatMaxX, spawnFlatMinZ, spawnFlatMaxZ))
+            if (!IsFlatDryGrassAt(wx, wz, heightMap))
             {
                 return false;
             }

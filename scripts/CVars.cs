@@ -334,6 +334,20 @@ public static class CVars
         Godot.GD.Print($"player pos=({p.X:F1}, {p.Y:F1}, {p.Z:F1})  chunk=({c.X}, {c.Y}, {c.Z})");
     });
 
+// When non-empty, Main runs WorldGen on the default WorldGenData at
+    // startup (bypassing the main menu), dumps plateau/height/ramp PPMs +
+    // stats.txt to this directory, and quits. Use with `--headless` for a
+    // fast-feedback debugging loop over the height-field algorithm.
+    public static CVarString worldgenDebugDump = new CVarString("worldgen_debug_dump", "");
+
+    // Console command: dumps the most recently generated world's plateau/
+    // height fields to ./worldgen_debug. Useful when a game is already
+    // running and you want a snapshot without restarting.
+    public static CVar worldgenDebug = new CVar("worldgen_debug", (cvar) =>
+    {
+        WorldGen.DumpDebug(Godot.ProjectSettings.GlobalizePath("res://worldgen_debug"));
+    });
+
 // Path to a packed world file (`.hike`). When non-empty at game start,
     // Main loads the world from this path instead of running WorldGen.
     public static CVarString worldFile = new CVarString("world_file", ""); // user://world.hike

@@ -190,13 +190,16 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		// Step up: lift the player before moving so they can clear small obstacles
-		// Disabled while swimming — the player is floating, not walking
+		// Step up: lift the player before moving so they can clear small obstacles.
+		// Disabled while swimming — the player is floating, not walking. Uses
+		// MoveAndCollide so the lift stops at contact; raw teleport would clip
+		// the head through low ceilings (e.g. cave interiors) and block
+		// horizontal motion because MoveAndSlide then pushes back down.
 		Vector3 posBeforeStep = GlobalPosition;
 		bool useStepUp = _grounded && _waterState != EWaterState.Swimming;
 		if (useStepUp)
 		{
-			GlobalPosition += Vector3.Up * data.stepHeight;
+			MoveAndCollide(Vector3.Up * data.stepHeight);
 		}
 
 		bool wasOnFloor = _grounded;

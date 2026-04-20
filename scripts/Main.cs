@@ -17,6 +17,20 @@ public partial class Main : Node
 		Loc.Init(CVars.language.Value);
 		AddChild(new ConsoleUI());
 
+		// Headless debug path: if `worldgen_debug_dump` is set, generate the
+		// default world, dump height-field diagnostics to that directory, and
+		// quit. Lets the world-gen algorithm be iterated on without the rest
+		// of the game ever coming up.
+		string debugDumpDir = CVars.worldgenDebugDump.Value;
+		if (!string.IsNullOrEmpty(debugDumpDir))
+		{
+			var gen = GD.Load<WorldGenData>("res://resources/default_world_gen.tres");
+			WorldGen.Generate(gen);
+			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
+			GetTree().Quit();
+			return;
+		}
+
 		StartMainMenu();
 	}
 

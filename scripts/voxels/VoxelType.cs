@@ -115,9 +115,12 @@ public static class VoxelTypeInfo
 
     // Band quantization for the shader. BandOriginY is the world Y where
     // band 0 starts; BandHeight is how tall each band is in world units.
-    // Matches corresponding uniforms in voxel_clip.gdshader.
+    // BandBlend is the crossfade width at each band seam expressed as a
+    // fraction of BandHeight (0 = hard step; ~0.15 = 0.6 voxels at
+    // BandHeight=4). Matches corresponding uniforms in voxel_clip.gdshader.
     public const float TILE_BAND_ORIGIN_Y = 0f;
     public const float TILE_BAND_HEIGHT = 4f;
+    public const float TILE_BAND_BLEND = 0.15f;
 
     // Per-tile variant config. Defaults are (1,1) for every tile — a tile
     // that hasn't had variant art authored yet behaves exactly as it did
@@ -224,6 +227,14 @@ public static class VoxelTypeInfo
     // floor <-> wall transitions read as creases). Mask axes independently:
     //   SharpAxes.Y alone  → flat floors/ceilings, walls keep organic curve.
     //   SharpAxes.All      → fully blocky, square building edges in all axes.
+    // YHard suppresses the shallow-Y-transition smoothing that the mesher
+    // applies to ≤1-voxel height differentials — architectural materials set
+    // YHard so single-voxel steps stay crisp. Propagates via the 3x3x3 OR in
+    // the mesher, so any architectural voxel in the neighborhood keeps the
+    // cell steppy. YHardCeiling is the same idea but only applies when the
+    // cell is a ceiling (air below / solid above); natural terrain sets this
+    // so outdoor ground ramps smoothly up 1-voxel bumps while cave ceilings
+    // and overhang undersides stay flat.
     [System.Flags]
     public enum SharpAxes
     {
@@ -232,6 +243,8 @@ public static class VoxelTypeInfo
         Y = 2,
         Z = 4,
         All = X | Y | Z,
+        YHard = 8,
+        YHardCeiling = 16,
     }
 
     // Default shape flag to stamp at each voxel when its material is written
@@ -243,12 +256,12 @@ public static class VoxelTypeInfo
     // snaps on Y only, ramps stay smooth.
     public static readonly Dictionary<VoxelType, SharpAxes> DefaultShape = new()
     {
-        { VoxelType.Stone,       SharpAxes.All },
-        { VoxelType.Wood,        SharpAxes.All },
-        { VoxelType.Grass,       SharpAxes.Y },
-        { VoxelType.Dirt,        SharpAxes.Y },
-        { VoxelType.Sand,        SharpAxes.Y },
-        { VoxelType.Terrain,     SharpAxes.Y },
+        { VoxelType.Stone,       SharpAxes.All | SharpAxes.YHard },
+        { VoxelType.Wood,        SharpAxes.All | SharpAxes.YHard },
+        { VoxelType.Grass,       SharpAxes.Y | SharpAxes.YHardCeiling },
+        { VoxelType.Dirt,        SharpAxes.Y | SharpAxes.YHardCeiling },
+        { VoxelType.Sand,        SharpAxes.Y | SharpAxes.YHardCeiling },
+        { VoxelType.Terrain,     SharpAxes.Y | SharpAxes.YHardCeiling },
         { VoxelType.TerrainPath, SharpAxes.None },
     };
 

@@ -54,6 +54,46 @@ public static class ChunkMesherDC
     public static bool EmitY = true;
     public static bool EmitZ = true;
 
+    // True iff the cell's 4 corner columns have topY values differing by at
+    // most 1 — a ≤1-voxel Y step the mesher should smooth into a ramp instead
+    // of snapping to a vertical wall. Deterministic across chunks because the
+    // scan window [cellY-1, cellY+2] fits within both neighbours' apron Y
+    // ranges at every shared boundary cell; tall cliffs naturally cap at
+    // cellY+2 and fall through to the max-min≥2 cliff branch.
+    private static bool IsShallowYTransition(sbyte[,,] density, int cx, int cellY, int cz)
+    {
+        int minTop = int.MaxValue;
+        int maxTop = int.MinValue;
+        for (int dx = 0; dx < 2; dx++)
+        {
+            for (int dz = 0; dz < 2; dz++)
+            {
+                int topY = int.MinValue;
+                for (int y = cellY + 2; y >= cellY - 1; y--)
+                {
+                    if (density[CornerIdx(cx + dx), CornerIdx(y), CornerIdx(cz + dz)] < 0)
+                    {
+                        topY = y;
+                        break;
+                    }
+                }
+                if (topY == int.MinValue)
+                {
+                    return false;
+                }
+                if (topY < minTop)
+                {
+                    minTop = topY;
+                }
+                if (topY > maxTop)
+                {
+                    maxTop = topY;
+                }
+            }
+        }
+        return (maxTop - minTop) <= 1;
+    }
+
     public static void Build(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
@@ -224,7 +264,24 @@ public static class ChunkMesherDC
                     float vx = (sharpMask & VoxelTypeInfo.SharpAxes.X) != 0
                         ? (lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f))
                         : accum.X / count;
-                    float vy = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0
+                    // Shallow-Y smoothing: disable the Y snap for cells whose
+                    // 4 corner columns have topY values within 1 voxel of each
+                    // other, so 1-voxel ground steps mesh into navigable ramps
+                    // via surface-nets averaging. YHard in the OR'd sharpMask
+                    // suppresses the smoothing everywhere — architectural
+                    // materials keep crisp single-voxel steps. YHardCeiling
+                    // suppresses it only when the cell is a ceiling (more
+                    // solid corners on top than bottom); natural terrain uses
+                    // this so outdoor floors still ramp but cave ceilings and
+                    // overhang undersides stay flat.
+                    bool yIsSharp = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0;
+                    bool yIsHard = (sharpMask & VoxelTypeInfo.SharpAxes.YHard) != 0;
+                    bool yCeilingHard = (sharpMask & VoxelTypeInfo.SharpAxes.YHardCeiling) != 0 && highY > lowY;
+                    if (yIsSharp && !yIsHard && !yCeilingHard && IsShallowYTransition(density, x, y, z))
+                    {
+                        yIsSharp = false;
+                    }
+                    float vy = yIsSharp
                         ? (lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f))
                         : accum.Y / count;
                     float vz = (sharpMask & VoxelTypeInfo.SharpAxes.Z) != 0
@@ -772,7 +829,7 @@ public static class ChunkMesherDC
         // slope-based AUTO material pick uses the fragment normal and
         // fractures when flat-shaded quads give two differently-facing
         // triangles straddling a slope threshold.
-        sharpness = sharpMask == VoxelTypeInfo.SharpAxes.All ? 1f : 0f;
+        sharpness = (sharpMask & VoxelTypeInfo.SharpAxes.All) == VoxelTypeInfo.SharpAxes.All ? 1f : 0f;
 
         if (dominant == VoxelType.Air)
         {

@@ -15,3 +15,6 @@ builds/
 
 # Auto-generated version file
 scripts/VersionGenerated.g.cs
+
+#debug output
+worldgen_debug/

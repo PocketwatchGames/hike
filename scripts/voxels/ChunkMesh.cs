@@ -50,6 +50,7 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("tile_variants", variantTable);
         SharedMaterial.SetShaderParameter("band_origin_y", VoxelTypeInfo.TILE_BAND_ORIGIN_Y);
         SharedMaterial.SetShaderParameter("band_height", VoxelTypeInfo.TILE_BAND_HEIGHT);
+        SharedMaterial.SetShaderParameter("band_blend", VoxelTypeInfo.TILE_BAND_BLEND);
 
         var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
         BackfaceStencilMaterial = new ShaderMaterial();
