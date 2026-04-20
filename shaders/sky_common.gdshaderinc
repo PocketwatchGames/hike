@@ -32,9 +32,6 @@ global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 // the cloud plane so different water fragments see different clouds even
 // under an orthographic camera (where reflection directions are uniform).
 global uniform float cloud_altitude;
-// Debug: when set, force clouds to bright magenta so they're unmistakable
-// in both the sky dome and any reflection that calls sample_sky.
-global uniform int debug_magenta_clouds;
 
 // World-unit tiling for clouds when sampled by world XZ (as opposed to
 // by sky direction). Must stay in sync with CLOUD_TEX_TILING in
@@ -74,8 +71,7 @@ vec3 sample_sky(vec3 dir, float t)
 	float band = max(1e-4, 1.0 - cloud_sharpness);
 	float cloud_mask = smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);
 	float cloud_band = smoothstep(0.0, 0.35, up) * (1.0 - smoothstep(0.4, 0.95, up));
-	vec3 cc = debug_magenta_clouds != 0 ? vec3(1.0, 0.0, 1.0) : cloud_color;
-	base = mix(base, cc, cloud_mask * cloud_band);
+	base = mix(base, cloud_color, cloud_mask * cloud_band);
 
 	return base;
 }
@@ -121,8 +117,7 @@ vec3 sample_sky_from(vec3 origin, vec3 dir, float t)
 	// orthographic camera), so that factor would wipe out the clouds
 	// entirely. Reflections should show clouds wherever the projected
 	// cloud plane has them.
-	vec3 cc = debug_magenta_clouds != 0 ? vec3(1.0, 0.0, 1.0) : cloud_color;
-	base = mix(base, cc, cloud_mask);
+	base = mix(base, cloud_color, cloud_mask);
 
 	return base;
 }

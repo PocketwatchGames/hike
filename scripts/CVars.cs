@@ -5,13 +5,6 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
-    // Debug: at worldgen, also seed trees directly on water surfaces. Lets
-    // you eyeball the sprite-reflection system (tree silhouettes mirrored
-    // under the water) without authoring or searching for shoreline cases.
-    // Read by WorldGen.GenerateProps; set `debug_water_trees 1` in
-    // cvars.txt and restart to regenerate.
-    public static CVarBool debugWaterTrees = new CVarBool("debug_water_trees", false);
-
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);

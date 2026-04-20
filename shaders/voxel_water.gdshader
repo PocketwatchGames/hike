@@ -53,10 +53,6 @@ global uniform vec2 foam_scroll;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
-// Debug visualization switch (see SkyController.waterDebug for modes).
-// 0 = normal; nonzero overrides ALBEDO with an intermediate value so we
-// can diagnose why reflections / foam / ripples don't appear.
-global uniform int water_debug;
 
 const float MIN_AMBIENT = 0.0;
 // Hard cap on SSR iterations — GLSL needs a compile-time loop bound.
@@ -181,24 +177,14 @@ void fragment() {
 		water_col = mix(water_col, foam_color * light, foam_amount);
 	}
 
-	// Reflection only matters on the open water surface. These debug-visible
-	// intermediates are declared outside the `is_top` block so the debug
-	// switch below can read them regardless of which branch rendered.
+	// Reflection only matters on the open water surface.
 	vec3 final_col = water_col;
-	float fresnel = 0.0;
-	vec3 sky_col = vec3(0.0);
-	vec3 ssr_col = vec3(0.0);
-	float ssr_alpha = 0.0;
-	// SSR classification for debug: 0 = off-screen / ray escaped,
-	// 1 = depth hit rejected by thickness, 2 = accepted hit.
-	int ssr_status = 0;
-	vec3 refl_col = vec3(0.0);
 	if (is_top) {
 		vec3 view_to_frag = normalize(world_vertex - CAMERA_POSITION_WORLD);
 		vec3 refl = reflect(view_to_frag, n);
 
 		// Fresnel: more reflective at grazing view angles.
-		fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
+		float fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
 
 		// Sample the sky at the reflection direction. Use the origin-
 		// aware variant so each fragment projects its reflection ray to
@@ -206,7 +192,7 @@ void fragment() {
 		// a reflection direction and sample_sky would give a uniform
 		// color; sample_sky_from uses world_vertex to break that.
 		// Gated by sun_mask so underground water sees no sky at all.
-		sky_col = sample_sky_from(world_vertex, refl, TIME) * sun_mask * cloud_sun;
+		vec3 sky_col = sample_sky_from(world_vertex, refl, TIME) * sun_mask * cloud_sun;
 
 		// Extra wide soft glint on top of the sky dome's tight sun disk.
 		// The disk in sample_sky is a 1-pixel pinprick; this adds a
@@ -218,6 +204,8 @@ void fragment() {
 		// project each step to NDC, compare with depth_tex. First hit
 		// inside `ssr_thickness` view-space units counts; sample screen_tex
 		// for the color.
+		vec3 ssr_col = vec3(0.0);
+		float ssr_alpha = 0.0;
 		float step_world = ssr_max_distance / max(ssr_steps, 1.0);
 		vec3 ray_origin = world_vertex + n * 0.05; // bias off the surface
 		for (int i = 1; i <= SSR_MAX_STEPS; i++) {
@@ -245,60 +233,18 @@ void fragment() {
 					float edge_fade = 1.0 - smoothstep(0.85, 1.0, max(edge.x, edge.y));
 					ssr_col = textureLod(screen_tex, uv, 0.0).rgb;
 					ssr_alpha = edge_fade;
-					ssr_status = 2;
-				} else {
-					ssr_status = 1;
 				}
 				break;
 			}
 		}
 
-		refl_col = mix(sky_col, ssr_col, ssr_alpha);
+		vec3 refl_col = mix(sky_col, ssr_col, ssr_alpha);
 		float refl_mix = fresnel * reflection_strength;
 		final_col = mix(water_col, refl_col, refl_mix);
 	}
 
-	// Debug override — visualize intermediate stages instead of the final
-	// composite. Integer switch so the compiler can dead-code the unused
-	// branches when water_debug is a constant.
-	if (water_debug == 1) {
-		ALBEDO = vec3(fresnel);
-	} else if (water_debug == 2) {
-		ALBEDO = sky_col;
-	} else if (water_debug == 3) {
-		// Red = miss (no geometry hit), yellow = rejected thickness, green
-		// = accepted hit. Flat blue on non-top faces so they're obvious.
-		if (!is_top) {
-			ALBEDO = vec3(0.0, 0.0, 1.0);
-		} else if (ssr_status == 2) {
-			ALBEDO = vec3(0.0, 1.0, 0.0);
-		} else if (ssr_status == 1) {
-			ALBEDO = vec3(1.0, 1.0, 0.0);
-		} else {
-			ALBEDO = vec3(1.0, 0.0, 0.0);
-		}
-	} else if (water_debug == 4) {
-		ALBEDO = vec3(n.x * 0.5 + 0.5, n.z * 0.5 + 0.5, is_top ? 1.0 : 0.0);
-	} else if (water_debug == 5) {
-		ALBEDO = vec3(sun_mask);
-	} else if (water_debug == 6) {
-		ALBEDO = refl_col;
-	} else if (water_debug == 7) {
-		ALBEDO = vec3(foam_amount);
-	} else if (water_debug == 8) {
-		ALBEDO = vec3(depth_factor);
-	} else if (water_debug == 9) {
-		// Sanity-check: paint the terrain's cloud-shadow function directly
-		// onto the water. If this scrolls in lockstep with shadows on the
-		// ground next to the water, TIME and cloud_scroll are flowing
-		// correctly in the water shader — any remaining reflection-speed
-		// discrepancy must be in sample_sky_from's refl-based projection.
-		float cs = cloud_shadow_ground(world_vertex, TIME);
-		ALBEDO = vec3(cs);
-	} else {
-		ALBEDO = final_col;
-	}
-	// Debug modes stay fully opaque so the override isn't erased by blend.
-	float base_alpha = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
-	ALPHA = water_debug == 0 ? base_alpha : 1.0;
+	ALBEDO = final_col;
+	// Foam is opaque-ish — without this it fades into the shallow-water
+	// alpha and the surf effect is invisible.
+	ALPHA = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
 }

@@ -347,14 +347,6 @@ foam_sharpness={
 "type": "float",
 "value": 0.6
 }
-water_debug={
-"type": "int",
-"value": 0
-}
-debug_magenta_clouds={
-"type": "int",
-"value": 0
-}
 wind_dir={
 "type": "vec3",
 "value": Vector3(0.7, 0, 0.7)

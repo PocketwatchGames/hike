@@ -125,30 +125,6 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.45f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamSharpness = 0.6f;
 
-    [ExportGroup("Water — Debug")]
-    // Switch the water shader's ALBEDO output to visualize intermediate
-    // stages. Leave at 0 for normal rendering.
-    //   0 = normal
-    //   1 = fresnel (grayscale: black = head-on, white = grazing)
-    //   2 = raw sky reflection color (sky dome + glint, pre-fresnel mix)
-    //   3 = SSR hit mask (green = hit, red = miss, blue = off-screen)
-    //   4 = perturbed normal XZ (red = X, green = Z, blue = top-face flag)
-    //   5 = sun mask from lightmap (grayscale)
-    //   6 = combined reflection color (sky mixed with SSR, pre-fresnel)
-    //   7 = foam amount (grayscale)
-    //   8 = water depth factor (grayscale: black = shallow, white = deep)
-    //   9 = cloud_shadow_ground() sampled at the water fragment — should
-    //       scroll in lockstep with the cloud shadows on terrain next to
-    //       the water. If it does, TIME and cloud_scroll are flowing
-    //       correctly in the water shader.
-    [Export(PropertyHint.Range, "0,9,1")] public int waterDebug = 0;
-
-    // When true, sample_sky() replaces cloud_color with bright magenta in
-    // both the sky dome AND any reflection that calls it. Clouds drifting
-    // in the sky and their mirror in the water should move together —
-    // that's the visual proof the reflection carries the same cloud pattern.
-    [Export] public bool debugMagentaClouds = false;
-
     [ExportGroup("Water — Screenspace Reflection")]
     // Screen-space raymarch that captures terrain silhouettes (cliffs,
     // tree lines) and sprites standing in/behind water. Marches along
@@ -398,8 +374,6 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("foam_strength", foamStrength);
         RenderingServer.GlobalShaderParameterSet("foam_threshold", foamThreshold);
         RenderingServer.GlobalShaderParameterSet("foam_sharpness", foamSharpness);
-        RenderingServer.GlobalShaderParameterSet("water_debug", waterDebug);
-        RenderingServer.GlobalShaderParameterSet("debug_magenta_clouds", debugMagentaClouds ? 1 : 0);
 
         // --- Wind --------------------------------------------------------
         // Two-octave low-frequency sin sum for naturally uneven gusts —
