@@ -136,6 +136,9 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 10.0f;
     [Export(PropertyHint.Range, "0,2,0.001")] public float dustNoiseScale = 0.12f;
     [Export] public Vector2 dustNoiseScroll = new Vector2(0.05f, 0.03f);
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseStrength = 0.7f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.4f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
 
     [ExportGroup("Fog — Inscatter Tuning")]
     // Henyey-Greenstein phase. 0 = isotropic (shafts visible from any view
@@ -157,6 +160,8 @@ public partial class SkyController : Node3D
     // length foreshorten into radial dots — physically correct but
     // distracting; fading hides the transition. 90 disables the fade.
     [Export(PropertyHint.Range, "0,90,0.1")] public float shaftCameraFadeDegrees = 60.0f;
+    [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
 
     [ExportGroup("Fog — Sun Shadow Raymarch (geometry-shaped beams)")]
     // Screen-space raymarch toward the sun at each fog march sample.
@@ -182,8 +187,8 @@ public partial class SkyController : Node3D
     [ExportGroup("Fog — Mote Shimmer (animated)")]
     // Animated visual noise that makes beams shimmer. Carries no scattering
     // density of its own (that comes from dust density on WeatherData) — pure
-    // cosmetic motion. moteStrength is weather-driven (on WeatherData); scale
-    // and scroll are authored scene constants.
+    // cosmetic motion.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float moteStrength = 0.5f;
     [Export] public float moteScale = 0.18f;
     [Export] public Vector3 moteScroll = new Vector3(0.35f, 0.12f, -0.25f);
 
@@ -441,24 +446,23 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("fog_steps", fogSteps);
             fogMaterial.SetShaderParameter("dust_density", weather.dustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);
-            fogMaterial.SetShaderParameter("dust_noise_strength", weather.dustNoiseStrength);
+            fogMaterial.SetShaderParameter("dust_noise_strength", dustNoiseStrength);
             fogMaterial.SetShaderParameter("dust_noise_scale", dustNoiseScale);
-            fogMaterial.SetShaderParameter("dust_noise_threshold", weather.dustNoiseThreshold);
-            fogMaterial.SetShaderParameter("dust_noise_sharpness", weather.dustNoiseSharpness);
+            fogMaterial.SetShaderParameter("dust_noise_threshold", dustNoiseThreshold);
+            fogMaterial.SetShaderParameter("dust_noise_sharpness", dustNoiseSharpness);
             fogMaterial.SetShaderParameter("dust_noise_scroll", dustNoiseScroll);
             fogMaterial.SetShaderParameter("sun_shaft_intensity", weather.sunShaftIntensity);
-            fogMaterial.SetShaderParameter("block_halo_intensity", weather.blockHaloIntensity);
+            fogMaterial.SetShaderParameter("block_halo_intensity", blockHaloIntensity);
             fogMaterial.SetShaderParameter("scatter_anisotropy", scatterAnisotropy);
             fogMaterial.SetShaderParameter("shaft_sun_threshold", shaftSunThreshold);
-            fogMaterial.SetShaderParameter("cloud_shaft_weight", weather.cloudShaftWeight);
-            fogMaterial.SetShaderParameter("cloud_shaft_sharpness", weather.cloudShaftSharpness);
+            fogMaterial.SetShaderParameter("cloud_shaft_sharpness", cloudShaftSharpness);
             fogMaterial.SetShaderParameter("shaft_camera_fade_degrees", shaftCameraFadeDegrees);
             fogMaterial.SetShaderParameter("sun_shadow_enabled", sunShadowEnabled);
             fogMaterial.SetShaderParameter("sun_shadow_steps", sunShadowSteps);
             fogMaterial.SetShaderParameter("sun_shadow_distance", sunShadowDistance);
             fogMaterial.SetShaderParameter("sun_shadow_bias", sunShadowBias);
             fogMaterial.SetShaderParameter("shaft_ground_fade", shaftGroundFade);
-            fogMaterial.SetShaderParameter("mote_strength", weather.moteStrength);
+            fogMaterial.SetShaderParameter("mote_strength", moteStrength);
             fogMaterial.SetShaderParameter("mote_scale", moteScale);
             fogMaterial.SetShaderParameter("mote_scroll", moteScroll);
         }

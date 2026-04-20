@@ -138,6 +138,7 @@ fogMaterial = ExtResource("fog_volumetric_mat")
 dustBandHeight = 8.0
 dustNoiseScale = 0.062
 shaftCameraFadeDegrees = 45.0
+moteScale = 0.5
 
 [node name="PostProcess" type="CanvasLayer" parent="." unique_id=1349076879]
 layer = 0

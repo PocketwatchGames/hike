@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="WeatherData" format=3]
+[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://b2rh38bk0sfse"]
 
-[ext_resource type="Script" path="res://scripts/data/WeatherData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="1_script"]
 
 [resource]
 script = ExtResource("1_script")
@@ -14,12 +14,7 @@ rippleStrength = 0.08
 cloudColor = Color(0.88, 0.9, 0.94, 1)
 cloudThreshold = 0.4
 cloudSharpness = 0.3
-cloudShadowStrength = 0.75
+cloudShadowStrength = 0.6
 fogColor = Color(0.82, 0.85, 0.9, 1)
 fogDensity = 0.25
-dustDensity = 0.02
-dustNoiseStrength = 0.9
-sunShaftIntensity = 4.0
-blockHaloIntensity = 10.0
-moteStrength = 0.35
-metadata/_custom_type_script = "res://scripts/data/WeatherData.cs"
+dustDensity = 1.0

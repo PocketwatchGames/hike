@@ -193,13 +193,6 @@ uniform float sun_shadow_distance : hint_range(1.0, 64.0) = 16.0;
 // the ground.
 uniform float sun_shadow_bias : hint_range(0.0, 0.01, 0.0001) = 0.0005;
 
-// How much cloud occlusion contributes to the shaft gating. 0 disables
-// the "shafts from clouds" effect (beams are purely shaped by scene
-// geometry via the raymarch above) while leaving cloud shadows intact
-// on terrain / sprite / water via cloud_shadow_ground(). 1 composes
-// cloud mask with geometry occlusion multiplicatively (both block sun).
-uniform float cloud_shaft_weight : hint_range(0.0, 1.0) = 1.0;
-
 // Voxel sun-visibility threshold for shaft contribution. The LightMap's
 // sun channel (lm.r) is a top-down BFS with lateral propagation at
 // FALLOFF_PER_VOXEL=4, so air voxels up to ~15 voxels inside a cave
@@ -610,11 +603,7 @@ void fragment()
 
                 // Sun gating: combine two occlusion sources.
                 //   1. Cloud mask (atmospheric, low-frequency) — soft
-                //      drifting variation from the cloud noise texture,
-                //      weighted by cloud_shaft_weight so weather can
-                //      disable it without removing cloud shadows from
-                //      terrain lighting (those use cloud_shadow_ground
-                //      on the other shaders).
+                //      drifting variation from the cloud noise texture.
                 //   2. Geometry occlusion (screen-space raymarch toward
                 //      the sun, samples depth_tex) — sharp beams shaped
                 //      by trees / terrain / sprites actually blocking
@@ -622,7 +611,7 @@ void fragment()
                 // Both combine multiplicatively — either can fully
                 // shadow the sample.
                 float cloud_mask = cloud_shadow_shafts(p, TIME, cloud_shaft_sharpness);
-                float sun_through_clouds = mix(1.0, 1.0 - cloud_mask, cloud_shaft_weight);
+                float sun_through_clouds = 1.0 - cloud_mask;
                 float sun_occ = sun_occlusion(p, to_sun, PROJECTION_MATRIX, VIEW_MATRIX);
                 float sun_through_geom = 1.0 - sun_occ;
                 float sun_through = sun_through_clouds * sun_through_geom;

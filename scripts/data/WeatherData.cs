@@ -45,18 +45,9 @@ public partial class WeatherData : Resource
 
     [ExportGroup("Fog — Atmospheric Dust")]
     [Export(PropertyHint.Range, "0,1,0.0001")] public float dustDensity = 0.003f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseStrength = 0.7f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.4f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
 
     [ExportGroup("Inscatter — Shafts + Halos")]
     [Export(PropertyHint.Range, "0,32,0.01")] public float sunShaftIntensity = 8.0f;
-    [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftWeight = 1.0f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
-
-    [ExportGroup("Motes")]
-    [Export(PropertyHint.Range, "0,1,0.01")] public float moteStrength = 0.15f;
 
     // Copy every field from `other` into this. Used by SkyController to apply an
     // instantaneous weather snapshot without allocating a new Resource.
@@ -83,14 +74,7 @@ public partial class WeatherData : Resource
         fogColor = other.fogColor;
         fogDensity = other.fogDensity;
         dustDensity = other.dustDensity;
-        dustNoiseStrength = other.dustNoiseStrength;
-        dustNoiseThreshold = other.dustNoiseThreshold;
-        dustNoiseSharpness = other.dustNoiseSharpness;
         sunShaftIntensity = other.sunShaftIntensity;
-        blockHaloIntensity = other.blockHaloIntensity;
-        cloudShaftWeight = other.cloudShaftWeight;
-        cloudShaftSharpness = other.cloudShaftSharpness;
-        moteStrength = other.moteStrength;
     }
 
     // Interpolate every field into this from (a -> b) at t in [0, 1]. t is expected
@@ -118,13 +102,6 @@ public partial class WeatherData : Resource
         fogColor = a.fogColor.Lerp(b.fogColor, t);
         fogDensity = Mathf.Lerp(a.fogDensity, b.fogDensity, t);
         dustDensity = Mathf.Lerp(a.dustDensity, b.dustDensity, t);
-        dustNoiseStrength = Mathf.Lerp(a.dustNoiseStrength, b.dustNoiseStrength, t);
-        dustNoiseThreshold = Mathf.Lerp(a.dustNoiseThreshold, b.dustNoiseThreshold, t);
-        dustNoiseSharpness = Mathf.Lerp(a.dustNoiseSharpness, b.dustNoiseSharpness, t);
         sunShaftIntensity = Mathf.Lerp(a.sunShaftIntensity, b.sunShaftIntensity, t);
-        blockHaloIntensity = Mathf.Lerp(a.blockHaloIntensity, b.blockHaloIntensity, t);
-        cloudShaftWeight = Mathf.Lerp(a.cloudShaftWeight, b.cloudShaftWeight, t);
-        cloudShaftSharpness = Mathf.Lerp(a.cloudShaftSharpness, b.cloudShaftSharpness, t);
-        moteStrength = Mathf.Lerp(a.moteStrength, b.moteStrength, t);
     }
 }

@@ -43,20 +43,6 @@ public static class CVars
     // to push to the GPU. It doesn't belong in CVars because it's simulation
     // state, not a player option / tunable const / debug tool / cheat.
 
-    // Toggle for whether cloud occlusion contributes to shaft gating.
-    // Debug/tuning aid — with clouds off, shafts are shaped purely by
-    // the screen-space geometry raymarch (tree / terrain silhouettes),
-    // which is the "Tessellator look." With clouds on, cloud shadow
-    // modulates on top. Either way, cloud shadows on TERRAIN / sprites /
-    // water are unaffected (those come from cloud_shadow_ground).
-    public static CVarBool fogCloudShafts = new CVarBool("fog_cloud_shafts", true, (cvar) =>
-    {
-        if (SkyController.Current?.weather != null)
-        {
-            SkyController.Current.weather.cloudShaftWeight = ((CVarBool)cvar).Value ? 1.0f : 0.0f;
-        }
-    });
-
     // Seconds over which `weather <preset>` lerps every WeatherData field.
     // 0 or negative = snap instantly.
     public static CVarFloat weatherLerpDuration = new CVarFloat("weather_lerp_duration", 3.0f);
