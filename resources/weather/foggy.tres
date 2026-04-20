@@ -6,8 +6,9 @@
 script = ExtResource("1_script")
 horizonColor = Color(0.82, 0.84, 0.88, 1)
 zenithColor = Color(0.6, 0.64, 0.7, 1)
-sunAmbient = 0.6
-sunTintColor = Color(0.3, 0.3, 0.38, 1)
+sunAmbient = 0.1
+fillAColor = Color(0.387, 0.51524997, 0.9, 1)
+fillBColor = Color(0.92, 0.75716, 0.37720004, 1)
 windAmplitude = 0.03
 windFrequency = 1.0
 rippleStrength = 0.08

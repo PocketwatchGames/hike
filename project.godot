@@ -175,6 +175,26 @@ debug_solid={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+debug_normals={
+"type": "bool",
+"value": false
+}
+debug_unlit={
+"type": "bool",
+"value": false
+}
+debug_no_tint={
+"type": "bool",
+"value": false
+}
+debug_no_cloud={
+"type": "bool",
+"value": false
+}
+debug_no_detail_normal={
+"type": "bool",
+"value": false
+}
 light_falloff_exp={
 "type": "float",
 "value": 2.0
@@ -251,15 +271,19 @@ cloud_noise_tex={
 "type": "sampler2D",
 "value": "res://assets/textures/cloud_noise.tres"
 }
-fill_world_dir={
+fill_a_world_dir={
+"type": "vec3",
+"value": Vector3(0.5, -0.5, 0)
+}
+fill_b_world_dir={
 "type": "vec3",
 "value": Vector3(0, -0.574, 0)
 }
-sun_tint_color={
+fill_a_color={
 "type": "vec3",
 "value": Vector3(0.05, 0.15, 0.35)
 }
-fill_tint_color={
+fill_b_color={
 "type": "vec3",
 "value": Vector3(0.4, 0.25, 0)
 }

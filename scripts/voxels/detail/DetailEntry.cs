@@ -28,6 +28,21 @@ public partial class DetailEntry : Resource
     // ChunkDetailScatter.PIXELS_PER_UNIT) drive the sprite's base world size.
     [Export] public Texture2D Texture;
 
+    // Optional tangent-space normal map. When set, the shader uses it for
+    // per-pixel directional shading. Author with tangent-x → right, tangent-y
+    // → up, tangent-z → out of sprite.
+    [Export] public Texture2D NormalMap;
+
+    // Strength of the tangent-space perturbation applied on top of the
+    // per-instance terrain normal. 0 = the sprite uses the raw terrain
+    // normal (matches the lighting of the voxel beneath it exactly); small
+    // values (≈0.25) add a subtle per-pixel wiggle for specular breakup
+    // and dynamic shading without making the sprite stand out from the
+    // ground. Both the authored NormalMap (when present) and the synthetic
+    // dome share this scalar. Keeping it low is intentional — larger values
+    // bring back the "sprite doesn't match the ground" read.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DomeStrength = 0.25f;
+
     // Sampling weight within the parent group. The group picks an entry by
     // weighted choice — entries with weight 2.0 appear twice as often as
     // entries with weight 1.0. Weights are not normalized; they're relative.
@@ -61,6 +76,15 @@ public partial class DetailEntry : Resource
         {
             mat.SetShaderParameter("sprite_texture", Texture);
         }
+        // Normal pipeline: if NormalMap is set it wins; otherwise DomeNormal
+        // controls whether the shader synthesises a dome tangent-normal or
+        // falls back to a flat out-of-plane normal.
+        mat.SetShaderParameter("use_normal_map", NormalMap != null);
+        if (NormalMap != null)
+        {
+            mat.SetShaderParameter("normal_map", NormalMap);
+        }
+        mat.SetShaderParameter("dome_strength", DomeStrength);
         _materialCache = mat;
         return mat;
     }

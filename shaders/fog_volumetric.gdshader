@@ -44,6 +44,15 @@ uniform sampler2D depth_tex : hint_depth_texture;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
+// Ceiling cutaway altitude. Voxel shaders discard any fragment with
+// world_vertex.y > camera_clip so the player can see into indoor spaces
+// from above. The cut-away ceiling never writes to the depth buffer,
+// which fools the sun-occlusion raymarch below (depth_tex reports "no
+// surface" in the cut-away region, so sun rays appear unobstructed) —
+// the fix is to treat any sun-ray sample above camera_clip as occluded,
+// since the discarded voxels are still physically solid terrain. Default
+// 1e+20 leaves outdoor rendering untouched.
+global uniform float camera_clip;
 
 // Sun direction / color / intensity (shared with sky + voxel shaders, set by
 // SkyController and ChunkManager). sun_world_dir points FROM the sun toward

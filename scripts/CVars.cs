@@ -142,6 +142,52 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_solid", v);
     });
 
+    // Override terrain + detail-sprite output with per-pixel world-space
+    // normals mapped to RGB (R = +X, G = +Y / up, B = +Z), so you can
+    // visually verify that sprites and terrain share the same normal at
+    // a contact point. Toggle with `debug_normals 1` in the in-game
+    // console.
+    public static CVarBool debugNormals = new CVarBool("debug_normals", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_normals", ((CVarBool)cvar).Value);
+    });
+
+    // Emit raw texture (albedo + sprite ground tint) with NO lighting at
+    // all — no sun_lit, block_lit, fill_a_tint, fill_b_tint, cloud_dim, or
+    // ATTENUATION. Use this to compare the raw source textures of terrain
+    // vs sprites with nothing in between.
+    public static CVarBool debugUnlit = new CVarBool("debug_unlit", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_unlit", ((CVarBool)cvar).Value);
+    });
+
+    // Disable the fill_a / fill_b "reverse directional" term in both
+    // terrain and sprite shaders. Lighting still applies (sun_lit,
+    // block_lit, shadows, cloud), but the per-pixel NdotL darkening goes
+    // away. If the sprite suddenly matches terrain brightness when this
+    // is on, the tint path is the culprit.
+    public static CVarBool debugNoTint = new CVarBool("debug_no_tint", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_tint", ((CVarBool)cvar).Value);
+    });
+
+    // Force cloud_dim to 1.0 everywhere — rules out cloud shadow as a
+    // source of brightness mismatch between sprites and terrain.
+    public static CVarBool debugNoCloud = new CVarBool("debug_no_cloud", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_cloud", ((CVarBool)cvar).Value);
+    });
+
+    // Skip the terrain's detail_normal perturbation so its shaded_normal
+    // is pure geometry. This is the leading suspect for the "sprite blue
+    // on slopes, terrain not" mismatch: detail_normal biases the terrain
+    // normal back toward up on ground-facing faces, effectively hiding
+    // slopes from the tint path.
+    public static CVarBool debugNoDetailNormal = new CVarBool("debug_no_detail_normal", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_no_detail_normal", ((CVarBool)cvar).Value);
+    });
+
     // Power applied to the lightmap value in voxel/sprite/water shaders.
     // 1.0 = linear (raw BFS value), >1 darkens the mid-range so dim sunlight
     // bleed reads as proper darkness while bright areas stay bright.
@@ -150,11 +196,15 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
     });
 
-    // Multiplier applied to the sun-visibility lightmap channel. <1 keeps
-    // sunlit areas below max brightness so block lights (torches) have
-    // headroom to add visibly on top. Will be driven by the day/night
-    // simulation once it exists; today it's a static tuning value.
-    public static CVarFloat sunIntensity = new CVarFloat("sun_intensity", 0.85f, (cvar) =>
+    // Multiplier applied to the sun-visibility lightmap channel. Peak values
+    // >1.0 push sunlit terrain above the glow HDR threshold so bloom has
+    // something to feed on (Environment_bloom sets glow_hdr_threshold = 1.0
+    // and tonemap_mode = Filmic, so values above 1 bloom and roll off
+    // instead of clamping flat). Block lights (torches) can still add on
+    // top — the lightmap format is what caps their headroom, not this.
+    // Will be driven by the day/night simulation once it exists; today
+    // it's a static tuning value.
+    public static CVarFloat sunIntensity = new CVarFloat("sun_intensity", 2f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("sun_intensity", ((CVarFloat)cvar).Value);
     });

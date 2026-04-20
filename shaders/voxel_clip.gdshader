@@ -3,6 +3,13 @@ render_mode blend_mix, depth_draw_opaque, cull_back, ambient_light_disabled, spe
 
 global uniform float camera_clip;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
+// Debug toggles — shared with detail_sprite so terrain and sprites behave
+// identically under each flag and you can isolate shading divergences.
+global uniform bool debug_normals;        // RGB = shaded_normal * 0.5 + 0.5
+global uniform bool debug_unlit;          // raw tex only, no lighting
+global uniform bool debug_no_tint;        // skip fill_a_tint / fill_b_tint
+global uniform bool debug_no_cloud;       // force cloud_dim = 1
+global uniform bool debug_no_detail_normal; // skip detail_normal perturbation
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
 
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
@@ -41,7 +48,12 @@ global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-uniform sampler2DArray tile_array : filter_nearest, repeat_enable;
+// source_color decodes the sRGB-authored PNG to linear on sample. Without
+// it, Godot reads the gamma-encoded bytes as raw linear values and every
+// shaded pixel ends up ~2× brighter than the authored texture — which is
+// what made terrain look washed out under debug_unlit while detail sprites
+// (declared with source_color) matched their sources.
+uniform sampler2DArray tile_array : source_color, filter_nearest, repeat_enable;
 
 // Tile layer indices — must match VoxelTypeInfo.TILE_* in C#.
 // Values are the BASE layer of a tile's contiguous variant block. The real
@@ -115,9 +127,15 @@ const int MAX_KITS = 16;
 uniform vec4 kit_tiles[MAX_KITS];
 uniform vec4 kit_bands[MAX_KITS];
 
-global uniform vec3 fill_world_dir;
-global uniform vec3 sun_tint_color;
-global uniform vec3 fill_tint_color;
+// Two off-axis fill directions + colors. Neither is aligned with the sun.
+// Each darkens surfaces that face away from it; surfaces facing toward it
+// are unaffected. Together they sculpt slope direction across sunlit AND
+// shadowed regions (we don't fade them by sun_mask), which is how outdoor
+// slopes read as distinct from flat ground. Set by SkyController.
+global uniform vec3 fill_a_world_dir;
+global uniform vec3 fill_b_world_dir;
+global uniform vec3 fill_a_color;
+global uniform vec3 fill_b_color;
 
 const float MIN_AMBIENT = 0.0;
 
@@ -242,19 +260,31 @@ void fragment() {
 	vec3 face_n = normalize(face_n_raw * sign(dot(face_n_raw, smooth_n) + 1e-6));
 	vec3 shaded_normal = normalize(mix(smooth_n, face_n, clamp(sharpness, 0.0, 1.0)));
 
-	// Detail normal map perturbation on the ground plane. Sampled in XZ only;
-	// the influence is scaled by how ground-facing the surface is so vertical
-	// walls keep their clean silhouette. This is a cheap way to give glancing-
-	// angle ground some texture at isometric viewing angles without painting
-	// the perturbation into every tile.
+	// Detail normal map perturbation, applied as a proper tangent-space
+	// rotation around the current shaded_normal. The normal map's
+	// "out-of-surface" axis (tangent z ≈ 1) is re-aligned with the actual
+	// surface normal, so the perturbation rides along slopes instead of
+	// being dragged back toward world-up.
+	//
+	// Building the tangent frame: pick world +X as a seed, project it
+	// perpendicular to shaded_normal, then derive the bitangent via cross
+	// product. Since we're sampling the map on world_vertex.xz, this keeps
+	// the pattern world-aligned (not smeared by triangle orientation).
+	// No ground_weight needed — proper tangent-space is correct at every
+	// surface orientation.
 	vec2 dn_uv = world_vertex.xz * detail_normal_freq;
 	vec3 dn_sample = texture(detail_normal, dn_uv).xyz * 2.0 - 1.0;
-	// Normal map tangent basis for the XZ plane: tangent-x → world_x,
-	// tangent-y → world_z, tangent-z → world_y (up). Reconstruct a world-
-	// space normal from the sample.
-	vec3 dn_world = normalize(vec3(dn_sample.x, dn_sample.z, dn_sample.y));
-	float ground_weight = clamp(shaded_normal.y, 0.0, 1.0);
-	shaded_normal = normalize(mix(shaded_normal, dn_world, detail_normal_strength * ground_weight));
+	vec3 dn_N = shaded_normal;
+	// If the surface normal happens to align with world +X the seed picks
+	// degenerates; fall back to world +Z. In practice terrain normals are
+	// always mostly-up so the primary branch is hit.
+	vec3 seed = abs(dn_N.x) < 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
+	vec3 dn_T = normalize(seed - dn_N * dot(seed, dn_N));
+	vec3 dn_B = cross(dn_T, dn_N);
+	vec3 dn_world = normalize(dn_T * dn_sample.x + dn_B * dn_sample.y + dn_N * dn_sample.z);
+	if (!debug_no_detail_normal) {
+		shaded_normal = normalize(mix(shaded_normal, dn_world, detail_normal_strength));
+	}
 
 	// Pick which corner's tile this fragment shows. COLOR.rgb was set per
 	// vertex to (1,0,0)/(0,1,0)/(0,0,1) so the rasterizer's linear interpolation
@@ -364,19 +394,32 @@ void fragment() {
 	// cloud_shadow_ground is Y-independent to avoid faceted polygon-edge
 	// artifacts on sloped triangles.
 	float cloud = cloud_shadow_ground(world_vertex, TIME);
-	cloud_dim = 1.0 - cloud * cloud_shadow_strength;
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
+	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
+	// NdotL multiplier on direct sun. Slopes facing toward the sun get a lift
+	// above the glow HDR threshold so bloom catches them; sun-averted slopes
+	// get a mild cut (still gated by sun_mask, so underground/shadowed doesn't
+	// darken further). Kept narrow (0.9..1.3) — this is a push over the bloom
+	// knee, not a lighting overhaul.
+	float sun_ndl = max(0.0, dot(shaded_normal, -sun_world_dir));
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (0.9 + 0.4 * sun_ndl);
 	vec3 block_lit = lm.gba;
 
-	// "Reverse" directional shading: each light darkens faces by its tint
+	// "Reverse" directional shading: each fill darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
-	// the light are unaffected (multiplied by 1).
-	float sun_facing = max(0.0, dot(shaded_normal, -sun_world_dir));
-	float fill_facing = max(0.0, dot(shaded_normal, -fill_world_dir));
-	vec3 sun_tint = mix(sun_tint_color, vec3(1.0), sun_facing);
-	vec3 fill_tint = mix(fill_tint_color, vec3(1.0), fill_facing);
+	// the fill are unaffected (multiplied by 1). No sun_mask fade — both
+	// fills are off-axis from the sun, so there's no double-darkening with
+	// the BFS sun mask to worry about. Keeping them active outdoors is what
+	// gives sunlit slopes their directional read.
+	float fill_a_facing = max(0.0, dot(shaded_normal, -fill_a_world_dir));
+	float fill_b_facing = max(0.0, dot(shaded_normal, -fill_b_world_dir));
+	vec3 fill_a_tint = mix(fill_a_color, vec3(1.0), fill_a_facing);
+	vec3 fill_b_tint = mix(fill_b_color, vec3(1.0), fill_b_facing);
+	if (debug_no_tint) {
+		fill_a_tint = vec3(1.0);
+		fill_b_tint = vec3(1.0);
+	}
 
-	vec3 base = tex_color.rgb * sun_tint * fill_tint;
+	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
 
 	// Split the lighting across ALBEDO and EMISSION so light() can shadow
 	// just the direct portion of the sun via ATTENUATION. The BFS sun mask
@@ -392,6 +435,14 @@ void fragment() {
 		ALBEDO = vec3(0.0);
 		EMISSION = debug_solid;
 	}
+	if (debug_normals) {
+		ALBEDO = vec3(0.0);
+		EMISSION = shaded_normal * 0.5 + 0.5;
+	}
+	if (debug_unlit) {
+		ALBEDO = vec3(0.0);
+		EMISSION = tex_color.rgb;
+	}
 	if (world_vertex.y > camera_clip) {
 		discard;
 	}
@@ -401,7 +452,7 @@ void light() {
 	// ATTENUATION is Godot's directional shadow atlas — terrain self-shadow
 	// plus sprite shadow proxies, already composed correctly in the atlas.
 	// No LIGHT_COLOR / NdotL: sun color/direction stylization is baked into
-	// ALBEDO via sun_color and sun_tint in fragment().
+	// ALBEDO via sun_color and the fill tints in fragment().
 	//
 	// Cloud shadow (cloud_dim from fragment()) and the shadow atlas both
 	// occlude direct sun. Compose as min(): whichever is darker wins,

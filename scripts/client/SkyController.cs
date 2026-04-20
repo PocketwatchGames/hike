@@ -45,9 +45,15 @@ public partial class SkyController : Node3D
     // (the day/night sim), which only drives the fog shader and would
     // disagree with terrain shadows if the node transform is edited.
     [Export] public DirectionalLight3D sunLight;
-    // Fill light pitch below horizon (degrees) and yaw offset from the sun.
-    [Export] public float fillPitchDegrees = 35f;
-    [Export] public float fillYawOffsetDegrees = 135f;
+    // Two off-axis fill directions, computed each frame from the sun's yaw +
+    // a configurable yaw offset + pitch below horizon. Neither should be
+    // aligned with the sun — the sun's directional contribution comes from
+    // the BFS sun_mask + shadow atlas, not from a tint. Orthogonal fills
+    // (yaw offsets ~90° apart) give the cleanest slope-reading.
+    [Export] public float fillAPitchDegrees = 55f;
+    [Export] public float fillAYawOffsetDegrees = 90f;
+    [Export] public float fillBPitchDegrees = 65f;
+    [Export] public float fillBYawOffsetDegrees = -90f;
 
     [ExportGroup("Water — Ripples")]
     // Two procedural noise layers sampled in world XZ sum into the water
@@ -232,7 +238,8 @@ public partial class SkyController : Node3D
         if (!Engine.IsEditorHint())
         {
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
-            ShaderGlobals.Register("fill_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+            ShaderGlobals.Register("fill_a_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+            ShaderGlobals.Register("fill_b_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
 
             // Duplicate the authored WeatherData into a private working copy so
             // runtime lerps don't mutate the .tres asset on disk. In editor mode
@@ -367,9 +374,11 @@ public partial class SkyController : Node3D
             // the preview doesn't flicker.
             sunDir = new Vector3(-0.215f, -0.819f, -0.532f);
         }
-        Vector3 fillDir = ComputeFillDirection(sunDir, fillPitchDegrees, fillYawOffsetDegrees);
+        Vector3 fillADir = ComputeFillDirection(sunDir, fillAPitchDegrees, fillAYawOffsetDegrees);
+        Vector3 fillBDir = ComputeFillDirection(sunDir, fillBPitchDegrees, fillBYawOffsetDegrees);
         RenderingServer.GlobalShaderParameterSet("sun_world_dir", sunDir);
-        RenderingServer.GlobalShaderParameterSet("fill_world_dir", fillDir);
+        RenderingServer.GlobalShaderParameterSet("fill_a_world_dir", fillADir);
+        RenderingServer.GlobalShaderParameterSet("fill_b_world_dir", fillBDir);
     }
 
     // Push every authored atmospheric value to the GPU. Called every frame so
@@ -384,8 +393,8 @@ public partial class SkyController : Node3D
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(weather.sunColor));
         RenderingServer.GlobalShaderParameterSet("sun_ambient", weather.sunAmbient);
-        RenderingServer.GlobalShaderParameterSet("sun_tint_color", ColorToVec3(weather.sunTintColor));
-        RenderingServer.GlobalShaderParameterSet("fill_tint_color", ColorToVec3(weather.fillTintColor));
+        RenderingServer.GlobalShaderParameterSet("fill_a_color", ColorToVec3(weather.fillAColor));
+        RenderingServer.GlobalShaderParameterSet("fill_b_color", ColorToVec3(weather.fillBColor));
         RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(weather.horizonColor));
         RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(weather.zenithColor));
         RenderingServer.GlobalShaderParameterSet("cloud_color", ColorToVec3(weather.cloudColor));

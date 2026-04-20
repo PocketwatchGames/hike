@@ -18,8 +18,13 @@ public partial class WeatherData : Resource
     [ExportGroup("Sun")]
     [Export] public Color sunColor = new Color(1.0f, 0.96f, 0.88f);
     [Export(PropertyHint.Range, "0,1,0.01")] public float sunAmbient = 0.4f;
-    [Export] public Color sunTintColor = new Color(0.15f, 0.15f, 0.35f);
-    [Export] public Color fillTintColor = new Color(0.5f, 0.5f, 0.5f);
+    // Two off-axis fill tints that darken surfaces facing away from their
+    // respective world directions (set on SkyController). Neither is aligned
+    // with the sun — the sun's directional contribution already comes from
+    // the BFS sun_mask + shadow atlas. These sculpt slope across the whole
+    // scene (sunlit and shadowed) since they don't fade with sun_mask.
+    [Export] public Color fillAColor = new Color(0.78f, 0.78f, 0.92f);
+    [Export] public Color fillBColor = new Color(0.92f, 0.86f, 0.72f);
 
     [ExportGroup("Wind")]
     [Export] public Vector3 windDirection = new Vector3(0.7f, 0f, 0.7f);
@@ -57,8 +62,8 @@ public partial class WeatherData : Resource
         zenithColor = other.zenithColor;
         sunColor = other.sunColor;
         sunAmbient = other.sunAmbient;
-        sunTintColor = other.sunTintColor;
-        fillTintColor = other.fillTintColor;
+        fillAColor = other.fillAColor;
+        fillBColor = other.fillBColor;
         windDirection = other.windDirection;
         windAmplitude = other.windAmplitude;
         windFrequency = other.windFrequency;
@@ -85,8 +90,8 @@ public partial class WeatherData : Resource
         zenithColor = a.zenithColor.Lerp(b.zenithColor, t);
         sunColor = a.sunColor.Lerp(b.sunColor, t);
         sunAmbient = Mathf.Lerp(a.sunAmbient, b.sunAmbient, t);
-        sunTintColor = a.sunTintColor.Lerp(b.sunTintColor, t);
-        fillTintColor = a.fillTintColor.Lerp(b.fillTintColor, t);
+        fillAColor = a.fillAColor.Lerp(b.fillAColor, t);
+        fillBColor = a.fillBColor.Lerp(b.fillBColor, t);
         windDirection = a.windDirection.Lerp(b.windDirection, t);
         windAmplitude = Mathf.Lerp(a.windAmplitude, b.windAmplitude, t);
         windFrequency = Mathf.Lerp(a.windFrequency, b.windFrequency, t);
