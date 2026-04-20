@@ -32,7 +32,7 @@ global uniform float sun_ambient;
 // these to project cloud shadows along the sun direction. sun_world_dir
 // must also be declared; add it before the include.
 global uniform vec3 sun_world_dir;
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;

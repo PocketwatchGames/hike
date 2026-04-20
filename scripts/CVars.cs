@@ -51,71 +51,40 @@ public static class CVars
     // water are unaffected (those come from cloud_shadow_ground).
     public static CVarBool fogCloudShafts = new CVarBool("fog_cloud_shafts", true, (cvar) =>
     {
-        if (SkyController.Current != null)
+        if (SkyController.Current?.weather != null)
         {
-            SkyController.Current.cloudShaftWeight = ((CVarBool)cvar).Value ? 1.0f : 0.0f;
+            SkyController.Current.weather.cloudShaftWeight = ((CVarBool)cvar).Value ? 1.0f : 0.0f;
         }
     });
 
-    // Apply a weather preset to SkyController. Debug/testing tool — a real
-    // weather system will drive the same exports procedurally over time.
+    // Seconds over which `weather <preset>` lerps every WeatherData field.
+    // 0 or negative = snap instantly.
+    public static CVarFloat weatherLerpDuration = new CVarFloat("weather_lerp_duration", 3.0f);
+
+    // Apply a weather preset to SkyController via a smooth Lerp. Presets are
+    // WeatherData .tres files under res://resources/weather/. Debug/testing
+    // tool — a real weather system will call SkyController.LerpToWeather()
+    // procedurally over in-game time.
     // Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.
     public static CVarString weather = new CVarString("weather", "", (cvar) =>
     {
         var sky = SkyController.Current;
         if (sky == null) { return; }
         string name = ((CVarString)cvar).Value.Trim().ToLowerInvariant();
-        switch (name)
+        if (string.IsNullOrEmpty(name)) { return; }
+        string path = $"res://resources/weather/{name}.tres";
+        if (!Godot.ResourceLoader.Exists(path))
         {
-            case "":
-                return;
-            case "clear":
-                sky.fogDensity = 0.03f;
-                sky.dustDensity = 0.003f;
-                sky.cloudThreshold = 0.75f;
-                sky.cloudSharpness = 0.4f;
-                sky.cloudShadowStrength = 0.7f;
-                break;
-            case "partly_cloudy":
-                sky.fogDensity = 0.04f;
-                sky.dustDensity = 0.005f;
-                sky.cloudThreshold = 0.55f;
-                sky.cloudSharpness = 0.6f;
-                sky.cloudShadowStrength = 0.85f;
-                break;
-            case "overcast":
-                sky.fogDensity = 0.06f;
-                sky.dustDensity = 0.008f;
-                sky.cloudThreshold = 0.25f;
-                sky.cloudSharpness = 0.3f;
-                sky.cloudShadowStrength = 0.9f;
-                break;
-            case "foggy":
-                sky.fogDensity = 0.25f;
-                sky.dustDensity = 0.02f;
-                sky.cloudThreshold = 0.4f;
-                sky.cloudSharpness = 0.3f;
-                sky.cloudShadowStrength = 0.75f;
-                break;
-            case "dusty":
-                sky.fogDensity = 0.03f;
-                sky.dustDensity = 0.035f;
-                sky.cloudThreshold = 0.7f;
-                sky.cloudSharpness = 0.6f;
-                sky.cloudShadowStrength = 0.8f;
-                break;
-            case "stormy":
-                sky.fogDensity = 0.12f;
-                sky.dustDensity = 0.02f;
-                sky.cloudThreshold = 0.2f;
-                sky.cloudSharpness = 0.8f;
-                sky.cloudShadowStrength = 1.0f;
-                break;
-            default:
-                Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.");
-                return;
+            Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.");
+            return;
         }
-        sky.Apply();
+        WeatherData preset = Godot.ResourceLoader.Load<WeatherData>(path);
+        if (preset == null)
+        {
+            Godot.GD.PrintErr($"weather: failed to load {path}");
+            return;
+        }
+        sky.LerpToWeather(preset, weatherLerpDuration.Value);
     });
 
     // Swap the MainCamera between orthographic and narrow-FOV perspective.

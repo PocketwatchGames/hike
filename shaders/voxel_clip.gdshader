@@ -29,7 +29,7 @@ global uniform vec3 sun_world_dir;
 // Cloud occlusion parameters shared with the sky + fog + sprite + water
 // shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
 // these to project cloud shadows along the sun direction.
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;

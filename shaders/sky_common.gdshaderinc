@@ -21,7 +21,7 @@ global uniform vec3 sun_world_dir;
 global uniform vec3 sun_color;
 global uniform vec3 horizon_color;
 global uniform vec3 zenith_color;
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
@@ -64,7 +64,7 @@ vec3 sample_sky(vec3 dir, float t)
 	// cloud_band sits the layer in the lower half of the sky so zenith
 	// stays open. repeat_enable on the sampler handles tiling seamlessly
 	// since the texture was baked seamless.
-	vec2 cuv = (dir.xz / max(abs(dir.y), 0.15)) * cloud_scale + cloud_scroll * t;
+	vec2 cuv = (dir.xz / max(abs(dir.y), 0.15)) * cloud_scale + cloud_offset;
 	float c = texture(cloud_noise_tex, cuv).r;
 	// Same threshold/sharpness remap cloud_shadow.gdshaderinc uses, so sky
 	// cloud density matches the shadow density the clouds cast.
@@ -107,7 +107,7 @@ vec3 sample_sky_from(vec3 origin, vec3 dir, float t)
 	float dy = max(dir.y, 0.15);
 	float tt = (cloud_altitude - origin.y) / dy;
 	vec2 cloud_xz = origin.xz + dir.xz * tt;
-	vec2 cuv = cloud_xz * SKY_CLOUD_GROUND_TILING + cloud_scroll * t;
+	vec2 cuv = cloud_xz * SKY_CLOUD_GROUND_TILING + cloud_offset;
 	float c = texture(cloud_noise_tex, cuv).r;
 	float band = max(1e-4, 1.0 - cloud_sharpness);
 	float cloud_mask = smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);

@@ -22,7 +22,7 @@
 // don't redeclare them here to avoid multi-decl errors):
 //
 //   global uniform vec3 sun_world_dir;                         // SkyController
-//   global uniform vec2 cloud_scroll;                          // SkyController (units/sec in XZ)
+//   global uniform vec2 cloud_offset;                          // SkyController (pre-integrated XZ offset — C# accumulates per frame, shader doesn't multiply by time)
 //   global uniform float cloud_threshold;                      // noise value above which = cloud
 //   global uniform float cloud_sharpness;                      // 0 = soft edges, 1 = hard step
 //   global uniform sampler2D cloud_noise_tex                   // baked seamless FBM (owned by sky_common;
@@ -41,7 +41,7 @@ float cs_sample(vec2 cloud_xz, float time)
 {
     // Texture() wraps automatically via repeat_enable — the texture was
     // baked seamless so no tile seams are visible.
-    vec2 cuv = cloud_xz * CLOUD_TEX_TILING + cloud_scroll * time;
+    vec2 cuv = cloud_xz * CLOUD_TEX_TILING + cloud_offset;
     float c = texture(cloud_noise_tex, cuv).r;
     // Remap noise → cloud density. cloud_threshold is the low edge of the
     // transition (below this noise value = no cloud). cloud_sharpness
@@ -104,7 +104,7 @@ float cloud_shadow_shafts(vec3 world_pos, float time, float shaft_sharpness)
     float up = max(to_sun.y, 0.15);
     float t = (cloud_altitude - world_pos.y) / up;
     vec2 cloud_xz = world_pos.xz + to_sun.xz * t;
-    vec2 cuv = cloud_xz * CLOUD_TEX_TILING + cloud_scroll * time;
+    vec2 cuv = cloud_xz * CLOUD_TEX_TILING + cloud_offset;
     float c = texture(cloud_noise_tex, cuv).r;
     float band = max(1e-4, 1.0 - shaft_sharpness);
     return smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);

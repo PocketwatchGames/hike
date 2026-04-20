@@ -55,7 +55,7 @@ global uniform float sun_intensity;
 // Cloud occlusion parameters (shared with sky + terrain + sprite + water
 // shaders, registered by SkyController). cloud_shadow.gdshaderinc reads
 // these to compute projective cloud shadows cast along the sun direction.
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;

@@ -223,9 +223,9 @@ cloud_color={
 "type": "vec3",
 "value": Vector3(1, 0.98, 0.95)
 }
-cloud_scroll={
+cloud_offset={
 "type": "vec2",
-"value": Vector2(0.004, 0.002)
+"value": Vector2(0, 0)
 }
 cloud_threshold={
 "type": "float",
@@ -279,13 +279,13 @@ ripple_scale_b={
 "type": "float",
 "value": 1.1
 }
-ripple_scroll_a={
+ripple_offset_a={
 "type": "vec2",
-"value": Vector2(0.15, 0.08)
+"value": Vector2(0, 0)
 }
-ripple_scroll_b={
+ripple_offset_b={
 "type": "vec2",
-"value": Vector2(-0.1, 0.13)
+"value": Vector2(0, 0)
 }
 ripple_strength={
 "type": "float",
@@ -355,9 +355,9 @@ wind_amplitude={
 "type": "float",
 "value": 0.05
 }
-wind_frequency={
+wind_phase={
 "type": "float",
-"value": 1.5
+"value": 0.0
 }
 player_pos={
 "type": "vec3",

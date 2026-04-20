@@ -14,7 +14,7 @@ global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 // sky_common.gdshaderinc owns: sun_world_dir, sun_color, horizon_color,
-// zenith_color, cloud_scroll, cloud_scale, cloud_threshold,
+// zenith_color, cloud_offset, cloud_scale, cloud_threshold,
 // cloud_sharpness, cloud_color. Including it here makes the SSR miss
 // fallback sample the SAME sky the sky dome shows — so reflections carry
 // clouds + sun disk + horizon gradient, not a flat gradient.
@@ -34,8 +34,8 @@ uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
 // inspector tweaks propagate live to every water material at once.
 global uniform float ripple_scale_a;
 global uniform float ripple_scale_b;
-global uniform vec2 ripple_scroll_a;
-global uniform vec2 ripple_scroll_b;
+global uniform vec2 ripple_offset_a;
+global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
@@ -79,8 +79,8 @@ float vnoise(vec3 p) {
 // Two scrolling noise layers sum into a scalar height field. Sampled at
 // world XZ so ripples stay locked to the world, not the camera.
 float ripple_height(vec2 world_xz, float time) {
-	vec2 uv_a = world_xz * ripple_scale_a + ripple_scroll_a * time;
-	vec2 uv_b = world_xz * ripple_scale_b + ripple_scroll_b * time;
+	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
+	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
 	return (vnoise(vec3(uv_a, 0.0)) + vnoise(vec3(uv_b, 0.0))) * 0.5;
 }
 

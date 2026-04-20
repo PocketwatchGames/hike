@@ -28,9 +28,13 @@ public partial class SkyController : Node3D
     // There's only one SkyController per game scene.
     public static SkyController Current { get; private set; }
 
-    [ExportGroup("Sky Dome")]
-    [Export] public Color horizonColor = new Color(0.72f, 0.82f, 0.92f);
-    [Export] public Color zenithColor = new Color(0.25f, 0.48f, 0.82f);
+    [ExportGroup("Weather")]
+    // Live, mutable weather state. In the editor this points at a static .tres
+    // (e.g. default.tres); at runtime _Ready duplicates it so LerpToWeather can
+    // mutate fields without touching the authored asset on disk. All weather-
+    // driven exports (sky colors, wind, clouds, fog, inscatter) live on this
+    // resource so a weather transition is a single Lerp over every field.
+    [Export] public WeatherData weather;
 
     [ExportGroup("Sun")]
     // Wire to the scene's DirectionalLight3D. When set, its transform is
@@ -41,57 +45,25 @@ public partial class SkyController : Node3D
     // (the day/night sim), which only drives the fog shader and would
     // disagree with terrain shadows if the node transform is edited.
     [Export] public DirectionalLight3D sunLight;
-    [Export] public Color sunColor = new Color(1.0f, 0.96f, 0.88f);
-    // Fraction of the BFS sun mask treated as sky-bounce ambient that survives
-    // the directional shadow. The remaining (1 - sunAmbient) is "direct sun"
-    // that the shadow can kill. Read by voxel_clip / sprite_lit shaders AND
-    // WorldState.GetPerceivedLight so visual and gameplay stay in sync.
-    // 0 = pitch-black hard shadows, 1 = directional shadow ignored.
-    // Weather systems raise this for overcast days (diffuse sky, no crisp
-    // shadows) and lower it for clear days (punchy direct sun).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float sunAmbient = 0.4f;
-    // Reverse directional shading: each tint is the color a face is multiplied
-    // by when it faces fully away from the corresponding light. White = no
-    // effect; darker/saturated colors darken and tint backfacing surfaces.
-    [Export] public Color sunTintColor = new Color(0.15f, 0.15f, 0.35f);
-    [Export] public Color fillTintColor = new Color(0.5f, 0.5f, 0.5f);
     // Fill light pitch below horizon (degrees) and yaw offset from the sun.
     [Export] public float fillPitchDegrees = 35f;
     [Export] public float fillYawOffsetDegrees = 135f;
 
-    [ExportGroup("Wind")]
-    // Authored direction of wind in world XZ. Y component is ignored; the
-    // detail-sprite shader only sways horizontally.
-    [Export] public Vector3 windDirection = new Vector3(0.7f, 0f, 0.7f);
-    // Base sway amplitude in world units, measured at the top of a 1m-tall
-    // sprite. Taller sprites bend proportionally more (the shader's bend curve
-    // is height^2). Modulated by gusts at runtime — see gustStrength.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float windAmplitude = 0.05f;
-    // How fast individual blades oscillate (Hz). Each blade picks a phase
-    // from its world position so a field doesn't sway in lock-step.
-    [Export(PropertyHint.Range, "0,5,0.01")] public float windFrequency = 1.5f;
-    // Gust strength: peak multiplier added to windAmplitude during a gust.
-    // 0 = no gusts (constant wind). 0.6 = peak gust is 1.6× base. 2 = peak
-    // gust is 3× base (visible bursts). Gusts modulate amplitude only;
-    // frequency is held constant so blades don't visibly speed up.
-    [Export(PropertyHint.Range, "0,3,0.01")] public float gustStrength = 0.6f;
-    // Gust cycle frequency (Hz). 0.15 = roughly one full gust cycle every
-    // ~7 seconds; lower values produce slower, more sustained surges.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float gustFrequency = 0.15f;
-
     [ExportGroup("Water — Ripples")]
     // Two procedural noise layers sampled in world XZ sum into the water
     // surface's height field; its finite-difference gradient perturbs the
-    // shading normal. Two scales + two scroll directions break up tiling
-    // so the surface doesn't read as a single noise pattern.
+    // shading normal. Two scales break up spatial tiling; both layers drift
+    // along the wind vector (from [Wind] above) — layer B is rotated by a
+    // small angle so the two layers don't lock into one apparent direction.
     [Export] public float rippleScaleA = 0.4f;
     [Export] public float rippleScaleB = 1.1f;
-    [Export] public Vector2 rippleScrollA = new Vector2(0.15f, 0.08f);
-    [Export] public Vector2 rippleScrollB = new Vector2(-0.1f, 0.13f);
-    // Blend between flat +Y and the gradient-perturbed normal. 0 = mirror-
-    // smooth, 1 = fully gradient (reads as choppy). 0.1-0.2 reads as
-    // gentle ripples in the pixel-art style.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float rippleStrength = 0.15f;
+    // Scroll speed (world units/sec) along the wind direction for each layer.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedA = 0.17f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedB = 0.16f;
+    // Angle offset applied to wind direction for layer B (degrees). ~20-40°
+    // reads as natural wind-driven chop; 0 locks B to A's direction and can
+    // show visible tiling; 90° reads as unphysical cross-currents.
+    [Export(PropertyHint.Range, "-180,180,1")] public float rippleAngleOffsetB = 30f;
 
     [ExportGroup("Water — Reflections")]
     // Fresnel shape: at glancing view angles the surface reflects more.
@@ -140,13 +112,8 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float ssrThickness = 1.0f;
 
     [ExportGroup("Clouds")]
-    [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
-    [Export] public Vector2 cloudScroll = new Vector2(0.004f, 0.002f);
-    // Noise-to-cloud remap used by both sky dome and projective ground
-    // shadows. Values ABOVE threshold start being cloud; sharpness controls
-    // transition width (0 = soft gradient, 1 = hard step).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudThreshold = 0.5f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudSharpness = 0.7f;
+    // Cloud spatial tiling (authored). Separate from weather-driven colors /
+    // density remap — cloud patterns don't change shape with weather.
     [Export] public float cloudScale = 0.15f;
     // World Y of the flat cloud plane used for projective sun-shadow casting
     // (see shaders/cloud_shadow.gdshaderinc). The sky dome renders clouds at
@@ -154,56 +121,23 @@ public partial class SkyController : Node3D
     // it controls how far along the sun direction ground points project to
     // sample the cloud pattern. 40–80 usually reads well.
     [Export] public float cloudAltitude = 60f;
-    // How aggressively a full cloud shadow darkens direct sun on terrain /
-    // sprites / water. 1.0 = full cloud leaves only block light; 0.6 leaves
-    // the ambient sky-bounce portion lit; 0 disables cloud shadows entirely.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShadowStrength = 1.0f;
 
-    [ExportGroup("Fog — Authored (voxel fog_map)")]
+    [ExportGroup("Fog — Raymarch Config")]
     // Wire this to res://resources/materials/fog_volumetric.tres — the
     // shader's per-material uniforms are pushed here from the fields below.
     [Export] public ShaderMaterial fogMaterial;
-    [Export] public Color fogColor = new Color(0.85f, 0.88f, 0.95f);
-    // Multiplier on the per-voxel authored fog density (fog_map). Weather
-    // systems drive this — foggy weather cranks it up, clear weather drops
-    // it toward 0. The authored fog_map controls WHERE the fog lives (lake
-    // mist, valley basins, dungeon interiors); this controls HOW DENSE it
-    // reads globally.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float fogDensity = 0.05f;
     [Export] public float fogMaxDistance = 100.0f;
     [Export(PropertyHint.Range, "1,64,1")] public int fogSteps = 48;
 
-    [ExportGroup("Fog — Atmosphere (uniform dust)")]
-    // Atmospheric dust. Scattering medium god rays need to be visible.
-    // Height-gated per pixel to a thin band above the terminating surface
-    // (see dustBandHeight) — dust pools near the ground, so beams stay
-    // concentrated in the near-ground air column rather than smearing
-    // across the whole view ray.
-    //
-    // Dust contributes to SCATTERING only, not extinction — authored fog
-    // is what tints the scene with haze color; dust is purely the medium
-    // that reveals beams. Keep this small; if set too high the inscatter
-    // from dust dominates even in fully sunlit areas and produces uniform
-    // glow.
-    [Export(PropertyHint.Range, "0,1,0.0001")] public float dustDensity = 0.003f;
+    [ExportGroup("Fog — Dust Band Geometry")]
     // How many meters above the reference Y the dust layer extends.
     // Above this height, dust fades to 0 → no beam contribution. 8-12m
     // is a natural range for "mist near the ground" in an outdoor scene.
     [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 10.0f;
-// Fine-scale animated noise overlaid on the dust density within the
-    // band. Creates narrow dense pockets / sparse gaps that read as
-    // additional beam structure — parallels the cloud noise but at
-    // higher spatial frequency and with non-directional drift. Same
-    // threshold/sharpness remap shape as the cloud mask.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseStrength = 0.7f;
     [Export(PropertyHint.Range, "0,2,0.001")] public float dustNoiseScale = 0.12f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.4f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
     [Export] public Vector2 dustNoiseScroll = new Vector2(0.05f, 0.03f);
 
-    [ExportGroup("Fog — Inscatter (Shafts + Halos)")]
-    [Export(PropertyHint.Range, "0,32,0.01")] public float sunShaftIntensity = 8.0f;
-    [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
+    [ExportGroup("Fog — Inscatter Tuning")]
     // Henyey-Greenstein phase. 0 = isotropic (shafts visible from any view
     // direction); positive = forward-peaked (dramatic only when camera faces
     // sun). The isometric camera's locked pitch rarely faces the sun, so 0
@@ -218,19 +152,6 @@ public partial class SkyController : Node3D
     // perfectly lit voxels. 0.6-0.8 usually eliminates underground
     // shaft bleed without losing shafts at cave entrances.
     [Export(PropertyHint.Range, "0,1,0.01")] public float shaftSunThreshold = 0.7f;
-    // How much cloud occlusion contributes to SHAFT gating. 0 = shafts
-    // are purely shaped by scene geometry (screen-space raymarch below);
-    // 1 = cloud shadow composes with geometry, so both block shafts.
-    // Cloud shadows on terrain / sprite / water are UNAFFECTED by this —
-    // those come from cloud_shadow_ground in the other shaders.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftWeight = 1.0f;
-    // Cloud-mask sharpness used SPECIFICALLY for shaft gating. Decoupled
-    // from `cloudSharpness` above (which drives sky dome + terrain shadow
-    // cloud sharpness) so you can get crisp beams without making cloud
-    // shadows on the ground look hard-edged. 0 = soft gradient, 1 = hard
-    // step at threshold. High values (0.9+) give Tessellator-style crisp
-    // shaft boundaries.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
     // Half-angle (degrees) at which shafts begin fading toward zero as
     // the view ray aligns with the sun axis. Beams viewed along their
     // length foreshorten into radial dots — physically correct but
@@ -260,13 +181,42 @@ public partial class SkyController : Node3D
 
     [ExportGroup("Fog — Mote Shimmer (animated)")]
     // Animated visual noise that makes beams shimmer. Carries no scattering
-    // density of its own (that's dustDensity above) — pure cosmetic motion.
-    // Keep low by default — the sine-based noise has visible low-frequency
-    // periodicity, so high strengths show as obvious striping inside shafts
-    // when the sun is near-perpendicular to the view ray.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float moteStrength = 0.15f;
+    // density of its own (that comes from dust density on WeatherData) — pure
+    // cosmetic motion. moteStrength is weather-driven (on WeatherData); scale
+    // and scroll are authored scene constants.
     [Export] public float moteScale = 0.18f;
     [Export] public Vector3 moteScroll = new Vector3(0.35f, 0.12f, -0.25f);
+
+    // Accumulated cloud / ripple scroll offsets — integrated per frame from
+    // `wind direction * speed`. These are the shader inputs (replacing the
+    // old "speed * TIME" shader-side math) so mid-lerp speed changes don't
+    // rescale the entire elapsed-time * speed product and visibly teleport
+    // the texture. Exposed publicly so a future save/load layer can persist
+    // and restore them — they're sim state, not authored data.
+    public Vector2 cloudOffset;
+    public Vector2 rippleOffsetA;
+    public Vector2 rippleOffsetB;
+    // Grass-sway sin phase (integrates wind_frequency per frame). Passed to
+    // detail_sprite.gdshader as wind_phase; same integration rationale as the
+    // scroll offsets — a frequency change only affects future sway speed,
+    // never the accumulated past.
+    public float windPhase;
+    // Gust-wave phase in radians (integrates gustFrequency * 2π per frame).
+    // Drives the amplitude-multiplier wave in Apply() instead of recomputing
+    // from TIME * gustFrequency.
+    public float gustPhase;
+
+    // --- Weather lerp state -----------------------------------------------
+    // When non-null, _Process interpolates `weather` from _lerpFrom -> _lerpTo
+    // over _lerpDuration seconds. See LerpToWeather(). `weather` is the single
+    // mutable working copy — _lerpFrom is a snapshot of its values at the moment
+    // the lerp started; _lerpTo is the target (usually a .tres preset). Both
+    // are duplicates so neither the previous state nor the authored asset is
+    // touched by the per-frame writes.
+    private WeatherData _lerpFrom;
+    private WeatherData _lerpTo;
+    private float _lerpDuration;
+    private float _lerpElapsed;
 
     public override void _Ready()
     {
@@ -278,6 +228,25 @@ public partial class SkyController : Node3D
         {
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("fill_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+
+            // Duplicate the authored WeatherData into a private working copy so
+            // runtime lerps don't mutate the .tres asset on disk. In editor mode
+            // we skip this — the user expects inspector edits to save back to
+            // the asset as usual. If the scene didn't assign one, load the
+            // default preset via ResourceLoader (guarantees the C# type is
+            // resolved, which .tscn ExtResource cannot guarantee on cold load).
+            if (weather == null && ResourceLoader.Exists("res://resources/weather/default.tres"))
+            {
+                weather = ResourceLoader.Load<WeatherData>("res://resources/weather/default.tres");
+            }
+            if (weather != null)
+            {
+                weather = (WeatherData)weather.Duplicate();
+            }
+            else
+            {
+                weather = new WeatherData();
+            }
         }
 
         // Wind globals (wind_dir / wind_amplitude / wind_frequency) live in
@@ -290,6 +259,26 @@ public partial class SkyController : Node3D
         Apply();
     }
 
+    // Smoothly transition the live `weather` fields from their current values
+    // to `target` over `durationSeconds`. Calling again mid-lerp restarts from
+    // the current (already-blended) state toward the new target, so rapid
+    // weather changes chain naturally. durationSeconds <= 0 snaps instantly.
+    public void LerpToWeather(WeatherData target, float durationSeconds)
+    {
+        if (target == null || weather == null) { return; }
+        if (durationSeconds <= 0f)
+        {
+            weather.CopyFrom(target);
+            _lerpFrom = null;
+            _lerpTo = null;
+            return;
+        }
+        _lerpFrom = (WeatherData)weather.Duplicate();
+        _lerpTo = target;
+        _lerpDuration = durationSeconds;
+        _lerpElapsed = 0f;
+    }
+
     public override void _ExitTree()
     {
         if (Current == this) { Current = null; }
@@ -297,6 +286,49 @@ public partial class SkyController : Node3D
 
     public override void _Process(double delta)
     {
+        // Advance any in-flight weather lerp. Each frame, t walks from 0->1
+        // over _lerpDuration; at t==1 we snap to the target and clear state
+        // so further frames don't keep Lerping (which would be a no-op but
+        // still allocates a Duplicate on every LerpToWeather call).
+        if (_lerpTo != null && weather != null && _lerpFrom != null)
+        {
+            _lerpElapsed += (float)delta;
+            float t = Mathf.Clamp(_lerpElapsed / _lerpDuration, 0f, 1f);
+            // Smoothstep — no overshoot, softer ends than linear. Good default
+            // for "feel" on weather transitions.
+            float eased = t * t * (3f - 2f * t);
+            weather.LerpFields(_lerpFrom, _lerpTo, eased);
+            if (t >= 1f)
+            {
+                weather.CopyFrom(_lerpTo);
+                _lerpFrom = null;
+                _lerpTo = null;
+            }
+        }
+
+        // Integrate cloud / ripple scroll offsets from the CURRENT (already-
+        // lerped) weather speed. Must happen after the lerp advancement above
+        // so mid-transition frames see the blended speed, not yesterday's.
+        // Parametric `speed * TIME` in the shader can't do this — changing
+        // speed rescales all of time's accumulated position and snaps the
+        // texture; integrating here decouples the two.
+        if (weather != null)
+        {
+            float dt = (float)delta;
+            Vector2 windXZ = new Vector2(weather.windDirection.X, weather.windDirection.Z);
+            if (windXZ.LengthSquared() > 0.0001f) { windXZ = windXZ.Normalized(); }
+            else { windXZ = new Vector2(1f, 0f); }
+            float angleB = Mathf.DegToRad(rippleAngleOffsetB);
+            Vector2 windXZ_B = new Vector2(
+                windXZ.X * Mathf.Cos(angleB) - windXZ.Y * Mathf.Sin(angleB),
+                windXZ.X * Mathf.Sin(angleB) + windXZ.Y * Mathf.Cos(angleB));
+            cloudOffset += windXZ * weather.cloudScrollSpeed * dt;
+            rippleOffsetA += windXZ * rippleSpeedA * dt;
+            rippleOffsetB += windXZ_B * rippleSpeedB * dt;
+            windPhase += weather.windFrequency * dt;
+            gustPhase += weather.gustFrequency * Mathf.Tau * dt;
+        }
+
         // Re-apply authored values every frame so inspector tweaks take
         // effect live — whether from the scene tab at edit time (via [Tool])
         // or from the Remote scene tree at runtime while debugging. Apply()
@@ -335,31 +367,41 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("fill_world_dir", fillDir);
     }
 
-    // Push every authored atmospheric value to the GPU. Call after weather
-    // / time-of-day code mutates any of the Export fields on this node.
+    // Push every authored atmospheric value to the GPU. Called every frame so
+    // live lerping + inspector edits (via [Tool]) take effect immediately.
     public void Apply()
     {
+        // In editor mode with no weather resource assigned, nothing to push.
+        // (Runtime _Ready creates a default; only the editor allows a null
+        // weather reference.)
+        if (weather == null) { return; }
+
         // --- Global uniforms ---------------------------------------------
-        RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(sunColor));
-        RenderingServer.GlobalShaderParameterSet("sun_ambient", sunAmbient);
-        RenderingServer.GlobalShaderParameterSet("sun_tint_color", ColorToVec3(sunTintColor));
-        RenderingServer.GlobalShaderParameterSet("fill_tint_color", ColorToVec3(fillTintColor));
-        RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(horizonColor));
-        RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(zenithColor));
-        RenderingServer.GlobalShaderParameterSet("cloud_color", ColorToVec3(cloudColor));
-        RenderingServer.GlobalShaderParameterSet("cloud_scroll", cloudScroll);
-        RenderingServer.GlobalShaderParameterSet("cloud_threshold", cloudThreshold);
-        RenderingServer.GlobalShaderParameterSet("cloud_sharpness", cloudSharpness);
-        RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
+        RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(weather.sunColor));
+        RenderingServer.GlobalShaderParameterSet("sun_ambient", weather.sunAmbient);
+        RenderingServer.GlobalShaderParameterSet("sun_tint_color", ColorToVec3(weather.sunTintColor));
+        RenderingServer.GlobalShaderParameterSet("fill_tint_color", ColorToVec3(weather.fillTintColor));
+        RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(weather.horizonColor));
+        RenderingServer.GlobalShaderParameterSet("zenith_color", ColorToVec3(weather.zenithColor));
+        RenderingServer.GlobalShaderParameterSet("cloud_color", ColorToVec3(weather.cloudColor));
+        // Pre-integrated offsets (see _Process). Passing position directly
+        // instead of speed avoids the lerp discontinuity the shader's old
+        // `scroll * TIME` form exhibited when weather changed cloudScrollSpeed.
+        RenderingServer.GlobalShaderParameterSet("cloud_offset", cloudOffset);
+        RenderingServer.GlobalShaderParameterSet("cloud_threshold", weather.cloudThreshold);
+        RenderingServer.GlobalShaderParameterSet("cloud_sharpness", weather.cloudSharpness);
+        RenderingServer.GlobalShaderParameterSet("cloud_scale", weather.cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
-        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
+        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", weather.cloudShadowStrength);
 
         // --- Water -------------------------------------------------------
         RenderingServer.GlobalShaderParameterSet("ripple_scale_a", rippleScaleA);
         RenderingServer.GlobalShaderParameterSet("ripple_scale_b", rippleScaleB);
-        RenderingServer.GlobalShaderParameterSet("ripple_scroll_a", rippleScrollA);
-        RenderingServer.GlobalShaderParameterSet("ripple_scroll_b", rippleScrollB);
-        RenderingServer.GlobalShaderParameterSet("ripple_strength", rippleStrength);
+        // Pre-integrated offsets. Layer B's direction rotation is applied at
+        // integration time in _Process, not here.
+        RenderingServer.GlobalShaderParameterSet("ripple_offset_a", rippleOffsetA);
+        RenderingServer.GlobalShaderParameterSet("ripple_offset_b", rippleOffsetB);
+        RenderingServer.GlobalShaderParameterSet("ripple_strength", weather.rippleStrength);
         RenderingServer.GlobalShaderParameterSet("fresnel_power", fresnelPower);
         RenderingServer.GlobalShaderParameterSet("reflection_strength", reflectionStrength);
         RenderingServer.GlobalShaderParameterSet("glint_sharpness", glintSharpness);
@@ -379,43 +421,44 @@ public partial class SkyController : Node3D
         // Two-octave low-frequency sin sum for naturally uneven gusts —
         // single-sin gives a metronome rhythm that reads as fake. Output
         // is normalized to [0, 1] then scaled by gustStrength so the final
-        // amplitude multiplier stays in [1, 1 + gustStrength].
-        float t = Time.GetTicksMsec() / 1000f;
-        float gustWave = Mathf.Sin(t * gustFrequency * Mathf.Tau) * 0.7f
-                       + Mathf.Sin(t * gustFrequency * 1.7f * Mathf.Tau + 1.3f) * 0.3f;
+        // amplitude multiplier stays in [1, 1 + gustStrength]. Driven by
+        // gustPhase (integrated in _Process) rather than TIME*frequency so
+        // lerping gustFrequency doesn't jump the wave.
+        float gustWave = Mathf.Sin(gustPhase) * 0.7f
+                       + Mathf.Sin(gustPhase * 1.7f + 1.3f) * 0.3f;
         float gust01 = (gustWave + 1f) * 0.5f;
-        float amplitude = windAmplitude * (1f + gust01 * gustStrength);
-        RenderingServer.GlobalShaderParameterSet("wind_dir", windDirection.Normalized());
+        float amplitude = weather.windAmplitude * (1f + gust01 * weather.gustStrength);
+        RenderingServer.GlobalShaderParameterSet("wind_dir", weather.windDirection.Normalized());
         RenderingServer.GlobalShaderParameterSet("wind_amplitude", amplitude);
-        RenderingServer.GlobalShaderParameterSet("wind_frequency", windFrequency);
+        RenderingServer.GlobalShaderParameterSet("wind_phase", windPhase);
 
         // --- Fog material uniforms ---------------------------------------
         if (fogMaterial != null)
         {
-            fogMaterial.SetShaderParameter("fog_color", ColorToVec3(fogColor));
-            fogMaterial.SetShaderParameter("fog_density", fogDensity);
+            fogMaterial.SetShaderParameter("fog_color", ColorToVec3(weather.fogColor));
+            fogMaterial.SetShaderParameter("fog_density", weather.fogDensity);
             fogMaterial.SetShaderParameter("fog_max_distance", fogMaxDistance);
             fogMaterial.SetShaderParameter("fog_steps", fogSteps);
-            fogMaterial.SetShaderParameter("dust_density", dustDensity);
+            fogMaterial.SetShaderParameter("dust_density", weather.dustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);
-            fogMaterial.SetShaderParameter("dust_noise_strength", dustNoiseStrength);
+            fogMaterial.SetShaderParameter("dust_noise_strength", weather.dustNoiseStrength);
             fogMaterial.SetShaderParameter("dust_noise_scale", dustNoiseScale);
-            fogMaterial.SetShaderParameter("dust_noise_threshold", dustNoiseThreshold);
-            fogMaterial.SetShaderParameter("dust_noise_sharpness", dustNoiseSharpness);
+            fogMaterial.SetShaderParameter("dust_noise_threshold", weather.dustNoiseThreshold);
+            fogMaterial.SetShaderParameter("dust_noise_sharpness", weather.dustNoiseSharpness);
             fogMaterial.SetShaderParameter("dust_noise_scroll", dustNoiseScroll);
-            fogMaterial.SetShaderParameter("sun_shaft_intensity", sunShaftIntensity);
-            fogMaterial.SetShaderParameter("block_halo_intensity", blockHaloIntensity);
+            fogMaterial.SetShaderParameter("sun_shaft_intensity", weather.sunShaftIntensity);
+            fogMaterial.SetShaderParameter("block_halo_intensity", weather.blockHaloIntensity);
             fogMaterial.SetShaderParameter("scatter_anisotropy", scatterAnisotropy);
             fogMaterial.SetShaderParameter("shaft_sun_threshold", shaftSunThreshold);
-            fogMaterial.SetShaderParameter("cloud_shaft_weight", cloudShaftWeight);
-            fogMaterial.SetShaderParameter("cloud_shaft_sharpness", cloudShaftSharpness);
+            fogMaterial.SetShaderParameter("cloud_shaft_weight", weather.cloudShaftWeight);
+            fogMaterial.SetShaderParameter("cloud_shaft_sharpness", weather.cloudShaftSharpness);
             fogMaterial.SetShaderParameter("shaft_camera_fade_degrees", shaftCameraFadeDegrees);
             fogMaterial.SetShaderParameter("sun_shadow_enabled", sunShadowEnabled);
             fogMaterial.SetShaderParameter("sun_shadow_steps", sunShadowSteps);
             fogMaterial.SetShaderParameter("sun_shadow_distance", sunShadowDistance);
             fogMaterial.SetShaderParameter("sun_shadow_bias", sunShadowBias);
             fogMaterial.SetShaderParameter("shaft_ground_fade", shaftGroundFade);
-            fogMaterial.SetShaderParameter("mote_strength", moteStrength);
+            fogMaterial.SetShaderParameter("mote_strength", weather.moteStrength);
             fogMaterial.SetShaderParameter("mote_scale", moteScale);
             fogMaterial.SetShaderParameter("mote_scroll", moteScroll);
         }

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="WeatherData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeatherData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+sunAmbient = 0.35
+windAmplitude = 0.04
+rippleStrength = 0.1
+cloudThreshold = 0.75
+cloudSharpness = 0.4
+cloudShadowStrength = 0.7
+fogDensity = 0.03
+dustDensity = 0.003
+metadata/_custom_type_script = "res://scripts/data/WeatherData.cs"

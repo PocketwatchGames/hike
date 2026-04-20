@@ -27,7 +27,7 @@ global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
 global uniform vec3 sun_world_dir;
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;

@@ -24,8 +24,8 @@ global uniform float water_depth_scale;
 // across the ceiling-cutaway cap.
 global uniform float ripple_scale_a;
 global uniform float ripple_scale_b;
-global uniform vec2 ripple_scroll_a;
-global uniform vec2 ripple_scroll_b;
+global uniform vec2 ripple_offset_a;
+global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
@@ -62,8 +62,8 @@ float vnoise(vec3 p) {
 }
 
 float ripple_height(vec2 world_xz, float time) {
-	vec2 uv_a = world_xz * ripple_scale_a + ripple_scroll_a * time;
-	vec2 uv_b = world_xz * ripple_scale_b + ripple_scroll_b * time;
+	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
+	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
 	return (vnoise(vec3(uv_a, 0.0)) + vnoise(vec3(uv_b, 0.0))) * 0.5;
 }
 

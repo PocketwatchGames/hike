@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WeatherData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/WeatherData.cs" id="1_script"]
+
+[resource]
+script = ExtResource("1_script")
+horizonColor = Color(0.5, 0.52, 0.56, 1)
+zenithColor = Color(0.22, 0.25, 0.3, 1)
+sunColor = Color(0.7, 0.72, 0.78, 1)
+sunAmbient = 0.55
+sunTintColor = Color(0.08, 0.1, 0.15, 1)
+fillTintColor = Color(0.35, 0.38, 0.45, 1)
+windAmplitude = 0.14
+windFrequency = 2.5
+gustStrength = 1.8
+gustFrequency = 0.35
+rippleStrength = 0.4
+cloudColor = Color(0.42, 0.44, 0.5, 1)
+cloudScrollSpeed = 0.02
+cloudThreshold = 0.2
+cloudSharpness = 0.8
+cloudShadowStrength = 1.0
+fogColor = Color(0.55, 0.58, 0.64, 1)
+fogDensity = 0.12
+dustDensity = 0.02
+dustNoiseStrength = 0.9
+sunShaftIntensity = 3.0
+blockHaloIntensity = 10.0
+moteStrength = 0.45
+metadata/_custom_type_script = "res://scripts/data/WeatherData.cs"

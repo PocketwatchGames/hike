@@ -30,7 +30,7 @@ global uniform float sun_intensity;
 global uniform vec3 sun_color;
 global uniform float sun_ambient;
 global uniform vec3 sun_world_dir;
-global uniform vec2 cloud_scroll;
+global uniform vec2 cloud_offset;
 global uniform float cloud_scale;
 global uniform float cloud_threshold;
 global uniform float cloud_sharpness;
@@ -52,7 +52,11 @@ global uniform float sprite_stretch;
 // in world units at the *top* of a 1m-tall sprite.
 global uniform vec3 wind_dir;
 global uniform float wind_amplitude;
-global uniform float wind_frequency;
+// Pre-integrated sway phase (SkyController accumulates wind_frequency*dt each
+// frame). Passing a phase instead of a frequency avoids the sin-speed ramp you
+// get when weather lerps wind_frequency while the shader is still multiplying
+// by TIME — the phase integrates the current frequency; past cycles stay put.
+global uniform float wind_phase;
 
 // player_pos is the player's world-space foot position. Sprites within
 // player_radius push their tops away radially in the XZ plane; falloff is
@@ -138,7 +142,7 @@ void vertex() {
 	// Per-sprite phase from the instance origin so a field doesn't sway in
 	// lock-step. Two octaves at coprime frequencies for non-repeating motion.
 	float phase = hash12(world_origin.xz) * 6.2831853;
-	float t = TIME * wind_frequency;
+	float t = wind_phase;
 	float sway = sin(t + phase) * 0.7 + sin(t * 1.7 + phase * 1.3) * 0.3;
 
 	vec3 wind_offset = wind_dir * (sway * wind_amplitude * bend);
