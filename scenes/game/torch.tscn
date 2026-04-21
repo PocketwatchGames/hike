@@ -38,7 +38,6 @@ texture = ExtResource("2_ty0ga")
 region_enabled = true
 region_rect = Rect2(0, 0, 4, 13)
 script = ExtResource("5_litsprite")
-SpriteSize = Vector2i(4, 13)
 MaterialTemplate = ExtResource("6_spritemat")
 
 [node name="UnlitSprite" type="Sprite3D" parent="." unique_id=579226933]
@@ -50,7 +49,6 @@ texture = ExtResource("3_m4hkm")
 region_enabled = true
 region_rect = Rect2(0, 0, 4, 13)
 script = ExtResource("5_litsprite")
-SpriteSize = Vector2i(4, 13)
 MaterialTemplate = ExtResource("6_spritemat")
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661 node_paths=PackedStringArray("_light")]

@@ -239,14 +239,10 @@ public static class VoxelTypeInfo
     // floor <-> wall transitions read as creases). Mask axes independently:
     //   SharpAxes.Y alone  → flat floors/ceilings, walls keep organic curve.
     //   SharpAxes.All      → fully blocky, square building edges in all axes.
-    // YHard suppresses the shallow-Y-transition smoothing that the mesher
-    // applies to ≤1-voxel height differentials — architectural materials set
-    // YHard so single-voxel steps stay crisp. Propagates via the 3x3x3 OR in
-    // the mesher, so any architectural voxel in the neighborhood keeps the
-    // cell steppy. YHardCeiling is the same idea but only applies when the
-    // cell is a ceiling (air below / solid above); natural terrain sets this
-    // so outdoor ground ramps smoothly up 1-voxel bumps while cave ceilings
-    // and overhang undersides stay flat.
+    // The Y snap is a hard step — 1-voxel height differentials stay crisp,
+    // not smoothed. Intentional slopes (ramps, authored terrain blends)
+    // author SharpAxes.None so the mesher averages the cell via the normal
+    // surface-nets path and produces a smooth slope.
     [System.Flags]
     public enum SharpAxes
     {
@@ -255,8 +251,6 @@ public static class VoxelTypeInfo
         Y = 2,
         Z = 4,
         All = X | Y | Z,
-        YHard = 8,
-        YHardCeiling = 16,
     }
 
     // Default shape flag to stamp at each voxel when its material is written
@@ -268,12 +262,12 @@ public static class VoxelTypeInfo
     // snaps on Y only, ramps stay smooth.
     public static readonly Dictionary<VoxelType, SharpAxes> DefaultShape = new()
     {
-        { VoxelType.Stone,       SharpAxes.All | SharpAxes.YHard },
-        { VoxelType.Wood,        SharpAxes.All | SharpAxes.YHard },
-        { VoxelType.Grass,       SharpAxes.Y | SharpAxes.YHardCeiling },
-        { VoxelType.Dirt,        SharpAxes.Y | SharpAxes.YHardCeiling },
-        { VoxelType.Sand,        SharpAxes.Y | SharpAxes.YHardCeiling },
-        { VoxelType.Terrain,     SharpAxes.Y | SharpAxes.YHardCeiling },
+        { VoxelType.Stone,       SharpAxes.All },
+        { VoxelType.Wood,        SharpAxes.All },
+        { VoxelType.Grass,       SharpAxes.Y },
+        { VoxelType.Dirt,        SharpAxes.Y },
+        { VoxelType.Sand,        SharpAxes.Y },
+        { VoxelType.Terrain,     SharpAxes.Y },
         { VoxelType.TerrainPath, SharpAxes.None },
     };
 

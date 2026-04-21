@@ -10,6 +10,7 @@ global uniform bool debug_unlit;          // raw tex only, no lighting
 global uniform bool debug_no_tint;        // skip fill_a_tint / fill_b_tint
 global uniform bool debug_no_cloud;       // force cloud_dim = 1
 global uniform bool debug_no_detail_normal; // skip detail_normal perturbation
+global uniform bool debug_white_albedo;   // force tex_color.rgb = white (lighting-only view)
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
 
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
@@ -294,28 +295,35 @@ void fragment() {
 	vec3 face_n = normalize(face_n_raw * sign(dot(face_n_raw, smooth_n) + 1e-6));
 	vec3 shaded_normal = normalize(mix(smooth_n, face_n, clamp(sharpness, 0.0, 1.0)));
 
-	// Detail normal map perturbation, applied as a proper tangent-space
-	// rotation around the current shaded_normal. The normal map's
-	// "out-of-surface" axis (tangent z ≈ 1) is re-aligned with the actual
-	// surface normal, so the perturbation rides along slopes instead of
-	// being dragged back toward world-up.
-	//
-	// Building the tangent frame: pick world +X as a seed, project it
-	// perpendicular to shaded_normal, then derive the bitangent via cross
-	// product. Since we're sampling the map on world_vertex.xz, this keeps
-	// the pattern world-aligned (not smeared by triangle orientation).
-	// No ground_weight needed — proper tangent-space is correct at every
-	// surface orientation.
-	vec2 dn_uv = world_vertex.xz * detail_normal_freq;
-	vec3 dn_sample = texture(detail_normal, dn_uv).xyz * 2.0 - 1.0;
-	vec3 dn_N = shaded_normal;
-	// If the surface normal happens to align with world +X the seed picks
-	// degenerates; fall back to world +Z. In practice terrain normals are
-	// always mostly-up so the primary branch is hit.
-	vec3 seed = abs(dn_N.x) < 0.99 ? vec3(1.0, 0.0, 0.0) : vec3(0.0, 0.0, 1.0);
-	vec3 dn_T = normalize(seed - dn_N * dot(seed, dn_N));
-	vec3 dn_B = cross(dn_T, dn_N);
-	vec3 dn_world = normalize(dn_T * dn_sample.x + dn_B * dn_sample.y + dn_N * dn_sample.z);
+	// Triplanar axis weights from the pre-perturbation normal, used only by
+	// the detail-normal triplanar blend below. A single XZ sample smeared
+	// vertically on cliff faces; this lets the perturbation read from all
+	// three planes. Tile sampling re-derives its own blend from the
+	// post-perturbation normal further down so tile triplanar weights
+	// still match the final shading normal (unchanged behavior).
+	vec3 dn_blend = pow(abs(shaded_normal), vec3(4.0));
+	dn_blend /= (dn_blend.x + dn_blend.y + dn_blend.z + 1e-5);
+
+	// Detail normal map perturbation — triplanar. Each planar projection
+	// is decoded to a world-space perturbation using that plane's natural
+	// tangent frame, then blended by dn_blend.
+	vec3 dn_xy = texture(detail_normal, world_vertex.xy * detail_normal_freq).xyz * 2.0 - 1.0;
+	vec3 dn_xz = texture(detail_normal, world_vertex.xz * detail_normal_freq).xyz * 2.0 - 1.0;
+	vec3 dn_yz = texture(detail_normal, world_vertex.zy * detail_normal_freq).xyz * 2.0 - 1.0;
+	// Remap each tangent-space sample (tx, ty, tz) into world space for its
+	// projection's natural frame:
+	//   xy plane (Z-facing): T=+X, B=+Y, N=+Z → (tx, ty, tz)
+	//   xz plane (Y-facing): T=+X, B=+Z, N=+Y → (tx, tz, ty)
+	//   yz plane (X-facing): T=+Z, B=+Y, N=+X → (tz, ty, tx)
+	// A flat (0,0,1) sample decodes to each plane's outward axis, so the
+	// blended perturb equals shaded_normal when the map is unperturbed.
+	vec3 dn_xy_world = vec3(dn_xy.x, dn_xy.y, dn_xy.z);
+	vec3 dn_xz_world = vec3(dn_xz.x, dn_xz.z, dn_xz.y);
+	vec3 dn_yz_world = vec3(dn_yz.z, dn_yz.y, dn_yz.x);
+	vec3 dn_world = normalize(
+		dn_xy_world * dn_blend.z +
+		dn_xz_world * dn_blend.y +
+		dn_yz_world * dn_blend.x);
 	if (!debug_no_detail_normal) {
 		shaded_normal = normalize(mix(shaded_normal, dn_world, detail_normal_strength));
 	}
@@ -353,7 +361,9 @@ void fragment() {
 
 	// Triplanar blend — DC vertices have arbitrary normals, so a dominant-axis
 	// pick produces visible seams. Sample the tile on all three planes and
-	// blend by |normal|^k.
+	// blend by |normal|^k. Derived from the post-perturbation shaded_normal
+	// so tile weighting follows the detail-normal wobble as well as the
+	// geometric surface.
 	vec3 blend = pow(abs(shaded_normal), vec3(4.0));
 	blend /= (blend.x + blend.y + blend.z + 1e-5);
 
@@ -408,8 +418,12 @@ void fragment() {
 
 	// Macro detail overlay: a low-frequency grayscale noise multiplied into
 	// albedo as a small brightness modulation. Breaks up same-tile repetition
-	// over large areas without adding any texture-array variants.
-	float macro = texture(detail_noise, world_vertex.xz * detail_noise_freq).r;
+	// over large areas without adding any texture-array variants. Triplanar
+	// so cliff faces don't inherit a vertically smeared XZ slice.
+	float macro_xy = texture(detail_noise, world_vertex.xy * detail_noise_freq).r;
+	float macro_xz = texture(detail_noise, world_vertex.xz * detail_noise_freq).r;
+	float macro_yz = texture(detail_noise, world_vertex.zy * detail_noise_freq).r;
+	float macro = macro_xy * blend.z + macro_xz * blend.y + macro_yz * blend.x;
 	float overlay = mix(1.0 - detail_noise_strength, 1.0 + detail_noise_strength, macro);
 	tex_color.rgb *= overlay;
 
@@ -451,6 +465,10 @@ void fragment() {
 	if (debug_no_tint) {
 		fill_a_tint = vec3(1.0);
 		fill_b_tint = vec3(1.0);
+	}
+
+	if (debug_white_albedo) {
+		tex_color.rgb = vec3(0.0);
 	}
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;

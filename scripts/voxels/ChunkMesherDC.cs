@@ -54,46 +54,6 @@ public static class ChunkMesherDC
     public static bool EmitY = true;
     public static bool EmitZ = true;
 
-    // True iff the cell's 4 corner columns have topY values differing by at
-    // most 1 — a ≤1-voxel Y step the mesher should smooth into a ramp instead
-    // of snapping to a vertical wall. Deterministic across chunks because the
-    // scan window [cellY-1, cellY+2] fits within both neighbours' apron Y
-    // ranges at every shared boundary cell; tall cliffs naturally cap at
-    // cellY+2 and fall through to the max-min≥2 cliff branch.
-    private static bool IsShallowYTransition(sbyte[,,] density, int cx, int cellY, int cz)
-    {
-        int minTop = int.MaxValue;
-        int maxTop = int.MinValue;
-        for (int dx = 0; dx < 2; dx++)
-        {
-            for (int dz = 0; dz < 2; dz++)
-            {
-                int topY = int.MinValue;
-                for (int y = cellY + 2; y >= cellY - 1; y--)
-                {
-                    if (density[CornerIdx(cx + dx), CornerIdx(y), CornerIdx(cz + dz)] < 0)
-                    {
-                        topY = y;
-                        break;
-                    }
-                }
-                if (topY == int.MinValue)
-                {
-                    return false;
-                }
-                if (topY < minTop)
-                {
-                    minTop = topY;
-                }
-                if (topY > maxTop)
-                {
-                    maxTop = topY;
-                }
-            }
-        }
-        return (maxTop - minTop) <= 1;
-    }
-
     public static void Build(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
@@ -224,7 +184,7 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getKitId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getKitId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -264,24 +224,18 @@ public static class ChunkMesherDC
                     float vx = (sharpMask & VoxelTypeInfo.SharpAxes.X) != 0
                         ? (lowX > highX ? 0f : (highX > lowX ? 1f : 0.5f))
                         : accum.X / count;
-                    // Shallow-Y smoothing: disable the Y snap for cells whose
-                    // 4 corner columns have topY values within 1 voxel of each
-                    // other, so 1-voxel ground steps mesh into navigable ramps
-                    // via surface-nets averaging. YHard in the OR'd sharpMask
-                    // suppresses the smoothing everywhere — architectural
-                    // materials keep crisp single-voxel steps. YHardCeiling
-                    // suppresses it only when the cell is a ceiling (more
-                    // solid corners on top than bottom); natural terrain uses
-                    // this so outdoor floors still ramp but cave ceilings and
-                    // overhang undersides stay flat.
-                    bool yIsSharp = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0;
-                    bool yIsHard = (sharpMask & VoxelTypeInfo.SharpAxes.YHard) != 0;
-                    bool yCeilingHard = (sharpMask & VoxelTypeInfo.SharpAxes.YHardCeiling) != 0 && highY > lowY;
-                    if (yIsSharp && !yIsHard && !yCeilingHard && IsShallowYTransition(density, x, y, z))
-                    {
-                        yIsSharp = false;
-                    }
-                    float vy = yIsSharp
+                    // Y snap is the default for solid ground; any soft voxel
+                    // in the 3×3×3 (shape missing the Y bit) overrides it back
+                    // to surface-nets averaging. Asymmetric on purpose: a ramp
+                    // column's surface voxel authored as SharpAxes.None softens
+                    // the mesh cell straddling the ramp base so it blends into
+                    // the adjacent plateau column instead of reading as a
+                    // crisp 1-voxel step, while a single plateau neighbour
+                    // can't re-harden a ramp back into a cliff. X and Z keep
+                    // the OR rule so stone walls next to soft terrain still
+                    // get crisp vertical creases.
+                    bool ySnap = (sharpMask & VoxelTypeInfo.SharpAxes.Y) != 0 && !anySoftY;
+                    float vy = ySnap
                         ? (lowY > highY ? 0f : (highY > lowY ? 1f : 0.5f))
                         : accum.Y / count;
                     float vz = (sharpMask & VoxelTypeInfo.SharpAxes.Z) != 0
@@ -745,9 +699,13 @@ public static class ChunkMesherDC
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,
     // or z outside [0, N-1]) fall back to a neighbour lookup via getVoxel.
     // A cell's sharp mask is the OR of the per-voxel Shape channel over every
-    // solid voxel in its 27-neighbourhood. Worldgen is authoritative for shape
-    // — this function just reads the channel. Intent (architectural vs natural
-    // vs ramp) lives in the data, not in heuristics here.
+    // solid voxel in its 27-neighbourhood, plus a separate anySoftY flag that
+    // records whether ANY solid voxel lacked the Y bit — the caller uses the
+    // flag to back off Y snapping so a ramp column's soft surface voxel can
+    // smooth the ramp-base transition without getting overpowered by the OR.
+    // Worldgen is authoritative for shape — this function just reads the
+    // channel. Intent (architectural vs natural vs ramp) lives in the data,
+    // not in heuristics here.
     private static void PickTileAndAmpForCell(
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
@@ -755,7 +713,7 @@ public static class ChunkMesherDC
         Func<int, int, int, int> getKitId,
         Func<int, int, int, int> getOverlayId,
         int cwX, int cwY, int cwZ,
-        out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out float sharpness, out VoxelType dominant)
+        out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
     {
         // Dominant material: majority vote over the cell's 3x3x3 contributing
         // neighbourhood. DC cells don't "own" the voxels at their 8 corner
@@ -776,6 +734,7 @@ public static class ChunkMesherDC
         Span<int> kitCounts = stackalloc int[256];
         Span<int> overlayCounts = stackalloc int[256];
         sharpMask = VoxelTypeInfo.SharpAxes.None;
+        anySoftY = false;
         for (int dx = -1; dx <= 1; dx++)
         {
             for (int dy = -1; dy <= 1; dy++)
@@ -785,7 +744,9 @@ public static class ChunkMesherDC
                     VoxelType v = getVoxel(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (!VoxelTypeInfo.IsSolid(v) || v == VoxelType.Barrier) { continue; }
                     counts[(int)v]++;
-                    sharpMask |= getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    var shape = getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
+                    sharpMask |= shape;
+                    if ((shape & VoxelTypeInfo.SharpAxes.Y) == 0) { anySoftY = true; }
                     kitCounts[getKitId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (o != 0) { overlayCounts[o]++; }

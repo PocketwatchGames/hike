@@ -1,14 +1,25 @@
 using Godot;
 
 // A Sprite3D that renders through the sprite_lit shader and authors itself
-// from a small set of pixel-space settings. Authoring contract:
+// from standard Sprite3D properties. Authoring contract:
 //
 //   Texture        - the source texture (Sprite3D base property)
-//   SpriteSize     - source pixel rect to draw (W x H)
-//   RegionOrigin   - top-left of that rect inside Texture (atlas offset)
+//   RegionEnabled  - enable to draw a sub-rect (Sprite3D base property)
+//   RegionRect     - the sub-rect in pixels (Sprite3D base property); if
+//                    RegionEnabled is false the full texture is used.
+//   Mirror         - when true, a 50% coin flip at spawn time decides
+//                    whether to horizontally mirror the sprite. Gives
+//                    grass patches, trees etc. per-instance variety
+//                    without authoring separate flipped art.
+//   ScaleMin/Max   - uniform multiplier applied to the sprite's on-screen
+//                    size, rolled once at spawn from [min..max]. Default
+//                    (1, 1) is "no variation". Stored on the Node3D as
+//                    Scale; the sprite shaders read it out of MODEL_MATRIX
+//                    so shadow proxy, reflection, and AO decal all scale
+//                    together through the normal parent transform chain.
 //
-// All other Sprite3D fiddly bits (centered, offset, pixel_size, region_*)
-// are derived from the above so authors don't have to keep them in sync.
+// Pixel-size, centered, and offset are derived from Texture / RegionRect
+// so authors don't have to keep them in sync.
 //
 // Shadows: the visible LitSprite never casts (CastShadow.Off). At runtime
 // it spawns two hidden children:
@@ -29,28 +40,98 @@ using Godot;
 [GlobalClass]
 public partial class LitSprite : Sprite3D
 {
-    [Export]
-    public Vector2I SpriteSize
+    // When true, each instance has a 50% chance of being horizontally
+    // mirrored at spawn. The coin flip is XOR'd into Sprite3D.FlipH in
+    // _Ready (so an author who sets FlipH on the scene keeps that as
+    // the baseline, with Mirror adding a coin flip around it). FlipH is
+    // then the authoritative stored state — the shaders read it through
+    // the sprite_mirror uniform because Sprite3D's built-in FlipH drives
+    // mesh UVs, which these texelFetch-based shaders ignore.
+    [Export] public bool Mirror { get; set; }
+
+    // When true, Apply() forces Offset to (-width/2, 0) — i.e. the sprite's
+    // anchor sits at the center of its bottom edge. Good for grounded
+    // props (trees, grass, mobs) so the Node3D's world position lands on
+    // the ground and the sprite rises from there. Re-applied whenever
+    // anything that affects width changes (TextureChanged, region). When
+    // false, Offset is left as-authored so non-grounded sprites can
+    // anchor themselves arbitrarily. Centered is always forced false —
+    // the sprite shaders rely on that for their FRAGCOORD→tex_coord math.
+    [Export] public bool CenteredAtBase { get; set; } = true;
+
+    // Random uniform-scale range, applied once at spawn as Node3D.Scale.
+    // Default (1, 1) disables variation. Inclusive bounds. The sprite
+    // shaders read scale out of MODEL_MATRIX so the visible sprite,
+    // shadow proxy, water reflection, and AO decal all pick it up via
+    // the standard parent transform chain — no shader uniform plumbing.
+    [Export] public float ScaleMin { get; set; } = 1.0f;
+    [Export] public float ScaleMax { get; set; } = 1.0f;
+
+    // Blend between upright billboarding (0) and terrain-aligned billboarding
+    // (1) — maps directly to the sprite_lit shader's align_to_terrain uniform.
+    // TerrainNormal is the surface normal the shader rolls toward when
+    // AlignToTerrain > 0 (world-space). Owners that want terrain alignment
+    // are responsible for sourcing a real normal — e.g. TallGrass raycasts
+    // down at spawn — otherwise the default (world-up) keeps the sprite
+    // upright regardless of AlignToTerrain.
+    public float AlignToTerrain
     {
-        get => _spriteSize;
-        set { _spriteSize = value; Apply(); }
+        get => _alignToTerrain;
+        set
+        {
+            _alignToTerrain = value;
+            PushAlignmentUniform("align_to_terrain", value);
+        }
     }
-    private Vector2I _spriteSize = new(1, 1);
+    private float _alignToTerrain = 0f;
 
-    [Export]
-    public Vector2I RegionOrigin
+    public Vector3 TerrainNormal
     {
-        get => _regionOrigin;
-        set { _regionOrigin = value; Apply(); }
+        get => _terrainNormal;
+        set
+        {
+            _terrainNormal = value;
+            PushAlignmentUniform("terrain_normal", value);
+        }
     }
-    private Vector2I _regionOrigin = Vector2I.Zero;
+    private Vector3 _terrainNormal = Vector3.Up;
 
-    [Export] public ShaderMaterial MaterialTemplate { get; set; }
-    [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
-    [Export] public ShaderMaterial ReflectionTemplate { get; set; }
-    [Export] public Texture2D AoDecalTexture { get; set; }
+    // Shifts the rendered sprite toward the camera by this many meters along
+    // the horizontal billboard-forward axis (the same axis sprite_lit uses to
+    // face the camera). Because the offset is re-derived in the vertex shader
+    // from the current camera direction, it stays "toward camera" as the
+    // camera yaws — a plain node Z translation wouldn't (it bakes into
+    // MODEL_MATRIX as a fixed world vector and only reads as forward from
+    // one angle). Used to park a sprite at the front edge of a cylinder
+    // collider so the visuals line up with the walkable footprint.
+    [Export] public float ForwardOffset
+    {
+        get => _forwardOffset;
+        set
+        {
+            _forwardOffset = value;
+            PushAlignmentUniform("forward_offset", value);
+        }
+    }
+    private float _forwardOffset = 0f;
 
-    // How far below the sprite feet to search for a water surface. 16
+    // Mirror the alignment uniform onto all three active materials (visible
+    // sprite, shadow caster, water reflection) so a rolled sprite's cast
+    // shadow and reflection match its world-space shape.
+    private void PushAlignmentUniform(string name, Variant value)
+    {
+        if (MaterialOverride is ShaderMaterial mat)
+        {
+            mat.SetShaderParameter(name, value);
+        }
+        if (_shadowProxy?.MaterialOverride is ShaderMaterial smat)
+        {
+            smat.SetShaderParameter(name, value);
+        }
+        _reflectionMaterial?.SetShaderParameter(name, value);
+    }
+
+     // How far below the sprite feet to search for a water surface. 16
     // voxels handles a sprite standing on a pier over a deep lake; beyond
     // that the reflection is so dimmed by water depth tint it won't read.
     [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
@@ -84,7 +165,11 @@ public partial class LitSprite : Sprite3D
     }
     private bool _castsShadow = true;
 
-    private bool _ready;
+    private ShaderMaterial _materialTemplate;
+    private ShaderMaterial _shadowCasterTemplate;
+    private ShaderMaterial _reflectionTemplate;
+    private Texture2D _aoDecalTexture;
+
     private Sprite3D _shadowProxy;
     private Sprite3D _reflection;
     private ShaderMaterial _reflectionMaterial;
@@ -92,7 +177,6 @@ public partial class LitSprite : Sprite3D
 
     public override void _Ready()
     {
-        _ready = true;
         // The visible sprite never casts directly — the proxy below does, with
         // sun-aligned billboard math. Casting from the visible (camera-aligned)
         // sprite produces edge-on slivers from the sun's POV.
@@ -102,20 +186,52 @@ public partial class LitSprite : Sprite3D
         // overrides still win.
         if (!Engine.IsEditorHint())
         {
-            ShadowCasterTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_shadow_caster.tres");
-            ReflectionTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_reflection.tres");
-            AoDecalTexture ??= GD.Load<Texture2D>("res://resources/materials/ao_blob.tres");
+            _materialTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_lit.tres");
+            _shadowCasterTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_shadow_caster.tres");
+            _reflectionTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_reflection.tres");
+            _aoDecalTexture ??= GD.Load<Texture2D>("res://resources/materials/ao_blob.tres");
+            // Resolve the random mirror flip once and XOR it into FlipH,
+            // which becomes the authoritative stored state read by Apply().
+            // Rolling once here keeps subsequent Apply() calls (from
+            // TextureChanged, etc.) from re-randomizing.
+            if (Mirror && GD.Randf() < 0.5f)
+            {
+                FlipH = !FlipH;
+            }
+            // Roll the per-instance scale once and bake it into the
+            // transform. If the author left the range at its (1, 1)
+            // default this is a no-op.
+            float s = (float)GD.RandRange(ScaleMin, ScaleMax);
+            Scale = new Vector3(s, s, s);
         }
         TextureChanged += Apply;
         Apply();
     }
 
-    private void Apply()
+    // Derives (size, origin) in integer pixels from the Sprite3D's RegionRect
+    // when enabled, falling back to the full texture size when not. Shaders
+    // and the Offset math need integer values, so the cast happens here.
+    private void GetSpriteRect(out Vector2I size, out Vector2I origin)
     {
-        if (!_ready)
+        if (RegionEnabled && RegionRect.Size.X > 0 && RegionRect.Size.Y > 0)
         {
+            size = new Vector2I((int)RegionRect.Size.X, (int)RegionRect.Size.Y);
+            origin = new Vector2I((int)RegionRect.Position.X, (int)RegionRect.Position.Y);
             return;
         }
+        if (Texture != null)
+        {
+            Vector2 ts = Texture.GetSize();
+            size = new Vector2I((int)ts.X, (int)ts.Y);
+            origin = Vector2I.Zero;
+            return;
+        }
+        size = new Vector2I(1, 1);
+        origin = Vector2I.Zero;
+    }
+
+    private void Apply()
+    {
         Centered = false;
         // The runtime sprite_lit shader does its own per-pixel sizing using
         // the `sprite_chunky` global, so PixelSize=1 there. The editor
@@ -123,16 +239,10 @@ public partial class LitSprite : Sprite3D
         // to match in-game size — read straight from project.godot so it
         // can't drift.
         PixelSize = Engine.IsEditorHint() ? GetEditorPixelSize() : 1.0f;
-        Offset = new Vector2(-_spriteSize.X / 2.0f, 0);
-
-        if (Texture != null && _spriteSize.X > 0 && _spriteSize.Y > 0)
+        GetSpriteRect(out Vector2I spriteSize, out Vector2I regionOrigin);
+        if (CenteredAtBase)
         {
-            RegionEnabled = true;
-            RegionRect = new Rect2(_regionOrigin.X, _regionOrigin.Y, _spriteSize.X, _spriteSize.Y);
-        }
-        else
-        {
-            RegionEnabled = false;
+            Offset = new Vector2(-spriteSize.X / 2.0f, 0);
         }
 
         if (Engine.IsEditorHint())
@@ -141,36 +251,40 @@ public partial class LitSprite : Sprite3D
             return;
         }
 
-        if (MaterialTemplate == null)
+        if (_materialTemplate == null)
         {
             GD.PushError($"LitSprite '{Name}' is missing MaterialTemplate.");
             MaterialOverride = null;
             return;
         }
 
-        var mat = (ShaderMaterial)MaterialTemplate.Duplicate();
+        var mat = (ShaderMaterial)_materialTemplate.Duplicate();
         mat.SetShaderParameter("sprite_texture", Texture);
-        mat.SetShaderParameter("sprite_size", _spriteSize);
-        mat.SetShaderParameter("sprite_region_origin", _regionOrigin);
+        mat.SetShaderParameter("sprite_size", spriteSize);
+        mat.SetShaderParameter("sprite_region_origin", regionOrigin);
+        mat.SetShaderParameter("sprite_mirror", FlipH);
+        mat.SetShaderParameter("align_to_terrain", _alignToTerrain);
+        mat.SetShaderParameter("terrain_normal", _terrainNormal);
+        mat.SetShaderParameter("forward_offset", _forwardOffset);
         MaterialOverride = mat;
 
-        EnsureShadowProxy();
+        EnsureShadowProxy(spriteSize, regionOrigin);
         EnsureAoDecal();
-        EnsureReflection();
+        EnsureReflection(spriteSize, regionOrigin);
     }
 
     public override void _Process(double delta)
     {
-        if (!_ready || Engine.IsEditorHint())
+        if (Engine.IsEditorHint())
         {
             return;
         }
         UpdateReflection();
     }
 
-    private void EnsureShadowProxy()
+    private void EnsureShadowProxy(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (ShadowCasterTemplate == null || Texture == null)
+        if (_shadowCasterTemplate == null || Texture == null)
         {
             return;
         }
@@ -193,16 +307,19 @@ public partial class LitSprite : Sprite3D
         _shadowProxy.RegionEnabled = RegionEnabled;
         _shadowProxy.RegionRect = RegionRect;
 
-        var smat = (ShaderMaterial)ShadowCasterTemplate.Duplicate();
+        var smat = (ShaderMaterial)_shadowCasterTemplate.Duplicate();
         smat.SetShaderParameter("sprite_texture", Texture);
-        smat.SetShaderParameter("sprite_size", _spriteSize);
-        smat.SetShaderParameter("sprite_region_origin", _regionOrigin);
+        smat.SetShaderParameter("sprite_size", spriteSize);
+        smat.SetShaderParameter("sprite_region_origin", regionOrigin);
+        smat.SetShaderParameter("sprite_mirror", FlipH);
+        smat.SetShaderParameter("align_to_terrain", _alignToTerrain);
+        smat.SetShaderParameter("terrain_normal", _terrainNormal);
         _shadowProxy.MaterialOverride = smat;
     }
 
-    private void EnsureReflection()
+    private void EnsureReflection(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (ReflectionTemplate == null || Texture == null)
+        if (_reflectionTemplate == null || Texture == null)
         {
             return;
         }
@@ -222,10 +339,13 @@ public partial class LitSprite : Sprite3D
         _reflection.RegionEnabled = RegionEnabled;
         _reflection.RegionRect = RegionRect;
 
-        _reflectionMaterial = (ShaderMaterial)ReflectionTemplate.Duplicate();
+        _reflectionMaterial = (ShaderMaterial)_reflectionTemplate.Duplicate();
         _reflectionMaterial.SetShaderParameter("sprite_texture", Texture);
-        _reflectionMaterial.SetShaderParameter("sprite_size", _spriteSize);
-        _reflectionMaterial.SetShaderParameter("sprite_region_origin", _regionOrigin);
+        _reflectionMaterial.SetShaderParameter("sprite_size", spriteSize);
+        _reflectionMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
+        _reflectionMaterial.SetShaderParameter("sprite_mirror", FlipH);
+        _reflectionMaterial.SetShaderParameter("align_to_terrain", _alignToTerrain);
+        _reflectionMaterial.SetShaderParameter("terrain_normal", _terrainNormal);
         _reflection.MaterialOverride = _reflectionMaterial;
     }
 
@@ -298,7 +418,7 @@ public partial class LitSprite : Sprite3D
 
     private void EnsureAoDecal()
     {
-        if (AoDecalTexture == null)
+        if (_aoDecalTexture == null)
         {
             return;
         }
@@ -321,7 +441,7 @@ public partial class LitSprite : Sprite3D
             _aoDecal.DistanceFadeLength = 2f;
             AddChild(_aoDecal);
         }
-        _aoDecal.TextureAlbedo = AoDecalTexture;
+        _aoDecal.TextureAlbedo = _aoDecalTexture;
     }
 
     private static float GetEditorPixelSize()

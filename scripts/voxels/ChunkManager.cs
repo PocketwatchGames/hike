@@ -46,9 +46,10 @@ public partial class ChunkManager : Node3D
         // what caused "Global uniform 'light_map' does not exist" errors
         // on game start.
         //
-        // light_map is a runtime-constructed Texture3D, so it can't be declared
-        // in project.godot (sampler globals there require a static res:// path).
-        ShaderGlobals.RegisterRuntime("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
+        // light_map is declared in project.godot with a PlaceholderTexture3D
+        // so the editor can compile these shaders when they're opened in the
+        // script editor. At runtime we swap in the real ImageTexture3D here.
+        ShaderGlobals.Register("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
@@ -148,6 +149,11 @@ public partial class ChunkManager : Node3D
     public void SetFogVolumetricEnabled(bool enabled)
     {
         _fogMaterial?.SetShaderParameter("fog_volumetric_enabled", enabled);
+    }
+
+    public void SetFogDustReferenceY(float y)
+    {
+        _fogMaterial?.SetShaderParameter("dust_reference_y", y);
     }
 
     // Moves dirty marks from WorldState into LightMap. The actual encode +

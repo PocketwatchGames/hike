@@ -1,0 +1,31 @@
+[gd_scene format=3 uid="uid://33agw00tovkt"]
+
+[ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="1_4lj3t"]
+[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/decor.png" id="2_4lj3t"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_yyeku"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_grass"]
+
+[node name="TallGrass" type="Area3D" unique_id=16119387 node_paths=PackedStringArray("_sprite")]
+collision_layer = 8
+collision_mask = 0
+script = ExtResource("1_4lj3t")
+AlignToTerrain = 1.0
+_sprite = NodePath("Sprite")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=48247068]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_grass")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=816345424]
+cast_shadow = 0
+centered = false
+offset = Vector2(-17, 0)
+pixel_size = 0.0738
+texture = ExtResource("2_4lj3t")
+region_enabled = true
+region_rect = Rect2(610, 165, 36, 33)
+script = ExtResource("3_yyeku")
+Mirror = true
+ScaleMin = 0.85
+ScaleMax = 1.15

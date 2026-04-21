@@ -83,8 +83,8 @@ public partial class WorldGenData : Resource
     [Export] public int SpawnBuildingOriginZ = 20;
     [Export] public int SpawnFlatPadding = 4;
 
-    [Export] public PackedScene TreeScene = GD.Load<PackedScene>("res://scenes/game/tree.tscn");
-    [Export] public PackedScene TallGrassScene = GD.Load<PackedScene>("res://scenes/game/tall_grass.tscn");
+    [Export] public PackedScene[] TreeScenes = System.Array.Empty<PackedScene>();
+    [Export] public PackedScene[] TallGrassScenes = System.Array.Empty<PackedScene>();
     [Export] public PackedScene DoorScene = GD.Load<PackedScene>("res://scenes/game/door.tscn");
     [Export] public PackedScene TorchScene = GD.Load<PackedScene>("res://scenes/game/torch.tscn");
     [Export] public PackedScene GoblinScene = GD.Load<PackedScene>("res://scenes/game/goblin.tscn");

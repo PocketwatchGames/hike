@@ -36,6 +36,21 @@ public static class CVars
         World.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
     });
 
+    // Absolute world-Y the fog's dust band is anchored at (when > -1e9).
+    // Dust band becomes [dust_ref_y, dust_ref_y + dust_band_height] for
+    // ALL pixels — tree + terrain alike — so cloud/dust sampling along
+    // the sun ray is consistent between sprite and terrain pixels at the
+    // same XZ, eliminating the per-pixel dust-band-shift that lets a
+    // tree's shaft sample brighter clouds than the ground's. Default
+    // -1e20 = disabled (per-pixel surface_y, legacy behavior) for A/B.
+    // When confirmed to help, wire to track the player's Y per-frame
+    // from GameClient/SkyController so it stays local as the player
+    // hikes to different altitudes.
+    public static CVarFloat fogDustReferenceY = new CVarFloat("fog_dust_ref_y", -1e20f, (cvar) =>
+    {
+        World.Current?.SetFogDustReferenceY(((CVarFloat)cvar).Value);
+    });
+
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is owned by the SkyController
     // node in scenes/screens/game.tscn as [Export] fields. Weather and
@@ -186,6 +201,19 @@ public static class CVars
     public static CVarBool debugNoDetailNormal = new CVarBool("debug_no_detail_normal", false, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("debug_no_detail_normal", ((CVarBool)cvar).Value);
+    });
+
+    // Override every textured source color (terrain tiles, sprite textures,
+    // grass atlas) with pure white before lighting runs — so the rendered
+    // pixel equals just the lighting path output (sun_lit * shadow * cloud
+    // * tints + block_lit). Use to compare sprites vs terrain vs grass with
+    // nothing from the albedo texture in the way: if a sprite reads brighter
+    // / dimmer than the terrain at its base with this on, the discrepancy
+    // is in the lighting math, not the source texture. Pair with
+    // debug_no_tint to also strip the fill_a/fill_b directional tints.
+    public static CVarBool debugWhiteAlbedo = new CVarBool("debug_white_albedo", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_white_albedo", ((CVarBool)cvar).Value);
     });
 
     // Power applied to the lightmap value in voxel/sprite/water shaders.

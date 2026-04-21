@@ -666,14 +666,16 @@ public static class WorldGen
 
                 int solidHeight = heightMap.GetHeight(wx, wz);
 
-                // Per-column shape: ramp cells get None (smooth), everything
-                // else Y (snap vertical). Applied to every solid voxel in the
-                // column — buried voxels still carry the tag so they feed the
-                // 3x3x3 OR at neighbouring surface cells (e.g. a cave ceiling
-                // picks up Y from the Terrain voxel above it via the mesher's
-                // neighbour OR).
+                // Per-column shape: the topmost solid voxel (the surface) gets
+                // None for ramp columns, Y for plateau columns. All buried
+                // voxels stamp Y regardless — a ramp's softness must not leak
+                // downward into caves or other surfaces that happen to share
+                // the column. The mesher's "any soft voxel on Y wins" rule
+                // then propagates the ramp surface's softness horizontally
+                // into the adjacent plateau column's surface cell, so the
+                // ramp base blends smoothly into the plateau.
                 bool isRamp = heightMap.IsRamp(wx, wz);
-                byte columnShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
+                byte surfaceShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
 
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
@@ -722,9 +724,10 @@ public static class WorldGen
                     bool belowIsCarved = wy - 1 >= 0
                         && ColumnSupportsTunnel(wy - 1, solidHeight)
                         && IsTunnelAt(wx, wy - 1, wz, tunnelNoise, genData);
+                    byte voxelShape = wy == solidHeight ? surfaceShape : (byte)VoxelTypeInfo.SharpAxes.Y;
                     data.Shape[x, y, z] = (aboveIsCarved || belowIsCarved)
                         ? (byte)VoxelTypeInfo.SharpAxes.Y
-                        : columnShape;
+                        : voxelShape;
 
                     // Kit assignment: default every solid voxel to temperate.
                     // TagSubmergedKits runs after all chunks/water exist and
@@ -1554,9 +1557,13 @@ public static class WorldGen
                     return false;
                 }
             }
+            // +1.5 (not +1) because ChunkMesherDC's shallow-Y smoothing
+            // averages a flat grass column's top face to 0.5 above the
+            // voxel-grid top — anchoring at +1 buries sprites half a voxel
+            // into the visible ground.
             ws.AddEntity(new PropSimState(PropType.Tree,
-                new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
-                genData.TreeScene));
+                new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f),
+                genData.TreeScenes[rng.Next(genData.TreeScenes.Length)]));
             treedCells.Add((localX, localZ));
             return true;
         }
@@ -1611,7 +1618,7 @@ public static class WorldGen
                     continue;
                 }
 
-                ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f), genData.TallGrassScene));
+                ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f), genData.TallGrassScenes[rng.Next(genData.TallGrassScenes.Length)]));
             }
         }
 
@@ -1636,7 +1643,7 @@ public static class WorldGen
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 var mobState = new MobSimState(
-                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f),
                     (float)(rng.NextDouble() * Mathf.Pi * 2f),
                     genData.GoblinScene,
                     genData.GoblinData
@@ -1671,7 +1678,7 @@ public static class WorldGen
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 ws.AddEntity(new MobSimState(
-                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f),
                     (float)(rng.NextDouble() * Mathf.Pi * 2f),
                     genData.KunKunScene,
                     genData.KunKunData
@@ -1701,7 +1708,7 @@ public static class WorldGen
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 ws.AddEntity(new PropSimState(
                     PropType.Loot,
-                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                    new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f),
                     genData.LootScene
                 ));
             }
@@ -1728,7 +1735,7 @@ public static class WorldGen
                 int wx = chunkCoord.X * ChunkState.SIZE + localX;
                 int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
                 int lootCount = rng.Next(genData.ChestLootCountMin, genData.ChestLootCountMax + 1);
-                ws.AddEntity(new ChestSimState(new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1f, wz + 0.5f),
+                ws.AddEntity(new ChestSimState(new Vector3(wx + 0.5f, chunkCoord.Y * ChunkState.SIZE + 1.5f, wz + 0.5f),
                     genData.ChestScene,
                     lootCount,
                     genData.LootScene));

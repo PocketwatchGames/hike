@@ -156,6 +156,10 @@ public partial class Player : CharacterBody3D
 		{
 			speed = data.swimSpeed;
 		}
+		if (_curInteractive != null)
+		{
+			speed = 0;
+		}
 
 		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
 
@@ -288,9 +292,9 @@ public partial class Player : CharacterBody3D
 		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
 
 		// Handle interact input
-		if (Input.IsActionJustReleased("Interact"))
+		if (Input.IsActionJustPressed("Interact"))
 		{
-			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
+			if (_curInteractive == null && _highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
 				SetCurInteractive(_highlightInteractive);
 				ulong interactTimeMs = _curInteractive.GetInteractTime(this);
@@ -306,6 +310,13 @@ public partial class Player : CharacterBody3D
 					_interactCompleteTimeMs = _world.GameTimeMs + interactTimeMs;
 				}
 			}
+		}
+
+		if (Input.IsActionJustPressed("Interact") || Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("Sneak"))
+		{
+			SetCurInteractive(null);
+			_highlightInteractive = null;
+			onHighlightChanged?.Invoke(null);
 		}
 
 		if (Input.IsActionJustPressed("Jump"))

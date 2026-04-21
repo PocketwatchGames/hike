@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode unshaded, depth_test_disabled, depth_draw_never, blend_mix, cull_disabled;
+render_mode unshaded, depth_test_disabled, depth_draw_never, blend_premul_alpha, cull_disabled;
 // The clip-cap pipeline writes 1 to the stencil buffer for pixels that
 // represent cut-away ceilings (see voxel_backface_stencil.gdshader); the
 // cap plane then draws only on those pixels. We want the inverse: fog
@@ -179,6 +179,19 @@ uniform vec3 mote_scroll = vec3(0.35, 0.12, -0.25);
 // water surface. Default -1e20 effectively disables the clamp.
 uniform float water_level = -1e20;
 
+// Absolute world-Y at which the dust CEILING sits when > -1e9. Dust is
+// at full density everywhere below (ceiling - dust_band_height) and fades
+// linearly to 0 at the ceiling; there is no lower cutoff, so valleys,
+// caves, and anything beneath the ceiling see dust (and therefore shafts).
+// ALL pixels — tree, terrain, water — share the same ceiling in this
+// mode, so their marches sample cloud_shadow_shafts at the same Y-range
+// along a given sun ray and the sprite-vs-terrain brightness pop goes
+// away.
+// Left at default (-1e20) the shader falls back to the per-pixel legacy
+// behavior: ceiling = surface_y + dust_band_height (i.e. dust is a band
+// just above each pixel's own surface).
+uniform float dust_reference_y = -1e20;
+
 // Screen-space sun shadow raymarch — shapes the shafts by the ACTUAL
 // scene geometry the camera can see (trees, terrain, sprites — anything
 // that writes to the depth buffer). Without this, shafts are only gated
@@ -271,7 +284,24 @@ uniform float shaft_ground_fade : hint_range(0.0, 0.5, 0.01) = 0.2;
 //     ref_y + band_height). If you see RED pixels above where you
 //     expected the band to end, the shaft IS in the band but the
 //     screen projection is fooling your eye.
-uniform int debug_mode : hint_range(0, 8) = 0;
+// 9 = AVERAGE cloud_mask (cloud_shadow_shafts output) along the march,
+//     isolated from voxel_sun and geometry occlusion. Direct diagnostic
+//     for the sprite-vs-terrain cloud-projection divergence: if a tree
+//     pixel and the ground right next to it read different gray values
+//     here, they're sampling different cloud columns because their band
+//     altitudes differ. Uniform gray across sprite+terrain at the same
+//     XZ = cloud sampling is coherent; banding = diverges.
+// 10 = dust band anchor Y per pixel, grayscale. With dust_reference_y
+//     disabled, each pixel reads its own surface Y, so tree pixels are
+//     brighter than the ground beneath them (confirms the band floats
+//     up with the billboard). With dust_reference_y set, all pixels
+//     should read the same gray value (band anchor is absolute).
+// 11 = band_range normalized by dust_band_height — how much of the
+//     march passes through dust. 0 (black) = no dust crossing (pixel
+//     is entirely above or below the band), 1 (white) = full band
+//     crossed. Taller sprites should read dimmer than adjacent ground
+//     when dust_reference_y is set (shorter crossing for higher pixels).
+uniform int debug_mode : hint_range(0, 11) = 0;
 
 const float INV_4PI = 0.0795774715459;
 
@@ -407,50 +437,61 @@ void fragment()
         }
     }
 
-    // Compute the dust band extent in world Y and clip the march to the
-    // segment of the ray that actually passes through it. Without this,
-    // the 48 march steps span ~march_dist worth of world (often 80+ m)
-    // with a step size of ~2 m — step aliasing at dust-gate edges, cloud
-    // transitions, and geometry-occlusion boundaries becomes visible as
-    // banding inside beams. With the band clip, the same 48 steps only
-    // cover the band (typically 10 m), so step size shrinks to ~0.2 m
-    // and the banding effectively disappears.
+    // Dust ceiling: dust is at full density everywhere at or below
+    //   ceiling_y - dust_band_height
+    // and fades linearly to 0 at ceiling_y. No lower bound — valleys,
+    // caves, anywhere under the ceiling sees dust.
     //
-    // Trade-off: authored fog OUTSIDE the band no longer contributes to
-    // extinction or inscatter for the haze integral. In practice, the
-    // authored fog_map that WorldGen places is in the water-mist band
-    // already, so this usually coincides. If you later author fog above
-    // the dust band, we'd need a two-pass march to preserve it.
-    float band_bot = effective_surface_y;
-    float band_top = band_bot + dust_band_height;
-    float t_band_enter;
-    float t_band_exit;
+    // Legacy per-pixel: ceiling = surface_y + dust_band_height, so the
+    // pixel's dust still concentrates near its own surface (backward
+    // compatible with the old band-based behavior for typical scenes).
+    // Absolute: dust_reference_y > -1e9 overrides — all pixels share a
+    // single global ceiling so cloud sampling is coherent across the
+    // screen.
+    float ceiling_y = (dust_reference_y > -1e9) ? dust_reference_y
+                                                 : (effective_surface_y + dust_band_height);
+
+    // Clip the march to the portion of the ray that sits below the
+    // ceiling. Keeps the 48 steps concentrated in dust-relevant air
+    // (avoids step aliasing from spreading them across a mostly-dustless
+    // ray). Rays entirely above the ceiling get band_range = 0 and skip
+    // the loop.
+    float t_dust_enter;
+    float t_dust_exit = march_dist;
     if (abs(ray_dir.y) < 1e-6)
     {
-        // Horizontal view ray — in the band for its whole length if
-        // near_world.y is inside [band_bot, band_top], otherwise never.
-        if (near_world.y >= band_bot && near_world.y <= band_top)
-        {
-            t_band_enter = 0.0;
-            t_band_exit = march_dist;
-        }
-        else
-        {
-            t_band_enter = 0.0;
-            t_band_exit = -1.0;
-        }
+        // Horizontal ray: either always below the ceiling or always above.
+        t_dust_enter = (near_world.y <= ceiling_y) ? 0.0 : -1.0;
     }
     else
     {
-        float t_bot = (band_bot - near_world.y) / ray_dir.y;
-        float t_top = (band_top - near_world.y) / ray_dir.y;
-        t_band_enter = min(t_bot, t_top);
-        t_band_exit = max(t_bot, t_top);
+        float t_cross = (ceiling_y - near_world.y) / ray_dir.y;
+        if (ray_dir.y < 0.0)
+        {
+            // Descending: if we start above the ceiling, enter at crossing.
+            // Otherwise we're already below — march from near plane.
+            t_dust_enter = (near_world.y > ceiling_y) ? t_cross : 0.0;
+        }
+        else
+        {
+            // Ascending: if below ceiling now, exit at crossing.
+            // If already above, no below-ceiling portion.
+            if (near_world.y < ceiling_y)
+            {
+                t_dust_enter = 0.0;
+                t_dust_exit = min(t_dust_exit, t_cross);
+            }
+            else
+            {
+                t_dust_enter = -1.0;
+            }
+        }
     }
-    t_band_enter = max(t_band_enter, 0.0);
-    t_band_exit = min(t_band_exit, march_dist);
-    float band_range = max(t_band_exit - t_band_enter, 0.0);
+    t_dust_enter = max(t_dust_enter, 0.0);
+    t_dust_exit = min(t_dust_exit, march_dist);
+    float band_range = max(t_dust_exit - t_dust_enter, 0.0);
     float step_size = (band_range > 0.0) ? band_range / float(fog_steps) : 0.0;
+    float t_band_enter = t_dust_enter;  // name kept for downstream use
 
     // Phase values are view-direction-dependent but not per-step, so compute
     // once per fragment. cos_theta is the angle between the ray direction
@@ -490,6 +531,10 @@ void fragment()
     // get shafts and at what altitude the band actually delivers.
     float peak_shaft = 0.0;
     float peak_shaft_y = 0.0;
+    // For debug mode 9: average cloud_mask along the march, isolated from
+    // voxel_sun / sun_occ. Pure cloud-projection diagnostic.
+    float cloud_mask_sum = 0.0;
+    float cloud_mask_samples = 0.0;
 
     // No clip-based skip. Previous attempts to suppress above-clip fog
     // samples when the cutaway is active all produced a visible difference
@@ -552,8 +597,13 @@ void fragment()
             // albedo > 1, height-gated scattering medium) but visually
             // it gives "dust reveals beams near the ground" without
             // "dust makes everything look foggy".
-            float h_above_ref = p.y - effective_surface_y;
-            float dust_gate = 1.0 - clamp(h_above_ref / max(dust_band_height, 0.01), 0.0, 1.0);
+            // Dust density as a function of altitude BELOW the ceiling.
+            // p.y = ceiling: gate = 0 (no dust right at the top edge).
+            // p.y = ceiling - dust_band_height: gate = 1 (full dust).
+            // p.y below that: still 1 — there's no floor, dust extends
+            // down indefinitely. Caps above 1 via clamp.
+            float h_below_ceiling = ceiling_y - p.y;
+            float dust_gate = clamp(h_below_ceiling / max(dust_band_height, 0.01), 0.0, 1.0);
 
             // Fine-scale dust noise — two 2D samples of the cloud noise
             // texture at perpendicular scrolls and slightly different
@@ -624,6 +674,9 @@ void fragment()
                 float sun_occ = sun_occlusion(p, to_sun, PROJECTION_MATRIX, VIEW_MATRIX);
                 float sun_through_geom = 1.0 - sun_occ;
                 float sun_through = sun_through_clouds * sun_through_geom;
+
+                cloud_mask_sum += cloud_mask;
+                cloud_mask_samples += 1.0;
 
                 // Remap lm.r through the shaft threshold so partial-sun
                 // cave voxels (lateral BFS bleed past cave mouths)
@@ -773,27 +826,31 @@ void fragment()
     }
     else
     {
-        // Composite haze + inscatter through blend_mix:
-        //   output = scene * (1 - ALPHA) + ALBEDO * ALPHA
+        // Composite haze + inscatter through blend_premul_alpha:
+        //   output = ALBEDO + scene * (1 - ALPHA)
         //   we want: output = scene * transmittance + haze + inscatter
         //
-        // Setting ALPHA = 1 - transmittance handles haze cleanly, but when
-        // transmittance is near 1 (e.g. authored fog disabled, dust only
-        // scattering without extinction), ALPHA → 0 and ALBEDO * 0 wipes
-        // out the inscatter contribution — shafts disappear.
+        // Premultiplied alpha maps to this cleanly:
+        //   ALPHA  = 1 - transmittance       (the real physical attenuation
+        //                                      of the scene by authored fog)
+        //   ALBEDO = haze + inscatter        (the light this pixel contributes
+        //                                      on top of the attenuated scene)
         //
-        // Fix: also include inscatter luma in ALPHA so it survives the
-        // multiply. The price is a slight over-attenuation of the scene
-        // behind bright shafts (scene gets multiplied by (1 - inscatter_luma))
-        // but for modest shaft magnitudes this reads as "shaft overlays
-        // the scene" which is what we want anyway.
+        // The previous blend_mix version folded inscatter_luma into ALPHA to
+        // survive the `ALBEDO * ALPHA` multiply when transmittance was near 1
+        // (dust-only, no authored fog). That worked, but the side effect was
+        // `scene * (1 - inscatter_luma)` — an arbitrary attenuation whose
+        // strength grew with shaft brightness. Dark scene colors (low-value
+        // pine trees, shaded rocks) got wiped to zero inside a bright shaft
+        // and were replaced by the fog color; bright terrain looked fine
+        // because it wasn't dark to begin with. Premultiplied alpha avoids
+        // the multiply entirely: inscatter is purely additive, so scene
+        // color at each pixel is preserved in proportion to the authored
+        // fog extinction and nothing else.
         float alpha_haze = 1.0 - transmittance;
         vec3 haze = fog_color * alpha_haze;
-        float inscatter_luma = max(max(inscatter.r, inscatter.g), inscatter.b);
-        float alpha = max(alpha_haze, inscatter_luma);
-        vec3 total = haze + inscatter;
-        ALBEDO = total / max(alpha, 1e-4);
-        ALPHA = clamp(alpha, 0.0, 1.0);
+        ALBEDO = haze + inscatter;
+        ALPHA = clamp(alpha_haze, 0.0, 1.0);
     }
 
     } // end if (fog_volumetric_enabled)

@@ -435,9 +435,9 @@ public partial class WorldEditor : Node3D
         switch (entityName)
         {
             case "Tree":
-                return new PropSimState(PropType.Tree, position, worldGenData.TreeScene);
+                return new PropSimState(PropType.Tree, position, worldGenData.TreeScenes[(int)(GD.Randi() % worldGenData.TreeScenes.Length)]);
             case "TallGrass":
-                return new PropSimState(PropType.TallGrass, position, worldGenData.TallGrassScene);
+                return new PropSimState(PropType.TallGrass, position, worldGenData.TallGrassScenes[(int)(GD.Randi() % worldGenData.TallGrassScenes.Length)]);
             case "Loot":
                 return new PropSimState(PropType.Loot, position, worldGenData.LootScene);
             case "Chest":

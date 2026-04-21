@@ -19,7 +19,22 @@ render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light
 // VERTEX.y, so taller sprites sway proportionally more — no per-mesh height
 // uniform needed.
 
-uniform sampler2D sprite_texture : source_color, filter_nearest;
+// filter_linear is required by the subpixel_aa path: the fragment snaps the
+// sample point to the texel center except within a ~1-screen-pixel band at
+// each texel boundary, where linear filtering blends into the neighbor. With
+// filter_nearest the snap is a no-op. When subpixel_aa is off, the code
+// snaps to seam = texel center, so linear sampling degenerates to exactly
+// the nearest texel value — visually identical to the old filter_nearest.
+uniform sampler2D sprite_texture : source_color, filter_linear;
+
+// Atlas region in normalized UV space: xy = origin, zw = size. Default
+// (0, 0, 1, 1) samples the full bound texture. When a DetailEntry points at
+// an AtlasTexture, DetailEntry.GetMaterial binds the underlying atlas to
+// sprite_texture and packs the atlas region into this uniform so shader UV
+// 0..1 still maps to the sub-region. textureSize(sprite_texture, 0) returns
+// the full atlas size, so anything that needs the *sprite's* pixel size
+// (e.g. ground_fade column hashing) multiplies it by uv_region.zw.
+uniform vec4 uv_region = vec4(0.0, 0.0, 1.0, 1.0);
 
 // --- Normal pipeline ---
 // Terrain-anchored perturbation model. The BASE world normal for every
@@ -45,6 +60,24 @@ uniform bool use_normal_map = false;
 // dome_strength scales the perturbation. 0 = pure terrain normal (matches
 // ground exactly). ~0.25 = subtle dynamic variation. 1 = maximum wiggle.
 uniform float dome_strength : hint_range(0.0, 1.0) = 0.25;
+
+// Subpixel-perfect pixel-art filter (toggle for A/B).
+//   On:  fragment snaps the sample UV to the nearest texel center except in
+//        a ~1-screen-pixel-wide band at each texel boundary, where linear
+//        filtering crossfades to the neighbor. This kills the sparkle /
+//        missing-pixel artifacts when the sprite is bent/sheared by wind or
+//        rolled off-axis: screen coverage of a source texel varies smoothly
+//        instead of snapping between whole texels. At native 1:1 scale or
+//        minification (dudv >= 1) the clamp is inactive and it degenerates
+//        to plain bilinear — still correct, just no longer snappy.
+//   Off: snap target collapses to the texel center every fragment, so
+//        linear filtering returns exactly the nearest texel value (matches
+//        the prior filter_nearest look exactly).
+// Note on alpha fringing: linear filtering reads color from transparent
+// neighbors at texel boundaries. If you see dark halos, re-import the
+// source textures with an alpha-bleed / "premultiply alpha" step so
+// transparent texels carry a sensible RGB.
+uniform bool subpixel_aa = true;
 
 // Ground-rooting: each texel column of the sprite picks a random fade
 // height in [0, ground_fade_pixels] pixels, then smoothstep-lerps that
@@ -90,6 +123,10 @@ global uniform bool debug_no_cloud;       // force cloud_dim = 1
 // debug_no_detail_normal: read in voxel_clip only, listed here so both
 // shaders declare the same global set.
 global uniform bool debug_no_detail_normal;
+// Lighting-only debug view shared with voxel_clip + sprite_lit. When true
+// the grass tex.rgb is replaced with white so the output reflects only the
+// lighting path, for direct comparison against terrain / sprites.
+global uniform bool debug_white_albedo;
 // 1 / cos(camera_pitch). Stretches sprite Y so a row of source pixels projects
 // to one screen-pixel row regardless of the iso camera's tilt — same trick
 // sprite_lit uses; without it, detail sprites read as foreshortened relative
@@ -119,6 +156,10 @@ varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
 varying float cloud_dim;
+// Per-fragment world position. Sampled for cloud shadow so the sprite's
+// cloud state matches the fog shader's Y-dependent shaft sampling at the
+// same sun ray. See the cloud_shadow call in fragment().
+varying vec3 frag_world_pos;
 // Sprite tangent axes in world space (un-stretched rolled vectors). The
 // terrain-anchored normal model uses sprite_right and sprite_up only —
 // sprite_forward (the billboard out-of-plane axis) rotates with camera
@@ -251,6 +292,7 @@ void vertex() {
 	}
 
 	vertex_world += wind_offset + push_offset;
+	frag_world_pos = vertex_world;
 
 	POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(vertex_world, 1.0);
 }
@@ -260,7 +302,31 @@ void fragment() {
 		discard;
 	}
 
-	vec4 tex = texture(sprite_texture, UV);
+	vec2 atlas_uv = uv_region.xy + UV * uv_region.zw;
+
+	// Subpixel-perfect snap in atlas-pixel space. Operating on the full atlas
+	// size (not the uv_region sub-size) keeps the snap aligned with the
+	// underlying texel grid that filter_linear interpolates against. See the
+	// subpixel_aa uniform comment for the full rationale.
+	vec2 full_size = vec2(textureSize(sprite_texture, 0));
+	vec2 px = atlas_uv * full_size;
+	vec2 seam = floor(px) + 0.5;
+	vec2 px_aa;
+	if (subpixel_aa) {
+		// dudv = source texels covered by one screen pixel. Magnified (<1):
+		// clamp bites, sample stays near the center for most of the texel
+		// with a thin transition band. At 1:1 the clamp is a no-op
+		// (px - seam is already in [-0.5, 0.5]) and we read exact bilinear.
+		// Minified (>1): same formula still returns a valid in-quad sample;
+		// mipmaps would be the next step but are intentionally off for
+		// pixel-art.
+		vec2 dp = max(fwidth(px), vec2(1e-6));
+		px_aa = seam + clamp((px - seam) / dp, -0.5, 0.5);
+	} else {
+		px_aa = seam;
+	}
+	vec2 sprite_uv = px_aa / full_size;
+	vec4 tex = texture(sprite_texture, sprite_uv);
 	if (tex.a < 0.5) {
 		discard;
 	}
@@ -274,7 +340,7 @@ void fragment() {
 	// boundary stable under filter_nearest — all screen fragments within one
 	// texel agree on threshold, so there's no sub-texel shimmer. Per-instance
 	// offset decorrelates adjacent blades.
-	vec2 tex_size = vec2(textureSize(sprite_texture, 0));
+	vec2 tex_size = vec2(textureSize(sprite_texture, 0)) * uv_region.zw;
 	float texel_col = floor(UV.x * tex_size.x);
 	float col_hash = hash12(vec2(texel_col, world_origin.x * 17.0 + world_origin.z * 23.0));
 	// Per-column fade height in [0, ground_fade_pixels] texels. Columns
@@ -297,7 +363,7 @@ void fragment() {
 	float raw_nx;
 	float raw_ny;
 	if (use_normal_map) {
-		vec3 m = texture(normal_map, UV).xyz * 2.0 - 1.0;
+		vec3 m = texture(normal_map, atlas_uv).xyz * 2.0 - 1.0;
 		raw_nx = m.x;
 		raw_ny = m.y;
 	} else {
@@ -319,7 +385,13 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	float cloud = cloud_shadow_ground(world_origin, TIME);
+	// Y-dependent per-fragment sampling — keeps the grass's cloud state in
+	// agreement with the fog shader's shaft sampling above it (both project
+	// along the sun ray at the fragment's own Y). See the matching call in
+	// sprite_lit.gdshader for the full rationale. Grass is short so the
+	// Y-dep / Y-indep divergence is small, but keeping the formulation
+	// identical across billboard shaders prevents future drift.
+	float cloud = cloud_shadow(frag_world_pos, TIME);
 	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
 	// NdotL lift on sun-facing sprite normals — matches voxel_clip so terrain
 	// and detail sprites pop into bloom at matching angles. See voxel_clip.
@@ -340,6 +412,9 @@ void fragment() {
 	if (debug_no_tint) {
 		fill_a_tint = vec3(1.0);
 		fill_b_tint = vec3(1.0);
+	}
+	if (debug_white_albedo) {
+		tex.rgb = vec3(0.0);
 	}
 	vec3 tinted = tex.rgb * fill_a_tint * fill_b_tint;
 

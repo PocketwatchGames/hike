@@ -79,8 +79,9 @@ shape = SubResource("BoxShape3D_loot")
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=650643215]
 texture = ExtResource("3_hags0")
+region_enabled = true
+region_rect = Rect2(0, 0, 8, 8)
 script = ExtResource("4_litsprite")
-SpriteSize = Vector2i(8, 8)
 MaterialTemplate = ExtResource("5_spritemat")
 
 [node name="PickupArea" type="Area3D" parent="." unique_id=2016645530]

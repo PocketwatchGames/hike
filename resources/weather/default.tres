@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1_script")
 sunAmbient = 0.1
-windAmplitude = 0.0
+windAmplitude = 0.03
 rippleStrength = 0.05
 cloudThreshold = 0.35
 cloudSharpness = 0.85

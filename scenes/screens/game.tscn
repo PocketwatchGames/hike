@@ -143,6 +143,7 @@ cloudAltitude = 50.0
 fogMaterial = ExtResource("fog_volumetric_mat")
 dustBandHeight = 8.0
 dustNoiseScale = 0.062
+scatterAnisotropy = 0.8
 shaftCameraFadeDegrees = 45.0
 moteScale = 0.5
 

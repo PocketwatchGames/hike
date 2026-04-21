@@ -40,8 +40,9 @@ shape = SubResource("BoxShape3D_interact")
 
 [node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
 texture = ExtResource("2_k0lqv")
+region_enabled = true
+region_rect = Rect2(0, 0, 10, 20)
 script = ExtResource("4_litsprite")
-SpriteSize = Vector2i(10, 20)
 MaterialTemplate = ExtResource("5_spritemat")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1178586367]

@@ -37,6 +37,14 @@ global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
+// Mirror in lockstep with the visible sprite.
+uniform bool sprite_mirror = false;
+// Match the visible sprite's roll-toward-terrain-normal so a grass blade
+// leaning into a slope has a reflection that leans the same way. Same
+// uniforms and math as sprite_lit.gdshader; defaults leave behaviour
+// unchanged for materials that don't set them.
+uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 
 global uniform float camera_clip;
 global uniform float sprite_chunky;
@@ -56,25 +64,68 @@ uniform float reflection_tint : hint_range(0.0, 1.0) = 0.7;
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
+// Uniform scale from MODEL_MATRIX; see sprite_lit for rationale.
+varying flat float instance_scale;
+// Same screen-space basis varyings sprite_lit uses, with the Y-flip baked
+// in (see vertex). Fragment inverts this 2x2 matrix to recover the source
+// pixel for each reflection fragment, which keeps texelFetch exact when
+// the reflection is rolled to match a sloped terrain normal.
+varying flat vec2 sprite_right_screen;
+varying flat vec2 sprite_up_screen;
+// Interpolated fragment world Y — used by the fragment's water-plane clip.
+// Passing it from the vertex (instead of deriving from d.y * chunky * stretch
+// like the old upright math) stays correct when the reflection is rolled.
+varying float frag_world_y;
 
 void vertex() {
 	world_origin = MODEL_MATRIX[3].xyz;
+	instance_scale = length(MODEL_MATRIX[0].xyz);
 
-	vec3 cam_forward = INV_VIEW_MATRIX[2].xyz;
-	vec3 sprite_right = normalize(cross(vec3(0.0, 1.0, 0.0), cam_forward));
+	// Same yaw+roll-toward-terrain-normal math sprite_lit uses. See
+	// sprite_lit.gdshader for the reasoning; the only difference here is
+	// that the final axes have their world-Y component flipped — that's
+	// the reflection across the water plane.
+	vec3 world_up = vec3(0.0, 1.0, 0.0);
+	vec3 cam_back = INV_VIEW_MATRIX[2].xyz;
+	vec3 sprite_right_yaw = normalize(cross(world_up, cam_back));
+	vec3 sprite_forward = cross(sprite_right_yaw, world_up);
+
+	vec3 n = normalize(terrain_normal);
+	vec3 n_in_plane = n - dot(n, sprite_forward) * sprite_forward;
+	float right_comp = dot(n_in_plane, sprite_right_yaw);
+	float up_comp = dot(n_in_plane, world_up);
+	float roll = atan(right_comp, up_comp) * clamp(align_to_terrain, 0.0, 1.0);
+	float cr = cos(roll);
+	float sr = sin(roll);
+
+	vec3 sprite_right_rolled = cr * sprite_right_yaw - sr * world_up;
+	vec3 sprite_up_rolled = sr * sprite_right_yaw + cr * world_up;
+
 	float stretch = max(sprite_stretch, 1e-4);
 	float chunky = max(sprite_chunky, 1e-6);
 
-	// Downward-extending quad: VERTEX.y in [0, H] places vertices in
-	// world_y ∈ [world_origin.y - H*chunky, world_origin.y].
+	// Camera-pitch stretch on the Y component of each rolled axis (same
+	// trick sprite_lit uses), then flip Y to mirror across the water
+	// plane. X/Z components pass through unchanged — the reflection
+	// preserves horizontal shape and only negates vertical.
+	vec3 right_flipped = vec3(sprite_right_rolled.x, -sprite_right_rolled.y * stretch, sprite_right_rolled.z);
+	vec3 up_flipped = vec3(sprite_up_rolled.x, -sprite_up_rolled.y * stretch, sprite_up_rolled.z);
+
 	vec3 vertex_world = world_origin
-		+ VERTEX.x * chunky * sprite_right
-		- VERTEX.y * chunky * stretch * vec3(0.0, 1.0, 0.0);
+		+ VERTEX.x * chunky * instance_scale * right_flipped
+		+ VERTEX.y * chunky * instance_scale * up_flipped;
 	POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(vertex_world, 1.0);
+	frag_world_y = vertex_world.y;
 
 	vec4 origin_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(world_origin, 1.0);
+	vec4 right_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(world_origin + chunky * instance_scale * right_flipped, 1.0);
+	vec4 up_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(world_origin + chunky * instance_scale * up_flipped, 1.0);
 	vec2 origin_ndc = origin_clip.xy / origin_clip.w;
+	vec2 right_ndc = right_clip.xy / right_clip.w;
+	vec2 up_ndc = up_clip.xy / up_clip.w;
 	anchor_px = floor((origin_ndc * 0.5 + 0.5) * VIEWPORT_SIZE + 0.5);
+	sprite_right_screen = (right_ndc - origin_ndc) * 0.5 * VIEWPORT_SIZE;
+	sprite_up_screen = (up_ndc - origin_ndc) * 0.5 * VIEWPORT_SIZE;
 }
 
 void fragment() {
@@ -85,27 +136,36 @@ void fragment() {
 		discard;
 	}
 
-	// Reconstruct the fragment's world Y from the anchor + screen delta.
-	// anchor_px is on-screen at world_origin; a fragment d.y pixels below
-	// the anchor on-screen sits d.y*chunky/stretch world units below the
-	// anchor (quad extends downward in world space for reflections).
-	vec2 d = FRAGCOORD.xy - anchor_px;
-	float frag_world_y = world_origin.y - d.y * sprite_chunky * sprite_stretch;
 	// Small epsilon so the row right at the water line still renders —
-	// otherwise a sharp visible gap appears along the surface.
+	// otherwise a sharp visible gap appears along the surface. frag_world_y
+	// comes straight from the vertex stage so it stays correct when the
+	// reflection is rolled off vertical.
 	if (frag_world_y > water_y + 0.001) {
 		discard;
 	}
 
-	// Texture coordinate: FRAGCOORD y is inverted in screen space relative
-	// to world y (screen y grows downward). For reflections the quad goes
-	// downward in world → downward on screen → d.y positive. Map:
-	//   d.y ≈ 0                   → tex_coord.y = sprite_size.y - 1 (feet)
-	//   d.y ≈ sprite_size.y - 1   → tex_coord.y = 0                 (head)
-	ivec2 tex_coord = ivec2(
-		int(floor(d.x)) + sprite_size.x / 2,
-		sprite_size.y - 1 - int(floor(d.y))
+	// Invert the screen-space basis to recover the source-pixel offset of
+	// this fragment, same trick sprite_lit uses. For align_to_terrain=0
+	// the basis collapses to (1,0) / (0,+1) (the reflection's quad extends
+	// down in world, which is +y in Godot's top-down FRAGCOORD), and this
+	// reproduces the old d.x / d.y mapping exactly.
+	vec2 d = FRAGCOORD.xy - anchor_px;
+	float basis_det = sprite_right_screen.x * sprite_up_screen.y - sprite_up_screen.x * sprite_right_screen.y;
+	float inv_det = 1.0 / (abs(basis_det) < 1e-6 ? 1e-6 : basis_det);
+	vec2 sxy = vec2(
+		(sprite_up_screen.y * d.x - sprite_up_screen.x * d.y) * inv_det,
+		(sprite_right_screen.x * d.y - sprite_right_screen.y * d.x) * inv_det
 	);
+	// Reflections read source image top↔bottom:
+	//   sxy.y ≈ 0               → tex_coord.y = sprite_size.y - 1 (feet)
+	//   sxy.y ≈ sprite_size.y-1 → tex_coord.y = 0                 (head)
+	ivec2 tex_coord = ivec2(
+		int(floor(sxy.x)) + sprite_size.x / 2,
+		sprite_size.y - 1 - int(floor(sxy.y))
+	);
+	if (sprite_mirror) {
+		tex_coord.x = sprite_size.x - 1 - tex_coord.x;
+	}
 	if (tex_coord.x < 0 || tex_coord.x >= sprite_size.x
 		|| tex_coord.y < 0 || tex_coord.y >= sprite_size.y) {
 		discard;

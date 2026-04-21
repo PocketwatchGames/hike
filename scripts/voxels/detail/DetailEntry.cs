@@ -10,6 +10,14 @@ using Godot;
 // way trimming a source PNG doesn't change the sprite's visible size and
 // there's no per-entry mesh to keep in sync with texture aspect.
 //
+// Atlas support: Texture may be either a standalone Texture2D or an
+// AtlasTexture pointing at a region inside a shared decor atlas. AtlasTexture
+// is detected in GetMaterial() — we bind the underlying atlas to the shader's
+// sprite_texture sampler and pack the region (normalized) into the uv_region
+// uniform so shader UV 0..1 still maps to the sub-region. AtlasTexture.
+// GetWidth / GetHeight already return the region size, so the scatter's
+// per-instance world size math needs no special case.
+//
 // Material handling: the sprite Texture lives as an export on this resource
 // — NOT as a shader parameter on a per-entry material .tres. Reason:
 // detail_sprite.gdshader uses globals (light_map, player_pos, etc.) that
@@ -74,7 +82,9 @@ public partial class DetailEntry : Resource
         var mat = (ShaderMaterial)template.Duplicate();
         if (Texture != null)
         {
-            mat.SetShaderParameter("sprite_texture", Texture);
+            ResolveAtlas(Texture, out Texture2D spriteTex, out Vector4 spriteRegion);
+            mat.SetShaderParameter("sprite_texture", spriteTex);
+            mat.SetShaderParameter("uv_region", spriteRegion);
         }
         // Normal pipeline: if NormalMap is set it wins; otherwise DomeNormal
         // controls whether the shader synthesises a dome tangent-normal or
@@ -82,10 +92,37 @@ public partial class DetailEntry : Resource
         mat.SetShaderParameter("use_normal_map", NormalMap != null);
         if (NormalMap != null)
         {
-            mat.SetShaderParameter("normal_map", NormalMap);
+            ResolveAtlas(NormalMap, out Texture2D normalTex, out _);
+            mat.SetShaderParameter("normal_map", normalTex);
         }
         mat.SetShaderParameter("dome_strength", DomeStrength);
         _materialCache = mat;
         return mat;
+    }
+
+    // Unwraps AtlasTexture to (underlying atlas texture, normalized region).
+    // For a plain Texture2D the atlas is the texture itself and the region is
+    // the identity rect (0,0,1,1), matching the shader's uv_region default so
+    // non-atlas entries sample full 0..1 UV unchanged. Region normalization
+    // divides by the atlas pixel size; NormalMap callers pass the identity
+    // region through untouched (see GetMaterial — normal map remap reuses the
+    // sprite's atlas_uv because mixing normal/sprite atlases is not a
+    // supported authoring mode).
+    private static void ResolveAtlas(Texture2D tex, out Texture2D atlas, out Vector4 region)
+    {
+        if (tex is AtlasTexture at && at.Atlas != null)
+        {
+            atlas = at.Atlas;
+            float atlasW = at.Atlas.GetWidth();
+            float atlasH = at.Atlas.GetHeight();
+            if (atlasW > 0f && atlasH > 0f)
+            {
+                Rect2 r = at.Region;
+                region = new Vector4(r.Position.X / atlasW, r.Position.Y / atlasH, r.Size.X / atlasW, r.Size.Y / atlasH);
+                return;
+            }
+        }
+        atlas = tex;
+        region = new Vector4(0f, 0f, 1f, 1f);
     }
 }

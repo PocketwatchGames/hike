@@ -150,6 +150,7 @@ public partial class ConsoleUI : CanvasLayer
 		}
 
 		_input.Clear();
+		_input.GrabFocus();
 		ResetCompletion();
 	}
 
