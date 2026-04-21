@@ -32,22 +32,24 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("detail_normal", detailNormal);
 
         // Populate the per-tile variant table. Entry i carries (num_bands,
-        // variants_per_band, uv_scale, _) for the tile whose base layer is i;
-        // unused slots stay at (1,1,1,0) so any accidental index collapses to
-        // "no variation, 1 tile per world unit".
+        // variants_per_band, _, _) for the tile whose base layer is i;
+        // unused slots stay at (1,1,0,0) so any accidental index collapses
+        // to "no variation". The world-to-UV scale is global (see
+        // TILE_UV_SCALE below) — no longer a per-tile value.
         var variantTable = new Godot.Collections.Array();
         for (int i = 0; i < VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE; i++)
         {
             if (VoxelTypeInfo.TileVariants.TryGetValue(i, out var info))
             {
-                variantTable.Add(new Vector4(info.Bands, info.VariantsPerBand, info.UvScale, 0f));
+                variantTable.Add(new Vector4(info.Bands, info.VariantsPerBand, 0f, 0f));
             }
             else
             {
-                variantTable.Add(new Vector4(1, 1, 1, 0));
+                variantTable.Add(new Vector4(1, 1, 0, 0));
             }
         }
         SharedMaterial.SetShaderParameter("tile_variants", variantTable);
+        SharedMaterial.SetShaderParameter("tile_uv_scale", VoxelTypeInfo.TILE_UV_SCALE);
         SharedMaterial.SetShaderParameter("band_origin_y", VoxelTypeInfo.TILE_BAND_ORIGIN_Y);
         SharedMaterial.SetShaderParameter("band_height", VoxelTypeInfo.TILE_BAND_HEIGHT);
         SharedMaterial.SetShaderParameter("band_blend", VoxelTypeInfo.TILE_BAND_BLEND);

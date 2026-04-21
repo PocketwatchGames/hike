@@ -77,16 +77,20 @@ const float TILE_AUTO_THRESHOLD = 254.5;
 // Per base-tile variant config indexed by base layer id:
 //   .x = num elevation bands
 //   .y = variants per band
-//   .z = world-to-UV scale (1 = 1 tile per world unit; <1 = larger pattern
-//        spanning multiple voxels — right for overlay patches so they don't
-//        read as copy-paste-per-voxel)
-//   .w = reserved
+//   .z, .w = reserved
 // Entries we never index may be stale; keep TILE_VARIANT_TABLE_SIZE in sync
-// with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE. A (1,1,1,_) entry means "no
-// variation" — the effective layer equals the base and UVs match the voxel
-// grain.
+// with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE. A (1,1,_,_) entry means "no
+// variation" — the effective layer equals the base.
 const int TILE_VARIANT_TABLE_SIZE = 64;
 uniform vec4 tile_variants[TILE_VARIANT_TABLE_SIZE];
+
+// Global world-to-UV scale shared by every tile. One authored PNG spans
+// 1/tile_uv_scale world units on each axis. Keeping this uniform across
+// tiles means the same camera distance produces the same texel density for
+// all materials — no per-tile tuning and no surprises when a tile's base
+// layer is reused as an overlay. Also drives the variant-pick hash so all
+// fragments in one PNG-sized region agree on which variant to show.
+uniform float tile_uv_scale = 0.25;
 uniform float band_origin_y = 0.0;
 uniform float band_height = 32.0;
 // Crossfade width across an elevation-band seam, expressed as a fraction of
@@ -208,13 +212,11 @@ void resolve_layer(
 		vec3 world_pos,
 		out float layer_lo,
 		out float layer_hi,
-		out float band_t,
-		out float uv_scale) {
+		out float band_t) {
 	int id = clamp(int(base_layer), 0, TILE_VARIANT_TABLE_SIZE - 1);
 	vec4 cfg = tile_variants[id];
 	float bands = max(1.0, cfg.x);
 	float per_band = max(1.0, cfg.y);
-	uv_scale = cfg.z > 0.0 ? cfg.z : 1.0;
 	// Bands are a function of elevation (world Y), not texture scale —
 	// terrain's geographic Y banding is independent of any overlay's
 	// tiling scale. Modulus so bands cycle forever up and down (GLSL mod
@@ -225,10 +227,10 @@ void resolve_layer(
 	float band_lo = mod(base_band, bands);
 	float band_hi = mod(base_band + 1.0, bands);
 	band_t = smoothstep(1.0 - band_blend, 1.0, frac);
-	// Variant granularity follows the texture scale so one splatter-sized
-	// region picks one variant. At scale=1 this is per-voxel (the original
-	// behavior); at scale=0.25 it's per-4-voxel-region.
-	vec3 scaled = world_pos * uv_scale;
+	// Variant granularity follows the global texture scale so one
+	// PNG-sized region picks one variant. At tile_uv_scale=0.25 that's
+	// one variant per 4-voxel region across every tile.
+	vec3 scaled = world_pos * tile_uv_scale;
 	float h = hash13(floor(scaled) + vec3(37.2, 11.7, 91.3));
 	float variant = clamp(floor(h * per_band), 0.0, per_band - 1.0);
 	layer_lo = base_layer + band_lo * per_band + variant;
@@ -244,9 +246,8 @@ vec4 sample_tile(float base_layer, vec3 world_pos, vec3 blend) {
 	float layer_lo;
 	float layer_hi;
 	float band_t;
-	float uv_scale;
-	resolve_layer(base_layer, world_pos, layer_lo, layer_hi, band_t, uv_scale);
-	vec3 wp = world_pos * uv_scale;
+	resolve_layer(base_layer, world_pos, layer_lo, layer_hi, band_t);
+	vec3 wp = world_pos * tile_uv_scale;
 	vec4 lo_xy = texture(tile_array, vec3(wp.x, -wp.y, layer_lo));
 	vec4 lo_xz = texture(tile_array, vec3(wp.x,  wp.z, layer_lo));
 	vec4 lo_yz = texture(tile_array, vec3(wp.z, -wp.y, layer_lo));

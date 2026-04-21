@@ -94,24 +94,39 @@ public static class VoxelTypeInfo
         // integer position, so all fragments within one voxel pick the same
         // variant but neighbouring voxels vary.
         public readonly int VariantsPerBand;
-        // World-to-UV scale. 1.0 = one full texture repeat per world unit
-        // (the voxel grain). Values < 1 make the pattern larger than a
-        // voxel, so a single authored splatter spans multiple voxels — right
-        // for overlays like dirt patches or fields where per-voxel tiling
-        // reads as copy-paste repetition. The variant-pick hash also uses
-        // this scale, so all voxels inside one splatter-sized region agree
-        // on which variant to show.
-        public readonly float UvScale;
 
-        public TileVariantInfo(int bands, int variantsPerBand, float uvScale = 1f)
+        public TileVariantInfo(int bands, int variantsPerBand)
         {
             Bands = bands;
             VariantsPerBand = variantsPerBand;
-            UvScale = uvScale;
         }
 
         public int LayerCount => Bands * VariantsPerBand;
     }
+
+    // Authored source-pixel density: every terrain PNG is authored so that
+    // TEXELS_PER_VOXEL source pixels map to one world unit on the ground.
+    // This is the single knob that controls texel size on screen — bumping
+    // it halves the on-screen size of every authored detail across every
+    // material, dropping it doubles them. Expressed as pixels-per-voxel
+    // (not a raw UV scale) so the relationship to the art stays explicit:
+    // if tiles are redrawn at a different feature scale, change this; if
+    // atlas slot resolution changes, change ATLAS_SLOT_PIXELS; no per-tile
+    // tuning either way.
+    public const int TEXELS_PER_VOXEL = 16;
+
+    // Atlas slot resolution in pixels. Must match SLOT in
+    // tools/stitch_voxel_atlas.py — the stitcher normalizes every authored
+    // PNG to this size before packing, so the shader can assume every
+    // tile_array layer is exactly this wide.
+    public const int ATLAS_SLOT_PIXELS = 128;
+
+    // Derived world-to-UV scale for the shader. One authored PNG covers
+    // (ATLAS_SLOT_PIXELS / TEXELS_PER_VOXEL) world units on each axis; the
+    // UV scale is the inverse. At 128/32 = 4 voxels per PNG → scale 0.25.
+    // Also drives the variant-pick hash so all fragments inside one
+    // PNG-sized region agree on which variant to show (no per-voxel seam).
+    public const float TILE_UV_SCALE = (float)TEXELS_PER_VOXEL / ATLAS_SLOT_PIXELS;
 
     // Band quantization for the shader. BandOriginY is the world Y where
     // band 0 starts; BandHeight is how tall each band is in world units.
@@ -131,18 +146,15 @@ public static class VoxelTypeInfo
     {
         { TILE_STONE,         new(1, 1) },
         { TILE_DIRT,          new(1, 1) },
-        { TILE_GRASS_TOP,     new(4, 4, 0.125f) },
+        { TILE_GRASS_TOP,     new(4, 4) },
         { TILE_GRASS_SIDE,    new(1, 1) },
         { TILE_SAND,          new(1, 1) },
         { TILE_WOOD_END,      new(1, 1) },
         { TILE_WOOD_SIDE,     new(1, 1) },
         { TILE_WATER,         new(1, 1) },
         { TILE_COBBLESTONE,   new(1, 4) },
-        // Overlays sample at a larger scale than voxels so authored splatters
-        // read as single patches spanning multiple voxels instead of tiling
-        // the same PNG per voxel. 0.25 = one splatter per 4-world-unit area.
-        { TILE_DIRT_OVERLAY,  new(1, 4, 0.25f) },
-        { TILE_FIELD_OVERLAY, new(1, 1, 0.25f) },
+        { TILE_DIRT_OVERLAY,  new(1, 4) },
+        { TILE_FIELD_OVERLAY, new(1, 1) },
     };
 
     public readonly struct TileFaces
