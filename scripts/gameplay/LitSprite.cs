@@ -49,6 +49,14 @@ public partial class LitSprite : Sprite3D
     // mesh UVs, which these texelFetch-based shaders ignore.
     [Export] public bool Mirror { get; set; }
 
+    // When true, _Process flips `sprite_mirror` each frame based on whether
+    // the sprite's world yaw points to the left or right of the camera.
+    // Intended for side-view character art so the sprite's facing direction
+    // tracks the node's Rotation.Y. FlipH still acts as the authored
+    // baseline (useful when the art was drawn facing the opposite side)
+    // and is XOR'd with the yaw-derived flip.
+    [Export] public bool MirrorByYaw { get; set; }
+
     // When true, Apply() forces Offset to (-width/2, 0) — i.e. the sprite's
     // anchor sits at the center of its bottom edge. Good for grounded
     // props (trees, grass, mobs) so the Node3D's world position lands on
@@ -332,6 +340,47 @@ public partial class LitSprite : Sprite3D
             return;
         }
         UpdateReflection();
+        UpdateYawMirror();
+    }
+
+    // Per-frame flip based on the sprite's world yaw vs the camera. A
+    // character whose forward (GlobalBasis.Z — the +Z convention matching
+    // Player/Mob's Atan2(x, z) yaw setter) points to the left of camera-
+    // right gets `sprite_mirror` XOR'd to true, so side-view art reads as
+    // consistently facing whichever way the character is walking. FlipH
+    // stays as the authored baseline (for art drawn facing a given side)
+    // and is XOR'd into the final uniform.
+    private bool _yawMirrorInitialized;
+    private bool _yawMirrorLast;
+    private void UpdateYawMirror()
+    {
+        if (!MirrorByYaw)
+        {
+            return;
+        }
+        Camera3D cam = GetViewport()?.GetCamera3D();
+        if (cam == null)
+        {
+            return;
+        }
+        Vector3 forward = GlobalBasis.Z;
+        forward.Y = 0f;
+        Vector3 camRight = cam.GlobalBasis.X;
+        camRight.Y = 0f;
+        // dot < 0 means the character's forward points to the left side of
+        // the camera's view; flip the sprite to match. Exact-zero (facing
+        // directly toward/away) resolves to "not flipped" and stays stable
+        // there, so a character walking straight at the camera won't
+        // flicker between the two states.
+        bool yawMirror = forward.Dot(camRight) < 0f;
+        bool finalMirror = FlipH ^ yawMirror;
+        if (_yawMirrorInitialized && finalMirror == _yawMirrorLast)
+        {
+            return;
+        }
+        _yawMirrorLast = finalMirror;
+        _yawMirrorInitialized = true;
+        PushAlignmentUniform("sprite_mirror", finalMirror);
     }
 
     private void EnsureShadowProxy(Vector2I spriteSize, Vector2I regionOrigin)

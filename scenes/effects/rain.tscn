@@ -5,6 +5,7 @@
 [ext_resource type="Material" uid="uid://dhoumedxf2vuh" path="res://resources/materials/rain_splash.tres" id="3_splash_mat"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fall"]
+particle_flag_align_y = true
 emission_shape = 3
 emission_box_extents = Vector3(40, 0.1, 40)
 direction = Vector3(0, -1, 0)
@@ -17,14 +18,22 @@ scale_max = 1.2
 
 [sub_resource type="QuadMesh" id="QuadMesh_drop"]
 material = ExtResource("2_drop_mat")
-size = Vector2(0.01, 1)
+
+[sub_resource type="Gradient" id="Gradient_splashFade"]
+colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_splashFade"]
+gradient = SubResource("Gradient_splashFade")
+width = 32
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+particle_flag_align_y = true
 direction = Vector3(0, 1, 0)
 spread = 25.0
 gravity = Vector3(0, -30, 0)
 scale_min = 0.3
 scale_max = 0.7
+color_ramp = SubResource("GradientTexture1D_splashFade")
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
 lightmap_size_hint = Vector2i(27, 27)

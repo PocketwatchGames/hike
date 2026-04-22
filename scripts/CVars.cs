@@ -79,7 +79,7 @@ public static class CVars
         string path = $"res://resources/weather/{name}.tres";
         if (!Godot.ResourceLoader.Exists(path))
         {
-            Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.");
+            Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy, light_rain.");
             return;
         }
         WeatherData preset = Godot.ResourceLoader.Load<WeatherData>(path);

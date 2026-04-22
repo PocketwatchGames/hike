@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://b47olt1kvj5vp"]
+[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://dcq8cimfifuyr"]
 
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="1_script"]
 
@@ -24,3 +24,5 @@ cloudShadowStrength = 0.75
 fogDensity = 0.02
 ambientFogDensity = 0.00039999999999999
 dustDensity = 0.075
+rainIntensity = 0.33
+rainWeight = 0.333

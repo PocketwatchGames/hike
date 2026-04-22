@@ -108,11 +108,25 @@ public partial class WeatherData : Resource
 
     [ExportGroup("Wind")]
     // Direction lives on SimData as a world-level property. These tune the
-    // STRENGTH and RHYTHM of wind per weather — stormy presets can crank
-    // up amplitude / gust strength without changing the compass bearing.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float windAmplitude = 0.05f;
+    // SPEED and RHYTHM of wind per weather — stormy presets can crank up
+    // wind / gust speed without changing the compass bearing.
+    //
+    // windSpeed is the steady horizontal wind in meters per second. Drives
+    // sprite/grass sway amplitude (via SkyController.windToSwayMeters), rain
+    // tilt (via RainEffect.tiltDegPerMps), cloud scroll rate (via
+    // SkyController.cloudScrollPerMps) and water ripple drift (via
+    // SkyController.rippleSpeedA/B reinterpreted as per-m/s fractions). All
+    // those consumers convert m/s into their own visual unit through scene-
+    // level constants, so retuning a weather preset's wind never requires
+    // touching the scene.
+    [Export(PropertyHint.Range, "0,40,0.1")] public float windSpeed = 2.0f;
     [Export(PropertyHint.Range, "0,5,0.01")] public float windFrequency = 1.5f;
-    [Export(PropertyHint.Range, "0,3,0.01")] public float gustStrength = 0.6f;
+    // Additional horizontal wind speed (m/s) added at the peak of each gust
+    // wave. Effective speed varies between windSpeed (gust trough) and
+    // windSpeed + gustStrength (gust peak). Affects only consumers that
+    // should pulse with gusts — sprite sway and rain tilt — not clouds or
+    // ripples (those drift with steady wind only).
+    [Export(PropertyHint.Range, "0,30,0.1")] public float gustStrength = 1.0f;
     [Export(PropertyHint.Range, "0,1,0.001")] public float gustFrequency = 0.15f;
 
     [ExportGroup("Water")]
@@ -120,7 +134,6 @@ public partial class WeatherData : Resource
 
     [ExportGroup("Clouds")]
     [Export] public Color cloudColor = new Color(1.0f, 0.98f, 0.95f);
-    [Export(PropertyHint.Range, "0,0.1,0.0001")] public float cloudScrollSpeed = 0.006f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudThreshold = 0.5f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudSharpness = 0.7f;
     [Export] public float cloudScale = 0.15f;
@@ -153,6 +166,14 @@ public partial class WeatherData : Resource
     // fade smoothly. Future particle variants (hail, snow, dust-storm motes)
     // add their own *Intensity fields alongside this one.
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainIntensity = 0.0f;
+    // Visual "heft" of each drop. SkyController.ApplyPrecipitation scales
+    // fall velocity, drop-material albedo alpha, and streak length by this
+    // value, and INVERSELY scales how strongly wind/gusts tilt the rain:
+    // a rainWeight=0.3 drizzle blows sideways at the first gust, while a
+    // rainWeight=2.0 downpour barrels through the same wind near-vertical.
+    // Orthogonal to rainIntensity — weight is the character of a single
+    // drop, intensity is how many are falling. Default 1.0 = "normal storm".
+    [Export(PropertyHint.Range, "0.1,3,0.01")] public float rainWeight = 1.0f;
 
     // Copy every field from `other` into this. Used by SkyController to apply an
     // instantaneous weather snapshot without allocating a new Resource.
@@ -189,13 +210,12 @@ public partial class WeatherData : Resource
         nightFogColor = other.nightFogColor;
         moonShaftIntensity = other.moonShaftIntensity;
         moonShaftColor = other.moonShaftColor;
-        windAmplitude = other.windAmplitude;
+        windSpeed = other.windSpeed;
         windFrequency = other.windFrequency;
         gustStrength = other.gustStrength;
         gustFrequency = other.gustFrequency;
         rippleStrength = other.rippleStrength;
         cloudColor = other.cloudColor;
-        cloudScrollSpeed = other.cloudScrollSpeed;
         cloudThreshold = other.cloudThreshold;
         cloudSharpness = other.cloudSharpness;
         cloudScale = other.cloudScale;
@@ -204,6 +224,7 @@ public partial class WeatherData : Resource
         ambientFogDensity = other.ambientFogDensity;
         dustDensity = other.dustDensity;
         rainIntensity = other.rainIntensity;
+        rainWeight = other.rainWeight;
     }
 
     // Interpolate every field into this from (a -> b) at t in [0, 1]. t is expected
@@ -241,13 +262,12 @@ public partial class WeatherData : Resource
         nightFogColor = a.nightFogColor.Lerp(b.nightFogColor, t);
         moonShaftIntensity = Mathf.Lerp(a.moonShaftIntensity, b.moonShaftIntensity, t);
         moonShaftColor = a.moonShaftColor.Lerp(b.moonShaftColor, t);
-        windAmplitude = Mathf.Lerp(a.windAmplitude, b.windAmplitude, t);
+        windSpeed = Mathf.Lerp(a.windSpeed, b.windSpeed, t);
         windFrequency = Mathf.Lerp(a.windFrequency, b.windFrequency, t);
         gustStrength = Mathf.Lerp(a.gustStrength, b.gustStrength, t);
         gustFrequency = Mathf.Lerp(a.gustFrequency, b.gustFrequency, t);
         rippleStrength = Mathf.Lerp(a.rippleStrength, b.rippleStrength, t);
         cloudColor = a.cloudColor.Lerp(b.cloudColor, t);
-        cloudScrollSpeed = Mathf.Lerp(a.cloudScrollSpeed, b.cloudScrollSpeed, t);
         cloudThreshold = Mathf.Lerp(a.cloudThreshold, b.cloudThreshold, t);
         cloudSharpness = Mathf.Lerp(a.cloudSharpness, b.cloudSharpness, t);
         cloudScale = Mathf.Lerp(a.cloudScale, b.cloudScale, t);
@@ -256,5 +276,6 @@ public partial class WeatherData : Resource
         ambientFogDensity = Mathf.Lerp(a.ambientFogDensity, b.ambientFogDensity, t);
         dustDensity = Mathf.Lerp(a.dustDensity, b.dustDensity, t);
         rainIntensity = Mathf.Lerp(a.rainIntensity, b.rainIntensity, t);
+        rainWeight = Mathf.Lerp(a.rainWeight, b.rainWeight, t);
     }
 }

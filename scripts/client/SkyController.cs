@@ -123,9 +123,13 @@ public partial class SkyController : Node3D
     // small angle so the two layers don't lock into one apparent direction.
     [Export] public float rippleScaleA = 0.4f;
     [Export] public float rippleScaleB = 1.1f;
-    // Scroll speed (world units/sec) along the wind direction for each layer.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedA = 0.17f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedB = 0.16f;
+    // Scroll speed per m/s of wind, for each layer (dimensionless fraction).
+    // Layer A speed = weather.windSpeed * rippleSpeedA in world units/sec.
+    // Authoring as a fraction means the same scene values scale across all
+    // weather presets — calm weather has slow ripples, stormy weather has
+    // fast ones, with no per-weather override needed.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedA = 0.04f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedB = 0.04f;
     // Angle offset applied to wind direction for layer B (degrees). ~20-40°
     // reads as natural wind-driven chop; 0 locks B to A's direction and can
     // show visible tiling; 90° reads as unphysical cross-currents.
@@ -177,6 +181,17 @@ public partial class SkyController : Node3D
     // and latch onto something behind it.
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float ssrThickness = 1.0f;
 
+    [ExportGroup("Wind")]
+    // Sprite/grass sway amplitude in world meters per m/s of wind speed,
+    // measured at the top of a 1m-tall sprite. The shader's wind_amplitude
+    // global is computed each frame as
+    //     (weather.windSpeed + gust01 * weather.gustStrength) * windToSwayMeters
+    // so changing wind weather scales sway naturally without touching the
+    // shader or per-weather amplitude knobs. Default 0.013 makes a 30 m/s
+    // gust deflect the top of a 1m sprite ~0.39m — visibly stormy without
+    // tearing free of physical plausibility.
+    [Export(PropertyHint.Range, "0,0.05,0.0001")] public float windToSwayMeters = 0.013f;
+
     [ExportGroup("Clouds")]
     // Cloud spatial tiling (authored). Separate from weather-driven colors /
     // density remap — cloud patterns don't change shape with weather.
@@ -187,6 +202,13 @@ public partial class SkyController : Node3D
     // it controls how far along the sun direction ground points project to
     // sample the cloud pattern. 40–80 usually reads well.
     [Export] public float cloudAltitude = 60f;
+    // Cloud noise scroll rate per m/s of wind. cloudOffset accumulates
+    // weather.windSpeed * cloudScrollPerMps along the wind direction each
+    // frame. Scene-level rather than per-weather since the visual mapping
+    // from "wind speed in the world" to "noise scroll rate on the sky
+    // dome" is a single, scene-wide tuning — stormy weather gets faster
+    // clouds for free via its higher windSpeed.
+    [Export(PropertyHint.Range, "0,0.01,0.0001")] public float cloudScrollPerMps = 0.0015f;
 
     [ExportGroup("Fog")]
     // Wire this to res://resources/materials/fog_volumetric.tres — the
@@ -465,9 +487,23 @@ public partial class SkyController : Node3D
             Vector2 windXZ_B = new Vector2(
                 windXZ.X * Mathf.Cos(angleB) - windXZ.Y * Mathf.Sin(angleB),
                 windXZ.X * Mathf.Sin(angleB) + windXZ.Y * Mathf.Cos(angleB));
-            cloudOffset += windXZ * weather.cloudScrollSpeed * dt;
-            rippleOffsetA += windXZ * rippleSpeedA * dt;
-            rippleOffsetB += windXZ_B * rippleSpeedB * dt;
+            // Cloud + ripple drift uses the steady wind speed only — neither
+            // should pulse on every gust. Sprite sway and rain tilt DO read
+            // the gusted speed (see Apply() and RainEffect), since those are
+            // the consumers a player visually associates with gust rhythm.
+            //
+            // Sign is NEGATIVE so the visible cloud/ripple motion matches the
+            // wind direction. The shaders sample `cuv = world_xz * tiling +
+            // cloud_offset` (see cloud_shadow.gdshaderinc / voxel_water):
+            // adding to the sample coordinate shifts the sampled texture
+            // contents toward +offset, which makes the *visible* pattern
+            // scroll in the -offset direction. Subtracting here cancels that
+            // inversion so wind blowing in +X pushes clouds visibly in +X,
+            // agreeing with the rain-tilt direction.
+            float steadySpeed = weather.windSpeed;
+            cloudOffset -= windXZ * steadySpeed * cloudScrollPerMps * dt;
+            rippleOffsetA -= windXZ * steadySpeed * rippleSpeedA * dt;
+            rippleOffsetB -= windXZ_B * steadySpeed * rippleSpeedB * dt;
             windPhase += weather.windFrequency * dt;
             gustPhase += weather.gustFrequency * Mathf.Tau * dt;
 
@@ -707,7 +743,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("moon_disk_glow", effMoonDiskGlow);
         // Pre-integrated offsets (see _Process). Passing position directly
         // instead of speed avoids the lerp discontinuity the shader's old
-        // `scroll * TIME` form exhibited when weather changed cloudScrollSpeed.
+        // `scroll * TIME` form exhibited when weather changed wind speed.
         RenderingServer.GlobalShaderParameterSet("cloud_offset", cloudOffset);
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", weather.cloudThreshold);
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", weather.cloudSharpness);
@@ -746,14 +782,18 @@ public partial class SkyController : Node3D
         // --- Wind --------------------------------------------------------
         // Two-octave low-frequency sin sum for naturally uneven gusts —
         // single-sin gives a metronome rhythm that reads as fake. Output
-        // is normalized to [0, 1] then scaled by gustStrength so the final
-        // amplitude multiplier stays in [1, 1 + gustStrength]. Driven by
-        // gustPhase (integrated in _Process) rather than TIME*frequency so
-        // lerping gustFrequency doesn't jump the wave.
+        // is normalized to [0, 1] then added to windSpeed via gustStrength
+        // (m/s) so effective speed stays in [windSpeed, windSpeed + gustStrength].
+        // Driven by gustPhase (integrated in _Process) rather than
+        // TIME*frequency so lerping gustFrequency doesn't jump the wave.
+        // Effective speed is then converted to sprite sway amplitude
+        // (meters at top of 1m sprite) via windToSwayMeters — keeps the
+        // shader's wind_amplitude global in the same units it always was.
         float gustWave = Mathf.Sin(gustPhase) * 0.7f
                        + Mathf.Sin(gustPhase * 1.7f + 1.3f) * 0.3f;
         float gust01 = (gustWave + 1f) * 0.5f;
-        float amplitude = weather.windAmplitude * (1f + gust01 * weather.gustStrength);
+        float gustedSpeed = weather.windSpeed + gust01 * weather.gustStrength;
+        float amplitude = gustedSpeed * windToSwayMeters;
         RenderingServer.GlobalShaderParameterSet("wind_dir", GetWindDirection().Normalized());
         RenderingServer.GlobalShaderParameterSet("wind_amplitude", amplitude);
         RenderingServer.GlobalShaderParameterSet("wind_phase", windPhase);
@@ -854,12 +894,75 @@ public partial class SkyController : Node3D
         }
 
         // --- Weather particles -------------------------------------------
-        // Fetched via static singleton rather than [Export] because the C#
-        // cross-scene-instance cast is broken in Godot 4 — see RainEffect.Current.
-        // The node consumes an already-lerped value; it doesn't know about
-        // weather presets or blending. Same pattern will apply to future
-        // particle variants (hail, snow, dust-storm motes).
-        if (RainEffect.Current != null) { RainEffect.Current.SetIntensity(weather.rainIntensity); }
+        // Rain has two orthogonal knobs on WeatherData — rainIntensity (drop
+        // COUNT) and rainWeight (drop HEFT: velocity, alpha, streak length,
+        // and wind susceptibility). ApplyPrecipitation() pushes the already-
+        // lerped values to RainEffect each frame; the node itself stays
+        // ignorant of weather presets or blending. Same pattern will extend
+        // to future particle variants (hail, snow, dust-storm motes) —
+        // ApplyPrecipitation is the single seam for all of them.
+        ApplyPrecipitation();
+    }
+
+    // Dynamic precipitation manager. Consumes already-lerped rainIntensity +
+    // rainWeight from `weather` and scales the RainEffect node's runtime
+    // materials accordingly. rainWeight scales fall velocity, drop-material
+    // albedo alpha, and streak length linearly, and inversely scales the
+    // wind-tilt computation in RainEffect so drizzle blows sideways while
+    // a heavy downpour stays near-vertical. The materials being written to
+    // were duplicated in RainEffect._Ready, so the per-frame writes never
+    // reach the authored .tres on disk. In [Tool] mode RainEffect.Current
+    // is null (the node's _Ready doesn't run in-editor), so this is a
+    // safe no-op for the inspector-preview pass.
+    private void ApplyPrecipitation()
+    {
+        RainEffect rain = RainEffect.Current;
+        if (rain == null) { return; }
+
+        rain.SetIntensity(weather.rainIntensity);
+
+        // Guard against a zero / negative weight collapsing the scalings or
+        // blowing up WindTiltScale. The authored range lower bound is already
+        // 0.1, but the lerp state could briefly go lower mid-transition if a
+        // preset ever authored below the bound — this keeps the node safe.
+        float weight = Mathf.Max(weather.rainWeight, 0.01f);
+
+        // Velocity: heavier drops fall faster. Scales both min and max so the
+        // authored velocity spread keeps its ratio (no visible "all-identical
+        // speeds at low weight" artifact).
+        if (rain.FallProcRuntime != null)
+        {
+            rain.FallProcRuntime.InitialVelocityMin = rain.BaseInitialVelocityMin * weight;
+            rain.FallProcRuntime.InitialVelocityMax = rain.BaseInitialVelocityMax * weight;
+        }
+
+        // Drop material: alpha + streak length scale with weight. Authored
+        // alpha is typically ~0.04 so at weight=1/3 the drop alpha drops to
+        // ~0.013 — still visible as a streak because the shader's analytical
+        // coverage AA preserves thin sub-pixel lines.
+        if (rain.DropMatRuntime != null)
+        {
+            Color albedo = rain.BaseDropAlbedo;
+            albedo.A = rain.BaseDropAlbedo.A * weight;
+            rain.DropMatRuntime.SetShaderParameter("albedo", albedo);
+            rain.DropMatRuntime.SetShaderParameter("streak_length_px", rain.BaseStreakLengthPx * weight);
+        }
+
+        // Splash material: only alpha scales — splash size and speed stay
+        // authored-constant so the ground-impact silhouette reads the same
+        // shape across weights, just lighter/heavier in tone.
+        if (rain.SplashMatRuntime != null)
+        {
+            Color splash = rain.BaseSplashAlbedo;
+            splash.A = rain.BaseSplashAlbedo.A * weight;
+            rain.SplashMatRuntime.SetShaderParameter("albedo", splash);
+        }
+
+        // Wind tilt is INVERSELY scaled — light drops are pushed more by the
+        // same wind, heavy drops cut through it. RainEffect multiplies this
+        // into its per-frame tilt; its maxWindTiltDegrees still clamps on that
+        // side so an extreme weight can't rotate rain past ~45° horizontal.
+        rain.WindTiltScale = 1.0f / weight;
     }
 
     private static Vector3 ComputeFillDirection(Vector3 sunDir, float pitchDeg, float yawOffsetDeg)
@@ -880,8 +983,8 @@ public partial class SkyController : Node3D
 
     // World's prevailing wind direction. Lives on WorldState as mutable
     // sim state (weather systems may rotate it during play). Weather
-    // presets tune magnitude via windAmplitude / gustStrength, not the
-    // compass bearing. Falls back to a reasonable NE default in editor
+    // presets tune magnitude via windSpeed / gustStrength (both m/s), not
+    // the compass bearing. Falls back to a reasonable NE default in editor
     // preview where no WorldState exists yet.
     private static readonly Vector3 DefaultWindDirection = new Vector3(0.7f, 0f, 0.7f);
     private static Vector3 GetWindDirection()

@@ -29,6 +29,7 @@ texture = ExtResource("5_cmdr")
 region_enabled = true
 region_rect = Rect2(0, 0, 72, 72)
 script = ExtResource("6_litsprite")
+MirrorByYaw = true
 ForwardOffset = 0.25
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]

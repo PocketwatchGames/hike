@@ -2,41 +2,41 @@ shader_type spatial;
 render_mode blend_mix, unshaded, depth_draw_opaque, cull_disabled, skip_vertex_transform;
 
 // Rain-drop particle shader (also used for splashes via a sibling material).
+// Screen-space streak orientation: each particle's quad is laid out in SCREEN
+// PIXELS, with its long axis along the projected velocity direction and a
+// fixed pixel length/width. This keeps streak length constant regardless of
+// camera angle — essential for an orthographic iso camera where foreshortened
+// streaks read as a jarring "shrink-and-rotate" effect that doesn't convey
+// any real forward/backward motion information.
+//
+// Anti-aliasing via analytical pixel coverage: the rasterized quad is
+// inflated by 1 pixel on each side, and the fragment shader computes the
+// current pixel's distance-from-quad-center projected onto the velocity /
+// perpendicular axes (in SubViewport pixels). Coverage smoothsteps over the
+// 1-pixel AA zone past each edge, giving clean sub-pixel transitions even
+// for thin streaks. Without this a 1-2 px streak would flicker on/off as
+// the center crossed a pixel boundary.
+//
 // Responsibilities:
-//   - Y-axis billboard (quad's local Y stays world-vertical, local X rotates
-//     around Y to face the camera). Matches sprite_lit's billboard math.
-//   - Per-fragment clip against the ceiling cutaway (camera_clip) so drops
-//     don't paint on hidden interior ceilings.
-//   - Per-fragment clip against the voxel sun mask so drops under a roof/
-//     overhang/cave vanish.
+//   - Per-fragment clip against camera_clip using a per-particle impact-Y
+//     (walked in vertex via the voxel sun mask). Rain over a cut-away roof
+//     vanishes; rain over open ground keeps rendering.
+//   - Per-fragment clip against the voxel sun mask so drops under roofs /
+//     overhangs / caves simply don't render.
 //   - Cheap lighting: sun_color * (ambient + mask * (1-ambient)) * intensity.
-//     These globals are the EFFECTIVE primary-light values SkyController
-//     blends each frame (sun↔moon↔sunset), so rain inherits the current
-//     time-of-day palette automatically.
-//   - Orientation-agnostic QuadMesh handling. Godot's editor keeps writing
-//     orientation = 1 (FACE_Y) onto QuadMesh_splash; we map VERTEX to
-//     billboard-local (vx, vy) using (VERTEX.x, VERTEX.y + VERTEX.z) so
-//     FACE_Z and FACE_Y both work.
+//     Tracks time of day through SkyController's effective-light globals.
+//   - Asymmetric trail fade: leading edge (head) opaque with AA, linear
+//     motion-blur taper to the trailing tail. With particle_flag_align_y on
+//     the process material the particle's +Y is velocity → the "leading"
+//     side of the quad is along +velocity, physically correct for both
+//     falling rain and splash sprays.
+//   - particle_color.a carries the process material's color_ramp so splashes
+//     fade out over lifetime; falling rain leaves color default (1,1,1,1) so
+//     it's a no-op.
 //
-// Sub-pixel antialiasing via analytical pixel coverage:
-//   The chunky-pixel SubViewport (480×270) rasterizes thin drops to a single
-//   pixel — a drop straddling two pixels snaps into one, causing flicker.
-//   To fix: in the vertex stage, inflate the quad's VISUAL half-extent to a
-//   minimum of `min_screen_width_px / 2` pixels (so sub-pixel drops read as
-//   1-pixel visuals at full alpha), then inflate the RASTERIZATION envelope
-//   another 0.5 px so fragments fire on neighbor pixels. In the fragment
-//   stage, compute the exact pixel↔quad overlap area and use it as ALPHA.
-//   - Drop centered on a pixel → that pixel gets full alpha, neighbors zero.
-//   - Drop straddling 50/50 → both pixels get half alpha.
-//   - Drop moving sub-pixel across a boundary → linear split-alpha handoff.
-//   Handles streak-length fades the same way: top/bottom pixel rows get
-//   partial coverage when the drop falls across row boundaries, so tall
-//   streaks read continuously rather than ladder-stepping.
-//
-// Editor-preview fallback. When rain.tscn is opened standalone, no
-// SkyController / LightMap has pushed the globals. light_map_inv_size = 0
-// is the sentinel — gating the discards on length(inv_size) > 0 lets the
-// preview render drops without a running game.
+// Editor-preview fallback: light_map_inv_size is still vec3(0) when opened
+// standalone (no LightMap registered); gate the clips on that so drops render
+// in the preview.
 
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
@@ -49,104 +49,80 @@ global uniform float sun_ambient;
 
 uniform vec4 albedo : source_color = vec4(0.72, 0.78, 0.88, 0.45);
 uniform float sun_mask_threshold : hint_range(0.0, 1.0) = 0.7;
-// Minimum on-screen width (in SubViewport pixels) the drop gets inflated to
-// before coverage AA runs. 1.0 gives crisp single-pixel drops that cleanly
-// split alpha when straddling; 2.0 gives softer 2-pixel drops.
-uniform float min_screen_width_px : hint_range(0.0, 8.0) = 0.25;
+// Streak dimensions in SubViewport pixels. The rasterization envelope is
+// inflated by 1 pixel on each axis beyond these so analytical coverage AA
+// can fade smoothly past the edge; the visual "solid core" is still this size.
+uniform float streak_length_px : hint_range(1.0, 64.0) = 8.0;
+uniform float streak_width_px : hint_range(0.5, 16.0) = 0.25;
 
 varying vec3 world_pos;
-// TRUE/visual quad screen-space AABB in viewport pixels: (xmin, ymin, xmax, ymax).
-// Flat because every vertex of a given particle computes the same value
-// (abs of VERTEX is identical at each of the four corners).
-varying flat vec4 quad_bounds_px;
-varying vec2 uv_for_trail;
-// World Y of the first solid (sun_mask ≈ 0) voxel below the particle's
-// origin. Walked once per particle in the vertex stage. Fragment uses it as
-// the drop's "impact point" and clips drops whose impact is above camera_clip
-// (rain falling onto a cut-away roof rather than open ground).
 varying flat float impact_y;
+varying flat vec4 particle_color;
+// Screen-space quad info (flat so every fragment of the same quad reads the
+// same values; vertices all compute identical data).
+varying flat vec2 quad_center_px;
+varying flat vec2 vel_dir_px;
+varying flat float quad_half_l_px;
+varying flat float quad_half_w_px;
 
 void vertex() {
-    // MODEL_MATRIX is the per-particle transform for GPUParticles3D draw
-    // passes. Column 0 length carries per-particle uniform scale.
     vec3 origin = MODEL_MATRIX[3].xyz;
     float particle_scale = length(MODEL_MATRIX[0].xyz);
 
-    // Y-axis billboard: rotate right-axis around world Y to face camera.
-    vec3 world_up = vec3(0.0, 1.0, 0.0);
-    vec3 cam_back = INV_VIEW_MATRIX[2].xyz;
-    vec3 right = normalize(cross(world_up, cam_back));
+    // Particle's local +Y axis. particle_flag_align_y makes this = velocity
+    // direction, which is what we want: streaks lean along motion on screen.
+    vec3 vel_dir_world = normalize(MODEL_MATRIX[1].xyz);
 
-    // Map VERTEX to billboard (horizontal, vertical) regardless of QuadMesh
-    // orientation. FACE_Z → (VERTEX.x, VERTEX.y); FACE_Y → (VERTEX.x, VERTEX.z).
-    // A flat quad always has one of VERTEX.y/VERTEX.z equal to zero, so the
-    // sum picks the live axis without conditionals.
-    float vx = VERTEX.x;
-    float vy = VERTEX.y + VERTEX.z;
-
-    // Mesh-authored half-extents of this quad in world space.
-    float half_w_world = abs(vx) * particle_scale;
-    float half_h_world = abs(vy) * particle_scale;
-
-    // Project origin + world-axis tips to screen pixels, so we know how many
-    // pixels the un-inflated quad would cover. Under orthographic projection
-    // w=1 so the divide is trivial; covered here in case the scene switches
-    // to perspective (e.g. the editor preview camera).
+    // Project origin and (origin + vel_dir) to find velocity direction in
+    // screen pixels. Fall back to straight-down when the projected length
+    // collapses (drop moving exactly into/out of the view axis).
     vec4 origin_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(origin, 1.0);
-    vec4 w_tip_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(origin + half_w_world * right, 1.0);
-    vec4 h_tip_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(origin + half_h_world * world_up, 1.0);
-    vec2 origin_px = (origin_clip.xy / max(abs(origin_clip.w), 1e-6) * 0.5 + 0.5) * VIEWPORT_SIZE;
-    vec2 w_tip_px = (w_tip_clip.xy / max(abs(w_tip_clip.w), 1e-6) * 0.5 + 0.5) * VIEWPORT_SIZE;
-    vec2 h_tip_px = (h_tip_clip.xy / max(abs(h_tip_clip.w), 1e-6) * 0.5 + 0.5) * VIEWPORT_SIZE;
-    float half_w_px = abs(w_tip_px.x - origin_px.x);
-    float half_h_px = abs(h_tip_px.y - origin_px.y);
+    vec4 tip_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(origin + vel_dir_world, 1.0);
+    vec2 origin_ndc = origin_clip.xy / max(abs(origin_clip.w), 1e-6);
+    vec2 tip_ndc = tip_clip.xy / max(abs(tip_clip.w), 1e-6);
+    vec2 vel_px_raw = (tip_ndc - origin_ndc) * VIEWPORT_SIZE * 0.5;
+    vec2 vel_dir_px_local = length(vel_px_raw) > 1e-4 ? normalize(vel_px_raw) : vec2(0.0, -1.0);
+    vec2 perp_dir_px = vec2(-vel_dir_px_local.y, vel_dir_px_local.x);
 
-    // VISUAL half-extent (used for coverage): at least min_screen_width_px / 2
-    // so sub-pixel drops read as a 1-pixel visual and get proper split alpha
-    // when straddling.
-    float min_half_px = min_screen_width_px * 0.5;
-    float visual_half_w_px = max(half_w_px, min_half_px);
-    float visual_half_h_px = max(half_h_px, min_half_px);
-    quad_bounds_px = vec4(
-        origin_px.x - visual_half_w_px, origin_px.y - visual_half_h_px,
-        origin_px.x + visual_half_w_px, origin_px.y + visual_half_h_px
-    );
+    // Publish core (un-inflated) quad data for the fragment stage's coverage
+    // calc. origin_px converts from NDC back to the same pixel space the
+    // fragment reads via FRAGCOORD.
+    vec2 origin_px = (origin_ndc * 0.5 + 0.5) * VIEWPORT_SIZE;
+    quad_center_px = origin_px;
+    vel_dir_px = vel_dir_px_local;
+    quad_half_l_px = streak_length_px * 0.5 * particle_scale;
+    quad_half_w_px = streak_width_px * 0.5 * particle_scale;
 
-    // RASTERIZATION half-extent: add 0.5 px on each side so fragments fire
-    // on the pixels adjacent to the visual quad too — needed so the straddle
-    // pixels actually get a shader invocation and their coverage can be
-    // computed (analytical AA is useless if the rasterizer already snapped
-    // the quad to one pixel).
-    float raster_half_w_px = visual_half_w_px + 0.5;
-    float raster_half_h_px = visual_half_h_px + 0.5;
-    // Convert pixel half-extents back to a world-scale multiplier for VERTEX.
-    // The VERTEX offset in world space is vx * particle_scale along right;
-    // in pixels it maps to ±half_w_px. Multiplying VERTEX.x's world offset
-    // by (raster_half_w_px / half_w_px) stretches the rasterized quad to
-    // the desired pixel size.
-    float scale_x_factor = raster_half_w_px / max(half_w_px, 1e-6);
-    float scale_y_factor = raster_half_h_px / max(half_h_px, 1e-6);
+    // Rasterized footprint = core + 1 pixel AA margin on each axis. This
+    // guarantees fragments fire on the pixels adjacent to the visual quad
+    // so analytical coverage can fade them smoothly instead of popping.
+    float rast_half_l = quad_half_l_px + 1.0;
+    float rast_half_w = quad_half_w_px + 1.0;
 
-    vec3 vertex_world = origin
-        + vx * particle_scale * scale_x_factor * right
-        + vy * particle_scale * scale_y_factor * world_up;
+    // Normalize VERTEX to ±0.5 corner factors regardless of mesh size /
+    // QuadMesh orientation (FACE_Y vs FACE_Z). A flat quad always has one
+    // of VERTEX.y/VERTEX.z at zero, so summing picks the non-zero axis.
+    float vx_unit = VERTEX.x > 0.0 ? 0.5 : -0.5;
+    float vy_unit = (VERTEX.y + VERTEX.z) > 0.0 ? 0.5 : -0.5;
 
-    world_pos = vertex_world;
-    POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(vertex_world, 1.0);
-    uv_for_trail = UV;
+    vec2 offset_px = vx_unit * 2.0 * rast_half_w * perp_dir_px
+                   + vy_unit * 2.0 * rast_half_l * vel_dir_px_local;
+    vec2 offset_ndc = offset_px * 2.0 / VIEWPORT_SIZE;
+    POSITION = vec4((origin_ndc + offset_ndc) * origin_clip.w, origin_clip.z, origin_clip.w);
 
-    // Walk the sun mask down from the drop, 1 m per step, until the first
-    // voxel that's solid (sun BFS didn't reach it). That voxel's Y is the
-    // drop's impact point — where it would hit ground if unobstructed. The
-    // fragment uses this to cull drops falling onto a cut-away roof:
-    // impact_y > camera_clip means the drop column lands on something the
-    // cutaway has hidden, so drawing the drop would put it in empty air
-    // above a removed ceiling.
-    //
-    // Computed in vertex (once per particle, shared to the fragment via a
-    // flat varying) rather than per-fragment, so the 24-sample loop runs
-    // 5000×/frame, not 5000×(fragment count)×/frame.
-    impact_y = origin.y - 32.0;  // fallback: "impact well below drop" = don't clip
+    // world_pos at the particle origin is "good enough" for light_map
+    // sampling — voxels are 1 m, drops are tiny, and the quad is laid out
+    // in screen space so interpolated per-fragment world position wouldn't
+    // carry meaningful geometric info anyway.
+    world_pos = origin;
+    particle_color = COLOR;
+
+    // Walk the sun mask down from the drop to find the first solid voxel.
+    // That voxel's Y is the drop's "impact point" — where rain would hit
+    // ground if nothing else stopped it. Fragment uses this to clip drops
+    // whose impact sits above camera_clip (rain falling onto a cut-away
+    // roof), without globally hiding drops over distant outdoor ground.
+    impact_y = origin.y - 32.0;  // fallback: "well below drop" = don't clip
     float start_y = floor(origin.y) - 0.5;
     for (int i = 0; i < 24; i++) {
         float sy = start_y - float(i);
@@ -161,13 +137,6 @@ void vertex() {
 void fragment() {
     bool globals_ready = length(light_map_inv_size) > 1e-6;
 
-    // Impact-point clip (user's suggested heuristic). Rather than hiding every
-    // drop above camera_clip globally (which also hides outdoor drops 40m
-    // away), hide only drops whose vertical "raycast" — computed in vertex
-    // via a sun-mask walk — hits a surface above camera_clip. Drops over
-    // open ground have impact_y ≈ terrain Y (well below camera_clip) and
-    // render; drops over a cut-away roof have impact_y = roof Y (above
-    // camera_clip) and get discarded.
     if (globals_ready && impact_y > camera_clip) {
         discard;
     }
@@ -181,28 +150,41 @@ void fragment() {
         }
     }
 
-    // Analytical pixel-coverage AA. FRAGCOORD.xy is the current pixel's
-    // center in SubViewport pixels; its 1×1 square is (center ± 0.5).
-    // Overlap the pixel square with the visual quad bounds to get the
-    // exact fraction of this pixel covered by the drop.
-    vec2 pixel_min = FRAGCOORD.xy - 0.5;
-    vec2 pixel_max = FRAGCOORD.xy + 0.5;
-    vec2 overlap_min = max(pixel_min, quad_bounds_px.xy);
-    vec2 overlap_max = min(pixel_max, quad_bounds_px.zw);
-    vec2 overlap = max(vec2(0.0), overlap_max - overlap_min);
-    float coverage = overlap.x * overlap.y;
+    // Pixel's offset from the quad center, projected onto the streak's
+    // oriented axes (velocity direction and its perpendicular). Both are
+    // in SubViewport pixels since FRAGCOORD and quad_center_px are both
+    // expressed there.
+    vec2 offset_px = FRAGCOORD.xy - quad_center_px;
+    float along = dot(offset_px, vel_dir_px);
+    float perp = abs(dot(offset_px, vec2(-vel_dir_px.y, vel_dir_px.x)));
+
+    // Analytical coverage. The quad's "core" is ±quad_half_{l,w}_px; we fade
+    // over an AA zone past each edge.
+    //   - width_cov: symmetric fade both sides.
+    //   - lead_cov: fade past the leading edge (along = +half_l). Trailing
+    //     side of the quad stays covered here; the trail_cov below drives
+    //     its own motion-blur taper.
+    //   - trail_cov: linear 1.0 at leading (along = +half_l) to 0.0 at
+    //     trailing (along = -half_l). This is the motion-blur aesthetic,
+    //     not an AA edge — the trailing tip naturally reaches alpha 0
+    //     without needing a separate fade.
+    //
+    // AA zone scales with streak dimension: at full pixel+ widths the zone
+    // is a full 1 px (standard AA), but for sub-pixel widths the zone shrinks
+    // to match the core size so the AA doesn't dominate the visible footprint.
+    // A 0.25 px-wide streak would otherwise read as 2-3 px because the 1 px
+    // AA zone extends past it both sides; with this it reads as ~1 px.
+    float width_aa = min(1.0, quad_half_w_px * 2.0);
+    float lead_aa = min(1.0, quad_half_l_px * 2.0);
+    float width_cov = 1.0 - smoothstep(quad_half_w_px, quad_half_w_px + width_aa, perp);
+    float lead_cov = 1.0 - smoothstep(quad_half_l_px, quad_half_l_px + lead_aa, along);
+    float trail_cov = clamp((along + quad_half_l_px) / (2.0 * quad_half_l_px), 0.0, 1.0);
+    float coverage = width_cov * lead_cov * trail_cov;
     if (coverage < 1e-4) {
         discard;
     }
 
-    // Mild Y-fade on the trailing ends of the streak — coverage AA already
-    // smooths the row-to-row transition, but fading the streak's head/tail
-    // softens the "hard end of the line" look, which will matter more once
-    // drops fall at an angle and the streak tips sweep across pixels.
-    float edge_y = abs(uv_for_trail.y - 0.5) * 2.0;
-    float trail_fade = 1.0 - smoothstep(0.85, 1.0, edge_y);
-
     float lit = sun_ambient + sun_mask * (1.0 - sun_ambient);
     ALBEDO = albedo.rgb * sun_color * lit * sun_intensity;
-    ALPHA = albedo.a * coverage * trail_fade;
+    ALPHA = albedo.a * coverage * particle_color.a;
 }

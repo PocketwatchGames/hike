@@ -5,6 +5,7 @@
 [resource]
 render_priority = 10
 shader = ExtResource("1_shader")
-shader_parameter/albedo = Color(0.7216, 0.77968, 0.88, 0.078431375)
+shader_parameter/albedo = Color(0.7216, 0.77968, 0.88, 0.039215688)
 shader_parameter/sun_mask_threshold = 0.7
-shader_parameter/min_screen_width_px = 0.10000000475
+shader_parameter/streak_length_px = 10.0000004275
+shader_parameter/streak_width_px = 0.5

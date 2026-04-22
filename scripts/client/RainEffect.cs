@@ -10,9 +10,9 @@ using Godot;
 //   1. Falling streaks ALWAYS emit (the CPU just scales rate by rainIntensity).
 //      Per-fragment occlusion is done in shaders/rain_drop.gdshader — each drop
 //      samples the 3D voxel sun mask and discards when under a roof/overhang/cave,
-//      and discards when above camera_clip so rain doesn't paint on cutaway-hidden
-//      ceilings. This means rain outside a building still reads correctly when
-//      the player is standing indoors looking out.
+//      and discards when its impact point is above camera_clip so rain doesn't
+//      paint on cutaway-hidden ceilings. This means rain outside a building
+//      still reads correctly when the player is standing indoors looking out.
 //   2. Splashes raycast from HIGH ABOVE the player straight down to the ground.
 //      The first hit is by definition the topmost surface at that XZ — rooftops
 //      catch splashes, floors underneath them do not. The splash budget is
@@ -36,9 +36,9 @@ public partial class RainEffect : Node3D
     [Export] public GpuParticles3D fallingParticles;
     [Export] public GpuParticles3D splashParticles;
     // Optional diagnostic marker system. Same emit path (EmitParticle) as the
-    // real splashes but with a known-good opaque material + simple mesh —
-    // if these render at splash hit points while real splashes don't, the
-    // bug is in the splash material/mesh, not the emission logic.
+    // real splashes but with a known-good opaque material + simple mesh — if
+    // these render at splash hit points while real splashes don't, the bug
+    // is in the splash material/mesh, not the emission logic.
     [Export] public GpuParticles3D debugImpactMarkers;
 
     // Radius around the player within which splashes can spawn. Needs to cover
@@ -48,31 +48,33 @@ public partial class RainEffect : Node3D
     [Export] public float splashRadius = 24f;
     // At full rainIntensity, target splashes-per-second across the visible area.
     // Scaled with splashRadius (density ≈ splashesPerSecond / π·r² per m²).
-    // 500 at r=24 ≈ 0.28 splashes/m²/sec — dense enough to read as rain on
-    // the ground without being a wall of particles.
     [Export] public float splashesPerSecond = 500f;
     // Caps per-frame raycasts so a single slow frame (or a huge budget ramp)
     // can't spike physics queries. Extra budget carries into the next frame.
     [Export] public int maxSplashesPerFrame = 40;
     // Splash speed range (m/s). Each splash picks a random value in [min, max]
-    // and multiplies the reflected direction by it. Lets you tune splash
-    // "snappiness" without recomputing the reflection math.
+    // and multiplies the reflected direction by it.
     [Export] public float splashSpeedMin = 2f;
     [Export] public float splashSpeedMax = 4f;
     // 0 = perfectly reflect incoming rain direction off the surface normal.
     // 1 = fully random hemisphere around the normal. Keeps some direction
     // variety so splashes off the same flat patch don't all look identical.
     [Export(PropertyHint.Range, "0,1,0.01")] public float splashSpread = 0.35f;
-    // The direction rain is falling. Straight down until we hook angled rain
-    // into the weather system — at which point this gets driven from the
-    // wind-biased rain velocity.
+    // Degrees of tilt-from-vertical applied per m/s of effective wind speed
+    // (windSpeed + gust contribution). 0.85° per m/s gives a 30 m/s gale
+    // gust ~25° of tilt — heavy wind without going horizontal.
+    [Export(PropertyHint.Range, "0,3,0.01")] public float tiltDegPerMps = 0.85f;
+    // Hard cap on rain tilt. Linear-with-wind-speed never asymptotes on its
+    // own, so very high winds would spin rain past 45° and read as
+    // unphysical. 45° = "blowing sideways"; 60° lets stormy still feel
+    // tame at the cap. Sampled at spawn; rain re-tilts when wind weather
+    // changes (call ApplyWindToFallingRain() from the change site).
+    [Export(PropertyHint.Range, "0,75,0.5")] public float maxWindTiltDegrees = 45f;
+    // The direction rain is falling. Set from wind at _Ready and left static
+    // after that. Splashes read this for their reflection; the falling
+    // particles' process material has its Direction / InitialVelocity set
+    // from the same calculation.
     [Export] public Vector3 rainIncomingDir = new Vector3(0f, -1f, 0f);
-    // When true, prints a one-shot confirmation on ready + a throttled status
-    // line each second showing intensity / outdoors / camera voxel / splash
-    // stats. Flip off once the effect is tuned; kept around because the
-    // emission path has several gates (weather lerp, outdoors mask, raycast)
-    // and it's hard to tell from visuals alone which one is blocking.
-    [Export] public bool debugLog = true;
     // DIAGNOSTIC: flip on to bypass the EmitParticle pathway and let the splash
     // GPUParticles3D emit naturally from the node position (player feet). If
     // splashes become visible in this mode but NOT in normal mode, the
@@ -108,16 +110,34 @@ public partial class RainEffect : Node3D
     private float _intensity;
     private float _splashBudget;
     private RandomNumberGenerator _rng = new RandomNumberGenerator();
+    // Runtime copy of the falling particles' process material. We mutate this
+    // each frame to re-tilt rain as wind lerps — mutating the scene's shared
+    // .tres directly would persist to disk on the next editor save.
+    private ParticleProcessMaterial _fallProcRuntime;
 
-    // Diagnostic counters reset every Process tick, printed every ~1 second.
-    private float _debugStatusTimer;
-    private int _debugSplashAttempts;
-    private int _debugSplashSpawns;
-    private int _debugSplashMissRay;
-    private int _debugSplashMissNormal;
-    private Vector3 _debugLastSplashPos;
-    private int _debugMarkersEmittedThisTick;
-    private bool _debugIntensityFired;
+    // Public runtime material handles and cached baseline values. SkyController's
+    // ApplyPrecipitation() scales these by WeatherData.rainWeight every frame;
+    // stashing the baseline here (instead of re-reading the authored .tres) lets
+    // that scaling be a pure write and keeps the authored values untouched on
+    // disk. Duplication happens in _Ready so the writes never leak back to the
+    // scene's shared resources.
+    public ParticleProcessMaterial FallProcRuntime => _fallProcRuntime;
+    public ShaderMaterial DropMatRuntime { get; private set; }
+    public ShaderMaterial SplashMatRuntime { get; private set; }
+    public float BaseInitialVelocityMin { get; private set; }
+    public float BaseInitialVelocityMax { get; private set; }
+    public Color BaseDropAlbedo { get; private set; }
+    public float BaseStreakLengthPx { get; private set; }
+    public Color BaseSplashAlbedo { get; private set; }
+
+    // 1 / rainWeight, written by SkyController.ApplyPrecipitation each frame.
+    // Multiplies the wind-tilt computation in UpdateWindDrivenRainDirection so
+    // heavier drops (weight > 1) are less wind-displaced and lighter drizzle
+    // (weight < 1) blows harder sideways for the same wind. Held as a property
+    // rather than re-derived locally so RainEffect doesn't have to know about
+    // WeatherData.rainWeight at all — the manager drives the number, the
+    // consumer uses it.
+    public float WindTiltScale { get; set; } = 1f;
 
     public override void _Ready()
     {
@@ -125,26 +145,21 @@ public partial class RainEffect : Node3D
         _rng.Randomize();
 
         // Splash emitter is driven by EmitParticle (from splash-raycast hits) —
-        // never by natural emission. But `emitting = false` appears to cause
-        // Godot 4 to skip processing entirely on some GPU particle systems, so
-        // EmitParticle pushes particles into a buffer that never renders.
-        // Force the system active with amount_ratio = 0 so it processes but
-        // spawns nothing naturally. Done here rather than in the scene file
-        // because editor re-saves keep stripping the settings back to defaults.
+        // never by natural emission. But Godot 4 GPUParticles3D with
+        // AmountRatio = 0 (or emitting = false) optimizes away the draw pass
+        // entirely: the compute shader doesn't run, and particles pushed via
+        // EmitParticle go into a buffer nothing reads. Keeping AmountRatio = 1
+        // preserves the full particle buffer and keeps the pipeline warm. The
+        // side-effect — natural emission at the node's origin — is hidden by
+        // offsetting the node far below the world. EmitParticle uses world-
+        // space xform.Origin (Position flag) so manual spawns still land at
+        // their real hit points regardless of where the emitter node sits.
+        // extra_cull_margin on the scene is 16384, well past the -10000
+        // offset, so world-space EmitParticle particles won't be culled by
+        // the offset node's visibility AABB.
+        //
         // debugForceNaturalSplashes switches to natural emission at the node
         // position — useful for isolating rendering issues from emit-path issues.
-        // Godot 4 GPUParticles3D quirk: with AmountRatio = 0, the renderer
-        // optimizes away the draw pass (no natural emission = nothing to draw),
-        // and particles spawned via EmitParticle go into a buffer nothing reads.
-        // Keeping AmountRatio = 1.0 preserves the full particle buffer and
-        // keeps the compute/render pipeline live. The side-effect — natural
-        // emission at the node's origin — is hidden by offsetting the node
-        // far below the world. EmitParticle uses world-space xform.Origin
-        // (Position flag) so manual spawns still land at their real hit
-        // points regardless of where the emitter node sits.
-        // extra_cull_margin on the scene's tscn is already 16384, well past
-        // the -10000 offset, so world-space EmitParticle particles won't be
-        // culled by the offset node's visibility AABB.
         Vector3 hiddenOffset = new Vector3(0, -10000, 0);
         if (splashParticles != null)
         {
@@ -159,23 +174,39 @@ public partial class RainEffect : Node3D
             debugImpactMarkers.Position = hiddenOffset;
         }
 
-        if (debugLog)
+        // Duplicate the falling particles' process material once so our per-frame
+        // wind tilt (and SkyController's weight-scaled velocity writes) doesn't
+        // mutate the scene's shared .tres on disk.
+        if (fallingParticles?.ProcessMaterial is ParticleProcessMaterial fallProc)
         {
-            GD.Print(
-                $"[RainEffect] Ready. " +
-                $"fallingParticles={(fallingParticles != null ? "wired" : "NULL")}, " +
-                $"splashParticles={(splashParticles != null ? "wired" : "NULL")}, " +
-                $"debugImpactMarkers={(debugImpactMarkers != null ? "wired" : "NULL")}, " +
-                $"debugShowImpactMarkers={debugShowImpactMarkers}");
-            if (debugImpactMarkers != null)
-            {
-                GD.Print(
-                    $"[RainEffect] debugImpactMarkers state: " +
-                    $"Emitting={debugImpactMarkers.Emitting}, AmountRatio={debugImpactMarkers.AmountRatio}, " +
-                    $"Amount={debugImpactMarkers.Amount}, Lifetime={debugImpactMarkers.Lifetime}, " +
-                    $"Visible={debugImpactMarkers.Visible}, ProcessMaterial={(debugImpactMarkers.ProcessMaterial != null ? "set" : "NULL")}, " +
-                    $"DrawPass1={(debugImpactMarkers.DrawPass1 != null ? "set" : "NULL")}");
-            }
+            _fallProcRuntime = (ParticleProcessMaterial)fallProc.Duplicate();
+            fallingParticles.ProcessMaterial = _fallProcRuntime;
+            BaseInitialVelocityMin = _fallProcRuntime.InitialVelocityMin;
+            BaseInitialVelocityMax = _fallProcRuntime.InitialVelocityMax;
+        }
+
+        // Same rationale for the drop shader material — SkyController scales its
+        // albedo.a and streak_length_px by rainWeight every frame, and we don't
+        // want those writes to persist back through an editor save of the shared
+        // rain_drop.tres.
+        if (fallingParticles?.DrawPass1 is PrimitiveMesh dropMesh
+            && dropMesh.Material is ShaderMaterial dropMat)
+        {
+            DropMatRuntime = (ShaderMaterial)dropMat.Duplicate();
+            dropMesh.Material = DropMatRuntime;
+            BaseDropAlbedo = (Color)DropMatRuntime.GetShaderParameter("albedo");
+            BaseStreakLengthPx = (float)DropMatRuntime.GetShaderParameter("streak_length_px");
+        }
+
+        // Splash material follows the same pattern — only its albedo.a gets
+        // weight-scaled, so a 1/3-weight drizzle produces ground splashes that
+        // read as fainter than a heavy downpour at the same intensity.
+        if (splashParticles?.DrawPass1 is PrimitiveMesh splashMesh
+            && splashMesh.Material is ShaderMaterial splashMat)
+        {
+            SplashMatRuntime = (ShaderMaterial)splashMat.Duplicate();
+            splashMesh.Material = SplashMatRuntime;
+            BaseSplashAlbedo = (Color)SplashMatRuntime.GetShaderParameter("albedo");
         }
     }
 
@@ -184,16 +215,56 @@ public partial class RainEffect : Node3D
         if (Current == this) { Current = null; }
     }
 
+    // Sample wind and update the falling rain's direction + the splash
+    // reflection vector. Called every frame from _Process so rain re-tilts
+    // as weather lerps (wind speed/direction/gust continuously change as
+    // SkyController blends weather presets). We mutate the pre-duplicated
+    // _fallProcRuntime in place rather than re-duplicating each frame.
+    private void UpdateWindDrivenRainDirection()
+    {
+        WorldState ws = World.Current?.WorldState;
+        SkyController sky = SkyController.Current;
+        if (ws == null || sky == null || sky.weather == null) { return; }
+
+        WeatherData weather = sky.weather;
+        Vector3 windDir = ws.WindDirection;
+        Vector2 windXZ = new Vector2(windDir.X, windDir.Z);
+        if (windXZ.LengthSquared() < 1e-4f) { return; }
+        windXZ = windXZ.Normalized();
+
+        // Current gust wave, in [0, 1]. Same two-octave sum SkyController.Apply
+        // uses for its wind_amplitude global, so rain tilt and grass sway
+        // agree on "how gusty is right now".
+        float gustWave = Mathf.Sin(sky.gustPhase) * 0.7f
+                       + Mathf.Sin(sky.gustPhase * 1.7f + 1.3f) * 0.3f;
+        float gust01 = Mathf.Clamp((gustWave + 1f) * 0.5f, 0f, 1f);
+
+        float gustedSpeed = weather.windSpeed + gust01 * weather.gustStrength;
+        // WindTiltScale = 1 / rainWeight (written by SkyController). Heavy drops
+        // cut the wind effect; drizzle amplifies it. Max-tilt clamp still runs
+        // so extreme weight values can't rotate rain past physically readable.
+        float tiltDeg = Mathf.Min(gustedSpeed * tiltDegPerMps * WindTiltScale, maxWindTiltDegrees);
+        float tiltRad = Mathf.DegToRad(tiltDeg);
+
+        // Rain direction is straight-down rotated toward windXZ by tiltRad.
+        // Magnitude = 1 by construction (sin² + cos² = 1 across the components).
+        Vector3 rainDir = new Vector3(
+            windXZ.X * Mathf.Sin(tiltRad),
+            -Mathf.Cos(tiltRad),
+            windXZ.Y * Mathf.Sin(tiltRad));
+        rainIncomingDir = rainDir;
+
+        if (_fallProcRuntime != null)
+        {
+            _fallProcRuntime.Direction = rainDir;
+        }
+    }
+
     // Called by SkyController.Apply() every frame. `intensity` is the already-
     // lerped WeatherData.rainIntensity — this node just consumes it.
     public void SetIntensity(float intensity)
     {
         _intensity = Mathf.Clamp(intensity, 0f, 1f);
-        if (debugLog && !_debugIntensityFired && _intensity > 0f)
-        {
-            _debugIntensityFired = true;
-            GD.Print($"[RainEffect] SetIntensity first non-zero: {_intensity:F3}");
-        }
     }
 
     public override void _Process(double delta)
@@ -209,35 +280,27 @@ public partial class RainEffect : Node3D
         // area within their lifetime. The node is still a child of MainCamera for
         // scene-structure convenience, but we override its world position here so
         // the emission box sits a fixed distance above the player.
-        Vector3 anchorPos;
         if (worldReady)
         {
             Vector3 pp = world.player.GlobalPosition;
-            anchorPos = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
-            GlobalPosition = anchorPos;
-        }
-        else
-        {
-            anchorPos = GlobalPosition;
+            GlobalPosition = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
         }
         // Kill any inherited rotation from the pitched camera so the emission box
         // stays world-axis-aligned.
         GlobalRotation = Vector3.Zero;
 
-        // Outdoors gate: sample sunlight at the PLAYER's voxel, not the anchor's.
-        // The voxel sun mask only propagates within the world's Y bounds; the
-        // anchor can easily sit above the top of the world (returning 0) even
-        // when the player is in open sky.
-        int psX = 0, psY = 0, psZ = 0, playerVoxelSun = -1;
+        // Outdoors gate: sample sunlight at the PLAYER's voxel. The voxel sun
+        // mask only propagates within the world's Y bounds; the anchor can
+        // easily sit above the top of the world (returning 0) even when the
+        // player is in open sky.
         bool outdoors = false;
         if (worldReady)
         {
             Vector3 pp = world.player.GlobalPosition;
-            psX = Mathf.FloorToInt(pp.X);
-            psY = Mathf.FloorToInt(pp.Y);
-            psZ = Mathf.FloorToInt(pp.Z);
-            playerVoxelSun = ws.GetSunlightWorld(psX, psY, psZ);
-            outdoors = playerVoxelSun > 0;
+            int psX = Mathf.FloorToInt(pp.X);
+            int psY = Mathf.FloorToInt(pp.Y);
+            int psZ = Mathf.FloorToInt(pp.Z);
+            outdoors = ws.GetSunlightWorld(psX, psY, psZ) > 0;
         }
 
         // Falling rain emits everywhere; the shader on its draw pass clips
@@ -248,6 +311,12 @@ public partial class RainEffect : Node3D
         {
             fallingParticles.AmountRatio = _intensity;
         }
+
+        // Re-tilt rain to match the current (already-lerped) wind. Must run
+        // every frame — weather lerps continuously and rain should visibly
+        // respond. Only the process material's Direction is updated; existing
+        // particles keep their velocity, newly-spawned ones use the new angle.
+        UpdateWindDrivenRainDirection();
 
         if (outdoors && _intensity > 0f && splashParticles != null)
         {
@@ -267,39 +336,10 @@ public partial class RainEffect : Node3D
                 _splashBudget = maxSplashesPerFrame;
             }
         }
-
-        if (debugLog)
-        {
-            _debugStatusTimer += dt;
-            if (_debugStatusTimer >= 1.0f)
-            {
-                _debugStatusTimer = 0f;
-                float falling = fallingParticles != null ? fallingParticles.AmountRatio : -1f;
-                string gate = !worldReady ? "NO_WORLD" : !outdoors ? "INDOORS" : _intensity <= 0f ? "ZERO_INTENSITY" : "OK";
-                string lastSplash = _debugSplashSpawns > 0
-                    ? $"lastSplash=({_debugLastSplashPos.X:F1},{_debugLastSplashPos.Y:F1},{_debugLastSplashPos.Z:F1})"
-                    : "lastSplash=none";
-                GD.Print(
-                    $"[RainEffect] gate={gate} intensity={_intensity:F2} " +
-                    $"anchor=({anchorPos.X:F1},{anchorPos.Y:F1},{anchorPos.Z:F1}) " +
-                    $"playerVoxel=({psX},{psY},{psZ}) playerSun={playerVoxelSun} " +
-                    $"fallAmountRatio={falling:F2} " +
-                    $"splashes(spawns/rayMiss/normalMiss/attempts)=" +
-                    $"{_debugSplashSpawns}/{_debugSplashMissRay}/{_debugSplashMissNormal}/{_debugSplashAttempts} " +
-                    $"debugMarkersEmitted={_debugMarkersEmittedThisTick} " +
-                    $"{lastSplash}");
-                _debugSplashSpawns = 0;
-                _debugSplashMissRay = 0;
-                _debugSplashMissNormal = 0;
-                _debugSplashAttempts = 0;
-                _debugMarkersEmittedThisTick = 0;
-            }
-        }
     }
 
     private void TrySpawnSplash(Vector3 playerPos)
     {
-        _debugSplashAttempts++;
         // Uniform-disc sample via sqrt of r so density is flat across the disc.
         float r = splashRadius * Mathf.Sqrt(_rng.Randf());
         float theta = _rng.Randf() * Mathf.Tau;
@@ -313,10 +353,10 @@ public partial class RainEffect : Node3D
         var spaceState = GetWorld3D().DirectSpaceState;
         var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
         var hit = spaceState.IntersectRay(query);
-        if (hit.Count == 0) { _debugSplashMissRay++; return; }
+        if (hit.Count == 0) { return; }
 
         Vector3 normal = (Vector3)hit["normal"];
-        if (normal.Y < SplashNormalUpThreshold) { _debugSplashMissNormal++; return; }
+        if (normal.Y < SplashNormalUpThreshold) { return; }
 
         Vector3 point = (Vector3)hit["position"];
         Transform3D xform = Transform3D.Identity;
@@ -352,8 +392,6 @@ public partial class RainEffect : Node3D
             new Color(1f, 1f, 1f, 1f),
             new Color(0f, 0f, 0f, 0f),
             (uint)(GpuParticles3D.EmitFlags.Position | GpuParticles3D.EmitFlags.Velocity));
-        _debugSplashSpawns++;
-        _debugLastSplashPos = point;
 
         if (debugShowImpactMarkers && debugImpactMarkers != null)
         {
@@ -363,7 +401,6 @@ public partial class RainEffect : Node3D
                 new Color(1f, 0f, 0f, 1f),
                 new Color(0f, 0f, 0f, 0f),
                 (uint)GpuParticles3D.EmitFlags.Position);
-            _debugMarkersEmittedThisTick++;
         }
     }
 }
