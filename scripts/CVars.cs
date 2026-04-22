@@ -36,21 +36,6 @@ public static class CVars
         World.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
     });
 
-    // Absolute world-Y the fog's dust band is anchored at (when > -1e9).
-    // Dust band becomes [dust_ref_y, dust_ref_y + dust_band_height] for
-    // ALL pixels — tree + terrain alike — so cloud/dust sampling along
-    // the sun ray is consistent between sprite and terrain pixels at the
-    // same XZ, eliminating the per-pixel dust-band-shift that lets a
-    // tree's shaft sample brighter clouds than the ground's. Default
-    // -1e20 = disabled (per-pixel surface_y, legacy behavior) for A/B.
-    // When confirmed to help, wire to track the player's Y per-frame
-    // from GameClient/SkyController so it stays local as the player
-    // hikes to different altitudes.
-    public static CVarFloat fogDustReferenceY = new CVarFloat("fog_dust_ref_y", -1e20f, (cvar) =>
-    {
-        World.Current?.SetFogDustReferenceY(((CVarFloat)cvar).Value);
-    });
-
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is owned by the SkyController
     // node in scenes/screens/game.tscn as [Export] fields. Weather and

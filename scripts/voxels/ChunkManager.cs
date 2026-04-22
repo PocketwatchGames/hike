@@ -151,11 +151,6 @@ public partial class ChunkManager : Node3D
         _fogMaterial?.SetShaderParameter("fog_volumetric_enabled", enabled);
     }
 
-    public void SetFogDustReferenceY(float y)
-    {
-        _fogMaterial?.SetShaderParameter("dust_reference_y", y);
-    }
-
     // Moves dirty marks from WorldState into LightMap. The actual encode +
     // upload happens once per frame in _Process; this lets carrier lights
     // do remove+add per frame without paying for two uploads each time.

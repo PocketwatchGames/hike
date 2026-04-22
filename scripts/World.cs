@@ -215,11 +215,6 @@ public partial class World : Node3D
         _chunkManager?.SetFogVolumetricEnabled(enabled);
     }
 
-    public void SetFogDustReferenceY(float y)
-    {
-        _chunkManager?.SetFogDustReferenceY(y);
-    }
-
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)
     {
         _chunkManager.RebuildNearbyChunkMeshes(worldPos, changedPositions);

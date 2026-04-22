@@ -455,6 +455,16 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("fog_steps", fogSteps);
             fogMaterial.SetShaderParameter("dust_density", weather.dustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);
+            // Dust ceiling tracks the player's altitude so the band stays
+            // local as the player climbs hills or descends into valleys.
+            // ceiling = player.y + dustBandHeight puts the player right at
+            // the bottom of the fade, so dust_gate == 1 at the player's
+            // feet and fades to 0 one band_height above. Falls back to
+            // disabled (-1e20 = per-pixel legacy) when no world/player is
+            // present (editor preview before the game runs).
+            float playerY = World.Current?.player?.GlobalPosition.Y ?? float.NaN;
+            float ceiling = float.IsNaN(playerY) ? -1e20f : playerY + dustBandHeight;
+            fogMaterial.SetShaderParameter("dust_reference_y", ceiling);
             fogMaterial.SetShaderParameter("dust_noise_strength", dustNoiseStrength);
             fogMaterial.SetShaderParameter("dust_noise_scale", dustNoiseScale);
             fogMaterial.SetShaderParameter("dust_noise_threshold", dustNoiseThreshold);
