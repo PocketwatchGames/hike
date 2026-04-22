@@ -19,6 +19,17 @@
 
 global uniform vec3 sun_world_dir;
 global uniform vec3 sun_color;
+// sun's ACTUAL direction (never flips to the moon at night, unlike
+// sun_world_dir which holds the primary light direction). Used here
+// to place the sun disk at the correct sky position while lighting
+// continues to key off the moon at night via sun_world_dir.
+global uniform vec3 sky_sun_dir;
+global uniform vec3 moon_color;
+// Per-disk halo strength. SkyController fades sun_disk_glow to 0
+// below the horizon (invisible sun) and ramps moon_disk_glow up at
+// night so the moon reads as a crisp disk with a subtle halo.
+global uniform float sun_disk_glow;
+global uniform float moon_disk_glow;
 global uniform vec3 horizon_color;
 global uniform vec3 zenith_color;
 global uniform vec2 cloud_offset;
@@ -48,16 +59,29 @@ vec3 sample_sky(vec3 dir, float t)
 	float up = clamp(dir.y, 0.0, 1.0);
 	vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
 
-	// Sun disk + soft glow. Vector from surface toward the sun is
-	// -sun_world_dir; cos(angle) = dir . (-sun_world_dir). The disk
-	// angular width is intentionally larger than the real sun so it
-	// reads clearly when reflected in rippling water — a 1° pinprick
-	// disappears at reflection scale.
-	vec3 to_sun = -normalize(sun_world_dir);
+	// Sun + moon disks. Keyed off sky_sun_dir (sun's actual direction,
+	// always) so the sun disk sits at the sun's position even at night
+	// (where sun_world_dir has flipped to the moon for lighting). Moon
+	// is the anti-sun on the celestial sphere, so to_moon = -to_sun.
+	// Disk angular widths are intentionally larger than the real sun /
+	// moon so they read clearly when reflected in rippling water — a
+	// 1° pinprick disappears at reflection scale.
+	vec3 to_sun = -normalize(sky_sun_dir);
+	vec3 to_moon = -to_sun;
 	float sd = max(dot(dir, to_sun), 0.0);
-	float disk = smoothstep(0.994, 0.998, sd) * 2.0;
-	float glow = pow(sd, 32.0) * 1.0;
-	base += sun_color * (disk + glow);
+	float md = max(dot(dir, to_moon), 0.0);
+	float sun_disk = smoothstep(0.994, 0.998, sd) * 2.0;
+	float moon_disk = smoothstep(0.995, 0.999, md) * 2.0;
+	float sun_glow = pow(sd, 32.0) * sun_disk_glow;
+	float moon_glow = pow(md, 96.0) * moon_disk_glow;
+	// Gate each disk by whether its body is above the horizon so we
+	// don't bleed sun color across the horizon at sunset (where the
+	// sun is sitting right on dir.y=0 and dot() is large enough to
+	// smear). Smooth fade over a few degrees avoids a popping edge.
+	float sun_up = smoothstep(-0.05, 0.05, to_sun.y);
+	float moon_up = smoothstep(-0.05, 0.05, to_moon.y);
+	base += sun_color * (sun_disk + sun_glow) * sun_up;
+	base += moon_color * (moon_disk + moon_glow) * moon_up;
 
 	// Clouds: project the view ray onto a flat cloud plane (stretch toward
 	// the horizon by dividing xz by y) and sample the shared noise texture.
@@ -93,11 +117,18 @@ vec3 sample_sky_from(vec3 origin, vec3 dir, float t)
 	float up = clamp(dir.y, 0.0, 1.0);
 	vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
 
-	vec3 to_sun = -normalize(sun_world_dir);
+	vec3 to_sun = -normalize(sky_sun_dir);
+	vec3 to_moon = -to_sun;
 	float sd = max(dot(dir, to_sun), 0.0);
-	float disk = smoothstep(0.994, 0.998, sd) * 2.0;
-	float glow = pow(sd, 32.0) * 1.0;
-	base += sun_color * (disk + glow);
+	float md = max(dot(dir, to_moon), 0.0);
+	float sun_disk = smoothstep(0.994, 0.998, sd) * 2.0;
+	float moon_disk = smoothstep(0.995, 0.999, md) * 2.0;
+	float sun_glow = pow(sd, 32.0) * sun_disk_glow;
+	float moon_glow = pow(md, 96.0) * moon_disk_glow;
+	float sun_up = smoothstep(-0.05, 0.05, to_sun.y);
+	float moon_up = smoothstep(-0.05, 0.05, to_moon.y);
+	base += sun_color * (sun_disk + sun_glow) * sun_up;
+	base += moon_color * (moon_disk + moon_glow) * moon_up;
 
 	// Cloud-plane intersection. Guard against near-horizontal rays that
 	// would project to points effectively at infinity. cloud_xz is in

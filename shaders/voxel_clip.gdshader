@@ -511,5 +511,18 @@ void light() {
 	// instead of multiplying them — standing in a cast shadow on a cloudy
 	// day should read as one shadow, not two stacked. Ambient sky-bounce
 	// is still cloud-dimmed in EMISSION (see fragment()).
-	DIFFUSE_LIGHT += ALBEDO * min(ATTENUATION, cloud_dim);
+	//
+	// Gate by each light's energy so the sun and moon DirectionalLight3Ds
+	// (driven by SkyController) crossfade cleanly — each call contributes
+	// only its source's fraction of the direct light. LIGHT_ENERGY isn't a
+	// builtin in Godot 4's light() stage; energy is pre-baked into
+	// LIGHT_COLOR as `light_color * light_energy * PI`. Both SunLight and
+	// MoonLight are authored white (color = (1,1,1)) so LIGHT_COLOR.r =
+	// light_energy * PI; dividing by PI yields the scalar energy factor.
+	// Sun energy peaks during day / fades to 0 as the sun sets; moon
+	// energy is the mirror. During the dawn/dusk crossover both are
+	// partial and the scene receives blended shadows from both directions.
+	const float INV_PI = 0.31830989;
+	float light_energy = LIGHT_COLOR.r * INV_PI;
+	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
 }

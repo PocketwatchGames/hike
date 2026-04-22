@@ -239,6 +239,22 @@ sun_world_dir={
 "type": "vec3",
 "value": Vector3(-0.215, -0.819, -0.532)
 }
+sky_sun_dir={
+"type": "vec3",
+"value": Vector3(-0.215, -0.819, -0.532)
+}
+moon_color={
+"type": "vec3",
+"value": Vector3(0.55, 0.6, 0.75)
+}
+sun_disk_glow={
+"type": "float",
+"value": 1.0
+}
+moon_disk_glow={
+"type": "float",
+"value": 0.0
+}
 horizon_color={
 "type": "vec3",
 "value": Vector3(0.72, 0.82, 0.92)

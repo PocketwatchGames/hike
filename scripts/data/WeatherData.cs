@@ -8,14 +8,19 @@ using Godot;
 // tuning (SSR config, cloud altitude, fog material reference, ripple surface geometry,
 // shadow raymarch quality) stays on SkyController as direct exports — those aren't
 // weather-driven and would be confusing to lerp.
+//
+// Fields are grouped by time-of-day phase: Day holds the high-sun values, Sunset
+// holds the golden-hour band (used at both sunrise and sunset), Night holds the
+// moon-primary values. SkyController blends between them each frame based on the
+// sun's current elevation, so authoring a new weather preset means filling in
+// each color three times. Weather-independent environmental state (wind
+// direction) lives on SimData, not here.
 [GlobalClass]
 public partial class WeatherData : Resource
 {
-    [ExportGroup("Sky Dome")]
+    [ExportGroup("Day")]
     [Export] public Color horizonColor = new Color(0.72f, 0.82f, 0.92f);
     [Export] public Color zenithColor = new Color(0.25f, 0.48f, 0.82f);
-
-    [ExportGroup("Sun")]
     [Export] public Color sunColor = new Color(1.0f, 0.96f, 0.88f);
     [Export(PropertyHint.Range, "0,1,0.01")] public float sunAmbient = 0.4f;
     // Two off-axis fill tints that darken surfaces facing away from their
@@ -25,9 +30,72 @@ public partial class WeatherData : Resource
     // scene (sunlit and shadowed) since they don't fade with sun_mask.
     [Export] public Color fillAColor = new Color(0.78f, 0.78f, 0.92f);
     [Export] public Color fillBColor = new Color(0.92f, 0.86f, 0.72f);
+    // Fog tint during full day. Sunset and night have their own variants
+    // (sunsetFogColor, nightFogColor) that SkyController crossfades into.
+    [Export] public Color fogColor = new Color(0.85f, 0.88f, 0.95f);
+    // Day-time shaft (god-ray) color + intensity. Day beams feed through
+    // `sun_shaft_intensity` and `shaft_color` uniforms on the fog material.
+    [Export(PropertyHint.Range, "0,32,0.01")] public float sunShaftIntensity = 8.0f;
+    [Export] public Color sunShaftColor = new Color(1.0f, 0.96f, 0.88f);
+
+    [ExportGroup("Sunset")]
+    // Used at BOTH sunrise and sunset — the blend is symmetric around
+    // sunsetAngleDegrees, so authoring one "golden hour" palette covers
+    // both horizon crossings.
+    [Export] public Color sunsetHorizonColor = new Color(1.0f, 0.55f, 0.3f);
+    [Export] public Color sunsetZenithColor = new Color(0.3f, 0.2f, 0.4f);
+    // Primary light color at the sunset peak — replaces sunColor through
+    // the sunset blend band centered on sunsetAngleDegrees.
+    [Export] public Color sunsetColor = new Color(1.0f, 0.65f, 0.35f);
+    [Export(PropertyHint.Range, "0,1,0.01")] public float sunsetAmbient = 0.4f;
+    // Fraction of the day-base sun_intensity applied at sunset peak.
+    // Lets sunset be authored as mellower than noon (typical ~0.7) without
+    // touching CVars.sun_intensity. Paired with sunsetAmbient so each
+    // weather preset can tune the direct↔ambient split of golden hour —
+    // e.g. a stormy sunset might want low direct but high ambient.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float sunsetLightIntensity = 0.7f;
+    [Export] public Color sunsetFillAColor = new Color(0.75f, 0.55f, 0.7f);
+    [Export] public Color sunsetFillBColor = new Color(1.0f, 0.7f, 0.5f);
+    [Export] public Color sunsetCloudColor = new Color(1.0f, 0.78f, 0.6f);
+    [Export] public Color sunsetFogColor = new Color(0.9f, 0.65f, 0.55f);
+
+    [ExportGroup("Night")]
+    // When the sun is below sunsetAngleDegrees the moon takes over as the
+    // directional source. Pale blue-white reads as moonlight without going
+    // full grayscale.
+    [Export] public Color nightHorizonColor = new Color(0.12f, 0.14f, 0.22f);
+    [Export] public Color nightZenithColor = new Color(0.03f, 0.04f, 0.09f);
+    [Export] public Color moonColor = new Color(0.55f, 0.6f, 0.75f);
+    // Default BELOW sunAmbient: moonlight scatters through the atmosphere
+    // far less than sunlight, so moonlit scenes have very dark shadows
+    // and low fill. Setting this high turns night into "dim day" — the
+    // direct-vs-ambient split collapses and Godot's DirectionalLight3D
+    // shadow (which only shadows the direct portion via ATTENUATION on
+    // ALBEDO in voxel_clip.gdshader) becomes imperceptible. Keep it well
+    // below sunAmbient for the "crisp moon shadows" look.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float moonAmbient = 0.2f;
+    // Fraction of day-base sun_intensity used at full night; also scales
+    // MoonLight.LightEnergy directly. Paired with moonAmbient so each
+    // weather can choose its night character — a foggy overcast night
+    // might want low direct + moderate ambient (diffuse gloom), a clear
+    // full moon wants crisp direct + low ambient. Typical range 0.2–0.5.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float moonLightIntensity = 0.3f;
+    [Export] public Color nightFillAColor = new Color(0.3f, 0.33f, 0.45f);
+    [Export] public Color nightFillBColor = new Color(0.35f, 0.38f, 0.5f);
+    [Export] public Color nightCloudColor = new Color(0.4f, 0.43f, 0.55f);
+    [Export] public Color nightFogColor = new Color(0.22f, 0.27f, 0.38f);
+    // Night-time shaft (moonlight god-ray) color + intensity. Independent
+    // of sunShaft* so nighttime can lean into a spookier, cooler-toned
+    // vibe than day shafts. SkyController crossfades between the two
+    // around the shaft fade band so neither produces a visible shaft
+    // while the primary direction is flipping across the horizon.
+    [Export(PropertyHint.Range, "0,32,0.01")] public float moonShaftIntensity = 4.0f;
+    [Export] public Color moonShaftColor = new Color(0.45f, 0.55f, 0.75f);
 
     [ExportGroup("Wind")]
-    [Export] public Vector3 windDirection = new Vector3(0.7f, 0f, 0.7f);
+    // Direction lives on SimData as a world-level property. These tune the
+    // STRENGTH and RHYTHM of wind per weather — stormy presets can crank
+    // up amplitude / gust strength without changing the compass bearing.
     [Export(PropertyHint.Range, "0,1,0.001")] public float windAmplitude = 0.05f;
     [Export(PropertyHint.Range, "0,5,0.01")] public float windFrequency = 1.5f;
     [Export(PropertyHint.Range, "0,3,0.01")] public float gustStrength = 0.6f;
@@ -44,15 +112,17 @@ public partial class WeatherData : Resource
     [Export] public float cloudScale = 0.15f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShadowStrength = 1.0f;
 
-    [ExportGroup("Fog — Authored")]
-    [Export] public Color fogColor = new Color(0.85f, 0.88f, 0.95f);
+    [ExportGroup("Atmospherics")]
+    // Authored voxel fog density multiplier (scales per-voxel fog_map values).
+    // Color is split across Day/Sunset/Night (fogColor, sunsetFogColor,
+    // nightFogColor) and blended by time of day; density is a single
+    // weather-wide value since haze thickness is a mood choice, not a
+    // palette choice.
     [Export(PropertyHint.Range, "0,1,0.001")] public float fogDensity = 0.05f;
-
-    [ExportGroup("Fog — Atmospheric Dust")]
+    // Uniform atmospheric dust — the scattering medium that god rays need
+    // in order to be visible. Bound by SkyController.dustBandHeight to
+    // keep dust near the ground.
     [Export(PropertyHint.Range, "0,1,0.0001")] public float dustDensity = 0.003f;
-
-    [ExportGroup("Inscatter — Shafts + Halos")]
-    [Export(PropertyHint.Range, "0,32,0.01")] public float sunShaftIntensity = 8.0f;
 
     // Copy every field from `other` into this. Used by SkyController to apply an
     // instantaneous weather snapshot without allocating a new Resource.
@@ -64,7 +134,29 @@ public partial class WeatherData : Resource
         sunAmbient = other.sunAmbient;
         fillAColor = other.fillAColor;
         fillBColor = other.fillBColor;
-        windDirection = other.windDirection;
+        fogColor = other.fogColor;
+        sunShaftIntensity = other.sunShaftIntensity;
+        sunShaftColor = other.sunShaftColor;
+        sunsetHorizonColor = other.sunsetHorizonColor;
+        sunsetZenithColor = other.sunsetZenithColor;
+        sunsetColor = other.sunsetColor;
+        sunsetAmbient = other.sunsetAmbient;
+        sunsetLightIntensity = other.sunsetLightIntensity;
+        sunsetFillAColor = other.sunsetFillAColor;
+        sunsetFillBColor = other.sunsetFillBColor;
+        sunsetCloudColor = other.sunsetCloudColor;
+        sunsetFogColor = other.sunsetFogColor;
+        nightHorizonColor = other.nightHorizonColor;
+        nightZenithColor = other.nightZenithColor;
+        moonColor = other.moonColor;
+        moonAmbient = other.moonAmbient;
+        moonLightIntensity = other.moonLightIntensity;
+        nightFillAColor = other.nightFillAColor;
+        nightFillBColor = other.nightFillBColor;
+        nightCloudColor = other.nightCloudColor;
+        nightFogColor = other.nightFogColor;
+        moonShaftIntensity = other.moonShaftIntensity;
+        moonShaftColor = other.moonShaftColor;
         windAmplitude = other.windAmplitude;
         windFrequency = other.windFrequency;
         gustStrength = other.gustStrength;
@@ -76,10 +168,8 @@ public partial class WeatherData : Resource
         cloudSharpness = other.cloudSharpness;
         cloudScale = other.cloudScale;
         cloudShadowStrength = other.cloudShadowStrength;
-        fogColor = other.fogColor;
         fogDensity = other.fogDensity;
         dustDensity = other.dustDensity;
-        sunShaftIntensity = other.sunShaftIntensity;
     }
 
     // Interpolate every field into this from (a -> b) at t in [0, 1]. t is expected
@@ -92,7 +182,29 @@ public partial class WeatherData : Resource
         sunAmbient = Mathf.Lerp(a.sunAmbient, b.sunAmbient, t);
         fillAColor = a.fillAColor.Lerp(b.fillAColor, t);
         fillBColor = a.fillBColor.Lerp(b.fillBColor, t);
-        windDirection = a.windDirection.Lerp(b.windDirection, t);
+        fogColor = a.fogColor.Lerp(b.fogColor, t);
+        sunShaftIntensity = Mathf.Lerp(a.sunShaftIntensity, b.sunShaftIntensity, t);
+        sunShaftColor = a.sunShaftColor.Lerp(b.sunShaftColor, t);
+        sunsetHorizonColor = a.sunsetHorizonColor.Lerp(b.sunsetHorizonColor, t);
+        sunsetZenithColor = a.sunsetZenithColor.Lerp(b.sunsetZenithColor, t);
+        sunsetColor = a.sunsetColor.Lerp(b.sunsetColor, t);
+        sunsetAmbient = Mathf.Lerp(a.sunsetAmbient, b.sunsetAmbient, t);
+        sunsetLightIntensity = Mathf.Lerp(a.sunsetLightIntensity, b.sunsetLightIntensity, t);
+        sunsetFillAColor = a.sunsetFillAColor.Lerp(b.sunsetFillAColor, t);
+        sunsetFillBColor = a.sunsetFillBColor.Lerp(b.sunsetFillBColor, t);
+        sunsetCloudColor = a.sunsetCloudColor.Lerp(b.sunsetCloudColor, t);
+        sunsetFogColor = a.sunsetFogColor.Lerp(b.sunsetFogColor, t);
+        nightHorizonColor = a.nightHorizonColor.Lerp(b.nightHorizonColor, t);
+        nightZenithColor = a.nightZenithColor.Lerp(b.nightZenithColor, t);
+        moonColor = a.moonColor.Lerp(b.moonColor, t);
+        moonAmbient = Mathf.Lerp(a.moonAmbient, b.moonAmbient, t);
+        moonLightIntensity = Mathf.Lerp(a.moonLightIntensity, b.moonLightIntensity, t);
+        nightFillAColor = a.nightFillAColor.Lerp(b.nightFillAColor, t);
+        nightFillBColor = a.nightFillBColor.Lerp(b.nightFillBColor, t);
+        nightCloudColor = a.nightCloudColor.Lerp(b.nightCloudColor, t);
+        nightFogColor = a.nightFogColor.Lerp(b.nightFogColor, t);
+        moonShaftIntensity = Mathf.Lerp(a.moonShaftIntensity, b.moonShaftIntensity, t);
+        moonShaftColor = a.moonShaftColor.Lerp(b.moonShaftColor, t);
         windAmplitude = Mathf.Lerp(a.windAmplitude, b.windAmplitude, t);
         windFrequency = Mathf.Lerp(a.windFrequency, b.windFrequency, t);
         gustStrength = Mathf.Lerp(a.gustStrength, b.gustStrength, t);
@@ -104,9 +216,7 @@ public partial class WeatherData : Resource
         cloudSharpness = Mathf.Lerp(a.cloudSharpness, b.cloudSharpness, t);
         cloudScale = Mathf.Lerp(a.cloudScale, b.cloudScale, t);
         cloudShadowStrength = Mathf.Lerp(a.cloudShadowStrength, b.cloudShadowStrength, t);
-        fogColor = a.fogColor.Lerp(b.fogColor, t);
         fogDensity = Mathf.Lerp(a.fogDensity, b.fogDensity, t);
         dustDensity = Mathf.Lerp(a.dustDensity, b.dustDensity, t);
-        sunShaftIntensity = Mathf.Lerp(a.sunShaftIntensity, b.sunShaftIntensity, t);
     }
 }

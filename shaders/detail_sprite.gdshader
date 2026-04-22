@@ -439,5 +439,10 @@ void fragment() {
 void light() {
 	// ATTENUATION (Godot's directional shadow atlas) and cloud_dim compose as
 	// min() so a cloud + cast shadow read as one shadow, not stacked.
-	DIFFUSE_LIGHT += ALBEDO * min(ATTENUATION, cloud_dim);
+	// Per-source energy gate — see voxel_clip.gdshader's light() for the
+	// full rationale. LIGHT_COLOR has light_energy * PI baked in; extract
+	// the scalar via LIGHT_COLOR.r * INV_PI (lights are authored white).
+	const float INV_PI = 0.31830989;
+	float light_energy = LIGHT_COLOR.r * INV_PI;
+	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
 }

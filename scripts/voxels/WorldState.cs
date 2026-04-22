@@ -19,12 +19,29 @@ public class WorldState
     // AI timers, etc. survive save/load.
     public ulong GameTimeMs;
 
-    // Sun direction (unit vector, the direction light travels). Read by
-    // SkyController for sky/tint shading and by World.IsPointInDirectionalSun
-    // for the gameplay shadow-reach raycast. The visible directional shadow
-    // is Godot's DirectionalLight3D in game.tscn — its transform should be
-    // kept in sync with this when day/night arrives.
+    // Normalized time-of-day in [0, 1): 0 = midnight, 0.25 = sunrise,
+    // 0.5 = noon, 0.75 = sunset. Advanced by World.Tick scaled by
+    // SimData.DayLengthSeconds and the time_scale CVar. SkyController reads
+    // this each frame to compute sun/moon orbit and blend day/sunset/night
+    // colors. Seeded from SimData.InitialTimeOfDay at world creation.
+    public double TimeOfDay01;
+
+    // Sun direction (unit vector, the direction light travels). Written by
+    // SkyController each frame from TimeOfDay01; read by
+    // World.IsPointInDirectionalSun for the gameplay shadow-reach raycast.
+    // During night this holds the moon's light direction (the primary source
+    // at night) so shadow-reach queries still make sense.
     public Vector3 ShadowLightDirection = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
+
+    // Prevailing wind direction in world XZ. Lives here rather than on
+    // SimData because it's a MUTABLE sim property — a future weather
+    // system will rotate this as storms move in, and it'll want to be
+    // serialized with the rest of the world state so reloading a save
+    // doesn't reset the weather pattern. WeatherData tunes the strength
+    // and rhythm of wind per preset (amplitude, frequency, gusts);
+    // direction is orthogonal to that. Y component unused — wind
+    // treated as horizontal.
+    public Vector3 WindDirection = new Vector3(0.7f, 0f, 0.7f);
 
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
@@ -51,6 +68,7 @@ public class WorldState
         Min = min;
         Max = max;
         SimData = simData;
+        TimeOfDay01 = simData?.InitialTimeOfDay ?? 0.3f;
     }
 
     // World-coordinate accessors for cross-chunk light propagation
@@ -327,7 +345,9 @@ public class WorldState
         GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
 
         float sunMask = (float)sunBfs / LightEngine.MAX_LIGHT;
-        float ambient = SkyController.Current?.weather?.sunAmbient ?? 0.4f;
+        // Use the time-of-day-blended ambient (not raw weather.sunAmbient) so
+        // night/sunset dim the "in shadow" floor the same way sprites see it.
+        float ambient = SkyController.Current?.CurrentAmbient ?? 0.4f;
         float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
         float sun = sunMask * CVars.sunIntensity.Value * sunFactor;
 

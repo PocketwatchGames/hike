@@ -54,11 +54,13 @@ global uniform vec3 light_map_inv_size;
 // 1e+20 leaves outdoor rendering untouched.
 global uniform float camera_clip;
 
-// Sun direction / color / intensity (shared with sky + voxel shaders, set by
+// Sun direction / intensity (shared with sky + voxel shaders, set by
 // SkyController and ChunkManager). sun_world_dir points FROM the sun toward
-// the ground, so -sun_world_dir is "toward the sun".
+// the ground, so -sun_world_dir is "toward the sun". Shaft radiance uses
+// the per-material `shaft_color` below rather than the `sun_color` global —
+// shafts track the authored moon shaft color at night independent of the
+// primary-light color the rest of the scene uses.
 global uniform vec3 sun_world_dir;
-global uniform vec3 sun_color;
 global uniform float sun_intensity;
 
 // Cloud occlusion parameters (shared with sky + terrain + sprite + water
@@ -79,7 +81,7 @@ uniform vec3 fog_color : source_color = vec3(0.85, 0.88, 0.95);
 // in the Godot inspector can strip those overrides, revealing the
 // mis-matched default as a fully-white screen.
 uniform float fog_density : hint_range(0.0, 1.0) = 0.05;
-uniform int fog_steps : hint_range(1, 64) = 48;
+uniform int fog_steps : hint_range(1, 128) = 48;
 uniform float fog_max_distance = 100.0;
 // Toggles the AUTHORED voxel fog contribution only. Dust, shafts, and
 // halos keep working when this is off — they come from dust_density
@@ -137,6 +139,13 @@ uniform float dust_noise_scale = 0.12;
 uniform float dust_noise_threshold : hint_range(0.0, 1.0) = 0.4;
 uniform float dust_noise_sharpness : hint_range(0.0, 1.0) = 0.5;
 uniform vec2 dust_noise_scroll = vec2(0.05, 0.03);
+// Pre-integrated dust-noise scroll positions (SkyController accumulates
+// `dust_noise_scroll * dt` and the perpendicular companion at 0.7x each
+// frame). Using a position directly avoids the `TIME * scroll` form
+// that slowly loses float precision over long sessions and teleports
+// the pattern whenever the scroll speed is retuned.
+uniform vec2 dust_noise_offset_a = vec2(0.0);
+uniform vec2 dust_noise_offset_b = vec2(0.0);
 
 // In-scattering tuning.
 // sun_shaft_intensity: multiplier on the sunlight inscatter term (raise to
@@ -156,6 +165,14 @@ uniform vec2 dust_noise_scroll = vec2(0.05, 0.03);
 uniform float sun_shaft_intensity : hint_range(0.0, 32.0) = 8.0;
 uniform float block_halo_intensity : hint_range(0.0, 32.0) = 6.0;
 uniform float scatter_anisotropy : hint_range(-0.95, 0.95) = 0.0;
+// Color tint on shaft inscatter. SkyController crossfades between the
+// day sun color and weather.moonShaftColor based on which source is
+// currently above the horizon, so this tracks the "real" shaft source
+// rather than the primary-light global `sun_color` (which lighting
+// keys off and which may itself already be blended with sunset). Same
+// geometry, swapped palette: day beams read warm, moon beams read
+// whatever mood the weather author picked.
+uniform vec3 shaft_color : source_color = vec3(1.0, 0.96, 0.88);
 
 // Animated mote shimmer drifting through the shafts. The shaft geometry
 // itself is anchored to the (static) sun occlusion in the LightMap +
@@ -169,6 +186,10 @@ uniform float scatter_anisotropy : hint_range(-0.95, 0.95) = 0.0;
 uniform float mote_strength : hint_range(0.0, 1.0) = 0.55;
 uniform float mote_scale = 0.18;
 uniform vec3 mote_scroll = vec3(0.35, 0.12, -0.25);
+// Pre-integrated mote position (SkyController accumulates mote_scroll
+// per frame). Same precision / speed-change-retune reasoning as the
+// dust offsets above.
+uniform vec3 mote_offset = vec3(0.0);
 
 // World Y of the water surface. The water shader uses depth_draw_never, so
 // DEPTH_TEXTURE at water pixels returns the depth of the opaque terrain
@@ -621,10 +642,12 @@ void fragment()
             // on-screen stripes in an iso view.
             float dust_proj_t = (cloud_altitude - p.y) / max(to_sun.y, 0.15);
             vec2 dust_xz = p.xz + to_sun.xz * dust_proj_t;
-            vec2 scroll_a = dust_noise_scroll * TIME;
-            vec2 scroll_b = vec2(-dust_noise_scroll.y, dust_noise_scroll.x) * TIME * 0.7;
-            vec2 dust_uv_a = dust_xz * dust_noise_scale + scroll_a;
-            vec2 dust_uv_b = dust_xz * dust_noise_scale * 1.3 + scroll_b;
+            // Pre-integrated positions (SkyController side); see uniform
+            // declarations above. Equivalent to the old `scroll * TIME`
+            // math at the current frame but precision-stable across long
+            // sessions and speed retunes.
+            vec2 dust_uv_a = dust_xz * dust_noise_scale + dust_noise_offset_a;
+            vec2 dust_uv_b = dust_xz * dust_noise_scale * 1.3 + dust_noise_offset_b;
             float dn = (texture(cloud_noise_tex, dust_uv_a).r + texture(cloud_noise_tex, dust_uv_b).r) * 0.5;
             float dust_band_width = max(1e-4, 1.0 - dust_noise_sharpness);
             float dust_pattern = smoothstep(dust_noise_threshold, min(dust_noise_threshold + dust_band_width, 1.0), dn);
@@ -657,7 +680,7 @@ void fragment()
                 // Motes drift in world space so the beams come alive without
                 // the ambient haze crawling with them. Centered at 1.0 so
                 // the average shaft brightness stays independent of strength.
-                vec3 mp = p * mote_scale + mote_scroll * TIME;
+                vec3 mp = p * mote_scale + mote_offset;
                 float dust = mix(1.0, 2.0 * mote_noise(mp), mote_strength);
 
                 // Sun gating: combine two occlusion sources.
@@ -683,7 +706,7 @@ void fragment()
                 // don't produce shafts. At threshold=0 this is a no-op
                 // (raw lm.r used). At 1 only fully-lit voxels contribute.
                 float voxel_sun = smoothstep(shaft_sun_threshold, 1.0, lm.r);
-                vec3 sun_radiance = voxel_sun * sun_intensity * sun_color * sun_through;
+                vec3 sun_radiance = voxel_sun * sun_intensity * shaft_color * sun_through;
                 L += sun_radiance * phase_sun * eff_shaft_intensity * dust;
                 L += lm.gba * phase_block * block_halo_intensity;
 

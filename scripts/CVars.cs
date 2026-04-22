@@ -47,6 +47,24 @@ public static class CVars
     // 0 or negative = snap instantly.
     public static CVarFloat weatherLerpDuration = new CVarFloat("weather_lerp_duration", 3.0f);
 
+    // Multiplier on the time-of-day advance rate. 1 = SimData.DayLengthSeconds
+    // is a real-time day; 60 fast-forwards the cycle 60x for testing sunset /
+    // night look without waiting. Does not affect GameTimeMs so player
+    // cooldowns, AI timers, etc. stay at real speed.
+    public static CVarFloat timeScale = new CVarFloat("time_scale", 1f);
+
+    // Set/read the current normalized time-of-day on the active world.
+    // 0 = midnight, 0.25 = sunrise, 0.5 = noon, 0.75 = sunset. Writing wraps
+    // into [0, 1). Setting via console jumps the sun/moon orbit immediately.
+    public static CVarFloat timeOfDay = new CVarFloat("time_of_day", 0.3f, (cvar) =>
+    {
+        WorldState ws = World.Current?.WorldState;
+        if (ws == null) { return; }
+        double v = ((CVarFloat)cvar).Value;
+        v -= System.Math.Floor(v);
+        ws.TimeOfDay01 = v;
+    });
+
     // Apply a weather preset to SkyController via a smooth Lerp. Presets are
     // WeatherData .tres files under res://resources/weather/. Debug/testing
     // tool — a real weather system will call SkyController.LerpToWeather()

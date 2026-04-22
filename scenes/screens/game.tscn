@@ -112,7 +112,7 @@ mesh = SubResource("QuadMesh_fog")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(0.8660254, -0.38302222, 0.32139382, 0, 0.64278764, 0.76604444, -0.5, -0.66341394, 0.5566704, 0, 0, 0)
+transform = Transform3D(1, -1.9820924e-08, 1.1443614e-08, 0, 0.49999997, 0.86602545, -2.288723e-08, -0.86602545, 0.49999997, 0, 0, 0)
 light_angular_distance = 0.5
 light_bake_mode = 0
 light_cull_mask = 3
@@ -121,9 +121,26 @@ shadow_opacity = 0.9
 shadow_blur = 6.0
 sky_mode = 1
 
-[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight")]
+[node name="MoonLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209992]
+transform = Transform3D(-1, 7.5710346e-08, 4.3711385e-08, 0, 0.49999997, -0.86602545, -8.742278e-08, -0.86602545, -0.49999997, 0, 0, 0)
+light_energy = 0.0
+light_angular_distance = 0.5
+light_bake_mode = 0
+light_cull_mask = 3
+shadow_enabled = true
+shadow_opacity = 0.9
+shadow_blur = 6.0
+sky_mode = 1
+
+[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight")]
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
+moonLight = NodePath("../SceneViewport/MoonLight")
+sunsetAngleDegrees = 15.0
+lightEnergyFadeRangeDegrees = 10.0
+shaftFadeAngleDegrees = 5.0
+shaftFadeRangeDegrees = 10.1
+cloudShadowFadeRangeDegrees = 10.1
 fillAPitchDegrees = 35.0
 fillBPitchDegrees = 50.0
 rippleScaleA = 1.0

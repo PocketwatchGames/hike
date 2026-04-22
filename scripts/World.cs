@@ -75,6 +75,18 @@ public partial class World : Node3D
     public void Tick(double delta)
     {
         _worldState.GameTimeMs += (ulong)(delta * 1000.0);
+
+        // Advance normalized time-of-day. time_scale lets the player
+        // fast-forward the cycle without disturbing GameTimeMs (which
+        // drives cooldowns and AI timers that should stay at real speed).
+        float dayLength = _worldState.SimData?.DayLengthSeconds ?? 600f;
+        if (dayLength > 0f)
+        {
+            double todDelta = delta * CVars.timeScale.Value / dayLength;
+            double tod = _worldState.TimeOfDay01 + todDelta;
+            tod -= System.Math.Floor(tod);
+            _worldState.TimeOfDay01 = tod;
+        }
     }
 
     public override void _Process(double delta)

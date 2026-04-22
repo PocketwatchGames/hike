@@ -342,5 +342,12 @@ void light() {
 	// occlude direct sun. Compose as min(): whichever is darker wins, not
 	// product — so a cast shadow + cloud shadow read as one shadow, not two
 	// stacked. Ambient sky-bounce is still cloud-dimmed in EMISSION.
-	DIFFUSE_LIGHT += ALBEDO * min(ATTENUATION, cloud_dim);
+	//
+	// Per-source energy gate — see voxel_clip.gdshader's light() for the
+	// full rationale. LIGHT_COLOR = light_color * light_energy * PI in
+	// Godot 4; both directional lights are white so LIGHT_COLOR.r * INV_PI
+	// gives the scalar energy factor we need.
+	const float INV_PI = 0.31830989;
+	float light_energy = LIGHT_COLOR.r * INV_PI;
+	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
 }

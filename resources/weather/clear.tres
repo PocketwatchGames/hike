@@ -5,8 +5,8 @@
 [resource]
 script = ExtResource("1_script")
 sunAmbient = 0.1
-fillAColor = Color(0.25759998, 0.25759998, 0.92, 1)
-fillBColor = Color(0.92, 0.69368005, 0.16560002, 1)
+fillAColor = Color(0.50600004, 0.50600004, 0.92, 1)
+fillBColor = Color(0.92, 0.75716, 0.37720004, 1)
 windAmplitude = 0.03
 rippleStrength = 0.1
 cloudThreshold = 0.75
