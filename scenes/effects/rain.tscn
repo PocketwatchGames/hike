@@ -1,0 +1,80 @@
+[gd_scene format=3 uid="uid://crv3c3c4y78as"]
+
+[ext_resource type="Script" uid="uid://w1phi46qtrbe" path="res://scripts/client/RainEffect.cs" id="1_rain"]
+[ext_resource type="Material" uid="uid://b4wcgipo4a6d1" path="res://resources/materials/rain_drop.tres" id="2_drop_mat"]
+[ext_resource type="Material" uid="uid://dhoumedxf2vuh" path="res://resources/materials/rain_splash.tres" id="3_splash_mat"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fall"]
+emission_shape = 3
+emission_box_extents = Vector3(40, 0.1, 40)
+direction = Vector3(0, -1, 0)
+spread = 2.0
+initial_velocity_min = 22.0
+initial_velocity_max = 26.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.8
+scale_max = 1.2
+
+[sub_resource type="QuadMesh" id="QuadMesh_drop"]
+material = ExtResource("2_drop_mat")
+size = Vector2(0.01, 1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+direction = Vector3(0, 1, 0)
+spread = 25.0
+gravity = Vector3(0, -30, 0)
+scale_min = 0.3
+scale_max = 0.7
+
+[sub_resource type="QuadMesh" id="QuadMesh_splash"]
+lightmap_size_hint = Vector2i(27, 27)
+material = ExtResource("3_splash_mat")
+size = Vector2(0.1, 0.1)
+orientation = 1
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_debugMarker"]
+direction = Vector3(0, 1, 0)
+spread = 0.0
+gravity = Vector3(0, 0, 0)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_debugMarker"]
+shading_mode = 0
+albedo_color = Color(1, 0, 0, 1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_debugMarker"]
+material = SubResource("StandardMaterial3D_debugMarker")
+size = Vector3(0.5, 0.5, 0.5)
+
+[node name="RainEffect" type="Node3D" unique_id=1892014474 node_paths=PackedStringArray("fallingParticles", "splashParticles", "debugImpactMarkers")]
+script = ExtResource("1_rain")
+fallingParticles = NodePath("FallingParticles")
+splashParticles = NodePath("SplashParticles")
+debugImpactMarkers = NodePath("DebugImpactMarkers")
+splashSpread = 0.25
+
+[node name="FallingParticles" type="GPUParticles3D" parent="." unique_id=1593387924]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 15, 0)
+extra_cull_margin = 16384.0
+amount = 6000
+lifetime = 1.5
+visibility_aabb = AABB(-80, -50, -80, 160, 80, 160)
+process_material = SubResource("ParticleProcessMaterial_fall")
+draw_pass_1 = SubResource("QuadMesh_drop")
+
+[node name="SplashParticles" type="GPUParticles3D" parent="." unique_id=230213491]
+extra_cull_margin = 16384.0
+emitting = false
+amount = 500
+lifetime = 0.4
+visibility_aabb = AABB(-30, -30, -30, 60, 60, 60)
+process_material = SubResource("ParticleProcessMaterial_splash")
+draw_pass_1 = SubResource("QuadMesh_splash")
+
+[node name="DebugImpactMarkers" type="GPUParticles3D" parent="." unique_id=294252547]
+extra_cull_margin = 16384.0
+emitting = false
+amount = 500
+lifetime = 0.6
+visibility_aabb = AABB(-60, -60, -60, 120, 120, 120)
+process_material = SubResource("ParticleProcessMaterial_debugMarker")
+draw_pass_1 = SubResource("BoxMesh_debugMarker")

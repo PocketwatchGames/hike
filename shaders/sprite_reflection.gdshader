@@ -61,6 +61,11 @@ uniform float water_y = -1e30;
 uniform vec3 source_world_pos = vec3(0.0);
 // Per-instance dimming to sell "this is a reflection, not a second sprite."
 uniform float reflection_tint : hint_range(0.0, 1.0) = 0.7;
+// Match sprite_lit's discovery-fade + silhouette uniforms so a fading /
+// silhouetted sprite's water reflection stays consistent with its body.
+uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 silhouette_tint : source_color = vec3(0.0);
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -176,6 +181,21 @@ void fragment() {
 		discard;
 	}
 
+	// Match sprite_lit's dither stipple so a fading mob's reflection stipples
+	// in lockstep — avoids a solid reflection next to a half-dithered body.
+	if (visibility < 1.0) {
+		const mat4 bayer = mat4(
+			vec4( 0.0,  8.0,  2.0, 10.0),
+			vec4(12.0,  4.0, 14.0,  6.0),
+			vec4( 3.0, 11.0,  1.0,  9.0),
+			vec4(15.0,  7.0, 13.0,  5.0)
+		) * (1.0 / 16.0);
+		ivec2 fp = ivec2(FRAGCOORD.xy) % 4;
+		if (bayer[fp.y][fp.x] >= visibility) {
+			discard;
+		}
+	}
+
 	// Light the reflection from the SOURCE position, not the reflection's
 	// position. Same push-up-half-a-voxel trick as sprite_lit so the
 	// lightmap read lands in air above the sprite's feet.
@@ -189,5 +209,9 @@ void fragment() {
 	vec3 block_lit = lm.gba;
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
-	ALBEDO = tex.rgb * light * reflection_tint;
+	// Silhouette bypasses lighting (same as sprite_lit) then the reflection
+	// dim still applies so the tinted reflection reads as reflected, not
+	// as a second flat shape.
+	vec3 base = mix(tex.rgb * light, silhouette_tint, silhouette_amount);
+	ALBEDO = base * reflection_tint;
 }

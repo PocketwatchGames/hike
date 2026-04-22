@@ -81,6 +81,14 @@ uniform vec3 fog_color : source_color = vec3(0.85, 0.88, 0.95);
 // in the Godot inspector can strip those overrides, revealing the
 // mis-matched default as a fully-white screen.
 uniform float fog_density : hint_range(0.0, 1.0) = 0.05;
+// Uniform whole-scene haze on TOP of the voxel fog_map — unlike fog_density
+// above (which scales the per-voxel authored fog_map), this adds a
+// constant density everywhere in the raymarch. Lets overcast / foggy /
+// stormy weathers feel enclosed in atmosphere even where WorldGen didn't
+// paint authored fog. Folds into both sigma_t (so it darkens distant
+// geometry via extinction → visible haze tint) and sigma_s (so shafts
+// still pick up the medium for inscatter).
+uniform float ambient_fog_density : hint_range(0.0, 0.2) = 0.0;
 uniform int fog_steps : hint_range(1, 128) = 48;
 uniform float fog_max_distance = 100.0;
 // Toggles the AUTHORED voxel fog contribution only. Dust, shafts, and
@@ -657,8 +665,12 @@ void fragment()
             float dust_mod = mix(1.0, 2.0 * dust_pattern, eff_dust_noise_strength);
 
             float authored = texture(fog_map, uvw).r * authored_scale;
-            float sigma_t = authored;
-            float sigma_s = authored + dust_density * dust_gate * dust_mod;
+            // Ambient haze adds uniform extinction AND scattering — acts
+            // like diluted fog everywhere the raymarch visits, letting
+            // overcast / foggy / stormy feel enclosed in atmosphere
+            // without needing authored fog_map volumes.
+            float sigma_t = authored + ambient_fog_density;
+            float sigma_s = authored + ambient_fog_density + dust_density * dust_gate * dust_mod;
             if (sigma_s <= 0.0)
             {
                 continue;

@@ -9,6 +9,7 @@
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" path="res://resources/materials/post_process.tres" id="post_process_mat"]
+[ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Shader" uid="uid://cwol32bot7y26" path="res://shaders/sky.gdshader" id="sky_shader"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
@@ -108,6 +109,8 @@ cast_shadow = 0
 extra_cull_margin = 16384.0
 mesh = SubResource("QuadMesh_fog")
 
+[node name="RainEffect" parent="SceneViewport/MainCamera" unique_id=480680992 instance=ExtResource("rain_scene")]
+
 [node name="InnerEnv" type="WorldEnvironment" parent="SceneViewport" unique_id=1455759092]
 environment = SubResource("Environment_scene")
 
@@ -136,11 +139,9 @@ sky_mode = 1
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
-sunsetAngleDegrees = 15.0
 lightEnergyFadeRangeDegrees = 10.0
 shaftFadeAngleDegrees = 5.0
 shaftFadeRangeDegrees = 10.1
-cloudShadowFadeRangeDegrees = 10.1
 fillAPitchDegrees = 35.0
 fillBPitchDegrees = 50.0
 rippleScaleA = 1.0

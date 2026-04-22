@@ -76,21 +76,21 @@ float cloud_shadow(vec3 world_pos, float time)
     return cs_sample(cloud_xz, time);
 }
 
-// Y-independent cloud shadow — projects from a REFERENCE altitude (0) rather
-// than the receiver's Y. Physically: clouds at infinity. Visually: adjacent
-// pixels on a sloped face sample adjacent texels smoothly, so cloud shadows
-// on terrain look like a uniform 2D pattern draped across the world XZ.
-// Loses the ray-coherence that fog shafts need.
+// Ground cloud shadow — samples the cloud texture directly at world XZ,
+// with NO sun-direction projection. Physically this is "clouds cast
+// shadows straight down"; stylistically it's a 2D pattern draped across
+// the world that drifts purely with wind via cloud_offset. Apparent
+// movement speed on the ground is therefore CONSTANT regardless of sun
+// elevation — avoids the `to_sun.xz * cloud_altitude / to_sun.y` term
+// whose magnitude and direction both sweep quickly at grazing sun,
+// making shadows race across the ground at dawn/dusk.
 //
-// Use this for ALL surface lighting (terrain, sprites, water). Use
-// cloud_shadow() for the fog raymarch.
+// Use this for ALL surface lighting (terrain, sprites, water). The fog
+// raymarch still needs real sun-direction projection for shaft
+// ray-coherence — it uses cloud_shadow() and cloud_shadow_shafts().
 float cloud_shadow_ground(vec3 world_pos, float time)
 {
-    vec3 to_sun = -normalize(sun_world_dir);
-    float up = max(to_sun.y, 0.15);
-    float t = cloud_altitude / up;
-    vec2 cloud_xz = world_pos.xz + to_sun.xz * t;
-    return cs_sample(cloud_xz, time);
+    return cs_sample(world_pos.xz, time);
 }
 
 // Shaft-specific variant — re-projects along the sun (Y-coherent) and

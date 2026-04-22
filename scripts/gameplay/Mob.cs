@@ -11,7 +11,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
-    [Export] private Material _silhouetteMaterial;
+
+    // Seconds to lerp visibility/silhouette toward their target. 0.1s is
+    // short enough that transitions read as "now" rather than a slow fade
+    // (this is an awareness cue, not a visual flourish) while still giving
+    // the dither pattern a chance to resolve rather than popping.
+    private const float VisibilityFadeTime = 0.1f;
 
     public float perceptionProgress
     {
@@ -65,7 +70,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
     // both end up about 3/4 of their body underground.
     private Vector3 _meshRestPosition;
     private float _meshBurrowDrop;
-    private bool _silhouetteApplied;
+    // Current fade values, stepped toward their target every _Process tick.
+    // Start at 0 so a freshly-spawned mob dithers IN rather than popping on
+    // its first frame; if it's already within visible time the target snaps
+    // to 1 and the fade plays out over VisibilityFadeTime.
+    private float _visibility;
+    private float _silhouette;
 
     public static Mob Create(World world, MobSimState data)
     {
@@ -138,25 +148,39 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
             bool discovered = _simState.DiscoveryState == EPlayerPerceptionState.Discovered && _simState.MemoryTimeMs > _world.GameTimeMs;
-            _mesh.Visible = discovered;
-            // Shadow follows discovery, not scene-tree Visible (which the
-            // ceiling-clip cull can also toggle). LitSprite owns its hidden
-            // shadow proxy — we just flip the flag.
+            // Three-state visibility, driven off discovery:
+            //   fully visible  → dithered to full, no silhouette
+            //   silhouetted    → still dithered to full, silhouette ramps up
+            //                    (player remembers it's there but can't see details)
+            //   unknown / memory expired → dither back to 0
+            // Step values move toward targets at 1 / VisibilityFadeTime per
+            // second so both the pop-in and the transition to/from silhouette
+            // are smooth rather than instant.
+            bool withinVisibleTime = _world.GameTimeMs < _simState.VisibleTimeMs;
+            float targetVisibility = discovered ? 1f : 0f;
+            // Silhouette target only moves while we WANT to be visible — when
+            // fading out, freeze it so a silhouetted mob whose memory just
+            // expired stipples OUT as silhouette rather than briefly flashing
+            // back to lit colors through the dither as both values race to 0.
+            float targetSilhouette = _silhouette;
+            if (targetVisibility >= 1f)
+            {
+                targetSilhouette = withinVisibleTime ? 0f : 1f;
+            }
+            float step = (float)delta / VisibilityFadeTime;
+            _visibility = Mathf.MoveToward(_visibility, targetVisibility, step);
+            _silhouette = Mathf.MoveToward(_silhouette, targetSilhouette, step);
+            // Hide the whole _mesh subtree once the fade reaches zero so a
+            // fully-faded sprite stops running fragments that would all
+            // discard anyway. Re-shown the instant fade-in starts.
+            _mesh.Visible = _visibility > 0f;
             if (_sprite is LitSprite litSprite)
             {
-                litSprite.CastsShadow = discovered;
-            }
-
-            // Silhouette: mob is Discovered but no longer directly visible,
-            // yet still within memory window — render as a black shape.
-            bool shouldSilhouette = _silhouetteMaterial != null
-                && _simState.DiscoveryState == EPlayerPerceptionState.Discovered
-                && _world.GameTimeMs >= _simState.VisibleTimeMs
-                && _world.GameTimeMs < _simState.MemoryTimeMs;
-            if (shouldSilhouette != _silhouetteApplied)
-            {
-                ApplySilhouette(_mesh, shouldSilhouette);
-                _silhouetteApplied = shouldSilhouette;
+                litSprite.Visibility = _visibility;
+                litSprite.Silhouette = _silhouette;
+                // Shadow follows visibility (the proxy's shader does its own
+                // dither), so a fading mob's shadow stipples in lockstep.
+                litSprite.CastsShadow = _visibility > 0f;
             }
 
             // Burrow visual: fully burrowed mobs sit 3/4 underground, and
@@ -358,18 +382,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
         foreach (TallGrass grass in _tallGrassCollisions)
         {
             _terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
-        }
-    }
-
-    private void ApplySilhouette(Node node, bool on)
-    {
-        if (node is MeshInstance3D mesh)
-        {
-            mesh.MaterialOverride = on ? _silhouetteMaterial : null;
-        }
-        foreach (Node child in node.GetChildren())
-        {
-            ApplySilhouette(child, on);
         }
     }
 

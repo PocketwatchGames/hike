@@ -115,6 +115,58 @@ public partial class LitSprite : Sprite3D
     }
     private float _forwardOffset = 0f;
 
+    // Discovery fade (0 = fully dithered away, 1 = fully opaque). Pushed to
+    // all three materials so the cast shadow and water reflection stipple
+    // in lockstep with the visible body. Mob.cs drives this off its
+    // discovery state over a ~0.1s fade.
+    public float Visibility
+    {
+        get => _visibility;
+        set
+        {
+            _visibility = value;
+            PushAlignmentUniform("visibility", value);
+        }
+    }
+    private float _visibility = 1f;
+
+    // Silhouette blend (0 = lit normally, 1 = replaced by SilhouetteTint).
+    // Only pushed to the visible + reflection materials — the shadow caster
+    // outputs binary alpha into the atlas and has no color channel to tint.
+    public float Silhouette
+    {
+        get => _silhouette;
+        set
+        {
+            _silhouette = value;
+            if (MaterialOverride is ShaderMaterial mat)
+            {
+                mat.SetShaderParameter("silhouette_amount", value);
+            }
+            _reflectionMaterial?.SetShaderParameter("silhouette_amount", value);
+        }
+    }
+    private float _silhouette = 0f;
+
+    // Flat color the silhouette blends to at Silhouette = 1. Default black
+    // reads against almost any background; callers can tint it per-mob
+    // (e.g. colored silhouettes for different faction memories).
+    public Color SilhouetteTint
+    {
+        get => _silhouetteTint;
+        set
+        {
+            _silhouetteTint = value;
+            Vector3 rgb = new(value.R, value.G, value.B);
+            if (MaterialOverride is ShaderMaterial mat)
+            {
+                mat.SetShaderParameter("silhouette_tint", rgb);
+            }
+            _reflectionMaterial?.SetShaderParameter("silhouette_tint", rgb);
+        }
+    }
+    private Color _silhouetteTint = Colors.Black;
+
     // Mirror the alignment uniform onto all three active materials (visible
     // sprite, shadow caster, water reflection) so a rolled sprite's cast
     // shadow and reflection match its world-space shape.

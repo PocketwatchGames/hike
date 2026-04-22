@@ -1,45 +1,40 @@
-[gd_scene format=3 uid="uid://dkt7yn4dv0rla"]
+[gd_scene load_steps=6 format=3 uid="uid://dkt7yn4dv0rla"]
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_hfanx"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/gui/mob_hud.tscn" id="3_mobhud"]
-[ext_resource type="Material" path="res://resources/materials/silhouette.tres" id="4_silhouette"]
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="5_ku16y"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
-albedo_color = Color(1, 0.5411765, 1, 1)
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_1uit0"]
-material = SubResource("StandardMaterial3D_1uit0")
-radius = 0.35
-height = 1.5
-
-[sub_resource type="BoxMesh" id="BoxMesh_hfanx"]
-size = Vector3(0.5, 0.2, 0.1)
+[ext_resource type="Texture2D" uid="uid://cqaei3r613wm" path="res://assets/textures/characters/chameleon.png" id="6_cham"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="7_litsprite"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
 height = 1.5
 
-[node name="Mob" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_hfanx")
 _collisionShape = NodePath("MovementCollision")
-_mesh = NodePath("MeshInstance3D")
+_mesh = NodePath("MeshContainer")
+_sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
-_silhouetteMaterial = ExtResource("4_silhouette")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1610472919]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-mesh = SubResource("CapsuleMesh_1uit0")
+[node name="MeshContainer" type="Node3D" parent="." unique_id=1610472919]
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D" unique_id=1119554106]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4410479, 0.311585)
-mesh = SubResource("BoxMesh_hfanx")
+[node name="Sprite" type="Sprite3D" parent="MeshContainer" unique_id=1119554106]
+cast_shadow = 0
+centered = false
+offset = Vector2(-24, 0)
+pixel_size = 0.0738
+texture = ExtResource("6_cham")
+region_enabled = true
+region_rect = Rect2(0, 0, 48, 48)
+script = ExtResource("7_litsprite")
+ForwardOffset = 0.35
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

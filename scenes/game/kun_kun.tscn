@@ -1,44 +1,39 @@
-[gd_scene format=3 uid="uid://cK0kUnKunHike1"]
+[gd_scene load_steps=6 format=3 uid="uid://cK0kUnKunHike1"]
 
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_mob"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/game/mob_hud.tscn" id="3_mobhud"]
-[ext_resource type="Material" path="res://resources/materials/silhouette.tres" id="4_silhouette"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_kk0"]
-albedo_color = Color(0.9, 0.75, 0.4, 1)
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_kk0"]
-material = SubResource("StandardMaterial3D_kk0")
-radius = 0.3
-height = 0.9
-
-[sub_resource type="BoxMesh" id="BoxMesh_kk0"]
-size = Vector3(0.4, 0.15, 0.08)
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/gui/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="Texture2D" uid="uid://b5q2bhmqqvapd" path="res://assets/textures/characters/mouse.png" id="5_mouse"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="6_litsprite"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 radius = 0.3
 height = 0.9
 
-[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
 _collisionShape = NodePath("MovementCollision")
-_mesh = NodePath("MeshInstance3D")
+_mesh = NodePath("MeshContainer")
+_sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
-_silhouetteMaterial = ExtResource("4_silhouette")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
-mesh = SubResource("CapsuleMesh_kk0")
+[node name="MeshContainer" type="Node3D" parent="."]
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0.25)
-mesh = SubResource("BoxMesh_kk0")
+[node name="Sprite" type="Sprite3D" parent="MeshContainer"]
+cast_shadow = 0
+centered = false
+offset = Vector2(-9, 0)
+pixel_size = 0.0738
+texture = ExtResource("5_mouse")
+region_enabled = true
+region_rect = Rect2(0, 0, 18, 18)
+script = ExtResource("6_litsprite")
+ForwardOffset = 0.3
 
 [node name="MovementCollision" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)

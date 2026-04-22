@@ -24,6 +24,9 @@ uniform bool sprite_mirror = false;
 // sprite's world-space shape. Defaults keep the pre-alignment behaviour.
 uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
+// Dither fade matches sprite_lit's uniform; pushed by LitSprite.Visibility
+// so a fading-in sprite's cast shadow stipples in alongside its visible body.
+uniform float visibility : hint_range(0.0, 1.0) = 1.0;
 
 global uniform float sprite_chunky;
 
@@ -87,6 +90,22 @@ void fragment() {
 	vec4 tex = texelFetch(sprite_texture, tex_coord + sprite_region_origin, 0);
 	if (tex.a < 0.5) {
 		discard;
+	}
+	// Match the visible sprite's Bayer stipple so a half-faded mob's shadow
+	// is half-stippled rather than full-coverage. Pattern is screen-space
+	// via FRAGCOORD; during the shadow pass FRAGCOORD is the shadow-atlas
+	// fragment, which stays stable within a frame so dots don't flicker.
+	if (visibility < 1.0) {
+		const mat4 bayer = mat4(
+			vec4( 0.0,  8.0,  2.0, 10.0),
+			vec4(12.0,  4.0, 14.0,  6.0),
+			vec4( 3.0, 11.0,  1.0,  9.0),
+			vec4(15.0,  7.0, 13.0,  5.0)
+		) * (1.0 / 16.0);
+		ivec2 fp = ivec2(FRAGCOORD.xy) % 4;
+		if (bayer[fp.y][fp.x] >= visibility) {
+			discard;
+		}
 	}
 	// Godot writes depth automatically into the shadow atlas; ALBEDO is unused
 	// for shadow-only meshes so leaving it at 0 is fine.

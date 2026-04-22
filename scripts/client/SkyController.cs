@@ -53,49 +53,30 @@ public partial class SkyController : Node3D
     // correct (no double-counting during either's dormant phase).
     [Export] public DirectionalLight3D moonLight;
 
-    [ExportSubgroup("Orbit")]
-    // Sun's maximum elevation above the horizon at noon. 90 = sun passes
-    // through zenith; lower values tilt the orbit so the sun peaks at a
-    // shallower angle (higher-latitude look).
-    [Export(PropertyHint.Range, "10,90,1")] public float sunMaxElevationDegrees = 60f;
-
-    // Horizontal sway of the sun's orbit. The sun sits at -sunSideSwayDegrees
-    // yaw at sunrise, 0 at noon, +sunSideSwayDegrees at sunset. 0 locks the
-    // sun to a single azimuth (unnatural); 30 reads as a mid-latitude day.
-    [Export(PropertyHint.Range, "0,89,1")] public float sunSideSwayDegrees = 30f;
-
-    // Editor preview only — no WorldState exists in the editor, so the sun
+    [ExportSubgroup("Preview")]
+    // Editor preview only — no WorldState exists in the editor, so the
     // orbit needs a manual parameter to preview nighttime / sunset looks.
     // At runtime this is ignored and WorldState.TimeOfDay01 drives the orbit.
+    //
+    // The orbit shape ITSELF (SunMaxElevationDegrees, SunSideSwayDegrees,
+    // SunsetAngleDegrees, SunsetColorRangeDegrees) lives on SimData because
+    // those same values feed the simulation-side ShadowLightDirection and
+    // CurrentAmbient that gameplay perception reads. Keeping them on
+    // WorldState.SimData means gameplay and visuals key off one source.
     [Export(PropertyHint.Range, "0,1,0.001")] public float previewTimeOfDay = 0.5f;
-
-    [ExportSubgroup("Horizon")]
-    // The effective horizon — the elevation above geometric 0° at which
-    // sources are considered "at sunset/moonrise". Models an occluding
-    // horizon line (mountains, tree ring, distant cliffs) so the sun can
-    // visually set before it drops below the actual geometric horizon,
-    // and the moon can visibly rise into view some minutes before it
-    // would astronomically appear. Every fade below (light energy, shafts,
-    // cloud shadows, color blend) is expressed as an OFFSET from this
-    // angle so retuning only the horizon line slides all of them in sync.
-    [Export(PropertyHint.Range, "0,45,0.5")] public float sunsetAngleDegrees = 10f;
-
-    // Half-width (degrees) of the sunrise/sunset color blend band, measured
-    // from sunsetAngleDegrees. The sunset color variants peak when the sun
-    // (or moon) is exactly at sunsetAngleDegrees elevation, fade to day
-    // colors at sunsetAngleDegrees + this, fade to night colors at
-    // sunsetAngleDegrees - this (possibly below the geometric horizon).
-    [Export(PropertyHint.Range, "1,45,0.5")] public float sunsetColorRangeDegrees = 10f;
 
     [ExportSubgroup("Fades")]
     // Each phenomenon's horizon fade is a PAIR:
-    //   - FadeAngle   : degrees ABOVE sunsetAngleDegrees at which the fade
-    //                   reaches its 0 value (source fully gone).
+    //   - FadeAngle   : degrees ABOVE SimData.SunsetAngleDegrees at which
+    //                   the fade reaches its 0 value (source fully gone).
     //   - FadeRange   : width (degrees) of the fade band. fadeStart = end + range.
     // Above fadeStart the phenomenon is at full intensity; between
     // fadeStart and fadeEnd it smoothsteps down to 0; below fadeEnd it's 0.
-    // All fades pivot on sunsetAngleDegrees, so moving sunset up or down
-    // carries the whole horizon transition with it.
+    // Both fades pivot on SunsetAngleDegrees, so moving sunset up or down
+    // carries the whole horizon transition with it. Cloud shadows no
+    // longer have a fade here — cloud_shadow_ground drops the sun-
+    // direction projection so shadows drift at a constant wind-rate
+    // regardless of time of day, no pop to hide.
 
     // Sun and moon DirectionalLight3D LightEnergy fade. fadeAngle=0 means
     // the light reaches 0 energy exactly at sunset; fadeRange is how many
@@ -112,15 +93,6 @@ public partial class SkyController : Node3D
     // before snapping to the mirror direction.
     [Export(PropertyHint.Range, "0,30,0.5")] public float shaftFadeAngleDegrees = 0f;
     [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 12f;
-
-    // Cloud-shadow fade. Separate from light-energy fade because cloud
-    // shadows become distracting well before the sun visually sets — the
-    // cloud_shadow_ground projection grows past ~200 world units once
-    // to_sun.y drops below ~0.3, so small yaw changes sweep cloud_xz
-    // across many noise tiles per frame. A wide range here is good; the
-    // default gives a ~10°-wide taper that covers the fast-scroll regime.
-    [Export(PropertyHint.Range, "0,30,0.5")] public float cloudShadowFadeAngleDegrees = 5f;
-    [Export(PropertyHint.Range, "0.1,30,0.5")] public float cloudShadowFadeRangeDegrees = 10f;
 
     [ExportSubgroup("Disks")]
     // Glow strength of the "primary" disk (sun at day, moon at night) in
@@ -367,6 +339,14 @@ public partial class SkyController : Node3D
     // see — stealth logic stays in sync with the visual darkness of night.
     public float CurrentAmbient { get; private set; } = 0.4f;
 
+    // Current time-of-day-scaled primary intensity — CVars.sunIntensity
+    // multiplied by the day/sunset/night intensity blend. Same value that
+    // gets pushed to the `sun_intensity` shader global; exposing it here
+    // lets gameplay perception (WorldState.GetPerceivedLightWorld) dim
+    // with the visuals at dusk/night instead of seeing full-noon brightness
+    // round the clock.
+    public float CurrentPrimaryIntensity { get; private set; } = 2f;
+
     public override void _Ready()
     {
         Current = this;
@@ -544,20 +524,28 @@ public partial class SkyController : Node3D
             t = previewTimeOfDay;
         }
 
+        // Orbit + horizon tuning comes from SimData so one set of values
+        // drives both the visuals and the gameplay-visible
+        // ShadowLightDirection / CurrentAmbient. Editor / pre-WorldState
+        // frames fall back to the defaults we'd want at mid-latitude.
+        SimData sim = World.Current?.WorldState?.SimData;
+        float sunMaxElev = sim?.SunMaxElevationDegrees ?? 60f;
+        float sunSideSway = sim?.SunSideSwayDegrees ?? 30f;
+
         // Phase offset so t=0.25 is sunrise (elevation=0, rising),
         // t=0.5 is noon (peak), t=0.75 is sunset (elevation=0, falling),
         // t=0 / t=1 is midnight (lowest point).
         float phase = Mathf.Tau * ((float)t - 0.25f);
 
         // Elevation follows sin(phase) scaled to the authored max.
-        // At noon (phase = π/2), sin = 1 → elevation = sunMaxElevation.
-        // At midnight (phase = -π/2), sin = -1 → elevation = -sunMaxElevation.
-        float elevRad = Mathf.Sin(phase) * Mathf.DegToRad(sunMaxElevationDegrees);
+        // At noon (phase = π/2), sin = 1 → elevation = sunMaxElev.
+        // At midnight (phase = -π/2), sin = -1 → elevation = -sunMaxElev.
+        float elevRad = Mathf.Sin(phase) * Mathf.DegToRad(sunMaxElev);
 
         // Yaw sweeps from -sideSway at sunrise through 0 at noon to
         // +sideSway at sunset. -cos(phase) gives -1 at sunrise (phase=0),
         // 0 at noon (phase=π/2), +1 at sunset (phase=π).
-        float yawRad = -Mathf.Cos(phase) * Mathf.DegToRad(sunSideSwayDegrees);
+        float yawRad = -Mathf.Cos(phase) * Mathf.DegToRad(sunSideSway);
 
         // Sun position as a unit vector on the celestial sphere, from
         // observer to sun. +Y is up; +Z is the noon-side horizontal axis.
@@ -610,26 +598,27 @@ public partial class SkyController : Node3D
         float sunElevDeg = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunPos.Y, -1f, 1f)));
         _sunElevationDegrees = sunElevDeg;
 
-        // Pivot the day/sunset/night color blend around sunsetAngleDegrees
+        // Pivot the day/sunset/night color blend around SimData.SunsetAngleDegrees
         // rather than the geometric horizon. sunsetT peaks at 1 whenever
         // the sun or moon is near the effective horizon (|elev| ≈ sunsetAngle),
-        // fading over sunsetColorRangeDegrees. Double-peaked as a natural
-        // consequence: one peak at sunset (setting), another at moonrise
-        // (moon crossing up through sunsetAngle on the other side).
-        float colorRange = Mathf.Max(sunsetColorRangeDegrees, 0.01f);
+        // fading over SimData.SunsetColorRangeDegrees. Double-peaked as a
+        // natural consequence: one peak at sunset (setting), another at
+        // moonrise (moon crossing up through sunsetAngle on the other side).
+        float sunsetAngle = sim?.SunsetAngleDegrees ?? 10f;
+        float colorRange = Mathf.Max(sim?.SunsetColorRangeDegrees ?? 10f, 0.01f);
 
         // nightT: 0 at full day (sun well above sunsetAngle), 1 at full
         // night (moon well above sunsetAngle, i.e. sun well below
         // -sunsetAngle). Symmetric transition band of (sunsetAngle + range)
         // on each side so day and night anchor at the same elevation.
-        float dayNightThreshold = sunsetAngleDegrees + colorRange;
+        float dayNightThreshold = sunsetAngle + colorRange;
         _nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, sunElevDeg);
 
         // sunsetT: peak (=1) when |sunElev| == sunsetAngle, fading to 0
         // over colorRange as the source moves away from the effective
         // horizon in either direction. This gives warm sunset colors at
         // sunset AND moonrise, not just at the geometric horizon crossing.
-        float distFromSunsetPeak = Mathf.Abs(Mathf.Abs(sunElevDeg) - sunsetAngleDegrees);
+        float distFromSunsetPeak = Mathf.Abs(Mathf.Abs(sunElevDeg) - sunsetAngle);
         _sunsetT = 1f - Mathf.SmoothStep(0f, colorRange, distFromSunsetPeak);
     }
 
@@ -663,8 +652,15 @@ public partial class SkyController : Node3D
         // of-day modulation on top. Moving the scales onto WeatherData
         // keeps them in the same resource as the paired *Ambient values,
         // so each preset can tune the direct↔ambient split coherently.
-        float intensityScale = Mathf.Lerp(Mathf.Lerp(1f, weather.moonLightIntensity, _nightT), weather.sunsetLightIntensity, _sunsetT);
+        float intensityScale = Mathf.Lerp(Mathf.Lerp(weather.dayLightIntensity, weather.moonLightIntensity, _nightT), weather.sunsetLightIntensity, _sunsetT);
         float effSunIntensity = CVars.sunIntensity.Value * intensityScale;
+        CurrentPrimaryIntensity = effSunIntensity;
+
+        // SimData owns the orbit/horizon pivot — every horizon-relative
+        // fade below references sunsetAngle from there so changing it
+        // slides the whole horizon transition in one place.
+        SimData sim = World.Current?.WorldState?.SimData;
+        float sunsetAngle = sim?.SunsetAngleDegrees ?? 10f;
 
         // Drive sunLight / moonLight LightEnergy from each source's own
         // above-horizon factor so the two shadow atlases genuinely crossfade
@@ -679,7 +675,7 @@ public partial class SkyController : Node3D
         // Fade is expressed relative to sunsetAngleDegrees: energy reaches
         // 0 at (sunsetAngle + fadeAngle) elevation and full at
         // (sunsetAngle + fadeAngle + fadeRange).
-        float lightFadeEnd = sunsetAngleDegrees + lightEnergyFadeAngleDegrees;
+        float lightFadeEnd = sunsetAngle + lightEnergyFadeAngleDegrees;
         float lightFadeStart = lightFadeEnd + Mathf.Max(lightEnergyFadeRangeDegrees, 0.01f);
         float sunEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _sunElevationDegrees);
         float moonEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, -_sunElevationDegrees);
@@ -717,17 +713,12 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", weather.cloudSharpness);
         RenderingServer.GlobalShaderParameterSet("cloud_scale", weather.cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
-        // Fade cloud_shadow_strength to 0 as the primary source approaches
-        // the effective horizon — kills the fast-scrolling cloud-shadow
-        // pattern in the long-projection regime AND prevents the direction-
-        // flip pop from being visible after sunset. Uses |sunElev| so the
-        // fade is symmetric: cloud shadows taper out as the sun descends
-        // past sunsetAngle + fadeAngle, and fade back in as the moon rises
-        // past the mirror point on the other side.
-        float cloudShadowFadeEnd = sunsetAngleDegrees + cloudShadowFadeAngleDegrees;
-        float cloudShadowFadeStart = cloudShadowFadeEnd + Mathf.Max(cloudShadowFadeRangeDegrees, 0.1f);
-        float cloudShadowHorizonFade = Mathf.SmoothStep(cloudShadowFadeEnd, cloudShadowFadeStart, Mathf.Abs(_sunElevationDegrees));
-        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", weather.cloudShadowStrength * cloudShadowHorizonFade);
+        // Cloud shadow strength is pushed unscaled — cloud_shadow_ground
+        // no longer projects along the sun direction, so there's no
+        // fast-scroll / direction-flip pop at horizon that would need
+        // fading. Shadows stay visible through dusk and night, drifting
+        // only with wind via cloud_offset.
+        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", weather.cloudShadowStrength);
 
         // --- Water -------------------------------------------------------
         RenderingServer.GlobalShaderParameterSet("ripple_scale_a", rippleScaleA);
@@ -774,7 +765,7 @@ public partial class SkyController : Node3D
         // only sun shafts. Deep night: only moon shafts. Around the
         // horizon (either side) both fade through 0 in sync so the
         // primary-direction flip in the fog shader has no visible effect.
-        float shaftFadeEnd = sunsetAngleDegrees + shaftFadeAngleDegrees;
+        float shaftFadeEnd = sunsetAngle + shaftFadeAngleDegrees;
         float shaftFadeStart = shaftFadeEnd + Mathf.Max(shaftFadeRangeDegrees, 0.1f);
         float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunElevationDegrees);
         float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, -_sunElevationDegrees);
@@ -782,12 +773,13 @@ public partial class SkyController : Node3D
         float effShaftIntensity = weather.sunShaftIntensity * sunShaftFactor
                                  + weather.moonShaftIntensity * moonShaftFactor;
 
-        // Crossfade weight between sun shaft color and moon shaft color.
-        // Biased by whichever factor is larger so the shaft color snaps to
-        // the correct source well before either dominates intensity. The
-        // small epsilon keeps the ratio defined when both factors are 0.
+        // Three-way shaft color blend: sun → moon along the sun/moon above-
+        // horizon crossfade, sunset layered on top via _sunsetT so golden-
+        // hour beams can lean harder amber than either day or night shafts.
+        // Matches the day/sunset/night pattern used for the scene primary
+        // color and fills — keeps all color blends in lockstep.
         float shaftColorT = moonShaftFactor / (sunShaftFactor + moonShaftFactor + 1e-6f);
-        Color effShaftColor = weather.sunShaftColor.Lerp(weather.moonShaftColor, shaftColorT);
+        Color effShaftColor = weather.sunShaftColor.Lerp(weather.moonShaftColor, shaftColorT).Lerp(weather.sunsetShaftColor, _sunsetT);
 
         // Dynamic fog step count. When the primary light is low in the sky,
         // each raymarch step crosses more sun/shadow boundaries per unit of
@@ -813,6 +805,7 @@ public partial class SkyController : Node3D
         {
             fogMaterial.SetShaderParameter("fog_color", ColorToVec3(effFog));
             fogMaterial.SetShaderParameter("fog_density", weather.fogDensity);
+            fogMaterial.SetShaderParameter("ambient_fog_density", weather.ambientFogDensity);
             fogMaterial.SetShaderParameter("fog_max_distance", fogMaxDistance);
             fogMaterial.SetShaderParameter("fog_steps", effFogSteps);
             fogMaterial.SetShaderParameter("dust_density", weather.dustDensity);
@@ -859,6 +852,14 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("mote_scale", moteScale);
             fogMaterial.SetShaderParameter("mote_scroll", moteScroll);
         }
+
+        // --- Weather particles -------------------------------------------
+        // Fetched via static singleton rather than [Export] because the C#
+        // cross-scene-instance cast is broken in Godot 4 — see RainEffect.Current.
+        // The node consumes an already-lerped value; it doesn't know about
+        // weather presets or blending. Same pattern will apply to future
+        // particle variants (hail, snow, dust-storm motes).
+        if (RainEffect.Current != null) { RainEffect.Current.SetIntensity(weather.rainIntensity); }
     }
 
     private static Vector3 ComputeFillDirection(Vector3 sunDir, float pitchDeg, float yawOffsetDeg)

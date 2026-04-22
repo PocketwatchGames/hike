@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(grep -l \"sprite_lit\" c:/Users/andy/source/hike/scenes/game/*.tscn)"
+      "Bash(grep -l \"sprite_lit\" c:/Users/andy/source/hike/scenes/game/*.tscn)",
+      "Bash(\"C:/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --editor --headless --quit)",
+      "Bash(\"C:/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --headless --quit-after 120)",
+      "Bash(\"C:/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --headless --quit-after 300)",
+      "Bash(awk '/node name=\"SkyController\"/,/^\\\\[node/')",
+      "Bash(python -c \"from PIL import Image; [print\\(f, Image.open\\(f'c:/Users/andy/source/hike/assets/textures/characters/{f}'\\).size\\) for f in ['mouse.png','chameleon.png','commander_commoners.png']]\")",
+      "Bash(powershell -Command 'Add-Type -AssemblyName System.Drawing; @\\('\\\\''mouse.png'\\\\'','\\\\''chameleon.png'\\\\'','\\\\''commander_commoners.png'\\\\''\\) | %% { $i = [System.Drawing.Image]::FromFile\\('\\\\''c:\\\\Users\\\\andy\\\\source\\\\hike\\\\assets\\\\textures\\\\characters\\\\'\\\\'' + $_\\); Write-Host \"$_ $\\($i.Width\\)x$\\($i.Height\\)\"; $i.Dispose\\(\\) }')",
+      "Bash(python)",
+      "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path c:/Users/andy/source/hike --editor --headless --quit)"
+    ],
+    "additionalDirectories": [
+      "c:\\"
     ]
   }
 }

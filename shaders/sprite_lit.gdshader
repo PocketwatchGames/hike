@@ -89,6 +89,20 @@ uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 // still sits at the node origin, only the rendered sprite shifts.
 uniform float forward_offset = 0.0;
 
+// Dither-fade amount. 1 = fully opaque, 0 = fully discarded. Compared
+// against a screen-space 4x4 Bayer threshold in fragment(); fractional
+// values produce an ordered-dither stipple that reads as pop-in / pop-out
+// at the chunky sprite scale. Driven by Mob's discovery fade so a mob
+// transitions from invisible → dithered-in → solid over ~0.1s.
+uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+// Silhouette tint blend. 0 = normal lit color, 1 = fully flat-tinted
+// (lighting is bypassed; fragment outputs silhouette_tint directly). The
+// mix happens POST-lighting so a silhouetted sprite reads as a constant
+// flat shape regardless of the lightmap/cloud/shadow state under it —
+// the "you remember this thing is here" cue for discovered-but-unseen mobs.
+uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 silhouette_tint : source_color = vec3(0.0);
+
 global uniform float camera_clip;
 global uniform float sprite_chunky;
 global uniform float sprite_stretch;
@@ -288,6 +302,23 @@ void fragment() {
 		discard;
 	}
 
+	// Dither fade: 4x4 Bayer threshold keyed off integer FRAGCOORD so the
+	// pattern is stable at the screen-pixel level (no sub-pixel shimmer as
+	// the camera pans). `visibility >= 1` skips the compare entirely so
+	// static props pay nothing for this path.
+	if (visibility < 1.0) {
+		const mat4 bayer = mat4(
+			vec4( 0.0,  8.0,  2.0, 10.0),
+			vec4(12.0,  4.0, 14.0,  6.0),
+			vec4( 3.0, 11.0,  1.0,  9.0),
+			vec4(15.0,  7.0, 13.0,  5.0)
+		) * (1.0 / 16.0);
+		ivec2 fp = ivec2(FRAGCOORD.xy) % 4;
+		if (bayer[fp.y][fp.x] >= visibility) {
+			discard;
+		}
+	}
+
 	// Sprite anchor sits on the ground — i.e. at the top face of a solid
 	// voxel — so sampling at world_origin lands inside that solid voxel and
 	// reads 0 light. Push up half a voxel into the air above so we read the
@@ -302,19 +333,16 @@ void fragment() {
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
 	// cloud-dimmed below.
 	//
-	// Sampled Y-dependent at the fragment's world position so the sprite's
-	// cloud state matches the fog shader's shaft sampling at the same sun
-	// ray. The fog uses cloud_shadow_shafts (Y-dependent) per march sample,
-	// which projects each sample's XZ by (cloud_altitude - Y) / up. If the
-	// sprite used cloud_shadow_ground (Y=0 projection) at world_origin, two
-	// pines at slightly different XZ could land in sharply different cloud
-	// regions (cloud_sharpness = 0.85 is nearly binary) while the air above
-	// both sampled the same bright shaft — producing a dark pine under a
-	// bright shaft overlay that reads as a gray silhouette after the fog's
-	// additive inscatter. With the Y-dependent sample here, the sprite and
-	// the shaft above it share the same sun ray, so they agree on whether
-	// this XZ column is in a gap or in a cloud.
-	float cloud = cloud_shadow(frag_world_pos, TIME);
+	// Matches the terrain: cloud_shadow_ground samples the cloud noise at
+	// world XZ only (no sun-direction projection), giving a 2D pattern
+	// draped across the world that drifts at a constant wind-rate regardless
+	// of sun elevation. Using the same sample here keeps sprite and terrain
+	// shadows in lockstep — a pine's cloud state always matches the ground
+	// right under it. The tradeoff: sprite cloud state may briefly disagree
+	// with the fog shader's sun-projected shaft sampling during day, which
+	// in rare cases reads as a sprite in cloud shadow under a bright shaft.
+	// Acceptable compared to terrain / sprite mismatch visible everywhere.
+	float cloud = cloud_shadow_ground(frag_world_pos, TIME);
 	cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color;
 	vec3 block_lit = lm.gba;
@@ -328,8 +356,13 @@ void fragment() {
 	//   ALBEDO   = direct sun color (scaled by ATTENUATION in light())
 	//   EMISSION = ambient sky bounce + block light (never shadowed)
 	// Final pixel = ALBEDO * ATTENUATION + EMISSION (ambient_light_disabled).
-	ALBEDO = tex.rgb * sun_lit * (1.0 - sun_ambient);
-	EMISSION = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	// Silhouette blends the lit result toward a flat tint: ALBEDO fades to
+	// zero (so light() stops adding sun) while EMISSION fades to the tint,
+	// yielding `tint` at silhouette_amount=1 regardless of lighting state.
+	vec3 lit_albedo = tex.rgb * sun_lit * (1.0 - sun_ambient);
+	vec3 lit_emission = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	ALBEDO = mix(lit_albedo, vec3(0.0), silhouette_amount);
+	EMISSION = mix(lit_emission, silhouette_tint, silhouette_amount);
 }
 
 void light() {

@@ -1,20 +1,11 @@
-[gd_scene format=3 uid="uid://cn3tkwyerft7v"]
+[gd_scene load_steps=7 format=3 uid="uid://cn3tkwyerft7v"]
 
 [ext_resource type="Script" uid="uid://cs5o5c0rouhsv" path="res://scripts/gameplay/Player.cs" id="1_6w7gq"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/default_player.tres" id="2_u3rb4"]
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="4_nybob"]
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_1uit0"]
-albedo_color = Color(1, 0.5411765, 1, 1)
-
-[sub_resource type="CapsuleMesh" id="CapsuleMesh_1uit0"]
-material = SubResource("StandardMaterial3D_1uit0")
-radius = 0.35
-height = 1.5
-
-[sub_resource type="BoxMesh" id="BoxMesh_6w7gq"]
-size = Vector3(0.5, 0.2, 0.1)
+[ext_resource type="Texture2D" uid="uid://6bs4juspneq5" path="res://assets/textures/characters/commander_commoners.png" id="5_cmdr"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="6_litsprite"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -29,13 +20,16 @@ data = ExtResource("2_u3rb4")
 interactArea = NodePath("Area3D")
 _hurtBox = NodePath("HurtBox")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1610472919]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-mesh = SubResource("CapsuleMesh_1uit0")
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="MeshInstance3D" unique_id=2108793601]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.44569242, 0.30668044)
-mesh = SubResource("BoxMesh_6w7gq")
+[node name="Sprite" type="Sprite3D" parent="." unique_id=1610472919]
+cast_shadow = 0
+centered = false
+offset = Vector2(-36, 0)
+pixel_size = 0.0738
+texture = ExtResource("5_cmdr")
+region_enabled = true
+region_rect = Rect2(0, 0, 72, 72)
+script = ExtResource("6_litsprite")
+ForwardOffset = 0.25
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

@@ -1,0 +1,10 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://b4wcgipo4a6d1"]
+
+[ext_resource type="Shader" uid="uid://cvlrucxw2x656" path="res://shaders/rain_drop.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 10
+shader = ExtResource("1_shader")
+shader_parameter/albedo = Color(0.7216, 0.77968, 0.88, 0.078431375)
+shader_parameter/sun_mask_threshold = 0.7
+shader_parameter/min_screen_width_px = 0.10000000475

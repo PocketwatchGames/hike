@@ -385,13 +385,12 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Y-dependent per-fragment sampling — keeps the grass's cloud state in
-	// agreement with the fog shader's shaft sampling above it (both project
-	// along the sun ray at the fragment's own Y). See the matching call in
-	// sprite_lit.gdshader for the full rationale. Grass is short so the
-	// Y-dep / Y-indep divergence is small, but keeping the formulation
-	// identical across billboard shaders prevents future drift.
-	float cloud = cloud_shadow(frag_world_pos, TIME);
+	// Same cloud_shadow_ground call as terrain and regular sprites —
+	// samples the cloud noise at world XZ with no sun-direction projection,
+	// so grass, terrain, and sprite shadows stay in lockstep and all drift
+	// at wind-rate regardless of sun elevation. See sprite_lit.gdshader's
+	// matching call for the full rationale.
+	float cloud = cloud_shadow_ground(frag_world_pos, TIME);
 	cloud_dim = debug_no_cloud ? 1.0 : 1.0 - cloud * cloud_shadow_strength;
 	// NdotL lift on sun-facing sprite normals — matches voxel_clip so terrain
 	// and detail sprites pop into bloom at matching angles. See voxel_clip.
