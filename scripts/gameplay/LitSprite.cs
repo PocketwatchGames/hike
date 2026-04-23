@@ -191,6 +191,47 @@ public partial class LitSprite : Sprite3D
         _reflectionMaterial?.SetShaderParameter(name, value);
     }
 
+    // Swap the rendered region of the sprite sheet. Cheap enough to call
+    // per-frame from an animator — unlike Apply(), this does not duplicate
+    // materials (so per-instance uniforms like Visibility/Silhouette stay)
+    // and does not re-ensure the shadow/reflection/AO children. The shader
+    // does its own texelFetch from sprite_region_origin + sprite_size, so
+    // animating is just "push a new region" to the three live materials and
+    // keep the shadow proxy + reflection's Sprite3D mesh bounds in sync.
+    public void SetFrame(Rect2 region)
+    {
+        if (RegionEnabled && RegionRect == region)
+        {
+            return;
+        }
+        RegionEnabled = true;
+        RegionRect = region;
+
+        Vector2I size = new((int)region.Size.X, (int)region.Size.Y);
+        Vector2I origin = new((int)region.Position.X, (int)region.Position.Y);
+
+        if (CenteredAtBase)
+        {
+            Offset = new Vector2(-size.X / 2.0f, 0);
+        }
+
+        PushAlignmentUniform("sprite_size", size);
+        PushAlignmentUniform("sprite_region_origin", origin);
+
+        if (_shadowProxy != null)
+        {
+            _shadowProxy.RegionEnabled = true;
+            _shadowProxy.RegionRect = region;
+            _shadowProxy.Offset = Offset;
+        }
+        if (_reflection != null)
+        {
+            _reflection.RegionEnabled = true;
+            _reflection.RegionRect = region;
+            _reflection.Offset = Offset;
+        }
+    }
+
      // How far below the sprite feet to search for a water surface. 16
     // voxels handles a sprite standing on a pier over a deep lake; beyond
     // that the reflection is so dimmed by water depth tint it won't read.

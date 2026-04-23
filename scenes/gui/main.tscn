@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://c46haqwwl2h4s"]
+
+[ext_resource type="Script" uid="uid://cq3l6xmxocqjv" path="res://scripts/Main.cs" id="1_jt21j"]
+[ext_resource type="PackedScene" uid="uid://dgrtrypoc0c1v" path="res://scenes/gui/main_menu.tscn" id="2_toqri"]
+[ext_resource type="PackedScene" uid="uid://cqcbx0hocclf4" path="res://scenes/gui/game.tscn" id="3_2vgtk"]
+[ext_resource type="PackedScene" path="res://scenes/gui/editor.tscn" id="4_tkjme"]
+[ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/default_world_gen.tres" id="5_64pts"]
+
+[node name="gui" type="Node" unique_id=1262159102]
+script = ExtResource("1_jt21j")
+MainMenuScene = ExtResource("2_toqri")
+GameScene = ExtResource("3_2vgtk")
+EditorScene = ExtResource("4_tkjme")
+DefaultWorldGenData = ExtResource("5_64pts")

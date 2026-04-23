@@ -15,6 +15,7 @@ public partial class Player : CharacterBody3D
 	[Export] public PlayerData data;
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
+	[Export] private LitSpriteAnimator _animator;
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
@@ -237,6 +238,7 @@ public partial class Player : CharacterBody3D
 		{
 			_jumpHeld = false;
 			_coyoteTimeEndMs = 0;
+			Velocity = new Vector3(Velocity.X, 0, Velocity.Z);
 		}
 
 		// Swimming overrides grounding — player is floating
@@ -252,6 +254,15 @@ public partial class Player : CharacterBody3D
 
 		// Update highlight interactive
 		UpdateHighlightInteractive();
+
+		if (Velocity.LengthSquared() > 0.01f)
+		{
+			_animator.Play("run");
+		}
+		else
+		{
+			_animator.Play("idle");
+		}
 
 		// Aiming preview
 		Vector3 aimOrigin = GlobalPosition + Vector3.Up;

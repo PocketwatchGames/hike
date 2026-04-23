@@ -6,6 +6,7 @@ public partial class Main : Node
 	[Export] public PackedScene MainMenuScene;
 	[Export] public PackedScene GameScene;
 	[Export] public PackedScene EditorScene;
+	[Export] public WorldGenData DefaultWorldGenData;
 
 	Node _currentScreen;
 
@@ -24,8 +25,7 @@ public partial class Main : Node
 		string debugDumpDir = CVars.worldgenDebugDump.Value;
 		if (!string.IsNullOrEmpty(debugDumpDir))
 		{
-			var gen = GD.Load<WorldGenData>("res://resources/default_world_gen.tres");
-			WorldGen.Generate(gen);
+			WorldGen.Generate(DefaultWorldGenData);
 			WorldGen.DumpDebug(ProjectSettings.GlobalizePath(debugDumpDir));
 			GetTree().Quit();
 			return;

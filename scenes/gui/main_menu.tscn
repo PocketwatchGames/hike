@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://dgrtrypoc0c1v"]
 
 [ext_resource type="Script" uid="uid://d1bww0pr5ary6" path="res://scripts/gui/GuiMainMenu.cs" id="1_l6cm7"]
-[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/game/player.tscn" id="2_tgk1t"]
+[ext_resource type="PackedScene" uid="uid://cn3tkwyerft7v" path="res://scenes/characters/player.tscn" id="2_tgk1t"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/default_world_gen.tres" id="3_worldgen"]
 [ext_resource type="Resource" path="res://resources/data/player_spawn.tres" id="4_pspawn"]
 
