@@ -2,9 +2,9 @@ using Godot;
 
 // Camera-parented rain visuals: falling streaks above the view + ground splashes
 // around the player. SkyController.Apply() calls SetIntensity() every frame with
-// WeatherData.rainIntensity (already lerp-blended), so transitions in/out via
-// LerpToWeather fade smoothly without this node needing to know about weather
-// presets or blending state.
+// the derived-palette rain intensity (blended across the player's current region
+// mix), so transitions in/out as the player walks between regions fade smoothly
+// without this node needing to know about region blending.
 //
 // Two mechanisms hide rain in covered areas:
 //   1. Falling streaks ALWAYS emit (the CPU just scales rate by rainIntensity).
@@ -25,7 +25,7 @@ using Godot;
 public partial class RainEffect : Node3D
 {
     // Mirror of SkyController.Current — SkyController.Apply() fetches this to
-    // push WeatherData.rainIntensity. A NodePath/[Export] from SkyController
+    // push the derived rain intensity. A NodePath/[Export] from SkyController
     // would be cleaner in principle, but Godot 4's C# binding fails the Node3D→
     // RainEffect cast when a scene is instanced in another scene (the root
     // arrives at property-set time typed as plain Node3D because the script
@@ -116,7 +116,7 @@ public partial class RainEffect : Node3D
     private ParticleProcessMaterial _fallProcRuntime;
 
     // Public runtime material handles and cached baseline values. SkyController's
-    // ApplyPrecipitation() scales these by WeatherData.rainWeight every frame;
+    // ApplyPrecipitation() scales these by the derived-palette rain weight every frame;
     // stashing the baseline here (instead of re-reading the authored .tres) lets
     // that scaling be a pure write and keeps the authored values untouched on
     // disk. Duplication happens in _Ready so the writes never leak back to the
@@ -135,7 +135,7 @@ public partial class RainEffect : Node3D
     // heavier drops (weight > 1) are less wind-displaced and lighter drizzle
     // (weight < 1) blows harder sideways for the same wind. Held as a property
     // rather than re-derived locally so RainEffect doesn't have to know about
-    // WeatherData.rainWeight at all — the manager drives the number, the
+    // the palette's rain weight at all — the manager drives the number, the
     // consumer uses it.
     public float WindTiltScale { get; set; } = 1f;
 
@@ -224,9 +224,9 @@ public partial class RainEffect : Node3D
     {
         WorldState ws = World.Current?.WorldState;
         SkyController sky = SkyController.Current;
-        if (ws == null || sky == null || sky.weather == null) { return; }
+        WeatherData weather = sky?.Weather;
+        if (ws == null || sky == null || weather == null) { return; }
 
-        WeatherData weather = sky.weather;
         Vector3 windDir = ws.WindDirection;
         Vector2 windXZ = new Vector2(windDir.X, windDir.Z);
         if (windXZ.LengthSquared() < 1e-4f) { return; }
@@ -234,12 +234,14 @@ public partial class RainEffect : Node3D
 
         // Current gust wave, in [0, 1]. Same two-octave sum SkyController.Apply
         // uses for its wind_amplitude global, so rain tilt and grass sway
-        // agree on "how gusty is right now".
+        // agree on "how gusty is right now". Gust amplitude (GustStrength)
+        // is derived by WeatherDerivation from cloudCover+windSpeed, so we
+        // read it from the palette rather than a raw weather field.
         float gustWave = Mathf.Sin(sky.gustPhase) * 0.7f
                        + Mathf.Sin(sky.gustPhase * 1.7f + 1.3f) * 0.3f;
         float gust01 = Mathf.Clamp((gustWave + 1f) * 0.5f, 0f, 1f);
 
-        float gustedSpeed = weather.windSpeed + gust01 * weather.gustStrength;
+        float gustedSpeed = weather.windSpeed + gust01 * sky.Palette.GustStrength;
         // WindTiltScale = 1 / rainWeight (written by SkyController). Heavy drops
         // cut the wind effect; drizzle amplifies it. Max-tilt clamp still runs
         // so extreme weight values can't rotate rain past physically readable.
@@ -261,7 +263,7 @@ public partial class RainEffect : Node3D
     }
 
     // Called by SkyController.Apply() every frame. `intensity` is the already-
-    // lerped WeatherData.rainIntensity — this node just consumes it.
+    // blended derived rain intensity — this node just consumes it.
     public void SetIntensity(float intensity)
     {
         _intensity = Mathf.Clamp(intensity, 0f, 1f);

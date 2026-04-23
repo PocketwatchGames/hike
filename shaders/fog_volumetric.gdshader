@@ -330,7 +330,12 @@ uniform float shaft_ground_fade : hint_range(0.0, 0.5, 0.01) = 0.2;
 //     is entirely above or below the band), 1 (white) = full band
 //     crossed. Taller sprites should read dimmer than adjacent ground
 //     when dust_reference_y is set (shorter crossing for higher pixels).
-uniform int debug_mode : hint_range(0, 11) = 0;
+// 12 = MIN raw lm.r encountered along the march. Unthresholded,
+//     unaveraged — pure darkest-voxel readout. Pixel goes fully
+//     black if any voxel along the view ray has zero BFS sun. Use
+//     to diagnose "is the fog seeing any truly dark voxels" without
+//     the ray-average or shaft-threshold noise in mode 4.
+uniform int debug_mode : hint_range(0, 12) = 0;
 
 const float INV_4PI = 0.0795774715459;
 
@@ -549,6 +554,14 @@ void fragment()
     float tau = 0.0;            // optical depth (integrated density * fog_density)
     float transmittance = 1.0;  // exp(-tau), tracked incrementally for inscatter weighting
     vec3 inscatter = vec3(0.0);
+    // Light-gated haze: fog_color contribution accumulated only where
+    // voxel sunlight reaches. Replaces the earlier unconditional
+    // `fog_color * (1 - transmittance)` composite so fog in caves
+    // stays dark — fog is only "visible" if there's light scattering
+    // through it. Mathematically equivalent to the old haze term when
+    // haze_gate stays at 1.0 across the full march (outdoor scenes),
+    // but drops to 0 in unlit voxels.
+    vec3 lit_haze = vec3(0.0);
     // For debug mode 4: average sun mask seen along the ray.
     float sun_mask_sum = 0.0;
     float sun_mask_samples = 0.0;
@@ -564,6 +577,25 @@ void fragment()
     // voxel_sun / sun_occ. Pure cloud-projection diagnostic.
     float cloud_mask_sum = 0.0;
     float cloud_mask_samples = 0.0;
+    // For debug mode 12: minimum raw lm.r along the march (unthresholded).
+    // Starts at 1.0 so an in-bounds sample of 0.3 correctly sets min=0.3;
+    // rays that never hit the lightmap keep min=1.0 (no dark voxels seen).
+    float min_lm_r = 1.0;
+    // Cutaway-rock detection. Walks the ray in march order. If we ever
+    // observe lm.r cross from "solidly lit" (> MAX_LIT) down to "dark"
+    // (< MIN_DARK), the ray has transitioned from outdoor air into
+    // either solid rock or a cave behind it — either way, it's the
+    // cutaway-hidden rock / cave we want fog to stop respecting. Once
+    // `past_opaque` latches true, remaining samples skip all
+    // accumulation (no inscatter, no haze, no transmittance update),
+    // so the pixel behind the hidden rock stays dark without bleed.
+    // Outdoor-only rays never trigger (max climbs but never drops).
+    // Indoor→outdoor rays through cave openings don't trigger either
+    // (dark→lit is fine; only lit→dark latches).
+    bool past_opaque = false;
+    float max_lm_r = 0.0;
+    const float OPAQUE_LIT_THRESHOLD = 0.5;
+    const float OPAQUE_DARK_THRESHOLD = 0.1;
 
     // No clip-based skip. Previous attempts to suppress above-clip fog
     // samples when the cutaway is active all produced a visible difference
@@ -595,6 +627,11 @@ void fragment()
     {
         for (int i = 0; i < fog_steps; i++)
         {
+            // Past the cutaway-rock transition: subsequent samples
+            // represent hidden rock or the unlit space behind it, so
+            // fog shouldn't contribute anything. See `past_opaque`
+            // declaration above.
+            if (past_opaque) { continue; }
             // t is absolute along the full view ray (0 at near plane, up
             // to march_dist at surface). Keeping it in that coordinate
             // space means the downstream shaft_ground_fade math based on
@@ -683,10 +720,58 @@ void fragment()
             // shafts appear: the inscatter integrates bright only along ray
             // segments that are simultaneously in dust AND in sun.
             vec3 L = vec3(0.0);
+            // Voxel-sun gate for haze accumulation below. Default 1.0
+            // for out-of-lightmap samples (distant sky rays beyond
+            // loaded chunks) so far-distance outdoor haze still
+            // renders. In-bounds samples pass lm.r through a
+            // smoothstep so lateral BFS bleed into cave mouths
+            // (lm.r 0.2-0.5 a dozen voxels in) produces zero haze,
+            // while outdoor terrain-shadowed voxels (lm.r 0.7+) keep
+            // full-to-nearly-full haze visibility. Fog is much more
+            // sensitive to partial lighting than terrain lighting is,
+            // so the threshold is tighter than shaft_sun_threshold.
+            float haze_gate = 1.0;
             vec3 luvw = (p - light_map_origin) * light_map_inv_size;
             if (all(greaterThanEqual(luvw, vec3(0.0))) && all(lessThanEqual(luvw, vec3(1.0))))
             {
-                vec4 lm = texture(light_map, luvw);
+                // Snap the lightmap sample to the containing voxel's
+                // center. With filter_linear, a sample exactly at the
+                // texel center returns that texel's value (adjacent
+                // texels contribute weight 0), effectively giving
+                // nearest-neighbor reads while leaving the rest of the
+                // pipeline still using linear filtering. Required for
+                // past_opaque + haze_gate decisions because linear
+                // interpolation at voxel boundaries was averaging
+                // solid-rock voxels (lm.r = 0) with adjacent outdoor-
+                // air voxels (lm.r = 1), producing ~0.5 bleed that
+                // neither hit the "dark" threshold nor zeroed out
+                // haze_gate cleanly.
+                vec3 rel = p - light_map_origin;
+                vec3 luvw_snap = (floor(rel) + 0.5) * light_map_inv_size;
+                vec4 lm = texture(light_map, luvw_snap);
+
+                // Cutaway transition: lit → dark crossing latches
+                // past_opaque so every subsequent sample is skipped.
+                // ALSO zero the accumulators: everything we collected
+                // so far came from outdoor air ABOVE cutaway-hidden
+                // rock, and physically the camera can't perceive any
+                // of that through the opaque rock — even though the
+                // cutaway lets us see the surface beyond. Resetting
+                // transmittance to 1.0 means ALPHA = 0 so the scene
+                // behind the fog is preserved untouched, matching
+                // what you'd see with fog_volumetric disabled entirely.
+                if (max_lm_r > OPAQUE_LIT_THRESHOLD && lm.r < OPAQUE_DARK_THRESHOLD)
+                {
+                    past_opaque = true;
+                    inscatter = vec3(0.0);
+                    lit_haze = vec3(0.0);
+                    transmittance = 1.0;
+                    continue;
+                }
+                max_lm_r = max(max_lm_r, lm.r);
+
+                haze_gate = lm.r;
+                min_lm_r = min(min_lm_r, lm.r);
 
                 // Animated mote shimmer modulates the sun shaft term only.
                 // Motes drift in world space so the beams come alive without
@@ -751,6 +836,13 @@ void fragment()
             // is the split that lets dust reveal shafts without adding haze.
             vec3 sample_inscatter = shaft_fade * transmittance * L * sigma_s * step_size;
             inscatter += sample_inscatter;
+            // Accumulate light-gated haze. sigma_t * transmittance *
+            // step_size is the "per-step extinction weight" that sums
+            // across the march to (1 - transmittance); multiplying by
+            // haze_gate kills haze in unlit voxels. In a fully-lit
+            // outdoor scene this matches the old `fog_color *
+            // (1 - transmittance)` term exactly.
+            lit_haze += haze_gate * fog_color * sigma_t * transmittance * step_size;
             // Debug: track this ray's peak shaft contribution for debug
             // modes 7 & 8. max-channel is close enough to luma for these.
             float sample_shaft = max(max(sample_inscatter.r, sample_inscatter.g), sample_inscatter.b);
@@ -859,32 +951,38 @@ void fragment()
         ALBEDO = vec3(y_norm * has_shaft, 0.0, 0.0);
         ALPHA = 1.0;
     }
+    else if (debug_mode == 12)
+    {
+        // Minimum raw lm.r along the view ray. Unthresholded (not gated
+        // through shaft_sun_threshold) and unaveraged. A black pixel
+        // means the ray passed through at least one truly-dark voxel;
+        // a white pixel means the ray stayed entirely in lit space.
+        // Diagnostic for "is the cave air actually dark in the
+        // lightmap, or does BFS lateral bleed reach it?"
+        ALBEDO = vec3(min_lm_r);
+        ALPHA = 1.0;
+    }
     else
     {
-        // Composite haze + inscatter through blend_premul_alpha:
+        // Composite lit_haze + inscatter through blend_premul_alpha:
         //   output = ALBEDO + scene * (1 - ALPHA)
         //   we want: output = scene * transmittance + haze + inscatter
         //
         // Premultiplied alpha maps to this cleanly:
-        //   ALPHA  = 1 - transmittance       (the real physical attenuation
-        //                                      of the scene by authored fog)
-        //   ALBEDO = haze + inscatter        (the light this pixel contributes
-        //                                      on top of the attenuated scene)
+        //   ALPHA  = 1 - transmittance    (physical extinction — scene
+        //                                   behind fog is darkened by this
+        //                                   regardless of lighting state)
+        //   ALBEDO = lit_haze + inscatter (the light this pixel contributes
+        //                                   on top of the attenuated scene)
         //
-        // The previous blend_mix version folded inscatter_luma into ALPHA to
-        // survive the `ALBEDO * ALPHA` multiply when transmittance was near 1
-        // (dust-only, no authored fog). That worked, but the side effect was
-        // `scene * (1 - inscatter_luma)` — an arbitrary attenuation whose
-        // strength grew with shaft brightness. Dark scene colors (low-value
-        // pine trees, shaded rocks) got wiped to zero inside a bright shaft
-        // and were replaced by the fog color; bright terrain looked fine
-        // because it wasn't dark to begin with. Premultiplied alpha avoids
-        // the multiply entirely: inscatter is purely additive, so scene
-        // color at each pixel is preserved in proportion to the authored
-        // fog extinction and nothing else.
+        // lit_haze accumulates per step via haze_gate (= lm.r per voxel),
+        // and the march loop latches past_opaque on lit→dark transitions
+        // so fog contribution stops at the cutaway-rock boundary. Pixels
+        // behind hidden rock (cave floors viewed from above) end up with
+        // lit_haze near zero because the march stopped contributing
+        // before reaching them.
         float alpha_haze = 1.0 - transmittance;
-        vec3 haze = fog_color * alpha_haze;
-        ALBEDO = haze + inscatter;
+        ALBEDO = lit_haze + inscatter;
         ALPHA = clamp(alpha_haze, 0.0, 1.0);
     }
 

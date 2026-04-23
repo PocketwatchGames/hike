@@ -346,7 +346,7 @@ public class WorldState
 
         float sunMask = (float)sunBfs / LightEngine.MAX_LIGHT;
         // Use the time-of-day-blended ambient AND time-of-day-scaled
-        // primary intensity (not raw weather.sunAmbient / CVars.sunIntensity)
+        // primary intensity (not the raw palette value / CVars.sunIntensity)
         // so night/sunset dim the perceived brightness the same way sprites
         // see it — stealth mechanics track the visible darkness of dusk.
         SkyController sky = SkyController.Current;

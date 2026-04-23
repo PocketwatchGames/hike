@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://bv7uylxclo2m1"]
+
+[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/RegionData.cs" id="1_region"]
+[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
+
+[sub_resource type="Resource" id="Resource_weather"]
+script = ExtResource("2_weather")
+cloudCover = 0.05
+windSpeed = 5.0
+windDirection = Vector3(1, 0, 0)
+temperature = 35.0
+humidity = 0.05
+dustAmount = 0.4
+metadata/_custom_type_script = "uid://d25sc6n2mi728"
+
+[resource]
+script = ExtResource("1_region")
+SunColor = Color(1, 0.98, 0.85, 1)
+MoonColor = Color(0.7, 0.75, 0.85, 1)
+SkyColor = Color(0.2, 0.45, 0.85, 1)
+DustColor = Color(0.9, 0.72, 0.45, 1)
+weather = SubResource("Resource_weather")

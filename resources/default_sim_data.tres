@@ -1,8 +1,16 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
+[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/regions/desert.tres" id="2_desert"]
+[ext_resource type="Resource" uid="uid://bhp47lcmdmcdg" path="res://resources/regions/forest.tres" id="3_forest"]
+[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/regions/swamp.tres" id="4_swamp"]
+[ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/regions/mountain.tres" id="5_mountain"]
 
 [resource]
 script = ExtResource("1_1meao")
 Gravity = 50.0
+regionNE = ExtResource("2_desert")
+regionNW = ExtResource("3_forest")
+regionSE = ExtResource("4_swamp")
+regionSW = ExtResource("5_mountain")
 metadata/_custom_type_script = "uid://chvgahtb671mg"

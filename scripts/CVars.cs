@@ -37,15 +37,11 @@ public static class CVars
     });
 
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
-    // inscatter shafts, animated dust — is owned by the SkyController
-    // node in scenes/screens/game.tscn as [Export] fields. Weather and
-    // time-of-day systems mutate those fields and call SkyController.Apply()
-    // to push to the GPU. It doesn't belong in CVars because it's simulation
-    // state, not a player option / tunable const / debug tool / cheat.
-
-    // Seconds over which `weather <preset>` lerps every WeatherData field.
-    // 0 or negative = snap instantly.
-    public static CVarFloat weatherLerpDuration = new CVarFloat("weather_lerp_duration", 3.0f);
+    // inscatter shafts, animated dust — is derived each frame by
+    // SkyController from (RegionData, WeatherData, time-of-day) via
+    // WeatherDerivation. Regions live on SimData (4-quadrant scaffolding);
+    // authoring new looks means editing RegionData.tres + WeatherData.tres
+    // (or the derivation tuning group on SimData), not CVars.
 
     // Multiplier on the time-of-day advance rate. 1 = SimData.DayLengthSeconds
     // is a real-time day; 60 fast-forwards the cycle 60x for testing sunset /
@@ -63,32 +59,6 @@ public static class CVars
         double v = ((CVarFloat)cvar).Value;
         v -= System.Math.Floor(v);
         ws.TimeOfDay01 = v;
-    });
-
-    // Apply a weather preset to SkyController via a smooth Lerp. Presets are
-    // WeatherData .tres files under res://resources/weather/. Debug/testing
-    // tool — a real weather system will call SkyController.LerpToWeather()
-    // procedurally over in-game time.
-    // Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy.
-    public static CVarString weather = new CVarString("weather", "", (cvar) =>
-    {
-        var sky = SkyController.Current;
-        if (sky == null) { return; }
-        string name = ((CVarString)cvar).Value.Trim().ToLowerInvariant();
-        if (string.IsNullOrEmpty(name)) { return; }
-        string path = $"res://resources/weather/{name}.tres";
-        if (!Godot.ResourceLoader.Exists(path))
-        {
-            Godot.GD.Print($"weather: unknown preset '{name}'. Presets: clear, partly_cloudy, overcast, foggy, dusty, stormy, light_rain.");
-            return;
-        }
-        WeatherData preset = Godot.ResourceLoader.Load<WeatherData>(path);
-        if (preset == null)
-        {
-            Godot.GD.PrintErr($"weather: failed to load {path}");
-            return;
-        }
-        sky.LerpToWeather(preset, weatherLerpDuration.Value);
     });
 
     // Swap the MainCamera between orthographic and narrow-FOV perspective.
