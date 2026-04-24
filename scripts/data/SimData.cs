@@ -52,12 +52,13 @@ public partial class SimData : Resource
     // on it too.
     [Export(PropertyHint.Range, "0,45,0.5")] public float SunsetAngleDegrees = 15f;
 
-    // Half-width (degrees) of the sunrise/sunset color blend band, measured
-    // from SunsetAngleDegrees. The sunset color variants peak when the sun
-    // (or moon) is exactly at SunsetAngleDegrees elevation, fade to day
-    // colors at SunsetAngleDegrees + this, fade to night colors at
-    // SunsetAngleDegrees - this. Also parameterizes the ambient blend
-    // that gameplay stealth/perception consumes.
+    // Width (degrees) of the sunrise/sunset color fade-out band, added
+    // on each side of SunsetAngleDegrees. The sunset color variants are
+    // at full strength across |elev| <= SunsetAngleDegrees (symmetric
+    // across horizon crossing, so pre-dawn and post-dawn both stay warm),
+    // then fade out between SunsetAngleDegrees and SunsetAngleDegrees
+    // + this. Also parameterizes the ambient blend that gameplay
+    // stealth/perception consumes.
     [Export(PropertyHint.Range, "1,45,0.5")] public float SunsetColorRangeDegrees = 10f;
 
     [ExportGroup("Regions")]

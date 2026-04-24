@@ -15,4 +15,5 @@ regionNE = ExtResource("2_desert")
 regionNW = ExtResource("3_forest")
 regionSE = ExtResource("4_swamp")
 regionSW = ExtResource("5_mountain")
+RippleWindRef = 30.0
 metadata/_custom_type_script = "uid://chvgahtb671mg"

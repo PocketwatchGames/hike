@@ -99,6 +99,11 @@ global uniform float water_rim_strength;
 global uniform int water_debug_mode;
 // Force the shading normal flat — bypasses ripple texture perturbation.
 global uniform bool water_disable_ripples;
+// Max mip LOD bias applied to the reflected starfield at full ripple
+// strength. 0 = stars stay sharp on rippled water (aliases/flickers). Higher
+// values trade detail for stability as ripples scatter neighboring
+// fragments across the star panorama. Flat water always samples mip 0.
+global uniform float star_ripple_blur_lod;
 // Wind direction (normalized; y unused). Used for wave direction.
 global uniform vec3 wind_dir;
 // Shoreline foam — lighter noise band where water thickness falls below
@@ -172,20 +177,37 @@ vec3 slerp_normals(vec3 a, vec3 b, float t) {
 // (+Y), transform to view space, apply the virtual FOV via perspective
 // divide, remap to screen UV centered at (0.5, v_center).
 //
-// Returns vec4(color, alpha). Accumulates ONLY if the body's screen
-// position is in front of the camera; otherwise returns zero.
+// Adds a soft additive halo around the crisp disk: out to
+// pixel_radius * halo_radius_mult, contributes body_color * intensity *
+// halo_intensity with a smooth falloff. Halo has alpha=0 so the disk
+// itself is still the only thing that occludes stars; the halo reads as
+// blown-out bloom surrounding it.
+//
+// Returns vec4(premultiplied_rgb, disk_alpha). RGB already includes the
+// disk's `tex.rgb * tex.a` and the halo contribution; caller adds the
+// RGB directly (no extra `* alpha` step). Alpha is the disk mask only,
+// used for star occlusion.
 vec4 sample_billboard_body(
 	vec2 screen_uv,
 	vec2 viewport_size,
 	vec3 body_world_dir,   // direction TO the body from origin
+	vec3 surface_normal,   // ripple-perturbed water normal at the fragment
 	sampler2D body_tex,
 	float angular_size_deg,
 	float intensity,
 	vec3 body_color,
+	float halo_radius_mult,
+	float halo_intensity,
 	mat4 view_matrix
 ) {
-	// Reflect over +Y (water surface) — sky reflection geometry.
-	vec3 refl_world = reflect(body_world_dir, vec3(0.0, 1.0, 0.0));
+	// Reflect over the ripple-perturbed surface normal — each fragment
+	// computes its own body_screen_uv based on its local ripple tilt, so a
+	// fragment whose normal happens to bend the reflection toward the body
+	// lights up even if it's nowhere near the flat-water disk position.
+	// That's what produces shimmer/sparkle on a rippled lit body instead
+	// of the disk being a fixed-position decal. A flat-water fragment
+	// (n ≈ (0,1,0)) falls back to the previous behavior.
+	vec3 refl_world = reflect(body_world_dir, surface_normal);
 	vec4 view_dir = view_matrix * vec4(refl_world, 0.0);
 	// Camera looks along -Z in view space; view_dir.z < 0 means in front.
 	if (view_dir.z >= -1e-4) {
@@ -211,12 +233,33 @@ vec4 sample_billboard_body(
 	// Convert UV offset to pixel offset so distance is aspect-correct.
 	vec2 pixel_offset = (screen_uv - body_screen_uv) * viewport_size;
 	float dist = length(pixel_offset);
-	if (dist > pixel_radius) {
+	float halo_outer = pixel_radius * max(halo_radius_mult, 1.001);
+	if (dist > halo_outer) {
 		return vec4(0.0);
 	}
-	vec2 tex_uv = pixel_offset / pixel_radius * 0.5 + 0.5;
-	vec4 tex = texture(body_tex, tex_uv);
-	return vec4(body_color * tex.rgb * intensity, tex.a);
+
+	vec3 rgb = vec3(0.0);
+	float alpha = 0.0;
+	if (dist <= pixel_radius) {
+		// Crisp disk — sample texture, premultiply by alpha so the caller
+		// composites with a plain add. Alpha preserved so the disk still
+		// masks the starfield via (1.0 - moon_bb.a).
+		vec2 tex_uv = pixel_offset / pixel_radius * 0.5 + 0.5;
+		vec4 tex = texture(body_tex, tex_uv);
+		rgb = body_color * tex.rgb * intensity * tex.a;
+		alpha = tex.a;
+	}
+
+	// Halo across the ENTIRE 0..halo_outer region, including inside the
+	// disk. Sampling only outside the disk left a dark donut in the gap
+	// between the sun texture's soft-alpha edge (which dies before
+	// pixel_radius) and the start of the halo — inside that gap the disk
+	// branch contributed zero and the halo branch never ran. Contributing
+	// everywhere also makes the bright core blown-out core and fades smoothly.
+	float halo_t = dist / halo_outer;
+	float halo_w = pow(1.0 - clamp(halo_t, 0.0, 1.0), 2.5);
+	rgb += body_color * intensity * halo_intensity * halo_w;
+	return vec4(rgb, alpha);
 }
 
 // Intermittent wave envelope — slow, coarse noise that multiplies wave
@@ -395,26 +438,107 @@ void fragment() {
 		// Fresnel: more reflective at grazing view angles.
 		fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
 
-		// Split sky sampling. Clouds + gradient use the TRUE reflection
-		// direction so reflected clouds align with their ground shadows.
-		// Sun + moon are drawn as BILLBOARDED sprites projected through
-		// the fake FOV — circular in pixels regardless of FOV aspect,
-		// positioned according to the camera's view direction relative
-		// to the celestial body's world direction.
-		vec3 sky_clouds = sample_sky_clouds(world_vertex, refl, TIME);
+		// True-orthographic reflection direction for cloud sampling: reflect
+		// the camera's world-forward axis off the ripple-perturbed normal.
+		// Unlike refl (pinhole), this is INVARIANT under camera translation —
+		// only camera pitch/yaw and the ripple normal affect it. So the
+		// reflected cloud XZ = world_vertex.xz + cam_ortho_refl.xz *
+		// (cloud_altitude / cam_ortho_refl.y) becomes a fixed offset (a
+		// function of camera pitch × cloud_altitude) from the water fragment,
+		// which means the cloud reflection drifts IN SYNC with the cloud
+		// shadow on the ground (both move only via cloud_offset from wind).
+		// Pinhole refl is kept for SSR raymarching so terrain reflections
+		// still get natural per-fragment variation.
+		vec3 cam_fwd_world = -normalize(mat3(INV_VIEW_MATRIX) * vec3(0.0, 0.0, 1.0));
+		vec3 refl_ortho = reflect(cam_fwd_world, n);
+
+		// Split sky sampling into two paths with different projections:
+		//   - Clouds + gradient + stars: true-ortho reflection (refl_ortho)
+		//     so the cloud reflection stays synced with the cloud shadow
+		//     on the ground, offset only by camera pitch + cloud altitude.
+		//   - Sun + moon: BILLBOARDED sprites in screen space via the
+		//     fake reflection FOV — circular in pixels regardless of FOV
+		//     aspect, positioned from view direction vs. body direction.
 		vec3 to_sun_dir = -normalize(sky_sun_dir);
 		vec3 to_moon_dir = -to_sun_dir;
+		// Halo multipliers — sun gets a wide, blown-out 3x halo; moon gets
+		// a narrower, dimmer one. Disk alpha is preserved so both still
+		// occlude stars through (1.0 - moon_bb.a) below. The ripple-
+		// perturbed normal `n` is passed so ripples actually redirect the
+		// reflection — distant fragments with the right ripple tilt can
+		// light up the disk, producing sparkle across rippled water
+		// instead of a fixed-position decal.
 		vec4 sun_bb = sample_billboard_body(
-			SCREEN_UV, VIEWPORT_SIZE, to_sun_dir, sun_texture,
-			sun_angular_size_deg, sun_disk_intensity, sun_color, VIEW_MATRIX);
+			SCREEN_UV, VIEWPORT_SIZE, to_sun_dir, n, sun_texture,
+			sun_angular_size_deg, sun_disk_intensity, sun_color,
+			3.0, 1.0, VIEW_MATRIX);
 		vec4 moon_bb = sample_billboard_body(
-			SCREEN_UV, VIEWPORT_SIZE, to_moon_dir, moon_texture,
-			moon_angular_size_deg, moon_disk_intensity, moon_color, VIEW_MATRIX);
+			SCREEN_UV, VIEWPORT_SIZE, to_moon_dir, n, moon_texture,
+			moon_angular_size_deg, moon_disk_intensity, moon_color,
+			2.0, 0.35, VIEW_MATRIX);
 		// Horizon gating — don't draw a body below horizon.
 		sun_bb.rgb *= smoothstep(-0.05, 0.05, to_sun_dir.y);
 		moon_bb.rgb *= smoothstep(-0.05, 0.05, to_moon_dir.y);
-		vec3 sky_celestial = sun_bb.rgb * sun_bb.a + moon_bb.rgb * moon_bb.a;
-		sky_col = (sky_clouds + sky_celestial) * sun_mask * cloud_sun;
+
+		// Starfield — unproject SCREEN_UV through the same virtual reflection
+		// FOV the sun/moon billboards use, rotate into world space, and
+		// reflect off the flat water plane to get a sky direction. Sampling
+		// the starfield at that direction gives the moon's behavior: under
+		// camera translation the camera's rotation is unchanged, so the
+		// same SCREEN_UV resolves to the same sky direction and stars stay
+		// pinned in screen space. Under camera rotation the view→world
+		// rotation changes, so stars rotate with it just like the moon
+		// disk. Moon billboard alpha still masks the stars so the moon
+		// reads as opaque against them.
+		float star_tan_h = tan(radians(reflection_fov_h_deg) * 0.5);
+		float star_tan_v = tan(radians(reflection_fov_v_deg) * 0.5);
+		vec2 star_ndc = vec2(
+			(SCREEN_UV.x - 0.5) * 2.0,
+			(reflection_fov_v_center - SCREEN_UV.y) * 2.0);
+		vec3 star_view_ray = normalize(vec3(star_ndc.x * star_tan_h, star_ndc.y * star_tan_v, -1.0));
+		vec3 star_world_ray = normalize(mat3(INV_VIEW_MATRIX) * star_view_ray);
+		// Reflect off the ripple-perturbed normal so ripples actually
+		// distort the star reflection — shimmer / twinkle — rather than
+		// just modulating its brightness via fresnel.
+		vec3 star_dir = reflect(star_world_ray, n);
+		// Ripple-driven mip bias: flat water (ripple_strength → 0) samples
+		// mip 0 so stars stay crisp; fully rippled water selects a coarser
+		// mip so neighboring fragments' jittered directions average into a
+		// stable glow instead of per-frame flicker. The water_disable_ripples
+		// debug path forces lod to 0 since n is pinned flat there anyway.
+		float star_lod = water_disable_ripples ? 0.0 : ripple_strength * star_ripple_blur_lod;
+		vec3 stars = sample_sky_stars(star_dir, star_lod) * (1.0 - moon_bb.a);
+
+		// Cloud parallax offset — simple and bounded: refl_ortho.xz scaled
+		// by cloud_altitude, no 1/refl_ortho.y divisor. Magnitude ≤
+		// cloud_altitude, scales smoothly with camera pitch (cos(pitch))
+		// instead of 1/sin(pitch) which zooms extremely at shallow angles.
+		// Rotating the camera in yaw rotates the offset at a consistent
+		// rate; changing pitch smoothly shrinks/grows it. Because this is
+		// a fixed offset per frame (same for every water fragment on calm
+		// water), the reflected cloud XZ and the ground-shadow XZ
+		// (world_vertex.xz + cloud_offset) share the same wind drift, so
+		// reflection and shadow move together. Ripples still perturb it
+		// through n inside refl_ortho.
+		vec2 cloud_sample_xz = world_vertex.xz + refl_ortho.xz * cloud_altitude;
+		vec3 sky_clouds = sample_sky_clouds_at_xz(refl_ortho, cloud_sample_xz, stars, 0.5);
+		// Occlude sun/moon billboards by the cloud mask at the same sampled
+		// XZ — a cloud sitting between the water and the celestial body
+		// in the reflected path hides it instead of letting it shine
+		// through additively.
+		float cloud_occ_refl = sample_sky_cloud_mask_at_xz(cloud_sample_xz);
+		// sample_billboard_body returns premultiplied rgb (disk already
+		// multiplied by tex.a, halo is additive with alpha=0), so compositing
+		// is a plain add. .a is still the disk-only mask used by the star
+		// occlusion above.
+		vec3 sky_celestial = (sun_bb.rgb + moon_bb.rgb) * (1.0 - cloud_occ_refl);
+		// No cloud_sun factor here — cloud_shadow_ground and sample_sky_clouds
+		// both sample the SAME cloud pattern at world XZ, so multiplying the
+		// sky reflection by cloud_sun would pull the exact pixels that ARE
+		// the cloud reflection down to (1 - cloud_shadow_strength)x, turning
+		// bright clouds into dim holes in the reflection. cloud_sun still
+		// correctly dims sun_lit (the water's direct lighting) above.
+		sky_col = (sky_clouds + sky_celestial) * sun_mask;
 
 		// SSR raymarch. Step along the reflection ray in world space,
 		// project each step to NDC, compare with depth_tex. First hit

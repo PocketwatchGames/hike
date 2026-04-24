@@ -81,6 +81,22 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,30,0.5")] public float shaftFadeAngleDegrees = 5f;
     [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 10.1f;
 
+    [ExportSubgroup("Shadows")]
+    // Baseline DirectionalLight3D shadow_blur (PCF kernel width in
+    // shadow-atlas space) at noon in clear air. Lower = crisper
+    // silhouettes. Overrides the scene-authored value on both
+    // sunLight and moonLight each frame.
+    [Export(PropertyHint.Range, "0,20,0.1")] public float shadowBlurBase = 6.0f;
+    // Added to shadowBlurBase at the low-sun endpoint (primary body at
+    // SunsetAngleDegrees), smoothstepped by primary elevation so noon
+    // stays tight. Models the way low-angle light grazes through more
+    // atmosphere and softens shadow edges.
+    [Export(PropertyHint.Range, "0,20,0.1")] public float shadowBlurLowSunBoost = 6.0f;
+    // Extra blur from humidity + dust (hazy clear-sky scatter). Slight
+    // — this is a soft always-on baseline on top of the elevation
+    // boost, not a strong effect on its own.
+    [Export(PropertyHint.Range, "0,10,0.1")] public float shadowBlurAtmosphericBoost = 2.0f;
+
     [ExportSubgroup("Disks")]
     // Sun/moon DISK shape + intensity in the sky shader. The disk is drawn
     // as smoothstep(outer, inner, dot(dir, -sun)) — so `outer` is where
@@ -115,6 +131,67 @@ public partial class SkyController : Node3D
     // authored as a ceiling that fades to 0 when the body is below horizon.
     [Export(PropertyHint.Range, "0,2,0.01")] public float sunDiskGlowStrength = 1f;
     [Export(PropertyHint.Range, "0,2,0.01")] public float moonDiskGlowStrength = 0.15f;
+
+    // Disk intensity at the horizon endpoint of the sun's orbit. The
+    // effective disk intensity lerps between sunDiskIntensity (noon) and
+    // this value (sunrise/sunset) with sin(orbital phase) as the parameter.
+    // The palette already warms SunTint toward amber through the sunset
+    // band, but at full disk intensity the amber clips past 1.0 in every
+    // channel and tonemaps back to near-white — pulling intensity down
+    // near the horizon lets the warm tint actually read on the disk.
+    [Export(PropertyHint.Range, "0,10,0.05")] public float sunsetDiskIntensity = 1.0f;
+
+    // Wall-clock seconds over which the sun/moon disks fade in at rise
+    // and fade out before set. Applied as a multiplier on top of the
+    // elevation-based intensity lerp, so the disks smoothly appear and
+    // disappear in both the sky and the water reflection rather than
+    // popping on/off at the horizon. The fade is converted to a fraction
+    // of SimData.DayLengthSeconds; if it exceeds half the active window
+    // it's clamped so fade-in and fade-out meet at a peak < 1 instead
+    // of overlapping.
+    [Export(PropertyHint.Range, "0,600,1")] public float sunDiskFadeTime = 30f;
+
+    // Atmospheric attenuation of the sun disk. Humidity (water vapor) and
+    // dust (aerosols) both scatter direct sunlight — a humid jungle or
+    // dusty desert sun reads softer than a clean-air alpine one. Each
+    // knob is the FRACTION of intensity removed at full weather (1.0):
+    // e.g. humidityDiskDim=0.5 means humidity=1 cuts disk intensity in
+    // half; dustDiskDim=0.7 means dust=1 cuts it to 30%. Applied
+    // multiplicatively on top of the sunset lerp.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float humidityDiskDim = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustDiskDim = 0.7f;
+
+    // Atmospheric attenuation of the moon disk. Fog (dense low moisture)
+    // washes out the moon most visibly — the classic "foggy night" look —
+    // and dust does the same in hazy desert / volcanic air. Structure
+    // mirrors the sun's humidity/dust dims; values are the FRACTION of
+    // moonDiskIntensity removed at full weather.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float fogMoonDim = 0.7f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustMoonDim = 0.5f;
+
+    [ExportSubgroup("Stars")]
+    // Equirectangular panorama sampled by view direction — U wraps with
+    // compass azimuth, V spans horizon (0.5) to zenith (1.0). Drop in a
+    // painted PNG to place named constellations in specific compass
+    // directions. The shader fades stars in with sky_night_factor and
+    // occludes them with clouds, so no per-frame work is needed here
+    // beyond pushing the texture + intensity.
+    [Export] public Texture2D starTexture;
+    [Export(PropertyHint.Range, "0,4,0.01")] public float starIntensity = 2.0f;
+
+    // Max mip LOD bias for the water reflection's starfield at full
+    // ripple_strength. The water shader multiplies this by ripple_strength
+    // so flat water samples mip 0 (sharp stars) and fully rippled water
+    // samples a coarser mip (stable, blurry stars instead of per-frame
+    // flicker from the jittered reflection direction). 0 = no blur ever;
+    // ~3–5 reads as diffuse glow on windy water.
+    [Export(PropertyHint.Range, "0,6,0.1")] public float starRippleBlurLod = 4.0f;
+
+    // Atmospheric attenuation of the starfield. Stars are much dimmer than
+    // the moon, so they're washed out far more aggressively by fog/dust —
+    // defaults bias toward near-total loss at full weather.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float fogStarDim = 0.95f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustStarDim = 0.8f;
 
     [ExportSubgroup("Fill Lights")]
     // Two off-axis fill directions, computed each frame from the primary
@@ -244,7 +321,7 @@ public partial class SkyController : Node3D
     // extra screen sample); >0 enables at the cost of one extra tap per
     // water fragment plus the implicit back-buffer copy Godot does for
     // hint_screen_texture. Muddiness damps this toward zero automatically.
-    [Export(PropertyHint.Range, "0,0.2,0.001")] public float refractionStrength = 0.05f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float refractionStrength = 0.05f;
 
     [ExportSubgroup("Shoreline Foam")]
     // Foam COLOR is derived entirely from region (DustColor + WaterColor +
@@ -349,16 +426,37 @@ public partial class SkyController : Node3D
 
     // --- Time-of-day / sun state -----------------------------------------
     // Primary light direction for the current frame (direction light travels).
-    // Sun during the day, moon at night, flipped at the horizon crossing.
+    // Sun during the day half (t ∈ [0.25, 0.75]), moon during the night half.
+    // Remapped / clamped so its elevation never drops below SunsetAngleDegrees
+    // — the fade to invisible happens via LightEnergy, not by swinging the
+    // direction horizontal.
     private Vector3 _primaryLightDir = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
 
-    // Sun's ACTUAL direction (always — not the primary which flips to the
-    // moon at night). Used only by the sky shader's sun disk.
+    // Sun's ACTUAL direction on the (non-physical) full-orbit great circle.
+    // NOT the remapped light direction — used only by the sky shader's sun
+    // disk (sky_sun_dir) so the disk still slides visibly through the whole
+    // sky on the authored arc.
     private Vector3 _sunActualDir = new Vector3(-0.215f, -0.819f, -0.532f).Normalized();
 
-    // Sun's signed elevation in degrees (positive = above horizon). Stored
-    // so Apply() / derivation can use it without recomputing the asin.
+    // Sun's signed elevation in degrees from the sky-disk arc. Drives the
+    // day/sunset/night phase blend in WeatherDerivation and anything else
+    // that wants the body's celestial disk position (disk glow fade, water
+    // clarity). NOT used for DirectionalLight3D energy or shaft fades —
+    // those key off the remapped light-direction elevations below.
     private float _sunElevationDegrees = 45f;
+
+    // Elevations (degrees) of the time-remapped sun- and moon-LIGHT
+    // directions. Each is pinned to at least SunsetAngleDegrees during the
+    // body's active half of the cycle and held at SunsetAngleDegrees while
+    // the body is inactive, so SmoothStep fades keyed off them terminate
+    // cleanly at t=0.25/0.75 instead of mid-afternoon.
+    private float _sunLightElevationDegrees = 45f;
+    private float _moonLightElevationDegrees = 25f;
+
+    // Normalized time-of-day used by UpdateSunAndMoon this frame. Cached
+    // here so Apply() can compute time-based disk fades without repeating
+    // the same World/editor fallback lookup.
+    private double _timeOfDay01 = 0.5;
 
     // Current blended region + weather (runtime). In editor mode these
     // stay null; the preview path reads previewRegion / previewRegion.weather
@@ -427,6 +525,7 @@ public partial class SkyController : Node3D
             // overrides take precedence via the Apply() push.
             if (sunTexture == null) { sunTexture = GD.Load<Texture2D>("res://assets/textures/sun_disc.tres"); }
             if (moonTexture == null) { moonTexture = GD.Load<Texture2D>("res://assets/textures/moon_disc.tres"); }
+            if (starTexture == null) { starTexture = GD.Load<Texture2D>("res://assets/textures/starfield_placeholder.tres"); }
             if (sunTexture != null)
             {
                 ShaderGlobals.Register("sun_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, sunTexture);
@@ -435,6 +534,12 @@ public partial class SkyController : Node3D
             {
                 ShaderGlobals.Register("moon_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, moonTexture);
             }
+            if (starTexture != null)
+            {
+                ShaderGlobals.Register("star_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, starTexture);
+            }
+            ShaderGlobals.Register("star_intensity", RenderingServer.GlobalShaderParameterType.Float, 1.0f);
+            ShaderGlobals.Register("star_ripple_blur_lod", RenderingServer.GlobalShaderParameterType.Float, 4f);
             ShaderGlobals.Register("sky_night_factor", RenderingServer.GlobalShaderParameterType.Float, 0f);
             // Water globals pushed by Apply() — seed with sensible defaults so
             // shaders compile before the first Apply() runs without dropping
@@ -567,9 +672,23 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("fill_b_world_dir", fillBDir);
     }
 
-    // Compute sun position on the celestial sphere from the current time,
-    // pick sun-vs-moon as the primary directional light, orient the light
-    // nodes, and stash sun elevation for derivation.
+    // Compute sun / moon positions from the current time and push results
+    // to _sunActualDir (sky disk), _primaryLightDir / _sunLightElevationDegrees
+    // / _moonLightElevationDegrees (DirectionalLight3Ds + shader fades), and
+    // _sunElevationDegrees (WeatherDerivation's phase blend).
+    //
+    // Two arcs, not one:
+    //   - The SKY DISK uses the full great-circle orbit so the sun / moon
+    //     sprite still slides through the sky and below the geometric
+    //     horizon naturally. This is purely a visual sprite position,
+    //     not a simulated body.
+    //   - The LIGHT DIRECTION is remapped from time-of-day so sunrise /
+    //     sunset land exactly at SunsetAngleDegrees (the effective
+    //     horizon), and the body is "held" at that endpoint during its
+    //     inactive half of the cycle. Outside its active half, LightEnergy
+    //     has already faded to 0, so updating the direction is wasted
+    //     work — holding it keeps shadow geometry sane without implying
+    //     a sub-horizon "orbit" that isn't a real light.
     private void UpdateSunAndMoon()
     {
         double t;
@@ -581,57 +700,89 @@ public partial class SkyController : Node3D
         {
             t = previewTimeOfDay;
         }
+        _timeOfDay01 = t;
 
         SimData sim = World.Current?.WorldState?.SimData;
         float sunMaxElev = sim?.SunMaxElevationDegrees ?? 60f;
         float noonAzimuth = sim?.NoonAzimuthDegrees ?? 45f;
+        float sunsetAngle = sim?.SunsetAngleDegrees ?? 15f;
 
-        // Sun's orbit is a great circle on the celestial sphere. The noon
-        // direction is fully specified by (azimuth, elevation); the east
-        // direction (where sun rises) is 90° clockwise (viewed from above)
-        // of the noon azimuth, horizontal. The orbit plane contains these
-        // two axes — sun position at phase θ = noonDir·sin(θ) + eastDir·cos(θ).
-        // θ = 0 at sunrise, π/2 at noon, π at sunset, 3π/2 at midnight.
+        // Shared orbit basis. noonDir is the sun-at-noon direction on the
+        // celestial sphere (azimuth + max elevation); eastDir is horizontal
+        // at noon's azimuth + 90° (where the sun's arc emerges). noonDir
+        // and eastDir are orthonormal, so `noonDir·sin(θ) + eastDir·cos(θ)`
+        // parameterizes a great circle peaking at θ=π/2.
         //
         // This models southern-hemisphere-style orbits naturally: for a
         // world where +X+Z is north and the player is south of the equator
         // (sun passes through north at noon), set NoonAzimuthDegrees = 45.
         float azimuthRad = Mathf.DegToRad(noonAzimuth);
-        float elevRad = Mathf.DegToRad(sunMaxElev);
-        float cosElev = Mathf.Cos(elevRad);
+        float maxElevRad = Mathf.DegToRad(sunMaxElev);
+        float cosMaxElev = Mathf.Cos(maxElevRad);
 
         Vector3 noonDir = new Vector3(
-            Mathf.Sin(azimuthRad) * cosElev,
-            Mathf.Sin(elevRad),
-            Mathf.Cos(azimuthRad) * cosElev);
-        // East = noon azimuth + 90° in compass convention. Compass azimuth
-        // increases CW from north (+Z), so east of noon is noon's azimuth
-        // plus 90°. With noon at azimuth 0° (north = +Z), east = (sin 90°,
-        // 0, cos 90°) = +X, matching the convention. Previously had `- π/2`
-        // which put sunrise on the west side, flipping the reflection arc.
+            Mathf.Sin(azimuthRad) * cosMaxElev,
+            Mathf.Sin(maxElevRad),
+            Mathf.Cos(azimuthRad) * cosMaxElev);
         Vector3 eastDir = new Vector3(
             Mathf.Sin(azimuthRad + Mathf.Pi * 0.5f),
             0f,
             Mathf.Cos(azimuthRad + Mathf.Pi * 0.5f));
 
-        float phase = Mathf.Tau * ((float)t - 0.25f);
-        Vector3 sunPos = (noonDir * Mathf.Sin(phase) + eastDir * Mathf.Cos(phase)).Normalized();
-        Vector3 moonPos = -sunPos;
+        // --- Sky disk: unchanged full-orbit great circle ---------------
+        // θ = 0 at t=0.25 (east horizon), π/2 at noon, π at t=0.75 (west
+        // horizon), 3π/2 at midnight. Visual sprite only — this is the
+        // "non-physical" disk position kept separate from the light arc.
+        float diskPhase = Mathf.Tau * ((float)t - 0.25f);
+        Vector3 sunDiskPos = (noonDir * Mathf.Sin(diskPhase) + eastDir * Mathf.Cos(diskPhase)).Normalized();
+        _sunActualDir = (-sunDiskPos).Normalized();
+        _sunElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunDiskPos.Y, -1f, 1f)));
 
-        _sunActualDir = (-sunPos).Normalized();
-        Vector3 primaryPos = sunPos.Y >= 0f ? sunPos : moonPos;
-        _primaryLightDir = (-primaryPos).Normalized();
+        // --- Light directions: remapped so rise/set land at
+        //     SunsetAngleDegrees exactly at t=0.25 / 0.75 -----------------
+        // Pick θ₀ so sin(θ₀) · sin(SunMaxElev) == sin(SunsetAngle), then
+        // lerp θ across [θ₀, π − θ₀] over the active half of the cycle.
+        // Outside the active half, dayT clamps to 0 or 1 and the light is
+        // held at the rise or set endpoint. Sun's active half is [0.25,
+        // 0.75]; moon's is [0.75, 1.25] wrapped through midnight. The
+        // wrap produces one invisible direction jump at t=0.5 in the
+        // moon's held direction — harmless because the moon light has
+        // been at LightEnergy=0 for the entire sun day.
+        float sinSunset = Mathf.Sin(Mathf.DegToRad(sunsetAngle));
+        float sinMaxSafe = Mathf.Max(Mathf.Sin(maxElevRad), 1e-4f);
+        float phaseAtSunsetAngle = Mathf.Asin(Mathf.Clamp(sinSunset / sinMaxSafe, -1f, 1f));
 
-        Vector3 moonActualDir = -_sunActualDir;
-        OrientLight(sunLight, _sunActualDir);
-        OrientLight(moonLight, moonActualDir);
+        Vector3 ComputeLightPos(double bodyT)
+        {
+            float dayT = Mathf.Clamp((float)((bodyT - 0.25) * 2.0), 0f, 1f);
+            float phase = Mathf.Lerp(phaseAtSunsetAngle, Mathf.Pi - phaseAtSunsetAngle, dayT);
+            return (noonDir * Mathf.Sin(phase) + eastDir * Mathf.Cos(phase)).Normalized();
+        }
+
+        Vector3 sunLightPos = ComputeLightPos(t);
+        double moonT = t + 0.5;
+        if (moonT >= 1.0) { moonT -= 1.0; }
+        Vector3 moonLightPos = ComputeLightPos(moonT);
+
+        Vector3 sunLightDir = (-sunLightPos).Normalized();
+        Vector3 moonLightDir = (-moonLightPos).Normalized();
+
+        // Primary switches by time-of-day half, not elevation — both
+        // directions are clamped to sunsetAngle in their off-half, so an
+        // elevation test can't tell them apart.
+        bool isDay = t >= 0.25 && t < 0.75;
+        _primaryLightDir = isDay ? sunLightDir : moonLightDir;
+
+        _sunLightElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunLightPos.Y, -1f, 1f)));
+        _moonLightElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(moonLightPos.Y, -1f, 1f)));
+
+        OrientLight(sunLight, sunLightDir);
+        OrientLight(moonLight, moonLightDir);
 
         if (!Engine.IsEditorHint() && World.Current?.WorldState != null)
         {
             World.Current.WorldState.ShadowLightDirection = _primaryLightDir;
         }
-
-        _sunElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunPos.Y, -1f, 1f)));
     }
 
     // Push the current palette + time-of-day state to the GPU.
@@ -645,30 +796,92 @@ public partial class SkyController : Node3D
         SimData sim = World.Current?.WorldState?.SimData;
         float sunsetAngle = sim?.SunsetAngleDegrees ?? 10f;
 
-        // DirectionalLight3D energy crossfade — sun and moon each fade
-        // through their own above-horizon smoothstep. The sum stays
-        // sensibly bounded: sun dominant during day, moon at night,
-        // both partial during the crossover window.
-        //
-        // Moon energy is additionally scaled by NightPrimaryIntensity so
-        // moonlight is physically dimmer than daylight regardless of
-        // whether Godot's shadow pass sees it as "the one active light".
+        // DirectionalLight3D energy crossfade — keyed off each body's
+        // REMAPPED light-direction elevation (clamped at sunsetAngle
+        // during its inactive half), so the fade terminates exactly at
+        // t=0.25/0.75 rather than at the body's actual celestial horizon
+        // crossing. Moon energy is additionally scaled by
+        // NightPrimaryIntensity so moonlight is physically dimmer than
+        // daylight regardless of whether Godot's shadow pass sees it as
+        // "the one active light".
         float lightFadeEnd = sunsetAngle + lightEnergyFadeAngleDegrees;
         float lightFadeStart = lightFadeEnd + Mathf.Max(lightEnergyFadeRangeDegrees, 0.01f);
-        float sunEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _sunElevationDegrees);
-        float moonEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, -_sunElevationDegrees);
+        float sunEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _sunLightElevationDegrees);
+        float moonEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _moonLightElevationDegrees);
         if (sunLight != null) { sunLight.LightEnergy = sunEnergyFactor; }
         if (moonLight != null) { moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity; }
 
-        // _nightT for disk glow fade. Recomputed from sun elevation +
-        // sunset band — same formula as WeatherDerivation.PhaseWeights
-        // but we only need nightT here.
+        // Shadow blur: soften the PCF kernel based on primary-light
+        // PITCH (cos of elevation = horizontal component of the light
+        // direction), plus a small lift from hazy air. Sun + moon
+        // share a shadow atlas so they get the same blur; the one
+        // with LightEnergy > 0 consumes it. Drive off the HIGHER of
+        // the two remapped elevations so the active body dictates the
+        // softness (the inactive body is clamped at sunsetAngle).
+        //
+        // cos(elev) is the "how sideways the light is" term — 0 at
+        // zenith, 1 at horizon. Shape is naturally sinusoidal across
+        // the arc. With SunMaxElevationDegrees < 90 the factor never
+        // reaches 0 at noon; that's correct — a sun that never quite
+        // reaches overhead has slightly softened shadows even at peak.
+        float primaryLightElev = Mathf.Max(_sunLightElevationDegrees, _moonLightElevationDegrees);
+        float elevBlurFactor = Mathf.Clamp(Mathf.Cos(Mathf.DegToRad(Mathf.Max(primaryLightElev, 0f))), 0f, 1f);
+        float humidityForBlur = Weather?.humidity ?? 0.5f;
+        float dustForBlur = Weather?.dustAmount ?? 0.1f;
+        float atmBlurFactor = Mathf.Clamp(humidityForBlur + dustForBlur, 0f, 1f);
+        float effShadowBlur = shadowBlurBase
+            + shadowBlurLowSunBoost * elevBlurFactor
+            + shadowBlurAtmosphericBoost * atmBlurFactor;
+        if (sunLight != null) { sunLight.ShadowBlur = effShadowBlur; }
+        if (moonLight != null) { moonLight.ShadowBlur = effShadowBlur; }
+
+        // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
         float colorRange = Mathf.Max(sim?.SunsetColorRangeDegrees ?? 10f, 0.01f);
         float dayNightThreshold = sunsetAngle + colorRange;
         float nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, _sunElevationDegrees);
 
         float effSunDiskGlow = sunDiskGlowStrength * (1f - nightT);
         float effMoonDiskGlow = moonDiskGlowStrength * nightT;
+        // Sun disk intensity lerps between sunsetDiskIntensity (horizon) and
+        // sunDiskIntensity (noon) with sin(orbital phase) as the parameter —
+        // sin(phase) is 1 at noon, 0 at sunrise/sunset. Derived from the
+        // sun's current elevation vs. its max: sin(phase) = sin(elev)/sin(maxElev).
+        // Clamped to [0,1] so below-horizon time lands at sunsetDiskIntensity
+        // (the disk is invisible there anyway via the shader's sun_up gate).
+        // Humidity and dust then attenuate multiplicatively — thicker air
+        // scatters the disk softer regardless of time-of-day.
+        float sunMaxElevRad = Mathf.DegToRad(sim?.SunMaxElevationDegrees ?? 60f);
+        float sinMaxElev = Mathf.Max(Mathf.Sin(sunMaxElevRad), 1e-4f);
+        float sunPhaseT = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinMaxElev, 0f, 1f);
+        float humidityForDisk = Weather?.humidity ?? 0f;
+        float dustForDisk = Weather?.dustAmount ?? 0f;
+        float fogForDisk = Weather?.fog ?? 0f;
+        float humidityAtten = Mathf.Lerp(1f, 1f - humidityDiskDim, humidityForDisk);
+        float dustAtten = Mathf.Lerp(1f, 1f - dustDiskDim, dustForDisk);
+
+        // Time-of-day fade for the disks — ramps in at rise over
+        // sunDiskFadeTime seconds and out before set over the same,
+        // so the disk doesn't pop on/off at the horizon. Active windows
+        // are [0.25, 0.75] for the sun and [0.75, 1.25] (wrapped) for
+        // the moon. fadeTod is clamped to half the active window (0.25
+        // of a day) so very long fade times produce a triangular peak
+        // rather than overlapping past 1.
+        float dayLengthSec = Mathf.Max(sim?.DayLengthSeconds ?? 600f, 0.01f);
+        float fadeTod = Mathf.Clamp(sunDiskFadeTime / dayLengthSec, 0f, 0.25f);
+        float sunDiskFade = ComputeDiskFade(_timeOfDay01, 0.25, 0.75, fadeTod);
+        float moonDiskFade = ComputeDiskFade(_timeOfDay01, 0.75, 1.25, fadeTod);
+
+        float effSunDiskIntensity = Mathf.Lerp(sunsetDiskIntensity, sunDiskIntensity, sunPhaseT) * humidityAtten * dustAtten * sunDiskFade;
+
+        // Same atmospheric attenuation idea for nighttime celestial: fog
+        // and dust both obscure the moon and stars. Stars get a steeper
+        // default falloff since they're far dimmer to begin with.
+        float moonFogAtten = Mathf.Lerp(1f, 1f - fogMoonDim, fogForDisk);
+        float moonDustAtten = Mathf.Lerp(1f, 1f - dustMoonDim, dustForDisk);
+        float effMoonDiskIntensity = moonDiskIntensity * moonFogAtten * moonDustAtten * moonDiskFade;
+        float starFogAtten = Mathf.Lerp(1f, 1f - fogStarDim, fogForDisk);
+        float starDustAtten = Mathf.Lerp(1f, 1f - dustStarDim, dustForDisk);
+        float effStarIntensity = starIntensity * starFogAtten * starDustAtten;
 
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(_palette.SunTint));
@@ -685,10 +898,13 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("moon_disk_glow", effMoonDiskGlow);
         RenderingServer.GlobalShaderParameterSet("sun_angular_size_deg", sunAngularSizeDeg);
         RenderingServer.GlobalShaderParameterSet("moon_angular_size_deg", moonAngularSizeDeg);
-        RenderingServer.GlobalShaderParameterSet("sun_disk_intensity", sunDiskIntensity);
-        RenderingServer.GlobalShaderParameterSet("moon_disk_intensity", moonDiskIntensity);
+        RenderingServer.GlobalShaderParameterSet("sun_disk_intensity", effSunDiskIntensity);
+        RenderingServer.GlobalShaderParameterSet("moon_disk_intensity", effMoonDiskIntensity);
         if (sunTexture != null) { RenderingServer.GlobalShaderParameterSet("sun_texture", sunTexture); }
         if (moonTexture != null) { RenderingServer.GlobalShaderParameterSet("moon_texture", moonTexture); }
+        if (starTexture != null) { RenderingServer.GlobalShaderParameterSet("star_texture", starTexture); }
+        RenderingServer.GlobalShaderParameterSet("star_intensity", effStarIntensity);
+        RenderingServer.GlobalShaderParameterSet("star_ripple_blur_lod", starRippleBlurLod);
         RenderingServer.GlobalShaderParameterSet("sky_night_factor", nightT);
         RenderingServer.GlobalShaderParameterSet("cloud_offset", cloudOffset);
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", _palette.CloudThreshold);
@@ -847,8 +1063,8 @@ public partial class SkyController : Node3D
         // effective intensity + color via the horizon smoothstep.
         float shaftFadeEnd = sunsetAngle + shaftFadeAngleDegrees;
         float shaftFadeStart = shaftFadeEnd + Mathf.Max(shaftFadeRangeDegrees, 0.1f);
-        float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunElevationDegrees);
-        float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, -_sunElevationDegrees);
+        float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunLightElevationDegrees);
+        float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _moonLightElevationDegrees);
 
         float effShaftIntensity = _palette.SunShaftIntensity * sunShaftFactor
                                  + _palette.MoonShaftIntensity * moonShaftFactor;
@@ -968,5 +1184,23 @@ public partial class SkyController : Node3D
         Vector3 pos = light.GlobalPosition;
         Vector3 up = Mathf.Abs(lightDir.Y) > 0.99f ? Vector3.Forward : Vector3.Up;
         light.LookAtFromPosition(pos, pos + lightDir, up);
+    }
+
+    // 0 outside [riseT, setT], smoothstep up over fadeTod at rise,
+    // plateau at 1, smoothstep down over fadeTod before set.
+    // setT may exceed 1 to express a window that wraps past midnight
+    // (moon: rise 0.75, set 1.25). t wraps into [riseT, riseT+1).
+    private static float ComputeDiskFade(double t, double riseT, double setT, float fadeTod)
+    {
+        double window = setT - riseT;
+        if (window <= 0.0) { return 0f; }
+        double rel = t - riseT;
+        if (rel < 0.0) { rel += 1.0; }
+        if (rel >= window) { return 0f; }
+        float plateau = Mathf.Min(fadeTod, (float)(window * 0.5));
+        if (plateau <= 0f) { return 1f; }
+        float riseFade = Mathf.SmoothStep(0f, plateau, (float)rel);
+        float setFade = Mathf.SmoothStep(0f, plateau, (float)(window - rel));
+        return Mathf.Min(riseFade, setFade);
     }
 }

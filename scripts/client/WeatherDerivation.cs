@@ -11,19 +11,18 @@ using Godot;
 // Weather Derivation Tuning export group.
 public static class WeatherDerivation
 {
-    // Blend weights for the three time-of-day phases from sun elevation,
-    // using SimData's SunsetAngleDegrees + SunsetColorRangeDegrees as
-    // the pivot band. Matches SkyController.UpdateSunAndMoon's old
-    // _nightT / _sunsetT computation so the visual character is
-    // preserved through the refactor.
+    // Blend weights for the three time-of-day phases from sun elevation.
+    // sunsetT is a symmetric trapezoid centered on the horizon: full
+    // warmth across |elev| <= SunsetAngleDegrees (so pre-dawn and
+    // post-dawn both stay warm across horizon crossing), fading out
+    // over SunsetColorRangeDegrees on each side.
     private static void PhaseWeights(float sunElevDeg, float sunsetAngle, float colorRange, out float nightT, out float sunsetT)
     {
         colorRange = Mathf.Max(colorRange, 0.01f);
         float dayNightThreshold = sunsetAngle + colorRange;
         nightT = 1f - Mathf.SmoothStep(-dayNightThreshold, dayNightThreshold, sunElevDeg);
 
-        float distFromSunsetPeak = Mathf.Abs(Mathf.Abs(sunElevDeg) - sunsetAngle);
-        sunsetT = 1f - Mathf.SmoothStep(0f, colorRange, distFromSunsetPeak);
+        sunsetT = 1f - Mathf.SmoothStep(sunsetAngle, sunsetAngle + colorRange, Mathf.Abs(sunElevDeg));
     }
 
     public static DerivedPalette Derive(RegionData region, WeatherData weather, float sunElevationDegrees, SimData sim)

@@ -359,6 +359,18 @@ moon_texture={
 "type": "sampler2D",
 "value": "res://assets/textures/moon_disc.tres"
 }
+star_texture={
+"type": "sampler2D",
+"value": "res://assets/textures/starfield_placeholder.tres"
+}
+star_intensity={
+"type": "float",
+"value": 1.0
+}
+star_ripple_blur_lod={
+"type": "float",
+"value": 4.0
+}
 sky_debug_sun_disk={
 "type": "bool",
 "value": false

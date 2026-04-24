@@ -9,7 +9,16 @@
       "Bash(python -c \"from PIL import Image; [print\\(f, Image.open\\(f'c:/Users/andy/source/hike/assets/textures/characters/{f}'\\).size\\) for f in ['mouse.png','chameleon.png','commander_commoners.png']]\")",
       "Bash(powershell -Command 'Add-Type -AssemblyName System.Drawing; @\\('\\\\''mouse.png'\\\\'','\\\\''chameleon.png'\\\\'','\\\\''commander_commoners.png'\\\\''\\) | %% { $i = [System.Drawing.Image]::FromFile\\('\\\\''c:\\\\Users\\\\andy\\\\source\\\\hike\\\\assets\\\\textures\\\\characters\\\\'\\\\'' + $_\\); Write-Host \"$_ $\\($i.Width\\)x$\\($i.Height\\)\"; $i.Dispose\\(\\) }')",
       "Bash(python)",
-      "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path c:/Users/andy/source/hike --editor --headless --quit)"
+      "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path c:/Users/andy/source/hike --editor --headless --quit)",
+      "Read(//tmp/**)",
+      "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --verbose --quit-after 120)",
+      "Bash(sort -u grep -E '^[a-z_]+=\\\\{' project.godot)",
+      "Bash(awk '-F[ ;:]' '/global uniform/ {for\\(i=1;i<=NF;i++\\) if\\($i ~ /^\\(bool|int|float|vec2|vec3|vec4|sampler2D|sampler3D|samplerCube\\)$/ && i<NF\\) {print $\\(i+1\\); break}}')",
+      "Read(//c/Users/andy/source/hike/=== shader-declared but never registered/**)",
+      "Bash(rm -f /tmp/hike_live.log)",
+      "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --verbose)",
+      "Bash(echo \"pid=$!\")",
+      "Bash(git checkout *)"
     ],
     "additionalDirectories": [
       "c:\\"

@@ -107,44 +107,44 @@ mesh = SubResource("QuadMesh_fog")
 environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
-transform = Transform3D(0.70710677, -0.6123724, 0.35355332, 0, 0.49999997, 0.86602545, -0.70710665, -0.6123725, 0.35355338, 0, 0, 0)
+transform = Transform3D(0.70710695, -0.6123723, 0.35355324, 0, 0.49999997, 0.86602545, -0.7071065, -0.61237264, 0.35355347, 0, 0, 0)
 light_angular_distance = 0.5
 light_bake_mode = 0
 light_cull_mask = 3
 shadow_enabled = true
 shadow_opacity = 0.9
-shadow_blur = 6.0
+shadow_blur = 10.2
 sky_mode = 1
 
 [node name="MoonLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209992]
-transform = Transform3D(-0.7071067, -0.61237246, -0.35355335, 0, 0.49999997, -0.86602545, 0.7071067, -0.61237246, -0.35355335, 0, 0, 0)
-light_energy = 0.0
+transform = Transform3D(-0.58920443, -0.20912163, 0.7804524, 0, 0.9659258, 0.25881898, -0.8079838, 0.15249734, -0.5691277, 0, 0, 0)
+light_energy = 0.15000008
 light_angular_distance = 0.5
 light_bake_mode = 0
 light_cull_mask = 3
 shadow_enabled = true
 shadow_opacity = 0.9
-shadow_blur = 6.0
+shadow_blur = 10.2
 sky_mode = 1
 
 [node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight")]
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
-sunAngularSizeDeg = 5.0
+sunAngularSizeDeg = 16.0
+moonAngularSizeDeg = 12.0
+starIntensity = 1.5
 waterDepthScale = 12.0
 waterEdgeOpacity = 0.5
-rimWidth = 0.5
+rimWidth = 1.0
 rimStrength = 0.8
-rippleScaleA = 0.01
-rippleScaleB = 0.006
-rippleSpeedA = 0.001
-rippleSpeedB = 0.001
-rippleSpeedSaturation = 8.2
+rippleScaleA = 0.1
+rippleScaleB = 0.06
+rippleAngleOffsetB = 65.0
 reflectionFovVerticalCenter = 0.35
 fresnelPower = 0.5
 reflectionStrength = 1.5
-refractionStrength = 0.2
+refractionStrength = 1.0
 cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("fog_volumetric_mat")
