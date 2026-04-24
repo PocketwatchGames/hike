@@ -18,18 +18,28 @@ public partial class SimData : Resource
     // 0.5 = noon, 0.75 = sunset. Applied when a fresh game is started.
     [Export(PropertyHint.Range, "0,1,0.001")] public float InitialTimeOfDay = 0.3f;
 
-    // Sun's maximum elevation above the horizon at noon. 90 = sun passes
-    // through zenith; lower values tilt the orbit so the sun peaks at a
-    // shallower angle (higher-latitude look). Drives both visual sky
-    // placement AND the simulation-side ShadowLightDirection that
-    // gameplay raycasts (stealth, AI visibility) query.
+    // Sun's elevation above the horizon at noon. 90 = sun passes through
+    // zenith; lower values produce a shallower arc (higher-latitude look).
+    // Drives both visual sky placement AND the simulation-side
+    // ShadowLightDirection that gameplay raycasts query.
     [Export(PropertyHint.Range, "10,90,1")] public float SunMaxElevationDegrees = 60f;
 
-    // Horizontal sway of the sun's orbit. The sun sits at -SunSideSwayDegrees
-    // yaw at sunrise, 0 at noon, +SunSideSwayDegrees at sunset. 0 locks the
-    // sun to a single azimuth (unnatural); 30 reads as a mid-latitude day.
-    // Same dual role: visual placement + simulation ShadowLightDirection.
-    [Export(PropertyHint.Range, "0,89,1")] public float SunSideSwayDegrees = 30f;
+    // Compass direction where the sun is at noon. 0° = +Z (world north),
+    // 90° = +X (world east), 180° = -Z, 270° = -X. Combined with
+    // SunMaxElevationDegrees, this fully specifies the noon sun direction.
+    // The sun's orbit is a great circle in the plane containing this noon
+    // direction and the horizontal axis perpendicular to it — sun rises
+    // 90° clockwise from noon, sets 90° counter-clockwise, passes under
+    // the anti-noon direction at midnight. This models both hemispheres:
+    // set NoonAzimuthDegrees toward the sky hemisphere where the sun
+    // actually passes (north for southern-hemisphere scenes, south for
+    // northern-hemisphere scenes).
+    //
+    // Example: for a world where +X+Z is "north" and the observer is in
+    // the southern hemisphere (so sun passes through north at noon),
+    // set NoonAzimuthDegrees = 45 and SunMaxElevationDegrees to latitude-
+    // derived value (90° - |latitude|).
+    [Export(PropertyHint.Range, "0,360,1")] public float NoonAzimuthDegrees = 45f;
 
     // The effective horizon — the elevation above geometric 0° at which
     // sources are considered "at sunset/moonrise". Models an occluding
@@ -312,9 +322,11 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float NightAmbientHumidityLift = 0.05f;
 
     [ExportSubgroup("Water")]
-    // Per-m/s of wind, how much ripple strength to add. 0.01 gives
-    // 15m/s wind → rippleStrength 0.15.
-    [Export(PropertyHint.Range, "0,0.1,0.001")] public float RippleWindK = 0.01f;
+    // Reference wind speed (m/s) at which ripple_strength saturates to 1.
+    // Curve is quadratic: (wind / ref)² — low wind barely perturbs the
+    // surface so the sun disk can reflect coherently, high wind fully
+    // breaks it up. Below ~2 m/s the surface is near-mirror.
+    [Export(PropertyHint.Range, "2,30,0.1")] public float RippleWindRef = 10f;
     // Per-unit of rainAmount, additional ripple strength. Rain patters
     // on water even without wind.
     [Export(PropertyHint.Range, "0,1,0.01")] public float RippleRainK = 0.3f;

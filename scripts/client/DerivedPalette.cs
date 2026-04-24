@@ -48,8 +48,27 @@ public struct DerivedPalette
     public Color SunShaftColor;
     public Color MoonShaftColor;
 
-    // Water.
+    // Water. All derived from RegionData.WaterColor + DustColor + weather +
+    // time-of-day. One authored RGBA drives all of these via the muddiness
+    // (alpha) channel and region atmosphere colors. See WeatherDerivation.
     public float RippleStrength;
+    // Per-region shallow & deep tints. Shallow is the authored WaterColor.rgb;
+    // deep is derived (red-absorbed physics for clear water, dust-tinted
+    // sediment for murky water) from WaterColor + DustColor + muddiness.
+    public Color WaterShallowTint;
+    public Color WaterDeepTint;
+    // Surface alpha floor (WaterColor.a). The effective value pushed to
+    // the shader is further modulated by sun-vs-ambient clarity in
+    // SkyController.Apply().
+    public float WaterAlphaMin;
+    // Exponent applied to the depth_factor in the shader before it drives
+    // the alpha ramp. Clear water uses > 1 (stays translucent longer);
+    // muddy water uses < 1 (hits opaque quickly within ~1 voxel of depth).
+    public float WaterTurbidityExp;
+    // Muddiness (= WaterColor.a) — passed through so SkyController can
+    // apply its own muddy-modulation to exports (reflection boost,
+    // refraction damp, whitecap threshold lift, wave amplitude damp).
+    public float WaterMuddiness;
 
     // Wind rhythm. windSpeed itself comes straight from WeatherData;
     // these are derived. Sprite sway uses gustedSpeed = windSpeed +

@@ -35,6 +35,20 @@ public partial class RegionData : Resource
     // dustAmount (on WeatherData) controls intensity; this controls hue.
     [Export] public Color DustColor = new Color(0.85f, 0.78f, 0.6f);
 
+    // Water surface color. Alpha is the "muddiness" / weight of the water
+    // and drives a lot of derived behavior: surface opacity, how quickly
+    // depth goes opaque, ripple damping, wave amplitude damping, whitecap
+    // threshold, foam tinting, reflection boost, and refraction fade.
+    // Deep-water color is derived from this + DustColor via physics
+    // (red absorbed first in clear water) and sediment pull (murky water
+    // takes on the regional dust color). See WeatherDerivation.Derive().
+    // Example authored values:
+    //   murky swamp      — (0.25, 0.30, 0.15, 0.85)
+    //   stormy sea       — (0.15, 0.25, 0.30, 0.55)
+    //   glassy tropical  — (0.35, 0.70, 0.75, 0.25)
+    //   slow river       — (0.30, 0.40, 0.35, 0.45)
+    [Export] public Color WaterColor = new Color(0.3f, 0.45f, 0.5f, 0.5f);
+
     // Baseline weather for this region. Becomes the climate baseline
     // once dynamic weather exists.
     [Export] public WeatherData weather;

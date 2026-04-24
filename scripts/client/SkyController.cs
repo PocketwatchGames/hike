@@ -74,17 +74,45 @@ public partial class SkyController : Node3D
     // the light reaches 0 energy exactly at sunset; fadeRange is how many
     // degrees above that it spends ramping up to full.
     [Export(PropertyHint.Range, "0,30,0.5")] public float lightEnergyFadeAngleDegrees = 0f;
-    [Export(PropertyHint.Range, "0.1,30,0.5")] public float lightEnergyFadeRangeDegrees = 5f;
+    [Export(PropertyHint.Range, "0.1,30,0.5")] public float lightEnergyFadeRangeDegrees = 10f;
 
     // Shaft (god-ray) fade. Needs a positive fadeAngle so shafts are fully
     // gone by the time the primary direction sign-flips.
-    [Export(PropertyHint.Range, "0,30,0.5")] public float shaftFadeAngleDegrees = 0f;
-    [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 12f;
+    [Export(PropertyHint.Range, "0,30,0.5")] public float shaftFadeAngleDegrees = 5f;
+    [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 10.1f;
 
     [ExportSubgroup("Disks")]
-    // Glow strength of the "primary" disk (sun at day, moon at night) in
-    // the sky shader. Authored on SkyController since it's a visual-sculpt
-    // parameter, not weather-driven.
+    // Sun/moon DISK shape + intensity in the sky shader. The disk is drawn
+    // as smoothstep(outer, inner, dot(dir, -sun)) — so `outer` is where
+    // the disk starts fading IN (lower = wider angular radius) and `inner`
+    // is where it reaches full brightness (higher = sharper edge).
+    // Intensity is the peak brightness multiplier — >1 triggers bloom.
+    //
+    // Under an orthographic camera with flat water, ALL fragments share a
+    // reflection direction, so if the disk is hit in one fragment it's hit
+    // in all — the whole surface goes bright. Wider disks (lower outer)
+    // make the sun findable at more camera facings but also mean more of
+    // the water brightens when alignment hits. 0.80 is a reasonable starting
+    // point for pixel-art iso cameras.
+    // Sun + moon are drawn as textured sprites in the sky. The texture's
+    // alpha channel is the sprite shape (circle, starburst, phased moon,
+    // whatever the art asset contains). Angular size controls how much of
+    // the sky dome the sprite covers — 2° matches real sun angular size,
+    // ~6° reads as chunky pixel art. Intensity multiplies output color;
+    // >1 pushes HDR so Godot's bloom pass gives the sprite a natural glow.
+    [Export(PropertyHint.Range, "0.3,30,0.05")] public float sunAngularSizeDeg = 2f;
+    [Export(PropertyHint.Range, "0,10,0.05")] public float sunDiskIntensity = 4.0f;
+    [Export(PropertyHint.Range, "0.3,30,0.05")] public float moonAngularSizeDeg = 2.5f;
+    [Export(PropertyHint.Range, "0,10,0.05")] public float moonDiskIntensity = 2.0f;
+    // Swap these textures to change sun/moon shape without code changes.
+    // Moon phases live here: author each phase as a separate texture
+    // asset and swap via a gameplay controller over time.
+    [Export] public Texture2D sunTexture;
+    [Export] public Texture2D moonTexture;
+
+    // Time-of-day fade for the disk glow. Feeds sun_disk_glow / moon_disk_glow
+    // which SkyController further multiplies by the day/night factor —
+    // authored as a ceiling that fades to 0 when the body is below horizon.
     [Export(PropertyHint.Range, "0,2,0.01")] public float sunDiskGlowStrength = 1f;
     [Export(PropertyHint.Range, "0,2,0.01")] public float moonDiskGlowStrength = 0.15f;
 
@@ -93,40 +121,142 @@ public partial class SkyController : Node3D
     // light's yaw + a configurable yaw offset + pitch below horizon.
     // Orthogonal fills (yaw offsets ~90° apart) give the cleanest slope
     // reading.
-    [Export] public float fillAPitchDegrees = 55f;
+    [Export] public float fillAPitchDegrees = 35f;
     [Export] public float fillAYawOffsetDegrees = 90f;
-    [Export] public float fillBPitchDegrees = 65f;
+    [Export] public float fillBPitchDegrees = 50f;
     [Export] public float fillBYawOffsetDegrees = -90f;
 
     [ExportGroup("Water")]
+    [ExportSubgroup("Depth")]
+    // Base world-unit distance over which water's alpha ramps from the
+    // authored surface value up toward 1.0. Larger = more transparent at
+    // depth (tropical lagoon feel); smaller = opaque quickly (puddle feel).
+    // In Apply() this is modulated by muddiness (murky water loses depth
+    // visibility fast) and direct light level (dim light lets less through
+    // regardless of clarity), so the effective depth scale floats roughly
+    // in [0.3, base × 1.5] meters.
+    [Export(PropertyHint.Range, "0.5,30,0.1")] public float waterDepthScale = 6.0f;
+    // Minimum alpha at the water's edge (thickness → 0). Clamps the
+    // authored WaterColor.a from below so clean water still reads as
+    // visible color along the shoreline. Set to 0 for fully-glassy water
+    // that disappears at the edge.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterEdgeOpacity = 0.3f;
+
+    [ExportSubgroup("Shoreline Rim")]
+    // Contiguous foam-colored band at the water/land boundary — drawn on
+    // top of the noisy shoreline foam as a solid rim so the shoreline has
+    // a clear outline rather than scattered noise.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rimWidth = 0.2f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float rimStrength = 0.6f;
+
     [ExportSubgroup("Ripples")]
     // Two procedural noise layers sampled in world XZ sum into the water
     // surface's height field; its finite-difference gradient perturbs the
     // shading normal. Two scales break up spatial tiling; both layers drift
     // along the wind vector (from weather) — layer B is rotated by a small
     // angle so the two layers don't lock into one apparent direction.
-    [Export] public float rippleScaleA = 0.4f;
-    [Export] public float rippleScaleB = 1.1f;
-    // Scroll speed per m/s of wind, for each layer. Layer A speed =
-    // blendedWeather.windSpeed * rippleSpeedA in world units/sec.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedA = 0.04f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedB = 0.04f;
+    [Export] public float rippleScaleA = 0.2f;
+    [Export] public float rippleScaleB = 0.1f;
+    // Scroll speed per m/s of wind, for each layer, BEFORE saturation.
+    // Layer A speed = min(windSpeed, rippleSpeedSaturation) × rippleSpeedA.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedA = 0.01f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float rippleSpeedB = 0.006f;
     [Export(PropertyHint.Range, "-180,180,1")] public float rippleAngleOffsetB = 30f;
+    // Caps how fast ripples scroll regardless of wind. Above this wind
+    // speed the scroll rate stops growing — prevents the ripple pattern
+    // from turning into a blur at high wind while still letting normal
+    // perturbation keep increasing. Tune independently of ripple strength
+    // (which saturates via SimData.RippleWindRef).
+    [Export(PropertyHint.Range, "0.5,20,0.1")] public float rippleSpeedSaturation = 4.0f;
+    // Wind-driven cell size shift. 0 = cell size fixed. 1 = cells grow
+    // 2× at the ripple strength saturation wind (waves get longer as
+    // wind picks up). Negative = cells shrink with wind. Lets you keep
+    // a calm base scale while winds produce larger patterns.
+    [Export(PropertyHint.Range, "-1,2,0.01")] public float rippleScaleWindResponse = 0f;
 
     [ExportSubgroup("Reflections")]
-    [Export(PropertyHint.Range, "1,8,0.1")] public float fresnelPower = 3.0f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float reflectionStrength = 0.6f;
-    [Export(PropertyHint.Range, "4,512,1")] public float glintSharpness = 64.0f;
-    [Export(PropertyHint.Range, "0,8,0.1")] public float glintStrength = 2.0f;
+    // Fake reflection FOV — under an orthographic iso camera, true mirror-
+    // reflection geometry makes the sun visible only in a tiny band of
+    // time/position because all water fragments share a near-parallel
+    // refl direction. These knobs let the water shader remap the sun's
+    // (and moon's) world direction into a wide virtual FOV so the body
+    // sweeps a readable arc across the water surface. 160° horizontal
+    // spreads sunrise-to-sunset across the full visible water; 90°
+    // vertical puts zenith at the top edge with horizon at the bottom.
+    // vertical_center shifts the vertical zero — raise to push the arc
+    // up toward the top of screen. Only the sun/moon sprites are remapped
+    // this way; clouds and sky gradient still sample via true reflection
+    // direction, so the sun is a standalone feature rather than a
+    // coherent window into the sky.
+    // FOV defaults at 90° × 90° — wide enough to spread the sun's daily arc
+    // across the visible water, narrow enough that tan-based projection
+    // stays close to linear (per-pixel angular rate roughly uniform), so
+    // the sun stays circular and not squashed at screen edges. Wider values
+    // like 160° give a dramatic fisheye-style sweep but compress the sun
+    // to a few pixels at edges and stretch it near center.
+    [Export(PropertyHint.Range, "30,220,1")] public float reflectionFovHorizontalDeg = 90f;
+    [Export(PropertyHint.Range, "30,220,1")] public float reflectionFovVerticalDeg = 90f;
+    // Pushes the vertical center down — values below 0.5 anchor the horizon
+    // line higher on screen, so the sun (which appears above horizon) sits
+    // lower. Raising this toward 1.0 pushes sun up toward top of screen.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float reflectionFovVerticalCenter = 0.3f;
+
+    // Near-1 fresnel means reflection stays strong at most view angles
+    // rather than only at grazing. Weather modulation in Apply() lifts this
+    // toward ~2 in heavy overcast where sky light is diffuse and a sharper
+    // fresnel reads better; clear-sky scenes keep the low default.
+    [Export(PropertyHint.Range, "0.5,8,0.1")] public float fresnelPower = 1.5f;
+    // Base reflection strength at non-grazing angles. Muddiness damps this
+    // toward diffuse (scum surfaces don't mirror); dim lighting damps it
+    // further so night water doesn't glow from sky reflection. Bright pixel
+    // highlights come from the sun/moon disks in sample_sky_from — no
+    // separate glint term, because under an orthographic camera all water
+    // fragments share a reflection direction and any angle-based glint
+    // would paint the entire surface uniformly.
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float reflectionStrength = 1.0f;
+    // Artistic minimum reflection mix independent of fresnel. Physical
+    // fresnel at typical iso camera angles gives only ~3–8% reflection
+    // blend — nearly invisible. Raising this floor guarantees a visible
+    // baseline reflection at any view angle. 0 = pure fresnel (physically
+    // correct, often invisible under ortho top-down); 0.15–0.3 gives a
+    // subtle always-there reflection that grows at grazing angles.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float reflectionMin = 0.2f;
+
+    [ExportSubgroup("Waves")]
+    // Vertex-displacement wave on top water faces. Amplitude scales with
+    // GustedWindSpeed and is damped by WaterColor.a (muddiness); a swamp
+    // hardly moves even in wind, a stormy sea with low muddiness rolls.
+    [Export(PropertyHint.Range, "0,0.5,0.001")] public float waveAmpPerMps = 0.01f;
+    // World-units per wave cycle. Lower = choppier, higher = ocean swell.
+    [Export(PropertyHint.Range, "1,32,0.1")] public float waveLength = 1.0f;
+    // Spatial frequency of the intermittent wave envelope. Smaller = larger
+    // patches of active vs calm water; larger = busier surface.
+    [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveGateScale = 0.005f;
+
+    [ExportSubgroup("Ripples (Pixelation)")]
+    // Pixels per world-unit used to quantize ripple-noise UVs. Higher values
+    // yield finer noise; lower values give chunky, hand-drawn-looking ripples.
+    // Muddy water drops this further so ripples read slower and blockier.
+    [Export(PropertyHint.Range, "1,32,0.5")] public float ripplePixelSize = 6.0f;
+
+    [ExportSubgroup("Refraction")]
+    // Screen-space refraction strength. 0 disables (free — shader skips the
+    // extra screen sample); >0 enables at the cost of one extra tap per
+    // water fragment plus the implicit back-buffer copy Godot does for
+    // hint_screen_texture. Muddiness damps this toward zero automatically.
+    [Export(PropertyHint.Range, "0,0.2,0.001")] public float refractionStrength = 0.05f;
 
     [ExportSubgroup("Shoreline Foam")]
-    [Export] public Color foamColor = new Color(0.95f, 0.98f, 1.0f);
-    [Export(PropertyHint.Range, "0.1,4,0.05")] public float foamDepth = 0.8f;
-    [Export(PropertyHint.Range, "0.1,8,0.05")] public float foamScale = 2.5f;
-    [Export] public Vector2 foamScroll = new Vector2(0.12f, -0.07f);
-    [Export(PropertyHint.Range, "0,1.5,0.01")] public float foamStrength = 0.9f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.45f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float foamSharpness = 0.6f;
+    // Foam COLOR is derived entirely from region (DustColor + WaterColor +
+    // muddiness) and current lighting (SunTint × light level) in Apply().
+    // Only the SHAPE / SCALE / STRENGTH knobs remain here since those are
+    // visual-sculpt choices, not region-driven.
+    [Export(PropertyHint.Range, "0.1,8,0.05")] public float foamDepth = 4.0f;
+    [Export(PropertyHint.Range, "0.1,16,0.05")] public float foamScale = 7.0f;
+    [Export] public Vector2 foamScroll = new Vector2(0.5f, -0.15f);
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float foamStrength = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.6f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foamSharpness = 0.0f;
 
     [ExportSubgroup("Screenspace Reflection")]
     [Export(PropertyHint.Range, "1,60,0.1")] public float ssrMaxDistance = 30.0f;
@@ -147,7 +277,7 @@ public partial class SkyController : Node3D
     // pattern SCALE is a scene-wide visual choice, not weather.
     [Export] public float cloudScale = 0.15f;
     // World Y of the flat cloud plane used for projective sun-shadow casting.
-    [Export] public float cloudAltitude = 60f;
+    [Export] public float cloudAltitude = 50f;
     // Cloud noise scroll rate per m/s of wind.
     [Export(PropertyHint.Range, "0,0.01,0.0001")] public float cloudScrollPerMps = 0.0015f;
     // Opacity of projected cloud shadows on the ground. 1.0 = cloud
@@ -170,17 +300,17 @@ public partial class SkyController : Node3D
 
     [ExportGroup("Sunbeams")]
     [ExportSubgroup("Dust Band")]
-    [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 10.0f;
-    [Export(PropertyHint.Range, "0,2,0.001")] public float dustNoiseScale = 0.12f;
+    [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 16.0f;
+    [Export(PropertyHint.Range, "0,2,0.001")] public float dustNoiseScale = 0.062f;
     [Export] public Vector2 dustNoiseScroll = new Vector2(0.05f, 0.03f);
     [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseStrength = 0.7f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.4f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseThreshold = 0.2f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
 
     [ExportSubgroup("Inscatter")]
-    [Export(PropertyHint.Range, "-0.95,0.95,0.01")] public float scatterAnisotropy = 0.0f;
+    [Export(PropertyHint.Range, "-0.95,0.95,0.01")] public float scatterAnisotropy = 0.8f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float shaftSunThreshold = 0.7f;
-    [Export(PropertyHint.Range, "0,90,0.1")] public float shaftCameraFadeDegrees = 60.0f;
+    [Export(PropertyHint.Range, "0,90,0.1")] public float shaftCameraFadeDegrees = 45.0f;
     [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpnessLowSunFloor = 0.35f;
@@ -196,7 +326,7 @@ public partial class SkyController : Node3D
 
     [ExportSubgroup("Mote Shimmer")]
     [Export(PropertyHint.Range, "0,1,0.01")] public float moteStrength = 0.5f;
-    [Export] public float moteScale = 0.18f;
+    [Export] public float moteScale = 0.5f;
     [Export] public Vector3 moteScroll = new Vector3(0.35f, 0.12f, -0.25f);
 
     // Accumulated cloud / ripple scroll offsets — integrated per frame from
@@ -287,6 +417,48 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("moon_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.55f, 0.6f, 0.75f));
             ShaderGlobals.Register("sun_disk_glow", RenderingServer.GlobalShaderParameterType.Float, 1f);
             ShaderGlobals.Register("moon_disk_glow", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            ShaderGlobals.Register("sun_angular_size_deg", RenderingServer.GlobalShaderParameterType.Float, 2f);
+            ShaderGlobals.Register("moon_angular_size_deg", RenderingServer.GlobalShaderParameterType.Float, 2.5f);
+            ShaderGlobals.Register("sun_disk_intensity", RenderingServer.GlobalShaderParameterType.Float, 4.0f);
+            ShaderGlobals.Register("moon_disk_intensity", RenderingServer.GlobalShaderParameterType.Float, 2.0f);
+            ShaderGlobals.Register("sky_debug_sun_disk", RenderingServer.GlobalShaderParameterType.Bool, false);
+            // Load default textures if the exports are unwired, so the sun/
+            // moon always have a visible shape out of the box. Inspector-set
+            // overrides take precedence via the Apply() push.
+            if (sunTexture == null) { sunTexture = GD.Load<Texture2D>("res://assets/textures/sun_disc.tres"); }
+            if (moonTexture == null) { moonTexture = GD.Load<Texture2D>("res://assets/textures/moon_disc.tres"); }
+            if (sunTexture != null)
+            {
+                ShaderGlobals.Register("sun_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, sunTexture);
+            }
+            if (moonTexture != null)
+            {
+                ShaderGlobals.Register("moon_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, moonTexture);
+            }
+            ShaderGlobals.Register("sky_night_factor", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            // Water globals pushed by Apply() — seed with sensible defaults so
+            // shaders compile before the first Apply() runs without dropping
+            // into "global was removed" warnings.
+            ShaderGlobals.Register("water_shallow_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.35f, 0.7f, 0.7f));
+            ShaderGlobals.Register("water_deep_tint", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.05f, 0.15f, 0.4f));
+            ShaderGlobals.Register("water_alpha_min", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+            ShaderGlobals.Register("water_turbidity_exp", RenderingServer.GlobalShaderParameterType.Float, 1f);
+            ShaderGlobals.Register("water_muddiness", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            ShaderGlobals.Register("water_refraction_strength", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("water_wave_amp", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            ShaderGlobals.Register("water_wave_length", RenderingServer.GlobalShaderParameterType.Float, 6f);
+            ShaderGlobals.Register("water_wave_gate_scale", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("water_depth_scale", RenderingServer.GlobalShaderParameterType.Float, 6f);
+            ShaderGlobals.Register("water_edge_opacity", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+            ShaderGlobals.Register("water_rim_width", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
+            ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
+            ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
+            ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
+            ShaderGlobals.Register("water_disable_ripples", RenderingServer.GlobalShaderParameterType.Bool, false);
+            ShaderGlobals.Register("reflection_min", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
+            ShaderGlobals.Register("reflection_fov_h_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
+            ShaderGlobals.Register("reflection_fov_v_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
+            ShaderGlobals.Register("reflection_fov_v_center", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
 
             // Working copies for the region blend output. Re-populated in
             // _Process each frame — these exist so RegionBlend can write
@@ -367,9 +539,15 @@ public partial class SkyController : Node3D
             // to the sample coord makes the visible pattern scroll in
             // the -offset direction.
             float steadySpeed = currentWeather.windSpeed;
+            // Ripple scroll saturates at rippleSpeedSaturation — at higher
+            // wind the pattern stops scrolling faster, which prevents the
+            // ripple surface from smearing into visual noise. Strength
+            // (normal perturbation) keeps scaling beyond this via the
+            // RippleWindRef curve in WeatherDerivation.
+            float rippleScrollSpeed = Mathf.Min(steadySpeed, Mathf.Max(rippleSpeedSaturation, 0.01f));
             cloudOffset -= windXZ * steadySpeed * cloudScrollPerMps * dt;
-            rippleOffsetA -= windXZ * steadySpeed * rippleSpeedA * dt;
-            rippleOffsetB -= windXZ_B * steadySpeed * rippleSpeedB * dt;
+            rippleOffsetA -= windXZ * rippleScrollSpeed * rippleSpeedA * dt;
+            rippleOffsetB -= windXZ_B * rippleScrollSpeed * rippleSpeedB * dt;
             windPhase += _palette.WindFrequency * dt;
             gustPhase += _palette.GustFrequency * Mathf.Tau * dt;
 
@@ -406,18 +584,38 @@ public partial class SkyController : Node3D
 
         SimData sim = World.Current?.WorldState?.SimData;
         float sunMaxElev = sim?.SunMaxElevationDegrees ?? 60f;
-        float sunSideSway = sim?.SunSideSwayDegrees ?? 30f;
+        float noonAzimuth = sim?.NoonAzimuthDegrees ?? 45f;
 
-        // Phase: t=0.25 is sunrise, 0.5 is noon, 0.75 is sunset, 0/1 is midnight.
-        float phase = Mathf.Tau * ((float)t - 0.25f);
-        float elevRad = Mathf.Sin(phase) * Mathf.DegToRad(sunMaxElev);
-        float yawRad = -Mathf.Cos(phase) * Mathf.DegToRad(sunSideSway);
-
+        // Sun's orbit is a great circle on the celestial sphere. The noon
+        // direction is fully specified by (azimuth, elevation); the east
+        // direction (where sun rises) is 90° clockwise (viewed from above)
+        // of the noon azimuth, horizontal. The orbit plane contains these
+        // two axes — sun position at phase θ = noonDir·sin(θ) + eastDir·cos(θ).
+        // θ = 0 at sunrise, π/2 at noon, π at sunset, 3π/2 at midnight.
+        //
+        // This models southern-hemisphere-style orbits naturally: for a
+        // world where +X+Z is north and the player is south of the equator
+        // (sun passes through north at noon), set NoonAzimuthDegrees = 45.
+        float azimuthRad = Mathf.DegToRad(noonAzimuth);
+        float elevRad = Mathf.DegToRad(sunMaxElev);
         float cosElev = Mathf.Cos(elevRad);
-        Vector3 sunPos = new Vector3(
-            Mathf.Sin(yawRad) * cosElev,
+
+        Vector3 noonDir = new Vector3(
+            Mathf.Sin(azimuthRad) * cosElev,
             Mathf.Sin(elevRad),
-            Mathf.Cos(yawRad) * cosElev).Normalized();
+            Mathf.Cos(azimuthRad) * cosElev);
+        // East = noon azimuth + 90° in compass convention. Compass azimuth
+        // increases CW from north (+Z), so east of noon is noon's azimuth
+        // plus 90°. With noon at azimuth 0° (north = +Z), east = (sin 90°,
+        // 0, cos 90°) = +X, matching the convention. Previously had `- π/2`
+        // which put sunrise on the west side, flipping the reflection arc.
+        Vector3 eastDir = new Vector3(
+            Mathf.Sin(azimuthRad + Mathf.Pi * 0.5f),
+            0f,
+            Mathf.Cos(azimuthRad + Mathf.Pi * 0.5f));
+
+        float phase = Mathf.Tau * ((float)t - 0.25f);
+        Vector3 sunPos = (noonDir * Mathf.Sin(phase) + eastDir * Mathf.Cos(phase)).Normalized();
         Vector3 moonPos = -sunPos;
 
         _sunActualDir = (-sunPos).Normalized();
@@ -485,6 +683,13 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("moon_color", ColorToVec3(_palette.MoonDiskColor));
         RenderingServer.GlobalShaderParameterSet("sun_disk_glow", effSunDiskGlow);
         RenderingServer.GlobalShaderParameterSet("moon_disk_glow", effMoonDiskGlow);
+        RenderingServer.GlobalShaderParameterSet("sun_angular_size_deg", sunAngularSizeDeg);
+        RenderingServer.GlobalShaderParameterSet("moon_angular_size_deg", moonAngularSizeDeg);
+        RenderingServer.GlobalShaderParameterSet("sun_disk_intensity", sunDiskIntensity);
+        RenderingServer.GlobalShaderParameterSet("moon_disk_intensity", moonDiskIntensity);
+        if (sunTexture != null) { RenderingServer.GlobalShaderParameterSet("sun_texture", sunTexture); }
+        if (moonTexture != null) { RenderingServer.GlobalShaderParameterSet("moon_texture", moonTexture); }
+        RenderingServer.GlobalShaderParameterSet("sky_night_factor", nightT);
         RenderingServer.GlobalShaderParameterSet("cloud_offset", cloudOffset);
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", _palette.CloudThreshold);
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", _palette.CloudSharpness);
@@ -493,19 +698,123 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
 
         // --- Water -------------------------------------------------------
-        RenderingServer.GlobalShaderParameterSet("ripple_scale_a", rippleScaleA);
-        RenderingServer.GlobalShaderParameterSet("ripple_scale_b", rippleScaleB);
+        // Muddiness comes from RegionData.WaterColor.a (via palette). It drives:
+        //   - reflection boost (denser surface = better mirror)
+        //   - refraction damp (particles scatter before bending)
+        //   - whitecap threshold lift (viscous water resists foam)
+        //   - wave amplitude damp (heavier water moves less)
+        //   - ripple cell size nudge (chunkier, slower-feeling ripples)
+        //   - foam tint toward water color (done in derivation)
+        float muddy = _palette.WaterMuddiness;
+
+        // Sun-vs-ambient clarity modulates surface alpha: direct sun penetrates
+        // and lights the bottom (reads more translucent); overcast/ambient-only
+        // bounces off the surface (reads more opaque). Gated by sun elevation
+        // so the moon doesn't count — moonlight doesn't penetrate water
+        // meaningfully, so night water should read opaque at its authored alpha.
+        float sunAbove = Mathf.SmoothStep(0f, 12f, _sunElevationDegrees);
+        float primaryLit = Mathf.Max(CurrentPrimaryIntensity, 0f);
+        float ambientLit = Mathf.Max(CurrentAmbient, 0f);
+        float sunClarity = sunAbove * primaryLit / (primaryLit + ambientLit * 2f + 1e-4f);
+        float effAlphaMin = Mathf.Clamp(_palette.WaterAlphaMin * Mathf.Lerp(1.0f, 0.6f, sunClarity), 0f, 1f);
+
+        // Light-level factor: direct-light proxy used to dim reflection and
+        // glint when the scene is dim. Without this, night water reads as a
+        // glowing mirror of the (faint) night sky and moon-lit glint halos
+        // paint the entire surface.
+        float lightLevel = Mathf.Clamp(CurrentPrimaryIntensity / 2.0f, 0.2f, 1.0f);
+
+        float cloudCover01 = Weather?.cloudCover ?? 0f;
+        float humidity01 = Weather?.humidity ?? 0.5f;
+        float fog01 = Weather?.fog ?? 0f;
+        float effFresnel = fresnelPower + cloudCover01 * 0.8f;
+        // Reflection clarity is about AIR + WATER quality, not ambient brightness.
+        // A clear night with a moon should reflect the moon cleanly; scaling
+        // reflection by direct light intensity would kill that. Instead:
+        //   muddy  → scatters light within the water (diffuse surface)
+        //   humid  → hazy air softens the mirror
+        //   fog    → more severe scattering
+        // No lightLevel term here so moon/stars reflect at full strength on a
+        // clear calm night.
+        float reflectionClarity = Mathf.Lerp(1.0f, 0.1f, muddy)
+            * (1f - humidity01 * 0.4f)
+            * (1f - fog01 * 0.6f)
+            * (1f - cloudCover01 * 0.2f);
+        float effReflection = reflectionStrength * reflectionClarity;
+        float effRefraction = refractionStrength * Mathf.Lerp(1.0f, 0.1f, muddy);
+        // Depth scale: clean water in bright light lets sight reach many
+        // meters down; murky water or dim light crushes visible depth
+        // toward a voxel or two. Floor keeps the ramp non-zero so pixels
+        // right at the shoreline don't pop to full opacity at any light.
+        float effDepthScale = Mathf.Max(waterDepthScale * Mathf.Lerp(1.3f, 0.35f, muddy) * lightLevel, 0.3f);
+        float effWaveAmp = GustedWindSpeed * waveAmpPerMps * Mathf.Lerp(1.0f, 0.35f, muddy);
+        float effRipplePx = ripplePixelSize * Mathf.Lerp(1.0f, 0.6f, muddy);
+
+        // Wind-driven cell size: positive rippleScaleWindResponse enlarges
+        // ripple cells at higher wind (longer-wavelength waves); negative
+        // shrinks them. Formula divides the UV multiplier so the cell size
+        // in world units grows with the response factor.
+        SimData sim2 = World.Current?.WorldState?.SimData;
+        float rippleWindRef = sim2?.RippleWindRef ?? 10f;
+        float windFrac = Mathf.Clamp((Weather?.windSpeed ?? 0f) / Mathf.Max(rippleWindRef, 0.1f), 0f, 1f);
+        float scaleShift = 1f / Mathf.Max(1f + rippleScaleWindResponse * windFrac, 0.1f);
+        float effRippleScaleA = rippleScaleA * scaleShift;
+        float effRippleScaleB = rippleScaleB * scaleShift;
+
+        RenderingServer.GlobalShaderParameterSet("ripple_scale_a", effRippleScaleA);
+        RenderingServer.GlobalShaderParameterSet("ripple_scale_b", effRippleScaleB);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_a", rippleOffsetA);
         RenderingServer.GlobalShaderParameterSet("ripple_offset_b", rippleOffsetB);
         RenderingServer.GlobalShaderParameterSet("ripple_strength", _palette.RippleStrength);
-        RenderingServer.GlobalShaderParameterSet("fresnel_power", fresnelPower);
-        RenderingServer.GlobalShaderParameterSet("reflection_strength", reflectionStrength);
-        RenderingServer.GlobalShaderParameterSet("glint_sharpness", glintSharpness);
-        RenderingServer.GlobalShaderParameterSet("glint_strength", glintStrength);
+        RenderingServer.GlobalShaderParameterSet("ripple_pixel_size", effRipplePx);
+        RenderingServer.GlobalShaderParameterSet("water_shallow_tint", ColorToVec3(_palette.WaterShallowTint));
+        RenderingServer.GlobalShaderParameterSet("water_deep_tint", ColorToVec3(_palette.WaterDeepTint));
+        RenderingServer.GlobalShaderParameterSet("water_alpha_min", effAlphaMin);
+        RenderingServer.GlobalShaderParameterSet("water_turbidity_exp", _palette.WaterTurbidityExp);
+        RenderingServer.GlobalShaderParameterSet("water_depth_scale", effDepthScale);
+        RenderingServer.GlobalShaderParameterSet("water_edge_opacity", waterEdgeOpacity);
+        RenderingServer.GlobalShaderParameterSet("water_rim_width", rimWidth);
+        RenderingServer.GlobalShaderParameterSet("water_rim_strength", rimStrength);
+        RenderingServer.GlobalShaderParameterSet("water_muddiness", muddy);
+        RenderingServer.GlobalShaderParameterSet("water_refraction_strength", effRefraction);
+        RenderingServer.GlobalShaderParameterSet("water_wave_amp", effWaveAmp);
+        RenderingServer.GlobalShaderParameterSet("water_wave_length", Mathf.Max(waveLength, 0.1f));
+        RenderingServer.GlobalShaderParameterSet("water_wave_gate_scale", waveGateScale);
+        RenderingServer.GlobalShaderParameterSet("fresnel_power", effFresnel);
+        RenderingServer.GlobalShaderParameterSet("reflection_strength", effReflection);
+        RenderingServer.GlobalShaderParameterSet("reflection_min", reflectionMin * reflectionClarity);
+        RenderingServer.GlobalShaderParameterSet("reflection_fov_h_deg", reflectionFovHorizontalDeg);
+        RenderingServer.GlobalShaderParameterSet("reflection_fov_v_deg", reflectionFovVerticalDeg);
+        RenderingServer.GlobalShaderParameterSet("reflection_fov_v_center", reflectionFovVerticalCenter);
         RenderingServer.GlobalShaderParameterSet("ssr_max_distance", ssrMaxDistance);
         RenderingServer.GlobalShaderParameterSet("ssr_steps", ssrSteps);
         RenderingServer.GlobalShaderParameterSet("ssr_thickness", ssrThickness);
-        RenderingServer.GlobalShaderParameterSet("foam_color", ColorToVec3(foamColor));
+        // Foam color derived entirely from regional palette + direct light:
+        //   - Start from a soft tint of the region's DustColor (shoreline
+        //     froth physically carries suspended sediment — the regional
+        //     "particulate color" is the closest we have to that).
+        //   - Pull toward WaterShallowTint by muddiness, so murky water's
+        //     "foam" reads as scum/film in the water's own color rather
+        //     than bright white.
+        //   - Multiply by SunTint (CurrentPrimaryIntensity gated by
+        //     lightLevel) so foam warms at sunset / cools at moonlight /
+        //     dims at night rather than staying a single hard value.
+        // No foamColor export — white foam under every condition fights
+        // too many regional palettes. Lightness baseline (0.9) keeps clean
+        // shoreline surf readably bright against deep water.
+        Color foamParticulate = _palette.FogTint.Lerp(new Color(1f, 1f, 1f), 0.4f);
+        Color foamBase = foamParticulate.Lerp(_palette.WaterShallowTint, muddy * 0.7f);
+        Color sunTintLit = new Color(
+            _palette.SunTint.R * lightLevel,
+            _palette.SunTint.G * lightLevel,
+            _palette.SunTint.B * lightLevel,
+            1f);
+        Color effFoam = new Color(
+            Mathf.Clamp(foamBase.R * (0.55f + 0.5f * sunTintLit.R), 0f, 1f),
+            Mathf.Clamp(foamBase.G * (0.55f + 0.5f * sunTintLit.G), 0f, 1f),
+            Mathf.Clamp(foamBase.B * (0.55f + 0.5f * sunTintLit.B), 0f, 1f),
+            1f);
+        RenderingServer.GlobalShaderParameterSet("foam_color", ColorToVec3(effFoam));
         RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);
         RenderingServer.GlobalShaderParameterSet("foam_scale", foamScale);
         RenderingServer.GlobalShaderParameterSet("foam_scroll", foamScroll);

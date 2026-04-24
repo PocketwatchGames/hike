@@ -235,6 +235,46 @@ water_depth_scale={
 "type": "float",
 "value": 3.0
 }
+water_alpha_min={
+"type": "float",
+"value": 0.3
+}
+water_shallow_tint={
+"type": "vec3",
+"value": Vector3(0.35, 0.7, 0.7)
+}
+water_deep_tint={
+"type": "vec3",
+"value": Vector3(0.05, 0.15, 0.4)
+}
+water_turbidity_exp={
+"type": "float",
+"value": 1.0
+}
+water_muddiness={
+"type": "float",
+"value": 0.5
+}
+water_refraction_strength={
+"type": "float",
+"value": 0.05
+}
+water_wave_amp={
+"type": "float",
+"value": 0.0
+}
+water_wave_length={
+"type": "float",
+"value": 6.0
+}
+water_wave_gate_scale={
+"type": "float",
+"value": 0.05
+}
+ripple_pixel_size={
+"type": "float",
+"value": 6.0
+}
 sun_world_dir={
 "type": "vec3",
 "value": Vector3(-0.215, -0.819, -0.532)
@@ -291,6 +331,74 @@ cloud_shadow_strength={
 "type": "float",
 "value": 1.0
 }
+sky_night_factor={
+"type": "float",
+"value": 0.0
+}
+sun_angular_size_deg={
+"type": "float",
+"value": 2.0
+}
+moon_angular_size_deg={
+"type": "float",
+"value": 2.5
+}
+sun_disk_intensity={
+"type": "float",
+"value": 4.0
+}
+moon_disk_intensity={
+"type": "float",
+"value": 2.0
+}
+sun_texture={
+"type": "sampler2D",
+"value": "res://assets/textures/sun_disc.tres"
+}
+moon_texture={
+"type": "sampler2D",
+"value": "res://assets/textures/moon_disc.tres"
+}
+sky_debug_sun_disk={
+"type": "bool",
+"value": false
+}
+reflection_fov_h_deg={
+"type": "float",
+"value": 90.0
+}
+reflection_fov_v_deg={
+"type": "float",
+"value": 90.0
+}
+reflection_fov_v_center={
+"type": "float",
+"value": 0.3
+}
+water_edge_opacity={
+"type": "float",
+"value": 0.3
+}
+water_rim_width={
+"type": "float",
+"value": 0.2
+}
+water_rim_strength={
+"type": "float",
+"value": 0.6
+}
+water_debug_mode={
+"type": "int",
+"value": 0
+}
+water_disable_ripples={
+"type": "bool",
+"value": false
+}
+reflection_min={
+"type": "float",
+"value": 0.2
+}
 cloud_noise_tex={
 "type": "sampler2D",
 "value": "res://assets/textures/cloud_noise.tres"
@@ -345,19 +453,11 @@ ripple_strength={
 }
 fresnel_power={
 "type": "float",
-"value": 3.0
+"value": 1.5
 }
 reflection_strength={
 "type": "float",
-"value": 0.6
-}
-glint_sharpness={
-"type": "float",
-"value": 64.0
-}
-glint_strength={
-"type": "float",
-"value": 2.0
+"value": 1.0
 }
 ssr_max_distance={
 "type": "float",

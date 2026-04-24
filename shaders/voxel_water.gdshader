@@ -24,11 +24,16 @@ global uniform float sun_intensity;
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.3;
+// Per-region water styling — all globals driven by RegionData.WaterColor
+// through WeatherDerivation + SkyController.Apply. Authoring one RGBA per
+// region controls muddiness, depth color, foam tint, ripple/wave behavior.
+global uniform float water_alpha_min;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
-uniform vec3 water_shallow_tint : source_color = vec3(0.35, 0.7, 0.7);
-uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
+global uniform float water_turbidity_exp;
+global uniform float water_muddiness;
+global uniform vec3 water_shallow_tint : source_color;
+global uniform vec3 water_deep_tint : source_color;
 
 // Ripple / reflection tuning — registered as globals by SkyController so
 // inspector tweaks propagate live to every water material at once.
@@ -37,13 +42,65 @@ global uniform float ripple_scale_b;
 global uniform vec2 ripple_offset_a;
 global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
+// Pixels-per-world-unit noise UV quantization. Snaps the ripple samples
+// to a discrete grid so the surface reads as hand-drawn pixel ripples
+// rather than a smoothly scrolling noise pattern.
+global uniform float ripple_pixel_size;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
-global uniform float glint_sharpness;
-global uniform float glint_strength;
+// Floor on the reflection blend amount independent of fresnel. Physical
+// fresnel at ~35° view angle gives ~5% reflection which reads as "no
+// reflection at all" under ortho iso cameras — this raises the minimum
+// so reflections stay visible at any view angle. Muddiness + light level
+// modulate this in SkyController so dim/murky scenes still dim correctly.
+global uniform float reflection_min;
+// Fake reflection FOV — remaps each water fragment's screen UV into a
+// virtual sky direction using a wide artificial FOV. Under ortho iso
+// cameras the true reflection direction is nearly parallel across all
+// fragments, so sun/clouds/sky features occupy a tiny sliver. The fake
+// FOV spreads the sky across the water coherently — sun, moon, clouds,
+// horizon all appear at consistent positions relative to each other.
+global uniform float reflection_fov_h_deg;
+global uniform float reflection_fov_v_deg;
+global uniform float reflection_fov_v_center;
 global uniform float ssr_max_distance;
 global uniform float ssr_steps;
 global uniform float ssr_thickness;
+// Large-scale vertex undulation (top face only). Amplitude is already wind-
+// scaled and muddy-damped in SkyController; shader just applies it.
+global uniform float water_wave_amp;
+global uniform float water_wave_length;
+// Spatial scale for the intermittent wave envelope — a slow noise field
+// that multiplies wave amplitude so there are patches of calm and active
+// water instead of uniform surface motion.
+global uniform float water_wave_gate_scale;
+// Two normal-map textures for ripple perturbation. Each texel's RGB
+// encodes a tangent-space normal via Godot's NoiseTexture2D as_normal_map
+// bake — the output stores (nx, nz, ny) in [0,1] with ny biased upward.
+// Sampled with filter_linear so ripples read smooth between texels, at
+// different world scales (A, B) to break tiling, then combined and
+// slerped toward +Y by ripple_strength.
+uniform sampler2D ripple_tex_a : filter_linear, repeat_enable, hint_normal;
+uniform sampler2D ripple_tex_b : filter_linear, repeat_enable, hint_normal;
+// Screen-space refraction strength (UV offset in normalized units). 0 skips
+// the extra screen sample entirely. Muddy water damps to near zero.
+global uniform float water_refraction_strength;
+// Minimum surface alpha at the water's edge (thickness → 0). Clamps the
+// authored WaterColor.a from below so clean water still reads as visible
+// color along the shoreline instead of fading to full transparency.
+global uniform float water_edge_opacity;
+// Contiguous shoreline rim — a solid band of foam-colored pixels right at
+// the water/land boundary, on top of the noisy shoreline foam. _width is
+// world-units from the edge; _strength is how strong the rim reads.
+global uniform float water_rim_width;
+global uniform float water_rim_strength;
+// --- Debug ---------------------------------------------------------------
+// Reflection-path visualizer. See CVars.cs `water_debug` for mode docs.
+global uniform int water_debug_mode;
+// Force the shading normal flat — bypasses ripple texture perturbation.
+global uniform bool water_disable_ripples;
+// Wind direction (normalized; y unused). Used for wave direction.
+global uniform vec3 wind_dir;
 // Shoreline foam — lighter noise band where water thickness falls below
 // `foam_depth`, so shallow edges of water bodies read as surf.
 global uniform vec3 foam_color;
@@ -76,30 +133,146 @@ float vnoise(vec3 p) {
 	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
 }
 
-// Two scrolling noise layers sum into a scalar height field. Sampled at
-// world XZ so ripples stay locked to the world, not the camera.
-float ripple_height(vec2 world_xz, float time) {
-	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
-	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
-	return (vnoise(vec3(uv_a, 0.0)) + vnoise(vec3(uv_b, 0.0))) * 0.5;
+// Quantize noise UVs to a pixel grid. Used for the shoreline foam mask
+// (procedural vnoise); the ripple height sampled from water_noise_tex
+// already gets its pixel feel from filter_nearest.
+vec2 pixelize(vec2 uv) {
+	float px = max(ripple_pixel_size, 0.01);
+	return floor(uv * px) / px;
 }
 
-// Finite-difference gradient of the height field → tangent-space normal,
-// blended with flat +Y by ripple_strength.
+// Decode a stored normal map texel: Godot's as_normal_map produces
+// (nx, nz, ny) in [0,1]. We remap to [-1,1], swizzle to (nx, ny, nz),
+// and leave normalization to the caller (averages don't need to be
+// pre-normalized).
+vec3 decode_normal_map(sampler2D tex, vec2 uv) {
+	vec3 c = texture(tex, uv).rgb * 2.0 - 1.0;
+	return vec3(c.r, c.b, c.g);
+}
+
+// Slerp from `a` to `b` by t. Preserves unit length (unlike a lerp +
+// normalize, which produces a shorter intermediate vector for wide
+// angles). Falls back to lerp when the two vectors are nearly parallel
+// to avoid division by sin(omega≈0).
+vec3 slerp_normals(vec3 a, vec3 b, float t) {
+	float cos_omega = clamp(dot(a, b), -0.9999, 0.9999);
+	float omega = acos(cos_omega);
+	if (omega < 1e-3) { return normalize(mix(a, b, t)); }
+	float sin_omega = sin(omega);
+	return (sin((1.0 - t) * omega) * a + sin(t * omega) * b) / sin_omega;
+}
+
+// Billboard a celestial body (sun or moon) onto the water's screen UV.
+// Instead of per-fragment angular sampling (which squashes the sprite
+// asymmetrically under wide FOV), we compute the body's screen position
+// once and draw it as a 2D sprite with fixed pixel radius. Circular
+// shape guaranteed regardless of FOV.
+//
+// Projection: reflect the body's world direction over the water plane
+// (+Y), transform to view space, apply the virtual FOV via perspective
+// divide, remap to screen UV centered at (0.5, v_center).
+//
+// Returns vec4(color, alpha). Accumulates ONLY if the body's screen
+// position is in front of the camera; otherwise returns zero.
+vec4 sample_billboard_body(
+	vec2 screen_uv,
+	vec2 viewport_size,
+	vec3 body_world_dir,   // direction TO the body from origin
+	sampler2D body_tex,
+	float angular_size_deg,
+	float intensity,
+	vec3 body_color,
+	mat4 view_matrix
+) {
+	// Reflect over +Y (water surface) — sky reflection geometry.
+	vec3 refl_world = reflect(body_world_dir, vec3(0.0, 1.0, 0.0));
+	vec4 view_dir = view_matrix * vec4(refl_world, 0.0);
+	// Camera looks along -Z in view space; view_dir.z < 0 means in front.
+	if (view_dir.z >= -1e-4) {
+		return vec4(0.0);
+	}
+	float tan_h = tan(radians(reflection_fov_h_deg) * 0.5);
+	float tan_v = tan(radians(reflection_fov_v_deg) * 0.5);
+	// Perspective divide in view space (treating camera as a pinhole with
+	// the virtual FOV). Output is normalized device coordinate in [-1, 1].
+	vec2 ndc = vec2(
+		view_dir.x / (-view_dir.z) / tan_h,
+		view_dir.y / (-view_dir.z) / tan_v
+	);
+	// Screen UV: flip Y (SCREEN_UV top-left origin), shift vertical center.
+	vec2 body_screen_uv = vec2(
+		ndc.x * 0.5 + 0.5,
+		-ndc.y * 0.5 + reflection_fov_v_center
+	);
+	// Sprite pixel radius from angular size + horizontal FOV. Using FOV_h
+	// as reference keeps the radius independent of FOV_v so the sprite is
+	// always circular in pixels.
+	float pixel_radius = 0.5 * (radians(angular_size_deg) / radians(reflection_fov_h_deg)) * viewport_size.x;
+	// Convert UV offset to pixel offset so distance is aspect-correct.
+	vec2 pixel_offset = (screen_uv - body_screen_uv) * viewport_size;
+	float dist = length(pixel_offset);
+	if (dist > pixel_radius) {
+		return vec4(0.0);
+	}
+	vec2 tex_uv = pixel_offset / pixel_radius * 0.5 + 0.5;
+	vec4 tex = texture(body_tex, tex_uv);
+	return vec4(body_color * tex.rgb * intensity, tex.a);
+}
+
+// Intermittent wave envelope — slow, coarse noise that multiplies wave
+// amplitude so the surface has patches of lively motion surrounded by
+// calm, instead of uniform chop everywhere.
+float wave_gate(vec2 world_xz, float time) {
+	vec3 p = vec3(world_xz * water_wave_gate_scale, time * 0.15);
+	float n = vnoise(p);
+	return mix(0.3, 1.3, smoothstep(0.35, 0.75, n));
+}
+
+// Gerstner-ish directional wave for vertex displacement + whitecap crest
+// detection. Two sine frequencies produce a naturally uneven crest.
+float wave_height(vec2 world_xz, vec2 dir, float time) {
+	float k = 6.2831853 / max(water_wave_length, 0.1);
+	float phase = dot(world_xz, dir) * k + time * 1.2;
+	float w = sin(phase) * 0.7 + sin(phase * 1.7 + 1.3) * 0.3;
+	return w;
+}
+
+// Combine two pre-baked normal-map textures and slerp toward +Y by
+// ripple_strength. At ripple_strength=0 the normal is exactly +Y (mirror
+// water); at ripple_strength=1 it's the raw combined texture normal.
+// Each texture is sampled at its own scale (ripple_scale_a/b) with its
+// own integrated wind offset — scrolling stays locked to the world.
 vec3 ripple_normal(vec2 world_xz, float time) {
-	float eps = 0.1;
-	float h = ripple_height(world_xz, time);
-	float hx = ripple_height(world_xz + vec2(eps, 0.0), time);
-	float hz = ripple_height(world_xz + vec2(0.0, eps), time);
-	vec3 n = vec3(-(hx - h) / eps, 1.0, -(hz - h) / eps);
-	return normalize(mix(vec3(0.0, 1.0, 0.0), normalize(n), ripple_strength));
+	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
+	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
+	vec3 na = decode_normal_map(ripple_tex_a, uv_a);
+	vec3 nb = decode_normal_map(ripple_tex_b, uv_b);
+	vec3 combined = normalize(na + nb);
+	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
 
 varying vec3 world_vertex;
 varying vec3 world_normal;
 
 void vertex() {
-	world_vertex = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 v = VERTEX;
+	// Top-face vertex undulation. Displaces Y DOWN ONLY — waves dip the
+	// surface below the resting waterline but never rise above it, so a
+	// wave crest can't poke up through an adjacent land voxel sitting
+	// flush with the water's top. The mesher's TOP_EPSILON (scripts/
+	// voxels/WaterMesher.cs) already drops the top face by 0.02 world
+	// units to avoid z-fighting; this keeps that epsilon as the hard
+	// upper bound for any surface point. Chunk meshes are axis-aligned
+	// so local Y == world Y.
+	if (NORMAL.y > 0.5 && water_wave_amp > 1e-5) {
+		vec3 wv = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		vec2 dir = normalize(vec2(wind_dir.x, wind_dir.z) + vec2(1e-4, 0.0));
+		float gate = wave_gate(wv.xz, TIME);
+		float h = min(wave_height(wv.xz, dir, TIME) * gate, 0.0);
+		v.y += h * water_wave_amp;
+	}
+	VERTEX = v;
+	world_vertex = (MODEL_MATRIX * vec4(v, 1.0)).xyz;
 	world_normal = NORMAL;
 }
 
@@ -113,6 +286,9 @@ void fragment() {
 	// transparent cells — leave them flat and opaque.
 	bool is_top = world_normal.y > 0.5;
 	vec3 n = is_top ? ripple_normal(world_vertex.xz, TIME) : world_normal;
+	if (water_disable_ripples && is_top) {
+		n = vec3(0.0, 1.0, 0.0);
+	}
 
 	// Face-direction shading (from the perturbed normal so highlight
 	// direction shifts subtly with ripples).
@@ -137,7 +313,13 @@ void fragment() {
 	frag_view /= frag_view.w;
 
 	float thickness = abs(scene_view.z - frag_view.z);
-	float depth_factor = clamp(thickness / water_depth_scale, 0.0, 1.0);
+	float depth_factor_raw = clamp(thickness / water_depth_scale, 0.0, 1.0);
+	// Smooth + turbidity-curved depth factor. Clear water (exp > 1) stays
+	// translucent through many voxels of depth; muddy water (exp < 1)
+	// rushes toward opaque within a voxel or two. Smoothstep softens the
+	// near-edge transition so shoreline opacity fades gradually instead
+	// of ramping linearly from the very first fragment.
+	float depth_factor = pow(smoothstep(0.0, 1.0, depth_factor_raw), water_turbidity_exp);
 
 	// Sample lightmap per-pixel for smooth interpolation across the face.
 	// Water samples from itself: push 0.5 along -world_normal (the flat
@@ -163,52 +345,94 @@ void fragment() {
 	// Shoreline foam: stronger as water gets shallower (thickness → 0).
 	// Only on top faces; side faces abut solid terrain and the foam would
 	// smear up the vertical rim. Animated by scrolling noise so it reads
-	// as surf rather than a static outline.
+	// as surf rather than a static outline. foam_color is region-tinted:
+	// muddy water's "foam" carries the water's own color (scum/film) while
+	// clean water stays white. Noise UVs are pixelized so the foam reads
+	// as hand-drawn edge pixels rather than a smoothly scrolling pattern.
 	float foam_amount = 0.0;
 	if (is_top) {
+		// Contiguous rim band: hard cutoff by thickness with no noise masking,
+		// so the very edge of every pool is a solid foam-colored line. Draws
+		// underneath the noisy foam so the two blend together at the shore.
+		float rim = (1.0 - smoothstep(0.0, max(water_rim_width, 1e-4), thickness)) * water_rim_strength;
+
+		// Noisy shoreline foam: scrolling noise band out to foam_depth. Same
+		// foam color, but masked by pixelized noise so it reads as surf
+		// texture rather than a solid line.
 		float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
-		vec2 fuv = world_vertex.xz * foam_scale + foam_scroll * TIME;
+		vec2 fuv = pixelize(world_vertex.xz * foam_scale + foam_scroll * TIME);
 		float fn = vnoise(vec3(fuv, 0.0));
 		float band = max(1e-4, 1.0 - foam_sharpness);
 		float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
-		foam_amount = shallow * mask * foam_strength;
+		float noisy_foam = shallow * mask * foam_strength;
+
+		foam_amount = max(noisy_foam, rim);
 		// Foam dims correctly in shade — sample the same light we used for
 		// the water tint so night / torchlit shores still read right.
 		water_col = mix(water_col, foam_color * light, foam_amount);
 	}
 
-	// Reflection only matters on the open water surface.
-	vec3 final_col = water_col;
+	// Reflection path. Values hoisted above the is_top branch so the
+	// water_debug visualizer can sample them uniformly.
+	vec3 refl = vec3(0.0, 1.0, 0.0);
+	vec3 sky_col = vec3(0.0);
+	vec3 ssr_col = vec3(0.0);
+	float ssr_alpha = 0.0;
+	vec3 refl_col = vec3(0.0);
+	float fresnel = 0.0;
 	if (is_top) {
+		// Per-fragment view direction. For an orthographic camera the
+		// projection rays are parallel, but we deliberately use the vector
+		// from CAMERA_POSITION_WORLD to world_vertex (treating the camera
+		// as a point) — this gives reflections natural perspective-like
+		// convergence even under an ortho projection, so the sun disk can
+		// appear as a localized bright spot on the water instead of firing
+		// on every fragment simultaneously. The visual "wrong reflection
+		// direction" concerns are handled elsewhere (SSR gate on refl.y).
 		vec3 view_to_frag = normalize(world_vertex - CAMERA_POSITION_WORLD);
-		vec3 refl = reflect(view_to_frag, n);
+		refl = reflect(view_to_frag, n);
 
 		// Fresnel: more reflective at grazing view angles.
-		float fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
+		fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
 
-		// Sample the sky at the reflection direction. Use the origin-
-		// aware variant so each fragment projects its reflection ray to
-		// the cloud plane — under an ortho camera, all fragments share
-		// a reflection direction and sample_sky would give a uniform
-		// color; sample_sky_from uses world_vertex to break that.
-		// Gated by sun_mask so underground water sees no sky at all.
-		vec3 sky_col = sample_sky_from(world_vertex, refl, TIME) * sun_mask * cloud_sun;
-
-		// Extra wide soft glint on top of the sky dome's tight sun disk.
-		// The disk in sample_sky is a 1-pixel pinprick; this adds a
-		// ripple-shimmering halo so highlights read from farther away.
-		float glint = pow(max(0.0, dot(refl, -normalize(sun_world_dir))), glint_sharpness);
-		sky_col += sun_color * glint * glint_strength * sun_mask * cloud_sun;
+		// Split sky sampling. Clouds + gradient use the TRUE reflection
+		// direction so reflected clouds align with their ground shadows.
+		// Sun + moon are drawn as BILLBOARDED sprites projected through
+		// the fake FOV — circular in pixels regardless of FOV aspect,
+		// positioned according to the camera's view direction relative
+		// to the celestial body's world direction.
+		vec3 sky_clouds = sample_sky_clouds(world_vertex, refl, TIME);
+		vec3 to_sun_dir = -normalize(sky_sun_dir);
+		vec3 to_moon_dir = -to_sun_dir;
+		vec4 sun_bb = sample_billboard_body(
+			SCREEN_UV, VIEWPORT_SIZE, to_sun_dir, sun_texture,
+			sun_angular_size_deg, sun_disk_intensity, sun_color, VIEW_MATRIX);
+		vec4 moon_bb = sample_billboard_body(
+			SCREEN_UV, VIEWPORT_SIZE, to_moon_dir, moon_texture,
+			moon_angular_size_deg, moon_disk_intensity, moon_color, VIEW_MATRIX);
+		// Horizon gating — don't draw a body below horizon.
+		sun_bb.rgb *= smoothstep(-0.05, 0.05, to_sun_dir.y);
+		moon_bb.rgb *= smoothstep(-0.05, 0.05, to_moon_dir.y);
+		vec3 sky_celestial = sun_bb.rgb * sun_bb.a + moon_bb.rgb * moon_bb.a;
+		sky_col = (sky_clouds + sky_celestial) * sun_mask * cloud_sun;
 
 		// SSR raymarch. Step along the reflection ray in world space,
 		// project each step to NDC, compare with depth_tex. First hit
 		// inside `ssr_thickness` view-space units counts; sample screen_tex
-		// for the color.
-		vec3 ssr_col = vec3(0.0);
-		float ssr_alpha = 0.0;
+		// for the color. Only march when the reflection actually points
+		// upward — rays going below horizon would tunnel into terrain
+		// below the water and return garbage (visible as vertical streaks
+		// of arbitrary on-screen content projected onto the water).
 		float step_world = ssr_max_distance / max(ssr_steps, 1.0);
 		vec3 ray_origin = world_vertex + n * 0.05; // bias off the surface
-		for (int i = 1; i <= SSR_MAX_STEPS; i++) {
+		// Require the reflection ray to travel substantially upward before
+		// we march SSR. Rays close to horizontal find whatever happens to
+		// be on screen in that direction — often distant trees whose
+		// mirrored image then lands on water fragments far from them
+		// (visible as "upside-down trees in the wrong place," especially
+		// on water that extends past the terrain edge).
+		bool ssr_allowed = refl.y > 0.15;
+		for (int i = 1; ssr_allowed && i <= SSR_MAX_STEPS; i++) {
 			if (float(i) > ssr_steps) { break; }
 			vec3 p = ray_origin + refl * (step_world * float(i));
 			vec4 clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(p, 1.0);
@@ -238,13 +462,78 @@ void fragment() {
 			}
 		}
 
-		vec3 refl_col = mix(sky_col, ssr_col, ssr_alpha);
-		float refl_mix = fresnel * reflection_strength;
-		final_col = mix(water_col, refl_col, refl_mix);
+		refl_col = mix(sky_col, ssr_col, ssr_alpha);
+	}
+	// Reflection blend amount — computed outside the is_top branch so the
+	// compositing step below can apply it uniformly. Max of physical fresnel
+	// × strength and the artistic floor; zero on non-top faces.
+	float refl_mix = is_top
+		? clamp(max(fresnel * reflection_strength, reflection_min), 0.0, 1.0)
+		: 0.0;
+
+	// Compositing: we do it manually so refraction can offset the "behind"
+	// sample and so reflection can sit on top of the water body uniformly.
+	// Output ALPHA=1 because we composited against the screen texture
+	// ourselves — letting Godot blend on top would double-blend.
+	// Edge opacity floor — clamp the surface alpha at the shoreline from
+	// below so clean water doesn't fade to invisible. Muddy water's
+	// water_alpha_min already sits above the floor so it's unaffected.
+	float effective_edge_alpha = max(water_alpha_min, water_edge_opacity);
+	float water_alpha = max(mix(effective_edge_alpha, water_alpha_max, depth_factor), foam_amount);
+	vec3 behind;
+	if (is_top && water_refraction_strength > 1e-5) {
+		// Scale the UV offset by how far the ray travels through water —
+		// deeper water → more refraction — and by the ripple-perturbed
+		// normal's horizontal tilt.
+		vec2 refr_uv = SCREEN_UV + n.xz * water_refraction_strength * depth_factor_raw;
+		refr_uv = clamp(refr_uv, vec2(0.001), vec2(0.999));
+		behind = textureLod(screen_tex, refr_uv, 0.0).rgb;
+	} else {
+		behind = textureLod(screen_tex, SCREEN_UV, 0.0).rgb;
 	}
 
-	ALBEDO = final_col;
-	// Foam is opaque-ish — without this it fades into the shallow-water
-	// alpha and the surf effect is invisible.
-	ALPHA = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
+	// Two-layer compositing: water body first, reflection on top. Water
+	// reflects off its SURFACE — reflection should be visible whether the
+	// water is transparent or not. Baking reflection into water_col and
+	// then attenuating by water_alpha (the old path) dimmed reflections
+	// in clear water because the same alpha that let you see through the
+	// water also hid the surface reflection. Now:
+	//   water_body = mix(behind, water_col, water_alpha)   -- through-water view
+	//   composited = mix(water_body, refl_col, refl_mix)  -- surface reflection on top
+	// Foam already boosts water_alpha to ~1 at the shoreline, and foam's
+	// color is in water_col, so foam still wins there.
+	vec3 water_body = mix(behind, water_col, water_alpha);
+	vec3 composited = mix(water_body, refl_col, refl_mix);
+
+	// Debug visualizer. When non-zero, replaces the composited output on
+	// top faces only (side faces stay normal so shorelines remain readable).
+	// See CVars.cs `water_debug` for mode documentation.
+	if (is_top && water_debug_mode > 0) {
+		if (water_debug_mode == 1) { composited = refl_col; }
+		else if (water_debug_mode == 2) { composited = sky_col; }
+		else if (water_debug_mode == 3) { composited = ssr_col * ssr_alpha; }
+		else if (water_debug_mode == 4) { composited = vec3(fresnel); }
+		else if (water_debug_mode == 5) { composited = abs(refl); }
+		else if (water_debug_mode == 6) { composited = abs(n); }
+		else if (water_debug_mode == 7) {
+			// Intended sun-disk reflection position. Distinct colors so
+			// disk-hit vs near-miss is unmistakable:
+			//   BRIGHT GREEN = refl inside disk threshold — this pixel
+			//                  SHOULD show the sun in normal mode.
+			//   RED (dim→bright) = how close refl is to the sun but
+			//                      not inside the disk.
+			//   BLACK = refl pointing away from the sun.
+			// If no facing produces green, the sun is geometrically
+			// unreachable — adjust SunMaxElevationDegrees, time_of_day,
+			// or camera pitch until green pixels appear.
+			vec3 to_sun_dbg = -normalize(sky_sun_dir);
+			float sd_dbg = max(dot(refl, to_sun_dbg), 0.0);
+			float disk_hit = smoothstep(0.80, 0.92, sd_dbg);
+			float heat = pow(sd_dbg, 4.0);
+			composited = vec3(heat * (1.0 - disk_hit), disk_hit, 0.0);
+		}
+	}
+
+	ALBEDO = composited;
+	ALPHA = 1.0;
 }

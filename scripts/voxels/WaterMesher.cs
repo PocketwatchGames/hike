@@ -3,9 +3,20 @@ using Godot;
 
 // Water stays on the old cubic face-culling mesher. Water only exists at
 // wy <= 0 and presents a planar-ish surface; no reason to deform it with DC.
+//
+// Two sub-voxel offsets handle land ↔ water transitions:
+//   - TOP_EPSILON pulls the exposed top face down a hair so it's never
+//     coplanar with whatever sits above it. Kills remaining z-fight at
+//     distance where the backface's clip-space bias runs out of precision.
+//   - SHORE_INSET pulls side faces inward when the neighbor is solid
+//     (land). DC land has fractional-height vertices; insetting water
+//     keeps its hard edge from visibly clashing with those curves. The
+//     tiny gap fills naturally with the land surface behind it.
 public static class WaterMesher
 {
     private const int N = ChunkState.SIZE;
+    private const float TOP_EPSILON = 0.02f;
+    private const float SHORE_INSET = 0.05f;
 
     private static readonly Vector3[][] Faces =
     {
@@ -70,12 +81,37 @@ public static class WaterMesher
                         Vector3[] verts = Faces[f];
                         Vector3 normal = Normals[f];
 
+                        // Sub-voxel offsets to avoid visible clashes with
+                        // DC-meshed land. See file header for rationale.
+                        Vector3 faceOffset = Vector3.Zero;
+                        if (f == 0)
+                        {
+                            // Top face — pull the exposed water surface down
+                            // by TOP_EPSILON so it can't z-fight with anything
+                            // at integer Y above it.
+                            faceOffset.Y = -TOP_EPSILON;
+                        }
+                        else if (f >= 2 && VoxelTypeInfo.IsSolid(neighbor))
+                        {
+                            // Horizontal side faces with a solid (land) neighbor —
+                            // inset toward the water cell's interior so the
+                            // cubic face doesn't sit exactly where the land's
+                            // DC-deformed surface wants to be. Creates a thin
+                            // channel that fills visually with the land behind.
+                            faceOffset = -(Vector3)no * SHORE_INSET;
+                        }
+
                         // Water samples lighting from itself (light doesn't
                         // propagate through but diffuses into the cell).
                         Color custom = new Color(wx + 0.5f, wy + 0.5f, wz + 0.5f, tile);
 
-                        EmitTri(st, verts[0] + offset, verts[2] + offset, verts[1] + offset, normal, color, custom);
-                        EmitTri(st, verts[0] + offset, verts[3] + offset, verts[2] + offset, normal, color, custom);
+                        Vector3 v0 = verts[0] + offset + faceOffset;
+                        Vector3 v1 = verts[1] + offset + faceOffset;
+                        Vector3 v2 = verts[2] + offset + faceOffset;
+                        Vector3 v3 = verts[3] + offset + faceOffset;
+
+                        EmitTri(st, v0, v2, v1, normal, color, custom);
+                        EmitTri(st, v0, v3, v2, normal, color, custom);
                         hasAnyFace = true;
                     }
                 }

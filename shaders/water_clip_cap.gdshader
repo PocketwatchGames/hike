@@ -13,24 +13,24 @@ global uniform float sun_intensity;
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-uniform vec3 water_color : source_color = vec3(0.15, 0.5, 0.95);
-uniform vec3 water_deep_tint : source_color = vec3(0.05, 0.15, 0.4);
-uniform float water_alpha_min : hint_range(0.0, 1.0) = 0.4;
+// All water styling comes from region-driven globals — same authored set
+// as voxel_water.gdshader so the cap reads continuously with the water
+// below when the ceiling cutaway reveals both.
+global uniform vec3 water_shallow_tint : source_color;
+global uniform vec3 water_deep_tint : source_color;
+global uniform float water_alpha_min;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
+global uniform float water_turbidity_exp;
 
-// Water animation / reflection globals — same authored set as
-// voxel_water.gdshader so ripples and reflections read continuously
-// across the ceiling-cutaway cap.
 global uniform float ripple_scale_a;
 global uniform float ripple_scale_b;
 global uniform vec2 ripple_offset_a;
 global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
+global uniform float ripple_pixel_size;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
-global uniform float glint_sharpness;
-global uniform float glint_strength;
 global uniform float ssr_max_distance;
 global uniform float ssr_steps;
 global uniform float ssr_thickness;
@@ -61,19 +61,36 @@ float vnoise(vec3 p) {
 	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
 }
 
-float ripple_height(vec2 world_xz, float time) {
-	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
-	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
-	return (vnoise(vec3(uv_a, 0.0)) + vnoise(vec3(uv_b, 0.0))) * 0.5;
+vec2 pixelize(vec2 uv) {
+	float px = max(ripple_pixel_size, 0.01);
+	return floor(uv * px) / px;
+}
+
+// Sample two pre-baked normal-map textures and slerp toward +Y by
+// ripple_strength — matching voxel_water.gdshader.
+uniform sampler2D ripple_tex_a : filter_linear, repeat_enable, hint_normal;
+uniform sampler2D ripple_tex_b : filter_linear, repeat_enable, hint_normal;
+
+vec3 decode_normal_map(sampler2D tex, vec2 uv) {
+	vec3 c = texture(tex, uv).rgb * 2.0 - 1.0;
+	return vec3(c.r, c.b, c.g);
+}
+
+vec3 slerp_normals(vec3 a, vec3 b, float t) {
+	float cos_omega = clamp(dot(a, b), -0.9999, 0.9999);
+	float omega = acos(cos_omega);
+	if (omega < 1e-3) { return normalize(mix(a, b, t)); }
+	float sin_omega = sin(omega);
+	return (sin((1.0 - t) * omega) * a + sin(t * omega) * b) / sin_omega;
 }
 
 vec3 ripple_normal(vec2 world_xz, float time) {
-	float eps = 0.1;
-	float h = ripple_height(world_xz, time);
-	float hx = ripple_height(world_xz + vec2(eps, 0.0), time);
-	float hz = ripple_height(world_xz + vec2(0.0, eps), time);
-	vec3 n = vec3(-(hx - h) / eps, 1.0, -(hz - h) / eps);
-	return normalize(mix(vec3(0.0, 1.0, 0.0), normalize(n), ripple_strength));
+	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
+	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
+	vec3 na = decode_normal_map(ripple_tex_a, uv_a);
+	vec3 nb = decode_normal_map(ripple_tex_b, uv_b);
+	vec3 combined = normalize(na + nb);
+	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
 
 void fragment() {
@@ -105,15 +122,16 @@ void fragment() {
 	frag_view /= frag_view.w;
 
 	float thickness = abs(scene_view.z - frag_view.z);
-	float depth_factor = clamp(thickness / water_depth_scale, 0.0, 1.0);
+	float depth_factor_raw = clamp(thickness / water_depth_scale, 0.0, 1.0);
+	float depth_factor = pow(smoothstep(0.0, 1.0, depth_factor_raw), water_turbidity_exp);
 
-	// Deeper water is darker and more opaque — matches front face logic
-	vec3 base_color = mix(water_color, water_deep_tint, depth_factor);
+	// Deeper water is darker and more opaque — matches front face logic.
+	vec3 base_color = mix(water_shallow_tint, water_deep_tint, depth_factor);
 	vec3 water_col = base_color * light;
 
 	// Shoreline foam — scrolling noise band where thickness < foam_depth.
 	float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
-	vec2 fuv = world_pos.xz * foam_scale + foam_scroll * TIME;
+	vec2 fuv = pixelize(world_pos.xz * foam_scale + foam_scroll * TIME);
 	float fn = vnoise(vec3(fuv, 0.0));
 	float band = max(1e-4, 1.0 - foam_sharpness);
 	float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
@@ -125,9 +143,7 @@ void fragment() {
 	vec3 refl = reflect(view_to_frag, n);
 	float fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
 
-	vec3 sky_col = sample_sky_from(world_pos, refl, TIME) * sun_mask * cloud_sun;
-	float glint = pow(max(0.0, dot(refl, -normalize(sun_world_dir))), glint_sharpness);
-	sky_col += sun_color * glint * glint_strength * sun_mask * cloud_sun;
+	vec3 sky_col = sample_sky(world_pos, refl, TIME) * sun_mask * cloud_sun;
 
 	vec3 ssr_col = vec3(0.0);
 	float ssr_alpha = 0.0;

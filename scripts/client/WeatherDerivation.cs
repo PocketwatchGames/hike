@@ -198,18 +198,22 @@ public static class WeatherDerivation
         p.FillB = dayFillB.Lerp(nightFillB, nightT).Lerp(sunsetFillB, sunsetT);
 
         // --- Cloud color --------------------------------------------
-        float dayCloudSunMix = sim?.DayCloudSunMix ?? 0.3f;
-        float sunsetCloudDustMix = sim?.SunsetCloudDustMix ?? 0.4f;
-        float nightCloudMoonMix = sim?.NightCloudMoonMix ?? 0.7f;
-
-        Color dayCloud = new Color(1f, 1f, 1f).Lerp(sunC, dayCloudSunMix);
-        // Clouds under overcast skies darken a touch.
-        dayCloud = ScaleColor(dayCloud, 1f - cloudCover * 0.3f);
-
-        Color sunsetCloud = sunsetPrimary.Lerp(dustC, sunsetCloudDustMix);
-        Color nightCloud = new Color(0.3f, 0.33f, 0.4f).Lerp(moonC, nightCloudMoonMix);
-
-        p.CloudTint = dayCloud.Lerp(nightCloud, nightT).Lerp(sunsetCloud, sunsetT);
+        // Physical cloud-lighting model: a white water-droplet volume gets
+        // its top lit by direct sunlight, its bottom/shadow side picks up
+        // bounce from the sky. Tint the result by direct light intensity
+        // so dim/overcast scenes give dim clouds without a separate knob.
+        //   cloudLit    = SunTint × intensity (direct component)
+        //   cloudShadow = SkyColor (bounced component)
+        //   CloudTint   = blend — mostly lit, some shadow bias
+        // At night, SunTint has already blended toward MoonColor so clouds
+        // pick up cool tones automatically. No phase-specific branches here.
+        float cloudLightFactor = Mathf.Clamp(p.PrimaryIntensity, 0.15f, 2.0f);
+        Color cloudLit = ScaleColor(p.SunTint, cloudLightFactor);
+        Color cloudShadow = ScaleColor(skyC, 0.7f);
+        // Shadow weight rises with cloudCover so overcast clouds read as
+        // the flat gray-blue of their underside rather than sun-tinted white.
+        float shadowMix = Mathf.Clamp(0.25f + cloudCover * 0.35f, 0.2f, 0.7f);
+        p.CloudTint = cloudLit.Lerp(cloudShadow, shadowMix);
 
         // --- Fog tint + density -------------------------------------
         // DustColor IS the regional fog tint, used directly. Phase
@@ -321,9 +325,52 @@ public static class WeatherDerivation
         p.MoonShaftColor = moonShaftNight.Lerp(shaftSunset, sunsetT);
 
         // --- Water --------------------------------------------------
-        float rippleWindK = sim?.RippleWindK ?? 0.01f;
+        // One authored RGBA (RegionData.WaterColor) drives everything. Alpha
+        // is "muddiness" — physically it's how much sediment/organic matter
+        // is suspended, which ripples through into viscosity (damped ripples
+        // and waves), opacity (fast depth falloff), reflection (denser
+        // surface = better mirror), refraction (particles scatter before
+        // light can bend cleanly), and whitecap formation (viscous water
+        // resists air entrainment).
+        Color waterC = region?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 0.5f);
+        float muddy = Mathf.Clamp(waterC.A, 0f, 1f);
+        p.WaterMuddiness = muddy;
+
+        // Shallow tint is just the authored RGB. Depth tint is derived two
+        // ways and interpolated by muddiness:
+        //  - clearDeep  : red absorbed first, then green — what clean water
+        //                 does at depth regardless of region (ocean physics).
+        //  - murkyDeep  : dust-tinted sediment; particles scatter whatever
+        //                 the regional DustColor carries (ochre desert pond,
+        //                 cool violet glacial melt, green swamp).
+        p.WaterShallowTint = new Color(waterC.R, waterC.G, waterC.B, 1f);
+        Color clearDeep = new Color(waterC.R * 0.15f, waterC.G * 0.40f, waterC.B * 0.55f, 1f);
+        Color murkyBase = new Color(waterC.R * 0.30f, waterC.G * 0.30f, waterC.B * 0.30f, 1f);
+        Color murkySediment = new Color(dustC.R * 0.40f, dustC.G * 0.40f, dustC.B * 0.40f, 1f);
+        Color murkyDeep = murkyBase.Lerp(murkySediment, 0.6f);
+        p.WaterDeepTint = clearDeep.Lerp(murkyDeep, muddy);
+
+        // Alpha floor is muddiness directly — authored RGBA.a IS the
+        // "how opaque is the surface from directly above" number.
+        p.WaterAlphaMin = muddy;
+        // Turbidity exponent on depth_factor: clear water rides well > 1 so
+        // alpha stays low through many voxels of depth (lets the player
+        // read terrain shape through a tropical lagoon); muddy water rides
+        // < 1 so alpha rushes to 1 within a voxel or two.
+        p.WaterTurbidityExp = Mathf.Lerp(3.5f, 0.5f, muddy);
+
+        // Ripple strength: wind-driven with a quadratic curve so low-wind
+        // scenes stay near-mirror (the sun disk reflects coherently) and
+        // only meaningful wind produces visible normal perturbation. Linear
+        // mapping produced too much ripple at 3–5 m/s — normals scattered
+        // enough that the sun disk smeared across the whole surface.
+        // Reference wind for ripple saturation (ripple_strength → 1 at this
+        // speed pre-damping). Rain adds a flat contribution.
+        float rippleWindRef = sim?.RippleWindRef ?? 10f;
         float rippleRainK = sim?.RippleRainK ?? 0.3f;
-        p.RippleStrength = Mathf.Clamp(windSpeed * rippleWindK + rainAmount * rippleRainK, 0f, 1f);
+        float windFrac = Mathf.Clamp(windSpeed / Mathf.Max(rippleWindRef, 0.1f), 0f, 1f);
+        float rippleBase = Mathf.Clamp(windFrac * windFrac + rainAmount * rippleRainK, 0f, 1f);
+        p.RippleStrength = rippleBase * Mathf.Lerp(1.0f, 0.35f, muddy);
 
         // --- Wind rhythm --------------------------------------------
         float windFreqBase = sim?.WindFreqBase ?? 1.0f;

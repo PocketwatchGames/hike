@@ -189,6 +189,56 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_white_albedo", ((CVarBool)cvar).Value);
     });
 
+    // Water reflection debug visualizer. Modes:
+    //   0 = normal composite (refraction + water tint + reflection blend)
+    //   1 = FORCE full reflection — ignore fresnel, water alpha, refraction;
+    //       emit the raw reflection color (sky+SSR mix) so you can see
+    //       exactly what the reflection path is sampling. If this comes
+    //       up black, the refl direction is aiming at nothing. If it's
+    //       sky-gradient, SSR is missing (the rest is the sky fallback).
+    //   2 = sky-sample only (no SSR contribution). Shows what
+    //       sample_sky_from returns at the refl direction.
+    //   3 = SSR only. Black means SSR found no screen-space hit; non-black
+    //       means SSR is working but being masked out by fresnel.
+    //   4 = fresnel value as grayscale. Bright = high fresnel (reflection
+    //       weight near 1). Dark = low fresnel (reflection barely blends).
+    //   5 = reflection direction as abs(refl.xyz) → RGB. Tells you where
+    //       the reflection ray is actually pointing.
+    //   6 = per-fragment normal after ripple perturbation, abs(n) as RGB.
+    //   7 = intended sun-disk reflection position. GREEN = refl direction
+    //       inside the sun disk threshold (this pixel WILL show the sun in
+    //       normal mode). RED heat ramp = refl direction is near the sun
+    //       but outside the disk threshold. BLACK = refl pointing away.
+    //       If no camera facing produces green, the sun is geometrically
+    //       unreachable at current settings — adjust SunMaxElevationDegrees,
+    //       time_of_day, or camera pitch until green appears.
+    public static CVarInt waterDebug = new CVarInt("water_debug", 0, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
+    });
+
+    // Force the water surface to use a flat +Y normal — disables the
+    // ripple texture's contribution to the shading normal. Reflections
+    // become a perfect mirror of the sky/world in that view direction.
+    // Use with water_debug 1 to check if ripples are scattering the
+    // reflection away from the sun.
+    public static CVarBool waterDisableRipples = new CVarBool("water_disable_ripples", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_disable_ripples", ((CVarBool)cvar).Value);
+    });
+
+    // Render the sun disk as a pure magenta circle in the sky (and thus in
+    // the water reflection), bypassing cloud occlusion, sun tint, intensity
+    // scaling, and horizon gating. A smoke test: if both the sky dome and
+    // water reflection show a magenta disk, the geometry + thresholds are
+    // correct and any invisibility in normal mode is a tint/cloud/intensity
+    // issue. If no magenta appears anywhere, the refl direction never meets
+    // sun_disk_outer at the current settings.
+    public static CVarBool skyDebugSunDisk = new CVarBool("sky_debug_sun_disk", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("sky_debug_sun_disk", ((CVarBool)cvar).Value);
+    });
+
     // Power applied to the lightmap value in voxel/sprite/water shaders.
     // 1.0 = linear (raw BFS value), >1 darkens the mid-range so dim sunlight
     // bleed reads as proper darkness while bright areas stay bright.

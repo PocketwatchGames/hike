@@ -60,6 +60,8 @@ public static class RegionBlend
             sw?.SkyColor, wSW, se?.SkyColor, wSE, nw?.SkyColor, wNW, ne?.SkyColor, wNE);
         outRegion.DustColor = WeightedColor(
             sw?.DustColor, wSW, se?.DustColor, wSE, nw?.DustColor, wNW, ne?.DustColor, wNE);
+        outRegion.WaterColor = WeightedColor(
+            sw?.WaterColor, wSW, se?.WaterColor, wSE, nw?.WaterColor, wNW, ne?.WaterColor, wNE);
 
         BlendWeather(outWeather,
             sw?.weather, wSW, se?.weather, wSE, nw?.weather, wNW, ne?.weather, wNE);

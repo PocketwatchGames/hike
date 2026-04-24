@@ -12,8 +12,12 @@ public partial class GameCamera : Camera3D
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
-	private float _yaw = 45;
-	private float _destYaw = 45;
+	// Yaw is stored in RADIANS (consistent with Q/E rotations that use
+	// DegToRad(90)). Initial value = 45° → DegToRad(45). Previously was
+	// raw `45` which normalized to ~58.3° via 45 mod 2π, throwing off
+	// reflection-sun alignment expectations.
+	private float _yaw = Mathf.Pi / 4f;
+	private float _destYaw = Mathf.Pi / 4f;
 	private bool _clipAlways = false;
 	private MeshInstance3D _clipCapPlane;
 	private MeshInstance3D _waterCapPlane;
@@ -66,6 +70,12 @@ public partial class GameCamera : Camera3D
 		var waterCapMaterial = new ShaderMaterial();
 		waterCapMaterial.Shader = waterCapShader;
 		waterCapMaterial.RenderPriority = 2;
+		// Same two ripple normal-map textures that voxel_water uses, so the
+		// cap surface animates continuously with the water beneath it.
+		var rippleA = GD.Load<Texture2D>("res://assets/textures/water_ripple_a.tres");
+		var rippleB = GD.Load<Texture2D>("res://assets/textures/water_ripple_b.tres");
+		waterCapMaterial.SetShaderParameter("ripple_tex_a", rippleA);
+		waterCapMaterial.SetShaderParameter("ripple_tex_b", rippleB);
 
 		_waterCapPlane = new MeshInstance3D();
 		_waterCapPlane.Mesh = planeMesh;

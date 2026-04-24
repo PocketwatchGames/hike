@@ -4,5 +4,5 @@ shader_type sky;
 
 void sky()
 {
-	COLOR = sample_sky(EYEDIR, TIME);
+	COLOR = sample_sky(POSITION, EYEDIR, TIME);
 }

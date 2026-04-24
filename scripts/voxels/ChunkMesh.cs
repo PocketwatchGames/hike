@@ -66,6 +66,14 @@ public partial class ChunkMesh : Node3D
         var waterShader = GD.Load<Shader>("res://shaders/voxel_water.gdshader");
         WaterMaterial = new ShaderMaterial();
         WaterMaterial.Shader = waterShader;
+        // Two pre-baked normal-map textures for ripple perturbation. Each is
+        // a NoiseTexture2D with as_normal_map=true (Godot bakes the noise
+        // gradient into RGB). Different seeds/frequencies so when the shader
+        // combines their decoded normals the result doesn't tile.
+        var rippleA = GD.Load<Texture2D>("res://assets/textures/water_ripple_a.tres");
+        var rippleB = GD.Load<Texture2D>("res://assets/textures/water_ripple_b.tres");
+        WaterMaterial.SetShaderParameter("ripple_tex_a", rippleA);
+        WaterMaterial.SetShaderParameter("ripple_tex_b", rippleB);
 
         var waterBackfaceShader = GD.Load<Shader>("res://shaders/voxel_water_backface.gdshader");
         WaterBackfaceMaterial = new ShaderMaterial();
