@@ -3,11 +3,14 @@ render_mode blend_mix, depth_draw_never, cull_back, unshaded;
 
 global uniform float camera_clip;
 
-uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
-// Framebuffer sampled by the SSR raymarch. Because water renders in the
-// transparent pass AFTER opaque terrain + sprites, this holds everything
-// we need to reflect (terrain silhouettes, tree lines, standing sprites).
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+// filter_nearest on both depth + screen textures: linear filtering blends
+// player+seabed values at silhouette edges, making the depth-aware check
+// ambiguous (sometimes passing for half-player-half-seabed pixels) and
+// producing player-colored speckle in the screen sample. Nearest filtering
+// keeps each sample bound to a single source pixel — refraction wobble
+// stays sharp at object edges instead of bleeding their colors into water.
+uniform sampler2D depth_tex : hint_depth_texture, filter_nearest_mipmap;
+uniform sampler2D screen_tex : hint_screen_texture, filter_nearest_mipmap;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
@@ -63,9 +66,14 @@ global uniform float reflection_min;
 global uniform float reflection_fov_h_deg;
 global uniform float reflection_fov_v_deg;
 global uniform float reflection_fov_v_center;
-global uniform float ssr_max_distance;
-global uniform float ssr_steps;
-global uniform float ssr_thickness;
+// SSR removed — screen-space reflection cannot produce flipped reflections
+// of upright objects (it samples the un-flipped framebuffer at the projected
+// reflection-ray UV, which IS the upright sprite's screen position). Each
+// reflectable Sprite3D now spawns a flipped child sprite mirrored across the
+// water plane (see scripts/gameplay/LitSprite.cs#UpdateReflection); the
+// water shader composites those naturally as underwater geometry visible
+// through the translucent surface. Reflections in this shader are now sky
+// only (clouds, sun, moon, stars, horizon gradient).
 // Large-scale vertex undulation (top face only). Amplitude is already wind-
 // scaled and muddy-damped in SkyController; shader just applies it.
 global uniform float water_wave_amp;
@@ -116,10 +124,35 @@ global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
 
+// Swell streaks — long wind-aligned crest strokes that punctuate the base
+// ripple field. Placed on a jittered grid (one streak per cell, gated by
+// probability) with each streak shaped as a (length × width) ellipse; the
+// cos² cross-profile gives a ridge whose gradient tilts the surface normal,
+// and the envelope magnitude lays down foam in `foam_color`. Strength is
+// driven by the same wind/rain/muddiness response as ripple_strength so
+// streaks fade smoothly with the base ripples on calm water.
+global uniform float wave_streak_strength;
+global uniform float wave_streak_spacing;
+global uniform float wave_streak_length;
+global uniform float wave_streak_width;
+global uniform float wave_streak_probability;
+global uniform float wave_streak_foam;
+global uniform float wave_streak_drift_speed;
+
+// Underwater caustics — fake focused-sunlight bands projected onto the seabed
+// reconstructed from the depth buffer. Strength=0 skips the sample entirely.
+// Pattern is procedural (two scrolling noises, their absolute difference
+// giving thin ribbon edges) so no extra texture asset is needed. Masked by
+// direct sun visibility and attenuated by water thickness so deep water and
+// shaded shores don't light up.
+global uniform float caustic_strength;
+global uniform float caustic_scale;
+global uniform float caustic_speed;
+global uniform float caustic_sharpness;
+global uniform float caustic_depth_fade;
+global uniform vec3 caustic_color : source_color;
+
 const float MIN_AMBIENT = 0.0;
-// Hard cap on SSR iterations — GLSL needs a compile-time loop bound.
-// ssr_steps (the global) clamps below this at runtime.
-const int SSR_MAX_STEPS = 24;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -136,6 +169,21 @@ float vnoise(vec3 p) {
 	float n011 = hash13(i + vec3(0,1,1)); float n111 = hash13(i + vec3(1,1,1));
 	return mix(mix(mix(n000,n100,f.x), mix(n010,n110,f.x), f.y),
 	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
+}
+
+// Procedural caustic intensity at a world-space XZ location. Takes two
+// scrolling noise octaves in opposite directions and uses the absolute
+// difference to produce thin bright ribbon edges where the two patterns
+// cross. pow() sharpens the ribbons into crisp focused bands. Range ~[0,1].
+float caustic_pattern(vec2 world_xz, float time)
+{
+	float t = time * caustic_speed;
+	vec3 p1 = vec3(world_xz * caustic_scale, t);
+	vec3 p2 = vec3(world_xz * caustic_scale * 1.73 + vec2(5.2, 1.3), -t * 0.83);
+	float n1 = vnoise(p1);
+	float n2 = vnoise(p2);
+	float c = 1.0 - abs(n1 - n2) * 2.0;
+	return pow(clamp(c, 0.0, 1.0), max(caustic_sharpness, 0.01));
 }
 
 // Quantize noise UVs to a pixel grid. Used for the shoreline foam mask
@@ -294,6 +342,93 @@ vec3 ripple_normal(vec2 world_xz, float time) {
 	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
 
+// Swell streak field. Grids world XZ (in wind-aligned coords) into cells of
+// `wave_streak_spacing` size; each cell hashes to either a streak center
+// jittered inside the cell or empty (gated by `wave_streak_probability`).
+// A fragment sums contributions from the 3x3 cell neighborhood so streaks
+// near cell boundaries still bleed across correctly. Each streak is a
+// (length × width) ellipse whose cos² v-profile gives a smooth ridge.
+// Returns vec3(tilt_x, tilt_z, foam_amount): the xz-plane tilt gets added
+// to the normal's horizontal component, foam is piped into the existing
+// foam compositing so it picks up `foam_color` and current lighting.
+vec3 wave_streak(vec2 world_xz, vec2 wind_xz, float time) {
+	if (wave_streak_strength <= 1e-4) {
+		return vec3(0.0);
+	}
+	float spacing = max(wave_streak_spacing, 1.0);
+	float half_len = max(wave_streak_length, 0.1) * 0.5;
+	float half_wid = max(wave_streak_width, 0.05) * 0.5;
+
+	// Wind-aligned frame. Wave CRESTS run perpendicular to wind (like real
+	// wind-pushed surface waves), so the streak's LONG axis is `across`
+	// (perpendicular to wind) and its SHORT axis is `along` (parallel).
+	vec2 along = normalize(wind_xz + vec2(1e-4, 0.0));
+	vec2 across = vec2(-along.y, along.x);
+	// Drift the whole field slowly along wind so crests appear to travel
+	// downwind rather than being locked to the ground.
+	float drift = time * wave_streak_drift_speed;
+	// u = along-wind coord (short axis, sets crest thickness);
+	// v = across-wind coord (long axis, sets crest length).
+	vec2 uv = vec2(dot(world_xz, along) - drift, dot(world_xz, across));
+	// Cells are anisotropic: spacing along wind = `spacing`, across wind =
+	// streak length so the jittered centers actually seed overlapping
+	// crests along their own axis rather than leaving gaps.
+	vec2 cell_size = vec2(spacing, max(wave_streak_length, 0.1));
+	vec2 cell = floor(uv / cell_size);
+
+	vec2 accum_tilt = vec2(0.0);
+	float max_env = 0.0;
+	for (int dj = -1; dj <= 1; dj++) {
+		for (int di = -1; di <= 1; di++) {
+			vec2 neighbor = cell + vec2(float(di), float(dj));
+			float h = hash13(vec3(neighbor, 13.37));
+			if (h > wave_streak_probability) { continue; }
+			float cu = hash13(vec3(neighbor, 7.1));
+			float cv = hash13(vec3(neighbor, 91.3));
+			vec2 center = (neighbor + vec2(cu, cv)) * cell_size;
+			vec2 rel = uv - center;
+			// nu = across short axis (width), nv = along long axis (length).
+			float nu = rel.x / half_wid;
+			float nv = rel.y / half_len;
+			if (abs(nu) >= 1.0 || abs(nv) >= 1.0) { continue; }
+			// Base envelope: cos² across the ridge (peak at nu=0), quadratic
+			// falloff along the ridge (tapers at the two ends).
+			float u_cos = cos(nu * 1.5707963);
+			float v_fall = 1.0 - nv * nv;
+			// Noise modulation breaks the clean ellipse into ripple-like
+			// irregularity. Sampled at (world_xz × ripple_scale_a + offset)
+			// so it evolves on the SAME spatial + temporal cadence as the
+			// base ripples — crests shimmer, crinkle, and break up as the
+			// ripple layers scroll. Two octaves at the ripple scales keep
+			// the texture coherent with the surface everywhere else.
+			vec2 noise_uv_a = world_xz * ripple_scale_a + ripple_offset_a;
+			vec2 noise_uv_b = world_xz * ripple_scale_b + ripple_offset_b;
+			float n_a = vnoise(vec3(noise_uv_a, 0.0));
+			float n_b = vnoise(vec3(noise_uv_b * 1.7, time * 0.3));
+			float noise = mix(n_a, n_b, 0.5);
+			// Remap noise to a [~0, ~1.4] multiplier with occasional zeros —
+			// clamps drop out portions of the crest entirely, so the streak
+			// reads as a chain of irregular wave-lets instead of a smooth arc.
+			float crinkle = clamp((noise - 0.3) * 2.0, 0.0, 1.4);
+			// Per-crest phase jitter: offsets noise sampling per streak so
+			// neighboring crests don't all break up in sync.
+			float phase_jitter = hash13(vec3(neighbor, 3.7)) * 4.0;
+			float noise_mod = vnoise(vec3(noise_uv_a * 2.3 + phase_jitter, time * 0.5));
+			crinkle *= smoothstep(0.15, 0.75, noise_mod);
+			float env = u_cos * u_cos * v_fall * crinkle;
+			// Cross-ridge slope: v-derivative of u_cos² is
+			// -sin(pi * nu) * (pi / (2 * half_wid)). Constant rolled into
+			// wave_streak_strength. Slope inherits the same crinkle so the
+			// normal perturbation breaks up where the ridge itself breaks.
+			float slope = -sin(nu * 3.1415927) * v_fall * crinkle;
+			accum_tilt += along * slope;
+			max_env = max(max_env, env);
+		}
+	}
+	return vec3(accum_tilt * wave_streak_strength,
+	            max_env * wave_streak_strength * wave_streak_foam);
+}
+
 varying vec3 world_vertex;
 varying vec3 world_normal;
 
@@ -328,9 +463,21 @@ void fragment() {
 	// open surface. Sides/bottom are submerged rims seen through adjacent
 	// transparent cells — leave them flat and opaque.
 	bool is_top = world_normal.y > 0.5;
-	vec3 n = is_top ? ripple_normal(world_vertex.xz, TIME) : world_normal;
-	if (water_disable_ripples && is_top) {
-		n = vec3(0.0, 1.0, 0.0);
+	// Skip the two normal-map samples + slerp on calm water — ripple_strength
+	// is already quadratic in wind speed (WeatherDerivation), so at low wind /
+	// no rain it's effectively zero but the texture work still costs the same.
+	bool ripples_active = is_top && !water_disable_ripples && ripple_strength > 0.01;
+	vec3 n = ripples_active ? ripple_normal(world_vertex.xz, TIME) : (is_top ? vec3(0.0, 1.0, 0.0) : world_normal);
+
+	// Swell streaks tilt the normal and seed foam on each crest. Driven off
+	// the same wind-aligned frame as the vertex waves; skipped when ripples
+	// are disabled so the debug flat-normal path stays mirror-true.
+	float streak_foam_amt = 0.0;
+	if (is_top && !water_disable_ripples && wave_streak_strength > 1e-4) {
+		vec2 wxz = vec2(wind_dir.x, wind_dir.z);
+		vec3 streak = wave_streak(world_vertex.xz, wxz, TIME);
+		n = normalize(n + vec3(streak.x, 0.0, streak.y));
+		streak_foam_amt = clamp(streak.z, 0.0, 1.0);
 	}
 
 	// Face-direction shading (from the perturbed normal so highlight
@@ -393,7 +540,7 @@ void fragment() {
 	// clean water stays white. Noise UVs are pixelized so the foam reads
 	// as hand-drawn edge pixels rather than a smoothly scrolling pattern.
 	float foam_amount = 0.0;
-	if (is_top) {
+	if (is_top && (foam_strength > 1e-3 || water_rim_strength > 1e-3 || streak_foam_amt > 1e-3)) {
 		// Contiguous rim band: hard cutoff by thickness with no noise masking,
 		// so the very edge of every pool is a solid foam-colored line. Draws
 		// underneath the noisy foam so the two blend together at the shore.
@@ -409,18 +556,21 @@ void fragment() {
 		float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
 		float noisy_foam = shallow * mask * foam_strength;
 
-		foam_amount = max(noisy_foam, rim);
-		// Foam dims correctly in shade — sample the same light we used for
-		// the water tint so night / torchlit shores still read right.
-		water_col = mix(water_col, foam_color * light, foam_amount);
+		foam_amount = max(max(noisy_foam, rim), streak_foam_amt);
+		// Foam dims in shade but never to zero — foam_color is already
+		// lighting-aware (pre-multiplied by SunTint × lightLevel in
+		// SkyController.Apply) so this `light` factor is meant to respect
+		// per-voxel torch/sky falloff, not to collapse foam entirely when a
+		// heavy-overcast scene drives sun_lit to ~0. Without the floor,
+		// rainy forest water loses rim + shoreline + streak foam all at once.
+		vec3 foam_light = max(light, vec3(0.25));
+		water_col = mix(water_col, foam_color * foam_light, foam_amount);
 	}
 
 	// Reflection path. Values hoisted above the is_top branch so the
 	// water_debug visualizer can sample them uniformly.
 	vec3 refl = vec3(0.0, 1.0, 0.0);
 	vec3 sky_col = vec3(0.0);
-	vec3 ssr_col = vec3(0.0);
-	float ssr_alpha = 0.0;
 	vec3 refl_col = vec3(0.0);
 	float fresnel = 0.0;
 	if (is_top) {
@@ -540,53 +690,17 @@ void fragment() {
 		// correctly dims sun_lit (the water's direct lighting) above.
 		sky_col = (sky_clouds + sky_celestial) * sun_mask;
 
-		// SSR raymarch. Step along the reflection ray in world space,
-		// project each step to NDC, compare with depth_tex. First hit
-		// inside `ssr_thickness` view-space units counts; sample screen_tex
-		// for the color. Only march when the reflection actually points
-		// upward — rays going below horizon would tunnel into terrain
-		// below the water and return garbage (visible as vertical streaks
-		// of arbitrary on-screen content projected onto the water).
-		float step_world = ssr_max_distance / max(ssr_steps, 1.0);
-		vec3 ray_origin = world_vertex + n * 0.05; // bias off the surface
-		// Require the reflection ray to travel substantially upward before
-		// we march SSR. Rays close to horizontal find whatever happens to
-		// be on screen in that direction — often distant trees whose
-		// mirrored image then lands on water fragments far from them
-		// (visible as "upside-down trees in the wrong place," especially
-		// on water that extends past the terrain edge).
-		bool ssr_allowed = refl.y > 0.15;
-		for (int i = 1; ssr_allowed && i <= SSR_MAX_STEPS; i++) {
-			if (float(i) > ssr_steps) { break; }
-			vec3 p = ray_origin + refl * (step_world * float(i));
-			vec4 clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(p, 1.0);
-			if (clip.w <= 0.0) { break; }
-			vec3 ndc = clip.xyz / clip.w;
-			if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0 || ndc.z < -1.0 || ndc.z > 1.0) { break; }
-			vec2 uv = ndc.xy * 0.5 + 0.5;
-			float d = textureLod(depth_tex, uv, 0.0).r;
-			float pz = ndc.z * 0.5 + 0.5;
-			if (d < pz) {
-				// Ray went behind a surface this step. Verify the hit is
-				// within a thin slab of the actual geometry (reject back-
-				// of-terrain hits where the ray has tunneled way past).
-				vec4 hit_ndc = vec4(ndc.xy, d * 2.0 - 1.0, 1.0);
-				vec4 hit_view = INV_PROJECTION_MATRIX * hit_ndc;
-				hit_view /= hit_view.w;
-				vec4 p_view = VIEW_MATRIX * vec4(p, 1.0);
-				if (abs(hit_view.z - p_view.z) < ssr_thickness + step_world) {
-					// Fade near screen edges so the reflection doesn't just
-					// pop off when the ray exits the frame.
-					vec2 edge = abs(uv * 2.0 - 1.0);
-					float edge_fade = 1.0 - smoothstep(0.85, 1.0, max(edge.x, edge.y));
-					ssr_col = textureLod(screen_tex, uv, 0.0).rgb;
-					ssr_alpha = edge_fade;
-				}
-				break;
-			}
-		}
-
-		refl_col = mix(sky_col, ssr_col, ssr_alpha);
+		// Reflection is sky-only. SSR was removed because screen-space
+		// raymarching cannot produce a flipped reflection of upright
+		// objects — it samples the un-flipped framebuffer at the projected
+		// reflection-ray UV, which is the upright sprite's actual screen
+		// position, producing a "ghosted" duplicate (and per-fragment ray
+		// jitter under heavy ripples turned that into noise around every
+		// nearby sprite). Reflectable Sprite3D nodes now spawn a flipped
+		// child sprite mirrored across the water plane via LitSprite —
+		// those render as underwater geometry and are naturally visible
+		// through the translucent water composite below.
+		refl_col = sky_col;
 	}
 	// Reflection blend amount — computed outside the is_top branch so the
 	// compositing step below can apply it uniformly. Max of physical fresnel
@@ -604,16 +718,52 @@ void fragment() {
 	// water_alpha_min already sits above the floor so it's unaffected.
 	float effective_edge_alpha = max(water_alpha_min, water_edge_opacity);
 	float water_alpha = max(mix(effective_edge_alpha, water_alpha_max, depth_factor), foam_amount);
-	vec3 behind;
-	if (is_top && water_refraction_strength > 1e-5) {
-		// Scale the UV offset by how far the ray travels through water —
-		// deeper water → more refraction — and by the ripple-perturbed
-		// normal's horizontal tilt.
-		vec2 refr_uv = SCREEN_UV + n.xz * water_refraction_strength * depth_factor_raw;
-		refr_uv = clamp(refr_uv, vec2(0.001), vec2(0.999));
-		behind = textureLod(screen_tex, refr_uv, 0.0).rgb;
-	} else {
-		behind = textureLod(screen_tex, SCREEN_UV, 0.0).rgb;
+	vec3 behind = vec3(0.0);
+	// Only sample the screen texture when the water body is actually
+	// going to show what's behind it (water_alpha < 1 somewhere on the
+	// fragment OR we're on a side face where compositing always runs).
+	// Fully-opaque muddy water at depth can skip the sample entirely.
+	bool needs_behind = water_alpha < 0.999;
+	if (needs_behind) {
+		if (is_top && water_refraction_strength > 1e-5) {
+			// Scale the UV offset by how far the ray travels through water —
+			// deeper water → more refraction — and by the ripple-perturbed
+			// normal's horizontal tilt.
+			vec2 full_offset = n.xz * water_refraction_strength * depth_factor_raw;
+			// Depth-aware refraction: progressively shrink the offset until
+			// it lands on a pixel whose depth is BEHIND the water (Godot 4
+			// reverse-Z → smaller depth value = farther from camera, so the
+			// check is `<=`).
+			vec2 refr_uv = clamp(SCREEN_UV, vec2(0.001), vec2(0.999));
+			for (int i = 0; i < 4; i++) {
+				vec2 try_uv = clamp(SCREEN_UV + full_offset * (1.0 - float(i) * 0.25), vec2(0.001), vec2(0.999));
+				if (textureLod(depth_tex, try_uv, 0.0).r <= FRAGCOORD.z) {
+					refr_uv = try_uv;
+					break;
+				}
+			}
+			behind = textureLod(screen_tex, refr_uv, 0.0).rgb;
+		} else {
+			behind = textureLod(screen_tex, SCREEN_UV, 0.0).rgb;
+		}
+	}
+
+	// Underwater caustics. Reconstruct the seabed world position from the
+	// depth buffer, sample the procedural ribbon pattern in world-space XZ
+	// (so bands stay locked to the ground, not to screen), and add the
+	// contribution onto `behind` before water-color compositing. Scaled by
+	// the same direct-sunlight product the surface uses (sun_mask *
+	// sun_intensity * cloud_sun) — caustics are focused refractions of
+	// direct sun, so they vanish at night, in shadow, and dim under
+	// clouds. needs_behind also gates: if the water is fully opaque
+	// (muddy + deep) the through-water sample was skipped, so adding
+	// caustics into uninitialized `behind` would render garbage.
+	if (is_top && needs_behind && caustic_strength > 1e-5 && thickness > 1e-3) {
+		vec4 seabed_world = INV_VIEW_MATRIX * scene_view;
+		float pattern = caustic_pattern(seabed_world.xz, TIME);
+		float depth_attn = exp(-thickness / max(caustic_depth_fade, 0.01));
+		float sun_factor = sun_mask * sun_intensity * cloud_sun;
+		behind += caustic_color * pattern * caustic_strength * depth_attn * sun_factor;
 	}
 
 	// Two-layer compositing: water body first, reflection on top. Water
@@ -635,7 +785,7 @@ void fragment() {
 	if (is_top && water_debug_mode > 0) {
 		if (water_debug_mode == 1) { composited = refl_col; }
 		else if (water_debug_mode == 2) { composited = sky_col; }
-		else if (water_debug_mode == 3) { composited = ssr_col * ssr_alpha; }
+		else if (water_debug_mode == 3) { composited = sky_col; } // SSR removed; mode 3 now == sky
 		else if (water_debug_mode == 4) { composited = vec3(fresnel); }
 		else if (water_debug_mode == 5) { composited = abs(refl); }
 		else if (water_debug_mode == 6) { composited = abs(n); }
@@ -655,6 +805,27 @@ void fragment() {
 			float disk_hit = smoothstep(0.80, 0.92, sd_dbg);
 			float heat = pow(sd_dbg, 4.0);
 			composited = vec3(heat * (1.0 - disk_hit), disk_hit, 0.0);
+		}
+		else if (water_debug_mode == 8) {
+			// Caustic pattern isolation — RED channel only, bypassing
+			// caustic_color so we can tell pattern == 0 (solid black) from
+			// caustic_color == 0 (red ribbons but no color in normal mode).
+			vec4 seabed_world_dbg = INV_VIEW_MATRIX * scene_view;
+			float pattern_dbg = caustic_pattern(seabed_world_dbg.xz, TIME);
+			composited = vec3(pattern_dbg, 0.0, 0.0);
+		}
+		else if (water_debug_mode == 9) {
+			// Reconstructed seabed world XZ visualization — fract() of XZ
+			// shows a tiled gradient. Solid color = scene_view reconstruction
+			// failed (no depth, or INV_VIEW_MATRIX broken). Visible
+			// gradient grid that tracks camera motion = reconstruction OK.
+			vec4 seabed_world_dbg = INV_VIEW_MATRIX * scene_view;
+			composited = vec3(fract(seabed_world_dbg.x * 0.1), fract(seabed_world_dbg.z * 0.1), 0.0);
+		}
+		else if (water_debug_mode == 10) {
+			// caustic_color upload check — pure caustic_color flat fill.
+			// Black here means the global is being set to (0,0,0).
+			composited = caustic_color;
 		}
 	}
 

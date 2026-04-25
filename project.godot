@@ -227,6 +227,14 @@ sprite_stretch={
 "type": "float",
 "value": 1.0
 }
+reflection_tint={
+"type": "float",
+"value": 0.7
+}
+reflection_pixel_jitter_max={
+"type": "float",
+"value": 2.0
+}
 water_alpha_max={
 "type": "float",
 "value": 1.0
@@ -258,6 +266,30 @@ water_muddiness={
 water_refraction_strength={
 "type": "float",
 "value": 0.05
+}
+caustic_strength={
+"type": "float",
+"value": 0.6
+}
+caustic_scale={
+"type": "float",
+"value": 0.35
+}
+caustic_speed={
+"type": "float",
+"value": 0.4
+}
+caustic_sharpness={
+"type": "float",
+"value": 8.0
+}
+caustic_depth_fade={
+"type": "float",
+"value": 2.0
+}
+caustic_color={
+"type": "vec3",
+"value": Vector3(0.9, 0.95, 1)
 }
 water_wave_amp={
 "type": "float",
@@ -471,18 +503,6 @@ reflection_strength={
 "type": "float",
 "value": 1.0
 }
-ssr_max_distance={
-"type": "float",
-"value": 30.0
-}
-ssr_steps={
-"type": "float",
-"value": 12.0
-}
-ssr_thickness={
-"type": "float",
-"value": 1.0
-}
 foam_color={
 "type": "vec3",
 "value": Vector3(0.95, 0.98, 1)
@@ -510,6 +530,34 @@ foam_threshold={
 foam_sharpness={
 "type": "float",
 "value": 0.6
+}
+wave_streak_strength={
+"type": "float",
+"value": 0.0
+}
+wave_streak_spacing={
+"type": "float",
+"value": 27.0
+}
+wave_streak_length={
+"type": "float",
+"value": 4.0
+}
+wave_streak_width={
+"type": "float",
+"value": 0.5
+}
+wave_streak_probability={
+"type": "float",
+"value": 0.35
+}
+wave_streak_foam={
+"type": "float",
+"value": 0.5
+}
+wave_streak_drift_speed={
+"type": "float",
+"value": 0.3
 }
 wind_dir={
 "type": "vec3",

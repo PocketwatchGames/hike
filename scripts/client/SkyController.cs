@@ -218,6 +218,14 @@ public partial class SkyController : Node3D
     // visible color along the shoreline. Set to 0 for fully-glassy water
     // that disappears at the edge.
     [Export(PropertyHint.Range, "0,1,0.01")] public float waterEdgeOpacity = 0.3f;
+    // Maximum surface alpha at full depth, separately for clean and muddy
+    // water. Capping clean water below 1.0 lets deep tropical water stay
+    // partly see-through even straight down through several meters —
+    // without this, depth_factor saturates and the surface goes fully
+    // opaque regardless of clarity. Lerped by muddiness in Apply() so
+    // clean water stays glassy and silty water occludes.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterAlphaMaxClean = 0.55f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float waterAlphaMaxMuddy = 1.0f;
 
     [ExportSubgroup("Shoreline Rim")]
     // Contiguous foam-colored band at the water/land boundary — drawn on
@@ -298,6 +306,16 @@ public partial class SkyController : Node3D
     // correct, often invisible under ortho top-down); 0.15–0.3 gives a
     // subtle always-there reflection that grows at grazing angles.
     [Export(PropertyHint.Range, "0,1,0.01")] public float reflectionMin = 0.2f;
+    // Base brightness of sprite reflections (LitSprite.UpdateReflection
+    // children rendered through sprite_reflection.gdshader). Muddiness,
+    // fog, and light level damp this further in Apply() so murky / dim
+    // scenes show subtle reflections rather than the full mirror image.
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float spriteReflectionTint = 0.7f;
+    // Maximum source-pixel jitter applied to sprite reflections at full
+    // ripple_strength. 0 = perfectly rigid mirror; 2–4 px = visible
+    // wobble that breaks up the mirror look in choppy weather.
+    [Export(PropertyHint.Range, "0,8,0.1")] public float spriteReflectionPixelJitter = 2.0f;
+
 
     [ExportSubgroup("Waves")]
     // Vertex-displacement wave on top water faces. Amplitude scales with
@@ -309,6 +327,21 @@ public partial class SkyController : Node3D
     // Spatial frequency of the intermittent wave envelope. Smaller = larger
     // patches of active vs calm water; larger = busier surface.
     [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveGateScale = 0.005f;
+
+    [ExportSubgroup("Swell Streaks")]
+    // Long, infrequent wind-aligned crests that punctuate the base ripple
+    // field. Placement is a jittered grid of `spacing`-sized cells, one
+    // streak per cell gated by `probability`. Each streak is `length` ×
+    // `width` and tilts the surface normal + lays down a little foam on
+    // the crest. Intensity rides on _palette.RippleStrength so streaks
+    // fade with the base ripples on calm water.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float waveStreakStrength = 0.6f;
+    [Export(PropertyHint.Range, "4,80,0.5")] public float waveStreakSpacing = 27f;
+    [Export(PropertyHint.Range, "0.5,16,0.1")] public float waveStreakLength = 4f;
+    [Export(PropertyHint.Range, "0.05,2,0.01")] public float waveStreakWidth = 0.5f;
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float waveStreakProbability = 0.35f;
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float waveStreakFoam = 0.5f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float waveStreakDriftSpeed = 0.3f;
 
     [ExportSubgroup("Ripples (Pixelation)")]
     // Pixels per world-unit used to quantize ripple-noise UVs. Higher values
@@ -323,6 +356,23 @@ public partial class SkyController : Node3D
     // hint_screen_texture. Muddiness damps this toward zero automatically.
     [Export(PropertyHint.Range, "0,1,0.001")] public float refractionStrength = 0.05f;
 
+    [ExportSubgroup("Caustics")]
+    // Underwater caustic bands projected onto the seabed reconstructed from
+    // the depth buffer. Damped by muddiness and gated by direct sun
+    // visibility in Apply(), so only lit shallows in clear water light up.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float causticStrength = 0.75f;
+    [Export(PropertyHint.Range, "0.01,2,0.005")] public float causticScale = 0.35f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float causticSpeed = 0.4f;
+    // Exponent applied to the ribbon pattern — higher values make caustics
+    // into thin crisp lines; lower values spread them into a softer glow.
+    // Default ~3 keeps bands chunky and visible; raise toward 8+ for
+    // physically-thin focused beams (which can be hard to see at ortho iso).
+    [Export(PropertyHint.Range, "1,32,0.5")] public float causticSharpness = 3.0f;
+    // World-unit depth at which caustic intensity has attenuated by 1/e.
+    // Keep small (1–3) so caustics are confined to true shallows.
+    [Export(PropertyHint.Range, "0.1,10,0.05")] public float causticDepthFade = 2.0f;
+    [Export] public Color causticColor = new Color(0.9f, 0.95f, 1.0f);
+
     [ExportSubgroup("Shoreline Foam")]
     // Foam COLOR is derived entirely from region (DustColor + WaterColor +
     // muddiness) and current lighting (SunTint × light level) in Apply().
@@ -335,10 +385,10 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.6f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamSharpness = 0.0f;
 
-    [ExportSubgroup("Screenspace Reflection")]
-    [Export(PropertyHint.Range, "1,60,0.1")] public float ssrMaxDistance = 30.0f;
-    [Export(PropertyHint.Range, "1,24,1")] public float ssrSteps = 12.0f;
-    [Export(PropertyHint.Range, "0.1,4,0.05")] public float ssrThickness = 1.0f;
+    // Screenspace reflection removed — see voxel_water.gdshader for the
+    // rationale. Reflectable Sprite3D nodes spawn flipped child sprites via
+    // LitSprite.UpdateReflection; the water shader's only reflection path is
+    // sky/clouds/sun/moon/stars, which all sample correctly under any view.
 
     [ExportGroup("Wind")]
     // Sprite / grass sway amplitude in world meters per m/s of wind speed.
@@ -550,9 +600,24 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_turbidity_exp", RenderingServer.GlobalShaderParameterType.Float, 1f);
             ShaderGlobals.Register("water_muddiness", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
             ShaderGlobals.Register("water_refraction_strength", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("caustic_strength", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+            ShaderGlobals.Register("caustic_scale", RenderingServer.GlobalShaderParameterType.Float, 0.35f);
+            ShaderGlobals.Register("caustic_speed", RenderingServer.GlobalShaderParameterType.Float, 0.4f);
+            ShaderGlobals.Register("caustic_sharpness", RenderingServer.GlobalShaderParameterType.Float, 8f);
+            ShaderGlobals.Register("caustic_depth_fade", RenderingServer.GlobalShaderParameterType.Float, 2f);
+            ShaderGlobals.Register("caustic_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.9f, 0.95f, 1.0f));
+            ShaderGlobals.Register("reflection_tint", RenderingServer.GlobalShaderParameterType.Float, 0.7f);
+            ShaderGlobals.Register("reflection_pixel_jitter_max", RenderingServer.GlobalShaderParameterType.Float, 2.0f);
             ShaderGlobals.Register("water_wave_amp", RenderingServer.GlobalShaderParameterType.Float, 0f);
             ShaderGlobals.Register("water_wave_length", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_wave_gate_scale", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("wave_streak_strength", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            ShaderGlobals.Register("wave_streak_spacing", RenderingServer.GlobalShaderParameterType.Float, 27f);
+            ShaderGlobals.Register("wave_streak_length", RenderingServer.GlobalShaderParameterType.Float, 4f);
+            ShaderGlobals.Register("wave_streak_width", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            ShaderGlobals.Register("wave_streak_probability", RenderingServer.GlobalShaderParameterType.Float, 0.35f);
+            ShaderGlobals.Register("wave_streak_foam", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
+            ShaderGlobals.Register("wave_streak_drift_speed", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
             ShaderGlobals.Register("water_depth_scale", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_edge_opacity", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
             ShaderGlobals.Register("water_rim_width", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
@@ -957,7 +1022,28 @@ public partial class SkyController : Node3D
             * (1f - fog01 * 0.6f)
             * (1f - cloudCover01 * 0.2f);
         float effReflection = reflectionStrength * reflectionClarity;
-        float effRefraction = refractionStrength * Mathf.Lerp(1.0f, 0.1f, muddy);
+
+        // "Glassy" conditions — bright direct sun on clear, low-humidity,
+        // unfogged water. Under these the surface should read as a window,
+        // not a mirror: reflections only on grazing angles and ripple
+        // crests (fresnel peaks), floor pushed near zero so top-down view
+        // sees through. muddy, fog, humidity, cloud cover each pull it back
+        // toward a glossy mirror so overcast/mucky water still reflects.
+        float glassyT = sunClarity
+            * (1f - muddy)
+            * (1f - fog01)
+            * (1f - humidity01 * 0.6f)
+            * (1f - cloudCover01 * 0.5f);
+        // Reduce the fresnel-driven reflection a bit in glassy conditions
+        // (grazing highlights still exist, just slightly dimmer) so the
+        // whole surface doesn't flash white when the sun is low.
+        effReflection *= Mathf.Lerp(1f, 0.4f, glassyT);
+        // Refraction collapses to zero as muddiness saturates — particles
+        // scatter before light can bend cleanly. Dropping all the way to 0
+        // (rather than 10%) lets the shader's "skip SCREEN_TEXTURE sample"
+        // path fire on fully-opaque muddy water, which is the whole point
+        // of that early-exit in voxel_water.gdshader.
+        float effRefraction = refractionStrength * Mathf.Lerp(1.0f, 0.0f, muddy);
         // Depth scale: clean water in bright light lets sight reach many
         // meters down; murky water or dim light crushes visible depth
         // toward a voxel or two. Floor keeps the ramp non-zero so pixels
@@ -986,6 +1072,10 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_shallow_tint", ColorToVec3(_palette.WaterShallowTint));
         RenderingServer.GlobalShaderParameterSet("water_deep_tint", ColorToVec3(_palette.WaterDeepTint));
         RenderingServer.GlobalShaderParameterSet("water_alpha_min", effAlphaMin);
+        // Lerp the depth-saturated alpha cap by muddiness so clean water
+        // never reaches full opacity even through deep columns.
+        float effAlphaMax = Mathf.Lerp(waterAlphaMaxClean, waterAlphaMaxMuddy, muddy);
+        RenderingServer.GlobalShaderParameterSet("water_alpha_max", effAlphaMax);
         RenderingServer.GlobalShaderParameterSet("water_turbidity_exp", _palette.WaterTurbidityExp);
         RenderingServer.GlobalShaderParameterSet("water_depth_scale", effDepthScale);
         RenderingServer.GlobalShaderParameterSet("water_edge_opacity", waterEdgeOpacity);
@@ -993,18 +1083,74 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_rim_strength", rimStrength);
         RenderingServer.GlobalShaderParameterSet("water_muddiness", muddy);
         RenderingServer.GlobalShaderParameterSet("water_refraction_strength", effRefraction);
+        // Caustics need three things to read: clear water, direct unbroken
+        // light, and a near-glassy surface. Muddiness alone isn't enough —
+        // mountain water (cool, breezy, partly cloudy) reads as moderately
+        // clear but should produce almost no caustics, while desert water
+        // (calm, hot, clear sky) should pump full bands. cloudCover damps
+        // because diffuse sky light doesn't focus into beams. RippleStrength
+        // damps because a chopped-up surface scatters the focus across the
+        // seabed instead of concentrating it. Per-fragment shadow + cloud
+        // gating lives in the shader (sun_mask * sun_intensity * cloud_sun
+        // multiplier on the caustic add) — the shader's `sun_intensity` IS
+        // the active primary intensity (sun by day, moon by night), so
+        // brightness already scales linearly with direct light. The
+        // smoothstep here is a soft floor gate that suppresses caustics
+        // when the primary is too dim to focus visibly (eclipse, heavy
+        // overcast night) while still allowing a normal full moon (~0.3)
+        // to produce subtle bands.
+        float primaryGate = Mathf.SmoothStep(0.1f, 0.25f, CurrentPrimaryIntensity);
+        float effCaustic = causticStrength
+            * primaryGate
+            * (1f - muddy)
+            * (1f - cloudCover01 * 0.85f)
+            * (1f - _palette.RippleStrength * 0.85f);
+        RenderingServer.GlobalShaderParameterSet("caustic_strength", effCaustic);
+        RenderingServer.GlobalShaderParameterSet("caustic_scale", causticScale);
+        RenderingServer.GlobalShaderParameterSet("caustic_speed", causticSpeed);
+        RenderingServer.GlobalShaderParameterSet("caustic_sharpness", causticSharpness);
+        RenderingServer.GlobalShaderParameterSet("caustic_depth_fade", causticDepthFade);
+        RenderingServer.GlobalShaderParameterSet("caustic_color", ColorToVec3(causticColor));
+        // Sprite reflection brightness — same air-clarity factors as the
+        // sky reflection (muddiness, humidity, fog, cloud cover) plus a
+        // light-level term so dim scenes don't paint bright mirror copies
+        // of upright objects on dark water. CVar `sprite_reflections_disabled`
+        // forces the tint to zero, killing the entire effect without
+        // touching any LitSprite reflection nodes.
+        float effSpriteReflTint = CVars.spriteReflectionsDisabled.Value
+            ? 0f
+            : spriteReflectionTint * reflectionClarity * lightLevel;
+        RenderingServer.GlobalShaderParameterSet("reflection_tint", effSpriteReflTint);
+        // Reflection pixel jitter scales with weather-driven ripple strength
+        // (already wind+rain damped in WeatherDerivation), so calm water
+        // produces a near-rigid mirror and choppy water visibly distorts.
+        RenderingServer.GlobalShaderParameterSet("reflection_pixel_jitter_max", spriteReflectionPixelJitter);
         RenderingServer.GlobalShaderParameterSet("water_wave_amp", effWaveAmp);
         RenderingServer.GlobalShaderParameterSet("water_wave_length", Mathf.Max(waveLength, 0.1f));
         RenderingServer.GlobalShaderParameterSet("water_wave_gate_scale", waveGateScale);
+        // Swell streaks share the ripple wind/rain/muddiness response curve
+        // (already baked into _palette.RippleStrength by WeatherDerivation).
+        // Calm water → no streaks; breezy+ water → strokes visible on top.
+        float effStreakStrength = waveStreakStrength * _palette.RippleStrength;
+        RenderingServer.GlobalShaderParameterSet("wave_streak_strength", effStreakStrength);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_spacing", waveStreakSpacing);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_length", waveStreakLength);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_width", waveStreakWidth);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_probability", waveStreakProbability);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_foam", waveStreakFoam);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_drift_speed", waveStreakDriftSpeed);
         RenderingServer.GlobalShaderParameterSet("fresnel_power", effFresnel);
         RenderingServer.GlobalShaderParameterSet("reflection_strength", effReflection);
-        RenderingServer.GlobalShaderParameterSet("reflection_min", reflectionMin * reflectionClarity);
+        // Reflection floor: in glassy conditions we want fresnel to be the
+        // ONLY driver of reflection (grazing highlights, ripple glints).
+        // Drop the floor toward zero when glassyT → 1, so top-down views
+        // through the surface are dominated by the through-water color +
+        // caustics rather than a minimum reflection layer.
+        float effReflectionMin = reflectionMin * reflectionClarity * Mathf.Lerp(1f, 0.05f, glassyT);
+        RenderingServer.GlobalShaderParameterSet("reflection_min", effReflectionMin);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_h_deg", reflectionFovHorizontalDeg);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_deg", reflectionFovVerticalDeg);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_center", reflectionFovVerticalCenter);
-        RenderingServer.GlobalShaderParameterSet("ssr_max_distance", ssrMaxDistance);
-        RenderingServer.GlobalShaderParameterSet("ssr_steps", ssrSteps);
-        RenderingServer.GlobalShaderParameterSet("ssr_thickness", ssrThickness);
         // Foam color derived entirely from regional palette + direct light:
         //   - Start from a soft tint of the region's DustColor (shoreline
         //     froth physically carries suspended sediment — the regional

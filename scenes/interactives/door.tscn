@@ -44,6 +44,7 @@ region_enabled = true
 region_rect = Rect2(0, 0, 10, 20)
 script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_spritemat")
+alpha_cut = 1
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1178586367]
 collision_layer = 32

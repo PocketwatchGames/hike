@@ -227,6 +227,19 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("water_disable_ripples", ((CVarBool)cvar).Value);
     });
 
+    // Disable all sprite-based water reflections (the flipped child sprites
+    // LitSprite spawns under water surfaces). Doesn't tear down the
+    // reflection nodes — just zeroes the global reflection_tint that
+    // sprite_reflection.gdshader multiplies the output by, so reflections
+    // collapse to black/invisible. Set back to false to restore. Useful
+    // for measuring perf cost of reflections, isolating render bugs, or as
+    // a low-end graphics setting.
+    public static CVarBool spriteReflectionsDisabled = new CVarBool("sprite_reflections_disabled", false, (cvar) =>
+    {
+        // The actual reflection_tint value is pushed every frame by
+        // SkyController.Apply(); checking this flag there gates the push.
+    });
+
     // Render the sun disk as a pure magenta circle in the sky (and thus in
     // the water reflection), bypassing cloud occlusion, sun tint, intensity
     // scaling, and horizon gating. A smoke test: if both the sky dome and

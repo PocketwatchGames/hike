@@ -31,9 +31,8 @@ global uniform float ripple_strength;
 global uniform float ripple_pixel_size;
 global uniform float fresnel_power;
 global uniform float reflection_strength;
-global uniform float ssr_max_distance;
-global uniform float ssr_steps;
-global uniform float ssr_thickness;
+// SSR removed — see voxel_water.gdshader for the rationale. The cap
+// reflects sky only; sprite-based reflections handle upright objects.
 global uniform vec3 foam_color;
 global uniform float foam_depth;
 global uniform float foam_scale;
@@ -41,8 +40,6 @@ global uniform vec2 foam_scroll;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
-
-const int SSR_MAX_STEPS = 24;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -143,38 +140,7 @@ void fragment() {
 	vec3 refl = reflect(view_to_frag, n);
 	float fresnel = pow(1.0 - clamp(dot(-view_to_frag, n), 0.0, 1.0), fresnel_power);
 
-	vec3 sky_col = sample_sky(world_pos, refl, TIME) * sun_mask * cloud_sun;
-
-	vec3 ssr_col = vec3(0.0);
-	float ssr_alpha = 0.0;
-	float step_world = ssr_max_distance / max(ssr_steps, 1.0);
-	vec3 ray_origin = world_pos + n * 0.05;
-	for (int i = 1; i <= SSR_MAX_STEPS; i++) {
-		if (float(i) > ssr_steps) { break; }
-		vec3 p = ray_origin + refl * (step_world * float(i));
-		vec4 clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(p, 1.0);
-		if (clip.w <= 0.0) { break; }
-		vec3 ndc = clip.xyz / clip.w;
-		if (abs(ndc.x) > 1.0 || abs(ndc.y) > 1.0 || ndc.z < -1.0 || ndc.z > 1.0) { break; }
-		vec2 uv = ndc.xy * 0.5 + 0.5;
-		float d = textureLod(depth_tex, uv, 0.0).r;
-		float pz = ndc.z * 0.5 + 0.5;
-		if (d < pz) {
-			vec4 hit_ndc = vec4(ndc.xy, d * 2.0 - 1.0, 1.0);
-			vec4 hit_view = INV_PROJECTION_MATRIX * hit_ndc;
-			hit_view /= hit_view.w;
-			vec4 p_view = VIEW_MATRIX * vec4(p, 1.0);
-			if (abs(hit_view.z - p_view.z) < ssr_thickness + step_world) {
-				vec2 edge = abs(uv * 2.0 - 1.0);
-				float edge_fade = 1.0 - smoothstep(0.85, 1.0, max(edge.x, edge.y));
-				ssr_col = textureLod(screen_tex, uv, 0.0).rgb;
-				ssr_alpha = edge_fade;
-			}
-			break;
-		}
-	}
-
-	vec3 refl_col = mix(sky_col, ssr_col, ssr_alpha);
+	vec3 refl_col = sample_sky(world_pos, refl, TIME) * sun_mask * cloud_sun;
 	float refl_mix = fresnel * reflection_strength;
 	vec3 final_col = mix(water_col, refl_col, refl_mix);
 

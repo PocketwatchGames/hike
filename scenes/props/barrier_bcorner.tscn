@@ -29,3 +29,5 @@ script = ExtResource("3_litsprite")
 Mirror = true
 CenteredAtBase = false
 ForwardOffset = 1.3653
+alpha_cut = 1
+

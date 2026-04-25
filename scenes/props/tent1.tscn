@@ -30,3 +30,5 @@ Mirror = true
 CenteredAtBase = false
 ForwardOffset = 2.5461
 MaterialTemplate = ExtResource("4_spritemat")
+alpha_cut = 1
+

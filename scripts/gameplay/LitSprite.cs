@@ -232,7 +232,27 @@ public partial class LitSprite : Sprite3D
         }
     }
 
-     // How far below the sprite feet to search for a water surface. 16
+    // Whether this sprite contributes a flipped child sprite under nearby
+    // water surfaces. Off skips reflection entirely (cheapest — props that
+    // never see water, e.g. interior furniture, should be Off). On forces a
+    // reflection regardless of size. Auto enables it only when the sprite
+    // is taller than `AutoReflectMinHeight` in world units — small detail
+    // sprites (loot, torches' flame frames, tiny props) get culled because
+    // their flipped duplicate is too small to read on a rippled surface.
+    public enum ReflectMode { Off, On, Auto }
+    [Export] public ReflectMode Reflects { get; set; } = ReflectMode.Auto;
+    // World-unit height threshold for ReflectMode.Auto. Computed from the
+    // sprite's pixel rect × pixel_size at runtime; defaults to ~1.5m which
+    // covers player + most mobs/trees but skips loot/grass/small props.
+    [Export(PropertyHint.Range, "0,8,0.05")] public float AutoReflectMinHeight { get; set; } = 1.5f;
+    // Cap on the above-water height that drives the geometric mirror.
+    // Below this, the reflection tracks player jumps / bobs by sinking
+    // below water proportionally; above this, the reflection anchors at
+    // the waterline so tall sprites on hills don't have reflections way
+    // below the seabed. ~2m is a sensible default — covers jumps and
+    // shoulder-deep wading without sinking trees off-world.
+    [Export(PropertyHint.Range, "0,8,0.05")] public float MaxReflectionAboveWater { get; set; } = 2.0f;
+    // How far below the sprite feet to search for a water surface. 16
     // voxels handles a sprite standing on a pier over a deep lake; beyond
     // that the reflection is so dimmed by water depth tint it won't read.
     [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
@@ -459,10 +479,45 @@ public partial class LitSprite : Sprite3D
         _shadowProxy.MaterialOverride = smat;
     }
 
+    // Decides whether to spawn / keep a flipped reflection child for this
+    // sprite. Auto compares the sprite's rendered world-space height
+    // (pixels × pixel_size) against `AutoReflectMinHeight` so tall props
+    // and characters reflect while small detail sprites don't pay the cost.
+    private bool ShouldReflect(Vector2I spriteSize)
+    {
+        switch (Reflects)
+        {
+            case ReflectMode.Off:
+                return false;
+            case ReflectMode.On:
+                return true;
+            default:
+                // Sprite world-space height: pixel_size IS 1 world-unit-per-
+                // pixel here at runtime (per Apply()), so the chunky-pixel
+                // global scales the rendered size. Use the project's chunky
+                // pixel scale to derive the visible meters.
+                float pxSize = GetEditorPixelSize();
+                return spriteSize.Y * pxSize >= AutoReflectMinHeight;
+        }
+    }
+
     private void EnsureReflection(Vector2I spriteSize, Vector2I regionOrigin)
     {
         if (_reflectionTemplate == null || Texture == null)
         {
+            return;
+        }
+        if (!ShouldReflect(spriteSize))
+        {
+            // Tear down any existing reflection if Reflects was changed at
+            // runtime (e.g. inspector tweak in editor) so a previously-On
+            // sprite cleans up properly.
+            if (_reflection != null)
+            {
+                _reflection.QueueFree();
+                _reflection = null;
+                _reflectionMaterial = null;
+            }
             return;
         }
         if (_reflection == null)
@@ -508,9 +563,26 @@ public partial class LitSprite : Sprite3D
             _reflection.Visible = false;
             return;
         }
-        // Mirror the sprite's anchor across the water surface. The child's
-        // LOCAL position is the delta from parent; 2*(water_y - src.y).
-        _reflection.Position = new Vector3(0f, 2f * (waterY.Value - src.Y), 0f);
+        // Geometric mirror, capped. Within MaxReflectionAboveWater meters
+        // above the water surface, the reflection uses the true mirror
+        // position (2*(water_y - src.y) from the source) — so a player
+        // jumping or bobbing above water sees their reflection move down
+        // on screen accordingly. Beyond that cap, the reflection's anchor
+        // stops sinking and falls back to "feet at waterline" so a sprite
+        // standing far above the water (tree on a cliff over a lake)
+        // doesn't anchor its reflection so deep that it disappears below
+        // the seabed.
+        float aboveWater = src.Y - waterY.Value;
+        float localY;
+        if (aboveWater <= MaxReflectionAboveWater)
+        {
+            localY = 2f * (waterY.Value - src.Y);
+        }
+        else
+        {
+            localY = waterY.Value - src.Y;
+        }
+        _reflection.Position = new Vector3(0f, localY, 0f);
         _reflection.Visible = true;
         _reflectionMaterial.SetShaderParameter("water_y", waterY.Value);
         _reflectionMaterial.SetShaderParameter("source_world_pos", src);

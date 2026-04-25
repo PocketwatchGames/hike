@@ -39,6 +39,8 @@ region_enabled = true
 region_rect = Rect2(0, 0, 4, 13)
 script = ExtResource("5_litsprite")
 MaterialTemplate = ExtResource("6_spritemat")
+Reflects = 1
+alpha_cut = 1
 
 [node name="UnlitSprite" type="Sprite3D" parent="." unique_id=579226933]
 visible = false
@@ -50,6 +52,8 @@ region_enabled = true
 region_rect = Rect2(0, 0, 4, 13)
 script = ExtResource("5_litsprite")
 MaterialTemplate = ExtResource("6_spritemat")
+Reflects = 1
+alpha_cut = 1
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661 node_paths=PackedStringArray("_light")]
 script = ExtResource("4_light")

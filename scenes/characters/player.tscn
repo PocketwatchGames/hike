@@ -180,6 +180,7 @@ cast_shadow = 0
 centered = false
 offset = Vector2(-36, 0)
 pixel_size = 0.0738
+alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
 region_rect = Rect2(0, 0, 72, 72)

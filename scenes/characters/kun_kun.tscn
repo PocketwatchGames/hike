@@ -69,6 +69,7 @@ pixel_size = 0.0738
 texture = ExtResource("5_mouse")
 region_enabled = true
 region_rect = Rect2(0, 0, 18, 18)
+alpha_cut = 1
 script = ExtResource("6_litsprite")
 MirrorByYaw = true
 ForwardOffset = 0.3

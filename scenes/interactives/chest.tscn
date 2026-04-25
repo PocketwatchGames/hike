@@ -43,6 +43,7 @@ texture = ExtResource("3_17q7g")
 region_enabled = true
 region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("4_litsprite")
+alpha_cut = 1
 
 [node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
 cast_shadow = 0
@@ -53,6 +54,7 @@ texture = ExtResource("3_17q7g")
 region_enabled = true
 region_rect = Rect2(736, 165, 16, 27)
 script = ExtResource("4_litsprite")
+alpha_cut = 1
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]
 collision_layer = 32
