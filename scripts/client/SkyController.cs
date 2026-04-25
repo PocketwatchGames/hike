@@ -327,21 +327,39 @@ public partial class SkyController : Node3D
     // Spatial frequency of the intermittent wave envelope. Smaller = larger
     // patches of active vs calm water; larger = busier surface.
     [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveGateScale = 0.005f;
+    // Wave-phase angular rate per m/s of wind. The shader's wave temporal
+    // phase is integrated in C# as `wavePhase += windSpeed * waveSpeedPerMps
+    // * dt`, so calm water freezes the surface and stormy water pumps it
+    // fast. 0.24 at 5 m/s wind reproduces the prior fixed `time * 1.2` rate.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float waveSpeedPerMps = 0.24f;
 
-    [ExportSubgroup("Swell Streaks")]
-    // Long, infrequent wind-aligned crests that punctuate the base ripple
-    // field. Placement is a jittered grid of `spacing`-sized cells, one
-    // streak per cell gated by `probability`. Each streak is `length` ×
-    // `width` and tilts the surface normal + lays down a little foam on
-    // the crest. Intensity rides on _palette.RippleStrength so streaks
-    // fade with the base ripples on calm water.
+    [ExportSubgroup("Wave Streaks")]
+    // Wave streaks are conceptually "ripple layer 2" — a coarser scrolling-
+    // noise field added to the base ripple normal with its own weight,
+    // scale, and drift speed. Strength rides on _palette.RippleStrength so
+    // streaks fade smoothly with wind/rain. Streak weight is independent
+    // of the foam path — whitecap foam (below) fires from the COMPOSITE
+    // tilt regardless of which layer caused it (base ripples alone can
+    // foam in choppy regions even with streak strength at 0).
     [Export(PropertyHint.Range, "0,2,0.01")] public float waveStreakStrength = 0.6f;
-    [Export(PropertyHint.Range, "4,80,0.5")] public float waveStreakSpacing = 27f;
-    [Export(PropertyHint.Range, "0.5,16,0.1")] public float waveStreakLength = 4f;
-    [Export(PropertyHint.Range, "0.05,2,0.01")] public float waveStreakWidth = 0.5f;
-    [Export(PropertyHint.Range, "0.05,1,0.01")] public float waveStreakProbability = 0.35f;
-    [Export(PropertyHint.Range, "0,1.5,0.01")] public float waveStreakFoam = 0.5f;
-    [Export(PropertyHint.Range, "0,2,0.01")] public float waveStreakDriftSpeed = 0.3f;
+    // World-XZ multipliers for the two noise octaves. Smaller value =
+    // larger spatial features (longer waves); larger value = finer wavelets.
+    [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveStreakScaleA = 0.05f;
+    [Export(PropertyHint.Range, "0.005,0.5,0.001")] public float waveStreakScaleB = 0.09f;
+    // Drift speeds (world-units / second) along the wind vector for each
+    // octave. Different speeds keep the layers from beating against each
+    // other into a static pattern.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float waveStreakSpeedA = 0.4f;
+    [Export(PropertyHint.Range, "0,4,0.01")] public float waveStreakSpeedB = 0.7f;
+
+    [ExportSubgroup("Whitecaps")]
+    // Whitecap foam fires wherever the FINAL composite normal (ripple +
+    // streak combined) is sufficiently sideways. The threshold compares
+    // sin²(tilt_angle): 0.005 ≈ 4°, 0.02 ≈ 8°, 0.05 ≈ 13°, 0.15 ≈ 23°.
+    // Lower = foam on gentler ripple crests; higher = only on the
+    // steepest waves. Strength multiplies the speckle-masked foam mask.
+    [Export(PropertyHint.Range, "0,1.5,0.01")] public float whitecapFoamStrength = 0.7f;
+    [Export(PropertyHint.Range, "0.0,0.1,0.00001")] public float whitecapFoamThreshold = 0.02f;
 
     [ExportSubgroup("Ripples (Pixelation)")]
     // Pixels per world-unit used to quantize ripple-noise UVs. Higher values
@@ -380,6 +398,11 @@ public partial class SkyController : Node3D
     // visual-sculpt choices, not region-driven.
     [Export(PropertyHint.Range, "0.1,8,0.05")] public float foamDepth = 4.0f;
     [Export(PropertyHint.Range, "0.1,16,0.05")] public float foamScale = 7.0f;
+    // Per-(m/s of wind) drift vector for shoreline foam noise UVs. Each
+    // frame the shader's `foam_offset` accumulates `foamScroll * windSpeed
+    // * dt`, so calm water freezes the foam pattern and stormy water pushes
+    // it across the shore quickly. Direction stays fixed (not wind-aligned)
+    // so the artistic choice of scroll direction survives wind shifts.
     [Export] public Vector2 foamScroll = new Vector2(0.5f, -0.15f);
     [Export(PropertyHint.Range, "0,1.5,0.01")] public float foamStrength = 0.5f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float foamThreshold = 0.6f;
@@ -465,9 +488,19 @@ public partial class SkyController : Node3D
     public Vector2 cloudOffset;
     public Vector2 rippleOffsetA;
     public Vector2 rippleOffsetB;
+    public Vector2 waveStreakOffsetA;
+    public Vector2 waveStreakOffsetB;
     public Vector2 dustNoiseOffsetA;
     public Vector2 dustNoiseOffsetB;
     public Vector3 moteOffset;
+    // Shoreline-foam UV scroll offset, integrated as
+    // `foamScroll * windSpeed * dt` so foam moves only when there's wind
+    // (driving wave energy at shore) and speeds up in stormy weather.
+    public Vector2 foamOffset;
+    // Wave-displacement temporal phase, integrated as
+    // `windSpeed * waveSpeedPerMps * dt`. Replaces a fixed `time * 1.2`
+    // rate so wave undulation freezes in calm air and whips in gales.
+    public float wavePhase;
     // Grass-sway sin phase (integrates palette.WindFrequency per frame).
     public float windPhase;
     // Gust-wave phase in radians (integrates palette.GustFrequency * 2π
@@ -612,12 +645,13 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_wave_length", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_wave_gate_scale", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
             ShaderGlobals.Register("wave_streak_strength", RenderingServer.GlobalShaderParameterType.Float, 0f);
-            ShaderGlobals.Register("wave_streak_spacing", RenderingServer.GlobalShaderParameterType.Float, 27f);
-            ShaderGlobals.Register("wave_streak_length", RenderingServer.GlobalShaderParameterType.Float, 4f);
-            ShaderGlobals.Register("wave_streak_width", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
-            ShaderGlobals.Register("wave_streak_probability", RenderingServer.GlobalShaderParameterType.Float, 0.35f);
-            ShaderGlobals.Register("wave_streak_foam", RenderingServer.GlobalShaderParameterType.Float, 0.5f);
-            ShaderGlobals.Register("wave_streak_drift_speed", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
+            ShaderGlobals.Register("wave_streak_scale_a", RenderingServer.GlobalShaderParameterType.Float, 0.05f);
+            ShaderGlobals.Register("wave_streak_scale_b", RenderingServer.GlobalShaderParameterType.Float, 0.09f);
+            ShaderGlobals.Register("wave_streak_offset_a", RenderingServer.GlobalShaderParameterType.Vec2, Vector2.Zero);
+            ShaderGlobals.Register("wave_streak_offset_b", RenderingServer.GlobalShaderParameterType.Vec2, Vector2.Zero);
+            ShaderGlobals.Register("whitecap_foam_strength", RenderingServer.GlobalShaderParameterType.Float, 0.7f);
+            ShaderGlobals.Register("whitecap_foam_threshold", RenderingServer.GlobalShaderParameterType.Float, 0.02f);
+            ShaderGlobals.Register("foam_min_light", RenderingServer.GlobalShaderParameterType.Float, 0.4f);
             ShaderGlobals.Register("water_depth_scale", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_edge_opacity", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
             ShaderGlobals.Register("water_rim_width", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
@@ -718,6 +752,17 @@ public partial class SkyController : Node3D
             cloudOffset -= windXZ * steadySpeed * cloudScrollPerMps * dt;
             rippleOffsetA -= windXZ * rippleScrollSpeed * rippleSpeedA * dt;
             rippleOffsetB -= windXZ_B * rippleScrollSpeed * rippleSpeedB * dt;
+            // Wave-streak offsets integrate the same way — keeps the noise
+            // pattern locked to world XZ, with offset advancing along wind.
+            waveStreakOffsetA -= windXZ * waveStreakSpeedA * dt;
+            waveStreakOffsetB -= windXZ * waveStreakSpeedB * dt;
+            // Shoreline foam scroll. Direction is the authored foamScroll
+            // vector (NOT wind-aligned, by artistic choice); only magnitude
+            // scales with wind speed.
+            foamOffset += foamScroll * steadySpeed * dt;
+            // Wave displacement phase. Steady wind only (gusts shouldn't
+            // visibly stutter the wave temporal frequency).
+            wavePhase += steadySpeed * waveSpeedPerMps * dt;
             windPhase += _palette.WindFrequency * dt;
             gustPhase += _palette.GustFrequency * Mathf.Tau * dt;
 
@@ -1128,17 +1173,19 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_wave_amp", effWaveAmp);
         RenderingServer.GlobalShaderParameterSet("water_wave_length", Mathf.Max(waveLength, 0.1f));
         RenderingServer.GlobalShaderParameterSet("water_wave_gate_scale", waveGateScale);
-        // Swell streaks share the ripple wind/rain/muddiness response curve
-        // (already baked into _palette.RippleStrength by WeatherDerivation).
-        // Calm water → no streaks; breezy+ water → strokes visible on top.
+        RenderingServer.GlobalShaderParameterSet("water_wave_phase", wavePhase);
+        // Wave streaks ride the same wind/rain/muddiness curve as the base
+        // ripples (baked into _palette.RippleStrength by WeatherDerivation),
+        // so calm water gets no streaks and breezy/rainy water shows visible
+        // crest noise + whitecaps on top of the ripple normal.
         float effStreakStrength = waveStreakStrength * _palette.RippleStrength;
         RenderingServer.GlobalShaderParameterSet("wave_streak_strength", effStreakStrength);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_spacing", waveStreakSpacing);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_length", waveStreakLength);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_width", waveStreakWidth);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_probability", waveStreakProbability);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_foam", waveStreakFoam);
-        RenderingServer.GlobalShaderParameterSet("wave_streak_drift_speed", waveStreakDriftSpeed);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_scale_a", waveStreakScaleA);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_scale_b", waveStreakScaleB);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_offset_a", waveStreakOffsetA);
+        RenderingServer.GlobalShaderParameterSet("wave_streak_offset_b", waveStreakOffsetB);
+        RenderingServer.GlobalShaderParameterSet("whitecap_foam_strength", whitecapFoamStrength);
+        RenderingServer.GlobalShaderParameterSet("whitecap_foam_threshold", whitecapFoamThreshold);
         RenderingServer.GlobalShaderParameterSet("fresnel_power", effFresnel);
         RenderingServer.GlobalShaderParameterSet("reflection_strength", effReflection);
         // Reflection floor: in glassy conditions we want fresnel to be the
@@ -1177,9 +1224,19 @@ public partial class SkyController : Node3D
             Mathf.Clamp(foamBase.B * (0.55f + 0.5f * sunTintLit.B), 0f, 1f),
             1f);
         RenderingServer.GlobalShaderParameterSet("foam_color", ColorToVec3(effFoam));
+        // Foam lighting floor — a small base so foam never collapses to
+        // black plus a clarity-and-light-level bonus so clear bright
+        // conditions show crisp white foam while overcast/foggy/dim
+        // conditions let it dim with the scene. Without this scale, foam
+        // looks emissive on dark stormy nights (a constant 0.7 floor was
+        // higher than ambient sky light, making foam glow against
+        // surrounding water that was lit by dim moonlight only).
+        float clarity = (1f - cloudCover01 * 0.7f) * (1f - fog01 * 0.5f);
+        float effFoamMinLight = 0.18f + 0.45f * lightLevel * clarity;
+        RenderingServer.GlobalShaderParameterSet("foam_min_light", effFoamMinLight);
         RenderingServer.GlobalShaderParameterSet("foam_depth", foamDepth);
         RenderingServer.GlobalShaderParameterSet("foam_scale", foamScale);
-        RenderingServer.GlobalShaderParameterSet("foam_scroll", foamScroll);
+        RenderingServer.GlobalShaderParameterSet("foam_offset", foamOffset);
         RenderingServer.GlobalShaderParameterSet("foam_strength", foamStrength);
         RenderingServer.GlobalShaderParameterSet("foam_threshold", foamThreshold);
         RenderingServer.GlobalShaderParameterSet("foam_sharpness", foamSharpness);

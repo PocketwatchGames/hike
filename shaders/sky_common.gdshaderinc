@@ -99,10 +99,12 @@ vec3 sample_sky_clouds_at_xz(vec3 dir, vec2 cloud_sample_xz, vec3 pre_cloud_add,
 {
 	dir = normalize(dir);
 
-	// Gradient: horizon at dir.y=0, zenith at dir.y=1. Darkened at night.
+	// Gradient: horizon at dir.y=0, zenith at dir.y=1. horizon_color and
+	// zenith_color are palette-derived (WeatherDerivation already lerps them
+	// toward night variants by nightT), so no separate sky_night_factor pass
+	// — the palette is the single source of truth for time-of-day color.
 	float up = clamp(dir.y, 0.0, 1.0);
 	vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
-	base *= mix(1.0, 0.15, sky_night_factor);
 	base += pre_cloud_add;
 
 	vec2 cuv = cloud_sample_xz * SKY_CLOUD_GROUND_TILING + cloud_offset;
@@ -110,16 +112,25 @@ vec3 sample_sky_clouds_at_xz(vec3 dir, vec2 cloud_sample_xz, vec3 pre_cloud_add,
 	float band = max(1e-4, 1.0 - cloud_sharpness);
 	float cloud_mask = smoothstep(cloud_threshold, min(cloud_threshold + band, 1.0), c);
 	cloud_mask = pow(cloud_mask, 2.2);
-	// Coverage-driven darkening. The mask saturates at 1.0 but we treat its
-	// top portion as [darken_start, 150%] virtual coverage — the densest cores
-	// read as shadowed undersides of thick weather instead of the uniform
-	// plate thin clouds produce. Below darken_start the cloud sits at full
-	// brightness. Sky dome passes 0.75; water reflection passes 0.5 because
-	// the reflection is composited at partial fresnel/refl_mix strength, so
-	// the same contrast needs to start earlier to remain visible.
-	float darken_t = smoothstep(darken_start, 1.0, cloud_mask);
-	float cloud_shade = mix(1.0, 0.4, darken_t);
-	vec3 cloud_rgb = cloud_color * cloud_shade * mix(1.0, 0.2, sky_night_factor);
+	// Coverage-driven darkening. Drives the brightness curve off the RAW noise
+	// `c` rather than `cloud_mask` — the mask saturates to 1.0 across the
+	// entire surface at high cloud cover (where its threshold is well below
+	// typical noise values), which would force a single uniform shade. Using
+	// `c` keeps a smooth white→dark gradient across cloud pixels regardless
+	// of how much of the sky is covered: thin patches near the cloud-edge
+	// threshold read white, dense noise peaks read dark grey. `darken_start`
+	// (0..1) acts as a contrast knob — lower values pull the dark-end edge of
+	// the smoothstep down toward the threshold, producing more aggressive
+	// darkening (used for water reflections, which are composited at partial
+	// strength); higher values keep the curve gentle (used for the sky dome).
+	float darken_upper = mix(cloud_threshold + 0.1, 1.0, clamp(darken_start, 0.0, 1.0));
+	float darken_t = smoothstep(cloud_threshold, darken_upper, c);
+	float cloud_shade = mix(1.0, 0.1, darken_t);
+	// cloud_color is palette-derived: WeatherDerivation builds it from
+	// SunTint × PrimaryIntensity (which is moonlight at night) blended with
+	// SkyColor, so night-vs-day brightness is already baked in. No separate
+	// sky_night_factor multiplier here — the palette is the single source.
+	vec3 cloud_rgb = cloud_color * cloud_shade;
 	return mix(base, cloud_rgb, cloud_mask);
 }
 

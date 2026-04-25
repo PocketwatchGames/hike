@@ -36,7 +36,7 @@ global uniform float reflection_strength;
 global uniform vec3 foam_color;
 global uniform float foam_depth;
 global uniform float foam_scale;
-global uniform vec2 foam_scroll;
+global uniform vec2 foam_offset;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
@@ -128,7 +128,7 @@ void fragment() {
 
 	// Shoreline foam — scrolling noise band where thickness < foam_depth.
 	float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
-	vec2 fuv = pixelize(world_pos.xz * foam_scale + foam_scroll * TIME);
+	vec2 fuv = pixelize(world_pos.xz * foam_scale + foam_offset);
 	float fn = vnoise(vec3(fuv, 0.0));
 	float band = max(1e-4, 1.0 - foam_sharpness);
 	float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);

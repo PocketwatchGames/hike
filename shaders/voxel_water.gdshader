@@ -82,6 +82,10 @@ global uniform float water_wave_length;
 // that multiplies wave amplitude so there are patches of calm and active
 // water instead of uniform surface motion.
 global uniform float water_wave_gate_scale;
+// Wave temporal phase, integrated each frame in C# at a wind-scaled rate
+// (windSpeed * waveSpeedPerMps). Replaces a fixed `time * 1.2` so calm
+// water freezes and stormy water pumps the surface fast.
+global uniform float water_wave_phase;
 // Two normal-map textures for ripple perturbation. Each texel's RGB
 // encodes a tangent-space normal via Godot's NoiseTexture2D as_normal_map
 // bake — the output stores (nx, nz, ny) in [0,1] with ny biased upward.
@@ -119,25 +123,45 @@ global uniform vec3 wind_dir;
 global uniform vec3 foam_color;
 global uniform float foam_depth;
 global uniform float foam_scale;
-global uniform vec2 foam_scroll;
+// World-XZ scroll offset for the shoreline foam noise UVs. Integrated in
+// C# as `foamScroll * windSpeed * dt` so the pattern only drifts when wind
+// is driving wave energy at shore (and stops when wind dies).
+global uniform vec2 foam_offset;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
+// Lower bound on foam lighting — prevents foam from collapsing to black
+// in dim scenes while letting overcast / foggy / nighttime weather pull
+// it down to "dim white" instead of "emissive white". SkyController
+// computes this per-frame from clarity × lightLevel so a clear sunny
+// day keeps foam crisp and a heavy overcast night dims it accordingly.
+global uniform float foam_min_light;
 
-// Swell streaks — long wind-aligned crest strokes that punctuate the base
-// ripple field. Placed on a jittered grid (one streak per cell, gated by
-// probability) with each streak shaped as a (length × width) ellipse; the
-// cos² cross-profile gives a ridge whose gradient tilts the surface normal,
-// and the envelope magnitude lays down foam in `foam_color`. Strength is
-// driven by the same wind/rain/muddiness response as ripple_strength so
-// streaks fade smoothly with the base ripples on calm water.
+// Wave streaks — a second layer of scrolling noise (similar to ripples but
+// at coarser scales and slower drift) that compounds with the base ripple
+// normal AND seeds foam where noise crosses a threshold. Two octaves with
+// independent scales + drift speeds (along wind), gradient sampled via
+// finite differences for normal perturbation. Foam threshold isolates the
+// brightest noise peaks as crest "whitecaps" — visible at night via a
+// higher light floor than shoreline foam.
 global uniform float wave_streak_strength;
-global uniform float wave_streak_spacing;
-global uniform float wave_streak_length;
-global uniform float wave_streak_width;
-global uniform float wave_streak_probability;
-global uniform float wave_streak_foam;
-global uniform float wave_streak_drift_speed;
+global uniform float wave_streak_scale_a;
+global uniform float wave_streak_scale_b;
+// Wave-streak scroll offsets, integrated in SkyController each frame
+// (offset -= windXZ * speed * dt). Same pattern as ripple_offset_a/b —
+// keeps the noise pattern locked to world-XZ via `world_xz * scale +
+// offset`, with the offset advancing over time but never depending on
+// camera position. Using shader TIME * speed directly here was less
+// reliable across chunk boundaries.
+global uniform vec2 wave_streak_offset_a;
+global uniform vec2 wave_streak_offset_b;
+
+// Whitecap foam — emitted wherever the FINAL composed surface normal is
+// sufficiently sideways, regardless of WHICH ripple layer (base ripples
+// or wave-streak overlay) produced the tilt. Threshold is sin² of the
+// tilt angle; strength multiplies the resulting foam mask.
+global uniform float whitecap_foam_strength;
+global uniform float whitecap_foam_threshold;
 
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
@@ -320,10 +344,12 @@ float wave_gate(vec2 world_xz, float time) {
 }
 
 // Gerstner-ish directional wave for vertex displacement + whitecap crest
-// detection. Two sine frequencies produce a naturally uneven crest.
-float wave_height(vec2 world_xz, vec2 dir, float time) {
+// detection. Two sine frequencies produce a naturally uneven crest. The
+// `time_phase` argument is the wind-integrated wave phase from C#, not raw
+// shader TIME — at zero wind the surface freezes.
+float wave_height(vec2 world_xz, vec2 dir, float time_phase) {
 	float k = 6.2831853 / max(water_wave_length, 0.1);
-	float phase = dot(world_xz, dir) * k + time * 1.2;
+	float phase = dot(world_xz, dir) * k + time_phase;
 	float w = sin(phase) * 0.7 + sin(phase * 1.7 + 1.3) * 0.3;
 	return w;
 }
@@ -342,91 +368,33 @@ vec3 ripple_normal(vec2 world_xz, float time) {
 	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
 
-// Swell streak field. Grids world XZ (in wind-aligned coords) into cells of
-// `wave_streak_spacing` size; each cell hashes to either a streak center
-// jittered inside the cell or empty (gated by `wave_streak_probability`).
-// A fragment sums contributions from the 3x3 cell neighborhood so streaks
-// near cell boundaries still bleed across correctly. Each streak is a
-// (length × width) ellipse whose cos² v-profile gives a smooth ridge.
-// Returns vec3(tilt_x, tilt_z, foam_amount): the xz-plane tilt gets added
-// to the normal's horizontal component, foam is piped into the existing
-// foam compositing so it picks up `foam_color` and current lighting.
-vec3 wave_streak(vec2 world_xz, vec2 wind_xz, float time) {
+// Wave streak field — two octaves of procedural noise scrolled along wind
+// at independent speeds. Returns the (tilt_x, tilt_z) horizontal-normal
+// perturbation that the fragment shader composites with the base ripple
+// normal. Foam is NOT computed here — it lives downstream off the FINAL
+// composed normal's tilt magnitude (where the surface is sufficiently
+// sideways = wave is breaking = foam appears), so it responds to the
+// combined ripple + streak agitation rather than just the streak field.
+vec2 wave_streak(vec2 world_xz) {
 	if (wave_streak_strength <= 1e-4) {
-		return vec3(0.0);
+		return vec2(0.0);
 	}
-	float spacing = max(wave_streak_spacing, 1.0);
-	float half_len = max(wave_streak_length, 0.1) * 0.5;
-	float half_wid = max(wave_streak_width, 0.05) * 0.5;
+	vec2 uv_a = world_xz * wave_streak_scale_a + wave_streak_offset_a;
+	vec2 uv_b = world_xz * wave_streak_scale_b + wave_streak_offset_b;
 
-	// Wind-aligned frame. Wave CRESTS run perpendicular to wind (like real
-	// wind-pushed surface waves), so the streak's LONG axis is `across`
-	// (perpendicular to wind) and its SHORT axis is `along` (parallel).
-	vec2 along = normalize(wind_xz + vec2(1e-4, 0.0));
-	vec2 across = vec2(-along.y, along.x);
-	// Drift the whole field slowly along wind so crests appear to travel
-	// downwind rather than being locked to the ground.
-	float drift = time * wave_streak_drift_speed;
-	// u = along-wind coord (short axis, sets crest thickness);
-	// v = across-wind coord (long axis, sets crest length).
-	vec2 uv = vec2(dot(world_xz, along) - drift, dot(world_xz, across));
-	// Cells are anisotropic: spacing along wind = `spacing`, across wind =
-	// streak length so the jittered centers actually seed overlapping
-	// crests along their own axis rather than leaving gaps.
-	vec2 cell_size = vec2(spacing, max(wave_streak_length, 0.1));
-	vec2 cell = floor(uv / cell_size);
+	float n_a = vnoise(vec3(uv_a, 0.0));
+	float n_b = vnoise(vec3(uv_b, 0.0));
+	float n_streak = (n_a + n_b) * 0.5;
 
-	vec2 accum_tilt = vec2(0.0);
-	float max_env = 0.0;
-	for (int dj = -1; dj <= 1; dj++) {
-		for (int di = -1; di <= 1; di++) {
-			vec2 neighbor = cell + vec2(float(di), float(dj));
-			float h = hash13(vec3(neighbor, 13.37));
-			if (h > wave_streak_probability) { continue; }
-			float cu = hash13(vec3(neighbor, 7.1));
-			float cv = hash13(vec3(neighbor, 91.3));
-			vec2 center = (neighbor + vec2(cu, cv)) * cell_size;
-			vec2 rel = uv - center;
-			// nu = across short axis (width), nv = along long axis (length).
-			float nu = rel.x / half_wid;
-			float nv = rel.y / half_len;
-			if (abs(nu) >= 1.0 || abs(nv) >= 1.0) { continue; }
-			// Base envelope: cos² across the ridge (peak at nu=0), quadratic
-			// falloff along the ridge (tapers at the two ends).
-			float u_cos = cos(nu * 1.5707963);
-			float v_fall = 1.0 - nv * nv;
-			// Noise modulation breaks the clean ellipse into ripple-like
-			// irregularity. Sampled at (world_xz × ripple_scale_a + offset)
-			// so it evolves on the SAME spatial + temporal cadence as the
-			// base ripples — crests shimmer, crinkle, and break up as the
-			// ripple layers scroll. Two octaves at the ripple scales keep
-			// the texture coherent with the surface everywhere else.
-			vec2 noise_uv_a = world_xz * ripple_scale_a + ripple_offset_a;
-			vec2 noise_uv_b = world_xz * ripple_scale_b + ripple_offset_b;
-			float n_a = vnoise(vec3(noise_uv_a, 0.0));
-			float n_b = vnoise(vec3(noise_uv_b * 1.7, time * 0.3));
-			float noise = mix(n_a, n_b, 0.5);
-			// Remap noise to a [~0, ~1.4] multiplier with occasional zeros —
-			// clamps drop out portions of the crest entirely, so the streak
-			// reads as a chain of irregular wave-lets instead of a smooth arc.
-			float crinkle = clamp((noise - 0.3) * 2.0, 0.0, 1.4);
-			// Per-crest phase jitter: offsets noise sampling per streak so
-			// neighboring crests don't all break up in sync.
-			float phase_jitter = hash13(vec3(neighbor, 3.7)) * 4.0;
-			float noise_mod = vnoise(vec3(noise_uv_a * 2.3 + phase_jitter, time * 0.5));
-			crinkle *= smoothstep(0.15, 0.75, noise_mod);
-			float env = u_cos * u_cos * v_fall * crinkle;
-			// Cross-ridge slope: v-derivative of u_cos² is
-			// -sin(pi * nu) * (pi / (2 * half_wid)). Constant rolled into
-			// wave_streak_strength. Slope inherits the same crinkle so the
-			// normal perturbation breaks up where the ridge itself breaks.
-			float slope = -sin(nu * 3.1415927) * v_fall * crinkle;
-			accum_tilt += along * slope;
-			max_env = max(max_env, env);
-		}
-	}
-	return vec3(accum_tilt * wave_streak_strength,
-	            max_env * wave_streak_strength * wave_streak_foam);
+	// Finite-difference gradient → tilt direction.
+	float eps = 0.35;
+	float n_x = (vnoise(vec3(uv_a + vec2(eps, 0.0), 0.0)) +
+	             vnoise(vec3(uv_b + vec2(eps, 0.0), 0.0))) * 0.5 - n_streak;
+	float n_z = (vnoise(vec3(uv_a + vec2(0.0, eps), 0.0)) +
+	             vnoise(vec3(uv_b + vec2(0.0, eps), 0.0))) * 0.5 - n_streak;
+
+	return vec2(-n_x * wave_streak_strength * 4.0,
+	            -n_z * wave_streak_strength * 4.0);
 }
 
 varying vec3 world_vertex;
@@ -446,7 +414,7 @@ void vertex() {
 		vec3 wv = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 		vec2 dir = normalize(vec2(wind_dir.x, wind_dir.z) + vec2(1e-4, 0.0));
 		float gate = wave_gate(wv.xz, TIME);
-		float h = min(wave_height(wv.xz, dir, TIME) * gate, 0.0);
+		float h = min(wave_height(wv.xz, dir, water_wave_phase) * gate, 0.0);
 		v.y += h * water_wave_amp;
 	}
 	VERTEX = v;
@@ -469,15 +437,47 @@ void fragment() {
 	bool ripples_active = is_top && !water_disable_ripples && ripple_strength > 0.01;
 	vec3 n = ripples_active ? ripple_normal(world_vertex.xz, TIME) : (is_top ? vec3(0.0, 1.0, 0.0) : world_normal);
 
-	// Swell streaks tilt the normal and seed foam on each crest. Driven off
-	// the same wind-aligned frame as the vertex waves; skipped when ripples
-	// are disabled so the debug flat-normal path stays mirror-true.
-	float streak_foam_amt = 0.0;
+	// Wave streaks: a coarser scrolling-noise layer that adds tilt onto
+	// the base ripple normal — conceptually just "ripple layer 2" with its
+	// own scale/speed/weight. The streak path does NOT compute foam; foam
+	// fires below from the FINAL composite tilt regardless of which layer
+	// drove it.
 	if (is_top && !water_disable_ripples && wave_streak_strength > 1e-4) {
+		vec2 streak_tilt = wave_streak(world_vertex.xz);
+		n = normalize(n + vec3(streak_tilt.x, 0.0, streak_tilt.y));
+	}
+
+	// Whitecap foam: emitted on the WINDWARD-FACING tilt component of the
+	// final composite normal. The dot product of n.xz with the wind
+	// direction is positive when the normal aligns with the direction the
+	// wind is blowing (the "front face" of a wind-driven wave, which is
+	// where real whitecaps trail), and negative on the back face. We take
+	// max(0, dot) and square it so foam fires on the front of each crest
+	// only — produces directional whitecaps that visually indicate wind
+	// direction and align cleanly with the wind-aligned wave streaks.
+	//
+	// Threshold operates on this `front_sq` value (range [0, ~tilt_sq])
+	// with a proportional smoothstep tail so it behaves as a true cutoff
+	// at any scale.
+	float whitecap_foam_amt = 0.0;
+	if (is_top && !water_disable_ripples) {
 		vec2 wxz = vec2(wind_dir.x, wind_dir.z);
-		vec3 streak = wave_streak(world_vertex.xz, wxz, TIME);
-		n = normalize(n + vec3(streak.x, 0.0, streak.y));
-		streak_foam_amt = clamp(streak.z, 0.0, 1.0);
+		float wind_len = length(wxz);
+		vec2 wxz_norm = wind_len > 1e-3 ? wxz / wind_len : vec2(1.0, 0.0);
+		float front = max(0.0, dot(vec2(n.x, n.z), wxz_norm));
+		float front_sq = front * front;
+		float t_end = whitecap_foam_threshold + max(whitecap_foam_threshold * 0.5, 0.0005);
+		float crest_mask = smoothstep(whitecap_foam_threshold, t_end, front_sq);
+		// Ripple-scale noise speckle: sampled at the same world-XZ +
+		// scrolling offsets that drive the ripple normal map, so foam
+		// flecks break up in lockstep with the ripples beneath. Two
+		// octaves keep the speckle from looking too uniform.
+		vec2 fnu_a = world_vertex.xz * ripple_scale_a + ripple_offset_a;
+		vec2 fnu_b = world_vertex.xz * ripple_scale_b + ripple_offset_b;
+		float speckle = (vnoise(vec3(fnu_a, 0.0)) +
+		                 vnoise(vec3(fnu_b, 0.0))) * 0.5;
+		float speckle_mask = smoothstep(0.4, 0.75, speckle);
+		whitecap_foam_amt = clamp(crest_mask * speckle_mask * whitecap_foam_strength, 0.0, 1.0);
 	}
 
 	// Face-direction shading (from the perturbed normal so highlight
@@ -540,7 +540,7 @@ void fragment() {
 	// clean water stays white. Noise UVs are pixelized so the foam reads
 	// as hand-drawn edge pixels rather than a smoothly scrolling pattern.
 	float foam_amount = 0.0;
-	if (is_top && (foam_strength > 1e-3 || water_rim_strength > 1e-3 || streak_foam_amt > 1e-3)) {
+	if (is_top && (foam_strength > 1e-3 || water_rim_strength > 1e-3 || whitecap_foam_amt > 1e-3)) {
 		// Contiguous rim band: hard cutoff by thickness with no noise masking,
 		// so the very edge of every pool is a solid foam-colored line. Draws
 		// underneath the noisy foam so the two blend together at the shore.
@@ -550,20 +550,21 @@ void fragment() {
 		// foam color, but masked by pixelized noise so it reads as surf
 		// texture rather than a solid line.
 		float shallow = 1.0 - smoothstep(0.0, foam_depth, thickness);
-		vec2 fuv = pixelize(world_vertex.xz * foam_scale + foam_scroll * TIME);
+		vec2 fuv = pixelize(world_vertex.xz * foam_scale + foam_offset);
 		float fn = vnoise(vec3(fuv, 0.0));
 		float band = max(1e-4, 1.0 - foam_sharpness);
 		float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
 		float noisy_foam = shallow * mask * foam_strength;
 
-		foam_amount = max(max(noisy_foam, rim), streak_foam_amt);
-		// Foam dims in shade but never to zero — foam_color is already
-		// lighting-aware (pre-multiplied by SunTint × lightLevel in
-		// SkyController.Apply) so this `light` factor is meant to respect
-		// per-voxel torch/sky falloff, not to collapse foam entirely when a
-		// heavy-overcast scene drives sun_lit to ~0. Without the floor,
-		// rainy forest water loses rim + shoreline + streak foam all at once.
-		vec3 foam_light = max(light, vec3(0.25));
+		foam_amount = max(max(noisy_foam, rim), whitecap_foam_amt);
+		// All foam (shoreline rim + noisy surf + crest whitecaps) share
+		// a single light floor driven from C# based on overall scene
+		// clarity + light level. Bright clear day → high floor (foam
+		// stays crisp white). Overcast / foggy / dim night → low floor
+		// (foam dims with the scene rather than glowing emissively
+		// against dark surroundings). Daytime/torchlit `light` still
+		// wins through max() when it's brighter than the floor.
+		vec3 foam_light = max(light, vec3(foam_min_light));
 		water_col = mix(water_col, foam_color * foam_light, foam_amount);
 	}
 
