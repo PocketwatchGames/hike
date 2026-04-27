@@ -212,6 +212,23 @@ public static class CVars
     //       If no camera facing produces green, the sun is geometrically
     //       unreachable at current settings — adjust SunMaxElevationDegrees,
     //       time_of_day, or camera pitch until green appears.
+    //   8 = caustic pattern isolation (red channel) using the LIVE sample
+    //       point (sun-tangent projection of world_vertex). World-anchored.
+    //   9 = depth-reconstructed seabed XZ as a tiled gradient (red = X,
+    //       green = Z). Visible grid = depth reconstruction working.
+    //  10 = caustic_color uniform upload check (flat fill).
+    //  11 = caustic pattern using the OLD camera-coupled sample point
+    //       (sun-tangent projection of depth-reconstructed seabed_world).
+    //       A/B compare against mode 8: if 11 pops/scrolls with camera but
+    //       8 stays anchored, the depth-buffer path was the camera coupling.
+    //  12 = sun_uv visualization for the LIVE path — fract gradient on the
+    //       actual coords the noise is sampled at. Should stay world-anchored
+    //       as the camera moves.
+    //  13 = TIME rollover detector. Red ramps 0→1 every 10 seconds. If it
+    //       snaps back to 0 mid-ramp, Godot TIME rolled over (default at
+    //       3600s, configurable via rendering/limits/time/time_rollover_secs).
+    //  14 = caustic pattern at a FIXED sun_uv. Strips out spatial variation
+    //       so any visible pop here is purely time-source.
     public static CVarInt waterDebug = new CVarInt("water_debug", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);

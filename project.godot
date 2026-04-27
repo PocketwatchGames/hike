@@ -291,6 +291,10 @@ caustic_color={
 "type": "vec3",
 "value": Vector3(0.9, 0.95, 1)
 }
+caustic_offset={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
 water_wave_amp={
 "type": "float",
 "value": 0.0

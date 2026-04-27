@@ -175,6 +175,15 @@ global uniform float caustic_speed;
 global uniform float caustic_sharpness;
 global uniform float caustic_depth_fade;
 global uniform vec3 caustic_color : source_color;
+// World-space scroll offset for the caustic noise. Integrated in C# as
+// `wind_dir * windSpeed * causticDriftPerMps * dt` (same convention as
+// foam_offset / ripple_offset). The shader subtracts this from the
+// seabed world position before sampling so the field translates along
+// wind in world units — calm = frozen, storm = drifting fast. Layer 2
+// scrolls at a fraction of layer 1's offset so the abs-difference
+// ribbons keep evolving as the field translates rather than just rigidly
+// sliding past.
+global uniform vec3 caustic_offset;
 
 const float MIN_AMBIENT = 0.0;
 
@@ -195,15 +204,27 @@ float vnoise(vec3 p) {
 	           mix(mix(n001,n101,f.x), mix(n011,n111,f.x), f.y), f.z);
 }
 
-// Procedural caustic intensity at a world-space XZ location. Takes two
-// scrolling noise octaves in opposite directions and uses the absolute
-// difference to produce thin bright ribbon edges where the two patterns
-// cross. pow() sharpens the ribbons into crisp focused bands. Range ~[0,1].
-float caustic_pattern(vec2 world_xz, float time)
+// Procedural caustic intensity at a 3D world position. Two value-noise
+// octaves are sampled and abs-differenced to produce thin ribbon edges;
+// pow() sharpens them into crisp focused bands.
+//
+// Sampling in full 3D (world_pos.xyz, not just XZ) means slopes and
+// walls get unique noise values across their surface — a vertical wall
+// gets variation along Y rather than the long stretched ribbons that
+// XZ-only sampling produced when Y varied but XZ didn't.
+//
+// Wind-driven evolution: layer 1 is permanently anchored to world XZ;
+// layer 2 is offset by caustic_offset (set per-frame in C# from wind
+// direction × speed). As layer 2 slides past stationary layer 1, the
+// abs-difference iso-contours where n1 ≈ n2 morph in place — the
+// pattern doesn't translate as a whole, it CHANGES. That matches the
+// real perceptual impression of windy caustics ("things are happening
+// faster") rather than "the field is drifting." Calm wind → both
+// layers frozen → pattern still. Range ~[0,1].
+float caustic_pattern(vec3 world_pos)
 {
-	float t = time * caustic_speed;
-	vec3 p1 = vec3(world_xz * caustic_scale, t);
-	vec3 p2 = vec3(world_xz * caustic_scale * 1.73 + vec2(5.2, 1.3), -t * 0.83);
+	vec3 p1 = world_pos * caustic_scale;
+	vec3 p2 = (world_pos + caustic_offset) * caustic_scale * 1.73 + vec3(5.2, 1.3, 7.7);
 	float n1 = vnoise(p1);
 	float n2 = vnoise(p2);
 	float c = 1.0 - abs(n1 - n2) * 2.0;
@@ -567,7 +588,13 @@ void fragment() {
 		// (foam dims with the scene rather than glowing emissively
 		// against dark surroundings). Daytime/torchlit `light` still
 		// wins through max() when it's brighter than the floor.
-		vec3 foam_light = max(light, vec3(foam_min_light));
+		// Gated by `sun_mask` so the floor only applies where the fragment
+		// actually sees the sky. Without this gate, water in a cave or under
+		// a roof — where sun_lit and block_lit are both ~0 — would still
+		// clamp foam to the daytime floor and read as fully emissive against
+		// dark surroundings. In a torchlit cave, foam now falls back to
+		// block_lit (torches) only.
+		vec3 foam_light = max(light, vec3(foam_min_light * sun_mask));
 		water_col = mix(water_col, foam_color * foam_light, foam_amount);
 	}
 
@@ -649,42 +676,39 @@ void fragment() {
 			moon_bb.rgb *= moon_above;
 		}
 
-		// Starfield — gated on uniform `star_intensity * sky_night_factor`
-		// so the unproject + INV_VIEW_MATRIX rotate + reflect + texture
-		// sample are all skipped during full daylight (when night_factor=0)
-		// or when stars are tuned out via star_intensity=0. The branch is
-		// uniform across all fragments so the GPU skips the entire block.
+		// The whole sky reflection composite (stars + clouds + horizon
+		// gradient + sun/moon disks) is gated on sun_mask so a water cell
+		// in full shadow (under a roof, inside a cave) contributes zero
+		// stars/clouds/sky regardless of camera angle or time of day —
+		// otherwise a cave pool would reflect a starfield even though no
+		// sky is visible from that fragment. Gating here also skips the
+		// star unproject + INV_VIEW_MATRIX rotate + reflect + texture
+		// sample for shadowed fragments.
 		vec3 stars = vec3(0.0);
-		if (star_intensity * sky_night_factor > 1e-3) {
-			float star_tan_h = tan(radians(reflection_fov_h_deg) * 0.5);
-			float star_tan_v = tan(radians(reflection_fov_v_deg) * 0.5);
-			vec2 star_ndc = vec2(
-				(SCREEN_UV.x - 0.5) * 2.0,
-				(reflection_fov_v_center - SCREEN_UV.y) * 2.0);
-			vec3 star_view_ray = normalize(vec3(star_ndc.x * star_tan_h, star_ndc.y * star_tan_v, -1.0));
-			vec3 star_world_ray = normalize(mat3(INV_VIEW_MATRIX) * star_view_ray);
-			// Reflect off the ripple-perturbed normal so ripples actually
-			// distort the star reflection — shimmer / twinkle — rather than
-			// just modulating its brightness via fresnel.
-			vec3 star_dir = reflect(star_world_ray, n);
-			// Ripple-driven mip bias: flat water (ripple_strength → 0) samples
-			// mip 0 so stars stay crisp; fully rippled water selects a coarser
-			// mip so neighboring fragments' jittered directions average into a
-			// stable glow instead of per-frame flicker. The water_disable_ripples
-			// debug path forces lod to 0 since n is pinned flat there anyway.
-			float star_lod = water_disable_ripples ? 0.0 : ripple_strength * star_ripple_blur_lod;
-			stars = sample_sky_stars(star_dir, star_lod) * (1.0 - moon_bb.a);
-		}
-
-		// The whole sky reflection composite is multiplied by sun_mask at
-		// the end, so when the water cell is in full shadow (under a roof,
-		// inside a cave) the reflection contributes zero regardless. Gate
-		// the cloud noise samples + cloud-mask sample + horizon/zenith
-		// gradient on sun_mask to skip that work entirely. This is the
-		// biggest remaining sky-reflection cost on outdoor water that
-		// happens to be in cloud shadow on the ground (cloud_sun handles
-		// dimming, this skips the reflection sampling overhead).
 		if (sun_mask > 1e-3) {
+			// Starfield — additionally gated on uniform `star_intensity *
+			// sky_night_factor` so daytime / star-disabled scenes also skip.
+			if (star_intensity * sky_night_factor > 1e-3) {
+				float star_tan_h = tan(radians(reflection_fov_h_deg) * 0.5);
+				float star_tan_v = tan(radians(reflection_fov_v_deg) * 0.5);
+				vec2 star_ndc = vec2(
+					(SCREEN_UV.x - 0.5) * 2.0,
+					(reflection_fov_v_center - SCREEN_UV.y) * 2.0);
+				vec3 star_view_ray = normalize(vec3(star_ndc.x * star_tan_h, star_ndc.y * star_tan_v, -1.0));
+				vec3 star_world_ray = normalize(mat3(INV_VIEW_MATRIX) * star_view_ray);
+				// Reflect off the ripple-perturbed normal so ripples actually
+				// distort the star reflection — shimmer / twinkle — rather than
+				// just modulating its brightness via fresnel.
+				vec3 star_dir = reflect(star_world_ray, n);
+				// Ripple-driven mip bias: flat water (ripple_strength → 0) samples
+				// mip 0 so stars stay crisp; fully rippled water selects a coarser
+				// mip so neighboring fragments' jittered directions average into a
+				// stable glow instead of per-frame flicker. The water_disable_ripples
+				// debug path forces lod to 0 since n is pinned flat there anyway.
+				float star_lod = water_disable_ripples ? 0.0 : ripple_strength * star_ripple_blur_lod;
+				stars = sample_sky_stars(star_dir, star_lod) * (1.0 - moon_bb.a);
+			}
+
 			// Cloud parallax offset — simple and bounded: refl_ortho.xz scaled
 			// by cloud_altitude, no 1/refl_ortho.y divisor. Magnitude ≤
 			// cloud_altitude, scales smoothly with camera pitch (cos(pitch))
@@ -775,10 +799,36 @@ void fragment() {
 	// (muddy + deep) the through-water sample was skipped, so adding
 	// caustics into uninitialized `behind` would render garbage.
 	if (is_top && needs_behind && caustic_strength > 1e-5 && thickness > 1e-3) {
-		vec4 seabed_world = INV_VIEW_MATRIX * scene_view;
-		float pattern = caustic_pattern(seabed_world.xz, TIME);
+		// Sample at an absolute world position computed as
+		//     water_surface + view_direction * water_depth.
+		// At a fixed water-surface / seabed world-point pair this
+		// expression is invariant of camera position, so the noise lookup
+		// is anchored to absolute world coordinates regardless of where
+		// the player walks. On flat terrain the per-fragment thickness
+		// is constant, so the Y component of the sample is constant —
+		// the 3D noise's third axis stays on a single horizontal slice
+		// and there's no depth-walking. The wind-driven scroll
+		// (caustic_offset) is applied INSIDE caustic_pattern to layer 2
+		// only, so wind morphs the pattern in place rather than
+		// translating it.
+		vec3 to_sun_dir_caustic = -normalize(sky_sun_dir);
+		vec3 view_dir_world = normalize(world_vertex - CAMERA_POSITION_WORLD);
+		vec3 caustic_sample_pos = world_vertex + view_dir_world * thickness;
+
+		float pattern = caustic_pattern(caustic_sample_pos);
 		float depth_attn = exp(-thickness / max(caustic_depth_fade, 0.01));
-		float sun_factor = sun_mask * sun_intensity * cloud_sun;
+
+		// Flat +Y seabed assumption for the grazing factor. dFdx/dFdy of
+		// seabed_world can't distinguish a real ~45° slope (deriv mag ~
+		// 0.36) from a voxel-edge depth jump (deriv mag ~ 1.0+) reliably
+		// — any threshold either lets bands through or cuts into legit
+		// slopes. Trading slope-aware grazing for band-free output. Real
+		// slope-aware grazing needs a proper terrain normal source (read
+		// from a normal pass or from chunk mesh data), not screen-space
+		// derivatives of a depth reconstruction.
+		float grazing = max(to_sun_dir_caustic.y, 0.0);
+
+		float sun_factor = sun_mask * sun_intensity * cloud_sun * grazing;
 		behind += caustic_color * pattern * caustic_strength * depth_attn * sun_factor;
 	}
 
@@ -823,11 +873,12 @@ void fragment() {
 			composited = vec3(heat * (1.0 - disk_hit), disk_hit, 0.0);
 		}
 		else if (water_debug_mode == 8) {
-			// Caustic pattern isolation — RED channel only, bypassing
-			// caustic_color so we can tell pattern == 0 (solid black) from
-			// caustic_color == 0 (red ribbons but no color in normal mode).
-			vec4 seabed_world_dbg = INV_VIEW_MATRIX * scene_view;
-			float pattern_dbg = caustic_pattern(seabed_world_dbg.xz, TIME);
+			// LIVE caustic path: water surface + view direction × water
+			// depth (an absolute world position invariant to camera
+			// position for fixed water/seabed pairs).
+			vec3 view_dir_world_dbg8 = normalize(world_vertex - CAMERA_POSITION_WORLD);
+			vec3 sample_pos_dbg8 = world_vertex + view_dir_world_dbg8 * thickness;
+			float pattern_dbg = caustic_pattern(sample_pos_dbg8);
 			composited = vec3(pattern_dbg, 0.0, 0.0);
 		}
 		else if (water_debug_mode == 9) {
@@ -842,6 +893,42 @@ void fragment() {
 			// caustic_color upload check — pure caustic_color flat fill.
 			// Black here means the global is being set to (0,0,0).
 			composited = caustic_color;
+		}
+		else if (water_debug_mode == 11) {
+			// A/B compare: caustic pattern WITHOUT the wind-driven offset.
+			// Identical to mode 8 in calm weather; in wind, mode 11 stays
+			// frozen while mode 8 drifts. Useful to confirm caustic_offset
+			// is doing what it should.
+			vec4 seabed_world_dbg11 = INV_VIEW_MATRIX * scene_view;
+			float pattern_dbg11 = caustic_pattern(seabed_world_dbg11.xyz);
+			composited = vec3(pattern_dbg11, 0.0, 0.0);
+		}
+		else if (water_debug_mode == 12) {
+			// sun_uv visualization for the LIVE path — tiled gradient on
+			// the actual sun_uv coordinates the caustic noise is sampling
+			// (depth-reconstructed seabed XZ).
+			vec4 seabed_world_dbg12 = INV_VIEW_MATRIX * scene_view;
+			composited = vec3(fract(seabed_world_dbg12.x * 0.5), fract(seabed_world_dbg12.z * 0.5), 0.0);
+		}
+		else if (water_debug_mode == 13) {
+			// TIME rollover detector. Godot's `TIME` shader builtin wraps
+			// at `rendering/limits/time/time_rollover_secs` (default 3600s
+			// but can be lower in some configs). At rollover, every
+			// time-driven animation restarts from zero — including the
+			// caustic Z-slice in caustic_pattern, which would visually
+			// read as the noise sample resetting. Watch the red value
+			// climb 0 → 1 over 10 seconds; if it suddenly snaps back to
+			// 0 at any point, time rollover is the source of the pop.
+			composited = vec3(fract(TIME * 0.1), 0.0, 0.0);
+		}
+		else if (water_debug_mode == 14) {
+			// Caustic pattern at a FIXED world origin — strips out spatial
+			// variation but keeps wind-driven evolution (since layer 2's
+			// caustic_offset still slides past layer 1 even at world
+			// origin). Useful to see the temporal evolution rate isolated
+			// from spatial noise.
+			float pattern_dbg14 = caustic_pattern(vec3(0.0));
+			composited = vec3(pattern_dbg14, 0.0, 0.0);
 		}
 	}
 

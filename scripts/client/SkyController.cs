@@ -390,6 +390,19 @@ public partial class SkyController : Node3D
     // Keep small (1–3) so caustics are confined to true shallows.
     [Export(PropertyHint.Range, "0.1,10,0.05")] public float causticDepthFade = 2.0f;
     [Export] public Color causticColor = new Color(0.9f, 0.95f, 1.0f);
+    // Per-(m/s of wind) drift rate for the caustic noise sample. Each
+    // frame the shader's `caustic_offset` accumulates `wind_dir *
+    // effectiveSpeed * causticDriftPerMps * dt`, where effectiveSpeed
+    // floors at causticBaselineCurrent so the field still evolves slowly
+    // in calm water (real water always has slight currents that keep
+    // caustics moving). Same world-locked-scroll convention as foam_offset
+    // and ripple_offset_a/b.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float causticDriftPerMps = 0.15f;
+    // Floor on the wind speed used to integrate caustic_offset, in m/s.
+    // Even in dead-calm weather caustics keep evolving at this baseline
+    // rate so the pattern doesn't completely freeze. Real water has slight
+    // currents and thermal motion; this is the visual stand-in.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float causticBaselineCurrent = 0.5f;
 
     [ExportSubgroup("Shoreline Foam")]
     // Foam COLOR is derived entirely from region (DustColor + WaterColor +
@@ -497,6 +510,12 @@ public partial class SkyController : Node3D
     // `foamScroll * windSpeed * dt` so foam moves only when there's wind
     // (driving wave energy at shore) and speeds up in stormy weather.
     public Vector2 foamOffset;
+    // World-space caustic noise scroll offset, integrated as
+    // `wind_dir * windSpeed * causticDriftPerMps * dt`. The shader sub-
+    // tracts this from the seabed world position before sampling, so the
+    // caustic field translates along wind direction in world units (same
+    // pattern as ripple_offset / foam_offset).
+    public Vector3 causticOffset;
     // Wave-displacement temporal phase, integrated as
     // `windSpeed * waveSpeedPerMps * dt`. Replaces a fixed `time * 1.2`
     // rate so wave undulation freezes in calm air and whips in gales.
@@ -639,6 +658,7 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("caustic_sharpness", RenderingServer.GlobalShaderParameterType.Float, 8f);
             ShaderGlobals.Register("caustic_depth_fade", RenderingServer.GlobalShaderParameterType.Float, 2f);
             ShaderGlobals.Register("caustic_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.9f, 0.95f, 1.0f));
+            ShaderGlobals.Register("caustic_offset", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
             ShaderGlobals.Register("reflection_tint", RenderingServer.GlobalShaderParameterType.Float, 0.7f);
             ShaderGlobals.Register("reflection_pixel_jitter_max", RenderingServer.GlobalShaderParameterType.Float, 2.0f);
             ShaderGlobals.Register("water_wave_amp", RenderingServer.GlobalShaderParameterType.Float, 0f);
@@ -756,6 +776,14 @@ public partial class SkyController : Node3D
             // pattern locked to world XZ, with offset advancing along wind.
             waveStreakOffsetA -= windXZ * waveStreakSpeedA * dt;
             waveStreakOffsetB -= windXZ * waveStreakSpeedB * dt;
+            // Caustic noise scroll. Integrated in 3D world space; layer 2
+            // of the shader's caustic_pattern is offset by this vector,
+            // so it slides past the stationary layer 1 → ribbons evolve
+            // at a wind-driven rate. Effective speed is floored at
+            // causticBaselineCurrent so calm water still has slight
+            // evolution (background currents).
+            float causticEffSpeed = Mathf.Max(steadySpeed, causticBaselineCurrent);
+            causticOffset -= new Vector3(windXZ.X, 0f, windXZ.Y) * causticEffSpeed * causticDriftPerMps * dt;
             // Shoreline foam scroll. Direction is the authored foamScroll
             // vector (NOT wind-aligned, by artistic choice); only magnitude
             // scales with wind speed.
@@ -1156,6 +1184,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("caustic_sharpness", causticSharpness);
         RenderingServer.GlobalShaderParameterSet("caustic_depth_fade", causticDepthFade);
         RenderingServer.GlobalShaderParameterSet("caustic_color", ColorToVec3(causticColor));
+        RenderingServer.GlobalShaderParameterSet("caustic_offset", causticOffset);
         // Sprite reflection brightness — same air-clarity factors as the
         // sky reflection (muddiness, humidity, fog, cloud cover) plus a
         // light-level term so dim scenes don't paint bright mirror copies
