@@ -342,4 +342,5 @@ public static class WeatherSimulation
         weather.rainAmount = simRain;
         weather.dustAmount = simDust;
     }
+
 }

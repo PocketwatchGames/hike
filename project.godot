@@ -203,9 +203,25 @@ debug_white_albedo={
 "type": "bool",
 "value": false
 }
+debug_wet_spec={
+"type": "bool",
+"value": false
+}
 light_falloff_exp={
 "type": "float",
 "value": 2.0
+}
+wetness_level={
+"type": "float",
+"value": 0.0
+}
+wet_spec_strength={
+"type": "float",
+"value": 8.0
+}
+wet_albedo_floor={
+"type": "float",
+"value": 0.15
 }
 sun_intensity={
 "type": "float",

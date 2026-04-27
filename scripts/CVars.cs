@@ -195,6 +195,17 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("debug_white_albedo", ((CVarBool)cvar).Value);
     });
 
+    // Render only the wetness specular contribution on terrain + detail
+    // sprites. Output is grayscale: black where the spec term is zero
+    // (cave/wall, dry weather, wrong camera angle) and bright where the
+    // half-vector highlight lands. Use this to verify wetness_level is
+    // reaching the shader and that the camera-angle glint sweep behaves
+    // as expected. Toggle with `debug_wet_spec 1` in the in-game console.
+    public static CVarBool debugWetSpec = new CVarBool("debug_wet_spec", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("debug_wet_spec", ((CVarBool)cvar).Value);
+    });
+
     // Water reflection debug visualizer. Modes:
     //   0 = normal composite (refraction + water tint + reflection blend)
     //   1 = FORCE full reflection — ignore fresnel, water alpha, refraction;

@@ -106,6 +106,15 @@ public class WorldState
     public float CloudVarianceSlope = 0.0f;
     public long CloudVariancePhase = long.MinValue;
 
+    // Lingering surface wetness in [0, 1]. Integrates rainAmount, derived
+    // fog, and humidity (per-second gains in SimData) and decays with an
+    // exponential half-life so surfaces stay visibly wet for a few minutes
+    // after the rain stops. SkyController advances this each frame and
+    // pushes it to the `wetness_level` shader global, which the voxel
+    // terrain shader uses to blend a specular highlight + slight albedo
+    // darkening onto sky-exposed, upward-facing faces.
+    public float WetnessLevel = 0f;
+
     // Per-world deterministic RNG for weather rolls. Seeded so reloads
     // produce the same forecast.
     public RandomNumberGenerator WeatherRng = new RandomNumberGenerator();

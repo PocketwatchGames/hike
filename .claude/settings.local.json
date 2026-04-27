@@ -18,7 +18,9 @@
       "Bash(rm -f /tmp/hike_live.log)",
       "Bash(\"/c/Users/andy/source/Godot_v4.6-stable_mono_win64/Godot_v4.6-stable_mono_win64.exe\" --path . --verbose)",
       "Bash(echo \"pid=$!\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(\"C:\\\\Users\\\\andy\\\\source\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe\" --path . --headless --quit-after 120)",
+      "Bash(\"C:\\\\Users\\\\andy\\\\source\\\\Godot_v4.6-stable_mono_win64\\\\Godot_v4.6-stable_mono_win64.exe\" --path . --quit-after 180)"
     ],
     "additionalDirectories": [
       "c:\\"

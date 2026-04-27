@@ -96,6 +96,16 @@ global uniform float sun_intensity;
 global uniform vec3 sun_color;
 global uniform float sun_ambient;
 global uniform vec3 sun_world_dir;
+// Lingering surface wetness in [0, 1]. Driven by SkyController from recent
+// rain / fog / humidity. Same value the terrain shader reads, so wet grass
+// and wet stone shift together. Modulated per-fragment by sun_mask (sprites
+// under cover stay dry) and by world_normal.y (grass tips/upward leaves
+// catch the highlight, downward-facing leaves don't).
+global uniform float wetness_level;
+// Shared wetness tunables — same values the terrain shader reads so grass
+// and stone glint and darken in lockstep.
+global uniform float wet_spec_strength;
+global uniform float wet_albedo_floor;
 // Shared tint globals (voxel_clip uses the same pair). Two off-axis fill
 // directions and their colors. Surfaces facing away from a fill are
 // multiplied by that fill's color; surfaces facing toward it by 1. With
@@ -127,6 +137,7 @@ global uniform bool debug_no_detail_normal;
 // the grass tex.rgb is replaced with white so the output reflects only the
 // lighting path, for direct comparison against terrain / sprites.
 global uniform bool debug_white_albedo;
+global uniform bool debug_wet_spec;
 // 1 / cos(camera_pitch). Stretches sprite Y so a row of source pixels projects
 // to one screen-pixel row regardless of the iso camera's tilt — same trick
 // sprite_lit uses; without it, detail sprites read as foreshortened relative
@@ -156,6 +167,11 @@ varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
 varying float cloud_dim;
+// Pre-multiplied wetness specular term, same model as voxel_clip:
+//   pow(N·H, k) * wetness_level * sun_mask * slope.
+// Composed in light() with sun_color × sun_intensity and the same shadow
+// gates as DIFFUSE_LIGHT so cast shadows kill the highlight on grass too.
+varying float wet_spec;
 // Per-fragment world position. Sampled for cloud shadow so the sprite's
 // cloud state matches the fog shader's Y-dependent shaft sampling at the
 // same sun ray. See the cloud_shadow call in fragment().
@@ -385,6 +401,17 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
+	// (positive Y normal) sprites wet out. Grass tips lean up via the dome
+	// perturb, so they pick up wetness while side leaves stay dry. Same
+	// curve and exponents as voxel_clip so wet grass and wet terrain
+	// behave consistently.
+	float wet_slope = pow(max(world_normal.y, 0.0), 3.0);
+	float wet_factor = wetness_level * sun_mask * wet_slope;
+	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - frag_world_pos);
+	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
+	float wet_ndoth = max(dot(world_normal, wet_h), 0.0);
+	wet_spec = pow(wet_ndoth, 16.0) * wet_factor;
 	// Same cloud_shadow_ground call as terrain and regular sprites —
 	// samples the cloud noise at world XZ with no sun-direction projection,
 	// so grass, terrain, and sprite shadows stay in lockstep and all drift
@@ -415,6 +442,9 @@ void fragment() {
 	if (debug_white_albedo) {
 		tex.rgb = vec3(0.0);
 	}
+	// Wet sprites darken the same way terrain does — floor tuned via
+	// SkyController's wet_albedo_floor.
+	tex.rgb *= mix(1.0, wet_albedo_floor, wet_factor);
 	vec3 tinted = tex.rgb * fill_a_tint * fill_b_tint;
 
 	NORMAL = world_normal;
@@ -428,10 +458,20 @@ void fragment() {
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);
 		EMISSION = world_normal * 0.5 + 0.5;
+		wet_spec = 0.0;
 	}
 	if (debug_unlit) {
 		ALBEDO = vec3(0.0);
 		EMISSION = tex.rgb;
+		wet_spec = 0.0;
+	}
+	if (debug_wet_spec) {
+		// Same channel breakdown as voxel_clip:
+		//   R = wetness_level, G = sun_mask*slope gate, B = pow(N·H,16) glint.
+		float wet_geom = pow(max(dot(world_normal, wet_h), 0.0), 16.0);
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
+		wet_spec = 0.0;
 	}
 }
 
@@ -443,5 +483,10 @@ void light() {
 	// the scalar via LIGHT_COLOR.r * INV_PI (lights are authored white).
 	const float INV_PI = 0.31830989;
 	float light_energy = LIGHT_COLOR.r * INV_PI;
-	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
+	float light_gate = light_energy * min(ATTENUATION, cloud_dim);
+	DIFFUSE_LIGHT += ALBEDO * light_gate;
+	// Wetness specular — matches voxel_clip's contribution so wet grass
+	// glints alongside wet terrain. Amplitude tuned via SkyController's
+	// wet_spec_strength.
+	DIFFUSE_LIGHT += wet_spec_strength * sun_color * sun_intensity * wet_spec * light_gate;
 }

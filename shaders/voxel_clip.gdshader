@@ -11,6 +11,7 @@ global uniform bool debug_no_tint;        // skip fill_a_tint / fill_b_tint
 global uniform bool debug_no_cloud;       // force cloud_dim = 1
 global uniform bool debug_no_detail_normal; // skip detail_normal perturbation
 global uniform bool debug_white_albedo;   // force tex_color.rgb = white (lighting-only view)
+global uniform bool debug_wet_spec;        // render only the wetness specular contribution as grayscale
 global uniform float light_falloff_exp; // power applied to lightmap value (>1 = darker mids).
 
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
@@ -33,6 +34,21 @@ global uniform float sun_ambient;
 // requires identifiers to be declared before use. Other sun-direction uses
 // below (reverse directional shading) pick up this same declaration.
 global uniform vec3 sun_world_dir;
+
+// Lingering surface wetness in [0, 1]. Driven by SkyController from the
+// recent rain / fog / humidity history. 0 = bone dry, 1 = thoroughly wet.
+// Modulated per-fragment by sun_mask (cave/overhang voxels stay dry) and
+// by surface slope (water sheds off vertical faces) before composing the
+// specular highlight + slight albedo darken.
+global uniform float wetness_level;
+// Amplitude of the wetness specular highlight added in light(). Higher =
+// brighter glint; values past ~4 push the peak past the bloom HDR
+// threshold so the glint blooms outward.
+global uniform float wet_spec_strength;
+// Albedo multiplier when fully wet on a sky-exposed flat face. 1.0 = no
+// darkening, 0.0 = solid black. Lower values give wet surfaces stronger
+// contrast against the highlight at the cost of looking very saturated.
+global uniform float wet_albedo_floor;
 
 // Cloud occlusion parameters shared with the sky + fog + sprite + water
 // shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
@@ -164,6 +180,11 @@ varying float sharpness;
 // Written in fragment(), read in light() so cloud shadow composes with
 // the directional shadow atlas as min() rather than multiply — see light().
 varying float cloud_dim;
+// Fragment→light varying. Pre-multiplied wetness specular term:
+//   pow(N·H, k) * wetness_level * sun_mask * slope.
+// Composed in light() with sun_color × sun_intensity and the same shadow
+// gates as DIFFUSE_LIGHT so cast shadows kill the highlight cleanly.
+varying float wet_spec;
 // Kit ids for the 3 corners of this triangle (constant across the tri).
 // Barycentric argmax picks which corner's kit wins at each fragment (parallel
 // to tile_ids), so kit boundaries blend with the same noise-jittered edge as
@@ -435,6 +456,22 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = texture(light_map, uvw);
 	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
+	// (positive Y normal) surfaces wet out. Vertical cliffs shed water,
+	// caves/overhangs never see rain. Slope exponent 3 gives a smooth
+	// falloff — fully flat reads as fully wet, ~45° slopes still get a
+	// subtle sheen, vertical faces are clean.
+	float wet_slope = pow(max(shaded_normal.y, 0.0), 3.0);
+	float wet_factor = wetness_level * sun_mask * wet_slope;
+	// Half-vector specular for the sun. Exponent 16 gives a broader, more
+	// readable highlight at distance (vs the tighter 64 used previously);
+	// combined with the high amplitude in light() the glint reads even on
+	// distant ground. Passed via wet_spec varying so light() can fold the
+	// directional shadow atlas + cloud shadow into it.
+	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - world_vertex);
+	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
+	float wet_ndoth = max(dot(shaded_normal, wet_h), 0.0);
+	wet_spec = pow(wet_ndoth, 16.0) * wet_factor;
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
 	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
@@ -471,6 +508,11 @@ void fragment() {
 		tex_color.rgb = vec3(0.0);
 	}
 
+	// Wet surfaces look darker as well as shinier — same gate as wet_spec.
+	// Floor tuned via SkyController's wet_albedo_floor (lower = more
+	// darkening at full wet, more contrast with the highlight).
+	tex_color.rgb *= mix(1.0, wet_albedo_floor, wet_factor);
+
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
 
 	// Split the lighting across ALBEDO and EMISSION so light() can shadow
@@ -486,14 +528,34 @@ void fragment() {
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);
 		EMISSION = debug_solid;
+		wet_spec = 0.0;
 	}
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);
 		EMISSION = shaded_normal * 0.5 + 0.5;
+		wet_spec = 0.0;
 	}
 	if (debug_unlit) {
 		ALBEDO = vec3(0.0);
 		EMISSION = tex_color.rgb;
+		wet_spec = 0.0;
+	}
+	if (debug_wet_spec) {
+		// RGB channel breakdown of the wetness pipeline:
+		//   R = wetness_level         (global weather drive; uniform across world)
+		//   G = sun_mask * wet_slope  (per-fragment gate: 0 in caves/walls, ~1 on lit flat tops)
+		//   B = pow(N·H, 16)          (camera/sun half-vector glint, independent of weather)
+		// Final spec contribution ≈ R*G*B. So:
+		//   black  = nothing contributing
+		//   red    = wet weather, but masked or wrong angle
+		//   green  = sky-exposed flat, but dry or wrong angle
+		//   blue   = perfect glint angle, but dry or in shade
+		//   white  = all three high → the spec actually pops here
+		// Zero wet_spec afterwards so light() doesn't add on top.
+		float wet_geom = pow(max(dot(shaded_normal, wet_h), 0.0), 16.0);
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
+		wet_spec = 0.0;
 	}
 	if (world_vertex.y > camera_clip) {
 		discard;
@@ -524,5 +586,13 @@ void light() {
 	// partial and the scene receives blended shadows from both directions.
 	const float INV_PI = 0.31830989;
 	float light_energy = LIGHT_COLOR.r * INV_PI;
-	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
+	float light_gate = light_energy * min(ATTENUATION, cloud_dim);
+	DIFFUSE_LIGHT += ALBEDO * light_gate;
+	// Wetness specular. Sun-tinted highlight gated by the same shadow
+	// composition as the diffuse direct contribution — cast shadows kill
+	// the glint, cloud cover dims it. Added into DIFFUSE_LIGHT (not
+	// SPECULAR_LIGHT) so it composes with the rest of the stylized
+	// lighting model under specular_disabled. Amplitude tuned via
+	// SkyController's wet_spec_strength.
+	DIFFUSE_LIGHT += wet_spec_strength * sun_color * sun_intensity * wet_spec * light_gate;
 }

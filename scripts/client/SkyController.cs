@@ -492,6 +492,46 @@ public partial class SkyController : Node3D
     [Export] public float moteScale = 0.5f;
     [Export] public Vector3 moteScroll = new Vector3(0.35f, 0.12f, -0.25f);
 
+    // Wetness is a client-only visual signal driven by rain / fog /
+    // humidity. Lives here, not on SimData, because it never affects sim
+    // (no AI / damage / etc. reads it) — only voxel_clip and detail_sprite
+    // shaders sample the resulting `wetness_level` global. Tunables are
+    // expressed in GAME minutes (DayLengthSeconds + time_scale aware) so
+    // pacing tracks the in-world clock, not real time.
+    //
+    // Model: each input has a *ceiling fraction* — at full strength it
+    // can wet things up to that fraction. The current target is
+    //   target = max(rain*Krain, fog*Kfog, humidity*Khumid)
+    // and the displayed wetness exponentially approaches that target with
+    // the half-life below (same tau in both directions). Using max() not
+    // sum() keeps wetness from creeping up just because every weather
+    // axis contributes a little — a bone-dry desert with humidity=0.05
+    // can never look wetter than 0.05*Khumid no matter how long it sits.
+    [ExportGroup("Wetness")]
+    // Wetness ceiling at full rain (rainAmount=1). 1.0 = full rain
+    // eventually saturates the surface; smaller values cap how wet it can
+    // ever get even in a downpour.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float wetnessFromRain = 1.0f;
+    // Wetness ceiling at full derived fog (Fog=1). 0.6 = heavy fog gets
+    // surfaces visibly damp but never as wet as actual rain.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float wetnessFromFog = 0.6f;
+    // Wetness ceiling at full humidity (humidity=1). Small — a perfectly
+    // muggy day leaves a faint dew, not actual rain-soaked surfaces.
+    [Export(PropertyHint.Range, "0,1,0.005")] public float wetnessFromHumidity = 0.15f;
+    // Half-life of the gap between displayed wetness and the current
+    // target, in GAME minutes. Same tau in both directions: rain wets
+    // surfaces over the first several half-lives; sun + low-humidity
+    // weather dries them on the same curve.
+    [Export(PropertyHint.Range, "0.5,60,0.5")] public float wetnessHalfLifeGameMinutes = 10f;
+    // Specular highlight amplitude pushed to voxel_clip + detail_sprite via
+    // the wet_spec_strength shader global. >~4 starts blooming through the
+    // HDR bloom pass; tune alongside wetAlbedoFloor for the look you want.
+    [Export(PropertyHint.Range, "0,32,0.1")] public float wetSpecStrength = 8.0f;
+    // Albedo multiplier when fully wet. 1.0 = no darkening, 0.0 = solid
+    // black. Lower values give the highlight more contrast against the
+    // wet material at the cost of a more saturated dark base.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float wetAlbedoFloor = 0.15f;
+
     // Accumulated cloud / ripple scroll offsets — integrated per frame from
     // `wind direction * speed`. These are the shader inputs (replacing the
     // old "speed * TIME" shader-side math) so mid-lerp speed changes don't
@@ -684,6 +724,15 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("reflection_fov_v_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
             ShaderGlobals.Register("reflection_fov_v_center", RenderingServer.GlobalShaderParameterType.Float, 0.3f);
 
+            // Lingering surface wetness in [0, 1]. Driven by WorldState.WetnessLevel,
+            // pushed from Apply() each frame. Declared as `global uniform` in
+            // voxel_clip.gdshader, so seed via Register (not RegisterRuntime) —
+            // RegisterRuntime would call GlobalShaderParameterAdd on a name the
+            // shader compiler already created, tripping the duplicate-add error.
+            ShaderGlobals.Register("wetness_level", RenderingServer.GlobalShaderParameterType.Float, 0f);
+            ShaderGlobals.Register("wet_spec_strength", RenderingServer.GlobalShaderParameterType.Float, wetSpecStrength);
+            ShaderGlobals.Register("wet_albedo_floor", RenderingServer.GlobalShaderParameterType.Float, wetAlbedoFloor);
+
             // Working copies for the region blend output. Re-populated in
             // _Process each frame — these exist so RegionBlend can write
             // into stable instances without allocating per frame.
@@ -749,6 +798,15 @@ public partial class SkyController : Node3D
         // Derive. A null region/weather still produces a palette with
         // fallback values so editor preview works without wiring.
         _palette = WeatherDerivation.Derive(currentRegion, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, sim);
+
+        // Advance lingering surface wetness from the post-Derive inputs
+        // (palette.Fog is computed inside Derive). Runs only when a real
+        // WorldState exists — preview region wetness has nothing to drive.
+        WorldState wetnessWs = World.Current?.WorldState;
+        if (wetnessWs != null && sim != null)
+        {
+            UpdateWetness(wetnessWs, currentWeather, _palette.Fog, sim, (float)delta);
+        }
 
         // Integrate scroll offsets using the CURRENT (blended) weather
         // speed / palette frequencies. Parametric `speed * TIME` in the
@@ -1062,6 +1120,9 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
         RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
+        RenderingServer.GlobalShaderParameterSet("wetness_level", World.Current?.WorldState?.WetnessLevel ?? 0f);
+        RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);
+        RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
 
         // --- Water -------------------------------------------------------
         // Muddiness comes from RegionData.WaterColor.a (via palette). It drives:
@@ -1405,6 +1466,36 @@ public partial class SkyController : Node3D
         }
 
         rain.WindTiltScale = 1.0f / weight;
+    }
+
+    // Advance displayed wetness in [0, 1] toward a weather-derived target.
+    // Target = max(rain*Krain, fog*Kfog, humidity*Khumid) — using max()
+    // not sum() so wetness can't creep up just because every axis is
+    // slightly nonzero; a desert with humidity=0.05 caps at 0.05*Khumid
+    // forever. Approach is first-order with the configured half-life
+    // (same tau both directions), and times are in GAME minutes
+    // (DayLengthSeconds + time_scale aware) so pacing tracks the in-world
+    // clock. Uses the post-Derive `fog` value (palette.Fog) so the visible
+    // fog and the wetness it implies stay coupled.
+    private void UpdateWetness(WorldState ws, WeatherData weather, float fog, SimData sim, float dt)
+    {
+        if (ws == null || sim == null || dt <= 0f) { return; }
+        float rain = Mathf.Clamp(weather?.rainAmount ?? 0f, 0f, 1f);
+        float humidity = Mathf.Clamp(weather?.humidity ?? 0f, 0f, 1f);
+        float fogClamped = Mathf.Clamp(fog, 0f, 1f);
+        float target = Mathf.Max(
+            rain * wetnessFromRain,
+            Mathf.Max(fogClamped * wetnessFromFog, humidity * wetnessFromHumidity));
+        target = Mathf.Clamp(target, 0f, 1f);
+        // 24 game-hours * 60 game-min = 1440 game-min/day.
+        float dayLength = Mathf.Max(sim.DayLengthSeconds, 1f);
+        float gameMinPerRealSec = (1440f / dayLength) * CVars.timeScale.Value;
+        float dtGameMin = dt * gameMinPerRealSec;
+        float halfLifeGameMin = Mathf.Max(wetnessHalfLifeGameMinutes, 1e-3f);
+        // alpha = 1 - 0.5^(dt/halfLife) — fraction of the gap to close
+        // this frame. Frame-rate independent and continuous.
+        float alpha = 1f - Mathf.Pow(0.5f, dtGameMin / halfLifeGameMin);
+        ws.WetnessLevel = Mathf.Clamp(ws.WetnessLevel + (target - ws.WetnessLevel) * alpha, 0f, 1f);
     }
 
     private static Vector3 ComputeFillDirection(Vector3 sunDir, float pitchDeg, float yawOffsetDeg)
