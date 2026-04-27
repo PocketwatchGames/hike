@@ -63,8 +63,31 @@ public static class RegionBlend
         outRegion.WaterColor = WeightedColor(
             sw?.WaterColor, wSW, se?.WaterColor, wSE, nw?.WaterColor, wNW, ne?.WaterColor, wNE);
 
+        // Region-intrinsic scalars (elevation, dust max, water opacity).
+        // Null slots already had their weights zeroed above, so we can
+        // weight directly without an extra null-presence renormalize.
+        outRegion.Elevation = WeightedScalar(
+            sw?.Elevation, wSW, se?.Elevation, wSE, nw?.Elevation, wNW, ne?.Elevation, wNE);
+        outRegion.DustAmount = WeightedScalar(
+            sw?.DustAmount, wSW, se?.DustAmount, wSE, nw?.DustAmount, wNW, ne?.DustAmount, wNE);
+        outRegion.WaterOpacity = WeightedScalar(
+            sw?.WaterOpacity, wSW, se?.WaterOpacity, wSE, nw?.WaterOpacity, wNW, ne?.WaterOpacity, wNE);
+
         BlendWeather(outWeather,
             sw?.weather, wSW, se?.weather, wSE, nw?.weather, wNW, ne?.weather, wNE);
+    }
+
+    // 4-way weighted scalar blend. Null contributions are skipped; if
+    // all four are null the output is 0.
+    private static float WeightedScalar(float? a, float wa, float? b, float wb, float? c, float wc, float? d, float wd)
+    {
+        float v = 0f, ws = 0f;
+        if (a.HasValue) { v += a.Value * wa; ws += wa; }
+        if (b.HasValue) { v += b.Value * wb; ws += wb; }
+        if (c.HasValue) { v += c.Value * wc; ws += wc; }
+        if (d.HasValue) { v += d.Value * wd; ws += wd; }
+        if (ws < 1e-6f) { return 0f; }
+        return v;
     }
 
     // 4-way weighted color blend. Null contributions are skipped; if
@@ -101,7 +124,7 @@ public static class RegionBlend
         if (c != null) { wc *= inv; } else { wc = 0f; }
         if (d != null) { wd *= inv; } else { wd = 0f; }
 
-        float cloudCover = 0, windSpeed = 0, temperature = 0, humidity = 0, fog = 0, rainAmount = 0, dustAmount = 0;
+        float cloudCover = 0, windSpeed = 0, temperature = 0, humidity = 0, rainAmount = 0;
         Vector2 windDir2D = Vector2.Zero;
 
         if (a != null)
@@ -110,9 +133,7 @@ public static class RegionBlend
             windSpeed += a.windSpeed * wa;
             temperature += a.temperature * wa;
             humidity += a.humidity * wa;
-            fog += a.fog * wa;
             rainAmount += a.rainAmount * wa;
-            dustAmount += a.dustAmount * wa;
             windDir2D += SafeNormalizeXZ(a.windDirection) * wa;
         }
         if (b != null)
@@ -121,9 +142,7 @@ public static class RegionBlend
             windSpeed += b.windSpeed * wb;
             temperature += b.temperature * wb;
             humidity += b.humidity * wb;
-            fog += b.fog * wb;
             rainAmount += b.rainAmount * wb;
-            dustAmount += b.dustAmount * wb;
             windDir2D += SafeNormalizeXZ(b.windDirection) * wb;
         }
         if (c != null)
@@ -132,9 +151,7 @@ public static class RegionBlend
             windSpeed += c.windSpeed * wc;
             temperature += c.temperature * wc;
             humidity += c.humidity * wc;
-            fog += c.fog * wc;
             rainAmount += c.rainAmount * wc;
-            dustAmount += c.dustAmount * wc;
             windDir2D += SafeNormalizeXZ(c.windDirection) * wc;
         }
         if (d != null)
@@ -143,9 +160,7 @@ public static class RegionBlend
             windSpeed += d.windSpeed * wd;
             temperature += d.temperature * wd;
             humidity += d.humidity * wd;
-            fog += d.fog * wd;
             rainAmount += d.rainAmount * wd;
-            dustAmount += d.dustAmount * wd;
             windDir2D += SafeNormalizeXZ(d.windDirection) * wd;
         }
 
@@ -153,9 +168,7 @@ public static class RegionBlend
         dst.windSpeed = windSpeed;
         dst.temperature = temperature;
         dst.humidity = humidity;
-        dst.fog = fog;
         dst.rainAmount = rainAmount;
-        dst.dustAmount = dustAmount;
 
         if (windDir2D.LengthSquared() > 1e-6f)
         {

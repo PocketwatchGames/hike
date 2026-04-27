@@ -1,10 +1,15 @@
 using Godot;
 
-// Mutable weather simulation state. Eight fields describe what the weather
-// IS; all visual consequences (sky/fog/cloud/shaft colors, fill tints,
-// light intensities, cloud shape, gust rhythm, ripples, dust density,
-// etc.) are DERIVED by WeatherDerivation.Derive() from this + a RegionData
-// palette + time-of-day. See also scripts/client/WeatherDerivation.cs.
+// Mutable weather simulation state. Authored fields on RegionData.weather
+// represent the region's MAX for each channel (the daytime peak / clear-
+// air ceiling); WeatherSimulation perturbs a per-frame working copy in
+// place to produce the values actually IN EFFECT right now (diurnal
+// curve + 12-hour weather variance). All visual consequences (sky/fog/
+// cloud/shaft colors, fill tints, light intensities, cloud shape, gust
+// rhythm, ripples, dust density, etc.) are DERIVED by
+// WeatherDerivation.Derive() from this + a RegionData palette + time-
+// of-day. See also scripts/client/WeatherSimulation.cs and
+// scripts/client/WeatherDerivation.cs.
 //
 // Region palette (SunColor/MoonColor/SkyColor/DustColor) lives on
 // RegionData, not here, so a single weather forecast plays out across
@@ -40,11 +45,6 @@ public partial class WeatherData : Resource
     // toward white.
     [Export(PropertyHint.Range, "0,1,0.01")] public float humidity = 0.5f;
 
-    // Authored voxel fog density multiplier (scales per-voxel fog_map
-    // values). Also drives a whole-scene ambient haze via derivation
-    // so the "foggy" feel propagates outside authored fog banks too.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float fog = 0.0f;
-
     // Rain drop COUNT. 0 = no rain, 1 = full downpour. Drives both the
     // falling-streak emission rate and the ground-splash rate on
     // RainEffect. Rain drop HEFT (velocity, alpha, streak length,
@@ -52,8 +52,10 @@ public partial class WeatherData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainAmount = 0.0f;
 
     // Atmospheric dust amount — the scattering medium that makes
-    // shafts visible. Also tints sunset/horizon colors warmer (dust +
-    // sunlight = red sunsets). Derivation drives sunShaftIntensity and
-    // dustDensity from this; hue comes from RegionData.DustColor.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float dustAmount = 0.1f;
+    // shafts visible. NOT authored: WeatherSimulation writes a
+    // simulated value here each frame, derived from the region's
+    // authored RegionData.DustAmount (the region max), perturbed by
+    // simulated wind / elevation / humidity / rain. Downstream
+    // WeatherDerivation reads this current value.
+    public float dustAmount = 0.1f;
 }

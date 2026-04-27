@@ -35,19 +35,38 @@ public partial class RegionData : Resource
     // dustAmount (on WeatherData) controls intensity; this controls hue.
     [Export] public Color DustColor = new Color(0.85f, 0.78f, 0.6f);
 
-    // Water surface color. Alpha is the "muddiness" / weight of the water
-    // and drives a lot of derived behavior: surface opacity, how quickly
-    // depth goes opaque, ripple damping, wave amplitude damping, whitecap
-    // threshold, foam tinting, reflection boost, and refraction fade.
+    // Water surface color (RGB). Alpha is unused — water "muddiness" /
+    // opacity lives on its own WaterOpacity field below so designers
+    // can tune color and opacity independently.
     // Deep-water color is derived from this + DustColor via physics
-    // (red absorbed first in clear water) and sediment pull (murky water
-    // takes on the regional dust color). See WeatherDerivation.Derive().
-    // Example authored values:
-    //   murky swamp      — (0.25, 0.30, 0.15, 0.85)
-    //   stormy sea       — (0.15, 0.25, 0.30, 0.55)
-    //   glassy tropical  — (0.35, 0.70, 0.75, 0.25)
-    //   slow river       — (0.30, 0.40, 0.35, 0.45)
-    [Export] public Color WaterColor = new Color(0.3f, 0.45f, 0.5f, 0.5f);
+    // (red absorbed first in clear water) and sediment pull (murky
+    // water takes on the regional dust color). See
+    // WeatherDerivation.Derive().
+    [Export] public Color WaterColor = new Color(0.3f, 0.45f, 0.5f, 1.0f);
+
+    // Water "muddiness" / weight. Drives surface opacity, how quickly
+    // depth goes opaque, ripple damping, wave amplitude damping,
+    // whitecap threshold, foam tinting, reflection boost, and
+    // refraction fade. Example authored values:
+    //   murky swamp      — 0.85
+    //   stormy sea       — 0.55
+    //   glassy tropical  — 0.25
+    //   slow river       — 0.45
+    [Export(PropertyHint.Range, "0,1,0.01")] public float WaterOpacity = 0.5f;
+
+    // Atmospheric dust amount — the scattering medium that makes
+    // shafts visible. Region-intrinsic (deserts dusty, jungles not),
+    // not weather-state, so it lives here rather than on WeatherData.
+    // WeatherSimulation reads this as the MAX and outputs a perturbed
+    // current value (wind / elevation / humidity / rain modulated).
+    // DustColor (above) controls hue; this controls intensity.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DustAmount = 0.1f;
+
+    // Normalized elevation of the region in [0, 1]: 0 = sea level,
+    // 1 = high alpine. Static region property feeding WeatherSimulation
+    // — high elevation cools baseline temperature, dries baseline
+    // humidity, raises baseline wind, and amplifies dust lift.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float Elevation = 0.0f;
 
     // Baseline weather for this region. Becomes the climate baseline
     // once dynamic weather exists.

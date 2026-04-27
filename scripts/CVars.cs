@@ -58,7 +58,13 @@ public static class CVars
         if (ws == null) { return; }
         double v = ((CVarFloat)cvar).Value;
         v -= System.Math.Floor(v);
+        // Keep TimeOfDayAbsolute in sync within the current day so the
+        // variance phase index lands at the same handover boundary the
+        // user is jumping to. Without this, a console time jump would
+        // desync the variance phase from the lighting cycle.
+        double dayFloor = System.Math.Floor(ws.TimeOfDayAbsolute);
         ws.TimeOfDay01 = v;
+        ws.TimeOfDayAbsolute = dayFloor + v;
     });
 
     // Swap the MainCamera between orthographic and narrow-FOV perspective.

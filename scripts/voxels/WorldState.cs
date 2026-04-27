@@ -26,6 +26,19 @@ public class WorldState
     // colors. Seeded from SimData.InitialTimeOfDay at world creation.
     public double TimeOfDay01;
 
+    // Monotonic absolute-day counter advanced in lockstep with
+    // TimeOfDay01 (= TimeOfDay01 + integer day index). Anything that
+    // needs an unwrapping time coordinate aligned with the day cycle —
+    // most importantly the WeatherSimulation variance phase, whose
+    // handover boundaries are at TimeOfDayAbsolute = N/2 + 0.25 (i.e.
+    // sunrise / sunset of each successive day) — should read this
+    // rather than deriving from GameTimeMs. (GameTimeMs runs at real
+    // time, while TimeOfDay is on the time_scale clock; deriving day
+    // fractions from GameTimeMs causes the variance windows to drift
+    // out of phase with the lighting transitions and lights pop when
+    // a variance handover happens to coincide with sunrise/sunset.)
+    public double TimeOfDayAbsolute;
+
     // Sun direction (unit vector, the direction light travels). Written by
     // SkyController each frame from TimeOfDay01; read by
     // World.IsPointInDirectionalSun for the gameplay shadow-reach raycast.
@@ -42,6 +55,60 @@ public class WorldState
     // direction is orthogonal to that. Y component unused — wind
     // treated as horizontal.
     public Vector3 WindDirection = new Vector3(0.7f, 0f, 0.7f);
+
+    // 12-hour weather variance, in [0, 1]. 0 = stormy / unstable
+    // (cool), 1 = fair / stable (warm). Drives the temperature swing
+    // around the diurnal baseline, and (via its analytical slope
+    // across the sunrise/sunset crossfade) the wind transient.
+    // Humidity and cloud cover use their OWN independent variance
+    // channels (below) so a humid front can roll in without dragging
+    // temperature with it.
+    //
+    // Each channel has prev / next + a HANDOVER PHASE INDEX. Phase
+    // increments at the start of each sunrise/sunset crossfade window;
+    // when it does, prev := next (so displayed value is continuous)
+    // and a fresh next is rolled. Inside the window, the displayed
+    // value smooth-steps prev → next; outside, it sits at next until
+    // the next window. Lives on WorldState so a save/reload resumes
+    // the same forecast rather than snapping to a new value.
+    public float WeatherVariance = 0.5f;
+    public float WeatherVariancePrev = 0.5f;
+    public float WeatherVarianceNext = 0.5f;
+    // Per-day-fraction analytical slope of WeatherVariance. 0 outside
+    // the crossfade window; ramps with SmoothStep' inside. Wind /
+    // temperature transient calcs read this directly so the signal is
+    // independent of frame rate and survives time_scale changes.
+    public float WeatherVarianceSlope = 0.0f;
+    // Most recently completed handover phase index. long.MinValue means
+    // "uninitialized" — first UpdateVariance call snaps this to the
+    // current phase without rolling, so the freshly seeded prev/next
+    // values aren't promoted away on frame 0.
+    public long WeatherVariancePhase = long.MinValue;
+
+    // Independent humidity-variance channel. Same handover-phase
+    // structure as WeatherVariance, but its effect on simulated
+    // humidity is GATED BY SIMULATED WIND SPEED — calm air holds the
+    // regional baseline; rising wind blows the neighboring humidity
+    // pattern in.
+    public float HumidityVariance = 0.5f;
+    public float HumidityVariancePrev = 0.5f;
+    public float HumidityVarianceNext = 0.5f;
+    public float HumidityVarianceSlope = 0.0f;
+    public long HumidityVariancePhase = long.MinValue;
+
+    // Independent cloud-cover variance channel. Same gating rule as
+    // humidity — clouds are physically advected by the wind, so on a
+    // calm day the regional baseline holds and a strong wind pulls in
+    // whatever the variance says is "out there".
+    public float CloudVariance = 0.5f;
+    public float CloudVariancePrev = 0.5f;
+    public float CloudVarianceNext = 0.5f;
+    public float CloudVarianceSlope = 0.0f;
+    public long CloudVariancePhase = long.MinValue;
+
+    // Per-world deterministic RNG for weather rolls. Seeded so reloads
+    // produce the same forecast.
+    public RandomNumberGenerator WeatherRng = new RandomNumberGenerator();
 
     public readonly Dictionary<Vector3I, ChunkState> _chunks = new();
     public readonly Dictionary<Vector3I, List<EntitySimState>> _entities = new();
@@ -69,6 +136,22 @@ public class WorldState
         Max = max;
         SimData = simData;
         TimeOfDay01 = simData?.InitialTimeOfDay ?? 0.3f;
+        TimeOfDayAbsolute = TimeOfDay01;
+        WeatherRng.Randomize();
+        // Pre-roll prev/next on each channel so the first frame has a
+        // valid lerp pair. The phase fields stay at long.MinValue —
+        // UpdateVariance snaps each channel's phase to "current" on
+        // first call without rolling, so these initial values aren't
+        // promoted away.
+        WeatherVariancePrev = WeatherRng.Randf();
+        WeatherVarianceNext = WeatherRng.Randf();
+        WeatherVariance = WeatherVarianceNext;
+        HumidityVariancePrev = WeatherRng.Randf();
+        HumidityVarianceNext = WeatherRng.Randf();
+        HumidityVariance = HumidityVarianceNext;
+        CloudVariancePrev = WeatherRng.Randf();
+        CloudVarianceNext = WeatherRng.Randf();
+        CloudVariance = CloudVarianceNext;
     }
 
     // World-coordinate accessors for cross-chunk light propagation

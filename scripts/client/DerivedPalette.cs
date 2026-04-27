@@ -30,8 +30,13 @@ public struct DerivedPalette
     public Color HorizonTint;
     public Color ZenithTint;
 
-    // Fog body tint (blended) + densities.
+    // Fog body tint (blended) + densities. `Fog` is the simulated fog
+    // level in [0, 1], derived in WeatherDerivation from simulated
+    // humidity + cool-half-of-day diurnal — there is no authored fog
+    // input, so this is the single canonical fog signal that
+    // SkyController's disk / water reads consume.
     public Color FogTint;
+    public float Fog;
     public float FogDensity;
     public float AmbientFogDensity;
     public float DustDensity;

@@ -25,7 +25,7 @@ public static class WeatherDerivation
         sunsetT = 1f - Mathf.SmoothStep(sunsetAngle, sunsetAngle + colorRange, Mathf.Abs(sunElevDeg));
     }
 
-    public static DerivedPalette Derive(RegionData region, WeatherData weather, float sunElevationDegrees, SimData sim)
+    public static DerivedPalette Derive(RegionData region, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData sim)
     {
         DerivedPalette p = default;
 
@@ -38,10 +38,29 @@ public static class WeatherDerivation
 
         float cloudCover = weather?.cloudCover ?? 0f;
         float humidity = weather?.humidity ?? 0.5f;
-        float fog = weather?.fog ?? 0f;
         float rainAmount = weather?.rainAmount ?? 0f;
         float dustAmount = weather?.dustAmount ?? 0.1f;
         float windSpeed = weather?.windSpeed ?? 0f;
+
+        // Fog — derived directly from simulated humidity AND cool-half-
+        // of-day diurnal. No authored input; this is the single
+        // canonical fog signal that SkyController's disk / water reads
+        // pick up via p.Fog below. MULTIPLICATIVE: both axes must be
+        // present (cold dry air doesn't fog; warm humid air doesn't
+        // fog) — the previous additive formula leaked fog into desert
+        // / mountain regions purely from the cool-diurnal term.
+        // FogFromHumidity / FogFromCoolDiurnal act as exponents
+        // shaping the curve of each axis: > 1 narrows (only extreme
+        // values produce fog), < 1 widens (modest values still
+        // produce some fog). Default 1.5 / 1.0 gives desert pre-dawn
+        // ~0.01 fog, swamp pre-dawn ~0.85, mountain pre-dawn ~0.05.
+        float fogFromHumidity = sim?.FogFromHumidity ?? 1.5f;
+        float fogFromCoolDiurnal = sim?.FogFromCoolDiurnal ?? 1.0f;
+        float coolDiurnal = 1f - WeatherSimulation.DiurnalCurve(timeOfDay01, sim);
+        float humidGate = humidity > 0f ? Mathf.Pow(humidity, fogFromHumidity) : 0f;
+        float coolGate = coolDiurnal > 0f ? Mathf.Pow(coolDiurnal, fogFromCoolDiurnal) : 0f;
+        float fog = Mathf.Clamp(humidGate * coolGate, 0f, 1f);
+        p.Fog = fog;
 
         // Phase weights (day / sunset / night).
         float sunsetAngle = sim?.SunsetAngleDegrees ?? 15f;
@@ -324,15 +343,15 @@ public static class WeatherDerivation
         p.MoonShaftColor = moonShaftNight.Lerp(shaftSunset, sunsetT);
 
         // --- Water --------------------------------------------------
-        // One authored RGBA (RegionData.WaterColor) drives everything. Alpha
-        // is "muddiness" — physically it's how much sediment/organic matter
-        // is suspended, which ripples through into viscosity (damped ripples
-        // and waves), opacity (fast depth falloff), reflection (denser
-        // surface = better mirror), refraction (particles scatter before
-        // light can bend cleanly), and whitecap formation (viscous water
-        // resists air entrainment).
-        Color waterC = region?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 0.5f);
-        float muddy = Mathf.Clamp(waterC.A, 0f, 1f);
+        // RegionData.WaterColor (RGB) drives the surface tint;
+        // RegionData.WaterOpacity is "muddiness" — physically how much
+        // sediment/organic matter is suspended, which ripples through
+        // into viscosity (damped ripples and waves), opacity (fast
+        // depth falloff), reflection (denser surface = better mirror),
+        // refraction (particles scatter before light can bend cleanly),
+        // and whitecap formation (viscous water resists air entrainment).
+        Color waterC = region?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 1f);
+        float muddy = Mathf.Clamp(region?.WaterOpacity ?? 0.5f, 0f, 1f);
         p.WaterMuddiness = muddy;
 
         // Shallow tint is just the authored RGB. Depth tint is derived two

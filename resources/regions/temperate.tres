@@ -8,11 +8,10 @@ script = ExtResource("2_weather")
 cloudCover = 0.35
 windSpeed = 3.0
 windDirection = Vector3(-0.7, 0, 0.7)
-fog = 0.05
-dustAmount = 0.08
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]
 script = ExtResource("1_region")
 SkyColor = Color(0.35, 0.55, 0.85, 1)
+DustAmount = 0.08
 weather = SubResource("Resource_weather")

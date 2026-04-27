@@ -182,22 +182,27 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float NightCloudMoonMix = 0.7f;
 
     [ExportSubgroup("Fog")]
-    // Fog tint uses RegionData.DustColor directly (see
-    // WeatherDerivation) — DustColor is a regional palette / theming
-    // color and is the right intrinsic fog tint. Phase dimming and
-    // sun/moon warmth through fog come from the shader's shaft_color
-    // (phase-blended) and lighting response, not from pre-baking
-    // night/sunset tints here.
-    // Voxel fog density = fog * this. Authored old-preset fogDensity
-    // ranged 0.001-0.02; fog=1 at K=0.1 saturates near the high end,
-    // leaving headroom so "full fog" doesn't wall off sight entirely.
+    // Fog is fully derived: WeatherDerivation computes a [0, 1] fog
+    // signal from simulated humidity and the cool-half-of-day diurnal
+    // (FogFromHumidity / FogFromCoolDiurnal weights live in the
+    // Weather Simulation > Simulated Derived subgroup) and exposes it
+    // as DerivedPalette.Fog. The constants below shape how that signal
+    // turns into voxel density / ambient haze / disk dimming.
+    //
+    // Fog tint uses RegionData.DustColor directly — DustColor is a
+    // regional palette / theming color and is the right intrinsic fog
+    // tint. Phase dimming and sun/moon warmth through fog come from
+    // the shader's shaft_color (phase-blended) and lighting response,
+    // not from pre-baking night/sunset tints here.
+    // Voxel fog density = fog × this. fog=1 at K=0.1 saturates near
+    // the high end, leaving headroom so "full fog" doesn't wall off
+    // sight entirely.
     [Export(PropertyHint.Range, "0,1,0.001")] public float FogDensityK = 0.1f;
-    // Ambient (non-map) distance haze from the weather.fog variable.
+    // Ambient (non-map) distance haze from the derived fog signal.
     // The shape is `pow(fog, FogCurveExponent) * K`: a concave curve
     // (exponent < 1) lets low fog values still read as visible haze
-    // while damping high values so authored fog=0.6 doesn't over-
-    // saturate into pea soup. Linear fog scaling made users author
-    // fog=0.08 for "medium" and end up with fog=0.6 = "can't see."
+    // while damping high values so a fully humid pre-dawn fog doesn't
+    // over-saturate into pea soup.
     [Export(PropertyHint.Range, "0,0.05,0.0005")] public float AmbientFogK = 0.0025f;
     // Exponent shaping the fog → haze curve. 1.0 = linear; 0.5 = sqrt
     // (current default; low fog hits ~40% of max haze). Lower values
@@ -356,6 +361,170 @@ public partial class SimData : Resource
     // onto that full range linearly. Our authored desert has
     // dustAmount=0.5 → dustDensity=0.05 (half of old dusty max).
     [Export(PropertyHint.Range, "0,0.2,0.001")] public float DustDensityK = 0.1f;
+
+    [ExportGroup("Weather Simulation")]
+    // Diurnal weather variation. Authored RegionData.weather values are
+    // treated as the region's MAX for each channel; WeatherSimulation
+    // perturbs a per-frame working copy in place using:
+    //   1. A diurnal sine curve peaking at DiurnalPeak01, bottoming at
+    //      DiurnalTrough01 — drives baseline humidity / temperature /
+    //      wind / cloud cover with channel-specific weights.
+    //   2. A 12-hour weather variance value that re-rolls every
+    //      VarianceHours and smooth-lerps from prev→next across the
+    //      sunrise/sunset window. The signed delta of that lerp drives
+    //      wind transients; the variance itself drives the humidity /
+    //      cloud / temperature swing around the diurnal baseline.
+    //   3. Cross-couplings (humid air retains heat, wind brings cloud,
+    //      humid+warm air rises into cloud, dust needs dry air & wind,
+    //      fog settles in cool humid lows, etc.).
+    // All weights live here so designers can retune the feel without
+    // touching code. `Baseline*` knobs shape the diurnal max envelope;
+    // `Variance*` knobs shape the per-12h perturbation around it.
+
+    [ExportSubgroup("Diurnal Curve")]
+    // Normalized time-of-day at which the diurnal curve peaks (max
+    // temperature, max wind, peak dust lift). 0.6 ≈ early afternoon.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalPeak01 = 0.6f;
+    // Normalized time-of-day at which the diurnal curve troughs
+    // (coolest point of the day, fog max, lowest wind). 0.275 ≈ just
+    // after sunrise.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalTrough01 = 0.275f;
+
+    [ExportSubgroup("Weather Variance")]
+    // Game-hours between weather-variance re-rolls. The simulation
+    // holds a `prev` and `next` value; the active value smooth-lerps
+    // from prev→next across the sunrise/sunset window, so frontal
+    // changes only "land" at dawn/dusk rather than mid-afternoon.
+    [Export(PropertyHint.Range, "1,48,0.5")] public float VarianceHours = 12f;
+    // Half-width of the smooth-lerp band around sunrise / sunset, in
+    // normalized time-of-day. 0.05 ≈ ~70m at a 600s day length: the
+    // variance crosses from prev→next over a window centered on
+    // sunrise (0.25) or sunset (0.75).
+    [Export(PropertyHint.Range, "0.005,0.2,0.005")] public float VarianceCrossfadeHalfWidth01 = 0.05f;
+
+    [ExportSubgroup("Baseline (Diurnal)")]
+    // Baseline humidity = humidityMax × diurnalCurveOffset(humidity) ×
+    // (1 - elevation × ElevHumidity) × (1 - normalizedMaxTemp × HumidityFromMaxTemp)
+    // Hot regions give up moisture (deserts dry out as the max temp rises),
+    // cool regions hold humidity near the max.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HumidityFromMaxTemp = 0.35f;
+    // Diurnal swing depth on humidity: 0 = humidity stays at max all day,
+    // 1 = humidity hits 0 at the diurnal peak. Real-world humidity dips
+    // mid-afternoon (warm air holds more before saturating) and peaks
+    // pre-dawn — implemented via the INVERTED diurnal curve.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HumidityDiurnalDepth = 0.4f;
+    // Elevation reduces baseline humidity (alpine air is dry).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HumidityFromElevation = 0.5f;
+
+    // Baseline temperature follows the diurnal curve, damped by humidity
+    // (humid air resists swings — warm nights, cool days). Elevation
+    // pulls the whole curve down (alpine cool).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float TempDiurnalDepth = 0.55f;
+    // Humidity damps the diurnal swing (humid jungle = small day/night
+    // delta; dry desert = huge delta).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float TempHumidityDamping = 0.4f;
+    // Elevation cools the baseline (subtracts from the diurnal envelope).
+    // Multiplied against authored max temperature so it scales with the
+    // region's heat budget.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float TempFromElevation = 0.4f;
+
+    // Baseline wind = windMax × (diurnal × WindDiurnalDepth + (1 -
+    // WindDiurnalDepth)) × (1 + signedCoolingRate × WindFromTempDiff)
+    //                         × (1 + elevation × WindFromElevation)
+    // signedCoolingRate is the negated diurnal slope clamped to
+    // [-1, +1]: +1 at the steepest cooling point (afternoon → evening
+    // thermal collapse, when convection cells dump downslope and ground
+    // wind rises), -1 at the steepest warming point (mid-morning, when
+    // ground heats and the air column is still settled). Combined with
+    // the WindDiurnalDepth scale (which itself peaks at the afternoon
+    // diurnal max), this lands the daily wind peak in the late
+    // afternoon / early evening, with a calm pre-dawn and a calmer
+    // late-morning. Alpine regions get a fixed elevation boost on top.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float WindDiurnalDepth = 0.3f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromTempDiff = 0.5f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromElevation = 0.6f;
+
+    // Baseline cloud cover depends on wind (clouds blowing in) and on
+    // humid+warm air rising to the cloud layer.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float CloudFromWind = 0.35f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float CloudFromHumidityWarmth = 1.0f;
+    // Diurnal damping on cloud cover. Storms can roll in any time, but
+    // typical convective cloud builds across the day and dissipates
+    // overnight. Small by design — 0 keeps clouds at the max regardless
+    // of time of day.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float CloudDiurnalDepth = 0.2f;
+
+    [ExportSubgroup("Variance (Per-12h)")]
+    // Variance lives in [0, 1]; 0 = stormy / unstable, 1 = fair / stable.
+    // Each channel's "K" is the AMPLITUDE of the perturbation around
+    // baseline. variance=0.5 is neutral (no perturbation).
+
+    // Wind picks up two variance contributions, both bidirectional:
+    //   1. WindVarianceK — center term: stormy days (variance < 0.5,
+    //      varianceCenter < 0) push wind ABOVE baseline; fair days
+    //      (variance > 0.5) push it BELOW. Sustained, not transient.
+    //   2. WindVarianceDeltaK — |dVariance/dt| frontal kick: any
+    //      handover between variance values lifts wind for the
+    //      duration of the sunrise/sunset crossfade window.
+    // SimWind = baselineWind × (1 - varianceCenter·2·WindVarianceK)
+    //                        × (1 + |slope|·WindVarianceDeltaK).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float WindVarianceK = 0.3f;
+    [Export(PropertyHint.Range, "0,5,0.01")] public float WindVarianceDeltaK = 1.5f;
+
+    // Humidity uses its OWN independent variance channel. The
+    // perturbation is GATED by simulated wind speed: 0 wind = no
+    // advection, baseline holds; full wind = full influence. Models
+    // "neighboring weather is being blown in". Symmetric around 0.5.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HumidityVarianceK = 0.4f;
+
+    // Cloud cover uses its own independent variance channel, gated by
+    // wind for the same reason — clouds are physically advected, so a
+    // calm day stays at the regional baseline regardless of what the
+    // variance rolled.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float CloudVarianceK = 0.6f;
+
+    // Wind speed (m/s) at which the wind-gated variance influence
+    // (humidity & cloud) reaches its full strength. Below this the
+    // perturbation is scaled linearly down to 0 at zero wind. Tuned
+    // to roughly match the same wind range that breaks up the water
+    // surface (RippleWindRef) — a "strong but not extreme" wind.
+    [Export(PropertyHint.Range, "1,30,0.1")] public float AdvectedVarianceWindRef = 8f;
+
+    // Temperature: positively related to variance (fair days are hot),
+    // but |delta| in variance subtracts (changing weather is unstable
+    // and cools the scene off).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float TempVarianceK = 0.2f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float TempVarianceDeltaK = 0.4f;
+
+    [ExportSubgroup("Simulated Derived")]
+    // Fog forms ONLY when humid air cools — both axes are required
+    // (cold dry air doesn't fog; warm humid air doesn't fog), so
+    // WeatherDerivation multiplies them. The values below are the
+    // EXPONENTS shaping each axis: > 1 narrows the curve so only
+    // extreme humidity / cold produces fog, < 1 widens it so even
+    // moderate values lift some fog. Default 1.5 on humidity gives
+    // dry regions (desert humidity ~0.04) almost no fog while keeping
+    // swampy regions (humidity ~0.95) nearly fully fogged at the
+    // diurnal trough. There is no per-region fog ceiling — a swamp
+    // gets foggy because of its high baseline humidity, not a
+    // separate authored fog field.
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromHumidity = 1.5f;
+    [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromCoolDiurnal = 1.0f;
+
+    // Rain needs heavy cloud AND falling temperature (cold front /
+    // afternoon-thunderstorm pattern). Falling-temp signal = max(0,
+    // -dDiurnalCurve/dt). Authored rainMax is the ceiling.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float RainFromCloudCover = 1.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float RainCloudThreshold = 0.5f;
+    [Export(PropertyHint.Range, "0,5,0.01")] public float RainFromCoolingRate = 2.0f;
+
+    // Dust: wind × elevation × diurnal-warmth, suppressed by humidity
+    // and rain. Authored dustMax is the ceiling.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float DustFromWind = 1.0f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float DustFromElevation = 0.5f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float DustFromWarmth = 0.6f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DustHumiditySuppression = 0.8f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DustRainSuppression = 0.95f;
 
     [ExportSubgroup("Rain")]
     // rainWeight at cloudCover=0 (scattered thin cloud). Light drizzle.

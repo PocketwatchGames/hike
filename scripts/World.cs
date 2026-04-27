@@ -83,6 +83,7 @@ public partial class World : Node3D
         if (dayLength > 0f)
         {
             double todDelta = delta * CVars.timeScale.Value / dayLength;
+            _worldState.TimeOfDayAbsolute += todDelta;
             double tod = _worldState.TimeOfDay01 + todDelta;
             tod -= System.Math.Floor(tod);
             _worldState.TimeOfDay01 = tod;

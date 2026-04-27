@@ -696,7 +696,7 @@ public partial class SkyController : Node3D
         // Apply() (before _Process has ever run) doesn't push a zeroed
         // DerivedPalette to the shaders — which would briefly blacken
         // the sky during scene load.
-        _palette = WeatherDerivation.Derive(null, null, _sunElevationDegrees, null);
+        _palette = WeatherDerivation.Derive(null, null, _sunElevationDegrees, 0.5f, null);
         Apply();
     }
 
@@ -718,12 +718,24 @@ public partial class SkyController : Node3D
             Vector3 playerPos = World.Current.player?.GlobalPosition ?? Vector3.Zero;
             RegionBlend.Sample(playerPos, sim, _blendedRegion, _blendedWeather);
 
-            // Publish the blended wind direction to WorldState so gameplay
-            // consumers (RainEffect, physics) see a single authoritative
-            // current wind. Other weather variables currently have no
-            // gameplay readers, but this is where they'd flow through.
+            // Diurnal + 12-hour-variance perturbation on top of the
+            // region-blended max envelope. Re-rolls the variance state
+            // when game time crosses a 12-hour boundary, then rewrites
+            // _blendedWeather in place with the values currently in
+            // effect (so WeatherDerivation and every downstream consumer
+            // sees the simulated weather, not the region max).
             WorldState ws = World.Current.WorldState;
-            if (ws != null) { ws.WindDirection = _blendedWeather.windDirection; }
+            if (ws != null)
+            {
+                WeatherSimulation.UpdateVariance(ws, sim);
+                WeatherSimulation.Apply(_blendedWeather, _blendedRegion, ws, sim);
+                // Publish the blended wind direction to WorldState so
+                // gameplay consumers (RainEffect, physics) see a single
+                // authoritative current wind. Other weather variables
+                // currently have no gameplay readers, but this is where
+                // they'd flow through.
+                ws.WindDirection = _blendedWeather.windDirection;
+            }
         }
         else
         {
@@ -736,7 +748,7 @@ public partial class SkyController : Node3D
 
         // Derive. A null region/weather still produces a palette with
         // fallback values so editor preview works without wiring.
-        _palette = WeatherDerivation.Derive(currentRegion, currentWeather, _sunElevationDegrees, sim);
+        _palette = WeatherDerivation.Derive(currentRegion, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, sim);
 
         // Integrate scroll offsets using the CURRENT (blended) weather
         // speed / palette frequencies. Parametric `speed * TIME` in the
@@ -993,7 +1005,7 @@ public partial class SkyController : Node3D
         float sunPhaseT = Mathf.Clamp(Mathf.Sin(Mathf.DegToRad(_sunElevationDegrees)) / sinMaxElev, 0f, 1f);
         float humidityForDisk = Weather?.humidity ?? 0f;
         float dustForDisk = Weather?.dustAmount ?? 0f;
-        float fogForDisk = Weather?.fog ?? 0f;
+        float fogForDisk = _palette.Fog;
         float humidityAtten = Mathf.Lerp(1f, 1f - humidityDiskDim, humidityForDisk);
         float dustAtten = Mathf.Lerp(1f, 1f - dustDiskDim, dustForDisk);
 
@@ -1080,7 +1092,7 @@ public partial class SkyController : Node3D
 
         float cloudCover01 = Weather?.cloudCover ?? 0f;
         float humidity01 = Weather?.humidity ?? 0.5f;
-        float fog01 = Weather?.fog ?? 0f;
+        float fog01 = _palette.Fog;
         float effFresnel = fresnelPower + cloudCover01 * 0.8f;
         // Reflection clarity is about AIR + WATER quality, not ambient brightness.
         // A clear night with a moon should reflect the moon cleanly; scaling
