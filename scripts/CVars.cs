@@ -180,6 +180,21 @@ public static class CVars
     //                   directly so the renderer skips submission entirely.
     public static CVarBool propsVisible = new CVarBool("props_visible", true);
 
+    // Action CVar — dumps WorldPropScatter bucket stats to the console for
+    // verifying chunk-eviction is working. Shows per-bucket member count
+    // (sprites currently registered) vs the live MultiMesh InstanceCount;
+    // mismatches mean a rebuild is pending. Type `props_stats` in the
+    // in-game console after walking around to see counts rise/fall.
+    public static CVar propsStats = new CVar("props_stats", (cvar) =>
+    {
+        if (World.Current == null || World.Current.PropScatter == null)
+        {
+            Godot.GD.Print("props_stats: no active world.");
+            return;
+        }
+        Godot.GD.Print(World.Current.PropScatter.FormatStats());
+    });
+
     // details_visible 0 → every per-chunk detail-sprite scatter
     //                     (MultiMeshInstance3D from ChunkDetailScatter, used
     //                     for grass blades / flowers / pebbles painted on

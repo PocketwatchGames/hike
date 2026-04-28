@@ -31,6 +31,7 @@ public partial class World : Node3D
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
+    private WorldPropScatter _propScatter;
     private Player _player;
     private bool _editorMode;
     private Vector3I _lastEntityChunkCoord;
@@ -40,6 +41,12 @@ public partial class World : Node3D
     // world-wide. Chunks post their contributions via SetChunk and clear them
     // via RemoveChunk on eviction.
     public WorldDetailScatter DetailScatter => _detailScatter;
+
+    // Global manager for static-prop sprite multimeshes. Each
+    // MultimeshPropSprite registers itself in _Ready and unregisters in
+    // _ExitTree, so the manager stays consistent with the active prop set
+    // through chunk eviction without an explicit chunk-coord index.
+    public WorldPropScatter PropScatter => _propScatter;
 
     public Player player => _player;
 
@@ -58,6 +65,10 @@ public partial class World : Node3D
         _detailScatter = new WorldDetailScatter();
         _detailScatter.Name = "DetailScatter";
         AddChild(_detailScatter);
+
+        _propScatter = new WorldPropScatter();
+        _propScatter.Name = "PropScatter";
+        AddChild(_propScatter);
 
         _chunkManager = new ChunkManager();
         AddChild(_chunkManager);

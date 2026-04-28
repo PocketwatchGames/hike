@@ -1,39 +1,28 @@
 [gd_scene format=3 uid="uid://33agw00tovkt"]
 
-[ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="1_4lj3t"]
-[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_4lj3t"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_yyeku"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="4_lit_materialtemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="5_lit_shadowcastertemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="6_lit_reflectiontemplate"]
-[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="7_lit_aodecaltexture"]
+[ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="1_tg"]
+[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_decor"]
+[ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_grass"]
 
-[node name="TallGrass" type="Area3D" unique_id=16119387 node_paths=PackedStringArray("_sprite")]
+[node name="TallGrass" type="Area3D"]
 collision_layer = 8
 collision_mask = 0
-script = ExtResource("1_4lj3t")
-AlignToTerrain = 1.0
-_sprite = NodePath("Sprite")
+script = ExtResource("1_tg")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=48247068]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_grass")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=816345424]
-cast_shadow = 0
+[node name="Sprite" type="Sprite3D" parent="."]
 centered = false
 offset = Vector2(-17, 0)
 pixel_size = 0.0738
-texture = ExtResource("2_4lj3t")
+texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(610, 165, 36, 33)
-script = ExtResource("3_yyeku")
-MaterialTemplate = ExtResource("4_lit_materialtemplate")
-ShadowCasterTemplate = ExtResource("5_lit_shadowcastertemplate")
-ReflectionTemplate = ExtResource("6_lit_reflectiontemplate")
-AoDecalTexture = ExtResource("7_lit_aodecaltexture")
-Mirror = true
+script = ExtResource("3_mmprop")
 ScaleMin = 0.85
 ScaleMax = 1.15
+AlignToTerrain = 1.0
