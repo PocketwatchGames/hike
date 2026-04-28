@@ -33,6 +33,21 @@ public partial class LitSpriteAnimator : Node
         {
             Play(defaultAnimation);
         }
+        // Mirror the LitSprite trick: subscribe to the target's
+        // VisibilityChanged once and toggle SetProcess based on its
+        // IsVisibleInTree state. Engine then stops dispatching _Process to
+        // animators whose target sprite is hidden, so we don't pay the
+        // per-frame visibility check at high mob count.
+        if (target != null)
+        {
+            target.VisibilityChanged += OnTargetVisibilityChanged;
+            SetProcess(target.IsVisibleInTree());
+        }
+    }
+
+    private void OnTargetVisibilityChanged()
+    {
+        SetProcess(target != null && target.IsVisibleInTree());
     }
 
     public void Play(StringName name)
@@ -59,6 +74,10 @@ public partial class LitSpriteAnimator : Node
         {
             return;
         }
+        // No target.IsVisibleInTree gate — the VisibilityChanged hookup in
+        // _Ready toggles SetProcess so the engine stops dispatching to us
+        // whenever the target sprite is hidden anywhere up the tree.
+        // Animations resume from the last frame when visibility returns.
         if (CurrentAnimation == default || !frames.HasAnimation(CurrentAnimation))
         {
             return;
@@ -68,6 +87,8 @@ public partial class LitSpriteAnimator : Node
         {
             return;
         }
+
+        using var _profAnim = Profiler.Sample("LitSpriteAnimator.Process");
 
         float fps = (float)frames.GetAnimationSpeed(CurrentAnimation);
         float frameDuration = frames.GetFrameDuration(CurrentAnimation, _frame);

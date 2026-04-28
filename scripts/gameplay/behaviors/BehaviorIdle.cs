@@ -35,6 +35,7 @@ public partial class BehaviorIdle : BehaviorBase
         {
             output.speed = 0f;
             output.yaw = me.spawnRotationY;
+            output.suspendTimeMs = time + 100;
         }
         return new BehaviorOutput(EBehaviorResult.Running);
     }

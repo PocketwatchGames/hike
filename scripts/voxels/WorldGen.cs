@@ -120,14 +120,31 @@ public static class WorldGen
     // with a future channel.
     public const int SEED_SALT_ROAD     = 0x09;
     private const int SEED_SALT_ELEVATION = 0x0A;
+    private const int SEED_SALT_PROPS   = 0x0B;
+
+    // Stable, process-independent mix of three ints. System.HashCode.Combine
+    // seeds itself with a process-random salt, so it would re-randomize
+    // world-gen on every launch — use this anywhere worldgen needs a
+    // deterministic seed.
+    private static int StableMix(int a, int b, int c)
+    {
+        unchecked
+        {
+            uint h = (uint)a * 0x9E3779B1u;
+            h ^= (uint)b * 0x85EBCA77u;
+            h ^= (uint)c * 0xC2B2AE3Du;
+            h = ((h >> 16) ^ h) * 0x85EBCA6Bu;
+            h = ((h >> 13) ^ h) * 0xC2B2AE35u;
+            h = (h >> 16) ^ h;
+            return (int)h;
+        }
+    }
 
     // Mix worldSeed with a per-channel salt to produce a stable sub-seed.
-    // HashCode.Combine is overkill but easy; what matters is the result is
-    // deterministic and well-spread so two channels don't accidentally
-    // produce correlated noise.
+    // Must be deterministic across runs — see StableMix.
     public static int DeriveSeed(int worldSeed, int salt)
     {
-        return HashCode.Combine(worldSeed, salt);
+        return StableMix(worldSeed, salt, 0);
     }
 
     public static WorldState Generate(WorldGenData genData, int worldSeed, Vector3I worldSize)
@@ -312,7 +329,7 @@ public static class WorldGen
                 for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
                 {
                     var coord = new Vector3I(x, 0, z);
-                    GenerateProps(ws, coord, genData, grassNoise, forestNoise, heightMap, skipFlags);
+                    GenerateProps(ws, coord, genData, grassNoise, forestNoise, heightMap, skipFlags, worldSeed);
                 }
             }
         }
@@ -2034,7 +2051,7 @@ public static class WorldGen
     }
 
     private static void GenerateProps(WorldState ws, Vector3I chunkCoord, WorldGenData genData,
-        FastNoiseLite grassNoise, FastNoiseLite forestNoise, HeightMap heightMap, int skipFlags)
+        FastNoiseLite grassNoise, FastNoiseLite forestNoise, HeightMap heightMap, int skipFlags, int worldSeed)
     {
         bool skipProps = (skipFlags & SKIP_PROPS) != 0;
         bool skipMobs = (skipFlags & SKIP_MOBS) != 0;
@@ -2060,7 +2077,7 @@ public static class WorldGen
             return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
         }
         ChunkState data = ws._chunks[chunkCoord];
-        var rng = new Random(HashCode.Combine(chunkCoord.X, chunkCoord.Z, 7919));
+        var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
 
         // Per-chunk tree count blends the kernel-weighted TreesPerChunkMin/Max
         // around the chunk center so adjacent regions hand off smoothly. The

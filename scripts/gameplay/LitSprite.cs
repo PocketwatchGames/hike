@@ -87,6 +87,10 @@ public partial class LitSprite : Sprite3D
         get => _alignToTerrain;
         set
         {
+            if (_alignToTerrain == value)
+            {
+                return;
+            }
             _alignToTerrain = value;
             PushAlignmentUniform("align_to_terrain", value);
         }
@@ -98,6 +102,10 @@ public partial class LitSprite : Sprite3D
         get => _terrainNormal;
         set
         {
+            if (_terrainNormal == value)
+            {
+                return;
+            }
             _terrainNormal = value;
             PushAlignmentUniform("terrain_normal", value);
         }
@@ -117,6 +125,10 @@ public partial class LitSprite : Sprite3D
         get => _forwardOffset;
         set
         {
+            if (_forwardOffset == value)
+            {
+                return;
+            }
             _forwardOffset = value;
             PushAlignmentUniform("forward_offset", value);
         }
@@ -132,6 +144,14 @@ public partial class LitSprite : Sprite3D
         get => _visibility;
         set
         {
+            // Short-circuit on equal value so the shader-uniform push is
+            // skipped for stable frames. Owners (Mob, Player, etc.) used to
+            // cache the last-applied value externally; doing it here means
+            // every caller benefits without having to remember to.
+            if (_visibility == value)
+            {
+                return;
+            }
             _visibility = value;
             PushAlignmentUniform("visibility", value);
         }
@@ -146,6 +166,10 @@ public partial class LitSprite : Sprite3D
         get => _silhouette;
         set
         {
+            if (_silhouette == value)
+            {
+                return;
+            }
             _silhouette = value;
             if (MaterialOverride is ShaderMaterial mat)
             {
@@ -164,6 +188,10 @@ public partial class LitSprite : Sprite3D
         get => _silhouetteTint;
         set
         {
+            if (_silhouetteTint == value)
+            {
+                return;
+            }
             _silhouetteTint = value;
             Vector3 rgb = new(value.R, value.G, value.B);
             if (MaterialOverride is ShaderMaterial mat)
@@ -286,15 +314,27 @@ public partial class LitSprite : Sprite3D
     }
     private bool _castsShadow = true;
 
-    private ShaderMaterial _materialTemplate;
-    private ShaderMaterial _shadowCasterTemplate;
-    private ShaderMaterial _reflectionTemplate;
-    private Texture2D _aoDecalTexture;
+    // Material + decal templates wired per-scene via [Export]. Each LitSprite
+    // Duplicates these at _Ready so per-instance shader params (visibility,
+    // silhouette, sprite_region_origin, etc.) live on a unique material —
+    // until that gets refactored to use Godot 4 instance uniforms, the
+    // template resources themselves are still shared across all scenes that
+    // bind to the same .tres, so the editor only loads one copy of each.
+    [Export] public ShaderMaterial MaterialTemplate { get; set; }
+    [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
+    [Export] public ShaderMaterial ReflectionTemplate { get; set; }
+    [Export] public Texture2D AoDecalTexture { get; set; }
 
     private Sprite3D _shadowProxy;
     private Sprite3D _reflection;
     private ShaderMaterial _reflectionMaterial;
     private Decal _aoDecal;
+
+    // True when _Process has work to do (water reflection update OR yaw
+    // mirror flip). Static props (no reflection, no MirrorByYaw) leave this
+    // false so SetProcess stays off across visibility toggles. Recomputed
+    // by Apply() whenever the reflection child or texture changes.
+    private bool _needsProcess;
 
     public override void _Ready()
     {
@@ -302,15 +342,8 @@ public partial class LitSprite : Sprite3D
         // sun-aligned billboard math. Casting from the visible (camera-aligned)
         // sprite produces edge-on slivers from the sun's POV.
         CastShadow = ShadowCastingSetting.Off;
-        // Fall back to canonical resources so scenes don't have to re-wire
-        // every LitSprite when the shadow + AO system is added. Scene-level
-        // overrides still win.
         if (!Engine.IsEditorHint())
         {
-            _materialTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_lit.tres");
-            _shadowCasterTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_shadow_caster.tres");
-            _reflectionTemplate ??= GD.Load<ShaderMaterial>("res://resources/materials/sprite_reflection.tres");
-            _aoDecalTexture ??= GD.Load<Texture2D>("res://resources/materials/ao_blob.tres");
             // Resolve the random mirror flip once and XOR it into FlipH,
             // which becomes the authoritative stored state read by Apply().
             // Rolling once here keeps subsequent Apply() calls (from
@@ -324,9 +357,27 @@ public partial class LitSprite : Sprite3D
             // default this is a no-op.
             float s = (float)GD.RandRange(ScaleMin, ScaleMax);
             Scale = new Vector3(s, s, s);
+
+            // Subscribe to Node3D's VisibilityChanged signal once and toggle
+            // SetProcess based on IsVisibleInTree. The signal fires when
+            // *this* node OR any ancestor flips its Visible flag, which is
+            // exactly when the cached state could have changed. After this
+            // hookup the engine itself stops dispatching _Process to hidden
+            // sprites — no per-frame IsVisibleInTree call, no LitSprite gate
+            // sample. At ~900 sprites that's 0.2+ ms/frame back.
+            VisibilityChanged += OnVisibilityChanged;
+            SetProcess(IsVisibleInTree());
         }
         TextureChanged += Apply;
         Apply();
+    }
+
+    private void OnVisibilityChanged()
+    {
+        // _needsProcess is the per-sprite "_Process has any work" decision
+        // made by Apply(); visibility is the per-frame "anyone watching"
+        // decision. Both must be true to spend the frame.
+        SetProcess(_needsProcess && IsVisibleInTree());
     }
 
     // Derives (size, origin) in integer pixels from the Sprite3D's RegionRect
@@ -351,6 +402,19 @@ public partial class LitSprite : Sprite3D
         origin = Vector2I.Zero;
     }
 
+    // True once the visible sprite's MaterialOverride has been duplicated
+    // from MaterialTemplate. Apply() then becomes a uniform-push, not a
+    // material-rebuild — this is what fixes the atlas-swap thrash where
+    // every animation transition (idle↔run, frame group change) was
+    // allocating three fresh ShaderMaterials and triggering GC pressure.
+    private bool _mainMaterialBuilt;
+    private bool _shadowMaterialBuilt;
+    // ReflectionTemplate is duplicated lazily inside EnsureReflection when
+    // the reflection child is first created; ShouldReflect can flip at
+    // runtime (Auto mode + size threshold) so the build state lives next
+    // to the existence of the reflection child rather than as a separate
+    // flag here.
+
     private void Apply()
     {
         Centered = false;
@@ -372,26 +436,57 @@ public partial class LitSprite : Sprite3D
             return;
         }
 
-        if (_materialTemplate == null)
+        if (MaterialTemplate == null)
         {
             GD.PushError($"LitSprite '{Name}' is missing MaterialTemplate.");
             MaterialOverride = null;
             return;
         }
 
-        var mat = (ShaderMaterial)_materialTemplate.Duplicate();
-        mat.SetShaderParameter("sprite_texture", Texture);
-        mat.SetShaderParameter("sprite_size", spriteSize);
-        mat.SetShaderParameter("sprite_region_origin", regionOrigin);
-        mat.SetShaderParameter("sprite_mirror", FlipH);
-        mat.SetShaderParameter("align_to_terrain", _alignToTerrain);
-        mat.SetShaderParameter("terrain_normal", _terrainNormal);
-        mat.SetShaderParameter("forward_offset", _forwardOffset);
-        MaterialOverride = mat;
+        // Build main material once; subsequent Apply() calls just push the
+        // changed uniforms on the existing material instance.
+        if (!_mainMaterialBuilt)
+        {
+            var mat = (ShaderMaterial)MaterialTemplate.Duplicate();
+            // Per-instance uniforms set at build time. Mirror / align /
+            // forward-offset can still change later via their property
+            // setters, which push through PushAlignmentUniform — but the
+            // *initial* push is here so first-frame rendering is correct.
+            mat.SetShaderParameter("sprite_mirror", FlipH);
+            mat.SetShaderParameter("align_to_terrain", _alignToTerrain);
+            mat.SetShaderParameter("terrain_normal", _terrainNormal);
+            mat.SetShaderParameter("forward_offset", _forwardOffset);
+            MaterialOverride = mat;
+            _mainMaterialBuilt = true;
+        }
+        // Texture / region change every animation frame group + every atlas
+        // swap. Push them every Apply, but on the existing material so we
+        // don't allocate.
+        if (MaterialOverride is ShaderMaterial liveMat)
+        {
+            liveMat.SetShaderParameter("sprite_texture", Texture);
+            liveMat.SetShaderParameter("sprite_size", spriteSize);
+            liveMat.SetShaderParameter("sprite_region_origin", regionOrigin);
+        }
 
         EnsureShadowProxy(spriteSize, regionOrigin);
         EnsureAoDecal();
         EnsureReflection(spriteSize, regionOrigin);
+
+        // Static-prop fast path: if this sprite has no water reflection and
+        // no MirrorByYaw, _Process has literally nothing to do —
+        // UpdateReflection's first line returns on _reflection == null,
+        // UpdateYawMirror's first line returns on !MirrorByYaw. Most world
+        // props (trees, barrels, decor) hit this case and shouldn't pay
+        // the per-frame profiler-scope + two-null-check overhead. The
+        // _needsProcess flag is AND-ed with visibility in the VisibilityChanged
+        // callback so static props stay SetProcess(false) across visibility
+        // toggles. Mobs/players have MirrorByYaw=true and keep ticking.
+        if (!Engine.IsEditorHint())
+        {
+            _needsProcess = _reflection != null || MirrorByYaw;
+            SetProcess(_needsProcess && IsVisibleInTree());
+        }
     }
 
     public override void _Process(double delta)
@@ -400,8 +495,21 @@ public partial class LitSprite : Sprite3D
         {
             return;
         }
-        UpdateReflection();
-        UpdateYawMirror();
+        // No IsVisibleInTree gate here — the VisibilityChanged hookup in
+        // _Ready calls SetProcess(false) when this sprite goes hidden, so
+        // we only get here on visible frames. The next time visibility
+        // flips back on, the first _Process tick re-derives reflection
+        // position and mirror state from scratch (UpdateReflection's
+        // _lastReflectionPos cache will see the position-changed delta).
+        using var _profLitSprite = Profiler.Sample("LitSprite.Process");
+        using (Profiler.Sample("LitSprite.UpdateReflection"))
+        {
+            UpdateReflection();
+        }
+        using (Profiler.Sample("LitSprite.UpdateYawMirror"))
+        {
+            UpdateYawMirror();
+        }
     }
 
     // Per-frame flip based on the sprite's world yaw vs the camera. A
@@ -413,20 +521,28 @@ public partial class LitSprite : Sprite3D
     // and is XOR'd into the final uniform.
     private bool _yawMirrorInitialized;
     private bool _yawMirrorLast;
+    // Camera lookup is a tree traversal (viewport → active camera stack);
+    // caching it saves that cost per LitSprite per frame. Refreshed lazily
+    // when the cached reference becomes invalid (camera freed, scene swap).
+    private Camera3D _cachedCamera;
+
     private void UpdateYawMirror()
     {
         if (!MirrorByYaw)
         {
             return;
         }
-        Camera3D cam = GetViewport()?.GetCamera3D();
-        if (cam == null)
+        if (_cachedCamera == null || !IsInstanceValid(_cachedCamera))
         {
-            return;
+            _cachedCamera = GetViewport()?.GetCamera3D();
+            if (_cachedCamera == null)
+            {
+                return;
+            }
         }
         Vector3 forward = GlobalBasis.Z;
         forward.Y = 0f;
-        Vector3 camRight = cam.GlobalBasis.X;
+        Vector3 camRight = _cachedCamera.GlobalBasis.X;
         camRight.Y = 0f;
         // dot < 0 means the character's forward points to the left side of
         // the camera's view; flip the sprite to match. Exact-zero (facing
@@ -446,7 +562,7 @@ public partial class LitSprite : Sprite3D
 
     private void EnsureShadowProxy(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (_shadowCasterTemplate == null || Texture == null)
+        if (ShadowCasterTemplate == null || Texture == null)
         {
             return;
         }
@@ -469,14 +585,24 @@ public partial class LitSprite : Sprite3D
         _shadowProxy.RegionEnabled = RegionEnabled;
         _shadowProxy.RegionRect = RegionRect;
 
-        var smat = (ShaderMaterial)_shadowCasterTemplate.Duplicate();
-        smat.SetShaderParameter("sprite_texture", Texture);
-        smat.SetShaderParameter("sprite_size", spriteSize);
-        smat.SetShaderParameter("sprite_region_origin", regionOrigin);
-        smat.SetShaderParameter("sprite_mirror", FlipH);
-        smat.SetShaderParameter("align_to_terrain", _alignToTerrain);
-        smat.SetShaderParameter("terrain_normal", _terrainNormal);
-        _shadowProxy.MaterialOverride = smat;
+        // Build the shadow material once, reuse it on subsequent Apply
+        // calls — each Duplicate() is an allocation, and the visible sprite
+        // can re-Apply many times per second during animation.
+        if (!_shadowMaterialBuilt)
+        {
+            var smat = (ShaderMaterial)ShadowCasterTemplate.Duplicate();
+            smat.SetShaderParameter("sprite_mirror", FlipH);
+            smat.SetShaderParameter("align_to_terrain", _alignToTerrain);
+            smat.SetShaderParameter("terrain_normal", _terrainNormal);
+            _shadowProxy.MaterialOverride = smat;
+            _shadowMaterialBuilt = true;
+        }
+        if (_shadowProxy.MaterialOverride is ShaderMaterial liveSmat)
+        {
+            liveSmat.SetShaderParameter("sprite_texture", Texture);
+            liveSmat.SetShaderParameter("sprite_size", spriteSize);
+            liveSmat.SetShaderParameter("sprite_region_origin", regionOrigin);
+        }
     }
 
     // Decides whether to spawn / keep a flipped reflection child for this
@@ -503,7 +629,7 @@ public partial class LitSprite : Sprite3D
 
     private void EnsureReflection(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (_reflectionTemplate == null || Texture == null)
+        if (ReflectionTemplate == null || Texture == null)
         {
             return;
         }
@@ -536,15 +662,33 @@ public partial class LitSprite : Sprite3D
         _reflection.RegionEnabled = RegionEnabled;
         _reflection.RegionRect = RegionRect;
 
-        _reflectionMaterial = (ShaderMaterial)_reflectionTemplate.Duplicate();
+        // Reflection material is built once when the reflection child is
+        // first created, then reused — no per-Apply Duplicate. ShouldReflect
+        // can flip back to false later (size threshold + Auto mode) which
+        // tears down the reflection child above; if it later becomes true
+        // again a fresh material is built. That's fine: the rebuild
+        // happens once per visibility transition, not per animation frame.
+        if (_reflectionMaterial == null)
+        {
+            _reflectionMaterial = (ShaderMaterial)ReflectionTemplate.Duplicate();
+            _reflectionMaterial.SetShaderParameter("sprite_mirror", FlipH);
+            _reflectionMaterial.SetShaderParameter("align_to_terrain", _alignToTerrain);
+            _reflectionMaterial.SetShaderParameter("terrain_normal", _terrainNormal);
+            _reflection.MaterialOverride = _reflectionMaterial;
+        }
         _reflectionMaterial.SetShaderParameter("sprite_texture", Texture);
         _reflectionMaterial.SetShaderParameter("sprite_size", spriteSize);
         _reflectionMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
-        _reflectionMaterial.SetShaderParameter("sprite_mirror", FlipH);
-        _reflectionMaterial.SetShaderParameter("align_to_terrain", _alignToTerrain);
-        _reflectionMaterial.SetShaderParameter("terrain_normal", _terrainNormal);
-        _reflection.MaterialOverride = _reflectionMaterial;
     }
+
+    // Position + visible-flag the sprite was last updated at. NaN sentinel so
+    // the very first call is treated as a delta and runs the full path. The
+    // dirty-flag check below skips ~all reflection work for static props
+    // (trees, barrels, rocks etc. that never move once spawned). Limitation:
+    // if water voxels under a static prop are mutated at runtime the cache
+    // becomes stale — fine for hand-authored worlds, would need a bus
+    // notification if voxel mining ever lands.
+    private Vector3 _lastReflectionPos = new(float.NaN, 0f, 0f);
 
     // Per-frame: query the water surface Y under this sprite, position the
     // flipped copy on the opposite side of the surface, and push source
@@ -557,6 +701,17 @@ public partial class LitSprite : Sprite3D
             return;
         }
         Vector3 src = GlobalPosition;
+        // Static prop short-circuit. Squared-distance epsilon absorbs physics
+        // jitter on RigidBody3D-anchored sprites without a "did it move"
+        // export flag — the next time GlobalPosition actually drifts (mob
+        // walks, prop gets pushed) we run the full path and re-cache.
+        const float MoveEpsilonSq = 1e-6f;
+        if ((src - _lastReflectionPos).LengthSquared() < MoveEpsilonSq)
+        {
+            return;
+        }
+        _lastReflectionPos = src;
+
         float? waterY = FindWaterSurfaceY(src);
         if (!waterY.HasValue)
         {
@@ -632,7 +787,7 @@ public partial class LitSprite : Sprite3D
 
     private void EnsureAoDecal()
     {
-        if (_aoDecalTexture == null)
+        if (AoDecalTexture == null)
         {
             return;
         }
@@ -655,7 +810,7 @@ public partial class LitSprite : Sprite3D
             _aoDecal.DistanceFadeLength = 2f;
             AddChild(_aoDecal);
         }
-        _aoDecal.TextureAlbedo = _aoDecalTexture;
+        _aoDecal.TextureAlbedo = AoDecalTexture;
     }
 
     private static float GetEditorPixelSize()

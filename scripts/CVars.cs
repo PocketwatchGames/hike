@@ -112,12 +112,12 @@ public static class CVars
     // the accumulators. The mob hot path (`Mob.*` sections) is the first
     // thing wired up — useful for finding which part of mob update is
     // dominating the frame at high mob counts.
+    // Both edges reset accumulators. Turning ON starts a fresh window;
+    // turning OFF clears stale numbers so they don't leak into the next
+    // session. Use `profile_dump` if you want to print before clearing.
     public static CVarBool profile = new CVarBool("profile", false, (cvar) =>
     {
-        if (((CVarBool)cvar).Value)
-        {
-            Profiler.Reset();
-        }
+        Profiler.Reset();
     });
 
     // Console action: prints the current per-section totals and resets the
@@ -127,6 +127,47 @@ public static class CVars
     {
         Profiler.DumpAndReset();
     });
+
+    // Rolling window length (seconds) for the on-screen overlay and the
+    // Godot custom monitors. Every `profile_window` seconds the live
+    // accumulators latch into a "previous window" snapshot that the overlay
+    // reads, then reset. Smaller = more responsive table, more churn.
+    // Larger = more stable averages, slower reaction to scene changes.
+    public static CVarFloat profileWindow = new CVarFloat("profile_window", 1f);
+
+    // Bisection toggles for mob render / physics cost. Mob C# work is cheap;
+    // when fps tanks at high mob density the cost is in render submission
+    // (sprite + shadow draws) or physics (RigidBody3D vs trimesh contacts),
+    // both of which happen outside any C# section. Toggle these to find out
+    // which side is dominating.
+    //
+    // mob_shadows 0 → every Mob's LitSprite stops casting shadows. If fps
+    //                 recovers, shadow-map draws are the cost (each sprite
+    //                 doubles as a shadow-pass draw call).
+    public static CVarBool mobShadows = new CVarBool("mob_shadows", true);
+
+    // mob_physics 0 → every Mob freezes and its CollisionLayer/Mask go to 0,
+    //                 so the broadphase and contact resolver see nothing. If
+    //                 _PhysicsProcess time collapses, Jolt is the cost.
+    public static CVarBool mobPhysics = new CVarBool("mob_physics", true);
+
+    // mob_visible 0 → every Mob's mesh subtree is hidden (visible = false).
+    //                 The sprite, its shadow proxy, water reflection child,
+    //                 and AO decal stop submitting to the renderer. The
+    //                 HudAnchor is a sibling and is NOT affected — use the
+    //                 separate `mob_hud` toggle for that. If fps recovers
+    //                 when this is off, mob render submission for the body
+    //                 sprite chain is the dominant cost.
+    public static CVarBool mobVisible = new CVarBool("mob_visible", true);
+
+    // mob_hud 0 → every Mob's HudAnchor (which holds the perception meter,
+    //              health bar etc.) is hidden. The HUD has its own
+    //              visibility contract — it appears while the player is
+    //              perceiving but hasn't yet fully discovered the mob — so
+    //              this is a separate bisection toggle from mob_visible.
+    //              Run with this off to measure how much frame time the
+    //              floating HUDs cost vs. the mob bodies themselves.
+    public static CVarBool mobHud = new CVarBool("mob_hud", true);
 
     // Log per-chunk active cell / quad counts from the DC mesher.
     public static CVarBool debugDC = new CVarBool("debug_dc", false, (cvar) =>

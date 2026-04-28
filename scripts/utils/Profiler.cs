@@ -7,9 +7,7 @@ using System.Text;
 // SHIPPING BUILDS: every public profiling call is tagged
 // [Conditional("PROFILE")]. The PROFILE symbol is defined for Debug /
 // ExportDebug in hike.csproj and NOT defined for Release / ExportRelease, so
-// in shipping builds the C# compiler emits no call site at all — argument
-// expressions still evaluate (they're just plain strings here, so it's free).
-// The static Section cache is still allocated, but never populated or read.
+// in shipping builds the C# compiler emits no call site at all.
 //
 // USAGE — three flavors, pick whichever reads best at the call site:
 //
@@ -20,18 +18,11 @@ using System.Text;
 //            // ... work ...
 //        }
 //
-//      First hit on a name allocates a Section and caches it; subsequent hits
-//      reuse the cached entry. The lookup is one Dictionary<string, Section>
-//      probe per call when profiling is enabled, and a single bool branch when
-//      it isn't.
-//
 //   2. Inline begin/end (when a `using` block would force awkward indentation):
 //
 //        Profiler.Begin("Mob.PerceptionRays");
 //        // ... work ...
 //        Profiler.End("Mob.PerceptionRays");
-//
-//      The string is looked up on both Begin and End. Names must match exactly.
 //
 //   3. Cached section reference (hot loops where you want to skip the lookup):
 //
@@ -42,23 +33,34 @@ using System.Text;
 //        // ... work ...
 //        ProfTickAI.End();
 //
-// All three accumulate into the same Section by name, so you can switch a
-// section between flavors without losing history within a window.
+// All three accumulate into the same Section by name.
 //
 // CONSOLE:
-//   profile 1            enable sampling + reset accumulators
+//   profile 1            enable sampling
 //   profile 0            disable sampling
-//   profile_dump         print a one-line-per-section table and reset
+//   profile_dump         print the table to the log
+//
+// IN-GAME OVERLAY:
+//   F3 toggles DiagnosticsOverlay, which forces profile=1 while visible and
+//   shows the same table (auto-refreshing every `profile_window` seconds).
+//   Customers running shipping builds do NOT see the table — PROFILE is not
+//   defined there, so all sections read 0 and the overlay just shows fps and
+//   the engine monitors.
+//
+// GODOT EDITOR MONITORS:
+//   Every section also registers a Performance.AddCustomMonitor entry under
+//   `hike/<section path>`, reporting per_frame_ms. They show up in the editor
+//   Debugger → Monitors tab next to the engine's built-ins, so you can graph
+//   any section over time.
 //
 // Reported per dump:
-//   calls      - how many times the section ran since the last reset
+//   calls      - how many times the section ran in the current window
 //   total_ms   - wall time spent in the section
 //   avg_us     - mean per call
-//   max_ms     - worst single call
+//   max_ms     - worst single call in the window
 //   per_frame  - total_ms / window-seconds * 60. Rough ms/frame at 60 Hz.
 //
 // Main-thread only: sections write into per-section fields without locking.
-// Calling from a worker thread will produce wrong totals.
 public static class Profiler
 {
     public static bool Enabled => CVars.profile.Value;
@@ -71,15 +73,30 @@ public static class Profiler
         internal long Max;
         internal int Calls;
 
+        // Latched at the end of each rolling window by Profiler.Tick. The
+        // overlay and the custom Godot monitor both read these — they update
+        // once per window instead of changing every frame, so on-screen
+        // numbers don't churn.
+        internal long LatchedTotal;
+        internal long LatchedMax;
+        internal int LatchedCalls;
+        internal double LatchedWindowSec;
+
         internal Section(string name)
         {
             Name = name;
         }
 
-        // Cached-reference flavor. Begin/End on the Section directly skip the
-        // dictionary lookup. ActiveStart is per-Section so reentrant or nested
-        // sections still need separate Section instances — same as the
-        // by-name flavor.
+        internal double LatchedPerFrameMs()
+        {
+            if (LatchedCalls == 0 || LatchedWindowSec <= 0.0)
+            {
+                return 0.0;
+            }
+            double total = LatchedTotal * (1000.0 / Stopwatch.Frequency);
+            return total / (LatchedWindowSec * 60.0);
+        }
+
         [Conditional("PROFILE")]
         public void Begin()
         {
@@ -136,18 +153,11 @@ public static class Profiler
     private static readonly List<Section> _sections = new();
     private static long _windowStartTicks;
 
-    // Cached-reference factory. Safe to call at static-init time; keeps a
-    // section live even when PROFILE is not defined (the compiler can't strip
-    // the field initializer based on a Conditional attribute, only the call
-    // sites). The Section object itself is cheap.
     public static Section MakeSection(string name)
     {
         return GetOrCreate(name);
     }
 
-    // Inline scope. Use as: `using (Profiler.Sample("Mob.TickAI")) { ... }`.
-    // Returns default(Scope) when PROFILE is undefined or profiling is off,
-    // whose Dispose is a no-op.
     public static Section.Scope Sample(string name)
     {
 #if PROFILE
@@ -162,7 +172,6 @@ public static class Profiler
 #endif
     }
 
-    // By-name begin/end. Names must match exactly between Begin and End.
     [Conditional("PROFILE")]
     public static void Begin(string name)
     {
@@ -203,43 +212,175 @@ public static class Profiler
             s = new Section(name);
             _byName[name] = s;
             _sections.Add(s);
+            RegisterCustomMonitor(s);
         }
         return s;
     }
 
-    public static void Dump()
+    // Each Profiler.Section also surfaces as a Performance.AddCustomMonitor
+    // entry, reading the section's latched per_frame_ms. The Godot editor's
+    // Debugger → Monitors tab plots these alongside the engine's own. Names
+    // use slashes for grouping (e.g. "hike/Mob/PhysicsProcess"). Skipped
+    // entirely when PROFILE is undefined so a shipping build doesn't waste
+    // RemoteDebugger bandwidth on monitors that can't move.
+    private static void RegisterCustomMonitor(Section s)
     {
-        long now = Stopwatch.GetTimestamp();
-        double elapsedSec = _windowStartTicks == 0L
-            ? 0.0
-            : (now - _windowStartTicks) / (double)Stopwatch.Frequency;
-        double tickToMs = 1000.0 / Stopwatch.Frequency;
+#if PROFILE
+        Godot.StringName id = new Godot.StringName("hike/" + s.Name.Replace('.', '/'));
+        // Performance.HasCustomMonitor will be false here — sections are
+        // unique by name on the C# side. AddCustomMonitor takes a Callable
+        // that returns the current value each time the editor polls.
+        Godot.Performance.AddCustomMonitor(id, Godot.Callable.From(s.LatchedPerFrameMs));
+#endif
+    }
 
-        StringBuilder sb = new StringBuilder();
-        sb.Append("[profile] ").Append(elapsedSec.ToString("F2")).Append("s window\n");
-        sb.Append("  section                          calls   total_ms   avg_us  max_ms  per_frame_ms\n");
+    // Periodic latch + reset. Called from DiagnosticsOverlay._Process every
+    // frame; auto-resets the live accumulators every `profile_window` seconds
+    // so the table and custom monitors show the cost of the LAST window
+    // rather than cumulative-since-startup. Manual `profile_dump` continues
+    // to work — it prints the live (post-last-latch) state and clears it.
+    [Conditional("PROFILE")]
+    public static void Tick()
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+        long now = Stopwatch.GetTimestamp();
+        if (_windowStartTicks == 0L)
+        {
+            _windowStartTicks = now;
+            return;
+        }
+        double elapsedSec = (now - _windowStartTicks) / (double)Stopwatch.Frequency;
+        double windowSec = CVars.profileWindow.Value;
+        if (windowSec <= 0.0 || elapsedSec < windowSec)
+        {
+            return;
+        }
+        LatchAndReset(elapsedSec, now);
+    }
+
+    private static void LatchAndReset(double elapsedSec, long now)
+    {
         for (int i = 0; i < _sections.Count; i++)
         {
             Section s = _sections[i];
-            int n = s.Calls;
-            if (n == 0)
+            s.LatchedTotal = s.Total;
+            s.LatchedMax = s.Max;
+            s.LatchedCalls = s.Calls;
+            s.LatchedWindowSec = elapsedSec;
+            s.Total = 0;
+            s.Max = 0;
+            s.Calls = 0;
+            s.ActiveStart = 0;
+        }
+        _windowStartTicks = now;
+    }
+
+    public static void Dump()
+    {
+        Godot.GD.Print(FormatTable(useLatched: false));
+    }
+
+    // Builds the same one-line-per-section table that Dump prints. The
+    // overlay calls this every refresh with useLatched=true so on-screen
+    // numbers reflect the previous full window rather than a partial one
+    // that resets every frame.
+    public static string FormatTable(bool useLatched)
+    {
+        StringBuilder sb = new StringBuilder();
+        AppendTable(sb, useLatched);
+        return sb.ToString();
+    }
+
+    public static void AppendTable(StringBuilder sb, bool useLatched)
+    {
+        long now = Stopwatch.GetTimestamp();
+        double tickToMs = 1000.0 / Stopwatch.Frequency;
+
+        sb.Append("[profile]");
+        if (useLatched)
+        {
+            sb.Append(" (latched window)");
+        }
+        else
+        {
+            double elapsedSec = _windowStartTicks == 0L
+                ? 0.0
+                : (now - _windowStartTicks) / (double)Stopwatch.Frequency;
+            sb.Append(' ').Append(elapsedSec.ToString("F2")).Append("s window");
+        }
+        sb.Append('\n');
+        sb.Append("  section                          calls   total_ms   avg_us  max_ms  per_frame_ms\n");
+
+        for (int i = 0; i < _sections.Count; i++)
+        {
+            Section s = _sections[i];
+            long total;
+            long max;
+            int calls;
+            double windowSec;
+            if (useLatched)
+            {
+                total = s.LatchedTotal;
+                max = s.LatchedMax;
+                calls = s.LatchedCalls;
+                windowSec = s.LatchedWindowSec;
+            }
+            else
+            {
+                total = s.Total;
+                max = s.Max;
+                calls = s.Calls;
+                windowSec = _windowStartTicks == 0L
+                    ? 0.0
+                    : (now - _windowStartTicks) / (double)Stopwatch.Frequency;
+            }
+            if (calls == 0)
             {
                 continue;
             }
-            double total = s.Total * tickToMs;
-            double avg = (total * 1000.0) / n;
-            double max = s.Max * tickToMs;
-            double perFrame = elapsedSec > 0.0 ? total / (elapsedSec * 60.0) : 0.0;
+            double totalMs = total * tickToMs;
+            double avg = (totalMs * 1000.0) / calls;
+            double maxMs = max * tickToMs;
+            double perFrame = windowSec > 0.0 ? totalMs / (windowSec * 60.0) : 0.0;
             sb.Append("  ")
               .Append(s.Name.PadRight(32))
-              .Append(n.ToString().PadLeft(6))
-              .Append(' ').Append(total.ToString("F2").PadLeft(10))
+              .Append(calls.ToString().PadLeft(6))
+              .Append(' ').Append(totalMs.ToString("F2").PadLeft(10))
               .Append(' ').Append(avg.ToString("F2").PadLeft(8))
-              .Append(' ').Append(max.ToString("F3").PadLeft(7))
+              .Append(' ').Append(maxMs.ToString("F3").PadLeft(7))
               .Append(' ').Append(perFrame.ToString("F3").PadLeft(13))
               .Append('\n');
         }
-        Godot.GD.Print(sb.ToString());
+        AppendEngineMonitors(sb);
+    }
+
+    // Engine monitors that explain frames the C# sections don't account for.
+    // FPS / TIME_PROCESS / TIME_PHYSICS_PROCESS show how the frame is split;
+    // RENDER_TOTAL_DRAW_CALLS_IN_FRAME / RENDER_TOTAL_OBJECTS_IN_FRAME show
+    // whether render submission is the cost (each shadow-casting sprite
+    // counts as a separate draw); PHYSICS_3D_ACTIVE_OBJECTS / COLLISION_PAIRS
+    // show whether Jolt's broadphase + narrowphase is the cost.
+    private static void AppendEngineMonitors(StringBuilder sb)
+    {
+        sb.Append("  --- engine monitors (instantaneous) ---\n");
+        AppendMonitor(sb, "fps", Godot.Performance.Monitor.TimeFps, "F1");
+        AppendMonitor(sb, "process_ms", Godot.Performance.Monitor.TimeProcess, "F2", 1000.0);
+        AppendMonitor(sb, "physics_process_ms", Godot.Performance.Monitor.TimePhysicsProcess, "F2", 1000.0);
+        AppendMonitor(sb, "render_draw_calls", Godot.Performance.Monitor.RenderTotalDrawCallsInFrame, "F0");
+        AppendMonitor(sb, "render_objects", Godot.Performance.Monitor.RenderTotalObjectsInFrame, "F0");
+        AppendMonitor(sb, "render_primitives", Godot.Performance.Monitor.RenderTotalPrimitivesInFrame, "F0");
+        AppendMonitor(sb, "physics_active_objects", Godot.Performance.Monitor.Physics3DActiveObjects, "F0");
+        AppendMonitor(sb, "physics_collision_pairs", Godot.Performance.Monitor.Physics3DCollisionPairs, "F0");
+        AppendMonitor(sb, "physics_islands", Godot.Performance.Monitor.Physics3DIslandCount, "F0");
+    }
+
+    private static void AppendMonitor(StringBuilder sb, string label, Godot.Performance.Monitor m, string fmt, double scale = 1.0)
+    {
+        double v = Godot.Performance.GetMonitor(m) * scale;
+        sb.Append("  ").Append(label.PadRight(32)).Append(v.ToString(fmt).PadLeft(12)).Append('\n');
     }
 
     public static void Reset()

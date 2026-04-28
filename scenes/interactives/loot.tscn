@@ -5,6 +5,9 @@
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="8_lit_aodecaltexture"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5

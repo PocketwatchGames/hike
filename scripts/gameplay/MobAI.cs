@@ -14,6 +14,7 @@ public struct AIOutput
     public bool burrow;
     public InvestigateState? investigation;
     public bool resetInvestigation;
+    public ulong? suspendTimeMs;
 }
 public struct BehaviorOutput
 {
@@ -136,7 +137,7 @@ public partial class Mob
     {
         using var _profTickAI = Profiler.Sample("Mob.TickAI");
         output = new AIOutput();
-        if (!alive)
+        if (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs)
         {
             return;
         }
@@ -338,11 +339,11 @@ public partial class Mob
             {
                 visibilityDistance *= _world.player.visibility;
             }
-            float perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionDistancePower);
-
             bool canSee = false;
-            if (perceptionDelta > 0f)
+            float perceptionDelta = 0;
+            if (distanceSqToPlayer < visibilityDistance * visibilityDistance)
             {
+                perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionDistancePower);
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
                 Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);

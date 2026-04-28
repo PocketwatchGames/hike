@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="2_tallgrass"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="3_dhrga"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_lit_materialtemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="8_lit_aodecaltexture"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_grass"]
 
@@ -26,6 +30,10 @@ texture = ExtResource("3_dhrga")
 region_enabled = true
 region_rect = Rect2(418, 361, 34, 26)
 script = ExtResource("4_litsprite")
+MaterialTemplate = ExtResource("5_lit_materialtemplate")
+ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
+AoDecalTexture = ExtResource("8_lit_aodecaltexture")
 Mirror = true
 ScaleMin = 0.85
 ScaleMax = 1.15

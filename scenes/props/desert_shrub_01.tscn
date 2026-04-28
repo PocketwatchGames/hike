@@ -3,6 +3,10 @@
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="uid://bmexg1iyjueyk" path="res://assets/textures/props/decor_desert.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_litsprite"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="4_lit_materialtemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="5_lit_shadowcastertemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="6_lit_reflectiontemplate"]
+[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="7_lit_aodecaltexture"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
 height = 3.2472
@@ -27,6 +31,10 @@ texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(228, 129, 44, 44)
 script = ExtResource("3_litsprite")
+MaterialTemplate = ExtResource("4_lit_materialtemplate")
+ShadowCasterTemplate = ExtResource("5_lit_shadowcastertemplate")
+ReflectionTemplate = ExtResource("6_lit_reflectiontemplate")
+AoDecalTexture = ExtResource("7_lit_aodecaltexture")
 Mirror = true
 CenteredAtBase = false
 ForwardOffset = 1.6236

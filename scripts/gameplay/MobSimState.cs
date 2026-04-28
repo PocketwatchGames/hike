@@ -42,6 +42,7 @@ public class MobSimState : EntitySimState
     public EPlayerPerceptionState DiscoveryState;
     public InvestigateState? Investigation;
     public bool Yelled;
+    public ulong SuspendAITimeMs;
     // One perception slot per potential target. Currently sized to 1 (the player);
     // the array shape is kept so multiplayer can add slots without reshuffling.
     public PerceptionState[] PerceptionTargets = new PerceptionState[1];
