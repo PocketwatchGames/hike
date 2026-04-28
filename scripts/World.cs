@@ -48,6 +48,13 @@ public partial class World : Node3D
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
 
+        // Set Current BEFORE constructing children that may dereference it.
+        // ChunkManager.Initialize triggers synchronous chunk builds which call
+        // World.Current?.DetailScatter?.SetChunk — if Current is still null
+        // those scatter posts are silently dropped and the initial chunk
+        // load's detail sprites never appear.
+        Current = this;
+
         _detailScatter = new WorldDetailScatter();
         _detailScatter.Name = "DetailScatter";
         AddChild(_detailScatter);
@@ -59,8 +66,6 @@ public partial class World : Node3D
         _chunkManager.Initialize(worldState, spawnPosition, camera, fogMaterial, getPlayerPosition);
 
         CreateWorldBoundary();
-
-        Current = this;
     }
 
     public override void _ExitTree()
