@@ -1,20 +1,19 @@
 shader_type spatial;
-// Render mode matches sprite_reflection.gdshader exactly — opaque queue,
-// depth-test enabled, depth-write enabled. Practical consequence today:
-// only sources already IN the water (player wading in, mobs in water)
-// cast a visible reflection. Sources on shore have their reflection
-// extend below the lake floor in world space, where depth-test against
-// the floor terrain discards every fragment. Same limitation the
-// per-instance LitSprite path has had since reflections were added.
-//
-// Shore-prop reflections are a desired follow-up — see the TODO note at
-// the top of MultimeshPropSprite.cs for the design directions explored
-// (depth_test_disabled, transparent-queue blend_mix, DEPTH_TEXTURE
-// stencil) and why each one didn't pan out in this project. The next
-// likely path is real stencil support (Godot 4.5+ adds stencil_compare_*
-// / stencil_write_* render_mode tokens) — water writes a stencil bit,
-// reflection tests it, then we control queue + tinting independently.
-render_mode depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
+// Transparent queue, no depth test, no depth write — the reflection
+// geometry extends below the lake floor in world space; we rely on the
+// stencil mask (written by voxel_water.gdshader at every visible water
+// pixel) to clip rendering to ONLY those pixels where the water surface
+// draws. depth_test_disabled bypasses the lake-floor occlusion that
+// killed every previous attempt; render_priority on the material
+// guarantees we draw AFTER water so the stencil mark is already laid
+// down by the time we sample it. Water no longer composites its blue
+// tint over us via screen_tex (we sit on top in the queue), so the
+// fragment manually mixes toward water_deep_tint with depth — matches
+// the look the per-instance LitSprite reflection got from water's
+// blend_mix when reflections were children of Sprite3Ds rendered before
+// water.
+render_mode blend_mix, depth_test_disabled, depth_draw_never, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
+stencil_mode read, compare_equal, 4;
 
 // Multimesh-instanced water reflection for prop sprites. Forked from
 // sprite_reflection.gdshader; per-instance values come from MultiMesh data
@@ -26,11 +25,11 @@ render_mode depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_verte
 //               for forward_offset; same byte position, different meaning
 //               per pass — WorldPropScatter writes the right value when
 //               filling each bucket.
-//   - COLOR.a : lake_floor_y (world Y of the first non-water voxel below
-//               the surface). Currently UNUSED by the shader; baked at
-//               _Ready time and packed by the bucket so a follow-up
-//               implementation (vertex clamp, stencil mask, etc.) can pick
-//               it up without revisiting the per-instance layout.
+//   - COLOR.a : forward_offset (same value the visible bucket carries in
+//               COLOR.b). The vertex shader applies the same forward push
+//               the visible sprite uses so the reflection's XZ anchor
+//               lines up with where the visible sprite sits, not the bare
+//               prop transform.
 //   - MODEL_MATRIX[3].xyz : SOURCE world position (same transform the
 //               visible/shadow buckets use; the shader computes the
 //               mirrored reflection anchor on its own — see vertex()).
@@ -66,19 +65,37 @@ global uniform float sprite_stretch;
 // Ripple jitter — same globals voxel_water and the per-instance reflection
 // shader use, set by SkyController.
 global uniform float ripple_scale_a;
+global uniform float ripple_scale_b;
 global uniform vec2 ripple_offset_a;
+global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
 global uniform float reflection_tint;
 global uniform float reflection_pixel_jitter_max;
 
-// Cap on the above-water height that drives the geometric mirror. Within
-// this distance above the water surface, the reflection uses a true mirror
-// (2*(water_y - source.y)); above the cap, the anchor stops sinking and
-// falls back to "feet at waterline" so a tall prop on a cliff doesn't
-// anchor its reflection deep below the seabed. Hardcoded to match
-// LitSprite.MaxReflectionAboveWater's default — exposing as a uniform
-// would just fork buckets again with no real authoring benefit.
-const float MAX_REFLECT_ABOVE_WATER = 2.0;
+// Water-tint globals (already declared + set by SkyController for
+// voxel_water.gdshader). We sit on top of water in the transparent queue
+// now — water's blend_mix doesn't get to tint us anymore — so the
+// fragment shader does its own depth-into-water mix toward
+// water_deep_tint to recover the look the per-instance reflection had
+// when water composited over it.
+global uniform vec3 water_shallow_tint : source_color;
+global uniform vec3 water_deep_tint : source_color;
+global uniform float water_depth_scale;
+global uniform float water_alpha_max;
+global uniform float water_edge_opacity;
+
+// Debug visualizer mode — see CVars.cs `reflection_debug` for mode docs.
+// 0 = off (normal rendering); 1..7 replace ALBEDO with diagnostics so we
+// can see what's happening to ripple_tilt, surface_xz, path_len, jitter,
+// etc. Driven by SkyController-registered global uniform.
+global uniform int reflection_debug_mode;
+
+// Ripple normal-map textures — same pair voxel_water samples for surface
+// perturbation. We sample them at the reflected fragment's world XZ to
+// drive UV displacement so the reflection shimmers in lockstep with the
+// water surface above it.
+uniform sampler2D ripple_tex_a : filter_linear, repeat_enable, hint_normal;
+uniform sampler2D ripple_tex_b : filter_linear, repeat_enable, hint_normal;
 
 varying flat vec2 anchor_px;
 varying flat vec3 source_world_pos;
@@ -88,6 +105,8 @@ varying flat vec2 sprite_up_screen;
 varying flat ivec2 sprite_size;
 varying flat ivec2 sprite_region_origin;
 varying flat int sprite_mirror_var;
+varying flat float world_w_var;
+varying flat float world_h_var;
 varying vec3 vertex_world_var;
 
 float hash12(vec2 p) {
@@ -117,6 +136,8 @@ void vertex() {
     source_world_pos = MODEL_MATRIX[3].xyz;
     float world_w = length(MODEL_MATRIX[0].xyz);
     float world_h = length(MODEL_MATRIX[1].xyz);
+    world_w_var = world_w;
+    world_h_var = world_h;
 
     sprite_mirror_var = (hash12(source_world_pos.xz + vec2(7.31, 13.71)) > 0.5) ? 1 : 0;
     int packed_origin = int(COLOR.r);
@@ -124,21 +145,40 @@ void vertex() {
     int packed_size = int(COLOR.g);
     sprite_size = ivec2(packed_size >> 12, packed_size & 0xFFF);
     water_y_var = COLOR.b;
-    // COLOR.a carries lake_floor_y but no current consumer — see header.
+    float forward_offset = COLOR.a;
     float align = clamp(INSTANCE_CUSTOM.w, 0.0, 1.0);
     vec3 normal_in = INSTANCE_CUSTOM.xyz;
 
-    // Reflection anchor: mirror the sprite anchor across the water plane,
-    // then cap to keep tall props on cliffs from sinking their reflection
-    // far below the seabed. Same math LitSprite.UpdateReflection used,
-    // moved into the shader since multimesh can't position per-instance
-    // node transforms differently per pass.
+    // Reflection anchor:
+    //   - Source above the water surface (shore props, trees on a cliff,
+    //     anything not actively in the water): flip the sprite about its
+    //     OWN BASE. The reflection's top edge sits at the prop's base
+    //     (source_world_pos.y) — completely ignoring water elevation —
+    //     and the body hangs world_h DOWN from there. This produces the
+    //     "reflection extends from the source's feet" look the screen-
+    //     space stencil clip wants. Inaccurate optically (water_y plays
+    //     no role) but reads as a reflection because the stencil mask
+    //     guarantees only fragments overlapping the water surface get
+    //     drawn.
+    //   - Source already in / partly under water (above_water <= 0):
+    //     true geometric mirror across the water plane (2*(water_y -
+    //     src.y)). Half-submerged props need the bottom half visibly
+    //     continuous with their above-water sprite, which only the real
+    //     mirror gives.
     float above_water = source_world_pos.y - water_y_var;
     float local_y;
-    if (above_water <= MAX_REFLECT_ABOVE_WATER) {
+    if (above_water <= 0.0) {
         local_y = 2.0 * (water_y_var - source_world_pos.y);
     } else {
-        local_y = water_y_var - source_world_pos.y;
+        // Flip about the sprite's base. Quad encoding: VERTEX.y in [0,1],
+        // up_flipped has a NEGATIVE world_up component, so the corner at
+        // VERTEX.y = 0 is the visual TOP of the reflection (world_origin
+        // itself) and VERTEX.y = 1 is the bottom (world_origin - h). For
+        // the top to land at the source's base, world_origin.y must equal
+        // source_world_pos.y → local_y = 0. (An earlier iteration shifted
+        // by -world_h thinking the top was at world_origin + h; that
+        // produced a world_h vertical gap between source and reflection.)
+        local_y = 0.0;
     }
     vec3 world_origin = source_world_pos + vec3(0.0, local_y, 0.0);
 
@@ -149,6 +189,15 @@ void vertex() {
     vec3 cam_back = INV_VIEW_MATRIX[2].xyz;
     vec3 sprite_right_yaw = normalize(cross(world_up, cam_back));
     vec3 sprite_forward = cross(sprite_right_yaw, world_up);
+
+    // Visible bucket pushes the sprite forward by `+sprite_forward *
+    // forward_offset` (so the sprite's billboard sits in front of the
+    // prop's logical XZ). For the reflection we want the sprite to
+    // extend FROM origin in the opposite direction — so add along
+    // sprite_forward in the same direction the visible sprite extended,
+    // not the reverse. (An earlier iteration subtracted; that put the
+    // reflection on the wrong side of origin.)
+    world_origin -= sprite_forward * forward_offset;
 
     vec3 n = length(normal_in) > 1e-4 ? normalize(normal_in) : world_up;
     vec3 n_in_plane = n - dot(n, sprite_forward) * sprite_forward;
@@ -197,11 +246,23 @@ void fragment() {
         discard;
     }
 
-    // Discard fragments that would render above the water plane (handles
-    // partially-submerged sources whose reflection anchor lands above
-    // water_y). Small epsilon so the row right at the water line still
-    // renders — otherwise a sharp visible gap appears along the surface.
-    if (vertex_world_var.y > water_y_var + 0.001) {
+    // Discard fragments that would render above the water plane —
+    // GEOMETRIC-MIRROR branch only. For partially-submerged sources the
+    // mirror puts the reflection's above-water portion in world space
+    // above water_y; we don't want to see the source's underwater half
+    // mirrored back into the air. The stencil mask handles screen-space
+    // clipping to water-visible pixels, but the world-Y check filters
+    // out the unwanted above-water mirror geometry.
+    //
+    // For ABOVE-WATER sources (above_water > 0) we use the "flip at
+    // base" anchor — the entire reflection geometry sits BETWEEN
+    // source.y (top) and source.y - world_h*stretch (bottom), which for
+    // a tall tree on a high hill is entirely above water_y. The world-Y
+    // discard would kill the whole reflection in that case (you'd see
+    // only a tiny slice near the water line) — so we skip it. The
+    // stencil already guarantees we only paint where water is visible.
+    float above_water = source_world_pos.y - water_y_var;
+    if (above_water <= 0.0 && vertex_world_var.y > water_y_var + 0.001) {
         discard;
     }
 
@@ -213,16 +274,127 @@ void fragment() {
         (sprite_right_screen.x * d.y - sprite_right_screen.y * d.x) * inv_det
     );
 
-    // Per-fragment ripple jitter — sampled at the fragment's world XZ so
-    // adjacent fragments produce smoothly varying noise (internal shimmer).
+    // Ripple-driven UV jitter. Sample at the WATER-SURFACE XZ that
+    // corresponds to this screen pixel — NOT at vertex_world_var.xz.
+    // The reflection geometry's XZ sits roughly under the source for
+    // every fragment (we only shift Y when computing world_origin), so
+    // a tall reflection that extends deep down the screen would sample
+    // ripples from the SAME XZ at every fragment if we used
+    // vertex_world_var.xz — every pixel of the reflection would shift
+    // by the same amount, which reads as no shimmer at all.
+    //
+    // The actual water surface a viewer "sees" the reflection through
+    // is at the camera ray's intersection with the water plane (Y =
+    // water_y_var). Compute that XZ here so each fragment samples the
+    // ripple field where the surface IS, and a tall reflection picks
+    // up many different ripple normals along its screen-space length.
+    // Ripple-driven UV displacement, derived physically. Reflection ray
+    // travels from the surface intersection point UP to the source-sprite
+    // plane; if the surface normal is tilted by Δn from +Y, the ray's
+    // landing point shifts by ~2 * Δn.xz * (path length) world units. The
+    // path length is (h_above_water / |cam_fwd.y|) where h_above_water is
+    // the world-Y height of the SOURCE pixel this fragment represents
+    // above the water surface — sxy.y in source-pixel units mapped back
+    // to world meters via world_h / sprite_size.y, plus the source's own
+    // above-water offset. Top of the source (sxy.y near sprite_size.y)
+    // is far from water → big shift; the source's base (sxy.y near 0)
+    // sits near water → tiny shift. That's what makes the ripple produce
+    // visible shimmer instead of a uniform whole-sprite jiggle.
+    //
+    // After computing the world-XZ shift we convert to SOURCE-PIXEL
+    // jitter via the sprite basis: project the shift onto sprite_right
+    // (horizontal axis in world XZ) for the U component and onto
+    // cam-forward (the screen-vertical axis under iso projection) for
+    // the V component, then divide by per-pixel world width / height to
+    // land back in source-pixel space.
+    // Intermediates captured for the debug visualizer so we can see what
+    // each step of the ripple math produces. Defaulted to safe zeros for
+    // the ripple_strength==0 / vy≈0 short-circuit cases.
+    vec2 dbg_ripple_tilt = vec2(0.0);
+    vec2 dbg_surface_xz = vec2(0.0);
+    float dbg_source_above_water = 0.0;
+    float dbg_path_len = 0.0;
+    vec2 dbg_shift_world_xz = vec2(0.0);
+
     vec2 jitter = vec2(0.0);
-    float jitter_amp = ripple_strength * reflection_pixel_jitter_max;
-    if (jitter_amp > 1e-4) {
-        vec3 jp = vec3(vertex_world_var.xz * ripple_scale_a + ripple_offset_a, 0.0);
-        float jx = refl_vnoise(jp) - 0.5;
-        float jy = refl_vnoise(jp + vec3(11.7, 5.3, 0.0)) - 0.5;
-        jitter = vec2(jx, jy) * 2.0 * jitter_amp;
+    if (ripple_strength > 1e-4) {
+        vec3 cam_fwd_world = -normalize(mat3(INV_VIEW_MATRIX) * vec3(0.0, 0.0, 1.0));
+        float vy = cam_fwd_world.y;
+        if (abs(vy) > 1e-4) {
+            float t_surf = (water_y_var - vertex_world_var.y) / vy;
+            vec2 surface_xz = vertex_world_var.xz + cam_fwd_world.xz * t_surf;
+            dbg_surface_xz = surface_xz;
+
+            vec2 uv_a = surface_xz * ripple_scale_a + ripple_offset_a;
+            vec2 uv_b = surface_xz * ripple_scale_b + ripple_offset_b;
+            vec3 na_raw = texture(ripple_tex_a, uv_a).rgb * 2.0 - 1.0;
+            vec3 nb_raw = texture(ripple_tex_b, uv_b).rgb * 2.0 - 1.0;
+            vec3 na = vec3(na_raw.r, na_raw.b, na_raw.g);
+            vec3 nb = vec3(nb_raw.r, nb_raw.b, nb_raw.g);
+            vec3 n_combined = normalize(na + nb);
+            vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength);
+            dbg_ripple_tilt = ripple_tilt;
+
+            float pixel_world_w = world_w_var / max(float(sprite_size.x), 1.0);
+            float pixel_world_h = world_h_var / max(float(sprite_size.y), 1.0);
+            float source_pixel_h = sxy.y * pixel_world_h;
+            float source_above_water = max(source_world_pos.y - water_y_var, 0.0)
+                                     + source_pixel_h;
+            dbg_source_above_water = source_above_water;
+
+            float path_len = source_above_water / max(abs(vy), 0.05);
+            dbg_path_len = path_len;
+
+            vec2 shift_world_xz = 2.0 * ripple_tilt * path_len;
+            dbg_shift_world_xz = shift_world_xz;
+
+            vec2 sprite_right_xz = vec2(INV_VIEW_MATRIX[0].x, INV_VIEW_MATRIX[0].z);
+            float right_len = length(sprite_right_xz);
+            if (right_len > 1e-4) {
+                sprite_right_xz /= right_len;
+            }
+            float jitter_u = dot(shift_world_xz, sprite_right_xz) / pixel_world_w;
+
+            vec2 cam_fwd_xz = cam_fwd_world.xz;
+            float cam_fwd_xz_len = length(cam_fwd_xz);
+            float jitter_v = 0.0;
+            if (cam_fwd_xz_len > 1e-4) {
+                cam_fwd_xz /= cam_fwd_xz_len;
+                jitter_v = dot(shift_world_xz, cam_fwd_xz) / pixel_world_h;
+            }
+
+            jitter = vec2(jitter_u, jitter_v);
+        }
     }
+
+    // Debug visualizer — set ALBEDO to a diagnostic color and skip the
+    // remainder of the fragment so we see the math even on transparent /
+    // out-of-bounds pixels of the source sprite. GLSL `return` isn't
+    // allowed inside Godot's fragment processor, so we use an `if/else`
+    // around the rest of the body instead.
+    if (reflection_debug_mode > 0) {
+        vec3 dbg = vec3(0.0);
+        if (reflection_debug_mode == 1) {
+            dbg = vec3(dbg_ripple_tilt * 0.5 + 0.5, 0.0);
+        } else if (reflection_debug_mode == 2) {
+            dbg = vec3(fract(dbg_surface_xz.x * 0.1), fract(dbg_surface_xz.y * 0.1), 0.0);
+        } else if (reflection_debug_mode == 3) {
+            dbg = vec3(clamp(dbg_source_above_water / 16.0, 0.0, 1.0), 0.0, 0.0);
+        } else if (reflection_debug_mode == 4) {
+            dbg = vec3(clamp(dbg_path_len / 64.0, 0.0, 1.0), 0.0, 0.0);
+        } else if (reflection_debug_mode == 5) {
+            float mag = length(dbg_shift_world_xz);
+            dbg = vec3(clamp(mag / 4.0, 0.0, 1.0), 0.0, 0.0);
+        } else if (reflection_debug_mode == 6) {
+            dbg = vec3(clamp(jitter.x / 32.0 + 0.5, 0.0, 1.0),
+                       clamp(jitter.y / 32.0 + 0.5, 0.0, 1.0),
+                       0.0);
+        } else if (reflection_debug_mode == 7) {
+            dbg = vec3(ripple_strength, 0.0, 0.0);
+        }
+        ALBEDO = dbg;
+        ALPHA = 1.0;
+    } else {
 
     // Reflections sample the source image top-to-bottom flipped:
     //   sxy.y near 0           → tex_coord.y = sprite_size.y - 1 (feet)
@@ -257,8 +429,29 @@ void fragment() {
     vec3 block_lit = lm.gba;
     vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
-    // No silhouette tint on the prop reflection — static props don't fade
-    // in/out. The reflection-tint dim still applies so it reads as a
-    // reflection rather than a second copy of the sprite.
-    ALBEDO = tex.rgb * light * reflection_tint;
+    vec3 reflected = tex.rgb * light;
+
+    // Manual water-color tint. We sit on top of water in the transparent
+    // queue, so water's blend_mix doesn't get to tint us — recreate it
+    // here. Two-component mix:
+    //   - Surface tint: a constant water-edge tint applied to the entire
+    //     reflection (matches what water_alpha at the shoreline /
+    //     water_edge_opacity does to the per-instance LitSprite). This is
+    //     what gives the player's reflection its overall blue cast even
+    //     when the reflection is right at the waterline.
+    //   - Depth tint: ramps the target color from shallow→deep tint with
+    //     depth below the surface, and bumps the mix factor up toward
+    //     water_alpha_max so deep reflections sit close to the deep-water
+    //     color (matching what water's blend_mix would do over a sprite
+    //     visible through deep water).
+    float depth_below = max(0.0, water_y_var - vertex_world_var.y);
+    float depth_t = clamp(depth_below / max(water_depth_scale, 0.01), 0.0, 1.0);
+    vec3 tint_target = mix(water_shallow_tint, water_deep_tint, depth_t) * light;
+    float surface_blend = clamp(water_edge_opacity, 0.0, 1.0);
+    float blend = mix(surface_blend, water_alpha_max, depth_t);
+    vec3 tinted = mix(reflected, tint_target, blend);
+
+        ALBEDO = tinted * reflection_tint;
+        ALPHA = 1.0;
+    }
 }

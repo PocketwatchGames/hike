@@ -767,6 +767,9 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
+            // Not declared in project.godot — use RegisterRuntime so the
+            // global is created at runtime via GlobalShaderParameterAdd.
+            ShaderGlobals.RegisterRuntime("reflection_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("water_disable_ripples", RenderingServer.GlobalShaderParameterType.Bool, false);
             ShaderGlobals.Register("reflection_min", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
             ShaderGlobals.Register("reflection_fov_h_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);

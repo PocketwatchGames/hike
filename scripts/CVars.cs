@@ -361,6 +361,32 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
     });
 
+    // Debug visualizer for sprite_prop_reflection_multimesh.gdshader. Replaces
+    // the reflection sprite's ALBEDO with diagnostic values to track down
+    // why ripple shimmer / tint / etc. is or isn't producing visible output.
+    //   0 = off (normal reflection rendering)
+    //   1 = ripple normal tilt (red = +X tilt, green = +Z tilt). Should
+    //       wave/scroll over time. Solid black = ripple_strength is 0
+    //       OR the ripple_tex_a/b sample is returning flat normals.
+    //   2 = computed water-surface XZ visualization (fract of XZ * 0.1).
+    //       Should show a tiled gradient that drifts as camera moves.
+    //       Solid color = surface_xz reconstruction broken.
+    //   3 = source_above_water (height of represented source pixel above
+    //       water, in meters). Red ramps 0..world_h+aboveWaterOffset over
+    //       the reflection. Black = source is at/below water.
+    //   4 = path_len (surface→source ray length given camera pitch).
+    //       Red ramps 0..big. Bigger means more ripple shift expected.
+    //   5 = raw shift_world_xz magnitude before sprite-basis projection.
+    //   6 = final jitter values applied to tex_coord (R = jitter_u, G =
+    //       jitter_v, in source pixels — 0..many). If this is non-zero
+    //       but the rendered reflection still looks unrippled, the
+    //       integer floor(sxy + jitter) clamp is eating the displacement.
+    //   7 = ripple_strength as a flat shade.
+    public static CVarInt reflectionDebug = new CVarInt("reflection_debug", 0, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("reflection_debug_mode", ((CVarInt)cvar).Value);
+    });
+
     // Force the water surface to use a flat +Y normal — disables the
     // ripple texture's contribution to the shading normal. Reflections
     // become a perfect mirror of the sky/world in that view direction.

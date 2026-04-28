@@ -1,5 +1,11 @@
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_back, unshaded;
+// Mark every pixel where the water surface draws so the prop reflection
+// shader (sprite_prop_reflection_multimesh.gdshader) can render only
+// inside that mask. Reference value 4 — distinct from voxel_backface (1)
+// and voxel_water_backface (2). Discarded fragments (camera_clip cutaway)
+// don't write the stencil, so reflections are correctly suppressed there.
+stencil_mode write, compare_always, 4;
 
 global uniform float camera_clip;
 

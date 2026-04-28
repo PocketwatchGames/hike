@@ -157,17 +157,119 @@ public partial class WorldPropScatter : Node3D
     private readonly Dictionary<BucketKey, Bucket> _buckets = new();
     private readonly HashSet<Bucket> _dirty = new();
 
+    // Camera-distance sorting state for the reflection pass. Reflection
+    // multimeshes draw in transparent queue with depth_test_disabled, so
+    // overlapping reflections paint in INSTANCE-ARRAY order — without a
+    // sort, the closer source's reflection can be hidden by a farther
+    // source's reflection just because the multimesh laid them out that
+    // way. We sort instance order by source distance (FAR→NEAR) every
+    // tick so the painter's algorithm produces correct over-draw.
+    //
+    // Re-sorted only when the camera has moved enough to plausibly flip
+    // any ordering — `_lastSortCameraPos` caches the position used for
+    // the last sort, and we re-sort when the camera has translated more
+    // than CAMERA_SORT_THRESHOLD or yawed more than ~5° (forward dot
+    // product check). Keeps the cost low while the camera is still.
+    private Camera3D _cachedCamera;
+    private Vector3 _lastSortCameraPos;
+    private Vector3 _lastSortCameraFwd;
+    private const float CAMERA_SORT_TRANSLATION_THRESHOLD_SQR = 4f * 4f;
+    private const float CAMERA_SORT_FWD_DOT_THRESHOLD = 0.996f; // ~5°
+    private readonly List<int> _sortIndices = new();
+
     public override void _Process(double delta)
     {
-        if (_dirty.Count == 0)
+        if (_dirty.Count > 0)
+        {
+            foreach (Bucket b in _dirty)
+            {
+                Rebuild(b);
+            }
+            _dirty.Clear();
+        }
+
+        SortReflectionBucketsIfCameraMoved();
+    }
+
+    private void SortReflectionBucketsIfCameraMoved()
+    {
+        if (_cachedCamera == null || !IsInstanceValid(_cachedCamera))
+        {
+            _cachedCamera = GetViewport()?.GetCamera3D();
+            if (_cachedCamera == null)
+            {
+                return;
+            }
+            // Force a sort on the first valid camera resolve.
+            _lastSortCameraPos = _cachedCamera.GlobalPosition + Vector3.Right * 1e6f;
+            _lastSortCameraFwd = Vector3.Zero;
+        }
+
+        Vector3 camPos = _cachedCamera.GlobalPosition;
+        Vector3 camFwd = -_cachedCamera.GlobalBasis.Z;
+        bool moved = (camPos - _lastSortCameraPos).LengthSquared() > CAMERA_SORT_TRANSLATION_THRESHOLD_SQR
+            || camFwd.Dot(_lastSortCameraFwd) < CAMERA_SORT_FWD_DOT_THRESHOLD;
+        if (!moved)
         {
             return;
         }
-        foreach (Bucket b in _dirty)
+        _lastSortCameraPos = camPos;
+        _lastSortCameraFwd = camFwd;
+
+        foreach (KeyValuePair<BucketKey, Bucket> kv in _buckets)
         {
-            Rebuild(b);
+            if (kv.Key.Pass != Pass.Reflection)
+            {
+                continue;
+            }
+            SortReflectionBucket(kv.Value, camPos);
         }
-        _dirty.Clear();
+    }
+
+    private void SortReflectionBucket(Bucket bucket, Vector3 camPos)
+    {
+        int total = bucket.Members.Count;
+        if (total <= 1 || bucket.Mm == null || bucket.Mm.InstanceCount != total)
+        {
+            return;
+        }
+
+        // Sort by squared distance from source to camera, FARTHEST FIRST,
+        // so closer sources draw last and over-paint correctly under
+        // blend_mix + depth_test_disabled.
+        if (_sortIndices.Capacity < total)
+        {
+            _sortIndices.Capacity = total;
+        }
+        _sortIndices.Clear();
+        for (int i = 0; i < total; i++)
+        {
+            _sortIndices.Add(i);
+        }
+        List<MultimeshPropSprite> members = bucket.Members;
+        _sortIndices.Sort((a, b) =>
+        {
+            float da = (members[a].Snapshot.Transform.Origin - camPos).LengthSquared();
+            float db = (members[b].Snapshot.Transform.Origin - camPos).LengthSquared();
+            // Descending — farther first.
+            return db.CompareTo(da);
+        });
+
+        // Rewrite all per-instance slots in sorted order. Reuses the
+        // exact packing Rebuild does for the reflection pass — keep these
+        // two paths in sync if the layout changes.
+        for (int slot = 0; slot < total; slot++)
+        {
+            MultimeshPropSprite s = members[_sortIndices[slot]];
+            MultimeshPropSprite.SnapshotData snap = s.Snapshot;
+            bucket.Mm.SetInstanceTransform(slot, snap.Transform);
+            bucket.Mm.SetInstanceCustomData(slot, new Color(snap.Normal.X, snap.Normal.Y, snap.Normal.Z, snap.Align));
+            bucket.Mm.SetInstanceColor(slot, new Color(
+                PackAtlasComponents(snap.RegionOrigin.X, snap.RegionOrigin.Y),
+                PackAtlasComponents(snap.SpriteSize.X, snap.SpriteSize.Y),
+                snap.WaterY,
+                snap.ForwardOffset));
+        }
     }
 
     // Register a prop's contributions to the visible bucket plus optional
@@ -316,6 +418,18 @@ public partial class WorldPropScatter : Node3D
         {
             mat.SetShaderParameter("sprite_texture", atlas);
         }
+        // Reflection shader needs the same ripple normal-map pair voxel_water
+        // samples so its UV-jitter math reads from the actual rippling
+        // surface field rather than the engine's default-white sampler
+        // (which collapses to a constant tilt of ~0.577 at every fragment
+        // → no shimmer regardless of camera / source / ripple_strength).
+        if (pass == Pass.Reflection)
+        {
+            var rippleA = GD.Load<Texture2D>("res://assets/textures/water_ripple_a.tres");
+            var rippleB = GD.Load<Texture2D>("res://assets/textures/water_ripple_b.tres");
+            mat.SetShaderParameter("ripple_tex_a", rippleA);
+            mat.SetShaderParameter("ripple_tex_b", rippleB);
+        }
         return mat;
     }
 
@@ -350,9 +464,13 @@ public partial class WorldPropScatter : Node3D
             //   r = region_origin.x * 4096 + region_origin.y
             //   g = sprite_size.x   * 4096 + sprite_size.y
             //   b = forward_offset (Visible) | water_y (Reflection) | 0 (Shadow)
-            //   a = lake_floor_y (Reflection) | 0 (other passes)
+            //   a = forward_offset (Reflection — same value the visible
+            //       bucket uses; the reflection shader applies the same
+            //       sprite_forward push so the reflection's XZ anchor
+            //       lines up with the visible sprite's anchor instead of
+            //       sitting at the bare prop position) | 0 (other passes)
             float channelB = isReflection ? snap.WaterY : snap.ForwardOffset;
-            float channelA = isReflection ? snap.LakeFloorY : 0f;
+            float channelA = isReflection ? snap.ForwardOffset : 0f;
             bucket.Mm.SetInstanceColor(i, new Color(
                 PackAtlasComponents(snap.RegionOrigin.X, snap.RegionOrigin.Y),
                 PackAtlasComponents(snap.SpriteSize.X, snap.SpriteSize.Y),
