@@ -159,8 +159,9 @@ public partial class LitSprite : Sprite3D
     private float _visibility = 1f;
 
     // Silhouette blend (0 = lit normally, 1 = replaced by SilhouetteTint).
-    // Only pushed to the visible + reflection materials — the shadow caster
-    // outputs binary alpha into the atlas and has no color channel to tint.
+    // Only meaningful on the visible + reflection shaders — the shadow caster
+    // outputs binary alpha into the atlas and has no color channel to tint
+    // (RenderingServer harmlessly ignores the push for that name there).
     public float Silhouette
     {
         get => _silhouette;
@@ -171,11 +172,7 @@ public partial class LitSprite : Sprite3D
                 return;
             }
             _silhouette = value;
-            if (MaterialOverride is ShaderMaterial mat)
-            {
-                mat.SetShaderParameter("silhouette_amount", value);
-            }
-            _reflectionMaterial?.SetShaderParameter("silhouette_amount", value);
+            PushAlignmentUniform("silhouette_amount", value);
         }
     }
     private float _silhouette = 0f;
@@ -194,29 +191,86 @@ public partial class LitSprite : Sprite3D
             }
             _silhouetteTint = value;
             Vector3 rgb = new(value.R, value.G, value.B);
-            if (MaterialOverride is ShaderMaterial mat)
-            {
-                mat.SetShaderParameter("silhouette_tint", rgb);
-            }
-            _reflectionMaterial?.SetShaderParameter("silhouette_tint", rgb);
+            PushAlignmentUniform("silhouette_tint", rgb);
         }
     }
     private Color _silhouetteTint = Colors.Black;
 
-    // Mirror the alignment uniform onto all three active materials (visible
-    // sprite, shadow caster, water reflection) so a rolled sprite's cast
-    // shadow and reflection match its world-space shape.
-    private void PushAlignmentUniform(string name, Variant value)
+    // Push a per-sprite shader value into the per-instance render data of the
+    // visible sprite + shadow proxy + water reflection (whichever exist).
+    // After the instance-uniform refactor every per-sprite value lives in
+    // RenderingServer instance data, NOT on the (now shared) materials, so
+    // multiple LitSprites can share one ShaderMaterial and Godot can batch
+    // their draws. RenderingServer silently ignores names a shader doesn't
+    // declare, so pushing silhouette to the shadow proxy is a harmless no-op.
+    private void PushAlignmentUniform(StringName name, Variant value)
     {
-        if (MaterialOverride is ShaderMaterial mat)
+        Rid selfRid = GetInstance();
+        if (selfRid.IsValid)
         {
-            mat.SetShaderParameter(name, value);
+            RenderingServer.InstanceGeometrySetShaderParameter(selfRid, name, value);
         }
-        if (_shadowProxy?.MaterialOverride is ShaderMaterial smat)
+        if (_shadowProxy != null)
         {
-            smat.SetShaderParameter(name, value);
+            Rid shadowRid = _shadowProxy.GetInstance();
+            if (shadowRid.IsValid)
+            {
+                RenderingServer.InstanceGeometrySetShaderParameter(shadowRid, name, value);
+            }
         }
-        _reflectionMaterial?.SetShaderParameter(name, value);
+        if (_reflection != null)
+        {
+            Rid reflRid = _reflection.GetInstance();
+            if (reflRid.IsValid)
+            {
+                RenderingServer.InstanceGeometrySetShaderParameter(reflRid, name, value);
+            }
+        }
+    }
+
+    // Shared materials, keyed by (template, texture). Every LitSprite that
+    // binds the same template and renders the same texture gets the same
+    // ShaderMaterial instance — that's the precondition Godot needs to batch
+    // their draws. sprite_texture lives on the material because sampler2D
+    // can't be an instance uniform in Godot 4; everything else is per-instance.
+    private static readonly System.Collections.Generic.Dictionary<(ShaderMaterial, Texture2D), ShaderMaterial> _sharedMaterials = new();
+
+    private static ShaderMaterial GetSharedMaterial(ShaderMaterial template, Texture2D texture)
+    {
+        if (template == null || texture == null)
+        {
+            return null;
+        }
+        var key = (template, texture);
+        if (!_sharedMaterials.TryGetValue(key, out ShaderMaterial mat))
+        {
+            mat = (ShaderMaterial)template.Duplicate();
+            mat.SetShaderParameter("sprite_texture", texture);
+            _sharedMaterials[key] = mat;
+        }
+        return mat;
+    }
+
+    // Push every per-instance shader value to a single instance RID. Used
+    // when a sprite (visible / shadow / reflection) is first created to
+    // seed its render data, since shader defaults only apply when nothing
+    // has ever been written for that name.
+    private void InitInstanceUniformsFor(Rid rid, Vector2I spriteSize, Vector2I regionOrigin)
+    {
+        if (!rid.IsValid)
+        {
+            return;
+        }
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_size", spriteSize);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_region_origin", regionOrigin);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_mirror", FlipH);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "align_to_terrain", _alignToTerrain);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "terrain_normal", _terrainNormal);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "forward_offset", _forwardOffset);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "visibility", _visibility);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "silhouette_amount", _silhouette);
+        Vector3 tintRgb = new(_silhouetteTint.R, _silhouetteTint.G, _silhouetteTint.B);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "silhouette_tint", tintRgb);
     }
 
     // Swap the rendered region of the sprite sheet. Cheap enough to call
@@ -402,19 +456,6 @@ public partial class LitSprite : Sprite3D
         origin = Vector2I.Zero;
     }
 
-    // True once the visible sprite's MaterialOverride has been duplicated
-    // from MaterialTemplate. Apply() then becomes a uniform-push, not a
-    // material-rebuild — this is what fixes the atlas-swap thrash where
-    // every animation transition (idle↔run, frame group change) was
-    // allocating three fresh ShaderMaterials and triggering GC pressure.
-    private bool _mainMaterialBuilt;
-    private bool _shadowMaterialBuilt;
-    // ReflectionTemplate is duplicated lazily inside EnsureReflection when
-    // the reflection child is first created; ShouldReflect can flip at
-    // runtime (Auto mode + size threshold) so the build state lives next
-    // to the existence of the reflection child rather than as a separate
-    // flag here.
-
     private void Apply()
     {
         Centered = false;
@@ -443,31 +484,21 @@ public partial class LitSprite : Sprite3D
             return;
         }
 
-        // Build main material once; subsequent Apply() calls just push the
-        // changed uniforms on the existing material instance.
-        if (!_mainMaterialBuilt)
+        // Bind the shared material for this (template, texture) — every
+        // LitSprite that hits the same combo points at the same material,
+        // which is what enables Godot's draw-call batching. Per-sprite values
+        // live in RenderingServer instance data and are pushed below.
+        ShaderMaterial sharedMat = GetSharedMaterial(MaterialTemplate, Texture);
+        if (MaterialOverride != sharedMat)
         {
-            var mat = (ShaderMaterial)MaterialTemplate.Duplicate();
-            // Per-instance uniforms set at build time. Mirror / align /
-            // forward-offset can still change later via their property
-            // setters, which push through PushAlignmentUniform — but the
-            // *initial* push is here so first-frame rendering is correct.
-            mat.SetShaderParameter("sprite_mirror", FlipH);
-            mat.SetShaderParameter("align_to_terrain", _alignToTerrain);
-            mat.SetShaderParameter("terrain_normal", _terrainNormal);
-            mat.SetShaderParameter("forward_offset", _forwardOffset);
-            MaterialOverride = mat;
-            _mainMaterialBuilt = true;
+            MaterialOverride = sharedMat;
         }
-        // Texture / region change every animation frame group + every atlas
-        // swap. Push them every Apply, but on the existing material so we
-        // don't allocate.
-        if (MaterialOverride is ShaderMaterial liveMat)
-        {
-            liveMat.SetShaderParameter("sprite_texture", Texture);
-            liveMat.SetShaderParameter("sprite_size", spriteSize);
-            liveMat.SetShaderParameter("sprite_region_origin", regionOrigin);
-        }
+
+        // Push the per-instance render data for the visible sprite. Texture/
+        // region change on every animation frame group, so they go through
+        // here every Apply; the rest only differ when properties have been
+        // mutated, but pushing is cheap and idempotent.
+        InitInstanceUniformsFor(GetInstance(), spriteSize, regionOrigin);
 
         EnsureShadowProxy(spriteSize, regionOrigin);
         EnsureAoDecal();
@@ -585,24 +616,20 @@ public partial class LitSprite : Sprite3D
         _shadowProxy.RegionEnabled = RegionEnabled;
         _shadowProxy.RegionRect = RegionRect;
 
-        // Build the shadow material once, reuse it on subsequent Apply
-        // calls — each Duplicate() is an allocation, and the visible sprite
-        // can re-Apply many times per second during animation.
-        if (!_shadowMaterialBuilt)
+        // Shared shadow material per (template, texture) — every shadow
+        // proxy of the same template+texture combo points at this one
+        // material so Godot can batch the shadow-pass draws into one call.
+        ShaderMaterial sharedShadow = GetSharedMaterial(ShadowCasterTemplate, Texture);
+        if (_shadowProxy.MaterialOverride != sharedShadow)
         {
-            var smat = (ShaderMaterial)ShadowCasterTemplate.Duplicate();
-            smat.SetShaderParameter("sprite_mirror", FlipH);
-            smat.SetShaderParameter("align_to_terrain", _alignToTerrain);
-            smat.SetShaderParameter("terrain_normal", _terrainNormal);
-            _shadowProxy.MaterialOverride = smat;
-            _shadowMaterialBuilt = true;
+            _shadowProxy.MaterialOverride = sharedShadow;
         }
-        if (_shadowProxy.MaterialOverride is ShaderMaterial liveSmat)
-        {
-            liveSmat.SetShaderParameter("sprite_texture", Texture);
-            liveSmat.SetShaderParameter("sprite_size", spriteSize);
-            liveSmat.SetShaderParameter("sprite_region_origin", regionOrigin);
-        }
+
+        // Per-shadow-proxy instance uniforms. silhouette_amount /
+        // silhouette_tint don't exist on the shadow caster shader so the
+        // RenderingServer call is a no-op for those names, but pushing them
+        // unconditionally keeps the helper symmetric and harmless.
+        InitInstanceUniformsFor(_shadowProxy.GetInstance(), spriteSize, regionOrigin);
     }
 
     // Decides whether to spawn / keep a flipped reflection child for this
@@ -662,23 +689,20 @@ public partial class LitSprite : Sprite3D
         _reflection.RegionEnabled = RegionEnabled;
         _reflection.RegionRect = RegionRect;
 
-        // Reflection material is built once when the reflection child is
-        // first created, then reused — no per-Apply Duplicate. ShouldReflect
-        // can flip back to false later (size threshold + Auto mode) which
-        // tears down the reflection child above; if it later becomes true
-        // again a fresh material is built. That's fine: the rebuild
-        // happens once per visibility transition, not per animation frame.
-        if (_reflectionMaterial == null)
+        // Shared reflection material per (template, texture) — same batching
+        // win as the shadow proxy. _reflectionMaterial is kept around because
+        // UpdateReflection pushes water_y / source_world_pos to it; with the
+        // shared-material model those are now per-instance uniforms pushed via
+        // RenderingServer instead, so _reflectionMaterial only serves as the
+        // "do I currently have a reflection" flag and the shared-material
+        // reference for completeness.
+        ShaderMaterial sharedRefl = GetSharedMaterial(ReflectionTemplate, Texture);
+        if (_reflection.MaterialOverride != sharedRefl)
         {
-            _reflectionMaterial = (ShaderMaterial)ReflectionTemplate.Duplicate();
-            _reflectionMaterial.SetShaderParameter("sprite_mirror", FlipH);
-            _reflectionMaterial.SetShaderParameter("align_to_terrain", _alignToTerrain);
-            _reflectionMaterial.SetShaderParameter("terrain_normal", _terrainNormal);
-            _reflection.MaterialOverride = _reflectionMaterial;
+            _reflection.MaterialOverride = sharedRefl;
         }
-        _reflectionMaterial.SetShaderParameter("sprite_texture", Texture);
-        _reflectionMaterial.SetShaderParameter("sprite_size", spriteSize);
-        _reflectionMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
+        _reflectionMaterial = sharedRefl;
+        InitInstanceUniformsFor(_reflection.GetInstance(), spriteSize, regionOrigin);
     }
 
     // Position + visible-flag the sprite was last updated at. NaN sentinel so
@@ -739,8 +763,15 @@ public partial class LitSprite : Sprite3D
         }
         _reflection.Position = new Vector3(0f, localY, 0f);
         _reflection.Visible = true;
-        _reflectionMaterial.SetShaderParameter("water_y", waterY.Value);
-        _reflectionMaterial.SetShaderParameter("source_world_pos", src);
+        // water_y / source_world_pos are now per-instance uniforms on the
+        // reflection sprite — the (potentially shared) ReflectionMaterial
+        // can no longer carry per-sprite values.
+        Rid reflRid = _reflection.GetInstance();
+        if (reflRid.IsValid)
+        {
+            RenderingServer.InstanceGeometrySetShaderParameter(reflRid, "water_y", waterY.Value);
+            RenderingServer.InstanceGeometrySetShaderParameter(reflRid, "source_world_pos", src);
+        }
     }
 
     // Return the world Y of the nearest water surface at this sprite's XZ

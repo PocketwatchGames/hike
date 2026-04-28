@@ -169,6 +169,26 @@ public static class CVars
     //              floating HUDs cost vs. the mob bodies themselves.
     public static CVarBool mobHud = new CVarBool("mob_hud", true);
 
+    // props_visible 0 → every PropInstance in the world hides itself.
+    //                   Static decorations (trees, barrels, grass, etc.)
+    //                   are usually the largest contributor to draw counts;
+    //                   toggling this off lets you attribute the
+    //                   `render_draw_calls` / `process_ms` numbers between
+    //                   mobs vs props vs everything else (terrain, HUD,
+    //                   decals). Compose with mob_visible to isolate each
+    //                   bucket. The toggle drives PropInstance.Visible
+    //                   directly so the renderer skips submission entirely.
+    public static CVarBool propsVisible = new CVarBool("props_visible", true);
+
+    // details_visible 0 → every per-chunk detail-sprite scatter
+    //                     (MultiMeshInstance3D from ChunkDetailScatter, used
+    //                     for grass blades / flowers / pebbles painted on
+    //                     terrain) hides itself. These are separate from
+    //                     props_visible, which only covers PropInstance and
+    //                     TallGrass. Run with details_visible=0 to see how
+    //                     many draw calls the painted scatter contributes.
+    public static CVarBool detailsVisible = new CVarBool("details_visible", true);
+
     // Log per-chunk active cell / quad counts from the DC mesher.
     public static CVarBool debugDC = new CVarBool("debug_dc", false, (cvar) =>
     {

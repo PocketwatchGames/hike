@@ -30,9 +30,16 @@ public partial class World : Node3D
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
+    private WorldDetailScatter _detailScatter;
     private Player _player;
     private bool _editorMode;
     private Vector3I _lastEntityChunkCoord;
+
+    // Global manager for per-chunk detail-sprite scatter. Replaces the prior
+    // per-chunk MultiMeshInstance3D layout with one MultiMesh per DetailEntry,
+    // world-wide. Chunks post their contributions via SetChunk and clear them
+    // via RemoveChunk on eviction.
+    public WorldDetailScatter DetailScatter => _detailScatter;
 
     public Player player => _player;
 
@@ -40,6 +47,10 @@ public partial class World : Node3D
     {
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
+
+        _detailScatter = new WorldDetailScatter();
+        _detailScatter.Name = "DetailScatter";
+        AddChild(_detailScatter);
 
         _chunkManager = new ChunkManager();
         AddChild(_chunkManager);

@@ -9,6 +9,15 @@ public partial class ChunkMesh : Node3D
     // `debug_only_chunk` for isolating chunks while debugging.
     public static Vector3I? OnlyChunkFilter;
 
+    // Tracks whether this chunk has posted detail-scatter contributions to
+    // WorldDetailScatter and at which coord, so _ExitTree can remove them
+    // cleanly when the chunk evicts. The manager keeps one MultiMesh per
+    // DetailEntry world-wide; without explicit RemoveChunk, evicted chunks'
+    // instances would linger in the global multimesh until they're
+    // overwritten by a new chunk at the same coord.
+    private Vector3I _scatteredChunkCoord;
+    private bool _scatterPosted;
+
     private static readonly ShaderMaterial SharedMaterial;
     private static readonly ShaderMaterial BackfaceStencilMaterial;
     private static readonly ShaderMaterial ShadowCasterMaterial;
@@ -133,6 +142,18 @@ public partial class ChunkMesh : Node3D
         _activeDetailGroups = groups;
     }
 
+    public override void _ExitTree()
+    {
+        // Pull this chunk's contributions out of the global detail-scatter
+        // manager so they don't linger in the multimesh after eviction.
+        // World may already be torn down on game shutdown — guard accordingly.
+        if (_scatterPosted)
+        {
+            World.Current?.DetailScatter?.RemoveChunk(_scatteredChunkCoord);
+            _scatterPosted = false;
+        }
+    }
+
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
@@ -184,10 +205,15 @@ public partial class ChunkMesh : Node3D
 
         ChunkMesherDC.Build(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out bool hasAnyFace);
 
-        // Detail-sprite scatter (grass, flowers, etc.). Lives parallel to the
-        // terrain mesh — same chunk lifetime, no separate eviction needed.
-        // Skips internally when the chunk has no painted detail.
-        ChunkDetailScatter.Build(data, getVoxel, getKitId, _activeDetailGroups, _activeKits, this);
+        // Detail-sprite scatter (grass, flowers, etc.). Compute the per-entry
+        // instance contributions and post them to the world-wide manager so
+        // every chunk's instances of the same DetailEntry collapse into one
+        // MultiMesh draw call. _ExitTree below removes this chunk's
+        // contributions when the chunk evicts.
+        _scatteredChunkCoord = data.ChunkCoord;
+        var scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getKitId, _activeDetailGroups, _activeKits);
+        World.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
+        _scatterPosted = scatterContrib != null;
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();

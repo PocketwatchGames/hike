@@ -1,5 +1,11 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded, skip_vertex_transform;
+// Opaque queue (no blend_mix) — the shadow caster only needs depth, and
+// alpha cut is handled by discard. Visible-pass output is suppressed by
+// CastShadow.ShadowsOnly anyway, so the queue choice only affects whether
+// other shadow-casters can batch with this one. Opaque + shared materials
+// (per shadow_caster_material + texture) lets all goblin shadow proxies
+// batch into a single shadow-pass draw call.
+render_mode depth_draw_opaque, cull_disabled, unshaded, skip_vertex_transform;
 
 // Sun-billboarded shadow caster sprite, used by LitSprite's hidden shadow
 // proxy child. Renders the source sprite's silhouette (alpha-cut) into Godot's
@@ -13,20 +19,24 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, unshaded, skip_vertex_t
 // above-clip casters (trees) to still throw shadows on visible terrain when
 // the player goes inside (ceiling cutaway active).
 
+// Per-sprite values are `instance uniform` so all shadow proxies sharing
+// a texture can share one material and batch into a single shadow-pass
+// draw call. sprite_texture stays a regular uniform on the material since
+// sampler2D can't be instance.
 uniform sampler2D sprite_texture : source_color, filter_nearest;
-uniform ivec2 sprite_size = ivec2(1, 1);
-uniform ivec2 sprite_region_origin = ivec2(0, 0);
+instance uniform ivec2 sprite_size = ivec2(1, 1);
+instance uniform ivec2 sprite_region_origin = ivec2(0, 0);
 // Mirror in lockstep with the visible sprite so the shadow silhouette
 // matches its source.
-uniform bool sprite_mirror = false;
+instance uniform bool sprite_mirror = false;
 // Align with the visible sprite: same roll-toward-terrain-normal math
 // sprite_lit uses, so the cast shadow silhouette matches the rolled
 // sprite's world-space shape. Defaults keep the pre-alignment behaviour.
-uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
+instance uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
+instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 // Dither fade matches sprite_lit's uniform; pushed by LitSprite.Visibility
 // so a fading-in sprite's cast shadow stipples in alongside its visible body.
-uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
 
 global uniform float sprite_chunky;
 

@@ -1,15 +1,18 @@
 shader_type spatial;
-// depth_draw_opaque + render priority below water: the reflection draws
-// BEFORE the water surface, lands in `hint_screen_texture` with proper
-// depth, and the water shader's refraction picks it up via the now-
-// correct depth-aware offset — giving rippled reflection wobble for free
-// in lockstep with the surface above. Water's own depth-attenuation
-// (water_alpha + thickness compositing) tints the deeper portions of the
-// reflection toward water_deep_tint naturally, so no manual tinting is
-// needed in this shader. nearest filtering on screen_tex/depth_tex (set
-// in voxel_water.gdshader) prevents player-colored bleed at silhouettes
-// that previously made this render order unviable.
-render_mode blend_mix, depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
+// Opaque queue (no blend_mix) — alpha cut via discard, same as sprite_lit.
+// The reflection still draws before water because Godot processes the
+// opaque queue before the transparent queue (where water lives). Water's
+// hint_screen_texture sees a fully-populated framebuffer that includes
+// the reflection. The fragment's `ALBEDO = base * reflection_tint`
+// behaviour is unchanged: blend_mix only kicked in differently when ALPHA
+// was < 1 (this shader doesn't set ALPHA, so it defaulted to 1 = full
+// overwrite anyway), so dropping it is purely a queue/batching change.
+// Water's own depth-attenuation (water_alpha + thickness compositing)
+// tints the deeper portions of the reflection toward water_deep_tint
+// naturally, so no manual tinting is needed in this shader. Nearest
+// filtering on screen_tex/depth_tex (set in voxel_water.gdshader)
+// prevents player-colored bleed at silhouettes.
+render_mode depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
 
 // Flipped-vertical companion to sprite_lit.gdshader, used for water
 // reflections. Clones the vertex/fragment logic but:
@@ -29,6 +32,9 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, ambient_light_disabled,
 //   - Tints/dims the result so the reflection reads as a reflection
 //     rather than a second copy of the sprite.
 
+// Per-sprite values are `instance uniform` so all reflections sharing a
+// texture share one material and batch. sprite_texture stays a regular
+// uniform since sampler2D can't be instance in Godot 4.
 uniform sampler2D sprite_texture : source_color, filter_nearest;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
@@ -45,16 +51,16 @@ global uniform float cloud_shadow_strength;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
-uniform ivec2 sprite_size = ivec2(1, 1);
-uniform ivec2 sprite_region_origin = ivec2(0, 0);
+instance uniform ivec2 sprite_size = ivec2(1, 1);
+instance uniform ivec2 sprite_region_origin = ivec2(0, 0);
 // Mirror in lockstep with the visible sprite.
-uniform bool sprite_mirror = false;
+instance uniform bool sprite_mirror = false;
 // Match the visible sprite's roll-toward-terrain-normal so a grass blade
 // leaning into a slope has a reflection that leans the same way. Same
 // uniforms and math as sprite_lit.gdshader; defaults leave behaviour
 // unchanged for materials that don't set them.
-uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
+instance uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
+instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 
 global uniform float camera_clip;
 global uniform float sprite_chunky;
@@ -75,11 +81,11 @@ global uniform float ripple_strength;
 // (2*water_y - source.y) and vertices extend downward, so the clip
 // test `world_y > water_y` removes the above-water slab that appears
 // when the source sprite is partially submerged.
-uniform float water_y = -1e30;
+instance uniform float water_y = -1e30;
 // World position of the sprite being reflected — used to sample the
 // lightmap at the source, not at the reflection, so underground water's
 // reflection of a sunlit sprite still reads correctly.
-uniform vec3 source_world_pos = vec3(0.0);
+instance uniform vec3 source_world_pos = vec3(0.0);
 // Global dimming that sells "this is a reflection, not a second sprite."
 // Pushed by SkyController so weather (muddiness, fog, light level) drives
 // how much reflections are dimmed — clear bright water shows them at full
@@ -91,9 +97,9 @@ global uniform float reflection_tint;
 global uniform float reflection_pixel_jitter_max;
 // Match sprite_lit's discovery-fade + silhouette uniforms so a fading /
 // silhouetted sprite's water reflection stays consistent with its body.
-uniform float visibility : hint_range(0.0, 1.0) = 1.0;
-uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 silhouette_tint : source_color = vec3(0.0);
+instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+instance uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
+instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
 
 // Procedural noise (matching voxel_water.gdshader's hash13/vnoise) — used
 // to sample a smoothly varying jitter from the reflection's world XZ +

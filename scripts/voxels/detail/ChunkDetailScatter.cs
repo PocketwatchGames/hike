@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -31,31 +32,11 @@ public static class ChunkDetailScatter
     // Per-painted-voxel candidate slots are bounded by DetailGroupData.
     // InstancesPerVoxel; each slot rolls a hash against DetailStrength/255.
 
-    // Stamped into MultiMesh names so they're identifiable in the remote scene
-    // tree while debugging. Children are also tagged so a future eviction pass
-    // could find and free them without touching the terrain meshes.
-    private const string MULTIMESH_NAME_PREFIX = "DetailScatter_";
-
     // World-to-texture-pixel ratio shared by every detail sprite. 16 matches
     // the voxel tile grid (gen_voxel_tiles.py TILE = 16) so sprites sit at
     // the same pixel density as the terrain they scatter over. Changing this
     // resizes every scatter uniformly.
     public const float PIXELS_PER_UNIT = 16f;
-
-    // Shared unit quad used by every detail sprite. Size (1, 1) so the
-    // scatter's per-instance basis scale lands in world units directly;
-    // CenterOffset shifts VERTEX.y to [0, 1] to match the shader's
-    // "base at Y=0" convention.
-    private static QuadMesh _sharedUnitQuad;
-    private static QuadMesh GetUnitQuad()
-    {
-        _sharedUnitQuad ??= new QuadMesh
-        {
-            Size = new Vector2(1f, 1f),
-            CenterOffset = new Vector3(0f, 0.5f, 0f),
-        };
-        return _sharedUnitQuad;
-    }
 
     // ±range scanned per neighbour column when estimating surface height for
     // the normal. Covers single-voxel ledges; larger steps are treated as
@@ -64,22 +45,25 @@ public static class ChunkDetailScatter
     // it leaning hard down the cliff face.
     private const int NORMAL_SCAN_RANGE = 2;
 
-    public static void Build(
+    // Compute the per-DetailEntry instance contributions for one chunk. Pure
+    // function — no scene graph mutation. Caller submits the result to
+    // WorldDetailScatter, which composes contributions from all chunks into
+    // one MultiMesh per entry. Returns null if the chunk paints no detail.
+    public static Dictionary<DetailEntry, List<InstanceData>> Compute(
         ChunkState data,
         System.Func<int, int, int, VoxelType> getVoxel,
         System.Func<int, int, int, int> getKitId,
         DetailGroupData[] groups,
-        EnvironmentKitData[] kits,
-        Node3D parent)
+        EnvironmentKitData[] kits)
     {
         if (groups == null || groups.Length == 0)
         {
-            return;
+            return null;
         }
 
         // Bucket per DetailEntry so each (mesh, material) becomes one MultiMesh
-        // — one draw call per (chunk, entry). DetailEntry is the bucketing key
-        // so weight/scale/yaw vary independently per entry.
+        // entry contribution. WorldDetailScatter aggregates buckets across
+        // chunks into one MultiMesh per entry.
         var buckets = new Dictionary<DetailEntry, List<InstanceData>>();
 
         // Cumulative-weight scratch reused per group so we don't re-allocate
@@ -218,46 +202,7 @@ public static class ChunkDetailScatter
             }
         }
 
-        if (buckets.Count == 0)
-        {
-            return;
-        }
-
-        foreach (KeyValuePair<DetailEntry, List<InstanceData>> kv in buckets)
-        {
-            DetailEntry entry = kv.Key;
-            List<InstanceData> instances = kv.Value;
-
-            var mm = new MultiMesh();
-            mm.TransformFormat = MultiMesh.TransformFormatEnum.Transform3D;
-            mm.UseCustomData = true;
-            mm.UseColors = true;
-            mm.Mesh = GetUnitQuad();
-            mm.InstanceCount = instances.Count;
-            for (int i = 0; i < instances.Count; i++)
-            {
-                mm.SetInstanceTransform(i, instances[i].Transform);
-                Vector3 n = instances[i].Normal;
-                mm.SetInstanceCustomData(i, new Color(n.X, n.Y, n.Z, 0f));
-                mm.SetInstanceColor(i, instances[i].GroundTint);
-            }
-
-            var mmi = new MultiMeshInstance3D();
-            mmi.Multimesh = mm;
-            mmi.Name = MULTIMESH_NAME_PREFIX + (entry.Texture != null ? entry.Texture.ResourceName : "unnamed");
-            // Detail sprites don't cast shadows — at sprite scale the shadow
-            // atlas footprint per blade is sub-pixel and just adds noise. The
-            // fragment shader still receives shadow attenuation on the sprite
-            // itself so it darkens correctly when the terrain shadows it.
-            mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-            // Override the mesh's authored surface material with the runtime-
-            // built ShaderMaterial that has Texture + FadeHeight stamped from
-            // the DetailEntry. See DetailEntry.GetMaterial for the rationale
-            // (editor can't compile detail_sprite.gdshader, so per-entry
-            // material .tres files lose their parameters on save).
-            mmi.MaterialOverride = entry.GetMaterial();
-            parent.AddChild(mmi);
-        }
+        return buckets.Count > 0 ? buckets : null;
     }
 
     private static void EnsureCumulativeWeights(DetailGroupData group, ref float[] scratch, out float total)
@@ -360,7 +305,7 @@ public static class ChunkDetailScatter
         return wy;
     }
 
-    private struct InstanceData
+    public struct InstanceData
     {
         public Transform3D Transform;
         public Vector3 Normal;

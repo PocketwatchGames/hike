@@ -93,6 +93,16 @@ public partial class Mob : RigidBody3D, IWorldEntity
     private bool _lastHudVisibleInit;
     private float _lastBurrowT = float.NaN;
     private float _lastLinearDamp = float.NaN;
+    private bool _impulseApplied;
+    // Tracks the last observed mob_physics CVar value so the bisection
+    // toggle's force-freeze / force-unfreeze block only fires on actual
+    // CVar transitions, not every physics tick. Without this, the block
+    // unconditionally undoes the per-mob auto-freeze every tick (auto-
+    // freeze sets Freeze=true at end of tick N, top of tick N+1 sees
+    // physicsEnabled && Freeze and unfreezes — defeating the auto-freeze).
+    // Initialized to the CVar default so a mob that boots with the CVar
+    // already set doesn't trigger a spurious transition on first tick.
+    private bool _lastMobPhysicsCvar = true;
 
     public static Mob Create(World world, MobSimState data)
     {
@@ -266,6 +276,11 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
     }
 
+    bool ShouldFreeze()
+    {
+        return LinearVelocity.LengthSquared() < 0.01f && AngularVelocity.LengthSquared() < 0.01f ;
+    }
+
     override public void _PhysicsProcess(double delta)
     {
         base._PhysicsProcess(delta);
@@ -275,24 +290,31 @@ public partial class Mob : RigidBody3D, IWorldEntity
         // body and zero its layer/mask so Jolt's broadphase and contact
         // resolver see nothing. Tracks the CVar live so you can flip it
         // mid-session and watch _PhysicsProcess time change.
+        // Edge-detect the bisection toggle. Acting on the CVar every tick
+        // would clobber the per-mob auto-freeze that lives at the bottom of
+        // this method — the auto-freeze sets Freeze=true on idle mobs, and
+        // a per-tick "if CVar is on, unfreeze" block would undo it on the
+        // very next tick. Only enforce the CVar's intent when it actually
+        // changes; the auto-freeze owns the Freeze state outside transitions.
         bool physicsEnabled = CVars.mobPhysics.Value;
-        if (physicsEnabled)
+        if (physicsEnabled != _lastMobPhysicsCvar)
         {
-            if (Freeze)
+            if (physicsEnabled)
             {
                 Freeze = false;
                 CollisionLayer = (uint)ECollisionLayer.Mob;
                 CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
             }
-        }
-        else
-        {
-            if (!Freeze)
+            else
             {
                 Freeze = true;
                 CollisionLayer = 0;
                 CollisionMask = 0;
             }
+            _lastMobPhysicsCvar = physicsEnabled;
+        }
+        if (!physicsEnabled)
+        {
             return;
         }
 
@@ -318,10 +340,11 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
             using var _profPostTick = Profiler.Sample("Mob.PostTickMove");
 
-            if (aiOutput.suspendTimeMs.HasValue) {
+            if (aiOutput.suspendTimeMs.HasValue)
+            {
                 _simState.SuspendAITimeMs = aiOutput.suspendTimeMs.Value;
             }
-            
+
             // An explicit aiOutput.yaw always wins so behaviors like BehaviorAttack
             // can keep facing the player while circling to a reposition point.
             // Otherwise, if we're walking toward a path target, face that direction.
@@ -345,13 +368,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
                     Vector3 desiredVelocity = dir * _simState.MobData.maxSpeed * aiOutput.speed * _terrainSpeed * speedScale;
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
-                    // ApplyCentralImpulse is a method, so caching its result
-                    // doesn't apply — but skipping it for an effectively-zero
-                    // impulse saves a Jolt call per stable mob per frame.
-                    if (velocityChange.X != 0f || velocityChange.Z != 0f)
-                    {
-                        ApplyCentralImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
-                    }
+                    ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
 
                     if (!targetYaw.HasValue)
                     {
@@ -444,6 +461,32 @@ public partial class Mob : RigidBody3D, IWorldEntity
             AngularDamp = 0.25f;
             LinearDamp = 0.25f;
         }
+
+        if (!Freeze 
+        && !_impulseApplied
+        && alive
+        && LinearVelocity.LengthSquared() < 0.01f
+        && _simState.SuspendAITimeMs > _world.GameTimeMs)
+        {
+            Freeze = true;
+        }
+        _impulseApplied = false;
+    }
+
+    public void ApplyImpulse(Vector3 impulse)
+    {
+        // ApplyCentralImpulse is a method, so caching its result
+        // doesn't apply — but skipping it for an effectively-zero
+        // impulse saves a Jolt call per stable mob per frame.
+        if (impulse.X != 0f || impulse.Y != 0f || impulse.Z != 0f)
+        {
+            if (Freeze)
+            {
+                Freeze = false;
+            }
+            _impulseApplied = true;
+            ApplyCentralImpulse(impulse);
+        }
     }
 
     public void Hit(DamageData data, Node damageSource)
@@ -480,6 +523,10 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
         alive = false;
         AxisLockAngularY = false;
+        if (Freeze)
+        {
+            Freeze = false;
+        }
     }
 
     private void UpdateTerrainSpeed()

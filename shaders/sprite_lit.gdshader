@@ -1,5 +1,14 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform;
+// Opaque queue (no blend_mix): the alpha cut in fragment() (discard if
+// tex.a < 0.5) gives alpha-cut silhouettes without putting the sprite into
+// the transparent queue. Transparent queue requires per-frame back-to-front
+// sorting which prevents Godot from batching draws across spatially-spread
+// sprites; opaque queue lets sprites sharing the same material batch into
+// one draw call. The dither-fade in fragment() also uses discard, not
+// partial alpha, so visibility stippling still works in the opaque queue.
+// All current art is alpha-cut compatible — if a future sprite genuinely
+// needs soft-alpha edges it'll need to opt into a separate blend_mix variant.
+render_mode depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform;
 
 // Y-aligned, camera-facing pixel-art sprite.
 //
@@ -61,13 +70,19 @@ global uniform float cloud_altitude;
 // textures out of the equation.
 global uniform bool debug_white_albedo;
 #include "res://shaders/cloud_shadow.gdshaderinc"
-uniform ivec2 sprite_size = ivec2(1, 1);
-uniform ivec2 sprite_region_origin = ivec2(0, 0);
+// Per-sprite uniforms moved to `instance uniform` so all LitSprites sharing
+// a texture can share one ShaderMaterial — Godot batches their draws into
+// one call. Per-instance values live in render-instance data, set via
+// RenderingServer.InstanceGeometrySetShaderParameter from LitSprite.cs.
+// `sprite_texture` (sampler2D) cannot be an instance uniform in Godot 4,
+// so each unique texture still needs its own shared material.
+instance uniform ivec2 sprite_size = ivec2(1, 1);
+instance uniform ivec2 sprite_region_origin = ivec2(0, 0);
 // Per-instance horizontal mirror. The sprite_lit shader samples the texture
 // via texelFetch on a screen-space coordinate, so Sprite3D's FlipH (which
 // only flips mesh UVs) has no effect — this uniform flips the computed
 // tex_coord.x instead. LitSprite.Mirror seeds a 50% coin flip per instance.
-uniform bool sprite_mirror = false;
+instance uniform bool sprite_mirror = false;
 // Blend between upright billboarding (0) and terrain-aligned billboarding
 // (1). Upright = yaw-to-camera with world-up as the sprite's up axis.
 // Terrain-aligned = yaw-to-camera + roll within the sprite plane so the
@@ -77,8 +92,8 @@ uniform bool sprite_mirror = false;
 // anchor in world space; ignored when align_to_terrain is 0. Defaults keep
 // the upright behaviour so materials that don't set either uniform render
 // identically to the pre-alignment shader.
-uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
+instance uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
+instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 
 // Push the sprite rendering toward the camera (in meters) along the
 // horizontal billboard-forward axis. Recomputed from cam_back every frame,
@@ -87,21 +102,21 @@ uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 // from one angle. Used to park the sprite at the front edge of a cylinder
 // collider so the art lines up visually with the walkable footprint; collider
 // still sits at the node origin, only the rendered sprite shifts.
-uniform float forward_offset = 0.0;
+instance uniform float forward_offset = 0.0;
 
 // Dither-fade amount. 1 = fully opaque, 0 = fully discarded. Compared
 // against a screen-space 4x4 Bayer threshold in fragment(); fractional
 // values produce an ordered-dither stipple that reads as pop-in / pop-out
 // at the chunky sprite scale. Driven by Mob's discovery fade so a mob
 // transitions from invisible → dithered-in → solid over ~0.1s.
-uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
 // Silhouette tint blend. 0 = normal lit color, 1 = fully flat-tinted
 // (lighting is bypassed; fragment outputs silhouette_tint directly). The
 // mix happens POST-lighting so a silhouetted sprite reads as a constant
 // flat shape regardless of the lightmap/cloud/shadow state under it —
 // the "you remember this thing is here" cue for discovered-but-unseen mobs.
-uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
-uniform vec3 silhouette_tint : source_color = vec3(0.0);
+instance uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
+instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
 
 global uniform float camera_clip;
 global uniform float sprite_chunky;

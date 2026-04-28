@@ -39,6 +39,20 @@ public partial class TallGrass : Area3D, IWorldEntity
 				_sprite.TerrainNormal = SampleTerrainNormal();
 			}
 		}
+
+		// Track the props_visible bisection toggle. Setting Visible=false on
+		// the Area3D propagates render-side to the LitSprite child but does
+		// not disable collision detection — players can still walk through
+		// the (invisible) grass and pick up the camo / slow effect, which is
+		// what we want for a debug toggle that's measuring draw cost only.
+		Visible = CVars.propsVisible.Value;
+		CVars.propsVisible.OnChanged += OnPropsVisibleChanged;
+		TreeExiting += () => CVars.propsVisible.OnChanged -= OnPropsVisibleChanged;
+	}
+
+	private void OnPropsVisibleChanged(CVar cvar)
+	{
+		Visible = ((CVarBool)cvar).Value;
 	}
 
 	private Vector3 SampleTerrainNormal()
