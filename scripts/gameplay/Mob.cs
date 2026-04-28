@@ -144,6 +144,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public override void _Process(double delta)
     {
         base._Process(delta);
+        using var _profProcess = Profiler.Sample("Mob.Process");
         if (_mesh != null)
         {
             _mesh.Scale = alive ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
@@ -216,8 +217,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
     override public void _PhysicsProcess(double delta)
     {
         base._PhysicsProcess(delta);
+        using var _profPhys = Profiler.Sample("Mob.PhysicsProcess");
 
-        UpdateTerrainSpeed();
+        using (Profiler.Sample("Mob.UpdateTerrainSpeed"))
+        {
+            UpdateTerrainSpeed();
+        }
 
         // Perception is throttled — accumulate delta and only run when the
         // interval is reached, so per-mob raycast cost stays low at density.
@@ -234,6 +239,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             TickAI((float)delta, out AIOutput aiOutput);
 
+            using var _profPostTick = Profiler.Sample("Mob.PostTickMove");
             // An explicit aiOutput.yaw always wins so behaviors like BehaviorAttack
             // can keep facing the player while circling to a reposition point.
             // Otherwise, if we're walking toward a path target, face that direction.
@@ -297,15 +303,18 @@ public partial class Mob : RigidBody3D, IWorldEntity
                 _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
                 _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
                 float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
-                foreach (Mob mob in _world.GetEntities<Mob>())
+                using (Profiler.Sample("Mob.YellBroadcast"))
                 {
-                    if (mob == this)
+                    foreach (Mob mob in _world.GetEntities<Mob>())
                     {
-                        continue;
-                    }
-                    if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
-                    {
-                        mob.Investigate(aiOutput.targetPos, 8, 30000, 3000);
+                        if (mob == this)
+                        {
+                            continue;
+                        }
+                        if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
+                        {
+                            mob.Investigate(aiOutput.targetPos, 8, 30000, 3000);
+                        }
                     }
                 }
                 _simState.Yelled = true;

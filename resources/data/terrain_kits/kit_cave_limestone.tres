@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="EnvironmentKitData" format=3 uid="uid://pyvvyvryr1dc"]
+
+[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/EnvironmentKitData.cs" id="1_kit"]
+
+[resource]
+script = ExtResource("1_kit")
+KitName = "Cave Limestone"
+FlatTile = 0
+WallTile = 0
+WallBand = Vector2(0.3, 0.75)
+BlendAmp = 0.55
+GroundTint = Color(0.22, 0.22, 0.22, 1)

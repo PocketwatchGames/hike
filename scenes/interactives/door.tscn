@@ -1,10 +1,10 @@
-[gd_scene load_steps=7 format=3 uid="uid://bk5u04vwxlhas"]
+[gd_scene format=3 uid="uid://bk5u04vwxlhas"]
 
 [ext_resource type="Script" uid="uid://c3a4l0n4knjyq" path="res://scripts/gameplay/Door.cs" id="1_door"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/door_01.png" id="2_k0lqv"]
+[ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/interactives/door_01.png" id="2_k0lqv"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="3_interactivebox"]
-[ext_resource type="Script" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]

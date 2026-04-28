@@ -4,6 +4,13 @@
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
+  <!-- PROFILE compiles in CPU section profiling (Profiler.Sample / .Begin /
+       .End / .Dump). Defined for Debug and ExportDebug; absent from Release
+       and ExportRelease so shipping builds get the calls stripped via
+       [Conditional("PROFILE")]. -->
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' Or '$(Configuration)' == 'ExportDebug' ">
+    <DefineConstants>$(DefineConstants);PROFILE</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tools/**" />
   </ItemGroup>

@@ -14,6 +14,11 @@ using Godot;
 //     max          : Vector3I (12 bytes)
 //     spawn        : Vector3  (3 * float32 = 12 bytes)
 //     simDataPath  : length-prefixed string (resource path, may be empty)
+//     regionCount  : uint32
+//     regions      : regionCount entries
+//       dataPath        : length-prefixed string (RegionData resource path)
+//       windDirection   : Vector3 (12 bytes)
+//       elevation       : float32 (4 bytes)
 //     chunkCount   : uint32
 //   Index : chunkCount entries
 //     coord        : Vector3I (12 bytes)
@@ -30,7 +35,10 @@ public static class WorldFile
     // v7: chunk payload appended a per-voxel OverlayId byte after KitId.
     // v8: chunk payload appended per-voxel DetailGroup + DetailStrength bytes
     //     after OverlayId — painted detail-sprite scatter (grass/flowers/etc).
-    public const uint VERSION = 8;
+    // v9: header gained a regions table (data path + windDirection + elevation
+    //     per region); chunk payload appended a 1-byte RegionIndex selecting
+    //     a region from that table.
+    public const uint VERSION = 9;
 
     public struct IndexEntry
     {
@@ -39,12 +47,20 @@ public static class WorldFile
         public uint Length;
     }
 
+    public struct RegionEntry
+    {
+        public string DataPath;
+        public Vector3 WindDirection;
+        public float Elevation;
+    }
+
     public struct Header
     {
         public Vector3I Min;
         public Vector3I Max;
         public Vector3 Spawn;
         public string SimDataPath;
+        public RegionEntry[] Regions;
         public uint ChunkCount;
     }
 
@@ -97,6 +113,16 @@ public static class WorldFile
         w.Write(worldState.Spawn.Y);
         w.Write(worldState.Spawn.Z);
         w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
+        RegionState[] regions = worldState.Regions ?? [];
+        w.Write((uint)regions.Length);
+        for (int i = 0; i < regions.Length; i++)
+        {
+            w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
+            w.Write(regions[i].WindDirection.X);
+            w.Write(regions[i].WindDirection.Y);
+            w.Write(regions[i].WindDirection.Z);
+            w.Write(regions[i].Elevation);
+        }
         w.Write((uint)coords.Count);
 
         // --- Index ---
@@ -140,8 +166,19 @@ public static class WorldFile
             Max = ReadVec3I(r),
             Spawn = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
             SimDataPath = r.ReadString(),
-            ChunkCount = r.ReadUInt32(),
         };
+        uint regionCount = r.ReadUInt32();
+        header.Regions = new RegionEntry[regionCount];
+        for (uint i = 0; i < regionCount; i++)
+        {
+            header.Regions[i] = new RegionEntry
+            {
+                DataPath = r.ReadString(),
+                WindDirection = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
+                Elevation = r.ReadSingle(),
+            };
+        }
+        header.ChunkCount = r.ReadUInt32();
         return header;
     }
 

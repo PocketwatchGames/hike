@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
+
+[ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/WorldGenData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/desert.tres" id="2_region_desert"]
+[ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/forest.tres" id="2_region_forest"]
+[ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/mountain.tres" id="2_region_mountain"]
+[ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/swamp.tres" id="2_region_swamp"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
+[ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
+[ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
+
+[resource]
+script = ExtResource("1_script")
+SimData = ExtResource("2_sim")
+Regions = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), ExtResource("2_region_swamp"), ExtResource("2_region_forest")]
+DoorScene = ExtResource("4_door")
+TorchScene = ExtResource("5_torch")

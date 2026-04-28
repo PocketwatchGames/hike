@@ -1,10 +1,10 @@
 [gd_resource type="Resource" script_class="DetailGroupData" format=3 uid="uid://hv046le0b30u"]
 
-[ext_resource type="Texture2D" uid="uid://cc6as7l6ipqvo" path="res://assets/textures/grass_01.png" id="2_mxn6u"]
-[ext_resource type="Texture2D" uid="uid://bx5qkc3he2is3" path="res://assets/textures/grass_02.png" id="3_05b5i"]
-[ext_resource type="Texture2D" uid="uid://dn5dksty0sags" path="res://assets/textures/grass_03.png" id="4_a6s4p"]
+[ext_resource type="Texture2D" uid="uid://cc6as7l6ipqvo" path="res://assets/textures/details/grass_01.png" id="2_mxn6u"]
+[ext_resource type="Texture2D" uid="uid://bx5qkc3he2is3" path="res://assets/textures/details/grass_02.png" id="3_05b5i"]
+[ext_resource type="Texture2D" uid="uid://dn5dksty0sags" path="res://assets/textures/details/grass_03.png" id="4_a6s4p"]
 [ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="4_group_script"]
-[ext_resource type="Texture2D" uid="uid://bm0nc52ekfjhy" path="res://assets/textures/grass_04.png" id="5_8sc02"]
+[ext_resource type="Texture2D" uid="uid://bm0nc52ekfjhy" path="res://assets/textures/details/grass_04.png" id="5_8sc02"]
 [ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="entry_script"]
 
 [sub_resource type="Resource" id="Resource_grass_entry"]

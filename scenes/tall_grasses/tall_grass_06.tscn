@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://hmccbiu050sc"]
 
 [ext_resource type="Script" uid="uid://rtgv3bkkfnaw" path="res://scripts/gameplay/TallGrass.cs" id="1_pa63k"]
-[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/decor.png" id="2_4d204"]
+[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_4d204"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_3d7da"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_grass"]

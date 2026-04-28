@@ -1,0 +1,63 @@
+[gd_resource type="Resource" script_class="RegionGenData" format=3 uid="uid://wwpw4glsf0vs"]
+
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/RegionGenData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/regions/mountain.tres" id="2_region"]
+[ext_resource type="Resource" uid="uid://bx4iiif8qyb07" path="res://resources/data/terrain_kits/kit_temperate.tres" id="3_kit_temperate"]
+[ext_resource type="Resource" uid="uid://pyvvyvryr1dc" path="res://resources/data/terrain_kits/kit_cave_limestone.tres" id="4_kit_cave"]
+[ext_resource type="Resource" uid="uid://d2eve0m1jqgng" path="res://resources/data/terrain_kits/kit_underwater.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/detail_grass.tres" id="6_detail_grass"]
+[ext_resource type="PackedScene" path="res://scenes/props/deadpine1.tscn" id="7_t01"]
+[ext_resource type="PackedScene" path="res://scenes/props/deadpine2.tscn" id="8_t02"]
+[ext_resource type="PackedScene" path="res://scenes/props/deadpine3.tscn" id="9_t03"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock1.tscn" id="10_t04"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock2.tscn" id="11_t05"]
+[ext_resource type="PackedScene" path="res://scenes/props/rock3.tscn" id="12_t06"]
+[ext_resource type="PackedScene" path="res://scenes/props/treepine_01.tscn" id="13_t07"]
+[ext_resource type="PackedScene" path="res://scenes/props/treepine_02.tscn" id="14_t08"]
+[ext_resource type="PackedScene" path="res://scenes/props/treepine_03.tscn" id="15_t09"]
+[ext_resource type="PackedScene" path="res://scenes/props/treepine_04.tscn" id="16_t10"]
+[ext_resource type="PackedScene" path="res://scenes/props/treebirch_01.tscn" id="17_t11"]
+[ext_resource type="PackedScene" path="res://scenes/props/treebirch_02.tscn" id="18_t12"]
+[ext_resource type="PackedScene" path="res://scenes/props/treebirch_03.tscn" id="19_t13"]
+[ext_resource type="PackedScene" path="res://scenes/props/stump1.tscn" id="20_t14"]
+[ext_resource type="PackedScene" path="res://scenes/props/stump2.tscn" id="21_t15"]
+[ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="22_g01"]
+[ext_resource type="PackedScene" uid="uid://bkwajd5cucdsd" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="23_g02"]
+[ext_resource type="PackedScene" uid="uid://33agw00tovkt" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="24_g03"]
+[ext_resource type="PackedScene" uid="uid://dvqr6axb0t7xf" path="res://scenes/tall_grasses/tall_grass_04.tscn" id="25_g04"]
+[ext_resource type="PackedScene" uid="uid://cphgeimk0fnbm" path="res://scenes/tall_grasses/tall_grass_05.tscn" id="26_g05"]
+[ext_resource type="PackedScene" uid="uid://hmccbiu050sc" path="res://scenes/tall_grasses/tall_grass_06.tscn" id="27_g06"]
+[ext_resource type="PackedScene" uid="uid://b123lktisdcx8" path="res://scenes/tall_grasses/tall_grass_07.tscn" id="28_g07"]
+[ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="29_goblin_scene"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="30_goblin_data"]
+[ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="31_kunkun_scene"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="32_kunkun_data"]
+[ext_resource type="PackedScene" uid="uid://jlh3xsibvf00" path="res://scenes/interactives/loot.tscn" id="33_loot"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="34_chest"]
+
+[resource]
+script = ExtResource("1_script")
+Region = ExtResource("2_region")
+Kits = [ExtResource("3_kit_temperate"), ExtResource("4_kit_cave"), ExtResource("5_kit_underwater")]
+DetailGroups = [ExtResource("6_detail_grass")]
+Elevation = 1.0
+ElevationRange = 8.0
+PathThreshold = 0.1
+PathBlendBand = 0.05
+TunnelThreshold = 0.1
+CaveNoiseFrequency = 0.04
+GrassThreshold = 0.5
+ForestNoiseFrequency = 0.05
+ForestThreshold = 0.3
+TreeScenes = [ExtResource("7_t01"), ExtResource("8_t02"), ExtResource("9_t03"), ExtResource("10_t04"), ExtResource("11_t05"), ExtResource("12_t06"), ExtResource("13_t07"), ExtResource("14_t08"), ExtResource("15_t09"), ExtResource("16_t10"), ExtResource("17_t11"), ExtResource("18_t12"), ExtResource("19_t13"), ExtResource("20_t14"), ExtResource("21_t15")]
+TallGrassScenes = [ExtResource("22_g01"), ExtResource("23_g02"), ExtResource("24_g03"), ExtResource("25_g04"), ExtResource("26_g05"), ExtResource("27_g06"), ExtResource("28_g07")]
+GoblinScene = ExtResource("29_goblin_scene")
+GoblinData = ExtResource("30_goblin_data")
+GoblinChance = 0.005
+KunKunScene = ExtResource("31_kunkun_scene")
+KunKunData = ExtResource("32_kunkun_data")
+KunKunChance = 0.005
+LootScene = ExtResource("33_loot")
+LootChance = 0.005
+ChestScene = ExtResource("34_chest")
+ChestChance = 0.002

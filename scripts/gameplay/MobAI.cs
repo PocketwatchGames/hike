@@ -134,6 +134,7 @@ public partial class Mob
 
     private void TickAI(float deltaTime, out AIOutput output)
     {
+        using var _profTickAI = Profiler.Sample("Mob.TickAI");
         output = new AIOutput();
         if (!alive)
         {
@@ -173,7 +174,11 @@ public partial class Mob
         {
             if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase b) && b != null)
             {
-                BehaviorOutput behaviorOutput = b.Run(this, time, ref targetPerception, ref output);
+                BehaviorOutput behaviorOutput;
+                using (Profiler.Sample("Mob.BehaviorRun"))
+                {
+                    behaviorOutput = b.Run(this, time, ref targetPerception, ref output);
+                }
                 if (behaviorOutput.newBehavior != null)
                 {
                     StartBehavior(behaviorOutput.newBehavior);
@@ -209,6 +214,7 @@ public partial class Mob
 
     private void UpdatePerception(float delta)
     {
+        using var _profPerception = Profiler.Sample("Mob.UpdatePerception");
         if (!alive || _world.player == null)
         {
             return;
@@ -224,11 +230,17 @@ public partial class Mob
         float distanceSqToPlayer = toPlayer.LengthSquared();
 
         // Player to mob
+        if (distanceSqToPlayer < mobData.VisionRange * mobData.VisionRange)
         {
             // Sample light above the rigid-body origin so mobs that settle
             // slightly below the ground surface still read a valid light level.
             float eyeHeightLight = 1f;
-            float lightFactor = Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f)) / _simState.MobData.visibilityLightMax, 0, 1);
+            float perceivedLight;
+            using (Profiler.Sample("Mob.GetPerceivedLight"))
+            {
+                perceivedLight = _world.GetPerceivedLight(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f));
+            }
+            float lightFactor = Mathf.Clamp(perceivedLight / _simState.MobData.visibilityLightMax, 0, 1);
 
             float speedFactor = _simState.MobData.maxVisibilitySpeed > 0f
                 ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / _simState.MobData.maxVisibilitySpeed, _simState.MobData.visibilityMovementPower), _simState.MobData.visibilityMovementMin, 1f)
@@ -249,10 +261,14 @@ public partial class Mob
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
                 Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                query.CollideWithAreas = false;
-                query.CollideWithBodies = true;
-                var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                Godot.Collections.Dictionary result;
+                using (Profiler.Sample("Mob.PerceptionRays"))
+                {
+                    var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                    query.CollideWithAreas = false;
+                    query.CollideWithBodies = true;
+                    result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                }
                 if (result.Count > 0)
                 {
                     perceptionDelta = 0f;
@@ -330,10 +346,14 @@ public partial class Mob
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
                 Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                query.CollideWithAreas = false;
-                query.CollideWithBodies = true;
-                var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                Godot.Collections.Dictionary result;
+                using (Profiler.Sample("Mob.PerceptionRays"))
+                {
+                    var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                    query.CollideWithAreas = false;
+                    query.CollideWithBodies = true;
+                    result = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                }
                 if (result.Count > 0)
                 {
                     perceptionDelta = 0f;

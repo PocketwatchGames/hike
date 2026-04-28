@@ -35,9 +35,14 @@ public partial class SkyController : Node3D
 
     [ExportGroup("Preview")]
     // Editor / pre-World fallback region. Used for live sky preview
-    // when no SimData / player exists (pure inspector tweaking). At
-    // runtime the four SimData regions take over via RegionBlend.
+    // when no WorldState / player exists (pure inspector tweaking). At
+    // runtime the world's regions take over via RegionBlend.
     [Export] public RegionData previewRegion;
+    // Stand-ins for the runtime RegionState fields when previewing in
+    // the editor — at runtime these come from WorldState.Regions[],
+    // populated by WorldGen / the disk loader.
+    [Export] public Vector3 previewWindDirection = new Vector3(0.7f, 0f, 0.7f);
+    [Export(PropertyHint.Range, "0,1,0.01")] public float previewElevation = 0.0f;
 
     [ExportGroup("TimeOfDay")]
     [ExportSubgroup("Lights")]
@@ -605,20 +610,64 @@ public partial class SkyController : Node3D
     // directly. RegionBlend.Sample rewrites these in place each frame.
     private RegionData _blendedRegion;
     private WeatherData _blendedWeather;
+    // Blended runtime fields for the current sample. Mirrors what would
+    // live on a working RegionState; kept as scalars so SkyController's
+    // accessors don't have to reconstruct a struct on every read.
+    private Vector3 _blendedWindDirection = new Vector3(1f, 0f, 0f);
+    private float _blendedElevation;
 
     // Most recently derived palette. Updated in _Process before Apply.
     private DerivedPalette _palette;
 
     // --- Public accessors ------------------------------------------------
-    // The current (blended) weather. RainEffect reads windDirection /
-    // windSpeed from here; gameplay might read rainAmount for gameplay
-    // gating in the future.
+    // The current (blended) weather. RainEffect reads windSpeed from
+    // here; gameplay might read rainAmount for gameplay gating in the
+    // future. Wind DIRECTION lives on Region (region-intrinsic, not
+    // weather-state) — see Region accessor below.
     public WeatherData Weather
     {
         get
         {
             if (!Engine.IsEditorHint()) { return _blendedWeather; }
             return previewRegion?.weather;
+        }
+    }
+
+    // The current (blended) region. Theme colors / dust / water come
+    // from this; runtime fields (windDirection, elevation) come via
+    // RegionState below since they no longer live on the authored
+    // RegionData.
+    public RegionData Region
+    {
+        get
+        {
+            if (!Engine.IsEditorHint()) { return _blendedRegion; }
+            return previewRegion;
+        }
+    }
+
+    // The current (blended) RegionState — bundles the working RegionData
+    // with the runtime windDirection / elevation. RainEffect reads
+    // WindDirection from here; WeatherSimulation reads Elevation.
+    public RegionState RegionState
+    {
+        get
+        {
+            if (!Engine.IsEditorHint())
+            {
+                return new RegionState
+                {
+                    Data = _blendedRegion,
+                    WindDirection = _blendedWindDirection,
+                    Elevation = _blendedElevation,
+                };
+            }
+            return new RegionState
+            {
+                Data = previewRegion,
+                WindDirection = previewWindDirection,
+                Elevation = previewElevation,
+            };
         }
     }
 
@@ -665,9 +714,9 @@ public partial class SkyController : Node3D
             // Load default textures if the exports are unwired, so the sun/
             // moon always have a visible shape out of the box. Inspector-set
             // overrides take precedence via the Apply() push.
-            if (sunTexture == null) { sunTexture = GD.Load<Texture2D>("res://assets/textures/sun_disc.tres"); }
-            if (moonTexture == null) { moonTexture = GD.Load<Texture2D>("res://assets/textures/moon_disc.tres"); }
-            if (starTexture == null) { starTexture = GD.Load<Texture2D>("res://assets/textures/starfield_placeholder.tres"); }
+            if (sunTexture == null) { sunTexture = GD.Load<Texture2D>("res://assets/textures/skybox/sun_disc.tres"); }
+            if (moonTexture == null) { moonTexture = GD.Load<Texture2D>("res://assets/textures/skybox/moon_disc.tres"); }
+            if (starTexture == null) { starTexture = GD.Load<Texture2D>("res://assets/textures/skybox/starfield_placeholder.tres"); }
             if (sunTexture != null)
             {
                 ShaderGlobals.Register("sun_texture", RenderingServer.GlobalShaderParameterType.Sampler2D, sunTexture);
@@ -765,7 +814,9 @@ public partial class SkyController : Node3D
         if (!Engine.IsEditorHint() && sim != null && _blendedRegion != null && _blendedWeather != null)
         {
             Vector3 playerPos = World.Current.player?.GlobalPosition ?? Vector3.Zero;
-            RegionBlend.Sample(playerPos, sim, _blendedRegion, _blendedWeather);
+            WorldState ws = World.Current.WorldState;
+            RegionBlend.Sample(playerPos, ws, _blendedRegion, _blendedWeather,
+                out _blendedWindDirection, out _blendedElevation);
 
             // Diurnal + 12-hour-variance perturbation on top of the
             // region-blended max envelope. Re-rolls the variance state
@@ -773,17 +824,16 @@ public partial class SkyController : Node3D
             // _blendedWeather in place with the values currently in
             // effect (so WeatherDerivation and every downstream consumer
             // sees the simulated weather, not the region max).
-            WorldState ws = World.Current.WorldState;
             if (ws != null)
             {
                 WeatherSimulation.UpdateVariance(ws, sim);
-                WeatherSimulation.Apply(_blendedWeather, _blendedRegion, ws, sim);
+                WeatherSimulation.Apply(_blendedWeather, _blendedRegion, _blendedElevation, ws, sim);
                 // Publish the blended wind direction to WorldState so
                 // gameplay consumers (RainEffect, physics) see a single
                 // authoritative current wind. Other weather variables
                 // currently have no gameplay readers, but this is where
                 // they'd flow through.
-                ws.WindDirection = _blendedWeather.windDirection;
+                ws.WindDirection = _blendedWindDirection;
             }
         }
         else
@@ -815,7 +865,7 @@ public partial class SkyController : Node3D
         float dt = (float)delta;
         if (currentWeather != null)
         {
-            Vector3 windDir = currentWeather.windDirection;
+            Vector3 windDir = !Engine.IsEditorHint() ? _blendedWindDirection : previewWindDirection;
             Vector2 windXZ = new Vector2(windDir.X, windDir.Z);
             if (windXZ.LengthSquared() > 0.0001f) { windXZ = windXZ.Normalized(); }
             else { windXZ = new Vector2(1f, 0f); }
@@ -1355,7 +1405,7 @@ public partial class SkyController : Node3D
         GustedWindSpeed = steadyWindSpeed + gust01 * _palette.GustStrength;
         float amplitude = GustedWindSpeed * windToSwayMeters;
 
-        Vector3 windDirForShader = weather?.windDirection ?? new Vector3(1f, 0f, 0f);
+        Vector3 windDirForShader = !Engine.IsEditorHint() ? _blendedWindDirection : previewWindDirection;
         if (windDirForShader.LengthSquared() < 1e-6f) { windDirForShader = new Vector3(1f, 0f, 0f); }
         RenderingServer.GlobalShaderParameterSet("wind_dir", windDirForShader.Normalized());
         RenderingServer.GlobalShaderParameterSet("wind_amplitude", amplitude);

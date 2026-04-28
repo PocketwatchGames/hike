@@ -11,6 +11,7 @@ using Godot;
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
 //   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
 //   detailStrength : 4096 bytes (0..255 scatter density)
+//   regionIndex    : 1 byte (index into WorldState.Regions[])
 //   entities : type-tagged list (see EntitySerializer)
 //
 // BlockLight is NOT serialized — it's the additive sum of contributions from
@@ -121,6 +122,8 @@ public static class ChunkSerializer
             }
         }
 
+        w.Write(chunk.RegionIndex);
+
         EntitySerializer.WriteList(w, entities);
     }
 
@@ -215,6 +218,8 @@ public static class ChunkSerializer
                 }
             }
         }
+
+        chunk.RegionIndex = r.ReadByte();
 
         entities = EntitySerializer.ReadList(r);
     }

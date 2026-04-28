@@ -61,22 +61,6 @@ public partial class SimData : Resource
     // stealth/perception consumes.
     [Export(PropertyHint.Range, "1,45,0.5")] public float SunsetColorRangeDegrees = 10f;
 
-    [ExportGroup("Regions")]
-    // Four corner regions around the world origin. SkyController
-    // samples a blended RegionData + WeatherData each frame based on
-    // the player's XZ position, with a 32m cross-blend band centered
-    // on X=0 and Z=0. Convention: +X = east, +Z = north. A missing
-    // slot contributes zero weight; neighbors scale up to cover.
-    //
-    // This 4-quadrant scaffolding is a transitional step. The long-
-    // term design is an arbitrary region placement (regions authored
-    // as polygons or a tiled atlas); the blender interface will stay
-    // the same, only the sample-weight computation changes.
-    [Export] public RegionData regionNE;
-    [Export] public RegionData regionNW;
-    [Export] public RegionData regionSE;
-    [Export] public RegionData regionSW;
-
     [ExportGroup("Weather Derivation Tuning")]
     // Every knob below shapes how WeatherDerivation turns (region,
     // weather, time-of-day) into the concrete visual outputs pushed

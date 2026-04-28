@@ -1,0 +1,34 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Texture2D" uid="uid://bmexg1iyjueyk" path="res://assets/textures/props/decor_desert.png" id="2_decor"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_litsprite"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="4_spritemat"]
+
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
+height = 9.4464
+radius = 1.9188
+
+[node name="PropInstance" type="Node3D"]
+script = ExtResource("1_prop")
+
+[node name="Body" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.7232, 0)
+shape = SubResource("CylinderShape3D_body")
+
+[node name="Sprite" type="Sprite3D" parent="."]
+centered = false
+offset = Vector2(-26.0, 0)
+pixel_size = 0.0738
+texture = ExtResource("2_decor")
+region_enabled = true
+region_rect = Rect2(256, 0, 52, 128)
+script = ExtResource("3_litsprite")
+Mirror = true
+CenteredAtBase = false
+ForwardOffset = 1.9188
+MaterialTemplate = ExtResource("4_spritemat")
+alpha_cut = 1

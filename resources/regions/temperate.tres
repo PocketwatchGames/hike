@@ -7,7 +7,6 @@
 script = ExtResource("2_weather")
 cloudCover = 0.35
 windSpeed = 3.0
-windDirection = Vector3(-0.7, 0, 0.7)
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]

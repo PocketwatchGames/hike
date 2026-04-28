@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://dnbg3pwmomno5"]
 
 [ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/Torch.cs" id="1_torch"]
-[ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/torch_01_lit.png" id="2_ty0ga"]
-[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/torch_01_unlit.png" id="3_m4hkm"]
+[ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="2_ty0ga"]
+[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="4_light"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="5_litsprite"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="6_spritemat"]

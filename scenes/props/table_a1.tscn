@@ -1,7 +1,7 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
-[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/decor.png" id="2_decor"]
+[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_litsprite"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="4_spritemat"]
 

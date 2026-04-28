@@ -409,15 +409,15 @@ moon_disk_intensity={
 }
 sun_texture={
 "type": "sampler2D",
-"value": "res://assets/textures/sun_disc.tres"
+"value": "res://assets/textures/skybox/sun_disc.tres"
 }
 moon_texture={
 "type": "sampler2D",
-"value": "res://assets/textures/moon_disc.tres"
+"value": "res://assets/textures/skybox/moon_disc.tres"
 }
 star_texture={
 "type": "sampler2D",
-"value": "res://assets/textures/starfield_placeholder.tres"
+"value": "res://assets/textures/skybox/starfield_placeholder.tres"
 }
 star_intensity={
 "type": "float",
@@ -469,7 +469,7 @@ reflection_min={
 }
 cloud_noise_tex={
 "type": "sampler2D",
-"value": "res://assets/textures/cloud_noise.tres"
+"value": "res://assets/textures/skybox/cloud_noise.tres"
 }
 fill_a_world_dir={
 "type": "vec3",

@@ -5,6 +5,17 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // Bitmask of worldgen entity categories to SKIP. Useful for iterating on
+    // terrain shape, kit colors, or fog without the visual clutter — set the
+    // bits for the category you want gone:
+    //   1  = details      (painted detail-sprite scatter — grass blades etc.)
+    //   2  = props        (trees + tall grass)
+    //   4  = mobs         (goblins, kun_kun, including cave-pocket spawns)
+    //   8  = interactives (loot + chests, including cave pocket variants)
+    //   15 = everything (all four categories)
+    // Combine with bitwise OR; e.g. 3 = details + props. Default 0 = no skip.
+    public static CVarInt worldgenSkip = new CVarInt("worldgen_skip", 0);
+
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);
@@ -93,6 +104,29 @@ public static class CVars
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
+
+    // Generic CPU section profiler. While `profile` is true, code sections
+    // wrapped in Profiler.Section.Begin/End record per-section call count,
+    // total time, max single call, and approximate per-frame cost. Run
+    // `profile_dump` from the in-game console to print a table and reset
+    // the accumulators. The mob hot path (`Mob.*` sections) is the first
+    // thing wired up — useful for finding which part of mob update is
+    // dominating the frame at high mob counts.
+    public static CVarBool profile = new CVarBool("profile", false, (cvar) =>
+    {
+        if (((CVarBool)cvar).Value)
+        {
+            Profiler.Reset();
+        }
+    });
+
+    // Console action: prints the current per-section totals and resets the
+    // accumulators. Run `profile_dump` to take a snapshot, then again later
+    // to see the delta over a window.
+    public static CVar profileDump = new CVar("profile_dump", (cvar) =>
+    {
+        Profiler.DumpAndReset();
+    });
 
     // Log per-chunk active cell / quad counts from the DC mesher.
     public static CVarBool debugDC = new CVarBool("debug_dc", false, (cvar) =>

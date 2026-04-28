@@ -77,18 +77,12 @@ uniform sampler2DArray tile_array : source_color, filter_nearest_mipmap, repeat_
 // sampled layer is resolved per-fragment in `resolve_layer` from the base,
 // the elevation band (world Y), and a position hash.
 const float TILE_STONE = 0.0;
-const float TILE_DIRT = 1.0;
-// Grass top's base is 2; variants/bands occupy layers 2..17 — resolved in
-// resolve_layer() from the tile_variants[] entry at index 2.
-const float TILE_GRASS_TOP = 2.0;
-// "Auto" sentinels — when a vertex carries one of these ids, the fragment
-// picks the real tile from surface slope. Two variants:
-//   TILE_AUTO (255):      flat / slope / wall driven by the per-vertex KitId.
-//   TILE_AUTO_PATH (254): never flat-grass; dirt by default; stone if steep.
-//                         Authored content wants a worn/earthen look
-//                         regardless of slope. Will become a kit overlay.
-// Must match VoxelTypeInfo.TILE_AUTO / TILE_AUTO_PATH.
-const float TILE_AUTO_PATH_THRESHOLD = 253.5;
+// Grass top's base is 1; variants/bands occupy layers 1..16 — resolved in
+// resolve_layer() from the tile_variants[] entry at index 1.
+const float TILE_GRASS_TOP = 1.0;
+// "Auto" sentinel — when a vertex carries this id (TILE_AUTO = 255), the
+// fragment picks the real tile from per-kit flat/wall via a smoothstep on
+// surface normal.y. Must match VoxelTypeInfo.TILE_AUTO.
 const float TILE_AUTO_THRESHOLD = 254.5;
 
 // Per base-tile variant config indexed by base layer id:
@@ -131,12 +125,6 @@ uniform float detail_noise_strength = 0.2;
 uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
 uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
 uniform float detail_normal_strength = 0.35;
-
-// Path slope rule: dirt above PATH_STONE_HI, stone below PATH_STONE_LO. This
-// AUTO_PATH branch stays kit-independent for now — it'll fold into a per-kit
-// overlay system later.
-const float SLOPE_PATH_STONE_LO = 0.35;
-const float SLOPE_PATH_STONE_HI = 0.55;
 
 // Per-kit palette uploaded by ChunkMesh.SetKits at world start.
 //   kit_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
@@ -424,15 +412,6 @@ void fragment() {
 			vec4 t_overlay = sample_tile(overlay_index, world_vertex, blend);
 			tex_color.rgb = mix(tex_color.rgb, t_overlay.rgb, w_flat * t_overlay.a);
 		}
-	} else if (tile_index >= TILE_AUTO_PATH_THRESHOLD) {
-		// AUTO_PATH terrain: only dirt or stone, picked by slope. Kit-
-		// independent for now — folds into a per-kit overlay system later.
-		float s = clamp(shaded_normal.y, 0.0, 1.0);
-		float w_dirt = smoothstep(SLOPE_PATH_STONE_LO, SLOPE_PATH_STONE_HI, s);
-		float w_stone = 1.0 - w_dirt;
-		vec4 t_dirt  = sample_tile(TILE_DIRT,  world_vertex, blend);
-		vec4 t_stone = sample_tile(TILE_STONE, world_vertex, blend);
-		tex_color = t_dirt * w_dirt + t_stone * w_stone;
 	} else {
 		tex_color = sample_tile(tile_index, world_vertex, blend);
 	}

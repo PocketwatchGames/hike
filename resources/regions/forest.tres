@@ -7,9 +7,7 @@
 script = ExtResource("2_weather")
 cloudCover = 0.95
 windSpeed = 12.0
-windDirection = Vector3(-0.7, 0, 0.7)
 temperature = 12.0
-humidity = 0.9
 rainAmount = 0.8
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
@@ -22,5 +20,4 @@ DustColor = Color(0.462, 0.6, 0.54480004, 1)
 WaterColor = Color(0.3, 0.4166667, 0.5, 1)
 WaterOpacity = 0.5019608
 DustAmount = 0.0
-Elevation = 0.5
 weather = SubResource("Resource_weather")

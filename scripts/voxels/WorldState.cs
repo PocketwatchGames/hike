@@ -8,6 +8,14 @@ public class WorldState
     public readonly Vector3I Max;
     public SimData SimData;
 
+    // Regions present in this world. Populated by WorldGen (or the disk
+    // loader) at world creation; each ChunkState.RegionIndex picks one of
+    // these. RegionBlend.Sample reads this array to produce the player's
+    // current blended region/weather, so any change here is visible at
+    // the next frame. Empty array means "no regions authored" — RegionBlend
+    // falls back to defaults.
+    public RegionState[] Regions = [];
+
     // Default spawn point baked into the world. Set by the loader (from the
     // world file header) or by Main when starting a procedurally-generated
     // game. The packed world file persists this so a save can recreate the

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cn3tkwyerft7v"]
 
 [ext_resource type="Script" uid="uid://cs5o5c0rouhsv" path="res://scripts/gameplay/Player.cs" id="1_kqtwu"]
-[ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/default_player.tres" id="2_6eyoc"]
+[ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/characters/default_player.tres" id="2_6eyoc"]
 [ext_resource type="Texture2D" uid="uid://6bs4juspneq5" path="res://assets/textures/characters/commander_commoners.png" id="3_eojnx"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_qgnko"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_7vyk4"]

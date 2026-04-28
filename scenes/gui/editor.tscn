@@ -1,9 +1,9 @@
 [gd_scene format=3]
 
-[ext_resource type="Script" path="res://scripts/editor/WorldEditor.cs" id="1_editor"]
-[ext_resource type="Script" path="res://scripts/client/GameCamera.cs" id="2_camera"]
-[ext_resource type="Script" path="res://scripts/editor/EditorHud.cs" id="3_hud"]
-[ext_resource type="Resource" path="res://resources/default_world_gen.tres" id="4_worldgen"]
+[ext_resource type="Script" uid="uid://oeqqyiduw8hc" path="res://scripts/editor/WorldEditor.cs" id="1_editor"]
+[ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="2_camera"]
+[ext_resource type="Script" uid="uid://bnjoxay8whatf" path="res://scripts/editor/EditorHud.cs" id="3_hud"]
+[ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="4_worldgen"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_editor"]
 

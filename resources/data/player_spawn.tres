@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="PlayerSpawnData" load_steps=4 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/PlayerSpawnData.cs" id="1_pspawn"]
-[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/club.tres" id="2_melee"]
-[ext_resource type="Resource" path="res://resources/data/bow.tres" id="3_ranged"]
+[ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/weapons/club.tres" id="2_melee"]
+[ext_resource type="Resource" path="res://resources/data/weapons/bow.tres" id="3_ranged"]
 
 [resource]
 script = ExtResource("1_pspawn")

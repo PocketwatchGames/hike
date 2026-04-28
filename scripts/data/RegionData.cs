@@ -62,12 +62,6 @@ public partial class RegionData : Resource
     // DustColor (above) controls hue; this controls intensity.
     [Export(PropertyHint.Range, "0,1,0.01")] public float DustAmount = 0.1f;
 
-    // Normalized elevation of the region in [0, 1]: 0 = sea level,
-    // 1 = high alpine. Static region property feeding WeatherSimulation
-    // — high elevation cools baseline temperature, dries baseline
-    // humidity, raises baseline wind, and amplifies dust lift.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float Elevation = 0.0f;
-
     // Baseline weather for this region. Becomes the climate baseline
     // once dynamic weather exists.
     [Export] public WeatherData weather;

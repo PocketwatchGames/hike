@@ -29,12 +29,6 @@ public partial class WeatherData : Resource
     // via a derivation-based amplitude that rises with cloudCover.
     [Export(PropertyHint.Range, "0,40,0.1")] public float windSpeed = 2.0f;
 
-    // Compass heading of the wind in world XZ. Blended between regions
-    // via shortest-arc interpolation so a 350° region and a 10° region
-    // meet at 0°, not 180°. Y component unused; magnitude ignored
-    // (consumers normalize).
-    [Export] public Vector3 windDirection = new Vector3(0.7f, 0f, 0.7f);
-
     // Air temperature in degrees C. Visualization not wired yet —
     // reserved for snow thresholds, sky hue shift, and heat haze.
     [Export] public float temperature = 18.0f;

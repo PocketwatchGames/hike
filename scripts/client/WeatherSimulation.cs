@@ -194,12 +194,13 @@ public static class WeatherSimulation
     // Rewrite weather fields in place using (region, region max,
     // diurnal curve, variance). Reads `weather` as the BLENDED MAX
     // values for weather-state channels (cloud, wind, temp, humidity,
-    // fog, rain, windDir — the per-region authored ceilings, blended
-    // by RegionBlend). Reads `region` for the region-intrinsic
-    // properties (DustAmount as max, Elevation as static forcing).
-    // Writes the simulated current value for every channel except
-    // windDirection.
-    public static void Apply(WeatherData weather, RegionData region, WorldState ws, SimData sim)
+    // fog, rain — the per-region authored ceilings, blended by
+    // RegionBlend). Reads `region` for the region-intrinsic palette
+    // (DustAmount as max, etc.) and `elevation` (the blended runtime
+    // RegionState.Elevation, since it now lives off the authored
+    // RegionData) as static forcing. Writes the simulated current
+    // value for every weather channel.
+    public static void Apply(WeatherData weather, RegionData region, float elevation, WorldState ws, SimData sim)
     {
         if (weather == null || sim == null) { return; }
 
@@ -217,7 +218,7 @@ public static class WeatherSimulation
         float cloudMax = Mathf.Clamp(weather.cloudCover, 0f, 1f);
         float rainMax = Mathf.Clamp(weather.rainAmount, 0f, 1f);
         float dustMax = Mathf.Clamp(region?.DustAmount ?? 0f, 0f, 1f);
-        float elevation = Mathf.Clamp(region?.Elevation ?? 0f, 0f, 1f);
+        elevation = Mathf.Clamp(elevation, 0f, 1f);
 
         // --- Baselines (diurnal-modulated maxes) -------------------------
         // Baseline humidity. Real humidity is HIGHEST at the cool trough

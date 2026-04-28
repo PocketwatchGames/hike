@@ -17,8 +17,7 @@ public partial class WorldEditor : Node3D
 
     private static readonly VoxelType[] PlaceableTypes =
     {
-        VoxelType.Stone, VoxelType.Grass, VoxelType.Dirt, VoxelType.Sand,
-        VoxelType.Wood, VoxelType.Barrier, VoxelType.Water,
+        VoxelType.Stone, VoxelType.Barrier, VoxelType.Water,
     };
 
     private static readonly string[] EntityNames =
@@ -432,24 +431,36 @@ public partial class WorldEditor : Node3D
 
     private EntitySimState CreateEntitySimState(string entityName, Vector3 position)
     {
+        // Editor placement pulls Tree/TallGrass scenes from the first region —
+        // there's no per-cursor region context yet, and all regions currently
+        // share palettes. Once region painting lands, sample by cursor column.
+        RegionGenData firstRegion = worldGenData.Regions != null && worldGenData.Regions.Length > 0 ? worldGenData.Regions[0] : null;
+        PackedScene[] treeScenes = firstRegion?.TreeScenes ?? System.Array.Empty<PackedScene>();
+        PackedScene[] tallGrassScenes = firstRegion?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
         switch (entityName)
         {
             case "Tree":
-                return new PropSimState(PropType.Tree, position, worldGenData.TreeScenes[(int)(GD.Randi() % worldGenData.TreeScenes.Length)]);
+                return treeScenes.Length > 0 ? new PropSimState(PropType.Tree, position, treeScenes[(int)(GD.Randi() % treeScenes.Length)]) : null;
             case "TallGrass":
-                return new PropSimState(PropType.TallGrass, position, worldGenData.TallGrassScenes[(int)(GD.Randi() % worldGenData.TallGrassScenes.Length)]);
+                return tallGrassScenes.Length > 0 ? new PropSimState(PropType.TallGrass, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
             case "Loot":
-                return new PropSimState(PropType.Loot, position, worldGenData.LootScene);
+                return firstRegion?.LootScene != null ? new PropSimState(PropType.Loot, position, firstRegion.LootScene) : null;
             case "Chest":
-                return new ChestSimState(position, worldGenData.ChestScene, 3, worldGenData.LootScene);
+                return firstRegion?.ChestScene != null && firstRegion.LootScene != null
+                    ? new ChestSimState(position, firstRegion.ChestScene, 3, firstRegion.LootScene)
+                    : null;
             case "Torch":
                 return new TorchSimState(position, worldGenData.TorchScene);
             case "Door":
                 return new DoorSimState(position, 0f, worldGenData.DoorScene);
             case "Goblin":
-                return new MobSimState(position, 0f, worldGenData.GoblinScene, worldGenData.GoblinData);
+                return firstRegion?.GoblinScene != null && firstRegion.GoblinData != null
+                    ? new MobSimState(position, 0f, firstRegion.GoblinScene, firstRegion.GoblinData)
+                    : null;
             case "KunKun":
-                return new MobSimState(position, 0f, worldGenData.KunKunScene, worldGenData.KunKunData);
+                return firstRegion?.KunKunScene != null && firstRegion.KunKunData != null
+                    ? new MobSimState(position, 0f, firstRegion.KunKunScene, firstRegion.KunKunData)
+                    : null;
             default:
                 return null;
         }
@@ -641,6 +652,21 @@ public partial class WorldEditor : Node3D
         var min = new Vector3I(-4, -1, -4);
         var max = new Vector3I(3, 1, 3);
         var ws = new WorldState(min, max, genData.SimData);
+
+        // Mirror WorldGen's region setup so the sky preview has something
+        // to blend in the editor. RegionIndex stays 0 across all chunks
+        // here (the editor's empty stub is a single uniform area); the
+        // full editor will paint indices when authoring.
+        ws.Regions = new RegionState[genData.Regions.Length];
+        for (int i = 0; i < genData.Regions.Length; i++)
+        {
+            ws.Regions[i] = new RegionState
+            {
+                Data = genData.Regions[i]?.Region,
+                WindDirection = new Vector3(0.7f, 0f, 0.7f),
+                Elevation = 0f,
+            };
+        }
 
         // Initialize all chunks
         for (int cx = min.X; cx <= max.X; cx++)

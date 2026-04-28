@@ -5,6 +5,14 @@ public class ChunkState
     public const int SIZE = 16;
 
     public readonly Vector3I ChunkCoord;
+
+    // Index into WorldState.Regions[]. Picks the region this chunk
+    // belongs to — drives RegionBlend.Sample's per-chunk weighting so
+    // an arbitrary region shape (not just the legacy 4-quadrant layout)
+    // can be authored just by stamping different indices on chunks.
+    // Set by WorldGen (or a future editor) at world creation.
+    public byte RegionIndex;
+
     public readonly VoxelType[,,] Voxels;
 
     // Per-voxel shape tag: stores VoxelTypeInfo.SharpAxes flags as a byte.
@@ -18,7 +26,8 @@ public class ChunkState
     //   Ramps / path-band slopes → None               (smooth interpolation)
     public readonly byte[,,] Shape;
 
-    // Per-voxel environment kit id. Index into WorldGenData.Kits. Orthogonal to
+    // Per-voxel environment kit id. Index into the active world's kit palette
+    // (RegionGenData.Kits, uploaded globally via ChunkMesh.SetKits). Orthogonal to
     // VoxelType: a voxel tagged VoxelType.Terrain with KitId=2 means "AUTO land
     // that reads from the underwater kit's palette." Per-voxel (not per-column)
     // so caves beneath overhangs can use a different kit than the surface above.

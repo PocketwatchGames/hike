@@ -5,21 +5,18 @@ public enum VoxelType : byte
 {
     Air = 0,
     Stone = 1,
-    Grass = 2,
-    Dirt = 3,
-    Sand = 4,
-    Wood = 5,
     Barrier = 6,
     Water = 7,
-    // "Auto" terrain: shader picks tile from surface slope (grass/dirt/stone)
-    // and the mesher overrides to sand near water. Use this for natural land
-    // instead of Grass/Dirt/Stone/Sand, which are kept as authored overrides.
+    // "Auto" terrain: shader picks tile from per-voxel KitId + surface
+    // normal.y. Use this for natural land — Stone is the only authored solid
+    // override that remains (used for explicit cliff geometry / future
+    // building blocks).
     Terrain = 8,
-    // "Auto" terrain variant for path bands. Same water→sand override, but
-    // shader never picks grass: any slope reads as dirt; only steep cliffs
-    // become stone. Used for the smooth slopes WorldGen carves between
-    // quantized plateaus.
-    TerrainPath = 9,
+    // Authored sand/dune terrain. Top face cycles desert_elevation0grass +
+    // desert_level1 by elevation band.
+    Desert = 10,
+    // Authored wetland tile (single-tile, no bands/variants).
+    Marsh = 11,
 }
 
 public static class VoxelTypeInfo
@@ -27,13 +24,10 @@ public static class VoxelTypeInfo
     public static readonly Dictionary<VoxelType, Color> Colors = new()
     {
         { VoxelType.Stone, new Color(1f, 1f, 1f) },
-        { VoxelType.Grass, new Color(1f, 1f, 1f) },
-        { VoxelType.Dirt, new Color(1f, 1f, 1f) },
-        { VoxelType.Sand, new Color(1f, 1f, 1f) },
-        { VoxelType.Wood, new Color(1f, 1f, 1f) },
         { VoxelType.Water, new Color(0.6f, 0.85f, 1f) },
         { VoxelType.Terrain, new Color(1f, 1f, 1f) },
-        { VoxelType.TerrainPath, new Color(1f, 1f, 1f) },
+        { VoxelType.Desert, new Color(1f, 1f, 1f) },
+        { VoxelType.Marsh, new Color(1f, 1f, 1f) },
     };
 
     // Texture array layer indices. Must match the layer order in
@@ -51,32 +45,36 @@ public static class VoxelTypeInfo
     // all tiles with higher base indices forward by the added count. Both
     // this table and the .png layer count must change together.
     public const int TILE_STONE = 0;
-    public const int TILE_DIRT = 1;
-    // Grass top occupies layers 2..17 — 4 elevation bands × 4 variants each
+    // Grass top occupies layers 1..16 — 4 elevation bands × 4 variants each
     // (level1_1..level4_4 in assets/textures/voxels/). Layout is band-major:
-    // layer 2+band*4+variant.
-    public const int TILE_GRASS_TOP = 2;
-    public const int TILE_GRASS_SIDE = 18;
-    public const int TILE_SAND = 19;
-    public const int TILE_WOOD_END = 20;
-    public const int TILE_WOOD_SIDE = 21;
-    public const int TILE_WATER = 22;
+    // layer 1+band*4+variant.
+    public const int TILE_GRASS_TOP = 1;
+    public const int TILE_WATER = 17;
     // Cobblestone: 1 band × 4 variants (cobblestone1..cobblestone4). Opaque
     // base tile; kits can point FlatTile or WallTile here for stone-paved
     // regions.
-    public const int TILE_COBBLESTONE = 23;
+    public const int TILE_COBBLESTONE = 18;
     // Overlay base layers. These sample with their alpha channel driving
     // blend strength — authored with soft edges in the PNG so coverage reads
     // as a patch rather than a tile fill. Worldgen writes one of these into
     // OverlayId per voxel; 0 means "no overlay".
-    public const int TILE_DIRT_OVERLAY = 27;   // 1 band × 4 variants (dirt1..4).
-    public const int TILE_FIELD_OVERLAY = 31;  // 1 band × 1 variant (field.png).
+    public const int TILE_DIRT_OVERLAY = 22;   // 1 band × 4 variants (dirt1..4).
+    public const int TILE_FIELD_OVERLAY = 26;  // 1 band × 1 variant (field.png).
+    // Desert top: 2 elevation bands × 1 variant. Band 0 (low elevations,
+    // sea-level shelves) = desert_elevation0grass. Band 1 (above sea level) =
+    // desert_level1. Layer 28 doubles as the standalone "desert sand" tile
+    // referenced by kits whose FlatTile/WallTile points here directly (e.g.
+    // shoreline sand on kit_underwater) — an unauthored TileVariants entry
+    // collapses to (1,1) so single-layer references resolve cleanly.
+    public const int TILE_DESERT_TOP = 27;
+    public const int TILE_DESERT_SAND = 28;   // alias: TILE_DESERT_TOP band 1
+    public const int TILE_DESERT_WALL = 29;   // desert_level4 — cliff faces in desert kit
+    public const int TILE_DESERT_CAVE = 30;   // desert_level2 — sandstone cave floor
+    // Marsh: single tile (marsh.png), 1 band × 1 variant.
+    public const int TILE_MARSH = 31;
     // Sentinel id passed through CUSTOM0 to the shader. The shader detects
     // values >= TILE_AUTO_THRESHOLD and picks the real tile by surface slope.
     public const int TILE_AUTO = 255;
-    // Path-band sentinel: same idea but shader uses tighter slope rules
-    // (never grass; dirt by default; stone only on steep faces).
-    public const int TILE_AUTO_PATH = 254;
 
     // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
     // Must be >= 1 + max base layer in use. Keep modest — every entry is a
@@ -145,16 +143,15 @@ public static class VoxelTypeInfo
     public static readonly Dictionary<int, TileVariantInfo> TileVariants = new()
     {
         { TILE_STONE,         new(1, 1) },
-        { TILE_DIRT,          new(1, 1) },
         { TILE_GRASS_TOP,     new(4, 4) },
-        { TILE_GRASS_SIDE,    new(1, 1) },
-        { TILE_SAND,          new(1, 1) },
-        { TILE_WOOD_END,      new(1, 1) },
-        { TILE_WOOD_SIDE,     new(1, 1) },
         { TILE_WATER,         new(1, 1) },
         { TILE_COBBLESTONE,   new(1, 4) },
         { TILE_DIRT_OVERLAY,  new(1, 4) },
         { TILE_FIELD_OVERLAY, new(1, 1) },
+        { TILE_DESERT_TOP,    new(2, 1) },
+        { TILE_DESERT_WALL,   new(1, 1) },
+        { TILE_DESERT_CAVE,   new(1, 1) },
+        { TILE_MARSH,         new(1, 1) },
     };
 
     public readonly struct TileFaces
@@ -176,13 +173,10 @@ public static class VoxelTypeInfo
     public static readonly Dictionary<VoxelType, TileFaces> Tiles = new()
     {
         { VoxelType.Stone, new(TILE_STONE) },
-        { VoxelType.Grass, new(TILE_GRASS_TOP, TILE_GRASS_SIDE, TILE_DIRT) },
-        { VoxelType.Dirt, new(TILE_DIRT) },
-        { VoxelType.Sand, new(TILE_SAND) },
-        { VoxelType.Wood, new(TILE_WOOD_END, TILE_WOOD_SIDE, TILE_WOOD_END) },
         { VoxelType.Water, new(TILE_WATER) },
         { VoxelType.Terrain, new(TILE_AUTO) },
-        { VoxelType.TerrainPath, new(TILE_AUTO_PATH) },
+        { VoxelType.Desert, new(TILE_DESERT_TOP, TILE_DESERT_WALL, TILE_DESERT_WALL) },
+        { VoxelType.Marsh, new(TILE_MARSH) },
     };
 
     // Per-voxel-type "noisiness" of texture-tile borders. 0 = crisp boundary
@@ -193,13 +187,10 @@ public static class VoxelTypeInfo
     public static readonly Dictionary<VoxelType, float> BlendNoise = new()
     {
         { VoxelType.Stone, 0.0f },
-        { VoxelType.Grass, 0.55f },
-        { VoxelType.Dirt,  0.55f },
-        { VoxelType.Sand,  0.55f },
-        { VoxelType.Wood,  0.0f },
         { VoxelType.Water, 0.0f },
         { VoxelType.Terrain, 0.55f },
-        { VoxelType.TerrainPath, 0.55f },
+        { VoxelType.Desert, 0.55f },
+        { VoxelType.Marsh, 0.55f },
     };
 
     public static float GetBlendNoise(VoxelType type)
@@ -215,15 +206,13 @@ public static class VoxelTypeInfo
     public static readonly Dictionary<VoxelType, Color> GroundTint = new()
     {
         { VoxelType.Stone,       new Color(0.22f, 0.22f, 0.22f) },
-        { VoxelType.Grass,       new Color(0.16f, 0.22f, 0.09f) },
-        { VoxelType.Dirt,        new Color(0.16f, 0.11f, 0.08f) },
-        { VoxelType.Sand,        new Color(0.38f, 0.32f, 0.22f) },
-        { VoxelType.Wood,        new Color(0.22f, 0.15f, 0.09f) },
         // Terrain resolves to grass_top on the slopes where detail grass
         // actually spawns (gentle/flat ground). Treat as grass.
         { VoxelType.Terrain,     new Color(0.16f, 0.22f, 0.09f) },
-        // TerrainPath never picks grass in the shader — worn dirt/stone only.
-        { VoxelType.TerrainPath, new Color(0.16f, 0.11f, 0.08f) },
+        // Warm dune sand.
+        { VoxelType.Desert,      new Color(0.34f, 0.26f, 0.16f) },
+        // Wet, organic — leans dark green/brown.
+        { VoxelType.Marsh,       new Color(0.12f, 0.16f, 0.10f) },
     };
 
     public static Color GetGroundTint(VoxelType type)
@@ -256,19 +245,15 @@ public static class VoxelTypeInfo
     // Default shape flag to stamp at each voxel when its material is written
     // and the caller doesn't override. The mesher reads the stamped per-voxel
     // shape (ChunkState.Shape) — not this table — so worldgen can override
-    // per-voxel (e.g. tag path-band ramp columns as None while the rest of
-    // the Terrain surface stays Y). Keep this table authoritative for the
-    // "default intent" of a material: buildings fully blocky, natural ground
-    // snaps on Y only, ramps stay smooth.
+    // per-voxel. Keep this table authoritative for the "default intent" of a
+    // material: buildings fully blocky, natural ground snaps on Y only,
+    // ramps stay smooth.
     public static readonly Dictionary<VoxelType, SharpAxes> DefaultShape = new()
     {
         { VoxelType.Stone,       SharpAxes.All },
-        { VoxelType.Wood,        SharpAxes.All },
-        { VoxelType.Grass,       SharpAxes.Y },
-        { VoxelType.Dirt,        SharpAxes.Y },
-        { VoxelType.Sand,        SharpAxes.Y },
         { VoxelType.Terrain,     SharpAxes.Y },
-        { VoxelType.TerrainPath, SharpAxes.None },
+        { VoxelType.Desert,      SharpAxes.Y },
+        { VoxelType.Marsh,       SharpAxes.Y },
     };
 
     public static SharpAxes GetDefaultShape(VoxelType type)

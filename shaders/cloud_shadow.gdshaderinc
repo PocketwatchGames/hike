@@ -10,7 +10,7 @@
 // that become shafts when sampled through fog in the raymarcher.
 //
 // The noise comes from a pre-baked NoiseTexture2D (seamless FBM Perlin,
-// see res://assets/textures/cloud_noise.tres). One texture() call per
+// see res://assets/textures/skybox/cloud_noise.tres). One texture() call per
 // query is cheaper than the 5-octave procedural fbm this used to call,
 // and the baked texture has no visible grid artifacts — procedural
 // value-noise lattices show up as axis-aligned rectangular patches at
