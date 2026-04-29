@@ -471,6 +471,114 @@ public class WorldState
         return GetPerceivedLightWorld(wx, wy, wz, sunReachesPoint);
     }
 
+    // Trilinearly-sampled wind factor at a world position, in [0, 1].
+    // Cell centers sit at the midpoint of each ENV_VOXELS_PER_CELL cube,
+    // so the continuous cell coordinate of a world point is
+    //     f = wp / ENV_VOXELS_PER_CELL - 0.5
+    // Floor → base cell, fract → blend weight to the next cell. Mirrors
+    // the GPU's trilinear filter on the wind_map texture so audio code
+    // and shaders agree on the value at any point. Out-of-bounds corner
+    // cells contribute 0 — same convention as unloaded chunks reading
+    // as "no wind here".
+    public float SampleWindFactor(Vector3 worldPos)
+    {
+        const float CELL = ChunkState.ENV_VOXELS_PER_CELL;
+        float fx = worldPos.X / CELL - 0.5f;
+        float fy = worldPos.Y / CELL - 0.5f;
+        float fz = worldPos.Z / CELL - 0.5f;
+        int cx0 = (int)Math.Floor(fx);
+        int cy0 = (int)Math.Floor(fy);
+        int cz0 = (int)Math.Floor(fz);
+        float tx = fx - cx0;
+        float ty = fy - cy0;
+        float tz = fz - cz0;
+
+        float c000 = GetWindFactorAtCell(cx0,     cy0,     cz0);
+        float c100 = GetWindFactorAtCell(cx0 + 1, cy0,     cz0);
+        float c010 = GetWindFactorAtCell(cx0,     cy0 + 1, cz0);
+        float c110 = GetWindFactorAtCell(cx0 + 1, cy0 + 1, cz0);
+        float c001 = GetWindFactorAtCell(cx0,     cy0,     cz0 + 1);
+        float c101 = GetWindFactorAtCell(cx0 + 1, cy0,     cz0 + 1);
+        float c011 = GetWindFactorAtCell(cx0,     cy0 + 1, cz0 + 1);
+        float c111 = GetWindFactorAtCell(cx0 + 1, cy0 + 1, cz0 + 1);
+
+        float c00 = c000 * (1f - tx) + c100 * tx;
+        float c01 = c001 * (1f - tx) + c101 * tx;
+        float c10 = c010 * (1f - tx) + c110 * tx;
+        float c11 = c011 * (1f - tx) + c111 * tx;
+        float c0 = c00 * (1f - ty) + c10 * ty;
+        float c1 = c01 * (1f - ty) + c11 * ty;
+        float c = c0 * (1f - tz) + c1 * tz;
+        return c / 255f;
+    }
+
+    // Trilinearly-sampled env-tag weights at a world position. Each of the
+    // eight surrounding cells contributes its tag's wire value with a
+    // fractional weight; weights sum to 1 when all corners are loaded.
+    // Audio uses these to blend reverb preset parameters smoothly across
+    // cell boundaries instead of swapping presets discretely.
+    public EnvTagWeights SampleEnvTagWeights(Vector3 worldPos)
+    {
+        const float CELL = ChunkState.ENV_VOXELS_PER_CELL;
+        float fx = worldPos.X / CELL - 0.5f;
+        float fy = worldPos.Y / CELL - 0.5f;
+        float fz = worldPos.Z / CELL - 0.5f;
+        int cx0 = (int)Math.Floor(fx);
+        int cy0 = (int)Math.Floor(fy);
+        int cz0 = (int)Math.Floor(fz);
+        float tx = fx - cx0;
+        float ty = fy - cy0;
+        float tz = fz - cz0;
+
+        var weights = new EnvTagWeights();
+        AccumEnvTagAtCell(ref weights, cx0,     cy0,     cz0,     (1f - tx) * (1f - ty) * (1f - tz));
+        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0,     cz0,     tx        * (1f - ty) * (1f - tz));
+        AccumEnvTagAtCell(ref weights, cx0,     cy0 + 1, cz0,     (1f - tx) * ty        * (1f - tz));
+        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0 + 1, cz0,     tx        * ty        * (1f - tz));
+        AccumEnvTagAtCell(ref weights, cx0,     cy0,     cz0 + 1, (1f - tx) * (1f - ty) * tz);
+        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0,     cz0 + 1, tx        * (1f - ty) * tz);
+        AccumEnvTagAtCell(ref weights, cx0,     cy0 + 1, cz0 + 1, (1f - tx) * ty        * tz);
+        AccumEnvTagAtCell(ref weights, cx0 + 1, cy0 + 1, cz0 + 1, tx        * ty        * tz);
+        return weights;
+    }
+
+    private int GetWindFactorAtCell(int cellWx, int cellWy, int cellWz)
+    {
+        Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        int sx = Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE);
+        int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
+        int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
+        return chunk.WindFactor[sx, sy, sz];
+    }
+
+    private void AccumEnvTagAtCell(ref EnvTagWeights weights, int cellWx, int cellWy, int cellWz, float w)
+    {
+        Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            // Drop the contribution rather than defaulting to a tag —
+            // weights sum < 1 is the listener's "no data here" signal.
+            return;
+        }
+        int sx = Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE);
+        int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
+        int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
+        weights.Add((EnvironmentTag)chunk.EnvTag[sx, sy, sz], w);
+    }
+
+    private static Vector3I CellWorldToChunkCoord(int cellWx, int cellWy, int cellWz)
+    {
+        return new Vector3I(
+            (int)Math.Floor((double)cellWx / ChunkState.ENV_SUBGRID_SIZE),
+            (int)Math.Floor((double)cellWy / ChunkState.ENV_SUBGRID_SIZE),
+            (int)Math.Floor((double)cellWz / ChunkState.ENV_SUBGRID_SIZE)
+        );
+    }
+
     public ChunkState GetChunk(Vector3I coord)
     {
         _chunks.TryGetValue(coord, out ChunkState data);

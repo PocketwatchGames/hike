@@ -7,7 +7,6 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
-[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="8_lit_aodecaltexture"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -86,6 +85,8 @@ region_enabled = true
 region_rect = Rect2(0, 0, 8, 8)
 script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_spritemat")
+ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
 Reflects = 1
 alpha_cut = 1
 

@@ -66,7 +66,11 @@ public partial class ChunkMesh : Node3D
         var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
         BackfaceStencilMaterial = new ShaderMaterial();
         BackfaceStencilMaterial.Shader = backfaceShader;
-        BackfaceStencilMaterial.RenderPriority = 0;
+        // Last writer in the stencil chain — runs after voxel_water (-3)
+        // and water_backface (-2) so its stencil=1 survives wherever the
+        // cap should draw. See WaterBackfaceMaterial above for the full
+        // priority ladder.
+        BackfaceStencilMaterial.RenderPriority = -1;
 
         var shadowCasterShader = GD.Load<Shader>("res://shaders/voxel_shadow_caster.gdshader");
         ShadowCasterMaterial = new ShaderMaterial();
@@ -75,6 +79,16 @@ public partial class ChunkMesh : Node3D
         var waterShader = GD.Load<Shader>("res://shaders/voxel_water.gdshader");
         WaterMaterial = new ShaderMaterial();
         WaterMaterial.Shader = waterShader;
+        // Draw water BEFORE the stencil-write passes (water_backface_stencil
+        // at -1 and voxel_backface_stencil at 0) so they can overwrite
+        // water's stencil=4 (used for the reflection mask) with their own
+        // stencil values (2 / 1) where they're meant to drive caps. Without
+        // this, voxel_water's `stencil_mode write, compare_always, 4` runs
+        // last and clobbers any stencil=1 the backface pass wrote at the
+        // same pixel — the cap then reads compare_equal=1, finds 4, and
+        // doesn't draw. Verified by clip_debug 2 + water_hide 1: with water
+        // hidden, stencil=1 survives and the cap draws as expected.
+        WaterMaterial.RenderPriority = -3;
         // Two pre-baked normal-map textures for ripple perturbation. Each is
         // a NoiseTexture2D with as_normal_map=true (Godot bakes the noise
         // gradient into RGB). Different seeds/frequencies so when the shader
@@ -87,7 +101,16 @@ public partial class ChunkMesh : Node3D
         var waterBackfaceShader = GD.Load<Shader>("res://shaders/voxel_water_backface.gdshader");
         WaterBackfaceMaterial = new ShaderMaterial();
         WaterBackfaceMaterial.Shader = waterBackfaceShader;
-        WaterBackfaceMaterial.RenderPriority = -1;
+        // Stencil pipeline order:
+        //   -3  voxel_water           writes stencil=4 (reflection mask)
+        //   -2  voxel_water_backface  writes stencil=2 (water cap region)
+        //   -1  voxel_backface_stencil writes stencil=1 (ceiling cap region) — already 0; bumped via separate field
+        //    1  clip_cap              reads  stencil=1 (ceiling cap)
+        //    2  water_clip_cap        reads  stencil=2 (water cap)
+        // Each stencil writer overwrites earlier values, so backface_stencil
+        // wins over water/water_backface in the cap region — exactly what we
+        // want, since cap occludes water visually too.
+        WaterBackfaceMaterial.RenderPriority = -2;
     }
 
     // Must match MAX_KITS in voxel_clip.gdshader.

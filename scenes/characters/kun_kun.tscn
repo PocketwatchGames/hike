@@ -9,7 +9,6 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="7_lit_materialtemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
-[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="10_lit_aodecaltexture"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 radius = 0.3
@@ -78,7 +77,6 @@ script = ExtResource("6_litsprite")
 MaterialTemplate = ExtResource("7_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("8_lit_shadowcastertemplate")
 ReflectionTemplate = ExtResource("9_lit_reflectiontemplate")
-AoDecalTexture = ExtResource("10_lit_aodecaltexture")
 MirrorByYaw = true
 ForwardOffset = 0.3
 

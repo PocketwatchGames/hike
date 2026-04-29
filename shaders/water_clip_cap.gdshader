@@ -1,5 +1,13 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_never, unshaded;
+// depth_draw_opaque so the cap occludes voxel water front faces drawn
+// after it. Without depth write, water also has depth_draw_never and
+// reads past us through the deeper scene depth, bleeding the lake
+// surface through the cutaway — the "shoreline through the clip"
+// symptom. The stencil mask keeps depth writes confined to clipped
+// water pixels, so non-cap regions are unaffected. (Godot 4.x has only
+// depth_draw_opaque / depth_draw_always / depth_draw_never — there is
+// no _alpha mode.)
+render_mode blend_mix, depth_draw_opaque, unshaded;
 stencil_mode read, compare_equal, 2;
 
 uniform sampler2D depth_tex : hint_depth_texture, filter_linear_mipmap;
@@ -40,6 +48,8 @@ global uniform vec2 foam_offset;
 global uniform float foam_strength;
 global uniform float foam_threshold;
 global uniform float foam_sharpness;
+
+global uniform int clip_debug_mode;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -91,6 +101,15 @@ vec3 ripple_normal(vec2 world_xz, float time) {
 }
 
 void fragment() {
+	// Debug: kill the cap entirely (mode 5) or paint it bright magenta
+	// (mode 1) so its coverage is unambiguous on screen.
+	if (clip_debug_mode == 5) {
+		discard;
+	}
+	if (clip_debug_mode == 1 || clip_debug_mode == 13) {
+		ALBEDO = vec3(1.0, 0.0, 1.0);
+		ALPHA = 1.0;
+	} else {
 	vec3 world_pos = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
 	// The cap is the horizontal slice of water at the cutaway plane. Treat
@@ -146,4 +165,5 @@ void fragment() {
 
 	ALBEDO = final_col;
 	ALPHA = max(mix(water_alpha_min, water_alpha_max, depth_factor), foam_amount);
+	}
 }

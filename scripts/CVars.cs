@@ -361,6 +361,79 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("water_debug_mode", ((CVarInt)cvar).Value);
     });
 
+    // Ceiling-cap pipeline debug visualizer. Each mode replaces a single
+    // shader's output with a flat bright color so you can see exactly
+    // which shader is drawing what at any pixel. Use to track down "X is
+    // showing through the cutaway" artifacts.
+    //   0 = off (normal render)
+    //   1 = water cap (water_clip_cap.gdshader) → bright MAGENTA wherever it
+    //       draws. Anything that's still wrong-looking after enabling this
+    //       and seeing magenta over it is being drawn BY the water cap.
+    //   2 = ceiling cap (clip_cap.gdshader) → bright RED.
+    //   3 = water backface stencil (voxel_water_backface.gdshader) → adds
+    //       CYAN wherever stencil=2 is being written. Shows the screen
+    //       region the water cap is allowed to draw in.
+    //   4 = solid backface stencil (voxel_backface_stencil.gdshader) → adds
+    //       GREEN wherever stencil=1 is being written. Shows the screen
+    //       region the ceiling cap is allowed to draw in.
+    //   5 = water cap disabled entirely. If the artifact disappears, the
+    //       water cap was drawing it. If it persists, look elsewhere.
+    //   6 = ceiling cap disabled entirely.
+    //   7 = voxel_water front face (voxel_water.gdshader) → bright YELLOW.
+    //       Shows where actual water voxel surfaces (not the cap) draw.
+    //   8 = voxel_water clip-line predicate viz. RED = fragment evaluates
+    //       `world_vertex.y > camera_clip` (would have been discarded).
+    //       GREEN = below clip (legitimate). If you see RED water
+    //       surfaces, the discard isn't firing — either camera_clip is
+    //       +inf / wrong, or the global isn't seeded on this material.
+    //   9 = voxel_water `world_vertex.y` as grayscale (mod 16). Should be
+    //       horizontal bands; flat = the varying isn't reaching fragment.
+    //  10 = voxel_water `camera_clip` global as grayscale (mod 16). Flat
+    //       uniform color across all water fragments. Pure white = global
+    //       reading as huge / +inf; pure black = global never set on this
+    //       material.
+    //  11 = voxel_water face-type visualizer. CYAN = top face, MAGENTA =
+    //       bottom face, YELLOW = side face. Use this when water bleeds
+    //       through the cap to see which mesh face the leak is on; the
+    //       fix is in WaterMesher (cull that face under sealed-pocket
+    //       conditions). Top faces against solid are already culled.
+    //  13 = full cap+stencil visualizer. Color legend:
+    //         BLUE          = visible terrain (voxel_clip emission)
+    //         RED           = clip_cap drawing (stencil=1 read region)
+    //         MAGENTA       = water_clip_cap drawing (stencil=2 read region)
+    //         GREEN (added) = voxel_backface_stencil writing stencil=1
+    //         CYAN  (added) = voxel_water_backface writing stencil=2
+    //         Anything else = sky / sprites / water / fog (other shaders)
+    //       Cap regions and matching stencil-write regions should overlap.
+    //       Pair with `water_hide 1` to drop water front faces.
+    //  14 = same as 13 but voxel_backface_stencil also runs ABOVE the clip
+    //       line and paints YELLOW there. Diagnostic for "stencil coverage
+    //       we'd get if we removed the above-clip discard". If yellow
+    //       appears over a water poke-through region that mode 13 left
+    //       bare, the existing discard is killing useful coverage.
+    public static CVarInt clipDebug = new CVarInt("clip_debug", 0, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("clip_debug_mode", ((CVarInt)cvar).Value);
+    });
+
+    // Enable/disable the block-light secondary shadow effect (the
+    // BlockShadowLight DirectionalLight3D + the shader path that dims
+    // block_lit under its silhouette). When false, SkyController hides
+    // the light so its shadow pass is skipped entirely and pushes
+    // block_shadow_min = 1.0 so the shaders fall back to full block_lit
+    // visibility everywhere. Useful for A/B comparing scenes with the
+    // effect on vs off, or as a graphics-settings toggle.
+    public static CVarBool blockShadowEnabled = new CVarBool("block_shadow", true);
+
+    // Discards every voxel_water fragment when set. Lets you check the
+    // terrain stencil + cap pipeline without water front faces in the
+    // way — particularly useful with `clip_debug 13` to see which screen
+    // pixels get stencil writes vs which are bare scene.
+    public static CVarBool waterHide = new CVarBool("water_hide", false, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_hide", ((CVarBool)cvar).Value);
+    });
+
     // Debug visualizer for sprite_prop_reflection_multimesh.gdshader. Replaces
     // the reflection sprite's ALBEDO with diagnostic values to track down
     // why ripple shimmer / tint / etc. is or isn't producing visible output.

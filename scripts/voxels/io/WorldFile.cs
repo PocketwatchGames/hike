@@ -38,7 +38,13 @@ public static class WorldFile
     // v9: header gained a regions table (data path + windDirection + elevation
     //     per region); chunk payload appended a 1-byte RegionIndex selecting
     //     a region from that table.
-    public const uint VERSION = 9;
+    // v10: chunk payload appended a coarse windFactor subgrid (4³ bytes per
+    //      chunk) before regionIndex — drives the wind_map 3D shader global,
+    //      damps water/foliage/audio in caves and indoors.
+    // v11: chunk payload appended a coarse envTag subgrid (4³ bytes per
+    //      chunk, EnvironmentTag enum) after windFactor, before regionIndex
+    //      — drives audio reverb-bus blending and outdoor-layer attenuation.
+    public const uint VERSION = 11;
 
     public struct IndexEntry
     {

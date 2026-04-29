@@ -72,6 +72,14 @@ global uniform float ripple_strength;
 global uniform float reflection_tint;
 global uniform float reflection_pixel_jitter_max;
 
+// Coarse wind-factor 3D texture (see voxel_water.gdshader). Sampled at
+// the reflection's water-surface intersection so prop reflections in
+// caves / indoors stop shimmering — same gating as voxel_water and
+// sprite_reflection so the three layers stay coherent.
+global uniform sampler3D wind_map : filter_linear;
+global uniform vec3 wind_map_origin;
+global uniform vec3 wind_map_inv_size;
+
 // Water-tint globals (already declared + set by SkyController for
 // voxel_water.gdshader). We sit on top of water in the transparent queue
 // now — water's blend_mix doesn't get to tint us anymore — so the
@@ -377,7 +385,12 @@ void fragment() {
             vec3 na = vec3(na_raw.r, na_raw.b, na_raw.g);
             vec3 nb = vec3(nb_raw.r, nb_raw.b, nb_raw.g);
             vec3 n_combined = normalize(na + nb);
-            vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength);
+            // Wind-subgrid gate at the reflection's water-surface point —
+            // matches voxel_water.gdshader's smooth trilinear sampling.
+            vec3 wind_sample_pos = vec3(surface_xz.x, water_y_var, surface_xz.y);
+            vec3 wind_uvw = (wind_sample_pos - wind_map_origin) * wind_map_inv_size;
+            float wind_factor = texture(wind_map, wind_uvw).r;
+            vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength * wind_factor);
             dbg_ripple_tilt = ripple_tilt;
 
             float pixel_world_w = world_w_var / max(float(sprite_size.x), 1.0);

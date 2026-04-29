@@ -8,7 +8,6 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_lit_materialtemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
-[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="8_lit_aodecaltexture"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 
@@ -50,7 +49,6 @@ script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-AoDecalTexture = ExtResource("8_lit_aodecaltexture")
 alpha_cut = 1
 
 [node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
@@ -65,7 +63,6 @@ script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-AoDecalTexture = ExtResource("8_lit_aodecaltexture")
 alpha_cut = 1
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]

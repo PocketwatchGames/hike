@@ -276,11 +276,6 @@ public partial class Mob : RigidBody3D, IWorldEntity
         }
     }
 
-    bool ShouldFreeze()
-    {
-        return LinearVelocity.LengthSquared() < 0.01f && AngularVelocity.LengthSquared() < 0.01f ;
-    }
-
     override public void _PhysicsProcess(double delta)
     {
         base._PhysicsProcess(delta);

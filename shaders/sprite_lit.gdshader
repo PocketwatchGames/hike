@@ -122,6 +122,19 @@ global uniform float camera_clip;
 global uniform float sprite_chunky;
 global uniform float sprite_stretch;
 
+// block-shadow directional light identification + dim. The block-shadow light is a third
+// DirectionalLight3D (after sun + moon) that points roughly straight down
+// with a small camera-tilt; its `light()` invocation is identified by
+// matching LIGHT (direction TO light from fragment) against -block_shadow_dir.
+// When matched we DON'T add LIGHT_COLOR — instead we MULTIPLICATIVELY dim
+// the already-accumulated DIFFUSE_LIGHT by mix(block_shadow_min, 1.0, ATTENUATION).
+// Because this is multiplicative on existing light, a fragment with zero
+// voxel light stays at zero (no brightening) and a sunlit/torchlit fragment
+// dims under the projected silhouette to ground sprites in any condition.
+// SkyController writes both globals every frame.
+global uniform vec3 block_shadow_dir;
+global uniform float block_shadow_min;
+
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
 // Uniform scale extracted from MODEL_MATRIX in vertex(). The custom billboard
@@ -151,6 +164,10 @@ varying float cloud_dim;
 // dark sprites read as gray silhouettes when bright fog composites on
 // top of their crushed color.
 varying vec3 frag_world_pos;
+// Fragment→light varying mirroring EMISSION so the block-shadow branch in light()
+// can subtract a fraction of the ambient term from DIFFUSE_LIGHT.
+// EMISSION isn't exposed in light() in this Godot version.
+varying vec3 block_shadow_carrier;
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -375,12 +392,42 @@ void fragment() {
 	// zero (so light() stops adding sun) while EMISSION fades to the tint,
 	// yielding `tint` at silhouette_amount=1 regardless of lighting state.
 	vec3 lit_albedo = tex.rgb * sun_lit * (1.0 - sun_ambient);
-	vec3 lit_emission = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	// Block_lit split across both pathways — see voxel_clip.gdshader.
+	// EMISSION carries the floor (`block_lit * block_shadow_min` + sun ambient);
+	// block_shadow_carrier carries the remainder added by block-shadow's light() scaled
+	// by ATTENUATION. Both terms multiplied by `(1 - silhouette_amount)`
+	// so silhouette mode replaces them with a flat tint cleanly.
+	vec3 lit_emission = tex.rgb * (block_lit * block_shadow_min + sun_lit * sun_ambient * cloud_dim);
+	vec3 lit_ao_block = tex.rgb * block_lit * (1.0 - block_shadow_min);
 	ALBEDO = mix(lit_albedo, vec3(0.0), silhouette_amount);
 	EMISSION = mix(lit_emission, silhouette_tint, silhouette_amount);
+	block_shadow_carrier = lit_ao_block * (1.0 - silhouette_amount);
 }
 
 void light() {
+	// block-shadow light: identified by matching LIGHT (the direction from fragment
+	// TO this light, normalized) against -block_shadow_dir. Threshold of 0.999
+	// is well inside any practical sun/moon vs. block-shadow direction separation
+	// (the block-shadow light is mostly straight down, the primaries are at much
+	// shallower angles). When matched we contribute NOTHING additively
+	// (so the block-shadow light can't brighten anything that wasn't already lit by
+	// voxel light) and instead multiplicatively dim DIFFUSE_LIGHT by
+	// mix(block_shadow_min, 1.0, ATTENUATION) — fully shadowed → block_shadow_min, unshadowed
+	// → 1.0. Critical that this runs AFTER the sun/moon light() so the
+	// dim acts on the accumulated DIFFUSE_LIGHT; this is enforced by the
+	// scene-tree order (BlockShadowLight last under SceneViewport).
+	// block-shadow light: dim ONLY the EMISSION (ambient + block-light) portion of
+	// the sprite — direct sun (carried via ALBEDO) stays untouched. See
+	// voxel_clip.gdshader's block-shadow branch for the math: subtracting
+	// EMISSION * (1 - block_shadow_factor) from DIFFUSE_LIGHT cancels that fraction
+	// of EMISSION in the final composite. Result: block-shadow silhouettes from
+	// other sprites / terrain above this sprite read strongly under cover
+	// or in caves, and fade out under bright direct sun.
+	vec3 block_shadow_dir_view = mat3(VIEW_MATRIX) * (-block_shadow_dir);
+	if (dot(LIGHT, block_shadow_dir_view) > 0.95) {
+		// Additive remainder of block_lit — see voxel_clip.gdshader.
+		DIFFUSE_LIGHT += block_shadow_carrier * ATTENUATION;
+	} else {
 	// ATTENUATION is Godot's directional shadow atlas — terrain + sprite
 	// shadow proxies, already composed correctly in the atlas. No LIGHT_COLOR
 	// / NdotL so sprites' billboarded fake normal doesn't introduce a fake
@@ -398,4 +445,5 @@ void light() {
 	const float INV_PI = 0.31830989;
 	float light_energy = LIGHT_COLOR.r * INV_PI;
 	DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
+	}
 }

@@ -69,11 +69,32 @@ public static class WaterMesher
                     int wy = chunkWorldY + y;
                     int wz = chunkWorldZ + z;
 
+                    // Whether this water voxel is "roofed" — has anything
+                    // other than air directly above. A roofed cell is in a
+                    // sealed pocket (water under rock with no air gap) and
+                    // none of its faces represent a real water boundary the
+                    // player can see; emitting any of them leaks through
+                    // the ceiling cutaway because the clipped solid above
+                    // no longer writes depth, leaving the water's deep
+                    // seabed as the only depth in the buffer — water front
+                    // faces happily pass their depth test against that and
+                    // paint over the cap.
+                    VoxelType above = getVoxel(wx, wy + 1, wz);
+                    bool roofed = above != VoxelType.Air;
+
                     for (int f = 0; f < 6; f++)
                     {
                         Vector3I no = NeighborOffsets[f];
                         VoxelType neighbor = getVoxel(wx + no.X, wy + no.Y, wz + no.Z);
                         if (neighbor == VoxelType.Water)
+                        {
+                            continue;
+                        }
+                        // A roofed water voxel has no surface, no shoreline,
+                        // and no visible bottom — skip every face. Strict-
+                        // air check (not just IsSolid) catches Fog / Water
+                        // (already handled) / future non-Air-non-Solid types.
+                        if (roofed)
                         {
                             continue;
                         }

@@ -207,6 +207,22 @@ debug_wet_spec={
 "type": "bool",
 "value": false
 }
+clip_debug_mode={
+"type": "int",
+"value": 0
+}
+water_hide={
+"type": "bool",
+"value": false
+}
+block_shadow_dir={
+"type": "vec3",
+"value": Vector3(0, -1, 0)
+}
+block_shadow_min={
+"type": "float",
+"value": 0.55
+}
 light_falloff_exp={
 "type": "float",
 "value": 2.0
@@ -498,6 +514,22 @@ light_map_origin={
 light_map_inv_size={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
+}
+wind_map={
+"type": "sampler3D",
+"value": "res://assets/textures/wind_map_placeholder.tres"
+}
+wind_map_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+wind_map_inv_size={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+reflection_debug_mode={
+"type": "int",
+"value": 0
 }
 ripple_scale_a={
 "type": "float",

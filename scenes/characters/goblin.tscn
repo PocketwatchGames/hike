@@ -10,7 +10,6 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="9_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="10_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="11_lit_reflectiontemplate"]
-[ext_resource type="Texture2D" path="res://resources/materials/ao_blob.tres" id="12_lit_aodecaltexture"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -142,7 +141,6 @@ ForwardOffset = 0.35
 MaterialTemplate = ExtResource("9_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("10_lit_shadowcastertemplate")
 ReflectionTemplate = ExtResource("11_lit_reflectiontemplate")
-AoDecalTexture = ExtResource("12_lit_aodecaltexture")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

@@ -24,6 +24,7 @@ public partial class ChunkManager : Node3D
     private WorldState _worldData;
     private LightMap _lightMap;
     private FogMap _fogMap;
+    private WindMap _windMap;
     private ShaderMaterial _fogMaterial;
     private Camera3D _camera;
 
@@ -32,6 +33,7 @@ public partial class ChunkManager : Node3D
         _worldData = worldData;
         _lightMap = new LightMap(worldData);
         _fogMap = new FogMap(worldData);
+        _windMap = new WindMap(worldData);
         _fogMaterial = fogMaterial;
         _camera = camera;
         _getPlayerPosition = getPlayerPosition;
@@ -53,6 +55,29 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // Ceiling-cap pipeline debug mode (CVars.clipDebug). Seeded here so
+        // every shader that reads it (clip_cap, water_clip_cap, voxel_water,
+        // voxel_water_backface, voxel_backface_stencil) compiles cleanly
+        // before the first frame.
+        ShaderGlobals.Register("clip_debug_mode", RenderingServer.GlobalShaderParameterType.Int, CVars.clipDebug.Value);
+        ShaderGlobals.Register("water_hide", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterHide.Value);
+        // Block-shadow directional light direction + visibility floor.
+        // Used by voxel_clip, voxel_shadow_caster, sprite_lit,
+        // sprite_prop_multimesh to dim the block_lit term under the
+        // block-shadow light's projected silhouette. Declared in
+        // project.godot so the editor sees them at startup; this seed
+        // runs before chunk shaders first compile so the values are
+        // sane on the very first frame. SkyController.Apply() rewrites
+        // both each frame.
+        ShaderGlobals.Register("block_shadow_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0f, -1f, 0f));
+        ShaderGlobals.Register("block_shadow_min", RenderingServer.GlobalShaderParameterType.Float, 0.55f);
+        // Wind subgrid texture — same origin/inv_size convention as light_map
+        // so a shader's `(world_pos - origin) * inv_size` UVW expression works
+        // identically for either map. Declared in project.godot with a
+        // PlaceholderTexture3D so the editor can compile shaders that read it.
+        ShaderGlobals.Register("wind_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _windMap.Texture);
+        ShaderGlobals.Register("wind_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _windMap.Origin);
+        ShaderGlobals.Register("wind_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _windMap.Size);
         // Day/night-driven sun controls. Intensity is overall brightness;
         // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
         // Both default to "noon" values; the day/night sim will write them.

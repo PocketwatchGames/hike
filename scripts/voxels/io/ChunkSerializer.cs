@@ -11,6 +11,11 @@ using Godot;
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
 //   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
 //   detailStrength : 4096 bytes (0..255 scatter density)
+//   windFactor     : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, 0 = no wind,
+//                    255 = full ambient — coarse subgrid, X,Y,Z row-major)
+//   envTag         : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, EnvironmentTag
+//                    enum: 0 = Outdoor, 1 = Building, 2 = Cave, 3 = Tunnel —
+//                    same row-major layout as windFactor)
 //   regionIndex    : 1 byte (index into WorldState.Regions[])
 //   entities : type-tagged list (see EntitySerializer)
 //
@@ -31,6 +36,8 @@ public static class ChunkSerializer
     public const int OVERLAY_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int DETAIL_GROUP_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int DETAIL_STRENGTH_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
+    public const int WIND_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
+    public const int ENV_TAG_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
 
     public static void Write(BinaryWriter w, ChunkState chunk, List<EntitySimState> entities)
     {
@@ -118,6 +125,28 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     w.Write(chunk.DetailStrength[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.WindFactor[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.EnvTag[x, y, z]);
                 }
             }
         }
@@ -215,6 +244,28 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
                     chunk.DetailStrength[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.WindFactor[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.EnvTag[x, y, z] = r.ReadByte();
                 }
             }
         }

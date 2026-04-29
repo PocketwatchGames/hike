@@ -84,6 +84,15 @@ global uniform vec2 ripple_offset_a;
 global uniform vec2 ripple_offset_b;
 global uniform float ripple_strength;
 
+// Coarse wind-factor 3D texture (see voxel_water.gdshader). Sampled at
+// the reflection's water-surface intersection so reflections in caves /
+// indoors stop shimmering — without this gate they ignore the wind grid
+// and ripple in lockstep with the open-air reflection on the same
+// material.
+global uniform sampler3D wind_map : filter_linear;
+global uniform vec3 wind_map_origin;
+global uniform vec3 wind_map_inv_size;
+
 // Ripple normal-map textures — same pair voxel_water samples, bound by
 // LitSprite.EnsureReflection on the shared reflection material. Without
 // these, the physics-derived UV jitter below collapses (default sampler
@@ -320,7 +329,13 @@ void fragment() {
 			vec3 na = vec3(na_raw.r, na_raw.b, na_raw.g);
 			vec3 nb = vec3(nb_raw.r, nb_raw.b, nb_raw.g);
 			vec3 n_combined = normalize(na + nb);
-			vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength);
+			// Sample the wind subgrid at the reflection's water-surface
+			// intersection — same trilinear gating as voxel_water.gdshader
+			// so the reflection ripples fade in lockstep with the surface.
+			vec3 wind_sample_pos = vec3(surface_xz.x, water_y, surface_xz.y);
+			vec3 wind_uvw = (wind_sample_pos - wind_map_origin) * wind_map_inv_size;
+			float wind_factor = texture(wind_map, wind_uvw).r;
+			vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength * wind_factor);
 			dbg_ripple_tilt = ripple_tilt;
 
 			float chunky = max(sprite_chunky, 1e-6);
@@ -427,14 +442,21 @@ void fragment() {
 		}
 	}
 
-	// Light the reflection from the SOURCE position, not the reflection's
-	// position. Same push-up-half-a-voxel trick as sprite_lit so the
-	// lightmap read lands in air above the sprite's feet.
-	vec3 light_sample_pos = source_world_pos + vec3(0.0, 0.5, 0.0);
+	// Light the reflection from the WATER FRAGMENT position, not the
+	// source sprite's position. Sampling at the source made a sunlit
+	// sprite's reflection over dark cave water render bright (the source
+	// was lit, so the reflection was lit) — read as "emissive in the
+	// darkness". Sampling at the reflection fragment keeps the
+	// reflection tinted by the medium it's seen in: dark cave water →
+	// dark reflection, sunlit pond → sunlit reflection. Push up a small
+	// epsilon so the sample lands in the air voxel above the water
+	// surface rather than reading the water voxel itself (which has
+	// little or no propagated light).
+	vec3 light_sample_pos = vertex_world_var + vec3(0.0, 0.5, 0.0);
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	float cloud = cloud_shadow_ground(source_world_pos, TIME);
+	float cloud = cloud_shadow_ground(vertex_world_var, TIME);
 	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
 	vec3 block_lit = lm.gba;

@@ -58,6 +58,28 @@ public partial class SkyController : Node3D
     // dimmer than daylight. Enables simultaneous sun+moon directional
     // shadows during dawn/dusk crossover.
     [Export] public DirectionalLight3D moonLight;
+    // Wire to the scene's BlockShadowLight DirectionalLight3D. This is an "occlusion
+    // projector" rather than a real light: it shines roughly straight down
+    // (with a small tilt toward the camera) so its shadow atlas renders the
+    // silhouettes of sprites + terrain from above. The lit shaders detect
+    // it via `block_shadow_dir` and use ATTENUATION purely to MULTIPLICATIVELY
+    // dim the already-accumulated voxel light — the block-shadow light's own additive
+    // contribution is never added, so it never brightens anything that
+    // wasn't already receiving voxel light. Replaces the per-sprite AO
+    // Decal that LitSprite used to spawn; works in caves and any lighting
+    // condition because it modulates whatever light is there. SkyController
+    // re-orients it each frame to track the camera yaw.
+    [Export] public DirectionalLight3D blockShadowLight;
+    // Tilt of the block-shadow light away from straight-down, toward the camera. 0 =
+    // pure +Y/-Y axis (silhouette billboard math degenerates). 20-30° gives
+    // a visible elongation of the sprite shadow toward the back of camera —
+    // reads as a natural drop-shadow under iso projection.
+    [Export(PropertyHint.Range, "5,60,0.5")] public float blockShadowTiltDegrees = 35f;
+    // Multiplicative dim applied at fully shadowed fragments. 0 = full
+    // black under the AO silhouette (way too strong); 1 = no effect.
+    // Defaulted to 0 for prototyping so the projected silhouette is
+    // unmistakable; raise toward 0.55 for a subtle production look.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float blockShadowMin = 0.0f;
 
     [ExportSubgroup("Preview")]
     // Editor preview only — no WorldState exists in the editor, so the
@@ -701,6 +723,10 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("fill_a_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
             ShaderGlobals.Register("fill_b_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
+            // block_shadow_dir + block_shadow_min are registered earlier in
+            // ChunkManager._Ready() so they exist before voxel_*.gdshader
+            // first compiles on standalone launch. SkyController.Apply()
+            // rewrites the values each frame.
             // Sky-only globals for the sun/moon disks.
             ShaderGlobals.Register("sky_sun_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("moon_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.55f, 0.6f, 0.75f));
@@ -767,9 +793,7 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("water_rim_strength", RenderingServer.GlobalShaderParameterType.Float, 0.6f);
             ShaderGlobals.Register("ripple_pixel_size", RenderingServer.GlobalShaderParameterType.Float, 6f);
             ShaderGlobals.Register("water_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
-            // Not declared in project.godot — use RegisterRuntime so the
-            // global is created at runtime via GlobalShaderParameterAdd.
-            ShaderGlobals.RegisterRuntime("reflection_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
+            ShaderGlobals.Register("reflection_debug_mode", RenderingServer.GlobalShaderParameterType.Int, 0);
             ShaderGlobals.Register("water_disable_ripples", RenderingServer.GlobalShaderParameterType.Bool, false);
             ShaderGlobals.Register("reflection_min", RenderingServer.GlobalShaderParameterType.Float, 0.2f);
             ShaderGlobals.Register("reflection_fov_h_deg", RenderingServer.GlobalShaderParameterType.Float, 90f);
@@ -931,6 +955,54 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("sun_world_dir", _primaryLightDir);
         RenderingServer.GlobalShaderParameterSet("fill_a_world_dir", fillADir);
         RenderingServer.GlobalShaderParameterSet("fill_b_world_dir", fillBDir);
+
+        // block-shadow light: tilt away from straight-down toward the active camera.
+        // The shadow-caster billboard math (shadow_caster.gdshader,
+        // sprite_prop_shadow_multimesh.gdshader) horizontalises the light
+        // direction to derive a sprite plane — at exactly straight down
+        // light_horiz collapses to zero and the silhouette degenerates.
+        // Tilting by blockShadowTiltDegrees keeps the math stable AND projects
+        // the silhouette slightly behind the sprite from the camera's POV,
+        // which reads as a natural drop shadow under iso projection.
+        Vector3 blockShadowDir = ComputeBlockShadowDirection();
+        OrientLight(blockShadowLight, blockShadowDir);
+        RenderingServer.GlobalShaderParameterSet("block_shadow_dir", blockShadowDir);
+        // CVar `block_shadow` toggles the effect. When off, hide the light
+        // (Godot skips its shadow pass entirely) and push block_shadow_min=1
+        // so the shaders' carrier branch contributes 0 (full block_lit goes
+        // through EMISSION as if AO was never in the scene).
+        bool blockShadowOn = CVars.blockShadowEnabled.Value;
+        if (blockShadowLight != null && blockShadowLight.Visible != blockShadowOn)
+        {
+            blockShadowLight.Visible = blockShadowOn;
+        }
+        RenderingServer.GlobalShaderParameterSet("block_shadow_min", blockShadowOn ? blockShadowMin : 1.0f);
+    }
+
+    // Compute the block-shadow light's world direction. Mostly -Y, tilted by
+    // blockShadowTiltDegrees in the horizontal direction the camera is FACING
+    // (so the silhouette projects to the FAR side of the sprite from the
+    // camera's POV — a normal drop shadow). Falls back to a fixed -Z tilt
+    // if no active camera is available (e.g. during scene load).
+    private Vector3 ComputeBlockShadowDirection()
+    {
+        float tiltRad = Mathf.DegToRad(Mathf.Max(blockShadowTiltDegrees, 5f));
+        float sinT = Mathf.Sin(tiltRad);
+        float cosT = Mathf.Cos(tiltRad);
+        Vector3 horiz = new Vector3(0f, 0f, 1f);
+        Camera3D cam = GetViewport()?.GetCamera3D();
+        if (cam != null)
+        {
+            // Camera's forward axis (-Z) projected onto the XZ plane and
+            // normalized. This is "the direction the camera is looking,
+            // horizontally". Light tilts in this direction so the shadow
+            // falls behind the object from the camera's view.
+            Vector3 fwd = -cam.GlobalBasis.Z;
+            fwd.Y = 0f;
+            float len = fwd.Length();
+            if (len > 1e-3f) { horiz = fwd / len; }
+        }
+        return new Vector3(horiz.X * sinT, -cosT, horiz.Z * sinT).Normalized();
     }
 
     // Compute sun / moon positions from the current time and push results
@@ -1282,28 +1354,28 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("water_rim_strength", rimStrength);
         RenderingServer.GlobalShaderParameterSet("water_muddiness", muddy);
         RenderingServer.GlobalShaderParameterSet("water_refraction_strength", effRefraction);
-        // Caustics need three things to read: clear water, direct unbroken
-        // light, and a near-glassy surface. Muddiness alone isn't enough —
-        // mountain water (cool, breezy, partly cloudy) reads as moderately
-        // clear but should produce almost no caustics, while desert water
-        // (calm, hot, clear sky) should pump full bands. cloudCover damps
-        // because diffuse sky light doesn't focus into beams. RippleStrength
-        // damps because a chopped-up surface scatters the focus across the
-        // seabed instead of concentrating it. Per-fragment shadow + cloud
-        // gating lives in the shader (sun_mask * sun_intensity * cloud_sun
-        // multiplier on the caustic add) — the shader's `sun_intensity` IS
-        // the active primary intensity (sun by day, moon by night), so
-        // brightness already scales linearly with direct light. The
-        // smoothstep here is a soft floor gate that suppresses caustics
-        // when the primary is too dim to focus visibly (eclipse, heavy
-        // overcast night) while still allowing a normal full moon (~0.3)
-        // to produce subtle bands.
-        float primaryGate = Mathf.SmoothStep(0.1f, 0.25f, CurrentPrimaryIntensity);
+        // Caustics scale with three factors: water clarity, inverse wind
+        // speed (calmer surface focuses light into bands; choppy water
+        // scatters them), and per-fragment total received light — the
+        // last one lives in the shader (`light` = sun_lit + block_lit).
+        // That keeps a torch in a cave producing caustics on the seabed
+        // below it, even though no sky is reachable, while shadowed water
+        // with no nearby light fades to nothing. RippleStrength is the
+        // wind-driven proxy used here: it's already wind+rain damped by
+        // WeatherDerivation, so calm weather gives full caustics and a
+        // storm collapses them. Per-fragment cloud shadows + sun
+        // intensity decay at night come for free via the shader's
+        // `sun_lit` term, so no explicit cloud-cover or time-of-day
+        // factor is needed at this level.
+        // Wind damp is squared: a chopped-up surface scatters focus
+        // dramatically — linear damping left caustics readable on cloudy/
+        // windy days, which broke the artistic intent (caustics should be
+        // a calm-water-only effect). Squaring kills them above moderate
+        // wind while preserving the full pop on glassy water.
+        float windDamp = 1f - _palette.RippleStrength;
         float effCaustic = causticStrength
-            * primaryGate
             * (1f - muddy)
-            * (1f - cloudCover01 * 0.85f)
-            * (1f - _palette.RippleStrength * 0.85f);
+            * windDamp * windDamp;
         RenderingServer.GlobalShaderParameterSet("caustic_strength", effCaustic);
         RenderingServer.GlobalShaderParameterSet("caustic_scale", causticScale);
         RenderingServer.GlobalShaderParameterSet("caustic_speed", causticSpeed);

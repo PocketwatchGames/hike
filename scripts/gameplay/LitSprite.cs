@@ -15,22 +15,22 @@ using Godot;
 //                    size, rolled once at spawn from [min..max]. Default
 //                    (1, 1) is "no variation". Stored on the Node3D as
 //                    Scale; the sprite shaders read it out of MODEL_MATRIX
-//                    so shadow proxy, reflection, and AO decal all scale
-//                    together through the normal parent transform chain.
+//                    so shadow proxy and reflection all scale together
+//                    through the normal parent transform chain.
 //
 // Pixel-size, centered, and offset are derived from Texture / RegionRect
 // so authors don't have to keep them in sync.
 //
 // Shadows: the visible LitSprite never casts (CastShadow.Off). At runtime
-// it spawns two hidden children:
-//   - A sun-billboarded shadow caster Sprite3D (CastShadow.ShadowsOnly) that
-//     contributes its silhouette to Godot's directional shadow atlas. The
-//     caster's vertex math sun-aligns automatically because INV_VIEW_MATRIX
-//     during the shadow pass is the directional light's camera. Set
-//     CastsShadow = false to suppress this (e.g. an undiscovered mob).
-//   - An AO Decal projecting straight down for ground-contact darkening.
-//     This works in any environment (cave, surface) and is independent of
-//     directional shadow — the visual "this thing is on this floor" cue.
+// it spawns a sun-billboarded shadow caster Sprite3D (CastShadow.ShadowsOnly)
+// that contributes its silhouette to Godot's directional shadow atlas. The
+// caster's vertex math sun-aligns automatically because INV_VIEW_MATRIX
+// during the shadow pass is the directional light's camera. The same shadow
+// proxy is also picked up by the AO DirectionalLight3D's shadow pass (a
+// downward+camera-tilt projection rendered into its own atlas) which lit
+// shaders use to ground each sprite under any lighting condition — no
+// per-sprite Decal is required. Set CastsShadow = false to suppress both
+// the sun shadow AND the AO contribution (e.g. an undiscovered mob).
 //
 // In the editor this node falls back to Sprite3D's default unshaded path so
 // the sprite is visible while authoring colliders. The sprite_lit shader is
@@ -70,8 +70,8 @@ public partial class LitSprite : Sprite3D
     // Random uniform-scale range, applied once at spawn as Node3D.Scale.
     // Default (1, 1) disables variation. Inclusive bounds. The sprite
     // shaders read scale out of MODEL_MATRIX so the visible sprite,
-    // shadow proxy, water reflection, and AO decal all pick it up via
-    // the standard parent transform chain — no shader uniform plumbing.
+    // shadow proxy, and water reflection all pick it up via the standard
+    // parent transform chain — no shader uniform plumbing.
     [Export] public float ScaleMin { get; set; } = 1.0f;
     [Export] public float ScaleMax { get; set; } = 1.0f;
 
@@ -276,7 +276,7 @@ public partial class LitSprite : Sprite3D
     // Swap the rendered region of the sprite sheet. Cheap enough to call
     // per-frame from an animator — unlike Apply(), this does not duplicate
     // materials (so per-instance uniforms like Visibility/Silhouette stay)
-    // and does not re-ensure the shadow/reflection/AO children. The shader
+    // and does not re-ensure the shadow/reflection children. The shader
     // does its own texelFetch from sprite_region_origin + sprite_size, so
     // animating is just "push a new region" to the three live materials and
     // keep the shadow proxy + reflection's Sprite3D mesh bounds in sync.
@@ -339,14 +339,6 @@ public partial class LitSprite : Sprite3D
     // that the reflection is so dimmed by water depth tint it won't read.
     [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
 
-    // Width/depth (in world units) of the AO decal projected under the
-    // sprite. Defaults to roughly cover a 1-voxel sprite footprint.
-    [Export] public float AoDecalSize { get; set; } = 1.5f;
-    // Vertical extent of the decal projection box. Larger = floating sprites
-    // can still find a floor below them; the built-in distance fade keeps
-    // the blob from looking weirdly strong at extreme hover heights.
-    [Export] public float AoDecalDepth { get; set; } = 4.0f;
-
     // Toggle for hiding the directional-shadow contribution at runtime
     // (e.g. an undiscovered mob should be totally absent from the scene
     // including its shadow). Updated by owners that need it; the visible
@@ -377,12 +369,10 @@ public partial class LitSprite : Sprite3D
     [Export] public ShaderMaterial MaterialTemplate { get; set; }
     [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
     [Export] public ShaderMaterial ReflectionTemplate { get; set; }
-    [Export] public Texture2D AoDecalTexture { get; set; }
 
     private Sprite3D _shadowProxy;
     private Sprite3D _reflection;
     private ShaderMaterial _reflectionMaterial;
-    private Decal _aoDecal;
 
     // True when _Process has work to do (water reflection update OR yaw
     // mirror flip). Static props (no reflection, no MirrorByYaw) leave this
@@ -501,7 +491,6 @@ public partial class LitSprite : Sprite3D
         InitInstanceUniformsFor(GetInstance(), spriteSize, regionOrigin);
 
         EnsureShadowProxy(spriteSize, regionOrigin);
-        EnsureAoDecal();
         EnsureReflection(spriteSize, regionOrigin);
 
         // Static-prop fast path: if this sprite has no water reflection and
@@ -876,33 +865,6 @@ public partial class LitSprite : Sprite3D
         return null;
     }
 
-    private void EnsureAoDecal()
-    {
-        if (AoDecalTexture == null)
-        {
-            return;
-        }
-        if (_aoDecal == null)
-        {
-            _aoDecal = new Decal();
-            _aoDecal.Name = "AoDecal";
-            // Project straight down. Decal's local -Y is the projection axis,
-            // so positioning it slightly above the anchor with a tall depth
-            // means floating sprites still find a floor below them.
-            _aoDecal.Position = new Vector3(0f, AoDecalDepth * 0.5f, 0f);
-            _aoDecal.Size = new Vector3(AoDecalSize, AoDecalDepth, AoDecalSize);
-            _aoDecal.AlbedoMix = 1.0f;
-            _aoDecal.Modulate = new Color(1f, 1f, 1f, 1f);
-            // Fade with distance from the projection origin so floating
-            // sprites get a faint, larger AO suggestion rather than the same
-            // hard blob as a grounded sprite.
-            _aoDecal.DistanceFadeEnabled = true;
-            _aoDecal.DistanceFadeBegin = 4f;
-            _aoDecal.DistanceFadeLength = 2f;
-            AddChild(_aoDecal);
-        }
-        _aoDecal.TextureAlbedo = AoDecalTexture;
-    }
 
     private static float GetEditorPixelSize()
     {

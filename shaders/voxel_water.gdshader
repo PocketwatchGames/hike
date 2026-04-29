@@ -8,6 +8,10 @@ render_mode blend_mix, depth_draw_never, cull_back, unshaded;
 stencil_mode write, compare_always, 4;
 
 global uniform float camera_clip;
+global uniform int clip_debug_mode;
+// When true, the water shader discards every fragment. Lets you see the
+// terrain underneath without water tinting / depth fade in the way.
+global uniform bool water_hide;
 
 // filter_nearest on both depth + screen textures: linear filtering blends
 // player+seabed values at silhouette edges, making the depth-aware check
@@ -124,6 +128,16 @@ global uniform bool water_disable_ripples;
 global uniform float star_ripple_blur_lod;
 // Wind direction (normalized; y unused). Used for wave direction.
 global uniform vec3 wind_dir;
+// Coarse wind-factor 3D texture — 1.0 = full ambient wind (open sky),
+// 0.0 = sealed (deep cave / building interior). Damps wave amplitude,
+// ripple/streak tilt, shoreline noise foam, and whitecap output so a
+// stormy lake reads as glassy still water once the player walks under
+// a cave roof. Same `(world_pos - origin) * inv_size` UVW convention as
+// light_map; texel resolution is 1/4 of voxel resolution so the gradient
+// at a cave mouth blends across roughly 4 world units.
+global uniform sampler3D wind_map : filter_linear;
+global uniform vec3 wind_map_origin;
+global uniform vec3 wind_map_inv_size;
 // Shoreline foam — lighter noise band where water thickness falls below
 // `foam_depth`, so shallow edges of water bodies read as surf.
 global uniform vec3 foam_color;
@@ -169,6 +183,13 @@ global uniform vec2 wave_streak_offset_b;
 global uniform float whitecap_foam_strength;
 global uniform float whitecap_foam_threshold;
 
+// block-shadow directional light — see sprite_lit.gdshader for the full rationale.
+// Water uses these in light() to subtract a fraction of ALBEDO under the
+// block-shadow silhouette (ALBEDO + EMISSION = composited; the negative DIFFUSE_LIGHT
+// reduces final → composited * block_shadow_factor under shadow).
+global uniform vec3 block_shadow_dir;
+global uniform float block_shadow_min;
+
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
 // Pattern is procedural (two scrolling noises, their absolute difference
@@ -192,6 +213,14 @@ global uniform vec3 caustic_color : source_color;
 global uniform vec3 caustic_offset;
 
 const float MIN_AMBIENT = 0.0;
+
+// Trilinear wind-factor sample at a world-space point. Texture sampler
+// clamps to edge so out-of-bounds positions read the boundary cell —
+// fine for finite worlds where water never sits beyond the map extent.
+float sample_wind_factor(vec3 world_pos) {
+	vec3 uvw = (world_pos - wind_map_origin) * wind_map_inv_size;
+	return texture(wind_map, uvw).r;
+}
 
 float hash13(vec3 p) {
 	p = fract(p * 0.3183099 + 0.1);
@@ -445,7 +474,11 @@ void vertex() {
 		vec2 dir = normalize(vec2(wind_dir.x, wind_dir.z) + vec2(1e-4, 0.0));
 		float gate = wave_gate(wv.xz, TIME);
 		float h = min(wave_height(wv.xz, dir, water_wave_phase) * gate, 0.0);
-		v.y += h * water_wave_amp;
+		// Damp displacement by local wind: surface goes glassy under cave
+		// roofs / building interiors. Trilinear filter on the coarse
+		// wind_map gives a smooth shore-to-deep-cave gradient.
+		float wind_factor = sample_wind_factor(wv);
+		v.y += h * water_wave_amp * wind_factor;
 	}
 	VERTEX = v;
 	world_vertex = (MODEL_MATRIX * vec4(v, 1.0)).xyz;
@@ -453,18 +486,77 @@ void vertex() {
 }
 
 void fragment() {
-	if (world_vertex.y > camera_clip) {
+	if (water_hide) {
 		discard;
 	}
+	// Debug mode 8: skip the camera_clip discard and paint each fragment
+	// based on whether it would have been clipped. RED = above clip (this
+	// fragment SHOULD have been discarded), GREEN = below clip (legitimate).
+	// Lets us see if the water front face is rendering above the clip line
+	// (which it should not if camera_clip is being set correctly on this
+	// material) — and if so, whether `world_vertex.y` or `camera_clip` is
+	// the wrong value.
+	// Debug mode 9: paint world_vertex.y as a grayscale ramp so we can see
+	// the actual world Y at each fragment.
+	// Debug mode 10: paint camera_clip as a grayscale ramp (uniform color
+	// across the screen since it's a global). Tells us what value the
+	// shader is actually reading.
+	if (clip_debug_mode == 8) {
+		if (world_vertex.y > camera_clip) {
+			ALBEDO = vec3(1.0, 0.0, 0.0);
+		} else {
+			ALBEDO = vec3(0.0, 1.0, 0.0);
+		}
+		ALPHA = 1.0;
+	} else if (clip_debug_mode == 9) {
+		ALBEDO = vec3(fract(world_vertex.y / 16.0));
+		ALPHA = 1.0;
+	} else if (clip_debug_mode == 10) {
+		ALBEDO = vec3(fract(camera_clip / 16.0));
+		ALPHA = 1.0;
+	} else if (clip_debug_mode == 11) {
+		// Face-type visualizer. Tells us WHICH water-mesh face is bleeding
+		// through after the top-face cull fix. CYAN = top, MAGENTA = bottom,
+		// YELLOW = side. If we see yellow over the artifact, the side faces
+		// of the sealed pocket are still emitting and should be culled the
+		// same way the top face was.
+		if (world_vertex.y > camera_clip) {
+			discard;
+		}
+		if (world_normal.y > 0.5) {
+			ALBEDO = vec3(0.0, 1.0, 1.0);
+		} else if (world_normal.y < -0.5) {
+			ALBEDO = vec3(1.0, 0.0, 1.0);
+		} else {
+			ALBEDO = vec3(1.0, 1.0, 0.0);
+		}
+		ALPHA = 1.0;
+	} else if (world_vertex.y > camera_clip) {
+		discard;
+	} else
+	// Debug mode 7: paint actual water front-face surfaces yellow so you
+	// can distinguish them from the water cap (mode 1, magenta). Wraps the
+	// rest of the fragment body since `return` isn't allowed in fragment().
+	if (clip_debug_mode == 7) {
+		ALBEDO = vec3(1.0, 1.0, 0.0);
+		ALPHA = 1.0;
+	} else {
 
 	// Only the top face of a water voxel (normal.y ~= +1) represents an
 	// open surface. Sides/bottom are submerged rims seen through adjacent
 	// transparent cells — leave them flat and opaque.
 	bool is_top = world_normal.y > 0.5;
+	// Local wind factor — used to flatten ripples/streaks/whitecaps and
+	// damp shoreline foam under cave roofs and indoors. Side faces don't
+	// pay for the sample since they skip all the wind-driven paths below.
+	float wind_factor = is_top ? sample_wind_factor(world_vertex) : 1.0;
 	// Skip the two normal-map samples + slerp on calm water — ripple_strength
 	// is already quadratic in wind speed (WeatherDerivation), so at low wind /
 	// no rain it's effectively zero but the texture work still costs the same.
-	bool ripples_active = is_top && !water_disable_ripples && ripple_strength > 0.01;
+	// Also early-out when wind_factor is near zero (deep cave / sealed room) —
+	// the slerp at the end of the perturbation block flattens the result anyway,
+	// so the ripple texture work would be discarded.
+	bool ripples_active = is_top && !water_disable_ripples && ripple_strength > 0.01 && wind_factor > 0.01;
 	vec3 n = ripples_active ? ripple_normal(world_vertex.xz, TIME) : (is_top ? vec3(0.0, 1.0, 0.0) : world_normal);
 
 	// Wave streaks: a coarser scrolling-noise layer that adds tilt onto
@@ -472,9 +564,18 @@ void fragment() {
 	// own scale/speed/weight. The streak path does NOT compute foam; foam
 	// fires below from the FINAL composite tilt regardless of which layer
 	// drove it.
-	if (is_top && !water_disable_ripples && wave_streak_strength > 1e-3) {
-		vec2 streak_tilt = wave_streak(world_vertex.xz);
+	if (is_top && !water_disable_ripples && wave_streak_strength > 1e-3 && wind_factor > 0.01) {
+		vec2 streak_tilt = wave_streak(world_vertex.xz) * wind_factor;
 		n = normalize(n + vec3(streak_tilt.x, 0.0, streak_tilt.y));
+	}
+	// Final flatten: slerp the perturbed normal back toward +Y by the
+	// inverse of wind_factor so a cave-mouth gradient takes the surface
+	// from rippled to mirror-flat across the trilinear footprint. Damps
+	// any residual ripple/streak tilt for partial wind values (e.g. 0.4
+	// at cave mouths) — multiplying inputs alone leaves a tiny tilt that
+	// reads as "windless rippled water" once you walk inside.
+	if (is_top) {
+		n = slerp_normals(vec3(0.0, 1.0, 0.0), n, wind_factor);
 	}
 
 	// Whitecap foam: emitted on the WINDWARD-FACING tilt component of the
@@ -507,7 +608,7 @@ void fragment() {
 		float speckle = (vnoise(vec3(fnu_a, 0.0)) +
 		                 vnoise(vec3(fnu_b, 0.0))) * 0.5;
 		float speckle_mask = smoothstep(0.4, 0.75, speckle);
-		whitecap_foam_amt = clamp(crest_mask * speckle_mask * whitecap_foam_strength, 0.0, 1.0);
+		whitecap_foam_amt = clamp(crest_mask * speckle_mask * whitecap_foam_strength * wind_factor, 0.0, 1.0);
 	}
 
 	// Face-direction shading (from the perturbed normal so highlight
@@ -584,7 +685,11 @@ void fragment() {
 		float fn = vnoise(vec3(fuv, 0.0));
 		float band = max(1e-4, 1.0 - foam_sharpness);
 		float mask = smoothstep(foam_threshold, min(foam_threshold + band, 1.0), fn);
-		float noisy_foam = shallow * mask * foam_strength;
+		// Shoreline noise foam represents wave energy hitting the shore;
+		// damp by wind_factor so cave-pool shores read as still water
+		// against the rock. The contiguous `rim` band stays unmodulated —
+		// it's a structural water/land edge cue, not weather-driven.
+		float noisy_foam = shallow * mask * foam_strength * wind_factor;
 
 		foam_amount = max(max(noisy_foam, rim), whitecap_foam_amt);
 		// All foam (shoreline rim + noisy surf + crest whitecaps) share
@@ -798,10 +903,11 @@ void fragment() {
 	// depth buffer, sample the procedural ribbon pattern in world-space XZ
 	// (so bands stay locked to the ground, not to screen), and add the
 	// contribution onto `behind` before water-color compositing. Scaled by
-	// the same direct-sunlight product the surface uses (sun_mask *
-	// sun_intensity * cloud_sun) — caustics are focused refractions of
-	// direct sun, so they vanish at night, in shadow, and dim under
-	// clouds. needs_behind also gates: if the water is fully opaque
+	// TOTAL received light at the surface (sun + block), not just direct
+	// sun — a torch in a cave shines `block_lit` onto the water, so its
+	// caustics show even though no sky is reachable. Sun caustics still
+	// fall off naturally at night because `sun_lit` collapses with
+	// `sun_intensity`. needs_behind also gates: if the water is fully opaque
 	// (muddy + deep) the through-water sample was skipped, so adding
 	// caustics into uninitialized `behind` would render garbage.
 	if (is_top && needs_behind && caustic_strength > 1e-5 && thickness > 1e-3) {
@@ -817,25 +923,30 @@ void fragment() {
 		// (caustic_offset) is applied INSIDE caustic_pattern to layer 2
 		// only, so wind morphs the pattern in place rather than
 		// translating it.
-		vec3 to_sun_dir_caustic = -normalize(sky_sun_dir);
 		vec3 view_dir_world = normalize(world_vertex - CAMERA_POSITION_WORLD);
 		vec3 caustic_sample_pos = world_vertex + view_dir_world * thickness;
 
 		float pattern = caustic_pattern(caustic_sample_pos);
 		float depth_attn = exp(-thickness / max(caustic_depth_fade, 0.01));
 
-		// Flat +Y seabed assumption for the grazing factor. dFdx/dFdy of
-		// seabed_world can't distinguish a real ~45° slope (deriv mag ~
-		// 0.36) from a voxel-edge depth jump (deriv mag ~ 1.0+) reliably
-		// — any threshold either lets bands through or cuts into legit
-		// slopes. Trading slope-aware grazing for band-free output. Real
-		// slope-aware grazing needs a proper terrain normal source (read
-		// from a normal pass or from chunk mesh data), not screen-space
-		// derivatives of a depth reconstruction.
-		float grazing = max(to_sun_dir_caustic.y, 0.0);
-
-		float sun_factor = sun_mask * sun_intensity * cloud_sun * grazing;
-		behind += caustic_color * pattern * caustic_strength * depth_attn * sun_factor;
+		// Total-light luminance proxy: max channel of the composited surface
+		// light (sun_lit + block_lit, clamped). Sun-lit AND torch-lit
+		// fragments both modulate the caustic add — a torch in a cave shines
+		// caustics onto the seabed below it, while shadowed water with no
+		// nearby light fades to zero. Using max channel (rather than a dot
+		// with luminance weights) keeps warm torchlight contributing at full
+		// intensity instead of being attenuated by green-channel weighting.
+		// Time-of-day dimming is handled implicitly: `sun_intensity` already
+		// drops at sunset and to the moon's value at night, so direct-sun
+		// caustics fade naturally without needing an explicit grazing term.
+		// Squared so caustics scale slightly less than linearly with light —
+		// torchlit cave water reads as faint bands rather than full bright
+		// daylight intensity (a torch is much weaker than the sun, but
+		// `light_amt` only reaches ~0.3-0.5 in caves so linear was over-
+		// representing the contribution). MIN_AMBIENT also gets squashed
+		// here, so true-shadow water fades cleanly to zero.
+		float light_amt = max(max(light.r, light.g), light.b);
+		behind += caustic_color * pattern * caustic_strength * depth_attn * light_amt * light_amt;
 	}
 
 	// Two-layer compositing: water body first, reflection on top. Water
@@ -938,6 +1049,38 @@ void fragment() {
 		}
 	}
 
+	// Two-output compositing for the block-shadow directional-light pipeline:
+	//   - EMISSION = composited acts as the always-on baseline so the
+	//     surface still renders correctly when no block-shadow light is present
+	//     (Godot's pipeline outputs DIFFUSE_LIGHT + EMISSION).
+	//   - ALBEDO   = composited carries the value into light(); the block-shadow
+	//     light's invocation writes DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor
+	//     - 1.0), a NEGATIVE contribution that subtracts from EMISSION
+	//     to produce final = composited * block_shadow_factor under the silhouette.
+	// Sun/moon light() invocations are no-ops on water (we already
+	// incorporated direct sun via sun_lit in the composite), so they
+	// don't double-add on top of EMISSION.
 	ALBEDO = composited;
+	EMISSION = composited;
 	ALPHA = 1.0;
+	}
+}
+
+void light() {
+	// block-shadow light: write DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor - 1) where
+	// block_shadow_factor = mix(block_shadow_min, 1.0, ATTENUATION). For an unshadowed
+	// fragment ATTENUATION = 1, block_shadow_factor = 1, contribution = 0 → final
+	// = EMISSION = composited. For a fully shadowed fragment ATTENUATION
+	// = 0, block_shadow_factor = block_shadow_min, contribution = ALBEDO * (block_shadow_min - 1) (a
+	// negative vec3) → final = EMISSION + that = composited * block_shadow_min.
+	// Sun/moon land in the `else` branch and write zero (water doesn't
+	// take direct sun in this composite — the composite already did its
+	// own sun handling via sun_lit).
+	vec3 block_shadow_dir_view = mat3(VIEW_MATRIX) * (-block_shadow_dir);
+	if (dot(LIGHT, block_shadow_dir_view) > 0.99) {
+		float block_shadow_factor = mix(block_shadow_min, 1.0, ATTENUATION);
+		DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor - 1.0);
+	} else {
+		DIFFUSE_LIGHT = vec3(0.0);
+	}
 }

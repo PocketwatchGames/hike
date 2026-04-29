@@ -4,6 +4,15 @@ public class ChunkState
 {
     public const int SIZE = 16;
 
+    // Coarse environmental subgrid resolution. Each cell covers a
+    // SIZE/ENV_SUBGRID_SIZE cube of voxels (currently 4³ voxels per cell,
+    // so 64 cells per chunk). Shared by all per-chunk environmental
+    // subgrids (wind factor, env-tag, …) so a single trilinear-sample
+    // expression works regardless of which subgrid the caller is reading.
+    // Bumping this is a wire format change, so keep it stable.
+    public const int ENV_SUBGRID_SIZE = 4;
+    public const int ENV_VOXELS_PER_CELL = SIZE / ENV_SUBGRID_SIZE;
+
     public readonly Vector3I ChunkCoord;
 
     // Index into WorldState.Regions[]. Picks the region this chunk
@@ -72,6 +81,13 @@ public class ChunkState
     public readonly ushort[,,] BlockLightG;
     public readonly ushort[,,] BlockLightB;
 
+    // Coarse wind-factor subgrid. 0 = sealed (no ambient wind, e.g. deep
+    // cave or building interior), 255 = full ambient wind. Sampled
+    // trilinearly at the listener / shader fragment so cave-mouth
+    // transitions blend smoothly. Worldgen bakes it from sunlight
+    // openness; uploaded to the GPU as the `wind_map` global texture.
+    public readonly byte[,,] WindFactor;
+
     // Fog density: 0 = clear air, 255 = thickest fog. Two consumers:
     //   - LightEngine BFS uses this as extra per-step falloff so torches dim
     //     faster in fog (step 5 of the roadmap).
@@ -96,6 +112,47 @@ public class ChunkState
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
         BlockLightB = new ushort[SIZE, SIZE, SIZE];
         FogDensity = new byte[SIZE, SIZE, SIZE];
+        WindFactor = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+        EnvTag = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+    }
+
+    public int GetWindFactor(int sx, int sy, int sz)
+    {
+        if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
+        {
+            return 0;
+        }
+        return WindFactor[sx, sy, sz];
+    }
+
+    public void SetWindFactor(int sx, int sy, int sz, int factor)
+    {
+        if (factor < 0) { factor = 0; }
+        if (factor > 255) { factor = 255; }
+        WindFactor[sx, sy, sz] = (byte)factor;
+    }
+
+    // Coarse environment-tag subgrid. One byte per cell (4³ voxels per cell,
+    // 64 cells per chunk). Authored in the editor (when one exists) per
+    // pocket of space — Outdoor / Building / Cave / Tunnel — and trilinearly
+    // sampled at the listener to drive reverb-bus blending and outdoor-layer
+    // attenuation in the audio system. Worldgen seeds a default from the
+    // wind/sunlight signal: open-sky cells → Outdoor, sealed cells → Cave.
+    // Building/Tunnel are author-only.
+    public readonly byte[,,] EnvTag;
+
+    public EnvironmentTag GetEnvTag(int sx, int sy, int sz)
+    {
+        if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
+        {
+            return EnvironmentTag.Outdoor;
+        }
+        return (EnvironmentTag)EnvTag[sx, sy, sz];
+    }
+
+    public void SetEnvTag(int sx, int sy, int sz, EnvironmentTag tag)
+    {
+        EnvTag[sx, sy, sz] = (byte)tag;
     }
 
     public VoxelType GetVoxel(int x, int y, int z)

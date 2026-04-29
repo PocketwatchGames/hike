@@ -266,6 +266,13 @@ public static class WorldGen
         // connect tunnels vertically where they overlap.
         GenerateCaves(ws, genData, caveNoise);
 
+        // One-off test stamp for underground-water visuals. Carves a wide
+        // shallow cavern inland in the mountain region (toward the desert
+        // border) with the ceiling capped at the first plateau above water.
+        // Will not survive pure worldgen — remove or gate this call once
+        // the underwater shader work lands.
+        GenerateTestUnderwaterLake(ws, genData);
+
         // Place fog after all terrain is final. The pass skips enclosed
         // voxels (tunnels, caves, anything with solid geometry directly
         // overhead) so fog only shows up in genuinely open-to-sky air above
@@ -336,6 +343,18 @@ public static class WorldGen
 
         // Compute sunlight after all geometry exists.
         LightEngine.ComputeSunlight(ws);
+
+        // Bake the per-chunk wind subgrid from sunlight openness so caves
+        // and roofed interiors ship with damped wind. Must run after
+        // ComputeSunlight; disk-loaded chunks skip this and use the
+        // serialized bytes.
+        WindGen.ComputeWindGrid(ws);
+
+        // Default-bake the per-chunk env-tag subgrid from the wind signal
+        // so audio's reverb routing has a sensible starting tag without
+        // an editor authoring step. Disk-loaded chunks skip this and use
+        // the (eventually editor-authored) serialized bytes.
+        EnvTagGen.ComputeEnvTagGrid(ws);
 
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
@@ -1426,6 +1445,71 @@ public static class WorldGen
                     {
                         ws.SetShapeWorld(wx, runLo - 1, wz, VoxelTypeInfo.SharpAxes.Y);
                     }
+                }
+            }
+        }
+    }
+
+    // One-off test stamp: a wide shallow underwater lake in the mountain
+    // (NE) region, pushed inland toward the desert border. The ceiling is
+    // pinned to the first plateau above water (WATER_LEVEL + PlateauStep)
+    // so the cavern stays low even where the natural mountain surface
+    // climbs higher. Columns whose natural surface already sits below the
+    // ceiling merge into the existing terrain instead of getting a
+    // synthetic ceiling stamped over them. MarkCaveSurfaceShapes runs
+    // after this and will tag the carved walls / floor / ceiling as
+    // cave-kit + SharpAxes.Y. Hardcoded constants — this does not survive
+    // editor-authored worlds; remove once underground-water visuals are
+    // signed off.
+    private static void GenerateTestUnderwaterLake(WorldState ws, WorldGenData genData)
+    {
+        const int CenterX = 20;
+        const int CenterZ = 32;
+        const int HalfSize = 25;            // 50x50 footprint
+        const int FloorY = WATER_LEVEL - 3; // 4 voxels of standing water
+
+        int worldMinY = ws.Min.Y * ChunkState.SIZE;
+        int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
+        int ceilingY = WATER_LEVEL + step;
+
+        for (int dx = -HalfSize; dx < HalfSize; dx++)
+        {
+            for (int dz = -HalfSize; dz < HalfSize; dz++)
+            {
+                int wx = CenterX + dx;
+                int wz = CenterZ + dz;
+
+                // Topmost natural solid voxel in the column. Carving stops
+                // here so we never punch a hole in the sky for shoreline
+                // columns whose surface already dips below the lake ceiling.
+                int naturalSurfaceY = worldMinY - 1;
+                for (int wy = worldMaxY; wy >= worldMinY; wy--)
+                {
+                    var v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (v != VoxelType.Air && v != VoxelType.Water)
+                    {
+                        naturalSurfaceY = wy;
+                        break;
+                    }
+                }
+
+                int topCarve = Math.Min(ceilingY - 1, naturalSurfaceY);
+                for (int wy = FloorY + 1; wy <= topCarve; wy++)
+                {
+                    var fill = wy <= WATER_LEVEL ? VoxelType.Water : VoxelType.Air;
+                    ws.SetVoxelWorld(wx, wy, wz, fill);
+                }
+
+                // Stamp a solid floor only where the natural seabed sat
+                // above it. Where the column was already deeper than FloorY
+                // (open ocean), leave the existing geometry so the lake
+                // merges seamlessly with the sea.
+                if (naturalSurfaceY > FloorY)
+                {
+                    ws.SetVoxelWorld(wx, FloorY, wz, VoxelType.Terrain,
+                        VoxelTypeInfo.SharpAxes.Y);
                 }
             }
         }
