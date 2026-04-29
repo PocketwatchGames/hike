@@ -15,6 +15,10 @@ run/main_scene="uid://c46haqwwl2h4s"
 config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[audio]
+
+buses/default_bus_layout="res://audio/default_bus_layout.tres"
+
 [display]
 
 window/size/viewport_width=1920
@@ -215,13 +219,37 @@ water_hide={
 "type": "bool",
 "value": false
 }
-block_shadow_dir={
-"type": "vec3",
-"value": Vector3(0, -1, 0)
+block_light_shadow_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/block_light_shadow_placeholder.tres"
 }
-block_shadow_min={
+block_light_shadow_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+block_light_shadow_right={
+"type": "vec3",
+"value": Vector3(1, 0, 0)
+}
+block_light_shadow_up={
+"type": "vec3",
+"value": Vector3(0, 1, 0)
+}
+block_light_shadow_size={
 "type": "float",
-"value": 0.55
+"value": 80.0
+}
+block_light_shadow_strength={
+"type": "float",
+"value": 0.6
+}
+block_light_shadow_blur_uv={
+"type": "float",
+"value": 0.0
+}
+block_light_shadow_enabled={
+"type": "bool",
+"value": true
 }
 light_falloff_exp={
 "type": "float",

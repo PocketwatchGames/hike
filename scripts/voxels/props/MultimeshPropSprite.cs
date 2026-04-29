@@ -117,6 +117,7 @@ public partial class MultimeshPropSprite : Sprite3D
     private WorldPropScatter.Handle _visibleHandle;
     private WorldPropScatter.Handle _shadowHandle;
     private WorldPropScatter.Handle _reflectionHandle;
+    private WorldPropScatter.Handle _blockLightShadowHandle;
     private WorldPropScatter _scatter;
 
     public override void _Ready()
@@ -184,10 +185,11 @@ public partial class MultimeshPropSprite : Sprite3D
             HasReflection = hasReflection,
         };
 
-        var (vis, sh, refl) = _scatter.Register(this);
+        var (vis, sh, refl, blockLight) = _scatter.Register(this);
         _visibleHandle = vis;
         _shadowHandle = sh;
         _reflectionHandle = refl;
+        _blockLightShadowHandle = blockLight;
 
         // Hide the inherited Sprite3D mesh — the multimesh draws on our
         // behalf now. CastShadow.Off matches LitSprite's "visible never
@@ -211,6 +213,11 @@ public partial class MultimeshPropSprite : Sprite3D
         {
             _scatter.Unregister(this, _shadowHandle);
             _shadowHandle = null;
+        }
+        if (_blockLightShadowHandle != null)
+        {
+            _scatter.Unregister(this, _blockLightShadowHandle);
+            _blockLightShadowHandle = null;
         }
         if (_reflectionHandle != null)
         {

@@ -58,6 +58,16 @@ global uniform float cloud_shadow_strength;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+// Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
+global uniform sampler2D block_light_shadow_tex : filter_linear;
+global uniform vec3 block_light_shadow_origin;
+global uniform vec3 block_light_shadow_right;
+global uniform vec3 block_light_shadow_up;
+global uniform float block_light_shadow_size;
+global uniform float block_light_shadow_strength;
+global uniform float block_light_shadow_blur_uv;
+global uniform bool block_light_shadow_enabled;
+#include "res://shaders/block_light_shadow.gdshaderinc"
 
 global uniform float camera_clip;
 global uniform float sprite_stretch;
@@ -489,7 +499,9 @@ void fragment() {
     float cloud = cloud_shadow_ground(source_world_pos, TIME);
     float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
     vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
-    vec3 block_lit = lm.gba;
+    // Match the lightmap sampling position above — the reflection's
+    // block_lit dim follows whatever silhouette covers the source prop.
+    vec3 block_lit = lm.gba * block_light_shadow_factor(source_world_pos);
     vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
     vec3 reflected = tex.rgb * light;

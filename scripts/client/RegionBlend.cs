@@ -46,48 +46,7 @@ public static class RegionBlend
 
         int regionCount = ws.Regions.Length;
         Span<float> weights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
-        for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
-
-        // The chunk-grid window around the player. Span = ceil(radius) on
-        // each side so any chunk whose center could be within the kernel
-        // is considered.
-        float radiusChunks = BlendRadiusChunks;
-        int kernelHalfChunks = Mathf.CeilToInt(radiusChunks);
-        int playerChunkX = Mathf.FloorToInt(playerWorldPos.X / ChunkState.SIZE);
-        int playerChunkZ = Mathf.FloorToInt(playerWorldPos.Z / ChunkState.SIZE);
-        int playerChunkY = Mathf.FloorToInt(playerWorldPos.Y / ChunkState.SIZE);
-
-        for (int dx = -kernelHalfChunks; dx <= kernelHalfChunks; dx++)
-        {
-            for (int dz = -kernelHalfChunks; dz <= kernelHalfChunks; dz++)
-            {
-                int cx = playerChunkX + dx;
-                int cz = playerChunkZ + dz;
-                int regionIdx = ResolveColumnRegion(ws, cx, playerChunkY, cz);
-                if (regionIdx < 0 || regionIdx >= regionCount) { continue; }
-
-                // Distance in CHUNK units from player → chunk center.
-                // Working in chunk units keeps the radius parameter
-                // intuitive ("blend over 2 chunks worth") and independent
-                // of ChunkState.SIZE.
-                float chunkCenterX = (cx + 0.5f) * ChunkState.SIZE;
-                float chunkCenterZ = (cz + 0.5f) * ChunkState.SIZE;
-                float distChunks = Mathf.Sqrt(
-                    ((playerWorldPos.X - chunkCenterX) * (playerWorldPos.X - chunkCenterX)
-                   + (playerWorldPos.Z - chunkCenterZ) * (playerWorldPos.Z - chunkCenterZ))
-                ) / ChunkState.SIZE;
-
-                // smoothstep(R, 0, d) = 1 at d=0, 0 at d=R, smooth in between.
-                float w = Mathf.SmoothStep(radiusChunks, 0f, distChunks);
-                if (w > 0f) { weights[regionIdx] += w; }
-            }
-        }
-
-        float totalWeight = 0f;
-        for (int i = 0; i < regionCount; i++) { totalWeight += weights[i]; }
-        if (totalWeight < MinTotalWeight) { return; }
-        float inv = 1f / totalWeight;
-        for (int i = 0; i < regionCount; i++) { weights[i] *= inv; }
+        if (!ComputeWeights(playerWorldPos, ws, weights)) { return; }
 
         // --- Region theme + scalars (RegionData) ---
         float sunR = 0, sunG = 0, sunB = 0, sunA = 0;
@@ -148,6 +107,72 @@ public static class RegionBlend
 
         // --- Weather (WeatherData) ---
         BlendWeather(ws, weights, outWeather);
+    }
+
+    // Per-region normalized weights at `playerWorldPos`. Same kernel as
+    // Sample() but without the palette/weather blend — for callers that
+    // need to drive parallel per-region pipelines (audio: one bus of
+    // layer players per region, mixed by these weights). `outWeights`
+    // length must equal ws.Regions.Length. Returns false if the world
+    // has no regions or no chunks contributed (caller should leave its
+    // outputs untouched).
+    public static bool SampleWeights(Vector3 playerWorldPos, WorldState ws, Span<float> outWeights)
+    {
+        if (ws == null || ws.Regions == null || ws.Regions.Length == 0) { return false; }
+        if (outWeights.Length != ws.Regions.Length) { return false; }
+        return ComputeWeights(playerWorldPos, ws, outWeights);
+    }
+
+    // Shared kernel: smoothstep-distance-weighted region accumulation
+    // around `playerWorldPos`, normalized to sum to 1. Returns false if
+    // the kernel found no loaded chunks belonging to a known region —
+    // caller treats that as "no data, leave previous outputs alone".
+    private static bool ComputeWeights(Vector3 playerWorldPos, WorldState ws, Span<float> weights)
+    {
+        int regionCount = weights.Length;
+        for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
+
+        // The chunk-grid window around the player. Span = ceil(radius) on
+        // each side so any chunk whose center could be within the kernel
+        // is considered.
+        float radiusChunks = BlendRadiusChunks;
+        int kernelHalfChunks = Mathf.CeilToInt(radiusChunks);
+        int playerChunkX = Mathf.FloorToInt(playerWorldPos.X / ChunkState.SIZE);
+        int playerChunkZ = Mathf.FloorToInt(playerWorldPos.Z / ChunkState.SIZE);
+        int playerChunkY = Mathf.FloorToInt(playerWorldPos.Y / ChunkState.SIZE);
+
+        for (int dx = -kernelHalfChunks; dx <= kernelHalfChunks; dx++)
+        {
+            for (int dz = -kernelHalfChunks; dz <= kernelHalfChunks; dz++)
+            {
+                int cx = playerChunkX + dx;
+                int cz = playerChunkZ + dz;
+                int regionIdx = ResolveColumnRegion(ws, cx, playerChunkY, cz);
+                if (regionIdx < 0 || regionIdx >= regionCount) { continue; }
+
+                // Distance in CHUNK units from player → chunk center.
+                // Working in chunk units keeps the radius parameter
+                // intuitive ("blend over 2 chunks worth") and independent
+                // of ChunkState.SIZE.
+                float chunkCenterX = (cx + 0.5f) * ChunkState.SIZE;
+                float chunkCenterZ = (cz + 0.5f) * ChunkState.SIZE;
+                float distChunks = Mathf.Sqrt(
+                    ((playerWorldPos.X - chunkCenterX) * (playerWorldPos.X - chunkCenterX)
+                   + (playerWorldPos.Z - chunkCenterZ) * (playerWorldPos.Z - chunkCenterZ))
+                ) / ChunkState.SIZE;
+
+                // smoothstep(R, 0, d) = 1 at d=0, 0 at d=R, smooth in between.
+                float w = Mathf.SmoothStep(radiusChunks, 0f, distChunks);
+                if (w > 0f) { weights[regionIdx] += w; }
+            }
+        }
+
+        float totalWeight = 0f;
+        for (int i = 0; i < regionCount; i++) { totalWeight += weights[i]; }
+        if (totalWeight < MinTotalWeight) { return false; }
+        float inv = 1f / totalWeight;
+        for (int i = 0; i < regionCount; i++) { weights[i] *= inv; }
+        return true;
     }
 
     // Pick the region this column (cx, cz) belongs to. Tries the chunk

@@ -167,6 +167,14 @@ Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at 
 
 **Sampler globals gotcha:** do NOT put a sampler global in `project.godot` with `value: null` — Godot will try to load `res://<null>` as a resource on startup. Sampler globals either need a real texture path in `project.godot` (use a `PlaceholderTexture*` `.tres` if the real value is runtime-constructed — `Register` will swap the value in at runtime), or they should be added at runtime via `RegisterRuntime`.
 
+**`material_storage.cpp:1677 - "!global_shader_uniforms.variables.has(p_name)"` spam diagnosis:** this fires whenever `RenderingServer.GlobalShaderParameterSet(name, ...)` runs for a `name` that is not in the engine's shader-globals dictionary. Common root causes, in rough order of frequency:
+1. **`Register` used for a global that is NOT declared in `project.godot`.** `Register` calls `Set` internally, which errors. Fix: switch to `RegisterRuntime` (creates the global), or add the project.godot declaration.
+2. **`mat4` global declared in `project.godot`'s `[shader_globals]` section.** Godot 4.6's project-settings parser accepts the declaration well enough for shader compile to succeed, but the global never makes it into `RenderingServer.global_shader_uniforms.variables`, so every per-frame `Set` errors. Decompose into supported scalar/vector types (e.g. `vec3 origin`, `vec3 right`, `vec3 up`, `float size`) and reconstruct in the shader. Other untested types (mat2, mat3, ivec*, uvec*, bvec*) may have the same issue — stick to bool/int/float/vec*/sampler*.
+3. **`[Tool]`-script `Apply()` runs in editor and pushes globals that are only registered behind `if (!Engine.IsEditorHint())`.** SkyController is `[Tool]`; its per-frame Set calls fire in the editor too. Move `RegisterRuntime` for any global Apply() pushes outside the editor-hint gate so the global exists in both modes (the gated block can keep allocations + non-shader work, but ANY global the per-frame pusher touches must be created in both editor and runtime).
+4. **Stack-trace it.** Run `Godot.exe --path . --verbose` in a terminal that surfaces C# backtraces — the trace points at the exact `Set`/`Register` callsite and its global name. Vastly faster than guessing.
+
+**Unshaded fragment output formula:** Godot 4 outputs `ALBEDO + EMISSION` for materials with `render_mode unshaded`. If your shader writes only `EMISSION = composited`, ALBEDO defaults to white and saturates the surface. Either explicitly `ALBEDO = vec3(0.0)` or write the composite to ALBEDO and zero EMISSION. The same applies to other render-mode-stripped paths — be deliberate about which output channel carries the color and zero the other.
+
 ### Build-Time Code Generation (`hike.csproj`)
 
 Two MSBuild targets run before compilation:

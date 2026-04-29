@@ -218,6 +218,14 @@ public partial class LitSprite : Sprite3D
                 RenderingServer.InstanceGeometrySetShaderParameter(shadowRid, name, value);
             }
         }
+        if (_blockLightShadowProxy != null)
+        {
+            Rid projRid = _blockLightShadowProxy.GetInstance();
+            if (projRid.IsValid)
+            {
+                RenderingServer.InstanceGeometrySetShaderParameter(projRid, name, value);
+            }
+        }
         if (_reflection != null)
         {
             Rid reflRid = _reflection.GetInstance();
@@ -356,6 +364,10 @@ public partial class LitSprite : Sprite3D
                     ? ShadowCastingSetting.ShadowsOnly
                     : ShadowCastingSetting.Off;
             }
+            if (_blockLightShadowProxy != null)
+            {
+                _blockLightShadowProxy.Visible = _castsShadow;
+            }
         }
     }
     private bool _castsShadow = true;
@@ -368,9 +380,18 @@ public partial class LitSprite : Sprite3D
     // bind to the same .tres, so the editor only loads one copy of each.
     [Export] public ShaderMaterial MaterialTemplate { get; set; }
     [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
+    // Visible-only sibling of ShadowCasterTemplate, used by the
+    // BlockLightShadowProjector pass. Two proxies per sprite, one job
+    // each: the sun/moon proxy uses ShadowCasterTemplate (ShadowsOnly,
+    // default layer, ALBEDO=0) and the projector proxy uses this
+    // template (visible, projector-only layer, ALBEDO=1). Combining
+    // them into one CastShadow.On proxy made per-sprite sun/moon
+    // shadows vanish even though terrain shadows kept casting.
+    [Export] public ShaderMaterial BlockLightShadowCasterTemplate { get; set; }
     [Export] public ShaderMaterial ReflectionTemplate { get; set; }
 
     private Sprite3D _shadowProxy;
+    private Sprite3D _blockLightShadowProxy;
     private Sprite3D _reflection;
     private ShaderMaterial _reflectionMaterial;
 
@@ -582,43 +603,69 @@ public partial class LitSprite : Sprite3D
 
     private void EnsureShadowProxy(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (ShadowCasterTemplate == null || Texture == null)
+        if (Texture == null)
         {
             return;
         }
-        if (_shadowProxy == null)
+        if (ShadowCasterTemplate != null)
         {
-            _shadowProxy = new Sprite3D();
-            _shadowProxy.Name = "ShadowProxy";
-            _shadowProxy.Centered = false;
-            _shadowProxy.PixelSize = 1.0f;
-            _shadowProxy.CastShadow = _castsShadow
-                ? ShadowCastingSetting.ShadowsOnly
-                : ShadowCastingSetting.Off;
-            _shadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
-            // Visible-pass output is suppressed by ShadowsOnly anyway, but we
-            // still need the mesh to have valid bounds. Sprite3D handles that.
-            AddChild(_shadowProxy);
-        }
-        _shadowProxy.Texture = Texture;
-        _shadowProxy.Offset = Offset;
-        _shadowProxy.RegionEnabled = RegionEnabled;
-        _shadowProxy.RegionRect = RegionRect;
+            if (_shadowProxy == null)
+            {
+                _shadowProxy = new Sprite3D();
+                _shadowProxy.Name = "ShadowProxy";
+                _shadowProxy.Centered = false;
+                _shadowProxy.PixelSize = 1.0f;
+                _shadowProxy.CastShadow = _castsShadow
+                    ? ShadowCastingSetting.ShadowsOnly
+                    : ShadowCastingSetting.Off;
+                _shadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+                AddChild(_shadowProxy);
+            }
+            _shadowProxy.Texture = Texture;
+            _shadowProxy.Offset = Offset;
+            _shadowProxy.RegionEnabled = RegionEnabled;
+            _shadowProxy.RegionRect = RegionRect;
 
-        // Shared shadow material per (template, texture) — every shadow
-        // proxy of the same template+texture combo points at this one
-        // material so Godot can batch the shadow-pass draws into one call.
-        ShaderMaterial sharedShadow = GetSharedMaterial(ShadowCasterTemplate, Texture);
-        if (_shadowProxy.MaterialOverride != sharedShadow)
+            ShaderMaterial sharedShadow = GetSharedMaterial(ShadowCasterTemplate, Texture);
+            if (_shadowProxy.MaterialOverride != sharedShadow)
+            {
+                _shadowProxy.MaterialOverride = sharedShadow;
+            }
+            InitInstanceUniformsFor(_shadowProxy.GetInstance(), spriteSize, regionOrigin);
+        }
+
+        // Second proxy: visible-only on the projector layer, so the
+        // BlockLightShadowProjector's SubViewport can read silhouettes.
+        // Cast shadow OFF — sun/moon atlas casting is handled by the
+        // ShadowsOnly proxy above on the default layer. Main camera's
+        // cull mask excludes SHADOW_PROXY_LAYER_MASK, so this proxy
+        // doesn't appear visibly in the player's view.
+        if (BlockLightShadowCasterTemplate != null)
         {
-            _shadowProxy.MaterialOverride = sharedShadow;
-        }
+            if (_blockLightShadowProxy == null)
+            {
+                _blockLightShadowProxy = new Sprite3D();
+                _blockLightShadowProxy.Name = "BlockLightShadowProxy";
+                _blockLightShadowProxy.Centered = false;
+                _blockLightShadowProxy.PixelSize = 1.0f;
+                _blockLightShadowProxy.CastShadow = ShadowCastingSetting.Off;
+                _blockLightShadowProxy.Layers = BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK;
+                _blockLightShadowProxy.Visible = _castsShadow;
+                _blockLightShadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
+                AddChild(_blockLightShadowProxy);
+            }
+            _blockLightShadowProxy.Texture = Texture;
+            _blockLightShadowProxy.Offset = Offset;
+            _blockLightShadowProxy.RegionEnabled = RegionEnabled;
+            _blockLightShadowProxy.RegionRect = RegionRect;
 
-        // Per-shadow-proxy instance uniforms. silhouette_amount /
-        // silhouette_tint don't exist on the shadow caster shader so the
-        // RenderingServer call is a no-op for those names, but pushing them
-        // unconditionally keeps the helper symmetric and harmless.
-        InitInstanceUniformsFor(_shadowProxy.GetInstance(), spriteSize, regionOrigin);
+            ShaderMaterial sharedProj = GetSharedMaterial(BlockLightShadowCasterTemplate, Texture);
+            if (_blockLightShadowProxy.MaterialOverride != sharedProj)
+            {
+                _blockLightShadowProxy.MaterialOverride = sharedProj;
+            }
+            InitInstanceUniformsFor(_blockLightShadowProxy.GetInstance(), spriteSize, regionOrigin);
+        }
     }
 
     // Decides whether to spawn / keep a flipped reflection child for this

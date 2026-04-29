@@ -58,12 +58,16 @@ global uniform bool debug_white_albedo;
 global uniform float camera_clip;
 global uniform float sprite_stretch;
 
-// block-shadow directional light — see sprite_lit.gdshader for the full rationale.
-// Identified in light() by matching LIGHT against -block_shadow_dir; when
-// matched, multiplicatively dims DIFFUSE_LIGHT by mix(block_shadow_min, 1.0,
-// ATTENUATION) and contributes nothing additively.
-global uniform vec3 block_shadow_dir;
-global uniform float block_shadow_min;
+// Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
+global uniform sampler2D block_light_shadow_tex : filter_linear;
+global uniform vec3 block_light_shadow_origin;
+global uniform vec3 block_light_shadow_right;
+global uniform vec3 block_light_shadow_up;
+global uniform float block_light_shadow_size;
+global uniform float block_light_shadow_strength;
+global uniform float block_light_shadow_blur_uv;
+global uniform bool block_light_shadow_enabled;
+#include "res://shaders/block_light_shadow.gdshaderinc"
 
 // Per-instance unpacked from MultiMesh data, passed via flat varyings to
 // the fragment stage so the integer cast / hash happens once per vertex.
@@ -76,8 +80,6 @@ varying flat ivec2 sprite_region_origin;
 varying flat int sprite_mirror_var;
 varying float cloud_dim;
 varying vec3 frag_world_pos;
-// Fragment→light varying mirroring EMISSION; see sprite_lit.gdshader.
-varying vec3 block_shadow_carrier;
 
 // Cheap 2D hash — same coefficients detail_sprite uses, so adjacent prop
 // instances flip differently.
@@ -230,31 +232,23 @@ void fragment() {
     float cloud = cloud_shadow_ground(frag_world_pos, TIME);
     cloud_dim = 1.0 - cloud * cloud_shadow_strength;
     vec3 sun_lit = sun_mask * sun_intensity * sun_color;
-    vec3 block_lit = lm.gba;
+    // Per-prop block_lit dim — sample at the anchor (one position for the
+    // whole prop), so a tree under another tree's silhouette reads as
+    // dimmed without cross-fading inside its own footprint.
+    vec3 block_lit = lm.gba * block_light_shadow_factor(world_origin);
 
     NORMAL = vec3(0.0, 1.0, 0.0);
     if (debug_white_albedo) {
         tex.rgb = vec3(0.0);
     }
-    // Block_lit split across both pathways — see voxel_clip.gdshader.
     ALBEDO = tex.rgb * sun_lit * (1.0 - sun_ambient);
-    EMISSION = tex.rgb * (block_lit * block_shadow_min + sun_lit * sun_ambient * cloud_dim);
-    block_shadow_carrier = tex.rgb * block_lit * (1.0 - block_shadow_min);
+    EMISSION = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
 }
 
 void light() {
-    // block-shadow light: multiplicatively dim DIFFUSE_LIGHT instead of adding.
-    // See sprite_lit.gdshader's light() for the full rationale.
-    // block-shadow light: dim ONLY the EMISSION (ambient + block-light) portion;
-    // direct sun stays untouched. See voxel_clip.gdshader's block-shadow branch.
-    vec3 block_shadow_dir_view = mat3(VIEW_MATRIX) * (-block_shadow_dir);
-    if (dot(LIGHT, block_shadow_dir_view) > 0.95) {
-        DIFFUSE_LIGHT += block_shadow_carrier * ATTENUATION;
-    } else {
-        // ATTENUATION (directional shadow atlas) and cloud_dim compose as min()
-        // — see sprite_lit / voxel_clip light() for the energy-gate rationale.
-        const float INV_PI = 0.31830989;
-        float light_energy = LIGHT_COLOR.r * INV_PI;
-        DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
-    }
+    // ATTENUATION (directional shadow atlas) and cloud_dim compose as min()
+    // — see sprite_lit / voxel_clip light() for the energy-gate rationale.
+    const float INV_PI = 0.31830989;
+    float light_energy = LIGHT_COLOR.r * INV_PI;
+    DIFFUSE_LIGHT += ALBEDO * light_energy * min(ATTENUATION, cloud_dim);
 }

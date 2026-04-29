@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="7_eojnx"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="8_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="9_lit_shadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="10_lit_reflectiontemplate"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
@@ -192,6 +193,7 @@ MirrorByYaw = true
 ForwardOffset = 0.25
 MaterialTemplate = ExtResource("8_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("9_lit_shadowcastertemplate")
+BlockLightShadowCasterTemplate = ExtResource("9b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("10_lit_reflectiontemplate")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]

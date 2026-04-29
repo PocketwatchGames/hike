@@ -2,9 +2,7 @@ shader_type spatial;
 // Opaque queue (no blend_mix) — the shadow caster only needs depth, and
 // alpha cut is handled by discard. Visible-pass output is suppressed by
 // CastShadow.ShadowsOnly anyway, so the queue choice only affects whether
-// other shadow-casters can batch with this one. Opaque + shared materials
-// (per shadow_caster_material + texture) lets all goblin shadow proxies
-// batch into a single shadow-pass draw call.
+// other shadow-casters can batch with this one.
 render_mode depth_draw_opaque, cull_disabled, unshaded, skip_vertex_transform;
 
 // Sun-billboarded shadow caster sprite, used by LitSprite's hidden shadow

@@ -416,14 +416,18 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("clip_debug_mode", ((CVarInt)cvar).Value);
     });
 
-    // Enable/disable the block-light secondary shadow effect (the
-    // BlockShadowLight DirectionalLight3D + the shader path that dims
-    // block_lit under its silhouette). When false, SkyController hides
-    // the light so its shadow pass is skipped entirely and pushes
-    // block_shadow_min = 1.0 so the shaders fall back to full block_lit
-    // visibility everywhere. Useful for A/B comparing scenes with the
-    // effect on vs off, or as a graphics-settings toggle.
-    public static CVarBool blockShadowEnabled = new CVarBool("block_shadow", true);
+    // Enable/disable the block-light shadow projector (a top-down
+    // SubViewport that renders sprite silhouettes; lit shaders sample it
+    // and dim their block_lit term accordingly). When false, the
+    // projector's render target update mode goes Disabled (no render
+    // pass) and the `block_light_shadow_enabled` shader global goes false
+    // so lit shaders skip the texture sample entirely and write block_lit
+    // to EMISSION at full strength. Rendering is byte-identical to
+    // pre-feature when off — the low-spec graphics-settings toggle.
+    public static CVarBool blockLightShadow = new CVarBool("block_light_shadow", true, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("block_light_shadow_enabled", ((CVarBool)cvar).Value);
+    });
 
     // Discards every voxel_water fragment when set. Lets you check the
     // terrain stencil + cap pipeline without water front faces in the

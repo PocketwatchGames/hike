@@ -107,6 +107,12 @@ public partial class WorldPropScatter : Node3D
         // MODEL_MATRIX[3] same as the other buckets — the shader does the
         // mirror-across-water-plane geometry on its own.
         Reflection,
+        // Visible-only render into the BlockLightShadowProjector's
+        // SubViewport. Same instance data as Shadow (same billboard
+        // math, same alpha cut), but writes ALBEDO=1 and is on the
+        // projector layer so only the projector camera renders it.
+        // Doesn't cast sun/moon shadows — Shadow does that.
+        BlockLightShadow,
     }
 
     // Internal so the internal Bucket can store one as a field — same
@@ -174,15 +180,19 @@ public partial class WorldPropScatter : Node3D
     // shadow and reflection buckets. Returns three handles the sprite
     // stores; pass them back to Unregister on _ExitTree. Null handles
     // mean the sprite opted out of (or didn't qualify for) that pass:
-    //   - Shadow:     skipped if sprite.CastsShadow == false.
-    //   - Reflection: skipped if MultimeshPropSprite found no water at
-    //                 _Ready (snapshot.HasReflection == false).
-    public (Handle Visible, Handle Shadow, Handle Reflection) Register(MultimeshPropSprite sprite)
+    //   - Shadow:           skipped if sprite.CastsShadow == false.
+    //   - BlockLightShadow: skipped if sprite.CastsShadow == false (same
+    //                       gate; both proxies represent the sprite's
+    //                       silhouette, just for different consumers).
+    //   - Reflection:       skipped if MultimeshPropSprite found no water
+    //                       at _Ready (snapshot.HasReflection == false).
+    public (Handle Visible, Handle Shadow, Handle Reflection, Handle BlockLightShadow) Register(MultimeshPropSprite sprite)
     {
         Handle visible = RegisterIn(sprite, Pass.Visible);
         Handle shadow = sprite.CastsShadow ? RegisterIn(sprite, Pass.Shadow) : null;
         Handle reflection = sprite.Snapshot.HasReflection ? RegisterIn(sprite, Pass.Reflection) : null;
-        return (visible, shadow, reflection);
+        Handle blockLightShadow = sprite.CastsShadow ? RegisterIn(sprite, Pass.BlockLightShadow) : null;
+        return (visible, shadow, reflection, blockLightShadow);
     }
 
     // Unregister takes both the sprite and the handle: the handle carries
@@ -258,15 +268,27 @@ public partial class WorldPropScatter : Node3D
         bucket.Mmi.Name = $"{MULTIMESH_NAME_PREFIX}{key.Pass}_{TextureLabel(key.Texture)}";
         bucket.Mmi.MaterialOverride = bucket.Material;
         // Per-pass shadow contribution:
-        //   - Visible / Reflection: the visible/reflection bucket renders
-        //     its own pass; sun-shadow comes from the parallel Shadow
-        //     bucket. CastShadow.Off so this bucket itself doesn't emit
-        //     into the shadow atlas (would double-cast).
-        //   - Shadow: ShadowsOnly so it contributes silhouettes to the
-        //     shadow atlas without rendering visibly.
-        bucket.Mmi.CastShadow = key.Pass == Pass.Shadow
-            ? GeometryInstance3D.ShadowCastingSetting.ShadowsOnly
-            : GeometryInstance3D.ShadowCastingSetting.Off;
+        //   - Visible / Reflection: visible-only on default layer; sun
+        //     shadows come from Shadow, block-light from BlockLightShadow.
+        //   - Shadow: ShadowsOnly on default layer — contributes only to
+        //     the sun/moon shadow atlas, never visible to any camera.
+        //   - BlockLightShadow: visible on the projector layer only;
+        //     CastShadow.Off so it doesn't double-cast into the sun
+        //     atlas. Renders into the BlockLightShadowProjector's
+        //     SubViewport. Excluded from the main camera by cull mask.
+        if (key.Pass == Pass.Shadow)
+        {
+            bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.ShadowsOnly;
+        }
+        else if (key.Pass == Pass.BlockLightShadow)
+        {
+            bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            bucket.Mmi.Layers = BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK;
+        }
+        else
+        {
+            bucket.Mmi.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+        }
         bucket.Mmi.Visible = CVars.propsVisible.Value;
 
         // Single CVar subscription per bucket (lives for world's lifetime).
@@ -299,6 +321,7 @@ public partial class WorldPropScatter : Node3D
             Pass.Visible => "res://resources/materials/sprite_prop_multimesh.tres",
             Pass.Shadow => "res://resources/materials/sprite_prop_shadow_multimesh.tres",
             Pass.Reflection => "res://resources/materials/sprite_prop_reflection_multimesh.tres",
+            Pass.BlockLightShadow => "res://resources/materials/sprite_prop_block_light_shadow_multimesh.tres",
             _ => null,
         };
         if (templatePath == null)

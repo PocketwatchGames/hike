@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
+[ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
@@ -85,6 +86,7 @@ render_target_update_mode = 4
 
 [node name="MainCamera" type="Camera3D" parent="SceneViewport" unique_id=159032169]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
+cull_mask = 1048567
 projection = 1
 current = true
 fov = 20.0
@@ -110,7 +112,7 @@ environment = SubResource("Environment_scene")
 transform = Transform3D(0.70710695, -0.6123723, 0.35355324, 0, 0.49999997, 0.86602545, -0.7071065, -0.61237264, 0.35355347, 0, 0, 0)
 light_angular_distance = 0.5
 light_bake_mode = 0
-light_cull_mask = 3
+light_cull_mask = 11
 shadow_enabled = true
 shadow_opacity = 0.9
 shadow_blur = 10.2
@@ -121,30 +123,37 @@ transform = Transform3D(-0.58920443, -0.20912163, 0.780452, 0, 0.9659258, 0.2588
 light_energy = 0.15000008
 light_angular_distance = 0.5
 light_bake_mode = 0
-light_cull_mask = 3
+light_cull_mask = 11
 shadow_enabled = true
 shadow_opacity = 0.9
 shadow_blur = 10.2
 sky_mode = 1
 
-[node name="BlockShadowLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209993]
-transform = Transform3D(1, 0, 0, 0, 0.57357645, 0.81915206, 0, -0.81915206, 0.57357645, 0, 0, 0)
-light_angular_distance = 0.05
-light_cull_mask = 3
-shadow_enabled = true
-shadow_bias = 0.05
-shadow_normal_bias = 0.5
-shadow_blur = 0.0
-directional_shadow_split_2 = 0.25
-directional_shadow_max_distance = 30.0
-sky_mode = 1
+[node name="BlockLightShadowProjector" type="Node3D" parent="SceneViewport" unique_id=1871209993 node_paths=PackedStringArray("viewport", "camera")]
+script = ExtResource("block_light_shadow_projector_script")
+tiltDegrees = 30.0
+strength = 0.4
+blurTexels = 3.0
+viewport = NodePath("ProjectorViewport")
+camera = NodePath("ProjectorViewport/ProjectorCamera")
 
-[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight", "blockShadowLight")]
+[node name="ProjectorViewport" type="SubViewport" parent="SceneViewport/BlockLightShadowProjector" unique_id=672982328]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="ProjectorCamera" type="Camera3D" parent="SceneViewport/BlockLightShadowProjector/ProjectorViewport" unique_id=1756990398]
+cull_mask = 8
+projection = 1
+current = true
+size = 80.0
+near = 0.1
+far = 200.0
+
+[node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight")]
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
-blockShadowLight = NodePath("../SceneViewport/BlockShadowLight")
-blockShadowMin = 1.0
 sunAngularSizeDeg = 16.0
 moonAngularSizeDeg = 12.0
 starIntensity = 1.5
@@ -156,6 +165,9 @@ rimStrength = 0.8
 rippleScaleA = 0.1
 rippleScaleB = 0.06
 rippleAngleOffsetB = 65.0
+dynamicRippleLifetime = 2.0
+dynamicRippleFalloff = 10.0
+dynamicRippleTilt = 0.25
 reflectionFovVerticalCenter = 0.35
 fresnelPower = 0.5
 reflectionStrength = 1.5

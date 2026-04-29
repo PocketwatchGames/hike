@@ -32,6 +32,8 @@ public partial class World : Node3D
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
     private WorldPropScatter _propScatter;
+    private AmbienceController _ambienceController;
+    private ChunkAmbienceSpawner _chunkAmbienceSpawner;
     private Player _player;
     private bool _editorMode;
     private Vector3I _lastEntityChunkCoord;
@@ -41,6 +43,7 @@ public partial class World : Node3D
     // world-wide. Chunks post their contributions via SetChunk and clear them
     // via RemoveChunk on eviction.
     public WorldDetailScatter DetailScatter => _detailScatter;
+    public ChunkManager ChunkManager => _chunkManager;
 
     // Global manager for static-prop sprite multimeshes. Each
     // MultimeshPropSprite registers itself in _Ready and unregisters in
@@ -75,6 +78,21 @@ public partial class World : Node3D
         _chunkManager.onChunkLoaded += OnChunkLoaded;
         _chunkManager.onChunkUnloaded += OnChunkUnloaded;
         _chunkManager.Initialize(worldState, spawnPosition, camera, fogMaterial, getPlayerPosition);
+
+        // Spawned programmatically here rather than authored into game.tscn
+        // because AmbienceController is pure logic — no [Export] node refs
+        // to wire and no audio assets yet. Once the global ambience layer
+        // AudioStreamPlayers (rain / wind / insect bed) get authored in the
+        // scene, they'll likely move under this node and AmbienceController
+        // will graduate to a scene-tree node with [Export] field references.
+        _ambienceController = new AmbienceController();
+        _ambienceController.Name = "AmbienceController";
+        AddChild(_ambienceController);
+
+        _chunkAmbienceSpawner = new ChunkAmbienceSpawner();
+        _chunkAmbienceSpawner.Name = "ChunkAmbienceSpawner";
+        AddChild(_chunkAmbienceSpawner);
+        _chunkAmbienceSpawner.Bind(this);
 
         CreateWorldBoundary();
     }

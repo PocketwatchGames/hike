@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="6_q06eg"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="7_lit_materialtemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="8b_lit_blshadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
@@ -76,6 +77,7 @@ alpha_cut = 1
 script = ExtResource("6_litsprite")
 MaterialTemplate = ExtResource("7_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("8_lit_shadowcastertemplate")
+BlockLightShadowCasterTemplate = ExtResource("8b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("9_lit_reflectiontemplate")
 MirrorByYaw = true
 ForwardOffset = 0.3

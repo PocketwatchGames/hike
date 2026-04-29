@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/RegionData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
+[ext_resource type="Resource" path="res://resources/audio/temperate_ambience.tres" id="3_ambience"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -14,3 +15,4 @@ script = ExtResource("1_region")
 SkyColor = Color(0.35, 0.55, 0.85, 1)
 DustAmount = 0.08
 weather = SubResource("Resource_weather")
+ambience = ExtResource("3_ambience")

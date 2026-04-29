@@ -65,4 +65,12 @@ public partial class RegionData : Resource
     // Baseline weather for this region. Becomes the climate baseline
     // once dynamic weather exists.
     [Export] public WeatherData weather;
+
+    // Authored ambience set for this region — looping global layers
+    // (wind / rain / insect bed / distant ocean) plus the positional
+    // emitter palette used by ChunkAmbienceSpawner. AmbienceController
+    // instantiates one player per global layer per region and crossfades
+    // weights as the player crosses region borders, the same way the
+    // visual palette already blends.
+    [Export] public RegionAmbienceData ambience;
 }

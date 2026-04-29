@@ -58,28 +58,9 @@ public partial class SkyController : Node3D
     // dimmer than daylight. Enables simultaneous sun+moon directional
     // shadows during dawn/dusk crossover.
     [Export] public DirectionalLight3D moonLight;
-    // Wire to the scene's BlockShadowLight DirectionalLight3D. This is an "occlusion
-    // projector" rather than a real light: it shines roughly straight down
-    // (with a small tilt toward the camera) so its shadow atlas renders the
-    // silhouettes of sprites + terrain from above. The lit shaders detect
-    // it via `block_shadow_dir` and use ATTENUATION purely to MULTIPLICATIVELY
-    // dim the already-accumulated voxel light — the block-shadow light's own additive
-    // contribution is never added, so it never brightens anything that
-    // wasn't already receiving voxel light. Replaces the per-sprite AO
-    // Decal that LitSprite used to spawn; works in caves and any lighting
-    // condition because it modulates whatever light is there. SkyController
-    // re-orients it each frame to track the camera yaw.
-    [Export] public DirectionalLight3D blockShadowLight;
-    // Tilt of the block-shadow light away from straight-down, toward the camera. 0 =
-    // pure +Y/-Y axis (silhouette billboard math degenerates). 20-30° gives
-    // a visible elongation of the sprite shadow toward the back of camera —
-    // reads as a natural drop-shadow under iso projection.
-    [Export(PropertyHint.Range, "5,60,0.5")] public float blockShadowTiltDegrees = 35f;
-    // Multiplicative dim applied at fully shadowed fragments. 0 = full
-    // black under the AO silhouette (way too strong); 1 = no effect.
-    // Defaulted to 0 for prototyping so the projected silhouette is
-    // unmistakable; raise toward 0.55 for a subtle production look.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float blockShadowMin = 0.0f;
+    // Block-light shadow projector lives on its own node now —
+    // BlockLightShadowProjector under SceneViewport — and is no longer
+    // driven from SkyController. See scripts/client/BlockLightShadowProjector.cs.
 
     [ExportSubgroup("Preview")]
     // Editor preview only — no WorldState exists in the editor, so the
@@ -285,6 +266,28 @@ public partial class SkyController : Node3D
     // wind picks up). Negative = cells shrink with wind. Lets you keep
     // a calm base scale while winds produce larger patterns.
     [Export(PropertyHint.Range, "-1,2,0.01")] public float rippleScaleWindResponse = 0f;
+
+    [ExportSubgroup("Dynamic Ripples")]
+    // Radial ripple impacts emitted by entities moving through water (Player,
+    // Mob). Each impact expands as a ring at `dynamicRippleSpeed` m/s, fading
+    // over `dynamicRippleLifetime` seconds. The water shader composites them
+    // onto the existing ripple normal AFTER the wind_factor flatten, so
+    // footstep ripples remain visible on cave pools and indoor still water.
+    [Export(PropertyHint.Range, "0.5,10,0.1")] public float dynamicRippleSpeed = 1.5f;
+    [Export(PropertyHint.Range, "0.2,5,0.1")] public float dynamicRippleLifetime = 1.0f;
+    // Fade-in window (seconds) — ramps amplitude from 0 to full so the
+    // age=0 "central pulse" doesn't pop into existence. Should be large
+    // enough that the ring radius (= speed × fade_in) clears the impact
+    // origin before the ring becomes visible. With speed=1.5 and
+    // fade_in=0.2, the ring is at ~0.3m by full visibility.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float dynamicRippleFadeIn = 0.2f;
+    // Gaussian envelope tightness around the moving ring crest. Higher =
+    // thinner ring; lower = wider, softer ring. The ring's visible
+    // half-width in meters is roughly 1 / sqrt(falloff).
+    [Export(PropertyHint.Range, "0.5,200,0.5")] public float dynamicRippleFalloff = 30.0f;
+    // Overall normal-perturbation amplitude. 0 disables dynamic ripples even
+    // when impacts are queued.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float dynamicRippleTilt = 0.6f;
 
     [ExportSubgroup("Reflections")]
     // Fake reflection FOV — under an orthographic iso camera, true mirror-
@@ -587,6 +590,25 @@ public partial class SkyController : Node3D
     // `windSpeed * waveSpeedPerMps * dt`. Replaces a fixed `time * 1.2`
     // rate so wave undulation freezes in calm air and whips in gales.
     public float wavePhase;
+
+    // --- Dynamic-ripple ring buffer ---------------------------------------
+    // Active radial ripples emitted by entities moving through water.
+    // Layout: parallel arrays so we can push the whole buffer to the shader
+    // each frame as a single Rgbaf texture (xy=world XZ, z=age, w=strength).
+    // Capped at MaxDynamicRipples — when full, the oldest entry is replaced
+    // (visual loss is imperceptible because the eldest ripple is also the
+    // dimmest from age fade).
+    private const int MaxDynamicRipples = 32;
+    private struct ActiveRipple
+    {
+        public float X, Z;
+        public float Age;
+        public float Strength;
+    }
+    private readonly ActiveRipple[] _dynamicRipples = new ActiveRipple[MaxDynamicRipples];
+    private int _dynamicRippleCount;
+    private Image _rippleImage;
+    private ImageTexture _rippleTexture;
     // Grass-sway sin phase (integrates palette.WindFrequency per frame).
     public float windPhase;
     // Gust-wave phase in radians (integrates palette.GustFrequency * 2π
@@ -699,6 +721,45 @@ public partial class SkyController : Node3D
     // struct is small and callers read a single field at a time).
     public DerivedPalette Palette => _palette;
 
+    // Push a radial water-ripple impact at world XZ. Called by Player and
+    // Mob each physics tick while moving through water (see
+    // WaterRippleEmitter). The ripple expands as a ring at
+    // `dynamicRippleSpeed` m/s and fades out over `dynamicRippleLifetime`
+    // seconds. When the buffer is full, the oldest active ripple is
+    // overwritten — by definition the most-faded one, so the visual loss
+    // is imperceptible.
+    public void EmitWaterRipple(Vector2 worldXZ, float strength)
+    {
+        if (_dynamicRippleCount < MaxDynamicRipples)
+        {
+            _dynamicRipples[_dynamicRippleCount++] = new ActiveRipple
+            {
+                X = worldXZ.X,
+                Z = worldXZ.Y,
+                Age = 0f,
+                Strength = strength,
+            };
+            return;
+        }
+        int oldestIdx = 0;
+        float oldestAge = -1f;
+        for (int i = 0; i < MaxDynamicRipples; i++)
+        {
+            if (_dynamicRipples[i].Age > oldestAge)
+            {
+                oldestAge = _dynamicRipples[i].Age;
+                oldestIdx = i;
+            }
+        }
+        _dynamicRipples[oldestIdx] = new ActiveRipple
+        {
+            X = worldXZ.X,
+            Z = worldXZ.Y,
+            Age = 0f,
+            Strength = strength,
+        };
+    }
+
     // windSpeed + gusted wave added on top. Exposed so RainEffect's tilt
     // math and SkyController's own sway amplitude agree on "how gusty is
     // right now" without both recomputing the wave. Updated in Apply().
@@ -723,10 +784,6 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("sun_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("fill_a_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
             ShaderGlobals.Register("fill_b_world_dir", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Down);
-            // block_shadow_dir + block_shadow_min are registered earlier in
-            // ChunkManager._Ready() so they exist before voxel_*.gdshader
-            // first compiles on standalone launch. SkyController.Apply()
-            // rewrites the values each frame.
             // Sky-only globals for the sun/moon disks.
             ShaderGlobals.Register("sky_sun_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(-0.215f, -0.819f, -0.532f));
             ShaderGlobals.Register("moon_color", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0.55f, 0.6f, 0.75f));
@@ -815,6 +872,25 @@ public partial class SkyController : Node3D
             _blendedRegion = new RegionData();
             _blendedWeather = new WeatherData();
         }
+
+        // Dynamic ripple buffer + control globals — created in BOTH editor
+        // and runtime modes because SkyController carries [Tool] and Apply()
+        // (the per-frame Set pusher) runs in editor too. Without registering
+        // here the editor spams material_storage.cpp:1677 every frame trying
+        // to Set globals that don't exist (CLAUDE.md cause #3).
+        // Width=MaxDynamicRipples × height=1 Rgbaf image holding (x, z, age,
+        // strength) per active ripple. Sampled via texelFetch in
+        // voxel_water.gdshader; allocated once and updated in-place each
+        // frame.
+        _rippleImage = Image.CreateEmpty(MaxDynamicRipples, 1, false, Image.Format.Rgbaf);
+        _rippleTexture = ImageTexture.CreateFromImage(_rippleImage);
+        ShaderGlobals.RegisterRuntime("water_ripple_tex", RenderingServer.GlobalShaderParameterType.Sampler2D, _rippleTexture);
+        ShaderGlobals.RegisterRuntime("water_ripple_count", RenderingServer.GlobalShaderParameterType.Int, 0);
+        ShaderGlobals.RegisterRuntime("water_ripple_speed", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleSpeed);
+        ShaderGlobals.RegisterRuntime("water_ripple_lifetime", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleLifetime);
+        ShaderGlobals.RegisterRuntime("water_ripple_fade_in", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFadeIn);
+        ShaderGlobals.RegisterRuntime("water_ripple_falloff", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleFalloff);
+        ShaderGlobals.RegisterRuntime("water_ripple_tilt", RenderingServer.GlobalShaderParameterType.Float, dynamicRippleTilt);
 
         UpdateSunAndMoon();
         // Seed the palette with null-safe fallbacks so the very first
@@ -948,6 +1024,8 @@ public partial class SkyController : Node3D
             moteOffset += moteScroll * dt;
         }
 
+        TickDynamicRipples(dt);
+
         Apply();
 
         Vector3 fillADir = ComputeFillDirection(_primaryLightDir, fillAPitchDegrees, fillAYawOffsetDegrees);
@@ -956,53 +1034,51 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("fill_a_world_dir", fillADir);
         RenderingServer.GlobalShaderParameterSet("fill_b_world_dir", fillBDir);
 
-        // block-shadow light: tilt away from straight-down toward the active camera.
-        // The shadow-caster billboard math (shadow_caster.gdshader,
-        // sprite_prop_shadow_multimesh.gdshader) horizontalises the light
-        // direction to derive a sprite plane — at exactly straight down
-        // light_horiz collapses to zero and the silhouette degenerates.
-        // Tilting by blockShadowTiltDegrees keeps the math stable AND projects
-        // the silhouette slightly behind the sprite from the camera's POV,
-        // which reads as a natural drop shadow under iso projection.
-        Vector3 blockShadowDir = ComputeBlockShadowDirection();
-        OrientLight(blockShadowLight, blockShadowDir);
-        RenderingServer.GlobalShaderParameterSet("block_shadow_dir", blockShadowDir);
-        // CVar `block_shadow` toggles the effect. When off, hide the light
-        // (Godot skips its shadow pass entirely) and push block_shadow_min=1
-        // so the shaders' carrier branch contributes 0 (full block_lit goes
-        // through EMISSION as if AO was never in the scene).
-        bool blockShadowOn = CVars.blockShadowEnabled.Value;
-        if (blockShadowLight != null && blockShadowLight.Visible != blockShadowOn)
-        {
-            blockShadowLight.Visible = blockShadowOn;
-        }
-        RenderingServer.GlobalShaderParameterSet("block_shadow_min", blockShadowOn ? blockShadowMin : 1.0f);
     }
 
-    // Compute the block-shadow light's world direction. Mostly -Y, tilted by
-    // blockShadowTiltDegrees in the horizontal direction the camera is FACING
-    // (so the silhouette projects to the FAR side of the sprite from the
-    // camera's POV — a normal drop shadow). Falls back to a fixed -Z tilt
-    // if no active camera is available (e.g. during scene load).
-    private Vector3 ComputeBlockShadowDirection()
+    // Advance every active dynamic ripple's age by dt, drop expired entries
+    // by compacting in place, then upload the buffer to the GPU as a
+    // width=MaxDynamicRipples Rgbaf row. Pixel layout per active slot is
+    // (X, Z, Age, Strength); inactive slots are zeroed so the shader's
+    // bounds-checked loop skips them. SetPixel on Rgbaf format stores the
+    // four Color floats verbatim — outside [0,1] is fine.
+    private void TickDynamicRipples(float dt)
     {
-        float tiltRad = Mathf.DegToRad(Mathf.Max(blockShadowTiltDegrees, 5f));
-        float sinT = Mathf.Sin(tiltRad);
-        float cosT = Mathf.Cos(tiltRad);
-        Vector3 horiz = new Vector3(0f, 0f, 1f);
-        Camera3D cam = GetViewport()?.GetCamera3D();
-        if (cam != null)
+        if (_rippleImage == null || _rippleTexture == null)
         {
-            // Camera's forward axis (-Z) projected onto the XZ plane and
-            // normalized. This is "the direction the camera is looking,
-            // horizontally". Light tilts in this direction so the shadow
-            // falls behind the object from the camera's view.
-            Vector3 fwd = -cam.GlobalBasis.Z;
-            fwd.Y = 0f;
-            float len = fwd.Length();
-            if (len > 1e-3f) { horiz = fwd / len; }
+            return;
         }
-        return new Vector3(horiz.X * sinT, -cosT, horiz.Z * sinT).Normalized();
+
+        float lifetime = Mathf.Max(dynamicRippleLifetime, 0.01f);
+        int writeIdx = 0;
+        for (int i = 0; i < _dynamicRippleCount; i++)
+        {
+            _dynamicRipples[i].Age += dt;
+            if (_dynamicRipples[i].Age >= lifetime)
+            {
+                continue;
+            }
+            if (writeIdx != i)
+            {
+                _dynamicRipples[writeIdx] = _dynamicRipples[i];
+            }
+            writeIdx++;
+        }
+        _dynamicRippleCount = writeIdx;
+
+        for (int i = 0; i < MaxDynamicRipples; i++)
+        {
+            if (i < _dynamicRippleCount)
+            {
+                ActiveRipple r = _dynamicRipples[i];
+                _rippleImage.SetPixel(i, 0, new Color(r.X, r.Z, r.Age, r.Strength));
+            }
+            else
+            {
+                _rippleImage.SetPixel(i, 0, new Color(0f, 0f, 0f, 0f));
+            }
+        }
+        _rippleTexture.Update(_rippleImage);
     }
 
     // Compute sun / moon positions from the current time and push results
@@ -1340,6 +1416,12 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("ripple_offset_b", rippleOffsetB);
         RenderingServer.GlobalShaderParameterSet("ripple_strength", _palette.RippleStrength);
         RenderingServer.GlobalShaderParameterSet("ripple_pixel_size", effRipplePx);
+        RenderingServer.GlobalShaderParameterSet("water_ripple_count", _dynamicRippleCount);
+        RenderingServer.GlobalShaderParameterSet("water_ripple_speed", dynamicRippleSpeed);
+        RenderingServer.GlobalShaderParameterSet("water_ripple_lifetime", Mathf.Max(dynamicRippleLifetime, 0.01f));
+        RenderingServer.GlobalShaderParameterSet("water_ripple_fade_in", Mathf.Max(dynamicRippleFadeIn, 0.001f));
+        RenderingServer.GlobalShaderParameterSet("water_ripple_falloff", dynamicRippleFalloff);
+        RenderingServer.GlobalShaderParameterSet("water_ripple_tilt", dynamicRippleTilt);
         RenderingServer.GlobalShaderParameterSet("water_shallow_tint", ColorToVec3(_palette.WaterShallowTint));
         RenderingServer.GlobalShaderParameterSet("water_deep_tint", ColorToVec3(_palette.WaterDeepTint));
         RenderingServer.GlobalShaderParameterSet("water_alpha_min", effAlphaMin);

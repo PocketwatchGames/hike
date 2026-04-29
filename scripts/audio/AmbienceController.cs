@@ -1,0 +1,358 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+
+// Central per-frame producer of AmbienceState. Every audio consumer
+// (global layers, reverb bus, positional palettes) reads from
+// AmbienceController.Current.State — the controller is the single seam
+// between world state and audio, mirroring how SkyController is the
+// single seam between world state and the sky/lighting palette.
+//
+// The cheap fields (wetness, wind, env-tag, fog at listener, biome id)
+// are sampled per-frame here. The expensive density fields (foliage,
+// water, shoreline) get filled in by the density-sampling pass at a
+// slower jittered cadence — that pass writes back into State directly.
+//
+// The listener is the player's world position. World.Current.player is
+// the source of truth; the controller no-ops when no player is up
+// (loading, main menu) so the State struct stays at safe defaults.
+[GlobalClass]
+public partial class AmbienceController : Node3D
+{
+    public static AmbienceController Current { get; private set; }
+
+    private AmbienceState _state;
+    public ref readonly AmbienceState State => ref _state;
+
+    // Density sampler tick interval. The expensive voxel-box scan only
+    // runs ~5 Hz; the world doesn't change fast enough to need higher.
+    // Jittered per-instance at construction so two AmbienceControllers
+    // (eventual multiplayer) wouldn't sample on the same frame.
+    private double _densityAccumSec;
+    private double _densityIntervalSec;
+
+    // Per-region runtime layer players. _layersByRegion[i] contains the
+    // AmbienceLayerPlayer instances spawned from ws.Regions[i]'s
+    // ambience.globalLayers — one player per layer per region. They all
+    // tick every frame; their region weight (driven by RegionBlend) sets
+    // their amplitude so a player crossing a border crossfades into the
+    // new region's layer set over the same band the visual palette uses.
+    //
+    // Lazy-built on the first frame WorldState.Regions is non-empty and
+    // rebuilt if the region count changes (defensive — currently regions
+    // are write-once at world creation). When a region's ambience entry
+    // is null, that region's slot is just an empty list.
+    private List<AmbienceLayerPlayer>[] _layersByRegion;
+
+    public override void _Ready()
+    {
+        Current = this;
+        // 200 ms base + up to 40 ms jitter per controller.
+        _densityIntervalSec = 0.20 + GD.Randf() * 0.04;
+    }
+
+    public override void _ExitTree()
+    {
+        if (Current == this) { Current = null; }
+    }
+
+    public override void _Process(double delta)
+    {
+        World w = World.Current;
+        if (w == null) { return; }
+        WorldState ws = w.WorldState;
+        if (ws == null) { return; }
+        Player player = w.player;
+        if (player == null) { return; }
+
+        Sample(ws, player.GlobalPosition);
+
+        _densityAccumSec += delta;
+        if (_densityAccumSec >= _densityIntervalSec)
+        {
+            _densityAccumSec = 0.0;
+            SampleDensity(ws, player.GlobalPosition);
+        }
+
+        AmbienceBusDriver.Apply(_state);
+        TickLayers(ws, player.GlobalPosition, (float)delta);
+    }
+
+    // Half-extents (in voxels) of the box scanned for water/shoreline/
+    // foliage densities. Roughly the listener's "audible foreground" —
+    // big enough that walking up to a forest edge lifts foliage rustle
+    // before you're inside, small enough to keep the per-tick voxel
+    // count under 10K so this stays under a millisecond at 5 Hz.
+    private const int DENSITY_HORIZ_RADIUS = 12;
+    private const int DENSITY_VERT_RADIUS = 6;
+
+    // DetailStrength threshold that qualifies a voxel as "has foliage".
+    // The painted scatter rolls per-instance against strength/255, so
+    // even strength=20 produces some sprites — kept low to count thinly
+    // scattered grass.
+    private const int DETAIL_MIN_STRENGTH = 20;
+
+    // Cell-count saturation for FoliageDensity normalization. A box of
+    // (2*HORIZ+1)² × (2*VERT+1) ≈ 8K cells; ~12% with detail reads as
+    // "full forest floor", which matches typical scatter density.
+    private const float FOLIAGE_SATURATION_FRACTION = 0.12f;
+
+    private void SampleDensity(WorldState ws, Vector3 listenerPos)
+    {
+        int lx = Mathf.FloorToInt(listenerPos.X);
+        int ly = Mathf.FloorToInt(listenerPos.Y);
+        int lz = Mathf.FloorToInt(listenerPos.Z);
+
+        int totalCount = 0;
+        int waterCount = 0;
+        int shorelineCount = 0;
+        int detailCount = 0;
+
+        for (int dy = -DENSITY_VERT_RADIUS; dy <= DENSITY_VERT_RADIUS; dy++)
+        {
+            int wy = ly + dy;
+            for (int dz = -DENSITY_HORIZ_RADIUS; dz <= DENSITY_HORIZ_RADIUS; dz++)
+            {
+                int wz = lz + dz;
+                for (int dx = -DENSITY_HORIZ_RADIUS; dx <= DENSITY_HORIZ_RADIUS; dx++)
+                {
+                    int wx = lx + dx;
+                    totalCount++;
+
+                    VoxelType v = ws.GetVoxelWorld(wx, wy, wz);
+                    if (v == VoxelType.Water)
+                    {
+                        waterCount++;
+                        if (IsShoreline(ws, wx, wy, wz))
+                        {
+                            shorelineCount++;
+                        }
+                    }
+
+                    if (ws.GetDetailStrengthWorld(wx, wy, wz) >= DETAIL_MIN_STRENGTH)
+                    {
+                        detailCount++;
+                    }
+                }
+            }
+        }
+
+        if (totalCount == 0)
+        {
+            _state.WaterDensity = 0f;
+            _state.ShorelineFactor = 0f;
+            _state.FoliageDensity = 0f;
+            return;
+        }
+
+        _state.WaterDensity = (float)waterCount / totalCount;
+        _state.ShorelineFactor = (float)shorelineCount / totalCount;
+
+        float foliageSaturationCells = totalCount * FOLIAGE_SATURATION_FRACTION;
+        float foliage = detailCount / foliageSaturationCells;
+        if (foliage > 1f) { foliage = 1f; }
+        _state.FoliageDensity = foliage;
+    }
+
+    // A water voxel is "shoreline" when at least one of its four
+    // horizontal neighbors is solid land (not water, not air). This
+    // produces the count of water cells facing land — the lap audio's
+    // natural source.
+    private static bool IsShoreline(WorldState ws, int wx, int wy, int wz)
+    {
+        return IsLand(ws.GetVoxelWorld(wx + 1, wy, wz))
+            || IsLand(ws.GetVoxelWorld(wx - 1, wy, wz))
+            || IsLand(ws.GetVoxelWorld(wx, wy, wz + 1))
+            || IsLand(ws.GetVoxelWorld(wx, wy, wz - 1));
+    }
+
+    private static bool IsLand(VoxelType v)
+    {
+        return v != VoxelType.Air && v != VoxelType.Water;
+    }
+
+    private void TickLayers(WorldState ws, Vector3 listenerPos, float deltaTime)
+    {
+        EnsureLayerPlayers(ws);
+
+        if (_layersByRegion == null || _layersByRegion.Length == 0) { return; }
+
+        int regionCount = _layersByRegion.Length;
+        Span<float> weights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
+        if (!RegionBlend.SampleWeights(listenerPos, ws, weights))
+        {
+            // No data this frame — fade everything down rather than
+            // freezing at last-known weights, since "no region under the
+            // listener" usually means the listener is outside the world
+            // (debug fly-cam) and audio should mute.
+            for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
+        }
+
+        float tod = (float)ws.TimeOfDay01;
+        for (int r = 0; r < regionCount; r++)
+        {
+            List<AmbienceLayerPlayer> layers = _layersByRegion[r];
+            if (layers == null) { continue; }
+            float weight = weights[r];
+            for (int j = 0; j < layers.Count; j++)
+            {
+                layers[j].Tick(_state, weight, tod, deltaTime);
+            }
+        }
+    }
+
+    private void EnsureLayerPlayers(WorldState ws)
+    {
+        RegionState[] regions = ws.Regions;
+        int regionCount = regions != null ? regions.Length : 0;
+        if (_layersByRegion != null && _layersByRegion.Length == regionCount) { return; }
+
+        // Region count changed — tear down and rebuild. Currently only
+        // happens at first frame (null → real). If regions ever become
+        // mutable at runtime this branch will preserve correctness.
+        if (_layersByRegion != null)
+        {
+            for (int i = 0; i < _layersByRegion.Length; i++)
+            {
+                List<AmbienceLayerPlayer> existing = _layersByRegion[i];
+                if (existing == null) { continue; }
+                for (int j = 0; j < existing.Count; j++)
+                {
+                    existing[j].QueueFree();
+                }
+            }
+        }
+
+        _layersByRegion = new List<AmbienceLayerPlayer>[regionCount];
+        for (int i = 0; i < regionCount; i++)
+        {
+            RegionData rd = regions[i].Data;
+            RegionAmbienceData ambience = rd?.ambience;
+            if (ambience == null || ambience.globalLayers == null)
+            {
+                _layersByRegion[i] = null;
+                continue;
+            }
+
+            var list = new List<AmbienceLayerPlayer>(ambience.globalLayers.Length);
+            for (int j = 0; j < ambience.globalLayers.Length; j++)
+            {
+                AmbienceLayerData data = ambience.globalLayers[j];
+                if (data == null) { continue; }
+                var player = new AmbienceLayerPlayer();
+                player.Name = $"Region{i}_Layer{j}";
+                AddChild(player);
+                player.Configure(data);
+                list.Add(player);
+            }
+            _layersByRegion[i] = list;
+        }
+    }
+
+    // Non-density fields only — this is the cheap per-frame pass. Density
+    // fields (FoliageDensity / WaterDensity / ShorelineFactor) are the
+    // density-sampler's responsibility and are not touched here so its
+    // slower cadence isn't fighting this faster one.
+    private void Sample(WorldState ws, Vector3 listenerPos)
+    {
+        _state.Wetness = ws.WetnessLevel;
+        _state.WindSpeed = ws.SampleWindFactor(listenerPos);
+        EnvTagWeights tagWeights = ws.SampleEnvTagWeights(listenerPos);
+
+        // Geometric enclosure at the listener — short rays in 6 directions
+        // catch local geometry the 4-voxel-resolution authored env-tag
+        // can't see (overhangs, tree canopy, doorways) and pull the
+        // weighting toward Cave-like response. Smoothed across frames so
+        // a single occluder briefly clipping a ray doesn't pop the mix.
+        float rawEnclosure = SampleEnclosure(listenerPos);
+        float alpha = 1f / (1f + ENCLOSURE_SMOOTH_TAU * 60f);
+        _state.Enclosure += (rawEnclosure - _state.Enclosure) * alpha;
+
+        // Re-attribute the geometric-cave share away from Outdoor so all
+        // downstream consumers (BusDriver, Openness, Caveness) see one
+        // unified set of weights. Authored Cave/Tunnel/Building stay
+        // exactly where they are; only the Outdoor → Cave conversion is
+        // synthetic from the raycast.
+        float pull = _state.Enclosure * tagWeights.Outdoor;
+        tagWeights.Outdoor -= pull;
+        tagWeights.Cave += pull;
+        _state.EnvTagWeights = tagWeights;
+
+        _state.Openness = tagWeights.Outdoor;
+        _state.Caveness = tagWeights.Cave + tagWeights.Building + tagWeights.Tunnel;
+
+        // Fog at the listener. WorldState.GetFogWorld returns 0..255 per
+        // voxel; normalize. Single-voxel sample is fine for audio (vs
+        // shaders which trilinearly filter the FogMap) — listener
+        // localized to one voxel produces no audible boundary.
+        int fwx = Mathf.FloorToInt(listenerPos.X);
+        int fwy = Mathf.FloorToInt(listenerPos.Y);
+        int fwz = Mathf.FloorToInt(listenerPos.Z);
+        _state.FogDensity = ws.GetFogWorld(fwx, fwy, fwz) / 255f;
+
+        // Biome id = RegionIndex of the listener's chunk. Unloaded chunk
+        // (impossible at the listener, but defensive) returns -1 so
+        // consumers can fall back to a "no biome" default.
+        Vector3I cc = World.WorldToChunkCoord(listenerPos);
+        ChunkState chunk = ws.GetChunk(cc);
+        _state.BiomeId = chunk != null ? chunk.RegionIndex : -1;
+    }
+
+    // Listener-height offset for the enclosure rays. Shooting from
+    // GlobalPosition (foot level) would routinely hit the ground voxel
+    // straight ahead and read as "enclosed" outdoors. This puts the rays
+    // at roughly head height where a real listener would be.
+    private const float LISTENER_EAR_HEIGHT = 1.5f;
+
+    // Maximum enclosure-ray distance. Past this distance we treat the
+    // direction as fully open — long enough to feel a cave entrance
+    // approaching, short enough that distant cliffs don't close us in.
+    private const float ENCLOSURE_RAY_RANGE = 6f;
+
+    // Time-constant on the enclosure smoothing in seconds. A 0.4-second
+    // lag prevents tree trunks the player walks past from popping
+    // openness/caveness, while still tracking when the player ducks into
+    // a cave mouth.
+    private const float ENCLOSURE_SMOOTH_TAU = 0.4f;
+
+    // Rays cast from the listener for the geometric enclosure aggregate.
+    // Up + 4 horizontal cardinals + a +Y diagonal — six short rays,
+    // weighted equally, mean of (1 - hit_dist / range) per ray. Down is
+    // intentionally omitted: the floor is always there outdoors and would
+    // bias every reading toward enclosed.
+    private static readonly Vector3[] EnclosureRayDirs =
+    {
+        new Vector3( 0,  1,  0),
+        new Vector3( 1,  0,  0),
+        new Vector3(-1,  0,  0),
+        new Vector3( 0,  0,  1),
+        new Vector3( 0,  0, -1),
+        new Vector3( 0.7071f, 0.7071f, 0),
+    };
+
+    private float SampleEnclosure(Vector3 listenerPos)
+    {
+        var space = GetWorld3D()?.DirectSpaceState;
+        if (space == null) { return 0f; }
+
+        Vector3 from = listenerPos + new Vector3(0f, LISTENER_EAR_HEIGHT, 0f);
+        float sum = 0f;
+        for (int i = 0; i < EnclosureRayDirs.Length; i++)
+        {
+            Vector3 dir = EnclosureRayDirs[i].Normalized();
+            Vector3 to = from + dir * ENCLOSURE_RAY_RANGE;
+            var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+            var hit = space.IntersectRay(query);
+            if (hit.Count == 0) { continue; }
+
+            Vector3 hitPos = (Vector3)hit["position"];
+            float dist = (hitPos - from).Length();
+            // Closer hits = more enclosed in this direction. Linear ramp
+            // is fine — the smoothing on the aggregate hides ray-stepping.
+            float occlusion = 1f - (dist / ENCLOSURE_RAY_RANGE);
+            if (occlusion < 0f) { occlusion = 0f; }
+            sum += occlusion;
+        }
+        return sum / EnclosureRayDirs.Length;
+    }
+}

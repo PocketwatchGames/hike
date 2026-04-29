@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_lit_materialtemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
@@ -48,6 +49,7 @@ region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
 alpha_cut = 1
 
@@ -62,6 +64,7 @@ region_rect = Rect2(736, 165, 16, 27)
 script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
 alpha_cut = 1
 

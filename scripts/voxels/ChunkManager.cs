@@ -61,16 +61,10 @@ public partial class ChunkManager : Node3D
         // before the first frame.
         ShaderGlobals.Register("clip_debug_mode", RenderingServer.GlobalShaderParameterType.Int, CVars.clipDebug.Value);
         ShaderGlobals.Register("water_hide", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterHide.Value);
-        // Block-shadow directional light direction + visibility floor.
-        // Used by voxel_clip, voxel_shadow_caster, sprite_lit,
-        // sprite_prop_multimesh to dim the block_lit term under the
-        // block-shadow light's projected silhouette. Declared in
-        // project.godot so the editor sees them at startup; this seed
-        // runs before chunk shaders first compile so the values are
-        // sane on the very first frame. SkyController.Apply() rewrites
-        // both each frame.
-        ShaderGlobals.Register("block_shadow_dir", RenderingServer.GlobalShaderParameterType.Vec3, new Vector3(0f, -1f, 0f));
-        ShaderGlobals.Register("block_shadow_min", RenderingServer.GlobalShaderParameterType.Float, 0.55f);
+        // block_light_shadow_* globals (the projector's coverage texture,
+        // its world→UV matrix, and the on/off flag) are seeded by
+        // BlockLightShadowProjector._Ready, which also runs before the
+        // first chunk shader compiles. See that script for details.
         // Wind subgrid texture — same origin/inv_size convention as light_map
         // so a shader's `(world_pos - origin) * inv_size` UVW expression works
         // identically for either map. Declared in project.godot with a

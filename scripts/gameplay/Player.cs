@@ -34,6 +34,7 @@ public partial class Player : CharacterBody3D
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
+	readonly WaterRippleEmitter _rippleEmitter = new();
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 
@@ -119,6 +120,18 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed();
 		UpdateWaterState();
+
+		// Footstep / wake ripples on the water surface. Stride is longer
+		// while wading (discrete step impacts) than while swimming
+		// (continuous wake). Strength is kept low — the radial wave packet
+		// in voxel_water.gdshader is already amplified by water_ripple_tilt,
+		// so per-emit strength only needs to mark "this is a footstep,
+		// not a boulder splash".
+		bool inWater = _waterState != EWaterState.None;
+		float rippleStride = _waterState == EWaterState.Swimming ? 1.5f : 2.0f;
+		float rippleStrength = _waterState == EWaterState.Swimming ? 0.15f : 0.25f;
+		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
+		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
 
 		if (_curInteractive != null)
 		{

@@ -104,6 +104,32 @@ global uniform float water_wave_phase;
 // slerped toward +Y by ripple_strength.
 uniform sampler2D ripple_tex_a : filter_linear, repeat_enable, hint_normal;
 uniform sampler2D ripple_tex_b : filter_linear, repeat_enable, hint_normal;
+// Dynamic ripple impacts emitted by entities moving through water.
+// Width=MaxDynamicRipples × height=1 Rgbaf row populated by
+// SkyController.TickDynamicRipples each frame. Per-pixel layout is
+// (world_x, world_z, age_seconds, strength). Inactive slots beyond
+// water_ripple_count are skipped via the loop's bounds check.
+global uniform sampler2D water_ripple_tex : filter_nearest;
+global uniform int water_ripple_count;
+// Ring expansion speed in world units / second. Combined with age this
+// gives the current ring radius for each impact.
+global uniform float water_ripple_speed;
+// Total active lifetime per impact. Beyond this the C# tick drops the
+// entry; the shader applies a linear age fade so the wave dies smoothly.
+global uniform float water_ripple_lifetime;
+// Fade-in window in seconds. At age=0 the ring radius is 0 and the
+// Gaussian sits entirely at the impact origin — a huge central pulse.
+// Ramping amplitude from 0 → full over this window lets the ring
+// propagate outward before becoming visible, so impacts read as
+// expanding rings rather than instantaneous stamps.
+global uniform float water_ripple_fade_in;
+// Gaussian envelope tightness around the moving ring crest. Higher =
+// thinner ring (rapid falloff with distance from crest); lower = wider,
+// softer ring. Drives the visible ring's apparent thickness in meters.
+global uniform float water_ripple_falloff;
+// Overall amplitude of the radial perturbation applied to the water
+// normal. 0 disables the effect entirely without skipping the loop.
+global uniform float water_ripple_tilt;
 // Screen-space refraction strength (UV offset in normalized units). 0 skips
 // the extra screen sample entirely. Muddy water damps to near zero.
 global uniform float water_refraction_strength;
@@ -183,12 +209,19 @@ global uniform vec2 wave_streak_offset_b;
 global uniform float whitecap_foam_strength;
 global uniform float whitecap_foam_threshold;
 
-// block-shadow directional light — see sprite_lit.gdshader for the full rationale.
-// Water uses these in light() to subtract a fraction of ALBEDO under the
-// block-shadow silhouette (ALBEDO + EMISSION = composited; the negative DIFFUSE_LIGHT
-// reduces final → composited * block_shadow_factor under shadow).
-global uniform vec3 block_shadow_dir;
-global uniform float block_shadow_min;
+// Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
+// Sampled in fragment() at world_vertex; the returned factor multiplies
+// the block_lit term in the water composite so a sprite standing above
+// dims the surface here without affecting open water elsewhere.
+global uniform sampler2D block_light_shadow_tex : filter_linear;
+global uniform vec3 block_light_shadow_origin;
+global uniform vec3 block_light_shadow_right;
+global uniform vec3 block_light_shadow_up;
+global uniform float block_light_shadow_size;
+global uniform float block_light_shadow_strength;
+global uniform float block_light_shadow_blur_uv;
+global uniform bool block_light_shadow_enabled;
+#include "res://shaders/block_light_shadow.gdshaderinc"
 
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
@@ -424,6 +457,44 @@ vec3 ripple_normal(vec2 world_xz, float time) {
 	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
 
+// Dynamic-ripple perturbation in world XZ. Each active ripple is a single
+// expanding ring: a Gaussian bump in surface height centered at the ring
+// radius (= age × speed) and falling off with `falloff` on either side.
+// Returning the radial slope of that height field gives the normal tilt:
+//   d/d(dr)[exp(-falloff·dr²)] = -2·falloff·dr·exp(-falloff·dr²)
+// The slope is positive on the inside of the ring (dr < 0) and negative
+// on the outside, producing a single propagating ring of normal
+// perturbation — no inner oscillations.
+//
+// Fade-in over `water_ripple_fade_in` seconds prevents the age=0
+// "central pulse" pop. Linear fade-out across the rest of lifetime
+// avoids a hard cutoff at expiry.
+vec2 dynamic_ripple_perturb(vec2 world_xz) {
+	vec2 tilt = vec2(0.0);
+	if (water_ripple_tilt < 1e-4 || water_ripple_count <= 0) {
+		return tilt;
+	}
+	float lifetime = max(water_ripple_lifetime, 1e-3);
+	for (int i = 0; i < water_ripple_count; i++) {
+		vec4 r = texelFetch(water_ripple_tex, ivec2(i, 0), 0);
+		vec2 to = world_xz - r.xy;
+		float d = length(to);
+		if (d < 1e-3) { continue; }
+		float age = r.z;
+		float strength = r.w;
+		float radius = age * water_ripple_speed;
+		float dr = d - radius;
+		float envelope = exp(-dr * dr * water_ripple_falloff);
+		float slope = -2.0 * water_ripple_falloff * dr * envelope;
+		float fade_in = clamp(age / max(water_ripple_fade_in, 1e-3), 0.0, 1.0);
+		float fade_out = clamp(1.0 - age / lifetime, 0.0, 1.0);
+		float fade = fade_in * fade_out;
+		float contrib = slope * fade * strength * water_ripple_tilt;
+		tilt -= (to / d) * contrib;
+	}
+	return tilt;
+}
+
 // Wave streak field — two octaves of procedural noise scrolled along wind
 // at independent speeds. Returns the (tilt_x, tilt_z) horizontal-normal
 // perturbation that the fragment shader composites with the base ripple
@@ -578,6 +649,15 @@ void fragment() {
 		n = slerp_normals(vec3(0.0, 1.0, 0.0), n, wind_factor);
 	}
 
+	// Dynamic ripples (entity impacts) — composited AFTER the wind_factor
+	// flatten so footstep / wake ripples remain visible on cave pools and
+	// indoor still water where the wind-driven base ripples have been
+	// damped to mirror-flat.
+	if (is_top && !water_disable_ripples) {
+		vec2 dyn_tilt = dynamic_ripple_perturb(world_vertex.xz);
+		n = normalize(n + vec3(dyn_tilt.x, 0.0, dyn_tilt.y));
+	}
+
 	// Whitecap foam: emitted on the WINDWARD-FACING tilt component of the
 	// final composite normal. The dot product of n.xz with the wind
 	// direction is positive when the normal aligns with the direction the
@@ -642,34 +722,11 @@ void fragment() {
 	// of ramping linearly from the very first fragment.
 	float depth_factor = pow(smoothstep(0.0, 1.0, depth_factor_raw), water_turbidity_exp);
 
-	// Sample lightmap per-pixel for smooth interpolation across the face.
-	// Water samples from itself: push 0.5 along -world_normal (the flat
-	// face normal — not the ripple-perturbed one) to land inside the cell.
-	vec3 light_sample_pos = world_vertex - world_normal * 0.5;
-	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
-	vec4 lm = texture(light_map, uvw);
-	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Water is `unshaded` (no light() stage / no ATTENUATION available), so
-	// cloud shadow multiplies sun_lit directly. Block light (lm.gba) stays
-	// unaffected — torches shining on water don't care about clouds.
-	float cloud = cloud_shadow_ground(world_vertex, TIME);
-	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
-	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
-	vec3 block_lit = lm.gba;
-	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
-	vec3 shaded_light = face_shade * light;
-
-	// Deeper water is darker and more opaque
-	vec3 base_color = mix(water_shallow_tint, water_deep_tint, depth_factor);
-	vec3 water_col = base_color * shaded_light;
-
-	// Shoreline foam: stronger as water gets shallower (thickness → 0).
-	// Only on top faces; side faces abut solid terrain and the foam would
-	// smear up the vertical rim. Animated by scrolling noise so it reads
-	// as surf rather than a static outline. foam_color is region-tinted:
-	// muddy water's "foam" carries the water's own color (scum/film) while
-	// clean water stays white. Noise UVs are pixelized so the foam reads
-	// as hand-drawn edge pixels rather than a smoothly scrolling pattern.
+	// Foam mask + water_alpha hoisted above the lighting block: the rippled
+	// normal's contribution to direct sunlight is gated by surface opacity
+	// (transparent water → no normal effect, opaque/foamy water → full N·L
+	// glints), so we need water_alpha before computing sun_lit. Foam color
+	// composition still happens later, after `light` and `water_col` exist.
 	float foam_amount = 0.0;
 	if (is_top && (foam_strength > 1e-3 || water_rim_strength > 1e-3 || whitecap_foam_amt > 1e-3)) {
 		// Contiguous rim band: hard cutoff by thickness with no noise masking,
@@ -690,21 +747,54 @@ void fragment() {
 		// against the rock. The contiguous `rim` band stays unmodulated —
 		// it's a structural water/land edge cue, not weather-driven.
 		float noisy_foam = shallow * mask * foam_strength * wind_factor;
-
 		foam_amount = max(max(noisy_foam, rim), whitecap_foam_amt);
-		// All foam (shoreline rim + noisy surf + crest whitecaps) share
-		// a single light floor driven from C# based on overall scene
-		// clarity + light level. Bright clear day → high floor (foam
-		// stays crisp white). Overcast / foggy / dim night → low floor
-		// (foam dims with the scene rather than glowing emissively
-		// against dark surroundings). Daytime/torchlit `light` still
-		// wins through max() when it's brighter than the floor.
-		// Gated by `sun_mask` so the floor only applies where the fragment
-		// actually sees the sky. Without this gate, water in a cave or under
-		// a roof — where sun_lit and block_lit are both ~0 — would still
-		// clamp foam to the daytime floor and read as fully emissive against
-		// dark surroundings. In a torchlit cave, foam now falls back to
-		// block_lit (torches) only.
+	}
+	// Edge-opacity floor + depth ramp + foam union — same formula as the
+	// final compositing alpha; computed once here and reused below.
+	float effective_edge_alpha = max(water_alpha_min, water_edge_opacity);
+	float water_alpha = max(mix(effective_edge_alpha, water_alpha_max, depth_factor), foam_amount);
+
+	// Sample lightmap per-pixel for smooth interpolation across the face.
+	// Water samples from itself: push 0.5 along -world_normal (the flat
+	// face normal — not the ripple-perturbed one) to land inside the cell.
+	vec3 light_sample_pos = world_vertex - world_normal * 0.5;
+	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
+	vec4 lm = texture(light_map, uvw);
+	float sun_mask = pow(lm.r, light_falloff_exp);
+	// Water is `unshaded` (no light() stage / no ATTENUATION available), so
+	// cloud shadow multiplies sun_lit directly. Block light (lm.gba) stays
+	// unaffected — torches shining on water don't care about clouds.
+	float cloud = cloud_shadow_ground(world_vertex, TIME);
+	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
+	// Rippled-normal lighting modifier, weighted by water_alpha. Transparent
+	// water reads as "we're seeing through to the seabed" — its surface
+	// orientation should not visibly redirect direct sunlight, because the
+	// fragment's apparent color is dominated by what's behind it. Opaque
+	// water (deep, muddy) and foam-covered fragments DO have a real surface
+	// receiving sunlight, so a ripple tilting the surface toward/away from
+	// the sun should brighten/dim it. Ratio is normalized to 1.0 at flat
+	// water (n = +Y) so flat surfaces preserve current intensity exactly.
+	// Block light (`lm.gba`) is omnidirectional in the lightmap — there's
+	// no direction to dot against — so it's left flat.
+	vec3 to_sun_dir_lit = -normalize(sky_sun_dir);
+	float flat_dot_sun = max(0.0, to_sun_dir_lit.y);
+	float ripple_dot_sun = max(0.0, dot(n, to_sun_dir_lit));
+	float ripple_light_factor = mix(1.0, ripple_dot_sun / max(flat_dot_sun, 0.01), water_alpha);
+	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun * ripple_light_factor;
+	// Per-fragment block_lit dim from the shadow projector — a sprite
+	// standing above the water dims its surface here.
+	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
+	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
+	vec3 shaded_light = face_shade * light;
+
+	// Deeper water is darker and more opaque
+	vec3 base_color = mix(water_shallow_tint, water_deep_tint, depth_factor);
+	vec3 water_col = base_color * shaded_light;
+
+	// Foam color compositing (split out from foam_amount above so the
+	// lighting block could see water_alpha first). Same light floor as
+	// before — clear day = crisp white foam, dim night = block-lit only.
+	if (is_top && foam_amount > 1e-4) {
 		vec3 foam_light = max(light, vec3(foam_min_light * sun_mask));
 		water_col = mix(water_col, foam_color * foam_light, foam_amount);
 	}
@@ -864,11 +954,8 @@ void fragment() {
 	// sample and so reflection can sit on top of the water body uniformly.
 	// Output ALPHA=1 because we composited against the screen texture
 	// ourselves — letting Godot blend on top would double-blend.
-	// Edge opacity floor — clamp the surface alpha at the shoreline from
-	// below so clean water doesn't fade to invisible. Muddy water's
-	// water_alpha_min already sits above the floor so it's unaffected.
-	float effective_edge_alpha = max(water_alpha_min, water_edge_opacity);
-	float water_alpha = max(mix(effective_edge_alpha, water_alpha_max, depth_factor), foam_amount);
+	// water_alpha computed above (hoisted alongside foam_amount so the
+	// lighting block could weight ripple N·L by surface opacity).
 	vec3 behind = vec3(0.0);
 	// Only sample the screen texture when the water body is actually
 	// going to show what's behind it (water_alpha < 1 somewhere on the
@@ -1049,38 +1136,12 @@ void fragment() {
 		}
 	}
 
-	// Two-output compositing for the block-shadow directional-light pipeline:
-	//   - EMISSION = composited acts as the always-on baseline so the
-	//     surface still renders correctly when no block-shadow light is present
-	//     (Godot's pipeline outputs DIFFUSE_LIGHT + EMISSION).
-	//   - ALBEDO   = composited carries the value into light(); the block-shadow
-	//     light's invocation writes DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor
-	//     - 1.0), a NEGATIVE contribution that subtracts from EMISSION
-	//     to produce final = composited * block_shadow_factor under the silhouette.
-	// Sun/moon light() invocations are no-ops on water (we already
-	// incorporated direct sun via sun_lit in the composite), so they
-	// don't double-add on top of EMISSION.
+	// `unshaded` in Godot 4 outputs ALBEDO directly — EMISSION is ignored
+	// for unshaded materials. The composite is fully self-lit (sun, block,
+	// cloud, foam, caustics, and reflection are all baked in above), so
+	// it goes into ALBEDO. Block-light shadow is folded into the composite
+	// via the dim of `block_lit` above, not via a directional-light overlay.
 	ALBEDO = composited;
-	EMISSION = composited;
 	ALPHA = 1.0;
-	}
-}
-
-void light() {
-	// block-shadow light: write DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor - 1) where
-	// block_shadow_factor = mix(block_shadow_min, 1.0, ATTENUATION). For an unshadowed
-	// fragment ATTENUATION = 1, block_shadow_factor = 1, contribution = 0 → final
-	// = EMISSION = composited. For a fully shadowed fragment ATTENUATION
-	// = 0, block_shadow_factor = block_shadow_min, contribution = ALBEDO * (block_shadow_min - 1) (a
-	// negative vec3) → final = EMISSION + that = composited * block_shadow_min.
-	// Sun/moon land in the `else` branch and write zero (water doesn't
-	// take direct sun in this composite — the composite already did its
-	// own sun handling via sun_lit).
-	vec3 block_shadow_dir_view = mat3(VIEW_MATRIX) * (-block_shadow_dir);
-	if (dot(LIGHT, block_shadow_dir_view) > 0.99) {
-		float block_shadow_factor = mix(block_shadow_min, 1.0, ATTENUATION);
-		DIFFUSE_LIGHT = ALBEDO * (block_shadow_factor - 1.0);
-	} else {
-		DIFFUSE_LIGHT = vec3(0.0);
 	}
 }

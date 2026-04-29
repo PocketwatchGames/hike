@@ -65,6 +65,7 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
+    readonly WaterRippleEmitter _rippleEmitter = new();
     // Captured in _Ready so burrow can drop the mesh and restore it. The drop
     // is sized from the collision capsule so kun_kun (short) and goblin (tall)
     // both end up about 3/4 of their body underground.
@@ -318,6 +319,8 @@ public partial class Mob : RigidBody3D, IWorldEntity
             UpdateTerrainSpeed();
         }
 
+        UpdateWaterRipples();
+
         // Perception is throttled — accumulate delta and only run when the
         // interval is reached, so per-mob raycast cost stays low at density.
         // The accumulated delta is passed in so the perception integrator
@@ -531,6 +534,36 @@ public partial class Mob : RigidBody3D, IWorldEntity
         {
             _terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
         }
+    }
+
+    // Emit a dynamic water ripple while wading/swimming. Sample the voxel at
+    // the mob's feet — if it's water, scan upward to find the surface Y and
+    // hand off to WaterRippleEmitter, which gates emission by a per-stride
+    // distance threshold (so a stationary mob emits nothing).
+    private void UpdateWaterRipples()
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return;
+        }
+        Vector3 pos = GlobalPosition;
+        int fx = Mathf.FloorToInt(pos.X);
+        int fy = Mathf.FloorToInt(pos.Y);
+        int fz = Mathf.FloorToInt(pos.Z);
+        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        if (!inWater)
+        {
+            _rippleEmitter.Update(pos, false, 0f, 1f);
+            return;
+        }
+        int scanY = fy;
+        while (ws.GetVoxelWorld(fx, scanY, fz) == VoxelType.Water)
+        {
+            scanY++;
+        }
+        Vector3 ripplePos = new(pos.X, scanY, pos.Z);
+        _rippleEmitter.Update(ripplePos, true, 0.8f, 0.5f);
     }
 
     public void AddTerrainModifier(TallGrass tallGrass)

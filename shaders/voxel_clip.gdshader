@@ -152,18 +152,20 @@ global uniform vec3 fill_b_world_dir;
 global uniform vec3 fill_a_color;
 global uniform vec3 fill_b_color;
 
-// block-shadow directional light. Two roles in this shader:
-//   1. fragment() discards every pixel when rendering FOR the block-shadow light's
-//      shadow pass (cam_forward ≈ block_shadow_dir). That keeps terrain out
-//      of the block-shadow atlas entirely — only sprite shadow proxies populate it.
-//   2. light() dims the ambient/block-light component of terrain (EMISSION)
-//      where the block-shadow atlas is occluded, leaving direct sun untouched. This
-//      is the "shadow only the ambient lighting" model: a sprite standing
-//      on terrain projects a soft dim onto the ground that shows up
-//      strongly in caves / underground / overcast and fades to invisibility
-//      under bright direct sun.
-global uniform vec3 block_shadow_dir;
-global uniform float block_shadow_min;
+// Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
+// Sampled in fragment() at world_vertex; the returned factor multiplies
+// block_lit (lm.gba) so a sprite standing above this terrain fragment dims
+// the torch/lamp/skylight contribution here without depressing block_lit
+// elsewhere in the world. Direct sun (carried via ALBEDO) is untouched.
+global uniform sampler2D block_light_shadow_tex : filter_linear;
+global uniform vec3 block_light_shadow_origin;
+global uniform vec3 block_light_shadow_right;
+global uniform vec3 block_light_shadow_up;
+global uniform float block_light_shadow_size;
+global uniform float block_light_shadow_strength;
+global uniform float block_light_shadow_blur_uv;
+global uniform bool block_light_shadow_enabled;
+#include "res://shaders/block_light_shadow.gdshaderinc"
 
 const float MIN_AMBIENT = 0.0;
 
@@ -187,11 +189,6 @@ varying float cloud_dim;
 // Composed in light() with sun_color × sun_intensity and the same shadow
 // gates as DIFFUSE_LIGHT so cast shadows kill the highlight cleanly.
 varying float wet_spec;
-// Fragment→light varying that mirrors EMISSION so the block-shadow light's light()
-// can subtract a fraction of the ambient/block-light term from
-// DIFFUSE_LIGHT without touching the direct-sun term carried via ALBEDO.
-// EMISSION itself isn't exposed in light() in this Godot version.
-varying vec3 block_shadow_carrier;
 // Kit ids for the 3 corners of this triangle (constant across the tri).
 // Barycentric argmax picks which corner's kit wins at each fragment (parallel
 // to tile_ids), so kit boundaries blend with the same noise-jittered edge as
@@ -312,19 +309,6 @@ float vnoise(vec3 p) {
 }
 
 void fragment() {
-	// block-shadow pass discard: when the rendering camera's forward axis matches
-	// block_shadow_dir (i.e., Godot is currently rendering this material into
-	// the block-shadow light's shadow atlas), discard immediately so terrain never
-	// writes depth into that atlas. The visible-pass main camera is at
-	// iso pitch (~65°) and the sun/moon shadow passes look from
-	// horizon-ish angles — only the block-shadow light's pass has cam_forward
-	// ≈ block_shadow_dir (mostly straight down + small camera tilt). The
-	// 0.99 threshold leaves a safe margin from any other light's pass.
-	vec3 cam_forward = -INV_VIEW_MATRIX[2].xyz;
-	if (dot(cam_forward, normalize(block_shadow_dir)) > 0.99) {
-		discard;
-	}
-
 	// Per-fragment shading normal: lerp between the interpolated smooth NORMAL
 	// (sharpness=0) and a dFdx/dFdy-derived face normal (sharpness=1). The
 	// derivative form gives the current triangle's plane — same look as a
@@ -498,7 +482,10 @@ void fragment() {
 	// knee, not a lighting overhaul.
 	float sun_ndl = max(0.0, dot(shaded_normal, -sun_world_dir));
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (0.9 + 0.4 * sun_ndl);
-	vec3 block_lit = lm.gba;
+	// Per-fragment block_lit (torch/lamp + skylight) is dimmed by any
+	// sprite silhouette projected from above by BlockLightShadowProjector.
+	// Direct sun (sun_lit, carried via ALBEDO) is untouched.
+	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
 
 	// "Reverse" directional shading: each fill darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
@@ -533,38 +520,26 @@ void fragment() {
 	//   EMISSION  = ambient sky bounce + block light (always-on)
 	// With ambient_light_disabled, ALBEDO contributes only via DIFFUSE_LIGHT,
 	// so the final pixel = ALBEDO * ATTENUATION + EMISSION.
-	// block-shadow model: split the block_lit term across BOTH pathways so the
-	// composite stays correct in every scenario.
-	//   - EMISSION carries `block_lit * block_shadow_min` unconditionally — that's
-	//     the floor of block-light visibility, present even if block-shadow's
-	//     light() never fires (atlas/cull edge case).
-	//   - block_shadow_carrier carries the REMAINING `block_lit * (1 - block_shadow_min)`
-	//     and is added by block-shadow's light() scaled by ATTENUATION. Outside
-	//     the silhouette (ATT=1) it adds the full remainder, restoring
-	//     100% block_lit. Under the silhouette (ATT=0) it adds 0,
-	//     leaving block-light at the block_shadow_min floor.
-	// Sun direct (ALBEDO) and sun ambient (in EMISSION) are never
-	// touched by block-shadow. Outdoor scenes with no block_lit see no block-shadow effect.
+	// Block-light shadow projector dims block_lit per-fragment via
+	// `block_light_shadow_factor(world_vertex)` above — the dim is baked
+	// into block_lit before it lands in EMISSION, so no light()-stage
+	// machinery is needed here.
 	ALBEDO = base * sun_lit * (1.0 - sun_ambient);
-	EMISSION = base * (block_lit * block_shadow_min + sun_lit * sun_ambient * cloud_dim);
-	block_shadow_carrier = base * block_lit * (1.0 - block_shadow_min);
+	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);
 		EMISSION = debug_solid;
-		block_shadow_carrier = vec3(0.0);
 		wet_spec = 0.0;
 	}
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);
 		EMISSION = shaded_normal * 0.5 + 0.5;
-		block_shadow_carrier = vec3(0.0);
 		wet_spec = 0.0;
 	}
 	if (debug_unlit) {
 		ALBEDO = vec3(0.0);
 		EMISSION = tex_color.rgb;
-		block_shadow_carrier = vec3(0.0);
 		wet_spec = 0.0;
 	}
 	if (debug_wet_spec) {
@@ -582,7 +557,6 @@ void fragment() {
 		float wet_geom = pow(max(dot(shaded_normal, wet_h), 0.0), 16.0);
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
-		block_shadow_carrier = vec3(0.0);
 		wet_spec = 0.0;
 	}
 	if (world_vertex.y > camera_clip) {
@@ -597,35 +571,10 @@ void fragment() {
 	if (clip_debug_mode == 13 || clip_debug_mode == 14) {
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(0.0, 0.0, 0.4);
-		block_shadow_carrier = vec3(0.0);
 	}
 }
 
 void light() {
-	// block-shadow light: multiplicatively dim the accumulated DIFFUSE_LIGHT by
-	// mix(block_shadow_min, 1.0, ATTENUATION) and contribute nothing additively.
-	// Must run AFTER the sun + moon light() calls so the dim acts on
-	// already-accumulated direct light; enforced by BlockShadowLight being last
-	// in the scene tree under SceneViewport. See sprite_lit.gdshader's
-	// light() for the full rationale.
-	// block-shadow light: dim ONLY the ambient/block-light portion of the terrain
-	// (the EMISSION half — see fragment() for the ALBEDO/EMISSION split).
-	// Subtracting EMISSION * (1 - block_shadow_factor) from DIFFUSE_LIGHT cancels
-	// the corresponding fraction of EMISSION from the final output,
-	// because Godot composes final = ALBEDO * DIFFUSE_LIGHT-style terms +
-	// EMISSION. With block_shadow_factor = 1 (unshadowed) the subtraction is zero;
-	// with block_shadow_factor = block_shadow_min (fully shadowed) we cancel (1 - block_shadow_min) of
-	// EMISSION, so the dim only reads in dim/ambient regions and stays
-	// invisible in bright direct sun (where EMISSION is small relative to
-	// the sun-direct term carried by ALBEDO).
-	vec3 block_shadow_dir_view = mat3(VIEW_MATRIX) * (-block_shadow_dir);
-	if (dot(LIGHT, block_shadow_dir_view) > 0.95) {
-		// Add the remainder of block_lit (the `(1 - block_shadow_min)` portion)
-		// scaled by ATTENUATION. See fragment() for the split rationale.
-		// Pure additive so DIFFUSE_LIGHT clamping is never a concern,
-		// and graceful degradation if this branch never fires.
-		DIFFUSE_LIGHT += block_shadow_carrier * ATTENUATION;
-	} else {
 	// ATTENUATION is Godot's directional shadow atlas — terrain self-shadow
 	// plus sprite shadow proxies, already composed correctly in the atlas.
 	// No LIGHT_COLOR / NdotL: sun color/direction stylization is baked into
@@ -658,5 +607,4 @@ void light() {
 	// lighting model under specular_disabled. Amplitude tuned via
 	// SkyController's wet_spec_strength.
 	DIFFUSE_LIGHT += wet_spec_strength * sun_color * sun_intensity * wet_spec * light_gate;
-	}
 }
