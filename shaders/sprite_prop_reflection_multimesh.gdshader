@@ -12,7 +12,7 @@ shader_type spatial;
 // the look the per-instance LitSprite reflection got from water's
 // blend_mix when reflections were children of Sprite3Ds rendered before
 // water.
-render_mode blend_mix, depth_test_disabled, depth_draw_never, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
+render_mode blend_mix, depth_draw_always, cull_disabled, ambient_light_disabled, skip_vertex_transform, unshaded;
 stencil_mode read, compare_equal, 4;
 
 // Multimesh-instanced water reflection for prop sprites. Forked from
@@ -83,6 +83,12 @@ global uniform vec3 water_deep_tint : source_color;
 global uniform float water_depth_scale;
 global uniform float water_alpha_max;
 global uniform float water_edge_opacity;
+// Clarity / muddiness, driven from RegionData.WaterColor.a in
+// SkyController.Apply (clearer on the regional-clear end, opaque on
+// the muddy/swamp end). Drives reflection ALPHA so muddy water lets
+// its own dim/turbid surface dominate instead of stamping the
+// reflection sprite over it.
+global uniform float water_muddiness;
 
 // Debug visualizer mode — see CVars.cs `reflection_debug` for mode docs.
 // 0 = off (normal rendering); 1..7 replace ALBEDO with diagnostics so we
@@ -218,6 +224,45 @@ void vertex() {
         + VERTEX.x * world_w * right_flipped
         + VERTEX.y * world_h * up_flipped;
     POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(vertex_world, 1.0);
+
+    // Override Z with a NEAR-PLANE SLAB depth that's always in front of any
+    // scene geometry, with closer-source reflections placed slightly closer
+    // to the camera within that slab so they win depth-test against farther
+    // sources. Two reasons we can't just project a real world position:
+    //
+    //   1. The reflection geometry sits BELOW the lake floor in world Y, so
+    //      its natural projected depth is behind the lake floor → the
+    //      depth-test would reject every fragment.
+    //   2. Even projecting (source.x, water_y, source.z) — the source's XZ
+    //      dropped onto the water plane — gives a constant depth per
+    //      reflection, which at any given screen pixel may still be FARTHER
+    //      than the lake-floor depth at THAT pixel (lake floor varies per
+    //      pixel, source-anchor depth doesn't). Result: chunks of the
+    //      reflection get z-occluded by underwater terrain.
+    //
+    // So instead: project the surface-anchor to get a relative source
+    // ordering [0..1] in NDC z (Godot 4 reverse-Z: 1=near, 0=far), then
+    // REMAP that into [0.999, 1.0]. Every reflection lands in a thin slab
+    // right at the near plane — guaranteed in front of any scene geometry
+    // (which lives in [0, 0.999]). Within the slab, closer source → larger
+    // ndc.z → wins reflection-vs-reflection depth test. Tiny per-source
+    // hash epsilon breaks ties when two anchors land at the same projected
+    // depth.
+    //
+    // Trade-off: depth buffer at water-visible pixels carries near-plane
+    // depth values after reflections draw, which post-processes that read
+    // depth (volumetric fog at priority 64, post_process at 127) will see
+    // as "very close to camera" at those pixels. Acceptable for now;
+    // volumetric fog reading near-plane depth at water pixels just means
+    // it computes minimal thickness there, which matches the visual.
+    vec3 surface_anchor = vec3(source_world_pos.x, water_y_var, source_world_pos.z);
+    vec4 src_clip = PROJECTION_MATRIX * VIEW_MATRIX * vec4(surface_anchor, 1.0);
+    float surface_ndc_z = src_clip.z / src_clip.w;
+    float ndc_z = mix(0.999, 1.0, clamp(surface_ndc_z, 0.0, 1.0));
+    float src_eps = (hash12(source_world_pos.xz + vec2(0.137, 0.293)) - 0.5) * 1e-5;
+    ndc_z += src_eps;
+    POSITION.z = ndc_z * POSITION.w;
+
     vertex_world_var = vertex_world;
 
     float src_px_w = world_w / max(float(sprite_size.x), 1.0);
@@ -338,8 +383,13 @@ void fragment() {
             float pixel_world_w = world_w_var / max(float(sprite_size.x), 1.0);
             float pixel_world_h = world_h_var / max(float(sprite_size.y), 1.0);
             float source_pixel_h = sxy.y * pixel_world_h;
-            float source_above_water = max(source_world_pos.y - water_y_var, 0.0)
-                                     + source_pixel_h;
+            // Treat the source as if its base sits AT the waterline for
+            // ripple amplitude — matches the "flip-at-base" anchor we use
+            // for above-water sources. Including the real (source.y -
+            // water_y) offset would make a tree on a 5m cliff produce
+            // huge path_len → ripple shifts large enough to obliterate
+            // the reflection sprite. Bounded by sprite's own world_h.
+            float source_above_water = source_pixel_h;
             dbg_source_above_water = source_above_water;
 
             float path_len = source_above_water / max(abs(vy), 0.05);
@@ -452,6 +502,13 @@ void fragment() {
     vec3 tinted = mix(reflected, tint_target, blend);
 
         ALBEDO = tinted * reflection_tint;
-        ALPHA = 1.0;
+        // Fade reflection opacity by water clarity so muddy water lets its
+        // own surface dominate instead of stamping the reflection sprite
+        // over it. Clear water → ALPHA=1 (full reflection); swamp /
+        // muddy water → ALPHA→0 (water surface shows through; the
+        // reflection still contributes faintly via blend_mix). Power
+        // curve so the falloff stays subtle in the middle range and
+        // bites only as muddiness saturates.
+        ALPHA = pow(clamp(1.0 - water_muddiness, 0.0, 1.0), 1.5);
     }
 }

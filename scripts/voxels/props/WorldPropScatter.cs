@@ -157,119 +157,17 @@ public partial class WorldPropScatter : Node3D
     private readonly Dictionary<BucketKey, Bucket> _buckets = new();
     private readonly HashSet<Bucket> _dirty = new();
 
-    // Camera-distance sorting state for the reflection pass. Reflection
-    // multimeshes draw in transparent queue with depth_test_disabled, so
-    // overlapping reflections paint in INSTANCE-ARRAY order — without a
-    // sort, the closer source's reflection can be hidden by a farther
-    // source's reflection just because the multimesh laid them out that
-    // way. We sort instance order by source distance (FAR→NEAR) every
-    // tick so the painter's algorithm produces correct over-draw.
-    //
-    // Re-sorted only when the camera has moved enough to plausibly flip
-    // any ordering — `_lastSortCameraPos` caches the position used for
-    // the last sort, and we re-sort when the camera has translated more
-    // than CAMERA_SORT_THRESHOLD or yawed more than ~5° (forward dot
-    // product check). Keeps the cost low while the camera is still.
-    private Camera3D _cachedCamera;
-    private Vector3 _lastSortCameraPos;
-    private Vector3 _lastSortCameraFwd;
-    private const float CAMERA_SORT_TRANSLATION_THRESHOLD_SQR = 4f * 4f;
-    private const float CAMERA_SORT_FWD_DOT_THRESHOLD = 0.996f; // ~5°
-    private readonly List<int> _sortIndices = new();
-
     public override void _Process(double delta)
     {
-        if (_dirty.Count > 0)
-        {
-            foreach (Bucket b in _dirty)
-            {
-                Rebuild(b);
-            }
-            _dirty.Clear();
-        }
-
-        SortReflectionBucketsIfCameraMoved();
-    }
-
-    private void SortReflectionBucketsIfCameraMoved()
-    {
-        if (_cachedCamera == null || !IsInstanceValid(_cachedCamera))
-        {
-            _cachedCamera = GetViewport()?.GetCamera3D();
-            if (_cachedCamera == null)
-            {
-                return;
-            }
-            // Force a sort on the first valid camera resolve.
-            _lastSortCameraPos = _cachedCamera.GlobalPosition + Vector3.Right * 1e6f;
-            _lastSortCameraFwd = Vector3.Zero;
-        }
-
-        Vector3 camPos = _cachedCamera.GlobalPosition;
-        Vector3 camFwd = -_cachedCamera.GlobalBasis.Z;
-        bool moved = (camPos - _lastSortCameraPos).LengthSquared() > CAMERA_SORT_TRANSLATION_THRESHOLD_SQR
-            || camFwd.Dot(_lastSortCameraFwd) < CAMERA_SORT_FWD_DOT_THRESHOLD;
-        if (!moved)
+        if (_dirty.Count == 0)
         {
             return;
         }
-        _lastSortCameraPos = camPos;
-        _lastSortCameraFwd = camFwd;
-
-        foreach (KeyValuePair<BucketKey, Bucket> kv in _buckets)
+        foreach (Bucket b in _dirty)
         {
-            if (kv.Key.Pass != Pass.Reflection)
-            {
-                continue;
-            }
-            SortReflectionBucket(kv.Value, camPos);
+            Rebuild(b);
         }
-    }
-
-    private void SortReflectionBucket(Bucket bucket, Vector3 camPos)
-    {
-        int total = bucket.Members.Count;
-        if (total <= 1 || bucket.Mm == null || bucket.Mm.InstanceCount != total)
-        {
-            return;
-        }
-
-        // Sort by squared distance from source to camera, FARTHEST FIRST,
-        // so closer sources draw last and over-paint correctly under
-        // blend_mix + depth_test_disabled.
-        if (_sortIndices.Capacity < total)
-        {
-            _sortIndices.Capacity = total;
-        }
-        _sortIndices.Clear();
-        for (int i = 0; i < total; i++)
-        {
-            _sortIndices.Add(i);
-        }
-        List<MultimeshPropSprite> members = bucket.Members;
-        _sortIndices.Sort((a, b) =>
-        {
-            float da = (members[a].Snapshot.Transform.Origin - camPos).LengthSquared();
-            float db = (members[b].Snapshot.Transform.Origin - camPos).LengthSquared();
-            // Descending — farther first.
-            return db.CompareTo(da);
-        });
-
-        // Rewrite all per-instance slots in sorted order. Reuses the
-        // exact packing Rebuild does for the reflection pass — keep these
-        // two paths in sync if the layout changes.
-        for (int slot = 0; slot < total; slot++)
-        {
-            MultimeshPropSprite s = members[_sortIndices[slot]];
-            MultimeshPropSprite.SnapshotData snap = s.Snapshot;
-            bucket.Mm.SetInstanceTransform(slot, snap.Transform);
-            bucket.Mm.SetInstanceCustomData(slot, new Color(snap.Normal.X, snap.Normal.Y, snap.Normal.Z, snap.Align));
-            bucket.Mm.SetInstanceColor(slot, new Color(
-                PackAtlasComponents(snap.RegionOrigin.X, snap.RegionOrigin.Y),
-                PackAtlasComponents(snap.SpriteSize.X, snap.SpriteSize.Y),
-                snap.WaterY,
-                snap.ForwardOffset));
-        }
+        _dirty.Clear();
     }
 
     // Register a prop's contributions to the visible bucket plus optional

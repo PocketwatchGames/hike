@@ -3,5 +3,5 @@
 [ext_resource type="Shader" path="res://shaders/sprite_reflection.gdshader" id="1_shader"]
 
 [resource]
-render_priority = -2
+render_priority = 5
 shader = ExtResource("1_shader")

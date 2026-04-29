@@ -697,6 +697,18 @@ public partial class LitSprite : Sprite3D
         // "do I currently have a reflection" flag and the shared-material
         // reference for completeness.
         ShaderMaterial sharedRefl = GetSharedMaterial(ReflectionTemplate, Texture);
+        if (sharedRefl != null)
+        {
+            // Reflection shader samples the same ripple normal-map pair voxel_water
+            // uses (sprite_prop_reflection_multimesh.gdshader does the same).
+            // Without this the default-white sampler collapses the physics-derived
+            // UV jitter to a constant tilt at every fragment, so reflections render
+            // but never actually shimmer. Setting unconditionally — the shared
+            // material caches across instances, so re-setting the same textures on
+            // a hit is a cheap no-op.
+            sharedRefl.SetShaderParameter("ripple_tex_a", GD.Load<Texture2D>("res://assets/textures/water_ripple_a.tres"));
+            sharedRefl.SetShaderParameter("ripple_tex_b", GD.Load<Texture2D>("res://assets/textures/water_ripple_b.tres"));
+        }
         if (_reflection.MaterialOverride != sharedRefl)
         {
             _reflection.MaterialOverride = sharedRefl;
@@ -742,24 +754,30 @@ public partial class LitSprite : Sprite3D
             _reflection.Visible = false;
             return;
         }
-        // Geometric mirror, capped. Within MaxReflectionAboveWater meters
-        // above the water surface, the reflection uses the true mirror
-        // position (2*(water_y - src.y) from the source) — so a player
-        // jumping or bobbing above water sees their reflection move down
-        // on screen accordingly. Beyond that cap, the reflection's anchor
-        // stops sinking and falls back to "feet at waterline" so a sprite
-        // standing far above the water (tree on a cliff over a lake)
-        // doesn't anchor its reflection so deep that it disappears below
-        // the seabed.
+        // Two-mode anchor (matches sprite_prop_reflection_multimesh.gdshader's
+        // logic for static props):
+        //   - Source IN water (above_water <= 0): true geometric mirror
+        //     (2*(water_y - src.y)). Half-submerged sources need the visible
+        //     half of the reflection to be optically continuous with the
+        //     above-water source — that's only what a real mirror gives.
+        //   - Source ABOVE water: flip about the source's BASE (localY = 0).
+        //     The reflection's top sits at src.y (the player's / mob's feet),
+        //     and the body extends downward. The fragment shader's stencil
+        //     mask clips us to water-visible pixels and the world-Y discard
+        //     fires only for the in-water case, so a player on a 5-meter
+        //     cliff doesn't lose their reflection; the shape just paints onto
+        //     whichever water surface is visible from their XZ direction.
+        //     Inaccurate optically but reads correctly and unifies with how
+        //     props handle above-water reflections.
         float aboveWater = src.Y - waterY.Value;
         float localY;
-        if (aboveWater <= MaxReflectionAboveWater)
+        if (aboveWater <= 0f)
         {
             localY = 2f * (waterY.Value - src.Y);
         }
         else
         {
-            localY = waterY.Value - src.Y;
+            localY = 0f;
         }
         _reflection.Position = new Vector3(0f, localY, 0f);
         _reflection.Visible = true;
@@ -774,13 +792,23 @@ public partial class LitSprite : Sprite3D
         }
     }
 
-    // Return the world Y of the nearest water surface at this sprite's XZ
-    // column. Handles two cases:
+    // XZ search radius (in voxels) for the water surface lookup. Mirrors
+    // MultimeshPropSprite.WATER_SEARCH_XZ_RADIUS. The sprite's own column
+    // is checked first; if no water there (player standing right at the
+    // shoreline whose floored XZ lands on dry ground), expand outward in
+    // concentric square rings until we find a water column. Same per-body
+    // water surface lands at the same Y across the whole pond, so the
+    // first hit's Y is the right reflection plane regardless of which
+    // neighbor column it came from.
+    private const int WATER_SEARCH_XZ_RADIUS = 4;
+
+    // Return the world Y of the nearest water surface within
+    // WATER_SEARCH_XZ_RADIUS XZ voxels. Handles two cases per column:
     //   (a) Sprite IS in water (swimming): walk upward until we exit
     //       water; the exit voxel's bottom face is the surface.
     //   (b) Sprite is above water: walk downward until we hit water;
     //       that voxel's top face is the surface.
-    // Null if no water is within search depth.
+    // Null if no water is within search depth in any of the rings.
     private float? FindWaterSurfaceY(Vector3 world)
     {
         WorldState ws = World.Current?.WorldState;
@@ -788,10 +816,42 @@ public partial class LitSprite : Sprite3D
         {
             return null;
         }
-        int wx = Mathf.FloorToInt(world.X);
-        int wz = Mathf.FloorToInt(world.Z);
+        int cx = Mathf.FloorToInt(world.X);
+        int cz = Mathf.FloorToInt(world.Z);
         int startY = Mathf.FloorToInt(world.Y);
 
+        // Ring-expand outward: r=0 is just (cx, cz); r=1 is the 8 cells
+        // around it; etc. Skip cells on the interior of each ring (only
+        // the boundary contributes new cells), so each cell is checked
+        // exactly once.
+        for (int r = 0; r <= WATER_SEARCH_XZ_RADIUS; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dz = -r; dz <= r; dz++)
+                {
+                    if (r > 0 && Mathf.Abs(dx) != r && Mathf.Abs(dz) != r)
+                    {
+                        continue;
+                    }
+                    float? y = FindWaterInColumn(ws, cx + dx, startY, cz + dz);
+                    if (y.HasValue)
+                    {
+                        return y;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    // Vertical search within one XZ column. Inside-water case walks up
+    // until the column exits water; outside-water case walks down until
+    // it enters water. Returns the world Y of the surface (the air-voxel
+    // floor sitting directly above the topmost water voxel). Null if no
+    // water within WaterReflectionSearchDepth either way.
+    private float? FindWaterInColumn(WorldState ws, int wx, int startY, int wz)
+    {
         if (ws.GetVoxelWorld(wx, startY, wz) == VoxelType.Water)
         {
             int maxY = startY + WaterReflectionSearchDepth;
