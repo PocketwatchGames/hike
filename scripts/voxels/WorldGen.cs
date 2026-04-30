@@ -2380,7 +2380,7 @@ public static class WorldGen
 
                     int sy = SurfaceYAt(wx, wz);
                     ws.AddEntity(new PropSimState(
-                        PropType.Loot,
+                        PropType.AutoLoot,
                         new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
                         rg.LootScene
                     ));
@@ -2490,7 +2490,7 @@ public static class WorldGen
                     if (!skipInteractives && rg != null && rg.LootScene != null
                         && rng.NextDouble() < rg.LootChance)
                     {
-                        ws.AddEntity(new PropSimState(PropType.Loot, pos, rg.LootScene));
+                        ws.AddEntity(new PropSimState(PropType.AutoLoot, pos, rg.LootScene));
                     }
                     if (!skipInteractives && rg != null && rg.ChestScene != null && rg.LootScene != null
                         && rng.NextDouble() < rg.ChestChance)

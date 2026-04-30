@@ -5,4 +5,6 @@ public partial class PlayerSpawnData : Resource
 {
 	[Export] public WeaponData meleeWeaponData;
 	[Export] public WeaponData rangedWeaponData;
+	[Export] public TorchData startingTorchData;
+	[Export] public ConsumableData startingPotionData;
 }

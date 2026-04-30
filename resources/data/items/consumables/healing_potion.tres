@@ -1,0 +1,57 @@
+[gd_resource type="Resource" script_class="ConsumableData" load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" path="res://scripts/data/actions/ChargedAction.cs" id="3_charged"]
+[ext_resource type="Script" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" path="res://scripts/data/effects/HealEffect.cs" id="5_heal"]
+[ext_resource type="Script" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
+[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="7_sprite"]
+
+[sub_resource type="Resource" id="Resource_heal"]
+script = ExtResource("5_heal")
+amount = 40.0
+
+[sub_resource type="Resource" id="Resource_event_apply"]
+script = ExtResource("4_event")
+time = 0
+type = 3
+effects = Array[ExtResource("6_effect")]([SubResource("Resource_heal")])
+
+[sub_resource type="Resource" id="Resource_event_decrement"]
+script = ExtResource("4_event")
+time = 0
+type = 4
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("4_event")
+time = 0
+type = 7
+animName = &"Drink"
+
+[sub_resource type="Resource" id="Resource_charged"]
+script = ExtResource("3_charged")
+verb = 3
+chargeTime = 1.5
+activeDurationSeconds = 0.0
+cooldownSeconds = 0.0
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply"), SubResource("Resource_event_decrement")])
+canAbort = false
+canInterrupt = true
+maxChargeSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
+chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
+autoActivateAtMax = true
+locksMovement = true
+interruptOnDamage = true
+queueable = false
+
+[resource]
+script = ExtResource("1_consumable")
+displayName = &"Healing Potion"
+maxStack = 5
+inventorySprite = ExtResource("7_sprite")
+actionProfile = SubResource("Resource_profile")

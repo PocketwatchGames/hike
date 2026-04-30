@@ -1,0 +1,73 @@
+using Godot;
+using Godot.Collections;
+
+// One charge tier within an ItemActionProfile. The charge timeline runs from
+// press; reaching this action's chargeTime makes it the selected tier. On
+// activation (release, or autoActivateAtMax), the runner enters Active and
+// walks `events` over `activeDurationSeconds`. The action's cooldownSeconds
+// is written to the driving item's cooldownExpireMs at activation, gating
+// re-firing of that specific item.
+[GlobalClass]
+public partial class ChargedAction : Resource
+{
+	[Export] public EActionVerb verb = EActionVerb.None;
+
+	// Hold time required to "reach" this tier. The lowest tier is typically 0.
+	// Tiers must be authored in ascending chargeTime order.
+	[Export] public float chargeTime = 0f;
+
+	// Length of the Active phase in seconds. May be 0 — t=0 events fire and
+	// Active exits the same tick.
+	[Export] public float activeDurationSeconds = 0f;
+
+	// Cooldown applied to the driving item after activation. Independent
+	// per-item (a weapon's cooldown doesn't block other items).
+	[Export] public float cooldownSeconds = 0f;
+
+	// Events fired during Active, on a timeline measured from activateMs.
+	[Export] public Array<ItemEvent> events = new();
+
+	// Phase 3 hooks (declared now so the runner doesn't need a re-export).
+	// readyEvents fire when this tier becomes the selected tier during
+	// charging. abortEvents fire when this tier's Active phase aborts.
+	[Export] public Array<ItemEvent> readyEvents = new();
+	[Export] public Array<ItemEvent> abortEvents = new();
+
+	// Combo bookkeeping. When `combos` is true, the runner increments the
+	// driving weapon's comboIndex on activation if the previous combo'd
+	// activation was within comboWindowMs. The action's events (or its
+	// ComboBonus events embedded as items in `events`) read the index to
+	// scale damage / fire bonus effects. Non-combo actions reset the index
+	// to 0 on activation. comboBonusEvents fire alongside `events` when
+	// comboIndex > 0 — a simpler authoring path than ComboBonus events.
+	[Export] public bool combos = false;
+	[Export] public ulong comboWindowMs = 0;
+	[Export] public Array<ItemEvent> comboBonusEvents = new();
+
+	// Per-tier requirements. Action only selectable if all evaluate true.
+	// Phase 3 SelectTier ignored requirements; phase 4 walks them and falls
+	// back to a lower tier on failure.
+	[Export] public Array<ActionRequirement> requirements = new();
+
+	// Active-phase abort policy. Both flags only consulted while Active —
+	// charging always cancels on release/sneak/damage. Defaults match the
+	// "committed combat action" pattern (player can't bail, damage staggers).
+	[Export] public bool canAbort = false;
+	[Export] public bool canInterrupt = true;
+
+	// Per-action continuous-charge curves. Sampled against the action's
+	// `chargeT` stashed on PlayerAction at activation. Curve outputs are
+	// multipliers/spread fractions in [0, 1]; handlers apply them to the
+	// event's base values. Null curve = "no scaling" (1.0 for range, 0.0
+	// for accuracy spread). Used by Hitscan for bow accuracy/range; Melee
+	// ignores them.
+	[Export] public Curve rangeScaleCurve;
+	[Export] public Curve accuracyScaleCurve;
+
+	// When > 0, defines the hold window for `chargeT` sampling INDEPENDENTLY
+	// of tier chargeTime. A single-tier bow with chargeTime=0 + maxChargeSeconds=1.5
+	// fires on any release but scales the curves across [0, 1.5]. When 0 (the
+	// default), `chargeT` is normalized against the profile's top-tier chargeTime
+	// — works for multi-tier weapons without per-action curves.
+	[Export] public float maxChargeSeconds = 0f;
+}

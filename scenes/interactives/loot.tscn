@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://jlh3xsibvf00"]
+[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://bqqg5l6u5hqng" path="res://scripts/gameplay/Loot.cs" id="1_loot"]
+[ext_resource type="Script" path="res://scripts/gameplay/Loot.cs" id="1_loot"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
@@ -8,6 +8,7 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="8_interactivebox"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -64,7 +65,7 @@ _data = {
 &"PickedUp": SubResource("Animation_pickedup")
 }
 
-[node name="Loot" type="RigidBody3D" unique_id=1610781501 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_pickupArea", "_hurtBox")]
+[node name="Loot" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode")]
 collision_layer = 8
 axis_lock_angular_x = true
 axis_lock_angular_y = true
@@ -73,14 +74,15 @@ physics_material_override = SubResource("PhysicsMaterial_loot")
 script = ExtResource("1_loot")
 _collisionShape = NodePath("CollisionShape3D")
 _animationPlayer = NodePath("AnimationPlayer")
-_pickupArea = NodePath("PickupArea")
+_interactArea = NodePath("InteractArea")
 _hurtBox = NodePath("HurtBox")
+_hudNode = NodePath("HUDNode")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=172604426]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_loot")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=650643215]
+[node name="Sprite" type="Sprite3D" parent="."]
 texture = ExtResource("3_hags0")
 region_enabled = true
 region_rect = Rect2(0, 0, 8, 8)
@@ -92,22 +94,28 @@ ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
 Reflects = 1
 alpha_cut = 1
 
-[node name="PickupArea" type="Area3D" parent="." unique_id=2016645530]
-collision_layer = 0
-collision_mask = 2
+[node name="InteractArea" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("8_interactivebox")
+_interactiveNode = NodePath("..")
 
-[node name="PickupShape" type="CollisionShape3D" parent="PickupArea" unique_id=1869349668]
+[node name="InteractShape" type="CollisionShape3D" parent="InteractArea"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_loot")
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=1993268754]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries/ = SubResource("AnimationLibrary_loot")
 
-[node name="HurtBox" type="Area3D" parent="." unique_id=85082300]
+[node name="HurtBox" type="Area3D" parent="."]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=959546467]
+[node name="HurtBoxShape" type="CollisionShape3D" parent="HurtBox"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_loot")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

@@ -9,6 +9,16 @@ public partial class BehaviorBase
         behaviorNode = node;
     }
 
+    // Called by Mob.StartBehavior whenever this behavior becomes the current
+    // behavior — both the first time it runs and on every later re-entry
+    // after another behavior had control. The default is a no-op; behaviors
+    // that hold cross-tick state (timers, "have I picked a target yet"
+    // flags, navigator intent) should reset that state here so re-entry
+    // doesn't pick up stale values from the previous time the behavior ran.
+    public virtual void OnEnter(Mob me, ulong time)
+    {
+    }
+
     public virtual BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
     {
         return new BehaviorOutput(EBehaviorResult.Complete);

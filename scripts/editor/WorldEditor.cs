@@ -444,7 +444,7 @@ public partial class WorldEditor : Node3D
             case "TallGrass":
                 return tallGrassScenes.Length > 0 ? new PropSimState(PropType.TallGrass, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
             case "Loot":
-                return firstRegion?.LootScene != null ? new PropSimState(PropType.Loot, position, firstRegion.LootScene) : null;
+                return firstRegion?.LootScene != null ? new PropSimState(PropType.AutoLoot, position, firstRegion.LootScene) : null;
             case "Chest":
                 return firstRegion?.ChestScene != null && firstRegion.LootScene != null
                     ? new ChestSimState(position, firstRegion.ChestScene, 3, firstRegion.LootScene)

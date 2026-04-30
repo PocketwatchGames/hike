@@ -16,5 +16,12 @@ public partial class AttackBehaviorData : BehaviorData
     // the mob picks a reposition point near the target and backs off.
     [Export] public float attackCooldownSeconds = 1.5f;
 
+    // Action profile run through the mob's ActionRunner when an attack fires.
+    // The profile's events should carry their own DamageData (via ItemEvent.damageData)
+    // since mobs aren't backed by a WeaponState. Charging / queueing / multi-tier
+    // all work the same as for the player; for typical mobs author a single tier
+    // with chargeTime=0 and autoActivateAtMax=true (immediate-fire).
+    [Export] public ItemActionProfile actionProfile;
+
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);
 }

@@ -1,0 +1,9 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/CarrierLight.cs" id="1_carrier"]
+
+[node name="CarrierLight" type="Node3D"]
+script = ExtResource("1_carrier")
+Emission = 32
+LightColor = Color(1, 0.75, 0.4, 1)
+Active = true

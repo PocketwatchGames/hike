@@ -1,7 +1,12 @@
-public enum EItemSlot
+public enum EInventorySlot
 {
-	Melee,
-	Ranged,
-	Belt,
-	Count,
+	None,
+	ArmorHead,
+	ArmorBody,
+	ArmorCloak,
+	ArmorAccessory,
+	WeaponLeft,
+	WeaponRight,
+	Consumable,
+	Count
 }

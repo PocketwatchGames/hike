@@ -28,4 +28,19 @@ public partial class PlayerData : Resource
 	[Export] public float waterDrag = 5f;
 	[Export] public float waterSurfaceOffset = 1f;
 	[Export] public float waterJumpOffset = 1.5f;
+
+	[Export] public int backpackCapacity = 20;
+	[Export] public int consumableSlotCount = 3;
+
+	// Scene used when the player drops an item from the inventory. Same Loot
+	// scene the world drops use; we keep it on PlayerData so player drops
+	// don't depend on which region they're standing in.
+	[Export] public PackedScene dropLootScene;
+
+	[Export] public float maxHealth = 100f;
+
+	// Optional CarrierLight scene attached to the player when a torch
+	// consumable is activated. Detached when the torch is deactivated /
+	// unequipped / consumed.
+	[Export] public PackedScene carrierLightScene;
 }

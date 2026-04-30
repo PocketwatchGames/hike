@@ -50,10 +50,17 @@ public partial class BehaviorAttack : BehaviorBase
 
             if (dist2d < _data.maxAttackRange && targetPerception.canSee)
             {
-                // In range — fire. fireWeapon is currently a placeholder AIOutput
-                // field; Mob doesn't consume it yet, but setting it here mirrors
-                // the template so the hookup is trivial later.
-                output.fireWeapon = 0;
+                // In range — populate the action runner request. Mob's
+                // _PhysicsProcess will TryStart the profile this same tick.
+                if (_data.actionProfile != null)
+                {
+                    output.attackProfile = _data.actionProfile;
+                    output.attackContext = new ActionContext
+                    {
+                        verb = EActionVerb.Light,
+                        target = target,
+                    };
+                }
                 _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
             }
             else if (dist2d < _data.approachRange)

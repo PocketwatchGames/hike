@@ -37,9 +37,19 @@ public partial class Player : CharacterBody3D
 	readonly WaterRippleEmitter _rippleEmitter = new();
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
+	Inventory _inventory;
+	ActionRunner _runner;
+	float _health;
+	CarrierLight _carrierLight;
+
 
 	public float visibility = 1f;
 	public EWaterState WaterState => _waterState;
+	public World World => _world;
+	public Inventory Inventory => _inventory;
+	public ActionRunner Runner => _runner;
+	public float Health => _health;
+	public float MaxHealth => data?.maxHealth ?? 100f;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public float ClientInteractProgress
@@ -93,9 +103,59 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private void OnHurtBoxHit(DamageData data, Node source)
+	private void OnHurtBoxHit(DamageData damage, Node source)
 	{
-		GD.Print($"Player hit for {data?.healthDamage} from {source?.Name}");
+		if (damage == null)
+		{
+			return;
+		}
+
+		// Damage may interrupt an in-flight action (gated by profile +
+		// per-tier canInterrupt). External interruption fires BEFORE damage
+		// is applied so abortEvents can run on coherent pre-damage state.
+		_runner?.TryInterrupt();
+
+		_health = Mathf.Max(0f, _health - damage.healthDamage);
+	}
+
+	public void Heal(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return;
+		}
+		_health = Mathf.Min(MaxHealth, _health + amount);
+	}
+
+	// Phase 4 ToggleCarrierLight handler hook. Spawns/despawns a CarrierLight
+	// attached to the player. The player must be inside the scene tree by
+	// this point (Initialize has run); attach the light as a child so it
+	// follows the player's transform.
+	public void SetCarrierLightActive(bool active)
+	{
+		if (active)
+		{
+			if (_carrierLight != null)
+			{
+				return;
+			}
+			if (data?.carrierLightScene == null)
+			{
+				return;
+			}
+			_carrierLight = data.carrierLightScene.Instantiate<CarrierLight>();
+			AddChild(_carrierLight);
+		}
+		else
+		{
+			if (_carrierLight == null)
+			{
+				return;
+			}
+			_carrierLight.Deactivate();
+			_carrierLight.QueueFree();
+			_carrierLight = null;
+		}
 	}
 
 	public void Initialize(World world, PlayerSpawnData spawnData, Vector3 position, Vector3 rotation)
@@ -104,8 +164,38 @@ public partial class Player : CharacterBody3D
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;
-		_weapons[(int)EItemSlot.Melee] = new WeaponState(spawnData.meleeWeaponData);
-		_weapons[(int)EItemSlot.Ranged] = new WeaponState(spawnData.rangedWeaponData);
+		_inventory = new Inventory(this, data);
+		_runner = new ActionRunner(this);
+		_health = MaxHealth;
+
+		if (spawnData != null)
+		{
+			if (spawnData.meleeWeaponData != null)
+			{
+				var melee = new WeaponState(spawnData.meleeWeaponData);
+				_inventory.TryAdd(melee);
+				_inventory.TryEquip(melee, EInventorySlot.WeaponLeft);
+			}
+			if (spawnData.rangedWeaponData != null)
+			{
+				var ranged = new WeaponState(spawnData.rangedWeaponData);
+				_inventory.TryAdd(ranged);
+				_inventory.TryEquip(ranged, EInventorySlot.WeaponRight);
+			}
+			if (spawnData.startingTorchData != null)
+			{
+				var torch = new TorchState(spawnData.startingTorchData);
+				_inventory.TryAdd(torch);
+				_inventory.TryMoveToConsumableSlot(torch);
+			}
+			if (spawnData.startingPotionData != null)
+			{
+				var potion = new ConsumableState(spawnData.startingPotionData);
+				potion.stackCount = spawnData.startingPotionData.maxStack;
+				_inventory.TryAdd(potion);
+				_inventory.TryMoveToConsumableSlot(potion);
+			}
+		}
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -198,15 +288,9 @@ public partial class Player : CharacterBody3D
 		else if (_inputMove != Vector3.Zero)
 		{
 			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
-		}		
-
-		for (int i=0;i<(int)EItemSlot.Count;i++)
-		{
-			if (_weapons[i] != null)
-			{
-				ProcessWeapon(_weapons[i], i, Input.IsActionPressed(_weaponActions[i]), dt);
-			}
 		}
+
+		_runner?.Tick();
 
 		// Step up: lift the player before moving so they can clear small obstacles.
 		// Disabled while swimming — the player is floating, not walking. Uses
@@ -280,15 +364,7 @@ public partial class Player : CharacterBody3D
 		// Aiming preview
 		Vector3 aimOrigin = GlobalPosition + Vector3.Up;
 		Vector3 aimEnd = aimOrigin + GlobalTransform.Basis.Z * 5f;
-		DebugBox.Create(
-			_world,
-			new Color(1f, 1f, 1f, 0.15f),
-			0.05f,
-			aimOrigin,
-			aimEnd,
-			0.1f,
-			0.1f
-		);
+		DebugDraw.Line(aimOrigin, aimEnd, new Color(1f, 1f, 1f, 0.15f), 0.05f);
 	}
 	
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
@@ -320,18 +396,29 @@ public partial class Player : CharacterBody3D
 		{
 			if (_curInteractive == null && _highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
-				SetCurInteractive(_highlightInteractive);
-				ulong interactTimeMs = _curInteractive.GetInteractTime(this);
-				if (interactTimeMs == 0)
+				// Action-runner path: if the interactive provides action
+				// profiles, run the default verb's profile through the
+				// runner. Hold-for-radial verb selection is future UI work.
+				if (TryStartInteractiveAction(_highlightInteractive))
 				{
-					_curInteractive.Complete();
-					SetCurInteractive(null);
 					_highlightInteractive = null;
 					onHighlightChanged?.Invoke(null);
 				}
 				else
 				{
-					_interactCompleteTimeMs = _world.GameTimeMs + interactTimeMs;
+					SetCurInteractive(_highlightInteractive);
+					ulong interactTimeMs = _curInteractive.GetInteractTime(this);
+					if (interactTimeMs == 0)
+					{
+						_curInteractive.Complete();
+						SetCurInteractive(null);
+						_highlightInteractive = null;
+						onHighlightChanged?.Invoke(null);
+					}
+					else
+					{
+						_interactCompleteTimeMs = _world.GameTimeMs + interactTimeMs;
+					}
 				}
 			}
 		}
@@ -341,6 +428,34 @@ public partial class Player : CharacterBody3D
 			SetCurInteractive(null);
 			_highlightInteractive = null;
 			onHighlightChanged?.Invoke(null);
+		}
+
+		if (Input.IsActionJustPressed("ConsumableCycleLeft"))
+		{
+			_inventory?.CycleConsumable(-1);
+		}
+		if (Input.IsActionJustPressed("ConsumableCycleRight"))
+		{
+			_inventory?.CycleConsumable(+1);
+		}
+
+		// Sneak press doubles as the player-initiated abort key while a
+		// runner action is in flight. Charging always cancels; Active
+		// cancels only if the selected tier opts in via canAbort. The press
+		// is not consumed — holding Sneak still applies sneak speed afterward,
+		// which feels right ("tap to bail out and crouch").
+		if (Input.IsActionJustPressed("Sneak") && _runner != null && _runner.IsBusy)
+		{
+			_runner.TryAbort();
+		}
+
+		if (Input.IsActionJustPressed("UseItem"))
+		{
+			TryUseActiveConsumable();
+		}
+		if (Input.IsActionJustReleased("UseItem"))
+		{
+			ReleaseUseConsumable();
 		}
 
 		if (Input.IsActionJustPressed("Jump"))
@@ -362,22 +477,15 @@ public partial class Player : CharacterBody3D
 			_jumpHeld = false;
 		}
 
-		for (int i = 0; i < (int)EItemSlot.Count; i++)
-		{
-			if (_weapons[i] == null)
-			{
-				continue;
-			}
-			if (Input.IsActionJustPressed(_weaponActions[i]))
-			{
-				WeaponPress(_weapons[i], i);
-			}
-			if (Input.IsActionJustReleased(_weaponActions[i]))
-			{
-				WeaponRelease(_weapons[i], i);
-			}
-		}
+		HandleWeaponInputs();
+
 		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
+	}
+
+	bool TryGetWeaponState(EInventorySlot slot, out WeaponState weapon)
+	{
+		weapon = _inventory?.GetWeapon(slot);
+		return weapon != null;
 	}
 
 	private void UpdateHighlightInteractive()
@@ -548,8 +656,8 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void OnLootCollision(Loot loot)
+	public void OnAutoLootCollision(AutoLoot loot)
 	{
-		loot.PickUp();
+		loot.PickUp(this);
 	}
 }

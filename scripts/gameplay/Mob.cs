@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 {
     [Export] private CollisionShape3D _collisionShape;
     [Export] private AnimationPlayer _animationPlayer;
@@ -62,6 +62,22 @@ public partial class Mob : RigidBody3D, IWorldEntity
     private MobSimState _simState;
     World _world;
     public World World => _world;
+
+    // Navigation controller — owns this mob's pathfinding/steering intent.
+    // Behaviors call _navigator.Goto/Wander/Stop; the navigator writes
+    // output.pathTarget at the bottom of TickAI. Lazily created the first
+    // time TickAI runs after Initialize so it's available before the first
+    // Behavior.Run call (mobData and World are required for construction).
+    private MobNavigator _navigator;
+    public MobNavigator Navigator => _navigator;
+
+    // Shared action timeline runner (same class the player uses). Populated
+    // each frame from AIOutput.attackProfile by BehaviorAttack; the runner
+    // walks the timeline, fires combat events, and gates re-entry via its
+    // own busy state. Per-attack cadence is enforced upstream by the
+    // BehaviorAttack cooldown so mobs don't spam attacks every frame.
+    private ActionRunner _runner;
+    public ActionRunner Runner => _runner;
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
@@ -137,9 +153,11 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
     public void OnSpawned(World world)
     {
+        world.MobSpatialHash.Add(this);
         TreeExiting += () =>
         {
             SyncToSimState();
+            world.MobSpatialHash.Remove(this);
             world.onMobRemoved?.Invoke(this);
         };
         world.onMobSpawned?.Invoke(this);
@@ -151,8 +169,30 @@ public partial class Mob : RigidBody3D, IWorldEntity
         _simState = simState;
         Position = simState.WorldPosition;
         Rotation = new Vector3(0, simState.RotationY, 0);
+        // Navigator depends on mobData (for the traversal profile) and World
+        // (for voxel queries), so construct here after both are wired.
+        _navigator = new MobNavigator(this);
+        _runner = new ActionRunner(this);
         InitBehaviors();
         world.AddChild(this);
+    }
+
+    // IActionActor — what ActionRunner and ItemEventHandlers read. Forward
+    // is the mob's facing direction (basis Z, matching how Mob updates
+    // Rotation.Y from its yaw target). AttackHurtboxMask matches the
+    // player's hurtbox layer so mob attacks land on the player; SelfHurtBoxRid
+    // excludes the mob's own hurtbox from its own attack queries.
+    public Vector3 ActorWorldPosition => GlobalPosition;
+    public Vector3 ActorForward => GlobalTransform.Basis.Z;
+    public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
+    public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
+    public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
+    public Node3D AttackerNode => this;
+    public void PlayAnim(StringName name)
+    {
+        // Mob anims live on its AnimationPlayer, but the named action anims
+        // (Attack, Howl, etc.) aren't authored yet — stub for now so action
+        // profiles authoring PlayAnim events don't crash.
     }
 
     // Writes the node's current transform back into the persistent sim state so
@@ -321,6 +361,12 @@ public partial class Mob : RigidBody3D, IWorldEntity
 
         UpdateWaterRipples();
 
+        // Keep the spatial hash up-to-date for the navigator's separation
+        // query and any other neighbor-radius lookup. Update() short-
+        // circuits when the mob hasn't crossed a cell boundary, so this is
+        // effectively free for idle mobs.
+        _world?.MobSpatialHash?.Update(this);
+
         // Perception is throttled — accumulate delta and only run when the
         // interval is reached, so per-mob raycast cost stays low at density.
         // The accumulated delta is passed in so the perception integrator
@@ -335,6 +381,25 @@ public partial class Mob : RigidBody3D, IWorldEntity
         if (alive)
         {
             TickAI((float)delta, out AIOutput aiOutput);
+
+            // Drive the action runner from AIOutput. BehaviorAttack populates
+            // attackProfile when in range and off cooldown; the runner gates
+            // on its own busy state and per-tier cooldowns.
+            if (aiOutput.attackProfile != null && _runner != null && !_runner.IsBusy)
+            {
+                _runner.TryStart(aiOutput.attackProfile, aiOutput.attackContext);
+            }
+            _runner?.Tick();
+
+            // Draw the navigator's current path when the debug CVar is on.
+            // Single-frame lifetime — this is called every physics tick so
+            // the path stays visible without accumulating stale segments.
+            // Visualization: yellow from the mob to its next waypoint, then
+            // green for upcoming waypoints, with a red sphere at the goal.
+            if (CVars.debugMobPath.Value && _navigator != null)
+            {
+                DrawPathDebug();
+            }
 
             using var _profPostTick = Profiler.Sample("Mob.PostTickMove");
 
@@ -494,8 +559,13 @@ public partial class Mob : RigidBody3D, IWorldEntity
             return;
         }
 
-        Damage(data);
+        // External-interrupt damage during an in-flight attack — interrupt
+        // before applying damage so abortEvents fire on coherent pre-damage
+        // state. Gated by the action's profile.interruptOnDamage and the
+        // tier's canInterrupt; non-interruptible swings keep going.
+        _runner?.TryInterrupt();
 
+        Damage(data);
     }
 
     public void Damage(DamageData data)
@@ -574,6 +644,51 @@ public partial class Mob : RigidBody3D, IWorldEntity
     public void RemoveTerrainModifier(TallGrass tallGrass)
     {
         _tallGrassCollisions.Remove(tallGrass);
+    }
+
+    // Render the navigator's active path as line segments via DebugDraw.
+    // Lifted slightly off the surface so paths don't z-fight with the
+    // ground mesh on flat terrain. Single-frame lifetime — relies on this
+    // method being called every physics tick to stay on screen.
+    private void DrawPathDebug()
+    {
+        const float Lift = 0.15f;
+        var waypoints = _navigator.Waypoints;
+        Vector3 mobPos = GlobalPosition + new Vector3(0f, Lift, 0f);
+
+        if (waypoints == null || waypoints.Count == 0)
+        {
+            // No path yet — if the navigator has a goal, draw a single
+            // dashed-style segment from the mob to the goal so we can see
+            // it's trying. Use a darker shade to distinguish from a real
+            // routed path.
+            if (_navigator.CurrentState != MobNavigator.State.Idle)
+            {
+                Vector3 goal = _navigator.Goal + new Vector3(0f, Lift, 0f);
+                DebugDraw.Line(mobPos, goal, new Color(0.5f, 0.5f, 0.5f));
+                DebugDraw.Sphere(_navigator.Goal + new Vector3(0f, Lift, 0f), 0.3f, new Color(1f, 0.3f, 0.3f));
+            }
+            return;
+        }
+
+        int idx = _navigator.WaypointIndex;
+        // Mob → current waypoint: yellow (the segment actively being
+        // walked). Subsequent waypoints: green polyline.
+        Color current = new(1f, 0.85f, 0.1f);
+        Color upcoming = new(0.2f, 0.9f, 0.3f);
+
+        Vector3 prev = mobPos;
+        for (int i = idx; i < waypoints.Count; i++)
+        {
+            Vector3 wp = waypoints[i] + new Vector3(0f, Lift, 0f);
+            DebugDraw.Line(prev, wp, i == idx ? current : upcoming);
+            prev = wp;
+        }
+        // Goal sphere at the last waypoint so it's easy to spot.
+        if (waypoints.Count > 0)
+        {
+            DebugDraw.Sphere(waypoints[waypoints.Count - 1] + new Vector3(0f, Lift, 0f), 0.25f, new Color(1f, 0.3f, 0.3f));
+        }
     }
 
 }

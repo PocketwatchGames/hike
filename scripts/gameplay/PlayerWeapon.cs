@@ -1,218 +1,194 @@
+using System.Collections.Generic;
 using Godot;
 
-public enum EWeaponState
+// Input shim that maps weapon-attack input actions to ActionRunner calls.
+// All timeline / phase / event-walking logic lives in ActionRunner. The
+// generalization to consumable Use, channeled actions, and (phase 5)
+// interactives all reuse the same runner, so adding a new input is just
+// another entry that constructs a context and calls TryStart.
+public partial class Player : CharacterBody3D, IActionActor
 {
-	Ready,
-	Charging,
-	Active
-}
-
-public partial class Player : CharacterBody3D
-{
-	readonly WeaponState[] _weapons = new WeaponState[(int)EItemSlot.Count];
-	int? _activeWeaponSlot;
-	ulong _weaponPressTime;
-	ulong _weaponActivateTime;
-	EWeaponState _weaponState;
-
-	static readonly string[] _weaponActions = new[] { "AttackMelee", "AttackRanged" };
-
-	int? GetActiveWeapon()
+	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
 	{
-		if (_activeWeaponSlot.HasValue)
+		{ EInventorySlot.WeaponLeft, "AttackMelee" },
+		{ EInventorySlot.WeaponRight, "AttackRanged" }
+	};
+
+	void HandleWeaponInputs()
+	{
+		foreach (var (slot, actionName) in _weaponActions)
 		{
-			WeaponState activeWeapon = _weapons[_activeWeaponSlot.Value];
-			return activeWeapon != null && activeWeapon.data != null && _world.GameTimeMs < _weaponActivateTime + activeWeapon.data.activeTime ? _activeWeaponSlot : null;
+			if (Input.IsActionJustPressed(actionName))
+			{
+				TryStartWeaponAction(slot);
+			}
+			if (Input.IsActionJustReleased(actionName))
+			{
+				ReleaseWeaponAction(slot);
+			}
 		}
-		return null;
 	}
 
-	void WeaponActivate(WeaponState weapon, int slot)
+	void TryStartWeaponAction(EInventorySlot slot)
 	{
-		ulong curTime = _world.GameTimeMs;
-		weapon.lastWeaponEventIndex = -1;
-		_weaponActivateTime = curTime;
-		_activeWeaponSlot = slot;
-		_weaponState = EWeaponState.Active;
-		weapon.cooldownTime = curTime + (ulong)(1000 * (weapon.data.cooldownTime + weapon.data.activeTime));
-		ProcessWeaponEvents(weapon, slot);
-	}
-
-	bool CanUseWeapon(WeaponState weapon)
-	{
-		return !GetActiveWeapon().HasValue && weapon.data != null && weapon.cooldownTime <= _world.GameTimeMs && (!weapon.data.useAmmo || weapon.ammo > 0);
-	}
-
-	void WeaponPress(WeaponState weapon, int slot)
-	{
-		ulong curTime = _world.GameTimeMs;
-		if (!CanUseWeapon(weapon))
+		if (_runner == null || _runner.IsBusy)
+		{
+			return;
+		}
+		WeaponState weapon = _inventory?.GetWeapon(slot);
+		if (weapon?.data?.actionProfile == null)
+		{
+			return;
+		}
+		// Per-weapon ammo gate. Cooldown gate is handled by ActionRunner via
+		// ItemState.cooldownExpireMs.
+		if (weapon.data.useAmmo && weapon.ammo <= 0)
 		{
 			return;
 		}
 
-		_activeWeaponSlot = slot;
-		if (weapon.data.activateOnRelease)
+		var context = new ActionContext
 		{
-			_weaponState = EWeaponState.Charging;
-			_weaponActivateTime = curTime;
-			_weaponPressTime = curTime;
-		}
-		else
-		{
-			WeaponActivate(weapon, slot);
-		}
+			verb = EActionVerb.Light,
+			primaryItem = weapon,
+			sourceSlot = slot,
+		};
+		_runner.TryStart(weapon.data.actionProfile, context);
 	}
 
-	void WeaponRelease(WeaponState weapon, int slot)
+	void ReleaseWeaponAction(EInventorySlot slot)
 	{
-		if (weapon.data == null || _activeWeaponSlot != slot || _weaponState != EWeaponState.Charging)
+		if (_runner == null || !_runner.IsBusy)
 		{
 			return;
 		}
-		if (weapon.data.activateOnRelease)
-		{
-			WeaponActivate(weapon, slot);
-		}
-	}
-
-	void DoWeaponEvent(WeaponState weapon, EItemSlot slot, WeaponEvent weaponEvent)
-	{
-		switch (weaponEvent.type)
-		{
-			case EWeaponEventType.Melee:
-				DoMeleeWeaponEvent(weapon, weaponEvent);
-				break;
-			case EWeaponEventType.Hitscan:
-				DoHitscanWeaponEvent(weapon, weaponEvent);
-				break;
-			case EWeaponEventType.UseAmmo:
-				weapon.ammo--;
-				break;
-		}
-	}
-
-	void DoMeleeWeaponEvent(WeaponState weapon, WeaponEvent weaponEvent)
-	{
-		Vector3 damagePos = GlobalPosition + Vector3.Up + GlobalTransform.Basis.Z * weaponEvent.meleeRange;
-		var query = new PhysicsShapeQueryParameters3D();
-		query.Shape = new SphereShape3D() { Radius = weaponEvent.meleeRadius };
-		query.Transform = new Transform3D(Basis.Identity, damagePos);
-		query.CollisionMask = (uint)ECollisionLayer.HurtBox;
-		query.CollideWithAreas = true;
-		query.CollideWithBodies = false;
-
-		var results = GetWorld3D().DirectSpaceState.IntersectShape(query);
-		foreach (var result in results)
-		{
-			var collider = result["collider"].Obj;
-			if (collider is HurtBox hurtBox && hurtBox != _hurtBox)
-			{
-				hurtBox.Hit(weapon.data.damageData, this);
-			}
-		}
-
-		DebugSphere.Create(
-			_world,
-			new Color(1f, 0f, 0f, 0.3f),
-			0.15f,
-			damagePos,
-			weaponEvent.meleeRadius
-		);
-	}
-
-	void DoHitscanWeaponEvent(WeaponState weapon, WeaponEvent weaponEvent)
-	{
-		Vector3 origin = GlobalPosition + Vector3.Up;
-		Vector3 direction = GlobalTransform.Basis.Z;
-		Vector3 rayEnd = origin + direction * weaponEvent.hitScanRange;
-
-		var spaceState = GetWorld3D().DirectSpaceState;
-
-		Godot.Collections.Array<Rid> bodyExclude = [GetRid()];
-
-		// Find the nearest environment hit to clip the ray against world geometry.
-		var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
-		envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
-		envQuery.CollideWithAreas = false;
-		envQuery.CollideWithBodies = true;
-		envQuery.Exclude = bodyExclude;
-		var envResult = spaceState.IntersectRay(envQuery);
-
-		Vector3 hitPos = rayEnd;
-		if (envResult.Count > 0)
-		{
-			hitPos = (Vector3)envResult["position"];
-		}
-
-		// Cast against hurtboxes up to the clipped end point.
-		var hurtQuery = PhysicsRayQueryParameters3D.Create(origin, hitPos);
-		hurtQuery.CollisionMask = (uint)ECollisionLayer.HurtBox;
-		hurtQuery.CollideWithAreas = true;
-		hurtQuery.CollideWithBodies = false;
-		if (_hurtBox != null)
-		{
-			hurtQuery.Exclude = [_hurtBox.GetRid()];
-		}
-
-		var hurtResult = spaceState.IntersectRay(hurtQuery);
-		if (hurtResult.Count > 0)
-		{
-			var collider = hurtResult["collider"].Obj;
-			if (collider is HurtBox hurtBox && hurtBox != _hurtBox)
-			{
-				hurtBox.Hit(weapon.data.damageData, this);
-				hitPos = (Vector3)hurtResult["position"];
-			}
-		}
-
-		DebugBox.Create(
-			_world,
-			new Color(1f, 0f, 0f, 0.3f),
-			0.15f,
-			origin,
-			hitPos,
-			0.1f,
-			0.1f
-		);
-	}
-
-	void ProcessWeaponEvents(WeaponState weapon, int slot)
-	{
-		if (weapon.data == null || weapon.data.events == null)
+		// Only the input that started the in-flight action commits its release.
+		if (_runner.Current.context.sourceSlot != slot)
 		{
 			return;
 		}
-		ulong curTime = _world.GameTimeMs;
-		for (int i = weapon.lastWeaponEventIndex + 1; i < weapon.data.events.Count; i++)
-		{
-			WeaponEvent weaponEvent = weapon.data.events[i];
-			if (curTime >= _weaponActivateTime + weaponEvent.time)
-			{
-				DoWeaponEvent(weapon, (EItemSlot)slot, weaponEvent);
-				weapon.lastWeaponEventIndex = i;
-			}
-			else
-			{
-				break;
-			}
-		}
+		_runner.OnInputReleased();
 	}
 
-	void ProcessWeapon(WeaponState weapon, int slot, bool inputPressed, float dt)
+	void TryUseActiveConsumable()
 	{
-		if (weapon == null || weapon.data == null)
+		if (_runner == null || _runner.IsBusy)
 		{
 			return;
 		}
-		if (_activeWeaponSlot == slot && _weaponState == EWeaponState.Active)
+		ItemState item = _inventory?.GetActiveConsumable();
+		if (item == null || item.data is not ConsumableData consumableData)
 		{
-			ProcessWeaponEvents(weapon, slot);
-			if (_world.GameTimeMs >= _weaponActivateTime + weapon.data.activeTime)
+			return;
+		}
+		ItemActionProfile profile = consumableData.actionProfile;
+		if (profile == null)
+		{
+			return;
+		}
+
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Consumable,
+		};
+		_runner.TryStart(profile, context);
+	}
+
+	void ReleaseUseConsumable()
+	{
+		if (_runner == null || !_runner.IsBusy)
+		{
+			return;
+		}
+		if (_runner.Current.context.sourceSlot != EInventorySlot.Consumable)
+		{
+			return;
+		}
+		_runner.OnInputReleased();
+	}
+
+	// Returns true if an interactive action was started (or attempted to be
+	// started) — caller's expectation is "this interactive is now committed
+	// to the runner; don't fall through to the legacy interact path."
+	// Returns false if the interactive doesn't expose action profiles, in
+	// which case the caller falls back to GetInteractTime/Complete.
+	bool TryStartInteractiveAction(IInteractive interactive)
+	{
+		if (_runner == null || _runner.IsBusy || interactive == null)
+		{
+			return false;
+		}
+		var profiles = interactive.GetActions(this);
+		if (profiles == null || profiles.Count == 0)
+		{
+			return false;
+		}
+		EActionVerb verb = interactive.DefaultVerb;
+		if (!profiles.TryGetValue(verb, out ItemActionProfile profile) || profile == null)
+		{
+			return false;
+		}
+		var context = new ActionContext
+		{
+			verb = verb,
+			primaryInteractive = interactive,
+			supportingItems = GatherSupportingItems(profile),
+		};
+		return _runner.TryStart(profile, context);
+	}
+
+	// Walk the action's tier requirements and gather any supporting items
+	// the profile needs from the inventory (e.g. lockpicks). Phase 5 only
+	// resolves HasReagentRequirement; future requirement types may add
+	// more. Returns null if the profile has no reagent-style requirements
+	// — saves a list allocation in the common case.
+	System.Collections.Generic.List<ItemState> GatherSupportingItems(ItemActionProfile profile)
+	{
+		if (profile == null || profile.chargedActions == null || _inventory == null)
+		{
+			return null;
+		}
+		System.Collections.Generic.List<ItemState> result = null;
+		for (int t = 0; t < profile.chargedActions.Count; t++)
+		{
+			ChargedAction tier = profile.chargedActions[t];
+			if (tier?.requirements == null) { continue; }
+			for (int r = 0; r < tier.requirements.Count; r++)
 			{
-				_activeWeaponSlot = null;
-				_weaponState = EWeaponState.Ready;
+				if (tier.requirements[r] is not HasReagentRequirement reagentReq) { continue; }
+				if (reagentReq.reagent == null) { continue; }
+				foreach (ItemState item in _inventory.EnumerateAll())
+				{
+					if (item != null && item.data == reagentReq.reagent)
+					{
+						result ??= new System.Collections.Generic.List<ItemState>();
+						if (!result.Contains(item))
+						{
+							result.Add(item);
+						}
+					}
+				}
 			}
 		}
+		return result;
+	}
+
+	// IActionActor — what ActionRunner and ItemEventHandlers read from the
+	// player. Position / Forward use the player's body transform; Forward
+	// matches the existing aim direction (basis Z axis, same as
+	// PlayerWeapon's old Melee/Hitscan code).
+	public Vector3 ActorWorldPosition => GlobalPosition;
+	public Vector3 ActorForward => GlobalTransform.Basis.Z;
+	public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
+	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
+	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
+	public Node3D AttackerNode => this;
+	public void PlayAnim(StringName name)
+	{
+		// Phase 4 wires animations through the action timeline. The named
+		// anims authored on profiles (Drink, Lockpick, Draw) don't exist in
+		// LitSpriteAnimator yet — stub so authoring can proceed.
 	}
 }

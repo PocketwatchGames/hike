@@ -29,7 +29,7 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="30_goblin_data"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="31_kunkun_scene"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="32_kunkun_data"]
-[ext_resource type="PackedScene" uid="uid://jlh3xsibvf00" path="res://scenes/interactives/loot.tscn" id="33_loot"]
+[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="33_loot"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="34_chest"]
 
 [resource]

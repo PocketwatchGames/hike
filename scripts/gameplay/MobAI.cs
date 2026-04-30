@@ -5,7 +5,12 @@ public struct AIOutput
     public Vector3? pathTarget;
     public float? yaw;
     public float speed;
-    public int? fireWeapon;
+    // When non-null, Mob's tick will TryStart this action through its
+    // ActionRunner (subject to the runner's busy / cooldown checks).
+    // attackContext supplies target / supportingItems / etc.; primaryItem
+    // is left null since mobs aren't backed by a WeaponState yet.
+    public ItemActionProfile attackProfile;
+    public ActionContext attackContext;
     public bool yell;
     public Vector3 targetPos;
 //    public Actor target;
@@ -131,6 +136,15 @@ public partial class Mob
         {
             _curBehavior = brain.idleBehavior;
         }
+        // Fire OnEnter for the starting behavior so its first tick sees the
+        // same fresh-state guarantees that every later re-entry will. World
+        // time isn't always meaningful at Initialize (the sim clock starts
+        // ticking once GameClient runs), so 0 is fine — behaviors that need
+        // a real timestamp can read me.World.GameTimeMs themselves.
+        if (_curBehavior != null && _behaviors.TryGetValue(_curBehavior, out BehaviorBase startB) && startB != null)
+        {
+            startB.OnEnter(this, 0);
+        }
     }
 
     private void TickAI(float deltaTime, out AIOutput output)
@@ -196,6 +210,19 @@ public partial class Mob
             break;
         }
 
+        // Navigator runs after the behavior so behaviors can set high-level
+        // intent via Navigator.Goto/Wander and have the navigator translate
+        // it into a pathTarget for the impulse layer. Behaviors that already
+        // wrote pathTarget directly (legacy) win — the navigator only fills
+        // it in when it's still null. See MobNavigator.WriteSteering.
+        if (_navigator != null && !output.pathTarget.HasValue)
+        {
+            using (Profiler.Sample("Mob.NavigatorWriteSteering"))
+            {
+                _navigator.WriteSteering(deltaTime, ref output);
+            }
+        }
+
         output.inCombat = maxPerception > 0 && mobData != null && mobData.dangerous;
     }
 
@@ -205,12 +232,13 @@ public partial class Mob
         {
             return;
         }
-        if (!_behaviors.ContainsKey(behaviorName))
+        if (!_behaviors.TryGetValue(behaviorName, out BehaviorBase b) || b == null)
         {
             GD.PushError($"Mob attempted to start unknown behavior '{behaviorName}'");
             return;
         }
         _curBehavior = behaviorName;
+        b.OnEnter(this, _world?.GameTimeMs ?? 0);
     }
 
     private void UpdatePerception(float delta)

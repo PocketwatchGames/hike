@@ -1,0 +1,21 @@
+using System.Collections.Generic;
+using Godot;
+
+// Captured at action start; passed to event handlers so they can resolve
+// "what to apply this effect to," "which item to decrement," etc. Stable
+// for the lifetime of the action — the runner doesn't mutate it after start.
+//
+// primaryItem is set for slot-driven actions (a weapon swing, a potion use).
+// primaryInteractive is set for interactive-driven actions (chest, cookpot).
+// The two are not mutually exclusive in principle, but slot-driven actions
+// don't currently set primaryInteractive. supportingItems carries lockpicks,
+// recipe ingredients, etc.; empty in the common case.
+public struct ActionContext
+{
+	public EActionVerb verb;
+	public ItemState primaryItem;
+	public IInteractive primaryInteractive;
+	public Node3D target;
+	public List<ItemState> supportingItems;
+	public EInventorySlot? sourceSlot;
+}

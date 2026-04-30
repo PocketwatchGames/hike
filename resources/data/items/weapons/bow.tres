@@ -1,0 +1,74 @@
+[gd_resource type="Resource" script_class="WeaponData" load_steps=12 format=3 uid="uid://b6n2vvhvirjdk"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" path="res://scripts/data/actions/ChargedAction.cs" id="4_charged"]
+[ext_resource type="Script" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="6_sprite"]
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+healthDamage = 10.0
+
+[sub_resource type="Resource" id="Resource_event_hitscan"]
+script = ExtResource("3_event")
+time = 0
+type = 1
+meleeRange = 1.0
+meleeRadius = 2.0
+hitScanRange = 25.0
+
+[sub_resource type="Resource" id="Resource_event_useammo"]
+script = ExtResource("3_event")
+time = 0
+type = 2
+meleeRange = 1.0
+meleeRadius = 2.0
+hitScanRange = 0.0
+
+[sub_resource type="Curve" id="Curve_range"]
+_data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(0.5, 0.7), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Curve" id="Curve_accuracy"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 3
+
+[sub_resource type="Resource" id="Resource_charged"]
+script = ExtResource("4_charged")
+verb = 1
+chargeTime = 0.0
+activeDurationSeconds = 0.0
+cooldownSeconds = 0.5
+maxChargeSeconds = 1.5
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_hitscan"), SubResource("Resource_event_useammo")])
+readyEvents = Array[ExtResource("3_event")]([])
+abortEvents = Array[ExtResource("3_event")]([])
+combos = false
+comboWindowMs = 0
+comboBonusEvents = Array[ExtResource("3_event")]([])
+canAbort = false
+canInterrupt = true
+rangeScaleCurve = SubResource("Curve_range")
+accuracyScaleCurve = SubResource("Curve_accuracy")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged")])
+chargeEvents = Array[ExtResource("3_event")]([])
+chargeEndEvents = Array[ExtResource("3_event")]([])
+abortEvents = Array[ExtResource("3_event")]([])
+autoActivateAtMax = false
+locksMovement = false
+interruptOnDamage = true
+queueable = false
+queueWindowSeconds = 0.0
+
+[resource]
+script = ExtResource("2_weapon")
+inventorySprite = ExtResource("6_sprite")
+useAmmo = true
+maxAmmo = 5
+damageData = SubResource("Resource_damage")
+actionProfile = SubResource("Resource_profile")

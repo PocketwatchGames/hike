@@ -26,6 +26,12 @@ public partial class World : Node3D
     public Action<Mob> onMobSpawned;
     public Action<Mob> onMobRemoved;
 
+    // Spatial hash for cheap "mobs within radius" queries — used by
+    // separation steering and (later) encircle-slot allocation. Lives on
+    // World rather than each Mob so multiple consumers share one index.
+    private readonly MobSpatialHash _mobSpatialHash = new();
+    public MobSpatialHash MobSpatialHash => _mobSpatialHash;
+
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
     private WorldState _worldState;
@@ -319,11 +325,39 @@ public partial class World : Node3D
         );
     }
 
-    public Loot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
+    public AutoLoot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
     {
-        var simState = new PropSimState(PropType.Loot, position, scene);
+        var simState = new PropSimState(PropType.AutoLoot, position, scene);
         _worldState.AddEntity(simState);
-        Loot loot = Loot.Create(this, simState, impulse);
+        AutoLoot loot = AutoLoot.Create(this, simState, impulse);
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            entities = new List<Node3D>();
+            _activeEntities[coord] = entities;
+        }
+        RegisterEntity(loot, entities);
+
+        return loot;
+    }
+
+    // Spawn an AutoLoot carrying a specific ItemState (player-dropped item
+    // path). The item is held on the sim state; pickup deposits it into the
+    // picker's inventory via AutoLoot.PickUp. Caller supplies the scene to
+    // use for the physical loot pickup (ItemData carries no scene of its own
+    // yet).
+    public AutoLoot DropItem(ItemState item, Vector3 position, Vector3 impulse, PackedScene scene)
+    {
+        if (item == null || scene == null)
+        {
+            return null;
+        }
+
+        var simState = new PropSimState(PropType.AutoLoot, position, scene);
+        simState.Item = item;
+        _worldState.AddEntity(simState);
+        AutoLoot loot = AutoLoot.Create(this, simState, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))

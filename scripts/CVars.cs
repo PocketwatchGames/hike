@@ -105,6 +105,12 @@ public static class CVars
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
 
+    // When true, draws each alive mob's active path as line segments via
+    // DebugDraw — green for upcoming waypoints, yellow for the current
+    // segment from the mob to its next waypoint, red dot at the goal.
+    // Off by default; toggle from the in-game console.
+    public static CVarBool debugMobPath = new CVarBool("debug_mob_path", false);
+
     // Generic CPU section profiler. While `profile` is true, code sections
     // wrapped in Profiler.Section.Begin/End record per-section call count,
     // total time, max single call, and approximate per-frame cost. Run
