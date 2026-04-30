@@ -15,6 +15,18 @@ public partial class BehaviorFlee : BehaviorBase
         _data = data;
     }
 
+    // Reset cross-tick state on re-entry. A stale flee point can be aimed
+    // at a direction relative to a previous threat that's no longer the
+    // current one (different perception target, different angle); same
+    // for the per-leg pause so a mob doesn't carry over a half-finished
+    // breather between separate flee sessions.
+    public override void OnEnter(Mob me, ulong time)
+    {
+        _fleePoint = null;
+        _pauseUntilMs = 0;
+        _pathTimeoutMs = 0;
+    }
+
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
     {
         if (TryTransitions(me, time, ref targetPerception, out StringName destination))

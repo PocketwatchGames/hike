@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://v4mo1ix03sv0"]
+
+[ext_resource type="Script" uid="uid://dg7kpgrcetn2n" path="res://scripts/gui/ButtonHint.cs" id="1_2gwlu"]
+
+[node name="ButtonHint" type="BoxContainer" unique_id=959365210 node_paths=PackedStringArray("_buttonText", "_label", "_labelText", "_progressBar")]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -960.0
+offset_top = -540.0
+offset_right = -930.0
+offset_bottom = -510.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+alignment = 1
+script = ExtResource("1_2gwlu")
+_buttonText = NodePath("HBoxContainer/Button/ButtonText")
+_label = NodePath("HBoxContainer/Label")
+_labelText = NodePath("HBoxContainer/Label/MarginContainer/LabelText")
+_progressBar = NodePath("HBoxContainer/Button/ProgressBar")
+metadata/_custom_type_script = "uid://dg7kpgrcetn2n"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=2021003614]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+alignment = 1
+
+[node name="Button" type="PanelContainer" parent="HBoxContainer" unique_id=2079185594]
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+
+[node name="ProgressBar" type="ProgressBar" parent="HBoxContainer/Button" unique_id=692765047]
+visible = false
+layout_mode = 2
+size_flags_vertical = 1
+max_value = 1.0
+show_percentage = false
+
+[node name="ButtonText" type="Label" parent="HBoxContainer/Button" unique_id=1890989147]
+layout_mode = 2
+text = "A"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label" type="PanelContainer" parent="HBoxContainer" unique_id=1134837574]
+visible = false
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/Label" unique_id=1774616281]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+
+[node name="LabelText" type="Label" parent="HBoxContainer/Label/MarginContainer" unique_id=799326244]
+layout_mode = 2
+horizontal_alignment = 1
+vertical_alignment = 1

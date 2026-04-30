@@ -32,6 +32,13 @@ public partial class World : Node3D
     private readonly MobSpatialHash _mobSpatialHash = new();
     public MobSpatialHash MobSpatialHash => _mobSpatialHash;
 
+    // Coordinator for "where should each mob stand around the player /
+    // other targets" — hands out angular standoff slots so a swarm fans
+    // out instead of stacking. Slots are leased per-mob and survive
+    // across repaths; explicit Release on aggro-loss / death.
+    private readonly EncircleSlotAllocator _encircleAllocator = new();
+    public EncircleSlotAllocator EncircleAllocator => _encircleAllocator;
+
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
     private WorldState _worldState;

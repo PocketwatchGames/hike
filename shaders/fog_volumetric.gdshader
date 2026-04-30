@@ -244,17 +244,6 @@ uniform float sun_shadow_distance : hint_range(1.0, 64.0) = 16.0;
 // the ground.
 uniform float sun_shadow_bias : hint_range(0.0, 0.01, 0.0001) = 0.0005;
 
-// Voxel sun-visibility threshold for shaft contribution. The LightMap's
-// sun channel (lm.r) is a top-down BFS with lateral propagation at
-// FALLOFF_PER_VOXEL=4, so air voxels up to ~15 voxels inside a cave
-// mouth still receive partial sun via lateral BFS bleed — values like
-// 0.2-0.5 in shallow cave air. Multiplied by sunShaftIntensity those
-// become visible "shafts underground." This threshold remaps lm.r via
-// smoothstep(threshold, 1.0, lm.r) so only voxels whose lightmap value
-// is near full sun contribute to shafts. Terrain lighting still uses
-// the raw lm.r — this only affects the fog shader's shaft accumulation.
-uniform float shaft_sun_threshold : hint_range(0.0, 1.0, 0.01) = 0.7;
-
 // Sharpness of the cloud mask SPECIFICALLY when used for shaft gating.
 // Decoupled from the scene-wide cloud_sharpness so you can crank shaft
 // contrast high (crisp beams through narrow cloud gaps) without making
@@ -551,17 +540,30 @@ void fragment()
     // to the view ray, so halos stay round regardless of camera facing.
     float phase_block = INV_4PI;
 
-    float tau = 0.0;            // optical depth (integrated density * fog_density)
-    float transmittance = 1.0;  // exp(-tau), tracked incrementally for inscatter weighting
-    vec3 inscatter = vec3(0.0);
-    // Light-gated haze: fog_color contribution accumulated only where
-    // voxel sunlight reaches. Replaces the earlier unconditional
-    // `fog_color * (1 - transmittance)` composite so fog in caves
-    // stays dark — fog is only "visible" if there's light scattering
-    // through it. Mathematically equivalent to the old haze term when
-    // haze_gate stays at 1.0 across the full march (outdoor scenes),
-    // but drops to 0 in unlit voxels.
-    vec3 lit_haze = vec3(0.0);
+    // Two-zone accumulators. Above-clip ("outdoor" — air or
+    // cutaway-clipped rock between camera and the visible scene)
+    // and below-clip ("indoor" — the visible interior / cave the
+    // camera is looking into) each track their own inscatter, lit
+    // haze, and transmittance. Each zone's transmittance starts
+    // fresh at 1.0 so its inscatter is weighted only by extinction
+    // within that zone — outdoor extinction does NOT pre-attenuate
+    // indoor inscatter, which is the property that lets a tall
+    // foggy cave still read as fully foggy when the camera is
+    // looking through cutaway-clipped rock above it.
+    //
+    // Composite at end of fragment: outdoor zone gets multiplied by
+    // `clip_atten = exp(-rock_thickness * ROCK_OPACITY)` so its
+    // contribution dies as the ray traverses cutaway rock; indoor
+    // zone passes through unchanged. Then the two zones layer
+    // (outdoor on top of indoor) via standard premul-alpha.
+    float outdoor_tau = 0.0;
+    float outdoor_transmittance = 1.0;
+    vec3 outdoor_inscatter = vec3(0.0);
+    vec3 outdoor_lit_haze = vec3(0.0);
+    float indoor_tau = 0.0;
+    float indoor_transmittance = 1.0;
+    vec3 indoor_inscatter = vec3(0.0);
+    vec3 indoor_lit_haze = vec3(0.0);
     // For debug mode 4: average sun mask seen along the ray.
     float sun_mask_sum = 0.0;
     float sun_mask_samples = 0.0;
@@ -581,35 +583,34 @@ void fragment()
     // Starts at 1.0 so an in-bounds sample of 0.3 correctly sets min=0.3;
     // rays that never hit the lightmap keep min=1.0 (no dark voxels seen).
     float min_lm_r = 1.0;
-    // Cutaway-rock detection. Walks the ray in march order. If we ever
-    // observe lm.r cross from "solidly lit" (> MAX_LIT) down to "dark"
-    // (< MIN_DARK), the ray has transitioned from outdoor air into
-    // either solid rock or a cave behind it — either way, it's the
-    // cutaway-hidden rock / cave we want fog to stop respecting. Once
-    // `past_opaque` latches true, remaining samples skip all
-    // accumulation (no inscatter, no haze, no transmittance update),
-    // so the pixel behind the hidden rock stays dark without bleed.
-    // Outdoor-only rays never trigger (max climbs but never drops).
-    // Indoor→outdoor rays through cave openings don't trigger either
-    // (dark→lit is fine; only lit→dark latches).
-    bool past_opaque = false;
-    float max_lm_r = 0.0;
-    const float OPAQUE_LIT_THRESHOLD = 0.5;
-    const float OPAQUE_DARK_THRESHOLD = 0.1;
-
-    // No clip-based skip. Previous attempts to suppress above-clip fog
-    // samples when the cutaway is active all produced a visible difference
-    // between clip-on and clip-off states — either a horizontal fade-line
-    // in the sky at the clip altitude, or outdoor views losing fog the
-    // moment the player ducked under an overhang.
+    // Above-clip rock-thickness. Integrated along the march wherever
+    // p.y > camera_clip, weighted by `(1 - lm_r_soft) * step_size` —
+    // outdoor sunlit air above the clip contributes 0 (lm ≈ 1), solid
+    // cutaway-clipped rock contributes 1 per step (lm = 0), lateral
+    // BFS bleed at a cave mouth contributes a fractional value.
     //
-    // The design constraint is "dust is weather-driven and uniform across
-    // altitudes" AND "fog should read the same regardless of clip state."
-    // Those two together forbid the skip: uniform dust above the clip is
-    // real scattering medium that contributes equally whether or not the
-    // clip happens to be active. With dust_density kept small (~0.005),
-    // the subtle haze above-clip air adds to a cutaway-revealed interior
-    // view reads as atmosphere rather than a visible boundary.
+    // After the march, `clip_atten = exp(-rock_thickness * ROCK_OPACITY)`
+    // multiplies the FINAL ALBEDO and ALPHA. Effect: pre-rock outdoor
+    // air contributions (haze, shafts, halos) accumulated before the
+    // ray entered the rock get retroactively dampened in proportion
+    // to how much rock the ray traversed. Deep cave pixels have
+    // ray-crossed-thick-rock → clip_atten ≈ 0 → fog goes inky black.
+    // Cave-mouth pixels graze the rock edge → small rock_thickness
+    // → clip_atten ≈ 1 → shafts still visible. Outdoor scenes have
+    // camera_clip = +∞ so nothing is ever above clip and the
+    // accumulator stays at 0 → clip_atten = 1 → unchanged.
+    //
+    // Replaces both an earlier binary `past_opaque` latch (reset
+    // transmittance + accumulators on first lit→dark crossing — gave
+    // a hard ALPHA step at the BFS termination edge) and a per-step
+    // `vis = lm_r_soft` gate (didn't catch outdoor air above the
+    // clipped rock, leaving sun shafts leaking onto cave fragments).
+    float rock_thickness = 0.0;
+    // Per-voxel "opaqueness" for the above-clip rock — exp(-1) ≈ 0.37
+    // per voxel of rock, exp(-4) ≈ 0.018 after 4 voxels, so a typical
+    // ceiling kills above-clip contribution to ~zero while a 1-voxel
+    // graze still passes most of it.
+    const float ROCK_OPACITY = 1.0;
 
     // NOTE: no per-pixel jitter on the step offset. It would break step
     // aliasing the standard way (Monte Carlo) but with the low-res
@@ -627,11 +628,6 @@ void fragment()
     {
         for (int i = 0; i < fog_steps; i++)
         {
-            // Past the cutaway-rock transition: subsequent samples
-            // represent hidden rock or the unlit space behind it, so
-            // fog shouldn't contribute anything. See `past_opaque`
-            // declaration above.
-            if (past_opaque) { continue; }
             // t is absolute along the full view ray (0 at near plane, up
             // to march_dist at surface). Keeping it in that coordinate
             // space means the downstream shaft_ground_fade math based on
@@ -723,54 +719,35 @@ void fragment()
             // Voxel-sun gate for haze accumulation below. Default 1.0
             // for out-of-lightmap samples (distant sky rays beyond
             // loaded chunks) so far-distance outdoor haze still
-            // renders. In-bounds samples pass lm.r through a
-            // smoothstep so lateral BFS bleed into cave mouths
-            // (lm.r 0.2-0.5 a dozen voxels in) produces zero haze,
-            // while outdoor terrain-shadowed voxels (lm.r 0.7+) keep
-            // full-to-nearly-full haze visibility. Fog is much more
-            // sensitive to partial lighting than terrain lighting is,
-            // so the threshold is tighter than shaft_sun_threshold.
+            // renders. In-bounds samples set haze_gate to lm_r_soft
+            // (linear-filtered BFS sun mask) so unlit voxels produce
+            // zero haze.
             float haze_gate = 1.0;
             vec3 luvw = (p - light_map_origin) * light_map_inv_size;
             if (all(greaterThanEqual(luvw, vec3(0.0))) && all(lessThanEqual(luvw, vec3(1.0))))
             {
-                // Snap the lightmap sample to the containing voxel's
-                // center. With filter_linear, a sample exactly at the
-                // texel center returns that texel's value (adjacent
-                // texels contribute weight 0), effectively giving
-                // nearest-neighbor reads while leaving the rest of the
-                // pipeline still using linear filtering. Required for
-                // past_opaque + haze_gate decisions because linear
-                // interpolation at voxel boundaries was averaging
-                // solid-rock voxels (lm.r = 0) with adjacent outdoor-
-                // air voxels (lm.r = 1), producing ~0.5 bleed that
-                // neither hit the "dark" threshold nor zeroed out
-                // haze_gate cleanly.
-                vec3 rel = p - light_map_origin;
-                vec3 luvw_snap = (floor(rel) + 0.5) * light_map_inv_size;
-                vec4 lm = texture(light_map, luvw_snap);
+                // Single linear-filtered sample. The previously-snapped
+                // (nearest-neighbor) sampling collapsed the BFS sun
+                // field to per-voxel steps, which read as a hard line
+                // at the BFS termination edge under overhangs that
+                // didn't move with time of day. Linear gives a
+                // half-voxel blend; the rock_thickness clip_atten at
+                // composite time does the rest of the work.
+                vec4 lm = texture(light_map, luvw);
+                float lm_r_soft = lm.r;
 
-                // Cutaway transition: lit → dark crossing latches
-                // past_opaque so every subsequent sample is skipped.
-                // ALSO zero the accumulators: everything we collected
-                // so far came from outdoor air ABOVE cutaway-hidden
-                // rock, and physically the camera can't perceive any
-                // of that through the opaque rock — even though the
-                // cutaway lets us see the surface beyond. Resetting
-                // transmittance to 1.0 means ALPHA = 0 so the scene
-                // behind the fog is preserved untouched, matching
-                // what you'd see with fog_volumetric disabled entirely.
-                if (max_lm_r > OPAQUE_LIT_THRESHOLD && lm.r < OPAQUE_DARK_THRESHOLD)
+                // Accumulate above-clip rock thickness (see declaration
+                // above). Outdoor air above clip has lm_r_soft ≈ 1 so
+                // adds 0; rock has lm_r_soft = 0 so adds step_size per
+                // step. Multiplied at composite time onto ALBEDO/ALPHA
+                // so pre-rock contributions get retroactively dampened
+                // when the ray ends up behind hidden rock.
+                if (p.y > camera_clip)
                 {
-                    past_opaque = true;
-                    inscatter = vec3(0.0);
-                    lit_haze = vec3(0.0);
-                    transmittance = 1.0;
-                    continue;
+                    rock_thickness += (1.0 - lm_r_soft) * step_size;
                 }
-                max_lm_r = max(max_lm_r, lm.r);
 
-                haze_gate = lm.r;
+                haze_gate = lm_r_soft;
                 min_lm_r = min(min_lm_r, lm.r);
 
                 // Animated mote shimmer modulates the sun shaft term only.
@@ -798,11 +775,14 @@ void fragment()
                 cloud_mask_sum += cloud_mask;
                 cloud_mask_samples += 1.0;
 
-                // Remap lm.r through the shaft threshold so partial-sun
-                // cave voxels (lateral BFS bleed past cave mouths)
-                // don't produce shafts. At threshold=0 this is a no-op
-                // (raw lm.r used). At 1 only fully-lit voxels contribute.
-                float voxel_sun = smoothstep(shaft_sun_threshold, 1.0, lm.r);
+                // S-curve remap of the BFS sun mask. smoothstep(0, 1, x)
+                // = x^2 * (3 - 2x) — same shape as the previous tunable
+                // smoothstep(threshold, 1, x) at threshold=0, just with
+                // the threshold knob removed since it's no longer
+                // serving any tuning purpose. The retroactive
+                // rock_thickness clip_atten handles cave/cutaway
+                // suppression now.
+                float voxel_sun = smoothstep(0.0, 1.0, lm_r_soft);
                 vec3 sun_radiance = voxel_sun * sun_intensity * shaft_color * sun_through;
                 L += sun_radiance * phase_sun * eff_shaft_intensity * dust;
                 L += lm.gba * phase_block * block_halo_intensity;
@@ -834,15 +814,39 @@ void fragment()
             // (attenuation of the scattered light on its way to the camera).
             // Transmittance itself only decays by sigma_t (extinction) — this
             // is the split that lets dust reveal shafts without adding haze.
-            vec3 sample_inscatter = shaft_fade * transmittance * L * sigma_s * step_size;
-            inscatter += sample_inscatter;
+            //
+            // Route this step's contribution into the right zone (outdoor
+            // above camera_clip / indoor below). Each zone uses its OWN
+            // transmittance for the inscatter weight so extinction stays
+            // bounded within the zone — indoor inscatter is not
+            // pre-attenuated by outdoor fog, so a tall foggy cave keeps
+            // its full fog density even when the camera is looking
+            // through cutaway-clipped rock above it. clip_atten at
+            // composite time only dampens the outdoor zone.
+            bool above_clip = p.y > camera_clip;
+            float zone_transmittance = above_clip ? outdoor_transmittance : indoor_transmittance;
+            vec3 sample_inscatter = shaft_fade * zone_transmittance * L * sigma_s * step_size;
             // Accumulate light-gated haze. sigma_t * transmittance *
             // step_size is the "per-step extinction weight" that sums
             // across the march to (1 - transmittance); multiplying by
             // haze_gate kills haze in unlit voxels. In a fully-lit
             // outdoor scene this matches the old `fog_color *
             // (1 - transmittance)` term exactly.
-            lit_haze += haze_gate * fog_color * sigma_t * transmittance * step_size;
+            vec3 sample_haze = haze_gate * fog_color * sigma_t * zone_transmittance * step_size;
+            if (above_clip)
+            {
+                outdoor_inscatter += sample_inscatter;
+                outdoor_lit_haze += sample_haze;
+                outdoor_transmittance *= exp(-seg_tau);
+                outdoor_tau += seg_tau;
+            }
+            else
+            {
+                indoor_inscatter += sample_inscatter;
+                indoor_lit_haze += sample_haze;
+                indoor_transmittance *= exp(-seg_tau);
+                indoor_tau += seg_tau;
+            }
             // Debug: track this ray's peak shaft contribution for debug
             // modes 7 & 8. max-channel is close enough to luma for these.
             float sample_shaft = max(max(sample_inscatter.r, sample_inscatter.g), sample_inscatter.b);
@@ -851,8 +855,6 @@ void fragment()
                 peak_shaft = sample_shaft;
                 peak_shaft_y = p.y;
             }
-            transmittance *= exp(-seg_tau);
-            tau += seg_tau;
         }
     }
 
@@ -879,8 +881,11 @@ void fragment()
     else if (debug_mode == 3)
     {
         // Show pure inscatter over black — easy to see shaft geometry and
-        // halo placement without haze on top.
-        ALBEDO = inscatter;
+        // halo placement without haze on top. Outdoor + indoor summed,
+        // outdoor pre-attenuated by clip_atten so the diagnostic matches
+        // what the live composite shows.
+        float clip_atten_dbg = exp(-rock_thickness * ROCK_OPACITY);
+        ALBEDO = clip_atten_dbg * outdoor_inscatter + indoor_inscatter;
         ALPHA = 1.0;
     }
     else if (debug_mode == 4)
@@ -920,7 +925,9 @@ void fragment()
         // Black = no shaft, progressing through blue → cyan → green →
         // yellow → red → white as brightness grows. Quick-pick ramp, not
         // perceptually uniform, but good for eyeballing shaft coverage.
-        float m = max(max(inscatter.r, inscatter.g), inscatter.b);
+        float clip_atten_dbg = exp(-rock_thickness * ROCK_OPACITY);
+        vec3 inscatter_dbg = clip_atten_dbg * outdoor_inscatter + indoor_inscatter;
+        float m = max(max(inscatter_dbg.r, inscatter_dbg.g), inscatter_dbg.b);
         float x = clamp(m, 0.0, 1.0);
         vec3 c0 = vec3(0.0, 0.0, 0.0);
         vec3 c1 = vec3(0.0, 0.0, 1.0);
@@ -953,37 +960,48 @@ void fragment()
     }
     else if (debug_mode == 12)
     {
-        // Minimum raw lm.r along the view ray. Unthresholded (not gated
-        // through shaft_sun_threshold) and unaveraged. A black pixel
-        // means the ray passed through at least one truly-dark voxel;
-        // a white pixel means the ray stayed entirely in lit space.
-        // Diagnostic for "is the cave air actually dark in the
+        // Minimum raw lm.r along the view ray (unaveraged). A black
+        // pixel means the ray passed through at least one truly-dark
+        // voxel; a white pixel means the ray stayed entirely in lit
+        // space. Diagnostic for "is the cave air actually dark in the
         // lightmap, or does BFS lateral bleed reach it?"
         ALBEDO = vec3(min_lm_r);
         ALPHA = 1.0;
     }
     else
     {
-        // Composite lit_haze + inscatter through blend_premul_alpha:
-        //   output = ALBEDO + scene * (1 - ALPHA)
-        //   we want: output = scene * transmittance + haze + inscatter
+        // Two-zone layered composite. Outdoor (above-clip) zone is on
+        // top, indoor (below-clip) zone is behind it; standard premul-
+        // alpha layering treats them as two stacked translucent layers.
         //
-        // Premultiplied alpha maps to this cleanly:
-        //   ALPHA  = 1 - transmittance    (physical extinction — scene
-        //                                   behind fog is darkened by this
-        //                                   regardless of lighting state)
-        //   ALBEDO = lit_haze + inscatter (the light this pixel contributes
-        //                                   on top of the attenuated scene)
+        //   layer A (outdoor): albedo_A = clip_atten * (outdoor_lit_haze
+        //                                               + outdoor_inscatter)
+        //                      alpha_A  = clip_atten * (1 - outdoor_T)
+        //   layer B (indoor):  albedo_B = indoor_lit_haze + indoor_inscatter
+        //                      alpha_B  = 1 - indoor_T
         //
-        // lit_haze accumulates per step via haze_gate (= lm.r per voxel),
-        // and the march loop latches past_opaque on lit→dark transitions
-        // so fog contribution stops at the cutaway-rock boundary. Pixels
-        // behind hidden rock (cave floors viewed from above) end up with
-        // lit_haze near zero because the march stopped contributing
-        // before reaching them.
-        float alpha_haze = 1.0 - transmittance;
-        ALBEDO = lit_haze + inscatter;
-        ALPHA = clamp(alpha_haze, 0.0, 1.0);
+        //   ALBEDO = albedo_A + (1 - alpha_A) * albedo_B
+        //   ALPHA  = 1 - (1 - alpha_A) * (1 - alpha_B)
+        //
+        // `clip_atten = exp(-rock_thickness * ROCK_OPACITY)` retro-
+        // actively dampens ONLY the outdoor zone. Indoor accumulators
+        // pass through unchanged so a tall foggy cave keeps its full
+        // density even when the camera is looking down through cutaway-
+        // clipped rock. clip_atten varies smoothly with how much rock
+        // the ray traversed, so adjacent pixels grazing the overhang
+        // silhouette differ by a fractional voxel — no hard edge.
+        //
+        // Each zone weighted its own inscatter by its own transmittance
+        // during the march, so dropping outdoor extinction here doesn't
+        // re-introduce outdoor fog behind the rock — the indoor zone
+        // already reads as if outdoor fog never existed.
+        float clip_atten = exp(-rock_thickness * ROCK_OPACITY);
+        vec3 albedo_a = clip_atten * (outdoor_lit_haze + outdoor_inscatter);
+        float alpha_a = clip_atten * clamp(1.0 - outdoor_transmittance, 0.0, 1.0);
+        vec3 albedo_b = indoor_lit_haze + indoor_inscatter;
+        float alpha_b = clamp(1.0 - indoor_transmittance, 0.0, 1.0);
+        ALBEDO = albedo_a + (1.0 - alpha_a) * albedo_b;
+        ALPHA = clamp(1.0 - (1.0 - alpha_a) * (1.0 - alpha_b), 0.0, 1.0);
     }
 
     } // end if (fog_volumetric_enabled)

@@ -3,25 +3,47 @@ using Godot;
 public partial class BehaviorAttack : BehaviorBase
 {
     private readonly AttackBehaviorData _data;
-    private Vector3? _repositionPoint;
     private ulong _weaponCooldownUntilMs;
+    // The target this attack session is leasing an encircle slot against.
+    // Tracked so we can release the slot when the target changes (different
+    // perception target) or the behavior exits.
+    private Node3D _slotTarget;
 
     public BehaviorAttack(AttackBehaviorData data)
     {
         _data = data;
     }
 
+    // No-op cross-tick state to reset — the slot allocator on World owns
+    // the standoff slot across re-entries (see also OnExit-like cleanup
+    // in TryTransitions and Run when the target changes). Cooldown is
+    // intentionally NOT reset: behaviors that swap out (e.g. to Investigate
+    // and back) shouldn't grant a free attack on re-entry.
+    public override void OnEnter(Mob me, ulong time)
+    {
+    }
+
     public override BehaviorOutput Run(Mob me, ulong time, ref PerceptionState targetPerception, ref AIOutput output)
     {
         if (TryTransitions(me, time, ref targetPerception, out StringName destination))
         {
+            // Behavior is about to swap out — release any encircle slot we
+            // were holding so a different mob can take it.
+            ReleaseSlot(me);
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
         Player target = targetPerception.pawnTarget;
         if (target == null)
         {
+            ReleaseSlot(me);
             return new BehaviorOutput(EBehaviorResult.Running);
+        }
+        // Target changed since last tick — release the old slot before we
+        // request a new one against the new target.
+        if (_slotTarget != null && _slotTarget != target)
+        {
+            ReleaseSlot(me);
         }
 
         // Yell once on first sighting this engagement. MobAI clears the flag
@@ -44,54 +66,71 @@ public partial class BehaviorAttack : BehaviorBase
             output.yaw = Mathf.Atan2(dir2d.X, dir2d.Y);
         }
 
-        if (time >= _weaponCooldownUntilMs)
+        if (time >= _weaponCooldownUntilMs && dist2d < _data.maxAttackRange && targetPerception.canSee)
         {
-            _repositionPoint = null;
-
-            if (dist2d < _data.maxAttackRange && targetPerception.canSee)
+            // In range — fire. Populate the action runner request; Mob's
+            // _PhysicsProcess will TryStart the profile this same tick.
+            if (_data.actionProfile != null)
             {
-                // In range — populate the action runner request. Mob's
-                // _PhysicsProcess will TryStart the profile this same tick.
-                if (_data.actionProfile != null)
+                output.attackProfile = _data.actionProfile;
+                output.attackContext = new ActionContext
                 {
-                    output.attackProfile = _data.actionProfile;
-                    output.attackContext = new ActionContext
-                    {
-                        verb = EActionVerb.Light,
-                        target = target,
-                    };
-                }
-                _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
+                    verb = EActionVerb.Light,
+                    target = target,
+                };
             }
-            else if (dist2d < _data.approachRange)
-            {
-                // Close the distance toward the last known position. If we can
-                // see the target, stop at desiredAttackRange so we don't shove
-                // them; otherwise walk all the way to where we last saw them.
-                output.pathTarget = targetPerception.lastKnownPosition;
-                output.pathSuccessDistance = targetPerception.canSee ? _data.desiredAttackRange : 0.5f;
-                output.speed = 1.0f;
-            }
+            _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
+            // Hold position at the slot for a tick after the swing — fall
+            // through to the standoff path below.
+        }
+
+        // Standoff via encircle slot. Each mob leases one angular slot
+        // around the current target; PickStandoffPoint resolves it to a
+        // walkable, line-of-sight world point that the navigator paths
+        // toward. Far-out mobs (outside approachRange) just barrel toward
+        // the last known position so they don't waste a slot resolution
+        // when they aren't even close to the ring yet.
+        if (dist2d > _data.approachRange)
+        {
+            output.pathTarget = targetPerception.lastKnownPosition;
+            output.pathSuccessDistance = 0.5f;
+            output.speed = 1f;
+            return new BehaviorOutput(EBehaviorResult.Running);
+        }
+
+        World world = me.World;
+        EncircleSlotAllocator allocator = world?.EncircleAllocator;
+        int slotIdx = allocator?.LeaseSlot(me, target, Mathf.Max(1, _data.encircleSlotCount)) ?? -1;
+        _slotTarget = (slotIdx >= 0) ? target : null;
+
+        // Slot count of 1 (or no slot available) collapses to "stand at
+        // desired range on the line between mob and target" — no encircle
+        // structure, just a hold-distance.
+        Vector3 standoff;
+        float standoffDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : _data.desiredAttackRange;
+        if (slotIdx < 0)
+        {
+            float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
+            standoff = NavigationGoals.PickStandoffPoint(world, target.GlobalPosition, standoffDistance, angleToTarget);
         }
         else
         {
-            // On cooldown — reposition around the target to desiredAttackRange
-            // along a random-ish angle so the mob doesn't just stand still
-            // between swings.
-            if (!_repositionPoint.HasValue)
-            {
-                float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-                float offsetAngle = angleToTarget + (float)(GD.Randf() * Mathf.Pi - Mathf.Pi * 0.5);
-                Vector3 backup = targetPerception.lastKnownPosition
-                    - new Vector3(Mathf.Sin(offsetAngle), 0f, Mathf.Cos(offsetAngle)) * _data.desiredAttackRange;
-                _repositionPoint = backup;
-            }
-
-            output.pathTarget = _repositionPoint.Value;
-            output.pathSuccessDistance = 0.5f;
-            output.speed = 1.0f;
+            float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
+            standoff = NavigationGoals.PickStandoffPoint(world, target.GlobalPosition, standoffDistance, slotAngle);
         }
-
+        output.pathTarget = standoff;
+        output.pathSuccessDistance = 0.5f;
+        output.speed = 1f;
         return new BehaviorOutput(EBehaviorResult.Running);
+    }
+
+    private void ReleaseSlot(Mob me)
+    {
+        if (_slotTarget == null)
+        {
+            return;
+        }
+        me.World?.EncircleAllocator?.ReleaseSlot(me);
+        _slotTarget = null;
     }
 }

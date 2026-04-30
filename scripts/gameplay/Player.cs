@@ -77,7 +77,6 @@ public partial class Player : CharacterBody3D
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
-	bool _lastInputWasGamepad;
 
 	void SetCurInteractive(IInteractive value)
 	{
@@ -243,7 +242,7 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && _lastInputWasGamepad);
+		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad);
 
 		float speed = _aiming ? Mathf.Lerp(0.75f, 0.25f, (1f - _inputLook.Dot(_inputMove)) / 2) * data.moveSpeed : data.moveSpeed;
 		if (Input.IsActionPressed("Sneak"))
@@ -306,18 +305,26 @@ public partial class Player : CharacterBody3D
 
 		bool wasOnFloor = _grounded;
 		MoveAndSlide();
+		PushTouchedMobs();
 
 		// Step down: snap back to the ground after moving
 		if (wasOnFloor && _waterState != EWaterState.Swimming)
 		{
 			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
-			if (stepDownResult != null)
+			// Match the body's own floor classifier — same threshold MoveAndSlide
+			// and IsOnFloor use, editor-tunable via FloorMaxAngle on the node.
+			float floorDotMin = Mathf.Cos(FloorMaxAngle);
+			bool foundFloor = stepDownResult != null && stepDownResult.GetNormal().Dot(Vector3.Up) >= floorDotMin;
+			if (foundFloor)
 			{
-				_grounded = stepDownResult.GetNormal().Dot(Vector3.Up) > 0.5f;
+				_grounded = true;
 			}
 			else
 			{
-				// No ground found within step height — revert the lift
+				// Either no collision, or hit a non-floor surface (the side of
+				// a mob capsule, a steep slope). In both cases the lift didn't
+				// land on real ground — revert Y so the player doesn't get
+				// deposited mid-air against the obstacle's flank every frame.
 				GlobalPosition = new Vector3(
 					GlobalPosition.X,
 					posBeforeStep.Y,
@@ -370,8 +377,6 @@ public partial class Player : CharacterBody3D
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
 	{
 		_inputLook = new Vector3(mousePos.X, 0, mousePos.Y).Rotated(Vector3.Up, cameraYaw);
-
-		_lastInputWasGamepad = false;
 	}
 	public void ProcessInput(float cameraYaw)
 	{
@@ -478,8 +483,6 @@ public partial class Player : CharacterBody3D
 		}
 
 		HandleWeaponInputs();
-
-		_lastInputWasGamepad = move != Vector2.Zero || look != Vector2.Zero;
 	}
 
 	bool TryGetWeaponState(EInventorySlot slot, out WeaponState weapon)
@@ -548,6 +551,39 @@ public partial class Player : CharacterBody3D
 		foreach (TallGrass grass in _tallGrassCollisions)
 		{
 			_terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
+		}
+	}
+
+	// Apply a horizontal impulse to any mob the player just slid into.
+	// Magnitude scales with the player's planar speed and inversely with
+	// the mob's mass — heavy mobs barely budge, light mobs scatter. Ignores
+	// vertical motion so jumping onto a mob doesn't shove it sideways.
+	// Called after MoveAndSlide because slide collisions are populated by
+	// that call; running it before would walk a stale collision list.
+	private void PushTouchedMobs()
+	{
+		if (data == null || data.mobPushStrength <= 0f)
+		{
+			return;
+		}
+		Vector3 vel = Velocity;
+		vel.Y = 0f;
+		float speed = vel.Length();
+		if (speed < 0.01f)
+		{
+			return;
+		}
+		int count = GetSlideCollisionCount();
+		for (int i = 0; i < count; i++)
+		{
+			KinematicCollision3D c = GetSlideCollision(i);
+			if (c?.GetCollider() is not Mob mob)
+			{
+				continue;
+			}
+			float mass = Mathf.Max(mob.Mass, 0.01f);
+			Vector3 impulse = vel * (data.mobPushStrength / mass);
+			mob.ApplyImpulse(new Vector3(impulse.X, 0f, impulse.Z));
 		}
 	}
 

@@ -8,7 +8,8 @@ public partial class GameCamera : Camera3D
 
 	private const float CLIP_EPSILON = 0.1f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
-	private const float CLIP_ALWAYS_HEIGHT = 3f;
+	private const float EYE_HEIGHT = 2f;
+	private const float PLATEAU_STEP = 4f;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
@@ -119,7 +120,8 @@ public partial class GameCamera : Camera3D
 		query.CollisionMask = (uint)ECollisionLayer.Environment;
 		var result = spaceState.IntersectRay(query);
 
-		float alwaysClip = playerPos.Y + CLIP_ALWAYS_HEIGHT - CLIP_EPSILON;
+		float eyeY = playerPos.Y + EYE_HEIGHT;
+		float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
 
 		if (result.Count > 0)
 		{

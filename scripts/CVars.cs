@@ -47,6 +47,13 @@ public static class CVars
         World.Current?.SetFogVolumetricEnabled(((CVarBool)cvar).Value);
     });
 
+    // Disable just the sun-shaft inscatter contribution while leaving
+    // haze, block-light halos, and dust extinction intact. Diagnostic for
+    // separating "is this dark band shaft-shaped or haze-shaped?" — toggle
+    // it and look at the same scene. Implemented by SkyController as a
+    // gate on `sun_shaft_intensity` pushed to the fog material.
+    public static CVarBool sunShafts = new CVarBool("sun_shafts", true);
+
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is derived each frame by
     // SkyController from (RegionData, WeatherData, time-of-day) via

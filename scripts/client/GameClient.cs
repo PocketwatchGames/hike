@@ -276,6 +276,12 @@ public partial class GameClient : Node3D
 		base._PhysicsProcess(delta);
 	}
 
+	public override void _Input(InputEvent e)
+	{
+		base._Input(e);
+		InputDevice.HandleInputEvent(e);
+	}
+
 	public override void _UnhandledInput(InputEvent e)
 	{
 		base._UnhandledInput(e);

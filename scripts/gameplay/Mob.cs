@@ -158,6 +158,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             SyncToSimState();
             world.MobSpatialHash.Remove(this);
+            // Release any encircle slot held against any target so the
+            // ring doesn't keep a dead mob occupying a slot for the rest
+            // of the encounter.
+            world.EncircleAllocator.ReleaseSlot(this);
             world.onMobRemoved?.Invoke(this);
         };
         world.onMobSpawned?.Invoke(this);

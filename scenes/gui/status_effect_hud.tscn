@@ -1,0 +1,60 @@
+[gd_scene format=3 uid="uid://bq51h8f7tlvkj"]
+
+[ext_resource type="Script" uid="uid://focjwpyi1rej" path="res://scripts/gui/StatusEffectHud.cs" id="1_ab23k"]
+
+[node name="StatusEffectHud" type="Control" unique_id=473910633 node_paths=PackedStringArray("_icon", "_count", "_progressBar", "_countContainer")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ab23k")
+_icon = NodePath("PanelContainer/TextureRect")
+_count = NodePath("PanelContainer/MarginContainer/PanelContainer/MarginContainer/Label")
+_progressBar = NodePath("PanelContainer/ProgressBar")
+_countContainer = NodePath("PanelContainer/MarginContainer")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1565222148]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="ProgressBar" type="ProgressBar" parent="PanelContainer" unique_id=639770476]
+layout_mode = 2
+size_flags_vertical = 1
+max_value = 1.0
+show_percentage = false
+
+[node name="TextureRect" type="TextureRect" parent="PanelContainer" unique_id=392482078]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=456675590]
+layout_mode = 2
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = 2
+theme_override_constants/margin_right = 2
+theme_override_constants/margin_bottom = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="PanelContainer/MarginContainer" unique_id=1364839608]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/PanelContainer" unique_id=532050995]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/margin_left = 2
+theme_override_constants/margin_top = -2
+theme_override_constants/margin_right = 2
+theme_override_constants/margin_bottom = -2
+
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/PanelContainer/MarginContainer" unique_id=1259278745]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+theme_override_font_sizes/font_size = 12
+text = "3"
+horizontal_alignment = 1
+vertical_alignment = 1

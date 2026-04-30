@@ -502,7 +502,6 @@ public partial class SkyController : Node3D
 
     [ExportSubgroup("Inscatter")]
     [Export(PropertyHint.Range, "-0.95,0.95,0.01")] public float scatterAnisotropy = 0.8f;
-    [Export(PropertyHint.Range, "0,1,0.01")] public float shaftSunThreshold = 0.7f;
     [Export(PropertyHint.Range, "0,90,0.1")] public float shaftCameraFadeDegrees = 45.0f;
     [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
@@ -1580,6 +1579,10 @@ public partial class SkyController : Node3D
 
         float effShaftIntensity = _palette.SunShaftIntensity * sunShaftFactor
                                  + _palette.MoonShaftIntensity * moonShaftFactor;
+        if (!CVars.sunShafts.Value)
+        {
+            effShaftIntensity = 0f;
+        }
 
         float shaftColorT = moonShaftFactor / (sunShaftFactor + moonShaftFactor + 1e-6f);
         Color effShaftColor = _palette.SunShaftColor.Lerp(_palette.MoonShaftColor, shaftColorT);
@@ -1618,7 +1621,6 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("shaft_color", ColorToVec3(effShaftColor));
             fogMaterial.SetShaderParameter("block_halo_intensity", blockHaloIntensity);
             fogMaterial.SetShaderParameter("scatter_anisotropy", scatterAnisotropy);
-            fogMaterial.SetShaderParameter("shaft_sun_threshold", shaftSunThreshold);
 
             float shaftSharpnessBlend = Mathf.Max(sunShaftFactor, moonShaftFactor);
             float effCloudShaftSharpness = Mathf.Lerp(cloudShaftSharpnessLowSunFloor, cloudShaftSharpness, shaftSharpnessBlend);
