@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Cave Sandstone"
+GroundType = 2
 FlatTile = 30
 WallBand = Vector2(0.3, 0.75)
 BlendAmp = 0.55

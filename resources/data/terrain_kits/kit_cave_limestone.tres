@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Cave Limestone"
+GroundType = 1
 FlatTile = 0
 WallTile = 0
 WallBand = Vector2(0.3, 0.75)

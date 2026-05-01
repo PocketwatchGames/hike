@@ -12,5 +12,5 @@ public interface IActionActor
 	uint AttackHurtboxMask { get; }
 	Rid? SelfHurtBoxRid { get; }
 	Node3D AttackerNode { get; }
-	void PlayAnim(StringName name);
+	void PlayAnim(EAnimation anim);
 }

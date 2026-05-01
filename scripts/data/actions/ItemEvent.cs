@@ -28,9 +28,10 @@ public partial class ItemEvent : Resource
 	[Export] public Array<ItemEvent> bonusEvents = new();
 
 	// PlayAnim / PlaySound fields. Routed through IActionActor.PlayAnim
-	// and IActionActor.PlaySound respectively; both stub out cleanly when
-	// the named asset doesn't exist yet.
-	[Export] public StringName animName;
+	// and IActionActor.PlaySound respectively. animName uses the EAnimation
+	// enum so the inspector shows a typo-proof dropdown — non-PlayAnim event
+	// types ignore the field, so the default (Attack=0) is harmless on them.
+	[Export] public EAnimation animName;
 	[Export] public StringName soundName;
 
 	// ToggleCarrierLight: no extra fields. Handler flips ConsumableState.isActive

@@ -13,6 +13,7 @@ using Godot;
 // animation in a single atlas — crossing atlases swaps LitSprite.Texture,
 // which fires TextureChanged and rebuilds the material, losing per-instance
 // uniforms until their next setter call.
+[Tool]
 [GlobalClass]
 public partial class LitSpriteAnimator : Node
 {
@@ -41,13 +42,32 @@ public partial class LitSpriteAnimator : Node
         if (target != null)
         {
             target.VisibilityChanged += OnTargetVisibilityChanged;
-            SetProcess(target.IsVisibleInTree());
         }
+        UpdateProcessState();
     }
 
     private void OnTargetVisibilityChanged()
     {
+        UpdateProcessState();
+    }
+
+    private void UpdateProcessState()
+    {
+        // In the editor, only preview when the mob scene itself is the
+        // edited root — instances of the mob inside larger scenes (e.g.
+        // game.tscn) stay idle so the editor doesn't burn frames animating
+        // every mob in the world.
+        if (Engine.IsEditorHint())
+        {
+            SetProcess(Owner != null && Owner == GetTree()?.EditedSceneRoot);
+            return;
+        }
         SetProcess(target != null && target.IsVisibleInTree());
+    }
+
+    public bool HasAnimation(StringName name)
+    {
+        return frames != null && name != default && frames.HasAnimation(name);
     }
 
     public void Play(StringName name)
@@ -70,7 +90,19 @@ public partial class LitSpriteAnimator : Node
 
     public override void _Process(double delta)
     {
-        if (target == null || frames == null || Finished)
+        if (target == null || frames == null)
+        {
+            return;
+        }
+        // Editor preview: react to inspector edits of `defaultAnimation` by
+        // re-playing whenever it diverges from what's currently running, so
+        // switching the dropdown live-switches the previewed animation
+        // without needing to reload the scene.
+        if (Engine.IsEditorHint() && defaultAnimation != default && CurrentAnimation != defaultAnimation)
+        {
+            Play(defaultAnimation);
+        }
+        if (Finished)
         {
             return;
         }

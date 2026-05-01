@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Marsh"
+GroundType = 4
 FlatTile = 31
 WallTile = 0
 WallBand = Vector2(0.55, 0.85)

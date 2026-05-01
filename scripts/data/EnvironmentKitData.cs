@@ -17,6 +17,13 @@ public partial class EnvironmentKitData : Resource
 {
     [Export] public string KitName = "";
 
+    // Logical ground category for this kit's flat surface. Drives footstep
+    // sound + particle selection on Player and Mob (see GroundTypeResolver
+    // and the per-entity footstepEffects dictionary). Multiple kits can
+    // share a category (e.g. desert and a future dune kit -> Sand). New
+    // categories should append to EGroundType.
+    [Export] public EGroundType GroundType = EGroundType.Grass;
+
     // Flat / wall tile array indices. Natural terrain reads as flat until the
     // surface tilts past WallBand, then transitions to wall — no intermediate
     // "slope" tile. Dirt-style middle-ground appearance is authored via the

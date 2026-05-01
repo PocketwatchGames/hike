@@ -1,11 +1,9 @@
 using Godot;
-using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
 
 public partial class EffectOneShot : Node3D
 {
-	List<CpuParticles3D> _particles = new List<CpuParticles3D>();
+	readonly List<GpuParticles3D> _particles = new();
 
 	public static EffectOneShot Create(PackedScene scene, Node parent, Vector3 position)
 	{
@@ -15,12 +13,11 @@ public partial class EffectOneShot : Node3D
 		return effect;
 	}
 
-	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
 	{
 		foreach (var c in GetChildren())
 		{
-			if (c is CpuParticles3D p)
+			if (c is GpuParticles3D p)
 			{
 				_particles.Add(p);
 				p.Emitting = true;
@@ -28,7 +25,6 @@ public partial class EffectOneShot : Node3D
 		}
 	}
 
-	// Called every frame. 'delta' is the elapsed time since the previous frame.
 	public override void _Process(double delta)
 	{
 		if (_particles.TrueForAll(p => !p.Emitting))

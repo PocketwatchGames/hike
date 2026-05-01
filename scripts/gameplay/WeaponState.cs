@@ -2,11 +2,10 @@ public class WeaponState : ItemState
 {
 	public int ammo;
 
-	// Combo runtime — incremented when a combos=true tier activates within
-	// the previous combo'd activation's window; reset to 0 by any non-combo
-	// activation. Read by the ComboBonus event handler and by combo'd
-	// tier.events that scale by index. comboExpireMs is when the chain
-	// breaks if not extended.
+	// Combo runtime — set to the activated ChargedAction's comboIndex on each
+	// activation. comboExpireMs is when the chain breaks if not extended; the
+	// ActionRunner uses (now < comboExpireMs) at press time to target
+	// `comboIndex + 1` instead of restarting at 0.
 	public int comboIndex;
 	public ulong comboExpireMs;
 

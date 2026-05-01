@@ -28,6 +28,7 @@ public partial class MobData : Resource
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;
+    [Export] public PackedScene torch;
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

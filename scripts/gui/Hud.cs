@@ -98,32 +98,17 @@ public partial class Hud : CanvasLayer
 		_weaponRightHud.Tick(now);
 		_consumableHud.Tick(now);
 
-		_weaponLeftButtonHint.SetProgress(GetSlotProgress(EInventorySlot.WeaponLeft, now));
-		_weaponRightButtonHint.SetProgress(GetSlotProgress(EInventorySlot.WeaponRight, now));
-		_consumableButtonHint.SetProgress(GetSlotProgress(EInventorySlot.Consumable, now));
+		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponLeft, now));
+		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRight, now));
+		_consumableButtonHint.SetProgress(GetChargeProgress(EInventorySlot.Consumable, now));
 	}
 
-	// Charge progress takes precedence: while the player is holding the slot's
-	// input toward the next charged tier, fill toward that tier's chargeTime.
-	// Otherwise fall back to the post-fire cooldown timer.
-	float GetSlotProgress(EInventorySlot slot, ulong nowMs)
+	// Charge fill toward the next tier's chargeTime while the slot's item is
+	// in the runner's Charging phase. Cooldown is shown by WeaponHud, not here.
+	float GetChargeProgress(EInventorySlot slot, ulong nowMs)
 	{
 		ItemState item = _inventory?.GetEquipped(slot);
-		if (item == null)
-		{
-			return 0f;
-		}
-		float charge = GetChargeProgress(item, nowMs);
-		if (charge > 0f)
-		{
-			return charge;
-		}
-		return GetCooldownProgress(item, nowMs);
-	}
-
-	float GetChargeProgress(ItemState item, ulong nowMs)
-	{
-		if (_player == null || _player.Runner == null)
+		if (item == null || _player == null || _player.Runner == null)
 		{
 			return 0f;
 		}
@@ -162,15 +147,5 @@ public partial class Hud : CanvasLayer
 			return 1f;
 		}
 		return Mathf.Clamp((elapsed - prevChargeTime) / span, 0f, 1f);
-	}
-
-	float GetCooldownProgress(ItemState item, ulong nowMs)
-	{
-		if (item.cooldownDurationMs == 0 || nowMs >= item.cooldownExpireMs)
-		{
-			return 0f;
-		}
-		ulong remaining = item.cooldownExpireMs - nowMs;
-		return (float)remaining / item.cooldownDurationMs;
 	}
 }

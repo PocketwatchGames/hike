@@ -28,6 +28,8 @@ public partial class BehaviorInvestigate : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
+        output.useTorch = me.ambientLight < MobSimState.TorchAmbientThreshold;
+
         // No investigation point means nothing to do — fall back to the default
         // behavior rather than asserting, since the data can be cleared at any
         // time by aiOutput.resetInvestigation.

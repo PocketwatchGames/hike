@@ -33,6 +33,8 @@ public partial class BehaviorAttack : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
+        output.useTorch = me.ambientLight < MobSimState.TorchAmbientThreshold;
+
         Player target = targetPerception.pawnTarget;
         if (target == null)
         {
@@ -53,6 +55,8 @@ public partial class BehaviorAttack : BehaviorBase
             output.yell = true;
             me.yelled = true;
         }
+
+        
 
         Vector3 targetPos = targetPerception.canSee ? target.GlobalPosition : targetPerception.lastKnownPosition;
         output.targetPos = targetPos;

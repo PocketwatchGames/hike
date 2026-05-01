@@ -6,11 +6,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 {
     [Export] private CollisionShape3D _collisionShape;
     [Export] private AnimationPlayer _animationPlayer;
+    [Export] private LitSpriteAnimator _animator;
     [Export] private Node3D _mesh;
     [Export] private Sprite3D _sprite;
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
+    // Per-ground-type one-shot effect played at the mob's feet while moving
+    // on solid ground. Authored in each mob .tscn; missing keys silently
+    // emit nothing.
+    [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
 
     // Seconds to lerp visibility/silhouette toward their target. 0.1s is
     // short enough that transitions read as "now" rather than a slow fade
@@ -42,6 +47,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
+    public float skyBrightness => _simState.SkyBrightness;
+    public float sunExposure => _simState.SunExposure;
+    public float ambientLight => _simState.AmbientLight;
     public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
     public bool playerCanSee => _world.GameTimeMs < _simState.VisibleTimeMs;
     // Perception/triggered forward through the first perception slot (the player
@@ -82,6 +90,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
     readonly WaterRippleEmitter _rippleEmitter = new();
+    readonly FootstepEmitter _footstepEmitter = new();
     // Captured in _Ready so burrow can drop the mesh and restore it. The drop
     // is sized from the collision capsule so kun_kun (short) and goblin (tall)
     // both end up about 3/4 of their body underground.
@@ -120,6 +129,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // Initialized to the CVar default so a mob that boots with the CVar
     // already set doesn't trigger a spurious transition on first tick.
     private bool _lastMobPhysicsCvar = true;
+
+    // Active torch carrier light, present whenever the latest AIOutput
+    // requested useTorch. Lives as a child of the mob so its GlobalPosition
+    // follows the mob each frame; CarrierLight handles the per-tick
+    // recompute / blend itself.
+    private CarrierLight _torch;
+
+    // Latched one-shot animation. Same model as Player: PlayOneShot pins the
+    // animator on a non-looping clip; UpdateAnimation defers the loop pick
+    // until LitSpriteAnimator.Finished flips. Behaviors emit via
+    // AIOutput.oneShotAnim; combat events route here through PlayAnim.
+    private StringName _oneShotAnim;
+    // Game-time at which the mob first started falling fast (vel.Y below the
+    // FallEnterSpeed threshold). Cleared as soon as the body is no longer
+    // descending. Used to gate the "fall" loop behind a sustained-fall grace
+    // window — short pops off geometry while running don't earn the anim.
+    private ulong _airborneStartMs;
 
     public static Mob Create(World world, MobSimState data)
     {
@@ -192,11 +218,132 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
     public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
     public Node3D AttackerNode => this;
-    public void PlayAnim(StringName name)
+    public void PlayAnim(EAnimation anim)
     {
-        // Mob anims live on its AnimationPlayer, but the named action anims
-        // (Attack, Howl, etc.) aren't authored yet — stub for now so action
-        // profiles authoring PlayAnim events don't crash.
+        PlayOneShot(anim);
+    }
+
+    public void PlayOneShot(EAnimation anim) => PlayOneShot(AnimationNames.Get(anim));
+
+    public void PlayOneShot(StringName name)
+    {
+        if (_animator == null || name == default || !_animator.HasAnimation(name))
+        {
+            return;
+        }
+        _oneShotAnim = name;
+        _animator.Play(name);
+    }
+
+    private void UpdateAnimation()
+    {
+        if (_animator == null)
+        {
+            return;
+        }
+        if (_oneShotAnim != default)
+        {
+            if (_animator.CurrentAnimation == _oneShotAnim && !_animator.Finished)
+            {
+                return;
+            }
+            _oneShotAnim = default;
+        }
+
+        StringName loopAnim;
+        if (!alive)
+        {
+            loopAnim = AnimationNames.Dead;
+        }
+        else
+        {
+            Vector3 vel = LinearVelocity;
+            Vector3 horizVel = new(vel.X, 0f, vel.Z);
+            float horizSpeedSq = horizVel.LengthSquared();
+            // Mob "intent to move" — navigator has an active goal/path. Lets
+            // a mob jammed against a wall while pursuing keep playing the run
+            // anim instead of snapping to idle when LinearVelocity zeros out.
+            bool intentMoving = _navigator != null && _navigator.CurrentState != MobNavigator.State.Idle;
+
+            // Sustained-fall tracking. Without the grace window, hopping over
+            // small ledges or being shoved by another mob flickers the fall
+            // anim for a frame.
+            ulong now = _world?.GameTimeMs ?? 0;
+            bool fallingFast = vel.Y < -FallEnterSpeed;
+            if (fallingFast)
+            {
+                if (_airborneStartMs == 0)
+                {
+                    _airborneStartMs = now;
+                }
+            }
+            else
+            {
+                _airborneStartMs = 0;
+            }
+            bool fallReady = fallingFast && _airborneStartMs != 0 && now - _airborneStartMs >= FallGraceMs;
+
+            if (IsInWater())
+            {
+                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, AnimationNames.Swim, AnimationNames.SwimIdle);
+            }
+            else if (fallReady)
+            {
+                loopAnim = AnimationNames.Fall;
+            }
+            else
+            {
+                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, AnimationNames.Run, AnimationNames.Idle);
+            }
+        }
+        if (_animator.HasAnimation(loopAnim))
+        {
+            _animator.Play(loopAnim);
+        }
+    }
+
+    const float FallEnterSpeed = 1f;
+    const ulong FallGraceMs = 400;
+
+    // Hysteresis on the move-vs-idle pick — see Player.PickMoveLoop. Mob
+    // navigators apply impulses every tick, so the body sits near the
+    // friction floor a lot; without the dead band, idle/run flicker
+    // every other frame.
+    const float MoveLoopEnterSpeedSq = 0.01f;     // 0.1 m/s
+    const float MoveLoopExitSpeedSq = 0.0001f;    // 0.01 m/s
+    private StringName PickMoveLoop(float speedSq, bool intentMoving, StringName moveAnim, StringName idleAnim)
+    {
+        if (intentMoving || speedSq > MoveLoopEnterSpeedSq)
+        {
+            return moveAnim;
+        }
+        if (speedSq < MoveLoopExitSpeedSq)
+        {
+            return idleAnim;
+        }
+        StringName current = _animator.CurrentAnimation;
+        if (current == moveAnim || current == idleAnim)
+        {
+            return current;
+        }
+        return idleAnim;
+    }
+
+    // Cheap voxel sample at the body's feet — same data the ripple emitter
+    // already reads. Used by UpdateAnimation to pick swim vs run; we don't
+    // need the full surface-Y scan here, only "is the mob standing in water".
+    private bool IsInWater()
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return false;
+        }
+        Vector3 pos = GlobalPosition;
+        return ws.GetVoxelWorld(
+            Mathf.FloorToInt(pos.X),
+            Mathf.FloorToInt(pos.Y),
+            Mathf.FloorToInt(pos.Z)) == VoxelType.Water;
     }
 
     // Writes the node's current transform back into the persistent sim state so
@@ -364,6 +511,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
 
         UpdateWaterRipples();
+        UpdateFootsteps();
 
         // Keep the spatial hash up-to-date for the navigator's separation
         // query and any other neighbor-radius lookup. Update() short-
@@ -382,6 +530,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             _simState.PerceptionTickAccumulator = 0f;
         }
 
+        _simState.LightSampleAccumulator += (float)delta;
+        if (_simState.LightSampleAccumulator >= MobSimState.LightSampleInterval)
+        {
+            SampleAmbientLight();
+            _simState.LightSampleAccumulator = 0f;
+        }
+
         if (alive)
         {
             TickAI((float)delta, out AIOutput aiOutput);
@@ -392,6 +547,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             if (aiOutput.attackProfile != null && _runner != null && !_runner.IsBusy)
             {
                 _runner.TryStart(aiOutput.attackProfile, aiOutput.attackContext);
+            }
+            if (aiOutput.oneShotAnim.HasValue)
+            {
+                PlayOneShot(aiOutput.oneShotAnim.Value);
             }
             _runner?.Tick();
 
@@ -522,6 +681,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
                 burrowing = false;
                 burrowed = false;
             }
+
+            // Torch visibility is gated on the player's memory of this mob —
+            // once memory expires, the mob has left the player's awareness
+            // sphere and there's no point keeping its light deposit alive
+            // (the mob is also not visible, so the torch would have nothing
+            // to illuminate from the player's perspective). Same condition
+            // as the mesh-visibility gate in _Process.
+            bool playerRemembers = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
+                && _simState.MemoryTimeMs > _world.GameTimeMs;
+            if (aiOutput.useTorch && playerRemembers)
+            {
+                if (_torch == null && _simState.MobData?.torch != null)
+                {
+                    _torch = _simState.MobData.torch.Instantiate<CarrierLight>();
+                    AddChild(_torch);
+                }
+            }
+            else if (_torch != null)
+            {
+                _torch.QueueFree();
+                _torch = null;
+            }
         }
         else
         {
@@ -529,7 +710,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             LinearDamp = 0.25f;
         }
 
-        if (!Freeze 
+        if (!Freeze
         && !_impulseApplied
         && alive
         && LinearVelocity.LengthSquared() < 0.01f
@@ -538,6 +719,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             Freeze = true;
         }
         _impulseApplied = false;
+
+        UpdateAnimation();
     }
 
     public void ApplyImpulse(Vector3 impulse)
@@ -599,6 +782,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             Freeze = false;
         }
+        PlayOneShot(EAnimation.Die);
     }
 
     private void UpdateTerrainSpeed()
@@ -638,6 +822,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
         Vector3 ripplePos = new(pos.X, scanY, pos.Z);
         _rippleEmitter.Update(ripplePos, true, 0.8f, 0.5f);
+    }
+
+    // Spawn a footstep one-shot at the mob's feet at a fixed stride. Skipped
+    // when standing in water — UpdateWaterRipples already covers wading. The
+    // emitter does its own stride gating, so a stationary mob won't emit.
+    private void UpdateFootsteps()
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return;
+        }
+        Vector3 pos = GlobalPosition;
+        int fx = Mathf.FloorToInt(pos.X);
+        int fy = Mathf.FloorToInt(pos.Y);
+        int fz = Mathf.FloorToInt(pos.Z);
+        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        const float FootstepStride = 0.6f;
+        const float FootstepMinSpeedSq = 0.25f;
+        Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
+        bool walking = !inWater && horizVel.LengthSquared() > FootstepMinSpeedSq;
+        EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
+        _footstepEmitter.Update(_world, pos, walking, FootstepStride, ground, _footstepEffects);
     }
 
     public void AddTerrainModifier(TallGrass tallGrass)

@@ -23,6 +23,8 @@ public partial class BehaviorIdle : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
+        output.useTorch = me.ambientLight < MobSimState.TorchAmbientThreshold;
+
         Vector3 toSpawn = me.spawnPosition - me.GlobalPosition;
         toSpawn.Y = 0f;
         if (toSpawn.LengthSquared() > ReturnToSpawnDistance * ReturnToSpawnDistance)

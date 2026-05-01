@@ -28,5 +28,11 @@ public struct PlayerAction
 	// per-action curves (bow accuracy / range scaling — phase 3).
 	public float chargeT;
 
+	// Combo index this action is locked to for the duration of the charge.
+	// Chosen at press time from the driving weapon's chain state and held
+	// fixed — tier selection during charging only considers chargedActions
+	// whose comboIndex matches this value.
+	public int targetComboIndex;
+
 	public bool IsBusy => phase != EActionPhase.Ready;
 }

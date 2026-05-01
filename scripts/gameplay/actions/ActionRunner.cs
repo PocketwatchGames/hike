@@ -140,7 +140,9 @@ public class ActionRunner
 	private void StartImmediate(ItemActionProfile profile, ActionContext context)
 	{
 		ulong now = _actor.GameTimeMs;
-		ChargedAction tier0 = SelectTier(profile, context, 0f);
+		int targetComboIndex = ResolveTargetComboIndex(profile, context, now);
+		int tier0Index = SelectTierIndex(profile, context, 0f, targetComboIndex);
+		ChargedAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
 		_action = new PlayerAction
 		{
 			phase = EActionPhase.Charging,
@@ -150,9 +152,10 @@ public class ActionRunner
 			activateMs = 0,
 			endMs = 0,
 			selectedTier = tier0,
-			selectedTierIndex = SelectTierIndex(profile, context, 0f),
+			selectedTierIndex = tier0Index,
 			lastEventIndex = -1,
 			chargeT = 0f,
+			targetComboIndex = targetComboIndex,
 		};
 
 		// Fire chargeEvents at t=0 and announce the initial tier (if reached
@@ -209,7 +212,7 @@ public class ActionRunner
 			return;
 		}
 		float elapsed = (now - _action.pressMs) / 1000f;
-		int newIndex = SelectTierIndex(profile, _action.context, elapsed);
+		int newIndex = SelectTierIndex(profile, _action.context, elapsed, _action.targetComboIndex);
 		if (newIndex == _action.selectedTierIndex)
 		{
 			return;
@@ -265,29 +268,14 @@ public class ActionRunner
 		_action.lastEventIndex = -1;
 		_action.chargeT = ComputeChargeT(_action.profile, tier, chargeElapsed);
 
-		// Combo bookkeeping (weapon-driving tiers only). A combos=true tier
-		// extends the chain if the weapon's comboExpireMs hasn't lapsed;
-		// otherwise it restarts at index 0. Any non-combo activation resets
-		// the chain to 0 immediately.
+		// Combo bookkeeping (weapon-driving tiers only). The activated tier's
+		// comboIndex becomes the weapon's current chain position. comboWindowMs
+		// is the time after this action ends during which the next press will
+		// target `comboIndex + 1`; zero terminates the chain here.
 		if (_action.context.primaryItem is WeaponState weapon)
 		{
-			if (tier.combos)
-			{
-				if (now < weapon.comboExpireMs)
-				{
-					weapon.comboIndex++;
-				}
-				else
-				{
-					weapon.comboIndex = 0;
-				}
-				weapon.comboExpireMs = now + (ulong)(tier.activeDurationSeconds * 1000f) + (ulong)(tier.cooldownSeconds * 1000f) + tier.comboWindowMs;
-			}
-			else
-			{
-				weapon.comboIndex = 0;
-				weapon.comboExpireMs = 0;
-			}
+			weapon.comboIndex = tier.comboIndex;
+			weapon.comboExpireMs = now + (ulong)(tier.activeDurationSeconds * 1000f) + (ulong)(tier.cooldownSeconds * 1000f) + tier.comboWindowMs;
 		}
 
 		// Apply per-item cooldown. Duration is also stored so HUDs can render
@@ -298,14 +286,6 @@ public class ActionRunner
 			ulong cooldownMs = (ulong)(tier.cooldownSeconds * 1000f);
 			_action.context.primaryItem.cooldownExpireMs = now + cooldownMs;
 			_action.context.primaryItem.cooldownDurationMs = cooldownMs;
-		}
-
-		// Fire combo-bonus events (authored on the tier) when comboIndex > 0.
-		// These fire BEFORE the main event walker so per-event state changes
-		// (ammo decrement, etc.) happen in the expected order.
-		if (tier.combos && _action.context.primaryItem is WeaponState comboWeapon && comboWeapon.comboIndex > 0)
-		{
-			FireEventList(tier.comboBonusEvents);
 		}
 
 		// Fire any t=0 active events on entry. The walker handles t>0 in Tick.
@@ -495,33 +475,44 @@ public class ActionRunner
 		}
 	}
 
-	private ChargedAction SelectTier(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds)
+	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds, int comboIndex)
 	{
-		// Highest-to-lowest, return first whose chargeTime is reached AND whose
-		// requirements all pass. Requirements failing fall through to the next
-		// lower tier — a Strong attack short on mana drops to Weak.
+		// Highest-to-lowest, return first whose comboIndex matches the chain
+		// target AND whose chargeTime is reached AND whose requirements all
+		// pass. Requirements failing fall through to the next lower tier — a
+		// Strong attack short on mana drops to Weak (within the same combo
+		// step). The combo filter is fixed for the duration of the charge.
 		for (int i = profile.chargedActions.Count - 1; i >= 0; i--)
 		{
 			ChargedAction action = profile.chargedActions[i];
 			if (action == null) { continue; }
-			if (chargeElapsedSeconds + 1e-6f < action.chargeTime) { continue; }
-			if (!RequirementsMet(action, context)) { continue; }
-			return action;
-		}
-		return null;
-	}
-
-	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds)
-	{
-		for (int i = profile.chargedActions.Count - 1; i >= 0; i--)
-		{
-			ChargedAction action = profile.chargedActions[i];
-			if (action == null) { continue; }
+			if (action.comboIndex != comboIndex) { continue; }
 			if (chargeElapsedSeconds + 1e-6f < action.chargeTime) { continue; }
 			if (!RequirementsMet(action, context)) { continue; }
 			return i;
 		}
 		return -1;
+	}
+
+	// Pick which combo step a fresh press should target. If the weapon's chain
+	// window is still open, try `previousComboIndex + 1` and verify the profile
+	// has a matching action; otherwise (or on no match) fall back to 0.
+	private static int ResolveTargetComboIndex(ItemActionProfile profile, in ActionContext context, ulong now)
+	{
+		if (context.primaryItem is not WeaponState weapon || now >= weapon.comboExpireMs)
+		{
+			return 0;
+		}
+		int next = weapon.comboIndex + 1;
+		for (int i = 0; i < profile.chargedActions.Count; i++)
+		{
+			ChargedAction action = profile.chargedActions[i];
+			if (action != null && action.comboIndex == next)
+			{
+				return next;
+			}
+		}
+		return 0;
 	}
 
 	private bool RequirementsMet(ChargedAction tier, in ActionContext context)

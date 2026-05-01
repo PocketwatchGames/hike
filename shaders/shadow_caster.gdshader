@@ -72,6 +72,16 @@ void vertex() {
 	vec3 sprite_up_rolled = sr * sprite_right_yaw + cr * world_up;
 	float chunky = max(sprite_chunky, 1e-6);
 
+	// Shift the proxy toward the sun along the horizontal sunlight axis by
+	// half the sprite's world-space width. sprite_forward here equals
+	// light_horiz (the horizontal direction sunlight TRAVELS), so
+	// subtracting points toward the sun. Effect: the cast silhouette starts
+	// at the player's back edge (the side facing the sun) instead of the
+	// sprite's center, so the shadow on the ground reads as anchored
+	// behind the character's feet rather than splitting through them.
+	float half_width_world = float(sprite_size.x) * 0.5 * chunky * instance_scale;
+	world_origin -= sprite_forward * half_width_world;
+
 	vec3 vertex_world = world_origin
 		+ VERTEX.x * chunky * instance_scale * sprite_right_rolled
 		+ VERTEX.y * chunky * instance_scale * sprite_up_rolled;

@@ -17,9 +17,16 @@ public struct AIOutput
     public float pathSuccessDistance;
     public bool inCombat;
     public bool burrow;
+    public bool useTorch;
     public InvestigateState? investigation;
     public bool resetInvestigation;
     public ulong? suspendTimeMs;
+    // When set, Mob latches this as a one-shot animation through PlayOneShot
+    // for the next tick. Looping animations are state-driven (alive/moving)
+    // and chosen each tick by Mob.UpdateAnimation; behaviors only need to
+    // emit one-shots (attack swing, yell, burrow stab) here. Nullable so
+    // a behavior can leave it unset most ticks.
+    public EAnimation? oneShotAnim;
 }
 public struct BehaviorOutput
 {
@@ -419,6 +426,34 @@ public partial class Mob
             // Mirror perception into aggro for multi-target selection in TickAI.
             target.aggro = target.perception;
         }
+    }
+
+    // Throttled environment-light cache. SkyBrightness is the time-of-day /
+    // storm-scaled primary intensity (the "the sun itself is dim" signal),
+    // SunExposure is the BFS sunlight reaching this voxel through geometry
+    // (the "I'm under a roof" signal), AmbientLight is their product — the
+    // single number behaviors gate on for "should I light a torch". Block
+    // lights are deliberately ignored so a mob's own torch doesn't extinguish
+    // itself by raising the sample.
+    private void SampleAmbientLight()
+    {
+        using var _profLight = Profiler.Sample("Mob.SampleAmbientLight");
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return;
+        }
+        const float eyeHeight = 1f;
+        Vector3 pos = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+        int wx = Mathf.FloorToInt(pos.X);
+        int wy = Mathf.FloorToInt(pos.Y);
+        int wz = Mathf.FloorToInt(pos.Z);
+        int sunBfs = ws.GetSunlightWorld(wx, wy, wz);
+        float sunExposure = (float)sunBfs / LightEngine.MAX_LIGHT;
+        float skyBrightness = SkyController.Current?.CurrentPrimaryIntensity ?? CVars.sunIntensity.Value;
+        _simState.SunExposure = sunExposure;
+        _simState.SkyBrightness = skyBrightness;
+        _simState.AmbientLight = sunExposure * skyBrightness;
     }
 
     public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs)

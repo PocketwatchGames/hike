@@ -33,16 +33,16 @@ public partial class ChargedAction : Resource
 	[Export] public Array<ItemEvent> readyEvents = new();
 	[Export] public Array<ItemEvent> abortEvents = new();
 
-	// Combo bookkeeping. When `combos` is true, the runner increments the
-	// driving weapon's comboIndex on activation if the previous combo'd
-	// activation was within comboWindowMs. The action's events (or its
-	// ComboBonus events embedded as items in `events`) read the index to
-	// scale damage / fire bonus effects. Non-combo actions reset the index
-	// to 0 on activation. comboBonusEvents fire alongside `events` when
-	// comboIndex > 0 — a simpler authoring path than ComboBonus events.
-	[Export] public bool combos = false;
+	// Combo position within the action profile. At press time, the runner picks
+	// a candidate index based on the driving weapon's chain state: if the
+	// previous activation's combo window hasn't lapsed, the runner targets
+	// `previousComboIndex + 1`; otherwise it targets 0. Tier selection then
+	// filters chargedActions to those matching the target. If no action matches
+	// `previousComboIndex + 1`, the runner falls back to 0 (chain restart).
+	// `comboWindowMs` is how long after THIS action ends the chain stays open
+	// for the next press; 0 means the chain terminates here.
+	[Export] public int comboIndex = 0;
 	[Export] public ulong comboWindowMs = 0;
-	[Export] public Array<ItemEvent> comboBonusEvents = new();
 
 	// Per-tier requirements. Action only selectable if all evaluate true.
 	// Phase 3 SelectTier ignored requirements; phase 4 walks them and falls

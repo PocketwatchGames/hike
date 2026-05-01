@@ -9,24 +9,31 @@
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="6_sprite"]
 
+[sub_resource type="Resource" id="Resource_event_light_anim"]
+script = ExtResource("3_event")
+type = 7
+soundName = null
+
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
-animName = null
 soundName = null
 
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 verb = 1
 cooldownSeconds = 0.4
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
-combos = true
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_light_anim"), SubResource("Resource_event_light")])
 comboWindowMs = 600
+
+[sub_resource type="Resource" id="Resource_event_heavy_anim"]
+script = ExtResource("3_event")
+type = 7
+soundName = null
 
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
 meleeRange = 1.5
 meleeRadius = 2.5
-animName = null
 soundName = null
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
@@ -34,7 +41,7 @@ script = ExtResource("4_charged")
 verb = 2
 chargeTime = 0.4
 cooldownSeconds = 0.8
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy")])
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")

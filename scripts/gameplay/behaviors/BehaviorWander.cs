@@ -35,6 +35,8 @@ public partial class BehaviorWander : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
+        output.useTorch = me.ambientLight < MobSimState.TorchAmbientThreshold;
+
         // Pause window between wander legs. While paused we leave the
         // navigator idle so the mob's impulse code coasts to a stop.
         if (time < _pauseUntilMs)

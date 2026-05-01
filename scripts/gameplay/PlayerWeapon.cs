@@ -185,10 +185,8 @@ public partial class Player : CharacterBody3D, IActionActor
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
 	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
 	public Node3D AttackerNode => this;
-	public void PlayAnim(StringName name)
+	public void PlayAnim(EAnimation anim)
 	{
-		// Phase 4 wires animations through the action timeline. The named
-		// anims authored on profiles (Drink, Lockpick, Draw) don't exist in
-		// LitSpriteAnimator yet — stub so authoring can proceed.
+		PlayOneShot(anim);
 	}
 }

@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Underwater"
+GroundType = 2
 FlatTile = 28
 WallBand = Vector2(0.3, 0.75)
 BlendAmp = 0.55

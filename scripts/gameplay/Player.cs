@@ -16,6 +16,10 @@ public partial class Player : CharacterBody3D
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 	[Export] private LitSpriteAnimator _animator;
+	// Per-ground-type one-shot effect played at the player's feet while
+	// walking/running on solid ground. Authored in the player .tscn; missing
+	// keys silently emit nothing.
+	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
@@ -35,12 +39,19 @@ public partial class Player : CharacterBody3D
 	float _waterSurfaceY;
 	int _waterOverlapCount;
 	readonly WaterRippleEmitter _rippleEmitter = new();
+	readonly FootstepEmitter _footstepEmitter = new();
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
 	ActionRunner _runner;
 	float _health;
 	CarrierLight _carrierLight;
+	StringName _oneShotAnim;
+	// Wall-clock time at which the player most recently lost ground contact.
+	// Drives the fall-anim grace window — running up/down hills momentarily
+	// lifts off, and we don't want a one-frame !_grounded to spike the fall
+	// animation. 0 means currently grounded (or never run a frame yet).
+	ulong _airborneStartMs;
 
 
 	public float visibility = 1f;
@@ -115,6 +126,121 @@ public partial class Player : CharacterBody3D
 		_runner?.TryInterrupt();
 
 		_health = Mathf.Max(0f, _health - damage.healthDamage);
+		if (_health <= 0f)
+		{
+			PlayOneShot(EAnimation.Die);
+		}
+	}
+
+	// One-shots (attack, die, jump) latch _oneShotAnim and let the
+	// LitSpriteAnimator drive itself to completion — Finished flips because
+	// these anims are authored with loop=false in player.tscn. While a one-
+	// shot is latched, UpdateAnimation defers; once Finished (or the animator
+	// gets reassigned by something else) we clear the latch and resume the
+	// state-driven loop pick.
+	public void PlayOneShot(EAnimation anim) => PlayOneShot(AnimationNames.Get(anim));
+
+	public void PlayOneShot(StringName name)
+	{
+		if (_animator == null || name == default || !_animator.HasAnimation(name))
+		{
+			return;
+		}
+		_oneShotAnim = name;
+		_animator.Play(name);
+	}
+
+	private void UpdateAnimation()
+	{
+		if (_animator == null)
+		{
+			return;
+		}
+
+		// Track airborne dwell time. Cleared the instant we hit ground so the
+		// next lift-off starts a fresh grace window. Running up a slope tends
+		// to lose floor contact for a frame or two between step-up cycles, and
+		// without this the player flickers to "fall" each time.
+		if (_grounded)
+		{
+			_airborneStartMs = 0;
+		}
+		else if (_airborneStartMs == 0 && _world != null)
+		{
+			_airborneStartMs = _world.GameTimeMs;
+		}
+
+		if (_oneShotAnim != default)
+		{
+			if (_animator.CurrentAnimation == _oneShotAnim && !_animator.Finished)
+			{
+				return;
+			}
+			_oneShotAnim = default;
+		}
+
+		StringName loopAnim;
+		// Horizontal speed only — vertical motion belongs to fall/jump/grav,
+		// not to the run-vs-idle decision. While stepping up a slope the body
+		// briefly leaves the floor and Velocity.Y from gravity dominates the
+		// 3D length, which used to flip the pick to "run" for a frame and
+		// then back to "idle" once we re-grounded.
+		Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
+		float speedSq = horizVel.LengthSquared();
+		// "Wants to move" includes input even when blocked by a wall —
+		// otherwise pushing into geometry zeroes Velocity and snaps us back to
+		// idle while the player is visibly trying to run.
+		bool intentMoving = _inputMove.LengthSquared() > 0.0001f;
+		bool fallReady = !_grounded
+			&& _airborneStartMs != 0
+			&& _world != null
+			&& _world.GameTimeMs - _airborneStartMs >= FallGraceMs;
+		if (_health <= 0f)
+		{
+			loopAnim = AnimationNames.Dead;
+		}
+		else if (_waterState == EWaterState.Swimming)
+		{
+			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Swim, AnimationNames.SwimIdle);
+		}
+		else if (fallReady)
+		{
+			loopAnim = AnimationNames.Fall;
+		}
+		else
+		{
+			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Run, AnimationNames.Idle);
+		}
+		_animator.Play(loopAnim);
+	}
+
+	const ulong FallGraceMs = 400;
+
+	// Hysteresis on the move-vs-idle pick. Crossing a single threshold every
+	// frame produces twitch when the body sits near it (e.g. ground friction
+	// just barely > 0.01). Two thresholds with a hold-current band kill that
+	// — fully stop below 0.01 m/s, commit to "moving" only above 0.1 m/s,
+	// hold whatever's currently playing in between.
+	const float MoveLoopEnterSpeedSq = 0.01f;     // 0.1 m/s
+	const float MoveLoopExitSpeedSq = 0.0001f;    // 0.01 m/s
+	private StringName PickMoveLoop(float speedSq, bool intentMoving, StringName moveAnim, StringName idleAnim)
+	{
+		// Input intent forces "moving" — keeps the run anim playing while
+		// pinned against geometry, where Velocity would otherwise be ~0.
+		if (intentMoving || speedSq > MoveLoopEnterSpeedSq)
+		{
+			return moveAnim;
+		}
+		if (speedSq < MoveLoopExitSpeedSq)
+		{
+			return idleAnim;
+		}
+		StringName current = _animator.CurrentAnimation;
+		if (current == moveAnim || current == idleAnim)
+		{
+			return current;
+		}
+		return idleAnim;
 	}
 
 	public void Heal(float amount)
@@ -230,6 +356,18 @@ public partial class Player : CharacterBody3D
 		float rippleStrength = _waterState == EWaterState.Swimming ? 0.15f : 0.25f;
 		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
 		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
+
+		// Footstep effects. Gated on grounded + on land (water is handled by
+		// the ripple emitter above) + actually moving — Velocity carries
+		// horizontal speed even before MoveAndSlide later in this method.
+		const float FootstepStride = 0.6f;
+		const float FootstepMinSpeedSq = 0.25f;
+		Vector2 horizVel = new(Velocity.X, Velocity.Z);
+		bool walking = _grounded
+			&& _waterState == EWaterState.None
+			&& horizVel.LengthSquared() > FootstepMinSpeedSq;
+		EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
+		_footstepEmitter.Update(_world, GlobalPosition, walking, FootstepStride, ground, _footstepEffects);
 
 		if (_curInteractive != null)
 		{
@@ -368,25 +506,26 @@ public partial class Player : CharacterBody3D
 		// Update highlight interactive
 		UpdateHighlightInteractive();
 
-		if (Velocity.LengthSquared() > 0.01f)
-		{
-			_animator.Play("run");
-		}
-		else
-		{
-			_animator.Play("idle");
-		}
+		UpdateAnimation();
 
 		// Aiming preview
 		Vector3 aimOrigin = GlobalPosition + Vector3.Up;
 		Vector3 aimEnd = aimOrigin + GlobalTransform.Basis.Z * 5f;
 		DebugDraw.Line(aimOrigin, aimEnd, new Color(1f, 1f, 1f, 0.15f), 0.05f);
 	}
-	
+
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
 	{
 		_inputLook = new Vector3(mousePos.X, 0, mousePos.Y).Rotated(Vector3.Up, cameraYaw);
 	}
+
+	void CancelInteract()
+	{
+		SetCurInteractive(null);
+		_highlightInteractive = null;
+		onHighlightChanged?.Invoke(null);
+	}
+	
 	public void ProcessInput(float cameraYaw)
 	{
 		Vector2 move = Vector2.Zero;
@@ -408,7 +547,10 @@ public partial class Player : CharacterBody3D
 		// Handle interact input
 		if (Input.IsActionJustPressed("Interact"))
 		{
-			if (_curInteractive == null && _highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
+			if (_curInteractive != null)
+			{
+				CancelInteract();
+			} else if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
 				// Action-runner path: if the interactive provides action
 				// profiles, run the default verb's profile through the
@@ -437,11 +579,9 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		if (Input.IsActionJustPressed("Interact") || Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("Sneak"))
+		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("Sneak"))
 		{
-			SetCurInteractive(null);
-			_highlightInteractive = null;
-			onHighlightChanged?.Invoke(null);
+			CancelInteract();
 		}
 
 		if (Input.IsActionJustPressed("ConsumableCycleLeft"))
@@ -480,6 +620,7 @@ public partial class Player : CharacterBody3D
 				_grounded = false;
 				_coyoteTimeEndMs = 0;
 				_jumpHeld = true;
+				PlayOneShot(EAnimation.Jump);
 			}
 			else if (_waterState == EWaterState.Swimming)
 			{

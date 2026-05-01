@@ -5,6 +5,7 @@
 [resource]
 script = ExtResource("1_kit")
 KitName = "Temperate"
+GroundType = 0
 FlatTile = 1
 WallTile = 0
 WallBand = Vector2(0.55, 0.85)

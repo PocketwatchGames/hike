@@ -55,6 +55,23 @@ public class MobSimState : EntitySimState
     public const float PerceptionTickInterval = 0.1f;
     public float PerceptionTickAccumulator;
 
+    // Cached environment-light readings, refreshed every LightSampleInterval.
+    // SkyBrightness is the time-of-day / storm-scaled primary intensity (the
+    // sun "is dim because it's stormy or nighttime" signal). SunExposure is
+    // the [0,1] sunlight-BFS value at the mob's voxel (the "is dim because
+    // I'm in a cave / under a roof" signal). AmbientLight is their product —
+    // the single number behaviors compare against a "light my torch" threshold.
+    public const float LightSampleInterval = 0.75f;
+    public float LightSampleAccumulator;
+    public float SkyBrightness;
+    public float SunExposure;
+    public float AmbientLight;
+
+    // AmbientLight below this triggers behaviors to request useTorch. Tuned
+    // so a torch is lit in caves (low SunExposure) and at night / heavy
+    // storms (low SkyBrightness) but not in daytime open fields.
+    public const float TorchAmbientThreshold = 0.25f;
+
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
         : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData)
     {
@@ -76,6 +93,7 @@ public class MobSimState : EntitySimState
         DiscoveryState = EPlayerPerceptionState.Hidden;
         MemoryTimeMs = 0;
         PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
+        LightSampleAccumulator = (float)GD.RandRange(0.0, LightSampleInterval);
     }
 
     public override Node3D CreateEntity(World world)
