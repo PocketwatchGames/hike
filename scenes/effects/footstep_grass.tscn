@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://b6kx4n8h3footG"]
+[gd_scene format=3 uid="uid://m4gdn08c2l4r"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
 
@@ -7,18 +7,18 @@ emission_shape = 1
 emission_sphere_radius = 0.05
 direction = Vector3(0, 1, 0)
 spread = 35.0
-gravity = Vector3(0, -1, 0)
 initial_velocity_min = 0.4
 initial_velocity_max = 0.9
+gravity = Vector3(0, -1, 0)
 damping_min = 1.0
 damping_max = 2.0
 scale_min = 0.05
 scale_max = 0.12
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dust"]
+transparency = 1
 shading_mode = 0
 albedo_color = Color(0.45, 0.55, 0.25, 0.7)
-transparency = 1
 
 [sub_resource type="QuadMesh" id="QuadMesh_dust"]
 material = SubResource("StandardMaterial3D_dust")

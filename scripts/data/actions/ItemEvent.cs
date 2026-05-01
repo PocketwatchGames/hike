@@ -22,11 +22,6 @@ public partial class ItemEvent : Resource
 	// effects (heal + cleanse, light + buff). Each is applied to the actor.
 	[Export] public Array<ItemEffect> effects = new();
 
-	// ComboBonus fields. Fires `bonusEvents` when the action's combo index
-	// is at or above `minComboIndex` (1 = second swing in chain, etc.).
-	[Export] public int minComboIndex = 1;
-	[Export] public Array<ItemEvent> bonusEvents = new();
-
 	// PlayAnim / PlaySound fields. Routed through IActionActor.PlayAnim
 	// and IActionActor.PlaySound respectively. animName uses the EAnimation
 	// enum so the inspector shows a typo-proof dropdown — non-PlayAnim event

@@ -10,7 +10,7 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="9_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="10_lit_reflectiontemplate"]
-[ext_resource type="PackedScene" uid="uid://b6kx4n8h3footG" path="res://scenes/effects/footstep_grass.tscn" id="11_footstep_grass"]
+[ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_footstep_grass"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -472,9 +472,9 @@ data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
 _hurtBox = NodePath("HurtBox")
 _animator = NodePath("LitSpriteAnimator")
-_footstepEffects = {
+_footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_footstep_grass")
-}
+})
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=1610472919]
 cast_shadow = 0

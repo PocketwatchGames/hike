@@ -35,8 +35,21 @@ instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 // Dither fade matches sprite_lit's uniform; pushed by LitSprite.Visibility
 // so a fading-in sprite's cast shadow stipples in alongside its visible body.
 instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
+// Same value the visible sprite carries in sprite_lit — meters along the
+// horizontal billboard-forward axis. Repurposed here as the magnitude of
+// the head→feet shadow nudge: each character's existing ForwardOffset
+// (cylinder radius) drives both the visible sprite parking AND the shadow
+// shift without separate authoring. LitSprite.PushAlignmentUniform already
+// pushes this uniform to the shadow proxy alongside the visible sprite.
+instance uniform float forward_offset = 0.0;
 
 global uniform float sprite_chunky;
+// World-space direction sunlight TRAVELS (from sun toward the scene),
+// owned by SkyController. Used below for the shadow nudge — INV_VIEW_MATRIX
+// during the shadow atlas pass is the cascade camera, whose orientation
+// can vary across cascades and split frusta, so we read the canonical sun
+// direction directly to drive the head→feet axis on the ground.
+global uniform vec3 sun_world_dir;
 
 varying vec2 src_uv;
 
@@ -48,15 +61,17 @@ void vertex() {
 	float instance_scale = length(MODEL_MATRIX[0].xyz);
 
 	// Match sprite_lit's two-stage billboard (yaw + roll-toward-terrain-
-	// normal), but yaw toward whichever camera is rendering THIS pass —
-	// during the shadow atlas pass that's the sun, so the silhouette casts
-	// its full width into the atlas. Horizontalising the light direction
-	// keeps the sprite plane vertical under a low sun angle (pure Y
-	// billboard, no pitch into the atlas). Roll then leans the plane
-	// toward the slope's normal the same way the visible sprite does.
+	// normal), but yaw toward the SUN, not the rendering camera. INV_VIEW_MATRIX
+	// during the directional shadow atlas pass is not reliably the cascade
+	// camera (Godot 4 reuses the main camera's view matrix in some paths),
+	// so deriving the yaw from it makes the silhouette face the game camera —
+	// edge-on to the sun from side angles, parallel to the rays from behind.
+	// sun_world_dir is the canonical sunlight-travel direction owned by
+	// SkyController; horizontalising it keeps the plane vertical under a
+	// low sun angle. Roll then leans the plane toward the slope's normal
+	// the same way the visible sprite does.
 	vec3 world_up = vec3(0.0, 1.0, 0.0);
-	vec3 cam_forward = -INV_VIEW_MATRIX[2].xyz;
-	vec3 light_horiz = normalize(vec3(cam_forward.x, 0.0, cam_forward.z));
+	vec3 light_horiz = normalize(vec3(sun_world_dir.x, 0.0, sun_world_dir.z));
 	vec3 sprite_right_yaw = normalize(cross(world_up, light_horiz));
 	vec3 sprite_forward = cross(sprite_right_yaw, world_up);
 
@@ -72,15 +87,24 @@ void vertex() {
 	vec3 sprite_up_rolled = sr * sprite_right_yaw + cr * world_up;
 	float chunky = max(sprite_chunky, 1e-6);
 
-	// Shift the proxy toward the sun along the horizontal sunlight axis by
-	// half the sprite's world-space width. sprite_forward here equals
-	// light_horiz (the horizontal direction sunlight TRAVELS), so
-	// subtracting points toward the sun. Effect: the cast silhouette starts
-	// at the player's back edge (the side facing the sun) instead of the
-	// sprite's center, so the shadow on the ground reads as anchored
-	// behind the character's feet rather than splitting through them.
-	float half_width_world = float(sprite_size.x) * 0.5 * chunky * instance_scale;
-	world_origin -= sprite_forward * half_width_world;
+	// Shift the proxy along the head→feet axis of the cast shadow on the
+	// ground (XZ plane only). The shadow's head lands far from the player
+	// in the horizontal sunlight-travel direction; its feet sit at the
+	// player's base. So head→feet = -horizontal(sun_world_dir). Pushing
+	// the proxy along this axis by `forward_offset` meters starts the
+	// silhouette at the player's back edge (the sun-facing side) rather
+	// than bisecting it. Magnitude reuses the visible sprite's ForwardOffset
+	// (= each character's collider radius), since the texture's sprite_size
+	// includes transparent padding that's far wider than the actual body.
+	// sun_world_dir is read from the SkyController-owned global so it
+	// matches the visible pass regardless of which shadow cascade camera
+	// is currently rendering this proxy.
+	vec3 sun_horiz = vec3(sun_world_dir.x, 0.0, sun_world_dir.z);
+	float sun_horiz_len = length(sun_horiz);
+	if (sun_horiz_len > 1e-4 && forward_offset != 0.0) {
+		vec3 head_to_feet = -sun_horiz / sun_horiz_len;
+		world_origin += head_to_feet * forward_offset * instance_scale;
+	}
 
 	vec3 vertex_world = world_origin
 		+ VERTEX.x * chunky * instance_scale * sprite_right_rolled

@@ -8,7 +8,6 @@ public enum EItemEventType
 	UseAmmo = 2,
 	ApplyEffect = 3,
 	DecrementStack = 4,
-	ComboBonus = 5,
 	ToggleCarrierLight = 6,
 	PlayAnim = 7,
 	PlaySound = 8,

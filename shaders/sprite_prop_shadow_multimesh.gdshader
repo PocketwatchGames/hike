@@ -24,17 +24,23 @@ render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, unshaded, ski
 //   - INSTANCE_CUSTOM.w      : align_to_terrain
 //   - COLOR.r                : packed region_origin (origin.x*4096 + origin.y)
 //   - COLOR.g                : packed sprite_size   (size.x*4096   + size.y)
-//   - COLOR.b                : forward_offset (unused in shadow pass —
-//                              shadow is sun-aligned, not camera-aligned)
+//   - COLOR.b                : forward_offset (cylinder radius in meters —
+//                              same value the visible bucket uses; here it
+//                              drives the head→feet shadow nudge so the
+//                              silhouette starts at the prop's sun-facing
+//                              edge instead of bisecting the cylinder)
 //   - COLOR.a                : unused
 
 uniform sampler2D sprite_texture : source_color, filter_nearest;
-// forward_offset (in COLOR.b) is intentionally ignored here. The shadow
-// proxy uses a sun-aligned billboard during the shadow pass (not camera-
-// aligned), so a camera-relative forward shift would offset the silhouette
-// in the wrong frame. The visible bucket's forward_offset is purely
-// cosmetic for the camera view; the shadow keeps its silhouette anchored
-// at the model origin, which is also where the cylinder collider sits.
+// World-space direction sunlight TRAVELS — owned by SkyController. Used
+// below to nudge the silhouette toward the sun by `forward_offset`, mirroring
+// the per-instance shadow_caster.gdshader path that LitSprite shadow proxies
+// take. Without this shift the silhouette quad's base sits at the model
+// origin (= cylinder centerline), so the cast shadow's near edge starts at
+// the prop's center instead of its sun-facing perimeter — visually reads
+// as a disconnected shadow several voxels past the prop, especially on
+// large rocks/trees with cylinder radii > 1m.
+global uniform vec3 sun_world_dir;
 
 varying vec2 src_uv;
 varying flat int sprite_mirror_var;
@@ -79,6 +85,20 @@ void vertex() {
 
     vec3 sprite_right_rolled = cr * sprite_right_yaw - sr * world_up;
     vec3 sprite_up_rolled = sr * sprite_right_yaw + cr * world_up;
+
+    // Head→feet shadow nudge: same logic as shadow_caster.gdshader. Read
+    // forward_offset (cylinder radius) from COLOR.b and shift world_origin
+    // toward the sun along the ground plane so the silhouette quad's base
+    // sits at the sun-facing edge of the prop's collider rather than its
+    // centerline. sun_world_dir points from the sun toward the scene, so
+    // -horizontal(sun_world_dir) is the toward-sun direction.
+    float forward_offset = COLOR.b;
+    vec3 sun_horiz = vec3(sun_world_dir.x, 0.0, sun_world_dir.z);
+    float sun_horiz_len = length(sun_horiz);
+    if (sun_horiz_len > 1e-4 && forward_offset != 0.0) {
+        vec3 head_to_feet = -sun_horiz / sun_horiz_len;
+        world_origin += head_to_feet * forward_offset;
+    }
 
     vec3 vertex_world = world_origin
         + VERTEX.x * world_w * sprite_right_rolled

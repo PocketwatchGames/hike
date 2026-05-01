@@ -90,20 +90,20 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 10.1f;
 
     [ExportSubgroup("Shadows")]
-    // Baseline DirectionalLight3D shadow_blur (PCF kernel width in
-    // shadow-atlas space) at noon in clear air. Lower = crisper
-    // silhouettes. Overrides the scene-authored value on both
-    // sunLight and moonLight each frame.
-    [Export(PropertyHint.Range, "0,20,0.1")] public float shadowBlurBase = 6.0f;
-    // Added to shadowBlurBase at the low-sun endpoint (primary body at
+    // Baseline DirectionalLight3D light_angular_distance (degrees) at noon in
+    // clear air. Drives a PCSS-style penumbra whose width scales with caster
+    // distance — unlike shadow_blur (texel-counted), this stays consistent
+    // across PSSM cascades and camera angles. Overrides the scene-authored
+    // value on both sunLight and moonLight each frame. The real sun is ~0.5°.
+    [Export(PropertyHint.Range, "0,20,0.05")] public float shadowAngularBase = 0.5f;
+    // Added to shadowAngularBase at the low-sun endpoint (primary body at
     // SunsetAngleDegrees), smoothstepped by primary elevation so noon
     // stays tight. Models the way low-angle light grazes through more
     // atmosphere and softens shadow edges.
-    [Export(PropertyHint.Range, "0,20,0.1")] public float shadowBlurLowSunBoost = 6.0f;
-    // Extra blur from humidity + dust (hazy clear-sky scatter). Slight
-    // — this is a soft always-on baseline on top of the elevation
-    // boost, not a strong effect on its own.
-    [Export(PropertyHint.Range, "0,10,0.1")] public float shadowBlurAtmosphericBoost = 2.0f;
+    [Export(PropertyHint.Range, "0,20,0.05")] public float shadowAngularLowSunBoost = 1.5f;
+    // Extra angular spread from humidity + dust (hazy clear-sky scatter).
+    // Slight — soft always-on baseline on top of the elevation boost.
+    [Export(PropertyHint.Range, "0,20,0.05")] public float shadowAngularAtmosphericBoost = 0.5f;
 
     [ExportSubgroup("Disks")]
     // Sun/moon DISK shape + intensity in the sky shader. The disk is drawn
@@ -642,6 +642,14 @@ public partial class SkyController : Node3D
     // cleanly at t=0.25/0.75 instead of mid-afternoon.
     private float _sunLightElevationDegrees = 45f;
     private float _moonLightElevationDegrees = 25f;
+    // Which body owns the primary light slot this frame. Set by
+    // UpdateSunAndMoon (orbital-phase test, not elevation), consumed by
+    // Apply() to hard-disable the inactive body's Visible + ShadowEnabled
+    // so it contributes zero light AND skips the shadow atlas pass.
+    // Without this, the inactive DirectionalLight3D still consumes a
+    // shadow slot at LightEnergy=0, doubling shadow-render cost and
+    // (in PSSM mode) splitting atlas resolution between two bodies.
+    private bool _sunIsPrimary = true;
 
     // Normalized time-of-day used by UpdateSunAndMoon this frame. Cached
     // here so Apply() can compute time-based disk fades without repeating
@@ -1180,6 +1188,7 @@ public partial class SkyController : Node3D
         // elevation test can't tell them apart.
         bool isDay = t >= 0.25 && t < 0.75;
         _primaryLightDir = isDay ? sunLightDir : moonLightDir;
+        _sunIsPrimary = isDay;
 
         _sunLightElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(sunLightPos.Y, -1f, 1f)));
         _moonLightElevationDegrees = Mathf.RadToDeg(Mathf.Asin(Mathf.Clamp(moonLightPos.Y, -1f, 1f)));
@@ -1216,32 +1225,47 @@ public partial class SkyController : Node3D
         float lightFadeStart = lightFadeEnd + Mathf.Max(lightEnergyFadeRangeDegrees, 0.01f);
         float sunEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _sunLightElevationDegrees);
         float moonEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _moonLightElevationDegrees);
-        if (sunLight != null) { sunLight.LightEnergy = sunEnergyFactor; }
-        if (moonLight != null) { moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity; }
+        // Hard-disable the inactive body. Even at LightEnergy=0 a
+        // DirectionalLight3D with ShadowEnabled=true still renders a
+        // full shadow atlas pass and (in PSSM mode) splits the atlas
+        // budget with the active body — so the moon's "off" shadow
+        // is silently halving the sun's resolution at noon. Toggling
+        // Visible off the inactive body removes both the energy and
+        // shadow contributions cleanly.
+        if (sunLight != null)
+        {
+            sunLight.LightEnergy = sunEnergyFactor;
+            sunLight.Visible = _sunIsPrimary;
+        }
+        if (moonLight != null)
+        {
+            moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity;
+            moonLight.Visible = !_sunIsPrimary;
+        }
 
-        // Shadow blur: soften the PCF kernel based on primary-light
-        // PITCH (cos of elevation = horizontal component of the light
-        // direction), plus a small lift from hazy air. Sun + moon
-        // share a shadow atlas so they get the same blur; the one
-        // with LightEnergy > 0 consumes it. Drive off the HIGHER of
-        // the two remapped elevations so the active body dictates the
-        // softness (the inactive body is clamped at sunsetAngle).
+        // Shadow softness via light_angular_distance (degrees). Penumbra
+        // width scales with caster distance and is consistent across PSSM
+        // cascades — unlike shadow_blur (texel-counted), which produces
+        // camera-angle-dependent quality. Soften based on primary-light
+        // PITCH plus a small lift from hazy air. Sun + moon share a shadow
+        // atlas; drive off the HIGHER of the two remapped elevations so
+        // the active body dictates the softness.
         //
         // cos(elev) is the "how sideways the light is" term — 0 at
-        // zenith, 1 at horizon. Shape is naturally sinusoidal across
-        // the arc. With SunMaxElevationDegrees < 90 the factor never
-        // reaches 0 at noon; that's correct — a sun that never quite
-        // reaches overhead has slightly softened shadows even at peak.
+        // zenith, 1 at horizon. With SunMaxElevationDegrees < 90 the
+        // factor never reaches 0 at noon; that's correct — a sun that
+        // never quite reaches overhead has slightly softened shadows
+        // even at peak.
         float primaryLightElev = Mathf.Max(_sunLightElevationDegrees, _moonLightElevationDegrees);
         float elevBlurFactor = Mathf.Clamp(Mathf.Cos(Mathf.DegToRad(Mathf.Max(primaryLightElev, 0f))), 0f, 1f);
         float humidityForBlur = Weather?.humidity ?? 0.5f;
         float dustForBlur = Weather?.dustAmount ?? 0.1f;
         float atmBlurFactor = Mathf.Clamp(humidityForBlur + dustForBlur, 0f, 1f);
-        float effShadowBlur = shadowBlurBase
-            + shadowBlurLowSunBoost * elevBlurFactor
-            + shadowBlurAtmosphericBoost * atmBlurFactor;
-        if (sunLight != null) { sunLight.ShadowBlur = effShadowBlur; }
-        if (moonLight != null) { moonLight.ShadowBlur = effShadowBlur; }
+        float effShadowAngular = shadowAngularBase
+            + shadowAngularLowSunBoost * elevBlurFactor
+            + shadowAngularAtmosphericBoost * atmBlurFactor;
+        if (sunLight != null) { sunLight.LightAngularDistance = effShadowAngular; }
+        if (moonLight != null) { moonLight.LightAngularDistance = effShadowAngular; }
 
         // _nightT for disk glow fade. Same formula as WeatherDerivation.PhaseWeights.
         float colorRange = Mathf.Max(sim?.SunsetColorRangeDegrees ?? 10f, 0.01f);

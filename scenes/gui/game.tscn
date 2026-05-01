@@ -110,23 +110,30 @@ environment = SubResource("Environment_scene")
 
 [node name="SunLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209991]
 transform = Transform3D(0.70710695, -0.6123723, 0.35355324, 0, 0.49999997, 0.86602545, -0.7071065, -0.61237264, 0.35355347, 0, 0, 0)
-light_angular_distance = 0.5
+light_angular_distance = 4.2
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
+shadow_normal_bias = 5.0
 shadow_opacity = 0.9
-shadow_blur = 10.2
+shadow_blur = 0.5
+directional_shadow_mode = 0
+directional_shadow_max_distance = 40.0
 sky_mode = 1
 
 [node name="MoonLight" type="DirectionalLight3D" parent="SceneViewport" unique_id=1871209992]
 transform = Transform3D(-0.58920443, -0.20912163, 0.780452, 0, 0.9659258, 0.25881886, -0.8079838, 0.15249734, -0.5691274, 0, 0, 0)
+visible = false
 light_energy = 0.15000008
-light_angular_distance = 0.5
+light_angular_distance = 4.2
 light_bake_mode = 0
 light_cull_mask = 11
 shadow_enabled = true
+shadow_normal_bias = 5.0
 shadow_opacity = 0.9
-shadow_blur = 10.2
+shadow_blur = 0.5
+directional_shadow_mode = 0
+directional_shadow_max_distance = 40.0
 sky_mode = 1
 
 [node name="BlockLightShadowProjector" type="Node3D" parent="SceneViewport" unique_id=1871209993 node_paths=PackedStringArray("viewport", "camera")]
@@ -154,8 +161,9 @@ far = 200.0
 script = ExtResource("sky_controller_script")
 sunLight = NodePath("../SceneViewport/SunLight")
 moonLight = NodePath("../SceneViewport/MoonLight")
-sunAngularSizeDeg = 16.0
-moonAngularSizeDeg = 12.0
+shadowAngularBase = 2.0
+shadowAngularLowSunBoost = 2.0
+shadowAngularAtmosphericBoost = 2.0
 starIntensity = 1.5
 waterDepthScale = 12.0
 waterEdgeOpacity = 0.5

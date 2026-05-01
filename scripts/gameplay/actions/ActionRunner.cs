@@ -440,9 +440,6 @@ public class ActionRunner
 			case EItemEventType.DecrementStack:
 				ItemEventHandlers.DoDecrementStack(_actor, ev, ref _action);
 				break;
-			case EItemEventType.ComboBonus:
-				DoComboBonus(ev);
-				break;
 			case EItemEventType.ToggleCarrierLight:
 				ItemEventHandlers.DoToggleCarrierLight(_actor, ev, ref _action);
 				break;
@@ -459,19 +456,6 @@ public class ActionRunner
 			case EItemEventType.ConsumeFromInventory:
 				ItemEventHandlers.DoConsumeFromInventory(_actor, ev, ref _action);
 				break;
-		}
-	}
-
-	// ComboBonus is the in-place version of the tier's comboBonusEvents
-	// authoring helper. Keeps combo-conditional events inline with `events`
-	// rather than in a separate list. Fires its `bonusEvents` only when the
-	// driving weapon's comboIndex >= ev.minComboIndex.
-	private void DoComboBonus(ItemEvent ev)
-	{
-		if (_action.context.primaryItem is WeaponState weapon
-			&& weapon.comboIndex >= ev.minComboIndex)
-		{
-			FireEventList(ev.bonusEvents);
 		}
 	}
 
