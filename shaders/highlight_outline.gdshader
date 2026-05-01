@@ -12,6 +12,10 @@ uniform ivec2 sprite_size = ivec2(1, 1);
 uniform ivec2 sprite_region_origin = ivec2(0, 0);
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.8, 1.0);
 uniform int outline_width : hint_range(1, 5) = 1;
+// Mirrors sprite_lit's `forward_offset` instance uniform so the outline lands
+// on the shifted sprite, not at the unshifted node origin. Set per-highlight
+// from GameClient.ApplyHighlight by reading the source LitSprite.
+uniform float forward_offset = 0.0;
 
 global uniform float sprite_chunky;
 
@@ -22,6 +26,10 @@ void vertex() {
 
 	vec3 cam_forward = INV_VIEW_MATRIX[2].xyz;
 	vec3 sprite_right = normalize(cross(vec3(0.0, 1.0, 0.0), cam_forward));
+	// Match sprite_lit: shift world_origin toward the camera along the
+	// horizontal billboard-forward axis before deriving vertices and anchor.
+	vec3 sprite_forward = cross(sprite_right, vec3(0.0, 1.0, 0.0));
+	world_origin += sprite_forward * forward_offset;
 	float pitch = asin(clamp(abs(cam_forward.y), 0.0, 1.0));
 	float stretch = 1.0 / max(cos(pitch), 1e-4);
 	float chunky = max(sprite_chunky, 1e-6);

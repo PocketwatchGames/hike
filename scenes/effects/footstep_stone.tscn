@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://7nfxgl33kg3n"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_q83ea"]
+
+[node name="FootstepGrass" type="Node3D" unique_id=1900001001]
+script = ExtResource("1_q83ea")

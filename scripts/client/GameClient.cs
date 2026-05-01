@@ -405,6 +405,8 @@ public partial class GameClient : Node3D
 		}
 		outlineMaterial.SetShaderParameter("sprite_size", spriteSize);
 		outlineMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
+		float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
+		outlineMaterial.SetShaderParameter("forward_offset", forwardOffset);
 		_highlightOverlay.Reparent(node, false);
 		_highlightOverlay.Visible = true;
 	}

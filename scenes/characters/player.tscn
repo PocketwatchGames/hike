@@ -4,7 +4,11 @@
 [ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/characters/default_player.tres" id="2_6eyoc"]
 [ext_resource type="Texture2D" uid="uid://6bs4juspneq5" path="res://assets/textures/characters/commander_commoners.png" id="3_eojnx"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_qgnko"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="4_xrqxk"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_7vyk4"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="5_g66nw"]
+[ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="6_rpnd8"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="7_d6tgn"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="7_eojnx"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="8_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9b_lit_blshadowcastertemplate"]
@@ -154,6 +158,26 @@ region = Rect2(0, 72, 72, 72)
 [sub_resource type="AtlasTexture" id="AtlasTexture_g66nw"]
 atlas = ExtResource("3_eojnx")
 region = Rect2(72, 72, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_dvq58"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(504, 1152, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qgqs5"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(0, 1224, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_e1rhj"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(72, 1224, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qdswu"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(144, 1224, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_itbg4"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(216, 1224, 72, 72)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_lvr6b"]
 atlas = ExtResource("3_eojnx")
@@ -378,6 +402,26 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_dvq58")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qgqs5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_e1rhj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qdswu")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_itbg4")
+}],
+"loop": true,
+"name": &"interacting",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_lvr6b")
 }, {
 "duration": 1.0,
@@ -473,7 +517,12 @@ interactArea = NodePath("Area3D")
 _hurtBox = NodePath("HurtBox")
 _animator = NodePath("LitSpriteAnimator")
 _footstepEffects = Dictionary[int, PackedScene]({
-0: ExtResource("11_footstep_grass")
+0: ExtResource("11_footstep_grass"),
+1: ExtResource("4_xrqxk"),
+2: ExtResource("5_g66nw"),
+3: ExtResource("7_d6tgn"),
+4: ExtResource("6_rpnd8"),
+5: ExtResource("4_xrqxk")
 })
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=1610472919]
@@ -484,7 +533,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(144, 1224, 72, 72)
+region_rect = Rect2(432, 0, 72, 72)
 script = ExtResource("4_qgnko")
 MirrorByYaw = true
 ForwardOffset = 0.25
@@ -517,4 +566,4 @@ shape = SubResource("CapsuleShape3D_1uit0")
 script = ExtResource("7_eojnx")
 target = NodePath("../Sprite")
 frames = SubResource("SpriteFrames_rpnd8")
-defaultAnimation = &"swim_idle"
+defaultAnimation = &"idle"

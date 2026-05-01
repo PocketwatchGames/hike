@@ -15,6 +15,7 @@ public enum EAnimation
     Run,
     Swim,
     SwimIdle,
+    Interacting,
 }
 
 public static class AnimationNames
@@ -32,12 +33,13 @@ public static class AnimationNames
     public static readonly StringName Run = "run";
     public static readonly StringName Swim = "swim";
     public static readonly StringName SwimIdle = "swim_idle";
+    public static readonly StringName Interacting = "interacting";
 
     // Indexed by EAnimation cast to int — declaration order in EAnimation
     // and the array MUST match. Add new entries at the bottom of both.
     static readonly StringName[] _byEnum = new[]
     {
-        Attack, Dead, Die, Fall, Idle, Jump, Run, Swim, SwimIdle,
+        Attack, Dead, Die, Fall, Idle, Jump, Run, Swim, SwimIdle, Interacting,
     };
 
     public static StringName Get(EAnimation anim) => _byEnum[(int)anim];

@@ -1,51 +1,44 @@
-[gd_resource type="Resource" script_class="RegionAmbienceData" load_steps=15 format=3]
+[gd_resource type="Resource" script_class="RegionAmbienceData" format=3 uid="uid://ca52as015qeba"]
 
-[ext_resource type="Script" path="res://scripts/data/RegionAmbienceData.cs" id="ambience_script"]
-[ext_resource type="Script" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
-[ext_resource type="AudioStream" path="res://audio/source/ambience/amb_biome_mesa_day_lp.wav" id="stream_biome_day"]
-[ext_resource type="AudioStream" path="res://audio/source/ambience/amb_biome_mesa_night_lp.wav" id="stream_biome_night"]
-[ext_resource type="AudioStream" path="res://audio/source/ambience/amb_weather_desertWind_lp.wav" id="stream_wind"]
-[ext_resource type="AudioStream" path="res://audio/source/ambience/amb_creatures_crickets_lp.wav" id="stream_crickets"]
+[ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/RegionAmbienceData.cs" id="ambience_script"]
+[ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
+[ext_resource type="AudioStream" uid="uid://yahff7mn7skx" path="res://audio/source/ambience/amb_biome_mesa_day_lp.wav" id="stream_biome_day"]
+[ext_resource type="AudioStream" uid="uid://cilal0duu5v28" path="res://audio/source/ambience/amb_biome_mesa_night_lp.wav" id="stream_biome_night"]
+[ext_resource type="AudioStream" uid="uid://htv6yc8tsde7" path="res://audio/source/ambience/amb_creatures_crickets_lp.wav" id="stream_crickets"]
+[ext_resource type="AudioStream" uid="uid://d20m47mnlqhwy" path="res://audio/source/ambience/amb_weather_desertWind_lp.wav" id="stream_wind"]
 
 [sub_resource type="Curve" id="Curve_tod_day"]
 _data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.2, 0), 0.0, 0.0, 1, 1, Vector2(0.5, 1), 0.0, 0.0, 1, 1, Vector2(0.8, 0), 0.0, 0.0, 1, 1, Vector2(1, 0), 0.0, 0.0, 1, 1]
 point_count = 5
-
-[sub_resource type="Curve" id="Curve_tod_night"]
-_data = [Vector2(0, 1), 0.0, 0.0, 1, 1, Vector2(0.2, 1), 0.0, 0.0, 1, 1, Vector2(0.5, 0), 0.0, 0.0, 1, 1, Vector2(0.8, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
-point_count = 5
-
-[sub_resource type="Curve" id="Curve_tod_dusk_to_dawn"]
-_data = [Vector2(0, 1), 0.0, 0.0, 1, 1, Vector2(0.2, 1), 0.0, 0.0, 1, 1, Vector2(0.3, 0), 0.0, 0.0, 1, 1, Vector2(0.7, 0), 0.0, 0.0, 1, 1, Vector2(0.8, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
-point_count = 6
-
-[sub_resource type="Curve" id="Curve_threshold_wind"]
-_data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.05, 0), 0.0, 0.0, 1, 1, Vector2(0.5, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
-point_count = 4
 
 [sub_resource type="Resource" id="Layer_biome_day"]
 script = ExtResource("layer_script")
 stream = ExtResource("stream_biome_day")
 sourceField = 255
 timeOfDayVolume = SubResource("Curve_tod_day")
-volumeScale = 1.0
-bus = "Ambience2D"
+
+[sub_resource type="Curve" id="Curve_tod_night"]
+_data = [Vector2(0, 1), 0.0, 0.0, 1, 1, Vector2(0.2, 1), 0.0, 0.0, 1, 1, Vector2(0.5, 0), 0.0, 0.0, 1, 1, Vector2(0.8, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
+point_count = 5
 
 [sub_resource type="Resource" id="Layer_biome_night"]
 script = ExtResource("layer_script")
 stream = ExtResource("stream_biome_night")
 sourceField = 255
 timeOfDayVolume = SubResource("Curve_tod_night")
-volumeScale = 1.0
-bus = "Ambience2D"
+
+[sub_resource type="Curve" id="Curve_threshold_wind"]
+_data = [Vector2(0, 0), 0.0, 0.0, 1, 1, Vector2(0.05, 0), 0.0, 0.0, 1, 1, Vector2(0.5, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
+point_count = 4
 
 [sub_resource type="Resource" id="Layer_wind"]
 script = ExtResource("layer_script")
 stream = ExtResource("stream_wind")
-sourceField = 1
 volumeCurve = SubResource("Curve_threshold_wind")
-volumeScale = 1.0
-bus = "Ambience2D"
+
+[sub_resource type="Curve" id="Curve_tod_dusk_to_dawn"]
+_data = [Vector2(0, 1), 0.0, 0.0, 1, 1, Vector2(0.2, 1), 0.0, 0.0, 1, 1, Vector2(0.3, 0), 0.0, 0.0, 1, 1, Vector2(0.7, 0), 0.0, 0.0, 1, 1, Vector2(0.8, 1), 0.0, 0.0, 1, 1, Vector2(1, 1), 0.0, 0.0, 1, 1]
+point_count = 6
 
 [sub_resource type="Resource" id="Layer_crickets"]
 script = ExtResource("layer_script")
@@ -53,9 +46,7 @@ stream = ExtResource("stream_crickets")
 sourceField = 255
 timeOfDayVolume = SubResource("Curve_tod_dusk_to_dawn")
 volumeScale = 0.9
-bus = "Ambience2D"
 
 [resource]
 script = ExtResource("ambience_script")
-globalLayers = Array[ExtResource("layer_script")]([SubResource("Layer_biome_day"), SubResource("Layer_biome_night"), SubResource("Layer_wind"), SubResource("Layer_crickets")])
-positionalEmitters = Array[Resource]([])
+globalLayers = [SubResource("Layer_biome_day"), SubResource("Layer_biome_night"), SubResource("Layer_wind"), SubResource("Layer_crickets")]

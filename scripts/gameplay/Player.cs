@@ -199,6 +199,13 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = AnimationNames.Dead;
 		}
+		else if (_curInteractive != null)
+		{
+			// Interaction holds the player still (movement speed is forced to
+			// 0 above) — show the interaction loop regardless of water/ground
+			// state until the action completes or is cancelled.
+			loopAnim = AnimationNames.Interacting;
+		}
 		else if (_waterState == EWaterState.Swimming)
 		{
 			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Swim, AnimationNames.SwimIdle);
