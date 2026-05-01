@@ -129,8 +129,9 @@ public partial class Player : CharacterBody3D
 	// Phase 4 ToggleCarrierLight handler hook. Spawns/despawns a CarrierLight
 	// attached to the player. The player must be inside the scene tree by
 	// this point (Initialize has run); attach the light as a child so it
-	// follows the player's transform.
-	public void SetCarrierLightActive(bool active)
+	// follows the player's transform. The scene comes from the activating
+	// torch's TorchData — different torches can carry different lights.
+	public void SetCarrierLightActive(bool active, PackedScene scene = null)
 	{
 		if (active)
 		{
@@ -138,11 +139,11 @@ public partial class Player : CharacterBody3D
 			{
 				return;
 			}
-			if (data?.carrierLightScene == null)
+			if (scene == null)
 			{
 				return;
 			}
-			_carrierLight = data.carrierLightScene.Instantiate<CarrierLight>();
+			_carrierLight = scene.Instantiate<CarrierLight>();
 			AddChild(_carrierLight);
 		}
 		else
@@ -181,18 +182,26 @@ public partial class Player : CharacterBody3D
 				_inventory.TryAdd(ranged);
 				_inventory.TryEquip(ranged, EInventorySlot.WeaponRight);
 			}
-			if (spawnData.startingTorchData != null)
+			if (spawnData.startingConsumables != null)
 			{
-				var torch = new TorchState(spawnData.startingTorchData);
-				_inventory.TryAdd(torch);
-				_inventory.TryMoveToConsumableSlot(torch);
+				foreach (ConsumableData cd in spawnData.startingConsumables)
+				{
+					if (cd == null) { continue; }
+					ItemState item = cd.CreateState();
+					item.stackCount = cd.maxStack;
+					_inventory.TryAdd(item);
+					_inventory.TryMoveToConsumableSlot(item);
+				}
 			}
-			if (spawnData.startingPotionData != null)
+			if (spawnData.startingInventory != null)
 			{
-				var potion = new ConsumableState(spawnData.startingPotionData);
-				potion.stackCount = spawnData.startingPotionData.maxStack;
-				_inventory.TryAdd(potion);
-				_inventory.TryMoveToConsumableSlot(potion);
+				foreach (ItemData id in spawnData.startingInventory)
+				{
+					if (id == null) { continue; }
+					ItemState item = id.CreateState();
+					item.stackCount = id.maxStack;
+					_inventory.TryAdd(item);
+				}
 			}
 		}
 	}

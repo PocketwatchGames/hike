@@ -78,6 +78,9 @@ instance uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
 instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform float sprite_chunky;
 global uniform float sprite_stretch;
 
@@ -287,7 +290,7 @@ void fragment() {
 	// Ceiling-cutaway: the source sprite discards above camera_clip, so
 	// match here. Anchor y is the REFLECTION anchor, below water; compare
 	// against source_world_pos for the true cutaway relationship.
-	if (source_world_pos.y > camera_clip) {
+	if (clip_dither_should_discard(source_world_pos.y, FRAGCOORD.xy)) {
 		discard;
 	}
 

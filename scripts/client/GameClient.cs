@@ -20,11 +20,14 @@ public partial class GameClient : Node3D
 	[Export] public ShaderMaterial postProcessMaterial;
 
 	public Action onInit;
+	public Action<Player> onPlayerSpawned;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
 	public bool paused { get; private set; } = false;
+	public Player Player => _player;
+	public World World => _world;
 
 	Player _player;
 	World _world;
@@ -99,6 +102,8 @@ public partial class GameClient : Node3D
 
 		camera.Init(sceneViewport);
 		camera.SetInitialPosition(_player.GlobalPosition);
+
+		onPlayerSpawned?.Invoke(_player);
 	}
 
 	// Push radius and bend strength for the detail-sprite shader's player
@@ -134,6 +139,14 @@ public partial class GameClient : Node3D
 			camera.UpdateCamera(deltaTime, _player.GlobalPosition);
 			SnapCameraAndUpdateUpscale();
 			CullProps(camera.Clip);
+		}
+		// Sync the cap-mask camera AFTER the chunky-pixel snap so the mask
+		// renders at the same snapped pose as the main scene. Mask
+		// SubViewport size matches the inner pre-upscale size for 1:1
+		// SCREEN_UV alignment.
+		if (sceneViewport != null)
+		{
+			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
 		UpdatePostProcess();
 	}

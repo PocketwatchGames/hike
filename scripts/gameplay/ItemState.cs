@@ -6,6 +6,7 @@ public class ItemState
 	public int stackCount;
 
 	public ulong cooldownExpireMs;
+	public ulong cooldownDurationMs;
 
 	public ItemState(ItemData d)
 	{

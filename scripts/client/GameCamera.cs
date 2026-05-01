@@ -10,9 +10,22 @@ public partial class GameCamera : Camera3D
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
 	private const float EYE_HEIGHT = 2f;
 	private const float PLATEAU_STEP = 4f;
+	// Duration of the dithered fade between cutaway elevations. While
+	// blending, ceiling-discard shaders stipple the transition band via
+	// camera_clip_prev / camera_clip_blend (see clip_dither.gdshaderinc).
+	private const float CLIP_FADE_TIME = 0.1f;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
+	// Source Y for the in-progress fade. While `_clipBlend` < 1, shaders
+	// blend between this and `_clip`. Equal to `_clip` when idle.
+	private float _clipPrev = float.PositiveInfinity;
+	private float _clipBlend = 1f;
+	// At most one transition can be queued behind the current fade. A
+	// second incoming change while a fade is running overwrites it; the
+	// queued target is consumed when blend reaches 1. NaN sentinel = none.
+	private float _pendingClip = float.NaN;
+	private Vector3 _pendingCenter;
 	// Yaw is stored in RADIANS (consistent with Q/E rotations that use
 	// DegToRad(90)). Initial value = 45° → DegToRad(45). Previously was
 	// raw `45` which normalized to ~58.3° via 45 mod 2π, throwing off
@@ -22,6 +35,17 @@ public partial class GameCamera : Camera3D
 	private bool _clipAlways = false;
 	private MeshInstance3D _clipCapPlane;
 	private MeshInstance3D _waterCapPlane;
+	private SubViewport _capMaskViewport;
+	private Camera3D _capMaskCamera;
+	private CanvasLayer _capMaskDebugLayer;
+	private TextureRect _capMaskDebugRect;
+	// Visibility layers — main scene meshes default to bit 0 (layers = 1),
+	// cap-mask geometry (added per-chunk in ChunkMesh) is on bit 1
+	// (layers = 2). The main camera's cull_mask excludes bit 1 so it
+	// doesn't see the mask geometry; the SubViewport camera's cull_mask
+	// is bit 1 ONLY so it sees nothing else.
+	public const uint MainSceneLayer = 1u << 0;
+	public const uint CapMaskLayer = 1u << 1;
 
 	public float Clip => _clip;
 	public float Yaw => _yaw;
@@ -52,10 +76,70 @@ public partial class GameCamera : Camera3D
 	{
 		ApplyProjection(CVars.cameraPerspective.Value);
 
+		// Main camera only sees the main scene layer; the cap-mask geometry
+		// (added per-chunk on CapMaskLayer) is invisible here.
+		CullMask = MainSceneLayer;
+
+		// Off-screen render target that builds a per-pixel mask of "where
+		// the cap should draw." SubViewport shares the parent's World3D
+		// (own_world_3d=false) so it sees the same chunk meshes without
+		// us needing to mirror the scene tree, but its camera's cull_mask
+		// is CapMaskLayer ONLY — it sees just the mask MeshInstance3Ds
+		// added per-chunk in ChunkMesh, never the visible terrain or
+		// sprites. Size is matched to the inner pre-upscale viewport in
+		// SyncCapMaskCamera so SCREEN_UV in clip_cap maps 1:1.
+		_capMaskViewport = new SubViewport();
+		_capMaskViewport.OwnWorld3D = false;
+		_capMaskViewport.HandleInputLocally = false;
+		_capMaskViewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
+		_capMaskViewport.RenderTargetClearMode = SubViewport.ClearMode.Always;
+		_capMaskViewport.TransparentBg = false;
+		_capMaskViewport.Disable3D = false;
+		_capMaskViewport.Msaa3D = Viewport.Msaa.Disabled;
+		_capMaskViewport.Size = new Vector2I(2, 2);
+		parent.AddChild(_capMaskViewport);
+
+		_capMaskCamera = new Camera3D();
+		_capMaskCamera.CullMask = CapMaskLayer;
+		_capMaskCamera.Current = true;
+		// Clear to WHITE = "cap should draw here." The terrain mask material
+		// renders BLACK over visible (below-clip) terrain so those pixels
+		// fail the cap's `mask >= 0.5` test and the cap doesn't draw
+		// there. Above-clip front-faces are discarded so the white clear
+		// shows through. The back-face mask material then writes white
+		// over any underground front-faces that painted black through
+		// other clipped solids, restoring the cap mask in those regions.
+		// Environment is stripped of every non-essential effect since the
+		// mask render only needs raw albedo writes — no lighting, no
+		// post-process, no auto-exposure.
+		var maskEnv = new Environment();
+		maskEnv.BackgroundMode = Environment.BGMode.Color;
+		maskEnv.BackgroundColor = new Color(1, 1, 1, 1);
+		maskEnv.AmbientLightSource = Environment.AmbientSource.Disabled;
+		maskEnv.ReflectedLightSource = Environment.ReflectionSource.Disabled;
+		maskEnv.TonemapMode = Environment.ToneMapper.Linear;
+		_capMaskCamera.Environment = maskEnv;
+		_capMaskViewport.AddChild(_capMaskCamera);
+
+		// Debug overlay: drives the `cap_mask_debug` CVar. When toggled on,
+		// draws the SubViewport's texture as a full-screen TextureRect so
+		// the mask is directly visible on top of the game.
+		_capMaskDebugLayer = new CanvasLayer();
+		_capMaskDebugLayer.Layer = 100;
+		parent.AddChild(_capMaskDebugLayer);
+		_capMaskDebugRect = new TextureRect();
+		_capMaskDebugRect.Texture = _capMaskViewport.GetTexture();
+		_capMaskDebugRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_capMaskDebugRect.ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize;
+		_capMaskDebugRect.StretchMode = TextureRect.StretchModeEnum.Scale;
+		_capMaskDebugRect.Visible = false;
+		_capMaskDebugLayer.AddChild(_capMaskDebugRect);
+
 		var capShader = GD.Load<Shader>("res://shaders/clip_cap.gdshader");
 		var capMaterial = new ShaderMaterial();
 		capMaterial.Shader = capShader;
 		capMaterial.RenderPriority = 1;
+		capMaterial.SetShaderParameter("cap_mask_tex", _capMaskViewport.GetTexture());
 
 		var planeMesh = new PlaneMesh();
 		planeMesh.Size = new Vector2(1000, 1000);
@@ -88,6 +172,16 @@ public partial class GameCamera : Camera3D
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
 		_destYaw = GlobalRotation.Y;
 		_yaw = _destYaw;
+
+		PushClipGlobals();
+	}
+
+	public void SetCapMaskDebugVisible(bool visible)
+	{
+		if (_capMaskDebugRect != null)
+		{
+			_capMaskDebugRect.Visible = visible;
+		}
 	}
 
 	public void SetInitialPosition(Vector3 playerPosition)
@@ -107,6 +201,38 @@ public partial class GameCamera : Camera3D
 		{
 			UpdateClip(playerPosition);
 		}
+
+		AdvanceClipFade((float)deltaTime);
+	}
+
+	// Mirrors the main camera's pose and projection into the off-screen
+	// cap-mask camera. Must be called AFTER GameClient's chunky-pixel
+	// camera snap so the mask renders with the same snapped pose as the
+	// visible scene — otherwise the mask is sub-texel offset from the
+	// main render and the cap edges shimmer. Also resizes the mask
+	// SubViewport to exactly match the inner pre-upscale viewport so
+	// SCREEN_UV samples line up 1:1 with the chunky pixel grid.
+	public void SyncCapMaskCamera(Vector2I innerViewportSize)
+	{
+		_capMaskCamera.GlobalTransform = GlobalTransform;
+		if (Projection == ProjectionType.Perspective)
+		{
+			_capMaskCamera.Projection = ProjectionType.Perspective;
+			_capMaskCamera.Fov = Fov;
+		}
+		else
+		{
+			_capMaskCamera.Projection = ProjectionType.Orthogonal;
+			_capMaskCamera.Size = Size;
+		}
+		_capMaskCamera.Near = Near;
+		_capMaskCamera.Far = Far;
+
+		var targetSize = new Vector2I(Mathf.Max(1, innerViewportSize.X), Mathf.Max(1, innerViewportSize.Y));
+		if (_capMaskViewport.Size != targetSize)
+		{
+			_capMaskViewport.Size = targetSize;
+		}
 	}
 
 	private void UpdateClip(Vector3 playerPos)
@@ -123,32 +249,109 @@ public partial class GameCamera : Camera3D
 		float eyeY = playerPos.Y + EYE_HEIGHT;
 		float alwaysClip = Mathf.Ceil(eyeY / PLATEAU_STEP) * PLATEAU_STEP - CLIP_EPSILON;
 
+		float targetClip;
 		if (result.Count > 0)
 		{
 			Vector3 hitPosition = (Vector3)result["position"];
 			float ceilingClip = hitPosition.Y - CLIP_EPSILON;
-			_clip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
-			_clipCapPlane.Visible = CVars.ceilingCap.Value;
-			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
-			_waterCapPlane.Visible = true;
-			_waterCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
+			targetClip = _clipAlways ? Mathf.Min(ceilingClip, alwaysClip) : ceilingClip;
 		}
 		else if (_clipAlways)
 		{
-			_clip = alwaysClip;
-			_clipCapPlane.Visible = CVars.ceilingCap.Value;
-			_clipCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
-			_waterCapPlane.Visible = true;
-			_waterCapPlane.GlobalPosition = new Vector3(playerPos.X, _clip - CAP_PLANE_Y_BIAS, playerPos.Z);
+			targetClip = alwaysClip;
 		}
 		else
 		{
-			_clip = float.PositiveInfinity;
+			targetClip = float.PositiveInfinity;
+		}
+
+		RequestClip(targetClip, playerPos);
+	}
+
+	// Routes a target clip Y through the fade state. If we're idle, kicks
+	// off a fresh 0.1s blend from current → target. If a fade is already
+	// running, stashes the target as the single pending slot (overwriting
+	// any earlier pending) and consumes it once the current fade lands.
+	private void RequestClip(float targetClip, Vector3 centerPos)
+	{
+		bool fading = _clipBlend < 1f;
+		if (!fading)
+		{
+			if (targetClip != _clip)
+			{
+				StartClipFade(targetClip, centerPos);
+			}
+			else
+			{
+				ApplyClipPlanes(centerPos);
+			}
+		}
+		else
+		{
+			if (targetClip == _clip)
+			{
+				_pendingClip = float.NaN;
+			}
+			else
+			{
+				_pendingClip = targetClip;
+				_pendingCenter = centerPos;
+			}
+			ApplyClipPlanes(centerPos);
+		}
+	}
+
+	private void StartClipFade(float targetClip, Vector3 centerPos)
+	{
+		_clipPrev = _clip;
+		_clip = targetClip;
+		_clipBlend = 0f;
+		_pendingClip = float.NaN;
+		ApplyClipPlanes(centerPos);
+		PushClipGlobals();
+	}
+
+	private void AdvanceClipFade(float deltaTime)
+	{
+		if (_clipBlend >= 1f)
+		{
+			return;
+		}
+		_clipBlend = Mathf.Min(1f, _clipBlend + deltaTime / CLIP_FADE_TIME);
+		if (_clipBlend >= 1f)
+		{
+			_clipPrev = _clip;
+			if (!float.IsNaN(_pendingClip) && _pendingClip != _clip)
+			{
+				StartClipFade(_pendingClip, _pendingCenter);
+				return;
+			}
+			_pendingClip = float.NaN;
+		}
+		PushClipGlobals();
+	}
+
+	private void ApplyClipPlanes(Vector3 centerPos)
+	{
+		if (_clip < float.PositiveInfinity)
+		{
+			_clipCapPlane.Visible = CVars.ceilingCap.Value;
+			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_waterCapPlane.Visible = true;
+			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+		}
+		else
+		{
 			_clipCapPlane.Visible = false;
 			_waterCapPlane.Visible = false;
 		}
+	}
 
+	private void PushClipGlobals()
+	{
 		RenderingServer.GlobalShaderParameterSet("camera_clip", _clip);
+		RenderingServer.GlobalShaderParameterSet("camera_clip_prev", _clipPrev);
+		RenderingServer.GlobalShaderParameterSet("camera_clip_blend", _clipBlend);
 	}
 
 	public void RotateLeft()
@@ -168,19 +371,6 @@ public partial class GameCamera : Camera3D
 
 	public void SetClip(float clipY, Vector3 centerPos)
 	{
-		_clip = clipY;
-		if (_clip < float.PositiveInfinity)
-		{
-			_clipCapPlane.Visible = CVars.ceilingCap.Value;
-			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
-			_waterCapPlane.Visible = true;
-			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
-		}
-		else
-		{
-			_clipCapPlane.Visible = false;
-			_waterCapPlane.Visible = false;
-		}
-		RenderingServer.GlobalShaderParameterSet("camera_clip", _clip);
+		RequestClip(clipY, centerPos);
 	}
 }

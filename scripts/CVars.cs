@@ -5,6 +5,18 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // When true, draws the off-screen cap-mask SubViewport texture as a
+    // fullscreen overlay so you can see exactly what the cap shader is
+    // sampling. White pixels = "cap should draw here", black = "no cap".
+    public static CVarBool capMaskDebug = new CVarBool("cap_mask_debug", false, (cvar) =>
+    {
+        var client = GameClient.Current;
+        if (client != null && client.camera != null)
+        {
+            client.camera.SetCapMaskDebugVisible(((CVarBool)cvar).Value);
+        }
+    });
+
     // Bitmask of worldgen entity categories to SKIP. Useful for iterating on
     // terrain shape, kit colors, or fog without the visual clutter — set the
     // bits for the category you want gone:
@@ -386,9 +398,6 @@ public static class CVars
     //   3 = water backface stencil (voxel_water_backface.gdshader) → adds
     //       CYAN wherever stencil=2 is being written. Shows the screen
     //       region the water cap is allowed to draw in.
-    //   4 = solid backface stencil (voxel_backface_stencil.gdshader) → adds
-    //       GREEN wherever stencil=1 is being written. Shows the screen
-    //       region the ceiling cap is allowed to draw in.
     //   5 = water cap disabled entirely. If the artifact disappears, the
     //       water cap was drawing it. If it persists, look elsewhere.
     //   6 = ceiling cap disabled entirely.
@@ -396,34 +405,14 @@ public static class CVars
     //       Shows where actual water voxel surfaces (not the cap) draw.
     //   8 = voxel_water clip-line predicate viz. RED = fragment evaluates
     //       `world_vertex.y > camera_clip` (would have been discarded).
-    //       GREEN = below clip (legitimate). If you see RED water
-    //       surfaces, the discard isn't firing — either camera_clip is
-    //       +inf / wrong, or the global isn't seeded on this material.
-    //   9 = voxel_water `world_vertex.y` as grayscale (mod 16). Should be
-    //       horizontal bands; flat = the varying isn't reaching fragment.
-    //  10 = voxel_water `camera_clip` global as grayscale (mod 16). Flat
-    //       uniform color across all water fragments. Pure white = global
-    //       reading as huge / +inf; pure black = global never set on this
-    //       material.
-    //  11 = voxel_water face-type visualizer. CYAN = top face, MAGENTA =
-    //       bottom face, YELLOW = side face. Use this when water bleeds
-    //       through the cap to see which mesh face the leak is on; the
-    //       fix is in WaterMesher (cull that face under sealed-pocket
-    //       conditions). Top faces against solid are already culled.
-    //  13 = full cap+stencil visualizer. Color legend:
-    //         BLUE          = visible terrain (voxel_clip emission)
-    //         RED           = clip_cap drawing (stencil=1 read region)
-    //         MAGENTA       = water_clip_cap drawing (stencil=2 read region)
-    //         GREEN (added) = voxel_backface_stencil writing stencil=1
-    //         CYAN  (added) = voxel_water_backface writing stencil=2
-    //         Anything else = sky / sprites / water / fog (other shaders)
-    //       Cap regions and matching stencil-write regions should overlap.
-    //       Pair with `water_hide 1` to drop water front faces.
-    //  14 = same as 13 but voxel_backface_stencil also runs ABOVE the clip
-    //       line and paints YELLOW there. Diagnostic for "stencil coverage
-    //       we'd get if we removed the above-clip discard". If yellow
-    //       appears over a water poke-through region that mode 13 left
-    //       bare, the existing discard is killing useful coverage.
+    //       GREEN = below clip (legitimate).
+    //   9 = voxel_water `world_vertex.y` as grayscale (mod 16).
+    //  10 = voxel_water `camera_clip` global as grayscale (mod 16).
+    //  11 = voxel_water face-type visualizer. CYAN = top, MAGENTA =
+    //       bottom, YELLOW = side. For diagnosing water poke-through.
+    // For inspecting the ceiling cap's mask coverage directly (the
+    // SubViewport-rendered black/white silhouette), use `cap_mask_debug 1`
+    // instead — that draws the mask texture as a fullscreen overlay.
     public static CVarInt clipDebug = new CVarInt("clip_debug", 0, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("clip_debug_mode", ((CVarInt)cvar).Value);

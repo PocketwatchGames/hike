@@ -1,7 +1,18 @@
 shader_type spatial;
-render_mode blend_mix, depth_draw_opaque, cull_back, ambient_light_disabled, specular_disabled;
+// Opaque queue: the clip transition uses pure `discard` (alpha clip), not
+// actual alpha blending, so blend_mix was buying us nothing and silently
+// putting terrain into the transparent depth-write path where
+// depth_draw_opaque resolves to "no write" — that's why the stencil
+// writer (alpha queue, priority 2) was depth-testing against opaque
+// sprite content instead of terrain. Now terrain lives in the opaque
+// queue, writes depth normally, and the stencil writer correctly gates
+// the cap region against terrain front-faces.
+render_mode depth_draw_opaque, cull_back, ambient_light_disabled, specular_disabled;
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
 // Debug toggles — shared with detail_sprite so terrain and sprites behave
@@ -559,7 +570,7 @@ void fragment() {
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
 		wet_spec = 0.0;
 	}
-	if (world_vertex.y > camera_clip) {
+	if (clip_dither_should_discard(world_vertex.y, FRAGCOORD.xy)) {
 		discard;
 	}
 	// Mode 13: paint terrain via EMISSION (bypasses lighting) so it shows

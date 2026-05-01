@@ -7,9 +7,11 @@ shader_type spatial;
 //     with depth-write makes z-sort an automatic consequence of the depth
 //     buffer instead.
 //   - depth_draw_opaque writes depth in the color pass too, so subsequent
-//     opaque draws (including other detail-sprite chunks) sort correctly.
-// blend_mix is omitted — the sprite is fully opaque or discarded; nothing
-// to blend.
+//     opaque draws (other detail-sprite chunks, sprite_lit, props) sort
+//     correctly via the depth buffer.
+// Cap occlusion is handled by an off-screen mask render rather than the
+// stencil pipeline, so detail_sprite no longer needs to participate in
+// any alpha-queue ordering for the cap to work.
 render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform;
 
 // MultiMesh-instanced detail sprite (grass, flowers, twigs, etc.).
@@ -124,6 +126,9 @@ global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 // Debug toggles — shared with voxel_clip so terrain and sprites behave
 // identically under each flag and you can isolate shading divergences.
 global uniform bool debug_normals;        // RGB = world_normal * 0.5 + 0.5
@@ -314,7 +319,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (world_origin.y > camera_clip) {
+	if (clip_dither_should_discard(world_origin.y, FRAGCOORD.xy)) {
 		discard;
 	}
 

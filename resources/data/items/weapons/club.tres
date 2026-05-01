@@ -1,78 +1,54 @@
-[gd_resource type="Resource" script_class="WeaponData" load_steps=11 format=3 uid="uid://dibo02cdspray"]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
-[ext_resource type="Script" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
-[ext_resource type="Script" path="res://scripts/data/actions/ChargedAction.cs" id="4_charged"]
-[ext_resource type="Script" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ChargedAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_in4wh"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="6_sprite"]
-
-[sub_resource type="Resource" id="Resource_damage"]
-script = ExtResource("1_damage")
-healthDamage = 0.5
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
-time = 0
-type = 0
-meleeRange = 1.0
-meleeRadius = 2.0
-hitScanRange = 20.0
-
-[sub_resource type="Resource" id="Resource_event_heavy"]
-script = ExtResource("3_event")
-time = 0
-type = 0
-meleeRange = 1.5
-meleeRadius = 2.5
-hitScanRange = 20.0
+animName = null
+soundName = null
 
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 verb = 1
-chargeTime = 0.0
-activeDurationSeconds = 0.0
 cooldownSeconds = 0.4
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
-readyEvents = Array[ExtResource("3_event")]([])
-abortEvents = Array[ExtResource("3_event")]([])
 combos = true
 comboWindowMs = 600
-comboBonusEvents = Array[ExtResource("3_event")]([])
-canAbort = false
-canInterrupt = true
+
+[sub_resource type="Resource" id="Resource_event_heavy"]
+script = ExtResource("3_event")
+meleeRange = 1.5
+meleeRadius = 2.5
+animName = null
+soundName = null
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
 verb = 2
 chargeTime = 0.4
-activeDurationSeconds = 0.0
 cooldownSeconds = 0.8
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
-readyEvents = Array[ExtResource("3_event")]([])
-abortEvents = Array[ExtResource("3_event")]([])
-combos = false
-comboWindowMs = 0
-comboBonusEvents = Array[ExtResource("3_event")]([])
-canAbort = false
-canInterrupt = true
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
 chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
-chargeEvents = Array[ExtResource("3_event")]([])
-chargeEndEvents = Array[ExtResource("3_event")]([])
-abortEvents = Array[ExtResource("3_event")]([])
 autoActivateAtMax = false
-locksMovement = false
-interruptOnDamage = true
 queueable = true
 queueWindowSeconds = 0.2
 
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+healthDamage = 0.5
+
 [resource]
 script = ExtResource("2_weapon")
-inventorySprite = ExtResource("6_sprite")
-useAmmo = false
-maxAmmo = 0
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
+inventorySprite = ExtResource("6_sprite")

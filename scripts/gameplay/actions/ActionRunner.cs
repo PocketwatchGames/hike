@@ -290,10 +290,14 @@ public class ActionRunner
 			}
 		}
 
-		// Apply per-item cooldown.
+		// Apply per-item cooldown. Duration is also stored so HUDs can render
+		// progress without re-reading the tier (which is unreachable once the
+		// runner advances past Active).
 		if (_action.context.primaryItem != null)
 		{
-			_action.context.primaryItem.cooldownExpireMs = now + (ulong)(tier.cooldownSeconds * 1000f);
+			ulong cooldownMs = (ulong)(tier.cooldownSeconds * 1000f);
+			_action.context.primaryItem.cooldownExpireMs = now + cooldownMs;
+			_action.context.primaryItem.cooldownDurationMs = cooldownMs;
 		}
 
 		// Fire combo-bonus events (authored on the tier) when comboIndex > 0.

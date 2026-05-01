@@ -8,6 +8,9 @@ render_mode blend_mix, depth_draw_never, cull_back, unshaded;
 stencil_mode write, compare_always, 4;
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 // When true, the water shader discards every fragment. Lets you see the
 // terrain underneath without water tinting / depth fade in the way.
@@ -602,7 +605,7 @@ void fragment() {
 			ALBEDO = vec3(1.0, 1.0, 0.0);
 		}
 		ALPHA = 1.0;
-	} else if (world_vertex.y > camera_clip) {
+	} else if (clip_dither_should_discard(world_vertex.y, FRAGCOORD.xy)) {
 		discard;
 	} else
 	// Debug mode 7: paint actual water front-face surfaces yellow so you

@@ -57,8 +57,7 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
         // Ceiling-cap pipeline debug mode (CVars.clipDebug). Seeded here so
         // every shader that reads it (clip_cap, water_clip_cap, voxel_water,
-        // voxel_water_backface, voxel_backface_stencil) compiles cleanly
-        // before the first frame.
+        // voxel_water_backface) compiles cleanly before the first frame.
         ShaderGlobals.Register("clip_debug_mode", RenderingServer.GlobalShaderParameterType.Int, CVars.clipDebug.Value);
         ShaderGlobals.Register("water_hide", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterHide.Value);
         // block_light_shadow_* globals (the projector's coverage texture,

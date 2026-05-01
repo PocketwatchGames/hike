@@ -19,10 +19,15 @@ public partial class ChunkMesh : Node3D
     private bool _scatterPosted;
 
     private static readonly ShaderMaterial SharedMaterial;
-    private static readonly ShaderMaterial BackfaceStencilMaterial;
     private static readonly ShaderMaterial ShadowCasterMaterial;
     private static readonly ShaderMaterial WaterMaterial;
     private static readonly ShaderMaterial WaterBackfaceMaterial;
+    // Materials used by the off-screen cap-mask render. Both apply to the
+    // same chunk mesh on CapMaskLayer-only MeshInstance3Ds and produce a
+    // black-and-white texture the cap shader samples to discard non-cap
+    // pixels.
+    private static readonly ShaderMaterial MaskTerrainMaterial;
+    private static readonly ShaderMaterial MaskBackfaceMaterial;
 
     static ChunkMesh()
     {
@@ -63,31 +68,29 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("band_height", VoxelTypeInfo.TILE_BAND_HEIGHT);
         SharedMaterial.SetShaderParameter("band_blend", VoxelTypeInfo.TILE_BAND_BLEND);
 
-        var backfaceShader = GD.Load<Shader>("res://shaders/voxel_backface_stencil.gdshader");
-        BackfaceStencilMaterial = new ShaderMaterial();
-        BackfaceStencilMaterial.Shader = backfaceShader;
-        // Last writer in the stencil chain — runs after voxel_water (-3)
-        // and water_backface (-2) so its stencil=1 survives wherever the
-        // cap should draw. See WaterBackfaceMaterial above for the full
-        // priority ladder.
-        BackfaceStencilMaterial.RenderPriority = -1;
-
         var shadowCasterShader = GD.Load<Shader>("res://shaders/voxel_shadow_caster.gdshader");
         ShadowCasterMaterial = new ShaderMaterial();
         ShadowCasterMaterial.Shader = shadowCasterShader;
 
+        var maskTerrainShader = GD.Load<Shader>("res://shaders/cap_mask_terrain.gdshader");
+        MaskTerrainMaterial = new ShaderMaterial();
+        MaskTerrainMaterial.Shader = maskTerrainShader;
+
+        var maskBackfaceShader = GD.Load<Shader>("res://shaders/cap_mask_backface.gdshader");
+        MaskBackfaceMaterial = new ShaderMaterial();
+        MaskBackfaceMaterial.Shader = maskBackfaceShader;
+        // Renders after the front-face mask material so its depth test
+        // sees the front-face's depth — only back-faces NOT occluded by a
+        // visible front-face (i.e., clipped regions and underground
+        // overdraw recovery) write white.
+        MaskBackfaceMaterial.RenderPriority = 1;
+
         var waterShader = GD.Load<Shader>("res://shaders/voxel_water.gdshader");
         WaterMaterial = new ShaderMaterial();
         WaterMaterial.Shader = waterShader;
-        // Draw water BEFORE the stencil-write passes (water_backface_stencil
-        // at -1 and voxel_backface_stencil at 0) so they can overwrite
-        // water's stencil=4 (used for the reflection mask) with their own
-        // stencil values (2 / 1) where they're meant to drive caps. Without
-        // this, voxel_water's `stencil_mode write, compare_always, 4` runs
-        // last and clobbers any stencil=1 the backface pass wrote at the
-        // same pixel — the cap then reads compare_equal=1, finds 4, and
-        // doesn't draw. Verified by clip_debug 2 + water_hide 1: with water
-        // hidden, stencil=1 survives and the cap draws as expected.
+        // Renders before water_backface_stencil so the back-face's
+        // stencil=2 write isn't clobbered by water's stencil=4
+        // (reflection mask) at coplanar pixels.
         WaterMaterial.RenderPriority = -3;
         // Two pre-baked normal-map textures for ripple perturbation. Each is
         // a NoiseTexture2D with as_normal_map=true (Godot bakes the noise
@@ -101,15 +104,16 @@ public partial class ChunkMesh : Node3D
         var waterBackfaceShader = GD.Load<Shader>("res://shaders/voxel_water_backface.gdshader");
         WaterBackfaceMaterial = new ShaderMaterial();
         WaterBackfaceMaterial.Shader = waterBackfaceShader;
-        // Stencil pipeline order:
+        // Render order in the main scene (cap mask builds its own pipeline
+        // off-screen via the SubViewport — see GameCamera + cap_mask_*
+        // shaders). voxel_water_backface still runs in the main scene to
+        // write stencil=2 for the water_clip_cap, which keeps its
+        // stencil-driven design.
         //   -3  voxel_water           writes stencil=4 (reflection mask)
         //   -2  voxel_water_backface  writes stencil=2 (water cap region)
-        //   -1  voxel_backface_stencil writes stencil=1 (ceiling cap region) — already 0; bumped via separate field
-        //    1  clip_cap              reads  stencil=1 (ceiling cap)
-        //    2  water_clip_cap        reads  stencil=2 (water cap)
-        // Each stencil writer overwrites earlier values, so backface_stencil
-        // wins over water/water_backface in the cap region — exactly what we
-        // want, since cap occludes water visually too.
+        //    0  voxel_clip / sprites  default priority
+        //    1  clip_cap              opaque, samples cap mask via SCREEN_UV
+        //    2  water_clip_cap        alpha, reads stencil=2
         WaterBackfaceMaterial.RenderPriority = -2;
     }
 
@@ -276,21 +280,32 @@ public partial class ChunkMesh : Node3D
 
             var visual = new MeshInstance3D();
             visual.Mesh = mesh;
-            // Shadow-casting is delegated to the shadow-proxy below. The
-            // voxel_clip shader discards fragments above camera_clip for
-            // the ceiling cutaway, and that discard runs in the shadow
-            // pass too — so if this visible mesh cast shadows, terrain
-            // above the cutaway would stop throwing shadows down onto
-            // the visible interior.
             visual.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
             visual.MaterialOverride = SharedMaterial;
+            visual.Layers = GameCamera.MainSceneLayer;
             AddChild(visual);
 
-            var backface = new MeshInstance3D();
-            backface.Mesh = mesh;
-            backface.MaterialOverride = BackfaceStencilMaterial;
-            backface.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-            AddChild(backface);
+            // Cap-mask front-face: BLACK over visible (below-clip) terrain,
+            // discarded above clip. The white SubViewport clear shows
+            // through above-clip discards = cap region.
+            var maskFront = new MeshInstance3D();
+            maskFront.Mesh = mesh;
+            maskFront.MaterialOverride = MaskTerrainMaterial;
+            maskFront.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            maskFront.Layers = GameCamera.CapMaskLayer;
+            AddChild(maskFront);
+
+            // Cap-mask back-face: WHITE wherever the back-face passes its
+            // depth test. Needed so underground front-faces (rendered
+            // through other clipped solids) don't paint black across the
+            // cap region — the back-face writes white over them, restoring
+            // the cap mask.
+            var maskBack = new MeshInstance3D();
+            maskBack.Mesh = mesh;
+            maskBack.MaterialOverride = MaskBackfaceMaterial;
+            maskBack.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+            maskBack.Layers = GameCamera.CapMaskLayer;
+            AddChild(maskBack);
 
             // Non-clipping shadow proxy — casts the full terrain silhouette
             // into the directional shadow atlas regardless of camera_clip.

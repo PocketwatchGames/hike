@@ -44,9 +44,4 @@ public partial class PlayerData : Resource
 	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
 	// player-pushes-mob entirely.
 	[Export] public float mobPushStrength = 8f;
-
-	// Optional CarrierLight scene attached to the player when a torch
-	// consumable is activated. Detached when the torch is deactivated /
-	// unequipped / consumed.
-	[Export] public PackedScene carrierLightScene;
 }

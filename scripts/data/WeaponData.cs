@@ -13,4 +13,9 @@ public partial class WeaponData : ItemData
 	// has a single tier with chargeTime=0 and autoActivateAtMax=false; phase 3
 	// adds multi-tier (Light/Heavy) authoring.
 	[Export] public ItemActionProfile actionProfile;
+
+	public override ItemState CreateState()
+	{
+		return new WeaponState(this);
+	}
 }

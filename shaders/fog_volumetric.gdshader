@@ -1,10 +1,5 @@
 shader_type spatial;
 render_mode unshaded, depth_test_disabled, depth_draw_never, blend_premul_alpha, cull_disabled;
-// The clip-cap pipeline writes 1 to the stencil buffer for pixels that
-// represent cut-away ceilings (see voxel_backface_stencil.gdshader); the
-// cap plane then draws only on those pixels. We want the inverse: fog
-// should skip cap-stencil pixels entirely so the cutaway view stays clean.
-stencil_mode read, compare_not_equal, 1;
 
 // Screen-space volumetric fog + single-scattering light transport. Fullscreen
 // quad in NDC that reconstructs each pixel's world position from DEPTH_TEXTURE,

@@ -43,6 +43,9 @@ global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform vec3 sun_color;
 global uniform float sun_intensity;
 global uniform float sun_ambient;
@@ -137,7 +140,7 @@ void vertex() {
 void fragment() {
     bool globals_ready = length(light_map_inv_size) > 1e-6;
 
-    if (globals_ready && impact_y > camera_clip) {
+    if (globals_ready && clip_dither_should_discard(impact_y, FRAGCOORD.xy)) {
         discard;
     }
 

@@ -1,37 +1,36 @@
-[gd_resource type="Resource" script_class="TorchData" load_steps=7 format=3]
+[gd_resource type="Resource" script_class="TorchData" format=3 uid="uid://bbbqut0x7kpan"]
 
-[ext_resource type="Script" path="res://scripts/data/TorchData.cs" id="1_torch"]
-[ext_resource type="Script" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
-[ext_resource type="Script" path="res://scripts/data/actions/ChargedAction.cs" id="3_charged"]
-[ext_resource type="Script" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://bu6oheeveqr6e" path="res://scripts/data/TorchData.cs" id="1_torch"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ChargedAction.cs" id="3_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kburi"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_n6qxs"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="5_sprite"]
+[ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="6_sprite_lit"]
+[ext_resource type="PackedScene" path="res://scenes/effects/carrier_light_torch.tscn" id="7_carrier"]
 
 [sub_resource type="Resource" id="Resource_event_toggle"]
 script = ExtResource("4_event")
-time = 0
 type = 6
+animName = null
+soundName = null
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
 verb = 3
-chargeTime = 0.0
-activeDurationSeconds = 0.0
-cooldownSeconds = 0.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_toggle")])
-canAbort = false
-canInterrupt = true
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
-autoActivateAtMax = true
-locksMovement = false
 interruptOnDamage = false
-queueable = false
 
 [resource]
 script = ExtResource("1_torch")
+carrierLightScene = ExtResource("7_carrier")
+actionProfile = SubResource("Resource_profile")
+activeSprite = ExtResource("6_sprite_lit")
 displayName = &"Torch"
 maxStack = 5
 inventorySprite = ExtResource("5_sprite")
-actionProfile = SubResource("Resource_profile")

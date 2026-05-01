@@ -184,7 +184,8 @@ public static class ItemEventHandlers
 			return;
 		}
 		consumable.isActive = !consumable.isActive;
-		player.SetCarrierLightActive(consumable.isActive);
+		PackedScene scene = (consumable.data as TorchData)?.carrierLightScene;
+		player.SetCarrierLightActive(consumable.isActive, scene);
 	}
 
 	public static void DoOpenInteractive(IActionActor actor, ItemEvent ev, ref PlayerAction action)

@@ -21,26 +21,16 @@ public partial class ButtonHint : BoxContainer
 		}
 	}
 
-	string _gamepadButton = string.Empty;
+	// Input action whose first matching key/button glyph drives the button
+	// label. Resolved from InputMap so rebinding takes effect without code.
+	string _inputAction = string.Empty;
 	[Export]
-	public string GamepadButton
+	public string InputAction
 	{
-		get => _gamepadButton;
+		get => _inputAction;
 		set
 		{
-			_gamepadButton = value ?? string.Empty;
-			UpdateButtonText();
-		}
-	}
-
-	string _keyboardButton = string.Empty;
-	[Export]
-	public string KeyboardButton
-	{
-		get => _keyboardButton;
-		set
-		{
-			_keyboardButton = value ?? string.Empty;
+			_inputAction = value ?? string.Empty;
 			UpdateButtonText();
 		}
 	}
@@ -65,18 +55,19 @@ public partial class ButtonHint : BoxContainer
 		InputDevice.OnChanged -= OnInputDeviceChanged;
 	}
 
-	public void SetHint(string gamepadButton, string keyboardButton, string hint)
+	public void SetHint(string inputAction, string hint)
 	{
-		_gamepadButton = gamepadButton ?? string.Empty;
-		_keyboardButton = keyboardButton ?? string.Empty;
-
+		_inputAction = inputAction ?? string.Empty;
 		ActionName = hint;
-
 		UpdateButtonText();
 	}
 
 	public void SetProgress(float value)
 	{
+		if (_progressBar == null)
+		{
+			return;
+		}
 		float clamped = Mathf.Clamp(value, 0f, 1f);
 		_progressBar.MinValue = 0;
 		_progressBar.MaxValue = 1;
@@ -102,8 +93,10 @@ public partial class ButtonHint : BoxContainer
 
 	void UpdateButtonText()
 	{
-		_buttonText.Text = InputDevice.Current == InputDevice.EDevice.Gamepad
-			? _gamepadButton
-			: _keyboardButton;
+		if (_buttonText == null)
+		{
+			return;
+		}
+		_buttonText.Text = InputGlyph.Resolve(_inputAction, InputDevice.Current);
 	}
 }

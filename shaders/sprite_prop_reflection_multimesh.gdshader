@@ -70,6 +70,9 @@ global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform float sprite_stretch;
 
 // Ripple jitter — same globals voxel_water and the per-instance reflection
@@ -305,7 +308,7 @@ void fragment() {
 
     // Ceiling cutaway — match the source against camera_clip, not the
     // reflection anchor (which sits below water).
-    if (source_world_pos.y > camera_clip) {
+    if (clip_dither_should_discard(source_world_pos.y, FRAGCOORD.xy)) {
         discard;
     }
 

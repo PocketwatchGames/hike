@@ -1,8 +1,14 @@
 shader_type spatial;
-render_mode unshaded, cull_front, depth_draw_never, blend_add;
+// Stencil-only pass that marks the screen region the water_clip_cap is
+// allowed to draw in (stencil=2). cull_front + the below-clip discard
+// below restrict writes to water voxels straddling the cutaway.
+render_mode unshaded, cull_front, depth_draw_never;
 stencil_mode write, compare_always, 2;
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 
 varying vec3 world_vertex;
@@ -18,7 +24,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (world_vertex.y > camera_clip) {
+	if (clip_dither_should_discard(world_vertex.y, FRAGCOORD.xy)) {
 		discard;
 	}
 	// Restrict stencil-2 writes to water voxels actually straddling the

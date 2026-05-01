@@ -56,6 +56,9 @@ global uniform bool debug_white_albedo;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+#include "res://shaders/clip_dither.gdshaderinc"
 global uniform float sprite_stretch;
 
 // Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
@@ -178,7 +181,7 @@ void vertex() {
 }
 
 void fragment() {
-    if (world_origin.y > camera_clip) {
+    if (clip_dither_should_discard(world_origin.y, FRAGCOORD.xy)) {
         discard;
     }
 
