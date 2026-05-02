@@ -46,6 +46,11 @@ public partial class EffectOneShot : Node3D
 					a.Finished += () => OnAudioFinished(captured);
 				}
 				a.Play();
+				if (CVars.audioLog.Value)
+				{
+					string streamPath = a.Stream?.ResourcePath ?? "<inline>";
+					GD.Print($"[audio] t={Time.GetTicksMsec()}ms scene={Name} stream={streamPath}");
+				}
 			}
 		}
 	}
@@ -63,8 +68,14 @@ public partial class EffectOneShot : Node3D
 	}
 
 	// Owner calls this when the loop should end. Particles stop spawning new
-	// puffs (existing ones fade naturally) and the audio chain breaks; the
-	// next _Process tick where everything has settled frees the node.
+	// puffs (existing ones fade naturally) and audio is halted immediately.
+	// The hard audio stop is required because loop scenes often wrap an
+	// intrinsically-looping stream (any `*_lp.wav` with loop_mode=1 in its
+	// .import) — for those, Finished is never emitted and the chain handler
+	// can't break naturally; without an explicit Stop() the node would sit
+	// here with Playing=true forever and never free. The trade-off for
+	// chain-mode loops (multi-sample randomizers) is a clipped trailing
+	// sample, which is barely audible and worth the cross-cutting fix.
 	public void Stop()
 	{
 		if (_stopping)
@@ -76,6 +87,10 @@ public partial class EffectOneShot : Node3D
 		foreach (var p in _particles)
 		{
 			p.Emitting = false;
+		}
+		foreach (var a in _audio)
+		{
+			a.Stop();
 		}
 	}
 

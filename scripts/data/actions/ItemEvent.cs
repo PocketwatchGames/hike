@@ -48,4 +48,15 @@ public partial class ItemEvent : Resource
 	// Mob attacks set this directly on the event since mobs aren't backed by
 	// a WeaponState.
 	[Export] public DamageData damageData;
+
+	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
+	// on what the swing/ray hit. Authored on the event so a single weapon can
+	// give light vs heavy attacks distinct impact signatures, and so mob
+	// attacks (which don't have a WeaponState) can still pick their own.
+	// Any field may be null — missing keys silently emit nothing.
+	[Export] public PackedScene impactMissEffect;
+	[Export] public PackedScene impactEnvironmentEffect;
+	[Export] public PackedScene impactHealthEffect;
+	[Export] public PackedScene impactArmorEffect;
+	[Export] public PackedScene impactLethalEffect;
 }

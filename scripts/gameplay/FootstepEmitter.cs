@@ -47,6 +47,38 @@ public class FootstepEmitter
         }
     }
 
+    // Single-scene variant — used by the shallow-water emitter where there
+    // is no ground-type dispatch (the scene is selected upstream by water-
+    // state, not by EGroundType). Same stride logic, just a different Emit.
+    public void Update(
+        Node parent,
+        Vector3 worldPos,
+        bool emitting,
+        float stride,
+        PackedScene effect)
+    {
+        if (!emitting)
+        {
+            _hasLastEmit = false;
+            return;
+        }
+        Vector2 xz = new Vector2(worldPos.X, worldPos.Z);
+        if (!_hasLastEmit)
+        {
+            _lastEmitXZ = xz;
+            _hasLastEmit = true;
+            return;
+        }
+        if (xz.DistanceSquaredTo(_lastEmitXZ) >= stride * stride)
+        {
+            if (parent != null && effect != null)
+            {
+                EffectOneShot.Create(effect, parent, worldPos);
+            }
+            _lastEmitXZ = xz;
+        }
+    }
+
     private static void Emit(
         Node parent,
         Vector3 worldPos,

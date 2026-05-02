@@ -8,6 +8,14 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ChargedAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="6_sprite"]
+[ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/effects/bow_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/effects/bow_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/effects/bow_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" path="res://scenes/effects/bow_attack_heavy.tscn" id="8_atkheavy"]
+[ext_resource type="PackedScene" path="res://scenes/effects/bow_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/effects/bow_charge_head.tscn" id="8_chghead"]
+[ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/effects/bow_charge_loop.tscn" id="8_chgloop"]
+[ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/effects/bow_charge_tail.tscn" id="8_chgtail"]
 
 [sub_resource type="Curve" id="Curve_accuracy"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
@@ -16,28 +24,29 @@ point_count = 3
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("3_event")
 type = 7
-animName = 0
 soundName = null
 
 [sub_resource type="Resource" id="Resource_event_hitscan"]
 script = ExtResource("3_event")
 type = 1
 hitScanRange = 25.0
-animName = 0
 soundName = null
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_event_useammo"]
 script = ExtResource("3_event")
 type = 2
 hitScanRange = 0.0
-animName = 0
 soundName = null
 
 [sub_resource type="Curve" id="Curve_range"]
 _data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(0.5, 0.7), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 3
 
-[sub_resource type="Resource" id="Resource_charged"]
+[sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
 verb = 1
 cooldownSeconds = 0.5
@@ -45,10 +54,37 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_event_anim"), SubR
 rangeScaleCurve = SubResource("Curve_range")
 accuracyScaleCurve = SubResource("Curve_accuracy")
 maxChargeSeconds = 1.5
+chargeStartEffect = ExtResource("8_chghead")
+releaseEffect = ExtResource("8_atklight")
+
+[sub_resource type="Resource" id="Resource_damage_charged"]
+script = ExtResource("1_damage")
+healthDamage = 15.0
+
+[sub_resource type="Resource" id="Resource_event_hitscan_charged"]
+script = ExtResource("3_event")
+type = 1
+hitScanRange = 25.0
+soundName = null
+damageData = SubResource("Resource_damage_charged")
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_charged_full"]
+script = ExtResource("4_charged")
+verb = 1
+chargeTime = 0.7
+cooldownSeconds = 0.5
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_hitscan_charged"), SubResource("Resource_event_useammo")])
+chargeStartEffect = ExtResource("8_chgtail")
+chargeLoopEffect = ExtResource("8_chgloop")
+releaseEffect = ExtResource("8_atkheavy")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap"), SubResource("Resource_charged_full")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 

@@ -21,9 +21,10 @@ public static class ItemEventHandlers
 		}
 
 		Vector3 damagePos = actor.ActorWorldPosition + Vector3.Up + actor.ActorForward * ev.meleeRange;
+		var sphere = new SphereShape3D() { Radius = ev.meleeRadius };
 		var query = new PhysicsShapeQueryParameters3D
 		{
-			Shape = new SphereShape3D() { Radius = ev.meleeRadius },
+			Shape = sphere,
 			Transform = new Transform3D(Basis.Identity, damagePos),
 			CollisionMask = actor.AttackHurtboxMask,
 			CollideWithAreas = true,
@@ -32,6 +33,8 @@ public static class ItemEventHandlers
 
 		var results = world3D.DirectSpaceState.IntersectShape(query);
 		Rid? selfHurtBox = actor.SelfHurtBoxRid;
+		EHitResult bestResult = EHitResult.None;
+		Vector3 impactPos = damagePos;
 		foreach (var result in results)
 		{
 			var collider = result["collider"].Obj;
@@ -41,8 +44,43 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
+				// Query first so the impact effect reflects the pre-hit state
+				// (e.g. Lethal needs to see the target's current health, not
+				// the post-damage zero). Then apply.
+				EHitResult r = hurtBox.QueryHitType(damage);
 				hurtBox.Hit(damage, actor.AttackerNode);
+				if (HitPriority(r) > HitPriority(bestResult))
+				{
+					bestResult = r;
+					impactPos = hurtBox.GlobalPosition;
+				}
 			}
+		}
+
+		// No hurtbox hit — fall back to environment so a swing into a wall
+		// still gets a thunk rather than reading as a whiff.
+		if (bestResult == EHitResult.None)
+		{
+			var envQuery = new PhysicsShapeQueryParameters3D
+			{
+				Shape = sphere,
+				Transform = new Transform3D(Basis.Identity, damagePos),
+				CollisionMask = (uint)ECollisionLayer.Environment,
+				CollideWithAreas = false,
+				CollideWithBodies = true,
+			};
+			if (world3D.DirectSpaceState.IntersectShape(envQuery, maxResults: 1).Count > 0)
+			{
+				SpawnImpact(actor, ev.impactEnvironmentEffect, damagePos);
+			}
+			else
+			{
+				SpawnImpact(actor, ev.impactMissEffect, damagePos);
+			}
+		}
+		else
+		{
+			SpawnImpact(actor, PickImpactScene(ev, bestResult), impactPos);
 		}
 
 		DebugDraw.Sphere(damagePos, ev.meleeRadius, new Color(1f, 0f, 0f, 0.3f), 0.15f);
@@ -110,6 +148,7 @@ public static class ItemEventHandlers
 		}
 
 		var hurtResult = spaceState.IntersectRay(hurtQuery);
+		EHitResult hitResult = EHitResult.None;
 		if (hurtResult.Count > 0)
 		{
 			var collider = hurtResult["collider"].Obj;
@@ -118,10 +157,26 @@ public static class ItemEventHandlers
 				bool isSelf = selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value;
 				if (!isSelf)
 				{
+					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
+					hitResult = hurtBox.QueryHitType(damage);
 					hurtBox.Hit(damage, actor.AttackerNode);
 					hitPos = (Vector3)hurtResult["position"];
 				}
 			}
+		}
+
+		// Resolve impact: hurtbox first, then environment clip, then air.
+		if (hitResult != EHitResult.None)
+		{
+			SpawnImpact(actor, PickImpactScene(ev, hitResult), hitPos);
+		}
+		else if (envResult.Count > 0)
+		{
+			SpawnImpact(actor, ev.impactEnvironmentEffect, hitPos);
+		}
+		else
+		{
+			SpawnImpact(actor, ev.impactMissEffect, hitPos);
 		}
 
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
@@ -259,6 +314,67 @@ public static class ItemEventHandlers
 	// outputs 1.0. Tuned so an early-release bow shot is visibly inaccurate
 	// without being absurd. Curve outputs in [0, 1] scale this.
 	private const float MAX_SPREAD_HALF_ANGLE = 0.18f;
+
+	// Best-of priority for melee swings that overlap multiple hurtboxes:
+	// a real damageable hit beats an absorbed hit beats a prop ping.
+	private static int HitPriority(EHitResult r)
+	{
+		return r switch
+		{
+			EHitResult.Lethal => 4,
+			EHitResult.Health => 3,
+			EHitResult.Armor => 2,
+			EHitResult.Object => 1,
+			_ => 0,
+		};
+	}
+
+	private static PackedScene PickImpactScene(ItemEvent ev, EHitResult result)
+	{
+		return result switch
+		{
+			// Lethal falls back to Health if no kill-specific scene is wired —
+			// most weapons don't ship a unique kill sound.
+			EHitResult.Lethal => ev.impactLethalEffect ?? ev.impactHealthEffect,
+			EHitResult.Health => ev.impactHealthEffect,
+			EHitResult.Armor => ev.impactArmorEffect,
+			EHitResult.Object => ev.impactEnvironmentEffect,
+			_ => null,
+		};
+	}
+
+	private static void SpawnImpact(IActionActor actor, PackedScene scene, Vector3 position)
+	{
+		SpawnAtWorld(actor, scene, position);
+	}
+
+	// World-parented one-shot at a fixed world position — matches the puff /
+	// blood / footstep convention so the effect stays put as the actor keeps
+	// moving. Returns the spawned EffectOneShot, or null if nothing spawned.
+	public static EffectOneShot SpawnAtWorld(IActionActor actor, PackedScene scene, Vector3 position)
+	{
+		if (scene == null)
+		{
+			return null;
+		}
+		Node parent = actor.AttackerNode?.GetParent();
+		if (parent == null)
+		{
+			return null;
+		}
+		return EffectOneShot.Create(scene, parent, position);
+	}
+
+	// Actor-parented effect — tracks the actor as it moves. Use for charge
+	// loops and any sound that should follow the wielder.
+	public static EffectOneShot SpawnOnActor(IActionActor actor, PackedScene scene)
+	{
+		if (scene == null || actor.AttackerNode == null)
+		{
+			return null;
+		}
+		return EffectOneShot.Create(scene, actor.AttackerNode, Vector3.Zero);
+	}
 
 	private static Vector3 ApplySpread(Vector3 forward, float spread01)
 	{

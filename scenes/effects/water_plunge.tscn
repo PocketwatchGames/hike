@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://da0fmu7g5je6s"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_01.wav" id="2_pl01"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_02.wav" id="2_pl02"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_03.wav" id="2_pl03"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_04.wav" id="2_pl04"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 55.0
+initial_velocity_min = 4.0
+initial_velocity_max = 9.0
+gravity = Vector3(0, -10, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.8
+scale_max = 2.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_splash"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.6, 0.8, 0.95, 0.8)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_splash"]
+material = SubResource("StandardMaterial3D_splash")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_plunge"]
+playback_mode = 1
+random_pitch = 1.05
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_pl01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_pl02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_pl03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_pl04")
+stream_3/weight = 1.0
+
+[node name="WaterPlunge" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Splash" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 32
+lifetime = 0.9
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_splash")
+draw_pass_1 = SubResource("QuadMesh_splash")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_plunge")
+unit_size = 5.0
+max_distance = 35.0
+volume_db = 3.0
+bus = &"World3D"

@@ -36,6 +36,13 @@ public class MobSimState : EntitySimState
     public bool Burrowed;
     public float MaxHealth;
     public float Health;
+    public float Armor;
+    // Game-time at which armor recharge can begin. Set on every armor-
+    // absorbing hit; the longer recover window is what ArmorDepleted tracks
+    // so the recharge-begin oneshot can pick the recover variant.
+    public ulong ArmorRechargeStartMs;
+    public bool ArmorRecharging;
+    public bool ArmorDepleted;
     public float PlayerPerception;
     public ulong MemoryTimeMs;
     public ulong VisibleTimeMs;
@@ -89,6 +96,7 @@ public class MobSimState : EntitySimState
         Alive = true;
         MaxHealth = 1f;
         Health = 1f;
+        Armor = mobData?.maxArmor ?? 0f;
         PlayerPerception = 0f;
         DiscoveryState = EPlayerPerceptionState.Hidden;
         MemoryTimeMs = 0;

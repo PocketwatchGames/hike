@@ -25,6 +25,7 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		if (_hurtBox != null)
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
+			_hurtBox.GetHitType = _ => EHitResult.Object;
 		}
 
 		if (_initialImpulse != Vector3.Zero)

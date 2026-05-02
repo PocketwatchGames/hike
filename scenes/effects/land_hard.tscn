@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://dy7pahbiw5boy"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_01.wav" id="2_ld01"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_02.wav" id="2_ld02"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_03.wav" id="2_ld03"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_04.wav" id="2_ld04"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_05.wav" id="2_ld05"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_06.wav" id="2_ld06"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.15
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.0
+initial_velocity_max = 3.0
+gravity = Vector3(0, -8, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.6
+scale_max = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dust"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.5, 0.42, 0.32, 0.6)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_dust"]
+material = SubResource("StandardMaterial3D_dust")
+size = Vector2(0.12, 0.12)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_landhard"]
+playback_mode = 1
+random_pitch = 1.05
+random_volume_offset_db = 2.0
+streams_count = 6
+stream_0/stream = ExtResource("2_ld01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_ld02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_ld03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_ld04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_ld05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_ld06")
+stream_5/weight = 1.0
+
+[node name="LandHard" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 16
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_dust")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_landhard")
+unit_size = 4.0
+max_distance = 30.0
+volume_db = 4.0
+bus = &"World3D"

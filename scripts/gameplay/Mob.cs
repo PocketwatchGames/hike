@@ -29,6 +29,35 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // Stop()'d when leaving.
     [Export] private PackedScene _waterMovementLoopEffect;
     [Export] private PackedScene _tallGrassMovementLoopEffect;
+    // Fired the moment AIOutput.yell goes true — once per alert acquisition,
+    // not per tick (the yell broadcast block below already runs once per
+    // transition because nothing else flips _simState.Yelled back).
+    [Export] private PackedScene _yellEffect;
+    // Burrow lifecycle effects. Loop runs while the mob is mid-descent
+    // (`burrowing` flag); complete fires on the burrowing→burrowed transition;
+    // emerge fires when the mob leaves either burrow state and re-surfaces.
+    [Export] private PackedScene _burrowLoopEffect;
+    [Export] private PackedScene _burrowCompleteEffect;
+    [Export] private PackedScene _burrowEmergeEffect;
+    // Per-anim-state loops. Driven by the loopAnim picked in UpdateAnimation —
+    // exactly one (or none) is active at a time, swapped on state change.
+    // Authored per-species so each mob can have its own breathing / footstep
+    // signature.
+    [Export] private PackedScene _idleLoopEffect;
+    [Export] private PackedScene _runLoopEffect;
+    [Export] private PackedScene _swimIdleLoopEffect;
+    // VO that plays on top of the shared blood/death scenes. Per-actor so
+    // each species can carry its own voice without authoring per-actor blood
+    // scenes. Either may be null — the asset library doesn't always include
+    // a hurt VO for every species.
+    [Export] private PackedScene _hurtVoEffect;
+    [Export] private PackedScene _deathVoEffect;
+    // Armor lifecycle one-shots. See Player for the lifecycle: depleted on
+    // the hit that drains the bar to zero; rechargeStart when the post-hit
+    // delay elapses; recoverStart when the recharge follows a full depletion.
+    [Export] private PackedScene _armorDepletedEffect;
+    [Export] private PackedScene _armorRechargeStartEffect;
+    [Export] private PackedScene _armorRecoverStartEffect;
     // Distance the mob must travel in XZ between footstep effect emits.
     // Larger = slower step cadence.
     [Export] private float _footstepStride = 1.2f;
@@ -56,6 +85,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     public bool alive { get => _simState.Alive; set => _simState.Alive = value; }
     public float maxHealth => _simState.MaxHealth;
     public float health { get => _simState.Health; set => _simState.Health = value; }
+    public float maxArmor => mobData?.maxArmor ?? 0f;
+    public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     public MobData mobData => _simState.MobData;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
@@ -115,6 +146,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // and dropped on deactivation.
     EffectOneShot _waterMovementLoop;
     EffectOneShot _tallGrassMovementLoop;
+    EffectOneShot _burrowLoop;
+    // Single active anim-loop reference + the state it represents. We swap
+    // wholesale on transitions instead of cross-fading — simple, and the
+    // listener barely registers the gap in practice.
+    EffectOneShot _animLoop;
+    EAnimLoopState _animLoopState = EAnimLoopState.None;
+    // Previous-tick burrow flags so we can detect the false→true edges that
+    // drive the complete and emerge one-shots.
+    bool _prevBurrowing;
+    bool _prevBurrowed;
     // Tracks the previous frame's water-at-feet sample so we can detect the
     // false→true transition and fire one splash, not one per frame.
     bool _wasInWaterPrev;
@@ -190,6 +231,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         if (_hurtBox != null)
         {
             _hurtBox.OnHit = Hit;
+            _hurtBox.GetHitType = GetHitType;
         }
 
         if (_mesh != null)
@@ -327,6 +369,46 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             _animator.Play(loopAnim);
         }
+
+        // Drive the anim-audio loop off the same loopAnim. Burrowing mobs
+        // are mid-dig and shouldn't simultaneously hum the surface idle, so
+        // the burrow flags suppress the anim-loop entirely until they
+        // resurface.
+        EAnimLoopState animLoopTarget = EAnimLoopState.None;
+        if (alive && !burrowing && !burrowed)
+        {
+            if (loopAnim == AnimationNames.Idle) animLoopTarget = EAnimLoopState.Idle;
+            else if (loopAnim == AnimationNames.Run) animLoopTarget = EAnimLoopState.Run;
+            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = EAnimLoopState.SwimIdle;
+        }
+        UpdateAnimLoop(animLoopTarget);
+    }
+
+    // Swap the active anim-loop wholesale on state change. No-op when target
+    // matches the cached state, so this is safe to call every frame.
+    private void UpdateAnimLoop(EAnimLoopState target)
+    {
+        if (target == _animLoopState)
+        {
+            return;
+        }
+        if (_animLoop != null)
+        {
+            _animLoop.Stop();
+            _animLoop = null;
+        }
+        PackedScene scene = target switch
+        {
+            EAnimLoopState.Idle => _idleLoopEffect,
+            EAnimLoopState.Run => _runLoopEffect,
+            EAnimLoopState.SwimIdle => _swimIdleLoopEffect,
+            _ => null,
+        };
+        if (scene != null)
+        {
+            _animLoop = EffectOneShot.Create(scene, this, Vector3.Zero);
+        }
+        _animLoopState = target;
     }
 
     const float FallEnterSpeed = 1f;
@@ -566,6 +648,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 
         if (alive)
         {
+            TickArmor((float)delta);
             TickAI((float)delta, out AIOutput aiOutput);
 
             // Drive the action runner from AIOutput. BehaviorAttack populates
@@ -666,6 +749,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             }
             if (aiOutput.yell)
             {
+                SpawnWorldEffect(_yellEffect);
                 _simState.PlayerPerception = 1;
                 _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
                 _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
@@ -708,6 +792,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
                 burrowing = false;
                 burrowed = false;
             }
+
+            // Burrow-state effect transitions. The loop runs while actively
+            // digging in (burrowing flag); the complete one-shot fires the
+            // moment the descent finishes (burrowing→burrowed); the emerge
+            // one-shot fires when leaving any burrow state — either the mob
+            // popped back up from underground or its descent was interrupted
+            // mid-dig.
+            UpdateLoopEffect(ref _burrowLoop, _burrowLoopEffect, burrowing);
+            if (burrowed && !_prevBurrowed)
+            {
+                SpawnWorldEffect(_burrowCompleteEffect);
+            }
+            if (!burrowing && !burrowed && (_prevBurrowing || _prevBurrowed))
+            {
+                SpawnWorldEffect(_burrowEmergeEffect);
+            }
+            _prevBurrowing = burrowing;
+            _prevBurrowed = burrowed;
 
             // Torch visibility is gated on the player's memory of this mob —
             // once memory expires, the mob has left the player's awareness
@@ -766,6 +868,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
     }
 
+    // Pure prediction — no state mutation. Mirrors the armor/health resolution
+    // in Damage() so attackers can pick their impact effect before the damage
+    // actually lands. Splitting this from Damage keeps damage application as a
+    // one-way notification, which is the shape we want for networked play
+    // (prediction on the client, authoritative apply on the server).
+    public EHitResult GetHitType(DamageData data)
+    {
+        if (!alive || burrowed || data == null)
+        {
+            return EHitResult.None;
+        }
+        float incoming = data.healthDamage;
+        if (incoming <= 0f)
+        {
+            return EHitResult.None;
+        }
+        if (armor > 0f)
+        {
+            return EHitResult.Armor;
+        }
+        return incoming >= health ? EHitResult.Lethal : EHitResult.Health;
+    }
+
     public void Hit(DamageData data, Node damageSource)
     {
         if (!alive || burrowed)
@@ -789,14 +914,67 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             return;
         }
 
-        health -= data.healthDamage;
+        float incoming = data.healthDamage;
+        // Armor absorbs the full hit when present — even an overflow drop to
+        // zero leaves health untouched. The recharge timer is rearmed on every
+        // absorbing hit; a hit that takes armor to zero arms the longer
+        // recover window via ArmorDepleted.
+        if (armor > 0f && incoming > 0f)
+        {
+            armor -= incoming;
+            ulong now = _world?.GameTimeMs ?? 0;
+            MobData md = mobData;
+            if (armor <= 0f)
+            {
+                armor = 0f;
+                _simState.ArmorDepleted = true;
+                _simState.ArmorRechargeStartMs = now + (ulong)((md?.armorRecoverTime ?? 0f) * 1000f);
+                SpawnWorldEffect(_armorDepletedEffect);
+            }
+            else
+            {
+                _simState.ArmorDepleted = false;
+                _simState.ArmorRechargeStartMs = now + (ulong)((md?.armorRechargeDelay ?? 0f) * 1000f);
+            }
+            _simState.ArmorRecharging = false;
+            incoming = 0f;
+        }
+
+        health -= incoming;
         if (health <= 0f)
         {
             Die();
         }
-        else
+        else if (incoming > 0f)
         {
             SpawnWorldEffect(_bloodDamageEffect);
+            SpawnWorldEffect(_hurtVoEffect);
+        }
+    }
+
+    private void TickArmor(float dt)
+    {
+        float max = maxArmor;
+        if (max <= 0f || armor >= max)
+        {
+            return;
+        }
+        ulong now = _world?.GameTimeMs ?? 0;
+        if (now < _simState.ArmorRechargeStartMs)
+        {
+            return;
+        }
+        if (!_simState.ArmorRecharging)
+        {
+            _simState.ArmorRecharging = true;
+            SpawnWorldEffect(_simState.ArmorDepleted ? _armorRecoverStartEffect : _armorRechargeStartEffect);
+        }
+        MobData md = mobData;
+        float speed = md?.armorRechargeSpeed ?? 0f;
+        armor = Mathf.Min(max, armor + speed * dt);
+        if (armor >= max)
+        {
+            _simState.ArmorDepleted = false;
         }
     }
 
@@ -809,6 +987,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 
         alive = false;
         SpawnWorldEffect(_deathEffect);
+        SpawnWorldEffect(_deathVoEffect);
         AxisLockAngularY = false;
         if (Freeze)
         {

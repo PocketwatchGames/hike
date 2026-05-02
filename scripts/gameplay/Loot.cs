@@ -35,6 +35,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		if (_hurtBox != null)
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
+			_hurtBox.GetHitType = _ => EHitResult.Object;
 		}
 
 		if (_initialImpulse != Vector3.Zero)

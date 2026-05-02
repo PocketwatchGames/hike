@@ -35,6 +35,44 @@ public partial class Player : CharacterBody3D
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopEffect;
 	[Export] private PackedScene _tallGrassMovementLoopEffect;
+	// One-shots for vertical motion. Jump fires the moment input takes the
+	// player off the floor. Land fires on every floor reacquisition unless
+	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
+	// case landHard takes its place — a heavier impact deserves dust + a
+	// harder hit.
+	[Export] private PackedScene _jumpEffect;
+	[Export] private PackedScene _landEffect;
+	[Export] private PackedScene _landHardEffect;
+	// High-speed water entry. Picked over the standard splash when inbound
+	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
+	[Export] private PackedScene _waterPlungeEffect;
+	// Per-stride splash effect emitted while running through Shallow water.
+	// Drives a separate FootstepEmitter from the ground-material dict because
+	// shallow-water detection lives in _waterState (an Area-trigger flag),
+	// not the EGroundType resolver — running across a thin film of water
+	// over grass should still trigger water audio rather than grass audio.
+	[Export] private PackedScene _shallowWaterFootstepEffect;
+	// VO that plays in tandem with _bloodDamageEffect / _deathEffect on
+	// the same hit. Separate scenes so the per-actor voice clips can ride on
+	// top of the shared impact / death-splat audio without authoring per-
+	// actor blood scenes.
+	[Export] private PackedScene _hurtVoEffect;
+	[Export] private PackedScene _deathVoEffect;
+	// Armor lifecycle one-shots. Depleted plays the moment armor hits zero
+	// from damage; rechargeStart plays when the post-hit recharge delay
+	// elapses and the bar starts climbing again; recoverStart replaces it
+	// when the recharge follows a full depletion (longer recover delay).
+	[Export] private PackedScene _armorDepletedEffect;
+	[Export] private PackedScene _armorRechargeStartEffect;
+	[Export] private PackedScene _armorRecoverStartEffect;
+	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
+	// an EAnimLoopState bucket; only one (or none) is active at a time.
+	// Slots can be left null in the .tscn — the actor falls silent for that
+	// state, which is the current player default until per-character idle /
+	// run / swim_idle audio is authored.
+	[Export] private PackedScene _idleLoopEffect;
+	[Export] private PackedScene _runLoopEffect;
+	[Export] private PackedScene _swimIdleLoopEffect;
 	// Distance the player must travel in XZ between footstep effect emits.
 	// Larger = slower step cadence.
 	[Export] private float _footstepStride = 1.2f;
@@ -61,17 +99,34 @@ public partial class Player : CharacterBody3D
 	int _waterOverlapCount;
 	readonly WaterRippleEmitter _rippleEmitter = new();
 	readonly FootstepEmitter _footstepEmitter = new();
+	// Independent stride emitter for the shallow-water splash. Has its own
+	// last-emit memory so the cadence resets cleanly when the player
+	// transitions between dry land and a wet patch.
+	readonly FootstepEmitter _shallowWaterFootstepEmitter = new();
 	// Active loop instances. Null when the matching state isn't held; created
 	// on the first frame state becomes active and Stop()'d when it ends. We
 	// drop the reference at Stop() so the next activation creates a fresh
 	// node rather than racing with the trailing-audio teardown.
 	EffectOneShot _waterMovementLoop;
 	EffectOneShot _tallGrassMovementLoop;
+	// Single active anim-loop reference + the state it represents. Swapped
+	// wholesale on transitions instead of cross-fading.
+	EffectOneShot _animLoop;
+	EAnimLoopState _animLoopState = EAnimLoopState.None;
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
 	ActionRunner _runner;
 	float _health;
+	float _armor;
+	float _maxArmor;
+	// Game-time at which armor recharge can begin. Set to (now + rechargeDelay)
+	// on every armor-absorbing hit, and to (now + recoverTime) on the hit that
+	// drops armor to zero — the longer recover window is what _armorDepleted
+	// tracks so the recharge-begin oneshot can pick the recover variant.
+	ulong _armorRechargeStartMs;
+	bool _armorRecharging;
+	bool _armorDepleted;
 	CarrierLight _carrierLight;
 	StringName _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
@@ -88,6 +143,8 @@ public partial class Player : CharacterBody3D
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
 	public float MaxHealth => data?.maxHealth ?? 100f;
+	public float Armor => _armor;
+	public float MaxArmor => _maxArmor;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public float ClientInteractProgress
@@ -143,7 +200,32 @@ public partial class Player : CharacterBody3D
 		if (_hurtBox != null)
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
+			_hurtBox.GetHitType = GetHitType;
 		}
+	}
+
+	// Pure prediction — no state mutation. See Mob.GetHitType for the
+	// networked-play motivation.
+	private EHitResult GetHitType(DamageData damage)
+	{
+		if (damage == null)
+		{
+			return EHitResult.None;
+		}
+		float incoming = damage.healthDamage;
+		if (incoming <= 0f)
+		{
+			return EHitResult.None;
+		}
+		if (_armor > 0f)
+		{
+			return EHitResult.Armor;
+		}
+		if (_health <= 0f)
+		{
+			return EHitResult.None;
+		}
+		return incoming >= _health ? EHitResult.Lethal : EHitResult.Health;
 	}
 
 	private void OnHurtBoxHit(DamageData damage, Node source)
@@ -158,21 +240,48 @@ public partial class Player : CharacterBody3D
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 
+		float incomingDamage = damage.healthDamage;
+		// Armor absorbs the entire hit when present — even an overflow drop
+		// to zero leaves health untouched. The recharge timer is rearmed on
+		// every absorbing hit; a hit that takes armor to zero arms the longer
+		// recover window via _armorDepleted.
+		if (_armor > 0f && incomingDamage > 0f)
+		{
+			_armor -= incomingDamage;
+			ulong now = _world?.GameTimeMs ?? 0;
+			if (_armor <= 0f)
+			{
+				_armor = 0f;
+				_armorDepleted = true;
+				_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
+				SpawnWorldEffect(_armorDepletedEffect);
+			}
+			else
+			{
+				_armorDepleted = false;
+				_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
+			}
+			_armorRecharging = false;
+			incomingDamage = 0f;
+		}
+
 		bool wasAlive = _health > 0f;
-		_health = Mathf.Max(0f, _health - damage.healthDamage);
+		_health = Mathf.Max(0f, _health - incomingDamage);
 		if (_health <= 0f)
 		{
-			// Death blood is fired on the alive→dead transition only — a
-			// follow-up hit on an already-dead body shouldn't re-emit.
+			// Death blood + VO are fired on the alive→dead transition only —
+			// a follow-up hit on an already-dead body shouldn't re-emit.
 			if (wasAlive)
 			{
 				SpawnWorldEffect(_deathEffect);
+				SpawnWorldEffect(_deathVoEffect);
 			}
 			PlayOneShot(EAnimation.Die);
 		}
-		else
+		else if (incomingDamage > 0f)
 		{
 			SpawnWorldEffect(_bloodDamageEffect);
+			SpawnWorldEffect(_hurtVoEffect);
 		}
 	}
 
@@ -297,9 +406,67 @@ public partial class Player : CharacterBody3D
 			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Run, AnimationNames.Idle);
 		}
 		_animator.Play(loopAnim);
+
+		// Drive the anim-audio loop off the same loopAnim. Only idle / run /
+		// swim_idle have audio; everything else (fall, dead, interacting,
+		// active swim) is silent for the anim-loop layer.
+		EAnimLoopState animLoopTarget = EAnimLoopState.None;
+		if (_health > 0f)
+		{
+			if (loopAnim == AnimationNames.Idle) animLoopTarget = EAnimLoopState.Idle;
+			else if (loopAnim == AnimationNames.Run) animLoopTarget = EAnimLoopState.Run;
+			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = EAnimLoopState.SwimIdle;
+		}
+		UpdateAnimLoop(animLoopTarget);
+	}
+
+	// Swap the active anim-loop wholesale on state change. No-op when target
+	// matches the cached state, so this is safe to call every frame.
+	private void UpdateAnimLoop(EAnimLoopState target)
+	{
+		if (target == _animLoopState)
+		{
+			return;
+		}
+		if (_animLoop != null)
+		{
+			_animLoop.Stop();
+			_animLoop = null;
+		}
+		PackedScene scene = target switch
+		{
+			EAnimLoopState.Idle => _idleLoopEffect,
+			EAnimLoopState.Run => _runLoopEffect,
+			EAnimLoopState.SwimIdle => _swimIdleLoopEffect,
+			_ => null,
+		};
+		if (scene != null)
+		{
+			_animLoop = EffectOneShot.Create(scene, this, Vector3.Zero);
+		}
+		_animLoopState = target;
 	}
 
 	const ulong FallGraceMs = 400;
+
+	// Inbound vertical speed (m/s, downward positive) at which a land flips
+	// from soft to hard. ~10 m/s is the speed a body reaches after falling
+	// just over 5 m under 9.8 m/s² — a small ledge hop won't hit it but a
+	// roof-height drop will.
+	const float LandHardSpeedThreshold = 10f;
+
+	// Inbound vertical speed below which no land sound fires at all. Step-up
+	// + step-down + obstacle interactions can cause sub-frame airborne flips
+	// even on flat ground; this floor suppresses the resulting phantom lands.
+	// Real lands (jumps, ledge drops) easily clear it — a neutral jump arc
+	// returns at ~6 m/s.
+	const float LandSoftSpeedThreshold = 1.5f;
+
+	// Inbound vertical speed at which entering water flips from a wade-style
+	// splash to a full plunge (deeper SFX + bigger spray). Lower than
+	// LandHardSpeedThreshold because water entry tends to feel "splashy" at
+	// lower speeds than a hard ground impact reads as heavy.
+	const float WaterPlungeSpeedThreshold = 6f;
 
 	// Hysteresis on the move-vs-idle pick. Crossing a single threshold every
 	// frame produces twitch when the body sits near it (e.g. ground friction
@@ -376,6 +543,7 @@ public partial class Player : CharacterBody3D
 		Rotation = rotation;
 		_grounded = false;
 		_inventory = new Inventory(this, data);
+		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_runner = new ActionRunner(this);
 		_health = MaxHealth;
 
@@ -415,6 +583,74 @@ public partial class Player : CharacterBody3D
 				}
 			}
 		}
+
+		// Start the player at full armor so freshly-spawned armor reads as
+		// "ready" rather than charging up through the HUD on first frame.
+		RecalculateMaxArmor();
+		_armor = _maxArmor;
+	}
+
+	private void OnInventorySlotChanged(EInventorySlot slot)
+	{
+		if (slot == EInventorySlot.ArmorHead
+			|| slot == EInventorySlot.ArmorBody
+			|| slot == EInventorySlot.ArmorCloak
+			|| slot == EInventorySlot.ArmorAccessory)
+		{
+			RecalculateMaxArmor();
+		}
+	}
+
+	// Sums maxArmor across every equipped armor slot. Current armor is capped
+	// at the new max — unequipping a piece can only shrink the available pool,
+	// it never grants free armor. Increases leave the current value alone so
+	// the recharge logic owns the climb back up to the new max.
+	private void RecalculateMaxArmor()
+	{
+		float total = 0f;
+		if (_inventory != null)
+		{
+			AccumulateArmor(EInventorySlot.ArmorHead, ref total);
+			AccumulateArmor(EInventorySlot.ArmorBody, ref total);
+			AccumulateArmor(EInventorySlot.ArmorCloak, ref total);
+			AccumulateArmor(EInventorySlot.ArmorAccessory, ref total);
+		}
+		_maxArmor = total;
+		if (_armor > _maxArmor)
+		{
+			_armor = _maxArmor;
+		}
+	}
+
+	private void AccumulateArmor(EInventorySlot slot, ref float total)
+	{
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
+		{
+			total += armor.data.maxArmor;
+		}
+	}
+
+	private void TickArmor(float dt)
+	{
+		if (_maxArmor <= 0f || _armor >= _maxArmor)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _armorRechargeStartMs)
+		{
+			return;
+		}
+		if (!_armorRecharging)
+		{
+			_armorRecharging = true;
+			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartEffect : _armorRechargeStartEffect);
+		}
+		_armor = Mathf.Min(_maxArmor, _armor + data.armorRechargeSpeed * dt);
+		if (_armor >= _maxArmor)
+		{
+			_armorDepleted = false;
+		}
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -429,6 +665,7 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed();
 		UpdateWaterState();
+		TickArmor(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer
 		// while wading (discrete step impacts) than while swimming
@@ -442,25 +679,32 @@ public partial class Player : CharacterBody3D
 		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
 		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
 
-		// Footstep effects. Gated on grounded + on land (water is handled by
-		// the ripple emitter above) + actually moving — Velocity carries
-		// horizontal speed even before MoveAndSlide later in this method.
+		// Footstep effects. The dry-land emitter dispatches by EGroundType
+		// (grass / stone / sand / etc.); the shallow-water emitter is its
+		// own thing because shallow vs deep is an Area-trigger flag, not a
+		// ground material. Both gate on grounded + moving but mutually
+		// exclude each other via _waterState.
 		Vector2 horizVel = new(Velocity.X, Velocity.Z);
-		bool walking = _grounded
+		float horizSpeedSq = horizVel.LengthSquared();
+		bool walkingDry = _grounded
 			&& _waterState == EWaterState.None
-			&& horizVel.LengthSquared() > _footstepMinSpeedSq;
+			&& horizSpeedSq > _footstepMinSpeedSq;
+		bool walkingShallow = _grounded
+			&& _waterState == EWaterState.Shallow
+			&& horizSpeedSq > _footstepMinSpeedSq;
 		EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
-		_footstepEmitter.Update(_world, GlobalPosition, walking, _footstepStride, ground, _footstepEffects);
+		_footstepEmitter.Update(_world, GlobalPosition, walkingDry, _footstepStride, ground, _footstepEffects);
+		_shallowWaterFootstepEmitter.Update(_world, GlobalPosition, walkingShallow, _footstepStride, _shallowWaterFootstepEffect);
 
-		// Movement-gated continuous loops. Reuse the same intent + speed gate
-		// as the footstep emitter so the audio matches what the body is
-		// visibly doing — pinned against geometry with input held still
-		// counts as "moving" because intent is what the player feels.
+		// Movement-gated continuous loops. The water swim loop only plays
+		// while actually swimming — shallow wading is covered by the
+		// shallow-water footstep emitter above, so playing the swim loop
+		// there too would double-up the audio.
 		bool intentMoving = _inputMove.LengthSquared() > 0.0001f;
-		bool moving = intentMoving || horizVel.LengthSquared() > _footstepMinSpeedSq;
-		bool waterLoopActive = moving && _waterState != EWaterState.None;
+		bool moving = intentMoving || horizSpeedSq > _footstepMinSpeedSq;
+		bool waterLoopActive = moving && _waterState == EWaterState.Swimming;
 		// Tall-grass and water are mutually exclusive — when wading, the
-		// water loop wins so we don't double up on rustle + slosh.
+		// shallow footsteps win so we don't double up on rustle + slosh.
 		bool tallGrassLoopActive = moving && _tallGrassCollisions.Count > 0 && _waterState == EWaterState.None;
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
 		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
@@ -547,6 +791,11 @@ public partial class Player : CharacterBody3D
 		}
 
 		bool wasOnFloor = _grounded;
+		// Captured before MoveAndSlide because the slide will zero Y on contact
+		// and the grounding block below replaces Y outright with 0. This is
+		// the speed we approached the ground at — drives the hard-vs-soft land
+		// pick after the grounding logic resolves.
+		float inboundFallSpeed = -Velocity.Y;
 		MoveAndSlide();
 		PushTouchedMobs();
 
@@ -562,12 +811,29 @@ public partial class Player : CharacterBody3D
 			{
 				_grounded = true;
 			}
+			else if (stepDownResult != null)
+			{
+				// Hit a non-floor surface during step-down (mob capsule
+				// flank, steep slope). The lift+slide bumped us into the
+				// obstacle; revert Y to the pre-step floor and stay
+				// grounded. Going airborne here was the bug behind the
+				// land sound spamming every other tick when running into
+				// a mob — wasOnFloor=true → step-up lifts → MoveAndSlide
+				// hits the mob → step-down hits the mob's side → we used
+				// to set _grounded=false, then next tick IsOnFloor() came
+				// back true and counted as a fresh land.
+				GlobalPosition = new Vector3(
+					GlobalPosition.X,
+					posBeforeStep.Y,
+					GlobalPosition.Z
+				);
+				_grounded = true;
+			}
 			else
 			{
-				// Either no collision, or hit a non-floor surface (the side of
-				// a mob capsule, a steep slope). In both cases the lift didn't
-				// land on real ground — revert Y so the player doesn't get
-				// deposited mid-air against the obstacle's flank every frame.
+				// No collision at all — we walked off a ledge. The
+				// step-down moved us the full stepHeight before stopping,
+				// which is fine; gravity will continue the fall next tick.
 				GlobalPosition = new Vector3(
 					GlobalPosition.X,
 					posBeforeStep.Y,
@@ -596,6 +862,17 @@ public partial class Player : CharacterBody3D
 		if (wasOnFloor && !_grounded)
 		{
 			_coyoteTimeEndMs = _world.GameTimeMs + (ulong)(data.coyoteTime * 1000);
+		}
+		// Airborne → grounded transition. Speed-gate a hard-land variant so
+		// stepping off small ledges plays the soft sound; only meaningful
+		// drops produce the dust-and-thud landHard. The bottom threshold
+		// suppresses spurious lands from sub-frame physics jitter (e.g.
+		// stepping over rough geometry); only audible drops fire either
+		// variant.
+		if (!wasOnFloor && _grounded && _waterState == EWaterState.None && inboundFallSpeed >= LandSoftSpeedThreshold)
+		{
+			PackedScene landScene = inboundFallSpeed >= LandHardSpeedThreshold ? _landHardEffect : _landEffect;
+			SpawnWorldEffect(landScene);
 		}
 		UpdateVisibility();
 
@@ -717,6 +994,7 @@ public partial class Player : CharacterBody3D
 				_coyoteTimeEndMs = 0;
 				_jumpHeld = true;
 				PlayOneShot(EAnimation.Jump);
+				SpawnWorldEffect(_jumpEffect);
 			}
 			else if (_waterState == EWaterState.Swimming)
 			{
@@ -863,7 +1141,14 @@ public partial class Player : CharacterBody3D
 		_waterOverlapCount++;
 		if (_waterOverlapCount == 1)
 		{
-			SpawnWorldEffect(_waterEnterSplashEffect);
+			// Pick plunge over splash when the player drops in fast. Velocity.Y
+			// at this signal still reflects inbound fall speed — water is an
+			// Area3D, not a colliding body, so MoveAndSlide hasn't zeroed Y.
+			float fallSpeed = -Velocity.Y;
+			PackedScene scene = (fallSpeed >= WaterPlungeSpeedThreshold && _waterPlungeEffect != null)
+				? _waterPlungeEffect
+				: _waterEnterSplashEffect;
+			SpawnWorldEffect(scene);
 			OnWaterEnter?.Invoke(this);
 		}
 	}

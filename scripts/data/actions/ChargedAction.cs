@@ -70,4 +70,24 @@ public partial class ChargedAction : Resource
 	// default), `chargeT` is normalized against the profile's top-tier chargeTime
 	// — works for multi-tier weapons without per-action curves.
 	[Export] public float maxChargeSeconds = 0f;
+
+	// Per-tier charge audio/effect lifecycle, managed by ActionRunner. Each is
+	// a PackedScene wrapping an EffectOneShot.
+	//
+	// chargeStartEffect (one-shot): fired when this tier becomes the selected
+	//   tier during Charging — at press for tier 0 with chargeTime=0, or at the
+	//   moment the charge timer crosses chargeTime for higher tiers. A multi-
+	//   tier weapon's "light" tier typically leaves these null and only its
+	//   "heavy" tier configures them, so the windup audio fires only when the
+	//   player has actually committed to charging.
+	// chargeLoopEffect (loop, set EffectOneShot._loop=true): instantiated when
+	//   this tier becomes selected and Stop()'d on tier change or Charging exit.
+	// chargeCancelEffect (one-shot): fired when Charging aborts (player cancel
+	//   or interrupt) while this tier is selected. NOT fired on a successful
+	//   release into Active — that path uses releaseEffect.
+	// releaseEffect (one-shot): fired when this tier activates (Charging→Active).
+	[Export] public PackedScene chargeStartEffect;
+	[Export] public PackedScene chargeLoopEffect;
+	[Export] public PackedScene chargeCancelEffect;
+	[Export] public PackedScene releaseEffect;
 }

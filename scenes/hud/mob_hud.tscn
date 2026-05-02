@@ -22,6 +22,18 @@ corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 corner_detail = 6
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_wpqy4"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0, 0.39999986, 1, 0.4)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
 [node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_aggroBar", "_perceptionBar")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
@@ -73,6 +85,23 @@ offset_right = 16.0
 grow_horizontal = 2
 grow_vertical = 0
 theme_override_styles/fill = SubResource("StyleBoxFlat_xqdoc")
+max_value = 1.0
+value = 0.5
+show_percentage = false
+
+[node name="Armor" type="ProgressBar" parent="." unique_id=1500012392]
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -16.0
+offset_top = -17.0
+offset_right = 16.0
+offset_bottom = -9.0
+grow_horizontal = 2
+grow_vertical = 0
+theme_override_styles/fill = SubResource("StyleBoxFlat_wpqy4")
 max_value = 1.0
 value = 0.5
 show_percentage = false

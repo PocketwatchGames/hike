@@ -1,9 +1,6 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://dmj3hp3rw122w"]
 
-[ext_resource type="Script" path="res://scripts/gameplay/CarrierLight.cs" id="1_carrier"]
+[ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="1_carrier"]
 
-[node name="CarrierLight" type="Node3D"]
+[node name="CarrierLight" type="Node3D" unique_id=1552034072]
 script = ExtResource("1_carrier")
-Emission = 32
-LightColor = Color(1, 0.75, 0.4, 1)
-Active = true

@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://b8xv8kd878b0k"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_01.wav" id="2_r01"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_02.wav" id="2_r02"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_03.wav" id="2_r03"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_04.wav" id="2_r04"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_05.wav" id="2_r05"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_06.wav" id="2_r06"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_07.wav" id="2_r07"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_08.wav" id="2_r08"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_run"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 8
+stream_0/stream = ExtResource("2_r01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_r02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_r03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_r04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_r05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_r06")
+stream_5/weight = 1.0
+stream_6/stream = ExtResource("2_r07")
+stream_6/weight = 1.0
+stream_7/stream = ExtResource("2_r08")
+stream_7/weight = 1.0
+
+[node name="GoblinRunLoop" type="Node3D"]
+script = ExtResource("1_oneshot")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_run")
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"

@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://c1n1wm4o1dj8k"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_idle_lp.wav" id="2_idlelp"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_idle"]
+playback_mode = 1
+random_pitch = 1.0
+random_volume_offset_db = 0.0
+streams_count = 1
+stream_0/stream = ExtResource("2_idlelp")
+stream_0/weight = 1.0
+
+[node name="KunkunIdleLoop" type="Node3D"]
+script = ExtResource("1_oneshot")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_idle")
+unit_size = 3.0
+max_distance = 14.0
+bus = &"World3D"

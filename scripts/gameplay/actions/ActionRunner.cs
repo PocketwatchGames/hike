@@ -21,6 +21,13 @@ public class ActionRunner
 	private PlayerAction _queuedAction;
 	private bool _hasQueued;
 
+	// Active charge-loop instance and the PackedScene driving it. The scene
+	// reference lets a tier promotion mid-charge (e.g., bow snap→charged)
+	// preserve the running loop when the new tier reuses the same scene
+	// instead of audibly restarting the draw.
+	private EffectOneShot _chargeLoop;
+	private PackedScene _chargeLoopScene;
+
 	public ActionRunner(IActionActor actor)
 	{
 		_actor = actor;
@@ -166,6 +173,7 @@ public class ActionRunner
 		if (tier0 != null)
 		{
 			FireEventList(tier0.readyEvents);
+			StartChargeEffects(tier0);
 		}
 
 		// Auto-activate path: top tier with chargeTime <= 0 fires same tick.
@@ -222,6 +230,9 @@ public class ActionRunner
 		if (_action.selectedTier != null)
 		{
 			FireEventList(_action.selectedTier.readyEvents);
+			// StartChargeEffects handles same-scene loop preservation, so a
+			// promotion that reuses the same charge loop won't audibly restart.
+			StartChargeEffects(_action.selectedTier);
 		}
 	}
 
@@ -259,6 +270,8 @@ public class ActionRunner
 	private void EnterActive(ChargedAction tier, ulong now)
 	{
 		FireChargeEndEvents();
+		StopChargeLoop();
+		ItemEventHandlers.SpawnOnActor(_actor, tier?.releaseEffect);
 		float chargeElapsed = (now - _action.pressMs) / 1000f;
 		_action.phase = EActionPhase.Active;
 		_action.selectedTier = tier;
@@ -320,6 +333,11 @@ public class ActionRunner
 	private void AbortCharging()
 	{
 		FireChargeEndEvents();
+		StopChargeLoop();
+		if (_action.selectedTier != null)
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, _action.selectedTier.chargeCancelEffect);
+		}
 		// Profile-level abort events fire only when no tier was reached.
 		if (_action.selectedTier == null && _action.profile != null)
 		{
@@ -531,6 +549,43 @@ public class ActionRunner
 			}
 		}
 		return -1;
+	}
+
+	private void StartChargeEffects(ChargedAction tier)
+	{
+		PackedScene newLoop = tier?.chargeLoopEffect;
+
+		// Same loop scene already running — keep it going so a tier promotion
+		// mid-charge doesn't audibly restart the draw. Skip chargeStartEffect
+		// too: the "you've reached this tier" cue is readyEvents' job.
+		if (newLoop != null && newLoop == _chargeLoopScene)
+		{
+			return;
+		}
+
+		// Different (or no) loop on the new tier — stop whatever's running and
+		// start fresh.
+		StopChargeLoop();
+		if (tier == null)
+		{
+			return;
+		}
+		ItemEventHandlers.SpawnOnActor(_actor, tier.chargeStartEffect);
+		if (newLoop != null)
+		{
+			_chargeLoop = ItemEventHandlers.SpawnOnActor(_actor, newLoop);
+			_chargeLoopScene = newLoop;
+		}
+	}
+
+	private void StopChargeLoop()
+	{
+		if (_chargeLoop != null)
+		{
+			_chargeLoop.Stop();
+			_chargeLoop = null;
+			_chargeLoopScene = null;
+		}
 	}
 
 	private static float ComputeChargeT(ItemActionProfile profile, ChargedAction selectedTier, float chargeElapsedSeconds)

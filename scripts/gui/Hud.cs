@@ -93,6 +93,12 @@ public partial class Hud : CanvasLayer
 		_healthBar.MaxValue = 1;
 		_healthBar.Value = maxHealth > 0f ? _player.Health / maxHealth : 0f;
 
+		float maxArmor = _player.MaxArmor;
+		_armorBar.MinValue = 0;
+		_armorBar.MaxValue = 1;
+		_armorBar.Visible = maxArmor > 0f;
+		_armorBar.Value = maxArmor > 0f ? _player.Armor / maxArmor : 0f;
+
 		ulong now = gameClient.World?.GameTimeMs ?? 0;
 		_weaponLeftHud.Tick(now);
 		_weaponRightHud.Tick(now);

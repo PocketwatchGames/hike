@@ -20,6 +20,13 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://cdg2icyjpksr5" path="res://scenes/effects/jump.tscn" id="17_jump"]
+[ext_resource type="PackedScene" uid="uid://dy7mfnxiw5boy" path="res://scenes/effects/land.tscn" id="18_land"]
+[ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/effects/land_hard.tscn" id="19_landhard"]
+[ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/effects/water_plunge.tscn" id="20_plunge"]
+[ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
+[ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
+[ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -535,6 +542,14 @@ _deathEffect = ExtResource("13_deathlrg")
 _waterEnterSplashEffect = ExtResource("14_watenter")
 _waterMovementLoopEffect = ExtResource("15_watloop")
 _tallGrassMovementLoopEffect = ExtResource("16_grassloop")
+_jumpEffect = ExtResource("17_jump")
+_landEffect = ExtResource("18_land")
+_landHardEffect = ExtResource("19_landhard")
+_waterPlungeEffect = ExtResource("20_plunge")
+_shallowWaterFootstepEffect = ExtResource("7_d6tgn")
+_swimIdleLoopEffect = ExtResource("21_tread")
+_hurtVoEffect = ExtResource("22_hurtvo")
+_deathVoEffect = ExtResource("23_deathvo")
 _footstepStride = 2.5
 
 [node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]

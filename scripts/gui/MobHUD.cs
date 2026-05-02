@@ -4,6 +4,7 @@ using System;
 public partial class MobHUD : Node2D
 {
 	[Export] private ProgressBar _healthBar;
+	[Export] private ProgressBar _armorBar;
 	[Export] private ProgressBar _aggroBar;
 	[Export] private ProgressBar _perceptionBar;
 
@@ -45,6 +46,10 @@ public partial class MobHUD : Node2D
 		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
 		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
 		_healthBar.Visible = (_mob.triggered || (_mob.playerCanSee && _mob.health < _mob.maxHealth)) && !_mob.burrowed;
+		if (_armorBar != null)
+		{
+			_armorBar.Visible = _mob.maxArmor > 0f && _healthBar.Visible;
+		}
 		if (!_aggroBar.Visible && !_perceptionBar.Visible && !_healthBar.Visible)
 		{
 			Visible = false;
@@ -55,7 +60,15 @@ public partial class MobHUD : Node2D
 		Position = GameClient.Current.ProjectToScreen(worldPosition);
 		if (_healthBar != null)
 		{
+			_healthBar.MinValue = 0;
+			_healthBar.MaxValue = _mob.maxHealth;
 			_healthBar.Value = _mob.health;
+		}
+		if (_armorBar != null)
+		{
+			_armorBar.MinValue = 0;
+			_armorBar.MaxValue = _mob.maxArmor > 0f ? _mob.maxArmor : 1f;
+			_armorBar.Value = _mob.armor;
 		}
 		if (_aggroBar != null)
 		{

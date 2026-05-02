@@ -21,6 +21,12 @@
 [ext_resource type="PackedScene" uid="uid://bwatentersp0001" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://bwatmoveloop001" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://btallgrloop001" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://bgobyell0000001" path="res://scenes/effects/goblin_yell.tscn" id="17_yell"]
+[ext_resource type="PackedScene" uid="uid://bgobidleloop001" path="res://scenes/effects/goblin_idle_loop.tscn" id="18_idle"]
+[ext_resource type="PackedScene" uid="uid://bgobrunloop0001" path="res://scenes/effects/goblin_run_loop.tscn" id="19_run"]
+[ext_resource type="PackedScene" uid="uid://bgobswmidle0001" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
+[ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
+[ext_resource type="PackedScene" uid="uid://b8armorbreakhk0" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -288,6 +294,12 @@ _deathEffect = ExtResource("13_deathmed")
 _waterEnterSplashEffect = ExtResource("14_watenter")
 _waterMovementLoopEffect = ExtResource("15_watloop")
 _tallGrassMovementLoopEffect = ExtResource("16_grassloop")
+_yellEffect = ExtResource("17_yell")
+_idleLoopEffect = ExtResource("18_idle")
+_runLoopEffect = ExtResource("19_run")
+_swimIdleLoopEffect = ExtResource("20_swimidle")
+_deathVoEffect = ExtResource("21_deathvo")
+_armorDepletedEffect = ExtResource("22_armorbrk")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1610472919]

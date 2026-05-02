@@ -23,6 +23,10 @@ public partial class MobData : Resource
     [Export] public float burrowTime = 1.5f;
     [Export] public float hideRange = 20f;
     [Export] public float maxHealth = 10f;
+    [Export] public float maxArmor = 0f;
+    [Export] public float armorRechargeDelay = 3f;
+    [Export] public float armorRechargeSpeed = 5f;
+    [Export] public float armorRecoverTime = 8f;
     [Export] public float yellVolume = 15;
     [Export] public float maxSpeed = 4f;
     [Export] public StringName defaultBehavior = "Idle";

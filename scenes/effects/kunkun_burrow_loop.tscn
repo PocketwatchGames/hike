@@ -1,0 +1,58 @@
+[gd_scene format=3 uid="uid://ct58bqdly088k"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_burrow_lp.wav" id="2_burrowlp"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dirt"]
+emission_shape = 1
+emission_sphere_radius = 0.2
+direction = Vector3(0, 1, 0)
+spread = 50.0
+initial_velocity_min = 0.6
+initial_velocity_max = 1.8
+gravity = Vector3(0, -8, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.4
+scale_max = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dirt"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.42, 0.32, 0.22, 0.7)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_dirt"]
+material = SubResource("StandardMaterial3D_dirt")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_burrowlp"]
+playback_mode = 1
+random_pitch = 1.0
+random_volume_offset_db = 1.0
+streams_count = 1
+stream_0/stream = ExtResource("2_burrowlp")
+stream_0/weight = 1.0
+
+[node name="KunkunBurrowLoop" type="Node3D"]
+script = ExtResource("1_oneshot")
+_loop = true
+
+[node name="Dirt" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 14
+lifetime = 0.7
+one_shot = false
+explosiveness = 0.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_dirt")
+draw_pass_1 = SubResource("QuadMesh_dirt")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_burrowlp")
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"

@@ -39,6 +39,10 @@ public partial class PlayerData : Resource
 
 	[Export] public float maxHealth = 100f;
 
+	[Export] public float armorRechargeDelay = 3f;
+	[Export] public float armorRechargeSpeed = 20f;
+	[Export] public float armorRecoverTime = 8f;
+
 	// Impulse the player applies to a mob when they run into it. Scaled
 	// by the player's current horizontal speed and divided by the mob's
 	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
