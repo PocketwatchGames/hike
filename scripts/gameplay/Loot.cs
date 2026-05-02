@@ -15,18 +15,21 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	[Export] private Area3D _interactArea;
 	[Export] private HurtBox _hurtBox;
 	[Export] private Node3D _hudNode;
+	[Export] private PackedScene _pickupEffectScene;
+	[Export] private PackedScene _spawnEffectScene;
 
-	// Optional. When set, the player's interact press starts the action
-	// authored on this profile (instead of the legacy GetInteractTime path).
-	// The profile's events should include an OpenInteractive event that
-	// triggers Complete().
-	[Export] public ItemActionProfile pickupActionProfile;
+	// Authored interaction list. The first entry's events should include an
+	// OpenInteractive event that triggers Complete() — that's how the runner
+	// signals "the loot has been collected." Break / Examine can be authored
+	// later as the design evolves.
+	[Export] private Array<InteractiveAction> _actions = new();
 
 	private PropSimState _simState;
 	private bool _pickedUp;
 	private World _world;
 	private Vector3 _initialImpulse;
 	private Player _picker;
+	private bool _playSpawnEffects;
 
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -92,31 +95,20 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		return true;
 	}
 
-	public ulong GetInteractTime(Player player) => 0;
-	public EActionVerb DefaultVerb => EActionVerb.Open;
-
-	private Dictionary<EActionVerb, ItemActionProfile> _actionsCache;
-	public Dictionary<EActionVerb, ItemActionProfile> GetActions(Player player)
+	public Array<InteractiveAction> GetActions(Player player)
 	{
-		if (pickupActionProfile == null)
+		if (_actions == null || _actions.Count == 0)
 		{
 			return null;
 		}
-		if (_actionsCache == null)
-		{
-			_actionsCache = new Dictionary<EActionVerb, ItemActionProfile>
-			{
-				{ EActionVerb.Open, pickupActionProfile },
-			};
-		}
 		_picker = player;
-		return _actionsCache;
+		return _actions;
 	}
 
 	// Called from the action's OpenInteractive event handler at the
 	// authored t=N moment. Deposits the carried item into the picker's
 	// inventory (if any) and removes the loot from the world.
-	public void Complete()
+	public void Complete(int actionIndex)
 	{
 		if (_pickedUp)
 		{
@@ -136,6 +128,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			_simState.PickedUp = true;
 		}
+		if (_pickupEffectScene != null)
+		{
+			Fx.Create(_pickupEffectScene, GetParent(), Position);
+		}
 		_collisionShape.Disabled = true;
 		_world?.RemoveEntity(this);
 		if (_animationPlayer != null)
@@ -154,7 +150,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		QueueFree();
 	}
 
-	public void OnSpawned(World world) { }
+	public void OnSpawned(World world)
+	{
+		if (_playSpawnEffects && _spawnEffectScene != null)
+		{
+			Fx.Create(_spawnEffectScene, GetParent(), Position);
+		}
+	}
 
 	public static Loot Create(World world, PropSimState data, Vector3 impulse = default)
 	{
@@ -163,6 +165,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		instance._simState = data;
 		instance._world = world;
 		instance._initialImpulse = impulse;
+		instance._playSpawnEffects = true;
 		world.AddChild(instance);
 		return instance;
 	}

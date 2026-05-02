@@ -79,7 +79,6 @@ public partial class BehaviorAttack : BehaviorBase
                 output.attackProfile = _data.actionProfile;
                 output.attackContext = new ActionContext
                 {
-                    verb = EActionVerb.Light,
                     target = target,
                 };
             }

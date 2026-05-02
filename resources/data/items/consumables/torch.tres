@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://bu6oheeveqr6e" path="res://scripts/data/TorchData.cs" id="1_torch"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
-[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ChargedAction.cs" id="3_charged"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kburi"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_n6qxs"]
@@ -18,7 +18,6 @@ soundName = null
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
-verb = 3
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_toggle")])
 
 [sub_resource type="Resource" id="Resource_profile"]

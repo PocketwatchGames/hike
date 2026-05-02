@@ -5,9 +5,8 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
-[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ChargedAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
-[ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="6_sprite"]
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/effects/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/effects/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/effects/bow_hit_solid.tscn" id="7_hitsolid"]
@@ -16,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/effects/bow_charge_head.tscn" id="8_chghead"]
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/effects/bow_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/effects/bow_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 
 [sub_resource type="Curve" id="Curve_accuracy"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
@@ -48,7 +48,6 @@ point_count = 3
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
-verb = 1
 cooldownSeconds = 0.5
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_hitscan"), SubResource("Resource_event_useammo")])
 rangeScaleCurve = SubResource("Curve_range")
@@ -74,7 +73,6 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
-verb = 1
 chargeTime = 0.7
 cooldownSeconds = 0.5
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_hitscan_charged"), SubResource("Resource_event_useammo")])
@@ -98,4 +96,4 @@ useAmmo = true
 maxAmmo = 5
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
-inventorySprite = ExtResource("6_sprite")
+inventorySprite = ExtResource("15_tnjmy")

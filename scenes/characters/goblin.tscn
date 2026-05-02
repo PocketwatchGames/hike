@@ -10,23 +10,26 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="9_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="10b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="10_lit_shadowcastertemplate"]
-[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="11_lit_reflectiontemplate"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_fstgrass"]
-[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="11_fststone"]
-[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="11_fstsand"]
-[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="11_fstwater"]
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="11_fstmud"]
-[ext_resource type="PackedScene" uid="uid://bblooddmg00001" path="res://scenes/effects/blood_damage.tscn" id="12_blooddmg"]
-[ext_resource type="PackedScene" uid="uid://bblooddthmd0001" path="res://scenes/effects/blood_death_medium.tscn" id="13_deathmed"]
-[ext_resource type="PackedScene" uid="uid://bwatentersp0001" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
-[ext_resource type="PackedScene" uid="uid://bwatmoveloop001" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
-[ext_resource type="PackedScene" uid="uid://btallgrloop001" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
-[ext_resource type="PackedScene" uid="uid://bgobyell0000001" path="res://scenes/effects/goblin_yell.tscn" id="17_yell"]
-[ext_resource type="PackedScene" uid="uid://bgobidleloop001" path="res://scenes/effects/goblin_idle_loop.tscn" id="18_idle"]
-[ext_resource type="PackedScene" uid="uid://bgobrunloop0001" path="res://scenes/effects/goblin_run_loop.tscn" id="19_run"]
-[ext_resource type="PackedScene" uid="uid://bgobswmidle0001" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="11_fstsand"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="11_fststone"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="11_fstwater"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="11_lit_reflectiontemplate"]
+[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/effects/blood_damage.tscn" id="12_blooddmg"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjjbco3y" path="res://scenes/effects/blood_death_medium.tscn" id="13_deathmed"]
+[ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/effects/goblin_yell.tscn" id="17_yell"]
+[ext_resource type="PackedScene" uid="uid://b8oe6da86xb0k" path="res://scenes/effects/goblin_idle_loop.tscn" id="18_idle"]
+[ext_resource type="PackedScene" uid="uid://b8xv8kd878b0k" path="res://scenes/effects/goblin_run_loop.tscn" id="19_run"]
+[ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
 [ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
-[ext_resource type="PackedScene" uid="uid://b8armorbreakhk0" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
+[ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_light.tscn" id="23_torchon"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_extinguish.tscn" id="24_torchoff"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_loop.tscn" id="25_torchloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -312,7 +315,7 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(0, 0, 48, 48)
+region_rect = Rect2(144, 0, 48, 48)
 script = ExtResource("7_litsprite")
 MirrorByYaw = true
 ForwardOffset = 0.35
@@ -339,6 +342,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
 
 [node name="CarrierLight" type="Node3D" parent="." unique_id=1054950918]
 script = ExtResource("5_ku16y")
+LightOnEffectScene = ExtResource("23_torchon")
+LightOffEffectScene = ExtResource("24_torchoff")
+LightLoopEffectScene = ExtResource("25_torchloop")
 metadata/_custom_type_script = "uid://de7or1xx11ad5"
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=2093955771 node_paths=PackedStringArray("target")]

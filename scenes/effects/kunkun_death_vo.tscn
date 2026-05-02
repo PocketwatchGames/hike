@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dextdjcpcdj8k"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_01.wav" id="2_d01"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_02.wav" id="2_d02"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_03.wav" id="2_d03"]

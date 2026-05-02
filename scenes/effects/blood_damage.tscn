@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bblooddmg00001"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_01.wav" id="2_imp01"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_02.wav" id="2_imp02"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_03.wav" id="2_imp03"]

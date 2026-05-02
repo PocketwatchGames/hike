@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ccc3b2d0mgx8l"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_01.wav" id="2_a01"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_02.wav" id="2_a02"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_03.wav" id="2_a03"]

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bblooddthsm0001"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_sml_01.wav" id="2_dsm01"]
 [ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_sml_02.wav" id="2_dsm02"]
 [ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_sml_03.wav" id="2_dsm03"]

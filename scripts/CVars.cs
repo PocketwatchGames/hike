@@ -124,7 +124,7 @@ public static class CVars
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
 
-    // When true, EffectOneShot prints a line each time it starts an audio
+    // When true, Fx prints a line each time it starts an audio
     // player — scene name, stream resource path, and a wall-clock timestamp.
     // Use to diagnose unexpected rapid-fire SFX (e.g. a per-frame land sound
     // when running into a mob): rapid repeats of the same scene name in the

@@ -133,13 +133,14 @@ public partial class Hud : CanvasLayer
 			return 0f;
 		}
 
+
 		float elapsed = (nowMs - action.pressMs) / 1000f;
 		int nextIndex = action.selectedTierIndex + 1;
 		if (nextIndex >= profile.chargedActions.Count)
 		{
 			return 1f;
 		}
-		ChargedAction nextTier = profile.chargedActions[nextIndex];
+		ItemAction nextTier = profile.chargedActions[nextIndex];
 		if (nextTier == null)
 		{
 			return 1f;

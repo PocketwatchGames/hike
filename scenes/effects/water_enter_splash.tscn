@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bwatentersp0001"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_01.wav" id="2_we01"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_02.wav" id="2_we02"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_03.wav" id="2_we03"]

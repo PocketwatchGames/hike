@@ -15,6 +15,11 @@ public struct ActionContext
 	public EActionVerb verb;
 	public ItemState primaryItem;
 	public IInteractive primaryInteractive;
+	// Index of the running action in primaryInteractive.GetActions(). Set
+	// when the runner starts an interactive-driven action so OpenInteractive
+	// can pass it back to IInteractive.Complete. Unused for slot-driven
+	// (weapon / consumable) actions.
+	public int interactiveActionIndex;
 	public Node3D target;
 	public List<ItemState> supportingItems;
 	public EInventorySlot? sourceSlot;

@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public partial class EffectOneShot : Node3D
+public partial class Fx : Node3D
 {
 	// When false (default), the node frees itself once every child particle
 	// system has stopped emitting AND every child audio player has stopped —
@@ -20,11 +20,23 @@ public partial class EffectOneShot : Node3D
 	// still alive" query for continuous emitters, so we gate on lifetime.
 	ulong _stopTimeMs;
 
-	public static EffectOneShot Create(PackedScene scene, Node parent, Vector3 position)
+	public static Fx Create(PackedScene scene, Node parent, Vector3 position)
 	{
-		EffectOneShot effect = scene.Instantiate<EffectOneShot>();
+		Fx effect = scene.Instantiate<Fx>();
 		effect.Position = position;
 		parent.AddChild(effect);
+		// Godot rejects AddChild when the parent is mid-setup (data.blocked > 0)
+		// — this happens when an Fx is spawned from a sibling's _Ready while
+		// the common ancestor's add_child is still on the stack (e.g.
+		// CarrierLight._Ready firing while Mob.Initialize is adding the mob
+		// to the world). The native call prints an error and silently no-ops,
+		// so we detect the failure via GetParent() and retry on the next idle
+		// frame. Particles / audio stay dormant until the deferred AddChild
+		// fires _Ready.
+		if (effect.GetParent() == null)
+		{
+			parent.CallDeferred(Node.MethodName.AddChild, effect);
+		}
 		return effect;
 	}
 

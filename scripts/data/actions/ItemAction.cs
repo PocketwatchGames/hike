@@ -8,10 +8,8 @@ using Godot.Collections;
 // is written to the driving item's cooldownExpireMs at activation, gating
 // re-firing of that specific item.
 [GlobalClass]
-public partial class ChargedAction : Resource
+public partial class ItemAction : Resource
 {
-	[Export] public EActionVerb verb = EActionVerb.None;
-
 	// Hold time required to "reach" this tier. The lowest tier is typically 0.
 	// Tiers must be authored in ascending chargeTime order.
 	[Export] public float chargeTime = 0f;
@@ -27,11 +25,9 @@ public partial class ChargedAction : Resource
 	// Events fired during Active, on a timeline measured from activateMs.
 	[Export] public Array<ItemEvent> events = new();
 
-	// Phase 3 hooks (declared now so the runner doesn't need a re-export).
 	// readyEvents fire when this tier becomes the selected tier during
-	// charging. abortEvents fire when this tier's Active phase aborts.
+	// charging (the "you've reached Heavy" cue).
 	[Export] public Array<ItemEvent> readyEvents = new();
-	[Export] public Array<ItemEvent> abortEvents = new();
 
 	// Combo position within the action profile. At press time, the runner picks
 	// a candidate index based on the driving weapon's chain state: if the
@@ -72,7 +68,7 @@ public partial class ChargedAction : Resource
 	[Export] public float maxChargeSeconds = 0f;
 
 	// Per-tier charge audio/effect lifecycle, managed by ActionRunner. Each is
-	// a PackedScene wrapping an EffectOneShot.
+	// a PackedScene wrapping an Fx.
 	//
 	// chargeStartEffect (one-shot): fired when this tier becomes the selected
 	//   tier during Charging — at press for tier 0 with chargeTime=0, or at the
@@ -80,7 +76,7 @@ public partial class ChargedAction : Resource
 	//   tier weapon's "light" tier typically leaves these null and only its
 	//   "heavy" tier configures them, so the windup audio fires only when the
 	//   player has actually committed to charging.
-	// chargeLoopEffect (loop, set EffectOneShot._loop=true): instantiated when
+	// chargeLoopEffect (loop, set Fx._loop=true): instantiated when
 	//   this tier becomes selected and Stop()'d on tier change or Charging exit.
 	// chargeCancelEffect (one-shot): fired when Charging aborts (player cancel
 	//   or interrupt) while this tier is selected. NOT fired on a successful

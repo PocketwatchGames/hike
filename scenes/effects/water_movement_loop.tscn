@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dawinmdqs8e6s"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_swim_lp.wav" id="2_swimlp"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_swim"]

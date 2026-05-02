@@ -1,13 +1,15 @@
 [gd_scene format=3 uid="uid://cx01c2pt77fch"]
 
 [ext_resource type="Script" uid="uid://bqqg5l6u5hqng" path="res://scripts/gameplay/AutoLoot.cs" id="1_loot"]
+[ext_resource type="PackedScene" path="res://scenes/effects/loot_pickup.tscn" id="2_1iqtd"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://cfugvse2e2o77" path="res://scenes/effects/loot_spawn.tscn" id="3_dx0hb"]
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -75,22 +77,28 @@ _collisionShape = NodePath("CollisionShape3D")
 _animationPlayer = NodePath("AnimationPlayer")
 _pickupArea = NodePath("PickupArea")
 _hurtBox = NodePath("HurtBox")
+_pickupEffectScene = ExtResource("2_1iqtd")
+_spawnEffectScene = ExtResource("3_dx0hb")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=172604426]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_loot")
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=650643215]
+cast_shadow = 0
+centered = false
+offset = Vector2(-4, 0)
+pixel_size = 0.0738
+alpha_cut = 1
 texture = ExtResource("3_hags0")
 region_enabled = true
 region_rect = Rect2(0, 0, 8, 8)
 script = ExtResource("4_litsprite")
+Reflects = 1
 MaterialTemplate = ExtResource("5_spritemat")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-Reflects = 1
-alpha_cut = 1
 
 [node name="PickupArea" type="Area3D" parent="." unique_id=2016645530]
 collision_layer = 0

@@ -69,7 +69,7 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 
 ### Utilities (`scripts/utils/`)
 
-- `EffectOneShot` - One-shot particle effect lifecycle manager
+- `Fx` - One-shot particle effect lifecycle manager
 - `LinqExtensions` - MaxBy, MinBy, RemoveAtSwap helpers
 
 ### World (`scripts/World.cs`) and Voxel System (`scripts/voxels/`)

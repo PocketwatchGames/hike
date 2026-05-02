@@ -8,6 +8,17 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
+
+[sub_resource type="Resource" id="Resource_door_event_open"]
+script = ExtResource("9_event")
+type = 9
+
+[sub_resource type="Resource" id="Resource_door_action_open"]
+script = ExtResource("8_action")
+verb = 4
+completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_door_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 size = Vector3(1, 2, 1)
@@ -22,6 +33,7 @@ _blockCollider = NodePath("BlockCollider")
 _doorSprite = NodePath("DoorSprite")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("8_action")]([SubResource("Resource_door_action_open")])
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=730201462]
 

@@ -9,6 +9,21 @@
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="PackedScene" path="res://scenes/effects/chest_open.tscn" id="8_chestopen"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="9_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="10_event"]
+
+[sub_resource type="Resource" id="Resource_chest_event_open"]
+script = ExtResource("10_event")
+type = 9
+fx = ExtResource("8_chestopen")
+
+[sub_resource type="Resource" id="Resource_chest_action_open"]
+script = ExtResource("9_action")
+verb = 4
+completionEvents = Array[ExtResource("10_event")]([SubResource("Resource_chest_event_open")])
+durationSeconds = 3.0
+locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 
@@ -20,6 +35,7 @@ _chestSprite = NodePath("ChestSprite")
 _openSprite = NodePath("OpenSprite")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
 

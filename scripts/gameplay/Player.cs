@@ -30,7 +30,7 @@ public partial class Player : CharacterBody3D
 	// One-shot splash spawned when the player first enters a water trigger
 	// (overlap count goes 0 → 1 in WaterAreaEntered).
 	[Export] private PackedScene _waterEnterSplashEffect;
-	// Continuous loop scenes (see EffectOneShot._loop). Parented to the player
+	// Continuous loop scenes (see Fx._loop). Parented to the player
 	// so they follow the body; held alive while in the matching state and
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopEffect;
@@ -87,8 +87,12 @@ public partial class Player : CharacterBody3D
 
 	World _world;
 	IInteractive _curInteractive;
+	// Companion to _curInteractive — names which entry in the interactive's
+	// GetActions() list the player has committed to. Future radial-menu UI
+	// will overwrite this between highlight and commit so the player can
+	// pick Lockpick/Break/Open on a chest.
+	int _curInteractiveActionIndex;
 	IInteractive _highlightInteractive;
-	ulong _interactCompleteTimeMs;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
@@ -107,11 +111,11 @@ public partial class Player : CharacterBody3D
 	// on the first frame state becomes active and Stop()'d when it ends. We
 	// drop the reference at Stop() so the next activation creates a fresh
 	// node rather than racing with the trailing-audio teardown.
-	EffectOneShot _waterMovementLoop;
-	EffectOneShot _tallGrassMovementLoop;
+	Fx _waterMovementLoop;
+	Fx _tallGrassMovementLoop;
 	// Single active anim-loop reference + the state it represents. Swapped
 	// wholesale on transitions instead of cross-fading.
-	EffectOneShot _animLoop;
+	Fx _animLoop;
 	EAnimLoopState _animLoopState = EAnimLoopState.None;
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
@@ -147,37 +151,44 @@ public partial class Player : CharacterBody3D
 	public float MaxArmor => _maxArmor;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
+	public IInteractive CurInteractive => _curInteractive;
+	public int CurInteractiveActionIndex => _curInteractiveActionIndex;
+	// HUD progress fill while the runner is driving an interactive action.
+	// Reads directly off the in-flight PlayerAction so the bar reflects what
+	// the runner is actually doing — no separate timer to keep in sync.
 	public float ClientInteractProgress
 	{
 		get
 		{
-			if (_curInteractive == null || _world == null)
+			if (_runner == null || !_runner.IsBusy)
 			{
 				return 0f;
 			}
-			ulong interactTimeMs = _curInteractive.GetInteractTime(this);
-			if (interactTimeMs == 0)
+			ref readonly PlayerAction action = ref _runner.Current;
+			if (action.interactiveAction == null || _world == null)
+			{
+				return 0f;
+			}
+			ulong total = action.endMs > action.activateMs ? action.endMs - action.activateMs : 0;
+			if (total == 0)
 			{
 				return 0f;
 			}
 			ulong now = _world.GameTimeMs;
-			if (now >= _interactCompleteTimeMs)
-			{
-				return 1f;
-			}
-			ulong remaining = _interactCompleteTimeMs - now;
-			return 1f - (float)remaining / interactTimeMs;
+			ulong elapsed = now > action.activateMs ? now - action.activateMs : 0;
+			return Mathf.Clamp((float)elapsed / total, 0f, 1f);
 		}
 	}
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
 
-	void SetCurInteractive(IInteractive value)
+	void SetCurInteractive(IInteractive value, int actionIndex = 0)
 	{
-		if (_curInteractive != value)
+		if (_curInteractive != value || _curInteractiveActionIndex != actionIndex)
 		{
 			_curInteractive = value;
+			_curInteractiveActionIndex = value != null ? actionIndex : 0;
 			onInteractChanged?.Invoke(value);
 		}
 	}
@@ -294,7 +305,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		EffectOneShot.Create(scene, _world, GlobalPosition);
+		Fx.Create(scene, _world, GlobalPosition);
 	}
 
 	// Drives a loop's lifetime from a "should be active" flag. When `active`
@@ -303,13 +314,13 @@ public partial class Player : CharacterBody3D
 	// the existing instance — it cleans itself up after the trailing audio +
 	// particles wind down — and drop our reference so the next activation
 	// gets a fresh node.
-	private void UpdateLoopEffect(ref EffectOneShot instance, PackedScene scene, bool active)
+	private void UpdateLoopEffect(ref Fx instance, PackedScene scene, bool active)
 	{
 		if (active)
 		{
 			if (instance == null && scene != null)
 			{
-				instance = EffectOneShot.Create(scene, this, Vector3.Zero);
+				instance = Fx.Create(scene, this, Vector3.Zero);
 			}
 		}
 		else if (instance != null)
@@ -442,7 +453,7 @@ public partial class Player : CharacterBody3D
 		};
 		if (scene != null)
 		{
-			_animLoop = EffectOneShot.Create(scene, this, Vector3.Zero);
+			_animLoop = Fx.Create(scene, this, Vector3.Zero);
 		}
 		_animLoopState = target;
 	}
@@ -709,26 +720,6 @@ public partial class Player : CharacterBody3D
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
 		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
 
-		if (_curInteractive != null)
-		{
-			if (_curInteractive.CanActorInteract(this))
-			{
-				if (_world.GameTimeMs >= _interactCompleteTimeMs)
-				{
-					_curInteractive.Complete();
-					SetCurInteractive(null);
-					_highlightInteractive = null;
-					onHighlightChanged?.Invoke(null);
-				}
-			}
-			else
-			{
-				SetCurInteractive(null);
-				_highlightInteractive = null;
-				onHighlightChanged?.Invoke(null);
-			}
-		}
-
 		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad);
 
 		float speed = _aiming ? Mathf.Lerp(0.75f, 0.25f, (1f - _inputLook.Dot(_inputMove)) / 2) * data.moveSpeed : data.moveSpeed;
@@ -777,6 +768,17 @@ public partial class Player : CharacterBody3D
 		}
 
 		_runner?.Tick();
+
+		// Runner finished the interactive action this tick — clear the
+		// player's "engaged with X" state so movement unlocks next frame and
+		// the Interacting anim resumes. Also drop the highlight so the
+		// player has to walk back into range to re-engage.
+		if (_curInteractive != null && _runner != null && !_runner.IsBusy)
+		{
+			SetCurInteractive(null);
+			_highlightInteractive = null;
+			onHighlightChanged?.Invoke(null);
+		}
 
 		// Step up: lift the player before moving so they can clear small obstacles.
 		// Disabled while swimming — the player is floating, not walking. Uses
@@ -894,6 +896,14 @@ public partial class Player : CharacterBody3D
 
 	void CancelInteract()
 	{
+		// If the runner is mid-interactive, abort it so completionEvents
+		// don't fire. Weapon actions are gated by their own canAbort flag
+		// inside TryAbort, which interactive actions skip — they always
+		// abort cleanly.
+		if (_runner != null && _runner.IsBusy && _runner.Current.interactiveAction != null)
+		{
+			_runner.TryAbort();
+		}
 		SetCurInteractive(null);
 		_highlightInteractive = null;
 		onHighlightChanged?.Invoke(null);
@@ -925,29 +935,12 @@ public partial class Player : CharacterBody3D
 				CancelInteract();
 			} else if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
 			{
-				// Action-runner path: if the interactive provides action
-				// profiles, run the default verb's profile through the
-				// runner. Hold-for-radial verb selection is future UI work.
+				// Hold-for-radial verb selection is future UI work — the
+				// runner currently always runs the interactive's DefaultVerb.
 				if (TryStartInteractiveAction(_highlightInteractive))
 				{
 					_highlightInteractive = null;
 					onHighlightChanged?.Invoke(null);
-				}
-				else
-				{
-					SetCurInteractive(_highlightInteractive);
-					ulong interactTimeMs = _curInteractive.GetInteractTime(this);
-					if (interactTimeMs == 0)
-					{
-						_curInteractive.Complete();
-						SetCurInteractive(null);
-						_highlightInteractive = null;
-						onHighlightChanged?.Invoke(null);
-					}
-					else
-					{
-						_interactCompleteTimeMs = _world.GameTimeMs + interactTimeMs;
-					}
 				}
 			}
 		}

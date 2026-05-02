@@ -32,8 +32,13 @@ public partial class ItemEvent : Resource
 	// ToggleCarrierLight: no extra fields. Handler flips ConsumableState.isActive
 	// on the action's primaryItem and attaches/detaches a CarrierLight.
 
-	// OpenInteractive: no extra fields. Handler calls Complete() on
-	// context.primaryInteractive.
+	// OpenInteractive: handler calls Complete() on context.primaryInteractive
+	// and (if `fx` is non-null) spawns a one-shot at the interactive's node
+	// position. The fx field is the per-event audiovisual signature — the
+	// "the chest creaks open" cue lives on the OpenInteractive event in the
+	// chest's action, not on the chest's C# class, so each interactive's
+	// authored action carries its own completion effect.
+	[Export] public PackedScene fx;
 
 	// ConsumeFromInventory: identifies which supporting item to consume.
 	// `reagent` matches ItemData on supportingItems entries; `consumeAmount`

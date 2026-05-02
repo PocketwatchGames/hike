@@ -105,7 +105,7 @@ public static class ItemEventHandlers
 		// direction uniformly within a cone whose half-angle scales with the
 		// accuracy curve. Null curves = 1.0 (no scaling) for range and
 		// "fully accurate" (0.0 spread) for accuracy.
-		ChargedAction tier = action.selectedTier;
+		ItemAction tier = action.selectedTier;
 		float chargeT = action.chargeT;
 		float rangeScale = SampleCurve(tier?.rangeScaleCurve, chargeT, 1f);
 		float spreadScale = SampleCurve(tier?.accuracyScaleCurve, chargeT, 0f);
@@ -254,7 +254,16 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
-		interactive.Complete();
+		// Capture position/parent BEFORE Complete() — Loot.Complete QueueFrees
+		// the node, which would leave us no parent to spawn into.
+		Node3D node = interactive as Node3D;
+		Node parent = node?.GetParent();
+		Vector3 pos = node?.Position ?? Vector3.Zero;
+		interactive.Complete(action.context.interactiveActionIndex);
+		if (ev.fx != null && parent != null)
+		{
+			Fx.Create(ev.fx, parent, pos);
+		}
 	}
 
 	public static void DoConsumeFromInventory(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -350,8 +359,8 @@ public static class ItemEventHandlers
 
 	// World-parented one-shot at a fixed world position — matches the puff /
 	// blood / footstep convention so the effect stays put as the actor keeps
-	// moving. Returns the spawned EffectOneShot, or null if nothing spawned.
-	public static EffectOneShot SpawnAtWorld(IActionActor actor, PackedScene scene, Vector3 position)
+	// moving. Returns the spawned Fx, or null if nothing spawned.
+	public static Fx SpawnAtWorld(IActionActor actor, PackedScene scene, Vector3 position)
 	{
 		if (scene == null)
 		{
@@ -362,18 +371,18 @@ public static class ItemEventHandlers
 		{
 			return null;
 		}
-		return EffectOneShot.Create(scene, parent, position);
+		return Fx.Create(scene, parent, position);
 	}
 
 	// Actor-parented effect — tracks the actor as it moves. Use for charge
 	// loops and any sound that should follow the wielder.
-	public static EffectOneShot SpawnOnActor(IActionActor actor, PackedScene scene)
+	public static Fx SpawnOnActor(IActionActor actor, PackedScene scene)
 	{
 		if (scene == null || actor.AttackerNode == null)
 		{
 			return null;
 		}
-		return EffectOneShot.Create(scene, actor.AttackerNode, Vector3.Zero);
+		return Fx.Create(scene, actor.AttackerNode, Vector3.Zero);
 	}
 
 	private static Vector3 ApplySpread(Vector3 forward, float spread01)

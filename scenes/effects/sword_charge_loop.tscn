@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dmlrncbt6oc8f"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_lp.wav" id="2_lp"]
 
 [node name="SwordChargeLoop" type="Node3D"]

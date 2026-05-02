@@ -2,7 +2,7 @@ public class WeaponState : ItemState
 {
 	public int ammo;
 
-	// Combo runtime — set to the activated ChargedAction's comboIndex on each
+	// Combo runtime — set to the activated ItemAction's comboIndex on each
 	// activation. comboExpireMs is when the chain breaks if not extended; the
 	// ActionRunner uses (now < comboExpireMs) at press time to target
 	// `comboIndex + 1` instead of restarting at 0.

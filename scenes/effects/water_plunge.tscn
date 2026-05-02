@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://da0fmu7g5je6s"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_01.wav" id="2_pl01"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_02.wav" id="2_pl02"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_plunge_03.wav" id="2_pl03"]

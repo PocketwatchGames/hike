@@ -6,12 +6,5 @@
 // generic (Primary/Secondary).
 public enum EActionVerb
 {
-	None,
-	Light,
-	Heavy,
-	Use,
-	Open,
-	Break,
-	Lockpick,
-	Block,
+	Use
 }

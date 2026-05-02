@@ -9,8 +9,12 @@ public struct PlayerAction
 {
 	public EActionPhase phase;
 	public ItemActionProfile profile;
-	public ChargedAction selectedTier;
+	public ItemAction selectedTier;
 	public int selectedTierIndex;
+	// Set instead of `profile` when the runner is driving an IInteractive's
+	// authored timeline. Mutually exclusive with `profile`; the runner picks
+	// the active path from whichever is non-null.
+	public InteractiveAction interactiveAction;
 	public ActionContext context;
 
 	// Timeline cursors. pressMs is when input went down (start of Charging).

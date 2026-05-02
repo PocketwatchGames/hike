@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://dy7pahbiw5boy"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_01.wav" id="2_ld01"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_02.wav" id="2_ld02"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_die_03.wav" id="2_ld03"]

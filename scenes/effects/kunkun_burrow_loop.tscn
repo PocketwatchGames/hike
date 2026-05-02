@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://ct58bqdly088k"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_burrow_lp.wav" id="2_burrowlp"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dirt"]

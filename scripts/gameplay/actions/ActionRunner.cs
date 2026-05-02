@@ -25,7 +25,7 @@ public class ActionRunner
 	// reference lets a tier promotion mid-charge (e.g., bow snap→charged)
 	// preserve the running loop when the new tier reuses the same scene
 	// instead of audibly restarting the draw.
-	private EffectOneShot _chargeLoop;
+	private Fx _chargeLoop;
 	private PackedScene _chargeLoopScene;
 
 	public ActionRunner(IActionActor actor)
@@ -37,7 +37,9 @@ public class ActionRunner
 	public bool IsBusy => _action.IsBusy;
 	public EActionPhase Phase => _action.phase;
 	public ref readonly PlayerAction Current => ref _action;
-	public bool LocksMovement => _action.IsBusy && _action.profile != null && _action.profile.locksMovement;
+	public bool LocksMovement => _action.IsBusy && (
+		(_action.profile != null && _action.profile.locksMovement)
+		|| (_action.interactiveAction != null && _action.interactiveAction.locksMovement));
 
 	// Begin a new action. Returns true if started OR queued. Returns false
 	// if the runner is busy in a state where queueing isn't possible (mid-
@@ -65,6 +67,35 @@ public class ActionRunner
 		return true;
 	}
 
+	// Begin a new interactive action. No queueing, no charging — the action
+	// enters Active immediately and walks `events` over `durationSeconds`.
+	// Returns false if the runner is busy or the action is null.
+	public bool TryStart(InteractiveAction action, ActionContext context)
+	{
+		if (action == null || _action.IsBusy)
+		{
+			return false;
+		}
+		ulong now = _actor.GameTimeMs;
+		_action = new PlayerAction
+		{
+			phase = EActionPhase.Active,
+			interactiveAction = action,
+			context = context,
+			pressMs = now,
+			activateMs = now,
+			endMs = now + (ulong)(action.durationSeconds * 1000f),
+			selectedTierIndex = -1,
+			lastEventIndex = -1,
+		};
+		WalkActiveEvents(now);
+		if (_action.phase == EActionPhase.Active && now >= _action.endMs)
+		{
+			EndActive();
+		}
+		return true;
+	}
+
 	// Input release. If currently Charging, transition to Active using the
 	// selected tier (if any reached). Returns true if a transition happened.
 	public bool OnInputReleased()
@@ -73,7 +104,7 @@ public class ActionRunner
 		{
 			return false;
 		}
-		ChargedAction tier = _action.selectedTier;
+		ItemAction tier = _action.selectedTier;
 		if (tier == null)
 		{
 			AbortCharging();
@@ -106,8 +137,9 @@ public class ActionRunner
 		}
 	}
 
-	// Player-initiated cancel. Charging always cancels; Active cancels only
-	// if the selected tier opts in via canAbort.
+	// Player-initiated cancel. Charging always cancels; weapon Active cancels
+	// only if the selected tier opts in via canAbort. Interactive Active is
+	// always abortable — the player can walk away from a chest mid-open.
 	public bool TryAbort()
 	{
 		if (_action.phase == EActionPhase.Charging)
@@ -115,16 +147,25 @@ public class ActionRunner
 			AbortCharging();
 			return true;
 		}
-		if (_action.phase == EActionPhase.Active && (_action.selectedTier?.canAbort ?? false))
+		if (_action.phase == EActionPhase.Active)
 		{
-			AbortActive();
-			return true;
+			if (_action.interactiveAction != null)
+			{
+				AbortInteractive();
+				return true;
+			}
+			if (_action.selectedTier?.canAbort ?? false)
+			{
+				AbortActive();
+				return true;
+			}
 		}
 		return false;
 	}
 
 	// External (damage, stagger). Charging cancels iff profile.interruptOnDamage;
-	// Active cancels only if the selected tier opts in via canInterrupt.
+	// weapon Active cancels only if the selected tier opts in via canInterrupt;
+	// interactive Active cancels iff interactiveAction.interruptOnDamage.
 	public bool TryInterrupt()
 	{
 		if (_action.phase == EActionPhase.Charging)
@@ -136,10 +177,22 @@ public class ActionRunner
 			}
 			return false;
 		}
-		if (_action.phase == EActionPhase.Active && (_action.selectedTier?.canInterrupt ?? false))
+		if (_action.phase == EActionPhase.Active)
 		{
-			AbortActive();
-			return true;
+			if (_action.interactiveAction != null)
+			{
+				if (_action.interactiveAction.interruptOnDamage)
+				{
+					AbortInteractive();
+					return true;
+				}
+				return false;
+			}
+			if (_action.selectedTier?.canInterrupt ?? false)
+			{
+				AbortActive();
+				return true;
+			}
 		}
 		return false;
 	}
@@ -149,7 +202,7 @@ public class ActionRunner
 		ulong now = _actor.GameTimeMs;
 		int targetComboIndex = ResolveTargetComboIndex(profile, context, now);
 		int tier0Index = SelectTierIndex(profile, context, 0f, targetComboIndex);
-		ChargedAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
+		ItemAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
 		_action = new PlayerAction
 		{
 			phase = EActionPhase.Charging,
@@ -255,7 +308,7 @@ public class ActionRunner
 		{
 			return;
 		}
-		ChargedAction top = profile.chargedActions[topIndex];
+		ItemAction top = profile.chargedActions[topIndex];
 		if (top == null)
 		{
 			return;
@@ -267,7 +320,7 @@ public class ActionRunner
 		}
 	}
 
-	private void EnterActive(ChargedAction tier, ulong now)
+	private void EnterActive(ItemAction tier, ulong now)
 	{
 		FireChargeEndEvents();
 		StopChargeLoop();
@@ -312,6 +365,15 @@ public class ActionRunner
 
 	private void EndActive()
 	{
+		// Interactive actions fire their completion bucket here so authors
+		// don't have to align an OpenInteractive event's time to the action's
+		// durationSeconds. Weapons skip this — their per-tier `events` walk
+		// already handles the swing's impact moment.
+		if (_action.interactiveAction != null)
+		{
+			FireEventList(_action.interactiveAction.completionEvents);
+		}
+
 		// Active ended naturally — promote queue if pending and still valid.
 		if (_hasQueued)
 		{
@@ -350,11 +412,13 @@ public class ActionRunner
 
 	private void AbortActive()
 	{
-		ChargedAction tier = _action.selectedTier;
-		if (tier != null)
-		{
-			FireEventList(tier.abortEvents);
-		}
+		_action = default;
+		_queuedAction = default;
+		_hasQueued = false;
+	}
+
+	private void AbortInteractive()
+	{
 		_action = default;
 		_queuedAction = default;
 		_hasQueued = false;
@@ -389,14 +453,23 @@ public class ActionRunner
 
 	private void WalkActiveEvents(ulong now)
 	{
-		ChargedAction tier = _action.selectedTier;
-		if (tier == null || tier.events == null)
+		Godot.Collections.Array<ItemEvent> events;
+		if (_action.interactiveAction != null)
+		{
+			events = _action.interactiveAction.interactEvents;
+		}
+		else
+		{
+			ItemAction tier = _action.selectedTier;
+			events = tier?.events;
+		}
+		if (events == null)
 		{
 			return;
 		}
-		for (int i = _action.lastEventIndex + 1; i < tier.events.Count; i++)
+		for (int i = _action.lastEventIndex + 1; i < events.Count; i++)
 		{
-			ItemEvent ev = tier.events[i];
+			ItemEvent ev = events[i];
 			if (ev == null)
 			{
 				_action.lastEventIndex = i;
@@ -465,7 +538,7 @@ public class ActionRunner
 				_actor.PlayAnim(ev.animName);
 				break;
 			case EItemEventType.PlaySound:
-				// Sound playback is wired through EffectOneShot in actor-specific
+				// Sound playback is wired through Fx in actor-specific
 				// code; for now the event is a no-op stub so authoring can use it.
 				break;
 			case EItemEventType.OpenInteractive:
@@ -486,7 +559,7 @@ public class ActionRunner
 		// step). The combo filter is fixed for the duration of the charge.
 		for (int i = profile.chargedActions.Count - 1; i >= 0; i--)
 		{
-			ChargedAction action = profile.chargedActions[i];
+			ItemAction action = profile.chargedActions[i];
 			if (action == null) { continue; }
 			if (action.comboIndex != comboIndex) { continue; }
 			if (chargeElapsedSeconds + 1e-6f < action.chargeTime) { continue; }
@@ -508,7 +581,7 @@ public class ActionRunner
 		int next = weapon.comboIndex + 1;
 		for (int i = 0; i < profile.chargedActions.Count; i++)
 		{
-			ChargedAction action = profile.chargedActions[i];
+			ItemAction action = profile.chargedActions[i];
 			if (action != null && action.comboIndex == next)
 			{
 				return next;
@@ -517,7 +590,7 @@ public class ActionRunner
 		return 0;
 	}
 
-	private bool RequirementsMet(ChargedAction tier, in ActionContext context)
+	private bool RequirementsMet(ItemAction tier, in ActionContext context)
 	{
 		if (tier.requirements == null || tier.requirements.Count == 0)
 		{
@@ -535,7 +608,7 @@ public class ActionRunner
 		return true;
 	}
 
-	private static int IndexOf(ItemActionProfile profile, ChargedAction tier)
+	private static int IndexOf(ItemActionProfile profile, ItemAction tier)
 	{
 		if (profile == null || tier == null)
 		{
@@ -551,7 +624,7 @@ public class ActionRunner
 		return -1;
 	}
 
-	private void StartChargeEffects(ChargedAction tier)
+	private void StartChargeEffects(ItemAction tier)
 	{
 		PackedScene newLoop = tier?.chargeLoopEffect;
 
@@ -588,7 +661,7 @@ public class ActionRunner
 		}
 	}
 
-	private static float ComputeChargeT(ItemActionProfile profile, ChargedAction selectedTier, float chargeElapsedSeconds)
+	private static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, float chargeElapsedSeconds)
 	{
 		// Sampling window precedence:
 		//   1. selectedTier.maxChargeSeconds (per-action explicit window —
@@ -606,7 +679,7 @@ public class ActionRunner
 		{
 			return 0f;
 		}
-		ChargedAction top = profile.chargedActions[profile.chargedActions.Count - 1];
+		ItemAction top = profile.chargedActions[profile.chargedActions.Count - 1];
 		if (top == null || top.chargeTime <= 0f)
 		{
 			return 0f;

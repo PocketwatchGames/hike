@@ -11,11 +11,14 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 	[Export] private AnimationPlayer _animationPlayer;
 	[Export] private Area3D _pickupArea;
 	[Export] private HurtBox _hurtBox;
+	[Export] private PackedScene _pickupEffectScene;
+	[Export] private PackedScene _spawnEffectScene;
 
 	private PropSimState _simState;
 	private bool _pickedUp;
 	private World _world;
 	private Vector3 _initialImpulse;
+	private bool _playSpawnEffects;
 
 	public override void _Ready()
 	{
@@ -111,6 +114,10 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		_world?.RemoveEntity(this);
 		_animationPlayer.AnimationFinished += OnPickedUpFinished;
 		_animationPlayer.Play("PickedUp");
+		if (_pickupEffectScene != null)
+		{
+			Fx.Create(_pickupEffectScene, GetParent(), Position);
+		}
 		return true;
 	}
 
@@ -119,7 +126,13 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		QueueFree();
 	}
 
-	public void OnSpawned(World world) { }
+	public void OnSpawned(World world)
+	{
+		if (_playSpawnEffects && _spawnEffectScene != null)
+		{
+			Fx.Create(_spawnEffectScene, GetParent(), Position);
+		}
+	}
 
 	public static AutoLoot Create(World world, PropSimState data, Vector3 impulse = default)
 	{
@@ -128,6 +141,7 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		instance._simState = data;
 		instance._world = world;
 		instance._initialImpulse = impulse;
+		instance._playSpawnEffects = true;
 		world.AddChild(instance);
 		return instance;
 	}

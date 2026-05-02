@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://co37ekr23jxpo"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_lantern_head.wav" id="2_lh"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_torchlight"]
+emission_shape = 1
+emission_sphere_radius = 0.08
+direction = Vector3(0, 1, 0)
+spread = 15.0
+initial_velocity_min = 0.6
+initial_velocity_max = 1.6
+gravity = Vector3(0, 1.5, 0)
+damping_min = 0.4
+damping_max = 1.0
+scale_min = 0.4
+scale_max = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_torchlight"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.7, 0.25, 0.85)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_torchlight"]
+material = SubResource("StandardMaterial3D_torchlight")
+size = Vector2(0.08, 0.08)
+
+[node name="TorchLight" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Spark" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_torchlight")
+draw_pass_1 = SubResource("QuadMesh_torchlight")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_lh")
+unit_size = 4.0
+max_distance = 22.0
+bus = &"World3D"

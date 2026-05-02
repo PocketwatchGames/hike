@@ -49,7 +49,6 @@ public partial class Player : CharacterBody3D, IActionActor
 
 		var context = new ActionContext
 		{
-			verb = EActionVerb.Light,
 			primaryItem = weapon,
 			sourceSlot = slot,
 		};
@@ -109,65 +108,65 @@ public partial class Player : CharacterBody3D, IActionActor
 		_runner.OnInputReleased();
 	}
 
-	// Returns true if an interactive action was started (or attempted to be
-	// started) — caller's expectation is "this interactive is now committed
-	// to the runner; don't fall through to the legacy interact path."
-	// Returns false if the interactive doesn't expose action profiles, in
-	// which case the caller falls back to GetInteractTime/Complete.
-	bool TryStartInteractiveAction(IInteractive interactive)
+	// Starts the interactive's action at `actionIndex` through the runner and
+	// stashes (interactive, actionIndex) on the player so the movement-lock
+	// and Interacting-anim checks elsewhere can key off _curInteractive.
+	// Returns true on a successful start. _PhysicsProcess clears
+	// _curInteractive when the runner finishes the action.
+	bool TryStartInteractiveAction(IInteractive interactive, int actionIndex = 0)
 	{
 		if (_runner == null || _runner.IsBusy || interactive == null)
 		{
 			return false;
 		}
-		var profiles = interactive.GetActions(this);
-		if (profiles == null || profiles.Count == 0)
+		var actions = interactive.GetActions(this);
+		if (actions == null || actionIndex < 0 || actionIndex >= actions.Count)
 		{
 			return false;
 		}
-		EActionVerb verb = interactive.DefaultVerb;
-		if (!profiles.TryGetValue(verb, out ItemActionProfile profile) || profile == null)
+		InteractiveAction action = actions[actionIndex];
+		if (action == null)
 		{
 			return false;
 		}
 		var context = new ActionContext
 		{
-			verb = verb,
+			verb = action.verb,
 			primaryInteractive = interactive,
-			supportingItems = GatherSupportingItems(profile),
+			interactiveActionIndex = actionIndex,
+			supportingItems = GatherSupportingItems(action.requirements),
 		};
-		return _runner.TryStart(profile, context);
+		if (!_runner.TryStart(action, context))
+		{
+			return false;
+		}
+		SetCurInteractive(interactive, actionIndex);
+		return true;
 	}
 
-	// Walk the action's tier requirements and gather any supporting items
-	// the profile needs from the inventory (e.g. lockpicks). Phase 5 only
-	// resolves HasReagentRequirement; future requirement types may add
-	// more. Returns null if the profile has no reagent-style requirements
-	// — saves a list allocation in the common case.
-	System.Collections.Generic.List<ItemState> GatherSupportingItems(ItemActionProfile profile)
+	// Walk a requirements list and gather any supporting items the action
+	// needs from the inventory (e.g. lockpicks). Currently only resolves
+	// HasReagentRequirement; future requirement types may add more. Returns
+	// null when nothing matches — saves a list allocation in the common case.
+	System.Collections.Generic.List<ItemState> GatherSupportingItems(Godot.Collections.Array<ActionRequirement> requirements)
 	{
-		if (profile == null || profile.chargedActions == null || _inventory == null)
+		if (requirements == null || _inventory == null)
 		{
 			return null;
 		}
 		System.Collections.Generic.List<ItemState> result = null;
-		for (int t = 0; t < profile.chargedActions.Count; t++)
+		for (int r = 0; r < requirements.Count; r++)
 		{
-			ChargedAction tier = profile.chargedActions[t];
-			if (tier?.requirements == null) { continue; }
-			for (int r = 0; r < tier.requirements.Count; r++)
+			if (requirements[r] is not HasReagentRequirement reagentReq) { continue; }
+			if (reagentReq.reagent == null) { continue; }
+			foreach (ItemState item in _inventory.EnumerateAll())
 			{
-				if (tier.requirements[r] is not HasReagentRequirement reagentReq) { continue; }
-				if (reagentReq.reagent == null) { continue; }
-				foreach (ItemState item in _inventory.EnumerateAll())
+				if (item != null && item.data == reagentReq.reagent)
 				{
-					if (item != null && item.data == reagentReq.reagent)
+					result ??= new System.Collections.Generic.List<ItemState>();
+					if (!result.Contains(item))
 					{
-						result ??= new System.Collections.Generic.List<ItemState>();
-						if (!result.Contains(item))
-						{
-							result.Add(item);
-						}
+						result.Add(item);
 					}
 				}
 			}

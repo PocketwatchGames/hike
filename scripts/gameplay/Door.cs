@@ -8,6 +8,9 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export] private Sprite3D _doorSprite;
     [Export] private HurtBox _hurtBox;
     [Export] private Node3D _hudNode;
+    // Authored interaction list. Doors are typically instant Open
+    // (durationSeconds=0); add a Lockpick entry for locked doors.
+    [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _open;
@@ -44,12 +47,12 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         return CanInteract();
     }
 
-    public ulong GetInteractTime(Player player)
+    public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
-        return 0;
+        return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    public void Complete()
+    public void Complete(int actionIndex)
     {
         _open = !_open;
         _interactiveState.Active = !_open;

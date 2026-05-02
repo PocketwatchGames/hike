@@ -9,6 +9,20 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="7_interactivebox"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_light.tscn" id="10_torchon"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_extinguish.tscn" id="11_torchoff"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_loop.tscn" id="12_torchloop"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="13_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="14_event"]
+
+[sub_resource type="Resource" id="Resource_torch_event_open"]
+script = ExtResource("14_event")
+type = 9
+
+[sub_resource type="Resource" id="Resource_torch_action_use"]
+script = ExtResource("13_action")
+verb = 3
+completionEvents = Array[ExtResource("14_event")]([SubResource("Resource_torch_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(0.5, 1, 0.5)
@@ -19,6 +33,10 @@ _litSprite = NodePath("LitSprite")
 _unlitSprite = NodePath("UnlitSprite")
 _light = NodePath("Light")
 _hudNode = NodePath("HUDNode")
+_lightOnEffectScene = ExtResource("10_torchon")
+_lightOffEffectScene = ExtResource("11_torchoff")
+_lightLoopEffectScene = ExtResource("12_torchloop")
+_actions = Array[ExtResource("13_action")]([SubResource("Resource_torch_action_use")])
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=632033449 node_paths=PackedStringArray("_interactiveNode")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

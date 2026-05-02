@@ -12,7 +12,7 @@ public partial class ItemActionProfile : Resource
 	// entry with chargeTime=0 and autoActivateAtMax=true. A charge-then-fire
 	// bow has a single entry with chargeTime=0 and autoActivateAtMax=false
 	// (release fires it). Multi-tier weapons (Light/Heavy) authored in phase 3.
-	[Export] public Array<ChargedAction> chargedActions = new();
+	[Export] public Array<ItemAction> chargedActions = new();
 
 	// Events fired while Charging. PlayAnim "wind up", spawn charge particle,
 	// etc. Authored on a timeline measured from pressMs. Empty for tap-fire
@@ -25,8 +25,7 @@ public partial class ItemActionProfile : Resource
 	[Export] public Array<ItemEvent> chargeEndEvents = new();
 
 	// Events fired when charging aborts WITHOUT reaching even the lowest
-	// tier (player released too early). Distinct from a tier's abortEvents,
-	// which fire when its Active phase is cut short.
+	// tier (player released too early).
 	[Export] public Array<ItemEvent> abortEvents = new();
 
 	// If true and the player holds past the highest tier's chargeTime,
@@ -39,7 +38,7 @@ public partial class ItemActionProfile : Resource
 	[Export] public bool locksMovement = false;
 
 	// Damage-during-charge interrupt policy. Active-phase interrupt is gated
-	// by ChargedAction.canInterrupt instead.
+	// by ItemAction.canInterrupt instead.
 	[Export] public bool interruptOnDamage = true;
 
 	// Phase 3 hook — the runner will queue an in-flight press if Active is

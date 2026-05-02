@@ -34,9 +34,10 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_aggroBar", "_perceptionBar")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_aggroBar", "_perceptionBar")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
+_armorBar = NodePath("Armor")
 _aggroBar = NodePath("Aggro")
 _perceptionBar = NodePath("Perception")
 

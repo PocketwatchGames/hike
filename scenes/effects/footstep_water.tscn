@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://0gwx2qeenb5r"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_01.wav" id="2_sw01"]
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_02.wav" id="2_sw02"]
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_03.wav" id="2_sw03"]

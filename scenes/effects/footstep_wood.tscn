@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c2fhwoodfst01"]
 
-[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_wood"]
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_wood"]
 [ext_resource type="AudioStream" uid="uid://qu1owsaurngt" path="res://audio/source/footsteps/un_shr_foot_wood_01.wav" id="2_wd01"]
 [ext_resource type="AudioStream" uid="uid://n6bu72vdiujl" path="res://audio/source/footsteps/un_shr_foot_wood_02.wav" id="2_wd02"]
 [ext_resource type="AudioStream" uid="uid://dkwyux42g8pml" path="res://audio/source/footsteps/un_shr_foot_wood_03.wav" id="2_wd03"]

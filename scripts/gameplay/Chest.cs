@@ -7,7 +7,10 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private Sprite3D _chestSprite;
     [Export] private Sprite3D _openSprite;
     [Export] private HurtBox _hurtBox;
-    [Export] private float _interactTime = 3;
+    // Authored interaction list. The first entry is the default action the
+    // player runs on press; lockpick / break can be authored as additional
+    // entries for the radial UI.
+    [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private Node3D _hudNode;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
@@ -41,9 +44,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         return CanInteract();
     }
 
-    public ulong GetInteractTime(Player player)
+    public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
-        return (ulong)(_interactTime * 1000);
+        return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
     private void UpdateVisuals()
@@ -52,7 +55,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         _openSprite.Visible = _open;
     }
 
-    public void Complete()
+    public void Complete(int actionIndex)
     {
         _open = true;
         _interactiveState.Active = false;

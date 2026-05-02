@@ -19,16 +19,28 @@ public partial class CarrierLight : Node3D
     [Export] public int Emission = 32;
     [Export] public Color LightColor = new(1f, 0.75f, 0.4f);
     [Export] public bool Active { get; set; } = true;
+    [Export] public PackedScene LightOnEffectScene;
+    [Export] public PackedScene LightOffEffectScene;
+    [Export] public PackedScene LightLoopEffectScene;
 
     private CornerKernels _kernels;
     private List<(Vector3I pos, ushort r, ushort g, ushort b)> _currentDeposit = new();
     private bool _registered;
     private Vector3I _lastVoxel;
     private Vector3 _lastSubVoxel;
+    private Fx _loopEffect;
 
     public override void _Ready()
     {
-        if (Active) { Activate(); }
+        // Deferred so Activate's Fx.Create calls run after the parent
+        // (Mob / Player) finishes its own add_child cycle. Synchronous
+        // invocation here triggers Godot's "Parent node is busy setting
+        // up children" rejection — the Fx still ends up parented via
+        // Fx.Create's deferred fallback, but the spurious error spams
+        // the console at every spawn. Deferring the whole activation
+        // keeps the log clean and registers the light one frame later,
+        // which is invisible.
+        if (Active) { CallDeferred(MethodName.Activate); }
     }
 
     public override void _PhysicsProcess(double delta)
@@ -91,6 +103,15 @@ public partial class CarrierLight : Node3D
         Vector3 sub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
         _lastSubVoxel = sub;
         BlendAndDeposit(world.WorldState, sub);
+
+        if (LightOnEffectScene != null)
+        {
+            Fx.Create(LightOnEffectScene, GetParent() ?? this, GlobalPosition);
+        }
+        if (_loopEffect == null && LightLoopEffectScene != null)
+        {
+            _loopEffect = Fx.Create(LightLoopEffectScene, this, Vector3.Zero);
+        }
     }
 
     public void Deactivate()
@@ -103,6 +124,16 @@ public partial class CarrierLight : Node3D
         _currentDeposit.Clear();
         _registered = false;
         Active = false;
+
+        if (LightOffEffectScene != null)
+        {
+            Fx.Create(LightOffEffectScene, GetParent() ?? this, GlobalPosition);
+        }
+        if (_loopEffect != null)
+        {
+            _loopEffect.Stop();
+            _loopEffect = null;
+        }
     }
 
     public override void _ExitTree()

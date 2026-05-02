@@ -11,7 +11,7 @@ using Godot;
 // a "should emit" flag, the resolved EGroundType, and the per-host effect
 // dictionary.
 //
-// EffectOneShot.Create parents the spawned node to the supplied `parent` and
+// Fx.Create parents the spawned node to the supplied `parent` and
 // frees it once all child CpuParticles3D stop emitting. To keep the puff put
 // in world space rather than tracking the actor, callers pass World (or any
 // world-space root) as parent and GlobalPosition as the position.
@@ -73,7 +73,7 @@ public class FootstepEmitter
         {
             if (parent != null && effect != null)
             {
-                EffectOneShot.Create(effect, parent, worldPos);
+                Fx.Create(effect, parent, worldPos);
             }
             _lastEmitXZ = xz;
         }
@@ -93,6 +93,6 @@ public class FootstepEmitter
         {
             return;
         }
-        EffectOneShot.Create(scene, parent, worldPos);
+        Fx.Create(scene, parent, worldPos);
     }
 }

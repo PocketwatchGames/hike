@@ -5,7 +5,6 @@ using Godot;
 public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 {
     [Export] private CollisionShape3D _collisionShape;
-    [Export] private AnimationPlayer _animationPlayer;
     [Export] private LitSpriteAnimator _animator;
     [Export] private Node3D _mesh;
     [Export] private Sprite3D _sprite;
@@ -24,7 +23,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     [Export] private PackedScene _deathEffect;
     // One-shot splash on the alive→in-water transition (voxel-detected).
     [Export] private PackedScene _waterEnterSplashEffect;
-    // Continuous loop scenes (see EffectOneShot._loop). Parented to the mob
+    // Continuous loop scenes (see Fx._loop). Parented to the mob
     // so they track the body; held alive while in the matching state and
     // Stop()'d when leaving.
     [Export] private PackedScene _waterMovementLoopEffect;
@@ -144,13 +143,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // Active loop instances. See Player for the lifecycle pattern — null
     // when the matching state isn't held; created on activation, Stop()'d
     // and dropped on deactivation.
-    EffectOneShot _waterMovementLoop;
-    EffectOneShot _tallGrassMovementLoop;
-    EffectOneShot _burrowLoop;
+    Fx _waterMovementLoop;
+    Fx _tallGrassMovementLoop;
+    Fx _burrowLoop;
     // Single active anim-loop reference + the state it represents. We swap
     // wholesale on transitions instead of cross-fading — simple, and the
     // listener barely registers the gap in practice.
-    EffectOneShot _animLoop;
+    Fx _animLoop;
     EAnimLoopState _animLoopState = EAnimLoopState.None;
     // Previous-tick burrow flags so we can detect the false→true edges that
     // drive the complete and emerge one-shots.
@@ -406,7 +405,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         };
         if (scene != null)
         {
-            _animLoop = EffectOneShot.Create(scene, this, Vector3.Zero);
+            _animLoop = Fx.Create(scene, this, Vector3.Zero);
         }
         _animLoopState = target;
     }
@@ -1004,19 +1003,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             return;
         }
-        EffectOneShot.Create(scene, _world, GlobalPosition);
+        Fx.Create(scene, _world, GlobalPosition);
     }
 
     // Mirrors Player.UpdateLoopEffect — instantiate parented to the mob on
     // activation, Stop() and drop the reference on deactivation. The Stop()
     // path lets the trailing audio + particles wind down without snapping.
-    private void UpdateLoopEffect(ref EffectOneShot instance, PackedScene scene, bool active)
+    private void UpdateLoopEffect(ref Fx instance, PackedScene scene, bool active)
     {
         if (active)
         {
             if (instance == null && scene != null)
             {
-                instance = EffectOneShot.Create(scene, this, Vector3.Zero);
+                instance = Fx.Create(scene, this, Vector3.Zero);
             }
         }
         else if (instance != null)
