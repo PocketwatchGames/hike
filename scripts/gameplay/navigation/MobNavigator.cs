@@ -335,7 +335,8 @@ public class MobNavigator
     private void RefreshGrid()
     {
         Vector3 origin = _mob.GlobalPosition;
-        WorldState ws = _mob.World?.WorldState;
+        World w = _mob.World;
+        WorldState ws = w?.WorldState;
         if (ws == null)
         {
             return;
@@ -343,7 +344,7 @@ public class MobNavigator
         int wx = Mathf.FloorToInt(origin.X);
         int wy = Mathf.FloorToInt(origin.Y);
         int wz = Mathf.FloorToInt(origin.Z);
-        _grid.Sample(ws, _profile, wx, wy, wz, LocalGridSize);
+        _grid.Sample(ws, w, _profile, wx, wy, wz, LocalGridSize);
     }
 
     // Run A* over the current grid from the mob's cell to the goal cell.

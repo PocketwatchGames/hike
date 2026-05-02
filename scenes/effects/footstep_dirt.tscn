@@ -1,0 +1,75 @@
+[gd_scene format=3 uid="uid://c2fhdirtfst01"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_dirt"]
+[ext_resource type="AudioStream" uid="uid://dqxls7uuhlj78" path="res://audio/source/footsteps/un_shr_foot_dirt_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" uid="uid://ccq3rspy7y3cf" path="res://audio/source/footsteps/un_shr_foot_dirt_02.wav" id="2_d02"]
+[ext_resource type="AudioStream" uid="uid://cg672uhc1qjlx" path="res://audio/source/footsteps/un_shr_foot_dirt_03.wav" id="2_d03"]
+[ext_resource type="AudioStream" uid="uid://b3ayyk12yj0f2" path="res://audio/source/footsteps/un_shr_foot_dirt_04.wav" id="2_d04"]
+[ext_resource type="AudioStream" uid="uid://da5ib1qf4nuwy" path="res://audio/source/footsteps/un_shr_foot_dirt_05.wav" id="2_d05"]
+[ext_resource type="AudioStream" uid="uid://tc5wpysxoec7" path="res://audio/source/footsteps/un_shr_foot_dirt_06.wav" id="2_d06"]
+[ext_resource type="AudioStream" uid="uid://k7v0psdnd5kg" path="res://audio/source/footsteps/un_shr_foot_dirt_07.wav" id="2_d07"]
+[ext_resource type="AudioStream" uid="uid://dsswwlst8j5eb" path="res://audio/source/footsteps/un_shr_foot_dirt_08.wav" id="2_d08"]
+[ext_resource type="AudioStream" uid="uid://c0iepjb8cvx6f" path="res://audio/source/footsteps/un_shr_foot_dirt_09.wav" id="2_d09"]
+[ext_resource type="AudioStream" uid="uid://c62btwtggx1du" path="res://audio/source/footsteps/un_shr_foot_dirt_10.wav" id="2_d10"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.05
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 2.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, -10, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 2.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dust"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.36, 0.27, 0.17, 0.7019608)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_dust"]
+material = SubResource("StandardMaterial3D_dust")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dirt"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 10
+stream_0/stream = ExtResource("2_d01")
+stream_1/stream = ExtResource("2_d02")
+stream_2/stream = ExtResource("2_d03")
+stream_3/stream = ExtResource("2_d04")
+stream_4/stream = ExtResource("2_d05")
+stream_5/stream = ExtResource("2_d06")
+stream_6/stream = ExtResource("2_d07")
+stream_7/stream = ExtResource("2_d08")
+stream_8/stream = ExtResource("2_d09")
+stream_9/stream = ExtResource("2_d10")
+
+[node name="FootstepDirt" type="Node3D" unique_id=789921022]
+script = ExtResource("1_dirt")
+
+[node name="Dust" type="GPUParticles3D" parent="." unique_id=1280463858]
+emitting = false
+amount = 4
+lifetime = 0.4
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_dust")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=626054405]
+stream = SubResource("AudioStreamRandomizer_dirt")
+volume_db = -16.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

@@ -21,4 +21,12 @@ public abstract class EntitySimState
     // Returns null if this sim state should not materialize an entity right now
     // (e.g. picked up loot, dead mob).
     public abstract Node3D CreateEntity(World world);
+
+    // The voxel cell this entity occupies for the purposes of mob pathfinding,
+    // or null if it doesn't block walkability. World registers/unregisters this
+    // cell as the entity spawns/despawns; the walkability sampler treats any
+    // surface column whose stand-in cells are blocked as unwalkable. Only
+    // entities with a meaningful physical footprint (trees, chests) should
+    // override — pickups, decorative grass, and torches return null.
+    public virtual Vector3I? PathBlockerCell => null;
 }

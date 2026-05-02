@@ -15,6 +15,11 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="9_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="10_lit_reflectiontemplate"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_footstep_grass"]
+[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/effects/blood_damage.tscn" id="12_blooddmg"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjieco3y" path="res://scenes/effects/blood_death_large.tscn" id="13_deathlrg"]
+[ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -510,12 +515,13 @@ animations = [{
 "speed": 10.0
 }]
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_audioListener")]
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
 _hurtBox = NodePath("HurtBox")
 _animator = NodePath("LitSpriteAnimator")
+_audioListener = NodePath("AudioListener3D")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_footstep_grass"),
 1: ExtResource("4_xrqxk"),
@@ -524,6 +530,16 @@ _footstepEffects = Dictionary[int, PackedScene]({
 4: ExtResource("6_rpnd8"),
 5: ExtResource("4_xrqxk")
 })
+_bloodDamageEffect = ExtResource("12_blooddmg")
+_deathEffect = ExtResource("13_deathlrg")
+_waterEnterSplashEffect = ExtResource("14_watenter")
+_waterMovementLoopEffect = ExtResource("15_watloop")
+_tallGrassMovementLoopEffect = ExtResource("16_grassloop")
+_footstepStride = 2.5
+
+[node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+current = true
 
 [node name="Sprite" type="Sprite3D" parent="." unique_id=1610472919]
 cast_shadow = 0
@@ -533,7 +549,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(432, 0, 72, 72)
+region_rect = Rect2(144, 0, 72, 72)
 script = ExtResource("4_qgnko")
 MirrorByYaw = true
 ForwardOffset = 0.25

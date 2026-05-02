@@ -16,6 +16,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // on solid ground. Authored in each mob .tscn; missing keys silently
     // emit nothing.
     [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+    // One-shot blood spawned on a non-lethal hit. World-parented so the puff
+    // stays where the hit landed even as the mob keeps moving.
+    [Export] private PackedScene _bloodDamageEffect;
+    // One-shot death blood. Per-mob in the .tscn so each species can pick the
+    // appropriate small/medium/large variant from scenes/effects/.
+    [Export] private PackedScene _deathEffect;
+    // One-shot splash on the alive→in-water transition (voxel-detected).
+    [Export] private PackedScene _waterEnterSplashEffect;
+    // Continuous loop scenes (see EffectOneShot._loop). Parented to the mob
+    // so they track the body; held alive while in the matching state and
+    // Stop()'d when leaving.
+    [Export] private PackedScene _waterMovementLoopEffect;
+    [Export] private PackedScene _tallGrassMovementLoopEffect;
+    // Distance the mob must travel in XZ between footstep effect emits.
+    // Larger = slower step cadence.
+    [Export] private float _footstepStride = 1.2f;
+    // Minimum horizontal speed² to count as "walking" for footstep / loop
+    // gating. Below this the mob is treated as standing still.
+    [Export] private float _footstepMinSpeedSq = 0.25f;
 
     // Seconds to lerp visibility/silhouette toward their target. 0.1s is
     // short enough that transitions read as "now" rather than a slow fade
@@ -91,6 +110,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     float _terrainSpeed = 1f;
     readonly WaterRippleEmitter _rippleEmitter = new();
     readonly FootstepEmitter _footstepEmitter = new();
+    // Active loop instances. See Player for the lifecycle pattern — null
+    // when the matching state isn't held; created on activation, Stop()'d
+    // and dropped on deactivation.
+    EffectOneShot _waterMovementLoop;
+    EffectOneShot _tallGrassMovementLoop;
+    // Tracks the previous frame's water-at-feet sample so we can detect the
+    // false→true transition and fire one splash, not one per frame.
+    bool _wasInWaterPrev;
     // Captured in _Ready so burrow can drop the mesh and restore it. The drop
     // is sized from the collision capsule so kun_kun (short) and goblin (tall)
     // both end up about 3/4 of their body underground.
@@ -767,6 +794,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             Die();
         }
+        else
+        {
+            SpawnWorldEffect(_bloodDamageEffect);
+        }
     }
 
     private void Die()
@@ -777,12 +808,43 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
 
         alive = false;
+        SpawnWorldEffect(_deathEffect);
         AxisLockAngularY = false;
         if (Freeze)
         {
             Freeze = false;
         }
         PlayOneShot(EAnimation.Die);
+    }
+
+    // World-parented one-shot at the mob's feet — matches the footstep /
+    // ripple convention so the puff stays put as the mob keeps moving.
+    private void SpawnWorldEffect(PackedScene scene)
+    {
+        if (scene == null || _world == null)
+        {
+            return;
+        }
+        EffectOneShot.Create(scene, _world, GlobalPosition);
+    }
+
+    // Mirrors Player.UpdateLoopEffect — instantiate parented to the mob on
+    // activation, Stop() and drop the reference on deactivation. The Stop()
+    // path lets the trailing audio + particles wind down without snapping.
+    private void UpdateLoopEffect(ref EffectOneShot instance, PackedScene scene, bool active)
+    {
+        if (active)
+        {
+            if (instance == null && scene != null)
+            {
+                instance = EffectOneShot.Create(scene, this, Vector3.Zero);
+            }
+        }
+        else if (instance != null)
+        {
+            instance.Stop();
+            instance = null;
+        }
     }
 
     private void UpdateTerrainSpeed()
@@ -827,6 +889,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // Spawn a footstep one-shot at the mob's feet at a fixed stride. Skipped
     // when standing in water — UpdateWaterRipples already covers wading. The
     // emitter does its own stride gating, so a stationary mob won't emit.
+    // Also drives the water-enter splash + the water/tall-grass movement
+    // loops, which all key off the same voxel-at-feet sample so we only do
+    // one lookup per tick.
     private void UpdateFootsteps()
     {
         WorldState ws = _world?.WorldState;
@@ -839,12 +904,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         int fy = Mathf.FloorToInt(pos.Y);
         int fz = Mathf.FloorToInt(pos.Z);
         bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
-        const float FootstepStride = 0.6f;
-        const float FootstepMinSpeedSq = 0.25f;
         Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
-        bool walking = !inWater && horizVel.LengthSquared() > FootstepMinSpeedSq;
+        float horizSpeedSq = horizVel.LengthSquared();
+        bool walking = !inWater && horizSpeedSq > _footstepMinSpeedSq;
         EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
-        _footstepEmitter.Update(_world, pos, walking, FootstepStride, ground, _footstepEffects);
+        _footstepEmitter.Update(_world, pos, walking, _footstepStride, ground, _footstepEffects);
+
+        // One splash at the moment the mob first dips into water. The
+        // navigator can drag a mob through a water voxel on a single frame,
+        // so the alive guard prevents a corpse from splashing every tick if
+        // it's later kicked into water.
+        if (inWater && !_wasInWaterPrev && alive)
+        {
+            SpawnWorldEffect(_waterEnterSplashEffect);
+        }
+        _wasInWaterPrev = inWater;
+
+        // Movement-gated loops. Navigator intent counts as "moving" even
+        // when LinearVelocity hasn't built up yet — same reason Player keys
+        // off _inputMove. Tall-grass and water are mutually exclusive: if
+        // the mob's feet are wet, the water loop wins.
+        bool intentMoving = _navigator != null && _navigator.CurrentState != MobNavigator.State.Idle;
+        bool moving = alive && (intentMoving || horizSpeedSq > _footstepMinSpeedSq);
+        bool waterLoopActive = moving && inWater;
+        bool tallGrassLoopActive = moving && !inWater && _tallGrassCollisions.Count > 0;
+        UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
+        UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
     }
 
     public void AddTerrainModifier(TallGrass tallGrass)

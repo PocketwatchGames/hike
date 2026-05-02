@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PositionalEmitterData" format=3 uid="uid://bdddowd262t62"]
+
+[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
+[ext_resource type="AudioStream" uid="uid://chdvjkcnvvnwa" path="res://audio/source/ambience/insect_bee/amb_loc_bee_a_01.wav" id="stream_bee"]
+
+[sub_resource type="Curve" id="Curve_tod_day"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(0.7, 0.4), 0.0, 0.0, 0, 0, Vector2(0.8, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 7
+
+[resource]
+script = ExtResource("emitter_script")
+stream = ExtResource("stream_bee")
+spawnDetailGroupId = 1
+requiresAirAbove = true
+timeOfDayVolume = SubResource("Curve_tod_day")
+volumeDb = -12.0
+maxDistance = 16.0
+seed = 2001
+yOffset = 1.2

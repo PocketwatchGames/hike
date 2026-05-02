@@ -41,6 +41,13 @@ public partial class World : Node3D
 
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
+
+    // Per-cell refcount of pathfinding blockers contributed by spawned
+    // entities (trees, chests, etc.). Refcounted so multiple entities sharing
+    // a cell — or lifetime overlap during respawn — don't drop the block
+    // prematurely. Queried by WalkabilityGrid.SampleColumn so mobs route
+    // around props the voxel grid alone can't see.
+    private readonly Dictionary<Vector3I, int> _pathBlockers = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
@@ -344,7 +351,7 @@ public partial class World : Node3D
             entities = new List<Node3D>();
             _activeEntities[coord] = entities;
         }
-        RegisterEntity(loot, entities);
+        RegisterEntity(loot, entities, simState);
 
         return loot;
     }
@@ -372,7 +379,7 @@ public partial class World : Node3D
             entities = new List<Node3D>();
             _activeEntities[coord] = entities;
         }
-        RegisterEntity(loot, entities);
+        RegisterEntity(loot, entities, simState);
 
         return loot;
     }
@@ -434,20 +441,56 @@ public partial class World : Node3D
                 Node3D entity = state.CreateEntity(this);
                 if (entity != null)
                 {
-                    RegisterEntity(entity, entities);
+                    RegisterEntity(entity, entities, state);
                 }
             }
         }
         _activeEntities[coord] = entities;
     }
 
-    private void RegisterEntity(Node3D entity, List<Node3D> entities)
+    private void RegisterEntity(Node3D entity, List<Node3D> entities, EntitySimState state = null)
     {
         if (entity is IWorldEntity worldEntity)
         {
             worldEntity.OnSpawned(this);
         }
+        if (state?.PathBlockerCell is Vector3I cell)
+        {
+            AddPathBlocker(cell);
+            // Capture the cell so removal is automatic regardless of why the
+            // node leaves the tree (chunk eviction, editor delete, scene
+            // teardown). World outlives its child entities, so the closure's
+            // implicit `this` is safe.
+            entity.TreeExiting += () => RemovePathBlocker(cell);
+        }
         entities.Add(entity);
+    }
+
+    public void AddPathBlocker(Vector3I cell)
+    {
+        _pathBlockers.TryGetValue(cell, out int count);
+        _pathBlockers[cell] = count + 1;
+    }
+
+    public void RemovePathBlocker(Vector3I cell)
+    {
+        if (!_pathBlockers.TryGetValue(cell, out int count))
+        {
+            return;
+        }
+        if (count <= 1)
+        {
+            _pathBlockers.Remove(cell);
+        }
+        else
+        {
+            _pathBlockers[cell] = count - 1;
+        }
+    }
+
+    public bool IsPathBlocked(int wx, int wy, int wz)
+    {
+        return _pathBlockers.ContainsKey(new Vector3I(wx, wy, wz));
     }
 
     private static void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)

@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="AmbienceLayerData" format=3 uid="uid://pte0myjn1jg4"]
+
+[ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
+[ext_resource type="AudioStream" uid="uid://cepvofacvbxbt" path="res://audio/source/ambience/amb_base_underground.wav" id="stream_underground"]
+
+[sub_resource type="Curve" id="Curve_gate_dry"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.1, 1), 0.0, 0.0, 0, 0, Vector2(0.3, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Curve" id="Curve_caveness"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 0), 0.0, 0.0, 0, 0, Vector2(0.75, 0.7), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[resource]
+script = ExtResource("layer_script")
+stream = ExtResource("stream_underground")
+sourceField = 6
+volumeCurve = SubResource("Curve_caveness")
+gateField = 3
+gateCurve = SubResource("Curve_gate_dry")

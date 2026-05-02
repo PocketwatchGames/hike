@@ -31,18 +31,38 @@ public partial class AmbienceController : Node3D
     private double _densityAccumSec;
     private double _densityIntervalSec;
 
-    // Per-region runtime layer players. _layersByRegion[i] contains the
-    // AmbienceLayerPlayer instances spawned from ws.Regions[i]'s
-    // ambience.globalLayers — one player per layer per region. They all
-    // tick every frame; their region weight (driven by RegionBlend) sets
-    // their amplitude so a player crossing a border crossfades into the
-    // new region's layer set over the same band the visual palette uses.
+    // Deduplicated runtime layer players. One AmbienceLayerPlayer per
+    // unique AmbienceLayerData Resource referenced by any region's
+    // globalLayers — so a base_daytime layer reused across all 4 regions
+    // yields a single AudioStreamPlayer rather than one per region.
+    // _regionLayerIndices[i] lists the indices into _layerPlayers that
+    // region i references; per-frame each unique layer's effective weight
+    // is the sum of region weights of the regions that include it. This
+    // is acoustically equivalent to ticking one player per (region,
+    // layer) pair at its region weight (identical streams sum coherently)
+    // but at a fraction of the AudioStreamPlayer count.
     //
     // Lazy-built on the first frame WorldState.Regions is non-empty and
     // rebuilt if the region count changes (defensive — currently regions
     // are write-once at world creation). When a region's ambience entry
-    // is null, that region's slot is just an empty list.
-    private List<AmbienceLayerPlayer>[] _layersByRegion;
+    // is null, _regionLayerIndices[i] is null.
+    private List<AmbienceLayerPlayer> _layerPlayers;
+    private int[][] _regionLayerIndices;
+
+    // Smoothed per-layer weight, slewed toward the per-frame target with
+    // an exponential time constant. The 5-second TAU produces a slow,
+    // crossfade-feel transition between region layer sets — biome
+    // borders fade in/out over multiple seconds rather than the sub-
+    // second cross-fade you get from RegionBlend's spatial kernel alone.
+    private float[] _smoothedLayerWeights;
+    private const float LAYER_WEIGHT_SLEW_TAU = 5.0f;
+
+    // Cap on simultaneously contributing regions. With many small
+    // regions visible inside the blend kernel the long tail of tiny
+    // weights smears the audio across a dozen layer sets at near-mute
+    // volumes; clamping to the loudest few keeps the mix focused on
+    // the regions the player is actually near.
+    private const int MAX_CONTRIBUTING_REGIONS = 3;
 
     public override void _Ready()
     {
@@ -175,78 +195,160 @@ public partial class AmbienceController : Node3D
     {
         EnsureLayerPlayers(ws);
 
-        if (_layersByRegion == null || _layersByRegion.Length == 0) { return; }
+        if (_layerPlayers == null || _layerPlayers.Count == 0) { return; }
 
-        int regionCount = _layersByRegion.Length;
-        Span<float> weights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
-        if (!RegionBlend.SampleWeights(listenerPos, ws, weights))
+        int regionCount = _regionLayerIndices.Length;
+        Span<float> regionWeights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
+        if (!RegionBlend.SampleWeights(listenerPos, ws, regionWeights))
         {
             // No data this frame — fade everything down rather than
             // freezing at last-known weights, since "no region under the
             // listener" usually means the listener is outside the world
             // (debug fly-cam) and audio should mute.
-            for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
+            for (int i = 0; i < regionCount; i++) { regionWeights[i] = 0f; }
         }
 
-        float tod = (float)ws.TimeOfDay01;
+        // Keep only the top-K regions and renormalize so they sum to 1.
+        // Without this, a player at the meeting point of four small
+        // regions would smear across all four layer sets at ~0.25 each.
+        KeepTopKAndRenormalize(regionWeights, MAX_CONTRIBUTING_REGIONS);
+
+        // Accumulate per-layer weight as the sum of weights of regions
+        // that reference this layer. RegionBlend weights sum to 1 across
+        // regions, so a layer present in every region settles at 1.0 and
+        // a layer in only one region scales with that region's weight —
+        // matching the previous per-(region, layer) behavior with a
+        // single player per unique layer.
+        int layerCount = _layerPlayers.Count;
+        Span<float> layerTargets = layerCount <= 64 ? stackalloc float[layerCount] : new float[layerCount];
+        layerTargets.Clear();
         for (int r = 0; r < regionCount; r++)
         {
-            List<AmbienceLayerPlayer> layers = _layersByRegion[r];
-            if (layers == null) { continue; }
-            float weight = weights[r];
-            for (int j = 0; j < layers.Count; j++)
+            int[] indices = _regionLayerIndices[r];
+            if (indices == null) { continue; }
+            float w = regionWeights[r];
+            if (w <= 0f) { continue; }
+            for (int j = 0; j < indices.Length; j++)
             {
-                layers[j].Tick(_state, weight, tod, deltaTime);
+                layerTargets[indices[j]] += w;
             }
         }
+
+        // Exponential slew from the smoothed weight toward the target.
+        // Long TAU (5s) over a 60Hz tick is dt/tau ≈ 0.0033, so this
+        // really does crawl — biome boundaries audibly take seconds.
+        float alpha = deltaTime / LAYER_WEIGHT_SLEW_TAU;
+        if (alpha > 1f) { alpha = 1f; }
+
+        float tod = (float)ws.TimeOfDay01;
+        for (int i = 0; i < layerCount; i++)
+        {
+            _smoothedLayerWeights[i] += (layerTargets[i] - _smoothedLayerWeights[i]) * alpha;
+            _layerPlayers[i].Tick(_state, _smoothedLayerWeights[i], tod, deltaTime);
+        }
+    }
+
+    // Zero out all but the K largest entries in `weights` and rescale
+    // the survivors so they sum to 1. K=0 or K>=count is a no-op-ish
+    // (just renormalizes). Operates in place; O(N*K) which is fine for
+    // the small region counts we have.
+    private static void KeepTopKAndRenormalize(Span<float> weights, int k)
+    {
+        if (k <= 0 || k >= weights.Length)
+        {
+            float sumAll = 0f;
+            for (int i = 0; i < weights.Length; i++) { sumAll += weights[i]; }
+            if (sumAll <= 0f) { return; }
+            float invAll = 1f / sumAll;
+            for (int i = 0; i < weights.Length; i++) { weights[i] *= invAll; }
+            return;
+        }
+
+        // Find the K-th largest weight via partial selection.
+        Span<int> topIdx = stackalloc int[k];
+        for (int i = 0; i < k; i++) { topIdx[i] = -1; }
+        for (int i = 0; i < weights.Length; i++)
+        {
+            float w = weights[i];
+            if (w <= 0f) { continue; }
+            // Find the slot to displace: the smallest current top, if
+            // it's smaller than w (or empty).
+            int worstSlot = 0;
+            float worstVal = topIdx[0] >= 0 ? weights[topIdx[0]] : -1f;
+            for (int s = 1; s < k; s++)
+            {
+                float sv = topIdx[s] >= 0 ? weights[topIdx[s]] : -1f;
+                if (sv < worstVal) { worstSlot = s; worstVal = sv; }
+            }
+            if (topIdx[worstSlot] < 0 || w > worstVal) { topIdx[worstSlot] = i; }
+        }
+
+        // Zero everything not in the top-K, sum survivors, renormalize.
+        Span<bool> keep = stackalloc bool[weights.Length];
+        for (int s = 0; s < k; s++) { if (topIdx[s] >= 0) { keep[topIdx[s]] = true; } }
+        float sum = 0f;
+        for (int i = 0; i < weights.Length; i++)
+        {
+            if (!keep[i]) { weights[i] = 0f; }
+            else { sum += weights[i]; }
+        }
+        if (sum <= 0f) { return; }
+        float inv = 1f / sum;
+        for (int i = 0; i < weights.Length; i++) { weights[i] *= inv; }
     }
 
     private void EnsureLayerPlayers(WorldState ws)
     {
         RegionState[] regions = ws.Regions;
         int regionCount = regions != null ? regions.Length : 0;
-        if (_layersByRegion != null && _layersByRegion.Length == regionCount) { return; }
+        if (_regionLayerIndices != null && _regionLayerIndices.Length == regionCount) { return; }
 
         // Region count changed — tear down and rebuild. Currently only
         // happens at first frame (null → real). If regions ever become
         // mutable at runtime this branch will preserve correctness.
-        if (_layersByRegion != null)
+        if (_layerPlayers != null)
         {
-            for (int i = 0; i < _layersByRegion.Length; i++)
+            for (int i = 0; i < _layerPlayers.Count; i++)
             {
-                List<AmbienceLayerPlayer> existing = _layersByRegion[i];
-                if (existing == null) { continue; }
-                for (int j = 0; j < existing.Count; j++)
-                {
-                    existing[j].QueueFree();
-                }
+                _layerPlayers[i].QueueFree();
             }
         }
 
-        _layersByRegion = new List<AmbienceLayerPlayer>[regionCount];
+        _layerPlayers = new List<AmbienceLayerPlayer>();
+        _regionLayerIndices = new int[regionCount][];
+        var dataToIndex = new Dictionary<AmbienceLayerData, int>();
+
         for (int i = 0; i < regionCount; i++)
         {
             RegionData rd = regions[i].Data;
             RegionAmbienceData ambience = rd?.ambience;
-            if (ambience == null || ambience.globalLayers == null)
+            if (ambience == null || ambience.globalLayers == null || ambience.globalLayers.Length == 0)
             {
-                _layersByRegion[i] = null;
+                _regionLayerIndices[i] = null;
                 continue;
             }
 
-            var list = new List<AmbienceLayerPlayer>(ambience.globalLayers.Length);
+            var indices = new List<int>(ambience.globalLayers.Length);
             for (int j = 0; j < ambience.globalLayers.Length; j++)
             {
                 AmbienceLayerData data = ambience.globalLayers[j];
                 if (data == null) { continue; }
-                var player = new AmbienceLayerPlayer();
-                player.Name = $"Region{i}_Layer{j}";
-                AddChild(player);
-                player.Configure(data);
-                list.Add(player);
+                if (!dataToIndex.TryGetValue(data, out int idx))
+                {
+                    idx = _layerPlayers.Count;
+                    dataToIndex[data] = idx;
+                    var player = new AmbienceLayerPlayer();
+                    player.Name = $"Layer{idx}";
+                    AddChild(player);
+                    player.Configure(data);
+                    _layerPlayers.Add(player);
+                }
+                indices.Add(idx);
             }
-            _layersByRegion[i] = list;
+            _regionLayerIndices[i] = indices.ToArray();
         }
+
+        _smoothedLayerWeights = new float[_layerPlayers.Count];
     }
 
     // Non-density fields only — this is the cheap per-frame pass. Density

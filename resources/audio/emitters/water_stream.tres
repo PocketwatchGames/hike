@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="PositionalEmitterData" load_steps=3 format=3]
+
+[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
+[ext_resource type="AudioStream" uid="uid://bnpc3ss8tll46" path="res://audio/source/ambience/water_stream/amb_loc_stream_a_loop.wav" id="stream_stream"]
+
+[resource]
+script = ExtResource("emitter_script")
+stream = ExtResource("stream_stream")
+bus = "World3D"
+spawnVoxelType = 7
+spawnDetailGroupId = 0
+requiresAirAbove = false
+requiresAdjacentSolid = true
+instancesPerChunk = 1
+volumeDb = -8.0
+maxDistance = 26.0
+seed = 1003
+yOffset = 1.0

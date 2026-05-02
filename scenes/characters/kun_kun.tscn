@@ -10,6 +10,16 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="8b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
+[ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_fstgrass"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="11_fststone"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="11_fstsand"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="11_fstwater"]
+[ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="11_fstmud"]
+[ext_resource type="PackedScene" uid="uid://bblooddmg00001" path="res://scenes/effects/blood_damage.tscn" id="12_blooddmg"]
+[ext_resource type="PackedScene" uid="uid://bblooddthsm0001" path="res://scenes/effects/blood_death_small.tscn" id="13_deathsml"]
+[ext_resource type="PackedScene" uid="uid://bwatentersp0001" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://bwatmoveloop001" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://btallgrloop001" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 radius = 0.3
@@ -323,6 +333,19 @@ _sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
+_footstepEffects = Dictionary[int, PackedScene]({
+0: ExtResource("11_fstgrass"),
+1: ExtResource("11_fststone"),
+2: ExtResource("11_fstsand"),
+3: ExtResource("11_fstwater"),
+4: ExtResource("11_fstmud"),
+5: ExtResource("11_fststone")
+})
+_bloodDamageEffect = ExtResource("12_blooddmg")
+_deathEffect = ExtResource("13_deathsml")
+_waterEnterSplashEffect = ExtResource("14_watenter")
+_waterMovementLoopEffect = ExtResource("15_watloop")
+_tallGrassMovementLoopEffect = ExtResource("16_grassloop")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]

@@ -49,4 +49,9 @@ public class ChestSimState : EntitySimState
     {
         return Chest.Create(world, this);
     }
+
+    public override Vector3I? PathBlockerCell => new Vector3I(
+        Mathf.FloorToInt(WorldPosition.X),
+        Mathf.FloorToInt(WorldPosition.Y),
+        Mathf.FloorToInt(WorldPosition.Z));
 }

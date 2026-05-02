@@ -93,8 +93,10 @@ public class WalkabilityGrid
     // Build a sizeXsize grid centered on (worldX, worldZ) at the surface
     // height search anchor of worldY, sampling against the given world state
     // and traversal profile. size must be odd so the center cell is the
-    // origin column.
-    public void Sample(WorldState ws, in TraversalProfile profile, int worldX, int worldY, int worldZ, int size)
+    // origin column. Pass `world` to also reject cells occupied by
+    // path-blocking entities (trees, chests); pass null to skip that check
+    // for callers that only care about the voxel grid.
+    public void Sample(WorldState ws, World world, in TraversalProfile profile, int worldX, int worldY, int worldZ, int size)
     {
         if ((size & 1) == 0)
         {
@@ -118,7 +120,7 @@ public class WalkabilityGrid
             {
                 int wx = _originX + i;
                 int wz = _originZ + j;
-                _cells[j * size + i] = SampleColumn(ws, profile, wx, worldY, wz);
+                _cells[j * size + i] = SampleColumn(ws, world, profile, wx, worldY, wz);
             }
         }
     }
@@ -153,7 +155,7 @@ public class WalkabilityGrid
     // within SurfaceSearchRadius of anchorY. Returns a fully-populated cell:
     // OutOfBounds if any sampled column voxel is outside the loaded window,
     // Walkable+surfaceY if a surface is found, default (unwalkable) otherwise.
-    private static WalkabilityCell SampleColumn(WorldState ws, in TraversalProfile profile, int wx, int anchorY, int wz)
+    private static WalkabilityCell SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz)
     {
         WalkabilityCell cell = default;
 
@@ -226,6 +228,27 @@ public class WalkabilityGrid
             if (!standsOnSolid)
             {
                 continue;
+            }
+
+            // Reject this surface if a path-blocking entity (e.g. tree, chest)
+            // occupies any cell the mob would stand in. Same continue-and-keep-
+            // scanning behavior as a headroom-blocked column so the mob can
+            // still find a deeper standable surface beneath an overhead prop.
+            if (world != null)
+            {
+                bool entityBlocked = false;
+                for (int h = 0; h < profile.verticalClearance; h++)
+                {
+                    if (world.IsPathBlocked(wx, wy + h, wz))
+                    {
+                        entityBlocked = true;
+                        break;
+                    }
+                }
+                if (entityBlocked)
+                {
+                    continue;
+                }
             }
 
             cell.surfaceY = (short)wy;

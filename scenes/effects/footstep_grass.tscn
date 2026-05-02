@@ -1,6 +1,16 @@
 [gd_scene format=3 uid="uid://m4gdn08c2l4r"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://6t0gj5n1mwp6" path="res://audio/source/footsteps/un_shr_foot_grass_01.wav" id="2_g01"]
+[ext_resource type="AudioStream" uid="uid://88nqbic5f4bb" path="res://audio/source/footsteps/un_shr_foot_grass_02.wav" id="2_g02"]
+[ext_resource type="AudioStream" uid="uid://b786e88ylp35l" path="res://audio/source/footsteps/un_shr_foot_grass_03.wav" id="2_g03"]
+[ext_resource type="AudioStream" uid="uid://dmo8jcgl3yjbd" path="res://audio/source/footsteps/un_shr_foot_grass_04.wav" id="2_g04"]
+[ext_resource type="AudioStream" uid="uid://bnfpmtf6mo4si" path="res://audio/source/footsteps/un_shr_foot_grass_05.wav" id="2_g05"]
+[ext_resource type="AudioStream" uid="uid://daia3bpk6xxyy" path="res://audio/source/footsteps/un_shr_foot_grass_06.wav" id="2_g06"]
+[ext_resource type="AudioStream" uid="uid://ccfjujwk5138s" path="res://audio/source/footsteps/un_shr_foot_grass_07.wav" id="2_g07"]
+[ext_resource type="AudioStream" uid="uid://bjkx5ksd7r7p6" path="res://audio/source/footsteps/un_shr_foot_grass_08.wav" id="2_g08"]
+[ext_resource type="AudioStream" uid="uid://iwatr3apxd3c" path="res://audio/source/footsteps/un_shr_foot_grass_09.wav" id="2_g09"]
+[ext_resource type="AudioStream" uid="uid://bpmq0ikwma0n2" path="res://audio/source/footsteps/un_shr_foot_grass_10.wav" id="2_g10"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
 emission_shape = 1
@@ -28,6 +38,22 @@ particles_anim_loop = false
 material = SubResource("StandardMaterial3D_dust")
 size = Vector2(0.1, 0.1)
 
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_grass"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 10
+stream_0/stream = ExtResource("2_g01")
+stream_1/stream = ExtResource("2_g02")
+stream_2/stream = ExtResource("2_g03")
+stream_3/stream = ExtResource("2_g04")
+stream_4/stream = ExtResource("2_g05")
+stream_5/stream = ExtResource("2_g06")
+stream_6/stream = ExtResource("2_g07")
+stream_7/stream = ExtResource("2_g08")
+stream_8/stream = ExtResource("2_g09")
+stream_9/stream = ExtResource("2_g10")
+
 [node name="FootstepGrass" type="Node3D" unique_id=1900001001]
 script = ExtResource("1_oneshot")
 
@@ -40,3 +66,10 @@ explosiveness = 1.0
 randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_dust")
 draw_pass_1 = SubResource("QuadMesh_dust")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=171313297]
+stream = SubResource("AudioStreamRandomizer_grass")
+volume_db = -16.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

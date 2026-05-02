@@ -16,10 +16,31 @@ public partial class Player : CharacterBody3D
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 	[Export] private LitSpriteAnimator _animator;
+	[Export] private AudioListener3D _audioListener;
 	// Per-ground-type one-shot effect played at the player's feet while
 	// walking/running on solid ground. Authored in the player .tscn; missing
 	// keys silently emit nothing.
 	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+	// One-shot blood splatter spawned at the player's position on a non-lethal
+	// damage hit. Spawned in world space so the puff stays put as the player
+	// runs through it, matching the footstep effect convention.
+	[Export] private PackedScene _bloodDamageEffect;
+	// One-shot death blood spawned the moment _health crosses to zero.
+	[Export] private PackedScene _deathEffect;
+	// One-shot splash spawned when the player first enters a water trigger
+	// (overlap count goes 0 → 1 in WaterAreaEntered).
+	[Export] private PackedScene _waterEnterSplashEffect;
+	// Continuous loop scenes (see EffectOneShot._loop). Parented to the player
+	// so they follow the body; held alive while in the matching state and
+	// stopped when leaving so the trailing audio + particles wind down cleanly.
+	[Export] private PackedScene _waterMovementLoopEffect;
+	[Export] private PackedScene _tallGrassMovementLoopEffect;
+	// Distance the player must travel in XZ between footstep effect emits.
+	// Larger = slower step cadence.
+	[Export] private float _footstepStride = 1.2f;
+	// Minimum horizontal speed² to count as "walking" for footstep / loop
+	// gating. Below this the player is treated as standing still.
+	[Export] private float _footstepMinSpeedSq = 0.25f;
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
@@ -40,6 +61,12 @@ public partial class Player : CharacterBody3D
 	int _waterOverlapCount;
 	readonly WaterRippleEmitter _rippleEmitter = new();
 	readonly FootstepEmitter _footstepEmitter = new();
+	// Active loop instances. Null when the matching state isn't held; created
+	// on the first frame state becomes active and Stop()'d when it ends. We
+	// drop the reference at Stop() so the next activation creates a fresh
+	// node rather than racing with the trailing-audio teardown.
+	EffectOneShot _waterMovementLoop;
+	EffectOneShot _tallGrassMovementLoop;
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
@@ -104,6 +131,12 @@ public partial class Player : CharacterBody3D
 		CollisionLayer = (uint)ECollisionLayer.Player;
 		CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Mob);
 
+		// Setting current=true in the .tscn is unreliable when a Camera3D
+		// is also in the tree — Godot picks the camera as listener. Force
+		// the override explicitly so positional audio is heard from the
+		// player's position rather than the (far-away isometric) camera.
+		_audioListener?.MakeCurrent();
+
 		interactArea.AreaEntered += OnInteractAreaEntered;
 		interactArea.AreaExited += OnInteractAreaExited;
 
@@ -125,10 +158,55 @@ public partial class Player : CharacterBody3D
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 
+		bool wasAlive = _health > 0f;
 		_health = Mathf.Max(0f, _health - damage.healthDamage);
 		if (_health <= 0f)
 		{
+			// Death blood is fired on the alive→dead transition only — a
+			// follow-up hit on an already-dead body shouldn't re-emit.
+			if (wasAlive)
+			{
+				SpawnWorldEffect(_deathEffect);
+			}
 			PlayOneShot(EAnimation.Die);
+		}
+		else
+		{
+			SpawnWorldEffect(_bloodDamageEffect);
+		}
+	}
+
+	// One-shot effect parented to World so it stays put as the player
+	// continues to move (matching the footstep / ripple convention). Silently
+	// no-ops when scene is unset or before Initialize has wired _world.
+	private void SpawnWorldEffect(PackedScene scene)
+	{
+		if (scene == null || _world == null)
+		{
+			return;
+		}
+		EffectOneShot.Create(scene, _world, GlobalPosition);
+	}
+
+	// Drives a loop's lifetime from a "should be active" flag. When `active`
+	// flips true and we don't already own an instance, instantiate parented
+	// to the player so the loop tracks the body. When it flips false, Stop()
+	// the existing instance — it cleans itself up after the trailing audio +
+	// particles wind down — and drop our reference so the next activation
+	// gets a fresh node.
+	private void UpdateLoopEffect(ref EffectOneShot instance, PackedScene scene, bool active)
+	{
+		if (active)
+		{
+			if (instance == null && scene != null)
+			{
+				instance = EffectOneShot.Create(scene, this, Vector3.Zero);
+			}
+		}
+		else if (instance != null)
+		{
+			instance.Stop();
+			instance = null;
 		}
 	}
 
@@ -367,14 +445,25 @@ public partial class Player : CharacterBody3D
 		// Footstep effects. Gated on grounded + on land (water is handled by
 		// the ripple emitter above) + actually moving — Velocity carries
 		// horizontal speed even before MoveAndSlide later in this method.
-		const float FootstepStride = 0.6f;
-		const float FootstepMinSpeedSq = 0.25f;
 		Vector2 horizVel = new(Velocity.X, Velocity.Z);
 		bool walking = _grounded
 			&& _waterState == EWaterState.None
-			&& horizVel.LengthSquared() > FootstepMinSpeedSq;
+			&& horizVel.LengthSquared() > _footstepMinSpeedSq;
 		EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
-		_footstepEmitter.Update(_world, GlobalPosition, walking, FootstepStride, ground, _footstepEffects);
+		_footstepEmitter.Update(_world, GlobalPosition, walking, _footstepStride, ground, _footstepEffects);
+
+		// Movement-gated continuous loops. Reuse the same intent + speed gate
+		// as the footstep emitter so the audio matches what the body is
+		// visibly doing — pinned against geometry with input held still
+		// counts as "moving" because intent is what the player feels.
+		bool intentMoving = _inputMove.LengthSquared() > 0.0001f;
+		bool moving = intentMoving || horizVel.LengthSquared() > _footstepMinSpeedSq;
+		bool waterLoopActive = moving && _waterState != EWaterState.None;
+		// Tall-grass and water are mutually exclusive — when wading, the
+		// water loop wins so we don't double up on rustle + slosh.
+		bool tallGrassLoopActive = moving && _tallGrassCollisions.Count > 0 && _waterState == EWaterState.None;
+		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
+		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
 
 		if (_curInteractive != null)
 		{
@@ -774,6 +863,7 @@ public partial class Player : CharacterBody3D
 		_waterOverlapCount++;
 		if (_waterOverlapCount == 1)
 		{
+			SpawnWorldEffect(_waterEnterSplashEffect);
 			OnWaterEnter?.Invoke(this);
 		}
 	}

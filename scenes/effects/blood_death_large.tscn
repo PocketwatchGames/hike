@@ -1,0 +1,84 @@
+[gd_scene format=3 uid="uid://bblooddthlg0001"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_01.wav" id="2_dlg01"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_02.wav" id="2_dlg02"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_03.wav" id="2_dlg03"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_04.wav" id="2_dlg04"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_05.wav" id="2_dlg05"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_06.wav" id="2_dlg06"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_07.wav" id="2_dlg07"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_08.wav" id="2_dlg08"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_09.wav" id="2_dlg09"]
+[ext_resource type="AudioStream" path="res://audio/source/death/un_shr_deathsplat_lrg_10.wav" id="2_dlg10"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
+emission_shape = 1
+emission_sphere_radius = 0.2
+direction = Vector3(0, 1, 0)
+spread = 70.0
+initial_velocity_min = 3.0
+initial_velocity_max = 7.5
+gravity = Vector3(0, -14, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.9
+scale_max = 2.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.45, 0.02, 0.02, 0.92)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_blood"]
+material = SubResource("StandardMaterial3D_blood")
+size = Vector2(0.18, 0.18)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dthlrg"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 10
+stream_0/stream = ExtResource("2_dlg01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_dlg02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_dlg03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_dlg04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_dlg05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_dlg06")
+stream_5/weight = 1.0
+stream_6/stream = ExtResource("2_dlg07")
+stream_6/weight = 1.0
+stream_7/stream = ExtResource("2_dlg08")
+stream_7/weight = 1.0
+stream_8/stream = ExtResource("2_dlg09")
+stream_8/weight = 1.0
+stream_9/stream = ExtResource("2_dlg10")
+stream_9/weight = 1.0
+
+[node name="BloodDeathLarge" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Blood" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 32
+lifetime = 1.0
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_blood")
+draw_pass_1 = SubResource("QuadMesh_blood")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_dthlrg")
+unit_size = 4.0
+max_distance = 40.0
+bus = &"World3D"

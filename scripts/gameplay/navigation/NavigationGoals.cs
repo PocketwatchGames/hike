@@ -50,7 +50,7 @@ public static class NavigationGoals
             float angle = slotAngle + offsetSlots * stepRad;
             Vector3 candidate = targetPos + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * distance;
 
-            if (!IsStandable(ws, candidate, out Vector3 surfacePoint))
+            if (!IsStandable(ws, world, candidate, out Vector3 surfacePoint))
             {
                 continue;
             }
@@ -71,7 +71,7 @@ public static class NavigationGoals
     // within a couple voxels of the requested Y. Snaps the returned
     // `surfacePoint` to that surface so callers can hand the navigator a
     // point that's actually on the ground rather than mid-air.
-    private static bool IsStandable(WorldState ws, Vector3 worldPos, out Vector3 surfacePoint)
+    private static bool IsStandable(WorldState ws, World world, Vector3 worldPos, out Vector3 surfacePoint)
     {
         surfacePoint = worldPos;
         int wx = Mathf.FloorToInt(worldPos.X);
@@ -104,6 +104,12 @@ public static class NavigationGoals
             // 2-voxel headroom check so the standoff point is in a slot
             // the mob actually fits into.
             if (!ws.IsInBounds(wx, wy + 1, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + 1, wz)))
+            {
+                continue;
+            }
+            // Mirror WalkabilityGrid's entity-blocker rejection so standoff
+            // slots can't land on a cell occupied by a tree or chest.
+            if (world != null && (world.IsPathBlocked(wx, wy, wz) || world.IsPathBlocked(wx, wy + 1, wz)))
             {
                 continue;
             }

@@ -32,4 +32,19 @@ public class PropSimState : EntitySimState
             _ => PropInstance.Create(world, this),
         };
     }
+
+    public override Vector3I? PathBlockerCell
+    {
+        get
+        {
+            if (Type != PropType.Tree)
+            {
+                return null;
+            }
+            return new Vector3I(
+                Mathf.FloorToInt(WorldPosition.X),
+                Mathf.FloorToInt(WorldPosition.Y),
+                Mathf.FloorToInt(WorldPosition.Z));
+        }
+    }
 }

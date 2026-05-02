@@ -1,0 +1,69 @@
+[gd_scene format=3 uid="uid://bblooddmg00001"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_01.wav" id="2_imp01"]
+[ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_02.wav" id="2_imp02"]
+[ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_03.wav" id="2_imp03"]
+[ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_04.wav" id="2_imp04"]
+[ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_05.wav" id="2_imp05"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_blood"]
+emission_shape = 1
+emission_sphere_radius = 0.1
+direction = Vector3(0, 1, 0)
+spread = 50.0
+initial_velocity_min = 1.5
+initial_velocity_max = 4.0
+gravity = Vector3(0, -12, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 0.5
+scale_max = 1.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blood"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.6, 0.05, 0.05, 0.85)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_blood"]
+material = SubResource("StandardMaterial3D_blood")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_impact"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 5
+stream_0/stream = ExtResource("2_imp01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_imp02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_imp03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_imp04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_imp05")
+stream_4/weight = 1.0
+
+[node name="BloodDamage" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Blood" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 8
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_blood")
+draw_pass_1 = SubResource("QuadMesh_blood")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_impact")
+unit_size = 4.0
+max_distance = 25.0
+bus = &"World3D"

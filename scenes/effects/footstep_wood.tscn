@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://c2fhwoodfst01"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/EffectOneShot.cs" id="1_wood"]
+[ext_resource type="AudioStream" uid="uid://qu1owsaurngt" path="res://audio/source/footsteps/un_shr_foot_wood_01.wav" id="2_wd01"]
+[ext_resource type="AudioStream" uid="uid://n6bu72vdiujl" path="res://audio/source/footsteps/un_shr_foot_wood_02.wav" id="2_wd02"]
+[ext_resource type="AudioStream" uid="uid://dkwyux42g8pml" path="res://audio/source/footsteps/un_shr_foot_wood_03.wav" id="2_wd03"]
+[ext_resource type="AudioStream" uid="uid://bhllbeeudsw1v" path="res://audio/source/footsteps/un_shr_foot_wood_04.wav" id="2_wd04"]
+[ext_resource type="AudioStream" uid="uid://c8tjceiyytxr4" path="res://audio/source/footsteps/un_shr_foot_wood_05.wav" id="2_wd05"]
+[ext_resource type="AudioStream" uid="uid://26wfuu5j26xo" path="res://audio/source/footsteps/un_shr_foot_wood_06.wav" id="2_wd06"]
+[ext_resource type="AudioStream" uid="uid://dkv53oiay3xaf" path="res://audio/source/footsteps/un_shr_foot_wood_07.wav" id="2_wd07"]
+[ext_resource type="AudioStream" uid="uid://bi5p71k403y5s" path="res://audio/source/footsteps/un_shr_foot_wood_08.wav" id="2_wd08"]
+[ext_resource type="AudioStream" uid="uid://55phxiujp48e" path="res://audio/source/footsteps/un_shr_foot_wood_09.wav" id="2_wd09"]
+[ext_resource type="AudioStream" uid="uid://bs1yj8tah2xl0" path="res://audio/source/footsteps/un_shr_foot_wood_10.wav" id="2_wd10"]
+[ext_resource type="AudioStream" uid="uid://cbg6q7xwovu1d" path="res://audio/source/footsteps/un_shr_foot_wood_11.wav" id="2_wd11"]
+[ext_resource type="AudioStream" uid="uid://bgafayqoykvi4" path="res://audio/source/footsteps/un_shr_foot_wood_12.wav" id="2_wd12"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_wood"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 12
+stream_0/stream = ExtResource("2_wd01")
+stream_1/stream = ExtResource("2_wd02")
+stream_2/stream = ExtResource("2_wd03")
+stream_3/stream = ExtResource("2_wd04")
+stream_4/stream = ExtResource("2_wd05")
+stream_5/stream = ExtResource("2_wd06")
+stream_6/stream = ExtResource("2_wd07")
+stream_7/stream = ExtResource("2_wd08")
+stream_8/stream = ExtResource("2_wd09")
+stream_9/stream = ExtResource("2_wd10")
+stream_10/stream = ExtResource("2_wd11")
+stream_11/stream = ExtResource("2_wd12")
+
+[node name="FootstepWood" type="Node3D" unique_id=89731602]
+script = ExtResource("1_wood")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1804591047]
+stream = SubResource("AudioStreamRandomizer_wood")
+volume_db = -16.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

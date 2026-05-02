@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="PositionalEmitterData" format=3 uid="uid://dopilvgs2gy84"]
+
+[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
+[ext_resource type="AudioStream" uid="uid://cc1m0bxp41mol" path="res://audio/source/ambience/insect_cicada/amb_loc_cicadas_a_01.wav" id="stream_cicada"]
+
+[sub_resource type="Curve" id="Curve_tod_afternoon"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 0), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(0.7, 0.6), 0.0, 0.0, 0, 0, Vector2(0.8, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 6
+
+[resource]
+script = ExtResource("emitter_script")
+stream = ExtResource("stream_cicada")
+spawnDetailGroupId = 1
+requiresAirAbove = true
+timeOfDayVolume = SubResource("Curve_tod_afternoon")
+volumeDb = -10.0
+maxDistance = 22.0
+seed = 2002
+yOffset = 2.0
