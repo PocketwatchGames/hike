@@ -117,28 +117,42 @@ public partial class CarrierLight : Node3D
     public void Deactivate()
     {
         if (!_registered) { return; }
-        World world = World.Current;
-        if (world == null) { return; }
-        RemoveCurrentDeposit(world.WorldState);
-        _kernels = null;
-        _currentDeposit.Clear();
-        _registered = false;
-        Active = false;
-
+        Cleanup();
         if (LightOffEffectScene != null)
         {
             Fx.Create(LightOffEffectScene, GetParent() ?? this, GlobalPosition);
-        }
-        if (_loopEffect != null)
-        {
-            _loopEffect.Stop();
-            _loopEffect = null;
         }
     }
 
     public override void _ExitTree()
     {
-        Deactivate();
+        // Tear down state without spawning the LightOff transition fx —
+        // we're already leaving the tree and Fx.Create's AddChild would
+        // either fail outright or leak a node into a dying parent. The
+        // off-cue is the explicit Deactivate caller's responsibility.
+        Cleanup();
+    }
+
+    // Drops the light deposit from the world and stops the loop fx without
+    // firing any transition cue. Shared by Deactivate (player-initiated)
+    // and _ExitTree (despawn / shutdown).
+    private void Cleanup()
+    {
+        if (!_registered) { return; }
+        World world = World.Current;
+        if (world != null)
+        {
+            RemoveCurrentDeposit(world.WorldState);
+        }
+        _kernels = null;
+        _currentDeposit.Clear();
+        _registered = false;
+        Active = false;
+        if (_loopEffect != null)
+        {
+            _loopEffect.Stop();
+            _loopEffect = null;
+        }
     }
 
     private void BlendAndDeposit(WorldState worldState, Vector3 sub)

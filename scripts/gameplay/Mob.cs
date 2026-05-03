@@ -391,6 +391,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             return;
         }
+        // Only profiled on actual transitions so `calls` reflects loop churn,
+        // not the (expected-cheap) per-frame no-op path. A high call count
+        // here at high mob density is the smoking gun for state oscillation
+        // — every swap tears down + spawns a fresh Fx (instantiate, AddChild,
+        // wire audio + particles).
+        using var _profSwap = Profiler.Sample("Mob.UpdateAnimLoop.Swap");
+        if (!CVars.mobAnimLoopFx.Value)
+        {
+            _animLoopState = target;
+            return;
+        }
         if (_animLoop != null)
         {
             _animLoop.Stop();
@@ -618,8 +629,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             UpdateTerrainSpeed();
         }
 
-        UpdateWaterRipples();
-        UpdateFootsteps();
+        using (Profiler.Sample("Mob.UpdateWaterRipples"))
+        {
+            UpdateWaterRipples();
+        }
+        using (Profiler.Sample("Mob.UpdateFootsteps"))
+        {
+            UpdateFootsteps();
+        }
 
         // Keep the spatial hash up-to-date for the navigator's separation
         // query and any other neighbor-radius lookup. Update() short-
@@ -848,7 +865,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
         _impulseApplied = false;
 
-        UpdateAnimation();
+        using (Profiler.Sample("Mob.UpdateAnimation"))
+        {
+            UpdateAnimation();
+        }
     }
 
     public void ApplyImpulse(Vector3 impulse)
@@ -1086,7 +1106,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         float horizSpeedSq = horizVel.LengthSquared();
         bool walking = !inWater && horizSpeedSq > _footstepMinSpeedSq;
         EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
-        _footstepEmitter.Update(_world, pos, walking, _footstepStride, ground, _footstepEffects);
+        // mob_footstep_fx is a bisection toggle — when off, the per-stride
+        // footstep one-shots are suppressed but the rest of UpdateFootsteps
+        // (water-enter splash, water/tall-grass loop gating) still runs so
+        // we can isolate the footstep emit cost specifically.
+        bool footstepFxEnabled = CVars.mobFootstepFx.Value;
+        _footstepEmitter.Update(_world, pos, walking && footstepFxEnabled, _footstepStride, ground, _footstepEffects);
 
         // One splash at the moment the mob first dips into water. The
         // navigator can drag a mob through a water voxel on a single frame,

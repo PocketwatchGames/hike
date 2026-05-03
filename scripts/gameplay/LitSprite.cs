@@ -753,14 +753,21 @@ public partial class LitSprite : Sprite3D
         InitInstanceUniformsFor(_reflection.GetInstance(), spriteSize, regionOrigin);
     }
 
-    // Position + visible-flag the sprite was last updated at. NaN sentinel so
-    // the very first call is treated as a delta and runs the full path. The
-    // dirty-flag check below skips ~all reflection work for static props
-    // (trees, barrels, rocks etc. that never move once spawned). Limitation:
-    // if water voxels under a static prop are mutated at runtime the cache
-    // becomes stale — fine for hand-authored worlds, would need a bus
-    // notification if voxel mining ever lands.
-    private Vector3 _lastReflectionPos = new(float.NaN, 0f, 0f);
+    // Floored voxel coord + Y the cached reflection result was computed at.
+    // The reflection result is invariant within an XZ voxel column (water
+    // surface lookup floors XZ) and within the same Y voxel (the in-water
+    // vs above-water branch keys off the floored Y of src vs water_y).
+    // Caching by float distance instead caused the short-circuit to miss
+    // every frame on RigidBody3D-anchored sprites: mobs that are visually
+    // stationary still take micro-rotation steps in Mob._PhysicsProcess
+    // (yaw lerp toward targetYaw), which shifts GlobalPosition of any
+    // child sprite that isn't at the exact pivot, busting a sub-mm
+    // distance epsilon. The voxel-keyed check absorbs all sub-voxel
+    // motion. INT_MIN sentinel in X forces the first call through.
+    private Vector3I _lastReflectionVoxel = new(int.MinValue, 0, 0);
+    private float _lastReflectionSrcY = float.NaN;
+    private float _cachedWaterY = float.NaN;
+    private bool _cachedWaterYHasValue;
 
     // Per-frame: query the water surface Y under this sprite, position the
     // flipped copy on the opposite side of the surface, and push source
@@ -772,22 +779,57 @@ public partial class LitSprite : Sprite3D
         {
             return;
         }
+        if (!CVars.spriteReflections.Value)
+        {
+            if (_reflection.Visible)
+            {
+                _reflection.Visible = false;
+            }
+            return;
+        }
         Vector3 src = GlobalPosition;
-        // Static prop short-circuit. Squared-distance epsilon absorbs physics
-        // jitter on RigidBody3D-anchored sprites without a "did it move"
-        // export flag — the next time GlobalPosition actually drifts (mob
-        // walks, prop gets pushed) we run the full path and re-cache.
-        const float MoveEpsilonSq = 1e-6f;
-        if ((src - _lastReflectionPos).LengthSquared() < MoveEpsilonSq)
+        Vector3I voxel = new(
+            Mathf.FloorToInt(src.X),
+            Mathf.FloorToInt(src.Y),
+            Mathf.FloorToInt(src.Z));
+        // Two-tier cache.
+        //   Tier 1 (voxel changed): re-run FindWaterSurfaceY. This is the
+        //          expensive path — up to 5 rings × 25 columns × 16 voxels
+        //          of voxel reads. Only triggers on voxel-coordinate change.
+        //   Tier 2 (voxel same, src.Y changed): keep the cached waterY,
+        //          just re-derive localY and re-push the per-frame transform.
+        //          Skips the voxel scan entirely so a sprite jittering by
+        //          1e-7 Y doesn't pay 2000 voxel reads to land on the same
+        //          waterY value.
+        //   Tier 3 (voxel same, src.Y same): full short-circuit.
+        bool voxelChanged = voxel != _lastReflectionVoxel;
+        if (!voxelChanged && src.Y == _lastReflectionSrcY)
         {
             return;
         }
-        _lastReflectionPos = src;
+        _lastReflectionSrcY = src.Y;
 
-        float? waterY = FindWaterSurfaceY(src);
+        float? waterY;
+        if (voxelChanged)
+        {
+            using (Profiler.Sample("LitSprite.FindWaterSurfaceY"))
+            {
+                waterY = FindWaterSurfaceY(src);
+            }
+            _lastReflectionVoxel = voxel;
+            _cachedWaterY = waterY ?? 0f;
+            _cachedWaterYHasValue = waterY.HasValue;
+        }
+        else
+        {
+            waterY = _cachedWaterYHasValue ? _cachedWaterY : null;
+        }
         if (!waterY.HasValue)
         {
-            _reflection.Visible = false;
+            if (_reflection.Visible)
+            {
+                _reflection.Visible = false;
+            }
             return;
         }
         // Two-mode anchor (matches sprite_prop_reflection_multimesh.gdshader's

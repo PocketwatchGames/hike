@@ -154,6 +154,38 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
 
 Both base classes are non-abstract (`virtual` with `GD.PushError` fallback) so `[GlobalClass]` plays nicely with Godot's editor picker. Subclasses must be tagged `[GlobalClass]` to surface in the inspector.
 
+### Action System: Weapons, Consumables, Interactives (`scripts/data/actions/`, `scripts/gameplay/actions/`)
+
+A single `ActionRunner` (one per actor) drives all timeline-based player and mob actions. Two distinct authored data shapes feed it.
+
+**Slot-driven actions (weapons, consumables, mob attacks)** — pressed via input or AI request:
+- `ItemActionProfile` (`scripts/data/actions/ItemActionProfile.cs`): one profile per slot. Holds an `Array<ItemAction> chargedActions` (the tiers), profile-level `chargeEvents` / `chargeEndEvents` / `abortEvents`, and behavioral flags (`autoActivateAtMax`, `locksMovement`, `interruptOnDamage`, `queueable`/`queueWindowSeconds`).
+- `ItemAction` (`scripts/data/actions/ItemAction.cs`): one charge tier within a profile. Carries `chargeTime`, `activeDurationSeconds`, `cooldownSeconds`, `events` (Active timeline), `readyEvents` (announce reaching this tier), combo position (`comboIndex` / `comboWindowMs`), `requirements`, abort/interrupt policy (`canAbort` / `canInterrupt`), per-tier charge curves, and per-tier charge fx (`chargeStartEffect`, `chargeLoopEffect`, `chargeCancelEffect`, `releaseEffect`).
+- Profiles are referenced from `WeaponData.actionProfile`, `ConsumableData.actionProfile`, and `AttackBehaviorData.actionProfile`.
+
+**Interactive actions (chest, door, torch, loot)** — pressed via Interact:
+- `InteractiveAction` (`scripts/data/actions/InteractiveAction.cs`): one verb's behavior on an interactive. Self-describes its `verb` (EActionVerb) + `displayName` (StringName, used by future radial UI). Carries `interactEvents` (timeline during the wait), `completionEvents` (fired as a batch at `durationSeconds` — this is where `OpenInteractive` lives, so authors don't have to align an event time to the duration), `requirements`, `locksMovement`, `interruptOnDamage`. No charging, queueing, combo, or auto-activate — interactives have one phase that runs to completion.
+- `IInteractive` (`scripts/gameplay/IInteractive.cs`): exposes `Array<InteractiveAction> GetActions(Player)` and `Complete(int actionIndex)`. The first entry is the default action; future radial UI iterates the array reading `displayName` for each entry. The `ActionRunner` calls `interactive.Complete(context.interactiveActionIndex)` from the `OpenInteractive` event handler.
+
+**`ActionRunner` (`scripts/gameplay/actions/ActionRunner.cs`)**: single-action runner with one in-flight `PlayerAction` plus an optional queued action. Two `TryStart` overloads (one per data shape) — `ItemActionProfile` enters Charging, walks tier selection, fires `readyEvents` on tier promotion, transitions to Active on release / `autoActivateAtMax`; `InteractiveAction` enters Active immediately, walks `interactEvents` over `durationSeconds`, fires `completionEvents` from `EndActive`. Aborts (player-initiated `TryAbort`, damage-driven `TryInterrupt`) skip `completionEvents` for interactives; weapons consult per-tier `canAbort` / `canInterrupt`.
+
+**`ItemEvent` (`scripts/data/actions/ItemEvent.cs`)**: shared timeline event used by both shapes. Type-tagged via `EItemEventType` (Melee, Hitscan, UseAmmo, ApplyEffect, DecrementStack, ToggleCarrierLight, PlayAnim, PlaySound, OpenInteractive, ConsumeFromInventory). Per-type fields are unioned on the resource — handlers switch on `type` and read only relevant fields. **Wire values are stable: append new types, never reuse old numbers**, so existing `.tres` files keep loading. The `fx` field is the per-event audiovisual cue (e.g. the chest-creak puff lives on the `OpenInteractive` event in chest.tscn, not on the chest's C# class).
+
+**Player flow**:
+- Press Interact: `Player.TryStartInteractiveAction(highlight)` calls `runner.TryStart(actions[0], context)` and stashes `(_curInteractive, _curInteractiveActionIndex)` so the existing movement-lock and Interacting-anim checks (`_curInteractive != null`) keep working unchanged.
+- After `_runner.Tick()`: if `_curInteractive != null` and the runner is no longer busy, the interactive completed naturally — clear `_curInteractive` and `_highlightInteractive`.
+- Cancel (Jump / Sneak / repeat-Interact press): `CancelInteract` calls `_runner.TryAbort()` if mid-interactive, then clears `_curInteractive`.
+
+**Adding a new interactive**: implement `IInteractive`, expose `[Export] Array<InteractiveAction> _actions`, return it from `GetActions`, branch on `actionIndex` (or `_actions[actionIndex].verb`) inside `Complete`. Author the `.tscn` with one or more inline `InteractiveAction` sub-resources, each carrying `verb`, `durationSeconds`, `interactEvents`, and `completionEvents` (typically `[OpenInteractive]`).
+
+**Adding a new weapon / consumable verb**: extend `EActionVerb`, author a new `ItemAction` tier on the profile with the new verb tag, wire its `events` and per-tier fx. The runner's tier-selection loop picks it up via `comboIndex` / `chargeTime`.
+
+### Audio-Visual Effects (`scripts/utils/Fx.cs`)
+
+`Fx` is the lifecycle-managed scene wrapper for audio + particles (replaces the older `EffectOneShot`). One-shot mode (`_loop = false`, default) auto-frees once every child `GpuParticles3D` has stopped emitting AND every child `AudioStreamPlayer3D` has finished playing. Loop mode (`_loop = true`) re-plays randomized audio on each `Finished` and frees only after `Stop()` plus a particle-lifetime grace window. Distinct from the gameplay-state `ItemEffect` / `HealEffect` hierarchy — `Fx` is purely audio-visual; `ItemEffect` mutates actor state.
+
+**`Fx.Create(scene, parent, position)`** is the factory. It has a `CallDeferred` fallback for the `AddChild` "data.blocked > 0" case; the caller-side pattern (`_Ready` → `CallDeferred(MethodName.Activate)`) is the cleaner fix and is used by `CarrierLight`. Never call `Fx.Create` from `_ExitTree` — `CarrierLight` shows the split: private `Cleanup()` (no fx) shared by `Deactivate` (player-initiated, fires the off-cue) and `_ExitTree` (silent).
+
 ### Shader Global Uniforms (`scripts/utils/ShaderGlobals.cs`)
 
 Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at startup, in the `_Ready` of whatever owns its per-frame `Set` calls (e.g. `SkyController`, `ChunkManager`). Use one of two methods depending on where the global lives:
@@ -161,19 +193,9 @@ Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at 
 - **`ShaderGlobals.Register(name, type, defaultValue)`** — for globals also declared in `project.godot`'s `[shader_globals]` section. The engine creates the variable at startup; this call seeds the C# default value before the first material that uses it compiles. Use for scalar/vector globals with sensible static defaults that you also want visible in the editor's Project Settings UI.
 - **`ShaderGlobals.RegisterRuntime(name, type, value)`** — for globals NOT in `project.godot`. Calls `RenderingServer.GlobalShaderParameterAdd` directly. Useful for any global whose only meaningful value is computed at runtime and which does not need to exist in the editor. Note: if shaders that reference the global are ever opened in the editor's script editor or re-imported, the editor will fail to compile them — in that case, declare the global in `project.godot` with a placeholder and use `Register` instead (see `light_map` / `light_map_placeholder.tres`).
 
-**Why both:** the runtime `RenderingServer.GlobalShaderParameterGet` and `GetList` APIs are editor-only, so we can't auto-detect at runtime whether a name is already declared in `project.godot`. The caller knows; pick the right method.
+The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor-only, so we can't auto-detect whether a name is already declared in `project.godot`. The caller knows; pick the right method. Both must run before the first material that uses the global compiles — standalone launches (VS Code → `Godot.exe`) compile shaders very early.
 
-**Why initialize from C# at all:** a standalone launch (e.g. via VS Code → `Godot.exe`) compiles shaders very early and a global that hasn't been seeded yet either fails with `Global uniform '<name>' does not exist` (for runtime-only globals) or compiles with stale values (for project.godot-declared globals). Both methods must run before the first material that uses the global compiles.
-
-**Sampler globals gotcha:** do NOT put a sampler global in `project.godot` with `value: null` — Godot will try to load `res://<null>` as a resource on startup. Sampler globals either need a real texture path in `project.godot` (use a `PlaceholderTexture*` `.tres` if the real value is runtime-constructed — `Register` will swap the value in at runtime), or they should be added at runtime via `RegisterRuntime`.
-
-**`material_storage.cpp:1677 - "!global_shader_uniforms.variables.has(p_name)"` spam diagnosis:** this fires whenever `RenderingServer.GlobalShaderParameterSet(name, ...)` runs for a `name` that is not in the engine's shader-globals dictionary. Common root causes, in rough order of frequency:
-1. **`Register` used for a global that is NOT declared in `project.godot`.** `Register` calls `Set` internally, which errors. Fix: switch to `RegisterRuntime` (creates the global), or add the project.godot declaration.
-2. **`mat4` global declared in `project.godot`'s `[shader_globals]` section.** Godot 4.6's project-settings parser accepts the declaration well enough for shader compile to succeed, but the global never makes it into `RenderingServer.global_shader_uniforms.variables`, so every per-frame `Set` errors. Decompose into supported scalar/vector types (e.g. `vec3 origin`, `vec3 right`, `vec3 up`, `float size`) and reconstruct in the shader. Other untested types (mat2, mat3, ivec*, uvec*, bvec*) may have the same issue — stick to bool/int/float/vec*/sampler*.
-3. **`[Tool]`-script `Apply()` runs in editor and pushes globals that are only registered behind `if (!Engine.IsEditorHint())`.** SkyController is `[Tool]`; its per-frame Set calls fire in the editor too. Move `RegisterRuntime` for any global Apply() pushes outside the editor-hint gate so the global exists in both modes (the gated block can keep allocations + non-shader work, but ANY global the per-frame pusher touches must be created in both editor and runtime).
-4. **Stack-trace it.** Run `Godot.exe --path . --verbose` in a terminal that surfaces C# backtraces — the trace points at the exact `Set`/`Register` callsite and its global name. Vastly faster than guessing.
-
-**Unshaded fragment output formula:** Godot 4 outputs `ALBEDO + EMISSION` for materials with `render_mode unshaded`. If your shader writes only `EMISSION = composited`, ALBEDO defaults to white and saturates the surface. Either explicitly `ALBEDO = vec3(0.0)` or write the composite to ALBEDO and zero EMISSION. The same applies to other render-mode-stripped paths — be deliberate about which output channel carries the color and zero the other.
+`SkyController` is `[Tool]`, so its `Apply()` runs in the editor too. Any global it `Set`s must be created in both editor and runtime — keep the `RegisterRuntime` calls outside the `Engine.IsEditorHint()` gate.
 
 ### Build-Time Code Generation (`hike.csproj`)
 

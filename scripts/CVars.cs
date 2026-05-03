@@ -201,6 +201,50 @@ public static class CVars
     //              floating HUDs cost vs. the mob bodies themselves.
     public static CVarBool mobHud = new CVarBool("mob_hud", true);
 
+    // mob_footstep_fx 0 → suppress per-stride footstep one-shots from every
+    //                     Mob (the dust-puff + footstep audio). Water-enter
+    //                     splash, water/tall-grass loops, and the per-mob
+    //                     idle/run/swim audio loops are all unaffected so
+    //                     this isolates the cost of the per-step burst
+    //                     specifically. If fps recovers when this is off,
+    //                     Fx.Create + the spawned particle/audio churn is
+    //                     where the budget is going.
+    public static CVarBool mobFootstepFx = new CVarBool("mob_footstep_fx", true);
+
+    // mob_anim_loop_fx 0 → no Mob spawns the idle/run/swim anim-loop Fx
+    //                      (the persistent breathing / footfall audio +
+    //                      particle loop tied to the current animation
+    //                      state). Existing loops are left to wind down on
+    //                      their next state transition. Useful for measuring
+    //                      how much of the steady-state cost comes from the
+    //                      always-on per-mob audio bed.
+    public static CVarBool mobAnimLoopFx = new CVarBool("mob_anim_loop_fx", true);
+
+    // fx_audio 0     → no Fx instance starts its AudioStreamPlayer3D
+    //                  children. Particles still play. Distinguishes the
+    //                  cost of audio mixing / 3D positional attenuation
+    //                  from the cost of particle simulation + draw.
+    public static CVarBool fxAudio = new CVarBool("fx_audio", true);
+
+    // fx_particles 0 → no Fx instance enables emission on its
+    //                  GpuParticles3D children. Audio still plays. Use
+    //                  with fx_audio to bisect the cost of every Fx into
+    //                  audio vs particles.
+    public static CVarBool fxParticles = new CVarBool("fx_particles", true);
+
+    // sprite_reflections 0 → every LitSprite hides its water-reflection
+    //                        child and skips UpdateReflection's water lookup.
+    //                        Bisection toggle for the LitSprite.UpdateReflection
+    //                        section — at high mob density the reflection
+    //                        update can dominate _Process even when the
+    //                        sprite is "stationary" (sub-voxel jitter on
+    //                        RigidBody3D-anchored sprites used to bust the
+    //                        cache; that's now fixed via voxel-keyed caching,
+    //                        but this toggle stays so you can still
+    //                        attribute frame time to the reflection path
+    //                        without recompiling).
+    public static CVarBool spriteReflections = new CVarBool("sprite_reflections", true);
+
     // props_visible 0 → every PropInstance in the world hides itself.
     //                   Static decorations (trees, barrels, grass, etc.)
     //                   are usually the largest contributor to draw counts;

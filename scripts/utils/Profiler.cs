@@ -275,6 +275,11 @@ public static class Profiler
             s.Calls = 0;
             s.ActiveStart = 0;
         }
+        // Latch + reset bare counters that aren't tied to a Section. Same
+        // window cadence as the section table so the per-window numbers
+        // line up.
+        SharedWalkabilityCache.LatchCounters();
+        SharedWalkabilityCache.SweepStale();
         _windowStartTicks = now;
     }
 
@@ -375,6 +380,18 @@ public static class Profiler
         AppendMonitor(sb, "physics_active_objects", Godot.Performance.Monitor.Physics3DActiveObjects, "F0");
         AppendMonitor(sb, "physics_collision_pairs", Godot.Performance.Monitor.Physics3DCollisionPairs, "F0");
         AppendMonitor(sb, "physics_islands", Godot.Performance.Monitor.Physics3DIslandCount, "F0");
+        // Fx live counts. Maintained by Fx._Ready/_ExitTree. A spike here
+        // (especially in active_audio / active_particles) at the moment fps
+        // tanks is the smoking gun for footstep / loop-effect overspawn.
+        sb.Append("  ").Append("fx_active".PadRight(32)).Append(Fx.ActiveCount.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("fx_active_audio".PadRight(32)).Append(Fx.ActiveAudioCount.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("fx_active_particles".PadRight(32)).Append(Fx.ActiveParticlesCount.ToString().PadLeft(12)).Append('\n');
+        // SharedWalkabilityCache hit/miss/size. A high hit ratio at swarm
+        // density is the whole point of the cache; if hits ≪ misses the
+        // quantum is too tight or mob profiles vary too much for sharing.
+        sb.Append("  ").Append("walkability_cache_hits".PadRight(32)).Append(SharedWalkabilityCache.HitsLatched.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("walkability_cache_misses".PadRight(32)).Append(SharedWalkabilityCache.MissesLatched.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("walkability_cache_entries".PadRight(32)).Append(SharedWalkabilityCache.EntryCount.ToString().PadLeft(12)).Append('\n');
     }
 
     private static void AppendMonitor(StringBuilder sb, string label, Godot.Performance.Monitor m, string fmt, double scale = 1.0)

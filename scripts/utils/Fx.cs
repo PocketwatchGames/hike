@@ -14,6 +14,21 @@ public partial class Fx : Node3D
 	readonly List<GpuParticles3D> _particles = new();
 	readonly List<AudioStreamPlayer3D> _audio = new();
 	bool _stopping;
+
+	// Live counts of Fx, AudioStreamPlayer3D, and GpuParticles3D currently in
+	// the world. Surface as Godot custom monitors below ("hike/fx/active",
+	// "hike/fx/active_audio", "hike/fx/active_particles") so the F3 overlay
+	// and the editor's Monitors tab show how many are alive at any moment.
+	// At 30fps with a footstep / idle-sound suspicion the question is
+	// usually "are we leaking" or "is the steady-state count higher than
+	// expected" — these monitors answer it directly.
+	private static int _activeFx;
+	private static int _activeAudio;
+	private static int _activeParticles;
+	private static bool _monitorsRegistered;
+	public static int ActiveCount => _activeFx;
+	public static int ActiveAudioCount => _activeAudio;
+	public static int ActiveParticlesCount => _activeParticles;
 	// Wall-clock time at which Stop() was called, used to defer free until the
 	// longest particle Lifetime has elapsed. Existing particles continue to
 	// render after Emitting flips false, and Godot exposes no "any particles
@@ -22,6 +37,7 @@ public partial class Fx : Node3D
 
 	public static Fx Create(PackedScene scene, Node parent, Vector3 position)
 	{
+		using var _prof = Profiler.Sample("Fx.Create");
 		Fx effect = scene.Instantiate<Fx>();
 		effect.Position = position;
 		parent.AddChild(effect);
@@ -42,22 +58,31 @@ public partial class Fx : Node3D
 
 	public override void _Ready()
 	{
+		using var _prof = Profiler.Sample("Fx.Ready");
+		EnsureMonitorsRegistered();
+		bool audioEnabled = CVars.fxAudio.Value;
+		bool particlesEnabled = CVars.fxParticles.Value;
 		foreach (var c in GetChildren())
 		{
 			if (c is GpuParticles3D p)
 			{
 				_particles.Add(p);
-				p.Emitting = true;
+				_activeParticles++;
+				p.Emitting = particlesEnabled;
 			}
 			else if (c is AudioStreamPlayer3D a)
 			{
 				_audio.Add(a);
+				_activeAudio++;
 				if (_loop)
 				{
 					AudioStreamPlayer3D captured = a;
 					a.Finished += () => OnAudioFinished(captured);
 				}
-				a.Play();
+				if (audioEnabled)
+				{
+					a.Play();
+				}
 				if (CVars.audioLog.Value)
 				{
 					string streamPath = a.Stream?.ResourcePath ?? "<inline>";
@@ -65,6 +90,31 @@ public partial class Fx : Node3D
 				}
 			}
 		}
+		_activeFx++;
+	}
+
+	public override void _ExitTree()
+	{
+		_activeFx--;
+		_activeAudio -= _audio.Count;
+		_activeParticles -= _particles.Count;
+	}
+
+	// Lazy registration so the C# side is the source of truth for the int
+	// fields — the editor polls these via the Callable each frame. Skipped
+	// in shipping builds where the monitors would just churn the remote
+	// debugger; the F3 overlay can still show live counts via the same
+	// Performance.GetCustomMonitor lookup.
+	private static void EnsureMonitorsRegistered()
+	{
+		if (_monitorsRegistered)
+		{
+			return;
+		}
+		_monitorsRegistered = true;
+		Performance.AddCustomMonitor("hike/fx/active", Callable.From(() => (double)_activeFx));
+		Performance.AddCustomMonitor("hike/fx/active_audio", Callable.From(() => (double)_activeAudio));
+		Performance.AddCustomMonitor("hike/fx/active_particles", Callable.From(() => (double)_activeParticles));
 	}
 
 	// Loop-mode chain: re-Play the same player so any wrapped

@@ -180,18 +180,35 @@ public class MobNavigator
         if (_repathTimer <= 0f)
         {
             _repathTimer = _repathInterval + (float)GD.RandRange(-RepathJitterSeconds, RepathJitterSeconds);
-            RefreshGrid();
+            // Repath cost is the suspect — the per-call avg of ~110µs at
+            // 16k calls/window dominates Mob.PhysicsProcess. Split into
+            // RefreshGrid (voxel sample of 33×33 grid + walkability
+            // resolve), WanderPick (random-walk goal selection — Wander
+            // only), and ReplanPath (A* from start to goal) so we can see
+            // which is actually expensive. RefreshGrid is the most likely
+            // hot spot at swarm density because it samples LocalGridSize²
+            // = 1089 columns of voxels every 0.4s per mob.
+            using (Profiler.Sample("MobNavigator.RefreshGrid"))
+            {
+                RefreshGrid();
+            }
             if (_state == State.Wander && (_waypoints.Count == 0 || GoalReached() || _blocked))
             {
-                if (TryPickWanderGoal(out Vector3 p))
+                using (Profiler.Sample("MobNavigator.WanderPick"))
                 {
-                    _goal = p;
-                    _arrivalDistance = DefaultArrivalDistance;
-                    _arrived = false;
-                    _blocked = false;
+                    if (TryPickWanderGoal(out Vector3 p))
+                    {
+                        _goal = p;
+                        _arrivalDistance = DefaultArrivalDistance;
+                        _arrived = false;
+                        _blocked = false;
+                    }
                 }
             }
-            ReplanPath();
+            using (Profiler.Sample("MobNavigator.ReplanPath"))
+            {
+                ReplanPath();
+            }
         }
 
         if (GoalReached())
@@ -237,7 +254,10 @@ public class MobNavigator
         // velocity so the impulse layer in Mob._PhysicsProcess doesn't
         // need to know about it — feeds the same single Vector3 it
         // already consumes.
-        steerTarget = ApplySeparation(mobPos, steerTarget);
+        using (Profiler.Sample("MobNavigator.ApplySeparation"))
+        {
+            steerTarget = ApplySeparation(mobPos, steerTarget);
+        }
 
         output.pathTarget = steerTarget;
         if (output.speed <= 0f)

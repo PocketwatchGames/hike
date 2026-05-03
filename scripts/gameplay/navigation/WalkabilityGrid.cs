@@ -39,7 +39,7 @@ public enum CellFlags : byte
 
 // Per-mob movement traits, derived from MobData. Held as a struct so it can
 // be passed by value into the pathfinder without per-call allocation.
-public readonly struct TraversalProfile
+public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
 {
     public readonly int maxStepHeight;
     public readonly int maxFallHeight;
@@ -63,6 +63,29 @@ public readonly struct TraversalProfile
         canFly = data?.canFly ?? false;
         clearanceRadius = data?.clearanceRadius ?? 0.4f;
         verticalClearance = 2;
+    }
+
+    // IEquatable so SharedWalkabilityCache can key on the profile without
+    // boxing through default object.Equals. Most mobs share a small handful
+    // of profiles, so structural equality means a swarm of the same species
+    // collapses onto a single cache entry per quantized origin.
+    public bool Equals(TraversalProfile o)
+    {
+        return maxStepHeight == o.maxStepHeight
+            && maxFallHeight == o.maxFallHeight
+            && canClimb == o.canClimb
+            && canSwim == o.canSwim
+            && waterCost == o.waterCost
+            && canFly == o.canFly
+            && clearanceRadius == o.clearanceRadius
+            && verticalClearance == o.verticalClearance;
+    }
+    public override bool Equals(object obj) => obj is TraversalProfile o && Equals(o);
+    public override int GetHashCode()
+    {
+        return System.HashCode.Combine(
+            maxStepHeight, maxFallHeight, canClimb, canSwim,
+            waterCost, canFly, clearanceRadius, verticalClearance);
     }
 }
 
@@ -98,6 +121,7 @@ public class WalkabilityGrid
     // for callers that only care about the voxel grid.
     public void Sample(WorldState ws, World world, in TraversalProfile profile, int worldX, int worldY, int worldZ, int size)
     {
+        using var _profSample = Profiler.Sample("WalkabilityGrid.Sample");
         if ((size & 1) == 0)
         {
             size += 1;
@@ -114,14 +138,25 @@ public class WalkabilityGrid
             _cells = new WalkabilityCell[total];
         }
 
+        // Pull the requested 33×33 window out of the shared cache. The
+        // cache stores enlarged windows aligned to a coarse quantum so
+        // multiple mobs of the same profile within the quantum share a
+        // single sample. On a fresh quantum the cache populates itself
+        // by calling SampleColumn for every cell of the enlarged window;
+        // every later mob in the quantum just memcpy's a sub-window into
+        // its own _cells. Net win at swarm density: one full sample per
+        // quantum per profile per chunk eviction, instead of one per mob
+        // per repath.
+        SharedWalkabilityCache.Entry entry = SharedWalkabilityCache.GetOrSample(
+            ws, world, profile, worldX, worldY, worldZ, half);
+        int offsetI = _originX - entry.OriginX;
+        int offsetJ = _originZ - entry.OriginZ;
+        int srcSize = entry.Size;
         for (int j = 0; j < size; j++)
         {
-            for (int i = 0; i < size; i++)
-            {
-                int wx = _originX + i;
-                int wz = _originZ + j;
-                _cells[j * size + i] = SampleColumn(ws, world, profile, wx, worldY, wz);
-            }
+            int srcRow = (offsetJ + j) * srcSize + offsetI;
+            int dstRow = j * size;
+            System.Array.Copy(entry.Cells, srcRow, _cells, dstRow, size);
         }
     }
 
@@ -155,8 +190,9 @@ public class WalkabilityGrid
     // within SurfaceSearchRadius of anchorY. Returns a fully-populated cell:
     // OutOfBounds if any sampled column voxel is outside the loaded window,
     // Walkable+surfaceY if a surface is found, default (unwalkable) otherwise.
-    private static WalkabilityCell SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz)
+    internal static WalkabilityCell SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz)
     {
+        using var _profCol = Profiler.Sample("WalkabilityGrid.SampleColumn");
         WalkabilityCell cell = default;
 
         // Search top-down so the highest surface within the window wins —
@@ -258,5 +294,218 @@ public class WalkabilityGrid
         }
 
         return cell;
+    }
+}
+
+// Process-wide cache of walkability samples shared across all mobs.
+//
+// Why: WalkabilityGrid.Sample on a 33×33 window costs ~3 µs/cell × 1089 cells
+// ≈ 3.3 ms per mob per repath. At swarm density (40+ mobs repathing every
+// 0.4s) this dominates _PhysicsProcess. But the result is a deterministic
+// function of (ws, world, profile, anchor) — two mobs of the same species
+// in the same area compute the same cells. This cache exploits that.
+//
+// How: cache key quantizes the requested center to a coarse quantum
+// (Quantum voxels per axis). The cached entry is sized to cover the
+// quantum extent + the mob's halfExtent, so any mob whose anchor lands
+// inside the quantum can read its full window from a single shared
+// sample. On a hit, a mob's per-instance Sample() degenerates to a
+// strip-by-strip Array.Copy of ~33 cells per row × 33 rows — vastly
+// cheaper than re-running SampleColumn 1089 times.
+//
+// Ownership: entries live forever unless evicted by TTL. Eviction is
+// keyed on last-use time, swept opportunistically on insert. World is
+// hand-authored and static — no voxel-mutation invalidation hook needed
+// today; if mining lands, ChunkManager would need to call
+// InvalidateChunk(coord) on a mutation.
+public static class SharedWalkabilityCache
+{
+    // Voxels per axis per cache quantum. Larger = more sharing but each
+    // cache entry costs more to populate (Quantum² extra cells per axis
+    // beyond the bare halfExtent window). 4 picks a balance: any two mobs
+    // within 4 voxels XYZ of each other share, and the enlargement is
+    // modest (37×37 vs 33×33).
+    private const int Quantum = 4;
+
+    // How long an unused entry survives. Refreshed on every hit, so a
+    // chunk staying populated keeps its samples alive indefinitely; once
+    // the swarm migrates the entries drain naturally without invalidation.
+    private const long TtlMs = 10_000;
+
+    // Hard cap to prevent unbounded growth as the player roams. Chosen
+    // generously — a 41-cell entry of WalkabilityCell (~16 bytes) is
+    // ~27 KB; 2048 entries = ~55 MB worst case. Eviction sweeps the
+    // oldest 25% when this trips so we don't thrash on the cap.
+    private const int MaxEntries = 2048;
+
+    public sealed class Entry
+    {
+        public WalkabilityCell[] Cells;
+        public int OriginX;
+        public int OriginY;
+        public int OriginZ;
+        public int Size;
+        public ulong LastUsedMs;
+    }
+
+    private struct Key : System.IEquatable<Key>
+    {
+        public int Qx;
+        public int Qy;
+        public int Qz;
+        public TraversalProfile Profile;
+        public bool Equals(Key o) => Qx == o.Qx && Qy == o.Qy && Qz == o.Qz && Profile.Equals(o.Profile);
+        public override bool Equals(object obj) => obj is Key k && Equals(k);
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int h = Qx * 73856093;
+                h ^= Qy * 19349663;
+                h ^= Qz * 83492791;
+                h ^= Profile.GetHashCode();
+                return h;
+            }
+        }
+    }
+
+    private static readonly System.Collections.Generic.Dictionary<Key, Entry> _cache = new();
+    private static int _hitsThisWindow;
+    private static int _missesThisWindow;
+    private static int _hitsLatched;
+    private static int _missesLatched;
+    public static int HitsLatched => _hitsLatched;
+    public static int MissesLatched => _missesLatched;
+    public static int EntryCount => _cache.Count;
+    public static void LatchCounters()
+    {
+        _hitsLatched = _hitsThisWindow;
+        _missesLatched = _missesThisWindow;
+        _hitsThisWindow = 0;
+        _missesThisWindow = 0;
+    }
+
+    public static Entry GetOrSample(WorldState ws, World world, in TraversalProfile profile,
+        int centerX, int centerY, int centerZ, int requestedHalfExtent)
+    {
+        // Quantize using arithmetic shift (handles negative coords correctly).
+        // C#'s >> on int is arithmetic, so (-1) >> 2 = -1 not 0x3FFF_FFFF —
+        // good for world coords that may go negative.
+        int qx = centerX >> 2;
+        int qy = centerY >> 2;
+        int qz = centerZ >> 2;
+        var key = new Key { Qx = qx, Qy = qy, Qz = qz, Profile = profile };
+        ulong now = Godot.Time.GetTicksMsec();
+        if (_cache.TryGetValue(key, out Entry hit))
+        {
+            hit.LastUsedMs = now;
+            _hitsThisWindow++;
+            return hit;
+        }
+        _missesThisWindow++;
+
+        // Compute the enlarged window that satisfies any mob within the
+        // quantum. The quantum's XZ extent is [qx*Quantum .. qx*Quantum+Quantum),
+        // so the worst-case mob position is one of the corners; we need
+        // the mob's full halfExtent visible from there.
+        int qOriginXz = qx * Quantum;
+        int qOriginY = qy * Quantum;
+        int qOriginZ = qz * Quantum;
+        int cacheHalfExtent = requestedHalfExtent + Quantum - 1;
+        int cacheSize = cacheHalfExtent * 2 + 1;
+        Entry entry = new Entry
+        {
+            Cells = new WalkabilityCell[cacheSize * cacheSize],
+            // Center the cache on the quantum center so the worst-case
+            // mob (at the quantum's far corner) still has halfExtent on
+            // every side.
+            OriginX = qOriginXz + Quantum / 2 - cacheHalfExtent,
+            OriginY = qOriginY + Quantum / 2,
+            OriginZ = qOriginZ + Quantum / 2 - cacheHalfExtent,
+            Size = cacheSize,
+            LastUsedMs = now,
+        };
+        // Anchor Y for the column scan: the quantum's center Y. Mobs
+        // within the quantum can be up to Quantum/2 voxels from this
+        // anchor, so the scan's ±SurfaceSearchRadius window still
+        // comfortably covers them.
+        int anchorY = entry.OriginY;
+        for (int j = 0; j < cacheSize; j++)
+        {
+            for (int i = 0; i < cacheSize; i++)
+            {
+                int wx = entry.OriginX + i;
+                int wz = entry.OriginZ + j;
+                entry.Cells[j * cacheSize + i] = WalkabilityGrid.SampleColumn(ws, world, profile, wx, anchorY, wz);
+            }
+        }
+        _cache[key] = entry;
+        if (_cache.Count > MaxEntries)
+        {
+            EvictOldest(now);
+        }
+        return entry;
+    }
+
+    // Drop the oldest 25% of entries. Cheaper than per-insert TTL sweep
+    // and only fires when the cap trips — at steady state the cache
+    // tends to either stay under the cap or churn at the eviction
+    // boundary, which is fine.
+    private static void EvictOldest(ulong now)
+    {
+        int target = MaxEntries * 3 / 4;
+        var entries = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<Key, Entry>>(_cache);
+        entries.Sort((a, b) => a.Value.LastUsedMs.CompareTo(b.Value.LastUsedMs));
+        int toRemove = _cache.Count - target;
+        for (int i = 0; i < toRemove; i++)
+        {
+            _cache.Remove(entries[i].Key);
+        }
+    }
+
+    // Drops every entry whose enlarged XZ window touches the chunk at
+    // chunkCoord (chunk coordinates, not voxel coordinates). Hooked up
+    // when voxel mutation actually lands. Today, no caller invokes this.
+    public static void InvalidateChunk(Godot.Vector3I chunkCoord)
+    {
+        const int ChunkSize = 16;
+        int chunkMinX = chunkCoord.X * ChunkSize;
+        int chunkMinZ = chunkCoord.Z * ChunkSize;
+        int chunkMaxX = chunkMinX + ChunkSize - 1;
+        int chunkMaxZ = chunkMinZ + ChunkSize - 1;
+        var toRemove = new System.Collections.Generic.List<Key>();
+        foreach (var kv in _cache)
+        {
+            Entry e = kv.Value;
+            int eMaxX = e.OriginX + e.Size - 1;
+            int eMaxZ = e.OriginZ + e.Size - 1;
+            if (eMaxX < chunkMinX || e.OriginX > chunkMaxX) continue;
+            if (eMaxZ < chunkMinZ || e.OriginZ > chunkMaxZ) continue;
+            toRemove.Add(kv.Key);
+        }
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            _cache.Remove(toRemove[i]);
+        }
+    }
+
+    // Drop entries that haven't been touched in a while. Called from
+    // Profiler.Tick on each window latch — opportunistic, no fixed
+    // cadence, but catches drift as the player explores.
+    public static void SweepStale()
+    {
+        ulong now = Godot.Time.GetTicksMsec();
+        var toRemove = new System.Collections.Generic.List<Key>();
+        foreach (var kv in _cache)
+        {
+            if (now - kv.Value.LastUsedMs > (ulong)TtlMs)
+            {
+                toRemove.Add(kv.Key);
+            }
+        }
+        for (int i = 0; i < toRemove.Count; i++)
+        {
+            _cache.Remove(toRemove[i]);
+        }
     }
 }
