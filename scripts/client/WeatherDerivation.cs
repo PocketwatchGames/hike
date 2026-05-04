@@ -1,6 +1,6 @@
 using Godot;
 
-// Pure function: (region, weather, time-of-day, tuning) → DerivedPalette.
+// Pure function: (zone, weather, time-of-day, tuning) → DerivedPalette.
 // The phase blend (day/sunset/night) happens INSIDE here, so callers
 // receive one already-blended value per visual channel. The sun-vs-moon
 // horizon crossfade for shafts and DirectionalLight3D energy stays in
@@ -25,16 +25,16 @@ public static class WeatherDerivation
         sunsetT = 1f - Mathf.SmoothStep(sunsetAngle, sunsetAngle + colorRange, Mathf.Abs(sunElevDeg));
     }
 
-    public static DerivedPalette Derive(RegionData region, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData sim)
+    public static DerivedPalette Derive(ZoneData zone, WeatherData weather, float sunElevationDegrees, float timeOfDay01, SimData sim)
     {
         DerivedPalette p = default;
 
-        // Safe fallbacks so editor previews render even before regions
+        // Safe fallbacks so editor previews render even before zones
         // / weather / sim are fully wired.
-        Color sunC = region?.SunColor ?? new Color(1.0f, 0.96f, 0.88f);
-        Color moonC = region?.MoonColor ?? new Color(0.55f, 0.6f, 0.75f);
-        Color skyC = region?.SkyColor ?? new Color(0.25f, 0.48f, 0.82f);
-        Color dustC = region?.DustColor ?? new Color(0.85f, 0.78f, 0.6f);
+        Color sunC = zone?.SunColor ?? new Color(1.0f, 0.96f, 0.88f);
+        Color moonC = zone?.MoonColor ?? new Color(0.55f, 0.6f, 0.75f);
+        Color skyC = zone?.SkyColor ?? new Color(0.25f, 0.48f, 0.82f);
+        Color dustC = zone?.DustColor ?? new Color(0.85f, 0.78f, 0.6f);
 
         float cloudCover = weather?.cloudCover ?? 0f;
         float humidity = weather?.humidity ?? 0.5f;
@@ -48,7 +48,7 @@ public static class WeatherDerivation
         // pick up via p.Fog below. MULTIPLICATIVE: both axes must be
         // present (cold dry air doesn't fog; warm humid air doesn't
         // fog) — the previous additive formula leaked fog into desert
-        // / mountain regions purely from the cool-diurnal term.
+        // / mountain zones purely from the cool-diurnal term.
         // FogFromHumidity / FogFromCoolDiurnal act as exponents
         // shaping the curve of each axis: > 1 narrows (only extreme
         // values produce fog), < 1 widens (modest values still
@@ -244,7 +244,7 @@ public static class WeatherDerivation
         // dimming and direct-sun-through-fog warmth come from the
         // shader: shaft_color (already phase-blended above) carries
         // the sun/moon-tinted scattering, while fog_color here is
-        // just the fog's intrinsic color per region. Only the sunset
+        // just the fog's intrinsic color per zone. Only the sunset
         // pass gets a small explicit warm push since shaft_color
         // doesn't cover the AMBIENT fog contribution at low sun.
         float fogDensityK = sim?.FogDensityK ?? 0.1f;
@@ -292,7 +292,7 @@ public static class WeatherDerivation
         // air → softer edges) only expanded the band UPWARD, pushing
         // cloud coverage DOWN — so full cloudCover at high humidity
         // could never produce true overcast, and the cloud-shadow
-        // pattern on the ground stayed sparse at partly-cloudy regions.
+        // pattern on the ground stayed sparse at partly-cloudy zones.
         // Centering keeps "cloudCover=1" meaning "fully overcast"
         // regardless of humidity, and lets the same cloudCover produce
         // the same visible COVERAGE across sharpness variations while
@@ -349,21 +349,21 @@ public static class WeatherDerivation
         p.MoonShaftColor = moonShaftNight.Lerp(shaftSunset, sunsetT);
 
         // --- Water --------------------------------------------------
-        // RegionData.WaterColor (RGB) drives the surface tint;
-        // RegionData.WaterOpacity is "muddiness" — physically how much
+        // ZoneData.WaterColor (RGB) drives the surface tint;
+        // ZoneData.WaterOpacity is "muddiness" — physically how much
         // sediment/organic matter is suspended, which ripples through
         // into viscosity (damped ripples and waves), opacity (fast
         // depth falloff), reflection (denser surface = better mirror),
         // refraction (particles scatter before light can bend cleanly),
         // and whitecap formation (viscous water resists air entrainment).
-        Color waterC = region?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 1f);
-        float muddy = Mathf.Clamp(region?.WaterOpacity ?? 0.5f, 0f, 1f);
+        Color waterC = zone?.WaterColor ?? new Color(0.3f, 0.45f, 0.5f, 1f);
+        float muddy = Mathf.Clamp(zone?.WaterOpacity ?? 0.5f, 0f, 1f);
         p.WaterMuddiness = muddy;
 
         // Shallow tint is just the authored RGB. Depth tint is derived two
         // ways and interpolated by muddiness:
         //  - clearDeep  : red absorbed first, then green — what clean water
-        //                 does at depth regardless of region (ocean physics).
+        //                 does at depth regardless of zone (ocean physics).
         //  - murkyDeep  : dust-tinted sediment; particles scatter whatever
         //                 the regional DustColor carries (ochre desert pond,
         //                 cool violet glacial melt, green swamp).

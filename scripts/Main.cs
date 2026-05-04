@@ -62,26 +62,26 @@ public partial class Main : Node
 		// kit registry as WorldGen — a later .hike change will embed kit paths
 		// in the file header so exported worlds can own their palette.
 		//
-		// Per-region kit divergence: each region contributes WorldGen.KITS_PER_REGION
-		// slots to one flat global palette ([region0 surface, region0 cave, region0
-		// underwater, region1 surface, …]). WorldGen stamps the resolved global
-		// kitId per voxel based on the chunk's RegionIndex + slot, so the shader
+		// Per-zone kit divergence: each zone contributes WorldGen.KITS_PER_ZONE
+		// slots to one flat global palette ([zone0 surface, zone0 cave, zone0
+		// underwater, zone1 surface, …]). WorldGen stamps the resolved global
+		// kitId per voxel based on the chunk's ZoneIndex + slot, so the shader
 		// just indexes into kit_tiles[] as before. DetailGroups stays on the first
-		// region for now — only one detail palette is authored across regions.
-		RegionGenData[] regions = worldGenData.Regions ?? System.Array.Empty<RegionGenData>();
-		var flatKits = new EnvironmentKitData[regions.Length * WorldGen.KITS_PER_REGION];
-		for (int r = 0; r < regions.Length; r++)
+		// zone for now — only one detail palette is authored across zones.
+		ZoneGenData[] zones = worldGenData.Zones ?? System.Array.Empty<ZoneGenData>();
+		var flatKits = new EnvironmentKitData[zones.Length * WorldGen.KITS_PER_ZONE];
+		for (int r = 0; r < zones.Length; r++)
 		{
-			RegionGenData rg = regions[r];
+			ZoneGenData rg = zones[r];
 			EnvironmentKitData[] rk = rg?.Kits ?? System.Array.Empty<EnvironmentKitData>();
-			for (int s = 0; s < WorldGen.KITS_PER_REGION; s++)
+			for (int s = 0; s < WorldGen.KITS_PER_ZONE; s++)
 			{
-				flatKits[r * WorldGen.KITS_PER_REGION + s] = s < rk.Length ? rk[s] : null;
+				flatKits[r * WorldGen.KITS_PER_ZONE + s] = s < rk.Length ? rk[s] : null;
 			}
 		}
 		ChunkMesh.SetKits(flatKits);
-		RegionGenData firstRegion = regions.Length > 0 ? regions[0] : null;
-		ChunkMesh.SetDetailGroups(firstRegion?.DetailGroups ?? System.Array.Empty<DetailGroupData>());
+		ZoneGenData firstZone = zones.Length > 0 ? zones[0] : null;
+		ChunkMesh.SetDetailGroups(firstZone?.DetailGroups ?? System.Array.Empty<DetailGroupData>());
 
 		WorldState worldState;
 		string worldFilePath = CVars.worldFile.Value;
@@ -111,7 +111,7 @@ public partial class Main : Node
 		var source = new WorldFileChunkSource(path);
 		var worldState = new WorldState(source.Min, source.Max, source.SimData);
 		worldState.Spawn = source.Spawn;
-		worldState.Regions = source.Regions;
+		worldState.Zones = source.Zones;
 
 		foreach (Vector3I coord in source.EnumerateChunkCoords())
 		{

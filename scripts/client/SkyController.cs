@@ -3,10 +3,10 @@ using Godot;
 // Owns the runtime visual pipeline for the sky dome, sun / moon, fog,
 // shafts, water ripples, cloud shadows, and precipitation. Every frame
 // it:
-//   1. Samples a blended RegionData + WeatherData at the player's XZ
-//      via RegionBlend (4-quadrant scaffolding on SimData for now).
+//   1. Samples a blended ZoneData + WeatherData at the player's XZ
+//      via ZoneBlend (4-quadrant scaffolding on SimData for now).
 //   2. Recomputes sun / moon orbit from WorldState.TimeOfDay01.
-//   3. Derives a full DerivedPalette from (region, weather, sunElev,
+//   3. Derives a full DerivedPalette from (zone, weather, sunElev,
 //      SimData tuning) via WeatherDerivation — this is where the
 //      day/sunset/night phase blend and all "look recipe" logic live.
 //   4. Pushes the palette to:
@@ -17,11 +17,11 @@ using Godot;
 //
 // SkyController itself owns only SCENE-STRUCTURAL tuning (cloudScale /
 // altitude / shadow strength, SSR, fog step counts, water foam, shaft
-// fade bands, etc.) — weather / region-driven visuals come from the
+// fade bands, etc.) — weather / zone-driven visuals come from the
 // palette.
 //
 // [Tool] makes this run in the editor. When no World/Player exists, it
-// falls back to `previewRegion` so inspector edits produce live sky
+// falls back to `previewZone` so inspector edits produce live sky
 // previews without entering the game.
 [Tool]
 [GlobalClass]
@@ -34,12 +34,12 @@ public partial class SkyController : Node3D
     public static SkyController Current { get; private set; }
 
     [ExportGroup("Preview")]
-    // Editor / pre-World fallback region. Used for live sky preview
+    // Editor / pre-World fallback zone. Used for live sky preview
     // when no WorldState / player exists (pure inspector tweaking). At
-    // runtime the world's regions take over via RegionBlend.
-    [Export] public RegionData previewRegion;
-    // Stand-ins for the runtime RegionState fields when previewing in
-    // the editor — at runtime these come from WorldState.Regions[],
+    // runtime the world's zones take over via ZoneBlend.
+    [Export] public ZoneData previewZone;
+    // Stand-ins for the runtime ZoneState fields when previewing in
+    // the editor — at runtime these come from WorldState.Zones[],
     // populated by WorldGen / the disk loader.
     [Export] public Vector3 previewWindDirection = new Vector3(0.7f, 0f, 0.7f);
     [Export(PropertyHint.Range, "0,1,0.01")] public float previewElevation = 0.0f;
@@ -370,7 +370,7 @@ public partial class SkyController : Node3D
     // streaks fade smoothly with wind/rain. Streak weight is independent
     // of the foam path — whitecap foam (below) fires from the COMPOSITE
     // tilt regardless of which layer caused it (base ripples alone can
-    // foam in choppy regions even with streak strength at 0).
+    // foam in choppy zones even with streak strength at 0).
     [Export(PropertyHint.Range, "0,2,0.01")] public float waveStreakStrength = 0.6f;
     // World-XZ multipliers for the two noise octaves. Smaller value =
     // larger spatial features (longer waves); larger value = finer wavelets.
@@ -435,10 +435,10 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,4,0.05")] public float causticBaselineCurrent = 0.5f;
 
     [ExportSubgroup("Shoreline Foam")]
-    // Foam COLOR is derived entirely from region (DustColor + WaterColor +
+    // Foam COLOR is derived entirely from zone (DustColor + WaterColor +
     // muddiness) and current lighting (SunTint × light level) in Apply().
     // Only the SHAPE / SCALE / STRENGTH knobs remain here since those are
-    // visual-sculpt choices, not region-driven.
+    // visual-sculpt choices, not zone-driven.
     [Export(PropertyHint.Range, "0.1,8,0.05")] public float foamDepth = 4.0f;
     [Export(PropertyHint.Range, "0.1,16,0.05")] public float foamScale = 7.0f;
     // Per-(m/s of wind) drift vector for shoreline foam noise UVs. Each
@@ -656,13 +656,13 @@ public partial class SkyController : Node3D
     // the same World/editor fallback lookup.
     private double _timeOfDay01 = 0.5;
 
-    // Current blended region + weather (runtime). In editor mode these
-    // stay null; the preview path reads previewRegion / previewRegion.weather
-    // directly. RegionBlend.Sample rewrites these in place each frame.
-    private RegionData _blendedRegion;
+    // Current blended zone + weather (runtime). In editor mode these
+    // stay null; the preview path reads previewZone / previewZone.weather
+    // directly. ZoneBlend.Sample rewrites these in place each frame.
+    private ZoneData _blendedZone;
     private WeatherData _blendedWeather;
     // Blended runtime fields for the current sample. Mirrors what would
-    // live on a working RegionState; kept as scalars so SkyController's
+    // live on a working ZoneState; kept as scalars so SkyController's
     // accessors don't have to reconstruct a struct on every read.
     private Vector3 _blendedWindDirection = new Vector3(1f, 0f, 0f);
     private float _blendedElevation;
@@ -673,49 +673,49 @@ public partial class SkyController : Node3D
     // --- Public accessors ------------------------------------------------
     // The current (blended) weather. RainEffect reads windSpeed from
     // here; gameplay might read rainAmount for gameplay gating in the
-    // future. Wind DIRECTION lives on Region (region-intrinsic, not
-    // weather-state) — see Region accessor below.
+    // future. Wind DIRECTION lives on Zone (zone-intrinsic, not
+    // weather-state) — see Zone accessor below.
     public WeatherData Weather
     {
         get
         {
             if (!Engine.IsEditorHint()) { return _blendedWeather; }
-            return previewRegion?.weather;
+            return previewZone?.weather;
         }
     }
 
-    // The current (blended) region. Theme colors / dust / water come
+    // The current (blended) zone. Theme colors / dust / water come
     // from this; runtime fields (windDirection, elevation) come via
-    // RegionState below since they no longer live on the authored
-    // RegionData.
-    public RegionData Region
+    // ZoneState below since they no longer live on the authored
+    // ZoneData.
+    public ZoneData Zone
     {
         get
         {
-            if (!Engine.IsEditorHint()) { return _blendedRegion; }
-            return previewRegion;
+            if (!Engine.IsEditorHint()) { return _blendedZone; }
+            return previewZone;
         }
     }
 
-    // The current (blended) RegionState — bundles the working RegionData
+    // The current (blended) ZoneState — bundles the working ZoneData
     // with the runtime windDirection / elevation. RainEffect reads
     // WindDirection from here; WeatherSimulation reads Elevation.
-    public RegionState RegionState
+    public ZoneState ZoneState
     {
         get
         {
             if (!Engine.IsEditorHint())
             {
-                return new RegionState
+                return new ZoneState
                 {
-                    Data = _blendedRegion,
+                    Data = _blendedZone,
                     WindDirection = _blendedWindDirection,
                     Elevation = _blendedElevation,
                 };
             }
-            return new RegionState
+            return new ZoneState
             {
-                Data = previewRegion,
+                Data = previewZone,
                 WindDirection = previewWindDirection,
                 Elevation = previewElevation,
             };
@@ -873,10 +873,10 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("wet_spec_strength", RenderingServer.GlobalShaderParameterType.Float, wetSpecStrength);
             ShaderGlobals.Register("wet_albedo_floor", RenderingServer.GlobalShaderParameterType.Float, wetAlbedoFloor);
 
-            // Working copies for the region blend output. Re-populated in
-            // _Process each frame — these exist so RegionBlend can write
+            // Working copies for the zone blend output. Re-populated in
+            // _Process each frame — these exist so ZoneBlend can write
             // into stable instances without allocating per frame.
-            _blendedRegion = new RegionData();
+            _blendedZone = new ZoneData();
             _blendedWeather = new WeatherData();
         }
 
@@ -915,29 +915,29 @@ public partial class SkyController : Node3D
 
     public override void _Process(double delta)
     {
-        // Blend regions → (_blendedRegion, _blendedWeather). In editor or
-        // before the World is up, fall back to previewRegion.
-        RegionData currentRegion = _blendedRegion;
+        // Blend zones → (_blendedZone, _blendedWeather). In editor or
+        // before the World is up, fall back to previewZone.
+        ZoneData currentZone = _blendedZone;
         WeatherData currentWeather = _blendedWeather;
         SimData sim = World.Current?.WorldState?.SimData;
 
-        if (!Engine.IsEditorHint() && sim != null && _blendedRegion != null && _blendedWeather != null)
+        if (!Engine.IsEditorHint() && sim != null && _blendedZone != null && _blendedWeather != null)
         {
             Vector3 playerPos = World.Current.player?.GlobalPosition ?? Vector3.Zero;
             WorldState ws = World.Current.WorldState;
-            RegionBlend.Sample(playerPos, ws, _blendedRegion, _blendedWeather,
+            ZoneBlend.Sample(playerPos, ws, _blendedZone, _blendedWeather,
                 out _blendedWindDirection, out _blendedElevation);
 
             // Diurnal + 12-hour-variance perturbation on top of the
-            // region-blended max envelope. Re-rolls the variance state
+            // zone-blended max envelope. Re-rolls the variance state
             // when game time crosses a 12-hour boundary, then rewrites
             // _blendedWeather in place with the values currently in
             // effect (so WeatherDerivation and every downstream consumer
-            // sees the simulated weather, not the region max).
+            // sees the simulated weather, not the zone max).
             if (ws != null)
             {
                 WeatherSimulation.UpdateVariance(ws, sim);
-                WeatherSimulation.Apply(_blendedWeather, _blendedRegion, _blendedElevation, ws, sim);
+                WeatherSimulation.Apply(_blendedWeather, _blendedZone, _blendedElevation, ws, sim);
                 // Publish the blended wind direction to WorldState so
                 // gameplay consumers (RainEffect, physics) see a single
                 // authoritative current wind. Other weather variables
@@ -948,20 +948,20 @@ public partial class SkyController : Node3D
         }
         else
         {
-            currentRegion = previewRegion;
-            currentWeather = previewRegion?.weather;
+            currentZone = previewZone;
+            currentWeather = previewZone?.weather;
         }
 
         // Orbit first — derivation needs _sunElevationDegrees.
         UpdateSunAndMoon();
 
-        // Derive. A null region/weather still produces a palette with
+        // Derive. A null zone/weather still produces a palette with
         // fallback values so editor preview works without wiring.
-        _palette = WeatherDerivation.Derive(currentRegion, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, sim);
+        _palette = WeatherDerivation.Derive(currentZone, currentWeather, _sunElevationDegrees, (float)_timeOfDay01, sim);
 
         // Advance lingering surface wetness from the post-Derive inputs
         // (palette.Fog is computed inside Derive). Runs only when a real
-        // WorldState exists — preview region wetness has nothing to drive.
+        // WorldState exists — preview zone wetness has nothing to drive.
         WorldState wetnessWs = World.Current?.WorldState;
         if (wetnessWs != null && sim != null)
         {
@@ -1354,7 +1354,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
 
         // --- Water -------------------------------------------------------
-        // Muddiness comes from RegionData.WaterColor.a (via palette). It drives:
+        // Muddiness comes from ZoneData.WaterColor.a (via palette). It drives:
         //   - reflection boost (denser surface = better mirror)
         //   - refraction damp (particles scatter before bending)
         //   - whitecap threshold lift (viscous water resists foam)
@@ -1536,7 +1536,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_deg", reflectionFovVerticalDeg);
         RenderingServer.GlobalShaderParameterSet("reflection_fov_v_center", reflectionFovVerticalCenter);
         // Foam color derived entirely from regional palette + direct light:
-        //   - Start from a soft tint of the region's DustColor (shoreline
+        //   - Start from a soft tint of the zone's DustColor (shoreline
         //     froth physically carries suspended sediment — the regional
         //     "particulate color" is the closest we have to that).
         //   - Pull toward WaterShallowTint by muddiness, so murky water's

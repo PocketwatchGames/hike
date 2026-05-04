@@ -70,7 +70,7 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "1,45,0.5")] public float SunsetColorRangeDegrees = 10f;
 
     [ExportGroup("Weather Derivation Tuning")]
-    // Every knob below shapes how WeatherDerivation turns (region,
+    // Every knob below shapes how WeatherDerivation turns (zone,
     // weather, time-of-day) into the concrete visual outputs pushed
     // to shaders and lights. Defaults are tuned to roughly match the
     // pre-simplification look; this is the one place to retune the
@@ -81,7 +81,7 @@ public partial class SimData : Resource
     // near-horizon band). 1 = no lift; 1.3 = noticeable atmospheric
     // glow near the horizon.
     [Export(PropertyHint.Range, "0.5,2,0.01")] public float DayHorizonBrightness = 1.2f;
-    // How much the day horizon tilts toward the region's SunColor.
+    // How much the day horizon tilts toward the zone's SunColor.
     // 0 = pure SkyColor; 1 = full SunColor warm wash near the horizon.
     [Export(PropertyHint.Range, "0,1,0.01")] public float DayHorizonWarmBias = 0.3f;
     // How much humidity pulls the horizon toward a pale haze color
@@ -95,7 +95,7 @@ public partial class SimData : Resource
     // bleed adds on top). Brighter than the zenith since the atmosphere
     // scatters even faint moonlight toward the horizon.
     [Export(PropertyHint.Range, "0,1,0.01")] public float NightHorizonSkyScale = 0.18f;
-    // How much of the region's MoonColor bleeds into the night horizon.
+    // How much of the zone's MoonColor bleeds into the night horizon.
     // 0 = horizon is a pure dark sky; 0.3 = visible moonlit wash.
     [Export(PropertyHint.Range, "0,1,0.01")] public float NightHorizonMoonBleed = 0.15f;
     // Sunset zenith is a mid-dark sky with a violet twilight push.
@@ -166,7 +166,7 @@ public partial class SimData : Resource
     // take on more of the sun's tint; lower = whiter clouds.
     [Export(PropertyHint.Range, "0,1,0.01")] public float DayCloudSunMix = 0.3f;
     // Sunset cloud color pulled toward DustColor by this amount. High
-    // dust regions get dramatic warm-underbelly clouds at sunset.
+    // dust zones get dramatic warm-underbelly clouds at sunset.
     [Export(PropertyHint.Range, "0,1,0.01")] public float SunsetCloudDustMix = 0.4f;
     // Night cloud color = lerp(dark gray, MoonColor, this). Keeps
     // night clouds visible against a dark sky without going full moon
@@ -181,7 +181,7 @@ public partial class SimData : Resource
     // as DerivedPalette.Fog. The constants below shape how that signal
     // turns into voxel density / ambient haze / disk dimming.
     //
-    // Fog tint uses RegionData.DustColor directly — DustColor is a
+    // Fog tint uses ZoneData.DustColor directly — DustColor is a
     // regional palette / theming color and is the right intrinsic fog
     // tint. Phase dimming and sun/moon warmth through fog come from
     // the shader's shaft_color (phase-blended) and lighting response,
@@ -210,25 +210,25 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float FogIntensityReference = 0.35f;
     // Minimum fog density multiplier when direct light is near zero.
     // 0 would kill fog entirely at night (too abrupt); 0.2 keeps a
-    // visible trace so heavy-fog regions still read as foggy under
+    // visible trace so heavy-fog zones still read as foggy under
     // moonlight, just much dimmer than day.
     [Export(PropertyHint.Range, "0,1,0.01")] public float FogIntensityFloor = 0.2f;
     // Additional ambient haze from humidity. Zero by default — humid-
-    // but-clear regions shouldn't look foggy. Re-enable if you want
-    // tropical regions to feel hazier than their authored fog alone
+    // but-clear zones shouldn't look foggy. Re-enable if you want
+    // tropical zones to feel hazier than their authored fog alone
     // would produce.
     [Export(PropertyHint.Range, "0,0.05,0.0005")] public float AmbientFogHumidityK = 0f;
 
     [ExportSubgroup("Shafts")]
     // Base sun-shaft intensity before dust / cloud modulation. 12 lets
-    // a dusty region (mountain/desert at dustAmount=0.4) produce shafts
+    // a dusty zone (mountain/desert at dustAmount=0.4) produce shafts
     // comfortably into the "visible beam" range (effective 12-16) while
-    // low-dust regions stay subtle. Old authored values ran 3-20 across
+    // low-dust zones stay subtle. Old authored values ran 3-20 across
     // presets with 8 as the default.
     [Export] public float ShaftBaseIntensity = 12f;
     // Dust amount at which shafts hit their base intensity. Lower =
     // shafts are visible even in thin dust; higher = only very dusty
-    // air produces visible shafts. 0.3 keeps a "typical dusty" region
+    // air produces visible shafts. 0.3 keeps a "typical dusty" zone
     // (dustAmount ~0.3) near the base intensity; a full desert at
     // dustAmount=0.5 lands around 13 (within the old dusty preset's 20).
     [Export(PropertyHint.Range, "0.001,1,0.001")] public float ShaftDustReference = 0.3f;
@@ -292,7 +292,7 @@ public partial class SimData : Resource
     // Maximum day-intensity amplification when air is BOTH dry AND
     // cloudless. Desert sun is physically more intense than normal
     // noon (the sky dome doesn't absorb / scatter it as much) — this
-    // lets arid regions exceed 1.0 while humid/cloudy regions stay at
+    // lets arid zones exceed 1.0 while humid/cloudy zones stay at
     // or below 1.0. Uses min(1-humidity, 1-cloudCover) as the trigger
     // so EITHER condition being wet/cloudy cancels the boost.
     [Export(PropertyHint.Range, "1,2,0.01")] public float AridBoostMax = 1.5f;
@@ -302,7 +302,7 @@ public partial class SimData : Resource
     // to direct intensity: a sunny day has crisp shadows (high direct,
     // low ambient); an overcast day has flat lighting (low direct,
     // high ambient). AmbientCloudLift does the inversion; this is the
-    // clear-sky floor that even cloudless regions get. 0.15 keeps
+    // clear-sky floor that even cloudless zones get. 0.15 keeps
     // crisp desert/mountain shadows visible (~7:1 contrast against
     // arid-boosted direct) without crushing them to near-black.
     [Export(PropertyHint.Range, "0,1,0.01")] public float DayAmbientBase = 0.15f;
@@ -374,8 +374,8 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,0.2,0.001")] public float DustDensityK = 0.1f;
 
     [ExportGroup("Weather Simulation")]
-    // Diurnal weather variation. Authored RegionData.weather values are
-    // treated as the region's MAX for each channel; WeatherSimulation
+    // Diurnal weather variation. Authored ZoneData.weather values are
+    // treated as the zone's MAX for each channel; WeatherSimulation
     // perturbs a per-frame working copy in place using:
     //   1. A diurnal sine curve peaking at DiurnalPeak01, bottoming at
     //      DiurnalTrough01 — drives baseline humidity / temperature /
@@ -416,8 +416,8 @@ public partial class SimData : Resource
     [ExportSubgroup("Baseline (Diurnal)")]
     // Baseline humidity = humidityMax × diurnalCurveOffset(humidity) ×
     // (1 - elevation × ElevHumidity) × (1 - normalizedMaxTemp × HumidityFromMaxTemp)
-    // Hot regions give up moisture (deserts dry out as the max temp rises),
-    // cool regions hold humidity near the max.
+    // Hot zones give up moisture (deserts dry out as the max temp rises),
+    // cool zones hold humidity near the max.
     [Export(PropertyHint.Range, "0,1,0.01")] public float HumidityFromMaxTemp = 0.35f;
     // Diurnal swing depth on humidity: 0 = humidity stays at max all day,
     // 1 = humidity hits 0 at the diurnal peak. Real-world humidity dips
@@ -436,7 +436,7 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float TempHumidityDamping = 0.4f;
     // Elevation cools the baseline (subtracts from the diurnal envelope).
     // Multiplied against authored max temperature so it scales with the
-    // region's heat budget.
+    // zone's heat budget.
     [Export(PropertyHint.Range, "0,1,0.01")] public float TempFromElevation = 0.4f;
 
     // Baseline wind = windMax × (diurnal × WindDiurnalDepth + (1 -
@@ -450,7 +450,7 @@ public partial class SimData : Resource
     // the WindDiurnalDepth scale (which itself peaks at the afternoon
     // diurnal max), this lands the daily wind peak in the late
     // afternoon / early evening, with a calm pre-dawn and a calmer
-    // late-morning. Alpine regions get a fixed elevation boost on top.
+    // late-morning. Alpine zones get a fixed elevation boost on top.
     [Export(PropertyHint.Range, "0,1,0.01")] public float WindDiurnalDepth = 0.3f;
     [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromTempDiff = 0.5f;
     [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromElevation = 0.6f;
@@ -514,9 +514,9 @@ public partial class SimData : Resource
     // EXPONENTS shaping each axis: > 1 narrows the curve so only
     // extreme humidity / cold produces fog, < 1 widens it so even
     // moderate values lift some fog. Default 1.5 on humidity gives
-    // dry regions (desert humidity ~0.04) almost no fog while keeping
-    // swampy regions (humidity ~0.95) nearly fully fogged at the
-    // diurnal trough. There is no per-region fog ceiling — a swamp
+    // dry zones (desert humidity ~0.04) almost no fog while keeping
+    // swampy zones (humidity ~0.95) nearly fully fogged at the
+    // diurnal trough. There is no per-zone fog ceiling — a swamp
     // gets foggy because of its high baseline humidity, not a
     // separate authored fog field.
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromHumidity = 1.5f;
@@ -544,7 +544,7 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,3,0.01")] public float RainWeightMin = 0.3f;
     // rainWeight at cloudCover=1 (full overcast). Heavy downpour but
     // capped short of comically elongated streaks — 1.2 gives stormy
-    // regions ~20% longer drops than default without turning rain into
+    // zones ~20% longer drops than default without turning rain into
     // lines across the whole screen.
     [Export(PropertyHint.Range, "0,3,0.01")] public float RainWeightMax = 1.2f;
     // Exponent shaping rainAmount → rainIntensity (drop COUNT). 1.0 is

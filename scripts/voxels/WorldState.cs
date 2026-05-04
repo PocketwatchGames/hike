@@ -8,13 +8,13 @@ public class WorldState
     public readonly Vector3I Max;
     public SimData SimData;
 
-    // Regions present in this world. Populated by WorldGen (or the disk
-    // loader) at world creation; each ChunkState.RegionIndex picks one of
-    // these. RegionBlend.Sample reads this array to produce the player's
-    // current blended region/weather, so any change here is visible at
-    // the next frame. Empty array means "no regions authored" — RegionBlend
+    // Zones present in this world. Populated by WorldGen (or the disk
+    // loader) at world creation; each ChunkState.ZoneIndex picks one of
+    // these. ZoneBlend.Sample reads this array to produce the player's
+    // current blended zone/weather, so any change here is visible at
+    // the next frame. Empty array means "no zones authored" — ZoneBlend
     // falls back to defaults.
-    public RegionState[] Regions = [];
+    public ZoneState[] Zones = [];
 
     // Default spawn point baked into the world. Set by the loader (from the
     // world file header) or by Main when starting a procedurally-generated

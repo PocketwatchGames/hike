@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="RegionGenData" format=3 uid="uid://wwpw4grvh0vs"]
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4grvh0vs"]
 
-[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/RegionGenData.cs" id="1_script"]
-[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/regions/swamp.tres" id="2_region"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/ZoneGenData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://c8svbsfiwvreb" path="res://resources/zones/swamp.tres" id="2_region"]
 [ext_resource type="Resource" uid="uid://pyv6u3yyr1dc" path="res://resources/data/terrain_kits/kit_marsh.tres" id="3_kit_temperate"]
 [ext_resource type="Resource" uid="uid://pyvvyvryr1dc" path="res://resources/data/terrain_kits/kit_cave_limestone.tres" id="4_kit_cave"]
 [ext_resource type="Resource" uid="uid://d2eve0m1jqgng" path="res://resources/data/terrain_kits/kit_underwater.tres" id="5_kit_underwater"]
@@ -32,7 +32,7 @@
 
 [resource]
 script = ExtResource("1_script")
-Region = ExtResource("2_region")
+Zone = ExtResource("2_region")
 Kits = [ExtResource("3_kit_temperate"), ExtResource("4_kit_cave"), ExtResource("5_kit_underwater")]
 DetailGroups = [ExtResource("6_detail_grass")]
 ElevationRange = 4.0

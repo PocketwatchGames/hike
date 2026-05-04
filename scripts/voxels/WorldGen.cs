@@ -5,13 +5,13 @@ using Godot;
 
 public static class WorldGen
 {
-    // Per-region kit slot order. Each RegionGenData.Kits[] is treated as a
+    // Per-zone kit slot order. Each ZoneGenData.Kits[] is treated as a
     // fixed-length tuple in this slot order: surface, cave, underwater. The
     // ChunkState.KitId byte stamped per voxel is a GLOBAL index into the
-    // flattened palette (Region0.Kits ++ Region1.Kits ++ …) — see
-    // GlobalKit() / Main.StartGame's flatten step. With KITS_PER_REGION = 3
-    // and N regions, the palette occupies 3·N slots; ChunkMesh.MAX_KITS = 16
-    // bounds N at 5. Same as the legacy single-region mapping when N=1.
+    // flattened palette (Zone0.Kits ++ Zone1.Kits ++ …) — see
+    // GlobalKit() / Main.StartGame's flatten step. With KITS_PER_ZONE = 3
+    // and N zones, the palette occupies 3·N slots; ChunkMesh.MAX_KITS = 16
+    // bounds N at 5. Same as the legacy single-zone mapping when N=1.
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
     // SKIP_ALL turns the prop pass off entirely.
@@ -24,37 +24,37 @@ public static class WorldGen
     private static readonly PackedScene PoisonChestScene =
         GD.Load<PackedScene>("res://scenes/interactives/chest_poison.tscn");
 
-    public const int KITS_PER_REGION = 3;
+    public const int KITS_PER_ZONE = 3;
     private const byte KIT_SLOT_TEMPERATE = 0;   // surface (temperate / desert / marsh / …)
     private const byte KIT_SLOT_CAVE = 1;        // cave-interior shells
     private const byte KIT_SLOT_UNDERWATER = 2;  // submerged seabed shell
 
-    // Pack (regionIdx, slot) → global kitId.
-    private static byte GlobalKit(int regionIndex, byte slot)
+    // Pack (zoneIdx, slot) → global kitId.
+    private static byte GlobalKit(int zoneIndex, byte slot)
     {
-        return (byte)(regionIndex * KITS_PER_REGION + slot);
+        return (byte)(zoneIndex * KITS_PER_ZONE + slot);
     }
 
-    // Slot of a global kitId — the cross-region "kind of surface" (surface vs
+    // Slot of a global kitId — the cross-zone "kind of surface" (surface vs
     // cave vs underwater). Used by passes that ask "is this a temperate-style
-    // surface voxel?" without caring which region it belongs to.
+    // surface voxel?" without caring which zone it belongs to.
     private static int KitSlot(int kitId)
     {
-        return kitId % KITS_PER_REGION;
+        return kitId % KITS_PER_ZONE;
     }
 
-    // RegionIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
+    // ZoneIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
     // chunk isn't loaded — fine for pre-streaming worldgen which generates
     // every chunk before this gets called. Streaming will need richer
-    // semantics here (a region atlas keyed by world XZ).
-    private static int RegionIndexAtWorld(WorldState ws, int wx, int wy, int wz)
+    // semantics here (a zone atlas keyed by world XZ).
+    private static int ZoneIndexAtWorld(WorldState ws, int wx, int wy, int wz)
     {
         Vector3I cc = new Vector3I(
             (int)System.Math.Floor((double)wx / ChunkState.SIZE),
             (int)System.Math.Floor((double)wy / ChunkState.SIZE),
             (int)System.Math.Floor((double)wz / ChunkState.SIZE));
         ChunkState chunk = ws.GetChunk(cc);
-        return chunk != null ? chunk.RegionIndex : 0;
+        return chunk != null ? chunk.ZoneIndex : 0;
     }
 
     // Staircase spiral pattern: (dx, dz) offsets from center, actions per y-level
@@ -83,17 +83,17 @@ public static class WorldGen
     // above sea level". Land starts at y = 1; water fills y ≤ 0.
     public const int WATER_LEVEL = 0;
 
-    // Ground-hugging fog. Per-region humidity is treated as a "fog volume"
-    // poured into the region's terrain like water — bucket-fills the lowest
+    // Ground-hugging fog. Per-zone humidity is treated as a "fog volume"
+    // poured into the zone's terrain like water — bucket-fills the lowest
     // air space first, finds a level Y, then stamps density on each voxel
-    // proportional to how far below Y it sits. Flat regions spread fog
-    // thin; varied regions concentrate fog in the deepest valleys. Across
-    // region borders the bucket levels blend per-column via the same
+    // proportional to how far below Y it sits. Flat zones spread fog
+    // thin; varied zones concentrate fog in the deepest valleys. Across
+    // zone borders the bucket levels blend per-column via the same
     // kernel that drives prop / kit divergence. Only open-to-sky voxels
     // get seeded — caves / tunnels stay fog-free.
     public const int FOG_MAX_DENSITY = 255;
     // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
-    // Tuned so a humid region (≈0.9) yields a few voxels of average fog
+    // Tuned so a humid zone (≈0.9) yields a few voxels of average fog
     // depth — reads as low mist, not a wall.
     private const float FOG_VOLUME_PER_HUMIDITY = 6f;
     // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
@@ -118,7 +118,7 @@ public static class WorldGen
     private const int SEED_SALT_PATH    = 0x05;
     private const int SEED_SALT_RIVER   = 0x06;
     private const int SEED_SALT_FOREST  = 0x07;
-    private const int SEED_SALT_REGION  = 0x08;
+    private const int SEED_SALT_ZONE  = 0x08;
     // Used by GenerateRoads — kept in the same registry so it can't collide
     // with a future channel.
     public const int SEED_SALT_ROAD     = 0x09;
@@ -156,24 +156,24 @@ public static class WorldGen
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
         var ws = new WorldState(min, max, genData.SimData);
 
-        // Build the per-world RegionState array from the authored region
-        // templates. The RegionData embedded in each RegionGenData is what
-        // RegionState carries forward — the per-region worldgen scalars on
-        // RegionGenData stay in `genData` and get blended per-position
+        // Build the per-world ZoneState array from the authored zone
+        // templates. The ZoneData embedded in each ZoneGenData is what
+        // ZoneState carries forward — the per-zone worldgen scalars on
+        // ZoneGenData stay in `genData` and get blended per-position
         // during the passes below. Runtime fields (windDirection, elevation)
         // are seeded here — windDirection randomized in the XZ plane so
-        // each generated world has its own prevailing wind per region.
+        // each generated world has its own prevailing wind per zone.
         // Elevation defaults to 0 for now; once the editor lands it can
-        // be authored per-region per-world.
-        var regionRng = new RandomNumberGenerator();
-        regionRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_REGION);
-        ws.Regions = new RegionState[genData.Regions.Length];
-        for (int i = 0; i < genData.Regions.Length; i++)
+        // be authored per-zone per-world.
+        var zoneRng = new RandomNumberGenerator();
+        zoneRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_ZONE);
+        ws.Zones = new ZoneState[genData.Zones.Length];
+        for (int i = 0; i < genData.Zones.Length; i++)
         {
-            float angle = regionRng.RandfRange(0f, Mathf.Tau);
-            ws.Regions[i] = new RegionState
+            float angle = zoneRng.RandfRange(0f, Mathf.Tau);
+            ws.Zones[i] = new ZoneState
             {
-                Data = genData.Regions[i]?.Region,
+                Data = genData.Zones[i]?.Zone,
                 WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
                 Elevation = 0f,
             };
@@ -195,10 +195,10 @@ public static class WorldGen
         caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         caveNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_CAVE);
         // Single shared cave noise for the whole world — frequency comes
-        // from the first region. CaveThreshold IS blended per-column below,
-        // so regions can still vary in cave density even though the underlying
+        // from the first zone. CaveThreshold IS blended per-column below,
+        // so zones can still vary in cave density even though the underlying
         // noise pattern is the same.
-        caveNoise.Frequency = FirstRegionGen(genData)?.CaveNoiseFrequency ?? 0.04f;
+        caveNoise.Frequency = FirstZoneGen(genData)?.CaveNoiseFrequency ?? 0.04f;
         caveNoise.FractalOctaves = 2;
 
         var grassNoise = new FastNoiseLite();
@@ -222,14 +222,14 @@ public static class WorldGen
         var forestNoise = new FastNoiseLite();
         forestNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         forestNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_FOREST);
-        // First-region frequency, same rule as caveNoise. ForestThreshold
+        // First-zone frequency, same rule as caveNoise. ForestThreshold
         // and ForestDensity are blended per-column.
-        forestNoise.Frequency = FirstRegionGen(genData)?.ForestNoiseFrequency ?? 0.05f;
+        forestNoise.Frequency = FirstZoneGen(genData)?.ForestNoiseFrequency ?? 0.05f;
         forestNoise.FractalOctaves = 2;
 
         // Low-frequency macro elevation. Drives broad continental shape that
-        // the per-region terrain noise modulates around — generates rolling
-        // foothills/basins independent of which region a chunk belongs to.
+        // the per-zone terrain noise modulates around — generates rolling
+        // foothills/basins independent of which zone a chunk belongs to.
         var elevationNoise = new FastNoiseLite();
         elevationNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         elevationNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_ELEVATION);
@@ -250,7 +250,7 @@ public static class WorldGen
                 {
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
-                    chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
+                    chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
                     GenerateChunk(chunk, genData, tunnelNoise, heightMap);
                     ws._chunks[coord] = chunk;
                 }
@@ -270,7 +270,7 @@ public static class WorldGen
         GenerateCaves(ws, genData, caveNoise);
 
         // One-off test stamp for underground-water visuals. Carves a wide
-        // shallow cavern inland in the mountain region (toward the desert
+        // shallow cavern inland in the mountain zone (toward the desert
         // border) with the ceiling capped at the first plateau above water.
         // Will not survive pure worldgen — remove or gate this call once
         // the underwater shader work lands.
@@ -364,59 +364,59 @@ public static class WorldGen
         return ws;
     }
 
-    // Stamp a chunk into one of the world's regions. Legacy 4-quadrant
+    // Stamp a chunk into one of the world's zones. Legacy 4-quadrant
     // split (NE/NW/SE/SW around the world origin), mapping into a 4-entry
-    // Regions[] in [NE, NW, SE, SW] order — matches the array order in
+    // Zones[] in [NE, NW, SE, SW] order — matches the array order in
     // default_world_gen.tres. East (X >= 0) is the coastal half (mountain
     // north / swamp south); west (X < 0) is the inland half (desert north /
-    // forest south). The eastern strip of the coastal regions transitions
-    // to ocean via the BuildHeightMap east-edge falloff. With fewer regions,
+    // forest south). The eastern strip of the coastal zones transitions
+    // to ocean via the BuildHeightMap east-edge falloff. With fewer zones,
     // indices are clamped to the available range so worlds with 1 or 2
-    // region templates still generate. The long-term plan is arbitrary
-    // region polygons authored by the editor; only this function needs to
+    // zone templates still generate. The long-term plan is arbitrary
+    // zone polygons authored by the editor; only this function needs to
     // change.
-    private static byte PickRegionIndex(Vector3I chunkCoord, int regionCount)
+    private static byte PickZoneIndex(Vector3I chunkCoord, int zoneCount)
     {
-        if (regionCount <= 0) { return 0; }
+        if (zoneCount <= 0) { return 0; }
         int quadrant;
         if (chunkCoord.X >= 0 && chunkCoord.Z >= 0) { quadrant = 0; }       // NE
         else if (chunkCoord.X < 0 && chunkCoord.Z >= 0) { quadrant = 1; }   // NW
         else if (chunkCoord.X >= 0 && chunkCoord.Z < 0) { quadrant = 2; }   // SE
         else { quadrant = 3; }                                              // SW
-        if (quadrant >= regionCount) { quadrant = regionCount - 1; }
+        if (quadrant >= zoneCount) { quadrant = zoneCount - 1; }
         return (byte)quadrant;
     }
 
-    private static RegionGenData FirstRegionGen(WorldGenData genData)
+    private static ZoneGenData FirstZoneGen(WorldGenData genData)
     {
-        if (genData.Regions == null) { return null; }
-        for (int i = 0; i < genData.Regions.Length; i++)
+        if (genData.Zones == null) { return null; }
+        for (int i = 0; i < genData.Zones.Length; i++)
         {
-            if (genData.Regions[i] != null) { return genData.Regions[i]; }
+            if (genData.Zones[i] != null) { return genData.Zones[i]; }
         }
         return null;
     }
 
-    // Per-column smoothstep blend kernel that mirrors RegionBlend.Sample.
-    // Reaches REGION_GEN_BLEND_RADIUS chunks out from (wx, wz) and weights
-    // each chunk's region by its smoothstep falloff. PickRegionIndex still
-    // returns one region per chunk for ChunkState.RegionIndex (gameplay
+    // Per-column smoothstep blend kernel that mirrors ZoneBlend.Sample.
+    // Reaches ZONE_GEN_BLEND_RADIUS chunks out from (wx, wz) and weights
+    // each chunk's zone by its smoothstep falloff. PickZoneIndex still
+    // returns one zone per chunk for ChunkState.ZoneIndex (gameplay
     // needs a single value), but the worldgen scalars blend smoothly across
     // chunk borders so a desert→forest transition isn't a hard line.
     //
-    // `weights` Span must be sized to regionCount. Output sums to 1 (or
-    // all zeros if no neighbour has a valid region — caller's choice what
+    // `weights` Span must be sized to zoneCount. Output sums to 1 (or
+    // all zeros if no neighbour has a valid zone — caller's choice what
     // to do about that).
-    private const float REGION_GEN_BLEND_RADIUS = 2.0f;
+    private const float ZONE_GEN_BLEND_RADIUS = 2.0f;
 
-    private static void GetRegionGenWeights(int wx, int wz, int regionCount, Span<float> weights)
+    private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights)
     {
-        for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
-        if (regionCount <= 0) { return; }
+        for (int i = 0; i < zoneCount; i++) { weights[i] = 0f; }
+        if (zoneCount <= 0) { return; }
 
         int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
         int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
-        int half = Mathf.CeilToInt(REGION_GEN_BLEND_RADIUS);
+        int half = Mathf.CeilToInt(ZONE_GEN_BLEND_RADIUS);
 
         for (int dx = -half; dx <= half; dx++)
         {
@@ -424,34 +424,34 @@ public static class WorldGen
             {
                 int cx = chunkX + dx;
                 int cz = chunkZ + dz;
-                int regionIdx = PickRegionIndex(new Vector3I(cx, 0, cz), regionCount);
+                int zoneIdx = PickZoneIndex(new Vector3I(cx, 0, cz), zoneCount);
                 float chunkCenterX = (cx + 0.5f) * ChunkState.SIZE;
                 float chunkCenterZ = (cz + 0.5f) * ChunkState.SIZE;
                 float dxw = wx - chunkCenterX;
                 float dzw = wz - chunkCenterZ;
                 float distChunks = Mathf.Sqrt(dxw * dxw + dzw * dzw) / ChunkState.SIZE;
-                float w = Mathf.SmoothStep(REGION_GEN_BLEND_RADIUS, 0f, distChunks);
-                if (w > 0f) { weights[regionIdx] += w; }
+                float w = Mathf.SmoothStep(ZONE_GEN_BLEND_RADIUS, 0f, distChunks);
+                if (w > 0f) { weights[zoneIdx] += w; }
             }
         }
 
         float total = 0f;
-        for (int i = 0; i < regionCount; i++) { total += weights[i]; }
+        for (int i = 0; i < zoneCount; i++) { total += weights[i]; }
         if (total > 1e-6f)
         {
             float inv = 1f / total;
-            for (int i = 0; i < regionCount; i++) { weights[i] *= inv; }
+            for (int i = 0; i < zoneCount; i++) { weights[i] *= inv; }
         }
     }
 
-    // Blended per-column scalars sampled from the per-region RegionGenData
+    // Blended per-column scalars sampled from the per-zone ZoneGenData
     // at (wx, wz). Tunnel/cave thresholds are XZ-only so a single struct
     // serves callers that walk the column at any Y.
-    private struct BlendedRegionGen
+    private struct BlendedZoneGen
     {
-        // Per-region authored center elevation, kernel-blended at sample
+        // Per-zone authored center elevation, kernel-blended at sample
         // time. Eventually the heightmap that feeds BuildHeightMap will be
-        // an authored coarse 2D field; this per-region scalar is the
+        // an authored coarse 2D field; this per-zone scalar is the
         // stand-in until that lands.
         public float Elevation;
         public float ElevationRange;
@@ -464,20 +464,20 @@ public static class WorldGen
         public float DetailStrengthMin;
     }
 
-    private static BlendedRegionGen SampleBlendedRegionGen(int wx, int wz, RegionGenData[] regions)
+    private static BlendedZoneGen SampleBlendedZoneGen(int wx, int wz, ZoneGenData[] zones)
     {
-        var result = new BlendedRegionGen();
-        int n = regions != null ? regions.Length : 0;
+        var result = new BlendedZoneGen();
+        int n = zones != null ? zones.Length : 0;
         if (n == 0) { return result; }
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetRegionGenWeights(wx, wz, n, weights);
+        GetZoneGenWeights(wx, wz, n, weights);
 
         for (int i = 0; i < n; i++)
         {
             float w = weights[i];
             if (w <= 0f) { continue; }
-            RegionGenData rg = regions[i];
+            ZoneGenData rg = zones[i];
             if (rg == null) { continue; }
             result.Elevation += rg.Elevation * w;
             result.ElevationRange += rg.ElevationRange * w;
@@ -492,20 +492,20 @@ public static class WorldGen
         return result;
     }
 
-    // Sample a region index at column (wx, wz) weighted by the same chunk
+    // Sample a zone index at column (wx, wz) weighted by the same chunk
     // smoothstep kernel that drives scalar blending. Use this for prop /
-    // mob scene picks: in the kernel-overlap band between two regions, each
+    // mob scene picks: in the kernel-overlap band between two zones, each
     // prop independently rolls which palette to draw from, so e.g. a
     // forest→desert seam reads as a few desert trees among forest pines and
     // vice versa rather than a hard line at the chunk boundary. Returns -1
-    // if no region has positive weight (caller skips the spawn).
-    private static int PickWeightedRegion(int wx, int wz, RegionGenData[] regions, Random rng)
+    // if no zone has positive weight (caller skips the spawn).
+    private static int PickWeightedZone(int wx, int wz, ZoneGenData[] zones, Random rng)
     {
-        int n = regions != null ? regions.Length : 0;
+        int n = zones != null ? zones.Length : 0;
         if (n == 0) { return -1; }
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetRegionGenWeights(wx, wz, n, weights);
+        GetZoneGenWeights(wx, wz, n, weights);
 
         float total = 0f;
         for (int i = 0; i < n; i++) { total += weights[i]; }
@@ -521,33 +521,33 @@ public static class WorldGen
         return n - 1;
     }
 
-    // Convenience: pick a scene from the kernel-weighted region's palette.
-    // Returns null when the chosen region has no scenes authored.
-    private static PackedScene PickWeightedScene(int wx, int wz, RegionGenData[] regions,
-        Func<RegionGenData, PackedScene[]> selector, Random rng)
+    // Convenience: pick a scene from the kernel-weighted zone's palette.
+    // Returns null when the chosen zone has no scenes authored.
+    private static PackedScene PickWeightedScene(int wx, int wz, ZoneGenData[] zones,
+        Func<ZoneGenData, PackedScene[]> selector, Random rng)
     {
-        int idx = PickWeightedRegion(wx, wz, regions, rng);
+        int idx = PickWeightedZone(wx, wz, zones, rng);
         if (idx < 0) { return null; }
-        PackedScene[] scenes = selector(regions[idx]);
+        PackedScene[] scenes = selector(zones[idx]);
         if (scenes == null || scenes.Length == 0) { return null; }
         return scenes[rng.Next(scenes.Length)];
     }
 
-    // Convenience: kernel-weighted region pick that returns the data resource
+    // Convenience: kernel-weighted zone pick that returns the data resource
     // (or null). Caller reads chance/scene/data fields off it for the spawn
     // roll. In the kernel-overlap band each cell rolls independently, so e.g.
     // the desert→forest seam ends up with a few forest goblins among desert
     // monsters and vice versa rather than a hard boundary.
-    private static RegionGenData PickWeightedRegionData(int wx, int wz, RegionGenData[] regions, Random rng)
+    private static ZoneGenData PickWeightedZoneData(int wx, int wz, ZoneGenData[] zones, Random rng)
     {
-        int idx = PickWeightedRegion(wx, wz, regions, rng);
+        int idx = PickWeightedZone(wx, wz, zones, rng);
         if (idx < 0) { return null; }
-        return regions[idx];
+        return zones[idx];
     }
 
     // Deterministic per-(wx, wz, salt) hash → [0, 1). Used to pick a
-    // kernel-weighted region per voxel without allocating a Random — same
-    // worldSeed/coords always produce the same region pick, so kit borders
+    // kernel-weighted zone per voxel without allocating a Random — same
+    // worldSeed/coords always produce the same zone pick, so kit borders
     // (and any other deterministic per-voxel choice) replay identically
     // across runs and across save/load.
     private static float HashFloat01(int wx, int wz, int salt)
@@ -564,18 +564,18 @@ public static class WorldGen
         }
     }
 
-    // Same weighted pick as PickWeightedRegion but driven by a precomputed
+    // Same weighted pick as PickWeightedZone but driven by a precomputed
     // [0, 1) sample (HashFloat01). For deterministic per-voxel kit assignment
-    // we want jagged region borders that follow the kernel weights — a hash
+    // we want jagged zone borders that follow the kernel weights — a hash
     // of the voxel's column gives a stable noisy boundary instead of the
-    // chunk-aligned orthogonal seam you'd get from `chunk.RegionIndex`.
-    private static int PickWeightedRegionFromHash(int wx, int wz, RegionGenData[] regions, float r01)
+    // chunk-aligned orthogonal seam you'd get from `chunk.ZoneIndex`.
+    private static int PickWeightedZoneFromHash(int wx, int wz, ZoneGenData[] zones, float r01)
     {
-        int n = regions != null ? regions.Length : 0;
+        int n = zones != null ? zones.Length : 0;
         if (n == 0) { return -1; }
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetRegionGenWeights(wx, wz, n, weights);
+        GetZoneGenWeights(wx, wz, n, weights);
 
         float total = 0f;
         for (int i = 0; i < n; i++) { total += weights[i]; }
@@ -595,13 +595,13 @@ public static class WorldGen
     // salt so kit borders don't correlate with future per-voxel decisions.
     private const int KIT_HASH_SALT = 0x4B495454; // "KITT"
 
-    // Pick a region for a kit stamp at (wx, wz). Falls back to the chunk's
-    // RegionIndex when the kernel produces no positive weight (off-world,
+    // Pick a zone for a kit stamp at (wx, wz). Falls back to the chunk's
+    // ZoneIndex when the kernel produces no positive weight (off-world,
     // edge cases) so we always end up with a stamped kit.
-    private static int PickKitRegion(int wx, int wz, RegionGenData[] regions, int fallbackRegionIndex)
+    private static int PickKitZone(int wx, int wz, ZoneGenData[] zones, int fallbackZoneIndex)
     {
-        int idx = PickWeightedRegionFromHash(wx, wz, regions, HashFloat01(wx, wz, KIT_HASH_SALT));
-        return idx >= 0 ? idx : fallbackRegionIndex;
+        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT));
+        return idx >= 0 ? idx : fallbackZoneIndex;
     }
 
     // Set at the end of Generate so debug dumps / console commands can
@@ -804,7 +804,7 @@ public static class WorldGen
     // indexed as [wx - WorldMinX, wz - WorldMinZ].
     //
     //   Plateau: the "natural" terrain height — `round(noise / step) * step`,
-    //            or 0 inside the spawn-flat region. Always a plateau multiple.
+    //            or 0 inside the spawn-flat zone. Always a plateau multiple.
     //
     //   Height:  the final integer surface height — plateau, optionally
     //            lifted by the ramp skirt cast from a nearby higher plateau.
@@ -849,7 +849,7 @@ public static class WorldGen
 
     // Build the integer height field for the whole world. Two passes:
     //   1. Per-column plateau: `round(noise / step) * step`, or 0 inside the
-    //      spawn-flat region.
+    //      spawn-flat zone.
     //   2. Ramp skirt: every non-flat column scans neighbors within
     //      `rampRadius` and, for each higher-plateau neighbor, contributes a
     //      candidate lift. The lift is capped at one plateau step above the
@@ -881,14 +881,14 @@ public static class WorldGen
         const float RAMP_ANCHOR_BAND = 0.015f;
 
         // Half-amplitude (in plateau steps) added by the macro elevation
-        // noise. ±1 step keeps the macro shape subtle relative to per-region
-        // ElevationRange so regions still drive the dominant terrain look.
+        // noise. ±1 step keeps the macro shape subtle relative to per-zone
+        // ElevationRange so zones still drive the dominant terrain look.
         const float MACRO_ELEVATION_RANGE_PLATEAUS = 1f;
 
         // Far east of the world drops to ocean. Over this many chunks the
         // plateau-quantized inland height lerps down to OCEAN_DEPTH_PLATEAUS
         // below zero at the east edge. Kept narrow so the slope doesn't bite
-        // into the bulk of coastal regions; widen for a sandier, gentler
+        // into the bulk of coastal zones; widen for a sandier, gentler
         // coast.
         const int SHORELINE_CHUNKS = 2;
         const float OCEAN_DEPTH_PLATEAUS = 3f;
@@ -902,10 +902,10 @@ public static class WorldGen
                 int lz = wz - worldMinZ;
 
                 // Step 1: kernel-blend authored center elevation + range
-                // across regions. Eventually `Elevation` will be sampled from
+                // across zones. Eventually `Elevation` will be sampled from
                 // an authored coarse heightmap; the blended ElevationRange
                 // term still rides on top.
-                BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
+                BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
 
                 // Step 2: weighted noise in plateau-step units.
                 float terrainN = terrainNoise.GetNoise2D(wx, wz);
@@ -919,7 +919,7 @@ public static class WorldGen
                 // inland snap cleanly while the coast still gets a smooth
                 // descent. Elevation = 0 is treated as sea level: the world-y
                 // offset by WATER_LEVEL is applied at the end so authored
-                // RegionGenData.Elevation reads naturally — +1 means one
+                // ZoneGenData.Elevation reads naturally — +1 means one
                 // plateau step above sea level, -1 means one below.
                 int plateauSteps = (int)Mathf.Round(plateaus);
 
@@ -1047,7 +1047,7 @@ public static class WorldGen
     // grass spawning. "Flat" = no ramp lift (Height == Plateau). "Dry" = the
     // surface sits above water level — river-carved columns dip below
     // WATER_LEVEL and fall out. The legacy "plateau == 0" rule is gone:
-    // per-region BaseElevation now lifts each region's surface to its own
+    // per-zone BaseElevation now lifts each zone's surface to its own
     // platform height, so anchoring on world y=0 would only let swamp (which
     // happens to have BaseElevation near 0) ever spawn props.
     private static bool IsFlatDryGrassAt(int wx, int wz, HeightMap heightMap)
@@ -1084,7 +1084,7 @@ public static class WorldGen
         // and never leaves sub-3-tall openings. Math.Floor (not C# integer
         // division) so negative wy snaps down, not toward zero.
         int bandBase = (int)Math.Floor((double)wy / step) * step;
-        float threshold = SampleBlendedRegionGen(wx, wz, genData.Regions).TunnelThreshold;
+        float threshold = SampleBlendedZoneGen(wx, wz, genData.Zones).TunnelThreshold;
         return Mathf.Abs(tunnelNoise.GetNoise3D(wx, bandBase, wz)) < threshold;
     }
 
@@ -1179,10 +1179,10 @@ public static class WorldGen
                         ? (byte)VoxelTypeInfo.SharpAxes.Y
                         : voxelShape;
 
-                    // Kit assignment: default every solid voxel to a region's
-                    // surface kit (slot 0). The region is picked per-column
+                    // Kit assignment: default every solid voxel to a zone's
+                    // surface kit (slot 0). The zone is picked per-column
                     // by hash-weighted kernel, so the boundary between
-                    // adjacent regions' palettes is jagged — desert sand
+                    // adjacent zones' palettes is jagged — desert sand
                     // peppered into forest grass within the kernel overlap
                     // band — instead of a straight chunk-aligned seam.
                     // TagSubmergedKits runs after all chunks/water exist and
@@ -1191,23 +1191,23 @@ public static class WorldGen
                     // above-water cliffs stays surface-kit (no sand bleed on
                     // cliff faces). Cave interiors are later re-tagged to the
                     // cave slot by MarkCaveSurfaceShapes.
-                    int kitRegion = PickKitRegion(wx, wz, genData.Regions, data.RegionIndex);
-                    data.KitId[x, y, z] = GlobalKit(kitRegion, KIT_SLOT_TEMPERATE);
+                    int kitZone = PickKitZone(wx, wz, genData.Zones, data.ZoneIndex);
+                    data.KitId[x, y, z] = GlobalKit(kitZone, KIT_SLOT_TEMPERATE);
                 }
             }
         }
     }
 
-    // Bucket-fill ground fog. For each region we compute a "fog level" Y_i
-    // by pouring a humidity-scaled volume into the region's heightmap (sorted
+    // Bucket-fill ground fog. For each zone we compute a "fog level" Y_i
+    // by pouring a humidity-scaled volume into the zone's heightmap (sorted
     // floor heights, water-clamped) and finding where it settles. Per voxel
-    // the level blends across regions via the prop/kit kernel; density falls
+    // the level blends across zones via the prop/kit kernel; density falls
     // off linearly with distance below the level. Only open-to-sky voxels
     // get seeded — caves / tunnels stay fog-free.
     private static void GenerateFog(WorldState ws, WorldGenData genData, HeightMap heightMap)
     {
-        int regionCount = genData.Regions != null ? genData.Regions.Length : 0;
-        if (regionCount == 0)
+        int zoneCount = genData.Zones != null ? genData.Zones.Length : 0;
+        if (zoneCount == 0)
         {
             return;
         }
@@ -1219,13 +1219,13 @@ public static class WorldGen
         int worldMinZ = ws.Min.Z * ChunkState.SIZE;
         int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        // Step 1 — gather each region's column floor heights, water-clamped.
+        // Step 1 — gather each zone's column floor heights, water-clamped.
         // Floors below WATER_LEVEL get pinned there: water surface IS the
         // bucket bottom over submerged columns (we don't fog underwater).
-        var regionFloors = new List<int>[regionCount];
-        for (int i = 0; i < regionCount; i++)
+        var zoneFloors = new List<int>[zoneCount];
+        for (int i = 0; i < zoneCount; i++)
         {
-            regionFloors[i] = new List<int>();
+            zoneFloors[i] = new List<int>();
         }
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -1233,20 +1233,20 @@ public static class WorldGen
             {
                 int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
                 int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
-                int regionIdx = PickRegionIndex(new Vector3I(chunkX, 0, chunkZ), regionCount);
+                int zoneIdx = PickZoneIndex(new Vector3I(chunkX, 0, chunkZ), zoneCount);
                 int h = heightMap.GetHeight(wx, wz);
-                regionFloors[regionIdx].Add(Math.Max(h, WATER_LEVEL));
+                zoneFloors[zoneIdx].Add(Math.Max(h, WATER_LEVEL));
             }
         }
 
-        // Step 2 — solve bucket-fill per region. Humidity * volume-per-column
+        // Step 2 — solve bucket-fill per zone. Humidity * volume-per-column
         // gives the total fog volume to pour; SolveBucketFill returns the
         // resulting level Y. Floors are sorted in place (cheap; we only walk
         // the list once after this).
-        float[] fogLevelY = new float[regionCount];
-        for (int i = 0; i < regionCount; i++)
+        float[] fogLevelY = new float[zoneCount];
+        for (int i = 0; i < zoneCount; i++)
         {
-            List<int> floors = regionFloors[i];
+            List<int> floors = zoneFloors[i];
             if (floors.Count == 0)
             {
                 fogLevelY[i] = float.NegativeInfinity;
@@ -1254,19 +1254,19 @@ public static class WorldGen
             }
             floors.Sort();
             float humidity = 0f;
-            RegionGenData rg = genData.Regions[i];
-            if (rg?.Region?.weather != null)
+            ZoneGenData rg = genData.Zones[i];
+            if (rg?.Zone?.weather != null)
             {
-                humidity = rg.Region.weather.humidity;
+                humidity = rg.Zone.weather.humidity;
             }
             float desiredVolume = humidity * FOG_VOLUME_PER_HUMIDITY * floors.Count;
             fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
         }
 
         // Step 3 — stamp fog density per voxel under the kernel-blended level.
-        Span<float> weights = regionCount <= 32
-            ? stackalloc float[regionCount]
-            : new float[regionCount];
+        Span<float> weights = zoneCount <= 32
+            ? stackalloc float[zoneCount]
+            : new float[zoneCount];
 
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -1288,11 +1288,11 @@ public static class WorldGen
                 if (fogStartY > worldMaxY) { continue; }
 
                 // Per-column blended fog level. Skip when no neighbouring
-                // region offers a level — empty kernel.
-                GetRegionGenWeights(wx, wz, regionCount, weights);
+                // zone offers a level — empty kernel.
+                GetZoneGenWeights(wx, wz, zoneCount, weights);
                 float blendedLevel = 0f;
                 float wSum = 0f;
-                for (int i = 0; i < regionCount; i++)
+                for (int i = 0; i < zoneCount; i++)
                 {
                     if (weights[i] <= 0f) { continue; }
                     if (float.IsNegativeInfinity(fogLevelY[i])) { continue; }
@@ -1402,9 +1402,9 @@ public static class WorldGen
                 }
 
                 // Threshold blends per-column so cave density transitions
-                // smoothly across region borders. Sampled once per column
+                // smoothly across zone borders. Sampled once per column
                 // since the kernel is XZ-only.
-                float caveThreshold = SampleBlendedRegionGen(wx, wz, genData.Regions).CaveThreshold;
+                float caveThreshold = SampleBlendedZoneGen(wx, wz, genData.Zones).CaveThreshold;
 
                 // Walk the column bottom-up finding runs of natural carve.
                 // worldMinY is preserved as bedrock, so start one above.
@@ -1454,7 +1454,7 @@ public static class WorldGen
     }
 
     // One-off test stamp: a wide shallow underwater lake in the mountain
-    // (NE) region, pushed inland toward the desert border. The ceiling is
+    // (NE) zone, pushed inland toward the desert border. The ceiling is
     // pinned to the first plateau above water (WATER_LEVEL + PlateauStep)
     // so the cavern stays low even where the natural mountain surface
     // climbs higher. Columns whose natural surface already sits below the
@@ -1596,12 +1596,12 @@ public static class WorldGen
                         || IsCaveAirOrWater(wx, wy, wz + 1))
                     {
                         ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
-                        // Stamp this chunk's region cave kit so the shader
+                        // Stamp this chunk's zone cave kit so the shader
                         // can paint it distinctly from the surface above.
                         // Overrides the underwater slot for submerged caves —
                         // the cave palette wins there.
-                        int regionIdx = PickKitRegion(wx, wz, genData.Regions, RegionIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(regionIdx, KIT_SLOT_CAVE));
+                        int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
+                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(zoneIdx, KIT_SLOT_CAVE));
                     }
                 }
             }
@@ -1661,8 +1661,8 @@ public static class WorldGen
 
                     if (nearWater)
                     {
-                        int regionIdx = PickKitRegion(wx, wz, genData.Regions, RegionIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(regionIdx, KIT_SLOT_UNDERWATER));
+                        int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
+                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(zoneIdx, KIT_SLOT_UNDERWATER));
                     }
                 }
             }
@@ -1704,7 +1704,7 @@ public static class WorldGen
     private const float OVERLAY_FIELD_THRESHOLD = 0.10f;
 
     // Test placement for detail-sprite scatter. Paints DetailGroup=1 (i.e.
-    // RegionGenData.DetailGroups[0]) on temperate surface voxels wherever
+    // ZoneGenData.DetailGroups[0]) on temperate surface voxels wherever
     // detailNoise exceeds the threshold; strength is the noise value remapped
     // to [DetailStrengthMin, 255]. Replace with authored brushes once the
     // editor lands; the runtime is happy with no DetailGroups configured (the
@@ -1999,11 +1999,11 @@ public static class WorldGen
         var detailNoise = new FastNoiseLite();
         detailNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         detailNoise.Seed = DETAIL_NOISE_SEED;
-        // Frequency comes from the first region (single shared FastNoiseLite
+        // Frequency comes from the first zone (single shared FastNoiseLite
         // for the whole world). Threshold and StrengthMin DO blend per-column
-        // below so density can fade across region borders even though the
+        // below so density can fade across zone borders even though the
         // underlying noise pattern is constant.
-        detailNoise.Frequency = FirstRegionGen(genData)?.DetailNoiseFrequency ?? 0.06f;
+        detailNoise.Frequency = FirstZoneGen(genData)?.DetailNoiseFrequency ?? 0.06f;
         detailNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -2034,7 +2034,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
+                    BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
                     float n = detailNoise.GetNoise2D(wx, wz);
                     if (n <= blend.DetailNoiseThreshold)
                     {
@@ -2147,7 +2147,7 @@ public static class WorldGen
         // AND the actual surface voxel being solid with air directly above —
         // caves can carve through the surface, in which case props would
         // otherwise float over an open hole. Surface y comes from the
-        // heightmap so the check works at any per-region BaseElevation.
+        // heightmap so the check works at any per-zone BaseElevation.
         int SurfaceYAt(int wx, int wz) => heightMap.GetHeight(wx, wz);
         bool IsGrassyAt(int wx, int wz)
         {
@@ -2167,26 +2167,26 @@ public static class WorldGen
         var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
 
         // Per-chunk tree count blends the kernel-weighted TreesPerChunkMin/Max
-        // around the chunk center so adjacent regions hand off smoothly. The
+        // around the chunk center so adjacent zones hand off smoothly. The
         // SCENE picked for each individual tree is drawn from a kernel-weighted
-        // region per (wx, wz) — that produces the overlap zone where two
-        // regions' palettes intermix instead of snapping at the chunk border.
-        RegionGenData[] regionsArr = genData.Regions ?? System.Array.Empty<RegionGenData>();
+        // zone per (wx, wz) — that produces the overlap zone where two
+        // zones' palettes intermix instead of snapping at the chunk border.
+        ZoneGenData[] zonesArr = genData.Zones ?? System.Array.Empty<ZoneGenData>();
         int chunkCenterWx = chunkCoord.X * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
         float treesMinBlend = 0f;
         float treesMaxBlend = 0f;
-        if (regionsArr.Length > 0)
+        if (zonesArr.Length > 0)
         {
-            Span<float> centerWeights = regionsArr.Length <= 32
-                ? stackalloc float[regionsArr.Length]
-                : new float[regionsArr.Length];
-            GetRegionGenWeights(chunkCenterWx, chunkCenterWz, regionsArr.Length, centerWeights);
-            for (int i = 0; i < regionsArr.Length; i++)
+            Span<float> centerWeights = zonesArr.Length <= 32
+                ? stackalloc float[zonesArr.Length]
+                : new float[zonesArr.Length];
+            GetZoneGenWeights(chunkCenterWx, chunkCenterWz, zonesArr.Length, centerWeights);
+            for (int i = 0; i < zonesArr.Length; i++)
             {
-                if (regionsArr[i] == null) { continue; }
-                treesMinBlend += centerWeights[i] * regionsArr[i].TreesPerChunkMin;
-                treesMaxBlend += centerWeights[i] * regionsArr[i].TreesPerChunkMax;
+                if (zonesArr[i] == null) { continue; }
+                treesMinBlend += centerWeights[i] * zonesArr[i].TreesPerChunkMin;
+                treesMaxBlend += centerWeights[i] * zonesArr[i].TreesPerChunkMax;
             }
         }
         int treesPerChunkMin = (int)Math.Round(treesMinBlend);
@@ -2209,7 +2209,7 @@ public static class WorldGen
             {
                 return false;
             }
-            PackedScene scene = PickWeightedScene(wx, wz, regionsArr, r => r.TreeScenes, rng);
+            PackedScene scene = PickWeightedScene(wx, wz, zonesArr, r => r.TreeScenes, rng);
             if (scene == null)
             {
                 return false;
@@ -2243,7 +2243,7 @@ public static class WorldGen
                 {
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
+                    BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
                     float f = forestNoise.GetNoise2D(wx, wz);
                     if (f < blend.ForestThreshold)
                     {
@@ -2266,7 +2266,7 @@ public static class WorldGen
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
 
-                    float grassThreshold = SampleBlendedRegionGen(wx, wz, genData.Regions).GrassThreshold;
+                    float grassThreshold = SampleBlendedZoneGen(wx, wz, genData.Zones).GrassThreshold;
                     if (grassNoise.GetNoise2D(wx, wz) < grassThreshold)
                     {
                         continue;
@@ -2276,7 +2276,7 @@ public static class WorldGen
                         continue;
                     }
 
-                    PackedScene grassScene = PickWeightedScene(wx, wz, regionsArr, r => r.TallGrassScenes, rng);
+                    PackedScene grassScene = PickWeightedScene(wx, wz, zonesArr, r => r.TallGrassScenes, rng);
                     if (grassScene == null)
                     {
                         continue;
@@ -2300,7 +2300,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (rg == null || rg.GoblinScene == null || rg.GoblinData == null)
                     {
                         continue;
@@ -2338,7 +2338,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (rg == null || rg.KunKunScene == null || rg.KunKunData == null)
                     {
                         continue;
@@ -2362,7 +2362,7 @@ public static class WorldGen
         if (!skipInteractives && genData.CampfireScene != null)
         {
             // Generate campfires on grass surfaces. Authored at ~1/5 the goblin
-            // rate per region; AutoLightAtNight is set so they ignite when their
+            // rate per zone; AutoLightAtNight is set so they ignite when their
             // chunk activates after dark.
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
             {
@@ -2374,7 +2374,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (rg == null)
                     {
                         continue;
@@ -2408,7 +2408,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (rg == null || rg.LootScene == null)
                     {
                         continue;
@@ -2438,7 +2438,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (rg == null || rg.ChestScene == null || rg.LootScene == null)
                     {
                         continue;
@@ -2510,7 +2510,7 @@ public static class WorldGen
                     }
 
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
                     if (!skipMobs && rg != null && rg.GoblinScene != null && rg.GoblinData != null
                         && rng.NextDouble() < rg.GoblinSpawnUnderground)
                     {

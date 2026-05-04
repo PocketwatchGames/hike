@@ -2,13 +2,13 @@ using Godot;
 
 // A palette of detail-sprite variants painted as a single brush. The per-voxel
 // DetailGroup channel stores a 1-based index into the active world's detail
-// palette (RegionGenData.DetailGroups, uploaded via ChunkMesh.SetDetailGroups),
+// palette (ZoneGenData.DetailGroups, uploaded via ChunkMesh.SetDetailGroups),
 // so DetailGroup=0 means "no detail" and DetailGroup=1 references the first
 // authored group. The DetailStrength channel (0..255) controls density within
-// the painted region.
+// the painted zone.
 //
 // Adding a group: create the .tres, fill `Entries` with one or more
-// DetailEntry sub-resources, and reference it from RegionGenData.DetailGroups.
+// DetailEntry sub-resources, and reference it from ZoneGenData.DetailGroups.
 [GlobalClass]
 public partial class DetailGroupData : Resource
 {

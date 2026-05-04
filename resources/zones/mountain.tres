@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://d2gggtn6xkc7c"]
+[gd_resource type="Resource" script_class="ZoneData" format=3 uid="uid://d2gggtn6xkc7c"]
 
-[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/RegionData.cs" id="1_region"]
+[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
 [ext_resource type="Resource" path="res://resources/audio/mountain_ambience.tres" id="3_ambience"]
 

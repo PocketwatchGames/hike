@@ -431,12 +431,12 @@ public partial class WorldEditor : Node3D
 
     private EntitySimState CreateEntitySimState(string entityName, Vector3 position)
     {
-        // Editor placement pulls Tree/TallGrass scenes from the first region —
-        // there's no per-cursor region context yet, and all regions currently
-        // share palettes. Once region painting lands, sample by cursor column.
-        RegionGenData firstRegion = worldGenData.Regions != null && worldGenData.Regions.Length > 0 ? worldGenData.Regions[0] : null;
-        PackedScene[] treeScenes = firstRegion?.TreeScenes ?? System.Array.Empty<PackedScene>();
-        PackedScene[] tallGrassScenes = firstRegion?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
+        // Editor placement pulls Tree/TallGrass scenes from the first zone —
+        // there's no per-cursor zone context yet, and all zones currently
+        // share palettes. Once zone painting lands, sample by cursor column.
+        ZoneGenData firstZone = worldGenData.Zones != null && worldGenData.Zones.Length > 0 ? worldGenData.Zones[0] : null;
+        PackedScene[] treeScenes = firstZone?.TreeScenes ?? System.Array.Empty<PackedScene>();
+        PackedScene[] tallGrassScenes = firstZone?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
         switch (entityName)
         {
             case "Tree":
@@ -444,10 +444,10 @@ public partial class WorldEditor : Node3D
             case "TallGrass":
                 return tallGrassScenes.Length > 0 ? new PropSimState(PropType.TallGrass, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
             case "Loot":
-                return firstRegion?.LootScene != null ? new PropSimState(PropType.AutoLoot, position, firstRegion.LootScene) : null;
+                return firstZone?.LootScene != null ? new PropSimState(PropType.AutoLoot, position, firstZone.LootScene) : null;
             case "Chest":
-                return firstRegion?.ChestScene != null && firstRegion.LootScene != null
-                    ? new ChestSimState(position, firstRegion.ChestScene, 3, firstRegion.LootScene)
+                return firstZone?.ChestScene != null && firstZone.LootScene != null
+                    ? new ChestSimState(position, firstZone.ChestScene, 3, firstZone.LootScene)
                     : null;
             case "Torch":
                 return new TorchSimState(position, worldGenData.TorchScene);
@@ -458,12 +458,12 @@ public partial class WorldEditor : Node3D
                     ? new TrapSimState(position, worldGenData.SpikeTrapScene)
                     : null;
             case "Goblin":
-                return firstRegion?.GoblinScene != null && firstRegion.GoblinData != null
-                    ? new MobSimState(position, 0f, firstRegion.GoblinScene, firstRegion.GoblinData)
+                return firstZone?.GoblinScene != null && firstZone.GoblinData != null
+                    ? new MobSimState(position, 0f, firstZone.GoblinScene, firstZone.GoblinData)
                     : null;
             case "KunKun":
-                return firstRegion?.KunKunScene != null && firstRegion.KunKunData != null
-                    ? new MobSimState(position, 0f, firstRegion.KunKunScene, firstRegion.KunKunData)
+                return firstZone?.KunKunScene != null && firstZone.KunKunData != null
+                    ? new MobSimState(position, 0f, firstZone.KunKunScene, firstZone.KunKunData)
                     : null;
             default:
                 return null;
@@ -657,16 +657,16 @@ public partial class WorldEditor : Node3D
         var max = new Vector3I(3, 1, 3);
         var ws = new WorldState(min, max, genData.SimData);
 
-        // Mirror WorldGen's region setup so the sky preview has something
-        // to blend in the editor. RegionIndex stays 0 across all chunks
+        // Mirror WorldGen's zone setup so the sky preview has something
+        // to blend in the editor. ZoneIndex stays 0 across all chunks
         // here (the editor's empty stub is a single uniform area); the
         // full editor will paint indices when authoring.
-        ws.Regions = new RegionState[genData.Regions.Length];
-        for (int i = 0; i < genData.Regions.Length; i++)
+        ws.Zones = new ZoneState[genData.Zones.Length];
+        for (int i = 0; i < genData.Zones.Length; i++)
         {
-            ws.Regions[i] = new RegionState
+            ws.Zones[i] = new ZoneState
             {
-                Data = genData.Regions[i]?.Region,
+                Data = genData.Zones[i]?.Zone,
                 WindDirection = new Vector3(0.7f, 0f, 0.7f),
                 Elevation = 0f,
             };

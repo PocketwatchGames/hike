@@ -13,7 +13,7 @@
 [resource]
 script = ExtResource("1_script")
 SimData = ExtResource("2_sim")
-Regions = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), ExtResource("2_region_swamp"), ExtResource("2_region_forest")]
+Zones = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), ExtResource("2_region_swamp"), ExtResource("2_region_forest")]
 DoorScene = ExtResource("4_door")
 TorchScene = ExtResource("5_torch")
 CampfireScene = ExtResource("6_campfire")

@@ -4,13 +4,13 @@ using Godot;
 
 // Per-chunk positional ambience emitters — birds in trees, frogs by
 // water, crickets in grass, drips in caves. On chunk load this walks
-// the chunk's region's PositionalEmitterData palette, deterministically
+// the chunk's zone's PositionalEmitterData palette, deterministically
 // rolls instance positions from a chunk-coord-seeded RNG, and attaches
 // AudioStreamPlayer3D children to itself at those positions. On chunk
 // unload it tears them down.
 //
 // Determinism: the same chunk coord + emitter index always produces
-// the same placement, so reloading a region from disk doesn't shuffle
+// the same placement, so reloading a zone from disk doesn't shuffle
 // the soundscape. The seed RNG is seeded from
 //   coord.X * a ^ coord.Y * b ^ coord.Z * c ^ emitter.seed
 // so two emitters in the same chunk don't pick the same cells.
@@ -99,9 +99,9 @@ public partial class ChunkAmbienceSpawner : Node3D
         ChunkState chunk = ws.GetChunk(coord);
         if (chunk == null) { return; }
 
-        RegionState[] regions = ws.Regions;
-        if (regions == null || chunk.RegionIndex >= regions.Length) { return; }
-        RegionAmbienceData ambience = regions[chunk.RegionIndex].Data?.ambience;
+        ZoneState[] zones = ws.Zones;
+        if (zones == null || chunk.ZoneIndex >= zones.Length) { return; }
+        ZoneAmbienceData ambience = zones[chunk.ZoneIndex].Data?.ambience;
         if (ambience == null || ambience.positionalEmitters == null) { return; }
 
         var instances = new List<EmitterInstance>();

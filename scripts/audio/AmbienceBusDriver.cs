@@ -13,7 +13,7 @@ using Godot;
 //
 // Mappings come from the env-tag weights and Caveness/Openness on
 // AmbienceState. Envtag weights sum to ≤1; the underflow (when corners
-// are unloaded) gets treated as Outdoor so missing-data regions stay dry
+// are unloaded) gets treated as Outdoor so missing-data zones stay dry
 // rather than going swimmy.
 public static class AmbienceBusDriver
 {

@@ -1,20 +1,20 @@
 using Godot;
 
-// Per-region theming. A large world can have many regions (deserts,
+// Per-zone theming. A large world can have many zones (deserts,
 // forests, mountains) — each tints its atmosphere through these four
 // colors, but the *weather* (cloud cover, wind, rain, etc.) blowing
 // across them stays the same. See WeatherDerivation for the full map
-// of (region × weather × time-of-day) → visual output.
+// of (zone × weather × time-of-day) → visual output.
 //
 // For now this also owns a nested WeatherData so the 4-quadrant
 // bootstrap treats each quadrant as its own weather "biome". When
 // dynamic weather is added later, the nested weather becomes the
 // climate BASELINE and a global weather system layers on top
-// (e.g. a passing storm modulates cloudCover across all regions).
+// (e.g. a passing storm modulates cloudCover across all zones).
 [GlobalClass]
-public partial class RegionData : Resource
+public partial class ZoneData : Resource
 {
-    // Color of direct sunlight at full noon in this region. Derivation
+    // Color of direct sunlight at full noon in this zone. Derivation
     // pushes it toward amber/red at sunset via dustAmount, and mixes
     // it into the day sky horizon + fog tint.
     [Export] public Color SunColor = new Color(1.0f, 0.96f, 0.88f);
@@ -55,22 +55,22 @@ public partial class RegionData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float WaterOpacity = 0.5f;
 
     // Atmospheric dust amount — the scattering medium that makes
-    // shafts visible. Region-intrinsic (deserts dusty, jungles not),
+    // shafts visible. Zone-intrinsic (deserts dusty, jungles not),
     // not weather-state, so it lives here rather than on WeatherData.
     // WeatherSimulation reads this as the MAX and outputs a perturbed
     // current value (wind / elevation / humidity / rain modulated).
     // DustColor (above) controls hue; this controls intensity.
     [Export(PropertyHint.Range, "0,1,0.01")] public float DustAmount = 0.1f;
 
-    // Baseline weather for this region. Becomes the climate baseline
+    // Baseline weather for this zone. Becomes the climate baseline
     // once dynamic weather exists.
     [Export] public WeatherData weather;
 
-    // Authored ambience set for this region — looping global layers
+    // Authored ambience set for this zone — looping global layers
     // (wind / rain / insect bed / distant ocean) plus the positional
     // emitter palette used by ChunkAmbienceSpawner. AmbienceController
-    // instantiates one player per global layer per region and crossfades
-    // weights as the player crosses region borders, the same way the
+    // instantiates one player per global layer per zone and crossfades
+    // weights as the player crosses zone borders, the same way the
     // visual palette already blends.
-    [Export] public RegionAmbienceData ambience;
+    [Export] public ZoneAmbienceData ambience;
 }

@@ -1,10 +1,10 @@
-[gd_resource type="Resource" script_class="RegionGenData" format=3 uid="uid://wwpw4gcdk0vs"]
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4gcdk0vs"]
 
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/detail_grass.tres" id="1_eixe3"]
 [ext_resource type="Resource" uid="uid://pyvwh3yyr1dc" path="res://resources/data/terrain_kits/kit_desert.tres" id="2_qtgnd"]
 [ext_resource type="Resource" uid="uid://cnhqsj6wymf0" path="res://resources/data/terrain_kits/kit_cave_sandstone.tres" id="3_nc5be"]
 [ext_resource type="Resource" uid="uid://d2eve0m1jqgng" path="res://resources/data/terrain_kits/kit_underwater.tres" id="4_uxbjh"]
-[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/regions/desert.tres" id="5_25es0"]
+[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/zones/desert.tres" id="5_25es0"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="6_8xr4j"]
 [ext_resource type="PackedScene" uid="uid://bkwajd5cucdsd" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="7_lge2b"]
 [ext_resource type="PackedScene" uid="uid://33agw00tovkt" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="8_nrtyf"]
@@ -24,7 +24,7 @@
 [ext_resource type="PackedScene" path="res://scenes/props/desert_treepine_02.tscn" id="22_lge2b"]
 [ext_resource type="PackedScene" path="res://scenes/props/desert_treepine_03.tscn" id="23_nrtyf"]
 [ext_resource type="PackedScene" path="res://scenes/props/desert_treepine_04.tscn" id="24_a4dxw"]
-[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/RegionGenData.cs" id="28_8kxn4"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/ZoneGenData.cs" id="28_8kxn4"]
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="29_goblin_scene"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="30_goblin_data"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="31_kunkun_scene"]
@@ -34,7 +34,7 @@
 
 [resource]
 script = ExtResource("28_8kxn4")
-Region = ExtResource("5_25es0")
+Zone = ExtResource("5_25es0")
 Kits = [ExtResource("2_qtgnd"), ExtResource("3_nc5be"), ExtResource("4_uxbjh")]
 DetailGroups = [ExtResource("1_eixe3")]
 Elevation = 1.0

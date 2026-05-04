@@ -108,7 +108,7 @@ public partial class GameCamera : Camera3D
 		// there. Above-clip front-faces are discarded so the white clear
 		// shows through. The back-face mask material then writes white
 		// over any underground front-faces that painted black through
-		// other clipped solids, restoring the cap mask in those regions.
+		// other clipped solids, restoring the cap mask in those zones.
 		// Environment is stripped of every non-essential effect since the
 		// mask render only needs raw albedo writes — no lighting, no
 		// post-process, no auto-exposure.

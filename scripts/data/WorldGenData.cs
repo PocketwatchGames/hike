@@ -5,14 +5,14 @@ public partial class WorldGenData : Resource
 {
     [Export] public SimData SimData;
 
-    // Per-region world-gen + theme bundle. Index in this array becomes the
-    // ChunkState.RegionIndex stamped on each generated chunk; the embedded
-    // RegionData becomes WorldState.Regions[i].Data. WorldGen blends the
+    // Per-zone world-gen + theme bundle. Index in this array becomes the
+    // ChunkState.ZoneIndex stamped on each generated chunk; the embedded
+    // ZoneData becomes WorldState.Zones[i].Data. WorldGen blends the
     // per-position scalars on each entry (ElevationMultiplier, thresholds,
     // densities) across a chunk-kernel for smooth transitions between
-    // adjacent regions. WorldGen assigns chunks to regions (currently by
-    // quadrant; the long-term design is arbitrary region polygons / atlas).
-    [Export] public RegionGenData[] Regions = System.Array.Empty<RegionGenData>();
+    // adjacent zones. WorldGen assigns chunks to zones (currently by
+    // quadrant; the long-term design is arbitrary zone polygons / atlas).
+    [Export] public ZoneGenData[] Zones = System.Array.Empty<ZoneGenData>();
 
     // World extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're

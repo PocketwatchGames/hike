@@ -65,8 +65,8 @@ public struct AmbienceState
     // the reverb bus and the mute-pull on distant positional emitters.
     public float FogDensity;
 
-    // Index of the dominant region at the listener (chunk's RegionIndex
-    // at the listener's chunk). -1 if no region data. Used by positional
+    // Index of the dominant zone at the listener (chunk's ZoneIndex
+    // at the listener's chunk). -1 if no zone data. Used by positional
     // emitter palettes and by the time-of-day insect bed selector to pick
     // which biome's stream set is active.
     public int BiomeId;

@@ -2,9 +2,9 @@ using Godot;
 
 // Camera-parented rain visuals: falling streaks above the view + ground splashes
 // around the player. SkyController.Apply() calls SetIntensity() every frame with
-// the derived-palette rain intensity (blended across the player's current region
-// mix), so transitions in/out as the player walks between regions fade smoothly
-// without this node needing to know about region blending.
+// the derived-palette rain intensity (blended across the player's current zone
+// mix), so transitions in/out as the player walks between zones fade smoothly
+// without this node needing to know about zone blending.
 //
 // Two mechanisms hide rain in covered areas:
 //   1. Falling streaks ALWAYS emit (the CPU just scales rate by rainIntensity).

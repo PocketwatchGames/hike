@@ -82,7 +82,7 @@ public partial class ChunkMesh : Node3D
         MaskBackfaceMaterial.Shader = maskBackfaceShader;
         // Renders after the front-face mask material so its depth test
         // sees the front-face's depth — only back-faces NOT occluded by a
-        // visible front-face (i.e., clipped regions and underground
+        // visible front-face (i.e., clipped zones and underground
         // overdraw recovery) write white.
         MaskBackfaceMaterial.RenderPriority = 1;
 
@@ -111,7 +111,7 @@ public partial class ChunkMesh : Node3D
         // write stencil=2 for the water_clip_cap, which keeps its
         // stencil-driven design.
         //   -3  voxel_water           writes stencil=4 (reflection mask)
-        //   -2  voxel_water_backface  writes stencil=2 (water cap region)
+        //   -2  voxel_water_backface  writes stencil=2 (water cap zone)
         //    0  voxel_clip / sprites  default priority
         //    1  clip_cap              opaque, samples cap mask via SCREEN_UV
         //    2  water_clip_cap        alpha, reads stencil=2
@@ -305,7 +305,7 @@ public partial class ChunkMesh : Node3D
 
             // Cap-mask front-face: BLACK over visible (below-clip) terrain,
             // discarded above clip. The white SubViewport clear shows
-            // through above-clip discards = cap region.
+            // through above-clip discards = cap zone.
             var maskFront = new MeshInstance3D();
             maskFront.Mesh = mesh;
             maskFront.MaterialOverride = MaskTerrainMaterial;
@@ -316,7 +316,7 @@ public partial class ChunkMesh : Node3D
             // Cap-mask back-face: WHITE wherever the back-face passes its
             // depth test. Needed so underground front-faces (rendered
             // through other clipped solids) don't paint black across the
-            // cap region — the back-face writes white over them, restoring
+            // cap zone — the back-face writes white over them, restoring
             // the cap mask.
             var maskBack = new MeshInstance3D();
             maskBack.Mesh = mesh;

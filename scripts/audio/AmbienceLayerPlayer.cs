@@ -2,12 +2,12 @@ using Godot;
 
 // Runtime player for a single AmbienceLayerData. Owns one
 // AudioStreamPlayer (non-positional), reads AmbienceState +
-// time-of-day + an externally-supplied region weight every frame, and
+// time-of-day + an externally-supplied zone weight every frame, and
 // translates them into volume_db / pitch_scale on its player.
 //
-// Created and ticked by AmbienceController. One instance per (region,
-// layer) — when the player is in a region with the layer active, its
-// regionWeight rises to 1; when crossing into a region without that
+// Created and ticked by AmbienceController. One instance per (zone,
+// layer) — when the player is in a zone with the layer active, its
+// zoneWeight rises to 1; when crossing into a zone without that
 // layer the weight falls to 0 and the player streams silently before
 // being despawned at the end of the cross-fade band.
 [GlobalClass]
@@ -32,7 +32,7 @@ public partial class AmbienceLayerPlayer : Node
     private AmbienceLayerData _data;
     private AudioStreamPlayer _player;
     private float _smoothedAmp;
-    private float _regionWeight;
+    private float _zoneWeight;
 
     public AmbienceLayerData Data => _data;
 
@@ -57,11 +57,11 @@ public partial class AmbienceLayerPlayer : Node
     }
 
     // Called by AmbienceController each frame. weight is this layer's
-    // contribution from region blending in [0, 1]; timeOfDay01 is the
+    // contribution from zone blending in [0, 1]; timeOfDay01 is the
     // current world clock for the time-of-day curve.
     public void Tick(in AmbienceState state, float weight, float timeOfDay01, float deltaTime)
     {
-        _regionWeight = weight;
+        _zoneWeight = weight;
 
         if (_data == null || _player == null) { return; }
 

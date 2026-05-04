@@ -40,9 +40,9 @@ global uniform float sun_intensity;
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-// Per-region water styling — all globals driven by RegionData.WaterColor
+// Per-zone water styling — all globals driven by ZoneData.WaterColor
 // through WeatherDerivation + SkyController.Apply. Authoring one RGBA per
-// region controls muddiness, depth color, foam tint, ripple/wave behavior.
+// zone controls muddiness, depth color, foam tint, ripple/wave behavior.
 global uniform float water_alpha_min;
 global uniform float water_alpha_max;
 global uniform float water_depth_scale;
