@@ -541,9 +541,9 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
 		}
-		if ((t & EItemEventType.ToggleCarrierLight) != 0)
+		if ((t & EItemEventType.ToggleMovingLight) != 0)
 		{
-			ItemEventHandlers.DoToggleCarrierLight(_actor, ev, ref _action);
+			ItemEventHandlers.DoToggleMovingLight(_actor, ev, ref _action);
 		}
 		if ((t & EItemEventType.OpenInteractive) != 0)
 		{

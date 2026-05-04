@@ -228,7 +228,7 @@ public static class ItemEventHandlers
 		}
 	}
 
-	public static void DoToggleCarrierLight(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	public static void DoToggleMovingLight(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (actor is not Player player)
 		{
@@ -239,8 +239,8 @@ public static class ItemEventHandlers
 			return;
 		}
 		consumable.isActive = !consumable.isActive;
-		PackedScene scene = (consumable.data as TorchData)?.carrierLightScene;
-		player.SetCarrierLightActive(consumable.isActive, scene);
+		PackedScene scene = (consumable.data as TorchData)?.movingLightScene;
+		player.SetMovingLightActive(consumable.isActive, scene);
 	}
 
 	public static void DoOpenInteractive(IActionActor actor, ItemEvent ev, ref PlayerAction action)

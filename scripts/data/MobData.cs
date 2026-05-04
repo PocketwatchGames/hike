@@ -56,11 +56,11 @@ public partial class MobData : Resource
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;
-    // CarrierLight scene this mob spawns when it lights its torch (dark
+    // MovingLight scene this mob spawns when it lights its torch (dark
     // ambient + discovered). Instantiated on demand in Mob and freed when
     // the conditions clear — same instantiate/free pattern and field name
-    // as TorchData.carrierLightScene. Null on torch-less species.
-    [Export] public PackedScene carrierLightScene;
+    // as TorchData.movingLightScene. Null on torch-less species.
+    [Export] public PackedScene movingLightScene;
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

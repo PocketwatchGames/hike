@@ -14,7 +14,7 @@ using Godot;
 // Future optimization: adjacent voxels share 4 of 8 corners, so only 4
 // need recomputing per crossing.
 [GlobalClass]
-public partial class CarrierLight : Node3D
+public partial class MovingLight : Node3D
 {
     [Export] public int Emission = 32;
     [Export] public Color LightColor = new(1f, 0.75f, 0.4f);

@@ -21,6 +21,9 @@ public static class WorldGen
     public const int SKIP_INTERACTIVES = 8;  // loot + chests (surface + cave)
     public const int SKIP_ALL = SKIP_DETAILS | SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES;
 
+    private static readonly PackedScene PoisonChestScene =
+        GD.Load<PackedScene>("res://scenes/interactives/chest_poison.tscn");
+
     public const int KITS_PER_REGION = 3;
     private const byte KIT_SLOT_TEMPERATE = 0;   // surface (temperate / desert / marsh / …)
     private const byte KIT_SLOT_CAVE = 1;        // cave-interior shells
@@ -2447,8 +2450,11 @@ public static class WorldGen
 
                     int sy = SurfaceYAt(wx, wz);
                     int lootCount = rng.Next(rg.ChestLootCountMin, rg.ChestLootCountMax + 1);
+                    PackedScene chestScene = rng.NextDouble() < 0.5 && PoisonChestScene != null
+                        ? PoisonChestScene
+                        : rg.ChestScene;
                     ws.AddEntity(new ChestSimState(new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        rg.ChestScene,
+                        chestScene,
                         lootCount,
                         rg.LootScene));
                 }
@@ -2533,7 +2539,10 @@ public static class WorldGen
                         && rng.NextDouble() < rg.ChestChance)
                     {
                         int lootCount = rng.Next(rg.ChestLootCountMin, rg.ChestLootCountMax + 1);
-                        ws.AddEntity(new ChestSimState(pos, rg.ChestScene, lootCount, rg.LootScene));
+                        PackedScene chestScene = rng.NextDouble() < 0.5 && PoisonChestScene != null
+                            ? PoisonChestScene
+                            : rg.ChestScene;
+                        ws.AddEntity(new ChestSimState(pos, chestScene, lootCount, rg.LootScene));
                     }
                     if (!skipInteractives && rng.NextDouble() < genData.CaveTorchChance)
                     {

@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://cakjul286ucv4"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_ggwg3"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_poisonwisps"]
+lifetime_randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 3.0
+direction = Vector3(0, 1, 0)
+initial_velocity_min = 5.0
+initial_velocity_max = 15.0
+gravity = Vector3(0, -10, 0)
+damping_min = 0.2
+damping_max = 0.5
+scale_min = 0.6
+scale_max = 1.1
+color = Color(0.7, 0.95, 0.25, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_poisonwisps"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.6, 0.9, 0.2, 0.55)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_poisonwisps"]
+material = SubResource("StandardMaterial3D_poisonwisps")
+size = Vector2(0.18, 0.18)
+
+[node name="GasPoisonLoop" type="Node3D" unique_id=698323505]
+script = ExtResource("1_ggwg3")
+_loop = true
+
+[node name="Wisps" type="GPUParticles3D" parent="." unique_id=645320862]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+emitting = false
+amount = 50
+lifetime = 2.0599999999999996
+one_shot = true
+explosiveness = 1.0
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_poisonwisps")
+draw_pass_1 = SubResource("QuadMesh_poisonwisps")

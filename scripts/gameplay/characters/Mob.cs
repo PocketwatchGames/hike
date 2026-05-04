@@ -183,11 +183,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     Fx _waterMovementLoop;
     Fx _tallGrassMovementLoop;
     Fx _burrowLoop;
-    // Single active anim-loop reference + the state it represents. We swap
-    // wholesale on transitions instead of cross-fading — simple, and the
-    // listener barely registers the gap in practice.
-    Fx _animLoop;
-    EAnimLoopState _animLoopState = EAnimLoopState.None;
+    // Single active anim-loop reference + the scene it was created from. We
+    // swap wholesale on transitions instead of cross-fading — simple, and
+    // the listener barely registers the gap in practice.
+    Fx _animLoopFx;
+    PackedScene _animLoopScene;
     // Previous-tick burrow flags so we can detect the false→true edges that
     // drive the complete and emerge one-shots.
     bool _prevBurrowing;
@@ -236,10 +236,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
 
     // Active torch carrier light, instantiated from MobData.torch when the
     // latest AIOutput requests useTorch and the player remembers this mob.
-    // Same instantiate / QueueFree pattern as Player.SetCarrierLightActive —
+    // Same instantiate / QueueFree pattern as Player.SetMovingLightActive —
     // the FX scenes (LightOn / LightOff / Loop) live on the carrier scene
     // itself, so the mob just owns presence/lifetime, not styling.
-    private CarrierLight _torch;
+    private MovingLight _torch;
 
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
@@ -411,21 +411,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         // are mid-dig and shouldn't simultaneously hum the surface idle, so
         // the burrow flags suppress the anim-loop entirely until they
         // resurface.
-        EAnimLoopState animLoopTarget = EAnimLoopState.None;
+        PackedScene animLoopTarget = null;
         if (alive && !burrowing && !burrowed)
         {
-            if (loopAnim == AnimationNames.Idle) animLoopTarget = EAnimLoopState.Idle;
-            else if (loopAnim == AnimationNames.Run) animLoopTarget = EAnimLoopState.Run;
-            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = EAnimLoopState.SwimIdle;
+            if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopEffect;
+            else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopEffect;
+            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopEffect;
         }
         UpdateAnimLoop(animLoopTarget);
     }
 
     // Swap the active anim-loop wholesale on state change. No-op when target
-    // matches the cached state, so this is safe to call every frame.
-    private void UpdateAnimLoop(EAnimLoopState target)
+    // matches the currently-playing scene, so this is safe to call every frame.
+    private void UpdateAnimLoop(PackedScene scene)
     {
-        if (target == _animLoopState)
+        if (scene == _animLoopScene)
         {
             return;
         }
@@ -437,26 +437,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         using var _profSwap = Profiler.Sample("Mob.UpdateAnimLoop.Swap");
         if (!CVars.mobAnimLoopFx.Value)
         {
-            _animLoopState = target;
+            _animLoopScene = scene;
             return;
         }
-        if (_animLoop != null)
+        if (_animLoopFx != null)
         {
-            _animLoop.Stop();
-            _animLoop = null;
+            _animLoopFx.Stop();
+            _animLoopFx = null;
         }
-        PackedScene scene = target switch
-        {
-            EAnimLoopState.Idle => _idleLoopEffect,
-            EAnimLoopState.Run => _runLoopEffect,
-            EAnimLoopState.SwimIdle => _swimIdleLoopEffect,
-            _ => null,
-        };
         if (scene != null)
         {
-            _animLoop = Fx.Create(scene, this, Vector3.Zero);
+            _animLoopFx = Fx.Create(scene, this, Vector3.Zero);
         }
-        _animLoopState = target;
+        _animLoopScene = scene;
     }
 
     const float FallEnterSpeed = 1f;
@@ -878,14 +871,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             if (CVars.debugMobTorch.Value)
             {
                 MobData md = _simState.MobData;
-                string mdState = md == null ? "null" : (md.carrierLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.carrierLightScene.ResourcePath}");
+                string mdState = md == null ? "null" : (md.movingLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.movingLightScene.ResourcePath}");
                 GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torch != null} mobData={mdState}");
             }
             if (aiOutput.useTorch && playerRemembers)
             {
-                if (_torch == null && _simState.MobData?.carrierLightScene != null)
+                if (_torch == null && _simState.MobData?.movingLightScene != null)
                 {
-                    _torch = _simState.MobData.carrierLightScene.Instantiate<CarrierLight>();
+                    _torch = _simState.MobData.movingLightScene.Instantiate<MovingLight>();
                     AddChild(_torch);
                 }
             }
@@ -1136,7 +1129,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         // The per-frame torch gating in _PhysicsProcess only runs while alive,
         // so a dead mob's lit torch would otherwise leak its light deposit
         // and loop FX. Deactivate + free explicitly — Deactivate fires the
-        // LightOff fx authored on the CarrierLight as the natural "torch
+        // LightOff fx authored on the MovingLight as the natural "torch
         // goes out" cue, then QueueFree drops the node.
         if (_torch != null)
         {

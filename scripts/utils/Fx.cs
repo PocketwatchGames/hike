@@ -44,7 +44,7 @@ public partial class Fx : Node3D
 		// Godot rejects AddChild when the parent is mid-setup (data.blocked > 0)
 		// — this happens when an Fx is spawned from a sibling's _Ready while
 		// the common ancestor's add_child is still on the stack (e.g.
-		// CarrierLight._Ready firing while Mob.Initialize is adding the mob
+		// MovingLight._Ready firing while Mob.Initialize is adding the mob
 		// to the world). The native call prints an error and silently no-ops,
 		// so we detect the failure via GetParent() and retry on the next idle
 		// frame. Particles / audio stay dormant until the deferred AddChild

@@ -4,7 +4,7 @@ using Godot;
 public partial class Torch : Node3D, IInteractive, IWorldEntity
 {
     [Export] private LitSpriteAnimator _animator;
-    [Export] private Light _light;
+    [Export] private StationaryLight _light;
     [Export] private Node3D _hudNode;
     // Optional burn zone — only campfires need it. Null on regular wall
     // torches. Tracks _active so a doused campfire stops dealing damage.

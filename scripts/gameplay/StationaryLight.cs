@@ -1,6 +1,6 @@
 using Godot;
 
-public partial class Light : Node3D
+public partial class StationaryLight : Node3D
 {
     // Reach in voxel-units. Up to LightEngine.MAX_LIGHT (60). Roughly
     // emission/FALLOFF_PER_VOXEL voxels of visible light radius.

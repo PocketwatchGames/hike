@@ -1,11 +1,11 @@
 using Godot;
 
 // Pre-computed diffusion kernels for the 8 corners of a voxel, used by
-// CarrierLight for smooth sub-voxel interpolation. Each corner kernel is the
+// MovingLight for smooth sub-voxel interpolation. Each corner kernel is the
 // steady-state diffusion result from a single-point seed at that corner of
 // the source voxel, run against the surrounding geometry.
 //
-// At runtime, CarrierLight blends the 8 kernels by trilinear weights derived
+// At runtime, MovingLight blends the 8 kernels by trilinear weights derived
 // from the carrier's sub-voxel position. Because diffusion is linear, this
 // weighted sum equals the result of one diffusion seeded at the exact sub-
 // voxel position — but without rerunning the diffusion per frame.

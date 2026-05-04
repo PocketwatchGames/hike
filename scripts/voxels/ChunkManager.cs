@@ -130,7 +130,7 @@ public partial class ChunkManager : Node3D
             UpdateLoadedChunks();
         }
 
-        // Drain any direct WorldState writes (e.g. CarrierLight per-frame
+        // Drain any direct WorldState writes (e.g. MovingLight per-frame
         // deposits) into LightMap, then flush. This is the single per-frame
         // upload point — all light changes within this frame batch here.
         using (Profiler.Sample("ChunkManager.LightFlush"))

@@ -14,7 +14,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="11_4nu01"]
 [ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/FlatLitSprite.cs" id="11_naflh"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit_flat.tres" id="12_nxiho"]
-[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="14_3pg55"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="15_xray"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="16_anim"]
 
@@ -72,7 +72,7 @@ animations = [{
 [node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_animator", "_light", "_hudNode", "_damageZone")]
 script = ExtResource("1_5bkwe")
 _animator = NodePath("LitSpriteAnimator")
-_light = NodePath("Light")
+_light = NodePath("StationaryLight")
 _hudNode = NodePath("HUDNode")
 _damageZone = NodePath("DamageZone")
 _actions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_torch_action_use")])
@@ -126,7 +126,7 @@ frames = SubResource("SpriteFrames_campfire")
 defaultAnimation = &"on"
 metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
-[node name="Light" type="Node3D" parent="." unique_id=1171222661]
+[node name="StationaryLight" type="Node3D" parent="." unique_id=1171222661]
 script = ExtResource("14_3pg55")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]

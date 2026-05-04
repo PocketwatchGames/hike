@@ -66,10 +66,10 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorRechargeStartEffect;
 	[Export] private PackedScene _armorRecoverStartEffect;
 	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
-	// an EAnimLoopState bucket; only one (or none) is active at a time.
-	// Slots can be left null in the .tscn — the actor falls silent for that
-	// state, which is the current player default until per-character idle /
-	// run / swim_idle audio is authored.
+	// one of these scenes; only one (or none) is active at a time. Slots can
+	// be left null in the .tscn — the actor falls silent for that state,
+	// which is the current player default until per-character idle / run /
+	// swim_idle audio is authored.
 	[Export] private PackedScene _idleLoopEffect;
 	[Export] private PackedScene _runLoopEffect;
 	[Export] private PackedScene _swimIdleLoopEffect;
@@ -113,10 +113,10 @@ public partial class Player : CharacterBody3D
 	// node rather than racing with the trailing-audio teardown.
 	Fx _waterMovementLoop;
 	Fx _tallGrassMovementLoop;
-	// Single active anim-loop reference + the state it represents. Swapped
-	// wholesale on transitions instead of cross-fading.
-	Fx _animLoop;
-	EAnimLoopState _animLoopState = EAnimLoopState.None;
+	// Single active anim-loop reference + the scene it was created from.
+	// Swapped wholesale on transitions instead of cross-fading.
+	Fx _animLoopFx;
+	PackedScene _animLoopScene;
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
@@ -136,7 +136,7 @@ public partial class Player : CharacterBody3D
 	// appends a fresh state and ticks independently. The HUD groups by data
 	// when rendering. List grows at most to a handful of concurrent effects.
 	readonly List<StatusEffectState> _statusEffects = new();
-	CarrierLight _carrierLight;
+	MovingLight _movingLight;
 	StringName _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
 	// Drives the fall-anim grace window — running up/down hills momentarily
@@ -426,41 +426,34 @@ public partial class Player : CharacterBody3D
 		// Drive the anim-audio loop off the same loopAnim. Only idle / run /
 		// swim_idle have audio; everything else (fall, dead, interacting,
 		// active swim) is silent for the anim-loop layer.
-		EAnimLoopState animLoopTarget = EAnimLoopState.None;
+		PackedScene animLoopTarget = null;
 		if (_health > 0f)
 		{
-			if (loopAnim == AnimationNames.Idle) animLoopTarget = EAnimLoopState.Idle;
-			else if (loopAnim == AnimationNames.Run) animLoopTarget = EAnimLoopState.Run;
-			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = EAnimLoopState.SwimIdle;
+			if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopEffect;
+			else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopEffect;
+			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopEffect;
 		}
 		UpdateAnimLoop(animLoopTarget);
 	}
 
 	// Swap the active anim-loop wholesale on state change. No-op when target
-	// matches the cached state, so this is safe to call every frame.
-	private void UpdateAnimLoop(EAnimLoopState target)
+	// matches the currently-playing scene, so this is safe to call every frame.
+	private void UpdateAnimLoop(PackedScene scene)
 	{
-		if (target == _animLoopState)
+		if (scene == _animLoopScene)
 		{
 			return;
 		}
-		if (_animLoop != null)
+		if (_animLoopFx != null)
 		{
-			_animLoop.Stop();
-			_animLoop = null;
+			_animLoopFx.Stop();
+			_animLoopFx = null;
 		}
-		PackedScene scene = target switch
-		{
-			EAnimLoopState.Idle => _idleLoopEffect,
-			EAnimLoopState.Run => _runLoopEffect,
-			EAnimLoopState.SwimIdle => _swimIdleLoopEffect,
-			_ => null,
-		};
 		if (scene != null)
 		{
-			_animLoop = Fx.Create(scene, this, Vector3.Zero);
+			_animLoopFx = Fx.Create(scene, this, Vector3.Zero);
 		}
-		_animLoopState = target;
+		_animLoopScene = scene;
 	}
 
 	const ulong FallGraceMs = 400;
@@ -605,16 +598,16 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Phase 4 ToggleCarrierLight handler hook. Spawns/despawns a CarrierLight
+	// Phase 4 ToggleMovingLight handler hook. Spawns/despawns a MovingLight
 	// attached to the player. The player must be inside the scene tree by
 	// this point (Initialize has run); attach the light as a child so it
 	// follows the player's transform. The scene comes from the activating
 	// torch's TorchData — different torches can carry different lights.
-	public void SetCarrierLightActive(bool active, PackedScene scene = null)
+	public void SetMovingLightActive(bool active, PackedScene scene = null)
 	{
 		if (active)
 		{
-			if (_carrierLight != null)
+			if (_movingLight != null)
 			{
 				return;
 			}
@@ -622,18 +615,18 @@ public partial class Player : CharacterBody3D
 			{
 				return;
 			}
-			_carrierLight = scene.Instantiate<CarrierLight>();
-			AddChild(_carrierLight);
+			_movingLight = scene.Instantiate<MovingLight>();
+			AddChild(_movingLight);
 		}
 		else
 		{
-			if (_carrierLight == null)
+			if (_movingLight == null)
 			{
 				return;
 			}
-			_carrierLight.Deactivate();
-			_carrierLight.QueueFree();
-			_carrierLight = null;
+			_movingLight.Deactivate();
+			_movingLight.QueueFree();
+			_movingLight = null;
 		}
 	}
 
