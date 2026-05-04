@@ -124,7 +124,24 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
-		_player.ProcessInput(camera.Yaw);
+
+		// Signpost-panel modal: while open, the Interact press only closes
+		// the panel and the player is held still. Capturing the press here
+		// (before ProcessInput) keeps the same press from immediately
+		// reopening the same signpost via _highlightInteractive. Camera
+		// and rendering keep updating below.
+		bool signpostOpen = hud != null && hud.IsSignpostOpen;
+		if (signpostOpen)
+		{
+			if (Input.IsActionJustPressed("Interact"))
+			{
+				hud.CloseSignpost();
+			}
+		}
+		else
+		{
+			_player.ProcessInput(camera.Yaw);
+		}
 
 		// Per-frame push to the detail_sprite shader so grass bends around
 		// the player. Single global, sub-byte cost; written every frame so

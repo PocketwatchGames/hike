@@ -76,3 +76,22 @@ public class TrapSimState : EntitySimState
         return Trap.Create(world, this);
     }
 }
+
+public class SignpostSimState : EntitySimState
+{
+    // Text shown in the HUD panel when the player interacts. Stored on the
+    // sim state so each placed signpost in a world file can carry its own
+    // message — the .tscn is shared.
+    public string Text;
+
+    public SignpostSimState(Vector3 worldPosition, PackedScene scene, string text)
+        : base(worldPosition, scene)
+    {
+        Text = text ?? string.Empty;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Signpost.Create(world, this);
+    }
+}
