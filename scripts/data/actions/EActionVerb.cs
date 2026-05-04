@@ -6,5 +6,9 @@
 // generic (Primary/Secondary).
 public enum EActionVerb
 {
-	Use
+	Use,
+	// NPC conversation — the interactive's Complete spawns a chatter HUD
+	// bubble anchored to the speaker. Authored as an InteractiveAction with
+	// verb=Talk on a friendly mob's _interactiveActions array.
+	Talk
 }

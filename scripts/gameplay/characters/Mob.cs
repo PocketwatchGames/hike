@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Godot;
 
 [GlobalClass]
-public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
+public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 {
     [Export] private CollisionShape3D _collisionShape;
     [Export] private LitSpriteAnimator _animator;
@@ -11,6 +11,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
+    // Authored interaction verbs surfaced when the player walks up to this
+    // mob (Talk, Trade, etc.). First entry is the default action. Empty on
+    // mobs that aren't interactable — the InteractiveBox on the mob's .tscn
+    // shouldn't be wired in that case so the player never highlights them.
+    [Export] private Godot.Collections.Array<InteractiveAction> _interactiveActions = new();
     // Per-ground-type one-shot effect played at the mob's feet while moving
     // on solid ground. Authored in each mob .tscn; missing keys silently
     // emit nothing.
@@ -339,6 +344,62 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
         _oneShotAnim = name;
         _animator.Play(name);
+    }
+
+    // IInteractive — only mobs with authored _interactiveActions surface as
+    // interactable. The InteractiveBox on the mob's .tscn drives detection;
+    // CanInteract / CanActorInteract gate the press itself.
+    public Vector3 hudPosition => HudAnchor != null ? HudAnchor.GlobalPosition : GlobalPosition;
+
+    public bool CanInteract()
+    {
+        if (!alive || burrowed || burrowing)
+        {
+            return false;
+        }
+        return _interactiveActions != null && _interactiveActions.Count > 0;
+    }
+
+    public bool CanActorInteract(Player player) => CanInteract();
+
+    public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
+    {
+        if (!CanActorInteract(player))
+        {
+            return null;
+        }
+        return _interactiveActions != null && _interactiveActions.Count > 0 ? _interactiveActions : null;
+    }
+
+    public void Complete(int actionIndex)
+    {
+        if (_interactiveActions == null || actionIndex < 0 || actionIndex >= _interactiveActions.Count)
+        {
+            return;
+        }
+        InteractiveAction action = _interactiveActions[actionIndex];
+        if (action == null)
+        {
+            return;
+        }
+        switch (action.verb)
+        {
+            case EActionVerb.Talk:
+                SpeakChatter();
+                break;
+        }
+    }
+
+    private void SpeakChatter()
+    {
+        MobData md = mobData;
+        if (md == null || md.chatterLocKey == default || md.chatterLocKey == "")
+        {
+            return;
+        }
+        string line = Loc.Get(md.chatterLocKey);
+        ulong durationMs = (ulong)Mathf.Max(0f, md.chatterDurationSeconds * 1000f);
+        GameClient.Current?.onMobChatter?.Invoke(this, line, durationMs);
     }
 
     private void UpdateAnimation()

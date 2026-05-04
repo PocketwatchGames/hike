@@ -16,6 +16,7 @@ public partial class GameClient : Node3D
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
+	[Export] public PackedScene mobChatterScene;
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
 	// FlatLitSprite — the upright outline shader's vertex math would build
@@ -26,6 +27,10 @@ public partial class GameClient : Node3D
 	public Action onInit;
 	public Action<Player> onPlayerSpawned;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
+	// Mob speech bubble. Fired by Mob.SpeakChatter when a Talk interaction
+	// completes; OnMobChatterRequested instantiates a MobChatter HUD anchored
+	// to the speaker's HudAnchor.
+	public Action<Mob, string, ulong> onMobChatter;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
@@ -83,6 +88,7 @@ public partial class GameClient : Node3D
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
 	{
 		onHudText += OnHudTextRequested;
+		onMobChatter += OnMobChatterRequested;
 		onInit?.Invoke();
 
 		_world = new World();
@@ -457,6 +463,11 @@ public partial class GameClient : Node3D
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
 	{
 		HudText.Create(hudTextScene, _world, camera, position, text, fadeMs, verticalMovement, color, this);
+	}
+
+	void OnMobChatterRequested(Mob mob, string text, ulong durationMs)
+	{
+		MobChatter.Create(mobChatterScene, camera, mob, text, durationMs, worldHUD);
 	}
 
 	void OnPlayerInteractChanged(IInteractive interactive)

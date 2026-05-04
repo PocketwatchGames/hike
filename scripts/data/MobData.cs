@@ -40,6 +40,21 @@ public partial class MobData : Resource
     [Export] public float MemoryMovingTime = 3f;
 
     [ExportGroup("")]
+    // Faction this mob belongs to. Drives targeting / aggro filters elsewhere
+    // (a Friendly villager doesn't register as a threat, a Hostile creature
+    // attacks the player, a Neutral animal only retaliates). Behaviors are
+    // shared across teams — the brain decides what to do, the team decides
+    // who counts as a target.
+    [Export] public ETeam team = ETeam.Hostile;
+    // Localization key for the line spoken when an interact action with verb
+    // Talk completes. Empty string = no chatter line. Resolved through
+    // Loc.Get at speak time so language switches mid-game pick up the new
+    // string on the next interaction.
+    [Export] public StringName chatterLocKey = "";
+    // Seconds the chatter bubble stays on screen before fading. Speech timing
+    // is per-mob because a long-winded NPC and a one-word grunt belong on
+    // different schedules.
+    [Export] public float chatterDurationSeconds = 3f;
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking

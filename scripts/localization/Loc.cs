@@ -82,6 +82,25 @@ public static partial class Loc
 		return $"MISSING:{keyName}";
 	}
 
+	// String-keyed lookup for content-driven sites that store loc keys as
+	// authored data (e.g. MobData.chatterLocKey). The typed `Keys` enum is
+	// preferred at code call sites because the build-time generator catches
+	// typos; this overload is the escape hatch when the key only exists as
+	// a piece of authored data.
+	public static string Get(StringName key)
+	{
+		if (key == default)
+		{
+			return "";
+		}
+		string keyName = key.ToString();
+		if (_strings.TryGetValue(keyName, out string value))
+		{
+			return value;
+		}
+		return $"MISSING:{keyName}";
+	}
+
 	public static string Format(Keys key, params object[] args)
 	{
 		string text = Get(key);
