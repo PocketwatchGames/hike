@@ -123,7 +123,7 @@ public static class ItemEventHandlers
 		}
 
 		// Clip against environment.
-		var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
+		using var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
 		envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
 		envQuery.CollideWithAreas = false;
 		envQuery.CollideWithBodies = true;
@@ -137,7 +137,7 @@ public static class ItemEventHandlers
 		}
 
 		// Cast against hurtboxes up to the clipped end point.
-		var hurtQuery = PhysicsRayQueryParameters3D.Create(origin, hitPos);
+		using var hurtQuery = PhysicsRayQueryParameters3D.Create(origin, hitPos);
 		hurtQuery.CollisionMask = actor.AttackHurtboxMask;
 		hurtQuery.CollideWithAreas = true;
 		hurtQuery.CollideWithBodies = false;

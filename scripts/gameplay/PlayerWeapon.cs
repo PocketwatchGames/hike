@@ -8,27 +8,6 @@ using Godot;
 // another entry that constructs a context and calls TryStart.
 public partial class Player : CharacterBody3D, IActionActor
 {
-	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
-	{
-		{ EInventorySlot.WeaponLeft, "AttackMelee" },
-		{ EInventorySlot.WeaponRight, "AttackRanged" }
-	};
-
-	void HandleWeaponInputs()
-	{
-		foreach (var (slot, actionName) in _weaponActions)
-		{
-			if (Input.IsActionJustPressed(actionName))
-			{
-				TryStartWeaponAction(slot);
-			}
-			if (Input.IsActionJustReleased(actionName))
-			{
-				ReleaseWeaponAction(slot);
-			}
-		}
-	}
-
 	void TryStartWeaponAction(EInventorySlot slot)
 	{
 		if (_runner == null || _runner.IsBusy)

@@ -2,14 +2,41 @@ using Godot;
 using Godot.Collections;
 
 // Single timeline event fired during an action's Charging or Active phase.
-// Per-type fields are unioned on the resource — handlers switch on `type`
-// and read only the fields relevant to that type. New types append fields
-// rather than fork the resource so existing .tres files keep loading.
+// `type` is a bitmask — a single event can fire several behaviors at once
+// (e.g. ApplyEffect | DecrementStack on a healing potion's release tick).
+// Per-flag fields are unioned on the resource — handlers test each flag and
+// read only the fields relevant to that flag. New flags append bits rather
+// than fork the resource so existing .tres files keep loading.
+//
+// The inspector hides fields whose owning flag isn't selected (see
+// `_ValidateProperty`). Storage is preserved while hidden, so toggling a
+// flag off and back on doesn't lose previously-authored values. `[Tool]`
+// is required for `_ValidateProperty` to fire in the editor.
+[Tool]
 [GlobalClass]
 public partial class ItemEvent : Resource
 {
 	[Export] public ushort time;
-	[Export] public EItemEventType type;
+
+	private EItemEventType _type;
+	[Export, CompactFlags] public EItemEventType type
+	{
+		get => _type;
+		set
+		{
+			if (_type == value) { return; }
+			_type = value;
+			// Defer the property-list rebuild to idle so a custom editor that
+			// triggered this set (e.g. addons/data_ed/FlagsPropertyEditor) isn't
+			// torn down mid-callback. Without the defer, toggling a flag from
+			// the dropdown can leave the menu dispatching to a destroyed editor
+			// and cause neighbouring flags to flip.
+			CallDeferred(MethodName.NotifyPropertyListChanged);
+			// EmitChanged so an inline sub-resource view (the common case for
+			// ItemEvent inside an ItemAction's events array) re-renders too.
+			EmitChanged();
+		}
+	}
 
 	// Melee fields
 	[Export] public float meleeRange = 1f;
@@ -22,12 +49,11 @@ public partial class ItemEvent : Resource
 	// effects (heal + cleanse, light + buff). Each is applied to the actor.
 	[Export] public Array<ItemEffect> effects = new();
 
-	// PlayAnim / PlaySound fields. Routed through IActionActor.PlayAnim
-	// and IActionActor.PlaySound respectively. animName uses the EAnimation
+	// PlayAnim fields. Routed through IActionActor.PlayAnim
+	// animName uses the EAnimation
 	// enum so the inspector shows a typo-proof dropdown — non-PlayAnim event
 	// types ignore the field, so the default (Attack=0) is harmless on them.
 	[Export] public EAnimation animName;
-	[Export] public StringName soundName;
 
 	// ToggleCarrierLight: no extra fields. Handler flips ConsumableState.isActive
 	// on the action's primaryItem and attaches/detaches a CarrierLight.
@@ -64,4 +90,37 @@ public partial class ItemEvent : Resource
 	[Export] public PackedScene impactHealthEffect;
 	[Export] public PackedScene impactArmorEffect;
 	[Export] public PackedScene impactLethalEffect;
+
+	public override void _ValidateProperty(Dictionary property)
+	{
+		string name = property["name"].AsString();
+		EItemEventType requiredFlags = GetRequiredFlags(name);
+		if (requiredFlags == 0) { return; }
+		if ((_type & requiredFlags) != 0) { return; }
+		// Mask out the Editor bit so the field is hidden from the inspector
+		// when its owning flag isn't selected. Storage is preserved, so a
+		// previously-authored value comes back when the flag is re-enabled.
+		PropertyUsageFlags usage = property["usage"].As<PropertyUsageFlags>() & ~PropertyUsageFlags.Editor;
+		property["usage"] = (int)usage;
+	}
+
+	private static EItemEventType GetRequiredFlags(string fieldName)
+	{
+		return fieldName switch
+		{
+			nameof(meleeRange) or nameof(meleeRadius) => EItemEventType.Melee,
+			nameof(hitScanRange) => EItemEventType.Hitscan,
+			nameof(effects) => EItemEventType.ApplyStatusEffect,
+			nameof(animName) => EItemEventType.PlayAnim,
+			nameof(fx) => EItemEventType.OpenInteractive,
+			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
+			nameof(damageData)
+				or nameof(impactMissEffect)
+				or nameof(impactEnvironmentEffect)
+				or nameof(impactHealthEffect)
+				or nameof(impactArmorEffect)
+				or nameof(impactLethalEffect) => EItemEventType.Melee | EItemEventType.Hitscan,
+			_ => 0,
+		};
+	}
 }

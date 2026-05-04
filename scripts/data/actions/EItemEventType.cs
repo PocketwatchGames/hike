@@ -1,24 +1,28 @@
-// Type tag on ItemEvent. Wire values are stable — append new ones, never
-// reuse old numbers, so existing weapon/consumable .tres files keep loading.
-// Combat values (Melee/Hitscan/UseAmmo) match the original WeaponEvent enum.
+using System;
+
+// Bitmask on ItemEvent — a single event can fire several behaviors at once
+// (e.g. ApplyEffect | DecrementStack on a healing potion's release tick).
+// Wire values are stable — append new bits, never reassign existing ones,
+// so existing weapon/consumable .tres files keep loading.
+[Flags]
 public enum EItemEventType
 {
-	Melee = 0,
-	Hitscan = 1,
-	UseAmmo = 2,
-	ApplyEffect = 3,
-	DecrementStack = 4,
-	ToggleCarrierLight = 6,
-	PlayAnim = 7,
-	PlaySound = 8,
+	Melee = 1 << 0,
+	Hitscan = 1 << 1,
+	UseAmmo = 1 << 2,
+	ApplyStatusEffect = 1 << 3,
+	DecrementStack = 1 << 4,
+	ToggleCarrierLight = 1 << 5,
+	PlayAnim = 1 << 6,
+//	PlaySound = 1 << 7, REMOVED
 	// Calls Complete() on context.primaryInteractive — the universal way for
 	// an interactive action's timeline to trigger the interactive's effect
 	// (chest opens, door swings, lockpick succeeds).
-	OpenInteractive = 9,
+	OpenInteractive = 1 << 8,
 	// Decrements one unit from a matching item in context.supportingItems.
 	// The matching item is identified by ev.reagent (an ItemData). On stack
 	// reaching zero, the supporting item is removed from the player's
 	// inventory.
-	ConsumeFromInventory = 10,
+	ConsumeFromInventory = 1 << 9,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

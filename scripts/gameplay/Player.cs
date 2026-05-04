@@ -131,6 +131,11 @@ public partial class Player : CharacterBody3D
 	ulong _armorRechargeStartMs;
 	bool _armorRecharging;
 	bool _armorDepleted;
+	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
+	// instances of the same StatusEffectData stack — each AddStatusEffect
+	// appends a fresh state and ticks independently. The HUD groups by data
+	// when rendering. List grows at most to a handful of concurrent effects.
+	readonly List<StatusEffectState> _statusEffects = new();
 	CarrierLight _carrierLight;
 	StringName _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
@@ -149,6 +154,7 @@ public partial class Player : CharacterBody3D
 	public float MaxHealth => data?.maxHealth ?? 100f;
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor;
+	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public IInteractive CurInteractive => _curInteractive;
@@ -515,6 +521,91 @@ public partial class Player : CharacterBody3D
 		_health = Mathf.Min(MaxHealth, _health + amount);
 	}
 
+	// Append a fresh state for `data`. Multiple instances of the same data
+	// are intentional — the HUD shows them as one icon with a count, and each
+	// instance ticks independently. Returns the new state so the caller (e.g.
+	// the wet-after-swim trigger) can hold a handle and arm the timer later.
+	public StatusEffectState AddStatusEffect(StatusEffectData data)
+	{
+		if (data == null)
+		{
+			return null;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		var state = new StatusEffectState(data, now);
+		_statusEffects.Add(state);
+		return state;
+	}
+
+	public void RemoveStatusEffect(StatusEffectState state)
+	{
+		if (state == null)
+		{
+			return;
+		}
+		_statusEffects.Remove(state);
+	}
+
+	// Walks all active status effects, applies each one's per-second damage in
+	// integer 1.0s chunks, and prunes any whose timer has expired. Iterates
+	// backwards so a removal mid-loop doesn't shift indices for unvisited
+	// entries. Persistent effects (expireTimeMs == 0) survive forever and rely
+	// on gameplay code to call RemoveStatusEffect explicitly.
+	private void TickStatusEffects(float dt)
+	{
+		if (_statusEffects.Count == 0)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			StatusEffectState s = _statusEffects[i];
+			if (s.data == null)
+			{
+				_statusEffects.RemoveAt(i);
+				continue;
+			}
+			s.tickAccumulator += dt;
+			while (s.tickAccumulator >= 1f)
+			{
+				s.tickAccumulator -= 1f;
+				if (s.data.damagePerSecond != 0f)
+				{
+					// damagePerSecond > 0 = poison; < 0 = heal. Convert to a
+					// signed HP delta (heal positive, damage negative) for the
+					// shared application path below.
+					ApplyStatusHealthDelta(-s.data.damagePerSecond);
+				}
+			}
+			if (s.IsTimed && now >= s.expireTimeMs)
+			{
+				_statusEffects.RemoveAt(i);
+			}
+		}
+	}
+
+	// Signed HP delta from a status-effect tick. Positive heals, negative
+	// damages. Bypasses armor — poison-style ticks are designed to chip
+	// regardless of armor in most games, and routing through OnHurtBoxHit
+	// would also fire the runner-interrupt + DamageData path which doesn't
+	// fit a per-second tick.
+	private void ApplyStatusHealthDelta(float delta)
+	{
+		if (delta == 0f || _health <= 0f)
+		{
+			return;
+		}
+		bool wasAlive = _health > 0f;
+		_health = Mathf.Clamp(_health + delta, 0f, MaxHealth);
+		if (_health <= 0f && wasAlive)
+		{
+			SpawnWorldEffect(_deathEffect);
+			SpawnWorldEffect(_deathVoEffect);
+			PlayOneShot(EAnimation.Die);
+		}
+	}
+
 	// Phase 4 ToggleCarrierLight handler hook. Spawns/despawns a CarrierLight
 	// attached to the player. The player must be inside the scene tree by
 	// this point (Initialize has run); attach the light as a child so it
@@ -677,6 +768,7 @@ public partial class Player : CharacterBody3D
 		UpdateTerrainSpeed();
 		UpdateWaterState();
 		TickArmor(dt);
+		TickStatusEffects(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer
 		// while wading (discrete step impacts) than while swimming
@@ -789,7 +881,7 @@ public partial class Player : CharacterBody3D
 		bool useStepUp = _grounded && _waterState != EWaterState.Swimming;
 		if (useStepUp)
 		{
-			MoveAndCollide(Vector3.Up * data.stepHeight);
+			using var stepUpResult = MoveAndCollide(Vector3.Up * data.stepHeight);
 		}
 
 		bool wasOnFloor = _grounded;
@@ -804,7 +896,7 @@ public partial class Player : CharacterBody3D
 		// Step down: snap back to the ground after moving
 		if (wasOnFloor && _waterState != EWaterState.Swimming)
 		{
-			KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
+			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
 			// Match the body's own floor classifier — same threshold MoveAndSlide
 			// and IsOnFloor use, editor-tunable via FloorMaxAngle on the node.
 			float floorDotMin = Mathf.Cos(FloorMaxAngle);
@@ -908,7 +1000,12 @@ public partial class Player : CharacterBody3D
 		_highlightInteractive = null;
 		onHighlightChanged?.Invoke(null);
 	}
-	
+
+	static readonly Dictionary<EInventorySlot, string> _weaponActions = new()
+	{
+		{ EInventorySlot.WeaponLeft, "AttackMelee" },
+		{ EInventorySlot.WeaponRight, "AttackRanged" }
+	};
 	public void ProcessInput(float cameraYaw)
 	{
 		Vector2 move = Vector2.Zero;
@@ -945,7 +1042,7 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("Sneak"))
+		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee"))
 		{
 			CancelInteract();
 		}
@@ -999,7 +1096,17 @@ public partial class Player : CharacterBody3D
 			_jumpHeld = false;
 		}
 
-		HandleWeaponInputs();
+		foreach (var (slot, actionName) in _weaponActions)
+		{
+			if (Input.IsActionJustPressed(actionName))
+			{
+				TryStartWeaponAction(slot);
+			}
+			if (Input.IsActionJustReleased(actionName))
+			{
+				ReleaseWeaponAction(slot);
+			}
+		}
 	}
 
 	bool TryGetWeaponState(EInventorySlot slot, out WeaponState weapon)
@@ -1093,7 +1200,7 @@ public partial class Player : CharacterBody3D
 		int count = GetSlideCollisionCount();
 		for (int i = 0; i < count; i++)
 		{
-			KinematicCollision3D c = GetSlideCollision(i);
+			using KinematicCollision3D c = GetSlideCollision(i);
 			if (c?.GetCollider() is not Mob mob)
 			{
 				continue;

@@ -2,23 +2,21 @@
 
 [ext_resource type="Script" uid="uid://focjwpyi1rej" path="res://scripts/gui/StatusEffectHud.cs" id="1_ab23k"]
 
-[node name="StatusEffectHud" type="Control" unique_id=473910633 node_paths=PackedStringArray("_icon", "_count", "_progressBar", "_countContainer")]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="StatusEffectHud" type="BoxContainer" unique_id=904480190 node_paths=PackedStringArray("_icon", "_count", "_progressBar", "_countContainer")]
+offset_right = 40.0
+offset_bottom = 40.0
+size_flags_horizontal = 4
+size_flags_vertical = 4
 script = ExtResource("1_ab23k")
 _icon = NodePath("PanelContainer/TextureRect")
 _count = NodePath("PanelContainer/MarginContainer/PanelContainer/MarginContainer/Label")
 _progressBar = NodePath("PanelContainer/ProgressBar")
 _countContainer = NodePath("PanelContainer/MarginContainer")
+metadata/_custom_type_script = "uid://focjwpyi1rej"
 
 [node name="PanelContainer" type="PanelContainer" parent="." unique_id=1565222148]
-layout_mode = 0
-offset_right = 40.0
-offset_bottom = 40.0
+layout_mode = 2
+size_flags_horizontal = 3
 
 [node name="ProgressBar" type="ProgressBar" parent="PanelContainer" unique_id=639770476]
 layout_mode = 2
@@ -27,7 +25,10 @@ max_value = 1.0
 show_percentage = false
 
 [node name="TextureRect" type="TextureRect" parent="PanelContainer" unique_id=392482078]
+custom_minimum_size = Vector2(40, 40)
 layout_mode = 2
+expand_mode = 5
+stretch_mode = 4
 
 [node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=456675590]
 layout_mode = 2

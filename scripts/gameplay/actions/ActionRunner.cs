@@ -512,41 +512,50 @@ public class ActionRunner
 		}
 	}
 
+	// `type` is a bitmask — each flag's handler runs in sequence so a single
+	// event can fire several behaviors at once (e.g. ApplyEffect | DecrementStack
+	// for a healing potion's release tick). Order matters where one handler
+	// can invalidate another's inputs: visuals first, then state mutations,
+	// then DecrementStack last because it can null out primaryItem when the
+	// stack hits zero.
 	private void DispatchEvent(ItemEvent ev)
 	{
-		switch (ev.type)
+		EItemEventType t = ev.type;
+		if ((t & EItemEventType.PlayAnim) != 0)
 		{
-			case EItemEventType.Melee:
-				ItemEventHandlers.DoMelee(_actor, ev, ref _action);
-				break;
-			case EItemEventType.Hitscan:
-				ItemEventHandlers.DoHitscan(_actor, ev, ref _action);
-				break;
-			case EItemEventType.UseAmmo:
-				ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
-				break;
-			case EItemEventType.ApplyEffect:
-				ItemEventHandlers.DoApplyEffect(_actor, ev, ref _action);
-				break;
-			case EItemEventType.DecrementStack:
-				ItemEventHandlers.DoDecrementStack(_actor, ev, ref _action);
-				break;
-			case EItemEventType.ToggleCarrierLight:
-				ItemEventHandlers.DoToggleCarrierLight(_actor, ev, ref _action);
-				break;
-			case EItemEventType.PlayAnim:
-				_actor.PlayAnim(ev.animName);
-				break;
-			case EItemEventType.PlaySound:
-				// Sound playback is wired through Fx in actor-specific
-				// code; for now the event is a no-op stub so authoring can use it.
-				break;
-			case EItemEventType.OpenInteractive:
-				ItemEventHandlers.DoOpenInteractive(_actor, ev, ref _action);
-				break;
-			case EItemEventType.ConsumeFromInventory:
-				ItemEventHandlers.DoConsumeFromInventory(_actor, ev, ref _action);
-				break;
+			_actor.PlayAnim(ev.animName);
+		}
+		if ((t & EItemEventType.ApplyStatusEffect) != 0)
+		{
+			ItemEventHandlers.DoApplyEffect(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.Melee) != 0)
+		{
+			ItemEventHandlers.DoMelee(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.Hitscan) != 0)
+		{
+			ItemEventHandlers.DoHitscan(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.UseAmmo) != 0)
+		{
+			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.ToggleCarrierLight) != 0)
+		{
+			ItemEventHandlers.DoToggleCarrierLight(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.OpenInteractive) != 0)
+		{
+			ItemEventHandlers.DoOpenInteractive(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.ConsumeFromInventory) != 0)
+		{
+			ItemEventHandlers.DoConsumeFromInventory(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.DecrementStack) != 0)
+		{
+			ItemEventHandlers.DoDecrementStack(_actor, ev, ref _action);
 		}
 	}
 

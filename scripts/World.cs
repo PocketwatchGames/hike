@@ -315,7 +315,7 @@ public partial class World : Node3D
         Vector3 toSun = -_worldState.ShadowLightDirection;
         Vector3 from = pos + toSun * SUN_RAY_ORIGIN_OFFSET;
         Vector3 to = from + toSun * SUN_RAY_DISTANCE;
-        var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
         var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
         return result.Count == 0;
     }

@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public partial class Hud : CanvasLayer
 {
@@ -16,6 +17,16 @@ public partial class Hud : CanvasLayer
 
 	Player _player;
 	Inventory _inventory;
+	// Active status-effect HUD nodes keyed by their data. Multiple stacked
+	// instances of the same data show as one HUD entry — count is set on the
+	// existing entry instead of spawning duplicates. Entries are added /
+	// removed each tick as the player's status-effect list changes.
+	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
+	// Reused per-frame so the per-data instance counts don't churn the GC.
+	// Cleared at the top of UpdateStatusEffects.
+	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
+	readonly Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
+	readonly List<StatusEffectData> _statusEffectsToRemove = new();
 
 	public override void _Ready()
 	{
@@ -104,9 +115,78 @@ public partial class Hud : CanvasLayer
 		_weaponRightHud.Tick(now);
 		_consumableHud.Tick(now);
 
+		UpdateStatusEffects(now);
+
 		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponLeft, now));
 		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRight, now));
 		_consumableButtonHint.SetProgress(GetChargeProgress(EInventorySlot.Consumable, now));
+	}
+
+	// Sync the strip of status-effect icons against the player's current list.
+	// Effects with the same data stack into one entry whose count badge shows
+	// stack size; the progress bar tracks the timer of the instance closest to
+	// expiry (or hides if every instance in the stack is persistent).
+	void UpdateStatusEffects(ulong now)
+	{
+		_statusEffectCounts.Clear();
+		_statusEffectShortestRemainingMs.Clear();
+
+		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
+		for (int i = 0; i < effects.Count; i++)
+		{
+			StatusEffectState s = effects[i];
+			if (s?.data == null)
+			{
+				continue;
+			}
+			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
+			_statusEffectCounts[s.data] = prevCount + 1;
+			if (s.IsTimed)
+			{
+				ulong remaining = s.RemainingMs(now);
+				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
+					|| remaining < prevShortest)
+				{
+					_statusEffectShortestRemainingMs[s.data] = remaining;
+				}
+			}
+		}
+
+		// Drop HUD entries whose data no longer appears in the player's list.
+		_statusEffectsToRemove.Clear();
+		foreach (var kv in _statusEffectHuds)
+		{
+			if (!_statusEffectCounts.ContainsKey(kv.Key))
+			{
+				kv.Value.QueueFree();
+				_statusEffectsToRemove.Add(kv.Key);
+			}
+		}
+		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
+		{
+			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
+		}
+
+		// Add / refresh entries for everything currently held.
+		foreach (var kv in _statusEffectCounts)
+		{
+			StatusEffectData data = kv.Key;
+			int count = kv.Value;
+			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
+			{
+				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
+				_statusEffectContainer.AddChild(hud);
+				_statusEffectHuds[data] = hud;
+			}
+			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
+			float progress = 0f;
+			if (hasTimer)
+			{
+				float totalMs = data.duration * 1000f;
+				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
+			}
+			hud.Set(data, count, progress, hasTimer);
+		}
 	}
 
 	// Charge fill toward the next tier's chargeTime while the slot's item is

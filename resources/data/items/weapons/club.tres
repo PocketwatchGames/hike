@@ -17,14 +17,9 @@
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/effects/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
 
-[sub_resource type="Resource" id="Resource_event_light_anim"]
-script = ExtResource("3_event")
-type = 7
-soundName = null
-
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
-soundName = null
+type = 65
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -33,20 +28,15 @@ impactLethalEffect = ExtResource("7_hitkill")
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 cooldownSeconds = 0.4
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_light_anim"), SubResource("Resource_event_light")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
 releaseEffect = ExtResource("8_atklight")
 
-[sub_resource type="Resource" id="Resource_event_heavy_anim"]
-script = ExtResource("3_event")
-type = 7
-soundName = null
-
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
+type = 65
 meleeRange = 1.5
 meleeRadius = 2.5
-soundName = null
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -56,7 +46,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 script = ExtResource("4_charged")
 chargeTime = 0.4
 cooldownSeconds = 0.8
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy_anim"), SubResource("Resource_event_heavy")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
 chargeStartEffect = ExtResource("8_chghead")
 chargeLoopEffect = ExtResource("8_chgloop")
 chargeCancelEffect = ExtResource("8_chgtail")

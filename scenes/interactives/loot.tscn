@@ -16,7 +16,7 @@
 
 [sub_resource type="Resource" id="Resource_loot_event_open"]
 script = ExtResource("12_event")
-type = 9
+type = 256
 
 [sub_resource type="Resource" id="Resource_loot_action_open"]
 script = ExtResource("11_action")

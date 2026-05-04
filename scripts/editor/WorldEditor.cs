@@ -580,7 +580,7 @@ public partial class WorldEditor : Node3D
         Vector3 rayEnd = rayOrigin + rayDir * 200f;
 
         var spaceState = GetWorld3D().DirectSpaceState;
-        var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
+        using var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
         query.CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Water);
         return spaceState.IntersectRay(query);
     }

@@ -11,6 +11,13 @@
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' Or '$(Configuration)' == 'ExportDebug' ">
     <DefineConstants>$(DefineConstants);PROFILE</DefineConstants>
   </PropertyGroup>
+  <!-- TOOLS gates editor-only addon code (custom inspector property editors,
+       editor plugins). Defined for the editor's Debug config only — exports
+       use ExportDebug / ExportRelease, so shipped builds get the addon
+       sources stripped via #if TOOLS. -->
+  <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+    <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
+  </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tools/**" />
   </ItemGroup>

@@ -136,6 +136,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     private ActionRunner _runner;
     public ActionRunner Runner => _runner;
 
+    // Status effects (poison, heal-over-time, hot, wet, ...). Same lifecycle
+    // model as Player — multiple instances of the same data stack and tick
+    // independently. Mob has no HUD currently, but the data is exposed for
+    // future debug / HUD work.
+    readonly List<StatusEffectState> _statusEffects = new();
+    public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
+
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
     readonly WaterRippleEmitter _rippleEmitter = new();
@@ -665,6 +672,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         if (alive)
         {
             TickArmor((float)delta);
+            TickStatusEffects((float)delta);
             TickAI((float)delta, out AIOutput aiOutput);
 
             // Drive the action runner from AIOutput. BehaviorAttack populates
@@ -968,6 +976,84 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         {
             SpawnWorldEffect(_bloodDamageEffect);
             SpawnWorldEffect(_hurtVoEffect);
+        }
+    }
+
+    public StatusEffectState AddStatusEffect(StatusEffectData data)
+    {
+        if (data == null)
+        {
+            return null;
+        }
+        ulong now = _world?.GameTimeMs ?? 0;
+        var state = new StatusEffectState(data, now);
+        _statusEffects.Add(state);
+        return state;
+    }
+
+    public void RemoveStatusEffect(StatusEffectState state)
+    {
+        if (state == null)
+        {
+            return;
+        }
+        _statusEffects.Remove(state);
+    }
+
+    // Mirrors Player.TickStatusEffects: per-second damage chunks via the
+    // state's accumulator, expire-and-prune on timer. Iterating backwards so
+    // a removal mid-loop doesn't shift indices for unvisited entries.
+    private void TickStatusEffects(float dt)
+    {
+        if (_statusEffects.Count == 0)
+        {
+            return;
+        }
+        ulong now = _world?.GameTimeMs ?? 0;
+        for (int i = _statusEffects.Count - 1; i >= 0; i--)
+        {
+            StatusEffectState s = _statusEffects[i];
+            if (s.data == null)
+            {
+                _statusEffects.RemoveAt(i);
+                continue;
+            }
+            s.tickAccumulator += dt;
+            while (s.tickAccumulator >= 1f)
+            {
+                s.tickAccumulator -= 1f;
+                if (s.data.damagePerSecond != 0f)
+                {
+                    ApplyStatusHealthDelta(-s.data.damagePerSecond);
+                }
+            }
+            if (s.IsTimed && now >= s.expireTimeMs)
+            {
+                _statusEffects.RemoveAt(i);
+            }
+        }
+    }
+
+    // Signed HP delta from a status-effect tick. Bypasses armor (per-second
+    // poison ticks aren't supposed to be soaked) and skips Damage()'s blood /
+    // hurt-VO oneshots — those would spam every tick.
+    private void ApplyStatusHealthDelta(float delta)
+    {
+        if (delta == 0f || !alive)
+        {
+            return;
+        }
+        if (delta > 0f)
+        {
+            health = Mathf.Min(maxHealth, health + delta);
+        }
+        else
+        {
+            health = Mathf.Max(0f, health + delta);
+            if (health <= 0f)
+            {
+                Die();
+            }
         }
     }
 

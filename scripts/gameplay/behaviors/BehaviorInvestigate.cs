@@ -80,7 +80,7 @@ public partial class BehaviorInvestigate : BehaviorBase
     {
         Vector3 rayStart = me.GlobalPosition + new Vector3(0f, EyeHeight, 0f);
         Vector3 rayEnd = target + new Vector3(0f, EyeHeight, 0f);
-        var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
         query.CollideWithAreas = false;
         query.CollideWithBodies = true;
         var result = me.GetWorld3D().DirectSpaceState.IntersectRay(query);

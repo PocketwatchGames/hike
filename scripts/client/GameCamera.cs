@@ -242,7 +242,7 @@ public partial class GameCamera : Camera3D
 		Vector3 rayTo = new Vector3(playerPos.X, cameraY, playerPos.Z);
 
 		var spaceState = GetWorld3D().DirectSpaceState;
-		var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
+		using var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
 		query.CollisionMask = (uint)ECollisionLayer.Environment;
 		var result = spaceState.IntersectRay(query);
 

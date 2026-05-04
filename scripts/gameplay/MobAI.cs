@@ -300,7 +300,7 @@ public partial class Mob
                 Godot.Collections.Dictionary result;
                 using (Profiler.Sample("Mob.PerceptionRays"))
                 {
-                    var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
                     query.CollideWithAreas = false;
                     query.CollideWithBodies = true;
                     result = GetWorld3D().DirectSpaceState.IntersectRay(query);
@@ -385,7 +385,7 @@ public partial class Mob
                 Godot.Collections.Dictionary result;
                 using (Profiler.Sample("Mob.PerceptionRays"))
                 {
-                    var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
                     query.CollideWithAreas = false;
                     query.CollideWithBodies = true;
                     result = GetWorld3D().DirectSpaceState.IntersectRay(query);

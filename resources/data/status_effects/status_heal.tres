@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Healing"
+damagePerSecond = -1.0
+duration = 10.0

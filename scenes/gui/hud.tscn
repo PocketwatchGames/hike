@@ -67,6 +67,8 @@ alignment = 2
 [node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer" unique_id=607667683]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
 
 [node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer" unique_id=565732422]
 layout_mode = 2

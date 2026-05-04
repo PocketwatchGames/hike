@@ -409,7 +409,7 @@ public partial class MultimeshPropSprite : Sprite3D
         }
         Vector3 from = GlobalPosition + Vector3.Up * 0.1f;
         Vector3 to = GlobalPosition - Vector3.Up * 2.0f;
-        var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
         var result = space.IntersectRay(query);
         if (result.Count > 0 && result.TryGetValue("normal", out var normal))
         {
