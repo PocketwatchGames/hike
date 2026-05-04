@@ -18,7 +18,7 @@ public static class WorldGen
     public const int SKIP_DETAILS = 1;       // painted detail-sprite scatter
     public const int SKIP_PROPS = 2;         // trees + tall grass
     public const int SKIP_MOBS = 4;          // goblins, kun_kun (surface + cave)
-    public const int SKIP_INTERACTIVES = 8;  // loot + chests (surface + cave)
+    public const int SKIP_INTERACTIVES = 8;  // loot (surface + cave) + chests (cave)
     public const int SKIP_ALL = SKIP_DETAILS | SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES;
 
     private static readonly PackedScene PoisonChestScene =
@@ -2424,39 +2424,6 @@ public static class WorldGen
                         new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
                         rg.LootScene
                     ));
-                }
-            }
-
-            // Generate chests on grass surfaces
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
-                    if (rg == null || rg.ChestScene == null || rg.LootScene == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.ChestChance)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    int lootCount = rng.Next(rg.ChestLootCountMin, rg.ChestLootCountMax + 1);
-                    PackedScene chestScene = rng.NextDouble() < 0.5 && PoisonChestScene != null
-                        ? PoisonChestScene
-                        : rg.ChestScene;
-                    ws.AddEntity(new ChestSimState(new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        chestScene,
-                        lootCount,
-                        rg.LootScene));
                 }
             }
         }
