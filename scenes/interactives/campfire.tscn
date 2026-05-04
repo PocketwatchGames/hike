@@ -16,6 +16,7 @@
 [ext_resource type="Material" path="res://resources/materials/sprite_lit_flat.tres" id="12_nxiho"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="15_xray"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="16_anim"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -41,12 +42,39 @@ metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 [sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
 radius = 1.1
 
-[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light", "_hudNode")]
+[sub_resource type="AtlasTexture" id="AtlasTexture_campfire_on"]
+atlas = ExtResource("10_22kvh")
+region = Rect2(1, 383, 47, 36)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_campfire_off"]
+atlas = ExtResource("10_22kvh")
+region = Rect2(1, 383, 47, 37)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_campfire"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_campfire_on")
+}],
+"loop": true,
+"name": &"on",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_campfire_off")
+}],
+"loop": true,
+"name": &"off",
+"speed": 1.0
+}]
+
+[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_animator", "_light", "_hudNode", "_damageZone")]
 script = ExtResource("1_5bkwe")
-_litSprite = NodePath("LitSprite")
-_unlitSprite = NodePath("UnlitSprite")
+_animator = NodePath("LitSpriteAnimator")
 _light = NodePath("Light")
 _hudNode = NodePath("HUDNode")
+_damageZone = NodePath("DamageZone")
 _actions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_torch_action_use")])
 _lightOnEffectScene = ExtResource("2_q0pgg")
 _lightOffEffectScene = ExtResource("3_qk6wi")
@@ -67,18 +95,17 @@ _interactiveNode = NodePath("..")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1949507899]
 shape = SubResource("SphereShape3D_qk6wi")
 
-[node name="HurtBox" type="Area3D" parent="." unique_id=1515512162]
-collision_layer = 4
-collision_mask = 0
-monitoring = false
+[node name="DamageZone" type="Area3D" parent="." unique_id=1515512162]
+collision_layer = 0
+collision_mask = 32
 script = ExtResource("10_qk6wi")
 damage = SubResource("Resource_yf2vb")
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 
-[node name="CollisionShape3D2" type="CollisionShape3D" parent="HurtBox" unique_id=1443435336]
+[node name="CollisionShape3D2" type="CollisionShape3D" parent="DamageZone" unique_id=1443435336]
 shape = SubResource("SphereShape3D_q0pgg")
 
-[node name="LitSprite" type="Sprite3D" parent="." unique_id=821949110]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=821949110]
 transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
 cast_shadow = 0
 centered = false
@@ -92,20 +119,12 @@ script = ExtResource("11_naflh")
 MaterialTemplate = ExtResource("12_nxiho")
 metadata/_custom_type_script = "uid://bh20sg27my266"
 
-[node name="UnlitSprite" type="Sprite3D" parent="." unique_id=1661704827]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
-visible = false
-cast_shadow = 0
-centered = false
-offset = Vector2(-23.5, -18.5)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("10_22kvh")
-region_enabled = true
-region_rect = Rect2(1, 383, 47, 37)
-script = ExtResource("11_naflh")
-MaterialTemplate = ExtResource("12_nxiho")
-metadata/_custom_type_script = "uid://bh20sg27my266"
+[node name="LitSpriteAnimator" type="Node" parent="." unique_id=2074831234 node_paths=PackedStringArray("target")]
+script = ExtResource("16_anim")
+target = NodePath("../Sprite")
+frames = SubResource("SpriteFrames_campfire")
+defaultAnimation = &"on"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661]
 script = ExtResource("14_3pg55")
@@ -115,4 +134,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
 
 [node name="InteractiveXray" type="Node3D" parent="." unique_id=127640960 node_paths=PackedStringArray("_sprites")]
 script = ExtResource("15_xray")
-_sprites = [null, null]
+_sprites = [NodePath("../Sprite")]

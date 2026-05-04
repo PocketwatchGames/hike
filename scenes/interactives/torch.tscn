@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="13_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="14_event"]
 [ext_resource type="Script" path="res://scripts/gameplay/InteractiveXray.cs" id="15_xray"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="16_anim"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("14_event")
@@ -28,10 +29,28 @@ completionEvents = Array[ExtResource("14_event")]([SubResource("Resource_torch_e
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(0.5, 1, 0.5)
 
-[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light", "_hudNode")]
+[sub_resource type="SpriteFrames" id="SpriteFrames_torch"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_ty0ga")
+}],
+"loop": true,
+"name": &"on",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_m4hkm")
+}],
+"loop": true,
+"name": &"off",
+"speed": 1.0
+}]
+
+[node name="Torch" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_animator", "_light", "_hudNode")]
 script = ExtResource("1_torch")
-_litSprite = NodePath("LitSprite")
-_unlitSprite = NodePath("UnlitSprite")
+_animator = NodePath("LitSpriteAnimator")
 _light = NodePath("Light")
 _hudNode = NodePath("HUDNode")
 _lightOnEffectScene = ExtResource("10_torchon")
@@ -51,7 +70,7 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="LitSprite" type="Sprite3D" parent="." unique_id=222554796]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=222554796]
 centered = false
 offset = Vector2(-2, 0)
 pixel_size = 0.0738
@@ -63,18 +82,12 @@ MaterialTemplate = ExtResource("6_spritemat")
 Reflects = 1
 alpha_cut = 1
 
-[node name="UnlitSprite" type="Sprite3D" parent="." unique_id=579226933]
-visible = false
-centered = false
-offset = Vector2(-2, 0)
-pixel_size = 0.0738
-texture = ExtResource("3_m4hkm")
-region_enabled = true
-region_rect = Rect2(0, 0, 4, 13)
-script = ExtResource("5_litsprite")
-MaterialTemplate = ExtResource("6_spritemat")
-Reflects = 1
-alpha_cut = 1
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("16_anim")
+target = NodePath("../Sprite")
+frames = SubResource("SpriteFrames_torch")
+defaultAnimation = &"on"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="Light" type="Node3D" parent="." unique_id=1171222661 node_paths=PackedStringArray("_light")]
 script = ExtResource("4_light")
@@ -85,4 +98,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
 
 [node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
 script = ExtResource("15_xray")
-_sprites = [NodePath("../LitSprite"), NodePath("../UnlitSprite")]
+_sprites = [NodePath("../Sprite")]

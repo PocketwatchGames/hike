@@ -1,6 +1,0 @@
-[gd_resource type="Resource" script_class="WeatherData" format=3 uid="uid://dcq8cimfifuyr"]
-
-[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="1_script"]
-
-[resource]
-script = ExtResource("1_script")

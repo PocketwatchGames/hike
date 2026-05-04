@@ -4,8 +4,7 @@ using Godot;
 [GlobalClass]
 public partial class Chest : Node3D, IInteractive, IWorldEntity
 {
-    [Export] private Sprite3D _chestSprite;
-    [Export] private Sprite3D _openSprite;
+    [Export] private LitSpriteAnimator _animator;
     [Export] private HurtBox _hurtBox;
     // Authored interaction list. The first entry is the default action the
     // player runs on press; lockpick / break can be authored as additional
@@ -25,6 +24,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // NodePath references only.
     [Export] private Godot.Collections.Array<Node> _onOpenTargets = new();
     public Vector3 hudPosition => _hudNode.GlobalPosition;
+
+    private static readonly StringName AnimOpen = "open";
+    private static readonly StringName AnimClosed = "closed";
 
     private bool _open;
     private ChestSimState _interactiveState;
@@ -70,12 +72,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     {
         // Open/closed is the only state this method gates — perception
         // visibility (Hidden vs Discovered) is now driven by the
-        // Discoverable's dither fade pushed into the sprites' Visibility
-        // uniform. Authors who want the fade swap _chestSprite and
-        // _openSprite to LitSprite and wire them into the Discoverable's
-        // _fadeSprites array.
-        _chestSprite.Visible = !_open;
-        _openSprite.Visible = _open;
+        // Discoverable's dither fade pushed into the sprite's Visibility
+        // uniform.
+        _animator.Play(_open ? AnimOpen : AnimClosed);
     }
 
     public void Complete(int actionIndex)

@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="10_event"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/Discoverable.cs" id="15_i4oq8"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="16_xray"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="17_anim"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("10_event")
@@ -33,10 +34,36 @@ locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 
-[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite", "_openSprite", "_hurtBox", "_discoverable", "_hudNode")]
+[sub_resource type="AtlasTexture" id="AtlasTexture_chest_closed"]
+atlas = ExtResource("3_17q7g")
+region = Rect2(752, 165, 16, 27)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_chest_open"]
+atlas = ExtResource("3_17q7g")
+region = Rect2(736, 165, 16, 27)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_chest"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_chest_closed")
+}],
+"loop": true,
+"name": &"closed",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_chest_open")
+}],
+"loop": true,
+"name": &"open",
+"speed": 1.0
+}]
+
+[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_animator", "_hurtBox", "_discoverable", "_hudNode")]
 script = ExtResource("1_chest")
-_chestSprite = NodePath("ChestSprite")
-_openSprite = NodePath("OpenSprite")
+_animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
 _discoverable = NodePath("Discoverable")
@@ -59,7 +86,7 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="ChestSprite" type="Sprite3D" parent="." unique_id=1950719213]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=1950719213]
 cast_shadow = 0
 centered = false
 offset = Vector2(-8, 0)
@@ -75,21 +102,12 @@ ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
 
-[node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
-cast_shadow = 0
-centered = false
-offset = Vector2(-8, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("3_17q7g")
-region_enabled = true
-region_rect = Rect2(736, 165, 16, 27)
-script = ExtResource("4_litsprite")
-ForwardOffset = 0.5
-MaterialTemplate = ExtResource("5_lit_materialtemplate")
-ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
-BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
-ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("17_anim")
+target = NodePath("../Sprite")
+frames = SubResource("SpriteFrames_chest")
+defaultAnimation = &"closed"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]
 collision_layer = 32
@@ -106,11 +124,11 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
 [node name="Discoverable" type="Node3D" parent="." unique_id=752536990 node_paths=PackedStringArray("_fadeSprites", "_interactBox")]
 script = ExtResource("15_i4oq8")
 discoveredThreshold = 0.1
-_fadeSprites = [NodePath("../ChestSprite"), NodePath("../OpenSprite")]
+_fadeSprites = [NodePath("../Sprite")]
 _interactBox = NodePath("../InteractiveBox")
 metadata/_custom_type_script = "uid://ccogud7ied6xv"
 
 [node name="InteractiveXray" type="Node3D" parent="." unique_id=420307292 node_paths=PackedStringArray("_sprites", "_discoverable")]
 script = ExtResource("16_xray")
-_sprites = [NodePath("../ChestSprite"), NodePath("../OpenSprite")]
+_sprites = [NodePath("../Sprite")]
 _discoverable = NodePath("../Discoverable")

@@ -3,10 +3,12 @@ using Godot;
 [GlobalClass]
 public partial class Torch : Node3D, IInteractive, IWorldEntity
 {
-    [Export] private Sprite3D _litSprite;
-    [Export] private Sprite3D _unlitSprite;
+    [Export] private LitSpriteAnimator _animator;
     [Export] private Light _light;
     [Export] private Node3D _hudNode;
+    // Optional burn zone — only campfires need it. Null on regular wall
+    // torches. Tracks _active so a doused campfire stops dealing damage.
+    [Export] private DamageZone _damageZone;
     // Authored interaction list. Torch interactions are toggles (light /
     // douse) — typically instant.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
@@ -19,13 +21,13 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     private TorchSimState _interactiveState;
     private Fx _loopEffect;
 
-    // No _Ready override: the .tscn ships with LitSprite visible and
-    // UnlitSprite hidden, which matches the default _active=true state.
+    private static readonly StringName AnimOn = "on";
+    private static readonly StringName AnimOff = "off";
+
+    // No _Ready override: the .tscn ships with the animator's
+    // defaultAnimation = "on", which matches the default _active=true state.
     // Torch.Create runs UpdateVisuals after applying AutoLightAtNight, so
-    // any deviation from the authored state gets pushed there. Calling
-    // UpdateVisuals from _Ready was unsafe — the [Export] node refs aren't
-    // guaranteed to be populated for every scene-load path, and the call
-    // would NRE on the sprite fields.
+    // any deviation from the authored state gets pushed there.
 
     public void OnSpawned(World world) { }
 
@@ -51,6 +53,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
         UpdateVisuals();
         _light.SetActive(_active);
+        _damageZone?.SetActive(_active);
 
         PackedScene oneShot = _active ? _lightOnEffectScene : _lightOffEffectScene;
         if (oneShot != null)
@@ -75,15 +78,12 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
     private void UpdateVisuals()
     {
-        // Defensive null guards — chunk-streamed Torch entities have hit an
-        // intermittent NRE here where the [Export] sprite refs read null even
-        // after AddChild. Guard each so a misconfigured scene shows the
-        // authored sprite default rather than crashing the spawn path; flag
-        // it loudly so the missing wiring is visible in the log.
-        if (_litSprite != null) { _litSprite.Visible = _active; }
-        else { GD.PushError($"Torch '{Name}' has no _litSprite wired"); }
-        if (_unlitSprite != null) { _unlitSprite.Visible = !_active; }
-        else { GD.PushError($"Torch '{Name}' has no _unlitSprite wired"); }
+        if (_animator == null)
+        {
+            GD.PushError($"Torch '{Name}' has no _animator wired");
+            return;
+        }
+        _animator.Play(_active ? AnimOn : AnimOff);
     }
 
     public static Torch Create(World world, TorchSimState data)
@@ -108,6 +108,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         instance._active = data.Active;
         instance.UpdateVisuals();
         instance._light.SetActive(instance._active);
+        instance._damageZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();
 
         return instance;

@@ -11,6 +11,7 @@
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
 [ext_resource type="Script" path="res://scripts/gameplay/InteractiveXray.cs" id="10_xray"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="11_anim"]
 
 [sub_resource type="Resource" id="Resource_door_event_open"]
 script = ExtResource("9_event")
@@ -27,11 +28,30 @@ size = Vector3(1, 2, 1)
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(1, 2, 1)
 
-[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_doorSprite", "_hurtBox", "_hudNode")]
+[sub_resource type="SpriteFrames" id="SpriteFrames_door"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_k0lqv")
+}],
+"loop": true,
+"name": &"closed",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_k0lqv")
+}],
+"loop": true,
+"name": &"open",
+"speed": 1.0
+}]
+
+[node name="Door" type="Node3D" unique_id=964775259 node_paths=PackedStringArray("_blockCollider", "_sprite", "_animator", "_hurtBox", "_hudNode")]
 script = ExtResource("1_door")
-DoorTexture = ExtResource("2_k0lqv")
 _blockCollider = NodePath("BlockCollider")
-_doorSprite = NodePath("DoorSprite")
+_sprite = NodePath("Sprite")
+_animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("8_action")]([SubResource("Resource_door_action_open")])
@@ -53,13 +73,20 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="DoorSprite" type="Sprite3D" parent="." unique_id=658007565]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=658007565]
 texture = ExtResource("2_k0lqv")
 region_enabled = true
 region_rect = Rect2(0, 0, 10, 20)
 script = ExtResource("4_litsprite")
 MaterialTemplate = ExtResource("5_spritemat")
 alpha_cut = 1
+
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("11_anim")
+target = NodePath("../Sprite")
+frames = SubResource("SpriteFrames_door")
+defaultAnimation = &"closed"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1178586367]
 collision_layer = 32
@@ -75,4 +102,4 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.304572, 0)
 
 [node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
 script = ExtResource("10_xray")
-_sprites = [NodePath("../DoorSprite")]
+_sprites = [NodePath("../Sprite")]

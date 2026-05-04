@@ -28,6 +28,17 @@ public partial class InteractiveXray : Node3D
     // Discoverable.losRayHeight — a chest probe should clear a low wall
     // the same way the perception probe does.
     [Export] public float losRayHeight = 1f;
+    // Maximum |player_eye_y - interactive_y| (meters) for the X-ray to
+    // fire. Without this gate a chest on the ground floor would silhouette
+    // through the floor while the player walks the second story above, or
+    // through the ceiling while they're in a basement below — confusing
+    // since they're not actually "behind cover" relative to the chest,
+    // they're on a different plateau entirely. Symmetric absolute compare
+    // (so wall-mounted torches and floor chests are handled the same way),
+    // default 3m covers typical voxel floor-to-floor spacing with slop.
+    // Bump higher for tall interactives or open verticality; tighter for
+    // dense multi-story interiors where you want stricter elevation gating.
+    [Export] public float plateauHeight = 3f;
     [Export] private Godot.Collections.Array<SpriteBase> _sprites = new();
     // Optional: when set, the X-ray snaps on the moment the host's perception
     // state changes (e.g. chest goes Hidden → Discovered). Without this kick
@@ -130,6 +141,15 @@ public partial class InteractiveXray : Node3D
         Vector3 origin = GlobalPosition;
         float distSq = (origin - player.GlobalPosition).LengthSquared();
         if (distSq > xrayRange * xrayRange)
+        {
+            return 0f;
+        }
+        // Plateau-elevation gate, run before the raycast so cross-plateau
+        // probes pay nothing. Compares the player's eye Y against the
+        // interactive's anchor Y; a basement chest while the player walks
+        // the floor above falls outside the band and skips X-ray.
+        float playerEyeY = player.GlobalPosition.Y + PlayerEyeHeight;
+        if (Mathf.Abs(playerEyeY - origin.Y) > plateauHeight)
         {
             return 0f;
         }

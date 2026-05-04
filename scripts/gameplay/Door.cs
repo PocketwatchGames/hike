@@ -3,15 +3,18 @@ using Godot;
 [GlobalClass]
 public partial class Door : Node3D, IInteractive, IWorldEntity
 {
-    [Export] private Texture2D DoorTexture;
     [Export] private StaticBody3D _blockCollider;
-    [Export] private Sprite3D _doorSprite;
+    [Export] private Sprite3D _sprite;
+    [Export] private LitSpriteAnimator _animator;
     [Export] private HurtBox _hurtBox;
     [Export] private Node3D _hudNode;
     // Authored interaction list. Doors are typically instant Open
     // (durationSeconds=0); add a Lockpick entry for locked doors.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     public Vector3 hudPosition => _hudNode.GlobalPosition;
+
+    private static readonly StringName AnimOpen = "open";
+    private static readonly StringName AnimClosed = "closed";
 
     private bool _open;
     private DoorSimState _interactiveState;
@@ -21,8 +24,6 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
 
     public override void _Ready()
     {
-        _doorSprite.Texture = DoorTexture;
-
         if (_hurtBox != null)
         {
             _hurtBox.OnHit = OnHurtBoxHit;
@@ -60,8 +61,11 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
         // Toggle movement blocker
         _blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = _open;
 
-        // Toggle visual
-        _doorSprite.Visible = !_open;
+        // Toggle visual: the open animation will only matter once authors
+        // supply a real open frame; for now the door art is a single closed
+        // frame, so hide the sprite when open.
+        _animator.Play(_open ? AnimOpen : AnimClosed);
+        _sprite.Visible = !_open;
 
         // Update voxel data for light blocking
         VoxelType voxel = _open ? VoxelType.Air : VoxelType.Barrier;
@@ -94,7 +98,8 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
 
         instance._open = !data.Active;
         instance._blockCollider.GetNode<CollisionShape3D>("CollisionShape3D").Disabled = instance._open;
-        instance._doorSprite.Visible = !instance._open;
+        instance._animator.Play(instance._open ? AnimOpen : AnimClosed);
+        instance._sprite.Visible = !instance._open;
 
         return instance;
     }

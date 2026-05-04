@@ -21,6 +21,7 @@ public partial class DamageZone : Area3D
     private readonly List<HurtBox> _hurtBoxes = new();
     private float _tickTimer;
     private HitInfo _hit;
+    private bool _active = true;
 
     public override void _Ready()
     {
@@ -30,9 +31,18 @@ public partial class DamageZone : Area3D
         _hit = new HitInfo(damage, this);
     }
 
+    // Toggle whether the zone deals damage. Disabled zones still track
+    // entries/exits so re-enabling resumes ticking on whoever's currently
+    // inside, but skip the actual Hit calls. Used by Torch/campfire to
+    // turn the burn off while the fire is doused.
+    public void SetActive(bool active)
+    {
+        _active = active;
+    }
+
     public override void _PhysicsProcess(double delta)
     {
-        if (_hurtBoxes.Count == 0)
+        if (!_active || _hurtBoxes.Count == 0)
         {
             return;
         }
@@ -65,7 +75,7 @@ public partial class DamageZone : Area3D
             return;
         }
         _hurtBoxes.Add(hb);
-        if (tickOnEnter)
+        if (_active && tickOnEnter)
         {
             hb.Hit(_hit);
             _tickTimer = tickInterval;
