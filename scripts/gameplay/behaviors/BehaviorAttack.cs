@@ -33,7 +33,7 @@ public partial class BehaviorAttack : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        output.useTorch = me.ambientLight < MobSimState.TorchAmbientThreshold;
+        output.useTorch = me.ShouldUseTorch;
 
         Player target = targetPerception.pawnTarget;
         if (target == null)

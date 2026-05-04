@@ -3,6 +3,10 @@ using Godot;
 [GlobalClass]
 public partial class MobData : Resource
 {
+    [ExportGroup("Mob Perceives Player")]
+    // How this mob's AI sees the player — sight cone reach and shape, the
+    // accumulation curve that turns "in sight" into the triggered/alert
+    // state in MobAI.UpdatePerception's mob-to-player block.
     [Export] public float VisionRange = 15f;
     [Export] public float VisionDotPower = 0.5f;
     [Export] public float VisionDistancePower = 2f;
@@ -10,12 +14,32 @@ public partial class MobData : Resource
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
-    [Export] public float visibilityLightMax = 0.75f;
+
+    [ExportGroup("Player Perceives Mob")]
+    // How the player sees this mob — fed into PlayerPerception.Tick. Movement
+    // gates the per-frame visibility (a still mob is harder to spot), which
+    // is folded into prominence at the call site along with tall-grass
+    // camouflage. The thresholds and prominence are the per-target tuning
+    // the player-side helper consumes directly.
     [Export] public float visibilityMovementMin = 0.5f;
     [Export] public float visibilityMovementPower = 2;
     [Export] public float maxVisibilitySpeed = 5f;
+    // Free scalar on the player's perception distance — large mobs pass
+    // >1 to be spotted from farther; small / sneaky mobs <1.
+    [Export] public float prominence = 1f;
+    // Per-mob thresholds for player-perceives-mob state transitions. Same
+    // semantics as Discoverable: set detectedThreshold == discoveredThreshold
+    // for a mob that should pop straight from Hidden to Discovered with no
+    // suspicious phase (e.g. a boss that simply isn't sneakable).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float detectedThreshold = 0.1f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float discoveredThreshold = 1f;
+    // How long a Discovered mob stays Discovered after the player loses
+    // sight. Stationary mobs are remembered longer; mobs that have moved
+    // out of their last-known position decay faster.
     [Export] public float MemoryStationaryTime = 60f;
     [Export] public float MemoryMovingTime = 3f;
+
+    [ExportGroup("")]
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking
@@ -32,7 +56,11 @@ public partial class MobData : Resource
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;
-    [Export] public PackedScene torch;
+    // CarrierLight scene this mob spawns when it lights its torch (dark
+    // ambient + discovered). Instantiated on demand in Mob and freed when
+    // the conditions clear — same instantiate/free pattern and field name
+    // as TorchData.carrierLightScene. Null on torch-less species.
+    [Export] public PackedScene carrierLightScene;
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

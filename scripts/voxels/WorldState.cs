@@ -445,13 +445,13 @@ public class WorldState
         GetBlockLightWorld(wx, wy, wz, out int r, out int g, out int b);
 
         float sunMask = (float)sunBfs / LightEngine.MAX_LIGHT;
-        // Use the time-of-day-blended ambient AND time-of-day-scaled
-        // primary intensity (not the raw palette value / CVars.sunIntensity)
-        // so night/sunset dim the perceived brightness the same way sprites
-        // see it — stealth mechanics track the visible darkness of dusk.
+        // Use the time-of-day-blended ambient AND time-of-day-blended
+        // primary intensity so night/sunset dim the perceived brightness
+        // the same way sprites see it — stealth mechanics track the
+        // visible darkness of dusk.
         SkyController sky = SkyController.Current;
         float ambient = sky?.CurrentAmbient ?? 0.4f;
-        float primaryIntensity = sky?.CurrentPrimaryIntensity ?? CVars.sunIntensity.Value;
+        float primaryIntensity = sky?.CurrentPrimaryIntensity ?? SimData?.DayIntensityBase ?? 2f;
         float sunFactor = ambient + (sunReachesPoint ? (1f - ambient) : 0f);
         float sun = sunMask * primaryIntensity * sunFactor;
 

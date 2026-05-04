@@ -8,8 +8,8 @@ public static class ItemEventHandlers
 {
 	public static void DoMelee(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		DamageData damage = ResolveDamage(ev, action);
-		if (damage == null)
+		HitInfo hit = ResolveHit(ev, action, actor);
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
 		{
 			return;
 		}
@@ -47,8 +47,8 @@ public static class ItemEventHandlers
 				// Query first so the impact effect reflects the pre-hit state
 				// (e.g. Lethal needs to see the target's current health, not
 				// the post-damage zero). Then apply.
-				EHitResult r = hurtBox.QueryHitType(damage);
-				hurtBox.Hit(damage, actor.AttackerNode);
+				EHitResult r = hurtBox.QueryHitType(hit);
+				hurtBox.Hit(hit);
 				if (HitPriority(r) > HitPriority(bestResult))
 				{
 					bestResult = r;
@@ -88,8 +88,8 @@ public static class ItemEventHandlers
 
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		DamageData damage = ResolveDamage(ev, action);
-		if (damage == null)
+		HitInfo hit = ResolveHit(ev, action, actor);
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
 		{
 			return;
 		}
@@ -158,8 +158,8 @@ public static class ItemEventHandlers
 				if (!isSelf)
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
-					hitResult = hurtBox.QueryHitType(damage);
-					hurtBox.Hit(damage, actor.AttackerNode);
+					hitResult = hurtBox.QueryHitType(hit);
+					hurtBox.Hit(hit);
 					hitPos = (Vector3)hurtResult["position"];
 				}
 			}
@@ -293,21 +293,23 @@ public static class ItemEventHandlers
 		}
 	}
 
-	// Resolve the DamageData a Melee/Hitscan event should apply: prefer the
-	// event's per-event override, then fall back to the driving weapon's
-	// damageData (item-driven actions). Returns null if neither is set —
-	// caller should early-out.
-	private static DamageData ResolveDamage(ItemEvent ev, in PlayerAction action)
+	// Build the HitInfo a Melee/Hitscan event should apply: prefer the
+	// event's per-event DamageData override, then fall back to the driving
+	// weapon's damageData (item-driven actions). Source is the actor so
+	// receivers see the attacker. Returns a default HitInfo (no damage) if
+	// neither template is set — caller should early-out.
+	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
-		if (ev.damageData != null)
+		DamageData template = ev.damageData;
+		if (template == null && action.context.primaryItem is WeaponState weapon)
 		{
-			return ev.damageData;
+			template = weapon.data?.damageData;
 		}
-		if (action.context.primaryItem is WeaponState weapon)
+		if (template == null)
 		{
-			return weapon.data?.damageData;
+			return default;
 		}
-		return null;
+		return new HitInfo(template, actor.AttackerNode);
 	}
 
 	private static float SampleCurve(Curve curve, float t, float fallback)

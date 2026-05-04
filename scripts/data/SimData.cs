@@ -8,6 +8,14 @@ public partial class SimData : Resource
 {
     [Export] public float Gravity = 9.8f;
     [Export] public float VisibleTime = 0.25f;
+    // World-wide threshold for "fully visible to perception". Light readings
+    // at the target's sample point are clamped to [0, this] then divided
+    // by it to produce a 0..1 light factor. One global value rather than
+    // per-mob / per-discoverable so light contribution is consistent
+    // across every percept; per-target tuning of how easily a thing is
+    // spotted lives in `prominence` and the detected/discovered
+    // thresholds instead.
+    [Export] public float TargetLightMax = 0.75f;
 
     [ExportGroup("Time of Day")]
     // Seconds of wall-clock time for a full day/night cycle at time_scale = 1.
@@ -269,10 +277,18 @@ public partial class SimData : Resource
     // Sunset intensity as a fraction of day intensity. Sunsets are
     // mellower than noon; 0.7 reads as "softened but still warm".
     [Export(PropertyHint.Range, "0,2,0.01")] public float SunsetIntensityFactor = 0.7f;
-    // Base night intensity (moonlight as a fraction of noon sun).
-    // Also directly scales MoonLight.LightEnergy so Godot's shadow
-    // pass dims proportionally.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float NightIntensityBase = 0.3f;
+    // Absolute clear-noon sunlight intensity — the single sun knob.
+    // Pre-multiplied into _palette.PrimaryIntensity by WeatherDerivation,
+    // then weather-modulated by cloudIntensityScale × humidityIntensityScale ×
+    // aridBoost at runtime. SkyController feeds the result into both
+    // CurrentPrimaryIntensity (scene illumination, sun_intensity shader
+    // global) and SunLight.LightEnergy.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float DayIntensityBase = 2f;
+    // Absolute clear-night moonlight intensity — the single moon knob.
+    // Modulated by cloudIntensityScale and becomes _palette.NightPrimaryIntensity,
+    // which SkyController feeds into both CurrentPrimaryIntensity (scene
+    // illumination) and MoonLight.LightEnergy (Godot's shadow pass).
+    [Export(PropertyHint.Range, "0,2,0.01")] public float NightIntensityBase = 0.75f;
     // Maximum day-intensity amplification when air is BOTH dry AND
     // cloudless. Desert sun is physically more intense than normal
     // noon (the sky dome doesn't absorb / scatter it as much) — this
@@ -310,6 +326,17 @@ public partial class SimData : Resource
     // Additional night ambient at humidity=1. Foggy night = gloomy but
     // more ambient fill.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float NightAmbientHumidityLift = 0.05f;
+
+    [ExportSubgroup("Mob Torches")]
+    // Hysteresis pair for the mob "should I light my torch" decision. With a
+    // single threshold, ambient drifting around the cutoff (e.g. dawn/dusk,
+    // partial torchlight from another mob, weather variation) flickers the
+    // torch on/off every tick. The gap is the noise margin: while the torch
+    // is OFF, ambient must drop below the LIGHT threshold to ignite it;
+    // while ON, ambient must rise above the DOUSE threshold to extinguish.
+    // Light < Douse (enforced at read time in Mob.ShouldUseTorch).
+    [Export(PropertyHint.Range, "0,2,0.01")] public float MobTorchLightThreshold = 0.20f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float MobTorchDouseThreshold = 0.30f;
 
     [ExportSubgroup("Water")]
     // Reference wind speed (m/s) at which ripple_strength saturates to 1.

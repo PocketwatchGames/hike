@@ -4,14 +4,18 @@
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="3_17q7g"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_8mn7t"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_lit_materialtemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
-[ext_resource type="PackedScene" path="res://scenes/effects/chest_open.tscn" id="8_chestopen"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_iwux0"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="8_chestopen"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="9_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="10_event"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/Discoverable.cs" id="15_i4oq8"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="16_xray"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("10_event")
@@ -29,13 +33,14 @@ locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 
-[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite", "_openSprite", "_hurtBox", "_hudNode")]
+[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_chestSprite", "_openSprite", "_hurtBox", "_discoverable", "_hudNode")]
 script = ExtResource("1_chest")
 _chestSprite = NodePath("ChestSprite")
 _openSprite = NodePath("OpenSprite")
 _hurtBox = NodePath("HurtBox")
-_hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
+_discoverable = NodePath("Discoverable")
+_hudNode = NodePath("HUDNode")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
 
@@ -57,34 +62,34 @@ shape = SubResource("BoxShape3D_interact")
 [node name="ChestSprite" type="Sprite3D" parent="." unique_id=1950719213]
 cast_shadow = 0
 centered = false
-offset = Vector2(-6, 0)
+offset = Vector2(-8, 0)
 pixel_size = 0.0738
+alpha_cut = 1
 texture = ExtResource("3_17q7g")
 region_enabled = true
 region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("4_litsprite")
+ForwardOffset = 0.5
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-ForwardOffset = 0.5
-alpha_cut = 1
 
 [node name="OpenSprite" type="Sprite3D" parent="." unique_id=1257902234]
 cast_shadow = 0
 centered = false
 offset = Vector2(-8, 0)
 pixel_size = 0.0738
+alpha_cut = 1
 texture = ExtResource("3_17q7g")
 region_enabled = true
 region_rect = Rect2(736, 165, 16, 27)
 script = ExtResource("4_litsprite")
+ForwardOffset = 0.5
 MaterialTemplate = ExtResource("5_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-ForwardOffset = 0.5
-alpha_cut = 1
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]
 collision_layer = 32
@@ -97,3 +102,15 @@ shape = SubResource("BoxShape3D_block")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=925862825]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
+
+[node name="Discoverable" type="Node3D" parent="." unique_id=752536990 node_paths=PackedStringArray("_fadeSprites", "_interactBox")]
+script = ExtResource("15_i4oq8")
+discoveredThreshold = 0.1
+_fadeSprites = [NodePath("../ChestSprite"), NodePath("../OpenSprite")]
+_interactBox = NodePath("../InteractiveBox")
+metadata/_custom_type_script = "uid://ccogud7ied6xv"
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=420307292 node_paths=PackedStringArray("_sprites", "_discoverable")]
+script = ExtResource("16_xray")
+_sprites = [NodePath("../ChestSprite"), NodePath("../OpenSprite")]
+_discoverable = NodePath("../Discoverable")

@@ -2302,7 +2302,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    if (rng.NextDouble() >= rg.GoblinChance)
+                    if (rng.NextDouble() >= rg.GoblinSpawnOutsideNighttime)
                     {
                         continue;
                     }
@@ -2314,6 +2314,7 @@ public static class WorldGen
                         rg.GoblinScene,
                         rg.GoblinData
                     );
+                    mobState.SpawnAtNight = true;
                     if (rng.NextDouble() < 0.25f)
                     {
                         mobState.InitialBehavior = "Wander";
@@ -2351,6 +2352,42 @@ public static class WorldGen
                         rg.KunKunScene,
                         rg.KunKunData
                     ));
+                }
+            }
+        }
+
+        if (!skipInteractives && genData.CampfireScene != null)
+        {
+            // Generate campfires on grass surfaces. Authored at ~1/5 the goblin
+            // rate per region; AutoLightAtNight is set so they ignite when their
+            // chunk activates after dark.
+            for (int localX = 0; localX < ChunkState.SIZE; localX++)
+            {
+                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+                {
+                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                    if (!IsGrassyAt(wx, wz))
+                    {
+                        continue;
+                    }
+                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    if (rg == null)
+                    {
+                        continue;
+                    }
+                    if (rng.NextDouble() >= rg.CampfireSpawnOutside)
+                    {
+                        continue;
+                    }
+
+                    int sy = SurfaceYAt(wx, wz);
+                    var campfire = new TorchSimState(
+                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
+                        genData.CampfireScene);
+                    campfire.AutoLightAtNight = true;
+                    campfire.Active = false;
+                    ws.AddEntity(campfire);
                 }
             }
         }
@@ -2469,7 +2506,7 @@ public static class WorldGen
                     var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
                     RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
                     if (!skipMobs && rg != null && rg.GoblinScene != null && rg.GoblinData != null
-                        && rng.NextDouble() < rg.GoblinChance)
+                        && rng.NextDouble() < rg.GoblinSpawnUnderground)
                     {
                         var mobState = new MobSimState(pos,
                             (float)(rng.NextDouble() * Mathf.Pi * 2f),

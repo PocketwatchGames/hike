@@ -1,6 +1,12 @@
 [gd_scene format=3 uid="uid://dmj3hp3rw122w"]
 
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="1_carrier"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_light.tscn" id="2_torchon"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_extinguish.tscn" id="3_torchoff"]
+[ext_resource type="PackedScene" path="res://scenes/effects/torch_loop.tscn" id="4_torchloop"]
 
 [node name="CarrierLight" type="Node3D" unique_id=1552034072]
 script = ExtResource("1_carrier")
+LightOnEffectScene = ExtResource("2_torchon")
+LightOffEffectScene = ExtResource("3_torchoff")
+LightLoopEffectScene = ExtResource("4_torchloop")

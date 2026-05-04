@@ -68,14 +68,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // short enough that transitions read as "now" rather than a slow fade
     // (this is an awareness cue, not a visual flourish) while still giving
     // the dither pattern a chance to resolve rather than popping.
-    private const float VisibilityFadeTime = 0.1f;
+    private const float VisibilityFadeTime = 0.3f;
 
     public float perceptionProgress
     {
         get
         {
-            float threshold = _world?.player?.data?.detectedThreshold ?? 0.1f;
-            return Mathf.Clamp((_simState.PlayerPerception - threshold) / (1f - threshold), 0f, 1f);
+            MobData md = mobData;
+            if (md == null)
+            {
+                return 0f;
+            }
+            float span = Mathf.Max(0.0001f, md.discoveredThreshold - md.detectedThreshold);
+            return Mathf.Clamp((_simState.PlayerPerception - md.detectedThreshold) / span, 0f, 1f);
         }
     }
 
@@ -99,6 +104,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     public float skyBrightness => _simState.SkyBrightness;
     public float sunExposure => _simState.SunExposure;
     public float ambientLight => _simState.AmbientLight;
+    // Whether this mob's behaviors should request a torch this frame. True
+    // when local ambient is dark OR the world clock says it's night —
+    // skyBrightness can stay non-trivial under moonlight, so the time-of-day
+    // gate catches the "it's night and the mob isn't standing in a sunbeam"
+    // case where local ambient alone wouldn't cross the threshold.
+    //
+    // Hysteresis: the ambient comparison uses MobTorchLightThreshold while
+    // off and MobTorchDouseThreshold while on (Light < Douse), so ambient
+    // drifting near a single cutoff doesn't flicker the torch on/off every
+    // tick. Tunable from SimData.
+    public bool ShouldUseTorch
+    {
+        get
+        {
+            WorldState ws = _world?.WorldState;
+            SimData sim = ws?.SimData;
+            float light = sim?.MobTorchLightThreshold ?? 0.20f;
+            float douse = Mathf.Max(sim?.MobTorchDouseThreshold ?? 0.30f, light);
+            float threshold = _torch != null ? douse : light;
+            if (_simState.AmbientLight < threshold) { return true; }
+            if (ws == null) { return false; }
+            double tod = ws.TimeOfDay01;
+            return tod < 0.25 || tod >= 0.75;
+        }
+    }
     public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
     public bool playerCanSee => _world.GameTimeMs < _simState.VisibleTimeMs;
     // Perception/triggered forward through the first perception slot (the player
@@ -204,10 +234,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // already set doesn't trigger a spurious transition on first tick.
     private bool _lastMobPhysicsCvar = true;
 
-    // Active torch carrier light, present whenever the latest AIOutput
-    // requested useTorch. Lives as a child of the mob so its GlobalPosition
-    // follows the mob each frame; CarrierLight handles the per-tick
-    // recompute / blend itself.
+    // Active torch carrier light, instantiated from MobData.torch when the
+    // latest AIOutput requests useTorch and the player remembers this mob.
+    // Same instantiate / QueueFree pattern as Player.SetCarrierLightActive —
+    // the FX scenes (LightOn / LightOff / Loop) live on the carrier scene
+    // itself, so the mob just owns presence/lifetime, not styling.
     private CarrierLight _torch;
 
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
@@ -840,19 +871,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
             // sphere and there's no point keeping its light deposit alive
             // (the mob is also not visible, so the torch would have nothing
             // to illuminate from the player's perspective). Same condition
-            // as the mesh-visibility gate in _Process.
+            // as the mesh-visibility gate in _Process. Death cleanup lives in
+            // Die() since this block doesn't run for dead mobs.
             bool playerRemembers = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
                 && _simState.MemoryTimeMs > _world.GameTimeMs;
+            if (CVars.debugMobTorch.Value)
+            {
+                MobData md = _simState.MobData;
+                string mdState = md == null ? "null" : (md.carrierLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.carrierLightScene.ResourcePath}");
+                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torch != null} mobData={mdState}");
+            }
             if (aiOutput.useTorch && playerRemembers)
             {
-                if (_torch == null && _simState.MobData?.torch != null)
+                if (_torch == null && _simState.MobData?.carrierLightScene != null)
                 {
-                    _torch = _simState.MobData.torch.Instantiate<CarrierLight>();
+                    _torch = _simState.MobData.carrierLightScene.Instantiate<CarrierLight>();
                     AddChild(_torch);
                 }
             }
             else if (_torch != null)
             {
+                _torch.Deactivate();
                 _torch.QueueFree();
                 _torch = null;
             }
@@ -900,13 +939,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
     // actually lands. Splitting this from Damage keeps damage application as a
     // one-way notification, which is the shape we want for networked play
     // (prediction on the client, authoritative apply on the server).
-    public EHitResult GetHitType(DamageData data)
+    public EHitResult GetHitType(HitInfo hit)
     {
-        if (!alive || burrowed || data == null)
+        if (!alive || burrowed)
         {
             return EHitResult.None;
         }
-        float incoming = data.healthDamage;
+        float incoming = hit.healthDamage;
         if (incoming <= 0f)
         {
             return EHitResult.None;
@@ -918,7 +957,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         return incoming >= health ? EHitResult.Lethal : EHitResult.Health;
     }
 
-    public void Hit(DamageData data, Node damageSource)
+    public void Hit(HitInfo hit)
     {
         if (!alive || burrowed)
         {
@@ -931,17 +970,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         // tier's canInterrupt; non-interruptible swings keep going.
         _runner?.TryInterrupt();
 
-        Damage(data);
+        Damage(hit);
+
+        if (hit.statusEffects != null)
+        {
+            for (int i = 0; i < hit.statusEffects.Count; i++)
+            {
+                AddStatusEffect(hit.statusEffects[i]);
+            }
+        }
     }
 
-    public void Damage(DamageData data)
+    public void Damage(HitInfo hit)
     {
-        if (data == null)
-        {
-            return;
-        }
-
-        float incoming = data.healthDamage;
+        float incoming = hit.healthDamage;
         // Armor absorbs the full hit when present — even an overflow drop to
         // zero leaves health untouched. The recharge timer is rearmed on every
         // absorbing hit; a hit that takes armor to zero arms the longer
@@ -1091,6 +1133,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor
         }
 
         alive = false;
+        // The per-frame torch gating in _PhysicsProcess only runs while alive,
+        // so a dead mob's lit torch would otherwise leak its light deposit
+        // and loop FX. Deactivate + free explicitly — Deactivate fires the
+        // LightOff fx authored on the CarrierLight as the natural "torch
+        // goes out" cue, then QueueFree drops the node.
+        if (_torch != null)
+        {
+            _torch.Deactivate();
+            _torch.QueueFree();
+            _torch = null;
+        }
         SpawnWorldEffect(_deathEffect);
         SpawnWorldEffect(_deathVoEffect);
         AxisLockAngularY = false;

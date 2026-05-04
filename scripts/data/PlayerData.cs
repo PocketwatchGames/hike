@@ -11,12 +11,10 @@ public partial class PlayerData : Resource
 	[Export] public float jumpHoldGravityScale = 0.65f;
 	[Export] public float visionRange = 25f;
 	[Export] public float VisionDistancePower = 2f;
-	[Export] public float visibilityLightMax = 0.75f;
 	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2f;
 	[Export] public float perceptionMinimum = 0.01f;
 	[Export] public float perceptionInstant = 0.75f;
-	[Export] public float detectedThreshold = 0.1f;
 	[Export] public float PerceptionRelaxationSpeed = 0.1f;
 	[Export] public float PerceptionIncreaseSpeed = 0.25f;
 

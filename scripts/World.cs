@@ -25,6 +25,8 @@ public partial class World : Node3D
 
     public Action<Mob> onMobSpawned;
     public Action<Mob> onMobRemoved;
+    public Action<Discoverable> onDiscoverableSpawned;
+    public Action<Discoverable> onDiscoverableRemoved;
 
     // Spatial hash for cheap "mobs within radius" queries — used by
     // separation steering and (later) encircle-slot allocation. Lives on

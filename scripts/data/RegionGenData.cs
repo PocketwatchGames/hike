@@ -97,7 +97,19 @@ public partial class RegionGenData : Resource
     // region (e.g. desert with no goblins, marsh with no chests).
     [Export] public PackedScene GoblinScene;
     [Export] public MobData GoblinData;
-    [Export] public float GoblinChance = 0.005f;
+    // Per-(grass column) spawn chance for goblins on the surface. These spawn
+    // marked SpawnAtNight, so their nodes only appear when the chunk is loaded
+    // after dark.
+    [Export] public float GoblinSpawnOutsideNighttime = 0.005f;
+    // Per-(cave-pocket cell) spawn chance for goblins underground. Always
+    // spawns regardless of time of day.
+    [Export] public float GoblinSpawnUnderground = 0.005f;
+
+    // Per-(grass column) spawn chance for campfires on the surface. Authored
+    // at 1/5 the goblin nighttime rate by convention. Spawned campfires are
+    // marked AutoLightAtNight so they ignite when their chunk activates after
+    // dark and stay dark in daylight.
+    [Export] public float CampfireSpawnOutside = 0.001f;
 
     [Export] public PackedScene KunKunScene;
     [Export] public MobData KunKunData;

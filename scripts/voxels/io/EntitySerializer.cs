@@ -15,6 +15,7 @@ public static class EntitySerializer
         Door = 3,
         Torch = 4,
         Chest = 5,
+        Trap = 6,
     }
 
     public static void WriteList(BinaryWriter w, List<EntitySimState> entities)
@@ -75,6 +76,7 @@ public static class EntitySerializer
                 w.Write(mob.MemoryTimeMs);
                 w.Write((byte)mob.DiscoveryState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
+                w.Write(mob.SpawnAtNight);
                 break;
 
             case DoorSimState door:
@@ -90,6 +92,7 @@ public static class EntitySerializer
                 WriteVec3(w, torch.WorldPosition);
                 WriteScene(w, torch.Scene);
                 w.Write(torch.Active);
+                w.Write(torch.AutoLightAtNight);
                 break;
 
             case ChestSimState chest:
@@ -99,6 +102,13 @@ public static class EntitySerializer
                 w.Write(chest.LootCount);
                 WriteScene(w, chest.LootScene);
                 w.Write(chest.Active);
+                break;
+
+            case TrapSimState trap:
+                w.Write((byte)Tag.Trap);
+                WriteVec3(w, trap.WorldPosition);
+                WriteScene(w, trap.Scene);
+                w.Write(trap.Disarmed);
                 break;
 
             default:
@@ -141,12 +151,14 @@ public static class EntitySerializer
                 ulong memoryTimeMs = r.ReadUInt64();
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
+                bool spawnAtNight = r.ReadBoolean();
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 if (!string.IsNullOrEmpty(initialBehavior))
                 {
                     mob.InitialBehavior = initialBehavior;
                 }
+                mob.SpawnAtNight = spawnAtNight;
                 mob.Alive = alive;
                 mob.Burrowed = burrowed;
                 mob.Burrowing = burrowing;
@@ -176,8 +188,10 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
+                bool autoLightAtNight = r.ReadBoolean();
                 var torch = new TorchSimState(pos, scene);
                 torch.Active = active;
+                torch.AutoLightAtNight = autoLightAtNight;
                 return torch;
             }
             case Tag.Chest:
@@ -190,6 +204,15 @@ public static class EntitySerializer
                 var chest = new ChestSimState(pos, scene, lootCount, lootScene);
                 chest.Active = active;
                 return chest;
+            }
+            case Tag.Trap:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                bool disarmed = r.ReadBoolean();
+                var trap = new TrapSimState(pos, scene);
+                trap.Disarmed = disarmed;
+                return trap;
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

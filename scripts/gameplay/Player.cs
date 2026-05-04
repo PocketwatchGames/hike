@@ -223,13 +223,9 @@ public partial class Player : CharacterBody3D
 
 	// Pure prediction — no state mutation. See Mob.GetHitType for the
 	// networked-play motivation.
-	private EHitResult GetHitType(DamageData damage)
+	private EHitResult GetHitType(HitInfo hit)
 	{
-		if (damage == null)
-		{
-			return EHitResult.None;
-		}
-		float incoming = damage.healthDamage;
+		float incoming = hit.healthDamage;
 		if (incoming <= 0f)
 		{
 			return EHitResult.None;
@@ -245,19 +241,14 @@ public partial class Player : CharacterBody3D
 		return incoming >= _health ? EHitResult.Lethal : EHitResult.Health;
 	}
 
-	private void OnHurtBoxHit(DamageData damage, Node source)
+	private void OnHurtBoxHit(HitInfo hit)
 	{
-		if (damage == null)
-		{
-			return;
-		}
-
 		// Damage may interrupt an in-flight action (gated by profile +
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 
-		float incomingDamage = damage.healthDamage;
+		float incomingDamage = hit.healthDamage;
 		// Armor absorbs the entire hit when present — even an overflow drop
 		// to zero leaves health untouched. The recharge timer is rearmed on
 		// every absorbing hit; a hit that takes armor to zero arms the longer
@@ -299,6 +290,14 @@ public partial class Player : CharacterBody3D
 		{
 			SpawnWorldEffect(_bloodDamageEffect);
 			SpawnWorldEffect(_hurtVoEffect);
+		}
+
+		if (hit.statusEffects != null)
+		{
+			for (int i = 0; i < hit.statusEffects.Count; i++)
+			{
+				AddStatusEffect(hit.statusEffects[i]);
+			}
 		}
 	}
 
@@ -1213,7 +1212,8 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateVisibility()
 	{
-		float lightFactor = Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition) / data.visibilityLightMax, 0, 1);
+		float targetLightMax = _world.SimData?.TargetLightMax ?? 0.75f;
+		float lightFactor = targetLightMax > 0f ? Mathf.Clamp(_world.GetPerceivedLight(GlobalPosition) / targetLightMax, 0, 1) : 0f;
 
 		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 

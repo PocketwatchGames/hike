@@ -307,6 +307,10 @@ sprite_stretch={
 "type": "float",
 "value": 1.0
 }
+sprite_stretch_flat={
+"type": "float",
+"value": 1.0
+}
 reflection_tint={
 "type": "float",
 "value": 0.7

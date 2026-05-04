@@ -25,6 +25,12 @@ public class MobSimState : EntitySimState
     // Optional per-mob override for the behavior the mob starts in (and returns to
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
+    // When true, the mob's node is only created if the chunk activates during
+    // nighttime. Authored at worldgen for surface goblins so they only show up
+    // after dark. The MobSimState persists in WorldState either way; if the
+    // chunk loads in daylight no node spawns until the chunk is unloaded and
+    // reactivated after sunset.
+    public bool SpawnAtNight;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
@@ -74,10 +80,10 @@ public class MobSimState : EntitySimState
     public float SunExposure;
     public float AmbientLight;
 
-    // AmbientLight below this triggers behaviors to request useTorch. Tuned
-    // so a torch is lit in caves (low SunExposure) and at night / heavy
-    // storms (low SkyBrightness) but not in daytime open fields.
-    public const float TorchAmbientThreshold = 0.25f;
+    // Torch light/douse thresholds live on SimData (MobTorchLightThreshold /
+    // MobTorchDouseThreshold) so they're tunable per-world and can carry a
+    // hysteresis gap between them — the gap kills the per-tick on/off
+    // flicker that happens when ambient hovers near a single threshold.
 
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
         : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData)
@@ -109,6 +115,15 @@ public class MobSimState : EntitySimState
         if (!Alive)
         {
             return null;
+        }
+        if (SpawnAtNight)
+        {
+            double tod = world.WorldState.TimeOfDay01;
+            bool isNight = tod < 0.25 || tod >= 0.75;
+            if (!isNight)
+            {
+                return null;
+            }
         }
         return Mob.Create(world, this);
     }

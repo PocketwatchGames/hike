@@ -13,13 +13,19 @@ public struct DerivedPalette
     public Color SunTint;
     // Scene ambient (day→sunset→night blended).
     public float Ambient;
-    // Scale on CVars.sunIntensity for the day primary. Phase-blended.
+    // Sun-side absolute intensity (DayIntensityBase × weather-scaled
+    // factors, day blended with sunset). SkyController consumes this
+    // alongside NightPrimaryIntensity, lerping by NightT to produce
+    // CurrentPrimaryIntensity.
     public float PrimaryIntensity;
-    // Night-phase intensity (unblended). Used to scale MoonLight.LightEnergy
-    // independently of the phase blend — Godot's directional shadow energy
-    // is a node property, not a global uniform, so we can't rely on the
-    // phase-blended PrimaryIntensity for it.
+    // Moon-side intensity fraction (night). Multiplied by CVars.moonIntensity
+    // in SkyController for both the scene primary blend AND the
+    // MoonLight.LightEnergy on Godot's shadow-casting directional node.
     public float NightPrimaryIntensity;
+    // Day↔night phase weight. 0 = full day, 1 = full night, smoothstepped
+    // through the dayNightThreshold band around the horizon. SkyController
+    // uses this to blend the (sun*Primary, moon*Night) pair.
+    public float NightT;
 
     // Off-axis sculpt fills. Blended across all three phases.
     public Color FillA;

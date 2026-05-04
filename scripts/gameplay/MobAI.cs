@@ -265,85 +265,53 @@ public partial class Mob
         Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
         float distanceSqToPlayer = toPlayer.LengthSquared();
 
-        // Player to mob
-        if (distanceSqToPlayer < mobData.VisionRange * mobData.VisionRange)
+        // Player to mob — delegated to PlayerPerception.Tick. The mob-side
+        // bits (speed/camouflage modulation, MemoryTimeMs decay back to
+        // Hidden) live around the call.
         {
-            // Sample light above the rigid-body origin so mobs that settle
-            // slightly below the ground surface still read a valid light level.
-            float eyeHeightLight = 1f;
-            float perceivedLight;
-            using (Profiler.Sample("Mob.GetPerceivedLight"))
-            {
-                perceivedLight = _world.GetPerceivedLight(GlobalPosition + new Vector3(0f, eyeHeightLight, 0f));
-            }
-            float lightFactor = Mathf.Clamp(perceivedLight / _simState.MobData.visibilityLightMax, 0, 1);
-
-            float speedFactor = _simState.MobData.maxVisibilitySpeed > 0f
-                ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / _simState.MobData.maxVisibilitySpeed, _simState.MobData.visibilityMovementPower), _simState.MobData.visibilityMovementMin, 1f)
+            float speedFactor = mobData.maxVisibilitySpeed > 0f
+                ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / mobData.maxVisibilitySpeed, mobData.visibilityMovementPower), mobData.visibilityMovementMin, 1f)
                 : 1f;
-
             float camouflage = 0f;
             foreach (TallGrass grass in _tallGrassCollisions)
             {
                 camouflage = Mathf.Max(camouflage, grass.camouflage);
             }
+            // Fold the transient mob-side visibility (movement / camouflage)
+            // into prominence at the call site. Discoverables don't have a
+            // transient term, so PerceptionInputs only carries one scalar
+            // and mob composes its per-frame modulation into it here.
+            float effectiveProminence = mobData.prominence * speedFactor * Mathf.Max(0f, 1f - camouflage);
 
-            float visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
+            var inputs = new PerceptionInputs
+            {
+                prominence = effectiveProminence,
+                detectedThreshold = mobData.detectedThreshold,
+                discoveredThreshold = mobData.discoveredThreshold,
+                lightSampleHeight = 1f,
+                losRayHeight = 1.5f,
+            };
 
-            float visibilityDistance = _world.player.data.visionRange * visibility;
-            float perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), _world.player.data.VisionDistancePower);
-            if (perceptionDelta > _world.player.data.perceptionMinimum)
+            // Marshal the two split fields on MobSimState into the helper's
+            // packed struct, run the tick, then write the new values back.
+            // Cheap (struct copy) and avoids touching every other reader of
+            // PlayerPerception / DiscoveryState in this pass.
+            var perception = new PerceivedByPlayerState
             {
-                float eyeHeight = 1.5f;
-                Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
-                Godot.Collections.Dictionary result;
-                using (Profiler.Sample("Mob.PerceptionRays"))
-                {
-                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                    query.CollideWithAreas = false;
-                    query.CollideWithBodies = true;
-                    result = GetWorld3D().DirectSpaceState.IntersectRay(query);
-                }
-                if (result.Count > 0)
-                {
-                    perceptionDelta = 0f;
-                }
-            }
-            else
+                perception = _simState.PlayerPerception,
+                state = _simState.DiscoveryState,
+            };
+            PerceptionTickResult result;
+            using (Profiler.Sample("Mob.PerceptionRays"))
             {
-                perceptionDelta = 0f;
+                result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref perception, delta);
             }
-
-            if (perceptionDelta > 0)
-            {
-                if (perceptionDelta >= _world.player.data.perceptionInstant)
-                {
-                    _simState.PlayerPerception = 1;
-                }
-                else
-                {
-                    _simState.PlayerPerception = Mathf.Min(1.0f, _simState.PlayerPerception + perceptionDelta * delta * _world.player.data.PerceptionIncreaseSpeed);
-                }
-            }
-            else
-            {
-                _simState.PlayerPerception = Mathf.Max(0f, _simState.PlayerPerception - _world.player.data.PerceptionRelaxationSpeed * delta);
-            }
-
-
-            if (_simState.PlayerPerception >= 1)
-            {
-                _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
-            }
-            else if (_simState.PlayerPerception >= _world.player.data.detectedThreshold && _simState.DiscoveryState == EPlayerPerceptionState.Hidden)
-            {
-                _simState.DiscoveryState = EPlayerPerceptionState.Detected;
-            }
+            _simState.PlayerPerception = perception.perception;
+            _simState.DiscoveryState = perception.state;
 
             if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)
             {
-                if (perceptionDelta > 0)
+                if (result.activelyPerceived)
                 {
                     _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
                     _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
@@ -450,7 +418,7 @@ public partial class Mob
         int wz = Mathf.FloorToInt(pos.Z);
         int sunBfs = ws.GetSunlightWorld(wx, wy, wz);
         float sunExposure = (float)sunBfs / LightEngine.MAX_LIGHT;
-        float skyBrightness = SkyController.Current?.CurrentPrimaryIntensity ?? CVars.sunIntensity.Value;
+        float skyBrightness = SkyController.Current?.CurrentPrimaryIntensity ?? ws.SimData?.DayIntensityBase ?? 2f;
         _simState.SunExposure = sunExposure;
         _simState.SkyBrightness = skyBrightness;
         _simState.AmbientLight = sunExposure * skyBrightness;

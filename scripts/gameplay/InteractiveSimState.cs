@@ -20,6 +20,12 @@ public class DoorSimState : EntitySimState
 public class TorchSimState : EntitySimState
 {
     public bool Active = true;
+    // When true, Torch.Create overrides Active based on world time-of-day at
+    // chunk activation: lit at night, unlit during the day. Authored on
+    // worldgen-spawned campfires so they "come alive" after dark without the
+    // player having to light each one. Player toggles still apply for the
+    // duration the chunk is loaded; the next chunk activation re-evaluates.
+    public bool AutoLightAtNight;
 
     public TorchSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
@@ -54,4 +60,19 @@ public class ChestSimState : EntitySimState
         Mathf.FloorToInt(WorldPosition.X),
         Mathf.FloorToInt(WorldPosition.Y),
         Mathf.FloorToInt(WorldPosition.Z));
+}
+
+public class TrapSimState : EntitySimState
+{
+    public bool Disarmed;
+
+    public TrapSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Trap.Create(world, this);
+    }
 }

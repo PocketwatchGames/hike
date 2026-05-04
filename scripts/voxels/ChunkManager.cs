@@ -74,7 +74,9 @@ public partial class ChunkManager : Node3D
         // Day/night-driven sun controls. Intensity is overall brightness;
         // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
         // Both default to "noon" values; the day/night sim will write them.
-        ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, CVars.sunIntensity.Value);
+        // Bootstrap value — SkyController.Apply overwrites this every frame
+        // with the day/night-blended CurrentPrimaryIntensity.
+        ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, 2f);
         ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
 
         // Detail-sprite player-push globals (player_pos / player_radius /
@@ -115,19 +117,33 @@ public partial class ChunkManager : Node3D
 
     public override void _Process(double delta)
     {
-        ProcessMeshRebuildQueue();
+        using var _prof = Profiler.Sample("ChunkManager.Process");
+
+        using (Profiler.Sample("ChunkManager.RebuildQueue"))
+        {
+            ProcessMeshRebuildQueue();
+        }
 
         _lastPlayerChunkCoord = World.WorldToChunkCoord(_getPlayerPosition());
-        UpdateLoadedChunks();
+        using (Profiler.Sample("ChunkManager.UpdateLoadedChunks"))
+        {
+            UpdateLoadedChunks();
+        }
 
         // Drain any direct WorldState writes (e.g. CarrierLight per-frame
         // deposits) into LightMap, then flush. This is the single per-frame
         // upload point — all light changes within this frame batch here.
-        DrainLightChunkDirty();
-        _lightMap.Flush(_worldData, _loadedChunks.Keys);
+        using (Profiler.Sample("ChunkManager.LightFlush"))
+        {
+            DrainLightChunkDirty();
+            _lightMap.Flush(_worldData, _loadedChunks.Keys);
+        }
 
-        DrainFogChunkDirty();
-        _fogMap.Flush(_worldData, _loadedChunks.Keys);
+        using (Profiler.Sample("ChunkManager.FogFlush"))
+        {
+            DrainFogChunkDirty();
+            _fogMap.Flush(_worldData, _loadedChunks.Keys);
+        }
     }
 
     public void UpdateLighting(List<Vector3I> changedPositions)

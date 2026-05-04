@@ -10,7 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="6_rpnd8"]
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="7_d6tgn"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="7_eojnx"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="8_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="8_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="9_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="10_lit_reflectiontemplate"]

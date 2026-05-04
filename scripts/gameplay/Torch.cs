@@ -19,11 +19,13 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     private TorchSimState _interactiveState;
     private Fx _loopEffect;
 
-    public override void _Ready()
-    {
-        UpdateVisuals();
-        UpdateLoopEffect();
-    }
+    // No _Ready override: the .tscn ships with LitSprite visible and
+    // UnlitSprite hidden, which matches the default _active=true state.
+    // Torch.Create runs UpdateVisuals after applying AutoLightAtNight, so
+    // any deviation from the authored state gets pushed there. Calling
+    // UpdateVisuals from _Ready was unsafe — the [Export] node refs aren't
+    // guaranteed to be populated for every scene-load path, and the call
+    // would NRE on the sprite fields.
 
     public void OnSpawned(World world) { }
 
@@ -73,8 +75,15 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
     private void UpdateVisuals()
     {
-        _litSprite.Visible = _active;
-        _unlitSprite.Visible = !_active;
+        // Defensive null guards — chunk-streamed Torch entities have hit an
+        // intermittent NRE here where the [Export] sprite refs read null even
+        // after AddChild. Guard each so a misconfigured scene shows the
+        // authored sprite default rather than crashing the spawn path; flag
+        // it loudly so the missing wiring is visible in the log.
+        if (_litSprite != null) { _litSprite.Visible = _active; }
+        else { GD.PushError($"Torch '{Name}' has no _litSprite wired"); }
+        if (_unlitSprite != null) { _unlitSprite.Visible = !_active; }
+        else { GD.PushError($"Torch '{Name}' has no _unlitSprite wired"); }
     }
 
     public static Torch Create(World world, TorchSimState data)
@@ -90,9 +99,16 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         instance._light.Initialize(world.WorldState, world, baseWorldPos);
         world.AddChild(instance);
 
+        if (data.AutoLightAtNight)
+        {
+            double tod = world.WorldState.TimeOfDay01;
+            bool isNight = tod < 0.25 || tod >= 0.75;
+            data.Active = isNight;
+        }
         instance._active = data.Active;
         instance.UpdateVisuals();
         instance._light.SetActive(instance._active);
+        instance.UpdateLoopEffect();
 
         return instance;
     }

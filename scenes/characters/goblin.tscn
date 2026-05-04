@@ -3,11 +3,10 @@
 [ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_hfanx"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="3_mobhud"]
-[ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/CarrierLight.cs" id="5_ku16y"]
 [ext_resource type="Texture2D" uid="uid://cqaei3r613wm" path="res://assets/textures/characters/chameleon.png" id="6_cham"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="7_3j6jj"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="7_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="9_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="9_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="10b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="10_lit_shadowcastertemplate"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_fstgrass"]
@@ -27,9 +26,6 @@
 [ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
 [ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
-[ext_resource type="PackedScene" path="res://scenes/effects/torch_light.tscn" id="23_torchon"]
-[ext_resource type="PackedScene" path="res://scenes/effects/torch_extinguish.tscn" id="24_torchoff"]
-[ext_resource type="PackedScene" path="res://scenes/effects/torch_loop.tscn" id="25_torchloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -315,14 +311,14 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(144, 0, 48, 48)
+region_rect = Rect2(48, 0, 48, 48)
 script = ExtResource("7_litsprite")
 MirrorByYaw = true
 ForwardOffset = 0.35
-MaterialTemplate = ExtResource("9_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("10_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("10b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("11_lit_reflectiontemplate")
+MaterialTemplate = ExtResource("9_lit_materialtemplate")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
@@ -339,13 +335,6 @@ shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=1599354847]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
-
-[node name="CarrierLight" type="Node3D" parent="." unique_id=1054950918]
-script = ExtResource("5_ku16y")
-LightOnEffectScene = ExtResource("23_torchon")
-LightOffEffectScene = ExtResource("24_torchoff")
-LightLoopEffectScene = ExtResource("25_torchloop")
-metadata/_custom_type_script = "uid://de7or1xx11ad5"
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=2093955771 node_paths=PackedStringArray("target")]
 script = ExtResource("7_3j6jj")

@@ -17,6 +17,10 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
 	[Export] public ShaderMaterial outlineMaterial;
+	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
+	// FlatLitSprite — the upright outline shader's vertex math would build
+	// a Y-aligned billboard outline that misses the flat geometry by 90°.
+	[Export] public ShaderMaterial outlineFlatMaterial;
 	[Export] public ShaderMaterial postProcessMaterial;
 
 	public Action onInit;
@@ -84,6 +88,7 @@ public partial class GameClient : Node3D
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
+		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
 		sceneViewport.AddChild(_world);
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
 
@@ -235,6 +240,16 @@ public partial class GameClient : Node3D
 		float mainPitch = Mathf.Asin(Mathf.Clamp(Mathf.Abs(mainForward.Y), 0f, 1f));
 		float spriteStretch = 1f / Mathf.Max(Mathf.Cos(mainPitch), 1e-4f);
 		RenderingServer.GlobalShaderParameterSet("sprite_stretch", spriteStretch);
+		// Flat-on-ground sprite stretch = 1/sin(camera pitch). Read by the
+		// sprite_lit_flat shader. The depth axis (horizontal, away from
+		// camera) projects to screen Y with sin(pitch); inverting that
+		// recovers a 1:1 source-pixel-to-screen-pixel mapping for flat
+		// sprites just like sprite_stretch does for upright. Behaves
+		// reciprocally to spriteStretch — high-pitch (camera near vertical)
+		// stretches upright sprites toward infinity but leaves flat sprites
+		// at ~1, and vice versa.
+		float spriteStretchFlat = 1f / Mathf.Max(Mathf.Sin(mainPitch), 1e-4f);
+		RenderingServer.GlobalShaderParameterSet("sprite_stretch_flat", spriteStretchFlat);
 
 		Vector3 pos = camera.GlobalPosition;
 		Basis basis = camera.GlobalBasis;
@@ -384,7 +399,14 @@ public partial class GameClient : Node3D
 		_highlightOverlay.PixelSize = source.PixelSize;
 		_highlightOverlay.Billboard = source.Billboard;
 		_highlightOverlay.TextureFilter = source.TextureFilter;
-		outlineMaterial.SetShaderParameter("sprite_texture", source.Texture);
+		// Pick the upright vs flat outline shader based on source type. Both
+		// shaders read sprite_texture / sprite_size / sprite_region_origin
+		// from material params; the upright one additionally reads
+		// forward_offset (which is a no-op on flat sprites).
+		bool isFlat = source is FlatLitSprite;
+		ShaderMaterial activeOutline = isFlat ? outlineFlatMaterial : outlineMaterial;
+		_highlightOverlay.MaterialOverride = activeOutline;
+		activeOutline.SetShaderParameter("sprite_texture", source.Texture);
 		// Mirror the source sprite's texel addressing so the outline snaps to
 		// the same pixel grid as sprite_lit's snapped anchor.
 		Vector2I spriteSize;
@@ -403,10 +425,13 @@ public partial class GameClient : Node3D
 			regionOrigin = Vector2I.Zero;
 			_highlightOverlay.RegionEnabled = false;
 		}
-		outlineMaterial.SetShaderParameter("sprite_size", spriteSize);
-		outlineMaterial.SetShaderParameter("sprite_region_origin", regionOrigin);
-		float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
-		outlineMaterial.SetShaderParameter("forward_offset", forwardOffset);
+		activeOutline.SetShaderParameter("sprite_size", spriteSize);
+		activeOutline.SetShaderParameter("sprite_region_origin", regionOrigin);
+		if (!isFlat)
+		{
+			float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
+			activeOutline.SetShaderParameter("forward_offset", forwardOffset);
+		}
 		_highlightOverlay.Reparent(node, false);
 		_highlightOverlay.Visible = true;
 	}
@@ -457,6 +482,14 @@ public partial class GameClient : Node3D
 
 	void OnMobRemoved(Mob mob)
 	{
+	}
+
+	void OnDiscoverableSpawned(Discoverable discoverable)
+	{
+		if (discoverable.HudScene != null)
+		{
+			DiscoverableHud.Create(discoverable.HudScene, camera, discoverable, worldHUD);
+		}
 	}
 
 	public void TogglePause()

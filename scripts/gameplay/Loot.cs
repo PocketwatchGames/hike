@@ -73,9 +73,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		_animationPlayer?.Play("Bob");
 	}
 
-	private void OnHurtBoxHit(DamageData data, Node source)
+	private void OnHurtBoxHit(HitInfo hit)
 	{
-		GD.Print($"Loot hit for {data?.healthDamage} from {source?.Name}");
+		GD.Print($"Loot hit for {hit.healthDamage} from {hit.source?.Name}");
 	}
 
 	public bool CanInteract() => !_pickedUp;

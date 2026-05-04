@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="3_m4hkm"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="4_light"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="5_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="6_spritemat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="6_spritemat"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="7_interactivebox"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/torch_loop.tscn" id="12_torchloop"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="13_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="14_event"]
+[ext_resource type="Script" path="res://scripts/gameplay/InteractiveXray.cs" id="15_xray"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("14_event")
@@ -81,3 +82,7 @@ _light = NodePath("")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
+script = ExtResource("15_xray")
+_sprites = [NodePath("../LitSprite"), NodePath("../UnlitSprite")]

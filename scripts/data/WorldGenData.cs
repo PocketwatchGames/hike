@@ -46,4 +46,6 @@ public partial class WorldGenData : Resource
     [Export] public float CaveTorchChance = 0.0025f;
     [Export] public PackedScene DoorScene;
     [Export] public PackedScene TorchScene;
+    [Export] public PackedScene CampfireScene;
+    [Export] public PackedScene SpikeTrapScene;
 }

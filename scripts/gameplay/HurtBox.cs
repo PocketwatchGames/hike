@@ -9,18 +9,18 @@ public partial class HurtBox : Area3D
     // damage application as a one-way notification, which leaves room for
     // future networked play (the prediction runs on the client, the real
     // damage application stays authoritative on the server).
-    public Func<DamageData, EHitResult> GetHitType;
+    public Func<HitInfo, EHitResult> GetHitType;
 
     // Apply damage to the receiver. One-way: receiver doesn't report back.
-    public Action<DamageData, Node> OnHit;
+    public Action<HitInfo> OnHit;
 
-    public EHitResult QueryHitType(DamageData damageData)
+    public EHitResult QueryHitType(HitInfo hit)
     {
-        return GetHitType != null ? GetHitType(damageData) : EHitResult.None;
+        return GetHitType != null ? GetHitType(hit) : EHitResult.None;
     }
 
-    public void Hit(DamageData damageData, Node source)
+    public void Hit(HitInfo hit)
     {
-        OnHit?.Invoke(damageData, source);
+        OnHit?.Invoke(hit);
     }
 }

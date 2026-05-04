@@ -11,9 +11,75 @@ streams_count = 1
 stream_0/stream = ExtResource("2_llp")
 stream_0/weight = 1.0
 
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_torchflame"]
+emission_shape = 1
+emission_sphere_radius = 0.04
+direction = Vector3(0, 1, 0)
+spread = 8.0
+initial_velocity_min = 0.3
+initial_velocity_max = 0.7
+gravity = Vector3(0, 0.8, 0)
+damping_min = 0.6
+damping_max = 1.2
+scale_min = 0.5
+scale_max = 1.0
+color = Color(1, 0.78, 0.32, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_torchflame"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.7, 0.25, 0.85)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_torchflame"]
+material = SubResource("StandardMaterial3D_torchflame")
+size = Vector2(0.07, 0.07)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_torchembers"]
+emission_shape = 1
+emission_sphere_radius = 0.03
+direction = Vector3(0, 1, 0)
+spread = 25.0
+initial_velocity_min = 0.4
+initial_velocity_max = 0.9
+gravity = Vector3(0, 1.0, 0)
+damping_min = 0.2
+damping_max = 0.6
+scale_min = 0.3
+scale_max = 0.6
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_torchembers"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0.55, 0.15, 0.9)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_torchembers"]
+material = SubResource("StandardMaterial3D_torchembers")
+size = Vector2(0.025, 0.025)
+
 [node name="TorchLoop" type="Node3D"]
 script = ExtResource("1_oneshot")
 _loop = true
+
+[node name="Flame" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+amount = 14
+lifetime = 0.55
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_torchflame")
+draw_pass_1 = SubResource("QuadMesh_torchflame")
+
+[node name="Embers" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+amount = 6
+lifetime = 1.2
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_torchembers")
+draw_pass_1 = SubResource("QuadMesh_torchembers")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="."]
 stream = SubResource("AudioStreamRandomizer_torchloop")

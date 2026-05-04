@@ -44,7 +44,13 @@ public static class WorldFile
     // v11: chunk payload appended a coarse envTag subgrid (4³ bytes per
     //      chunk, EnvironmentTag enum) after windFactor, before regionIndex
     //      — drives audio reverb-bus blending and outdoor-layer attenuation.
-    public const uint VERSION = 11;
+    // v12: Mob entity payload appended a SpawnAtNight bool (after
+    //      InitialBehavior) — surface goblins are flagged so their nodes only
+    //      activate when the chunk loads at night.
+    // v13: Torch entity payload appended an AutoLightAtNight bool (after
+    //      Active) — surface campfires are flagged so they ignite when their
+    //      chunk activates after dark.
+    public const uint VERSION = 13;
 
     public struct IndexEntry
     {

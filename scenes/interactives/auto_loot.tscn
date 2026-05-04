@@ -6,10 +6,11 @@
 [ext_resource type="PackedScene" uid="uid://cfugvse2e2o77" path="res://scenes/effects/loot_spawn.tscn" id="3_dx0hb"]
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_spritemat"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Script" path="res://scripts/gameplay/InteractiveXray.cs" id="8_xray"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -38,7 +39,7 @@ length = 0.67
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath(".:position:y")
+tracks/0/path = NodePath("Sprite:position:y")
 tracks/0/interp = 1
 tracks/0/loop_wrap = false
 tracks/0/keys = {
@@ -119,3 +120,7 @@ script = ExtResource("2_hurtbox")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=959546467]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_loot")
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
+script = ExtResource("8_xray")
+_sprites = [NodePath("../Sprite")]

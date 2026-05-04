@@ -8,6 +8,7 @@
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="6_campfire"]
 
 [resource]
 script = ExtResource("1_script")
@@ -15,3 +16,4 @@ SimData = ExtResource("2_sim")
 Regions = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), ExtResource("2_region_swamp"), ExtResource("2_region_forest")]
 DoorScene = ExtResource("4_door")
 TorchScene = ExtResource("5_torch")
+CampfireScene = ExtResource("6_campfire")

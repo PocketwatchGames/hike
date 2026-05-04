@@ -1,54 +1,35 @@
 using Godot;
 
-// A Sprite3D that renders through the sprite_lit shader and authors itself
-// from standard Sprite3D properties. Authoring contract:
+// Upright camera-facing pixel-art sprite that renders through the sprite_lit
+// shader. The bulk of the per-sprite plumbing (shared-material cache,
+// visibility/silhouette/xray uniforms, mirror coin flip, scale roll) lives
+// on SpriteBase; this class adds the upright-billboard machinery:
 //
-//   Texture        - the source texture (Sprite3D base property)
-//   RegionEnabled  - enable to draw a sub-rect (Sprite3D base property)
-//   RegionRect     - the sub-rect in pixels (Sprite3D base property); if
-//                    RegionEnabled is false the full texture is used.
-//   Mirror         - when true, a 50% coin flip at spawn time decides
-//                    whether to horizontally mirror the sprite. Gives
-//                    grass patches, trees etc. per-instance variety
-//                    without authoring separate flipped art.
-//   ScaleMin/Max   - uniform multiplier applied to the sprite's on-screen
-//                    size, rolled once at spawn from [min..max]. Default
-//                    (1, 1) is "no variation". Stored on the Node3D as
-//                    Scale; the sprite shaders read it out of MODEL_MATRIX
-//                    so shadow proxy and reflection all scale together
-//                    through the normal parent transform chain.
-//
-// Pixel-size, centered, and offset are derived from Texture / RegionRect
-// so authors don't have to keep them in sync.
-//
-// Shadows: the visible LitSprite never casts (CastShadow.Off). At runtime
-// it spawns a sun-billboarded shadow caster Sprite3D (CastShadow.ShadowsOnly)
-// that contributes its silhouette to Godot's directional shadow atlas. The
-// caster's vertex math sun-aligns automatically because INV_VIEW_MATRIX
-// during the shadow pass is the directional light's camera. The same shadow
-// proxy is also picked up by the AO DirectionalLight3D's shadow pass (a
-// downward+camera-tilt projection rendered into its own atlas) which lit
-// shaders use to ground each sprite under any lighting condition — no
-// per-sprite Decal is required. Set CastsShadow = false to suppress both
-// the sun shadow AND the AO contribution (e.g. an undiscovered mob).
+//   - Yaw mirror: per-frame flip of `sprite_mirror` based on the sprite's
+//     world yaw vs the camera, so side-view art tracks the character's
+//     facing.
+//   - AlignToTerrain / TerrainNormal: shader uniforms that roll the sprite
+//     around its forward axis to lean with sloped ground. Defaults are
+//     "upright on flat ground."
+//   - ForwardOffset: shader-side push toward the camera along the
+//     billboard-forward axis (so a sprite parks at the front edge of a
+//     cylinder collider as the camera yaws).
+//   - Shadow proxy: a sun-billboarded ShadowsOnly Sprite3D child that
+//     contributes its silhouette to Godot's directional shadow atlas.
+//     The visible sprite never casts (CastShadow.Off) — billboarded sprites
+//     cast edge-on slivers from the sun's POV.
+//   - Block-light shadow proxy: a visible-only sibling on a dedicated
+//     layer for the BlockLightShadowProjector pass.
+//   - Water reflection: a flipped child sprite, anchored across the water
+//     surface under the sprite's XZ column.
 //
 // In the editor this node falls back to Sprite3D's default unshaded path so
 // the sprite is visible while authoring colliders. The sprite_lit shader is
-// applied at runtime by Duplicate()ing the shared MaterialTemplate and
-// binding the per-instance shader params.
+// applied at runtime by binding a shared MaterialTemplate-derived material.
 [Tool]
 [GlobalClass]
-public partial class LitSprite : Sprite3D
+public partial class LitSprite : SpriteBase
 {
-    // When true, each instance has a 50% chance of being horizontally
-    // mirrored at spawn. The coin flip is XOR'd into Sprite3D.FlipH in
-    // _Ready (so an author who sets FlipH on the scene keeps that as
-    // the baseline, with Mirror adding a coin flip around it). FlipH is
-    // then the authoritative stored state — the shaders read it through
-    // the sprite_mirror uniform because Sprite3D's built-in FlipH drives
-    // mesh UVs, which these texelFetch-based shaders ignore.
-    [Export] public bool Mirror { get; set; }
-
     // When true, _Process flips `sprite_mirror` each frame based on whether
     // the sprite's world yaw points to the left or right of the camera.
     // Intended for side-view character art so the sprite's facing direction
@@ -56,24 +37,6 @@ public partial class LitSprite : Sprite3D
     // baseline (useful when the art was drawn facing the opposite side)
     // and is XOR'd with the yaw-derived flip.
     [Export] public bool MirrorByYaw { get; set; }
-
-    // When true, Apply() forces Offset to (-width/2, 0) — i.e. the sprite's
-    // anchor sits at the center of its bottom edge. Good for grounded
-    // props (trees, grass, mobs) so the Node3D's world position lands on
-    // the ground and the sprite rises from there. Re-applied whenever
-    // anything that affects width changes (TextureChanged, region). When
-    // false, Offset is left as-authored so non-grounded sprites can
-    // anchor themselves arbitrarily. Centered is always forced false —
-    // the sprite shaders rely on that for their FRAGCOORD→tex_coord math.
-    [Export] public bool CenteredAtBase { get; set; } = true;
-
-    // Random uniform-scale range, applied once at spawn as Node3D.Scale.
-    // Default (1, 1) disables variation. Inclusive bounds. The sprite
-    // shaders read scale out of MODEL_MATRIX so the visible sprite,
-    // shadow proxy, and water reflection all pick it up via the standard
-    // parent transform chain — no shader uniform plumbing.
-    [Export] public float ScaleMin { get; set; } = 1.0f;
-    [Export] public float ScaleMax { get; set; } = 1.0f;
 
     // Blend between upright billboarding (0) and terrain-aligned billboarding
     // (1) — maps directly to the sprite_lit shader's align_to_terrain uniform.
@@ -135,193 +98,6 @@ public partial class LitSprite : Sprite3D
     }
     private float _forwardOffset = 0f;
 
-    // Discovery fade (0 = fully dithered away, 1 = fully opaque). Pushed to
-    // all three materials so the cast shadow and water reflection stipple
-    // in lockstep with the visible body. Mob.cs drives this off its
-    // discovery state over a ~0.1s fade.
-    public float Visibility
-    {
-        get => _visibility;
-        set
-        {
-            // Short-circuit on equal value so the shader-uniform push is
-            // skipped for stable frames. Owners (Mob, Player, etc.) used to
-            // cache the last-applied value externally; doing it here means
-            // every caller benefits without having to remember to.
-            if (_visibility == value)
-            {
-                return;
-            }
-            _visibility = value;
-            PushAlignmentUniform("visibility", value);
-        }
-    }
-    private float _visibility = 1f;
-
-    // Silhouette blend (0 = lit normally, 1 = replaced by SilhouetteTint).
-    // Only meaningful on the visible + reflection shaders — the shadow caster
-    // outputs binary alpha into the atlas and has no color channel to tint
-    // (RenderingServer harmlessly ignores the push for that name there).
-    public float Silhouette
-    {
-        get => _silhouette;
-        set
-        {
-            if (_silhouette == value)
-            {
-                return;
-            }
-            _silhouette = value;
-            PushAlignmentUniform("silhouette_amount", value);
-        }
-    }
-    private float _silhouette = 0f;
-
-    // Flat color the silhouette blends to at Silhouette = 1. Default black
-    // reads against almost any background; callers can tint it per-mob
-    // (e.g. colored silhouettes for different faction memories).
-    public Color SilhouetteTint
-    {
-        get => _silhouetteTint;
-        set
-        {
-            if (_silhouetteTint == value)
-            {
-                return;
-            }
-            _silhouetteTint = value;
-            Vector3 rgb = new(value.R, value.G, value.B);
-            PushAlignmentUniform("silhouette_tint", rgb);
-        }
-    }
-    private Color _silhouetteTint = Colors.Black;
-
-    // Push a per-sprite shader value into the per-instance render data of the
-    // visible sprite + shadow proxy + water reflection (whichever exist).
-    // After the instance-uniform refactor every per-sprite value lives in
-    // RenderingServer instance data, NOT on the (now shared) materials, so
-    // multiple LitSprites can share one ShaderMaterial and Godot can batch
-    // their draws. RenderingServer silently ignores names a shader doesn't
-    // declare, so pushing silhouette to the shadow proxy is a harmless no-op.
-    private void PushAlignmentUniform(StringName name, Variant value)
-    {
-        Rid selfRid = GetInstance();
-        if (selfRid.IsValid)
-        {
-            RenderingServer.InstanceGeometrySetShaderParameter(selfRid, name, value);
-        }
-        if (_shadowProxy != null)
-        {
-            Rid shadowRid = _shadowProxy.GetInstance();
-            if (shadowRid.IsValid)
-            {
-                RenderingServer.InstanceGeometrySetShaderParameter(shadowRid, name, value);
-            }
-        }
-        if (_blockLightShadowProxy != null)
-        {
-            Rid projRid = _blockLightShadowProxy.GetInstance();
-            if (projRid.IsValid)
-            {
-                RenderingServer.InstanceGeometrySetShaderParameter(projRid, name, value);
-            }
-        }
-        if (_reflection != null)
-        {
-            Rid reflRid = _reflection.GetInstance();
-            if (reflRid.IsValid)
-            {
-                RenderingServer.InstanceGeometrySetShaderParameter(reflRid, name, value);
-            }
-        }
-    }
-
-    // Shared materials, keyed by (template, texture). Every LitSprite that
-    // binds the same template and renders the same texture gets the same
-    // ShaderMaterial instance — that's the precondition Godot needs to batch
-    // their draws. sprite_texture lives on the material because sampler2D
-    // can't be an instance uniform in Godot 4; everything else is per-instance.
-    private static readonly System.Collections.Generic.Dictionary<(ShaderMaterial, Texture2D), ShaderMaterial> _sharedMaterials = new();
-
-    private static ShaderMaterial GetSharedMaterial(ShaderMaterial template, Texture2D texture)
-    {
-        if (template == null || texture == null)
-        {
-            return null;
-        }
-        var key = (template, texture);
-        if (!_sharedMaterials.TryGetValue(key, out ShaderMaterial mat))
-        {
-            mat = (ShaderMaterial)template.Duplicate();
-            mat.SetShaderParameter("sprite_texture", texture);
-            _sharedMaterials[key] = mat;
-        }
-        return mat;
-    }
-
-    // Push every per-instance shader value to a single instance RID. Used
-    // when a sprite (visible / shadow / reflection) is first created to
-    // seed its render data, since shader defaults only apply when nothing
-    // has ever been written for that name.
-    private void InitInstanceUniformsFor(Rid rid, Vector2I spriteSize, Vector2I regionOrigin)
-    {
-        if (!rid.IsValid)
-        {
-            return;
-        }
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_size", spriteSize);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_region_origin", regionOrigin);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "sprite_mirror", FlipH);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "align_to_terrain", _alignToTerrain);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "terrain_normal", _terrainNormal);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "forward_offset", _forwardOffset);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "visibility", _visibility);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "silhouette_amount", _silhouette);
-        Vector3 tintRgb = new(_silhouetteTint.R, _silhouetteTint.G, _silhouetteTint.B);
-        RenderingServer.InstanceGeometrySetShaderParameter(rid, "silhouette_tint", tintRgb);
-    }
-
-    // Swap the rendered region of the sprite sheet. Cheap enough to call
-    // per-frame from an animator — unlike Apply(), this does not duplicate
-    // materials (so per-instance uniforms like Visibility/Silhouette stay)
-    // and does not re-ensure the shadow/reflection children. The shader
-    // does its own texelFetch from sprite_region_origin + sprite_size, so
-    // animating is just "push a new region" to the three live materials and
-    // keep the shadow proxy + reflection's Sprite3D mesh bounds in sync.
-    public void SetFrame(Rect2 region)
-    {
-        if (RegionEnabled && RegionRect == region)
-        {
-            return;
-        }
-        RegionEnabled = true;
-        RegionRect = region;
-
-        Vector2I size = new((int)region.Size.X, (int)region.Size.Y);
-        Vector2I origin = new((int)region.Position.X, (int)region.Position.Y);
-
-        if (CenteredAtBase)
-        {
-            Offset = new Vector2(-size.X / 2.0f, 0);
-        }
-
-        PushAlignmentUniform("sprite_size", size);
-        PushAlignmentUniform("sprite_region_origin", origin);
-
-        if (_shadowProxy != null)
-        {
-            _shadowProxy.RegionEnabled = true;
-            _shadowProxy.RegionRect = region;
-            _shadowProxy.Offset = Offset;
-        }
-        if (_reflection != null)
-        {
-            _reflection.RegionEnabled = true;
-            _reflection.RegionRect = region;
-            _reflection.Offset = Offset;
-        }
-    }
-
     // Whether this sprite contributes a flipped child sprite under nearby
     // water surfaces. Off skips reflection entirely (cheapest — props that
     // never see water, e.g. interior furniture, should be Off). On forces a
@@ -372,13 +148,9 @@ public partial class LitSprite : Sprite3D
     }
     private bool _castsShadow = true;
 
-    // Material + decal templates wired per-scene via [Export]. Each LitSprite
-    // Duplicates these at _Ready so per-instance shader params (visibility,
-    // silhouette, sprite_region_origin, etc.) live on a unique material —
-    // until that gets refactored to use Godot 4 instance uniforms, the
-    // template resources themselves are still shared across all scenes that
-    // bind to the same .tres, so the editor only loads one copy of each.
-    [Export] public ShaderMaterial MaterialTemplate { get; set; }
+    // Per-scene proxy/reflection material templates wired via [Export].
+    // Each LitSprite binds these via the shared-material cache (one
+    // ShaderMaterial per (template, texture) so Godot can batch).
     [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
     // Visible-only sibling of ShadowCasterTemplate, used by the
     // BlockLightShadowProjector pass. Two proxies per sprite, one job
@@ -395,92 +167,94 @@ public partial class LitSprite : Sprite3D
     private Sprite3D _reflection;
     private ShaderMaterial _reflectionMaterial;
 
-    // True when _Process has work to do (water reflection update OR yaw
-    // mirror flip). Static props (no reflection, no MirrorByYaw) leave this
-    // false so SetProcess stays off across visibility toggles. Recomputed
-    // by Apply() whenever the reflection child or texture changes.
-    private bool _needsProcess;
-
     public override void _Ready()
     {
         // The visible sprite never casts directly — the proxy below does, with
         // sun-aligned billboard math. Casting from the visible (camera-aligned)
         // sprite produces edge-on slivers from the sun's POV.
         CastShadow = ShadowCastingSetting.Off;
-        if (!Engine.IsEditorHint())
+        base._Ready();
+    }
+
+    // Push every per-instance shader value to a single instance RID. Used
+    // when a sprite (visible / shadow / reflection) is first created to
+    // seed its render data. Adds the upright-only uniforms (align_to_terrain,
+    // terrain_normal, forward_offset) on top of the base's common ones.
+    protected override void InitInstanceUniformsFor(Rid rid, Vector2I spriteSize, Vector2I regionOrigin)
+    {
+        base.InitInstanceUniformsFor(rid, spriteSize, regionOrigin);
+        if (!rid.IsValid)
         {
-            // Resolve the random mirror flip once and XOR it into FlipH,
-            // which becomes the authoritative stored state read by Apply().
-            // Rolling once here keeps subsequent Apply() calls (from
-            // TextureChanged, etc.) from re-randomizing.
-            if (Mirror && GD.Randf() < 0.5f)
+            return;
+        }
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "align_to_terrain", _alignToTerrain);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "terrain_normal", _terrainNormal);
+        RenderingServer.InstanceGeometrySetShaderParameter(rid, "forward_offset", _forwardOffset);
+    }
+
+    // Push a per-sprite shader value into the per-instance render data of the
+    // visible sprite + shadow proxy + water reflection (whichever exist).
+    // After the instance-uniform refactor every per-sprite value lives in
+    // RenderingServer instance data, NOT on the (now shared) materials, so
+    // multiple LitSprites can share one ShaderMaterial and Godot can batch
+    // their draws. RenderingServer silently ignores names a shader doesn't
+    // declare, so pushing silhouette to the shadow proxy is a harmless no-op.
+    protected override void PushAlignmentUniform(StringName name, Variant value)
+    {
+        base.PushAlignmentUniform(name, value);
+        if (_shadowProxy != null)
+        {
+            Rid shadowRid = _shadowProxy.GetInstance();
+            if (shadowRid.IsValid)
             {
-                FlipH = !FlipH;
+                RenderingServer.InstanceGeometrySetShaderParameter(shadowRid, name, value);
             }
-            // Roll the per-instance scale once and bake it into the
-            // transform. If the author left the range at its (1, 1)
-            // default this is a no-op.
-            float s = (float)GD.RandRange(ScaleMin, ScaleMax);
-            Scale = new Vector3(s, s, s);
-
-            // Subscribe to Node3D's VisibilityChanged signal once and toggle
-            // SetProcess based on IsVisibleInTree. The signal fires when
-            // *this* node OR any ancestor flips its Visible flag, which is
-            // exactly when the cached state could have changed. After this
-            // hookup the engine itself stops dispatching _Process to hidden
-            // sprites — no per-frame IsVisibleInTree call, no LitSprite gate
-            // sample. At ~900 sprites that's 0.2+ ms/frame back.
-            VisibilityChanged += OnVisibilityChanged;
-            SetProcess(IsVisibleInTree());
         }
-        TextureChanged += Apply;
-        Apply();
+        if (_blockLightShadowProxy != null)
+        {
+            Rid projRid = _blockLightShadowProxy.GetInstance();
+            if (projRid.IsValid)
+            {
+                RenderingServer.InstanceGeometrySetShaderParameter(projRid, name, value);
+            }
+        }
+        if (_reflection != null)
+        {
+            Rid reflRid = _reflection.GetInstance();
+            if (reflRid.IsValid)
+            {
+                RenderingServer.InstanceGeometrySetShaderParameter(reflRid, name, value);
+            }
+        }
     }
 
-    private void OnVisibilityChanged()
+    // Keep the proxy sprites' Sprite3D mesh bounds in sync when a frame
+    // animator swaps the region. Material/uniform pushes happen in the base.
+    protected override void OnFrameChanged(Rect2 region)
     {
-        // _needsProcess is the per-sprite "_Process has any work" decision
-        // made by Apply(); visibility is the per-frame "anyone watching"
-        // decision. Both must be true to spend the frame.
-        SetProcess(_needsProcess && IsVisibleInTree());
+        if (_shadowProxy != null)
+        {
+            _shadowProxy.RegionEnabled = true;
+            _shadowProxy.RegionRect = region;
+            _shadowProxy.Offset = Offset;
+        }
+        if (_blockLightShadowProxy != null)
+        {
+            _blockLightShadowProxy.RegionEnabled = true;
+            _blockLightShadowProxy.RegionRect = region;
+            _blockLightShadowProxy.Offset = Offset;
+        }
+        if (_reflection != null)
+        {
+            _reflection.RegionEnabled = true;
+            _reflection.RegionRect = region;
+            _reflection.Offset = Offset;
+        }
     }
 
-    // Derives (size, origin) in integer pixels from the Sprite3D's RegionRect
-    // when enabled, falling back to the full texture size when not. Shaders
-    // and the Offset math need integer values, so the cast happens here.
-    private void GetSpriteRect(out Vector2I size, out Vector2I origin)
+    protected override void Apply()
     {
-        if (RegionEnabled && RegionRect.Size.X > 0 && RegionRect.Size.Y > 0)
-        {
-            size = new Vector2I((int)RegionRect.Size.X, (int)RegionRect.Size.Y);
-            origin = new Vector2I((int)RegionRect.Position.X, (int)RegionRect.Position.Y);
-            return;
-        }
-        if (Texture != null)
-        {
-            Vector2 ts = Texture.GetSize();
-            size = new Vector2I((int)ts.X, (int)ts.Y);
-            origin = Vector2I.Zero;
-            return;
-        }
-        size = new Vector2I(1, 1);
-        origin = Vector2I.Zero;
-    }
-
-    private void Apply()
-    {
-        Centered = false;
-        // The runtime sprite_lit shader does its own per-pixel sizing using
-        // the `sprite_chunky` global, so PixelSize=1 there. The editor
-        // preview has no shader, so we bake the same scale into PixelSize
-        // to match in-game size — read straight from project.godot so it
-        // can't drift.
-        PixelSize = Engine.IsEditorHint() ? GetEditorPixelSize() : 1.0f;
-        GetSpriteRect(out Vector2I spriteSize, out Vector2I regionOrigin);
-        if (CenteredAtBase)
-        {
-            Offset = new Vector2(-spriteSize.X / 2.0f, 0);
-        }
+        ApplyCommonAuthoring(out Vector2I spriteSize, out Vector2I regionOrigin);
 
         if (Engine.IsEditorHint())
         {
@@ -520,14 +294,12 @@ public partial class LitSprite : Sprite3D
         // UpdateYawMirror's first line returns on !MirrorByYaw. Most world
         // props (trees, barrels, decor) hit this case and shouldn't pay
         // the per-frame profiler-scope + two-null-check overhead. The
-        // _needsProcess flag is AND-ed with visibility in the VisibilityChanged
-        // callback so static props stay SetProcess(false) across visibility
-        // toggles. Mobs/players have MirrorByYaw=true and keep ticking.
-        if (!Engine.IsEditorHint())
-        {
-            _needsProcess = _reflection != null || MirrorByYaw;
-            SetProcess(_needsProcess && IsVisibleInTree());
-        }
+        // _needsProcess flag is AND-ed with visibility in the
+        // VisibilityChanged callback (in SpriteBase) so static props stay
+        // SetProcess(false) across visibility toggles. Mobs/players have
+        // MirrorByYaw=true and keep ticking.
+        _needsProcess = _reflection != null || MirrorByYaw;
+        SetProcess(_needsProcess && IsVisibleInTree());
     }
 
     public override void _Process(double delta)
@@ -537,11 +309,12 @@ public partial class LitSprite : Sprite3D
             return;
         }
         // No IsVisibleInTree gate here — the VisibilityChanged hookup in
-        // _Ready calls SetProcess(false) when this sprite goes hidden, so
-        // we only get here on visible frames. The next time visibility
-        // flips back on, the first _Process tick re-derives reflection
-        // position and mirror state from scratch (UpdateReflection's
-        // _lastReflectionPos cache will see the position-changed delta).
+        // SpriteBase._Ready calls SetProcess(false) when this sprite goes
+        // hidden, so we only get here on visible frames. The next time
+        // visibility flips back on, the first _Process tick re-derives
+        // reflection position and mirror state from scratch
+        // (UpdateReflection's _lastReflectionVoxel cache will see the
+        // position-changed delta).
         using var _profLitSprite = Profiler.Sample("LitSprite.Process");
         using (Profiler.Sample("LitSprite.UpdateReflection"))
         {
@@ -952,20 +725,5 @@ public partial class LitSprite : Sprite3D
             }
         }
         return null;
-    }
-
-
-    private static float GetEditorPixelSize()
-    {
-        Variant entry = ProjectSettings.GetSetting("shader_globals/sprite_chunky");
-        if (entry.VariantType == Variant.Type.Dictionary)
-        {
-            var dict = entry.AsGodotDictionary();
-            if (dict.TryGetValue("value", out Variant value))
-            {
-                return (float)value;
-            }
-        }
-        return 1.0f;
     }
 }

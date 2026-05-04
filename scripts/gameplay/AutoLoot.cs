@@ -64,9 +64,9 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		_animationPlayer.Play("Bob");
 	}
 
-	private void OnHurtBoxHit(DamageData data, Node source)
+	private void OnHurtBoxHit(HitInfo hit)
 	{
-		GD.Print($"AutoLoot hit for {data?.healthDamage} from {source?.Name}");
+		GD.Print($"AutoLoot hit for {hit.healthDamage} from {hit.source?.Name}");
 	}
 
 	private void OnBodyEntered(Node body)

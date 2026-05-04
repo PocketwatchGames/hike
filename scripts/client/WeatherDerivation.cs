@@ -99,7 +99,8 @@ public static class WeatherDerivation
         float kneeEndBase = sim?.OvercastKneeEnd ?? 1.0f;
         float humidityKneeShift = sim?.HumidityKneeShift ?? 0.3f;
         float sunsetIntFactor = sim?.SunsetIntensityFactor ?? 0.7f;
-        float nightIntBase = sim?.NightIntensityBase ?? 0.3f;
+        float dayIntBase = sim?.DayIntensityBase ?? 2f;
+        float nightIntBase = sim?.NightIntensityBase ?? 0.75f;
 
         // Slide the knee based on humidity, centered so humidity=0.5 is
         // neutral. Dry air lets sun break through even heavy cloud
@@ -121,17 +122,22 @@ public static class WeatherDerivation
         float aridFactor = Mathf.Min(1f - humidity, 1f - cloudCover);
         float aridBoost = Mathf.Lerp(1f, aridBoostMax, aridFactor);
 
-        float dayIntensity = cloudIntensityScale * humidityIntensityScale * aridBoost;
+        float dayIntensity = dayIntBase * cloudIntensityScale * humidityIntensityScale * aridBoost;
         float sunsetIntensity = dayIntensity * sunsetIntFactor;
         // Night moonlight is NOT arid-boosted — moonlight is already
         // dim; scaling it up would make dry nights feel unnaturally
         // bright and flatten the day/night contrast.
         float nightIntensity = nightIntBase * cloudIntensityScale;
 
-        p.PrimaryIntensity = Mathf.Lerp(Mathf.Lerp(dayIntensity, nightIntensity, nightT), sunsetIntensity, sunsetT);
+        // Sun-side primary fraction only (day blended with sunset). The
+        // day↔night blend happens in SkyController so it can apply separate
+        // sun and moon multipliers from CVars. NightT is exposed below so
+        // SkyController can do the same lerp.
+        p.PrimaryIntensity = Mathf.Lerp(dayIntensity, sunsetIntensity, sunsetT);
         // Unblended night intensity — used by SkyController to scale
         // MoonLight.LightEnergy so Godot's shadow pass dims in proportion.
         p.NightPrimaryIntensity = nightIntensity;
+        p.NightT = nightT;
 
         // --- Ambient -------------------------------------------------
         // Ambient inverts direct intensity via the SAME cloudKnee: below

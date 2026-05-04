@@ -5,11 +5,12 @@
 [ext_resource type="Texture2D" uid="uid://1ey3qioeb75t" path="res://assets/textures/interactives/door_01.png" id="2_k0lqv"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit_character.tres" id="5_spritemat"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
+[ext_resource type="Script" path="res://scripts/gameplay/InteractiveXray.cs" id="10_xray"]
 
 [sub_resource type="Resource" id="Resource_door_event_open"]
 script = ExtResource("9_event")
@@ -71,3 +72,7 @@ shape = SubResource("BoxShape3D_block")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=1967781157]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.304572, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
+script = ExtResource("10_xray")
+_sprites = [NodePath("../DoorSprite")]

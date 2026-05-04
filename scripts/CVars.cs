@@ -137,6 +137,13 @@ public static class CVars
     // Off by default; toggle from the in-game console.
     public static CVarBool debugMobPath = new CVarBool("debug_mob_path", false);
 
+    // When true, Mob._PhysicsProcess prints a diagnostic line each time the
+    // torch-conditions block runs — ambientLight, useTorch, discovery state,
+    // playerRemembers, and whether _torch / MobData.torch are populated. Use
+    // when goblins fail to light their torches to see which gating step is
+    // blocking the spawn.
+    public static CVarBool debugMobTorch = new CVarBool("debug_mob_torch", false);
+
     // Generic CPU section profiler. While `profile` is true, code sections
     // wrapped in Profiler.Section.Begin/End record per-section call count,
     // total time, max single call, and approximate per-frame cost. Run
@@ -166,6 +173,16 @@ public static class CVars
     // reads, then reset. Smaller = more responsive table, more churn.
     // Larger = more stable averages, slower reaction to scene changes.
     public static CVarFloat profileWindow = new CVarFloat("profile_window", 1f);
+
+    // Hitch logger. While `hitch_log` is true, DiagnosticsOverlay watches
+    // per-frame delta and, whenever a frame exceeds `hitch_threshold_ms`,
+    // prints the frame time + a Profiler section snapshot to GD.Print and
+    // resets the accumulators so the next hitch starts from a clean slate.
+    // Forces `profile` on while enabled so the section table has live data.
+    // Always-on (does NOT require the F3 overlay to be visible) so hitches
+    // can be caught in the wild without the overlay covering the screen.
+    public static CVarBool hitchLog = new CVarBool("hitch_log", false);
+    public static CVarFloat hitchThresholdMs = new CVarFloat("hitch_threshold_ms", 50f);
 
     // Bisection toggles for mob render / physics cost. Mob C# work is cheap;
     // when fps tanks at high mob density the cost is in render submission
@@ -558,19 +575,6 @@ public static class CVars
     public static CVarFloat lightFalloffExp = new CVarFloat("light_falloff_exp", 2f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
-    });
-
-    // Multiplier applied to the sun-visibility lightmap channel. Peak values
-    // >1.0 push sunlit terrain above the glow HDR threshold so bloom has
-    // something to feed on (Environment_bloom sets glow_hdr_threshold = 1.0
-    // and tonemap_mode = Filmic, so values above 1 bloom and roll off
-    // instead of clamping flat). Block lights (torches) can still add on
-    // top — the lightmap format is what caps their headroom, not this.
-    // Will be driven by the day/night simulation once it exists; today
-    // it's a static tuning value.
-    public static CVarFloat sunIntensity = new CVarFloat("sun_intensity", 2f, (cvar) =>
-    {
-        Godot.RenderingServer.GlobalShaderParameterSet("sun_intensity", ((CVarFloat)cvar).Value);
     });
 
     // RGB tint applied to the sun visibility mask. Day/night will drive this:

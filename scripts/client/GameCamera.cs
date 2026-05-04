@@ -214,6 +214,15 @@ public partial class GameCamera : Camera3D
 	// SCREEN_UV samples line up 1:1 with the chunky pixel grid.
 	public void SyncCapMaskCamera(Vector2I innerViewportSize)
 	{
+		// Same init-order guard ApplyClipPlanes uses: GameClient._Process
+		// can call this before the cap-mask camera + viewport are wired
+		// during init. Skip until they exist; the cap-mask render is
+		// purely a visual augmentation and missing one frame on startup
+		// is harmless.
+		if (_capMaskCamera == null || _capMaskViewport == null)
+		{
+			return;
+		}
 		_capMaskCamera.GlobalTransform = GlobalTransform;
 		if (Projection == ProjectionType.Perspective)
 		{
@@ -333,6 +342,15 @@ public partial class GameCamera : Camera3D
 
 	private void ApplyClipPlanes(Vector3 centerPos)
 	{
+		// UpdateClip can fire from GameClient._Process before the cap-plane
+		// nodes are wired (the clip-cap mesh + materials are created later
+		// in init alongside the SubViewport for the cap mask). Skip in
+		// that case; clip globals still propagate to shaders via the
+		// PushClipGlobals path.
+		if (_clipCapPlane == null || _waterCapPlane == null)
+		{
+			return;
+		}
 		if (_clip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;

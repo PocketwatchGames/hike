@@ -25,6 +25,14 @@ public partial class DiagnosticsOverlay : CanvasLayer
     private bool _forcedProfileOn;
     private bool _profilePriorState;
 
+    // Hitch detector. When CVars.hitchLog is true, we watch every frame's
+    // delta and dump the live profile table whenever delta exceeds the
+    // threshold. Independent of overlay visibility — set hitch_log=1 from
+    // the console and let it run with the overlay hidden.
+    private bool _hitchForcedProfileOn;
+    private bool _hitchProfilePriorState;
+    private bool _hitchSkipFirstFrame = true;
+
     public override void _Ready()
     {
         Layer = OverlayLayer;
@@ -69,6 +77,10 @@ public partial class DiagnosticsOverlay : CanvasLayer
 
     public override void _Process(double delta)
     {
+        // Always-on hitch detector. Runs even when the overlay is hidden so
+        // hitches can be caught in the wild.
+        UpdateHitchDetector(delta);
+
         if (!Visible)
         {
             return;
@@ -86,6 +98,61 @@ public partial class DiagnosticsOverlay : CanvasLayer
         }
         _accum = 0;
         _label.Text = BuildText();
+    }
+
+    // Watches per-frame delta and dumps the profiler table whenever a frame
+    // exceeds CVars.hitchThresholdMs. Forces `profile` on while hitch_log
+    // is enabled so the dumped table has live data; restores the prior
+    // setting when hitch_log is turned off. Resets the profiler after each
+    // dump so consecutive hitches don't bleed into each other.
+    private void UpdateHitchDetector(double delta)
+    {
+        bool enabled = CVars.hitchLog.Value;
+
+        if (enabled && !_hitchForcedProfileOn)
+        {
+            _hitchProfilePriorState = CVars.profile.Value;
+            CVars.profile.Value = true;
+            _hitchForcedProfileOn = true;
+            _hitchSkipFirstFrame = true;
+        }
+        else if (!enabled && _hitchForcedProfileOn)
+        {
+            // Don't stomp the user's setting if the F3 overlay also forced
+            // it on — only restore if hitch_log was the only thing holding
+            // it on.
+            if (!_forcedProfileOn)
+            {
+                CVars.profile.Value = _hitchProfilePriorState;
+            }
+            _hitchForcedProfileOn = false;
+        }
+
+        if (!enabled)
+        {
+            return;
+        }
+
+        // Skip the first frame after enabling — delta is the wall-clock gap
+        // since the last _Process call, which may be huge if the game just
+        // unpaused or hitch_log just flipped on.
+        if (_hitchSkipFirstFrame)
+        {
+            _hitchSkipFirstFrame = false;
+            return;
+        }
+
+        double frameMs = delta * 1000.0;
+        if (frameMs < CVars.hitchThresholdMs.Value)
+        {
+            return;
+        }
+
+        var sb = new System.Text.StringBuilder();
+        sb.Append("[HITCH] frame=").Append(frameMs.ToString("F1")).Append("ms\n");
+        Profiler.AppendTable(sb, useLatched: false);
+        Godot.GD.Print(sb.ToString());
+        Profiler.Reset();
     }
 
     private string BuildText()

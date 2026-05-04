@@ -4,15 +4,21 @@
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
 [ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="3_hags0"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="5_spritemat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_spritemat"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_72em6"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_1ntuc"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="8_interactivebox"]
-[ext_resource type="PackedScene" path="res://scenes/effects/loot_pickup.tscn" id="9_lootpickup"]
+[ext_resource type="PackedScene" uid="uid://cfugslgplto77" path="res://scenes/effects/loot_pickup.tscn" id="9_lootpickup"]
 [ext_resource type="PackedScene" uid="uid://cfugvse2e2o77" path="res://scenes/effects/loot_spawn.tscn" id="10_lootspawn"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="11_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="12_event"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="13_xray"]
+
+[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
+bounce = 0.5
 
 [sub_resource type="Resource" id="Resource_loot_event_open"]
 script = ExtResource("12_event")
@@ -22,9 +28,6 @@ type = 256
 script = ExtResource("11_action")
 verb = 4
 completionEvents = Array[ExtResource("12_event")]([SubResource("Resource_loot_event_open")])
-
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
-bounce = 0.5
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
 
@@ -50,7 +53,7 @@ length = 0.67
 tracks/0/type = "value"
 tracks/0/imported = false
 tracks/0/enabled = true
-tracks/0/path = NodePath(".:position:y")
+tracks/0/path = NodePath("Sprite:position:y")
 tracks/0/interp = 1
 tracks/0/loop_wrap = false
 tracks/0/keys = {
@@ -109,10 +112,10 @@ region_enabled = true
 region_rect = Rect2(0, 0, 8, 8)
 script = ExtResource("4_litsprite")
 Reflects = 1
-MaterialTemplate = ExtResource("5_spritemat")
 ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
+MaterialTemplate = ExtResource("5_spritemat")
 
 [node name="InteractArea" type="Area3D" parent="." unique_id=1090654577 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
@@ -139,3 +142,7 @@ shape = SubResource("BoxShape3D_loot")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=1247298212]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=1320763382 node_paths=PackedStringArray("_sprites")]
+script = ExtResource("13_xray")
+_sprites = [NodePath("../Sprite")]

@@ -777,10 +777,10 @@ public partial class SkyController : Node3D
     // see — stealth logic stays in sync with the visual darkness of night.
     public float CurrentAmbient { get; private set; } = 0.4f;
 
-    // Current time-of-day-scaled primary intensity — CVars.sunIntensity
-    // multiplied by the day/sunset/night intensity blend. Same value
-    // pushed to the `sun_intensity` shader global; exposing it here lets
-    // gameplay perception dim with the visuals at dusk/night.
+    // Current absolute primary intensity — palette day-side and night-side
+    // values lerped by NightT. Pushed to the `sun_intensity` shader global;
+    // exposing it here lets gameplay perception dim with the visuals at
+    // dusk/night.
     public float CurrentPrimaryIntensity { get; private set; } = 2f;
 
     public override void _Ready()
@@ -1207,8 +1207,13 @@ public partial class SkyController : Node3D
     {
         CurrentAmbient = _palette.Ambient;
 
-        float effSunIntensity = CVars.sunIntensity.Value * _palette.PrimaryIntensity;
-        CurrentPrimaryIntensity = effSunIntensity;
+        // Day and night sides each have a single SimData knob baked into
+        // the palette (DayIntensityBase / NightIntensityBase). SkyController
+        // just lerps the two by NightT — no extra global multipliers, so
+        // tuning the sun and moon are fully independent edits in SimData.
+        float effDayIntensity = _palette.PrimaryIntensity;
+        float effNightIntensity = _palette.NightPrimaryIntensity;
+        CurrentPrimaryIntensity = Mathf.Lerp(effDayIntensity, effNightIntensity, _palette.NightT);
 
         SimData sim = World.Current?.WorldState?.SimData;
         float sunsetAngle = sim?.SunsetAngleDegrees ?? 10f;
@@ -1318,7 +1323,7 @@ public partial class SkyController : Node3D
         // --- Global uniforms ---------------------------------------------
         RenderingServer.GlobalShaderParameterSet("sun_color", ColorToVec3(_palette.SunTint));
         RenderingServer.GlobalShaderParameterSet("sun_ambient", _palette.Ambient);
-        RenderingServer.GlobalShaderParameterSet("sun_intensity", effSunIntensity);
+        RenderingServer.GlobalShaderParameterSet("sun_intensity", CurrentPrimaryIntensity);
         RenderingServer.GlobalShaderParameterSet("fill_a_color", ColorToVec3(_palette.FillA));
         RenderingServer.GlobalShaderParameterSet("fill_b_color", ColorToVec3(_palette.FillB));
         RenderingServer.GlobalShaderParameterSet("horizon_color", ColorToVec3(_palette.HorizonTint));

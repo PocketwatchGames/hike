@@ -1,11 +1,12 @@
 using Godot;
 
-// Drives a LitSprite's Texture / RegionRect from a Godot SpriteFrames
-// resource (authored via the built-in SpriteFrames editor panel). Exists
-// instead of AnimatedSprite3D because LitSprite's shader resolves texels
-// via texelFetch from sprite_region_origin + sprite_size uniforms, so
-// animation is just "swap the region rect" — shadow proxy, water
-// reflection, and AO decal follow automatically through LitSprite.SetFrame.
+// Drives a SpriteBase subclass's Texture / RegionRect from a Godot
+// SpriteFrames resource (authored via the built-in SpriteFrames editor
+// panel). Exists instead of AnimatedSprite3D because the custom shaders
+// resolve texels via texelFetch from sprite_region_origin + sprite_size
+// uniforms, so animation is just "swap the region rect" — shadow proxy,
+// water reflection (LitSprite), or any other proxies follow
+// automatically through SpriteBase.SetFrame.
 //
 // SpriteFrames frames are typically AtlasTextures (when "Add frames from
 // sprite sheet" was used); we unwrap each to (atlas, region). Plain
@@ -17,7 +18,7 @@ using Godot;
 [GlobalClass]
 public partial class LitSpriteAnimator : Node
 {
-    [Export] public LitSprite target;
+    [Export] public SpriteBase target;
     [Export] public SpriteFrames frames;
     [Export] public StringName defaultAnimation;
     [Export] public float speed = 1f;
@@ -34,7 +35,7 @@ public partial class LitSpriteAnimator : Node
         {
             Play(defaultAnimation);
         }
-        // Mirror the LitSprite trick: subscribe to the target's
+        // Mirror the SpriteBase trick: subscribe to the target's
         // VisibilityChanged once and toggle SetProcess based on its
         // IsVisibleInTree state. Engine then stops dispatching _Process to
         // animators whose target sprite is hidden, so we don't pay the

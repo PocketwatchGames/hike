@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_vvowg"]
 [ext_resource type="Resource" uid="uid://crudckd4dl15b" path="res://resources/data/characters/goblin_brain.tres" id="2_brain"]
+[ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/carrier_light_torch.tscn" id="3_torch"]
 
 [resource]
 script = ExtResource("1_vvowg")
@@ -11,4 +12,5 @@ visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
 maxArmor = 5.0
 brain = ExtResource("2_brain")
+carrierLightScene = ExtResource("3_torch")
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

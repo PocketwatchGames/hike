@@ -1,0 +1,118 @@
+[gd_scene format=3 uid="uid://4hqhwaeg3xwx"]
+
+[ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/Torch.cs" id="1_5bkwe"]
+[ext_resource type="PackedScene" path="res://scenes/effects/campfire_light.tscn" id="2_q0pgg"]
+[ext_resource type="PackedScene" path="res://scenes/effects/campfire_extinguish.tscn" id="3_qk6wi"]
+[ext_resource type="PackedScene" path="res://scenes/effects/campfire_loop.tscn" id="4_4nu01"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="5_yf2vb"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_xn81r"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_vs5lw"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_e7drt"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="9_at2wd"]
+[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_22kvh"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/triggers/DamageZone.cs" id="10_qk6wi"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="11_4nu01"]
+[ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/FlatLitSprite.cs" id="11_naflh"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_flat.tres" id="12_nxiho"]
+[ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/Light.cs" id="14_3pg55"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="15_xray"]
+
+[sub_resource type="Resource" id="Resource_torch_event_open"]
+script = ExtResource("6_xn81r")
+type = 256
+
+[sub_resource type="Resource" id="Resource_torch_action_use"]
+script = ExtResource("5_yf2vb")
+verb = 3
+completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_event_open")])
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_5bkwe"]
+radius = 1.0
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_qk6wi"]
+radius = 1.75
+
+[sub_resource type="Resource" id="Resource_yf2vb"]
+script = ExtResource("11_4nu01")
+healthDamage = 1.0
+statusEffects = null
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
+radius = 1.1
+
+[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_litSprite", "_unlitSprite", "_light", "_hudNode")]
+script = ExtResource("1_5bkwe")
+_litSprite = NodePath("LitSprite")
+_unlitSprite = NodePath("UnlitSprite")
+_light = NodePath("Light")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_torch_action_use")])
+_lightOnEffectScene = ExtResource("2_q0pgg")
+_lightOffEffectScene = ExtResource("3_qk6wi")
+_lightLoopEffectScene = ExtResource("4_4nu01")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1484772802]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1950758310]
+shape = SubResource("SphereShape3D_5bkwe")
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=632033449 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("9_at2wd")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1949507899]
+shape = SubResource("SphereShape3D_qk6wi")
+
+[node name="HurtBox" type="Area3D" parent="." unique_id=1515512162]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("10_qk6wi")
+damage = SubResource("Resource_yf2vb")
+metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+
+[node name="CollisionShape3D2" type="CollisionShape3D" parent="HurtBox" unique_id=1443435336]
+shape = SubResource("SphereShape3D_q0pgg")
+
+[node name="LitSprite" type="Sprite3D" parent="." unique_id=821949110]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+cast_shadow = 0
+centered = false
+offset = Vector2(-23.5, -18)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("10_22kvh")
+region_enabled = true
+region_rect = Rect2(1, 383, 47, 36)
+script = ExtResource("11_naflh")
+MaterialTemplate = ExtResource("12_nxiho")
+metadata/_custom_type_script = "uid://bh20sg27my266"
+
+[node name="UnlitSprite" type="Sprite3D" parent="." unique_id=1661704827]
+transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0, 0)
+visible = false
+cast_shadow = 0
+centered = false
+offset = Vector2(-23.5, -18.5)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("10_22kvh")
+region_enabled = true
+region_rect = Rect2(1, 383, 47, 37)
+script = ExtResource("11_naflh")
+MaterialTemplate = ExtResource("12_nxiho")
+metadata/_custom_type_script = "uid://bh20sg27my266"
+
+[node name="Light" type="Node3D" parent="." unique_id=1171222661]
+script = ExtResource("14_3pg55")
+
+[node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=127640960 node_paths=PackedStringArray("_sprites")]
+script = ExtResource("15_xray")
+_sprites = [null, null]
