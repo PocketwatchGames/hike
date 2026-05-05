@@ -8,9 +8,10 @@ using Godot;
 // carries its display name.
 //
 // Border zones (ZoneData.region == null) don't change the player's
-// current region. RegionTracker handles the dwell + distance
-// hysteresis so the banner doesn't flicker on seam crossings and
-// the player can't ride a chain of border zones forever.
+// current region. GameClient.UpdateRegion handles the dwell +
+// distance hysteresis so the banner doesn't flicker on seam
+// crossings and the player can't ride a chain of border zones
+// forever.
 [GlobalClass]
 public partial class RegionData : Resource
 {
