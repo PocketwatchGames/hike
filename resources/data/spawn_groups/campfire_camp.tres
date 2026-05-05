@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="SpawnGroupData" format=3]
+
+[ext_resource type="Script" path="res://scripts/data/spawn/SpawnGroupData.cs" id="1_group"]
+[ext_resource type="Script" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
+[ext_resource type="Script" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
+[ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="4_goblin_scene"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="5_goblin_data"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest_scene"]
+[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="7_loot_scene"]
+
+[sub_resource type="Resource" id="Resource_goblin_entry"]
+script = ExtResource("2_mob_entry")
+CountMin = 2
+CountMax = 3
+Scene = ExtResource("4_goblin_scene")
+Data = ExtResource("5_goblin_data")
+SpawnAtNight = true
+
+[sub_resource type="Resource" id="Resource_chest_entry"]
+script = ExtResource("3_chest_entry")
+CountMin = 1
+CountMax = 1
+Scene = ExtResource("6_chest_scene")
+LootScene = ExtResource("7_loot_scene")
+LootCountMin = 3
+LootCountMax = 6
+SpawnAtNight = true
+
+[resource]
+script = ExtResource("1_group")
+ScatterRadius = 3.0
+Entries = [SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")]

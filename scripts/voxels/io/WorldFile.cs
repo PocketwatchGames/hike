@@ -50,7 +50,10 @@ public static class WorldFile
     // v13: Torch entity payload appended an AutoLightAtNight bool (after
     //      Active) — surface campfires are flagged so they ignite when their
     //      chunk activates after dark.
-    public const uint VERSION = 13;
+    // v14: Chest entity payload appended a SpawnAtNight bool (after Active) —
+    //      campfire-encampment chests are flagged so they only materialize when
+    //      the chunk activates after dark.
+    public const uint VERSION = 14;
 
     public struct IndexEntry
     {
