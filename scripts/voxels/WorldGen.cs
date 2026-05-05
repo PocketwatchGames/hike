@@ -2275,13 +2275,22 @@ public static class WorldGen
                     {
                         continue;
                     }
+                    int sy = SurfaceYAt(wx, wz);
+                    // Tall grass is short — at sy==WATER_LEVEL the surface
+                    // voxel's top face sits exactly at the water surface, so
+                    // the sprite reads as half-submerged. Trees plant at
+                    // sy==WATER_LEVEL because their foliage rises clear of
+                    // the water; grass cannot.
+                    if (sy <= WATER_LEVEL)
+                    {
+                        continue;
+                    }
 
                     PackedScene grassScene = PickWeightedScene(wx, wz, regionsArr, r => r.TallGrassScenes, rng);
                     if (grassScene == null)
                     {
                         continue;
                     }
-                    int sy = SurfaceYAt(wx, wz);
                     ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
                 }
             }
