@@ -29,6 +29,16 @@ public partial class GameClient : Node3D
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
+	// Fired when the player enters a named region. Hud subscribes to
+	// drive the region-entry banner. Hysteresis (dwell + border-travel
+	// cap) lives on RegionTracker — see that class for the rules.
+	// Border zones (ZoneData.region == null) keep the player's current
+	// region sticky; clearing back to null is silent so the next named
+	// region's entry pulses the banner cleanly.
+	public Action<RegionData> onRegionEntered;
+	public RegionData CurrentRegion => _regionTracker.Current;
+	readonly RegionTracker _regionTracker = new();
+
 	public bool paused { get; private set; } = false;
 	public Player Player => _player;
 	public World World => _world;
@@ -124,6 +134,7 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
+		_regionTracker.Tick(_player.GlobalPosition, _world.WorldState, deltaTime, r => onRegionEntered?.Invoke(r));
 		_player.ProcessInput(camera.Yaw);
 
 		// Per-frame push to the detail_sprite shader so grass bends around

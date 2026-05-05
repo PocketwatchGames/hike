@@ -14,6 +14,7 @@ public partial class Hud : CanvasLayer
 	[Export] Control _statusEffectContainer;
 	[Export] ProgressBar _healthBar;
 	[Export] ProgressBar _armorBar;
+	[Export] HudRegionBanner _regionBanner;
 
 	Player _player;
 	Inventory _inventory;
@@ -31,6 +32,7 @@ public partial class Hud : CanvasLayer
 	public override void _Ready()
 	{
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
+		gameClient.onRegionEntered += OnRegionEntered;
 		_weaponLeftButtonHint.SetHint("AttackMelee", string.Empty);
 		_weaponRightButtonHint.SetHint("AttackRanged", string.Empty);
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
@@ -41,12 +43,18 @@ public partial class Hud : CanvasLayer
 		if (gameClient != null)
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
+			gameClient.onRegionEntered -= OnRegionEntered;
 		}
 		if (_inventory != null)
 		{
 			_inventory.onSlotChanged -= OnInventorySlotChanged;
 			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
 		}
+	}
+
+	void OnRegionEntered(RegionData region)
+	{
+		_regionBanner?.Show(region);
 	}
 
 	void OnPlayerSpawned(Player player)

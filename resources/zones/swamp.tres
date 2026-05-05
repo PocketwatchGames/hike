@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
 [ext_resource type="Resource" path="res://resources/audio/swamp_ambience.tres" id="3_ambience"]
+[ext_resource type="Resource" path="res://resources/regions/swamp.tres" id="4_region"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -24,3 +25,4 @@ WaterOpacity = 0.88235295
 DustAmount = 0.05
 weather = SubResource("Resource_weather")
 ambience = ExtResource("3_ambience")
+region = ExtResource("4_region")
