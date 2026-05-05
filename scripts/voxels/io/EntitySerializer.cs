@@ -16,6 +16,7 @@ public static class EntitySerializer
         Torch = 4,
         Chest = 5,
         Trap = 6,
+        BerryTree = 7,
     }
 
     public static void WriteList(BinaryWriter w, List<EntitySimState> entities)
@@ -109,6 +110,14 @@ public static class EntitySerializer
                 WriteVec3(w, trap.WorldPosition);
                 WriteScene(w, trap.Scene);
                 w.Write(trap.Disarmed);
+                break;
+
+            case BerryTreeSimState berry:
+                w.Write((byte)Tag.BerryTree);
+                WriteVec3(w, berry.WorldPosition);
+                WriteScene(w, berry.Scene);
+                w.Write(berry.BerryCount);
+                w.Write(berry.Picked);
                 break;
 
             default:
@@ -213,6 +222,16 @@ public static class EntitySerializer
                 var trap = new TrapSimState(pos, scene);
                 trap.Disarmed = disarmed;
                 return trap;
+            }
+            case Tag.BerryTree:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                int berryCount = r.ReadInt32();
+                bool picked = r.ReadBoolean();
+                var berry = new BerryTreeSimState(pos, scene, berryCount);
+                berry.Picked = picked;
+                return berry;
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");
