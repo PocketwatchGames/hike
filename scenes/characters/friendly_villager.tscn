@@ -1,0 +1,113 @@
+[gd_scene format=3 uid="uid://cnpc1villscene"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="4_mobhud"]
+[ext_resource type="Texture2D" uid="uid://cqaei3r613wm" path="res://assets/textures/characters/chameleon.png" id="5_placeholder_atlas"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="6_litsprite"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="7_litanim"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="8_lit_material"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9_blshadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="10_shadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="11_reflection"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="12_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="13_event"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
+radius = 0.35
+height = 1.5
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_villager_idle"]
+atlas = ExtResource("5_placeholder_atlas")
+region = Rect2(0, 0, 48, 48)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_villager"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_villager_idle")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 1.0
+}]
+
+[sub_resource type="Resource" id="Resource_villager_event_talk"]
+script = ExtResource("13_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_villager_action_talk"]
+script = ExtResource("12_action")
+verb = 1
+displayName = &"Talk"
+completionEvents = Array[ExtResource("13_event")]([SubResource("Resource_villager_event_talk")])
+durationSeconds = 0.0
+locksMovement = true
+
+[node name="FriendlyVillager" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_animator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_animator = NodePath("LitSpriteAnimator")
+_mesh = NodePath("MeshContainer")
+_sprite = NodePath("MeshContainer/Sprite")
+_hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("HudAnchor")
+HudScene = ExtResource("4_mobhud")
+_interactiveActions = Array[ExtResource("12_action")]([SubResource("Resource_villager_action_talk")])
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="MeshContainer" type="Node3D" parent="."]
+
+[node name="Sprite" type="Sprite3D" parent="MeshContainer"]
+cast_shadow = 0
+centered = false
+offset = Vector2(-24, 0)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("5_placeholder_atlas")
+region_enabled = true
+region_rect = Rect2(0, 0, 48, 48)
+script = ExtResource("6_litsprite")
+MirrorByYaw = true
+ForwardOffset = 0.35
+ShadowCasterTemplate = ExtResource("10_shadow")
+BlockLightShadowCasterTemplate = ExtResource("9_blshadow")
+ReflectionTemplate = ExtResource("11_reflection")
+MaterialTemplate = ExtResource("8_lit_material")
+
+[node name="MovementCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("CapsuleShape3D_villager")
+
+[node name="HudAnchor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 0)
+
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("7_litanim")
+target = NodePath("../MeshContainer/Sprite")
+frames = SubResource("SpriteFrames_villager")
+defaultAnimation = &"idle"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"

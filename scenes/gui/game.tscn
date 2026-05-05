@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
 [ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/hud/hud_text.tscn" id="2_o78e0"]
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
+[ext_resource type="PackedScene" uid="uid://cnpc1mobchatscene" path="res://scenes/hud/mob_chatter.tscn" id="3a_mobchat"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
@@ -58,6 +59,7 @@ upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
 hudTextScene = ExtResource("2_o78e0")
 interactHudScene = ExtResource("3_0q6jn")
+mobChatterScene = ExtResource("3a_mobchat")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")
