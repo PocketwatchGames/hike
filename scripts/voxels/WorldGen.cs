@@ -2647,6 +2647,37 @@ public static class WorldGen
                         rg.LootScene));
                 }
             }
+
+            // Generate berry trees on grass surfaces. Authored per-region;
+            // leave BerryTreeScene null on regions that shouldn't have them.
+            for (int localX = 0; localX < ChunkState.SIZE; localX++)
+            {
+                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+                {
+                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                    if (!IsGrassyAt(wx, wz))
+                    {
+                        continue;
+                    }
+                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    if (rg == null || rg.BerryTreeScene == null)
+                    {
+                        continue;
+                    }
+                    if (rng.NextDouble() >= rg.BerryTreeChance)
+                    {
+                        continue;
+                    }
+
+                    int sy = SurfaceYAt(wx, wz);
+                    int berryCount = rng.Next(rg.BerryTreeCountMin, rg.BerryTreeCountMax + 1);
+                    ws.AddEntity(new BerryTreeSimState(
+                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
+                        rg.BerryTreeScene,
+                        berryCount));
+                }
+            }
         }
 
         // Cave pockets: scan the full vertical column and spawn mobs/chests/

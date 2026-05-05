@@ -62,6 +62,32 @@ public class ChestSimState : EntitySimState
         Mathf.FloorToInt(WorldPosition.Z));
 }
 
+public class BerryTreeSimState : EntitySimState
+{
+    // Once true the tree is bare and stays that way (no regrowth). Hurtbox
+    // disables, interactive blocks. Per-instance so worldgen can vary the
+    // payload between bushes; serialized so a half-harvested forest stays
+    // half-harvested across save/load.
+    public bool Picked;
+    public int BerryCount;
+
+    public BerryTreeSimState(Vector3 worldPosition, PackedScene scene, int berryCount)
+        : base(worldPosition, scene)
+    {
+        BerryCount = berryCount;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return BerryTree.Create(world, this);
+    }
+
+    public override Vector3I? PathBlockerCell => new Vector3I(
+        Mathf.FloorToInt(WorldPosition.X),
+        Mathf.FloorToInt(WorldPosition.Y),
+        Mathf.FloorToInt(WorldPosition.Z));
+}
+
 public class TrapSimState : EntitySimState
 {
     public bool Disarmed;

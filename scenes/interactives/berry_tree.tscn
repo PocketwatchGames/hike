@@ -1,0 +1,109 @@
+[gd_scene format=3 uid="uid://23ids5pfkxv0"]
+
+[ext_resource type="Script" path="res://scripts/gameplay/entities/BerryTree.cs" id="1_berrytree"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Texture2D" uid="uid://bny4ih77dn8l8" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Trees/Model_01/Size_02.png" id="3_treetex"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="4_interactivebox"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="5_litsprite"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="6_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="7_lit_blshadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="10_action"]
+[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/LitSpriteAnimator.cs" id="11_anim"]
+
+[sub_resource type="Resource" id="Resource_berry_action_pick"]
+script = ExtResource("10_action")
+verb = 0
+durationSeconds = 1.5
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_berry_ripe"]
+atlas = ExtResource("3_treetex")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_berry_picked"]
+atlas = ExtResource("3_treetex")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_berry"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_berry_ripe")
+}],
+"loop": true,
+"name": &"ripe",
+"speed": 1.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_berry_picked")
+}],
+"loop": true,
+"name": &"picked",
+"speed": 1.0
+}]
+
+[node name="BerryTree" type="Node3D" node_paths=PackedStringArray("_animator", "_hurtBox", "_hudNode")]
+script = ExtResource("1_berrytree")
+_animator = NodePath("LitSpriteAnimator")
+_hurtBox = NodePath("HurtBox")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
+
+[node name="BlockCollider" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_block")
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("4_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="Sprite" type="Sprite3D" parent="."]
+cast_shadow = 0
+centered = false
+offset = Vector2(-16, 0)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("3_treetex")
+region_enabled = true
+region_rect = Rect2(0, 0, 32, 32)
+script = ExtResource("5_litsprite")
+ForwardOffset = 0.5
+MaterialTemplate = ExtResource("6_lit_materialtemplate")
+ShadowCasterTemplate = ExtResource("8_lit_shadowcastertemplate")
+BlockLightShadowCasterTemplate = ExtResource("7_lit_blshadowcastertemplate")
+ReflectionTemplate = ExtResource("9_lit_reflectiontemplate")
+
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
+script = ExtResource("11_anim")
+target = NodePath("../Sprite")
+frames = SubResource("SpriteFrames_berry")
+defaultAnimation = &"ripe"
+metadata/_custom_type_script = "uid://dwrtaigmbeepp"
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_block")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)

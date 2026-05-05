@@ -129,4 +129,13 @@ public partial class RegionGenData : Resource
     // offset so neighbouring columns don't fire in lockstep.
     [Export] public PackedScene FireTrapScene;
     [Export] public float FireTrapChance = 0f;
+
+    // Per-(grass column) spawn chance for berry trees on the surface. Each
+    // tree drops [BerryCountMin..BerryCountMax] autoloot berries when picked
+    // (or when the hurtbox takes a sword hit). Leave BerryTreeScene null to
+    // disable for the region.
+    [Export] public PackedScene BerryTreeScene;
+    [Export] public float BerryTreeChance = 0.01f;
+    [Export] public int BerryTreeCountMin = 3;
+    [Export] public int BerryTreeCountMax = 6;
 }
