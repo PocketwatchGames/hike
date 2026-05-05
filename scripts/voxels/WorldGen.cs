@@ -344,6 +344,27 @@ public static class WorldGen
             }
         }
 
+        // One-off friendly villager near the default player spawn (0, 24, 0)
+        // so the new IInteractive/Talk plumbing has a concrete target without
+        // requiring an editor placement. Drops 3 voxels east of origin and
+        // snaps to the heightmap so the villager sits on the ground regardless
+        // of terrain noise. Temporary test fixture — fold into a proper NPC
+        // population pass once authored villager spawn rules exist.
+        const int VillagerSpawnX = 3;
+        const int VillagerSpawnZ = 0;
+        if (VillagerSpawnX >= ws.Min.X && VillagerSpawnX <= ws.Max.X
+            && VillagerSpawnZ >= ws.Min.Z && VillagerSpawnZ <= ws.Max.Z)
+        {
+            var villagerData = GD.Load<MobData>("res://resources/data/characters/friendly_villager.tres");
+            var villagerScene = GD.Load<PackedScene>("res://scenes/characters/friendly_villager.tscn");
+            if (villagerData != null && villagerScene != null)
+            {
+                int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
+                var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
+                ws.AddEntity(new MobSimState(pos, 0f, villagerScene, villagerData));
+            }
+        }
+
         // Compute sunlight after all geometry exists.
         LightEngine.ComputeSunlight(ws);
 
