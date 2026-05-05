@@ -1,12 +1,12 @@
 [gd_scene format=3 uid="uid://cva1ywaqfv58i"]
 
-[ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/Trap.cs" id="1_trap"]
+[ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/entities/Trap.cs" id="1_trap"]
 [ext_resource type="Script" uid="uid://d3ycyn0iacjxh" path="res://scripts/data/SpikeTrapData.cs" id="2_data"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
-[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/InteractiveBox.cs" id="4_box"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="5_litsprite"]
-[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/Discoverable.cs" id="6_discoverable"]
-[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/InteractiveXray.cs" id="7_xray"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="5_litsprite"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="6_discoverable"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="7_xray"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
 [ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="10_tex"]
@@ -17,8 +17,8 @@
 [ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="15_hud"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_warning.tscn" id="16_warning"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_emerge.tscn" id="17_emerge"]
-[ext_resource type="Script" path="res://scripts/gameplay/triggers/TriggerSource.cs" id="18_trigsrc"]
-[ext_resource type="Script" path="res://scripts/gameplay/triggers/SpikeDeployer.cs" id="19_deployer"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/TriggerSource.cs" id="18_trigsrc"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/SpikeDeployer.cs" id="19_deployer"]
 
 [sub_resource type="Resource" id="Resource_trap_damage"]
 script = ExtResource("3_damage")
