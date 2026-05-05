@@ -2385,12 +2385,17 @@ public static class WorldGen
                     }
 
                     int sy = SurfaceYAt(wx, wz);
-                    var campfire = new TorchSimState(
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        genData.CampfireScene);
+                    var anchor = new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f);
+                    var campfire = new TorchSimState(anchor, genData.CampfireScene);
                     campfire.AutoLightAtNight = true;
                     campfire.Active = false;
                     ws.AddEntity(campfire);
+
+                    if (rg.CampfireSpawnGroup != null)
+                    {
+                        ScatterSpawnGroupOnSurface(ws, rg.CampfireSpawnGroup, anchor, rng,
+                            SurfaceYAt, IsGrassyAt);
+                    }
                 }
             }
         }
@@ -2515,6 +2520,46 @@ public static class WorldGen
                     {
                         ws.AddEntity(new TorchSimState(pos, genData.TorchScene));
                     }
+                }
+            }
+        }
+    }
+
+    // Scatters a SpawnGroupData around a surface anchor. Each entry rolls its
+    // own count; for each instance we sample a point in the disc of group
+    // ScatterRadius around the anchor and reject any cell that isn't grassy
+    // surface. Cave-pocket scatter would use a different sampler.
+    private const int SpawnScatterAttemptsPerEntity = 6;
+    private static void ScatterSpawnGroupOnSurface(WorldState ws, SpawnGroupData group,
+        Vector3 anchor, Random rng,
+        System.Func<int, int, int> surfaceYAt, System.Func<int, int, bool> isGrassyAt)
+    {
+        if (group == null || group.Entries == null)
+        {
+            return;
+        }
+        foreach (SpawnEntryData entry in group.Entries)
+        {
+            if (entry == null)
+            {
+                continue;
+            }
+            int count = rng.Next(entry.CountMin, entry.CountMax + 1);
+            for (int i = 0; i < count; i++)
+            {
+                for (int attempt = 0; attempt < SpawnScatterAttemptsPerEntity; attempt++)
+                {
+                    float r = group.ScatterRadius * Mathf.Sqrt((float)rng.NextDouble());
+                    float a = (float)(rng.NextDouble() * Mathf.Pi * 2.0);
+                    int wx = Mathf.FloorToInt(anchor.X + r * Mathf.Cos(a));
+                    int wz = Mathf.FloorToInt(anchor.Z + r * Mathf.Sin(a));
+                    if (!isGrassyAt(wx, wz))
+                    {
+                        continue;
+                    }
+                    int sy = surfaceYAt(wx, wz);
+                    entry.Spawn(ws, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), rng);
+                    break;
                 }
             }
         }

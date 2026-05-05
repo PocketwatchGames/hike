@@ -111,6 +111,11 @@ public partial class RegionGenData : Resource
     // dark and stay dark in daylight.
     [Export] public float CampfireSpawnOutside = 0.001f;
 
+    // Optional spawn group scattered around each campfire when it spawns.
+    // Use a MobSpawnEntry with SpawnAtNight=true plus a ChestSpawnEntry to
+    // populate a night-only encampment around the fire.
+    [Export] public SpawnGroupData CampfireSpawnGroup;
+
     [Export] public PackedScene KunKunScene;
     [Export] public MobData KunKunData;
     [Export] public float KunKunChance = 0.005f;
