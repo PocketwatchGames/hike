@@ -31,6 +31,7 @@
 [ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="33_loot"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="34_chest"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/fire_trap.tscn" id="35_firetrap"]
+[ext_resource type="Resource" path="res://resources/data/spawn_groups/campfire_camp.tres" id="36_campfire_group"]
 
 [resource]
 script = ExtResource("1_script")
@@ -60,3 +61,4 @@ ChestScene = ExtResource("34_chest")
 ChestChance = 0.002
 FireTrapScene = ExtResource("35_firetrap")
 FireTrapChance = 0.004
+CampfireSpawnGroup = ExtResource("36_campfire_group")

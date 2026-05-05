@@ -105,6 +105,7 @@ public static class EntitySerializer
                 w.Write(chest.LootCount);
                 WriteScene(w, chest.LootScene);
                 w.Write(chest.Active);
+                w.Write(chest.SpawnAtNight);
                 break;
 
             case TrapSimState trap:
@@ -226,8 +227,10 @@ public static class EntitySerializer
                 int lootCount = r.ReadInt32();
                 PackedScene lootScene = ReadScene(r);
                 bool active = r.ReadBoolean();
+                bool spawnAtNight = r.ReadBoolean();
                 var chest = new ChestSimState(pos, scene, lootCount, lootScene);
                 chest.Active = active;
+                chest.SpawnAtNight = spawnAtNight;
                 return chest;
             }
             case Tag.Trap:

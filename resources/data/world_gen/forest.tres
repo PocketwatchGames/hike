@@ -39,6 +39,7 @@
 [ext_resource type="PackedScene" path="res://scenes/props/treemaple_01.tscn" id="34_dl5mh"]
 [ext_resource type="PackedScene" path="res://scenes/props/treemaple_02.tscn" id="35_fwln4"]
 [ext_resource type="PackedScene" path="res://scenes/props/treemaple_03.tscn" id="36_ile67"]
+[ext_resource type="Resource" path="res://resources/data/spawn_groups/campfire_camp.tres" id="37_campfire_group"]
 
 [resource]
 script = ExtResource("1_script")
@@ -67,3 +68,4 @@ ChestScene = ExtResource("34_chest")
 ChestChance = 0.002
 BerryTreeScene = ExtResource("37_berry")
 BerryTreeChance = 0.01
+CampfireSpawnGroup = ExtResource("37_campfire_group")
