@@ -2145,6 +2145,20 @@ public static class WorldGen
                     {
                         continue;
                     }
+                    // IsSurfaceVoxel accepts water above (it's "non-solid"),
+                    // which suits the kit-tagging passes but would scatter
+                    // upright sprites at the water surface. The kit-slot
+                    // filter below already rejects shoreline plateaus that
+                    // TagSubmergedKits flagged as KIT_UNDERWATER, but caves
+                    // and the test underwater lake create new water voxels
+                    // AFTER TagSubmergedKits runs — the lake floor stays
+                    // KIT_TEMPERATE and would otherwise spawn grass blades
+                    // sitting inside the lake. Reject any surface whose
+                    // air-above slot is water.
+                    if (ws.GetVoxelWorld(wx, wy + 1, wz) == VoxelType.Water)
+                    {
+                        continue;
+                    }
                     int slot = KitSlot(ws.GetKitIdWorld(wx, wy, wz));
                     BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
 
