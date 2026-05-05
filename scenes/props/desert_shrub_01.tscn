@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://do77rpmcv7asq"]
 
-[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="uid://bmexg1iyjueyk" path="res://assets/textures/props/decor_desert.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 [ext_resource type="ShaderMaterial" path="res://resources/materials/sprite_lit.tres" id="4_lit_materialtemplate"]

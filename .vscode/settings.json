@@ -1,0 +1,17 @@
+{
+  "files.watcherExclude": {
+    "**/.godot/**": true,
+    "**/bin/**": true,
+    "**/obj/**": true
+  },
+  "files.exclude": {
+    "**/.godot": true,
+    "**/bin": true,
+    "**/obj": true
+  },
+  "search.exclude": {
+    "**/.godot": true,
+    "**/bin": true,
+    "**/obj": true
+  }
+}

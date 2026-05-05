@@ -3,5 +3,6 @@ public static partial class Loc
 {
 	public enum Keys
 	{
+		villager_greeting
 	}
 }
