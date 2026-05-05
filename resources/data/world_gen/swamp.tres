@@ -30,6 +30,7 @@
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="32_kunkun_data"]
 [ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="33_loot"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="34_chest"]
+[ext_resource type="PackedScene" path="res://scenes/interactives/fire_trap.tscn" id="35_firetrap"]
 
 [resource]
 script = ExtResource("1_script")
@@ -57,3 +58,5 @@ LootScene = ExtResource("33_loot")
 LootChance = 0.005
 ChestScene = ExtResource("34_chest")
 ChestChance = 0.002
+FireTrapScene = ExtResource("35_firetrap")
+FireTrapChance = 0.004

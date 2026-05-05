@@ -122,4 +122,11 @@ public partial class RegionGenData : Resource
     [Export] public float ChestChance = 0.002f;
     [Export] public int ChestLootCountMin = 3;
     [Export] public int ChestLootCountMax = 6;
+
+    // Per-(grass column) spawn chance for fire-column traps on the surface.
+    // Authored only on the swamp region by default — the "fire swamp" hazard
+    // pattern from The Princess Bride. Each spawned trap gets a random phase
+    // offset so neighbouring columns don't fire in lockstep.
+    [Export] public PackedScene FireTrapScene;
+    [Export] public float FireTrapChance = 0f;
 }

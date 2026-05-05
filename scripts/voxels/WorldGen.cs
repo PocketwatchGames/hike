@@ -2552,6 +2552,39 @@ public static class WorldGen
 
         if (!skipInteractives)
         {
+            // Generate fire-column traps on grass surfaces. Per-instance random
+            // phase offset keeps neighbouring traps firing on different beats so
+            // a swamp full of them feels like the Princess Bride fire swamp
+            // rather than a metronome.
+            for (int localX = 0; localX < ChunkState.SIZE; localX++)
+            {
+                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
+                {
+                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
+                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
+                    if (!IsGrassyAt(wx, wz))
+                    {
+                        continue;
+                    }
+                    RegionGenData rg = PickWeightedRegionData(wx, wz, regionsArr, rng);
+                    if (rg == null || rg.FireTrapScene == null)
+                    {
+                        continue;
+                    }
+                    if (rng.NextDouble() >= rg.FireTrapChance)
+                    {
+                        continue;
+                    }
+
+                    int sy = SurfaceYAt(wx, wz);
+                    var fireTrap = new FireTrapSimState(
+                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
+                        rg.FireTrapScene);
+                    fireTrap.PhaseOffsetSeconds = (float)(rng.NextDouble() * 8.0);
+                    ws.AddEntity(fireTrap);
+                }
+            }
+
             // Generate loot on grass surfaces
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
             {
