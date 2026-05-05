@@ -2,10 +2,10 @@ using System;
 using Godot;
 
 // Diurnal + per-12h-variance perturbation of the blended WeatherData.
-// Called between RegionBlend.Sample (which writes the per-frame max-
-// envelope WeatherData from the four region presets) and
+// Called between ZoneBlend.Sample (which writes the per-frame max-
+// envelope WeatherData from the four zone presets) and
 // WeatherDerivation.Derive (which turns the working WeatherData into
-// the visible palette). Authored RegionData.weather values are treated
+// the visible palette). Authored ZoneData.weather values are treated
 // as MAX values for each channel; this pass maps them down to the
 // values currently in effect.
 //
@@ -15,7 +15,7 @@ using Godot;
 //                    SimData.VarianceHours and smooth-lerps current from
 //                    prev → next across the next sunrise / sunset.
 //   Apply          — rewrites the working WeatherData fields in place
-//                    using (diurnal curve, variance, region max,
+//                    using (diurnal curve, variance, zone max,
 //                    elevation) per the user-spec couplings. Pure.
 //
 // Pure-data design: no node references, no allocations on the hot path.
@@ -191,16 +191,16 @@ public static class WeatherSimulation
             out ws.CloudVariance, out ws.CloudVarianceSlope);
     }
 
-    // Rewrite weather fields in place using (region, region max,
+    // Rewrite weather fields in place using (zone, zone max,
     // diurnal curve, variance). Reads `weather` as the BLENDED MAX
     // values for weather-state channels (cloud, wind, temp, humidity,
-    // fog, rain — the per-region authored ceilings, blended by
-    // RegionBlend). Reads `region` for the region-intrinsic palette
+    // fog, rain — the per-zone authored ceilings, blended by
+    // ZoneBlend). Reads `zone` for the zone-intrinsic palette
     // (DustAmount as max, etc.) and `elevation` (the blended runtime
-    // RegionState.Elevation, since it now lives off the authored
-    // RegionData) as static forcing. Writes the simulated current
+    // ZoneState.Elevation, since it now lives off the authored
+    // ZoneData) as static forcing. Writes the simulated current
     // value for every weather channel.
-    public static void Apply(WeatherData weather, RegionData region, float elevation, WorldState ws, SimData sim)
+    public static void Apply(WeatherData weather, ZoneData zone, float elevation, WorldState ws, SimData sim)
     {
         if (weather == null || sim == null) { return; }
 
@@ -217,14 +217,14 @@ public static class WeatherSimulation
         float windMax = Mathf.Max(weather.windSpeed, 0f);
         float cloudMax = Mathf.Clamp(weather.cloudCover, 0f, 1f);
         float rainMax = Mathf.Clamp(weather.rainAmount, 0f, 1f);
-        float dustMax = Mathf.Clamp(region?.DustAmount ?? 0f, 0f, 1f);
+        float dustMax = Mathf.Clamp(zone?.DustAmount ?? 0f, 0f, 1f);
         elevation = Mathf.Clamp(elevation, 0f, 1f);
 
         // --- Baselines (diurnal-modulated maxes) -------------------------
         // Baseline humidity. Real humidity is HIGHEST at the cool trough
         // (cold air is closer to saturation) and LOWEST at the warm peak,
-        // so we use coolDiurnal as the curve. Hot regions and high-
-        // elevation regions damp the ceiling.
+        // so we use coolDiurnal as the curve. Hot zones and high-
+        // elevation zones damp the ceiling.
         float humidityFromTempScale = Mathf.Clamp(tempMax / 40f, 0f, 1f); // ~0..1 over 0..40C
         float baseHumidityCeiling = humidityMax
             * (1f - elevation * sim.HumidityFromElevation)

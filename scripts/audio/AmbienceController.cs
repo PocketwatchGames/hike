@@ -32,37 +32,37 @@ public partial class AmbienceController : Node3D
     private double _densityIntervalSec;
 
     // Deduplicated runtime layer players. One AmbienceLayerPlayer per
-    // unique AmbienceLayerData Resource referenced by any region's
-    // globalLayers — so a base_daytime layer reused across all 4 regions
-    // yields a single AudioStreamPlayer rather than one per region.
-    // _regionLayerIndices[i] lists the indices into _layerPlayers that
-    // region i references; per-frame each unique layer's effective weight
-    // is the sum of region weights of the regions that include it. This
-    // is acoustically equivalent to ticking one player per (region,
-    // layer) pair at its region weight (identical streams sum coherently)
+    // unique AmbienceLayerData Resource referenced by any zone's
+    // globalLayers — so a base_daytime layer reused across all 4 zones
+    // yields a single AudioStreamPlayer rather than one per zone.
+    // _zoneLayerIndices[i] lists the indices into _layerPlayers that
+    // zone i references; per-frame each unique layer's effective weight
+    // is the sum of zone weights of the zones that include it. This
+    // is acoustically equivalent to ticking one player per (zone,
+    // layer) pair at its zone weight (identical streams sum coherently)
     // but at a fraction of the AudioStreamPlayer count.
     //
-    // Lazy-built on the first frame WorldState.Regions is non-empty and
-    // rebuilt if the region count changes (defensive — currently regions
-    // are write-once at world creation). When a region's ambience entry
-    // is null, _regionLayerIndices[i] is null.
+    // Lazy-built on the first frame WorldState.Zones is non-empty and
+    // rebuilt if the zone count changes (defensive — currently zones
+    // are write-once at world creation). When a zone's ambience entry
+    // is null, _zoneLayerIndices[i] is null.
     private List<AmbienceLayerPlayer> _layerPlayers;
-    private int[][] _regionLayerIndices;
+    private int[][] _zoneLayerIndices;
 
     // Smoothed per-layer weight, slewed toward the per-frame target with
     // an exponential time constant. The 5-second TAU produces a slow,
-    // crossfade-feel transition between region layer sets — biome
+    // crossfade-feel transition between zone layer sets — biome
     // borders fade in/out over multiple seconds rather than the sub-
-    // second cross-fade you get from RegionBlend's spatial kernel alone.
+    // second cross-fade you get from ZoneBlend's spatial kernel alone.
     private float[] _smoothedLayerWeights;
     private const float LAYER_WEIGHT_SLEW_TAU = 5.0f;
 
-    // Cap on simultaneously contributing regions. With many small
-    // regions visible inside the blend kernel the long tail of tiny
+    // Cap on simultaneously contributing zones. With many small
+    // zones visible inside the blend kernel the long tail of tiny
     // weights smears the audio across a dozen layer sets at near-mute
     // volumes; clamping to the loudest few keeps the mix focused on
-    // the regions the player is actually near.
-    private const int MAX_CONTRIBUTING_REGIONS = 3;
+    // the zones the player is actually near.
+    private const int MAX_CONTRIBUTING_ZONES = 3;
 
     public override void _Ready()
     {
@@ -197,36 +197,36 @@ public partial class AmbienceController : Node3D
 
         if (_layerPlayers == null || _layerPlayers.Count == 0) { return; }
 
-        int regionCount = _regionLayerIndices.Length;
-        Span<float> regionWeights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
-        if (!RegionBlend.SampleWeights(listenerPos, ws, regionWeights))
+        int zoneCount = _zoneLayerIndices.Length;
+        Span<float> zoneWeights = zoneCount <= 32 ? stackalloc float[zoneCount] : new float[zoneCount];
+        if (!ZoneBlend.SampleWeights(listenerPos, ws, zoneWeights))
         {
             // No data this frame — fade everything down rather than
-            // freezing at last-known weights, since "no region under the
+            // freezing at last-known weights, since "no zone under the
             // listener" usually means the listener is outside the world
             // (debug fly-cam) and audio should mute.
-            for (int i = 0; i < regionCount; i++) { regionWeights[i] = 0f; }
+            for (int i = 0; i < zoneCount; i++) { zoneWeights[i] = 0f; }
         }
 
-        // Keep only the top-K regions and renormalize so they sum to 1.
+        // Keep only the top-K zones and renormalize so they sum to 1.
         // Without this, a player at the meeting point of four small
-        // regions would smear across all four layer sets at ~0.25 each.
-        KeepTopKAndRenormalize(regionWeights, MAX_CONTRIBUTING_REGIONS);
+        // zones would smear across all four layer sets at ~0.25 each.
+        KeepTopKAndRenormalize(zoneWeights, MAX_CONTRIBUTING_ZONES);
 
-        // Accumulate per-layer weight as the sum of weights of regions
-        // that reference this layer. RegionBlend weights sum to 1 across
-        // regions, so a layer present in every region settles at 1.0 and
-        // a layer in only one region scales with that region's weight —
-        // matching the previous per-(region, layer) behavior with a
+        // Accumulate per-layer weight as the sum of weights of zones
+        // that reference this layer. ZoneBlend weights sum to 1 across
+        // zones, so a layer present in every zone settles at 1.0 and
+        // a layer in only one zone scales with that zone's weight —
+        // matching the previous per-(zone, layer) behavior with a
         // single player per unique layer.
         int layerCount = _layerPlayers.Count;
         Span<float> layerTargets = layerCount <= 64 ? stackalloc float[layerCount] : new float[layerCount];
         layerTargets.Clear();
-        for (int r = 0; r < regionCount; r++)
+        for (int r = 0; r < zoneCount; r++)
         {
-            int[] indices = _regionLayerIndices[r];
+            int[] indices = _zoneLayerIndices[r];
             if (indices == null) { continue; }
-            float w = regionWeights[r];
+            float w = zoneWeights[r];
             if (w <= 0f) { continue; }
             for (int j = 0; j < indices.Length; j++)
             {
@@ -251,7 +251,7 @@ public partial class AmbienceController : Node3D
     // Zero out all but the K largest entries in `weights` and rescale
     // the survivors so they sum to 1. K=0 or K>=count is a no-op-ish
     // (just renormalizes). Operates in place; O(N*K) which is fine for
-    // the small region counts we have.
+    // the small zone counts we have.
     private static void KeepTopKAndRenormalize(Span<float> weights, int k)
     {
         if (k <= 0 || k >= weights.Length)
@@ -299,12 +299,12 @@ public partial class AmbienceController : Node3D
 
     private void EnsureLayerPlayers(WorldState ws)
     {
-        RegionState[] regions = ws.Regions;
-        int regionCount = regions != null ? regions.Length : 0;
-        if (_regionLayerIndices != null && _regionLayerIndices.Length == regionCount) { return; }
+        ZoneState[] zones = ws.Zones;
+        int zoneCount = zones != null ? zones.Length : 0;
+        if (_zoneLayerIndices != null && _zoneLayerIndices.Length == zoneCount) { return; }
 
-        // Region count changed — tear down and rebuild. Currently only
-        // happens at first frame (null → real). If regions ever become
+        // Zone count changed — tear down and rebuild. Currently only
+        // happens at first frame (null → real). If zones ever become
         // mutable at runtime this branch will preserve correctness.
         if (_layerPlayers != null)
         {
@@ -315,16 +315,16 @@ public partial class AmbienceController : Node3D
         }
 
         _layerPlayers = new List<AmbienceLayerPlayer>();
-        _regionLayerIndices = new int[regionCount][];
+        _zoneLayerIndices = new int[zoneCount][];
         var dataToIndex = new Dictionary<AmbienceLayerData, int>();
 
-        for (int i = 0; i < regionCount; i++)
+        for (int i = 0; i < zoneCount; i++)
         {
-            RegionData rd = regions[i].Data;
-            RegionAmbienceData ambience = rd?.ambience;
+            ZoneData rd = zones[i].Data;
+            ZoneAmbienceData ambience = rd?.ambience;
             if (ambience == null || ambience.globalLayers == null || ambience.globalLayers.Length == 0)
             {
-                _regionLayerIndices[i] = null;
+                _zoneLayerIndices[i] = null;
                 continue;
             }
 
@@ -345,7 +345,7 @@ public partial class AmbienceController : Node3D
                 }
                 indices.Add(idx);
             }
-            _regionLayerIndices[i] = indices.ToArray();
+            _zoneLayerIndices[i] = indices.ToArray();
         }
 
         _smoothedLayerWeights = new float[_layerPlayers.Count];
@@ -392,12 +392,12 @@ public partial class AmbienceController : Node3D
         int fwz = Mathf.FloorToInt(listenerPos.Z);
         _state.FogDensity = ws.GetFogWorld(fwx, fwy, fwz) / 255f;
 
-        // Biome id = RegionIndex of the listener's chunk. Unloaded chunk
+        // Biome id = ZoneIndex of the listener's chunk. Unloaded chunk
         // (impossible at the listener, but defensive) returns -1 so
         // consumers can fall back to a "no biome" default.
         Vector3I cc = World.WorldToChunkCoord(listenerPos);
         ChunkState chunk = ws.GetChunk(cc);
-        _state.BiomeId = chunk != null ? chunk.RegionIndex : -1;
+        _state.BiomeId = chunk != null ? chunk.ZoneIndex : -1;
     }
 
     // Listener-height offset for the enclosure rays. Shooting from

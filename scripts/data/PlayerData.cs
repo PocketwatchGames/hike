@@ -32,7 +32,7 @@ public partial class PlayerData : Resource
 
 	// Scene used when the player drops an item from the inventory. Same Loot
 	// scene the world drops use; we keep it on PlayerData so player drops
-	// don't depend on which region they're standing in.
+	// don't depend on which zone they're standing in.
 	[Export] public PackedScene dropLootScene;
 
 	[Export] public float maxHealth = 100f;

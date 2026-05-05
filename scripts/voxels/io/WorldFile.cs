@@ -14,9 +14,9 @@ using Godot;
 //     max          : Vector3I (12 bytes)
 //     spawn        : Vector3  (3 * float32 = 12 bytes)
 //     simDataPath  : length-prefixed string (resource path, may be empty)
-//     regionCount  : uint32
-//     regions      : regionCount entries
-//       dataPath        : length-prefixed string (RegionData resource path)
+//     zoneCount  : uint32
+//     zones      : zoneCount entries
+//       dataPath        : length-prefixed string (ZoneData resource path)
 //       windDirection   : Vector3 (12 bytes)
 //       elevation       : float32 (4 bytes)
 //     chunkCount   : uint32
@@ -35,14 +35,14 @@ public static class WorldFile
     // v7: chunk payload appended a per-voxel OverlayId byte after KitId.
     // v8: chunk payload appended per-voxel DetailGroup + DetailStrength bytes
     //     after OverlayId — painted detail-sprite scatter (grass/flowers/etc).
-    // v9: header gained a regions table (data path + windDirection + elevation
-    //     per region); chunk payload appended a 1-byte RegionIndex selecting
-    //     a region from that table.
+    // v9: header gained a zones table (data path + windDirection + elevation
+    //     per zone); chunk payload appended a 1-byte ZoneIndex selecting
+    //     a zone from that table.
     // v10: chunk payload appended a coarse windFactor subgrid (4³ bytes per
-    //      chunk) before regionIndex — drives the wind_map 3D shader global,
+    //      chunk) before zoneIndex — drives the wind_map 3D shader global,
     //      damps water/foliage/audio in caves and indoors.
     // v11: chunk payload appended a coarse envTag subgrid (4³ bytes per
-    //      chunk, EnvironmentTag enum) after windFactor, before regionIndex
+    //      chunk, EnvironmentTag enum) after windFactor, before zoneIndex
     //      — drives audio reverb-bus blending and outdoor-layer attenuation.
     // v12: Mob entity payload appended a SpawnAtNight bool (after
     //      InitialBehavior) — surface goblins are flagged so their nodes only
@@ -62,7 +62,7 @@ public static class WorldFile
         public uint Length;
     }
 
-    public struct RegionEntry
+    public struct ZoneEntry
     {
         public string DataPath;
         public Vector3 WindDirection;
@@ -75,7 +75,7 @@ public static class WorldFile
         public Vector3I Max;
         public Vector3 Spawn;
         public string SimDataPath;
-        public RegionEntry[] Regions;
+        public ZoneEntry[] Zones;
         public uint ChunkCount;
     }
 
@@ -128,15 +128,15 @@ public static class WorldFile
         w.Write(worldState.Spawn.Y);
         w.Write(worldState.Spawn.Z);
         w.Write(worldState.SimData != null ? worldState.SimData.ResourcePath : "");
-        RegionState[] regions = worldState.Regions ?? [];
-        w.Write((uint)regions.Length);
-        for (int i = 0; i < regions.Length; i++)
+        ZoneState[] zones = worldState.Zones ?? [];
+        w.Write((uint)zones.Length);
+        for (int i = 0; i < zones.Length; i++)
         {
-            w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
-            w.Write(regions[i].WindDirection.X);
-            w.Write(regions[i].WindDirection.Y);
-            w.Write(regions[i].WindDirection.Z);
-            w.Write(regions[i].Elevation);
+            w.Write(zones[i].Data != null ? zones[i].Data.ResourcePath : "");
+            w.Write(zones[i].WindDirection.X);
+            w.Write(zones[i].WindDirection.Y);
+            w.Write(zones[i].WindDirection.Z);
+            w.Write(zones[i].Elevation);
         }
         w.Write((uint)coords.Count);
 
@@ -182,11 +182,11 @@ public static class WorldFile
             Spawn = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
             SimDataPath = r.ReadString(),
         };
-        uint regionCount = r.ReadUInt32();
-        header.Regions = new RegionEntry[regionCount];
-        for (uint i = 0; i < regionCount; i++)
+        uint zoneCount = r.ReadUInt32();
+        header.Zones = new ZoneEntry[zoneCount];
+        for (uint i = 0; i < zoneCount; i++)
         {
-            header.Regions[i] = new RegionEntry
+            header.Zones[i] = new ZoneEntry
             {
                 DataPath = r.ReadString(),
                 WindDirection = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),

@@ -52,7 +52,7 @@ public static class VoxelTypeInfo
     public const int TILE_WATER = 17;
     // Cobblestone: 1 band × 4 variants (cobblestone1..cobblestone4). Opaque
     // base tile; kits can point FlatTile or WallTile here for stone-paved
-    // regions.
+    // zones.
     public const int TILE_COBBLESTONE = 18;
     // Overlay base layers. These sample with their alpha channel driving
     // blend strength — authored with soft edges in the PNG so coverage reads
@@ -123,7 +123,7 @@ public static class VoxelTypeInfo
     // (ATLAS_SLOT_PIXELS / TEXELS_PER_VOXEL) world units on each axis; the
     // UV scale is the inverse. At 128/32 = 4 voxels per PNG → scale 0.25.
     // Also drives the variant-pick hash so all fragments inside one
-    // PNG-sized region agree on which variant to show (no per-voxel seam).
+    // PNG-sized zone agree on which variant to show (no per-voxel seam).
     public const float TILE_UV_SCALE = (float)TEXELS_PER_VOXEL / ATLAS_SLOT_PIXELS;
 
     // Band quantization for the shader. BandOriginY is the world Y where

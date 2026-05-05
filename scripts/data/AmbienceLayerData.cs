@@ -6,7 +6,7 @@ using Godot;
 // runtime; AmbienceController instantiates and ticks them.
 //
 // Authored once per layer-shape (rain-on-leaves, base-wind, gust, insect
-// bed, distant ocean, …) and held in RegionData.ambience. A region with
+// bed, distant ocean, …) and held in ZoneData.ambience. A zone with
 // no entry for a given shape simply doesn't play it.
 //
 // Wind layers are an exception: NO time-of-day curve, entirely sim-

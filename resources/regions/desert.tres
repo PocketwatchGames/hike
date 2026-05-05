@@ -1,25 +1,7 @@
-[gd_resource type="Resource" script_class="RegionData" format=3 uid="uid://bv7uylxclo2m1"]
+[gd_resource type="Resource" script_class="RegionData" format=3]
 
-[ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/RegionData.cs" id="1_region"]
-[ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
-[ext_resource type="Resource" uid="uid://ca52as015qeba" path="res://resources/audio/desert_ambience.tres" id="3_ambience"]
-
-[sub_resource type="Resource" id="Resource_weather"]
-script = ExtResource("2_weather")
-cloudCover = 0.05
-windSpeed = 5.0
-temperature = 35.0
-humidity = 0.05
-metadata/_custom_type_script = "uid://d25sc6n2mi728"
+[ext_resource type="Script" path="res://scripts/data/RegionData.cs" id="1_script"]
 
 [resource]
-script = ExtResource("1_region")
-SunColor = Color(1, 0.99366665, 0.81, 1)
-MoonColor = Color(0.7, 0.75, 0.85, 1)
-SkyColor = Color(0.2, 0.45, 0.85, 1)
-DustColor = Color(0.9, 0.639, 0.378, 1)
-WaterColor = Color(0.060000002, 0.5, 0.44866672, 1)
-WaterOpacity = 0.2509804
-DustAmount = 0.4
-weather = SubResource("Resource_weather")
-ambience = ExtResource("3_ambience")
+script = ExtResource("1_script")
+displayName = &"Sun-Bleached Wastes"

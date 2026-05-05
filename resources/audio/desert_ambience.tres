@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="RegionAmbienceData" load_steps=9 format=3 uid="uid://ca52as015qeba"]
+[gd_resource type="Resource" script_class="ZoneAmbienceData" load_steps=9 format=3 uid="uid://ca52as015qeba"]
 
-[ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/RegionAmbienceData.cs" id="ambience_script"]
+[ext_resource type="Script" uid="uid://vovph8nbb6ae" path="res://scripts/data/ZoneAmbienceData.cs" id="ambience_script"]
 [ext_resource type="Resource" path="res://resources/audio/layers/base_daytime.tres" id="layer_day"]
 [ext_resource type="Resource" path="res://resources/audio/layers/base_sunset.tres" id="layer_sunset"]
 [ext_resource type="Resource" path="res://resources/audio/layers/base_nighttime.tres" id="layer_night"]

@@ -330,7 +330,7 @@ public static class LightEngine
             }
         }
 
-        // Pad bounds by 1 so a wall placed just outside the lit region still
+        // Pad bounds by 1 so a wall placed just outside the lit zone still
         // triggers a recompute (it could now block light that was leaking out).
         if (source.Footprint.Count > 0)
         {

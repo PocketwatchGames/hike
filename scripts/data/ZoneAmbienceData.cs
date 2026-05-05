@@ -1,21 +1,21 @@
 using Godot;
 
-// Per-region authored ambience set. Held by RegionData.ambience and
-// blended at runtime alongside the visual region palette so a player
-// crossing a biome border hears the new region fade in over the same
+// Per-zone authored ambience set. Held by ZoneData.ambience and
+// blended at runtime alongside the visual zone palette so a player
+// crossing a biome border hears the new zone fade in over the same
 // few-chunk band that the sky is fading.
 //
-// Layer arrays are sets, not slots — a region can have any number of
+// Layer arrays are sets, not slots — a zone can have any number of
 // each kind, and overlapping layers add. A null entry in any array is
 // safely ignored.
 //
 // Positional emitter palette is held here for step 6 (chunk-ambience
-// spawner); referenced now so the data shape is stable for region
+// spawner); referenced now so the data shape is stable for zone
 // authoring.
 [GlobalClass]
-public partial class RegionAmbienceData : Resource
+public partial class ZoneAmbienceData : Resource
 {
-    // Looping global layers. The "outdoor bed" of the region — base
+    // Looping global layers. The "outdoor bed" of the zone — base
     // wind, distant ocean, biome insect bed, rain (wetness-driven),
     // rain-on-leaves, etc. Each layer is independently driven by its
     // own AmbienceState field.

@@ -1,6 +1,6 @@
 using Godot;
 
-// Per-region "palette" for AUTO terrain. The mesher passes a KitId per vertex
+// Per-zone "palette" for AUTO terrain. The mesher passes a KitId per vertex
 // and the shader uses this kit to pick between FlatTile / WallTile based on
 // surface normal.y. Multiple kits let different biomes (forest, desert,
 // cave) share the AUTO sentinel pipeline without hardcoding tile indices in

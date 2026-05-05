@@ -59,11 +59,11 @@ public struct DerivedPalette
     public Color SunShaftColor;
     public Color MoonShaftColor;
 
-    // Water. All derived from RegionData.WaterColor + DustColor + weather +
+    // Water. All derived from ZoneData.WaterColor + DustColor + weather +
     // time-of-day. One authored RGBA drives all of these via the muddiness
-    // (alpha) channel and region atmosphere colors. See WeatherDerivation.
+    // (alpha) channel and zone atmosphere colors. See WeatherDerivation.
     public float RippleStrength;
-    // Per-region shallow & deep tints. Shallow is the authored WaterColor.rgb;
+    // Per-zone shallow & deep tints. Shallow is the authored WaterColor.rgb;
     // deep is derived (red-absorbed physics for clear water, dust-tinted
     // sediment for murky water) from WaterColor + DustColor + muddiness.
     public Color WaterShallowTint;
@@ -93,7 +93,7 @@ public struct DerivedPalette
     public float RainIntensity;
     public float RainWeight;
 
-    // Region MoonColor, unblended — the sky shader's moon disk should
+    // Zone MoonColor, unblended — the sky shader's moon disk should
     // literally be the moon, not the phase-blended primary.
     public Color MoonDiskColor;
 }

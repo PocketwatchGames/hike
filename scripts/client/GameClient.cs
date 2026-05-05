@@ -34,6 +34,29 @@ public partial class GameClient : Node3D
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
+	// Fired when the player enters a named region (CurrentRegion null →
+	// non-null OR → a different non-null region). Border zones
+	// (ZoneData.region == null) keep CurrentRegion sticky; clearing
+	// back to null on extended border travel is silent so the next
+	// named region's entry pulses the banner cleanly.
+	public Action<RegionData> onRegionEntered;
+	public RegionData CurrentRegion { get; private set; }
+
+	// Region-entry hysteresis. Wiggling on a seam mustn't flicker the
+	// banner; an intentional crossing should fire within a step or two;
+	// a chain of border zones can't keep the player tagged with a region
+	// they've walked far away from. UpdateRegion runs the state machine
+	// each tick.
+	const float REGION_DWELL_SECONDS = 1.5f;
+	const float REGION_ENTER_DISTANCE_CHUNKS = 1.0f;
+	// A bit larger than ZoneBlend.BlendRadiusChunks (= 2) so the visible
+	// cross-blend band is fully inside the sticky range.
+	const float REGION_BORDER_TRAVEL_CHUNKS = 3.0f;
+	RegionData _pendingRegion;
+	Vector3 _pendingRegionEnterPos;
+	float _pendingRegionElapsed;
+	Vector3 _currentRegionEnterPos;
+
 	public bool paused { get; private set; } = false;
 	public Player Player => _player;
 	public World World => _world;
@@ -130,6 +153,7 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
+		UpdateRegion(deltaTime);
 
 		// Signpost-panel modal: while open, the Interact press only closes
 		// the panel and the player is held still. Capturing the press here
@@ -177,6 +201,93 @@ public partial class GameClient : Node3D
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
 		UpdatePostProcess();
+	}
+
+	// Reads the zone under the player and turns the raw "what zone am I
+	// in?" stream into a stable "what named region am I in?" signal.
+	// Hysteresis rules:
+	//   - Candidate region differs from CurrentRegion: dwell timer
+	//     accumulates; commit the swap (and fire onRegionEntered) once
+	//     the player has stayed in the candidate's zones for
+	//     REGION_DWELL_SECONDS or moved REGION_ENTER_DISTANCE_CHUNKS
+	//     past where the dwell started.
+	//   - Underfoot zone is a border (region == null): CurrentRegion
+	//     stays put until the player has traveled
+	//     REGION_BORDER_TRAVEL_CHUNKS from where they entered, then
+	//     CurrentRegion clears silently.
+	void UpdateRegion(double deltaTime)
+	{
+		WorldState ws = _world?.WorldState;
+		if (ws == null) { return; }
+
+		Vector3 playerPos = _player.GlobalPosition;
+		RegionData candidate = SampleZoneRegion(playerPos, ws);
+
+		if (candidate == null)
+		{
+			// Border zone (or unloaded chunk). Drop any pending swap —
+			// we left the candidate's territory before dwelling.
+			_pendingRegion = null;
+			_pendingRegionElapsed = 0f;
+
+			if (CurrentRegion != null)
+			{
+				if (ChunkDistanceXZ(playerPos, _currentRegionEnterPos) > REGION_BORDER_TRAVEL_CHUNKS)
+				{
+					CurrentRegion = null;
+				}
+			}
+			return;
+		}
+
+		if (candidate == CurrentRegion)
+		{
+			// Re-entered the current region after dipping into a
+			// border. Cancel any pending swap and re-anchor the sticky
+			// center so subsequent border travel measures from here.
+			_pendingRegion = null;
+			_pendingRegionElapsed = 0f;
+			_currentRegionEnterPos = playerPos;
+			return;
+		}
+
+		// Candidate is a different named region — run the dwell.
+		if (candidate != _pendingRegion)
+		{
+			_pendingRegion = candidate;
+			_pendingRegionEnterPos = playerPos;
+			_pendingRegionElapsed = 0f;
+		}
+		else
+		{
+			_pendingRegionElapsed += (float)deltaTime;
+		}
+
+		bool dwellMet = _pendingRegionElapsed >= REGION_DWELL_SECONDS;
+		bool distMet = ChunkDistanceXZ(playerPos, _pendingRegionEnterPos) >= REGION_ENTER_DISTANCE_CHUNKS;
+		if (dwellMet || distMet)
+		{
+			CurrentRegion = candidate;
+			_currentRegionEnterPos = playerPos;
+			_pendingRegion = null;
+			_pendingRegionElapsed = 0f;
+			onRegionEntered?.Invoke(CurrentRegion);
+		}
+	}
+
+	static RegionData SampleZoneRegion(Vector3 playerPos, WorldState ws)
+	{
+		ChunkState chunk = ws.GetChunk(World.WorldToChunkCoord(playerPos));
+		if (chunk == null) { return null; }
+		if (ws.Zones == null || chunk.ZoneIndex >= ws.Zones.Length) { return null; }
+		return ws.Zones[chunk.ZoneIndex].Data?.region;
+	}
+
+	static float ChunkDistanceXZ(Vector3 a, Vector3 b)
+	{
+		float dx = (a.X - b.X) / ChunkState.SIZE;
+		float dz = (a.Z - b.Z) / ChunkState.SIZE;
+		return Mathf.Sqrt(dx * dx + dz * dz);
 	}
 
 	void UpdateFlyCamera(double deltaTime)

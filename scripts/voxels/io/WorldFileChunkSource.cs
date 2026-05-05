@@ -16,7 +16,7 @@ public sealed class WorldFileChunkSource : IChunkSource
     public Vector3I Max { get; }
     public Vector3 Spawn { get; }
     public SimData SimData { get; }
-    public RegionState[] Regions { get; }
+    public ZoneState[] Zones { get; }
 
     private readonly Dictionary<Vector3I, WorldFile.IndexEntry> _index;
     private readonly FileStream _stream;
@@ -34,13 +34,13 @@ public sealed class WorldFileChunkSource : IChunkSource
         Spawn = header.Spawn;
         SimData = string.IsNullOrEmpty(header.SimDataPath) ? null : GD.Load<SimData>(header.SimDataPath);
 
-        Regions = new RegionState[header.Regions.Length];
-        for (int i = 0; i < header.Regions.Length; i++)
+        Zones = new ZoneState[header.Zones.Length];
+        for (int i = 0; i < header.Zones.Length; i++)
         {
-            WorldFile.RegionEntry entry = header.Regions[i];
-            Regions[i] = new RegionState
+            WorldFile.ZoneEntry entry = header.Zones[i];
+            Zones[i] = new ZoneState
             {
-                Data = string.IsNullOrEmpty(entry.DataPath) ? null : GD.Load<RegionData>(entry.DataPath),
+                Data = string.IsNullOrEmpty(entry.DataPath) ? null : GD.Load<ZoneData>(entry.DataPath),
                 WindDirection = entry.WindDirection,
                 Elevation = entry.Elevation,
             };

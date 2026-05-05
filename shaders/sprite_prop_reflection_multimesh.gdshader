@@ -104,8 +104,8 @@ global uniform vec3 water_deep_tint : source_color;
 global uniform float water_depth_scale;
 global uniform float water_alpha_max;
 global uniform float water_edge_opacity;
-// Clarity / muddiness, driven from RegionData.WaterColor.a in
-// SkyController.Apply (clearer on the regional-clear end, opaque on
+// Clarity / muddiness, driven from ZoneData.WaterColor.a in
+// SkyController.Apply (clearer on the zone-clear end, opaque on
 // the muddy/swamp end). Drives reflection ALPHA so muddy water lets
 // its own dim/turbid surface dominate instead of stamping the
 // reflection sprite over it.

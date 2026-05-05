@@ -2,7 +2,7 @@ using Godot;
 
 // One positional emitter "kind" — a stream + the rules for placing
 // AudioStreamPlayer3D instances within a chunk based on the chunk's
-// voxel/detail content. ChunkAmbienceSpawner walks each chunk's region's
+// voxel/detail content. ChunkAmbienceSpawner walks each chunk's zone's
 // palette on chunk load, deterministically picks instance positions
 // from a chunk-coord-seeded RNG, and attaches the players as children
 // of the chunk; the players go away when the chunk unloads.
@@ -13,7 +13,7 @@ using Godot;
 //   * crickets in grass — spawnDetailGroupId = (grass group), TOD = dusk-to-dawn
 //   * dripping in caves — spawnVoxelType = Stone + requiresAirAbove = true, TOD = always
 //
-// Multiple emitters per region are independent — each rolls its own
+// Multiple emitters per zone are independent — each rolls its own
 // instance positions from a per-emitter seed salt.
 [GlobalClass]
 public partial class PositionalEmitterData : Resource

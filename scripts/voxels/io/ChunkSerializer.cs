@@ -16,7 +16,7 @@ using Godot;
 //   envTag         : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, EnvironmentTag
 //                    enum: 0 = Outdoor, 1 = Building, 2 = Cave, 3 = Tunnel —
 //                    same row-major layout as windFactor)
-//   regionIndex    : 1 byte (index into WorldState.Regions[])
+//   zoneIndex    : 1 byte (index into WorldState.Zones[])
 //   entities : type-tagged list (see EntitySerializer)
 //
 // BlockLight is NOT serialized — it's the additive sum of contributions from
@@ -151,7 +151,7 @@ public static class ChunkSerializer
             }
         }
 
-        w.Write(chunk.RegionIndex);
+        w.Write(chunk.ZoneIndex);
 
         EntitySerializer.WriteList(w, entities);
     }
@@ -270,7 +270,7 @@ public static class ChunkSerializer
             }
         }
 
-        chunk.RegionIndex = r.ReadByte();
+        chunk.ZoneIndex = r.ReadByte();
 
         entities = EntitySerializer.ReadList(r);
     }

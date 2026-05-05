@@ -1,19 +1,19 @@
 using Godot;
 
-// Mutable weather simulation state. Authored fields on RegionData.weather
-// represent the region's MAX for each channel (the daytime peak / clear-
+// Mutable weather simulation state. Authored fields on ZoneData.weather
+// represent the zone's MAX for each channel (the daytime peak / clear-
 // air ceiling); WeatherSimulation perturbs a per-frame working copy in
 // place to produce the values actually IN EFFECT right now (diurnal
 // curve + 12-hour weather variance). All visual consequences (sky/fog/
 // cloud/shaft colors, fill tints, light intensities, cloud shape, gust
 // rhythm, ripples, dust density, etc.) are DERIVED by
-// WeatherDerivation.Derive() from this + a RegionData palette + time-
+// WeatherDerivation.Derive() from this + a ZoneData palette + time-
 // of-day. See also scripts/client/WeatherSimulation.cs and
 // scripts/client/WeatherDerivation.cs.
 //
-// Region palette (SunColor/MoonColor/SkyColor/DustColor) lives on
-// RegionData, not here, so a single weather forecast plays out across
-// differently-themed regions by recoloring only the palette while the
+// Zone palette (SunColor/MoonColor/SkyColor/DustColor) lives on
+// ZoneData, not here, so a single weather forecast plays out across
+// differently-themed zones by recoloring only the palette while the
 // weather variables stay the same.
 [GlobalClass]
 public partial class WeatherData : Resource
@@ -47,8 +47,8 @@ public partial class WeatherData : Resource
 
     // Atmospheric dust amount — the scattering medium that makes
     // shafts visible. NOT authored: WeatherSimulation writes a
-    // simulated value here each frame, derived from the region's
-    // authored RegionData.DustAmount (the region max), perturbed by
+    // simulated value here each frame, derived from the zone's
+    // authored ZoneData.DustAmount (the zone max), perturbed by
     // simulated wind / elevation / humidity / rain. Downstream
     // WeatherDerivation reads this current value.
     public float dustAmount = 0.1f;

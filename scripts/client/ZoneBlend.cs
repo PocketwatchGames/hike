@@ -1,54 +1,54 @@
 using System;
 using Godot;
 
-// Samples a blended RegionData + WeatherData at a world XZ position.
-// The world's chunks each carry a RegionIndex into WorldState.Regions[];
+// Samples a blended ZoneData + WeatherData at a world XZ position.
+// The world's chunks each carry a ZoneIndex into WorldState.Zones[];
 // Sample() looks at the chunks within a few-chunk radius around the
 // player and weights each by a smoothstep falloff on its distance to
-// the player. Region contributions are accumulated by index, then
+// the player. Zone contributions are accumulated by index, then
 // blended into the output.
 //
 // The blend kernel reaches BlendRadiusChunks chunks out, so the cross-
-// blend BAND between two adjacent regions is wider than a single chunk
+// blend BAND between two adjacent zones is wider than a single chunk
 // — the goal is a soft, several-chunk-wide transition rather than a
 // hard line at chunk boundaries.
 //
-// Sample() stays as the only seam between region authoring and
-// downstream consumers. Once the editor lets you paint arbitrary region
-// shapes, only the chunk → region map changes; nothing here moves.
-public static class RegionBlend
+// Sample() stays as the only seam between zone authoring and
+// downstream consumers. Once the editor lets you paint arbitrary zone
+// shapes, only the chunk → zone map changes; nothing here moves.
+public static class ZoneBlend
 {
     // Half-width of the smoothstep kernel, in chunks. The kernel reaches
     // out this far in chunk-distance from the player; beyond this, a
-    // chunk's region contributes 0. Larger = softer / wider transition.
+    // chunk's zone contributes 0. Larger = softer / wider transition.
     public const float BlendRadiusChunks = 2.0f;
 
-    // Sentinel "no region picked" weight — anything below this aborts
+    // Sentinel "no zone picked" weight — anything below this aborts
     // the blend and the caller's current outputs are left untouched.
     private const float MinTotalWeight = 1e-6f;
 
-    // Blend the regions present in `ws.Regions` according to which
-    // chunks around the player belong to which region. Writes into the
-    // caller-owned outRegion + outWeather (working copies held by
+    // Blend the zones present in `ws.Zones` according to which
+    // chunks around the player belong to which zone. Writes into the
+    // caller-owned outZone + outWeather (working copies held by
     // SkyController so we never allocate Resources on the hot path) and
     // returns the blended runtime fields via out parameters. If the
-    // world has no regions or no chunks in the kernel, outputs are left
+    // world has no zones or no chunks in the kernel, outputs are left
     // at whatever the caller had.
     public static void Sample(
         Vector3 playerWorldPos, WorldState ws,
-        RegionData outRegion, WeatherData outWeather,
+        ZoneData outZone, WeatherData outWeather,
         out Vector3 outWindDirection, out float outElevation)
     {
         outWindDirection = new Vector3(1f, 0f, 0f);
         outElevation = 0f;
-        if (ws == null || ws.Regions == null || ws.Regions.Length == 0) { return; }
-        if (outRegion == null || outWeather == null) { return; }
+        if (ws == null || ws.Zones == null || ws.Zones.Length == 0) { return; }
+        if (outZone == null || outWeather == null) { return; }
 
-        int regionCount = ws.Regions.Length;
-        Span<float> weights = regionCount <= 32 ? stackalloc float[regionCount] : new float[regionCount];
+        int zoneCount = ws.Zones.Length;
+        Span<float> weights = zoneCount <= 32 ? stackalloc float[zoneCount] : new float[zoneCount];
         if (!ComputeWeights(playerWorldPos, ws, weights)) { return; }
 
-        // --- Region theme + scalars (RegionData) ---
+        // --- Zone theme + scalars (ZoneData) ---
         float sunR = 0, sunG = 0, sunB = 0, sunA = 0;
         float moonR = 0, moonG = 0, moonB = 0, moonA = 0;
         float skyR = 0, skyG = 0, skyB = 0, skyA = 0;
@@ -57,11 +57,11 @@ public static class RegionBlend
         float dustAmount = 0, waterOpacity = 0;
         float themeWeightSum = 0;
 
-        for (int i = 0; i < regionCount; i++)
+        for (int i = 0; i < zoneCount; i++)
         {
             float w = weights[i];
             if (w <= 0f) { continue; }
-            RegionData rd = ws.Regions[i].Data;
+            ZoneData rd = ws.Zones[i].Data;
             if (rd == null) { continue; }
             themeWeightSum += w;
             AccumulateColor(rd.SunColor, w, ref sunR, ref sunG, ref sunB, ref sunA);
@@ -76,25 +76,25 @@ public static class RegionBlend
         if (themeWeightSum >= MinTotalWeight)
         {
             float themeInv = 1f / themeWeightSum;
-            outRegion.SunColor = new Color(sunR * themeInv, sunG * themeInv, sunB * themeInv, sunA * themeInv);
-            outRegion.MoonColor = new Color(moonR * themeInv, moonG * themeInv, moonB * themeInv, moonA * themeInv);
-            outRegion.SkyColor = new Color(skyR * themeInv, skyG * themeInv, skyB * themeInv, skyA * themeInv);
-            outRegion.DustColor = new Color(dustR * themeInv, dustG * themeInv, dustB * themeInv, dustA * themeInv);
-            outRegion.WaterColor = new Color(waterR * themeInv, waterG * themeInv, waterB * themeInv, waterA * themeInv);
-            outRegion.DustAmount = dustAmount * themeInv;
-            outRegion.WaterOpacity = waterOpacity * themeInv;
+            outZone.SunColor = new Color(sunR * themeInv, sunG * themeInv, sunB * themeInv, sunA * themeInv);
+            outZone.MoonColor = new Color(moonR * themeInv, moonG * themeInv, moonB * themeInv, moonA * themeInv);
+            outZone.SkyColor = new Color(skyR * themeInv, skyG * themeInv, skyB * themeInv, skyA * themeInv);
+            outZone.DustColor = new Color(dustR * themeInv, dustG * themeInv, dustB * themeInv, dustA * themeInv);
+            outZone.WaterColor = new Color(waterR * themeInv, waterG * themeInv, waterB * themeInv, waterA * themeInv);
+            outZone.DustAmount = dustAmount * themeInv;
+            outZone.WaterOpacity = waterOpacity * themeInv;
         }
 
-        // --- Runtime fields (RegionState) ---
-        // windDirection blends via vector sum of the regions' XZ unit
+        // --- Runtime fields (ZoneState) ---
+        // windDirection blends via vector sum of the zones' XZ unit
         // vectors and is re-normalized at the end (shortest-arc blend).
         Vector2 windDir2D = Vector2.Zero;
         float elevation = 0f;
-        for (int i = 0; i < regionCount; i++)
+        for (int i = 0; i < zoneCount; i++)
         {
             float w = weights[i];
             if (w <= 0f) { continue; }
-            RegionState rs = ws.Regions[i];
+            ZoneState rs = ws.Zones[i];
             windDir2D += SafeNormalizeXZ(rs.WindDirection) * w;
             elevation += rs.Elevation * w;
         }
@@ -109,28 +109,28 @@ public static class RegionBlend
         BlendWeather(ws, weights, outWeather);
     }
 
-    // Per-region normalized weights at `playerWorldPos`. Same kernel as
+    // Per-zone normalized weights at `playerWorldPos`. Same kernel as
     // Sample() but without the palette/weather blend — for callers that
-    // need to drive parallel per-region pipelines (audio: one bus of
-    // layer players per region, mixed by these weights). `outWeights`
-    // length must equal ws.Regions.Length. Returns false if the world
-    // has no regions or no chunks contributed (caller should leave its
+    // need to drive parallel per-zone pipelines (audio: one bus of
+    // layer players per zone, mixed by these weights). `outWeights`
+    // length must equal ws.Zones.Length. Returns false if the world
+    // has no zones or no chunks contributed (caller should leave its
     // outputs untouched).
     public static bool SampleWeights(Vector3 playerWorldPos, WorldState ws, Span<float> outWeights)
     {
-        if (ws == null || ws.Regions == null || ws.Regions.Length == 0) { return false; }
-        if (outWeights.Length != ws.Regions.Length) { return false; }
+        if (ws == null || ws.Zones == null || ws.Zones.Length == 0) { return false; }
+        if (outWeights.Length != ws.Zones.Length) { return false; }
         return ComputeWeights(playerWorldPos, ws, outWeights);
     }
 
-    // Shared kernel: smoothstep-distance-weighted region accumulation
+    // Shared kernel: smoothstep-distance-weighted zone accumulation
     // around `playerWorldPos`, normalized to sum to 1. Returns false if
-    // the kernel found no loaded chunks belonging to a known region —
+    // the kernel found no loaded chunks belonging to a known zone —
     // caller treats that as "no data, leave previous outputs alone".
     private static bool ComputeWeights(Vector3 playerWorldPos, WorldState ws, Span<float> weights)
     {
-        int regionCount = weights.Length;
-        for (int i = 0; i < regionCount; i++) { weights[i] = 0f; }
+        int zoneCount = weights.Length;
+        for (int i = 0; i < zoneCount; i++) { weights[i] = 0f; }
 
         // The chunk-grid window around the player. Span = ceil(radius) on
         // each side so any chunk whose center could be within the kernel
@@ -147,8 +147,8 @@ public static class RegionBlend
             {
                 int cx = playerChunkX + dx;
                 int cz = playerChunkZ + dz;
-                int regionIdx = ResolveColumnRegion(ws, cx, playerChunkY, cz);
-                if (regionIdx < 0 || regionIdx >= regionCount) { continue; }
+                int zoneIdx = ResolveColumnZone(ws, cx, playerChunkY, cz);
+                if (zoneIdx < 0 || zoneIdx >= zoneCount) { continue; }
 
                 // Distance in CHUNK units from player → chunk center.
                 // Working in chunk units keeps the radius parameter
@@ -163,34 +163,34 @@ public static class RegionBlend
 
                 // smoothstep(R, 0, d) = 1 at d=0, 0 at d=R, smooth in between.
                 float w = Mathf.SmoothStep(radiusChunks, 0f, distChunks);
-                if (w > 0f) { weights[regionIdx] += w; }
+                if (w > 0f) { weights[zoneIdx] += w; }
             }
         }
 
         float totalWeight = 0f;
-        for (int i = 0; i < regionCount; i++) { totalWeight += weights[i]; }
+        for (int i = 0; i < zoneCount; i++) { totalWeight += weights[i]; }
         if (totalWeight < MinTotalWeight) { return false; }
         float inv = 1f / totalWeight;
-        for (int i = 0; i < regionCount; i++) { weights[i] *= inv; }
+        for (int i = 0; i < zoneCount; i++) { weights[i] *= inv; }
         return true;
     }
 
-    // Pick the region this column (cx, cz) belongs to. Tries the chunk
+    // Pick the zone this column (cx, cz) belongs to. Tries the chunk
     // at the player's Y first; if that's unloaded, scans the column for
     // any loaded chunk so a chunk above/below the player still
-    // contributes its region. Returns -1 if no chunk in this column is
+    // contributes its zone. Returns -1 if no chunk in this column is
     // loaded — caller skips the contribution (correct streaming default).
-    private static int ResolveColumnRegion(WorldState ws, int cx, int preferredY, int cz)
+    private static int ResolveColumnZone(WorldState ws, int cx, int preferredY, int cz)
     {
         ChunkState chunk = ws.GetChunk(new Vector3I(cx, preferredY, cz));
-        if (chunk != null) { return chunk.RegionIndex; }
+        if (chunk != null) { return chunk.ZoneIndex; }
         // Fall back to a scan over the world's Y range. Only runs when
         // the player straddles a column with no chunk at their Y level
         // (e.g. flying above the world bounds), so the cost is fine.
         for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
         {
             chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
-            if (chunk != null) { return chunk.RegionIndex; }
+            if (chunk != null) { return chunk.ZoneIndex; }
         }
         return -1;
     }
@@ -204,9 +204,9 @@ public static class RegionBlend
         a += c.A * w;
     }
 
-    // N-way weighted blend into the provided WeatherData. Regions with
+    // N-way weighted blend into the provided WeatherData. Zones with
     // a null weather sub-resource drop out; weights re-normalize across
-    // the regions that DO have weather so worlds with partial authoring
+    // the zones that DO have weather so worlds with partial authoring
     // still produce a sensible result.
     private static void BlendWeather(WorldState ws, Span<float> weights, WeatherData dst)
     {
@@ -214,7 +214,7 @@ public static class RegionBlend
         for (int i = 0; i < weights.Length; i++)
         {
             if (weights[i] <= 0f) { continue; }
-            if (ws.Regions[i].Data?.weather == null) { continue; }
+            if (ws.Zones[i].Data?.weather == null) { continue; }
             sum += weights[i];
         }
         if (sum < MinTotalWeight) { return; }
@@ -225,7 +225,7 @@ public static class RegionBlend
         {
             float w = weights[i];
             if (w <= 0f) { continue; }
-            WeatherData wd = ws.Regions[i].Data?.weather;
+            WeatherData wd = ws.Zones[i].Data?.weather;
             if (wd == null) { continue; }
             float nw = w * inv;
             cloudCover += wd.cloudCover * nw;

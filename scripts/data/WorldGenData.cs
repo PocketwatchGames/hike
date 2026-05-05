@@ -5,14 +5,14 @@ public partial class WorldGenData : Resource
 {
     [Export] public SimData SimData;
 
-    // Per-region world-gen + theme bundle. Index in this array becomes the
-    // ChunkState.RegionIndex stamped on each generated chunk; the embedded
-    // RegionData becomes WorldState.Regions[i].Data. WorldGen blends the
+    // Per-zone world-gen + theme bundle. Index in this array becomes the
+    // ChunkState.ZoneIndex stamped on each generated chunk; the embedded
+    // ZoneData becomes WorldState.Zones[i].Data. WorldGen blends the
     // per-position scalars on each entry (ElevationMultiplier, thresholds,
     // densities) across a chunk-kernel for smooth transitions between
-    // adjacent regions. WorldGen assigns chunks to regions (currently by
-    // quadrant; the long-term design is arbitrary region polygons / atlas).
-    [Export] public RegionGenData[] Regions = System.Array.Empty<RegionGenData>();
+    // adjacent zones. WorldGen assigns chunks to zones (currently by
+    // quadrant; the long-term design is arbitrary zone polygons / atlas).
+    [Export] public ZoneGenData[] Zones = System.Array.Empty<ZoneGenData>();
 
     // World extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're
@@ -51,7 +51,7 @@ public partial class WorldGenData : Resource
     [Export] public PackedScene SignpostScene;
 
     // One signpost is placed per quadrant on a random grassy column. Index
-    // matches PickRegionIndex's quadrant order: 0=NE (X>=0, Z>=0),
+    // matches PickZoneIndex's quadrant order: 0=NE (X>=0, Z>=0),
     // 1=NW (X<0, Z>=0), 2=SE (X>=0, Z<0), 3=SW (X<0, Z<0). Empty entries
     // (or quadrants with no grassy candidate) skip placement for that
     // quadrant. SignpostScene must be set; otherwise the whole pass is a

@@ -68,9 +68,9 @@ public static class CVars
 
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is derived each frame by
-    // SkyController from (RegionData, WeatherData, time-of-day) via
-    // WeatherDerivation. Regions live on SimData (4-quadrant scaffolding);
-    // authoring new looks means editing RegionData.tres + WeatherData.tres
+    // SkyController from (ZoneData, WeatherData, time-of-day) via
+    // WeatherDerivation. Zones live on SimData (4-quadrant scaffolding);
+    // authoring new looks means editing ZoneData.tres + WeatherData.tres
     // (or the derivation tuning group on SimData), not CVars.
 
     // Multiplier on the time-of-day advance rate. 1 = SimData.DayLengthSeconds
@@ -465,7 +465,7 @@ public static class CVars
     //   2 = ceiling cap (clip_cap.gdshader) → bright RED.
     //   3 = water backface stencil (voxel_water_backface.gdshader) → adds
     //       CYAN wherever stencil=2 is being written. Shows the screen
-    //       region the water cap is allowed to draw in.
+    //       zone the water cap is allowed to draw in.
     //   5 = water cap disabled entirely. If the artifact disappears, the
     //       water cap was drawing it. If it persists, look elsewhere.
     //   6 = ceiling cap disabled entirely.

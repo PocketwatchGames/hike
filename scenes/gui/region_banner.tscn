@@ -1,0 +1,30 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gui/HudRegionBanner.cs" id="1_script"]
+
+[node name="RegionBanner" type="Control" node_paths=PackedStringArray("label", "sound")]
+layout_mode = 3
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 40.0
+offset_bottom = 120.0
+grow_horizontal = 2
+mouse_filter = 2
+script = ExtResource("1_script")
+label = NodePath("Label")
+sound = NodePath("Sound")
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_font_sizes/font_size = 36
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Sound" type="AudioStreamPlayer" parent="."]
