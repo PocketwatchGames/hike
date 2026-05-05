@@ -76,3 +76,22 @@ public class TrapSimState : EntitySimState
         return Trap.Create(world, this);
     }
 }
+
+public class FireTrapSimState : EntitySimState
+{
+    // Random per-instance offset (seconds) added to the trap's first Idle
+    // window so neighbouring traps don't fire in lockstep. Rolled once at
+    // creation and persisted through save/load — preserving the rhythm
+    // matters for replayability of authored swamp encounters.
+    public float PhaseOffsetSeconds;
+
+    public FireTrapSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return FireTrap.Create(world, this);
+    }
+}

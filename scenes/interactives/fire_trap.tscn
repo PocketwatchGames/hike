@@ -1,0 +1,47 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/gameplay/entities/FireTrap.cs" id="1_firetrap"]
+[ext_resource type="Script" path="res://scripts/data/FireTrapData.cs" id="2_firetrapdata"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="4_damagezone"]
+[ext_resource type="PackedScene" path="res://scenes/effects/fire_column_warning.tscn" id="5_warning"]
+[ext_resource type="PackedScene" path="res://scenes/effects/fire_column_ignite.tscn" id="6_ignite"]
+[ext_resource type="PackedScene" path="res://scenes/effects/fire_column_loop.tscn" id="7_loop"]
+
+[sub_resource type="Resource" id="Resource_firetrap_damage"]
+script = ExtResource("3_damage")
+healthDamage = 8.0
+stun = 0.0
+statusEffects = null
+
+[sub_resource type="Resource" id="Resource_firetrap_data"]
+script = ExtResource("2_firetrapdata")
+damageData = SubResource("Resource_firetrap_damage")
+warningSeconds = 1.0
+activeSeconds = 3.0
+cooldownSeconds = 4.0
+maxPhaseOffsetSeconds = 8.0
+warningEffect = ExtResource("5_warning")
+igniteEffect = ExtResource("6_ignite")
+columnLoopEffect = ExtResource("7_loop")
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_firetrap_zone"]
+radius = 0.7
+height = 3.0
+
+[node name="FireTrap" type="Node3D" node_paths=PackedStringArray("_damageZone")]
+script = ExtResource("1_firetrap")
+data = SubResource("Resource_firetrap_data")
+_damageZone = NodePath("DamageZone")
+
+[node name="DamageZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("4_damagezone")
+damage = SubResource("Resource_firetrap_damage")
+tickInterval = 0.5
+tickOnEnter = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CylinderShape3D_firetrap_zone")
