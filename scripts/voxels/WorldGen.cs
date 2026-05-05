@@ -2029,6 +2029,20 @@ public static class WorldGen
                     {
                         continue;
                     }
+                    // IsSurfaceVoxel accepts water above (it's "non-solid"),
+                    // which suits the kit-tagging passes but would scatter
+                    // upright sprites at the water surface. The kit-slot
+                    // filter below already rejects shoreline plateaus that
+                    // TagSubmergedKits flagged as KIT_UNDERWATER, but caves
+                    // and the test underwater lake create new water voxels
+                    // AFTER TagSubmergedKits runs — the lake floor stays
+                    // KIT_TEMPERATE and would otherwise spawn grass blades
+                    // sitting inside the lake. Reject any surface whose
+                    // air-above slot is water.
+                    if (ws.GetVoxelWorld(wx, wy + 1, wz) == VoxelType.Water)
+                    {
+                        continue;
+                    }
                     if (KitSlot(ws.GetKitIdWorld(wx, wy, wz)) != KIT_SLOT_TEMPERATE)
                     {
                         continue;
@@ -2275,22 +2289,13 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    int sy = SurfaceYAt(wx, wz);
-                    // Tall grass is short — at sy==WATER_LEVEL the surface
-                    // voxel's top face sits exactly at the water surface, so
-                    // the sprite reads as half-submerged. Trees plant at
-                    // sy==WATER_LEVEL because their foliage rises clear of
-                    // the water; grass cannot.
-                    if (sy <= WATER_LEVEL)
-                    {
-                        continue;
-                    }
 
                     PackedScene grassScene = PickWeightedScene(wx, wz, regionsArr, r => r.TallGrassScenes, rng);
                     if (grassScene == null)
                     {
                         continue;
                     }
+                    int sy = SurfaceYAt(wx, wz);
                     ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
                 }
             }
