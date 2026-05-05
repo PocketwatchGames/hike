@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="DetailGroupData" format=3 uid="uid://hpebbledtail0"]
+
+[ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="1_group_script"]
+[ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="2_entry_script"]
+[ext_resource type="Texture2D" uid="uid://bpebble01uuuu" path="res://assets/textures/details/pebble_01.png" id="3_pebble_01"]
+[ext_resource type="Texture2D" uid="uid://bpebble02vvvv" path="res://assets/textures/details/pebble_02.png" id="4_pebble_02"]
+[ext_resource type="Texture2D" uid="uid://bpebble03wwww" path="res://assets/textures/details/pebble_03.png" id="5_pebble_03"]
+
+[sub_resource type="Resource" id="Resource_pebble_01"]
+script = ExtResource("2_entry_script")
+Texture = ExtResource("3_pebble_01")
+ScaleMin = 0.7
+ScaleMax = 1.2
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_pebble_02"]
+script = ExtResource("2_entry_script")
+Texture = ExtResource("4_pebble_02")
+Weight = 0.6
+ScaleMin = 0.7
+ScaleMax = 1.3
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_pebble_03"]
+script = ExtResource("2_entry_script")
+Texture = ExtResource("5_pebble_03")
+Weight = 0.4
+ScaleMin = 0.7
+ScaleMax = 1.2
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[resource]
+script = ExtResource("1_group_script")
+GroupName = "pebbles"
+Entries = Array[ExtResource("2_entry_script")]([SubResource("Resource_pebble_01"), SubResource("Resource_pebble_02"), SubResource("Resource_pebble_03")])
+InstancesPerVoxel = 2
