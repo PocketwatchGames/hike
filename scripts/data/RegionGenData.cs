@@ -122,4 +122,13 @@ public partial class RegionGenData : Resource
     [Export] public float ChestChance = 0.002f;
     [Export] public int ChestLootCountMin = 3;
     [Export] public int ChestLootCountMax = 6;
+
+    // Per-(grass column) spawn chance for berry trees on the surface. Each
+    // tree drops [BerryCountMin..BerryCountMax] autoloot berries when picked
+    // (or when the hurtbox takes a sword hit). Leave BerryTreeScene null to
+    // disable for the region.
+    [Export] public PackedScene BerryTreeScene;
+    [Export] public float BerryTreeChance = 0.01f;
+    [Export] public int BerryTreeCountMin = 3;
+    [Export] public int BerryTreeCountMax = 6;
 }
