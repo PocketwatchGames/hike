@@ -1815,6 +1815,12 @@ public static class WorldGen
     // editor lands; the runtime is happy with no DetailGroups configured (the
     // scatter pass short-circuits) so this is safe to leave on.
     private const int DETAIL_NOISE_SEED = 9191;
+    // Independent seed for cave-floor pebble scatter so cave density isn't
+    // visually correlated with surface grass density above it. Group id 2
+    // references RegionGenData.DetailGroups[1] (detail_pebbles).
+    private const int PEBBLE_NOISE_SEED = 9192;
+    private const byte DETAIL_GROUP_GRASS = 1;
+    private const byte DETAIL_GROUP_PEBBLES = 2;
 
     // Noise-scatter dirt and field overlays on temperate-kit surface voxels.
     // Only top-surface voxels (solid with air above) are candidates so buried
@@ -2093,12 +2099,13 @@ public static class WorldGen
     }
 
     // Test placement for the painted detail-sprite scatter. Walks every
-    // temperate-kit surface voxel and stamps DetailGroup=1 with a noise-driven
-    // strength wherever detailNoise > threshold. The runtime scatter pass
-    // looks up DetailGroups[0] for group=1 and silently does nothing if the
-    // palette is empty, so this is safe to leave on even before any sprite art
-    // is authored. Columns covered by a cobblestone road are skipped so grass
-    // blades don't poke through the pavement.
+    // surface voxel and stamps a DetailGroup id by kit slot:
+    //   TEMPERATE → group 1 (grass), suppressed under cobblestone roads
+    //   CAVE      → group 2 (pebbles)
+    // Strength is the per-pass noise value remapped to [DetailStrengthMin, 255].
+    // The runtime scatter pass looks up DetailGroups[id-1] and silently does
+    // nothing if that slot is empty, so it's safe to leave on even before art
+    // is authored.
     private static void StampDetailScatter(WorldState ws, WorldGenData genData, HashSet<(int, int)> roadColumns)
     {
         var detailNoise = new FastNoiseLite();
@@ -2111,6 +2118,12 @@ public static class WorldGen
         detailNoise.Frequency = FirstRegionGen(genData)?.DetailNoiseFrequency ?? 0.06f;
         detailNoise.FractalOctaves = 2;
 
+        var pebbleNoise = new FastNoiseLite();
+        pebbleNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        pebbleNoise.Seed = PEBBLE_NOISE_SEED;
+        pebbleNoise.Frequency = FirstRegionGen(genData)?.DetailNoiseFrequency ?? 0.06f;
+        pebbleNoise.FractalOctaves = 2;
+
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -2122,36 +2135,59 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Paved roads suppress grass sprites — the cobblestone is
-                // authored as a ground surface, not a clearing in the grass.
-                if (roadColumns.Contains((wx, wz)))
-                {
-                    continue;
-                }
+                // Roads run on temperate surface columns; caves below the
+                // road still get pebbles. Branch per-voxel below instead of
+                // skipping the column outright.
+                bool roadColumn = roadColumns.Contains((wx, wz));
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
                     if (!IsSurfaceVoxel(ws, wx, wy, wz))
                     {
                         continue;
                     }
-                    if (KitSlot(ws.GetKitIdWorld(wx, wy, wz)) != KIT_SLOT_TEMPERATE)
-                    {
-                        continue;
-                    }
-
+                    int slot = KitSlot(ws.GetKitIdWorld(wx, wy, wz));
                     BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
-                    float n = detailNoise.GetNoise2D(wx, wz);
-                    if (n <= blend.DetailNoiseThreshold)
-                    {
-                        continue;
-                    }
 
-                    // Map noise (threshold..1) to (strengthMin..255).
-                    float t = (n - blend.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - blend.DetailNoiseThreshold);
-                    int strengthMin = (int)Math.Round(blend.DetailStrengthMin);
-                    int strength = strengthMin + (int)(t * (255 - strengthMin));
-                    ws.SetDetailGroupWorld(wx, wy, wz, 1);
-                    ws.SetDetailStrengthWorld(wx, wy, wz, strength);
+                    if (slot == KIT_SLOT_TEMPERATE)
+                    {
+                        // Paved roads suppress grass sprites — the cobblestone
+                        // is authored as a ground surface, not a clearing in
+                        // the grass.
+                        if (roadColumn)
+                        {
+                            continue;
+                        }
+                        float n = detailNoise.GetNoise2D(wx, wz);
+                        if (n <= blend.DetailNoiseThreshold)
+                        {
+                            continue;
+                        }
+
+                        // Map noise (threshold..1) to (strengthMin..255).
+                        float t = (n - blend.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - blend.DetailNoiseThreshold);
+                        int strengthMin = (int)Math.Round(blend.DetailStrengthMin);
+                        int strength = strengthMin + (int)(t * (255 - strengthMin));
+                        ws.SetDetailGroupWorld(wx, wy, wz, DETAIL_GROUP_GRASS);
+                        ws.SetDetailStrengthWorld(wx, wy, wz, strength);
+                    }
+                    else if (slot == KIT_SLOT_CAVE)
+                    {
+                        // Cave floors get pebble scatter. Independent noise
+                        // seed keeps the pattern uncorrelated with surface
+                        // grass directly above; threshold/strength curves are
+                        // shared so density still fades at region borders.
+                        float n = pebbleNoise.GetNoise2D(wx, wz);
+                        if (n <= blend.DetailNoiseThreshold)
+                        {
+                            continue;
+                        }
+
+                        float t = (n - blend.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - blend.DetailNoiseThreshold);
+                        int strengthMin = (int)Math.Round(blend.DetailStrengthMin);
+                        int strength = strengthMin + (int)(t * (255 - strengthMin));
+                        ws.SetDetailGroupWorld(wx, wy, wz, DETAIL_GROUP_PEBBLES);
+                        ws.SetDetailStrengthWorld(wx, wy, wz, strength);
+                    }
                 }
             }
         }

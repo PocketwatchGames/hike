@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c3a8m1hhlwljn"]
 
 [ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
-[ext_resource type="Script" uid="uid://cx3aq3dyi5ucg" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="PackedScene" uid="uid://cakjul286ucv4" path="res://scenes/effects/gas_poison_burst.tscn" id="2_wmtne"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_dmg"]
 [ext_resource type="PackedScene" uid="uid://6d2llur7apbo" path="res://scenes/effects/gas_poison_loop.tscn" id="4_loop"]
@@ -25,7 +25,7 @@ collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
 damage = SubResource("Resource_gas_poison_damage")
-metadata/_custom_type_script = "uid://cx3aq3dyi5ucg"
+metadata/_custom_type_script = "uid://tiz9ds0sdfia"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone" unique_id=691138528]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)

@@ -6,6 +6,7 @@
 [ext_resource type="Resource" uid="uid://pyvvyvryr1dc" path="res://resources/data/terrain_kits/kit_cave_limestone.tres" id="4_kit_cave"]
 [ext_resource type="Resource" uid="uid://d2eve0m1jqgng" path="res://resources/data/terrain_kits/kit_underwater.tres" id="5_kit_underwater"]
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/detail_grass.tres" id="6_detail_grass"]
+[ext_resource type="Resource" uid="uid://hpebbledtail0" path="res://resources/data/detail_pebbles.tres" id="6b_detail_pebbles"]
 [ext_resource type="PackedScene" path="res://scenes/props/marsh_treea1.tscn" id="15_3sw5e"]
 [ext_resource type="PackedScene" path="res://scenes/props/marsh_treea2.tscn" id="16_vj4ky"]
 [ext_resource type="PackedScene" uid="uid://c0bksij7lb76h" path="res://scenes/props/marsh_treea3.tscn" id="17_7yanc"]
@@ -34,7 +35,7 @@
 script = ExtResource("1_script")
 Region = ExtResource("2_region")
 Kits = [ExtResource("3_kit_temperate"), ExtResource("4_kit_cave"), ExtResource("5_kit_underwater")]
-DetailGroups = [ExtResource("6_detail_grass")]
+DetailGroups = [ExtResource("6_detail_grass"), ExtResource("6b_detail_pebbles")]
 ElevationRange = 4.0
 PathThreshold = 0.1
 PathBlendBand = 0.05
