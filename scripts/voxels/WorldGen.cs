@@ -2040,7 +2040,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    byte slot = KitSlot(ws.GetKitIdWorld(wx, wy, wz));
+                    int slot = KitSlot(ws.GetKitIdWorld(wx, wy, wz));
                     BlendedRegionGen blend = SampleBlendedRegionGen(wx, wz, genData.Regions);
 
                     if (slot == KIT_SLOT_TEMPERATE)

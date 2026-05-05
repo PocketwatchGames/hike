@@ -3,7 +3,7 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bpebble03wwww"
-path.s3tc="res://.godot/imported/pebble_03.png-pebble03placeholder3.s3tc.ctex"
+path.s3tc="res://.godot/imported/pebble_03.png-0f7a5b6d9f876c3fbf9f3ade4257687d.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -12,7 +12,7 @@ metadata={
 [deps]
 
 source_file="res://assets/textures/details/pebble_03.png"
-dest_files=["res://.godot/imported/pebble_03.png-pebble03placeholder3.s3tc.ctex"]
+dest_files=["res://.godot/imported/pebble_03.png-0f7a5b6d9f876c3fbf9f3ade4257687d.s3tc.ctex"]
 
 [params]
 
