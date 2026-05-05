@@ -48,4 +48,16 @@ public partial class WorldGenData : Resource
     [Export] public PackedScene TorchScene;
     [Export] public PackedScene CampfireScene;
     [Export] public PackedScene SpikeTrapScene;
+    [Export] public PackedScene SignpostScene;
+
+    // One signpost is placed per quadrant on a random grassy column. Index
+    // matches PickRegionIndex's quadrant order: 0=NE (X>=0, Z>=0),
+    // 1=NW (X<0, Z>=0), 2=SE (X>=0, Z<0), 3=SW (X<0, Z<0). Empty entries
+    // (or quadrants with no grassy candidate) skip placement for that
+    // quadrant. SignpostScene must be set; otherwise the whole pass is a
+    // no-op.
+    [Export(PropertyHint.MultilineText)] public string SignpostTextNE = "";
+    [Export(PropertyHint.MultilineText)] public string SignpostTextNW = "";
+    [Export(PropertyHint.MultilineText)] public string SignpostTextSE = "";
+    [Export(PropertyHint.MultilineText)] public string SignpostTextSW = "";
 }

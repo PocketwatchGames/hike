@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://csgnpsce4t7gb"]
+
+[ext_resource type="Script" uid="uid://bsgnpst1k9q4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_signpost"]
+[ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="2_atlas"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
+
+[sub_resource type="Resource" id="Resource_signpost_event_open"]
+script = ExtResource("9_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_signpost_action_read"]
+script = ExtResource("8_action")
+verb = 0
+completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_signpost_event_open")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+
+[node name="Signpost" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_signpost")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("8_action")]([SubResource("Resource_signpost_action_read")])
+_text = "A wooden sign. The lettering is faded but readable."
+
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="Sprite" type="Sprite3D" parent="."]
+cast_shadow = 0
+centered = false
+offset = Vector2(-8, 0)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("2_atlas")
+region_enabled = true
+region_rect = Rect2(736, 165, 16, 27)
+script = ExtResource("4_litsprite")
+ForwardOffset = 0.5
+MaterialTemplate = ExtResource("5_lit_materialtemplate")
+ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
+
+[node name="HUDNode" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites")]
+script = ExtResource("10_xray")
+_sprites = [NodePath("../Sprite")]

@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_e7drt"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_22kvh"]
-[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
+[ext_resource type="Script" uid="uid://cx3aq3dyi5ucg" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="11_4nu01"]
 [ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/sprites/FlatLitSprite.cs" id="11_naflh"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit_flat.tres" id="12_nxiho"]
@@ -100,7 +100,7 @@ collision_layer = 0
 collision_mask = 32
 script = ExtResource("10_qk6wi")
 damage = SubResource("Resource_yf2vb")
-metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+metadata/_custom_type_script = "uid://cx3aq3dyi5ucg"
 
 [node name="CollisionShape3D2" type="CollisionShape3D" parent="DamageZone" unique_id=1443435336]
 shape = SubResource("SphereShape3D_q0pgg")

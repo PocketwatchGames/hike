@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://cnpc1villbrain"]
+[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://jrricbbgivll"]
 
 [ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="1_brain"]
 [ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_node"]

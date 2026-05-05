@@ -1,6 +1,6 @@
-[gd_scene format=3 uid="uid://cnpc1mobchatscene"]
+[gd_scene format=3 uid="uid://dn7p5q2k4r3wm"]
 
-[ext_resource type="Script" uid="uid://cnpc1mobchatscript" path="res://scripts/gui/MobChatter.cs" id="1_chatter"]
+[ext_resource type="Script" uid="uid://b8mh3z9xkv4tq" path="res://scripts/gui/MobChatter.cs" id="1_chatter"]
 
 [node name="MobChatter" type="Node2D" node_paths=PackedStringArray("_label")]
 script = ExtResource("1_chatter")

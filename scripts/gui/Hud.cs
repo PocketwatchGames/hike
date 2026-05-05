@@ -14,6 +14,7 @@ public partial class Hud : CanvasLayer
 	[Export] Control _statusEffectContainer;
 	[Export] ProgressBar _healthBar;
 	[Export] ProgressBar _armorBar;
+	[Export] HudSignpostPanel _signpostPanel;
 
 	Player _player;
 	Inventory _inventory;
@@ -34,6 +35,22 @@ public partial class Hud : CanvasLayer
 		_weaponLeftButtonHint.SetHint("AttackMelee", string.Empty);
 		_weaponRightButtonHint.SetHint("AttackRanged", string.Empty);
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
+		if (_signpostPanel != null)
+		{
+			_signpostPanel.Visible = false;
+		}
+	}
+
+	public bool IsSignpostOpen => _signpostPanel != null && _signpostPanel.IsOpen;
+
+	public void ShowSignpost(string text)
+	{
+		_signpostPanel?.Show(text);
+	}
+
+	public void CloseSignpost()
+	{
+		_signpostPanel?.Close();
 	}
 
 	public override void _ExitTree()

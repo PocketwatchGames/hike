@@ -16,6 +16,7 @@ public static class EntitySerializer
         Torch = 4,
         Chest = 5,
         Trap = 6,
+        Signpost = 7,
     }
 
     public static void WriteList(BinaryWriter w, List<EntitySimState> entities)
@@ -109,6 +110,13 @@ public static class EntitySerializer
                 WriteVec3(w, trap.WorldPosition);
                 WriteScene(w, trap.Scene);
                 w.Write(trap.Disarmed);
+                break;
+
+            case SignpostSimState signpost:
+                w.Write((byte)Tag.Signpost);
+                WriteVec3(w, signpost.WorldPosition);
+                WriteScene(w, signpost.Scene);
+                w.Write(signpost.Text ?? string.Empty);
                 break;
 
             default:
@@ -213,6 +221,13 @@ public static class EntitySerializer
                 var trap = new TrapSimState(pos, scene);
                 trap.Disarmed = disarmed;
                 return trap;
+            }
+            case Tag.Signpost:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                string text = r.ReadString();
+                return new SignpostSimState(pos, scene, text);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

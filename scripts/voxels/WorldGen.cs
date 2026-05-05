@@ -124,6 +124,7 @@ public static class WorldGen
     public const int SEED_SALT_ROAD     = 0x09;
     private const int SEED_SALT_ELEVATION = 0x0A;
     private const int SEED_SALT_PROPS   = 0x0B;
+    private const int SEED_SALT_SIGNPOST = 0x0C;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -363,6 +364,11 @@ public static class WorldGen
                 var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
                 ws.AddEntity(new MobSimState(pos, 0f, villagerScene, villagerData));
             }
+        }
+
+        if ((skipFlags & SKIP_INTERACTIVES) == 0)
+        {
+            GenerateSignposts(ws, genData, heightMap, worldSeed);
         }
 
         // Compute sunlight after all geometry exists.
@@ -1220,6 +1226,84 @@ public static class WorldGen
     }
 
     // Bucket-fill ground fog. For each region we compute a "fog level" Y_i
+    // Place one signpost per quadrant (NE, NW, SE, SW) at a random grassy
+    // column inside that quadrant. Each quadrant pulls its text from its
+    // SignpostText* field on WorldGenData; empty strings, missing scene, or
+    // empty quadrants are skipped. Per-quadrant rng is keyed off the world
+    // seed + a stable salt + the quadrant index so placement is reproducible.
+    private static void GenerateSignposts(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        if (genData.SignpostScene == null)
+        {
+            return;
+        }
+
+        int worldMinX = ws.Min.X * ChunkState.SIZE;
+        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        // Quadrant order matches PickRegionIndex: 0=NE, 1=NW, 2=SE, 3=SW.
+        var ranges = new (int xMin, int xMax, int zMin, int zMax)[]
+        {
+            (Math.Max(0, worldMinX), worldMaxX, Math.Max(0, worldMinZ), worldMaxZ),
+            (worldMinX, Math.Min(-1, worldMaxX), Math.Max(0, worldMinZ), worldMaxZ),
+            (Math.Max(0, worldMinX), worldMaxX, worldMinZ, Math.Min(-1, worldMaxZ)),
+            (worldMinX, Math.Min(-1, worldMaxX), worldMinZ, Math.Min(-1, worldMaxZ)),
+        };
+        var texts = new string[]
+        {
+            genData.SignpostTextNE,
+            genData.SignpostTextNW,
+            genData.SignpostTextSE,
+            genData.SignpostTextSW,
+        };
+
+        bool IsGrassyAt(int wx, int wz)
+        {
+            if (!IsFlatDryGrassAt(wx, wz, heightMap))
+            {
+                return false;
+            }
+            int sy = heightMap.GetHeight(wx, wz);
+            VoxelType ground = ws.GetVoxelWorld(wx, sy, wz);
+            if (ground == VoxelType.Air || ground == VoxelType.Water)
+            {
+                return false;
+            }
+            return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
+        }
+
+        const int MAX_ATTEMPTS = 256;
+        for (int q = 0; q < 4; q++)
+        {
+            string text = texts[q];
+            if (string.IsNullOrEmpty(text))
+            {
+                continue;
+            }
+            var (xMin, xMax, zMin, zMax) = ranges[q];
+            if (xMax < xMin || zMax < zMin)
+            {
+                continue;
+            }
+            var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_SIGNPOST), q, 0));
+            for (int attempt = 0; attempt < MAX_ATTEMPTS; attempt++)
+            {
+                int wx = rng.Next(xMin, xMax + 1);
+                int wz = rng.Next(zMin, zMax + 1);
+                if (!IsGrassyAt(wx, wz))
+                {
+                    continue;
+                }
+                int sy = heightMap.GetHeight(wx, wz);
+                var pos = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
+                ws.AddEntity(new SignpostSimState(pos, genData.SignpostScene, text));
+                break;
+            }
+        }
+    }
+
     // by pouring a humidity-scaled volume into the region's heightmap (sorted
     // floor heights, water-clamped) and finding where it settles. Per voxel
     // the level blends across regions via the prop/kit kernel; density falls

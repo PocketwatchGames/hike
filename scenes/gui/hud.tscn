@@ -4,6 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
+[ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r3z" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aoesn"]
 content_margin_left = 2.0
@@ -29,7 +30,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar")]
+[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel")]
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
@@ -41,6 +42,7 @@ _consumableButtonHint = NodePath("ScreenMarginContainer/BoxContainer/VBoxContain
 _statusEffectContainer = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/StatusEffects")
 _healthBar = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer/HealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer/ArmorBar")
+_signpostPanel = NodePath("HudSignpostPanel")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 anchors_preset = 15
@@ -140,3 +142,6 @@ layout_mode = 2
 
 [node name="WeaponRightHint" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=735103172 instance=ExtResource("3_ueg55")]
 layout_mode = 2
+
+[node name="HudSignpostPanel" parent="." instance=ExtResource("4_signpost")]
+visible = false

@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="5_torch"]
 [ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="6_campfire"]
+[ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signpost"]
 
 [resource]
 script = ExtResource("1_script")
@@ -17,3 +18,8 @@ Regions = [ExtResource("2_region_mountain"), ExtResource("2_region_desert"), Ext
 DoorScene = ExtResource("4_door")
 TorchScene = ExtResource("5_torch")
 CampfireScene = ExtResource("6_campfire")
+SignpostScene = ExtResource("7_signpost")
+SignpostTextNE = "The mountains rise sharp and cold ahead. Bring rope."
+SignpostTextNW = "Desert. Water is scarce — fill skins before crossing."
+SignpostTextSE = "Swampland. Stay on the high ground after dusk."
+SignpostTextSW = "Forest path. Mind the roots, mind the wolves."
