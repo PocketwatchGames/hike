@@ -3,6 +3,10 @@
     <TargetFramework>net8.0</TargetFramework>
     <TargetFramework Condition=" '$(GodotTargetPlatform)' == 'android' ">net9.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- Godot.NET.Sdk 4.6 already pulls in Microsoft.CodeAnalysis.CSharp.NetAnalyzers;
+         .NET SDK 10 tries to add it a second time, which the Roslyn LSP rejects with
+         "has already been added to this project". Disable the SDK's auto-add. -->
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
   </PropertyGroup>
   <!-- PROFILE compiles in CPU section profiling (Profiler.Sample / .Begin /
        .End / .Dump). Defined for Debug and ExportDebug; absent from Release
@@ -40,6 +44,6 @@
   <Target Name="GenerateLocKeys" BeforeTargets="CoreCompile"
           Inputs="resources/localization/english.tsv"
           Outputs="scripts/localization/LocKeys.g.cs">
-    <Exec Command="dotnet run --project tools/LocGenerator -- resources/localization/english.tsv scripts/localization/LocKeys.g.cs" />
+    <Exec Command="dotnet run --project tools/loc_generator -- resources/localization/english.tsv scripts/localization/LocKeys.g.cs" />
   </Target>
 </Project>
