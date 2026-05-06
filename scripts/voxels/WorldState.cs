@@ -34,6 +34,11 @@ public class WorldState
     // colors. Seeded from SimData.InitialTimeOfDay at world creation.
     public double TimeOfDay01;
 
+    // Single shared night threshold so SpawnAtNight gating, the day/night
+    // refresh in World, and ad-hoc isNight checks scattered across entities
+    // all agree on when night begins and ends.
+    public static bool IsNight(double timeOfDay01) => timeOfDay01 < 0.25 || timeOfDay01 >= 0.75;
+
     // Monotonic absolute-day counter advanced in lockstep with
     // TimeOfDay01 (= TimeOfDay01 + integer day index). Anything that
     // needs an unwrapping time coordinate aligned with the day cycle —

@@ -123,6 +123,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         get
         {
+            // A burrowed mob has no business holding a torch — its mesh is
+            // hidden, and the deposit would leak block light through solid
+            // geometry. Short-circuit so behaviors querying ShouldUseTorch
+            // (and the per-tick write to AIOutput.useTorch) douse on the
+            // burrow transition without each behavior having to special-
+            // case it.
+            if (burrowed || burrowing) { return false; }
             WorldState ws = _world?.WorldState;
             SimData sim = ws?.SimData;
             float light = sim?.MobTorchLightThreshold ?? 0.20f;
@@ -933,21 +940,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 MobData md = _simState.MobData;
                 string mdState = md == null ? "null" : (md.movingLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.movingLightScene.ResourcePath}");
-                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torch != null} mobData={mdState}");
+                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} suspended={aiOutput.suspended} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torch != null} mobData={mdState}");
             }
-            if (aiOutput.useTorch && playerRemembers)
+            // Skip torch toggling on suspended ticks — TickAI early-returned
+            // with a default-constructed AIOutput, so aiOutput.useTorch is
+            // meaningless (always false). Without this gate, BehaviorIdle's
+            // 100ms suspend window would tear the torch down and re-create
+            // it ~6×/sec, flickering both the LightOn/LightOff fx and the
+            // block-light deposit.
+            if (!aiOutput.suspended)
             {
-                if (_torch == null && _simState.MobData?.movingLightScene != null)
+                if (aiOutput.useTorch && playerRemembers)
                 {
-                    _torch = _simState.MobData.movingLightScene.Instantiate<MovingLight>();
-                    AddChild(_torch);
+                    if (_torch == null && _simState.MobData?.movingLightScene != null)
+                    {
+                        _torch = _simState.MobData.movingLightScene.Instantiate<MovingLight>();
+                        AddChild(_torch);
+                    }
                 }
-            }
-            else if (_torch != null)
-            {
-                _torch.Deactivate();
-                _torch.QueueFree();
-                _torch = null;
+                else if (_torch != null)
+                {
+                    _torch.Deactivate();
+                    _torch.QueueFree();
+                    _torch = null;
+                }
             }
         }
         else

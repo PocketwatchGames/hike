@@ -110,20 +110,24 @@ public class MobSimState : EntitySimState
         LightSampleAccumulator = (float)GD.RandRange(0.0, LightSampleInterval);
     }
 
-    public override Node3D CreateEntity(World world)
+    public override bool ShouldSpawn(World world)
     {
         if (!Alive)
         {
-            return null;
+            return false;
         }
-        if (SpawnAtNight)
+        if (SpawnAtNight && !WorldState.IsNight(world.WorldState.TimeOfDay01))
         {
-            double tod = world.WorldState.TimeOfDay01;
-            bool isNight = tod < 0.25 || tod >= 0.75;
-            if (!isNight)
-            {
-                return null;
-            }
+            return false;
+        }
+        return true;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        if (!ShouldSpawn(world))
+        {
+            return null;
         }
         return Mob.Create(world, this);
     }

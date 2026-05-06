@@ -23,6 +23,7 @@ public partial class FireTrap : Node3D, IWorldEntity
 {
     [Export] public FireTrapData data;
     [Export] private DamageZone _damageZone;
+    [Export] private StationaryLight _light;
 
     private FireTrapSimState _simState;
     private EFireTrapState _state = EFireTrapState.Idle;
@@ -92,6 +93,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         _state = EFireTrapState.Active;
         _stateTimer = data.activeSeconds;
         _damageZone?.SetActive(true);
+        _light?.SetActive(true);
         if (data.igniteEffect != null)
         {
             Fx.Create(data.igniteEffect, this, Vector3.Zero);
@@ -107,6 +109,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         _state = EFireTrapState.Idle;
         _stateTimer = data.cooldownSeconds;
         _damageZone?.SetActive(false);
+        _light?.SetActive(false);
         if (_columnLoop != null)
         {
             _columnLoop.Stop();
@@ -119,6 +122,14 @@ public partial class FireTrap : Node3D, IWorldEntity
         var instance = data.Scene.Instantiate<FireTrap>();
         instance.Position = data.WorldPosition;
         instance._simState = data;
+        // Light sits one voxel up from the trap base so the floor doesn't
+        // block its propagation — the column erupts upward from there.
+        var baseWorldPos = new Vector3I(
+            Mathf.FloorToInt(data.WorldPosition.X),
+            Mathf.FloorToInt(data.WorldPosition.Y) + 1,
+            Mathf.FloorToInt(data.WorldPosition.Z)
+        );
+        instance._light?.Initialize(world.WorldState, world, baseWorldPos);
         world.AddChild(instance);
         return instance;
     }

@@ -18,6 +18,14 @@ public struct AIOutput
     public bool inCombat;
     public bool burrow;
     public bool useTorch;
+    // True when TickAI early-returned because the mob is AI-suspended
+    // (BehaviorIdle latches a 100ms suspend window once it's standing at
+    // spawn so idle mobs can be physics-frozen). Downstream consumers of
+    // AIOutput must treat all other fields as undefined and skip any
+    // edge-style processing — e.g. the torch block would otherwise tear
+    // down and re-instantiate _torch every suspend cycle since useTorch
+    // defaults to false on a fresh AIOutput.
+    public bool suspended;
     public InvestigateState? investigation;
     public bool resetInvestigation;
     public ulong? suspendTimeMs;
@@ -160,6 +168,7 @@ public partial class Mob
         output = new AIOutput();
         if (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs)
         {
+            output.suspended = true;
             return;
         }
 

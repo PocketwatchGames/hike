@@ -22,6 +22,19 @@ public abstract class EntitySimState
     // (e.g. picked up loot, dead mob).
     public abstract Node3D CreateEntity(World world);
 
+    // True if a node should currently exist for this state. Default mirrors
+    // CreateEntity's "always materialize" contract; overrides drive
+    // SpawnAtNight-style gating. World re-evaluates this on day/night
+    // transitions to spawn or despawn nodes for already-active chunks, so
+    // night-only entities don't need a chunk reload to appear.
+    public virtual bool ShouldSpawn(World world) => true;
+
+    // Live node reference, set by World when the entity is materialized and
+    // cleared via TreeExiting when it leaves the scene. Used by the
+    // day/night refresh pass to find which states currently have a node.
+    // Not serialized — purely runtime bookkeeping.
+    public Node3D RuntimeNode;
+
     // The voxel cell this entity occupies for the purposes of mob pathfinding,
     // or null if it doesn't block walkability. World registers/unregisters this
     // cell as the entity spawns/despawns; the walkability sampler treats any

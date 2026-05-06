@@ -186,6 +186,10 @@ A single `ActionRunner` (one per actor) drives all timeline-based player and mob
 
 **`Fx.Create(scene, parent, position)`** is the factory. It has a `CallDeferred` fallback for the `AddChild` "data.blocked > 0" case; the caller-side pattern (`_Ready` → `CallDeferred(MethodName.Activate)`) is the cleaner fix and is used by `MovingLight`. Never call `Fx.Create` from `_ExitTree` — `MovingLight` shows the split: private `Cleanup()` (no fx) shared by `Deactivate` (player-initiated, fires the off-cue) and `_ExitTree` (silent).
 
+**General Node lifecycle rules these Fx patterns embody** (apply to any factory or scene-spawning code, not just Fx):
+- **`AddChild` rejected with `"data.blocked > 0"`** — Godot guards against re-entrant tree mutation. If `AddChild` runs inside the `_Ready` of a parent that is itself still mid-`AddChild`, the inner call fails. Two-part fix: (1) factory falls back to `parent.CallDeferred(Node.MethodName.AddChild, child)`; (2) caller defers the spawning work via `_Ready` → `CallDeferred(MethodName.Activate)`. The caller-side defer is the cleaner fix because Godot still prints the inner error from `AddChild` even when the factory's fallback succeeds — only deferring the caller silences the log.
+- **Never spawn nodes (or fx, or audio one-shots) from `_ExitTree`** or anything it calls — the parent is being torn down; the new child either fails outright or leaks. If a "shutdown" effect feels like it belongs in `_ExitTree` (off-cue, death rattle), fire it from the player-initiated teardown path instead and treat `_ExitTree` as silent cleanup. The split-method pattern (`Cleanup()` for shared teardown + `Deactivate()` for the player path that adds the fx) is the standard shape.
+
 ### Shader Global Uniforms (`scripts/utils/ShaderGlobals.cs`)
 
 Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at startup, in the `_Ready` of whatever owns its per-frame `Set` calls (e.g. `SkyController`, `ChunkManager`). Use one of two methods depending on where the global lives:
@@ -193,15 +197,41 @@ Every `global uniform` declared in a `.gdshader` MUST be initialized from C# at 
 - **`ShaderGlobals.Register(name, type, defaultValue)`** — for globals also declared in `project.godot`'s `[shader_globals]` section. The engine creates the variable at startup; this call seeds the C# default value before the first material that uses it compiles. Use for scalar/vector globals with sensible static defaults that you also want visible in the editor's Project Settings UI.
 - **`ShaderGlobals.RegisterRuntime(name, type, value)`** — for globals NOT in `project.godot`. Calls `RenderingServer.GlobalShaderParameterAdd` directly. Useful for any global whose only meaningful value is computed at runtime and which does not need to exist in the editor. Note: if shaders that reference the global are ever opened in the editor's script editor or re-imported, the editor will fail to compile them — in that case, declare the global in `project.godot` with a placeholder and use `Register` instead (see `light_map` / `light_map_placeholder.tres`).
 
-The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor-only, so we can't auto-detect whether a name is already declared in `project.godot`. The caller knows; pick the right method. Both must run before the first material that uses the global compiles — standalone launches (VS Code → `Godot.exe`) compile shaders very early.
+The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor-only, so we can't auto-detect whether a name is already declared in `project.godot`. The caller knows; pick the right method. Both must run before the first material that uses the global compiles — standalone launches (VS Code → `Godot.exe`) compile shaders very early. A global that hasn't been seeded by then either fails with `Global uniform '<name>' does not exist` (runtime-only globals) or compiles with stale values (project.godot-declared globals).
 
 `SkyController` is `[Tool]`, so its `Apply()` runs in the editor too. Any global it `Set`s must be created in both editor and runtime — keep the `RegisterRuntime` calls outside the `Engine.IsEditorHint()` gate.
+
+**`material_storage.cpp:1677 - "!global_shader_uniforms.variables.has(p_name)"` spam diagnosis** — fires whenever `RenderingServer.GlobalShaderParameterSet(name, ...)` runs for a `name` not in the engine's shader-globals dictionary. Common root causes, in rough order of frequency:
+1. **`Register` used for a global that is NOT declared in `project.godot`.** `Register` calls `Set` internally, which errors. Fix: switch to `RegisterRuntime` (creates the global), or add the `project.godot` declaration.
+2. **`mat4` global declared in `project.godot`'s `[shader_globals]` section.** The parser accepts the declaration well enough for shader compile to succeed, but the global never makes it into `RenderingServer.global_shader_uniforms.variables`, so every per-frame `Set` errors. Decompose into supported scalar/vector types (e.g. `vec3 origin`, `vec3 right`, `vec3 up`, `float size`) and reconstruct in the shader. Other untested types (`mat2`, `mat3`, `ivec*`, `uvec*`, `bvec*`) may have the same issue — stick to `bool`/`int`/`float`/`vec*`/`sampler*`.
+3. **`[Tool]`-script `Apply()` runs in editor and pushes globals only registered behind `if (!Engine.IsEditorHint())`.** Move the global *creation* outside the editor-hint gate; the gated block can keep non-shader work.
+4. **Stack-trace it.** Run `Godot.exe --path . --verbose` in a terminal that surfaces C# backtraces — the trace points at the exact `Set`/`Register` callsite and its global name. Vastly faster than guessing.
+
+**Sampler globals trap:** do NOT put a sampler global in `project.godot` with `value: null` — Godot will try to load `res://<null>` as a resource on startup. Either give it a real texture path (use a `PlaceholderTexture*` `.tres` if the runtime value is computed — `Register` will swap it in), or skip the `project.godot` declaration entirely and create the global at runtime via `RegisterRuntime`.
+
+**Unshaded fragment output formula:** Godot 4 outputs `ALBEDO + EMISSION` for materials with `render_mode unshaded`. If your shader writes only `EMISSION = composited`, `ALBEDO` defaults to white and saturates the surface. Either explicitly `ALBEDO = vec3(0.0)` or write the composite to `ALBEDO` and zero `EMISSION`. The same applies to other render-mode-stripped paths — be deliberate about which output channel carries the color and zero the other.
 
 ### Build-Time Code Generation (`hike.csproj`)
 
 Two MSBuild targets run before compilation:
 - `GenerateVersion` - writes `scripts/VersionGenerated.g.cs` with git hash and build number
 - `GenerateLocKeys` - runs `tools/loc_generator` to generate `scripts/localization/LocKeys.g.cs` from `english.tsv`
+
+### Godot UID Invariants (especially for headless agents)
+
+Godot 4 tracks every importable file by a stable `uid://...` value. Scenes (`.tscn`) and resources (`.tres`) reference dependencies by `uid` AND by `res://` path; both must agree. The Godot editor maintains these automatically — agents running headless (mobile / remote Claude, CI worktrees) do not, so corruption is the failure mode to avoid.
+
+**Rules when editing without Godot:**
+
+- **Every `.cs` file under `scripts/`, `addons/`, `tools/` MUST have a matching `.cs.uid` sidecar** containing exactly one line of the form `uid://[a-z0-9]+`. When creating a new C# script, also create the sidecar with a freshly generated UID.
+- **Never invent or copy `uid://` values** by hand for scenes, resources, or scripts you didn't author. Generating a fresh UID for a brand-new file is fine; reusing one from another file is not.
+- **When moving or renaming a `.cs` file**, move its `.cs.uid` sidecar with it AND update every `[ext_resource ... path="res://..." ...]` reference in `.tscn`/`.tres` files to the new path. The `uid` in the reference stays the same; only the path changes.
+- **When moving or renaming a `.tscn`/`.tres`**, the file's own `[gd_scene uid=...]` / `[gd_resource uid=...]` value stays the same. Update `path=` references in any other scene that points at it.
+- **Never edit anything under `.godot/`.** That's the editor's cache, regenerated from sidecars and project files.
+
+**When something is broken (UID errors at editor load, "missing dependency", etc.):**
+
+Run `dotnet run --project tools/validate_uids` to scan for missing `.cs.uid` sidecars, duplicate UIDs, stale `path=` references, and uid/path mismatches. Add `--fix` to auto-create missing `.cs.uid` sidecars with fresh UIDs (other classes of issue are reported but not auto-fixed — they require knowing where things moved).
 
 ## Code Style
 

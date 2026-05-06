@@ -55,16 +55,20 @@ public class ChestSimState : EntitySimState
         LootScene = lootScene;
     }
 
+    public override bool ShouldSpawn(World world)
+    {
+        if (SpawnAtNight && !WorldState.IsNight(world.WorldState.TimeOfDay01))
+        {
+            return false;
+        }
+        return true;
+    }
+
     public override Node3D CreateEntity(World world)
     {
-        if (SpawnAtNight)
+        if (!ShouldSpawn(world))
         {
-            double tod = world.WorldState.TimeOfDay01;
-            bool isNight = tod < 0.25 || tod >= 0.75;
-            if (!isNight)
-            {
-                return null;
-            }
+            return null;
         }
         return Chest.Create(world, this);
     }

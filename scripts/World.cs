@@ -50,6 +50,12 @@ public partial class World : Node3D
     // prematurely. Queried by WalkabilityGrid.SampleColumn so mobs route
     // around props the voxel grid alone can't see.
     private readonly Dictionary<Vector3I, int> _pathBlockers = new();
+    // Tracks the previous night state so Tick can detect the moment tod
+    // crosses a sunrise / sunset boundary and refresh SpawnAtNight entities
+    // for active chunks. Without this, night-only goblins / chests stay
+    // missing on chunks that loaded during the day until the player walks
+    // far enough to evict and reload them.
+    private bool _wasNight;
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
@@ -79,6 +85,7 @@ public partial class World : Node3D
     {
         _worldState = worldState;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
+        _wasNight = WorldState.IsNight(worldState.TimeOfDay01);
 
         // Set Current BEFORE constructing children that may dereference it.
         // ChunkManager.Initialize triggers synchronous chunk builds which call
@@ -154,6 +161,13 @@ public partial class World : Node3D
             double tod = _worldState.TimeOfDay01 + todDelta;
             tod -= System.Math.Floor(tod);
             _worldState.TimeOfDay01 = tod;
+        }
+
+        bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
+        if (isNight != _wasNight)
+        {
+            _wasNight = isNight;
+            RefreshTimeOfDayEntities();
         }
     }
 
@@ -456,6 +470,22 @@ public partial class World : Node3D
         {
             worldEntity.OnSpawned(this);
         }
+        if (state != null)
+        {
+            state.RuntimeNode = entity;
+            // Clear the back-reference whenever the node leaves the tree
+            // (chunk eviction, day/night despawn, mob death). RefreshTimeOfDayEntities
+            // uses RuntimeNode to detect which states currently have a live
+            // node — without this, a freed but still-referenced node would
+            // make the state look "already spawned" forever.
+            entity.TreeExiting += () =>
+            {
+                if (state.RuntimeNode == entity)
+                {
+                    state.RuntimeNode = null;
+                }
+            };
+        }
         if (state?.PathBlockerCell is Vector3I cell)
         {
             AddPathBlocker(cell);
@@ -466,6 +496,43 @@ public partial class World : Node3D
             entity.TreeExiting += () => RemovePathBlocker(cell);
         }
         entities.Add(entity);
+    }
+
+    // Walks active chunks and reconciles each sim state's ShouldSpawn against
+    // its current RuntimeNode — spawning night-only entities when night
+    // begins and despawning them at dawn. Non-night entities (cave goblins,
+    // chests, doors, etc.) override ShouldSpawn => true unconditionally and
+    // are unaffected. Called from Tick on day↔night transitions.
+    private void RefreshTimeOfDayEntities()
+    {
+        foreach (var pair in _activeEntities)
+        {
+            List<EntitySimState> states = _worldState.GetEntities(pair.Key);
+            if (states == null)
+            {
+                continue;
+            }
+            List<Node3D> nodes = pair.Value;
+            foreach (EntitySimState state in states)
+            {
+                bool should = state.ShouldSpawn(this);
+                bool has = state.RuntimeNode != null;
+                if (should && !has)
+                {
+                    Node3D entity = state.CreateEntity(this);
+                    if (entity != null)
+                    {
+                        RegisterEntity(entity, nodes, state);
+                    }
+                }
+                else if (!should && has)
+                {
+                    Node3D entity = state.RuntimeNode;
+                    nodes.Remove(entity);
+                    entity.QueueFree();
+                }
+            }
+        }
     }
 
     public void AddPathBlocker(Vector3I cell)
