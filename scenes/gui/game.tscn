@@ -2,13 +2,15 @@
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
 [ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/hud/hud_text.tscn" id="2_o78e0"]
-[ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://dn7p5q2k4r3wm" path="res://scenes/hud/mob_chatter.tscn" id="3a_mobchat"]
+[ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
+[ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
+[ext_resource type="Resource" uid="uid://bment4a6srbme" path="res://resources/data/minimap/minimap_tile_colors.tres" id="minimap_tile_colors"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" path="res://resources/materials/post_process.tres" id="post_process_mat"]
@@ -63,6 +65,10 @@ mobChatterScene = ExtResource("3a_mobchat")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")
+minimapTileColors = ExtResource("minimap_tile_colors")
+minimapFoliageColors = ExtResource("minimap_foliage_colors")
+minimapRevealMultiplier = 2.0
+minimapRevealInnerFraction = 0.95
 
 [node name="OuterEnv" type="WorldEnvironment" parent="." unique_id=1077832549]
 environment = SubResource("Environment_bloom")

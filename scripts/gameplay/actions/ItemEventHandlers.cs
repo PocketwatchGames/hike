@@ -324,7 +324,7 @@ public static class ItemEventHandlers
 	// Maximum spread cone half-angle, in radians, when the accuracy curve
 	// outputs 1.0. Tuned so an early-release bow shot is visibly inaccurate
 	// without being absurd. Curve outputs in [0, 1] scale this.
-	private const float MAX_SPREAD_HALF_ANGLE = 0.18f;
+	public const float MAX_SPREAD_HALF_ANGLE = 0.18f;
 
 	// Best-of priority for melee swings that overlap multiple hurtboxes:
 	// a real damageable hit beats an absorbed hit beats a prop ping.

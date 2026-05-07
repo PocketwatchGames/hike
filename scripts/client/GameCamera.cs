@@ -8,7 +8,10 @@ public partial class GameCamera : Camera3D
 
 	private const float CLIP_EPSILON = 0.1f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
-	private const float EYE_HEIGHT = 2f;
+	// Player eye offset above the foot position. Other systems (minimap
+	// elevation reference, etc.) read this so the height the camera treats
+	// as "looking from" stays consistent across features.
+	public const float EYE_HEIGHT = 2f;
 	private const float PLATEAU_STEP = 4f;
 	// Duration of the dithered fade between cutaway elevations. While
 	// blending, ceiling-discard shaders stipple the transition band via
@@ -49,6 +52,11 @@ public partial class GameCamera : Camera3D
 
 	public float Clip => _clip;
 	public float Yaw => _yaw;
+	// True whenever the camera is clipping the world above the player —
+	// either an auto-detected ceiling raycast hit between player and camera
+	// or `_clipAlways` forcing the next-plateau cutaway. Read by the minimap
+	// to swap to its indoor (slice) view in lockstep with the camera.
+	public bool IsIndoorMode => !float.IsPositiveInfinity(_clip);
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
 

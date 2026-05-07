@@ -10,10 +10,16 @@ public partial class PauseMenu : PanelContainer
 	{
 		Visible = gameClient.paused;
 		gameClient.onPauseToggled += (p) => { Visible = p; };
+		VisibilityChanged += OnVisibilityChanged;
 		if (versionLabel != null)
 		{
 			versionLabel.Text = Version.Full;
 		}
+	}
+
+	void OnVisibilityChanged()
+	{
+		Input.MouseMode = Visible ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
 	}
 
 	public override void _UnhandledInput(InputEvent e)

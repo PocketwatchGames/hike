@@ -23,6 +23,31 @@ public partial class GameClient : Node3D
 	// a Y-aligned billboard outline that misses the flat geometry by 90°.
 	[Export] public ShaderMaterial outlineFlatMaterial;
 	[Export] public ShaderMaterial postProcessMaterial;
+	[Export] public float mouseSensitivityMin = 0.1f;
+	[Export] public float mouseSensitivityRange = 30;
+
+	[ExportGroup("Minimap")]
+	// Color palette for the minimap, keyed by resolved tile layer id.
+	[Export] public MinimapTileColors minimapTileColors;
+	// Color palette for foliage stamps on the minimap.
+	[Export] public MinimapFoliageColors minimapFoliageColors;
+	// Visual zoom: how many minimap-source pixels each world meter occupies
+	// on the rendered TextureRect. Higher = more zoomed in. Independent of
+	// player vision — purely presentation.
+	[Export(PropertyHint.Range, "0.25,16,0.25")] public float minimapPixelsPerMeter = 2f;
+	// Indoor zoom-in multiplier on top of minimapPixelsPerMeter — 2.0 = 2×
+	// closer indoors, useful for corridors. Presentation only; doesn't
+	// affect what the player perceives.
+	[Export(PropertyHint.Range, "0.5,8,0.25")] public float minimapIndoorZoom = 2f;
+	// Reveal radius (what the player perceives) = vision × this. Drives
+	// both the outdoor surface mask and the indoor active-slice mask;
+	// independent of zoom because how far you see doesn't depend on how
+	// the map is rendered.
+	[Export(PropertyHint.Range, "0.5,10,0.1")] public float minimapRevealMultiplier = 1.5f;
+	// Soft-edge inner-fraction for every reveal disk. Inside `radius * this`
+	// the disk paints at full brightness; from there to the outer radius
+	// the value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
+	[Export(PropertyHint.Range, "0.1,1,0.05")] public float minimapRevealInnerFraction = 0.7f;
 
 	public Action onInit;
 	public Action<Player> onPlayerSpawned;
@@ -92,6 +117,7 @@ public partial class GameClient : Node3D
 	public override void _Ready()
 	{
 		Current = this;
+		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_highlightOverlay = new Sprite3D();
 		_highlightOverlay.Name = "HighlightOverlay";
 		_highlightOverlay.MaterialOverride = outlineMaterial;
@@ -472,7 +498,7 @@ public partial class GameClient : Node3D
 			if (_player != null)
 			{
 				_mousePosition += mouseMotion.Relative;
-				float mouseSensitivity = 0.1f;
+				float mouseSensitivity = CVars.mouseSensitivity.Value * mouseSensitivityRange + mouseSensitivityMin ;
 				if (_mousePosition.LengthSquared() > 1.0f / (mouseSensitivity * mouseSensitivity)) // Prevent overflow from large mouse movements
 				{
 					_mousePosition = _mousePosition.Normalized() / mouseSensitivity;

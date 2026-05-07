@@ -37,6 +37,22 @@ public class ActionRunner
 	public bool IsBusy => _action.IsBusy;
 	public EActionPhase Phase => _action.phase;
 	public ref readonly PlayerAction Current => ref _action;
+
+	// `_action.chargeT` is sampled at activation. UI that needs to read the
+	// in-progress charge fraction during Charging (e.g. the aiming reticle's
+	// spread preview) goes through this instead.
+	public float CurrentChargeT
+	{
+		get
+		{
+			if (_action.phase != EActionPhase.Charging)
+			{
+				return _action.chargeT;
+			}
+			float elapsed = (_actor.GameTimeMs - _action.pressMs) / 1000f;
+			return ComputeChargeT(_action.profile, _action.selectedTier, elapsed);
+		}
+	}
 	public bool LocksMovement => _action.IsBusy && (
 		(_action.profile != null && _action.profile.locksMovement)
 		|| (_action.interactiveAction != null && _action.interactiveAction.locksMovement));
@@ -670,7 +686,7 @@ public class ActionRunner
 		}
 	}
 
-	private static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, float chargeElapsedSeconds)
+	public static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, float chargeElapsedSeconds)
 	{
 		// Sampling window precedence:
 		//   1. selectedTier.maxChargeSeconds (per-action explicit window —

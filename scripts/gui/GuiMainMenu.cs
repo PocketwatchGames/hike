@@ -13,6 +13,7 @@ public partial class GuiMainMenu : Node
 
 	public override void _Ready()
 	{
+		Input.MouseMode = Input.MouseModeEnum.Visible;
 		if (versionLabel != null)
 		{
 			versionLabel.Text = Version.Display;

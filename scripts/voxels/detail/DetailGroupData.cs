@@ -23,4 +23,9 @@ public partial class DetailGroupData : Resource
     // DetailStrength/255 to decide whether to spawn an instance. With 4 slots
     // and strength 128, expected count per voxel is ~2.
     [Export] public int InstancesPerVoxel = 4;
+
+    // Index into MinimapFoliageColors palette. 0 = no minimap stamp (the
+    // surface terrain color shows through). Non-zero stamps the group's
+    // authored color over the terrain pixel covering the painted voxel.
+    [Export] public byte MinimapFoliageId = 0;
 }

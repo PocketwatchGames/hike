@@ -17,6 +17,7 @@ public partial class Player : CharacterBody3D
 	[Export] private HurtBox _hurtBox;
 	[Export] private LitSpriteAnimator _animator;
 	[Export] private AudioListener3D _audioListener;
+	[Export] private AimingReticle _aimingReticle;
 	// Per-ground-type one-shot effect played at the player's feet while
 	// walking/running on solid ground. Authored in the player .tscn; missing
 	// keys silently emit nothing.
@@ -146,6 +147,7 @@ public partial class Player : CharacterBody3D
 
 
 	public float visibility = 1f;
+	public bool IsAiming => _aiming;
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
@@ -219,6 +221,8 @@ public partial class Player : CharacterBody3D
 			_hurtBox.OnHit = OnHurtBoxHit;
 			_hurtBox.GetHitType = GetHitType;
 		}
+
+		_aimingReticle?.Initialize(this);
 	}
 
 	// Pure prediction — no state mutation. See Mob.GetHitType for the
@@ -806,8 +810,8 @@ public partial class Player : CharacterBody3D
 
 		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad);
 
-		float speed = _aiming ? Mathf.Lerp(0.75f, 0.25f, (1f - _inputLook.Dot(_inputMove)) / 2) * data.moveSpeed : data.moveSpeed;
-		if (Input.IsActionPressed("Sneak"))
+		float speed = data.moveSpeed;
+		if (Input.IsActionPressed("Sneak") || _aiming)
 		{
 			speed = data.sneakSpeed;
 		}
@@ -966,11 +970,6 @@ public partial class Player : CharacterBody3D
 		UpdateHighlightInteractive();
 
 		UpdateAnimation();
-
-		// Aiming preview
-		Vector3 aimOrigin = GlobalPosition + Vector3.Up;
-		Vector3 aimEnd = aimOrigin + GlobalTransform.Basis.Z * 5f;
-		DebugDraw.Line(aimOrigin, aimEnd, new Color(1f, 1f, 1f, 0.15f), 0.05f);
 	}
 
 	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)

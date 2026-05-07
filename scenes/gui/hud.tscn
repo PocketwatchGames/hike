@@ -4,8 +4,10 @@
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
-[ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r3z" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 [ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="4_banner"]
+[ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
+[ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
+[ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aoesn"]
 content_margin_left = 2.0
@@ -31,20 +33,25 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner")]
+[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap")]
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
-_weaponLeftHud = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
-_weaponRightHud = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
-_consumableHud = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
-_weaponLeftButtonHint = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeftHint")
-_weaponRightButtonHint = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
-_consumableButtonHint = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/ConsumableHint")
-_statusEffectContainer = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/StatusEffects")
-_healthBar = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer/HealthBar")
-_armorBar = NodePath("ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer/ArmorBar")
+_weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
+_weaponRightHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
+_consumableHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
+_weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeftHint")
+_weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
+_consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/ConsumableHint")
+_statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
+_healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
+_armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _regionBanner = NodePath("RegionBanner")
+_minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Control/MinimapTexture")
+_buttonHintTurnLeft = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateLeft")
+_buttonHintTurnRight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateRight")
+_buttonHintIndoors = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintToggleIndoors")
+_buttonHintMap = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintMap")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 anchors_preset = 15
@@ -58,26 +65,26 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="BoxContainer" type="BoxContainer" parent="ScreenMarginContainer" unique_id=581751386]
+[node name="BottomMiddle" type="BoxContainer" parent="ScreenMarginContainer" unique_id=581751386]
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 8
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BoxContainer" unique_id=2137477913]
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle" unique_id=2137477913]
 layout_mode = 2
 size_flags_horizontal = 6
 alignment = 2
 
-[node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer" unique_id=607667683]
+[node name="StatusEffects" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=607667683]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 
-[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer" unique_id=565732422]
+[node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=565732422]
 layout_mode = 2
 
-[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer" unique_id=1068856623]
+[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856623]
 custom_minimum_size = Vector2(250, 25)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -86,7 +93,7 @@ max_value = 1.0
 value = 0.5
 show_percentage = false
 
-[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer" unique_id=181068372]
+[node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068372]
 custom_minimum_size = Vector2(250, 25)
 layout_mode = 2
 size_flags_horizontal = 4
@@ -95,57 +102,122 @@ max_value = 1.0
 value = 0.3
 show_percentage = false
 
-[node name="MarginContainer2" type="MarginContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer" unique_id=1536408953]
+[node name="MarginContainer2" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=1536408953]
 layout_mode = 2
 theme_override_constants/margin_left = -15
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2" unique_id=1243331728]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2" unique_id=1243331728]
 layout_mode = 2
 alignment = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1248536501]
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1248536501]
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=1270863702]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=1270863702]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=152494817]
+[node name="Label" type="Label" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=152494817]
 layout_mode = 2
 text = "<"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Consumable" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
+[node name="Consumable" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
-[node name="Label2" type="Label" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=517743968]
+[node name="Label2" type="Label" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=517743968]
 layout_mode = 2
 text = ">"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="ConsumableHint" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=959365210 instance=ExtResource("3_ueg55")]
+[node name="ConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=959365210 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="VBoxContainer2" type="VBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1533866589]
+[node name="VBoxContainer2" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1533866589]
 layout_mode = 2
 
-[node name="WeaponLeft" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2" unique_id=425045695 instance=ExtResource("2_qxonp")]
+[node name="WeaponLeft" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2" unique_id=425045695 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
-[node name="WeaponLeftHint" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2" unique_id=2061830523 instance=ExtResource("3_ueg55")]
+[node name="WeaponLeftHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2" unique_id=2061830523 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="VBoxContainer3" type="VBoxContainer" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=319574591]
+[node name="VBoxContainer3" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=319574591]
 layout_mode = 2
 
-[node name="WeaponRight" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=150891526 instance=ExtResource("2_qxonp")]
+[node name="WeaponRight" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=150891526 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
-[node name="WeaponRightHint" parent="ScreenMarginContainer/BoxContainer/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=735103172 instance=ExtResource("3_ueg55")]
+[node name="WeaponRightHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3" unique_id=735103172 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
-[node name="HudSignpostPanel" parent="." instance=ExtResource("4_signpost")]
+[node name="BottomRight" type="MarginContainer" parent="ScreenMarginContainer" unique_id=1191100021]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomRight" unique_id=173035621]
+layout_mode = 2
+
+[node name="Control" type="Control" parent="ScreenMarginContainer/BottomRight/VBoxContainer" unique_id=266946744]
+custom_minimum_size = Vector2(250, 250)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 0
+
+[node name="MinimapTexture" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Control" unique_id=1281083844]
+material = ExtResource("6_minimap_mat")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = 0.7853982
+pivot_offset = Vector2(125, 125)
+texture = ExtResource("5_gbuxp")
+
+[node name="Label" type="Label" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Control/MinimapTexture" unique_id=1946964906]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -20.0
+offset_right = 20.0
+offset_bottom = 34.0
+grow_horizontal = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.49803922)
+theme_override_constants/outline_size = 5
+theme_override_font_sizes/font_size = 24
+text = "N"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomRight/VBoxContainer" unique_id=886045403]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 8
+
+[node name="ButtonHintRotateLeft" parent="ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer" unique_id=613885842 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="ButtonHintToggleIndoors" parent="ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer" unique_id=1677675052 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="ButtonHintRotateRight" parent="ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer" unique_id=1138840340 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="ButtonHintMap" parent="ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer" unique_id=1137396794 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="HudSignpostPanel" parent="." unique_id=170382741 instance=ExtResource("4_signpost")]
 visible = false
 
-[node name="RegionBanner" parent="." instance=ExtResource("4_banner")]
+[node name="RegionBanner" parent="." unique_id=935851705 instance=ExtResource("4_banner")]

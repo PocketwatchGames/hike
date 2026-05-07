@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://w0qx7uc667j4"]
+
+[ext_resource type="Shader" uid="uid://6afkmsmke3y37" path="res://shaders/aiming_reticle.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 5
+shader = ExtResource("1_shader")
+shader_parameter/line_color = Color(1, 1, 1, 1)
+shader_parameter/max_alpha = 0.5
+shader_parameter/occluded_alpha_scale = 0.5
+shader_parameter/depth_bias = 0.05

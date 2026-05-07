@@ -552,4 +552,5 @@ public partial class SimData : Resource
     // rainAmount=0.3 emits fewer drops than a linear mapping would
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
+
 }

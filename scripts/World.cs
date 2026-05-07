@@ -27,6 +27,11 @@ public partial class World : Node3D
     public Action<Mob> onMobRemoved;
     public Action<Discoverable> onDiscoverableSpawned;
     public Action<Discoverable> onDiscoverableRemoved;
+    // Fires after LoadEntitiesForChunk has spawned the chunk's entity nodes.
+    // Used by the minimap to stamp prop foliage once the trees / props are
+    // actually in the scene (the chunk-mesh-loaded event fires earlier, when
+    // entities don't exist yet).
+    public Action<Vector3I> onChunkEntitiesLoaded;
 
     // Spatial hash for cheap "mobs within radius" queries — used by
     // separation steering and (later) encircle-slot allocation. Lives on
@@ -62,6 +67,10 @@ public partial class World : Node3D
     private WorldPropScatter _propScatter;
     private AmbienceController _ambienceController;
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
+    private Minimap _minimap;
+    public Minimap Minimap => _minimap;
+    private GameCamera _camera;
+    public GameCamera Camera => _camera;
     private Player _player;
     private bool _editorMode;
     private Vector3I _lastEntityChunkCoord;
@@ -84,6 +93,7 @@ public partial class World : Node3D
     public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldState = worldState;
+        _camera = camera;
         _lastEntityChunkCoord = WorldToChunkCoord(spawnPosition);
         _wasNight = WorldState.IsNight(worldState.TimeOfDay01);
 
@@ -122,6 +132,11 @@ public partial class World : Node3D
         _chunkAmbienceSpawner.Name = "ChunkAmbienceSpawner";
         AddChild(_chunkAmbienceSpawner);
         _chunkAmbienceSpawner.Bind(this);
+
+        _minimap = new Minimap();
+        _minimap.Name = "Minimap";
+        AddChild(_minimap);
+        _minimap.Initialize(this);
 
         CreateWorldBoundary();
     }
@@ -462,6 +477,7 @@ public partial class World : Node3D
             }
         }
         _activeEntities[coord] = entities;
+        onChunkEntitiesLoaded?.Invoke(coord);
     }
 
     private void RegisterEntity(Node3D entity, List<Node3D> entities, EntitySimState state = null)

@@ -126,6 +126,7 @@ public partial class ChunkMesh : Node3D
     // chunk-build call. Set once at world start (Main.StartGame); a future
     // streaming refactor that swaps worlds should re-call SetDetailGroups.
     private static DetailGroupData[] _activeDetailGroups;
+    public static DetailGroupData[] ActiveDetailGroups => _activeDetailGroups;
 
     // World-scoped kit palette. Cached alongside _activeDetailGroups so
     // ChunkDetailScatter can resolve each painted voxel's kit to its

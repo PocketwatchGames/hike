@@ -15,6 +15,20 @@ public class ChunkState
 
     public readonly Vector3I ChunkCoord;
 
+    // Coarse fill classification used by the minimap (and any future system
+    // that wants to skip per-voxel work on uniform chunks). Computed lazily on
+    // first GetFill() call and cached. Callers that mutate Voxels must call
+    // InvalidateFill() — this class doesn't wrap the array writes since
+    // callers (worldgen, mesher, voxel ops) write directly into Voxels.
+    public enum EChunkFill : byte
+    {
+        Unknown = 0,
+        Mixed = 1,   // contains a mix of voxel types
+        Pure = 2,    // every voxel is the same type — read FillType
+    }
+    private EChunkFill _fill = EChunkFill.Unknown;
+    private VoxelType _fillType;
+
     // Index into WorldState.Zones[]. Picks the zone this chunk
     // belongs to — drives ZoneBlend.Sample's per-chunk weighting so
     // an arbitrary zone shape (not just the legacy 4-quadrant layout)
@@ -282,6 +296,46 @@ public class ChunkState
         BlockLightR[x, y, z] = sr < 0 ? (ushort)0 : (ushort)sr;
         BlockLightG[x, y, z] = sg < 0 ? (ushort)0 : (ushort)sg;
         BlockLightB[x, y, z] = sb < 0 ? (ushort)0 : (ushort)sb;
+    }
+
+    // Returns this chunk's fill classification. Computes on first call;
+    // subsequent calls hit the cache until InvalidateFill() is called.
+    // When the result is Pure, fillType holds the uniform voxel type.
+    public EChunkFill GetFill(out VoxelType fillType)
+    {
+        if (_fill == EChunkFill.Unknown)
+        {
+            ComputeFill();
+        }
+        fillType = _fillType;
+        return _fill;
+    }
+
+    public void InvalidateFill()
+    {
+        _fill = EChunkFill.Unknown;
+    }
+
+    private void ComputeFill()
+    {
+        VoxelType first = Voxels[0, 0, 0];
+        for (int x = 0; x < SIZE; x++)
+        {
+            for (int y = 0; y < SIZE; y++)
+            {
+                for (int z = 0; z < SIZE; z++)
+                {
+                    if (Voxels[x, y, z] != first)
+                    {
+                        _fill = EChunkFill.Mixed;
+                        _fillType = default;
+                        return;
+                    }
+                }
+            }
+        }
+        _fill = EChunkFill.Pure;
+        _fillType = first;
     }
 
     public int GetFog(int x, int y, int z)

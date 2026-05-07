@@ -48,6 +48,13 @@ public partial class MultimeshPropSprite : Sprite3D
     // the fork count stays low. Mirrors LitSprite.ForwardOffset.
     [Export] public float ForwardOffset { get; set; }
 
+    // Index into MinimapFoliageColors palette. 0 = no minimap stamp.
+    // Non-zero stamps the prop's authored color over the terrain pixel(s)
+    // covering this prop's footprint. Conflict resolution between overlapping
+    // props is by MinimapFoliageColors.priority — set on the palette entry,
+    // not here.
+    [Export] public byte MinimapFoliageId { get; set; } = 0;
+
     // Whether this sprite contributes a sun-aligned shadow caster pass.
     // True (default) = WorldPropScatter spawns this instance into the
     // shadow bucket alongside the visible bucket; false = visible only,
