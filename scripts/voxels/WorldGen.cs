@@ -5,13 +5,6 @@ using Godot;
 
 public static class WorldGen
 {
-    // Per-zone kit slot order. Each ZoneGenData.Kits[] is treated as a
-    // fixed-length tuple in this slot order: surface, cave, underwater. The
-    // ChunkState.KitId byte stamped per voxel is a GLOBAL index into the
-    // flattened palette (Zone0.Kits ++ Zone1.Kits ++ …) — see
-    // GlobalKit() / Main.StartGame's flatten step. With KITS_PER_ZONE = 3
-    // and N zones, the palette occupies 3·N slots; ChunkMesh.MAX_KITS = 16
-    // bounds N at 5. Same as the legacy single-zone mapping when N=1.
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
     // SKIP_ALL turns the prop pass off entirely.
@@ -21,26 +14,197 @@ public static class WorldGen
     public const int SKIP_INTERACTIVES = 8;  // loot (surface + cave) + chests (cave)
     public const int SKIP_ALL = SKIP_DETAILS | SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES;
 
-    private static readonly PackedScene PoisonChestScene =
-        GD.Load<PackedScene>("res://scenes/interactives/chest_poison.tscn");
-
-    public const int KITS_PER_ZONE = 3;
-    private const byte KIT_SLOT_TEMPERATE = 0;   // surface (temperate / desert / marsh / …)
-    private const byte KIT_SLOT_CAVE = 1;        // cave-interior shells
-    private const byte KIT_SLOT_UNDERWATER = 2;  // submerged seabed shell
-
-    // Pack (zoneIdx, slot) → global kitId.
-    private static byte GlobalKit(int zoneIndex, byte slot)
+    // What role a kit plays in worldgen. Not authored on the kit itself —
+    // derived at palette-build time from how each zone references the kit
+    // (SurfaceKit / CaveKit / SubmergedKit), so the kit doesn't have to repeat
+    // information the zone already encodes. WorldGen builds a parallel
+    // purpose-by-paletteIndex array and the worldgen passes that need to gate
+    // on "is this voxel on a surface kit?" (field/dirt overlays, scatter noise
+    // pick, road suppression) read that array.
+    public enum EKitPurpose
     {
-        return (byte)(zoneIndex * KITS_PER_ZONE + slot);
+        Surface = 0,
+        Cave = 1,
+        Submerged = 2,
+        Shore = 3,
     }
 
-    // Slot of a global kitId — the cross-zone "kind of surface" (surface vs
-    // cave vs underwater). Used by passes that ask "is this a temperate-style
-    // surface voxel?" without caring which zone it belongs to.
-    private static int KitSlot(int kitId)
+
+    // Active kit and terrain palettes for the run currently inside Generate().
+    // Built once at the top of Generate from the supplied WorldGenData and
+    // used by per-pass kit-stamp helpers. Static because WorldGen is a static
+    // class with many free-standing methods; lifetime is one Generate call
+    // (the kit palette is also kept resident afterwards so authoring tools
+    // like WorldEditor can read TreeScenes etc. via ActiveKitPalette).
+    //
+    // The terrain id stored in voxels indexes both arrays at the same slot:
+    // _activeKitPalette[i] is the worldgen-side wrapper (TerrainKitData),
+    // _activeTerrainPalette[i] is its `.Terrain` (the runtime visual / footstep
+    // / tile entry). ChunkMesh uploads only _activeTerrainPalette; worldgen
+    // passes that need scatter / forest tunings call ResolveKit for the
+    // gen-side data.
+    private static TerrainKitData[] _activeKitPalette;
+    private static TerrainData[] _activeTerrainPalette;
+    private static System.Collections.Generic.Dictionary<TerrainKitData, byte> _kitIndex;
+    private static DetailGroupData[] _activeDetailPalette;
+    private static System.Collections.Generic.Dictionary<DetailGroupData, byte> _detailIndex;
+
+    // Public read-only views of the active palettes. The terrain array is
+    // what ChunkMesh uploads to the shader; the kit palette is for authoring
+    // tools (e.g. the editor's spawn dropdown reads TreeScenes from here).
+    // Both arrays mirror each other in shape — same length, same indices.
+    // ActiveDetailPalette is what ChunkMesh.SetDetailGroups consumes; per-voxel
+    // DetailGroup bytes are 1-based indices into it.
+    public static TerrainData[] ActiveTerrainPalette => _activeTerrainPalette;
+    public static TerrainKitData[] ActiveKitPalette => _activeKitPalette;
+    public static DetailGroupData[] ActiveDetailPalette => _activeDetailPalette;
+
+    // Per-paletteIndex purpose classification, derived from how each zone
+    // references its kits at palette-build time. A kit referenced as
+    // SurfaceKit lands as Surface, CaveKit as Cave, SubmergedKit as
+    // Submerged. The same kit referenced in multiple slots across zones
+    // takes the first-encountered classification (zones declared earlier
+    // win); current data has no such overlap. byte values: 0/1/2 follow
+    // EKitPurpose; 0xFF means "not classified" (kit is in the palette but
+    // no zone listed it in any slot — defensive only, since BuildKitPalette
+    // only adds kits via zone refs).
+    private static byte[] _kitPurposes;
+    private const byte KIT_PURPOSE_NONE = 0xFF;
+
+    // Resolve a gen kit ref to its global palette byte for stamping into
+    // ChunkState.TerrainId. Null or unknown kits map to 0 — palette index 0 is
+    // a debug fallback (no kit configured). The byte indexes both the runtime
+    // (_activeTerrainPalette) and gen (_activeKitPalette) arrays.
+    private static byte TerrainIdOf(TerrainKitData kit)
     {
-        return kitId % KITS_PER_ZONE;
+        if (kit == null || _kitIndex == null) { return 0; }
+        return _kitIndex.TryGetValue(kit, out byte i) ? i : (byte)0;
+    }
+
+    // Inverse of TerrainIdOf — resolve a stored TerrainId byte to its runtime
+    // TerrainData. Used by anything that needs FlatTile/WallTile/GroundTint/etc.
+    // Out-of-range or empty palette returns null.
+    private static TerrainData ResolveTerrain(int TerrainId)
+    {
+        if (_activeTerrainPalette == null) { return null; }
+        if (TerrainId < 0 || TerrainId >= _activeTerrainPalette.Length) { return null; }
+        return _activeTerrainPalette[TerrainId];
+    }
+
+    // Resolve a stored TerrainId byte to its gen kit. Used by worldgen passes that
+    // need DefaultDetail / DetailNoise* / Forest* / TreeScenes etc.
+    private static TerrainKitData ResolveKit(int TerrainId)
+    {
+        if (_activeKitPalette == null) { return null; }
+        if (TerrainId < 0 || TerrainId >= _activeKitPalette.Length) { return null; }
+        return _activeKitPalette[TerrainId];
+    }
+
+    // True iff the kit at this palette index was classified as Surface at
+    // palette-build time. False for Cave / Submerged / out-of-range. Used
+    // by passes that gate on "is this voxel on walkable above-water ground?"
+    // — field/dirt overlay stamping, surface scatter noise pick, road
+    // suppression on the scatter pass.
+    private static bool IsSurfaceKit(int TerrainId)
+    {
+        if (_kitPurposes == null) { return false; }
+        if (TerrainId < 0 || TerrainId >= _kitPurposes.Length) { return false; }
+        return _kitPurposes[TerrainId] == (byte)EKitPurpose.Surface;
+    }
+
+    // Resolve a detail-group ref to its 1-based stamp value for
+    // ChunkState.DetailGroup. Returns 0 ("no detail") if the group is null
+    // or wasn't included in the active palette.
+    private static byte DetailIndexOf(DetailGroupData group)
+    {
+        if (group == null || _detailIndex == null) { return 0; }
+        // Stored 0-based; the per-voxel channel is 1-based with 0 = none.
+        return _detailIndex.TryGetValue(group, out byte i) ? (byte)(i + 1) : (byte)0;
+    }
+
+    // Walks the zone array and returns a deduplicated GEN kit palette in zone
+    // declaration order (zone 0's SurfaceKit first, then CaveKit, then
+    // SubmergedKit, then ShoreKit, then zone 1's, etc.) skipping nulls and any
+    // gen kit already present. Two zones that share a gen kit cost one palette
+    // slot. Index 0 is the first non-null kit encountered. TerrainId bytes stored
+    // per voxel index into both this array and its runtime sibling (see
+    // ExtractTerrainPalette) — both are uploaded by Main / ChunkMesh.
+    public static TerrainKitData[] BuildKitPalette(ZoneGenData[] zones)
+    {
+        var list = new System.Collections.Generic.List<TerrainKitData>();
+        var seen = new System.Collections.Generic.HashSet<TerrainKitData>();
+        if (zones != null)
+        {
+            foreach (ZoneGenData z in zones)
+            {
+                if (z == null) { continue; }
+                AddIfNew(z.SurfaceKit, list, seen);
+                AddIfNew(z.CaveKit, list, seen);
+                AddIfNew(z.SubmergedKit, list, seen);
+                AddIfNew(z.ShoreKit, list, seen);
+            }
+        }
+        return list.ToArray();
+    }
+
+    // Derive the runtime kit palette parallel to a gen palette by reading Kit
+    // on each entry. Same length, same indices — TerrainId bytes index either
+    // array. A null entry (gen-kit slot with no Kit authored) lands as null in
+    // the runtime palette; consumers fall back to the no-kit defaults.
+    public static TerrainData[] ExtractTerrainPalette(TerrainKitData[] gen)
+    {
+        if (gen == null) { return System.Array.Empty<TerrainData>(); }
+        var arr = new TerrainData[gen.Length];
+        for (int i = 0; i < gen.Length; i++)
+        {
+            arr[i] = gen[i]?.Terrain;
+        }
+        return arr;
+    }
+
+    // Walks a gen kit palette and returns a deduplicated detail-group palette
+    // built from each gen kit's DefaultDetail. Same dedup rule as
+    // BuildKitPalette. The returned array is uploaded via
+    // ChunkMesh.SetDetailGroups; per-voxel DetailGroup bytes are 1-based
+    // indices into this array.
+    public static DetailGroupData[] BuildDetailPalette(TerrainKitData[] kits)
+    {
+        var list = new System.Collections.Generic.List<DetailGroupData>();
+        var seen = new System.Collections.Generic.HashSet<DetailGroupData>();
+        if (kits != null)
+        {
+            foreach (TerrainKitData k in kits)
+            {
+                if (k == null) { continue; }
+                if (k.DefaultDetail != null && seen.Add(k.DefaultDetail))
+                {
+                    list.Add(k.DefaultDetail);
+                }
+            }
+        }
+        return list.ToArray();
+    }
+
+    private static void AddIfNew(TerrainKitData k, System.Collections.Generic.List<TerrainKitData> list, System.Collections.Generic.HashSet<TerrainKitData> seen)
+    {
+        if (k == null) { return; }
+        if (seen.Add(k)) { list.Add(k); }
+    }
+
+    // Stamp the purpose for a kit IF it's still unclassified. First-zone-wins
+    // semantics: a kit referenced as SurfaceKit in zone 0 stays Surface even
+    // if zone 1 lists the same .tres as its CaveKit. Skips nulls and kits
+    // missing from the active palette (defensive — only kits added by
+    // BuildKitPalette get a slot, and we only call this with refs taken from
+    // the same zone array).
+    private static void ClassifyKit(TerrainKitData kit, EKitPurpose purpose)
+    {
+        if (kit == null || _kitIndex == null) { return; }
+        if (!_kitIndex.TryGetValue(kit, out byte idx)) { return; }
+        if (_kitPurposes[idx] == KIT_PURPOSE_NONE)
+        {
+            _kitPurposes[idx] = (byte)purpose;
+        }
     }
 
     // ZoneIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
@@ -151,8 +315,55 @@ public static class WorldGen
         return StableMix(worldSeed, salt, 0);
     }
 
+    // Resolve the kit / detail palettes for `genData` and store them on the
+    // WorldGen statics so per-voxel kit and detail stamps can do a dictionary
+    // lookup instead of slot math. The gen palette is the dedup'd source of
+    // truth; the runtime palette is derived parallel to it (same indices) for
+    // ChunkMesh upload. Generate() calls this; Main.StartGame also calls it
+    // before LoadWorldFromFile so authoring tools (WorldEditor) see the gen
+    // palette regardless of whether the world came from disk or a fresh
+    // Generate() run.
+    public static void BindActivePalettes(WorldGenData genData)
+    {
+        _activeKitPalette = BuildKitPalette(genData?.Zones);
+        _activeTerrainPalette = ExtractTerrainPalette(_activeKitPalette);
+        _kitIndex = new System.Collections.Generic.Dictionary<TerrainKitData, byte>();
+        for (int i = 0; i < _activeKitPalette.Length; i++)
+        {
+            TerrainKitData k = _activeKitPalette[i];
+            if (k != null) { _kitIndex[k] = (byte)i; }
+        }
+        _activeDetailPalette = BuildDetailPalette(_activeKitPalette);
+        _detailIndex = new System.Collections.Generic.Dictionary<DetailGroupData, byte>();
+        for (int i = 0; i < _activeDetailPalette.Length; i++)
+        {
+            DetailGroupData g = _activeDetailPalette[i];
+            if (g != null) { _detailIndex[g] = (byte)i; }
+        }
+
+        // Derive purpose-by-paletteIndex from zone refs. The first zone that
+        // claims a kit sets its classification; later zones referencing the
+        // same kit are ignored (current data has no cross-slot overlap, but
+        // the rule is deterministic in case it ever does).
+        _kitPurposes = new byte[_activeKitPalette.Length];
+        for (int i = 0; i < _kitPurposes.Length; i++) { _kitPurposes[i] = KIT_PURPOSE_NONE; }
+        if (genData?.Zones != null)
+        {
+            foreach (ZoneGenData z in genData.Zones)
+            {
+                if (z == null) { continue; }
+                ClassifyKit(z.SurfaceKit, EKitPurpose.Surface);
+                ClassifyKit(z.CaveKit, EKitPurpose.Cave);
+                ClassifyKit(z.SubmergedKit, EKitPurpose.Submerged);
+                ClassifyKit(z.ShoreKit, EKitPurpose.Shore);
+            }
+        }
+    }
+
     public static WorldState Generate(WorldGenData genData, int worldSeed, Vector3I worldSize)
     {
+        BindActivePalettes(genData);
+
         var min = new Vector3I(-worldSize.X / 2, -1, -worldSize.Z / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
         var ws = new WorldState(min, max, genData.SimData);
@@ -178,6 +389,18 @@ public static class WorldGen
                 WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
                 Elevation = 0f,
             };
+        }
+
+        // Build the per-world RegionState array from the authored region
+        // palette. Independent from Zones — a region is a top-level named
+        // place identifier, not a biome theme. PickRegionIndex (currently
+        // quadrant-based, mirroring PickZoneIndex) decides which entry
+        // each chunk belongs to.
+        RegionData[] regionPalette = genData.Regions ?? [];
+        ws.Regions = new RegionState[regionPalette.Length];
+        for (int i = 0; i < regionPalette.Length; i++)
+        {
+            ws.Regions[i] = new RegionState { Data = regionPalette[i] };
         }
 
         var terrainNoise = new FastNoiseLite();
@@ -223,9 +446,10 @@ public static class WorldGen
         var forestNoise = new FastNoiseLite();
         forestNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         forestNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_FOREST);
-        // First-zone frequency, same rule as caveNoise. ForestThreshold
-        // and ForestDensity are blended per-column.
-        forestNoise.Frequency = FirstZoneGen(genData)?.ForestNoiseFrequency ?? 0.05f;
+        // Base frequency 1; per-kit frequency is applied at sample time by
+        // scaling input coords. Lets two kits in the same zone read different
+        // forest patterns (sharp tree-density boundaries where kits change).
+        forestNoise.Frequency = 1f;
         forestNoise.FractalOctaves = 2;
 
         // Low-frequency macro elevation. Drives broad continental shape that
@@ -252,6 +476,7 @@ public static class WorldGen
                     var coord = new Vector3I(x, y, z);
                     var chunk = new ChunkState(coord);
                     chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
+                    chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
                     GenerateChunk(chunk, genData, tunnelNoise, heightMap);
                     ws._chunks[coord] = chunk;
                 }
@@ -275,7 +500,7 @@ public static class WorldGen
         // border) with the ceiling capped at the first plateau above water.
         // Will not survive pure worldgen — remove or gate this call once
         // the underwater shader work lands.
-        GenerateTestUnderwaterLake(ws, genData);
+        //GenerateTestUnderwaterLake(ws, genData);
 
         // Place fog after all terrain is final. The pass skips enclosed
         // voxels (tunnels, caves, anything with solid geometry directly
@@ -304,7 +529,7 @@ public static class WorldGen
         // StampEdgeOverlays(ws);
 
         // Scatter procedural overlays (dirt patches, field/clover patches) on
-        // temperate-kit surface voxels. Noise-driven placement is a rough
+        // Surface-kit voxels. Noise-driven placement is a rough
         // starting point so the authored overlay art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
         // Cobblestone roads — sparse 5-voxel-wide ribbons that follow the
@@ -325,7 +550,7 @@ public static class WorldGen
         int skipFlags = CVars.worldgenSkip.Value;
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
-            StampDetailScatter(ws, genData, roadColumns);
+            StampDetailScatter(ws, roadColumns);
         }
 
         // Always run GenerateProps when *any* of its categories are still
@@ -357,12 +582,11 @@ public static class WorldGen
             && VillagerSpawnZ >= ws.Min.Z && VillagerSpawnZ <= ws.Max.Z)
         {
             var villagerData = GD.Load<MobData>("res://resources/data/characters/friendly_villager.tres");
-            var villagerScene = GD.Load<PackedScene>("res://scenes/characters/friendly_villager.tscn");
-            if (villagerData != null && villagerScene != null)
+            if (villagerData != null && villagerData.MobScene != null)
             {
                 int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
                 var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
-                ws.AddEntity(new MobSimState(pos, 0f, villagerScene, villagerData));
+                ws.AddEntity(new MobSimState(pos, 0f, villagerData.MobScene, villagerData));
             }
         }
 
@@ -414,6 +638,24 @@ public static class WorldGen
         return (byte)quadrant;
     }
 
+    // Stamp a chunk into one of the world's named regions. Same legacy
+    // 4-quadrant split as PickZoneIndex (so default_world_gen.tres can
+    // line its Regions[] up with its Zones[] in the same order until the
+    // editor produces arbitrary region polygons). Independent function so
+    // future region-shape changes don't drag zones along — the two are
+    // orthogonal subdivisions, not parallel.
+    private static byte PickRegionIndex(Vector3I chunkCoord, int regionCount)
+    {
+        if (regionCount <= 0) { return 0; }
+        int quadrant;
+        if (chunkCoord.X >= 0 && chunkCoord.Z >= 0) { quadrant = 0; }       // NE
+        else if (chunkCoord.X < 0 && chunkCoord.Z >= 0) { quadrant = 1; }   // NW
+        else if (chunkCoord.X >= 0 && chunkCoord.Z < 0) { quadrant = 2; }   // SE
+        else { quadrant = 3; }                                              // SW
+        if (quadrant >= regionCount) { quadrant = regionCount - 1; }
+        return (byte)quadrant;
+    }
+
     private static ZoneGenData FirstZoneGen(WorldGenData genData)
     {
         if (genData.Zones == null) { return null; }
@@ -436,14 +678,33 @@ public static class WorldGen
     // to do about that).
     private const float ZONE_GEN_BLEND_RADIUS = 2.0f;
 
+    // Per-voxel kit-stamp blend radius. Independent from
+    // ZONE_GEN_BLEND_RADIUS (which drives soft scalar fades like elevation
+    // and density) so the kit-identity bleed can be tuned without
+    // distorting the worldgen scalars.
+    //
+    // Must stay >= 1.0: the kernel walks chunk centers, and a voxel at a
+    // chunk corner sits ~0.71 chunks from its own center. Radii below ~0.71
+    // leave corner voxels with total weight 0 and PickKitZone falls back to
+    // the chunk's authoritative ZoneIndex, which produces a chunk-aligned
+    // hard seam — the exact thing the kernel exists to avoid. Larger values
+    // widen the noisy seam band proportionally; 2.0 gives ~32-voxel
+    // (~2 chunk) wide jitter where adjacent biomes interpenetrate.
+    private const float KIT_BLEND_RADIUS = 2.0f;
+
     private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights)
+    {
+        GetZoneGenWeights(wx, wz, zoneCount, weights, ZONE_GEN_BLEND_RADIUS);
+    }
+
+    private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights, float blendRadius)
     {
         for (int i = 0; i < zoneCount; i++) { weights[i] = 0f; }
         if (zoneCount <= 0) { return; }
 
         int chunkX = (int)Math.Floor((double)wx / ChunkState.SIZE);
         int chunkZ = (int)Math.Floor((double)wz / ChunkState.SIZE);
-        int half = Mathf.CeilToInt(ZONE_GEN_BLEND_RADIUS);
+        int half = Mathf.CeilToInt(blendRadius);
 
         for (int dx = -half; dx <= half; dx++)
         {
@@ -457,7 +718,7 @@ public static class WorldGen
                 float dxw = wx - chunkCenterX;
                 float dzw = wz - chunkCenterZ;
                 float distChunks = Mathf.Sqrt(dxw * dxw + dzw * dzw) / ChunkState.SIZE;
-                float w = Mathf.SmoothStep(ZONE_GEN_BLEND_RADIUS, 0f, distChunks);
+                float w = Mathf.SmoothStep(blendRadius, 0f, distChunks);
                 if (w > 0f) { weights[zoneIdx] += w; }
             }
         }
@@ -485,10 +746,6 @@ public static class WorldGen
         public float TunnelThreshold;
         public float CaveThreshold;
         public float GrassThreshold;
-        public float ForestThreshold;
-        public float ForestDensity;
-        public float DetailNoiseThreshold;
-        public float DetailStrengthMin;
     }
 
     private static BlendedZoneGen SampleBlendedZoneGen(int wx, int wz, ZoneGenData[] zones)
@@ -511,10 +768,6 @@ public static class WorldGen
             result.TunnelThreshold += rg.TunnelThreshold * w;
             result.CaveThreshold += rg.CaveThreshold * w;
             result.GrassThreshold += rg.GrassThreshold * w;
-            result.ForestThreshold += rg.ForestThreshold * w;
-            result.ForestDensity += rg.ForestDensity * w;
-            result.DetailNoiseThreshold += rg.DetailNoiseThreshold * w;
-            result.DetailStrengthMin += rg.DetailStrengthMin * w;
         }
         return result;
     }
@@ -546,18 +799,6 @@ public static class WorldGen
             if (r <= acc) { return i; }
         }
         return n - 1;
-    }
-
-    // Convenience: pick a scene from the kernel-weighted zone's palette.
-    // Returns null when the chosen zone has no scenes authored.
-    private static PackedScene PickWeightedScene(int wx, int wz, ZoneGenData[] zones,
-        Func<ZoneGenData, PackedScene[]> selector, Random rng)
-    {
-        int idx = PickWeightedZone(wx, wz, zones, rng);
-        if (idx < 0) { return null; }
-        PackedScene[] scenes = selector(zones[idx]);
-        if (scenes == null || scenes.Length == 0) { return null; }
-        return scenes[rng.Next(scenes.Length)];
     }
 
     // Convenience: kernel-weighted zone pick that returns the data resource
@@ -596,13 +837,16 @@ public static class WorldGen
     // we want jagged zone borders that follow the kernel weights — a hash
     // of the voxel's column gives a stable noisy boundary instead of the
     // chunk-aligned orthogonal seam you'd get from `chunk.ZoneIndex`.
-    private static int PickWeightedZoneFromHash(int wx, int wz, ZoneGenData[] zones, float r01)
+    // `blendRadius` overrides ZONE_GEN_BLEND_RADIUS for the weight kernel —
+    // kit stamps use a tighter radius (KIT_BLEND_RADIUS) so out-of-biome
+    // kit bleed stays localized.
+    private static int PickWeightedZoneFromHash(int wx, int wz, ZoneGenData[] zones, float r01, float blendRadius)
     {
         int n = zones != null ? zones.Length : 0;
         if (n == 0) { return -1; }
 
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights);
+        GetZoneGenWeights(wx, wz, n, weights, blendRadius);
 
         float total = 0f;
         for (int i = 0; i < n; i++) { total += weights[i]; }
@@ -622,12 +866,21 @@ public static class WorldGen
     // salt so kit borders don't correlate with future per-voxel decisions.
     private const int KIT_HASH_SALT = 0x4B495454; // "KITT"
 
+    // Per-column salts for shore-band thickness hashes. Two distinct salts so
+    // the above-water and below-water shore-band heights vary independently
+    // per column (a column can be picked tall above water but shallow below,
+    // and vice versa).
+    private const int SHORE_UPPER_HASH_SALT = 0x53484F55; // "SHOU"
+    private const int SHORE_LOWER_HASH_SALT = 0x53484F4C; // "SHOL"
+
     // Pick a zone for a kit stamp at (wx, wz). Falls back to the chunk's
     // ZoneIndex when the kernel produces no positive weight (off-world,
-    // edge cases) so we always end up with a stamped kit.
+    // edge cases) so we always end up with a stamped kit. Uses the tighter
+    // KIT_BLEND_RADIUS so out-of-biome kit stamps stay near the seam
+    // instead of penetrating ~2 chunks into adjacent biomes.
     private static int PickKitZone(int wx, int wz, ZoneGenData[] zones, int fallbackZoneIndex)
     {
-        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT));
+        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), KIT_BLEND_RADIUS);
         return idx >= 0 ? idx : fallbackZoneIndex;
     }
 
@@ -1154,6 +1407,29 @@ public static class WorldGen
                 bool isRamp = heightMap.IsRamp(wx, wz);
                 byte surfaceShape = (byte)(isRamp ? VoxelTypeInfo.SharpAxes.None : VoxelTypeInfo.SharpAxes.Y);
 
+                // Per-column kit pick + above-water shore band, hoisted out of
+                // the y loop because both depend only on (wx, wz). The shore
+                // upper bound is a per-column random value in
+                // [ShoreElevationMin, ShoreElevationMax] meters above sea
+                // level — keeps the shoreline jagged instead of a flat
+                // isobar. Columns whose zone has no ShoreKit get an empty
+                // band (shoreUpperY = WATER_LEVEL → no voxel falls in it).
+                int kitZone = PickKitZone(wx, wz, genData.Zones, data.ZoneIndex);
+                ZoneGenData kitZoneData = kitZone >= 0 ? genData.Zones[kitZone] : null;
+                byte surfaceTerrainId = TerrainIdOf(kitZoneData?.SurfaceKit);
+                byte shoreTerrainId = surfaceTerrainId;
+                int shoreUpperY = WATER_LEVEL;
+                if (kitZoneData != null && kitZoneData.ShoreKit != null)
+                {
+                    shoreTerrainId = TerrainIdOf(kitZoneData.ShoreKit);
+                    float shoreUpperR = HashFloat01(wx, wz, SHORE_UPPER_HASH_SALT);
+                    float shoreUpperMeters = Mathf.Lerp(
+                        kitZoneData.ShoreElevationMin,
+                        kitZoneData.ShoreElevationMax,
+                        shoreUpperR);
+                    shoreUpperY = WATER_LEVEL + (int)Math.Round(shoreUpperMeters);
+                }
+
                 for (int y = 0; y < ChunkState.SIZE; y++)
                 {
                     int wy = chunkWorldY + y;
@@ -1178,7 +1454,7 @@ public static class WorldGen
                     }
 
                     // Every natural solid voxel is Terrain — the shader picks
-                    // the tile from the per-voxel KitId (see below) + surface
+                    // the tile from the per-voxel TerrainId (see below) + surface
                     // normal.y. The 27-voxel majority vote in the mesher now
                     // resolves to Terrain everywhere, so cliff faces, cave
                     // walls, and seabeds all flow through the AUTO branch and
@@ -1206,20 +1482,20 @@ public static class WorldGen
                         ? (byte)VoxelTypeInfo.SharpAxes.Y
                         : voxelShape;
 
-                    // Kit assignment: default every solid voxel to a zone's
-                    // surface kit (slot 0). The zone is picked per-column
-                    // by hash-weighted kernel, so the boundary between
-                    // adjacent zones' palettes is jagged — desert sand
-                    // peppered into forest grass within the kernel overlap
-                    // band — instead of a straight chunk-aligned seam.
-                    // TagSubmergedKits runs after all chunks/water exist and
-                    // re-tags the submerged shell to the underwater slot based
-                    // on actual water adjacency, so buried rock under
-                    // above-water cliffs stays surface-kit (no sand bleed on
-                    // cliff faces). Cave interiors are later re-tagged to the
-                    // cave slot by MarkCaveSurfaceShapes.
-                    int kitZone = PickKitZone(wx, wz, genData.Zones, data.ZoneIndex);
-                    data.KitId[x, y, z] = GlobalKit(kitZone, KIT_SLOT_TEMPERATE);
+                    // Kit assignment: default every solid voxel to the zone's
+                    // SurfaceKit (resolved per-column above). TagSubmergedKits
+                    // runs after all chunks/water exist and re-stamps the
+                    // submerged shell to the picked zone's SubmergedKit based
+                    // on actual water adjacency, so buried rock under above-
+                    // water cliffs stays SurfaceKit (no sand bleed on cliff
+                    // faces). Cave interiors are later re-stamped to CaveKit
+                    // by MarkCaveSurfaceShapes. Above-water voxels in the
+                    // shore band (wy in (WATER_LEVEL, shoreUpperY]) take the
+                    // zone's ShoreKit so the beach lip at water's edge reads
+                    // as sand even on land.
+                    data.TerrainId[x, y, z] = (wy > WATER_LEVEL && wy <= shoreUpperY)
+                        ? shoreTerrainId
+                        : surfaceTerrainId;
                 }
             }
         }
@@ -1701,12 +1977,12 @@ public static class WorldGen
                         || IsCaveAirOrWater(wx, wy, wz + 1))
                     {
                         ws.SetShapeWorld(wx, wy, wz, VoxelTypeInfo.SharpAxes.Y);
-                        // Stamp this chunk's zone cave kit so the shader
+                        // Stamp this chunk's zone CaveKit so the shader
                         // can paint it distinctly from the surface above.
-                        // Overrides the underwater slot for submerged caves —
-                        // the cave palette wins there.
+                        // Overrides SubmergedKit for submerged caves — the
+                        // cave palette wins there.
                         int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(zoneIdx, KIT_SLOT_CAVE));
+                        ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.Zones[zoneIdx]?.CaveKit));
                     }
                 }
             }
@@ -1718,7 +1994,7 @@ public static class WorldGen
     // DC cell corner, so a seabed cell's vote sees one layer of seabed (would
     // be KIT_UNDERWATER) plus one layer of buried rock just below (would be
     // surface slot). With a 1-voxel shell the two layers tie at 9–9 and the
-    // lower-index kit (temperate) wins — seabed reads as grass. A 2-voxel
+    // lower-index kit (surface) wins — seabed reads as grass. A 2-voxel
     // shell tags both layers underwater so the vote goes 18–0.
     private const int SUBMERGED_KIT_RADIUS = 2;
 
@@ -1741,6 +2017,31 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
+                // Per-column kit pick + below-water shore band, hoisted out of
+                // the y loop because both depend only on (wx, wz). The shore
+                // lower bound is a per-column random value in
+                // [ShoreSubmergedElevationMin, ShoreSubmergedElevationMax]
+                // meters below sea level — keeps the underwater shoreline
+                // jagged instead of a flat isobar. Falls back to ZoneIndex 0
+                // here; the per-voxel ZoneIndexAtWorld fallback inside the y
+                // loop only kicks in when the kernel produces no positive
+                // weight, which is rare.
+                int columnZone = PickKitZone(wx, wz, genData.Zones, 0);
+                ZoneGenData columnZoneData = columnZone >= 0 ? genData.Zones[columnZone] : null;
+                byte shoreTerrainId = 0;
+                int shoreLowerY = WATER_LEVEL;
+                bool hasShore = columnZoneData != null && columnZoneData.ShoreKit != null;
+                if (hasShore)
+                {
+                    shoreTerrainId = TerrainIdOf(columnZoneData.ShoreKit);
+                    float shoreLowerR = HashFloat01(wx, wz, SHORE_LOWER_HASH_SALT);
+                    float shoreLowerMeters = Mathf.Lerp(
+                        columnZoneData.ShoreSubmergedElevationMin,
+                        columnZoneData.ShoreSubmergedElevationMax,
+                        shoreLowerR);
+                    shoreLowerY = WATER_LEVEL + (int)Math.Round(shoreLowerMeters);
+                }
+
                 for (int wy = worldMinY; wy <= WATER_LEVEL; wy++)
                 {
                     var v = ws.GetVoxelWorld(wx, wy, wz);
@@ -1766,8 +2067,15 @@ public static class WorldGen
 
                     if (nearWater)
                     {
-                        int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
-                        ws.SetKitIdWorld(wx, wy, wz, GlobalKit(zoneIdx, KIT_SLOT_UNDERWATER));
+                        if (hasShore && wy >= shoreLowerY)
+                        {
+                            ws.SetTerrainIdWorld(wx, wy, wz, shoreTerrainId);
+                        }
+                        else
+                        {
+                            int zoneIdx = PickKitZone(wx, wz, genData.Zones, ZoneIndexAtWorld(ws, wx, wy, wz));
+                            ws.SetTerrainIdWorld(wx, wy, wz, TerrainIdOf(genData.Zones[zoneIdx]?.SubmergedKit));
+                        }
                     }
                 }
             }
@@ -1776,13 +2084,24 @@ public static class WorldGen
 
     // Overlay id values. 0 = no overlay. A non-zero OverlayId is a direct
     // tile_array base-layer index sampled by voxel_clip.gdshader with its
-    // own alpha channel driving blend strength. Any tile in the global
-    // catalog can be used as an overlay — add new OVERLAY_* constants rather
+    // own alpha channel driving blend strength. Any block in the BlockCatalog
+    // can be used as an overlay — add new OVERLAY_* fields by name rather
     // than reusing numbers so .hike files written with old values keep
-    // mapping to the right tile when new tiles are added ahead of them.
+    // mapping to the right block when new blocks are added ahead of them.
     private const byte OVERLAY_NONE = 0;
-    private const byte OVERLAY_DIRT = VoxelTypeInfo.TILE_DIRT_OVERLAY;
-    private const byte OVERLAY_FIELD = VoxelTypeInfo.TILE_FIELD_OVERLAY;
+    private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("DirtOverlay");
+    private static readonly byte OVERLAY_FIELD = ResolveOverlayIndex("FieldOverlay");
+
+    private static byte ResolveOverlayIndex(StringName blockName)
+    {
+        BlockData block = BlockCatalog.Active.GetByName(blockName);
+        if (block == null)
+        {
+            GD.PushError($"WorldGen: BlockCatalog has no block named '{blockName}'.");
+            return 0;
+        }
+        return (byte)block.AtlasBaseIndex;
+    }
 
     // How many voxels above/below `wy` to scan the neighbor column for its
     // local surface. Anything beyond this is treated as a cliff and skipped
@@ -1808,24 +2127,22 @@ public static class WorldGen
     private const float OVERLAY_DIRT_THRESHOLD = 0.9f;
     private const float OVERLAY_FIELD_THRESHOLD = 0.10f;
 
-    // Test placement for detail-sprite scatter. Paints DetailGroup=1 (i.e.
-    // ZoneGenData.DetailGroups[0]) on temperate surface voxels wherever
-    // detailNoise exceeds the threshold; strength is the noise value remapped
-    // to [DetailStrengthMin, 255]. Replace with authored brushes once the
-    // editor lands; the runtime is happy with no DetailGroups configured (the
-    // scatter pass short-circuits) so this is safe to leave on.
+    // Test placement for detail-sprite scatter. Each kit advertises its own
+    // DefaultDetail group; this pass walks every surface voxel, reads the
+    // voxel's kit, and stamps that kit's DefaultDetail (1-based palette
+    // index) wherever detailNoise crosses the per-zone threshold. Replace
+    // with authored brushes once the editor lands; the runtime is happy
+    // with no DefaultDetail configured (the scatter pass short-circuits).
     private const int DETAIL_NOISE_SEED = 9191;
-    // Independent seed for cave-floor pebble scatter so cave density isn't
-    // visually correlated with surface grass density above it. Group id 2
-    // references ZoneGenData.DetailGroups[1] (detail_pebbles).
-    private const int PEBBLE_NOISE_SEED = 9192;
-    private const byte DETAIL_GROUP_GRASS = 1;
-    private const byte DETAIL_GROUP_PEBBLES = 2;
+    // Independent seed for non-Surface kits (cave / submerged) so their
+    // scatter pattern isn't visually correlated with the surface scatter
+    // directly above. Selection is by kit.Purpose at sample time.
+    private const int SUBSURFACE_NOISE_SEED = 9192;
 
-    // Noise-scatter dirt and field overlays on temperate-kit surface voxels.
+    // Noise-scatter dirt and field overlays on Surface-kit voxels.
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
-    // to temperate — sand (underwater/cave) and cave palette stay clean.
+    // to Surface kits — sand (underwater/cave) and cave palette stay clean.
     //
     // roadColumns carries the (wx, wz) mask of cobblestone road columns; those
     // are skipped entirely AND given a one-voxel buffer of suppression so the
@@ -1881,7 +2198,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    if (KitSlot(ws.GetKitIdWorld(wx, wy, wz)) != KIT_SLOT_TEMPERATE)
+                    if (!IsSurfaceKit(ws.GetTerrainIdWorld(wx, wy, wz)))
                     {
                         continue;
                     }
@@ -2098,31 +2415,27 @@ public static class WorldGen
         return roadColumns;
     }
 
-    // Test placement for the painted detail-sprite scatter. Walks every
-    // surface voxel and stamps a DetailGroup id by kit slot:
-    //   TEMPERATE → group 1 (grass), suppressed under cobblestone roads
-    //   CAVE      → group 2 (pebbles)
-    // Strength is the per-pass noise value remapped to [DetailStrengthMin, 255].
-    // The runtime scatter pass looks up DetailGroups[id-1] and silently does
-    // nothing if that slot is empty, so it's safe to leave on even before art
-    // is authored.
-    private static void StampDetailScatter(WorldState ws, WorldGenData genData, HashSet<(int, int)> roadColumns)
+    // Walks every surface voxel and stamps the voxel's kit's DefaultDetail
+    // wherever the appropriate noise field crosses the kit's threshold. Two
+    // noise fields are kept (Surface vs other) so cave/submerged scatter
+    // doesn't visually correlate with the surface scatter directly above;
+    // the kit's Purpose picks which one. Frequency is per-kit: each noise
+    // object is sampled at base frequency 1, with coords pre-scaled by the
+    // kit's DetailNoiseFrequency, so kits within a single zone read
+    // different noise patterns (sharp transitions where kits change).
+    private static void StampDetailScatter(WorldState ws, HashSet<(int, int)> roadColumns)
     {
-        var detailNoise = new FastNoiseLite();
-        detailNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        detailNoise.Seed = DETAIL_NOISE_SEED;
-        // Frequency comes from the first zone (single shared FastNoiseLite
-        // for the whole world). Threshold and StrengthMin DO blend per-column
-        // below so density can fade across zone borders even though the
-        // underlying noise pattern is constant.
-        detailNoise.Frequency = FirstZoneGen(genData)?.DetailNoiseFrequency ?? 0.06f;
-        detailNoise.FractalOctaves = 2;
+        var surfaceNoise = new FastNoiseLite();
+        surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        surfaceNoise.Seed = DETAIL_NOISE_SEED;
+        surfaceNoise.Frequency = 1f;
+        surfaceNoise.FractalOctaves = 2;
 
-        var pebbleNoise = new FastNoiseLite();
-        pebbleNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        pebbleNoise.Seed = PEBBLE_NOISE_SEED;
-        pebbleNoise.Frequency = FirstZoneGen(genData)?.DetailNoiseFrequency ?? 0.06f;
-        pebbleNoise.FractalOctaves = 2;
+        var subsurfaceNoise = new FastNoiseLite();
+        subsurfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        subsurfaceNoise.Seed = SUBSURFACE_NOISE_SEED;
+        subsurfaceNoise.Frequency = 1f;
+        subsurfaceNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -2135,9 +2448,9 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Roads run on temperate surface columns; caves below the
-                // road still get pebbles. Branch per-voxel below instead of
-                // skipping the column outright.
+                // Roads run on Surface-kit columns; caves below the road
+                // still get their kit's scatter. Branch per-voxel below
+                // instead of skipping the column outright.
                 bool roadColumn = roadColumns.Contains((wx, wz));
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
@@ -2147,61 +2460,54 @@ public static class WorldGen
                     }
                     // IsSurfaceVoxel accepts water above (it's "non-solid"),
                     // which suits the kit-tagging passes but would scatter
-                    // upright sprites at the water surface. The kit-slot
-                    // filter below already rejects shoreline plateaus that
-                    // TagSubmergedKits flagged as KIT_UNDERWATER, but caves
-                    // and the test underwater lake create new water voxels
-                    // AFTER TagSubmergedKits runs — the lake floor stays
-                    // KIT_TEMPERATE and would otherwise spawn grass blades
-                    // sitting inside the lake. Reject any surface whose
-                    // air-above slot is water.
+                    // upright sprites at the water surface. Caves and test
+                    // lakes create new water voxels AFTER TagSubmergedKits
+                    // runs — the lake floor still carries SurfaceKit and
+                    // would otherwise spawn grass inside the water. Reject
+                    // any surface voxel whose air-above slot is water.
                     if (ws.GetVoxelWorld(wx, wy + 1, wz) == VoxelType.Water)
                     {
                         continue;
                     }
-                    int slot = KitSlot(ws.GetKitIdWorld(wx, wy, wz));
-                    BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
 
-                    if (slot == KIT_SLOT_TEMPERATE)
+                    int TerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
+                    TerrainKitData kit = ResolveKit(TerrainId);
+                    if (kit == null || kit.DefaultDetail == null)
                     {
-                        // Paved roads suppress grass sprites — the cobblestone
-                        // is authored as a ground surface, not a clearing in
-                        // the grass.
-                        if (roadColumn)
-                        {
-                            continue;
-                        }
-                        float n = detailNoise.GetNoise2D(wx, wz);
-                        if (n <= blend.DetailNoiseThreshold)
-                        {
-                            continue;
-                        }
-
-                        // Map noise (threshold..1) to (strengthMin..255).
-                        float t = (n - blend.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - blend.DetailNoiseThreshold);
-                        int strengthMin = (int)Math.Round(blend.DetailStrengthMin);
-                        int strength = strengthMin + (int)(t * (255 - strengthMin));
-                        ws.SetDetailGroupWorld(wx, wy, wz, DETAIL_GROUP_GRASS);
-                        ws.SetDetailStrengthWorld(wx, wy, wz, strength);
+                        continue;
                     }
-                    else if (slot == KIT_SLOT_CAVE)
+                    bool isSurface = IsSurfaceKit(TerrainId);
+                    // Paved roads suppress Surface-kit scatter so the
+                    // cobblestone reads as authored ground, not a clearing
+                    // in the grass. Cave / submerged kits don't care about
+                    // road columns above them.
+                    if (isSurface && roadColumn)
                     {
-                        // Cave floors get pebble scatter. Independent noise
-                        // seed keeps the pattern uncorrelated with surface
-                        // grass directly above; threshold/strength curves are
-                        // shared so density still fades at region borders.
-                        float n = pebbleNoise.GetNoise2D(wx, wz);
-                        if (n <= blend.DetailNoiseThreshold)
-                        {
-                            continue;
-                        }
-
-                        float t = (n - blend.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - blend.DetailNoiseThreshold);
-                        int strengthMin = (int)Math.Round(blend.DetailStrengthMin);
-                        int strength = strengthMin + (int)(t * (255 - strengthMin));
-                        ws.SetDetailGroupWorld(wx, wy, wz, DETAIL_GROUP_PEBBLES);
-                        ws.SetDetailStrengthWorld(wx, wy, wz, strength);
+                        continue;
                     }
+
+                    FastNoiseLite noise = isSurface ? surfaceNoise : subsurfaceNoise;
+                    float n = noise.GetNoise2D(wx * kit.DetailNoiseFrequency, wz * kit.DetailNoiseFrequency);
+                    if (n <= kit.DetailNoiseThreshold)
+                    {
+                        continue;
+                    }
+
+                    // Map noise (threshold..1) to (strengthMin..255). The kit
+                    // owns both the threshold and the floor, so a sandstone-
+                    // cave kit can thin its pebble scatter without affecting
+                    // a sibling kit in the same zone.
+                    float t = (n - kit.DetailNoiseThreshold) / Math.Max(0.0001f, 1f - kit.DetailNoiseThreshold);
+                    int strengthMin = kit.DetailStrengthMin;
+                    int strength = strengthMin + (int)(t * (255 - strengthMin));
+                    strength = Mathf.Clamp(strength, 0, 255);
+                    if (strength <= 0)
+                    {
+                        continue;
+                    }
+
+                    ws.SetDetailGroupWorld(wx, wy, wz, DetailIndexOf(kit.DefaultDetail));
+                    ws.SetDetailStrengthWorld(wx, wy, wz, strength);
                 }
             }
         }
@@ -2321,31 +2627,20 @@ public static class WorldGen
         ChunkState data = ws._chunks[chunkCoord];
         var rng = new Random(StableMix(DeriveSeed(worldSeed, SEED_SALT_PROPS), chunkCoord.X, chunkCoord.Z));
 
-        // Per-chunk tree count blends the kernel-weighted TreesPerChunkMin/Max
-        // around the chunk center so adjacent zones hand off smoothly. The
-        // SCENE picked for each individual tree is drawn from a kernel-weighted
-        // zone per (wx, wz) — that produces the overlap zone where two
-        // zones' palettes intermix instead of snapping at the chunk border.
+        // Per-chunk baseline tree count comes from the kit at the chunk center.
+        // Kit-level (not zone-level kernel-blended) because the per-cell tree
+        // *placement* below also reads from the cell's kit, so a chunk straddling
+        // a shore→inland kit border gets its baseline count from whichever side
+        // its center sits on. This is fine in practice — chunk centers aren't
+        // visually privileged and trees are sparse enough that small count
+        // jumps at chunk boundaries don't read.
         ZoneGenData[] zonesArr = genData.Zones ?? System.Array.Empty<ZoneGenData>();
         int chunkCenterWx = chunkCoord.X * ChunkState.SIZE + ChunkState.SIZE / 2;
         int chunkCenterWz = chunkCoord.Z * ChunkState.SIZE + ChunkState.SIZE / 2;
-        float treesMinBlend = 0f;
-        float treesMaxBlend = 0f;
-        if (zonesArr.Length > 0)
-        {
-            Span<float> centerWeights = zonesArr.Length <= 32
-                ? stackalloc float[zonesArr.Length]
-                : new float[zonesArr.Length];
-            GetZoneGenWeights(chunkCenterWx, chunkCenterWz, zonesArr.Length, centerWeights);
-            for (int i = 0; i < zonesArr.Length; i++)
-            {
-                if (zonesArr[i] == null) { continue; }
-                treesMinBlend += centerWeights[i] * zonesArr[i].TreesPerChunkMin;
-                treesMaxBlend += centerWeights[i] * zonesArr[i].TreesPerChunkMax;
-            }
-        }
-        int treesPerChunkMin = (int)Math.Round(treesMinBlend);
-        int treesPerChunkMax = (int)Math.Round(treesMaxBlend);
+        int chunkCenterSy = SurfaceYAt(chunkCenterWx, chunkCenterWz);
+        TerrainKitData chunkCenterKit = ResolveKit(ws.GetTerrainIdWorld(chunkCenterWx, chunkCenterSy, chunkCenterWz));
+        int treesPerChunkMin = chunkCenterKit?.TreesPerChunkMin ?? 0;
+        int treesPerChunkMax = chunkCenterKit?.TreesPerChunkMax ?? 0;
         int treeCount = treesPerChunkMax >= treesPerChunkMin
             ? rng.Next(treesPerChunkMin, treesPerChunkMax + 1)
             : 0;
@@ -2364,12 +2659,18 @@ public static class WorldGen
             {
                 return false;
             }
-            PackedScene scene = PickWeightedScene(wx, wz, zonesArr, r => r.TreeScenes, rng);
+            int sy = SurfaceYAt(wx, wz);
+            TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+            PackedScene[] cellTreeScenes = cellKit?.TreeScenes;
+            if (cellTreeScenes == null || cellTreeScenes.Length == 0)
+            {
+                return false;
+            }
+            PackedScene scene = cellTreeScenes[rng.Next(cellTreeScenes.Length)];
             if (scene == null)
             {
                 return false;
             }
-            int sy = SurfaceYAt(wx, wz);
             // +1.5 (not +1) because ChunkMesherDC's shallow-Y smoothing
             // averages a flat grass column's top face to 0.5 above the
             // voxel-grid top — anchoring at +1 buries sprites half a voxel
@@ -2391,21 +2692,28 @@ public static class WorldGen
             // Forest pockets: where forest noise is high, attempt a tree at every
             // grid cell with density that ramps up from the threshold. Sampling
             // per cell (not per chunk) means forest edges fade naturally instead
-            // of snapping on chunk seams.
+            // of snapping on chunk seams. Forest tuning is per-kit, looked up at
+            // each cell's surface voxel — a shore-kit strip inside a forest zone
+            // can run with its own threshold/density and stop trees abruptly.
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
             {
                 for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
                 {
                     int wx = chunkCoord.X * ChunkState.SIZE + localX;
                     int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    BlendedZoneGen blend = SampleBlendedZoneGen(wx, wz, genData.Zones);
-                    float f = forestNoise.GetNoise2D(wx, wz);
-                    if (f < blend.ForestThreshold)
+                    int sy = SurfaceYAt(wx, wz);
+                    TerrainKitData kit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+                    if (kit == null)
                     {
                         continue;
                     }
-                    float t = (f - blend.ForestThreshold) / Math.Max(0.0001f, 1f - blend.ForestThreshold);
-                    float density = blend.ForestDensity * Mathf.Clamp(t, 0f, 1f);
+                    float f = forestNoise.GetNoise2D(wx * kit.ForestNoiseFrequency, wz * kit.ForestNoiseFrequency);
+                    if (f < kit.ForestThreshold)
+                    {
+                        continue;
+                    }
+                    float t = (f - kit.ForestThreshold) / Math.Max(0.0001f, 1f - kit.ForestThreshold);
+                    float density = kit.ForestDensity * Mathf.Clamp(t, 0f, 1f);
                     if (rng.NextDouble() >= density)
                     {
                         continue;
@@ -2431,94 +2739,37 @@ public static class WorldGen
                         continue;
                     }
 
-                    PackedScene grassScene = PickWeightedScene(wx, wz, zonesArr, r => r.TallGrassScenes, rng);
+                    int sy = SurfaceYAt(wx, wz);
+                    TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
+                    PackedScene[] cellGrassScenes = cellKit?.TallGrassScenes;
+                    if (cellGrassScenes == null || cellGrassScenes.Length == 0)
+                    {
+                        continue;
+                    }
+                    PackedScene grassScene = cellGrassScenes[rng.Next(cellGrassScenes.Length)];
                     if (grassScene == null)
                     {
                         continue;
                     }
-                    int sy = SurfaceYAt(wx, wz);
                     ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
                 }
             }
         }
 
-        if (!skipMobs)
+        // Surface pass: per grass column, pick the kernel-weighted zone,
+        // iterate its SurfaceEntities and roll each entry's Chance. Each
+        // entry's Spawn() handles its own EntitySimState construction; the
+        // loop only needs to know how to gate by skip flag and dispatch.
+        // Composite entries (SpawnGroupData) read the SpawnContext to do
+        // their own rejection-sampled scatter — no per-subclass special-
+        // casing here.
+        var surfaceContext = new SpawnContext
         {
-            // Generate goblins on grass surfaces
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null || rg.GoblinScene == null || rg.GoblinData == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.GoblinSpawnOutsideNighttime)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    var mobState = new MobSimState(
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        (float)(rng.NextDouble() * Mathf.Pi * 2f),
-                        rg.GoblinScene,
-                        rg.GoblinData
-                    );
-                    mobState.SpawnAtNight = true;
-                    if (rng.NextDouble() < 0.25f)
-                    {
-                        mobState.InitialBehavior = "Wander";
-                    }
-                    ws.AddEntity(mobState);
-                }
-            }
-
-            // Generate kun_kun on grass surfaces. Non-dangerous mobs that flee the
-            // player and burrow once they get far enough away.
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null || rg.KunKunScene == null || rg.KunKunData == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.KunKunChance)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    ws.AddEntity(new MobSimState(
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        (float)(rng.NextDouble() * Mathf.Pi * 2f),
-                        rg.KunKunScene,
-                        rg.KunKunData
-                    ));
-                }
-            }
-        }
-
-        if (!skipInteractives && genData.CampfireScene != null)
+            SurfaceYAt = SurfaceYAt,
+            IsValidColumn = IsGrassyAt,
+        };
+        if (!skipMobs || !skipInteractives)
         {
-            // Generate campfires on grass surfaces. Authored at ~1/5 the goblin
-            // rate per zone; AutoLightAtNight is set so they ignite when their
-            // chunk activates after dark.
             for (int localX = 0; localX < ChunkState.SIZE; localX++)
             {
                 for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
@@ -2530,132 +2781,31 @@ public static class WorldGen
                         continue;
                     }
                     ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null)
+                    if (rg?.SurfaceEntities?.Entries == null)
                     {
                         continue;
                     }
-                    if (rng.NextDouble() >= rg.CampfireSpawnOutside)
-                    {
-                        continue;
-                    }
-
                     int sy = SurfaceYAt(wx, wz);
-                    var anchor = new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f);
-                    var campfire = new TorchSimState(anchor, genData.CampfireScene);
-                    campfire.AutoLightAtNight = true;
-                    campfire.Active = false;
-                    ws.AddEntity(campfire);
-
-                    if (rg.CampfireSpawnGroup != null)
+                    var pos = new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f);
+                    foreach (SpawnEntryData entry in rg.SurfaceEntities.Entries)
                     {
-                        ScatterSpawnGroupOnSurface(ws, rg.CampfireSpawnGroup, anchor, rng,
-                            SurfaceYAt, IsGrassyAt);
+                        if (entry == null) { continue; }
+                        bool isMob = entry is MobSpawnEntry;
+                        if (isMob ? skipMobs : skipInteractives) { continue; }
+                        if (rng.NextDouble() >= entry.Chance) { continue; }
+                        entry.Spawn(ws, pos, rng, surfaceContext);
                     }
                 }
             }
         }
 
-        if (!skipInteractives)
-        {
-            // Generate fire-column traps on grass surfaces. Per-instance random
-            // phase offset keeps neighbouring traps firing on different beats so
-            // a swamp full of them feels like the Princess Bride fire swamp
-            // rather than a metronome.
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null || rg.FireTrapScene == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.FireTrapChance)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    var fireTrap = new FireTrapSimState(
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        rg.FireTrapScene);
-                    fireTrap.PhaseOffsetSeconds = (float)(rng.NextDouble() * 8.0);
-                    ws.AddEntity(fireTrap);
-                }
-            }
-
-            // Generate loot on grass surfaces
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null || rg.LootScene == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.LootChance)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    ws.AddEntity(new PropSimState(
-                        PropType.AutoLoot,
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        rg.LootScene
-                    ));
-                }
-            }
-
-            // Generate berry trees on grass surfaces. Authored per-region;
-            // leave BerryTreeScene null on regions that shouldn't have them.
-            for (int localX = 0; localX < ChunkState.SIZE; localX++)
-            {
-                for (int localZ = 0; localZ < ChunkState.SIZE; localZ++)
-                {
-                    int wx = chunkCoord.X * ChunkState.SIZE + localX;
-                    int wz = chunkCoord.Z * ChunkState.SIZE + localZ;
-                    if (!IsGrassyAt(wx, wz))
-                    {
-                        continue;
-                    }
-                    ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (rg == null || rg.BerryTreeScene == null)
-                    {
-                        continue;
-                    }
-                    if (rng.NextDouble() >= rg.BerryTreeChance)
-                    {
-                        continue;
-                    }
-
-                    int sy = SurfaceYAt(wx, wz);
-                    int berryCount = rng.Next(rg.BerryTreeCountMin, rg.BerryTreeCountMax + 1);
-                    ws.AddEntity(new BerryTreeSimState(
-                        new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                        rg.BerryTreeScene,
-                        berryCount));
-                }
-            }
-        }
-
-        // Cave pockets: scan the full vertical column and spawn mobs/chests/
-        // loot/torches anywhere there's a 2-voxel air pocket with a solid
-        // floor and a ceiling within reach (the "is enclosed" test is what
-        // distinguishes cave pockets from open surface).
+        // Cave-pocket pass: scan the full vertical column and roll the
+        // matching zone's CaveEntities anywhere there's a 2-voxel air
+        // pocket with a solid floor and a ceiling within reach (the
+        // "is enclosed" test is what distinguishes cave pockets from open
+        // surface). No SpawnContext is supplied — cave-pocket cells are
+        // pre-validated by the loop, and a SpawnGroupData inside a cave
+        // list collapses to anchor-only placement.
         const int HEAD_CLEARANCE = 2;
         const int CAVE_CEILING_PROBE = 6;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -2700,85 +2850,20 @@ public static class WorldGen
                         continue;
                     }
 
-                    var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
                     ZoneGenData rg = PickWeightedZoneData(wx, wz, zonesArr, rng);
-                    if (!skipMobs && rg != null && rg.GoblinScene != null && rg.GoblinData != null
-                        && rng.NextDouble() < rg.GoblinSpawnUnderground)
-                    {
-                        var mobState = new MobSimState(pos,
-                            (float)(rng.NextDouble() * Mathf.Pi * 2f),
-                            rg.GoblinScene, rg.GoblinData);
-                        if (rng.NextDouble() < 0.25f)
-                        {
-                            mobState.InitialBehavior = "Wander";
-                        }
-                        ws.AddEntity(mobState);
-                    }
-                    if (!skipMobs && rg != null && rg.KunKunScene != null && rg.KunKunData != null
-                        && rng.NextDouble() < rg.KunKunChance)
-                    {
-                        ws.AddEntity(new MobSimState(pos,
-                            (float)(rng.NextDouble() * Mathf.Pi * 2f),
-                            rg.KunKunScene, rg.KunKunData));
-                    }
-                    if (!skipInteractives && rg != null && rg.LootScene != null
-                        && rng.NextDouble() < rg.LootChance)
-                    {
-                        ws.AddEntity(new PropSimState(PropType.AutoLoot, pos, rg.LootScene));
-                    }
-                    if (!skipInteractives && rg != null && rg.ChestScene != null && rg.LootScene != null
-                        && rng.NextDouble() < rg.ChestChance)
-                    {
-                        int lootCount = rng.Next(rg.ChestLootCountMin, rg.ChestLootCountMax + 1);
-                        PackedScene chestScene = rng.NextDouble() < 0.5 && PoisonChestScene != null
-                            ? PoisonChestScene
-                            : rg.ChestScene;
-                        ws.AddEntity(new ChestSimState(pos, chestScene, lootCount, rg.LootScene));
-                    }
-                    if (!skipInteractives && rng.NextDouble() < genData.CaveTorchChance)
-                    {
-                        ws.AddEntity(new TorchSimState(pos, genData.TorchScene));
-                    }
-                }
-            }
-        }
-    }
-
-    // Scatters a SpawnGroupData around a surface anchor. Each entry rolls its
-    // own count; for each instance we sample a point in the disc of group
-    // ScatterRadius around the anchor and reject any cell that isn't grassy
-    // surface. Cave-pocket scatter would use a different sampler.
-    private const int SpawnScatterAttemptsPerEntity = 6;
-    private static void ScatterSpawnGroupOnSurface(WorldState ws, SpawnGroupData group,
-        Vector3 anchor, Random rng,
-        System.Func<int, int, int> surfaceYAt, System.Func<int, int, bool> isGrassyAt)
-    {
-        if (group == null || group.Entries == null)
-        {
-            return;
-        }
-        foreach (SpawnEntryData entry in group.Entries)
-        {
-            if (entry == null)
-            {
-                continue;
-            }
-            int count = rng.Next(entry.CountMin, entry.CountMax + 1);
-            for (int i = 0; i < count; i++)
-            {
-                for (int attempt = 0; attempt < SpawnScatterAttemptsPerEntity; attempt++)
-                {
-                    float r = group.ScatterRadius * Mathf.Sqrt((float)rng.NextDouble());
-                    float a = (float)(rng.NextDouble() * Mathf.Pi * 2.0);
-                    int wx = Mathf.FloorToInt(anchor.X + r * Mathf.Cos(a));
-                    int wz = Mathf.FloorToInt(anchor.Z + r * Mathf.Sin(a));
-                    if (!isGrassyAt(wx, wz))
+                    if (rg?.CaveEntities?.Entries == null)
                     {
                         continue;
                     }
-                    int sy = surfaceYAt(wx, wz);
-                    entry.Spawn(ws, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), rng);
-                    break;
+                    var pos = new Vector3(wx + 0.5f, wy, wz + 0.5f);
+                    foreach (SpawnEntryData entry in rg.CaveEntities.Entries)
+                    {
+                        if (entry == null) { continue; }
+                        bool isMob = entry is MobSpawnEntry;
+                        if (isMob ? skipMobs : skipInteractives) { continue; }
+                        if (rng.NextDouble() >= entry.Chance) { continue; }
+                        entry.Spawn(ws, pos, rng, null);
+                    }
                 }
             }
         }

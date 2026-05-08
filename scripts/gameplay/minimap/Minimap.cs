@@ -27,7 +27,6 @@ public partial class Minimap : Node3D
     private World _world;
     private MinimapTextures _textures;
     private MinimapSliceAtlas _sliceAtlas;
-    private MinimapTileColors _tileColors;
     private MinimapFoliageColors _foliageColors;
     private Texture2D _tileLutTexture;
     private Texture2D _foliageLutTexture;
@@ -229,15 +228,15 @@ public partial class Minimap : Node3D
     {
         _world = world;
         GameClient gc = GameClient.Current;
-        _tileColors = gc?.minimapTileColors;
         _foliageColors = gc?.minimapFoliageColors;
+        Color wallSlotColor = gc != null ? gc.minimapWallSlotColor : new Color(0.045f, 0.045f, 0.05f);
 
         _textures = new MinimapTextures(world.WorldState);
         _sliceAtlas = new MinimapSliceAtlas(world.WorldState);
         _surfaceCells = new MinimapData.SurfaceCell[MinimapData.OutdoorPixelsPerChunkSq];
         _sliceCells = new MinimapData.SliceCell[MinimapData.IndoorPixelsPerChunkSq];
 
-        _tileLutTexture = BuildTileLutTexture(_tileColors);
+        _tileLutTexture = BuildTileLutTexture(BlockCatalog.Active, wallSlotColor);
         _foliageLutTexture = BuildFoliageLutTexture(_foliageColors);
 
         world.ChunkManager.onChunkLoaded += OnChunkLoaded;
@@ -490,15 +489,15 @@ public partial class Minimap : Node3D
             return;
         }
         DetailGroupData[] detailPalette = ChunkMesh.ActiveDetailGroups;
-        EnvironmentKitData[] kitPalette = ChunkMesh.ActiveKits;
-        MinimapData.GenerateSurfaceRow(chunk, detailPalette, kitPalette, _surfaceCells);
+        TerrainData[] terrainPalette = ChunkMesh.ActiveTerrains;
+        MinimapData.GenerateSurfaceRow(chunk, detailPalette, terrainPalette, _surfaceCells);
         _textures.ApplyChunkSurface(coord, _surfaceCells, _foliageColors);
 
         // Slice tiles for every vertical slice this chunk overlaps. Empty
         // slices (from pure-air chunks, etc.) are skipped inside the atlas.
         // WorldState is passed so the top-slice "is the column above solid"
         // test can peek into the chunk above this one.
-        _sliceAtlas.ApplyChunkSlices(coord, chunk, detailPalette, kitPalette, _world.WorldState, _foliageColors, _sliceCells);
+        _sliceAtlas.ApplyChunkSlices(coord, chunk, detailPalette, terrainPalette, _world.WorldState, _foliageColors, _sliceCells);
 
         // Try prop stamping in case entities are already loaded (e.g. catch-up
         // pass during Initialize where chunks pre-existed). Normal flow is
@@ -540,15 +539,56 @@ public partial class Minimap : Node3D
     }
 
     // 64×1 LUT — 1px tall is enough; the shader samples with NEAREST on the
-    // X axis to pick by tile id. Built once at Initialize; the palette resource
-    // is authored, not mutated at runtime.
-    private static Texture2D BuildTileLutTexture(MinimapTileColors palette)
+    // X axis to pick by tile id. Built once at Initialize; the catalog is
+    // authored, not mutated at runtime.
+    //
+    // For each block in the catalog, every layer in its [base, base+LayerCount)
+    // range is painted with the block's per-band color (variants within a
+    // band share a color — the minimap doesn't differentiate them). Aliases
+    // (a smaller block whose AtlasBaseIndex falls inside another block's
+    // range, e.g. DesertSand@28 inside DesertTop@27..28) overwrite by virtue
+    // of their position later in catalog.Blocks. WallSlotIndex paints the
+    // authored wall color; unauthored slots stay magenta as a sanity-check.
+    private static Texture2D BuildTileLutTexture(BlockCatalog catalog, Color wallSlotColor)
     {
-        const int W = MinimapTileColors.Size;
+        const int W = VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE;
+        Color[] table = new Color[W];
+        Color unauthored = new Color(1f, 0f, 1f);
+        for (int i = 0; i < W; i++)
+        {
+            table[i] = unauthored;
+        }
+
+        if (catalog?.Blocks != null)
+        {
+            foreach (BlockData block in catalog.Blocks)
+            {
+                if (block == null) { continue; }
+                for (int band = 0; band < block.Bands; band++)
+                {
+                    Color c = block.GetMinimapColor(band);
+                    int bandStart = block.AtlasBaseIndex + band * block.VariantsPerBand;
+                    for (int v = 0; v < block.VariantsPerBand; v++)
+                    {
+                        int idx = bandStart + v;
+                        if (idx >= 0 && idx < W)
+                        {
+                            table[idx] = c;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (MinimapData.WallSlotIndex >= 0 && MinimapData.WallSlotIndex < W)
+        {
+            table[MinimapData.WallSlotIndex] = wallSlotColor;
+        }
+
         byte[] pixels = new byte[W * 4];
         for (int i = 0; i < W; i++)
         {
-            Color c = palette != null ? palette.Get(i) : new Color(1f, 0f, 1f);
+            Color c = table[i];
             pixels[i * 4 + 0] = (byte)Mathf.Clamp((int)(c.R * 255f), 0, 255);
             pixels[i * 4 + 1] = (byte)Mathf.Clamp((int)(c.G * 255f), 0, 255);
             pixels[i * 4 + 2] = (byte)Mathf.Clamp((int)(c.B * 255f), 0, 255);

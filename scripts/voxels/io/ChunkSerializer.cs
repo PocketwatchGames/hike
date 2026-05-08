@@ -7,7 +7,7 @@ using Godot;
 //   shape    : 4096 bytes (SharpAxes byte per cell — the mesher's sharp-axis tag)
 //   sunlight : 4096 bytes (one byte per cell, value 0-15)
 //   fog      : 4096 bytes (one byte per cell, 0 = clear, 255 = thickest)
-//   kitId    : 4096 bytes (environment-kit index per cell)
+//   TerrainId    : 4096 bytes (environment-kit index per cell)
 //   overlay  : 4096 bytes (authored per-voxel overlay id; 0 = none)
 //   detailGroup    : 4096 bytes (1-based DetailGroups index; 0 = none)
 //   detailStrength : 4096 bytes (0..255 scatter density)
@@ -17,6 +17,7 @@ using Godot;
 //                    enum: 0 = Outdoor, 1 = Building, 2 = Cave, 3 = Tunnel —
 //                    same row-major layout as windFactor)
 //   zoneIndex    : 1 byte (index into WorldState.Zones[])
+//   regionIndex  : 1 byte (index into WorldState.Regions[])
 //   entities : type-tagged list (see EntitySerializer)
 //
 // BlockLight is NOT serialized — it's the additive sum of contributions from
@@ -91,7 +92,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    w.Write(chunk.KitId[x, y, z]);
+                    w.Write(chunk.TerrainId[x, y, z]);
                 }
             }
         }
@@ -152,6 +153,7 @@ public static class ChunkSerializer
         }
 
         w.Write(chunk.ZoneIndex);
+        w.Write(chunk.RegionIndex);
 
         EntitySerializer.WriteList(w, entities);
     }
@@ -210,7 +212,7 @@ public static class ChunkSerializer
             {
                 for (int z = 0; z < ChunkState.SIZE; z++)
                 {
-                    chunk.KitId[x, y, z] = r.ReadByte();
+                    chunk.TerrainId[x, y, z] = r.ReadByte();
                 }
             }
         }
@@ -271,6 +273,7 @@ public static class ChunkSerializer
         }
 
         chunk.ZoneIndex = r.ReadByte();
+        chunk.RegionIndex = r.ReadByte();
 
         entities = EntitySerializer.ReadList(r);
     }

@@ -46,17 +46,20 @@ public partial class ChunkMesh : Node3D
         var detailNormal = GD.Load<Texture2D>("res://assets/textures/voxels/detail_normal.tres");
         SharedMaterial.SetShaderParameter("detail_normal", detailNormal);
 
-        // Populate the per-tile variant table. Entry i carries (num_bands,
-        // variants_per_band, _, _) for the tile whose base layer is i;
-        // unused slots stay at (1,1,0,0) so any accidental index collapses
-        // to "no variation". The world-to-UV scale is global (see
-        // TILE_UV_SCALE below) — no longer a per-tile value.
+        // Populate the per-tile variant table from the BlockCatalog. Entry i
+        // carries (num_bands, variants_per_band, _, _) for the block whose
+        // AtlasBaseIndex is i; unused slots stay at (1,1,0,0) so any
+        // accidental index collapses to "no variation". The world-to-UV
+        // scale is global (see TILE_UV_SCALE below) — no longer a per-tile
+        // value.
+        BlockCatalog blockCatalog = BlockCatalog.Active;
         var variantTable = new Godot.Collections.Array();
         for (int i = 0; i < VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE; i++)
         {
-            if (VoxelTypeInfo.TileVariants.TryGetValue(i, out var info))
+            BlockData block = blockCatalog.GetByAtlasIndex(i);
+            if (block != null)
             {
-                variantTable.Add(new Vector4(info.Bands, info.VariantsPerBand, 0f, 0f));
+                variantTable.Add(new Vector4(block.Bands, block.VariantsPerBand, 0f, 0f));
             }
             else
             {
@@ -118,8 +121,8 @@ public partial class ChunkMesh : Node3D
         WaterBackfaceMaterial.RenderPriority = -2;
     }
 
-    // Must match MAX_KITS in voxel_clip.gdshader.
-    private const int MAX_KITS = 16;
+    // Must match MAX_TERRAINS in voxel_clip.gdshader.
+    private const int MAX_TERRAINS = 16;
 
     // World-scoped detail palette cached statically so ChunkMesh.Create can
     // pass it to ChunkDetailScatter without threading it through every
@@ -131,35 +134,37 @@ public partial class ChunkMesh : Node3D
     // World-scoped kit palette. Cached alongside _activeDetailGroups so
     // ChunkDetailScatter can resolve each painted voxel's kit to its
     // GroundTint without threading the array through every chunk-build call.
-    private static EnvironmentKitData[] _activeKits;
-    public static EnvironmentKitData[] ActiveKits => _activeKits;
+    private static TerrainData[] _activeTerrains;
+    public static TerrainData[] ActiveTerrains => _activeTerrains;
 
     // Upload the active world's environment kit palette to the terrain
     // material's uniform arrays. The shader indexes these arrays via the
-    // per-vertex KitId packed into CUSTOM1.yzw by the mesher. Call once at
+    // per-vertex TerrainId packed into CUSTOM1.yzw by the mesher. Call once at
     // world start after WorldGenData is available and before any chunk mesh
     // first renders; subsequent calls are a no-op if kits haven't changed.
-    public static void SetKits(EnvironmentKitData[] kits)
+    public static void SetTerrains(TerrainData[] terrains)
     {
-        _activeKits = kits;
-        // kit_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for the
-        //   flat↔wall smoothstep blend. Overlays are authored per-voxel as a
-        //   direct tile_array base-layer index (see OverlayId), not owned by
-        //   the kit, so .z/.w are reserved.
-        // kit_bands[i] = (wall_lo, wall_hi, _, _). One transition:
+        _activeTerrains = terrains;
+        // terrain_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for
+        //   the flat↔wall smoothstep blend. Overlays are authored per-voxel
+        //   as a direct tile_array base-layer index (see OverlayId), not
+        //   owned by the terrain, so .z/.w are reserved.
+        // terrain_bands[i] = (wall_lo, wall_hi, _, _). One transition:
         //   y < wall_lo → 100% wall; y > wall_hi → 100% flat.
-        var tiles = new Vector4[MAX_KITS];
-        var bands = new Vector4[MAX_KITS];
-        int n = kits != null ? Math.Min(kits.Length, MAX_KITS) : 0;
+        var tiles = new Vector4[MAX_TERRAINS];
+        var bands = new Vector4[MAX_TERRAINS];
+        int n = terrains != null ? Math.Min(terrains.Length, MAX_TERRAINS) : 0;
         for (int i = 0; i < n; i++)
         {
-            var kit = kits[i];
-            if (kit == null) { continue; }
-            tiles[i] = new Vector4(kit.FlatTile, kit.WallTile, 0f, 0f);
-            bands[i] = new Vector4(kit.WallBand.X, kit.WallBand.Y, 0f, 0f);
+            var terrain = terrains[i];
+            if (terrain == null) { continue; }
+            int flat = terrain.FlatTile != null ? terrain.FlatTile.AtlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("GrassTop");
+            int wall = terrain.WallTile != null ? terrain.WallTile.AtlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("Stone");
+            tiles[i] = new Vector4(flat, wall, 0f, 0f);
+            bands[i] = new Vector4(terrain.WallBand.X, terrain.WallBand.Y, 0f, 0f);
         }
-        SharedMaterial.SetShaderParameter("kit_tiles", tiles);
-        SharedMaterial.SetShaderParameter("kit_bands", bands);
+        SharedMaterial.SetShaderParameter("terrain_tiles", tiles);
+        SharedMaterial.SetShaderParameter("terrain_bands", bands);
     }
 
     // Detail-sprite palette for ChunkDetailScatter. Index 0 of the per-voxel
@@ -187,7 +192,7 @@ public partial class ChunkMesh : Node3D
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
-        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists)
     {
@@ -198,7 +203,7 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists);
+        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists);
         return chunk;
     }
 
@@ -206,7 +211,7 @@ public partial class ChunkMesh : Node3D
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
-        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists)
     {
@@ -236,7 +241,7 @@ public partial class ChunkMesh : Node3D
         bool hasAnyFace;
         using (Profiler.Sample("ChunkMesh.MesherDC"))
         {
-            ChunkMesherDC.Build(data, getVoxel, getShape, getKitId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace);
+            ChunkMesherDC.Build(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists, st, chunkWorldX, chunkWorldY, chunkWorldZ, out hasAnyFace);
         }
 
         // Detail-sprite scatter (grass, flowers, etc.). Compute the per-entry
@@ -248,7 +253,7 @@ public partial class ChunkMesh : Node3D
         Dictionary<DetailEntry, List<ChunkDetailScatter.InstanceData>> scatterContrib;
         using (Profiler.Sample("ChunkMesh.DetailScatter"))
         {
-            scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getKitId, _activeDetailGroups, _activeKits);
+            scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getTerrainId, _activeDetailGroups, _activeTerrains);
         }
         World.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
         _scatterPosted = scatterContrib != null;

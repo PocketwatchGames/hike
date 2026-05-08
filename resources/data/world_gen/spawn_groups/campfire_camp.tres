@@ -1,0 +1,34 @@
+[gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://dwp88tyqewry"]
+
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="1_group"]
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_rvc63"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
+[ext_resource type="Script" uid="uid://olixgpwnbdbq5" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="4_campfire_entry"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="5_goblin_data"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest_scene"]
+[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="7_loot_scene"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="8_campfire_scene"]
+
+[sub_resource type="Resource" id="Resource_campfire_entry"]
+script = ExtResource("4_campfire_entry")
+Scene = ExtResource("8_campfire_scene")
+
+[sub_resource type="Resource" id="Resource_goblin_entry"]
+script = ExtResource("2_mob_entry")
+Data = ExtResource("5_goblin_data")
+InitialBehavior = null
+ClusterCountMin = 2
+ClusterCountMax = 3
+SpawnAtNight = true
+
+[sub_resource type="Resource" id="Resource_chest_entry"]
+script = ExtResource("3_chest_entry")
+Scene = ExtResource("6_chest_scene")
+LootScene = ExtResource("7_loot_scene")
+SpawnAtNight = true
+
+[resource]
+script = ExtResource("1_group")
+Entries = Array[ExtResource("1_rvc63")]([SubResource("Resource_campfire_entry"), SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
+Chance = 0.001

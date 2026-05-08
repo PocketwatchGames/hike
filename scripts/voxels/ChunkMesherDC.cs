@@ -58,7 +58,7 @@ public static class ChunkMesherDC
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
-        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         Func<int, int, int, bool> chunkExists,
         SurfaceTool st,
@@ -130,10 +130,10 @@ public static class ChunkMesherDC
         var cellVert = new Vector3[CELL_DIM, CELL_DIM, CELL_DIM];
         var cellTile = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-cell dominant kit id. Same 27-voxel majority vote as the tile
-        // pick, but counting KitId instead of VoxelType. Triangles carry three
+        // pick, but counting TerrainId instead of VoxelType. Triangles carry three
         // corner kits via CUSTOM1.yzw so the shader can barycentric-blend at
         // kit boundaries the same way it does for tile boundaries.
-        var cellKit = new int[CELL_DIM, CELL_DIM, CELL_DIM];
+        var cellTerrain = new int[CELL_DIM, CELL_DIM, CELL_DIM];
         // Per-cell dominant overlay id. Unlike kit/tile, the vote ignores
         // OverlayId=0 — most buried voxels carry zero, so a naive majority
         // would drown out a single surface voxel stamped with an overlay. The
@@ -184,7 +184,7 @@ public static class ChunkMesherDC
 
                     sbyte[] dArr = { d0, d1, d2, d3, d4, d5, d6, d7 };
 
-                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getKitId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
+                    PickTileAndAmpForCell(data, x, y, z, getVoxel, getShape, getTerrainId, getOverlayId, chunkWorldX, chunkWorldY, chunkWorldZ, out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant);
 
                     // Per-axis majority counts (for snapped coords) and the
                     // edge-midpoint accumulator (for smooth coords). Computed
@@ -258,7 +258,7 @@ public static class ChunkMesherDC
                     cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] = new Vector3(vx, vy, vz);
                     cellHas[CellIdx(x), CellIdx(y), CellIdx(z)] = true;
                     cellTile[CellIdx(x), CellIdx(y), CellIdx(z)] = tile;
-                    cellKit[CellIdx(x), CellIdx(y), CellIdx(z)] = kitId;
+                    cellTerrain[CellIdx(x), CellIdx(y), CellIdx(z)] = TerrainId;
                     cellOverlay[CellIdx(x), CellIdx(y), CellIdx(z)] = overlayId;
                     cellAmp[CellIdx(x), CellIdx(y), CellIdx(z)] = amp;
                     cellSharpness[CellIdx(x), CellIdx(y), CellIdx(z)] = sharpness;
@@ -311,7 +311,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -335,7 +335,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -356,7 +356,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -391,7 +391,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -420,7 +420,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -449,7 +449,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -482,7 +482,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -511,7 +511,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -540,7 +540,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellKit, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -568,7 +568,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellKit, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -602,10 +602,10 @@ public static class ChunkMesherDC
         int t2 = cellTile[i2x, i2y, i2z];
         int t3 = cellTile[i3x, i3y, i3z];
 
-        int k0 = cellKit[i0x, i0y, i0z];
-        int k1 = cellKit[i1x, i1y, i1z];
-        int k2 = cellKit[i2x, i2y, i2z];
-        int k3 = cellKit[i3x, i3y, i3z];
+        int k0 = cellTerrain[i0x, i0y, i0z];
+        int k1 = cellTerrain[i1x, i1y, i1z];
+        int k2 = cellTerrain[i2x, i2y, i2z];
+        int k3 = cellTerrain[i3x, i3y, i3z];
 
         int o0 = cellOverlay[i0x, i0y, i0z];
         int o1 = cellOverlay[i1x, i1y, i1z];
@@ -710,10 +710,10 @@ public static class ChunkMesherDC
         ChunkState data, int x, int y, int z,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
-        Func<int, int, int, int> getKitId,
+        Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
         int cwX, int cwY, int cwZ,
-        out int tile, out int kitId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
+        out int tile, out int TerrainId, out int overlayId, out float amp, out VoxelTypeInfo.SharpAxes sharpMask, out bool anySoftY, out float sharpness, out VoxelType dominant)
     {
         // Dominant material: majority vote over the cell's 3x3x3 contributing
         // neighbourhood. DC cells don't "own" the voxels at their 8 corner
@@ -731,7 +731,7 @@ public static class ChunkMesherDC
         // weights each type by how much of the neighbourhood it occupies, so
         // a cliff-face cell with dirt-heavy surroundings reads as dirt.
         Span<int> counts = stackalloc int[16];
-        Span<int> kitCounts = stackalloc int[256];
+        Span<int> terrainCounts = stackalloc int[256];
         Span<int> overlayCounts = stackalloc int[256];
         sharpMask = VoxelTypeInfo.SharpAxes.None;
         anySoftY = false;
@@ -747,7 +747,7 @@ public static class ChunkMesherDC
                     var shape = getShape(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     sharpMask |= shape;
                     if ((shape & VoxelTypeInfo.SharpAxes.Y) == 0) { anySoftY = true; }
-                    kitCounts[getKitId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
+                    terrainCounts[getTerrainId(cwX + x + dx, cwY + y + dy, cwZ + z + dz)]++;
                     int o = getOverlayId(cwX + x + dx, cwY + y + dy, cwZ + z + dz);
                     if (o != 0) { overlayCounts[o]++; }
                 }
@@ -763,14 +763,14 @@ public static class ChunkMesherDC
                 dominant = (VoxelType)i;
             }
         }
-        kitId = 0;
-        int bestKitCount = 0;
-        for (int i = 0; i < kitCounts.Length; i++)
+        TerrainId = 0;
+        int bestTerrainCount = 0;
+        for (int i = 0; i < terrainCounts.Length; i++)
         {
-            if (kitCounts[i] > bestKitCount)
+            if (terrainCounts[i] > bestTerrainCount)
             {
-                bestKitCount = kitCounts[i];
-                kitId = i;
+                bestTerrainCount = terrainCounts[i];
+                TerrainId = i;
             }
         }
         overlayId = 0;

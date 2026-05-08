@@ -1,14 +1,14 @@
-[gd_resource type="Resource" script_class="AmbienceLayerData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="AmbienceLayerData" format=3 uid="uid://bpgcjil20211p"]
 
 [ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
 [ext_resource type="AudioStream" uid="uid://b6jeve16njfk8" path="res://audio/source/ambience/rain/amb_base_rain_loop_c.wav" id="stream_rain_c"]
 
-[sub_resource type="Curve" id="Curve_rain_heavy_band"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.7, 0), 0.0, 0.0, 0, 0, Vector2(0.95, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
-point_count = 4
-
 [sub_resource type="Curve" id="Curve_gate_outdoor"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+point_count = 4
+
+[sub_resource type="Curve" id="Curve_rain_heavy_band"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.7, 0), 0.0, 0.0, 0, 0, Vector2(0.95, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 4
 
 [resource]
@@ -18,5 +18,3 @@ sourceField = 0
 volumeCurve = SubResource("Curve_rain_heavy_band")
 gateField = 5
 gateCurve = SubResource("Curve_gate_outdoor")
-volumeScale = 1.0
-bus = "Ambience2D"

@@ -35,6 +35,13 @@ public partial class SpriteBase : Sprite3D
     // mesh UVs, which these texelFetch-based shaders ignore.
     [Export] public bool Mirror { get; set; }
 
+    // Index into MinimapFoliageColors palette. 0 = no minimap stamp; non-zero
+    // stamps the matching darken-multiplier at this sprite's XZ during the
+    // minimap's prop pass. Same semantic as MultimeshPropSprite.MinimapFoliageId,
+    // exposed here so LitSprite / FlatLitSprite / interactives can also
+    // appear on the map.
+    [Export] public byte MinimapFoliageId { get; set; } = 0;
+
     // Anchor mode for the sprite's Offset. Default is overridden per
     // subclass — upright sprites anchor at center-bottom, flat sprites
     // anchor at full center. ApplyOffset() is virtual so each subclass

@@ -25,5 +25,6 @@ texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(62, 351, 39, 59)
 script = ExtResource("3_mmprop")
+MinimapFoliageId = 3
 ForwardOffset = 1.3284
 

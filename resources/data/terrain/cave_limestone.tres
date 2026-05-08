@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://pyvvyvryr1dc"]
+
+[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/TerrainData.cs" id="1_kit"]
+[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/blocks/block_stone.tres" id="3_block_flat"]
+
+[resource]
+script = ExtResource("1_kit")
+Name = "Cave Limestone"
+FlatTile = ExtResource("3_block_flat")
+WallBand = Vector2(0.3, 0.75)
+BlendAmp = 0.55
+GroundTint = Color(0.22, 0.22, 0.22, 1)

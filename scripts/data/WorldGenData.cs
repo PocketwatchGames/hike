@@ -14,6 +14,18 @@ public partial class WorldGenData : Resource
     // quadrant; the long-term design is arbitrary zone polygons / atlas).
     [Export] public ZoneGenData[] Zones = System.Array.Empty<ZoneGenData>();
 
+    // Named-region palette. Index in this array becomes the
+    // ChunkState.RegionIndex stamped on each generated chunk; the entry
+    // becomes WorldState.Regions[i].Data. Regions are an independent
+    // top-level subdivision from zones (a single named region can span
+    // multiple biomes, and a single biome can host multiple regions).
+    // WorldGen assigns chunks to regions (currently by quadrant, mirroring
+    // the zone assignment; the long-term design is arbitrary region
+    // polygons authored in the editor). Empty entries are border chunks —
+    // ChunkState.RegionIndex still points at them but the GameClient's
+    // sticky-region rules treat null Data as "no named region here".
+    [Export] public RegionData[] Regions = System.Array.Empty<RegionData>();
+
     // World extent (in chunks) and seed are passed as arguments to
     // WorldGen.Generate rather than authored on the data resource — they're
     // per-run knobs (a single WorldGenData template should be able to
@@ -41,12 +53,13 @@ public partial class WorldGenData : Resource
     [Export] public int CaveMinHeight = 3;
     [Export] public int DirtDepth = 3;
 
-    // Per cave-floor spawn roll. Caves are dim, so a low rate still produces
-    // visibly lit pockets without flooding every tunnel with torches.
-    [Export] public float CaveTorchChance = 0.0025f;
+    // Door / signpost / spike-trap scenes still live world-wide because they
+    // aren't placed via the per-zone SpawnListData scan. Doors are placed by
+    // the room-shell pass; signposts are one-per-quadrant; spike traps are
+    // editor-placed. Torch / campfire / chest / poison-chest scenes used to
+    // live here too — they moved into per-zone CaveEntities/SurfaceEntities
+    // (TorchSpawnEntry, CampfireSpawnEntry, ChestSpawnEntry).
     [Export] public PackedScene DoorScene;
-    [Export] public PackedScene TorchScene;
-    [Export] public PackedScene CampfireScene;
     [Export] public PackedScene SpikeTrapScene;
     [Export] public PackedScene SignpostScene;
 

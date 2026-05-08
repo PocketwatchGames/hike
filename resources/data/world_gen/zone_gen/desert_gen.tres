@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4gcdk0vs"]
+
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/desert_kit.tres" id="2_qtgnd"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_sandstone_kit.tres" id="3_nc5be"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_uxbjh"]
+[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/zones/desert.tres" id="5_25es0"]
+[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_25es0"]
+[ext_resource type="Script" uid="uid://b3rgnd05hike01" path="res://scripts/data/ZoneGenData.cs" id="28_8kxn4"]
+[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_default.tres" id="29_surface"]
+[ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="30_cave"]
+
+[resource]
+script = ExtResource("28_8kxn4")
+Zone = ExtResource("5_25es0")
+SurfaceKit = ExtResource("2_qtgnd")
+CaveKit = ExtResource("3_nc5be")
+SubmergedKit = ExtResource("4_uxbjh")
+ShoreKit = ExtResource("9_25es0")
+Elevation = 1.0
+PathThreshold = 0.1
+PathBlendBand = 0.05
+TunnelThreshold = 0.1
+CaveNoiseFrequency = 0.04
+GrassThreshold = 0.67
+SurfaceEntities = ExtResource("29_surface")
+CaveEntities = ExtResource("30_cave")

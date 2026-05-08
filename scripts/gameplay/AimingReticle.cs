@@ -9,7 +9,7 @@ using Godot;
 public partial class AimingReticle : Node3D
 {
 	// Main forward beam. Mesh authored as a unit-Z box; scale.z + position.z
-	// per frame so the line ends at the wall hit (or _maxLineLength if clear).
+	// per frame so the line ends at the wall hit (or weapon range if clear).
 	// Alpha ramps from 1m→3m via gradient instance uniforms.
 	[Export] private MeshInstance3D _mainLine;
 	// Two parallel spread markers, fixed length, positioned at the line
@@ -21,9 +21,6 @@ public partial class AimingReticle : Node3D
 	// Always-visible ring on the ground beneath the drop line.
 	[Export] private MeshInstance3D _groundCircle;
 
-	// Maximum forward extent of the aim line. The line clips short whenever
-	// the forward raycast hits an environment surface.
-	[Export] private float _maxLineLength = 5f;
 	// Vertical offset of the chest pivot above the player's feet.
 	[Export] private float _aimHeight = 1f;
 	// World distance from the chest pivot at which the main line's alpha ramp
@@ -47,18 +44,8 @@ public partial class AimingReticle : Node3D
 	// path produces a clean annulus.
 	[Export] private float _groundRingOuterRadius = 0.2f;
 	[Export] private float _groundRingInnerRadius = 0.16f;
-	// Half-thickness of each line type. Must match the BoxMesh size in the
-	// .tscn for the shader's L∞ AA to land on the visible silhouette. Lines
-	// run along Z (main, spread) or Y (drop) — line_axis is set per mesh.
-	[Export] private float _mainLineRadius = 0.06f;
-	[Export] private float _spreadLineRadius = 0.05f;
-	[Export] private float _dropLineRadius = 0.05f;
 
 	Player _player;
-
-	const float LineAxisX = 0f;
-	const float LineAxisY = 1f;
-	const float LineAxisZ = 2f;
 
 	public void Initialize(Player player)
 	{
@@ -72,20 +59,6 @@ public partial class AimingReticle : Node3D
 			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _groundRingOuterRadius);
 			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", _groundRingInnerRadius);
 		}
-		ConfigureLineMesh(_mainLine, LineAxisZ, _mainLineRadius);
-		ConfigureLineMesh(_spreadLineLeft, LineAxisZ, _spreadLineRadius);
-		ConfigureLineMesh(_spreadLineRight, LineAxisZ, _spreadLineRadius);
-		ConfigureLineMesh(_dropLine, LineAxisY, _dropLineRadius);
-	}
-
-	static void ConfigureLineMesh(MeshInstance3D mesh, float axis, float radius)
-	{
-		if (mesh == null)
-		{
-			return;
-		}
-		mesh.SetInstanceShaderParameter("line_axis", axis);
-		mesh.SetInstanceShaderParameter("line_radius", radius);
 	}
 
 	public override void _Process(double delta)
@@ -110,9 +83,10 @@ public partial class AimingReticle : Node3D
 		// doesn't bury into geometry. Without this clamp the drop raycast
 		// could start inside a wall and miss the floor entirely, producing
 		// the "infinite" drop line.
-		float lineLength = _maxLineLength;
+		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
+		float lineLength = maxRange;
 		bool clippedAtWall = false;
-		if (TryRaycastForward(chestWorld, forward, _maxLineLength, out Vector3 forwardHit))
+		if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit))
 		{
 			lineLength = (forwardHit - chestWorld).Length();
 			clippedAtWall = true;
@@ -188,31 +162,64 @@ public partial class AimingReticle : Node3D
 		line.Scale = new Vector3(1f, 1f, _spreadLineLength);
 	}
 
+	// Mirrors DoHitscan's two-pass clip so the reticle ends where the actual
+	// shot would land: environment first (bodies) for terrain, then hurtboxes
+	// (areas) up to the env hit for mobs / destructible props. Whichever is
+	// closer wins.
 	bool TryRaycastForward(Vector3 from, Vector3 dir, float distance, out Vector3 hitWorld)
 	{
 		hitWorld = default;
 		World3D world3D = GetWorld3D();
-		if (world3D == null)
+		if (world3D == null || distance <= 0f)
 		{
 			return false;
 		}
 		Vector3 to = from + dir * distance;
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
-		query.CollideWithBodies = true;
-		query.CollideWithAreas = false;
-		// Exclude the player's own body — otherwise the chest origin sitting
-		// inside the capsule self-hits at zero distance.
+		var spaceState = world3D.DirectSpaceState;
+
+		// Environment clip. Exclude the player's own body — otherwise the chest
+		// origin sitting inside the capsule self-hits at zero distance.
+		Godot.Collections.Array<Rid> bodyExclude = new();
 		if (_player != null)
 		{
-			query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+			bodyExclude.Add(_player.GetRid());
 		}
-		var result = world3D.DirectSpaceState.IntersectRay(query);
-		if (result.Count == 0)
+		using var envQuery = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+		envQuery.CollideWithBodies = true;
+		envQuery.CollideWithAreas = false;
+		envQuery.Exclude = bodyExclude;
+		var envResult = spaceState.IntersectRay(envQuery);
+
+		Vector3 envEnd = to;
+		bool clipped = false;
+		if (envResult.Count > 0)
 		{
-			return false;
+			envEnd = (Vector3)envResult["position"];
+			clipped = true;
 		}
-		hitWorld = (Vector3)result["position"];
-		return true;
+
+		// Hurtbox clip up to the env hit point. Exclude the player's own hurtbox.
+		using var hurtQuery = PhysicsRayQueryParameters3D.Create(from, envEnd, (uint)ECollisionLayer.HurtBox);
+		hurtQuery.CollideWithBodies = false;
+		hurtQuery.CollideWithAreas = true;
+		Rid? selfHurtBox = _player?.SelfHurtBoxRid;
+		if (selfHurtBox.HasValue)
+		{
+			hurtQuery.Exclude = new Godot.Collections.Array<Rid> { selfHurtBox.Value };
+		}
+		var hurtResult = spaceState.IntersectRay(hurtQuery);
+		if (hurtResult.Count > 0)
+		{
+			hitWorld = (Vector3)hurtResult["position"];
+			return true;
+		}
+
+		if (clipped)
+		{
+			hitWorld = envEnd;
+			return true;
+		}
+		return false;
 	}
 
 	bool TryRaycastDown(Vector3 from, float distance, out Vector3 hitWorld)
@@ -224,9 +231,13 @@ public partial class AimingReticle : Node3D
 			return false;
 		}
 		Vector3 to = from + Vector3.Down * distance;
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+		// Water | Environment so the dot lands on the water surface over a
+		// lake instead of punching through to the lake floor. Water lives on
+		// an Area3D (WaterTrigger), so CollideWithAreas must be on; the layer
+		// mask filters out other Area3Ds (interactives, hurtboxes).
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)(ECollisionLayer.Environment | ECollisionLayer.Water));
 		query.CollideWithBodies = true;
-		query.CollideWithAreas = false;
+		query.CollideWithAreas = true;
 		var result = world3D.DirectSpaceState.IntersectRay(query);
 		if (result.Count == 0)
 		{

@@ -8,17 +8,13 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_habc4"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_interactivebox"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="5_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="6_lit_materialtemplate"]
-[ext_resource type="Script" uid="uid://bqqg5l6u5hqng" path="res://scripts/gameplay/entities/AutoLoot.cs" id="6_v5trg"]
+[ext_resource type="PackedScene" uid="uid://cnq6q51o8cimn" path="res://scenes/interactives/berry_red.tscn" id="6_5ksji"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="7_lit_blshadowcastertemplate"]
-[ext_resource type="PackedScene" uid="uid://cfugslgplto77" path="res://scenes/effects/loot_pickup.tscn" id="7_niy6d"]
-[ext_resource type="PackedScene" uid="uid://cfugvse2e2o77" path="res://scenes/effects/loot_spawn.tscn" id="8_ar8je"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
-[ext_resource type="Texture2D" uid="uid://5ws78r3gdab7" path="res://assets/textures/interactives/loot.png" id="9_26kxx"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="10_action"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="11_anim"]
-[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="16_6s0x7"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="17_lit_noxray"]
 
 [sub_resource type="Resource" id="Resource_berry_event_pick"]
 script = ExtResource("3_xdtv3")
@@ -29,76 +25,6 @@ script = ExtResource("10_action")
 completionEvents = Array[ExtResource("3_xdtv3")]([SubResource("Resource_berry_event_pick")])
 durationSeconds = 1.5
 locksMovement = true
-
-[sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
-bounce = 0.5
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_loot"]
-
-[sub_resource type="Animation" id="Animation_bob"]
-resource_name = "Bob"
-loop_mode = 1
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite:position:y")
-tracks/0/interp = 2
-tracks/0/loop_wrap = true
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.5, 1),
-"transitions": PackedFloat32Array(1, 1, 1),
-"update": 0,
-"values": [0.0, 1.0, 0.0]
-}
-
-[sub_resource type="Animation" id="Animation_pickedup"]
-resource_name = "PickedUp"
-length = 0.67
-tracks/0/type = "value"
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/path = NodePath("Sprite:position:y")
-tracks/0/interp = 1
-tracks/0/loop_wrap = false
-tracks/0/keys = {
-"times": PackedFloat32Array(0, 0.67),
-"transitions": PackedFloat32Array(1, 1),
-"update": 0,
-"values": [0.0, 5.0]
-}
-tracks/1/type = "value"
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/path = NodePath("Sprite:scale")
-tracks/1/interp = 1
-tracks/1/loop_wrap = false
-tracks/1/keys = {
-"times": PackedFloat32Array(0, 0.67),
-"transitions": PackedFloat32Array(1, 2.9281716),
-"update": 0,
-"values": [Vector3(1, 1, 1), Vector3(0, 0, 0)]
-}
-
-[sub_resource type="AnimationLibrary" id="AnimationLibrary_loot"]
-_data = {
-&"Bob": SubResource("Animation_bob"),
-&"PickedUp": SubResource("Animation_pickedup")
-}
-
-[sub_resource type="PackedScene" id="PackedScene_f6l6x"]
-_bundled = {
-"conn_count": 0,
-"conns": PackedInt32Array(),
-"editable_instances": [],
-"id_paths": [PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array(), PackedInt32Array()],
-"names": PackedStringArray("AutoLoot", "RigidBody3D", "collision_layer", "axis_lock_angular_x", "axis_lock_angular_y", "axis_lock_angular_z", "physics_material_override", "script", "_collisionShape", "_animationPlayer", "_pickupArea", "_hurtBox", "_pickupEffectScene", "_spawnEffectScene", "CollisionShape3D", "CollisionShape3D", "transform", "shape", "Sprite", "Sprite3D", "cast_shadow", "centered", "offset", "pixel_size", "alpha_cut", "texture", "region_enabled", "region_rect", "script", "Reflects", "MaterialTemplate", "ShadowCasterTemplate", "BlockLightShadowCasterTemplate", "ReflectionTemplate", "PickupArea", "Area3D", "collision_layer", "collision_mask", "PickupShape", "CollisionShape3D", "transform", "shape", "AnimationPlayer", "AnimationPlayer", "libraries/", "HurtBox", "Area3D", "collision_layer", "collision_mask", "script", "CollisionShape3D", "CollisionShape3D", "transform", "shape", "InteractiveXray", "Node3D", "script", "_sprites"),
-"node_count": 9,
-"node_ids": PackedInt32Array(1610781501, 172604426, 650643215, 2016645530, 1869349668, 1993268754, 85082300, 959546467, 0),
-"node_paths": [NodePath("."), NodePath("."), NodePath("."), NodePath("./PickupArea"), NodePath("."), NodePath("."), NodePath("./HurtBox"), NodePath(".")],
-"nodes": PackedInt32Array(-1, -1, 1, 0, -1, 12, 2, 0, 3, 1, 4, 2, 5, 3, 6, 4, 7, 5, 1073741832, 6, 1073741833, 7, 1073741834, 8, 1073741835, 9, 12, 10, 13, 11, 0, 1073741824, 0, 15, 14, -1, 2, 16, 12, 17, 13, 0, 1073741825, 0, 19, 18, -1, 14, 20, 14, 21, 15, 22, 16, 23, 17, 24, 18, 25, 19, 26, 20, 27, 21, 28, 22, 29, 23, 30, 24, 31, 25, 32, 26, 33, 27, 0, 1073741826, 0, 35, 34, -1, 2, 36, 28, 37, 29, 0, 1073741827, 0, 39, 38, -1, 2, 40, 30, 41, 31, 0, 1073741828, 0, 43, 42, -1, 1, 44, 32, 0, 1073741829, 0, 46, 45, -1, 3, 47, 33, 48, 34, 49, 35, 0, 1073741830, 0, 51, 50, -1, 2, 52, 36, 53, 37, 0, 1073741831, 0, 55, 54, -1, 2, 56, 38, 1073741881, 39, 0),
-"variants": [8, true, true, true, SubResource("PhysicsMaterial_loot"), ExtResource("6_v5trg"), NodePath("CollisionShape3D"), NodePath("AnimationPlayer"), NodePath("PickupArea"), NodePath("HurtBox"), ExtResource("7_niy6d"), ExtResource("8_ar8je"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0), SubResource("BoxShape3D_loot"), 0, false, Vector2(-4, 0), 0.0738, 1, ExtResource("9_26kxx"), true, Rect2(0, 0, 8, 8), ExtResource("5_litsprite"), 1, ExtResource("6_lit_materialtemplate"), ExtResource("8_lit_shadowcastertemplate"), ExtResource("7_lit_blshadowcastertemplate"), ExtResource("9_lit_reflectiontemplate"), 0, 2, Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0), SubResource("BoxShape3D_loot"), SubResource("AnimationLibrary_loot"), 32, 0, ExtResource("2_hurtbox"), Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0), SubResource("BoxShape3D_loot"), ExtResource("16_6s0x7"), [NodePath("../Sprite")]],
-"version": 3
-}
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_block"]
 
@@ -137,7 +63,7 @@ _animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
-_berryScene = SubResource("PackedScene_f6l6x")
+_berryScene = ExtResource("6_5ksji")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=117381297]
 
@@ -170,7 +96,8 @@ ForwardOffset = 0.5
 ShadowCasterTemplate = ExtResource("8_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("7_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("9_lit_reflectiontemplate")
-MaterialTemplate = ExtResource("6_lit_materialtemplate")
+MinimapFoliageId = 4
+MaterialTemplate = ExtResource("17_lit_noxray")
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=859611493 node_paths=PackedStringArray("target")]
 script = ExtResource("11_anim")

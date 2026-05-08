@@ -73,11 +73,4 @@ public partial class ZoneData : Resource
     // weights as the player crosses zone borders, the same way the
     // visual palette already blends.
     [Export] public ZoneAmbienceData ambience;
-
-    // Named map region this zone belongs to. Multiple zones share one
-    // RegionData when they're part of the same named place. Null = a
-    // "border zone" with no named identity — the player's current
-    // region stays put when they walk through a border zone (subject
-    // to GameClient.UpdateRegion's distance cap).
-    [Export] public RegionData region;
 }

@@ -20,9 +20,9 @@
 shader_type canvas_item;
 
 // Per-state A textures.
-uniform sampler2D surface_texture_a : filter_nearest;
-uniform sampler2D surface_texture_below1_a : filter_nearest;
-uniform sampler2D surface_texture_below2_a : filter_nearest;
+uniform sampler2D surface_texture_a : filter_linear;
+uniform sampler2D surface_texture_below1_a : filter_linear;
+uniform sampler2D surface_texture_below2_a : filter_linear;
 uniform sampler2D exploration_texture_a : filter_linear;
 uniform sampler2D exploration_texture_below1_a : filter_linear;
 uniform sampler2D exploration_texture_below2_a : filter_linear;
@@ -32,9 +32,9 @@ uniform float meters_per_pixel_a = 2.0;
 uniform float reference_elevation_a = 0.0;
 
 // Per-state B textures.
-uniform sampler2D surface_texture_b : filter_nearest;
-uniform sampler2D surface_texture_below1_b : filter_nearest;
-uniform sampler2D surface_texture_below2_b : filter_nearest;
+uniform sampler2D surface_texture_b : filter_linear;
+uniform sampler2D surface_texture_below1_b : filter_linear;
+uniform sampler2D surface_texture_below2_b : filter_linear;
 uniform sampler2D exploration_texture_b : filter_linear;
 uniform sampler2D exploration_texture_below1_b : filter_linear;
 uniform sampler2D exploration_texture_below2_b : filter_linear;
@@ -80,28 +80,79 @@ uniform float below_saturation : hint_range(0.0, 1.0) = 0.4;
 uniform float above_contrast : hint_range(0.0, 1.0) = 1.0;
 uniform float below_contrast : hint_range(0.0, 1.0) = 1.0;
 
+// Topographic contour lines drawn at every contour_interval meters of
+// elevation. Width is fixed in *screen pixels* (not source-texture
+// pixels) via fwidth() — so zooming in or out keeps lines the same
+// thickness. Set contour_strength to 0 to disable. Width is in screen
+// pixels; 1.0 = a 1-pixel anti-aliased line.
+uniform float contour_interval : hint_range(0.5, 32.0) = 4.0;
+uniform float contour_line_width : hint_range(0.5, 8.0) = 1.0;
+uniform vec4 contour_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+uniform float contour_strength : hint_range(0.0, 1.0) = 0.5;
+
 uniform vec4 void_color : source_color = vec4(0.04, 0.04, 0.06, 1.0);
 uniform float mask_radius : hint_range(0.0, 0.7071) = 0.5;
 uniform float mask_softness : hint_range(0.0, 0.1) = 0.015;
 
+// Resolve one source-texel's TERRAIN color (tile LUT only — foliage is
+// applied separately below so its edges stay sharp).
+vec3 fetch_terrain_color(sampler2D surf_tex, ivec2 coord) {
+    vec4 s = texelFetch(surf_tex, coord, 0);
+    float tile_id = s.b * 255.0;
+    return texture(tile_lut, vec2((tile_id + 0.5) / 64.0, 0.5)).rgb;
+}
+
 // Decode one (surface, exploration) pair at `uv` with the given reference
-// elevation. Returns the lit color and a 0/1 has_content flag.
+// elevation. Returns the lit color, a 0/1 has_content flag, and the raw
+// height (for the contour pass).
+//
+// HEIGHT: one linear-filtered sample (smooth elevation + contour curves).
+// TERRAIN COLOR: 4-tap bilinear blend of the resolved tile colors so
+//   neighbouring tiles transition smoothly without checkerboarding.
+// FOLIAGE: NEAREST-sampled at the dominant texel. Applied AFTER the
+//   terrain blend so foliage stamps keep crisp edges instead of bleeding
+//   their darken into surrounding fragments via the bilinear filter.
 void sample_layer(
     sampler2D surf_tex, sampler2D expl_tex, vec2 uv, float reference_elev,
-    out vec3 out_color, out float out_has_content
+    out vec3 out_color, out float out_has_content, out float out_height
 ) {
     vec4 surf = texture(surf_tex, uv);
     float height = surf.r * 255.0 + surf.g * 255.0 * 256.0;
+    out_height = height;
     out_has_content = step(0.5, height);
 
-    float tile_id = surf.b * 255.0;
-    float foliage_id = surf.a * 255.0;
-    vec3 color = texture(tile_lut, vec2((tile_id + 0.5) / 64.0, 0.5)).rgb;
-    vec4 foli = texture(foliage_lut, vec2((foliage_id + 0.5) / 256.0, 0.5));
-    color = mix(color, foli.rgb, step(0.5, foliage_id) * foli.a);
+    ivec2 itex_size = textureSize(surf_tex, 0);
+    vec2 fsz = vec2(itex_size);
+    vec2 pp = uv * fsz - 0.5;
+    ivec2 base = ivec2(floor(pp));
+    vec2 fr = clamp(fract(pp), 0.0, 1.0);
+    ivec2 maxc = itex_size - 1;
 
-    // Plateau-banded above/below treatment.
-    float pixel_plateau = floor(height / plateau_height);
+    // Bilinear blend of terrain (tile) colors only.
+    vec3 c00 = fetch_terrain_color(surf_tex, clamp(base + ivec2(0, 0), ivec2(0), maxc));
+    vec3 c10 = fetch_terrain_color(surf_tex, clamp(base + ivec2(1, 0), ivec2(0), maxc));
+    vec3 c01 = fetch_terrain_color(surf_tex, clamp(base + ivec2(0, 1), ivec2(0), maxc));
+    vec3 c11 = fetch_terrain_color(surf_tex, clamp(base + ivec2(1, 1), ivec2(0), maxc));
+    vec3 color = mix(mix(c00, c10, fr.x), mix(c01, c11, fr.x), fr.y);
+
+    // Foliage: nearest-neighbor — sharp edges, no bilinear bleed.
+    ivec2 nearest_coord = clamp(ivec2(uv * fsz), ivec2(0), maxc);
+    vec4 surf_nearest = texelFetch(surf_tex, nearest_coord, 0);
+    float foliage_id = surf_nearest.a * 255.0;
+    vec4 foli = texture(foliage_lut, vec2((foliage_id + 0.5) / 256.0, 0.5));
+    float foli_strength = step(0.5, foliage_id) * foli.a;
+    color *= mix(vec3(1.0), foli.rgb, foli_strength);
+
+    // Plateau-banded above/below treatment. Use NEAREST-sampled height
+    // (not the linear-filtered `height`) so the plateau doesn't drift
+    // through the player's plateau as the linear filter interpolates from
+    // a content cell (slice center, e.g. h=10) toward an empty cell
+    // (h=0). With linear h, fragments in the empty cell where h0 ∈ [8, 12)
+    // would falsely classify as the player's plateau and render bright;
+    // nearest-sampled h jumps cleanly between cells so plateau matches
+    // the cell the fragment lives in.
+    float h_nearest = surf_nearest.r * 255.0 + surf_nearest.g * 255.0 * 256.0;
+    float pixel_plateau = floor(h_nearest / plateau_height);
     float ref_plateau = floor(reference_elev / plateau_height);
     float plateau_diff = pixel_plateau - ref_plateau;
     float t_above = step(0.5, plateau_diff);
@@ -148,18 +199,49 @@ void render_state(
     bool out_of_bounds = tex_uv.x < 0.0 || tex_uv.x > 1.0 || tex_uv.y < 0.0 || tex_uv.y > 1.0;
     vec2 safe_uv = clamp(tex_uv, vec2(0.0), vec2(1.0));
 
-    vec3 c0; float has0;
-    vec3 c1; float has1;
-    vec3 c2; float has2;
-    sample_layer(surf,    expl,    safe_uv, reference_elev, c0, has0);
-    sample_layer(surf_b1, expl_b1, safe_uv, reference_elev, c1, has1);
-    sample_layer(surf_b2, expl_b2, safe_uv, reference_elev, c2, has2);
+    vec3 c0; float has0; float h0;
+    vec3 c1; float has1; float h1_unused;
+    vec3 c2; float has2; float h2_unused;
+    sample_layer(surf,    expl,    safe_uv, reference_elev, c0, has0, h0);
+    sample_layer(surf_b1, expl_b1, safe_uv, reference_elev, c1, has1, h1_unused);
+    sample_layer(surf_b2, expl_b2, safe_uv, reference_elev, c2, has2, h2_unused);
     c1 *= below1_brightness;
     c2 *= below2_brightness;
 
     vec3 composed = c2 * has2;
     composed = mix(composed, c1, has1);
     composed = mix(composed, c0, has0);
+
+    // Topographic contour lines drawn from the active layer's height.
+    // fwidth gives the per-screen-pixel rate of change so the line stays
+    // ~contour_line_width screen pixels wide regardless of zoom.
+    //
+    // Gated by NEIGHBOR elevation differential: the line only draws where
+    // at least one cardinal neighbor differs by ≥ plateau_height. Smooth
+    // ramps (1m gradient between source pixels) skip the contour, hard
+    // plateau steps draw it.
+    ivec2 atex_size = textureSize(surf, 0);
+    ivec2 atex_coord = clamp(ivec2(safe_uv * vec2(atex_size)), ivec2(0), atex_size - 1);
+    vec4 sc = texelFetch(surf, atex_coord, 0);
+    vec4 sl = texelFetch(surf, clamp(atex_coord + ivec2(-1, 0), ivec2(0), atex_size - 1), 0);
+    vec4 sr = texelFetch(surf, clamp(atex_coord + ivec2( 1, 0), ivec2(0), atex_size - 1), 0);
+    vec4 sd = texelFetch(surf, clamp(atex_coord + ivec2(0, -1), ivec2(0), atex_size - 1), 0);
+    vec4 su = texelFetch(surf, clamp(atex_coord + ivec2(0,  1), ivec2(0), atex_size - 1), 0);
+    float h_c = sc.r * 255.0 + sc.g * 255.0 * 256.0;
+    float h_l = sl.r * 255.0 + sl.g * 255.0 * 256.0;
+    float h_r = sr.r * 255.0 + sr.g * 255.0 * 256.0;
+    float h_d = sd.r * 255.0 + sd.g * 255.0 * 256.0;
+    float h_u = su.r * 255.0 + su.g * 255.0 * 256.0;
+    float max_diff = max(max(abs(h_l - h_c), abs(h_r - h_c)),
+                         max(abs(h_d - h_c), abs(h_u - h_c)));
+    float is_step = step(plateau_height * 0.9, max_diff);
+
+    float halfInt = contour_interval * 0.5;
+    float modH = mod(h0 + halfInt, contour_interval) - halfInt;
+    float dist_to_line = abs(modH);
+    float aa = max(fwidth(h0) * contour_line_width * 0.5, 0.0001);
+    float line = 1.0 - smoothstep(aa, aa * 2.0, dist_to_line);
+    composed = mix(composed, contour_color.rgb, line * contour_strength * has0 * is_step);
 
     float any = max(has0, max(has1, has2));
     out_has_any = any * (1.0 - float(out_of_bounds));

@@ -153,26 +153,47 @@ public class MinimapTextures
         }
     }
 
-    // Stamp a single foliage entry at a world XZ position (typically a prop's
-    // origin). Performs priority comparison against the existing pixel.
-    public void StampFoliagePoint(Vector3 worldPos, byte foliageId, MinimapFoliageColors palette)
+    // Stamp a foliage entry at a world XZ position (typically a prop's
+    // origin) as a small disk so the result reads as a rounded blob with
+    // crisp edges (the shader uses nearest-neighbor on foliage_id, so the
+    // shape comes from the stamped texels themselves). Radius is in
+    // source pixels: 0 = single pixel, 1 = 5-pixel plus, 2 = 13-pixel disk.
+    public void StampFoliagePoint(Vector3 worldPos, byte foliageId, MinimapFoliageColors palette, int radiusPixels = 0)
     {
         if (foliageId == 0)
         {
             return;
         }
-        int px = (Mathf.FloorToInt(worldPos.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
-        int pz = (Mathf.FloorToInt(worldPos.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
-        if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
-        {
-            return;
-        }
-        int byteIdx = (pz * _widthPixels + px) * BytesPerSurfacePixel;
+        int cx = (Mathf.FloorToInt(worldPos.X) - _worldOriginXZ.X) / MinimapData.OutdoorMetersPerPixel;
+        int cz = (Mathf.FloorToInt(worldPos.Z) - _worldOriginXZ.Y) / MinimapData.OutdoorMetersPerPixel;
         int newPrio = ResolvePriority(foliageId, palette);
-        int existingPrio = ResolvePriority(_surfaceData[byteIdx + 3], palette);
-        if (newPrio >= existingPrio)
+        int rSq = radiusPixels * radiusPixels + radiusPixels;
+        bool changed = false;
+        for (int dz = -radiusPixels; dz <= radiusPixels; dz++)
         {
-            _surfaceData[byteIdx + 3] = foliageId;
+            for (int dx = -radiusPixels; dx <= radiusPixels; dx++)
+            {
+                if (dx * dx + dz * dz > rSq)
+                {
+                    continue;
+                }
+                int px = cx + dx;
+                int pz = cz + dz;
+                if (px < 0 || pz < 0 || px >= _widthPixels || pz >= _heightPixels)
+                {
+                    continue;
+                }
+                int byteIdx = (pz * _widthPixels + px) * BytesPerSurfacePixel;
+                int existingPrio = ResolvePriority(_surfaceData[byteIdx + 3], palette);
+                if (newPrio >= existingPrio)
+                {
+                    _surfaceData[byteIdx + 3] = foliageId;
+                    changed = true;
+                }
+            }
+        }
+        if (changed)
+        {
             _surfaceDirty = true;
         }
     }

@@ -84,10 +84,12 @@ global uniform float cloud_altitude;
 // (declared with source_color) matched their sources.
 uniform sampler2DArray tile_array : source_color, filter_nearest_mipmap, repeat_enable;
 
-// Tile layer indices — must match VoxelTypeInfo.TILE_* in C#.
-// Values are the BASE layer of a tile's contiguous variant block. The real
-// sampled layer is resolved per-fragment in `resolve_layer` from the base,
-// the elevation band (world Y), and a position hash.
+// Tile layer indices — must match the AtlasBaseIndex authored on the
+// matching BlockData in resources/data/blocks/. BlockCatalog.ValidateOrLog
+// asserts the two named slots referenced here ("Stone" at 0, "GrassTop" at
+// 1) at boot. Values are the BASE layer of a block's contiguous variant
+// range; the real sampled layer is resolved per-fragment in `resolve_layer`
+// from the base, the elevation band (world Y), and a position hash.
 const float TILE_STONE = 0.0;
 // Grass top's base is 1; variants/bands occupy layers 1..16 — resolved in
 // resolve_layer() from the tile_variants[] entry at index 1.
@@ -138,20 +140,21 @@ uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
 uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
 uniform float detail_normal_strength = 0.35;
 
-// Per-kit palette uploaded by ChunkMesh.SetKits at world start.
-//   kit_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
-//                   reserved (overlay is no longer a kit property — it is
-//                   authored per-voxel as a direct tile_array base index).
-//   kit_bands[i] = (wall_lo, wall_hi, _, _). One smoothstep: y<wall_lo = wall,
+// Per-terrain palette uploaded by ChunkMesh.SetTerrains at world start.
+//   terrain_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
+//                   reserved (overlay is no longer a terrain property — it
+//                   is authored per-voxel as a direct tile_array base index).
+//   terrain_bands[i] = (wall_lo, wall_hi, _, _). One smoothstep: y<wall_lo = wall,
 //                   y>wall_hi = flat. No intermediate slope tile — authored
 //                   dirt/field/clover/etc. appearance comes from the global
 //                   overlay pass below.
-// Index = the per-vertex KitId picked via barycentric argmax (parallel to
-// tile_ids picking). MAX_KITS sized for headroom; only the first
-// WorldGenData.Kits.Length entries are meaningful.
-const int MAX_KITS = 16;
-uniform vec4 kit_tiles[MAX_KITS];
-uniform vec4 kit_bands[MAX_KITS];
+// Index = the per-vertex TerrainId picked via barycentric argmax (parallel to
+// tile_ids picking). MAX_TERRAINS sized for headroom; only the first
+// (deduplicated palette length) entries are meaningful — see
+// WorldGen.ExtractTerrainPalette and ChunkMesh.SetTerrains.
+const int MAX_TERRAINS = 16;
+uniform vec4 terrain_tiles[MAX_TERRAINS];
+uniform vec4 terrain_bands[MAX_TERRAINS];
 
 // Two off-axis fill directions + colors. Neither is aligned with the sun.
 // Each darkens surfaces that face away from it; surfaces facing toward it
@@ -200,14 +203,14 @@ varying float cloud_dim;
 // Composed in light() with sun_color × sun_intensity and the same shadow
 // gates as DIFFUSE_LIGHT so cast shadows kill the highlight cleanly.
 varying float wet_spec;
-// Kit ids for the 3 corners of this triangle (constant across the tri).
-// Barycentric argmax picks which corner's kit wins at each fragment (parallel
-// to tile_ids), so kit boundaries blend with the same noise-jittered edge as
-// tile boundaries.
-varying flat vec3 kit_ids;
-// Per-corner authored overlay ids. 0 = no overlay, paint the kit's flat/wall
-// tile as-is; non-zero = sample the kit's edge-overlay tile and blend over.
-// Picked by the same barycentric argmax as tile_ids and kit_ids so boundaries
+// Terrain ids for the 3 corners of this triangle (constant across the tri).
+// Barycentric argmax picks which corner's terrain wins at each fragment
+// (parallel to tile_ids), so terrain boundaries blend with the same
+// noise-jittered edge as tile boundaries.
+varying flat vec3 terrain_ids;
+// Per-corner authored overlay ids. 0 = no overlay, paint the terrain's flat/wall
+// tile as-is; non-zero = sample the terrain's edge-overlay tile and blend over.
+// Picked by the same barycentric argmax as tile_ids and terrain_ids so boundaries
 // inherit the shared noise-jittered edge.
 varying flat vec3 overlay_ids;
 
@@ -222,7 +225,7 @@ void vertex() {
 	tile_ids = CUSTOM0.xyz;
 	blend_amp = CUSTOM0.w;
 	sharpness = CUSTOM1.x;
-	kit_ids = CUSTOM1.yzw;
+	terrain_ids = CUSTOM1.yzw;
 	overlay_ids = CUSTOM2.xyz;
 }
 
@@ -379,19 +382,19 @@ void fragment() {
 	vec3 jitter = (vec3(n0, n1, n2) - 0.5) * blend_amp;
 	vec3 weights = bary + jitter;
 	float tile_index;
-	float kit_index;
+	float terrain_index;
 	float overlay_index;
 	if (weights.x >= weights.y && weights.x >= weights.z) {
 		tile_index = tile_ids.x;
-		kit_index = kit_ids.x;
+		terrain_index = terrain_ids.x;
 		overlay_index = overlay_ids.x;
 	} else if (weights.y >= weights.z) {
 		tile_index = tile_ids.y;
-		kit_index = kit_ids.y;
+		terrain_index = terrain_ids.y;
 		overlay_index = overlay_ids.y;
 	} else {
 		tile_index = tile_ids.z;
-		kit_index = kit_ids.z;
+		terrain_index = terrain_ids.z;
 		overlay_index = overlay_ids.z;
 	}
 
@@ -412,9 +415,9 @@ void fragment() {
 		// marker for walkable slopes and small features. Each concrete tile
 		// runs through sample_tile so kit tiles that happen to be variant-
 		// capable bases (e.g. grass) get per-fragment band/variant resolution.
-		int kit_idx = clamp(int(kit_index), 0, MAX_KITS - 1);
-		vec4 tiles = kit_tiles[kit_idx];
-		vec4 bands = kit_bands[kit_idx];
+		int terrain_idx = clamp(int(terrain_index), 0, MAX_TERRAINS - 1);
+		vec4 tiles = terrain_tiles[terrain_idx];
+		vec4 bands = terrain_bands[terrain_idx];
 		float s = clamp(shaded_normal.y, 0.0, 1.0);
 		float w_flat = smoothstep(bands.x, bands.y, s);
 		float w_wall = 1.0 - w_flat;

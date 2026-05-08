@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://cccq1e0wvo1dr"]
+
+[ext_resource type="Script" uid="uid://62oa6hqy3vtuw" path="res://scripts/data/BlockData.cs" id="1_block"]
+
+[resource]
+script = ExtResource("1_block")
+BlockName = &"Water"
+AtlasBaseIndex = 17
+Bands = 1
+VariantsPerBand = 1
+MinimapColorPerBand = PackedColorArray(0.24959998, 0.35328007, 0.48, 1)
+GroundType = 3

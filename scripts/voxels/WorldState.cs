@@ -16,11 +16,26 @@ public class WorldState
     // falls back to defaults.
     public ZoneState[] Zones = [];
 
+    // Named regions present in this world. Independent from Zones —
+    // populated separately by WorldGen / the disk loader; each
+    // ChunkState.RegionIndex picks one of these. GameClient.UpdateRegion
+    // and WorldMapScreen read this; Data == null means a border chunk
+    // (no named region here, see GameClient hysteresis rules). Empty
+    // array means "no regions authored" — region tracking is silently
+    // off in that world.
+    public RegionState[] Regions = [];
+
     // Default spawn point baked into the world. Set by the loader (from the
     // world file header) or by Main when starting a procedurally-generated
     // game. The packed world file persists this so a save can recreate the
     // intended starting position.
     public Vector3 Spawn;
+
+    // World-scope simulation state that isn't per-chunk and isn't a per-
+    // entity property — discovered regions today, quest progress and world
+    // flags later. Lives here so the save layer can serialize one cohesive
+    // bag of player-progression state alongside the chunk delta layer.
+    public WorldSimState SimState = new();
 
     // Persistent simulation clock in milliseconds. Advanced by World.Tick while
     // unpaused; serialized with the rest of the world state so cooldowns,
@@ -228,24 +243,24 @@ public class WorldState
         chunk.SetShape(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), shape);
     }
 
-    public int GetKitIdWorld(int wx, int wy, int wz)
+    public int GetTerrainIdWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return 0;
         }
-        return chunk.GetKitId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+        return chunk.GetTerrainId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
     }
 
-    public void SetKitIdWorld(int wx, int wy, int wz, int kitId)
+    public void SetTerrainIdWorld(int wx, int wy, int wz, int TerrainId)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);
         if (!_chunks.TryGetValue(cc, out ChunkState chunk))
         {
             return;
         }
-        chunk.SetKitId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), kitId);
+        chunk.SetTerrainId(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), TerrainId);
     }
 
     public int GetOverlayIdWorld(int wx, int wy, int wz)
@@ -588,6 +603,59 @@ public class WorldState
     {
         _chunks.TryGetValue(coord, out ChunkState data);
         return data;
+    }
+
+    // World-XZ centroid of every named region in the loaded world,
+    // computed as the unweighted average of the centers of the chunks
+    // whose RegionIndex maps to that region. Border chunks (Data == null
+    // on their region entry) are skipped. Lazy-computed on first access;
+    // the result is invariant after world load so subsequent reads are
+    // cache hits.
+    //
+    // Streaming caveat: this iterates every resident chunk, which the
+    // future streaming path can't do. When the .hike header grows a
+    // precomputed-centroid table this getter should source from there
+    // instead. The call sites (currently WorldMapScreen) won't change.
+    private Dictionary<RegionData, Vector2> _regionCentroidsXZ;
+    public IReadOnlyDictionary<RegionData, Vector2> RegionCentroidsXZ
+    {
+        get
+        {
+            if (_regionCentroidsXZ == null)
+            {
+                _regionCentroidsXZ = ComputeRegionCentroidsXZ();
+            }
+            return _regionCentroidsXZ;
+        }
+    }
+
+    private Dictionary<RegionData, Vector2> ComputeRegionCentroidsXZ()
+    {
+        var sums = new Dictionary<RegionData, (Vector2 sum, int count)>();
+        foreach (var kv in _chunks)
+        {
+            ChunkState chunk = kv.Value;
+            if (Regions == null || chunk.RegionIndex >= Regions.Length)
+            {
+                continue;
+            }
+            RegionData region = Regions[chunk.RegionIndex].Data;
+            if (region == null)
+            {
+                continue;
+            }
+            Vector2 chunkCenter = new Vector2(
+                kv.Key.X * ChunkState.SIZE + ChunkState.SIZE * 0.5f,
+                kv.Key.Z * ChunkState.SIZE + ChunkState.SIZE * 0.5f);
+            sums.TryGetValue(region, out var entry);
+            sums[region] = (entry.sum + chunkCenter, entry.count + 1);
+        }
+        var centroids = new Dictionary<RegionData, Vector2>(sums.Count);
+        foreach (var kv in sums)
+        {
+            centroids[kv.Key] = kv.Value.sum / kv.Value.count;
+        }
+        return centroids;
     }
 
     public bool ContainsChunk(Vector3I coord)

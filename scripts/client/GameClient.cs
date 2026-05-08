@@ -27,8 +27,10 @@ public partial class GameClient : Node3D
 	[Export] public float mouseSensitivityRange = 30;
 
 	[ExportGroup("Minimap")]
-	// Color palette for the minimap, keyed by resolved tile layer id.
-	[Export] public MinimapTileColors minimapTileColors;
+	// Slice-view color for solid-rock columns. Painted at the reserved
+	// MinimapData.WallSlotIndex slot in the tile LUT; kit-agnostic so a
+	// tunnel through any biome reads as the same dark grey.
+	[Export] public Color minimapWallSlotColor = new Color(0.045f, 0.045f, 0.05f);
 	// Color palette for foliage stamps on the minimap.
 	[Export] public MinimapFoliageColors minimapFoliageColors;
 	// Visual zoom: how many minimap-source pixels each world meter occupies
@@ -57,13 +59,14 @@ public partial class GameClient : Node3D
 	// to the speaker's HudAnchor.
 	public Action<Mob, string, ulong> onMobChatter;
 	public Action<bool> onPauseToggled;
+	public Action<bool> onMapToggled;
 	public Action onQuitToMenu;
 
 	// Fired when the player enters a named region (CurrentRegion null →
-	// non-null OR → a different non-null region). Border zones
-	// (ZoneData.region == null) keep CurrentRegion sticky; clearing
-	// back to null on extended border travel is silent so the next
-	// named region's entry pulses the banner cleanly.
+	// non-null OR → a different non-null region). Border chunks (RegionIndex
+	// points at a Regions[] entry whose Data is null) keep CurrentRegion
+	// sticky; clearing back to null on extended border travel is silent so
+	// the next named region's entry pulses the banner cleanly.
 	public Action<RegionData> onRegionEntered;
 	public RegionData CurrentRegion { get; private set; }
 
@@ -83,6 +86,7 @@ public partial class GameClient : Node3D
 	Vector3 _currentRegionEnterPos;
 
 	public bool paused { get; private set; } = false;
+	public bool MapOpen { get; private set; } = false;
 	public Player Player => _player;
 	public World World => _world;
 
@@ -174,7 +178,7 @@ public partial class GameClient : Node3D
 
 	public override void _Process(double deltaTime)
 	{
-		if (_player == null || ConsoleUI.IsOpen || paused)
+		if (_player == null || ConsoleUI.IsOpen || paused || MapOpen)
 		{
 			return;
 		}
@@ -229,16 +233,16 @@ public partial class GameClient : Node3D
 		UpdatePostProcess();
 	}
 
-	// Reads the zone under the player and turns the raw "what zone am I
-	// in?" stream into a stable "what named region am I in?" signal.
+	// Reads the region under the player and turns the raw "what region am
+	// I in?" stream into a stable "what named region am I in?" signal.
 	// Hysteresis rules:
 	//   - Candidate region differs from CurrentRegion: dwell timer
 	//     accumulates; commit the swap (and fire onRegionEntered) once
-	//     the player has stayed in the candidate's zones for
+	//     the player has stayed in the candidate's chunks for
 	//     REGION_DWELL_SECONDS or moved REGION_ENTER_DISTANCE_CHUNKS
 	//     past where the dwell started.
-	//   - Underfoot zone is a border (region == null): CurrentRegion
-	//     stays put until the player has traveled
+	//   - Underfoot chunk is a border (Regions[i].Data == null):
+	//     CurrentRegion stays put until the player has traveled
 	//     REGION_BORDER_TRAVEL_CHUNKS from where they entered, then
 	//     CurrentRegion clears silently.
 	void UpdateRegion(double deltaTime)
@@ -247,7 +251,7 @@ public partial class GameClient : Node3D
 		if (ws == null) { return; }
 
 		Vector3 playerPos = _player.GlobalPosition;
-		RegionData candidate = SampleZoneRegion(playerPos, ws);
+		RegionData candidate = SampleRegion(playerPos, ws);
 
 		if (candidate == null)
 		{
@@ -297,16 +301,17 @@ public partial class GameClient : Node3D
 			_currentRegionEnterPos = playerPos;
 			_pendingRegion = null;
 			_pendingRegionElapsed = 0f;
+			ws.SimState.DiscoveredRegions.Add(CurrentRegion);
 			onRegionEntered?.Invoke(CurrentRegion);
 		}
 	}
 
-	static RegionData SampleZoneRegion(Vector3 playerPos, WorldState ws)
+	static RegionData SampleRegion(Vector3 playerPos, WorldState ws)
 	{
 		ChunkState chunk = ws.GetChunk(World.WorldToChunkCoord(playerPos));
 		if (chunk == null) { return null; }
-		if (ws.Zones == null || chunk.ZoneIndex >= ws.Zones.Length) { return null; }
-		return ws.Zones[chunk.ZoneIndex].Data?.region;
+		if (ws.Regions == null || chunk.RegionIndex >= ws.Regions.Length) { return null; }
+		return ws.Regions[chunk.RegionIndex].Data;
 	}
 
 	static float ChunkDistanceXZ(Vector3 a, Vector3 b)
@@ -474,6 +479,23 @@ public partial class GameClient : Node3D
 	{
 		base._UnhandledInput(e);
 
+		// Map screen takes priority while open: ui_cancel closes it,
+		// the Map action is absorbed (so a re-press doesn't fall through
+		// to gameplay), and every other gameplay input is dropped.
+		if (MapOpen)
+		{
+			if (e.IsActionPressed("ui_cancel"))
+			{
+				CloseMap();
+				GetViewport().SetInputAsHandled();
+			}
+			else if (e.IsActionPressed("Map"))
+			{
+				GetViewport().SetInputAsHandled();
+			}
+			return;
+		}
+
 		if (e.IsActionPressed("TogglePause"))
 		{
 			TogglePause();
@@ -483,6 +505,13 @@ public partial class GameClient : Node3D
 
 		if (paused)
 		{
+			return;
+		}
+
+		if (e.IsActionPressed("Map"))
+		{
+			OpenMap();
+			GetViewport().SetInputAsHandled();
 			return;
 		}
 
@@ -661,6 +690,26 @@ public partial class GameClient : Node3D
 	{
 		paused = !paused;
 		onPauseToggled?.Invoke(paused);
+	}
+
+	public void OpenMap()
+	{
+		if (MapOpen)
+		{
+			return;
+		}
+		MapOpen = true;
+		onMapToggled?.Invoke(true);
+	}
+
+	public void CloseMap()
+	{
+		if (!MapOpen)
+		{
+			return;
+		}
+		MapOpen = false;
+		onMapToggled?.Invoke(false);
 	}
 
 	public void Save()

@@ -168,6 +168,12 @@ global uniform vec3 player_pos;
 global uniform float player_radius;
 global uniform float player_strength;
 
+// Per-entry scalar that multiplies BOTH wind sway and player push. 1.0 = full
+// motion (grass, flowers); 0.0 = locked rigid (cave pebbles, bones, anything
+// that shouldn't bend). Stamped into the material by DetailEntry.GetMaterial
+// from the [Export] WindStrength field on the entry resource.
+uniform float wind_strength : hint_range(0.0, 1.0) = 1.0;
+
 varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
@@ -299,7 +305,7 @@ void vertex() {
 	float t = wind_phase;
 	float sway = sin(t + phase) * 0.7 + sin(t * 1.7 + phase * 1.3) * 0.3;
 
-	vec3 wind_offset = wind_dir * (sway * wind_amplitude * bend);
+	vec3 wind_offset = wind_dir * (sway * wind_amplitude * bend * wind_strength);
 
 	// Player push: radial in XZ, falloff to 0 at player_radius.
 	vec3 to_sprite = world_origin - player_pos;
@@ -309,7 +315,7 @@ void vertex() {
 	if (player_radius > 0.0 && dist < player_radius && dist > 1e-4) {
 		vec3 push_dir = to_sprite / dist;
 		float falloff = 1.0 - smoothstep(0.0, player_radius, dist);
-		push_offset = push_dir * (falloff * player_strength * bend);
+		push_offset = push_dir * (falloff * player_strength * bend * wind_strength);
 	}
 
 	vertex_world += wind_offset + push_offset;

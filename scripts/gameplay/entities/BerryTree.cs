@@ -15,6 +15,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // (apple tree → apples, blackberry bush → blackberries) so it lives on
     // the .tscn rather than the per-instance sim state.
     [Export] private PackedScene _berryScene;
+    [Export] private float _lootSpeed = 10;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private static readonly StringName AnimRipe = "ripe";
@@ -82,9 +83,8 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
         }
 
         var rng = new Random();
-        const float SPEED = 5f;
-        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        float horizontalSpeed = _lootSpeed * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = _lootSpeed * Mathf.Sin(Mathf.Pi / 4f);
 
         for (int i = 0; i < _interactiveState.BerryCount; i++)
         {

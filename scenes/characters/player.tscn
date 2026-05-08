@@ -526,15 +526,15 @@ animations = [{
 
 [sub_resource type="BoxMesh" id="BoxMesh_aim_main"]
 material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.12, 0.12, 1)
+size = Vector3(0.15, 0.15, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_aim_spread"]
 material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.1, 0.1, 1)
+size = Vector3(0.12, 0.12, 1)
 
 [sub_resource type="BoxMesh" id="BoxMesh_aim_drop"]
 material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.1, 1, 0.1)
+size = Vector3(0.12, 1, 0.12)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_aim_circle"]
 material = ExtResource("25_aimreticle_mat")

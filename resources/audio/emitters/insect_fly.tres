@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="PositionalEmitterData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="PositionalEmitterData" format=3 uid="uid://cvbmohpni76of"]
 
 [ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
 [ext_resource type="AudioStream" uid="uid://co6e50y3fswav" path="res://audio/source/ambience/insect_fly/amb_loc_flies_a_01.wav" id="stream_fly"]
@@ -10,12 +10,8 @@ point_count = 6
 [resource]
 script = ExtResource("emitter_script")
 stream = ExtResource("stream_fly")
-bus = "World3D"
 spawnVoxelType = 7
-spawnDetailGroupId = 0
-requiresAirAbove = false
 requiresAdjacentSolid = true
-instancesPerChunk = 1
 timeOfDayVolume = SubResource("Curve_tod_day")
 volumeDb = -16.0
 maxDistance = 12.0

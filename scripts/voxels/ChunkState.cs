@@ -36,6 +36,14 @@ public class ChunkState
     // Set by WorldGen (or a future editor) at world creation.
     public byte ZoneIndex;
 
+    // Index into WorldState.Regions[]. Picks the named region this
+    // chunk belongs to — orthogonal to ZoneIndex (a single named region
+    // can span multiple zones / biomes, and a single zone can host
+    // multiple regions). GameClient.UpdateRegion samples this to drive
+    // the banner pulse and discovered-regions log. Set by WorldGen (or
+    // a future editor) at world creation.
+    public byte RegionIndex;
+
     public readonly VoxelType[,,] Voxels;
 
     // Per-voxel shape tag: stores VoxelTypeInfo.SharpAxes flags as a byte.
@@ -49,21 +57,23 @@ public class ChunkState
     //   Ramps / path-band slopes → None               (smooth interpolation)
     public readonly byte[,,] Shape;
 
-    // Per-voxel environment kit id. Index into the active world's kit palette
-    // (ZoneGenData.Kits, uploaded globally via ChunkMesh.SetKits). Orthogonal to
-    // VoxelType: a voxel tagged VoxelType.Terrain with KitId=2 means "AUTO land
-    // that reads from the underwater kit's palette." Per-voxel (not per-column)
-    // so caves beneath overhangs can use a different kit than the surface above.
-    // The DC mesher majority-votes KitId over each cell's 27-voxel neighborhood
+    // Per-voxel terrain id. Index into the active world's terrain palette
+    // (derived from the kit palette built by deduplicating each zone's
+    // SurfaceKit/CaveKit/SubmergedKit refs and uploaded globally via
+    // ChunkMesh.SetTerrains). Orthogonal to VoxelType: a voxel tagged
+    // VoxelType.Terrain with TerrainId=2 means "AUTO land that reads from
+    // palette slot 2's terrain." Per-voxel (not per-column) so caves beneath
+    // overhangs can use a different terrain than the surface above. The DC
+    // mesher majority-votes TerrainId over each cell's 27-voxel neighborhood
     // the same way it picks the dominant VoxelType.
-    public readonly byte[,,] KitId;
+    public readonly byte[,,] TerrainId;
 
-    // Per-voxel authored overlay. 0 = none. Non-zero values select a kit-owned
-    // overlay tile painted on top of the kit's base (flat/wall) tile. Used for
+    // Per-voxel authored overlay. 0 = none. Non-zero values select a tile
+    // painted on top of the terrain's base (flat/wall) tile. Used for
     // features the per-fragment shader slope can't see on a box-smoothed normal
     // — 1-voxel bumps, walkable ramps, eroded edges — which worldgen detects
     // via per-voxel neighborhood slope and stamps here. Majority-voted in the
-    // mesher parallel to VoxelType and KitId.
+    // mesher parallel to VoxelType and TerrainId.
     public readonly byte[,,] OverlayId;
 
     // Painted detail-sprite scatter. Stored on the SOLID surface voxel (same
@@ -117,7 +127,7 @@ public class ChunkState
         ChunkCoord = chunkCoord;
         Voxels = new VoxelType[SIZE, SIZE, SIZE];
         Shape = new byte[SIZE, SIZE, SIZE];
-        KitId = new byte[SIZE, SIZE, SIZE];
+        TerrainId = new byte[SIZE, SIZE, SIZE];
         OverlayId = new byte[SIZE, SIZE, SIZE];
         DetailGroup = new byte[SIZE, SIZE, SIZE];
         DetailStrength = new byte[SIZE, SIZE, SIZE];
@@ -192,18 +202,18 @@ public class ChunkState
         Shape[x, y, z] = (byte)shape;
     }
 
-    public int GetKitId(int x, int y, int z)
+    public int GetTerrainId(int x, int y, int z)
     {
         if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
         {
             return 0;
         }
-        return KitId[x, y, z];
+        return TerrainId[x, y, z];
     }
 
-    public void SetKitId(int x, int y, int z, int kitId)
+    public void SetTerrainId(int x, int y, int z, int terrainId)
     {
-        KitId[x, y, z] = (byte)kitId;
+        TerrainId[x, y, z] = (byte)terrainId;
     }
 
     public int GetOverlayId(int x, int y, int z)

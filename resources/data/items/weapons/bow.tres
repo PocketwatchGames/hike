@@ -10,8 +10,8 @@
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/effects/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/effects/bow_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://dxx2ajycuaxpv" path="res://scenes/effects/bow_hit_solid.tscn" id="7_hitsolid"]
-[ext_resource type="PackedScene" path="res://scenes/effects/bow_attack_heavy.tscn" id="8_atkheavy"]
-[ext_resource type="PackedScene" path="res://scenes/effects/bow_attack_light.tscn" id="8_atklight"]
+[ext_resource type="PackedScene" uid="uid://c0vvhpnc8yctn" path="res://scenes/effects/bow_attack_heavy.tscn" id="8_atkheavy"]
+[ext_resource type="PackedScene" uid="uid://c0vvltsw3yctn" path="res://scenes/effects/bow_attack_light.tscn" id="8_atklight"]
 [ext_resource type="PackedScene" uid="uid://c2jrhpmsq2rtn" path="res://scenes/effects/bow_charge_head.tscn" id="8_chghead"]
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/effects/bow_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/effects/bow_charge_tail.tscn" id="8_chgtail"]
@@ -44,15 +44,10 @@ maxChargeSeconds = 1.5
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
 
-[sub_resource type="Resource" id="Resource_damage_charged"]
-script = ExtResource("1_damage")
-healthDamage = 15.0
-
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
 type = 70
 hitScanRange = 25.0
-damageData = SubResource("Resource_damage_charged")
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -76,6 +71,7 @@ queueWindowSeconds = 0.0
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 healthDamage = 10.0
+statusEffects = null
 
 [resource]
 script = ExtResource("2_weapon")

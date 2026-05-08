@@ -52,9 +52,9 @@ public static class ChunkDetailScatter
     public static Dictionary<DetailEntry, List<InstanceData>> Compute(
         ChunkState data,
         System.Func<int, int, int, VoxelType> getVoxel,
-        System.Func<int, int, int, int> getKitId,
+        System.Func<int, int, int, int> getTerrainId,
         DetailGroupData[] groups,
-        EnvironmentKitData[] kits)
+        TerrainData[] terrains)
     {
         if (groups == null || groups.Length == 0)
         {
@@ -119,12 +119,12 @@ public static class ChunkDetailScatter
                     // the shader, independent of kit).
                     VoxelType voxelType = getVoxel(chunkWx + x, chunkWy + y, chunkWz + z);
                     Color groundTint;
-                    if (voxelType == VoxelType.Terrain && kits != null)
+                    if (voxelType == VoxelType.Terrain && terrains != null)
                     {
-                        int kitId = getKitId(chunkWx + x, chunkWy + y, chunkWz + z);
-                        if (kitId >= 0 && kitId < kits.Length && kits[kitId] != null)
+                        int TerrainId = getTerrainId(chunkWx + x, chunkWy + y, chunkWz + z);
+                        if (TerrainId >= 0 && TerrainId < terrains.Length && terrains[TerrainId] != null)
                         {
-                            groundTint = kits[kitId].GroundTint;
+                            groundTint = terrains[TerrainId].GroundTint;
                         }
                         else
                         {

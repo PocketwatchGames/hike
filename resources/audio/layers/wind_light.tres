@@ -1,22 +1,19 @@
-[gd_resource type="Resource" script_class="AmbienceLayerData" load_steps=4 format=3]
+[gd_resource type="Resource" script_class="AmbienceLayerData" format=3 uid="uid://bxp775h2dxyw7"]
 
 [ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
 [ext_resource type="AudioStream" uid="uid://0rkqb6od7cim" path="res://audio/source/ambience/wind/amb_base_wind_light.wav" id="stream_wind_light"]
-
-[sub_resource type="Curve" id="Curve_wind_light_band"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.05, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 1), 0.0, 0.0, 0, 0, Vector2(0.55, 0.6), 0.0, 0.0, 0, 0, Vector2(0.85, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 6
 
 [sub_resource type="Curve" id="Curve_gate_outdoor"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 4
 
+[sub_resource type="Curve" id="Curve_wind_light_band"]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.05, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 1), 0.0, 0.0, 0, 0, Vector2(0.55, 0.6), 0.0, 0.0, 0, 0, Vector2(0.85, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 6
+
 [resource]
 script = ExtResource("layer_script")
 stream = ExtResource("stream_wind_light")
-sourceField = 1
 volumeCurve = SubResource("Curve_wind_light_band")
 gateField = 5
 gateCurve = SubResource("Curve_gate_outdoor")
-volumeScale = 1.0
-bus = "Ambience2D"

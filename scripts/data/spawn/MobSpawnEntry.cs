@@ -4,31 +4,40 @@ using Godot;
 [GlobalClass]
 public partial class MobSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
     [Export] public MobData Data;
 
-    // When true, the spawned MobSimState is marked SpawnAtNight so its node
-    // only appears when its chunk activates after dark. Use this for groups
-    // anchored to night-only encounters (e.g. mobs around a campfire).
-    [Export] public bool SpawnAtNight;
-
     // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty
-    // means use the brain default.
+    // means use the brain default. Combined with InitialBehaviorChance for
+    // probabilistic overrides — set Chance=0.25 to make a quarter of spawned
+    // goblins start in Wander instead of the brain's default Idle.
     [Export] public StringName InitialBehavior;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float InitialBehaviorChance = 1f;
 
-    public override void Spawn(WorldState ws, Vector3 position, Random rng)
+    // When this entry is a sub-entry of a SpawnGroupData cluster, scatter
+    // this many mobs around the anchor (e.g. 2..3 goblins per camp). Ignored
+    // in per-column list contexts (one mob per scan hit).
+    [Export] public int ClusterCountMin = 1;
+    [Export] public int ClusterCountMax = 1;
+
+    public override int RollCount(Random rng)
     {
-        if (Scene == null || Data == null)
+        return rng.Next(ClusterCountMin, ClusterCountMax + 1);
+    }
+
+    public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
+    {
+        if (Data == null || Data.MobScene == null)
         {
             return;
         }
         var state = new MobSimState(
             position,
             (float)(rng.NextDouble() * Mathf.Pi * 2f),
-            Scene,
+            Data.MobScene,
             Data);
         state.SpawnAtNight = SpawnAtNight;
-        if (InitialBehavior != null && (string)InitialBehavior != "")
+        if (InitialBehavior != null && (string)InitialBehavior != ""
+            && rng.NextDouble() < InitialBehaviorChance)
         {
             state.InitialBehavior = InitialBehavior;
         }

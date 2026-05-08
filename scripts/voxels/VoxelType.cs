@@ -7,7 +7,7 @@ public enum VoxelType : byte
     Stone = 1,
     Barrier = 6,
     Water = 7,
-    // "Auto" terrain: shader picks tile from per-voxel KitId + surface
+    // "Auto" terrain: shader picks tile from per-voxel TerrainId + surface
     // normal.y. Use this for natural land — Stone is the only authored solid
     // override that remains (used for explicit cliff geometry / future
     // building blocks).
@@ -30,77 +30,33 @@ public static class VoxelTypeInfo
         { VoxelType.Marsh, new Color(1f, 1f, 1f) },
     };
 
-    // Texture array layer indices. Must match the layer order in
-    // res://assets/textures/voxels/voxel_tiles.png (top-to-bottom).
+    // Per-block atlas-layer indices come from BlockCatalog now. Use
+    // ResolveBlockIndex(name) below to look up a block's AtlasBaseIndex by
+    // its authored name. The shader's tile_array layer order in
+    // res://assets/textures/voxels/voxel_tiles.png must agree with the
+    // AtlasBaseIndex authored on each BlockData; the catalog asserts the
+    // two named slots the shader hardcodes ("Stone" at 0, "GrassTop" at 1).
     //
-    // The value stored in each constant is the BASE layer — the first layer
-    // of a contiguous block belonging to that tile. Tiles that ship only one
-    // layer occupy exactly one slot (their base layer). Tiles with variants
-    // occupy Bands * VariantsPerBand layers starting at their base; the
-    // shader resolves the concrete layer per-fragment from world Y (band) and
-    // a hash of the voxel position (variant). See TileVariants below and
-    // `resolve_layer` in voxel_clip.gdshader.
-    //
-    // When adding variants to an existing tile, expand its block and shift
-    // all tiles with higher base indices forward by the added count. Both
-    // this table and the .png layer count must change together.
-    public const int TILE_STONE = 0;
-    // Grass top occupies layers 1..16 — 4 elevation bands × 4 variants each
-    // (level1_1..level4_4 in assets/textures/voxels/). Layout is band-major:
-    // layer 1+band*4+variant.
-    public const int TILE_GRASS_TOP = 1;
-    public const int TILE_WATER = 17;
-    // Cobblestone: 1 band × 4 variants (cobblestone1..cobblestone4). Opaque
-    // base tile; kits can point FlatTile or WallTile here for stone-paved
-    // zones.
-    public const int TILE_COBBLESTONE = 18;
-    // Overlay base layers. These sample with their alpha channel driving
-    // blend strength — authored with soft edges in the PNG so coverage reads
-    // as a patch rather than a tile fill. Worldgen writes one of these into
-    // OverlayId per voxel; 0 means "no overlay".
-    public const int TILE_DIRT_OVERLAY = 22;   // 1 band × 4 variants (dirt1..4).
-    public const int TILE_FIELD_OVERLAY = 26;  // 1 band × 1 variant (field.png).
-    // Desert top: 2 elevation bands × 1 variant. Band 0 (low elevations,
-    // sea-level shelves) = desert_elevation0grass. Band 1 (above sea level) =
-    // desert_level1. Layer 28 doubles as the standalone "desert sand" tile
-    // referenced by kits whose FlatTile/WallTile points here directly (e.g.
-    // shoreline sand on kit_underwater) — an unauthored TileVariants entry
-    // collapses to (1,1) so single-layer references resolve cleanly.
-    public const int TILE_DESERT_TOP = 27;
-    public const int TILE_DESERT_SAND = 28;   // alias: TILE_DESERT_TOP band 1
-    public const int TILE_DESERT_WALL = 29;   // desert_level4 — cliff faces in desert kit
-    public const int TILE_DESERT_CAVE = 30;   // desert_level2 — sandstone cave floor
-    // Marsh: single tile (marsh.png), 1 band × 1 variant.
-    public const int TILE_MARSH = 31;
     // Sentinel id passed through CUSTOM0 to the shader. The shader detects
     // values >= TILE_AUTO_THRESHOLD and picks the real tile by surface slope.
+    // Not a BlockData entry — kits resolve to a real block at draw time.
     public const int TILE_AUTO = 255;
 
-    // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
-    // Must be >= 1 + max base layer in use. Keep modest — every entry is a
-    // vec2 shipped with the material.
-    public const int TILE_VARIANT_TABLE_SIZE = 64;
-
-    public readonly struct TileVariantInfo
+    private static int ResolveBlockIndex(StringName name)
     {
-        // Number of elevation bands. The shader picks a band from world Y
-        // via mod(floor((y - BandOriginY) / BandHeight), Bands), so bands
-        // cycle forever up and down. Each band occupies `VariantsPerBand`
-        // contiguous layers.
-        public readonly int Bands;
-        // Random variants within each band. Picked from a hash of the voxel
-        // integer position, so all fragments within one voxel pick the same
-        // variant but neighbouring voxels vary.
-        public readonly int VariantsPerBand;
-
-        public TileVariantInfo(int bands, int variantsPerBand)
+        BlockData block = BlockCatalog.Active.GetByName(name);
+        if (block == null)
         {
-            Bands = bands;
-            VariantsPerBand = variantsPerBand;
+            GD.PushError($"VoxelTypeInfo: BlockCatalog missing '{name}'.");
+            return 0;
         }
-
-        public int LayerCount => Bands * VariantsPerBand;
+        return block.AtlasBaseIndex;
     }
+
+    // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
+    // Must be >= 1 + max BlockData.AtlasBaseIndex in the catalog. Keep modest
+    // — every entry is a vec2 shipped with the material.
+    public const int TILE_VARIANT_TABLE_SIZE = 64;
 
     // Authored source-pixel density: every terrain PNG is authored so that
     // TEXELS_PER_VOXEL source pixels map to one world unit on the ground.
@@ -135,25 +91,6 @@ public static class VoxelTypeInfo
     public const float TILE_BAND_HEIGHT = 4f;
     public const float TILE_BAND_BLEND = 0.15f;
 
-    // Per-tile variant config. Defaults are (1,1) for every tile — a tile
-    // that hasn't had variant art authored yet behaves exactly as it did
-    // before this system existed (samples its base layer directly). Expand
-    // an entry when you add variant/band art for that tile and grow the
-    // .png's layer count to match.
-    public static readonly Dictionary<int, TileVariantInfo> TileVariants = new()
-    {
-        { TILE_STONE,         new(1, 1) },
-        { TILE_GRASS_TOP,     new(4, 4) },
-        { TILE_WATER,         new(1, 1) },
-        { TILE_COBBLESTONE,   new(1, 4) },
-        { TILE_DIRT_OVERLAY,  new(1, 4) },
-        { TILE_FIELD_OVERLAY, new(1, 1) },
-        { TILE_DESERT_TOP,    new(2, 1) },
-        { TILE_DESERT_WALL,   new(1, 1) },
-        { TILE_DESERT_CAVE,   new(1, 1) },
-        { TILE_MARSH,         new(1, 1) },
-    };
-
     public readonly struct TileFaces
     {
         public readonly int Top;
@@ -172,11 +109,11 @@ public static class VoxelTypeInfo
 
     public static readonly Dictionary<VoxelType, TileFaces> Tiles = new()
     {
-        { VoxelType.Stone, new(TILE_STONE) },
-        { VoxelType.Water, new(TILE_WATER) },
+        { VoxelType.Stone,   new(ResolveBlockIndex("Stone")) },
+        { VoxelType.Water,   new(ResolveBlockIndex("Water")) },
         { VoxelType.Terrain, new(TILE_AUTO) },
-        { VoxelType.Desert, new(TILE_DESERT_TOP, TILE_DESERT_WALL, TILE_DESERT_WALL) },
-        { VoxelType.Marsh, new(TILE_MARSH) },
+        { VoxelType.Desert,  new(ResolveBlockIndex("DesertTop"), ResolveBlockIndex("DesertWall"), ResolveBlockIndex("DesertWall")) },
+        { VoxelType.Marsh,   new(ResolveBlockIndex("Marsh")) },
     };
 
     // Per-voxel-type "noisiness" of texture-tile borders. 0 = crisp boundary

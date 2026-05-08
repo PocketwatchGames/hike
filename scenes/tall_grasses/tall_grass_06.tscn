@@ -23,6 +23,7 @@ texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(160, 399, 38, 31)
 script = ExtResource("3_mmprop")
+MinimapFoliageId = 1
 ScaleMin = 0.85
 ScaleMax = 1.15
 AlignToTerrain = 1.0

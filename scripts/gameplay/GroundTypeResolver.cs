@@ -1,16 +1,20 @@
 using Godot;
 
-// Resolves the EGroundType under a world-space position. Two-stage lookup:
-//   1) AUTO Terrain voxels carry a per-voxel KitId; the resolver reads the
-//      kit out of ChunkMesh.ActiveKits (the world-scoped palette set up at
-//      Main.StartGame) and returns its authored GroundType.
-//   2) Non-Terrain authored types (Stone, Desert, Marsh, Water) map directly
-//      via a static switch.
+// Resolves the EGroundType under a world-space position. Looks up the voxel
+// just below the feet, picks its BlockData, and returns block.GroundType.
 //
-// The query samples the voxel just below `pos` (a tinyEpsilon under the feet)
-// so a body whose origin sits right on the surface picks up the floor, not
-// the air column it's standing in. If that voxel is Air, falls through to
-// one cell lower as a safety net for slight float drift on slopes.
+// Resolution order for the BlockData (most-specific wins):
+//   1) OverlayId on the voxel — if non-zero, the overlay block (e.g.
+//      flowers, dirt patch) is what the player is actually standing on.
+//   2) For VoxelType.Terrain — the kit's FlatTile, falling back to the
+//      catalog's DefaultFlatTile if the kit doesn't author one.
+//   3) For other authored types (Stone / Desert / Marsh / Water) — the
+//      block at the top-face atlas index from VoxelTypeInfo.Tiles.
+//
+// The query samples the voxel just below `pos` (a tinyEpsilon under the
+// feet) so a body whose origin sits right on the surface picks up the floor,
+// not the air column it's standing in. If that voxel is Air, falls through
+// to one cell lower as a safety net for slight float drift on slopes.
 public static class GroundTypeResolver
 {
     public static EGroundType Resolve(WorldState ws, Vector3 worldPos)
@@ -31,24 +35,40 @@ public static class GroundTypeResolver
             v = ws.GetVoxelWorld(fx, fy, fz);
         }
 
-        if (v == VoxelType.Terrain)
+        BlockCatalog catalog = BlockCatalog.Active;
+
+        int overlayId = ws.GetOverlayIdWorld(fx, fy, fz);
+        if (overlayId != 0)
         {
-            int kitId = ws.GetKitIdWorld(fx, fy, fz);
-            EnvironmentKitData[] kits = ChunkMesh.ActiveKits;
-            if (kits != null && kitId >= 0 && kitId < kits.Length && kits[kitId] != null)
+            BlockData overlay = catalog.GetByAtlasIndex(overlayId);
+            if (overlay != null)
             {
-                return kits[kitId].GroundType;
+                return overlay.GroundType;
             }
-            return EGroundType.Grass;
         }
 
-        return v switch
+        BlockData block = ResolveBaseBlock(ws, catalog, v, fx, fy, fz);
+        return block != null ? block.GroundType : EGroundType.Stone;
+    }
+
+    private static BlockData ResolveBaseBlock(WorldState ws, BlockCatalog catalog, VoxelType v, int fx, int fy, int fz)
+    {
+        if (v == VoxelType.Terrain)
         {
-            VoxelType.Stone => EGroundType.Stone,
-            VoxelType.Desert => EGroundType.Sand,
-            VoxelType.Marsh => EGroundType.Mud,
-            VoxelType.Water => EGroundType.Water,
-            _ => EGroundType.Stone,
-        };
+            int terrainId = ws.GetTerrainIdWorld(fx, fy, fz);
+            TerrainData[] terrains = ChunkMesh.ActiveTerrains;
+            if (terrains != null && terrainId >= 0 && terrainId < terrains.Length && terrains[terrainId] != null)
+            {
+                BlockData flat = terrains[terrainId].FlatTile;
+                if (flat != null)
+                {
+                    return flat;
+                }
+            }
+            return catalog.DefaultFlatTile;
+        }
+
+        int atlasIndex = VoxelTypeInfo.GetTileForFace(v, 0);
+        return catalog.GetByAtlasIndex(atlasIndex);
     }
 }

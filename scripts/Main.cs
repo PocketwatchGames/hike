@@ -57,31 +57,22 @@ public partial class Main : Node
 
 	void StartGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
 	{
-		// Upload the active world's kit palette to the terrain shader before
-		// any chunk mesh is built. Disk-loaded worlds currently share the same
-		// kit registry as WorldGen — a later .hike change will embed kit paths
-		// in the file header so exported worlds can own their palette.
+		// Upload the active world's terrain + detail palettes to the terrain
+		// shader / scatter system before any chunk mesh is built. Disk-loaded
+		// worlds currently share the same kit registry as WorldGen — a later
+		// .hike change will embed terrain paths in the file header so exported
+		// worlds can own their palette.
 		//
-		// Per-zone kit divergence: each zone contributes WorldGen.KITS_PER_ZONE
-		// slots to one flat global palette ([zone0 surface, zone0 cave, zone0
-		// underwater, zone1 surface, …]). WorldGen stamps the resolved global
-		// kitId per voxel based on the chunk's ZoneIndex + slot, so the shader
-		// just indexes into kit_tiles[] as before. DetailGroups stays on the first
-		// zone for now — only one detail palette is authored across zones.
-		ZoneGenData[] zones = worldGenData.Zones ?? System.Array.Empty<ZoneGenData>();
-		var flatKits = new EnvironmentKitData[zones.Length * WorldGen.KITS_PER_ZONE];
-		for (int r = 0; r < zones.Length; r++)
-		{
-			ZoneGenData rg = zones[r];
-			EnvironmentKitData[] rk = rg?.Kits ?? System.Array.Empty<EnvironmentKitData>();
-			for (int s = 0; s < WorldGen.KITS_PER_ZONE; s++)
-			{
-				flatKits[r * WorldGen.KITS_PER_ZONE + s] = s < rk.Length ? rk[s] : null;
-			}
-		}
-		ChunkMesh.SetKits(flatKits);
-		ZoneGenData firstZone = zones.Length > 0 ? zones[0] : null;
-		ChunkMesh.SetDetailGroups(firstZone?.DetailGroups ?? System.Array.Empty<DetailGroupData>());
+		// The kit palette is the deduplicated set of all SurfaceKit / CaveKit /
+		// SubmergedKit / ShoreKit refs across the zones (TerrainKitData[]); the
+		// runtime terrain palette uploaded to ChunkMesh is derived parallel to
+		// it (same indices, terrain-per-slot pulled off `TerrainKitData.Terrain`).
+		// The detail palette is the deduplicated set of DefaultDetail groups
+		// carried by the kits. Two zones that share a kit cost one palette
+		// slot, not two.
+		WorldGen.BindActivePalettes(worldGenData);
+		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
+		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
 
 		WorldState worldState;
 		string worldFilePath = CVars.worldFile.Value;
@@ -112,6 +103,7 @@ public partial class Main : Node
 		var worldState = new WorldState(source.Min, source.Max, source.SimData);
 		worldState.Spawn = source.Spawn;
 		worldState.Zones = source.Zones;
+		worldState.Regions = source.Regions;
 
 		foreach (Vector3I coord in source.EnumerateChunkCoords())
 		{

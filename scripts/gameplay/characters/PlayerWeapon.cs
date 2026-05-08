@@ -8,6 +8,64 @@ using Godot;
 // another entry that constructs a context and calls TryStart.
 public partial class Player : CharacterBody3D, IActionActor
 {
+
+	// Effective reach of the weapon equipped in `slot`, accounting for live
+	// charge state. While the runner is Charging that slot, samples the
+	// currently-selected tier and live charge fraction; otherwise samples the
+	// snap tier (tier 0) at chargeT=0 — what an immediate fire would produce.
+	// Hitscan range scales with `rangeScaleCurve` (matches DoHitscan); melee
+	// range is the authored value (DoMelee ignores the curve).
+	public float GetWeaponRange(EInventorySlot slot)
+	{
+		WeaponState weapon = _inventory?.GetWeapon(slot);
+		ItemActionProfile profile = weapon?.data?.actionProfile;
+		if (profile?.chargedActions == null || profile.chargedActions.Count == 0)
+		{
+			return 0f;
+		}
+
+		ItemAction tier;
+		float chargeT;
+		if (_runner != null
+			&& _runner.Phase == EActionPhase.Charging
+			&& _runner.Current.context.sourceSlot == slot)
+		{
+			tier = _runner.Current.selectedTier ?? profile.chargedActions[0];
+			chargeT = _runner.CurrentChargeT;
+		}
+		else
+		{
+			tier = profile.chargedActions[0];
+			chargeT = 0f;
+		}
+
+		if (tier?.events == null)
+		{
+			return 0f;
+		}
+
+		for (int i = 0; i < tier.events.Count; i++)
+		{
+			ItemEvent ev = tier.events[i];
+			if (ev == null)
+			{
+				continue;
+			}
+			if ((ev.type & EItemEventType.Hitscan) != 0)
+			{
+				float rangeScale = tier.rangeScaleCurve != null
+					? tier.rangeScaleCurve.Sample(Mathf.Clamp(chargeT, 0f, 1f))
+					: 1f;
+				return ev.hitScanRange * rangeScale;
+			}
+			if ((ev.type & EItemEventType.Melee) != 0)
+			{
+				return ev.meleeRange;
+			}
+		}
+		return 0f;
+	}
+
 	void TryStartWeaponAction(EInventorySlot slot)
 	{
 		if (_runner == null || _runner.IsBusy)

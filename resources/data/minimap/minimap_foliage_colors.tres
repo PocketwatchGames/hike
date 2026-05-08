@@ -1,39 +1,39 @@
 [gd_resource type="Resource" script_class="MinimapFoliageColors" format=3 uid="uid://cmfolcolor01"]
 
-[ext_resource type="Script" uid="uid://cmfolcolr1ak2" path="res://scripts/data/minimap/MinimapFoliageColors.cs" id="1_foliage_colors_script"]
-[ext_resource type="Script" uid="uid://cmxjuae4muavw" path="res://scripts/data/minimap/MinimapFoliageEntry.cs" id="2_foliage_entry_script"]
+[ext_resource type="Script" uid="uid://cmfolcolrz9k2" path="res://scripts/data/minimap/MinimapFoliageColors.cs" id="1_foliage_colors_script"]
+[ext_resource type="Script" uid="uid://gmnmapfolientx5" path="res://scripts/data/minimap/MinimapFoliageEntry.cs" id="2_foliage_entry_script"]
 
 [sub_resource type="Resource" id="Resource_unused"]
 script = ExtResource("2_foliage_entry_script")
 Name = "unused (id 0)"
-Color = Color(0, 0, 0, 0)
+Color = Color(1, 1, 1, 0)
 Priority = 0
 metadata/_custom_type_script = "uid://gmnmapfolientx5"
 
 [sub_resource type="Resource" id="Resource_grass"]
 script = ExtResource("2_foliage_entry_script")
 Name = "grass"
-Color = Color(0.4, 0.55, 0.25, 0.5)
+Color = Color(0.44928, 0.48, 0.4032, 0.7058824)
 metadata/_custom_type_script = "uid://gmnmapfolientx5"
 
 [sub_resource type="Resource" id="Resource_bush"]
 script = ExtResource("2_foliage_entry_script")
 Name = "bush"
-Color = Color(0.25, 0.4, 0.18, 0.85)
+Color = Color(0.22464, 0.24, 0.2016, 0.78431374)
 Priority = 2
 metadata/_custom_type_script = "uid://gmnmapfolientx5"
 
 [sub_resource type="Resource" id="Resource_tree"]
 script = ExtResource("2_foliage_entry_script")
 Name = "tree"
-Color = Color(0.16, 0.3, 0.13, 1)
+Color = Color(0.22464, 0.24, 0.2016, 0.78431374)
 Priority = 3
 metadata/_custom_type_script = "uid://gmnmapfolientx5"
 
 [sub_resource type="Resource" id="Resource_berry_tree"]
 script = ExtResource("2_foliage_entry_script")
 Name = "berry tree"
-Color = Color(0.42, 0.2, 0.25, 1)
+Color = Color(0.6509804, 0.16078432, 0, 1)
 Priority = 3
 metadata/_custom_type_script = "uid://gmnmapfolientx5"
 

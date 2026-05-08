@@ -19,6 +19,10 @@ using Godot;
 //       dataPath        : length-prefixed string (ZoneData resource path)
 //       windDirection   : Vector3 (12 bytes)
 //       elevation       : float32 (4 bytes)
+//     regionCount : uint32
+//     regions     : regionCount entries
+//       dataPath        : length-prefixed string (RegionData resource path;
+//                         empty string for border slots)
 //     chunkCount   : uint32
 //   Index : chunkCount entries
 //     coord        : Vector3I (12 bytes)
@@ -30,9 +34,9 @@ public static class WorldFile
     public const uint MAGIC = 0x454B4948; // 'HIKE' little-endian
     // v5: chunk payload gained a per-voxel Shape byte (SharpAxes) channel between
     //     Voxels and Sunlight, plus a fog-density byte array after Sunlight.
-    // v6: chunk payload appended a per-voxel KitId byte (index into the
-    //     world's EnvironmentKitData[]) after fog-density, before entities.
-    // v7: chunk payload appended a per-voxel OverlayId byte after KitId.
+    // v6: chunk payload appended a per-voxel TerrainId byte (index into the
+    //     world's TerrainData[]) after fog-density, before entities.
+    // v7: chunk payload appended a per-voxel OverlayId byte after TerrainId.
     // v8: chunk payload appended per-voxel DetailGroup + DetailStrength bytes
     //     after OverlayId — painted detail-sprite scatter (grass/flowers/etc).
     // v9: header gained a zones table (data path + windDirection + elevation
@@ -53,7 +57,12 @@ public static class WorldFile
     // v14: Chest entity payload appended a SpawnAtNight bool (after Active) —
     //      campfire-encampment chests are flagged so they only materialize when
     //      the chunk activates after dark.
-    public const uint VERSION = 14;
+    // v15: header gained a regions table (RegionData resource path per region);
+    //      chunk payload appended a 1-byte RegionIndex selecting an entry from
+    //      that table after ZoneIndex. Regions are an independent top-level
+    //      subdivision from zones — a single named region can span multiple
+    //      biomes, and the zone field used to double as the region anchor.
+    public const uint VERSION = 15;
 
     public struct IndexEntry
     {
@@ -69,6 +78,11 @@ public static class WorldFile
         public float Elevation;
     }
 
+    public struct RegionEntry
+    {
+        public string DataPath;
+    }
+
     public struct Header
     {
         public Vector3I Min;
@@ -76,6 +90,7 @@ public static class WorldFile
         public Vector3 Spawn;
         public string SimDataPath;
         public ZoneEntry[] Zones;
+        public RegionEntry[] Regions;
         public uint ChunkCount;
     }
 
@@ -138,6 +153,12 @@ public static class WorldFile
             w.Write(zones[i].WindDirection.Z);
             w.Write(zones[i].Elevation);
         }
+        RegionState[] regions = worldState.Regions ?? [];
+        w.Write((uint)regions.Length);
+        for (int i = 0; i < regions.Length; i++)
+        {
+            w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
+        }
         w.Write((uint)coords.Count);
 
         // --- Index ---
@@ -192,6 +213,12 @@ public static class WorldFile
                 WindDirection = new Vector3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle()),
                 Elevation = r.ReadSingle(),
             };
+        }
+        uint regionCount = r.ReadUInt32();
+        header.Regions = new RegionEntry[regionCount];
+        for (uint i = 0; i < regionCount; i++)
+        {
+            header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
         }
         header.ChunkCount = r.ReadUInt32();
         return header;

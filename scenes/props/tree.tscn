@@ -26,4 +26,5 @@ texture = ExtResource("3_fdldt")
 region_enabled = true
 region_rect = Rect2(32, 0, 32, 64)
 script = ExtResource("3_mmprop")
+MinimapFoliageId = 3
 

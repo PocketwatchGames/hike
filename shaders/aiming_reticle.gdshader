@@ -4,16 +4,21 @@ shader_type spatial;
 // pass in the transparent queue so DEPTH_TEXTURE is fully populated when we
 // sample it for the manual occlusion test (mirrors sprite_xray.gdshader).
 //
+// AA note: the lines are box meshes, and the visible faces of a box sit AT
+// the silhouette — so a fwidth-based fade keyed on cross-section distance
+// collapses to alpha=0 on every side face (one cross axis is pinned to the
+// box edge there). This shader therefore does NOT shader-AA the line edges;
+// the boxes are sized so the line is reliably ≥ 2 inner-viewport pixels and
+// the result reads as a clean chunky line consistent with the rest of the
+// pixel-art pipeline. The ground ring is a flat PlaneMesh — `length(xz)`
+// varies smoothly across the surface, so smoothstep AA on its inner / outer
+// edge does work and is applied below.
+//
 // Per-instance behavior:
 //   * gradient_*_distance + gradient_origin_world drive the main line's
 //     transparent→opaque ramp from 1m to 3m of player distance. Leaving both
 //     distances at 0 disables the gradient — the rest of the reticle uses
 //     solid max_alpha.
-//   * line_radius > 0 enables cross-section AA on a thin box. line_axis picks
-//     which mesh-local axis runs along the line (0=X, 1=Y, 2=Z); the other
-//     two form the cross-section the L∞-distance fades over via fwidth, so
-//     the edge is always ~1 inner-viewport pixel wide regardless of camera
-//     distance / angle.
 //   * ring_outer_radius > 0 turns a unit PlaneMesh into an annulus, with
 //     fwidth-AA on both edges. The ground circle uses this; everything else
 //     leaves it at 0.
@@ -31,9 +36,6 @@ uniform float depth_bias : hint_range(0.0, 1.0) = 0.05;
 instance uniform vec3 gradient_origin_world = vec3(0.0);
 instance uniform float gradient_start_distance = 0.0;
 instance uniform float gradient_end_distance = 0.0;
-
-instance uniform float line_radius = 0.0;
-instance uniform float line_axis = 2.0;
 
 instance uniform float ring_inner_radius = 0.0;
 instance uniform float ring_outer_radius = 0.0;
@@ -55,23 +57,6 @@ void fragment() {
 			(d - gradient_start_distance) / (gradient_end_distance - gradient_start_distance),
 			0.0, 1.0);
 		alpha *= t;
-	}
-
-	if (line_radius > 0.0) {
-		// Cross-section: the two mesh-local axes that aren't "along" the line.
-		// L∞ distance (max of abs components) matches the box's square cross-
-		// section so the AA tracks the actual silhouette.
-		vec2 cross_xy;
-		if (line_axis < 0.5) {
-			cross_xy = local_pos.yz;
-		} else if (line_axis < 1.5) {
-			cross_xy = local_pos.xz;
-		} else {
-			cross_xy = local_pos.xy;
-		}
-		float r = max(abs(cross_xy.x), abs(cross_xy.y));
-		float aa_w = max(fwidth(r), 1e-5);
-		alpha *= 1.0 - smoothstep(line_radius - aa_w, line_radius, r);
 	}
 
 	if (ring_outer_radius > 0.0) {

@@ -33,6 +33,20 @@ public static class MinimapData
     public const int PlateauHeight = 4;
     public const int SlicesPerChunk = ChunkState.SIZE / PlateauHeight;
 
+    // Vertical clearance needed for the player to walk through a column.
+    // Used by GenerateSliceTile: a column that has no contiguous air run of
+    // this length within the slice is classified as a wall rather than a
+    // floor / open-air cell.
+    public const int MinHeadroomVoxels = 2;
+
+    // Reserved palette slot for slice-view wall interiors (columns that are
+    // solid all the way through with no air above). Doesn't correspond to a
+    // BlockData entry — the slice generator writes this index directly so
+    // every biome's solid-wall pixels read the same color regardless of terrain
+    // or voxel type. Picked above the BlockCatalog's active range; the LUT
+    // builder paints this slot from GameClient.minimapWallSlotColor.
+    public const int WallSlotIndex = 32;
+
     // Bit values for SliceCell.Flags. Floor = a solid voxel was found in the
     // slice's Y range with air above it (i.e. you could stand on it). Ceiling
     // = the voxel directly above the slice's top is solid (the column has a
@@ -50,7 +64,8 @@ public static class MinimapData
         // World Y of the top face (= Y_topSolid + 1). 0 = no surface.
         public ushort Height;
         // Resolved tile layer id (0..VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE-1).
-        // Indexed into MinimapTileColors at render time.
+        // Indexed into the BlockCatalog-driven tile LUT at render time
+        // (see Minimap.BuildTileLutTexture).
         public byte TileId;
         // Detail-scatter foliage stamp. 0 = none. Caller resolves priority
         // against existing pixel state via MinimapFoliageColors.
@@ -70,15 +85,17 @@ public static class MinimapData
     // pillars / cliff edges read crisp) and the tile + foliage of that
     // winning column.
     //
-    // `detailPalette` is the chunk's zone palette (ZoneGenData.DetailGroups);
-    // null is allowed — foliage stays 0 in that case.
+    // `detailPalette` is the active world's detail palette (the deduplicated
+    // set of DefaultDetail groups across all kits, uploaded via
+    // ChunkMesh.SetDetailGroups); null is allowed — foliage stays 0 in
+    // that case.
     //
     // Pure-air and pure-water chunks contribute nothing (output zeroed) since
     // they don't define an air/ground or air/water boundary themselves.
     public static void GenerateSurfaceRow(
         ChunkState chunk,
         DetailGroupData[] detailPalette,
-        EnvironmentKitData[] kitPalette,
+        TerrainData[] terrainPalette,
         SurfaceCell[] output)
     {
         if (output.Length < OutdoorPixelsPerChunkSq)
@@ -110,9 +127,9 @@ public static class MinimapData
             // will out-rank this via the caller's monotonic merge.
             int topWorldY = chunkBaseY + ChunkState.SIZE - 1;
             int height = topWorldY + 1;
-            int pureKitId = chunk.GetKitId(0, ChunkState.SIZE - 1, 0);
+            int pureTerrainId = chunk.GetTerrainId(0, ChunkState.SIZE - 1, 0);
             int pureOverlayId = chunk.GetOverlayId(0, ChunkState.SIZE - 1, 0);
-            byte tileId = (byte)ResolveSurfaceTileId(pureType, topWorldY, pureKitId, pureOverlayId, kitPalette);
+            byte tileId = (byte)ResolveSurfaceTileId(pureType, topWorldY, pureTerrainId, pureOverlayId, terrainPalette);
             var cell = new SurfaceCell
             {
                 Height = (ushort)height,
@@ -154,10 +171,10 @@ public static class MinimapData
                             ushort height = (ushort)(worldY + 1);
                             if (height > bestHeight)
                             {
-                                int kitId = chunk.GetKitId(x, y, z);
+                                int TerrainId = chunk.GetTerrainId(x, y, z);
                                 int overlayId = chunk.GetOverlayId(x, y, z);
                                 bestHeight = height;
-                                bestTile = (byte)ResolveSurfaceTileId(v, worldY, kitId, overlayId, kitPalette);
+                                bestTile = (byte)ResolveSurfaceTileId(v, worldY, TerrainId, overlayId, terrainPalette);
                                 bestFoliage = ResolveFoliageId(chunk, detailPalette, x, y, z);
                             }
                             break;
@@ -179,14 +196,15 @@ public static class MinimapData
     // within `chunk`. The slice's Y range is [sliceInChunk * PlateauHeight,
     // (sliceInChunk+1) * PlateauHeight) in chunk-local coords.
     //
-    // For each (x,z) column in plan:
-    //   * Find the topmost solid voxel in the slice's Y range with air above
-    //     it (within the slice or in the next-higher Y, whichever is closer).
-    //     That's the floor; its tile id colors the pixel.
-    //   * If no air-above voxel exists in the slice (column is solid through
-    //     the slice top), the pixel is a wall — TileId from the topmost solid
-    //     in the slice, FloorFlag = 0.
-    //   * If the entire slice is air in this column, TileId = 0, FloorFlag = 0.
+    // Classification per (x,z) column:
+    //   * WALL — no contiguous run of MinHeadroomVoxels (=2) air voxels
+    //     anywhere in the slice. The column can't be walked through at this
+    //     elevation band, so it paints with the dedicated Wall slot.
+    //   * FLOOR — column is passable AND has a topmost solid voxel with
+    //     >= MinHeadroomVoxels of air above it (counting up through the
+    //     slice and into voxels above it). Tile color comes from that voxel.
+    //   * OPEN AIR — passable but no standable surface within the slice.
+    //     TileId = 0, no floor flag.
     //   * Ceiling flag is set if the voxel just above the slice top is solid
     //     (still inside this chunk; ignores cross-chunk for now).
     //
@@ -196,7 +214,7 @@ public static class MinimapData
         ChunkState chunk,
         int sliceInChunk,
         DetailGroupData[] detailPalette,
-        EnvironmentKitData[] kitPalette,
+        TerrainData[] terrainPalette,
         WorldState worldState,
         SliceCell[] output)
     {
@@ -228,10 +246,10 @@ public static class MinimapData
                 return;
             }
             // Pure non-air: every column is walls all the way through. No
-            // floors, no ceiling flag. Wall slot is kit-agnostic so any
+            // floors, no ceiling flag. Wall slot is terrain-agnostic so any
             // pure-solid chunk (stone, terrain, whatever) reads as the
             // single dark-grey Wall color.
-            var wall = new SliceCell { TileId = (byte)MinimapTileColors.WALL_SLOT, FoliageId = 0, Flags = 0 };
+            var wall = new SliceCell { TileId = (byte)WallSlotIndex, FoliageId = 0, Flags = 0 };
             for (int i = 0; i < IndoorPixelsPerChunkSq; i++)
             {
                 output[i] = wall;
@@ -243,80 +261,97 @@ public static class MinimapData
         {
             for (int x = 0; x < IndoorPixelsPerChunk; x++)
             {
-                int floorY = -1;     // local Y of topmost-with-air-above
-                int topSolidY = -1;  // local Y of topmost solid in slice (for wall pixels)
-                bool sawAirAbove = false;
+                // Count air voxels stacked directly above the slice (up to
+                // MinHeadroomVoxels). These count toward headroom for a floor
+                // sitting at the slice top. The deep-underground case (chunk
+                // above is solid) is what prevents wall columns from being
+                // misclassified as floors and picking up the surface biome
+                // color above.
+                int airAboveSlice = 0;
+                for (int i = 0; i < MinHeadroomVoxels; i++)
+                {
+                    int yAbove = sliceTopY + i;
+                    VoxelType vAbove;
+                    if (yAbove < ChunkState.SIZE)
+                    {
+                        vAbove = chunk.Voxels[x, yAbove, z];
+                    }
+                    else if (worldState != null)
+                    {
+                        int wx = chunk.ChunkCoord.X * ChunkState.SIZE + x;
+                        int wz = chunk.ChunkCoord.Z * ChunkState.SIZE + z;
+                        int wyAbove = chunk.ChunkCoord.Y * ChunkState.SIZE + yAbove;
+                        vAbove = worldState.GetVoxelWorld(wx, wyAbove, wz);
+                    }
+                    else
+                    {
+                        vAbove = VoxelType.Air;
+                    }
+                    if (vAbove != VoxelType.Air) { break; }
+                    airAboveSlice++;
+                }
+
+                // Top-down scan within slice. Track:
+                //   * floorY  — topmost solid with >= MinHeadroomVoxels of
+                //               contiguous air above (in-slice + above-slice).
+                //   * anySolid — at least one solid voxel exists in the slice.
+                //   * maxAirRunInSlice — longest contiguous air run within
+                //                        the slice itself; >= MinHeadroomVoxels
+                //                        means the column is passable.
+                int floorY = -1;
                 VoxelType floorVoxel = VoxelType.Air;
                 byte floorFoliage = 0;
-
-                // Scan top-down within slice. Track whether the voxel one
-                // above (in-slice or in the chunk above) was air; first
-                // solid after an air voxel is the floor.
-                if (sliceTopY < ChunkState.SIZE)
-                {
-                    sawAirAbove = chunk.Voxels[x, sliceTopY, z] == VoxelType.Air;
-                }
-                else if (worldState != null)
-                {
-                    // Top slice: peek into the chunk directly above. Without
-                    // this, deep-underground chunks (solid above) misclassify
-                    // their wall columns as floors and pick up the surface
-                    // biome color above.
-                    int wx = chunk.ChunkCoord.X * ChunkState.SIZE + x;
-                    int wyAbove = (chunk.ChunkCoord.Y + 1) * ChunkState.SIZE;
-                    int wz = chunk.ChunkCoord.Z * ChunkState.SIZE + z;
-                    sawAirAbove = worldState.GetVoxelWorld(wx, wyAbove, wz) == VoxelType.Air;
-                }
-                else
-                {
-                    sawAirAbove = true;
-                }
+                bool anySolid = false;
+                int curAirRun = airAboveSlice; // ongoing air run, seeded from above
+                int maxAirRunInSlice = 0;
+                int curAirRunInSlice = 0;
 
                 for (int y = sliceTopY - 1; y >= sliceBaseY; y--)
                 {
                     VoxelType v = chunk.Voxels[x, y, z];
-                    bool isSolid = v != VoxelType.Air;
-                    if (isSolid)
+                    if (v != VoxelType.Air)
                     {
-                        if (topSolidY < 0)
-                        {
-                            topSolidY = y;
-                        }
-                        if (sawAirAbove && floorY < 0)
+                        anySolid = true;
+                        if (curAirRun >= MinHeadroomVoxels && floorY < 0)
                         {
                             floorY = y;
                             floorVoxel = v;
                             floorFoliage = ResolveFoliageId(chunk, detailPalette, x, y, z);
                         }
-                        sawAirAbove = false;
+                        if (curAirRunInSlice > maxAirRunInSlice) { maxAirRunInSlice = curAirRunInSlice; }
+                        curAirRun = 0;
+                        curAirRunInSlice = 0;
                     }
                     else
                     {
-                        sawAirAbove = true;
+                        curAirRun++;
+                        curAirRunInSlice++;
                     }
                 }
+                if (curAirRunInSlice > maxAirRunInSlice) { maxAirRunInSlice = curAirRunInSlice; }
+
+                bool passable = maxAirRunInSlice >= MinHeadroomVoxels;
 
                 byte flags = 0;
                 byte tileId = 0;
                 byte foliageId = 0;
 
-                if (floorY >= 0)
+                if (!passable && anySolid)
+                {
+                    // Wall: can't walk through this column at this elevation.
+                    // Painted with the dedicated Wall slot regardless of
+                    // biome / terrain so tunnels read consistently dark grey.
+                    tileId = (byte)WallSlotIndex;
+                }
+                else if (floorY >= 0)
                 {
                     flags |= SliceFlagFloor;
-                    int floorKitId = chunk.GetKitId(x, floorY, z);
+                    int floorTerrainId = chunk.GetTerrainId(x, floorY, z);
                     int floorOverlayId = chunk.GetOverlayId(x, floorY, z);
-                    tileId = (byte)ResolveSurfaceTileId(floorVoxel, chunkBaseY + floorY, floorKitId, floorOverlayId, kitPalette);
+                    tileId = (byte)ResolveSurfaceTileId(floorVoxel, chunkBaseY + floorY, floorTerrainId, floorOverlayId, terrainPalette);
                     foliageId = floorFoliage;
                 }
-                else if (topSolidY >= 0)
-                {
-                    // Wall-only pixel (slice fully solid in this column —
-                    // underground rock or inside-cliff). Always paints with
-                    // the dedicated Wall slot regardless of biome / kit so
-                    // tunnels read consistently dark grey.
-                    tileId = (byte)MinimapTileColors.WALL_SLOT;
-                }
-                // else: open air column. tileId stays 0, no floor flag.
+                // else: passable open-air column. TileId stays 0, no flag.
 
                 if (sliceTopY < ChunkState.SIZE && chunk.Voxels[x, sliceTopY, z] != VoxelType.Air)
                 {
@@ -342,9 +377,9 @@ public static class MinimapData
     //   true: side face — the "looking at a wall" view used for indoor
     //     *wall* pixels (a column that's solid through the entire slice,
     //     no air above, i.e. underground rock or the inside of a cliff).
-    // The same kit-and-overlay resolution applies in both modes; only the
+    // The same terrain-and-overlay resolution applies in both modes; only the
     // FlatTile vs WallTile lookup differs for AUTO terrain.
-    private static int ResolveSurfaceTileId(VoxelType type, int worldY, int kitId, int overlayId, EnvironmentKitData[] kitPalette, bool useWallTile = false)
+    private static int ResolveSurfaceTileId(VoxelType type, int worldY, int TerrainId, int overlayId, TerrainData[] terrainPalette, bool useWallTile = false)
     {
         if (overlayId != 0)
         {
@@ -355,47 +390,48 @@ public static class MinimapData
         if (baseTile == VoxelTypeInfo.TILE_AUTO)
         {
             baseTile = useWallTile
-                ? ResolveKitWallTile(kitId, kitPalette)
-                : ResolveKitFlatTile(kitId, kitPalette);
+                ? ResolveTerrainWallTile(TerrainId, terrainPalette)
+                : ResolveTerrainFlatTile(TerrainId, terrainPalette);
         }
         return ApplyBand(baseTile, worldY);
     }
 
-    private static int ResolveKitFlatTile(int kitId, EnvironmentKitData[] kitPalette)
+    private static int ResolveTerrainFlatTile(int TerrainId, TerrainData[] terrainPalette)
     {
-        if (kitPalette == null || kitId < 0 || kitId >= kitPalette.Length)
+        if (terrainPalette == null || TerrainId < 0 || TerrainId >= terrainPalette.Length)
         {
-            return VoxelTypeInfo.TILE_GRASS_TOP;
+            return BlockCatalog.Active.DefaultFlatTileIndex;
         }
-        EnvironmentKitData kit = kitPalette[kitId];
-        if (kit == null)
+        TerrainData terrain = terrainPalette[TerrainId];
+        if (terrain == null || terrain.FlatTile == null)
         {
-            return VoxelTypeInfo.TILE_GRASS_TOP;
+            return BlockCatalog.Active.DefaultFlatTileIndex;
         }
-        return kit.FlatTile;
+        return terrain.FlatTile.AtlasBaseIndex;
     }
 
-    private static int ResolveKitWallTile(int kitId, EnvironmentKitData[] kitPalette)
+    private static int ResolveTerrainWallTile(int TerrainId, TerrainData[] terrainPalette)
     {
-        if (kitPalette == null || kitId < 0 || kitId >= kitPalette.Length)
+        if (terrainPalette == null || TerrainId < 0 || TerrainId >= terrainPalette.Length)
         {
-            return VoxelTypeInfo.TILE_STONE;
+            return BlockCatalog.Active.DefaultWallTileIndex;
         }
-        EnvironmentKitData kit = kitPalette[kitId];
-        if (kit == null)
+        TerrainData terrain = terrainPalette[TerrainId];
+        if (terrain == null || terrain.WallTile == null)
         {
-            return VoxelTypeInfo.TILE_STONE;
+            return BlockCatalog.Active.DefaultWallTileIndex;
         }
-        return kit.WallTile;
+        return terrain.WallTile.AtlasBaseIndex;
     }
 
     private static int ApplyBand(int baseTile, int worldY)
     {
-        if (VoxelTypeInfo.TileVariants.TryGetValue(baseTile, out VoxelTypeInfo.TileVariantInfo variants) && variants.Bands > 1)
+        BlockData block = BlockCatalog.Active.GetByAtlasIndex(baseTile);
+        if (block != null && block.Bands > 1)
         {
             int band = Mathf.FloorToInt((worldY - VoxelTypeInfo.TILE_BAND_ORIGIN_Y) / VoxelTypeInfo.TILE_BAND_HEIGHT);
-            band = ((band % variants.Bands) + variants.Bands) % variants.Bands;
-            return baseTile + band * variants.VariantsPerBand;
+            band = ((band % block.Bands) + block.Bands) % block.Bands;
+            return baseTile + band * block.VariantsPerBand;
         }
         return baseTile;
     }

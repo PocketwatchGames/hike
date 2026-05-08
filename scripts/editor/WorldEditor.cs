@@ -431,12 +431,19 @@ public partial class WorldEditor : Node3D
 
     private EntitySimState CreateEntitySimState(string entityName, Vector3 position)
     {
-        // Editor placement pulls Tree/TallGrass scenes from the first zone —
-        // there's no per-cursor zone context yet, and all zones currently
-        // share palettes. Once zone painting lands, sample by cursor column.
+        // Tree/TallGrass scene palettes live on the terrain kit at the cursor's
+        // surface column, so the editor's spawn dropdown reads from whichever
+        // kit was stamped at that voxel (matches what WorldGen would pick at
+        // run time). Loot/Chest/Torch palettes are pulled out of the first
+        // zone's SpawnListData entries — the editor picks the first matching
+        // subclass entry as its representative scene. Door/SpikeTrap stay on
+        // WorldGenData (they aren't placed by the per-zone scan). Goblin /
+        // KunKun load their MobData directly so the editor doesn't depend on
+        // them being authored into a spawn list.
+        TerrainKitData cursorKit = ResolveKitAtCursor(position);
+        PackedScene[] treeScenes = cursorKit?.TreeScenes ?? System.Array.Empty<PackedScene>();
+        PackedScene[] tallGrassScenes = cursorKit?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
         ZoneGenData firstZone = worldGenData.Zones != null && worldGenData.Zones.Length > 0 ? worldGenData.Zones[0] : null;
-        PackedScene[] treeScenes = firstZone?.TreeScenes ?? System.Array.Empty<PackedScene>();
-        PackedScene[] tallGrassScenes = firstZone?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
         switch (entityName)
         {
             case "Tree":
@@ -444,13 +451,22 @@ public partial class WorldEditor : Node3D
             case "TallGrass":
                 return tallGrassScenes.Length > 0 ? new PropSimState(PropType.TallGrass, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
             case "Loot":
-                return firstZone?.LootScene != null ? new PropSimState(PropType.AutoLoot, position, firstZone.LootScene) : null;
+            {
+                LootSpawnEntry loot = FindFirstSurfaceEntry<LootSpawnEntry>(firstZone);
+                return loot?.Scene != null ? new PropSimState(PropType.AutoLoot, position, loot.Scene) : null;
+            }
             case "Chest":
-                return firstZone?.ChestScene != null && firstZone.LootScene != null
-                    ? new ChestSimState(position, firstZone.ChestScene, 3, firstZone.LootScene)
+            {
+                ChestSpawnEntry chest = FindFirstCaveEntry<ChestSpawnEntry>(firstZone);
+                return chest?.Scene != null && chest.LootScene != null
+                    ? new ChestSimState(position, chest.Scene, 3, chest.LootScene)
                     : null;
+            }
             case "Torch":
-                return new TorchSimState(position, worldGenData.TorchScene);
+            {
+                TorchSpawnEntry torch = FindFirstCaveEntry<TorchSpawnEntry>(firstZone);
+                return torch?.Scene != null ? new TorchSimState(position, torch.Scene) : null;
+            }
             case "Door":
                 return new DoorSimState(position, 0f, worldGenData.DoorScene);
             case "SpikeTrap":
@@ -458,16 +474,38 @@ public partial class WorldEditor : Node3D
                     ? new TrapSimState(position, worldGenData.SpikeTrapScene)
                     : null;
             case "Goblin":
-                return firstZone?.GoblinScene != null && firstZone.GoblinData != null
-                    ? new MobSimState(position, 0f, firstZone.GoblinScene, firstZone.GoblinData)
-                    : null;
+            {
+                MobData data = GD.Load<MobData>("res://resources/data/characters/goblin.tres");
+                return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
+            }
             case "KunKun":
-                return firstZone?.KunKunScene != null && firstZone.KunKunData != null
-                    ? new MobSimState(position, 0f, firstZone.KunKunScene, firstZone.KunKunData)
-                    : null;
+            {
+                MobData data = GD.Load<MobData>("res://resources/data/characters/kun_kun.tres");
+                return data?.MobScene != null ? new MobSimState(position, 0f, data.MobScene, data) : null;
+            }
             default:
                 return null;
         }
+    }
+
+    private static T FindFirstSurfaceEntry<T>(ZoneGenData zone) where T : SpawnEntryData
+    {
+        return FindFirstEntryIn<T>(zone?.SurfaceEntities);
+    }
+
+    private static T FindFirstCaveEntry<T>(ZoneGenData zone) where T : SpawnEntryData
+    {
+        return FindFirstEntryIn<T>(zone?.CaveEntities);
+    }
+
+    private static T FindFirstEntryIn<T>(SpawnListData list) where T : SpawnEntryData
+    {
+        if (list?.Entries == null) { return null; }
+        foreach (SpawnEntryData entry in list.Entries)
+        {
+            if (entry is T match) { return match; }
+        }
+        return null;
     }
 
     private void RegisterEditorEntity(Node3D node, Vector3I coord)
@@ -561,6 +599,32 @@ public partial class WorldEditor : Node3D
                 toRemove.QueueFree();
             }
         }
+    }
+
+    // Resolve the surface terrain kit under the editor cursor. Walks the
+    // column at the cursor's XZ down up to SEARCH voxels looking for the
+    // first solid / water voxel; that voxel's terrain id is what scene
+    // palettes (TreeScenes, TallGrassScenes) read off the active kit
+    // palette. Returns null if the column has no content within reach.
+    private TerrainKitData ResolveKitAtCursor(Vector3 position)
+    {
+        int ox = (int)Math.Floor(position.X);
+        int oy = (int)Math.Floor(position.Y);
+        int oz = (int)Math.Floor(position.Z);
+        const int SEARCH = 4;
+        for (int dy = 0; dy <= SEARCH; dy++)
+        {
+            int sy = oy - dy;
+            VoxelType v = _worldState.GetVoxelWorld(ox, sy, oz);
+            if (v != VoxelType.Air && v != VoxelType.Water)
+            {
+                int terrainId = _worldState.GetTerrainIdWorld(ox, sy, oz);
+                TerrainKitData[] palette = WorldGen.ActiveKitPalette;
+                if (palette == null || terrainId < 0 || terrainId >= palette.Length) { return null; }
+                return palette[terrainId];
+            }
+        }
+        return null;
     }
 
     private Godot.Collections.Dictionary Raycast(Vector2 screenPos)

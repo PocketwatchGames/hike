@@ -61,6 +61,12 @@ public partial class DetailEntry : Resource
     [Export] public float ScaleMin = 0.9f;
     [Export] public float ScaleMax = 1.1f;
 
+    // Multiplier on wind sway AND player push for this entry. 1.0 = full
+    // motion (grass, flowers — default); 0.0 = locked rigid (cave pebbles,
+    // bones, anything that should sit still). Stamped into the cloned shader
+    // material's `wind_strength` parameter by GetMaterial().
+    [Export(PropertyHint.Range, "0,1,0.01")] public float WindStrength = 1.0f;
+
     // Lazily-built ShaderMaterial cache. Built once per DetailEntry instance
     // (Godot caches loaded resources, so the same entry shared across many
     // chunks reuses the same material — one shader compile, one GPU upload).
@@ -96,6 +102,7 @@ public partial class DetailEntry : Resource
             mat.SetShaderParameter("normal_map", normalTex);
         }
         mat.SetShaderParameter("dome_strength", DomeStrength);
+        mat.SetShaderParameter("wind_strength", WindStrength);
         _materialCache = mat;
         return mat;
     }

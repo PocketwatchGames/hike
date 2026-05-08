@@ -1,6 +1,6 @@
 // Selects which AmbienceState scalar an AmbienceLayerData remaps into a
 // volume / pitch curve. Authored on the resource so the same layer asset
-// can be reused (e.g. one wind layer in temperate zones and a desert
+// can be reused (e.g. one wind layer in forest zones and a desert
 // zone overrides only the stream + a couple of curves).
 //
 // Wire values are stable — appended only, never reused, since these

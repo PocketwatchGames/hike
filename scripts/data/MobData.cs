@@ -71,6 +71,11 @@ public partial class MobData : Resource
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;
+    // Scene instantiated for this mob type. Single source of truth — every
+    // place that previously paired a (PackedScene, MobData) reference
+    // (ZoneGenData goblin/kun_kun, MobSpawnEntry) now references MobData
+    // alone and reads MobScene from it.
+    [Export] public PackedScene MobScene;
     // MovingLight scene this mob spawns when it lights its torch (dark
     // ambient + discovered). Instantiated on demand in Mob and freed when
     // the conditions clear — same instantiate/free pattern and field name
