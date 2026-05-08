@@ -220,7 +220,7 @@ public static class ZoneBlend
         if (sum < MinTotalWeight) { return; }
         float inv = 1f / sum;
 
-        float cloudCover = 0, windSpeed = 0, temperature = 0, humidity = 0, rainAmount = 0;
+        float cloudCover = 0, windSpeed = 0, airTemperature = 0, sunTemperature = 0, humidity = 0, rainAmount = 0;
         for (int i = 0; i < weights.Length; i++)
         {
             float w = weights[i];
@@ -230,14 +230,16 @@ public static class ZoneBlend
             float nw = w * inv;
             cloudCover += wd.cloudCover * nw;
             windSpeed += wd.windSpeed * nw;
-            temperature += wd.temperature * nw;
+            airTemperature += wd.airTemperature * nw;
+            sunTemperature += wd.sunTemperature * nw;
             humidity += wd.humidity * nw;
             rainAmount += wd.rainAmount * nw;
         }
 
         dst.cloudCover = cloudCover;
         dst.windSpeed = windSpeed;
-        dst.temperature = temperature;
+        dst.airTemperature = airTemperature;
+        dst.sunTemperature = sunTemperature;
         dst.humidity = humidity;
         dst.rainAmount = rainAmount;
     }

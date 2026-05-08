@@ -46,4 +46,27 @@ public partial class PlayerData : Resource
 	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
 	// player-pushes-mob entirely.
 	[Export] public float mobPushStrength = 8f;
+
+	// Degrees F per second that bodyTemperature drifts toward the sampled
+	// environmental temperature. Lower = more inertia (a brief gust through
+	// a cold zone won't trigger Cold); higher = the player tracks ambient
+	// changes more responsively.
+	[Export] public float temperatureAcclimationSpeed = 5f;
+
+	// Body-temperature thresholds in degrees F. Below coldTemperature the
+	// player gains coldStatus; above hotTemperature they gain hotStatus.
+	// Returning to the safe band arms the status's normal duration timer
+	// (5s on the authored cold/hot resources) for removal.
+	[Export] public float coldTemperature = 50f;
+	[Export] public float hotTemperature = 90f;
+
+	[Export] public StatusEffectData coldStatus;
+	[Export] public StatusEffectData hotStatus;
+
+	// Degrees F shifted onto BOTH thresholds per m/s of sampled wind speed.
+	// Wind chills the player: positive values raise both thresholds, making
+	// cold trigger at warmer ambient and hot harder to reach. GameClient.
+	// SampleWindSpeed already drops to 0 under overhead shelter so caves and
+	// covered structures don't fake a draft.
+	[Export] public float windTemperatureReduction = 0.5f;
 }

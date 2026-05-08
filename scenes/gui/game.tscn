@@ -65,7 +65,6 @@ mobChatterScene = ExtResource("3a_mobchat")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")
-minimapWallSlotColor = Color(0.045, 0.045, 0.05, 1)
 minimapFoliageColors = ExtResource("minimap_foliage_colors")
 minimapRevealMultiplier = 2.0
 minimapRevealInnerFraction = 0.95
@@ -225,7 +224,7 @@ mouse_filter = 2
 [node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
 gameClient = NodePath("..")
 
-[node name="WorldMapScreen" parent="." node_paths=PackedStringArray("gameClient") instance=ExtResource("18_wmap")]
+[node name="WorldMapScreen" parent="." unique_id=8722710 node_paths=PackedStringArray("gameClient") instance=ExtResource("18_wmap")]
 visible = false
 gameClient = NodePath("..")
 

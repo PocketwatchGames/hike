@@ -1,6 +1,8 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
+[ext_resource type="PackedScene" path="res://scenes/effects/footprint_mob.tscn" id="1_atie7"]
+[ext_resource type="PackedScene" path="res://scenes/effects/footprint_player.tscn" id="2_7ttre"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -11,4 +13,6 @@ NightIntensityBase = 0.6
 MobTorchLightThreshold = 0.8
 MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
+PlayerFootprintScene = ExtResource("2_7ttre")
+MobFootprintScene = ExtResource("1_atie7")
 metadata/_custom_type_script = "uid://chvgahtb671mg"

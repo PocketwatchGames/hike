@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="TerrainKitData" format=3]
 
 [ext_resource type="Script" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
-[ext_resource type="Resource" uid="uid://bx4iiif8qyb07" path="res://resources/data/terrain/forest.tres" id="2_kit"]
+[ext_resource type="Resource" path="res://resources/data/terrain/forest.tres" id="2_kit"]
 [ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/details/detail_grass.tres" id="3_detail"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="4_g01"]
 [ext_resource type="PackedScene" uid="uid://bkwajd5cucdsd" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="4_g02"]

@@ -22,6 +22,11 @@ public partial class Player : CharacterBody3D
 	// walking/running on solid ground. Authored in the player .tscn; missing
 	// keys silently emit nothing.
 	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+	// Per-character footprint texture projected onto the ground at footstep
+	// cadence. The shared player vs mob footprint scenes (and per-ground
+	// tints) live on SimData; this is the only print authoring that varies
+	// per character.
+	[Export] private Texture2D _footprintTexture;
 	// One-shot blood splatter spawned at the player's position on a non-lethal
 	// damage hit. Spawned in world space so the puff stays put as the player
 	// runs through it, matching the footstep effect convention.
@@ -80,6 +85,11 @@ public partial class Player : CharacterBody3D
 	// Minimum horizontal speed² to count as "walking" for footstep / loop
 	// gating. Below this the player is treated as standing still.
 	[Export] private float _footstepMinSpeedSq = 0.25f;
+	// Status effect applied while the player is in water or in unsheltered
+	// rain. Authored data lives on the resource (duration, displayName, icon);
+	// TickWetEffect arms / pauses the timer so the 30s dry-out only counts
+	// while the player is actually drying.
+	[Export] private StatusEffectData _wetEffectData;
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
@@ -108,6 +118,10 @@ public partial class Player : CharacterBody3D
 	// last-emit memory so the cadence resets cleanly when the player
 	// transitions between dry land and a wet patch.
 	readonly FootstepEmitter _shallowWaterFootstepEmitter = new();
+	// Spawns persistent ground decals at the same stride cadence as
+	// _footstepEmitter. Independent stride memory so footprint cadence stays
+	// distinct from FX cadence if the two strides ever diverge.
+	readonly FootprintEmitter _footprintEmitter = new();
 	// Active loop instances. Null when the matching state isn't held; created
 	// on the first frame state becomes active and Stop()'d when it ends. We
 	// drop the reference at Stop() so the next activation creates a fresh
@@ -137,6 +151,28 @@ public partial class Player : CharacterBody3D
 	// appends a fresh state and ticks independently. The HUD groups by data
 	// when rendering. List grows at most to a handful of concurrent effects.
 	readonly List<StatusEffectState> _statusEffects = new();
+	// Live handle to the player's wet effect (null when dry). Reused across
+	// re-wettings so the HUD shows a single Wet stack rather than rolling a
+	// fresh icon every time the player enters/leaves rain.
+	StatusEffectState _wetState;
+	// Count of overlapping active warmth zones (campfires). > 0 suppresses
+	// wet entirely and clears any in-flight wet timer. Counter (not bool) so
+	// two adjacent campfires don't release the player from one's overlap
+	// when they leave the other's.
+	int _warmthZoneCount;
+	// Sum of warmingTemperature across every active warmth zone the player
+	// is standing inside. Added to the GameClient-sampled environmental
+	// temperature when computing bodyTemperature drift each tick.
+	float _warmthBonus;
+	// Smoothed perceived temperature in degrees F. Drifts toward the sampled
+	// environment + warmth bonus at PlayerData.temperatureAcclimationSpeed
+	// so a brief gust through a cold patch doesn't trigger Cold.
+	float _bodyTemperature = 70f;
+	// Live handles to the cold / hot statuses (null when not afflicted).
+	// Same pattern as _wetState — we keep the reference so the safe-band
+	// timer arms / pauses on the EXISTING state instead of stacking icons.
+	StatusEffectState _coldState;
+	StatusEffectState _hotState;
 	MovingLight _movingLight;
 	StringName _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
@@ -542,6 +578,238 @@ public partial class Player : CharacterBody3D
 		_statusEffects.Remove(state);
 	}
 
+	// WarmthZone (campfires, etc.) calls these on body enter/exit. Counter,
+	// not bool, so two campfires whose zones overlap don't release the player
+	// from one when they leave the other. Entering immediately clears any
+	// in-flight wet effect — a player walking up to a fire dries off rather
+	// than waiting out the timer. The zone's warmingTemperature is summed
+	// into _warmthBonus so SampleEnvironmentTemperature can stack heat from
+	// multiple overlapping fires.
+	public void EnterWarmthZone(WarmthZone zone)
+	{
+		_warmthZoneCount++;
+		if (zone != null)
+		{
+			_warmthBonus += zone.warmingTemperature;
+		}
+		if (_wetState != null)
+		{
+			RemoveStatusEffect(_wetState);
+			_wetState = null;
+		}
+	}
+
+	public void ExitWarmthZone(WarmthZone zone)
+	{
+		if (_warmthZoneCount > 0)
+		{
+			_warmthZoneCount--;
+			if (zone != null)
+			{
+				_warmthBonus -= zone.warmingTemperature;
+			}
+		}
+	}
+
+	// Per-physics-tick wet state machine. Source conditions: swimming/wading,
+	// or unsheltered while it's raining. While the player is wet AND in any
+	// of those conditions, the timer stays paused (expireTimeMs == 0). When
+	// they reach dry conditions the timer is armed for a full data.duration
+	// window — re-entering rain mid-dry-out cancels the countdown back to 0
+	// (matches the design: each dry-out runs the full 30s). Warmth zones are
+	// handled separately by EnterWarmthZone, which clears the effect outright.
+	private void TickWetEffect()
+	{
+		if (_wetEffectData == null)
+		{
+			return;
+		}
+
+		// Drop our handle if TickStatusEffects already pruned the expired effect.
+		if (_wetState != null && !_statusEffects.Contains(_wetState))
+		{
+			_wetState = null;
+		}
+
+		// Inside a warmth zone the player is kept dry — skip both wet
+		// application and timer arming. A wet effect already cleared on enter
+		// in EnterWarmthZone; nothing to do until they leave.
+		if (_warmthZoneCount > 0)
+		{
+			return;
+		}
+
+		bool wetSource = IsInWetConditions();
+		if (wetSource)
+		{
+			if (_wetState == null)
+			{
+				_wetState = AddStatusEffect(_wetEffectData);
+			}
+			_wetState?.PauseTimer();
+			return;
+		}
+
+		// Dry conditions: arm the countdown the first frame we transition out
+		// of a wet source so the 30s starts fresh.
+		if (_wetState != null && !_wetState.IsTimed)
+		{
+			_wetState.ArmTimer(_world?.GameTimeMs ?? 0);
+		}
+	}
+
+	// Slides _bodyTemperature toward the sampled environment + warmth bonus,
+	// then arms / clears the cold and hot statuses based on the result.
+	// Crossing a threshold IN applies the status with the timer paused (the
+	// effect persists as long as the body is outside the safe band). Returning
+	// to the safe band arms the authored 5s expiry — re-crossing pauses again
+	// without re-stacking, mirroring the wet pattern.
+	private void TickBodyTemperature(float dt)
+	{
+		if (data == null)
+		{
+			return;
+		}
+		GameClient client = GameClient.Current;
+		if (client == null)
+		{
+			return;
+		}
+
+		float envTemp = client.SampleAirTemperature(GlobalPosition) + _warmthBonus;
+		float speed = data.temperatureAcclimationSpeed;
+		if (speed > 0f)
+		{
+			float diff = envTemp - _bodyTemperature;
+			float step = speed * dt;
+			if (Mathf.Abs(diff) <= step)
+			{
+				_bodyTemperature = envTemp;
+			}
+			else
+			{
+				_bodyTemperature += Mathf.Sign(diff) * step;
+			}
+		}
+		else
+		{
+			_bodyTemperature = envTemp;
+		}
+
+		// Resistances from active status effects shift the trigger thresholds.
+		// Positive coldResistance lowers the cold threshold (harder to chill);
+		// positive heatResistance raises the hot threshold (harder to overheat).
+		float coldResist = 0f;
+		float heatResist = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData sd = _statusEffects[i]?.data;
+			if (sd == null) { continue; }
+			coldResist += sd.coldResistance;
+			heatResist += sd.heatResistance;
+		}
+		// Wind chill. Multiplied by windTemperatureReduction (degrees F per
+		// m/s) and shifted onto BOTH thresholds — the comfort band slides
+		// upward in actual ambient, so cold triggers earlier and hot needs
+		// hotter air to reach. SampleWindSpeed zeroes out under overhead
+		// shelter so caves don't pretend to be windy.
+		float windEffect = client.SampleWindSpeed(GlobalPosition) * data.windTemperatureReduction;
+		float coldThreshold = data.coldTemperature - coldResist + windEffect;
+		float hotThreshold = data.hotTemperature + heatResist + windEffect;
+
+		UpdateThermalStatus(ref _coldState, data.coldStatus, _bodyTemperature < coldThreshold);
+		UpdateThermalStatus(ref _hotState, data.hotStatus, _bodyTemperature > hotThreshold);
+	}
+
+	// Shared apply / pause / arm logic for cold and hot statuses. `triggered`
+	// is true while the body is outside the safe band — the status is held
+	// with timer paused. Once the body re-enters the safe band, the authored
+	// duration is armed and the existing TickStatusEffects pruning loop
+	// removes the state when it expires.
+	private void UpdateThermalStatus(ref StatusEffectState state, StatusEffectData effectData, bool triggered)
+	{
+		if (effectData == null)
+		{
+			return;
+		}
+		if (state != null && !_statusEffects.Contains(state))
+		{
+			state = null;
+		}
+		if (triggered)
+		{
+			if (state == null)
+			{
+				state = AddStatusEffect(effectData);
+			}
+			state?.PauseTimer();
+			return;
+		}
+		if (state != null && !state.IsTimed)
+		{
+			state.ArmTimer(_world?.GameTimeMs ?? 0);
+		}
+	}
+
+	private bool IsInWetConditions()
+	{
+		if (_waterState != EWaterState.None)
+		{
+			return true;
+		}
+		SkyController sky = SkyController.Current;
+		if (sky == null || sky.Palette.RainIntensity <= 0f)
+		{
+			return false;
+		}
+		return IsSkyExposed();
+	}
+
+	// Single upward raycast against environment voxels. A clear shot to the
+	// arbitrary high cap means the player has open sky overhead — anything in
+	// the way (cave roof, balcony, tree canopy that registers as collidable)
+	// counts as shelter. Cheap enough to run every physics tick (one ray);
+	// the per-tick gating in IsInWetConditions skips it whenever it's not
+	// raining or the player is already in water.
+	private bool IsSkyExposed()
+	{
+		World3D world3D = GetWorld3D();
+		if (world3D == null)
+		{
+			return false;
+		}
+		Vector3 from = GlobalPosition + Vector3.Up * 1.5f;
+		Vector3 to = from + Vector3.Up * 200f;
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+		query.CollideWithBodies = true;
+		query.CollideWithAreas = false;
+		query.Exclude = new Godot.Collections.Array<Rid> { GetRid() };
+		var result = world3D.DirectSpaceState.IntersectRay(query);
+		return result.Count == 0;
+	}
+
+	// Sum the alpha / duration multipliers contributed by every active status
+	// effect, so the footprint emitter can scale the per-ground FootprintData
+	// at spawn. Effects without footprint authoring contribute their default
+	// (1f, 1f) — no-op — so unrelated effects (poison, regeneration) never
+	// affect prints. Multiplicative composition: two stacked Wet states
+	// double-multiply alpha and duration.
+	private void GetFootprintMultipliers(out float alphaMultiplier, out float durationMultiplier)
+	{
+		alphaMultiplier = 1f;
+		durationMultiplier = 1f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null)
+			{
+				continue;
+			}
+			alphaMultiplier *= data.footprintAlphaMultiplier;
+			durationMultiplier *= data.footprintDurationMultiplier;
+		}
+	}
+
 	// Walks all active status effects, applies each one's per-second damage in
 	// integer 1.0s chunks, and prunes any whose timer has expired. Iterates
 	// backwards so a removal mid-loop doesn't shift indices for unvisited
@@ -686,6 +954,14 @@ public partial class Player : CharacterBody3D
 		// "ready" rather than charging up through the HUD on first frame.
 		RecalculateMaxArmor();
 		_armor = _maxArmor;
+
+		// Seed body temperature to the spawn ambient so the player isn't
+		// born already cold / hot just because the default float is 70°F.
+		GameClient client = GameClient.Current;
+		if (client != null)
+		{
+			_bodyTemperature = client.SampleAirTemperature(GlobalPosition);
+		}
 	}
 
 	private void OnInventorySlotChanged(EInventorySlot slot)
@@ -765,6 +1041,8 @@ public partial class Player : CharacterBody3D
 		UpdateWaterState();
 		TickArmor(dt);
 		TickStatusEffects(dt);
+		TickWetEffect();
+		TickBodyTemperature(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer
 		// while wading (discrete step impacts) than while swimming
@@ -794,6 +1072,11 @@ public partial class Player : CharacterBody3D
 		EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
 		_footstepEmitter.Update(_world, GlobalPosition, walkingDry, _footstepStride, ground, _footstepEffects);
 		_shallowWaterFootstepEmitter.Update(_world, GlobalPosition, walkingShallow, _footstepStride, _shallowWaterFootstepEffect);
+		// Footprint decal cadence. Skipped while swimming (no contact) and
+		// while wading (the splash already represents the disturbance) — only
+		// dry-land contact leaves prints.
+		GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+		_footprintEmitter.Update(_world, GlobalPosition, GlobalRotation.Y, walkingDry, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: false);
 
 		// Movement-gated continuous loops. The water swim loop only plays
 		// while actually swimming — shallow wading is covered by the

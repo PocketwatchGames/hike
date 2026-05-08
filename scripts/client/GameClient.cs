@@ -51,6 +51,90 @@ public partial class GameClient : Node3D
 	// the value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
 	[Export(PropertyHint.Range, "0.1,1,0.05")] public float minimapRevealInnerFraction = 0.7f;
 
+	// Sample wind speed in m/s at `worldPos`. Returns 0 when an upward
+	// raycast hits environment geometry — a stand-in for "the player is in
+	// a cave or under a roof", where the open-sky wind from the weather
+	// system shouldn't reach them. Same shape as SampleAirTemperature so
+	// callers can ignore wind whenever they ignore weather.
+	public float SampleWindSpeed(Vector3 worldPos)
+	{
+		SkyController sky = SkyController.Current;
+		if (sky?.Weather == null) { return 0f; }
+		float wind = sky.Weather.windSpeed;
+		if (wind <= 0f) { return 0f; }
+
+		World3D world3D = GetWorld3D();
+		if (world3D != null)
+		{
+			Vector3 from = worldPos + Vector3.Up * 0.1f;
+			Vector3 to = from + Vector3.Up * 200f;
+			using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+			query.CollideWithBodies = true;
+			query.CollideWithAreas = false;
+			if (_player != null)
+			{
+				query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+			}
+			if (world3D.DirectSpaceState.IntersectRay(query).Count > 0)
+			{
+				return 0f;
+			}
+		}
+		return wind;
+	}
+
+	// Sample environmental air temperature in degrees F at `worldPos`.
+	// airTemperature flows through unconditionally; sunTemperature only
+	// stacks on when the sun is above the horizon AND the sample point
+	// has a clear line-of-sight to the sun direction. Player.cs adds its
+	// own warmth-zone bonus on top of this — campfires are not sampled
+	// here because the player tracks zone enter/exit directly.
+	public float SampleAirTemperature(Vector3 worldPos)
+	{
+		SkyController sky = SkyController.Current;
+		if (sky == null) { return 64.4f; }
+		WeatherData weather = sky.Weather;
+		if (weather == null) { return 64.4f; }
+
+		float temp = weather.airTemperature;
+		float sunFactor = sky.SunFactor;
+		if (sunFactor > 0f && weather.sunTemperature != 0f)
+		{
+			// Atmospheric attenuation. Cloud cover (weather) and fog (palette,
+			// derived from humidity + cool diurnal) each occlude the sun
+			// independently; their sum is clamped to 1 so a fully overcast OR
+			// fully foggy sky drives the multiplier to 0 without going negative
+			// when both pile up.
+			float atmosphericOcclusion = Mathf.Clamp(weather.cloudCover + sky.Palette.Fog, 0f, 1f);
+			float skyTransmission = 1f - atmosphericOcclusion;
+			if (skyTransmission > 0f)
+			{
+				Vector3 sunDir = sky.SunDirection;
+				Vector3 toSun = -sunDir;
+				Vector3 from = worldPos + Vector3.Up * 0.1f;
+				Vector3 to = from + toSun * 200f;
+				World3D world3D = GetWorld3D();
+				bool shaded = false;
+				if (world3D != null)
+				{
+					using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+					query.CollideWithBodies = true;
+					query.CollideWithAreas = false;
+					if (_player != null)
+					{
+						query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+					}
+					shaded = world3D.DirectSpaceState.IntersectRay(query).Count > 0;
+				}
+				if (!shaded)
+				{
+					temp += weather.sunTemperature * sunFactor * skyTransmission;
+				}
+			}
+		}
+		return temp;
+	}
+
 	public Action onInit;
 	public Action<Player> onPlayerSpawned;
 	public Action<Vector3, string, ulong, float, Color> onHudText;

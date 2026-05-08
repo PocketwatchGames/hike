@@ -415,6 +415,37 @@ public partial class World : Node3D
         return loot;
     }
 
+    // Spawn a transient footprint decal at `position`. Parented directly to
+    // World (not registered in _activeEntities) because footprints have no
+    // persistent sim state and self-despawn via QueueFree once their fade
+    // hits zero. The two shared scenes (player / mob) live on SimData;
+    // `gated` picks the perception-gated variant for mob-laid prints.
+    // `yaw` rotates the decal box around Y so the texture aligns with the
+    // direction the actor is facing — toe of the print points where they
+    // were walking.
+    public Footprint SpawnFootprint(Texture2D texture, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
+    {
+        SimData sim = SimData;
+        if (sim == null || texture == null)
+        {
+            return null;
+        }
+        PackedScene scene = gated ? sim.MobFootprintScene : sim.PlayerFootprintScene;
+        if (scene == null)
+        {
+            return null;
+        }
+        Footprint fp = scene.Instantiate<Footprint>();
+        // Set transform before AddChild so the Discoverable's _Ready light
+        // sample (perception tick) reads the correct world-space coordinate
+        // on the first tick rather than seeing origin.
+        fp.Position = position;
+        fp.Rotation = new Vector3(0f, yaw, 0f);
+        AddChild(fp);
+        fp.Initialize(this, texture, tint, durationSeconds);
+        return fp;
+    }
+
     // Single iteration primitive for "all loaded entities of type T". Call sites
     // should use this rather than walking _activeEntities directly, so a future
     // typed cache (e.g. List<Mob>) can be swapped in here without touching them.

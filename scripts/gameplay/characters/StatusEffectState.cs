@@ -30,4 +30,24 @@ public class StatusEffectState
 	public bool IsTimed => expireTimeMs != 0;
 
 	public ulong RemainingMs(ulong nowMs) => expireTimeMs > nowMs ? expireTimeMs - nowMs : 0;
+
+	// Pause / resume the expiry timer for situational effects (e.g. wet pauses
+	// while the player is in water and re-arms when they reach dry land).
+	// Pausing sets expireTimeMs to 0 (the same sentinel the constructor uses
+	// for `data.duration == 0`); arming writes a fresh now+duration so each
+	// dry-out runs the full window even if a previous countdown was partially
+	// elapsed before the player got wet again.
+	public void PauseTimer()
+	{
+		expireTimeMs = 0;
+	}
+
+	public void ArmTimer(ulong nowMs)
+	{
+		if (data == null || data.duration <= 0f)
+		{
+			return;
+		}
+		expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
+	}
 }

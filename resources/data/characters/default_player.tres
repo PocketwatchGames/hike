@@ -2,9 +2,14 @@
 
 [ext_resource type="Script" uid="uid://bjiejj7agueqt" path="res://scripts/data/PlayerData.cs" id="1_mknwc"]
 [ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="2_loot"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_cold.tres" id="4_cold"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_hot.tres" id="5_hot"]
 
 [resource]
 script = ExtResource("1_mknwc")
 stepHeight = 1.1
 perceptionMinimum = 0.0
 dropLootScene = ExtResource("2_loot")
+coldTemperature = 40.0
+coldStatus = ExtResource("4_cold")
+hotStatus = ExtResource("5_hot")

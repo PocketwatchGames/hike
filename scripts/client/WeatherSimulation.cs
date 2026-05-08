@@ -213,7 +213,7 @@ public static class WeatherSimulation
         // Authored max envelope. Fog has no authored max — WeatherDerivation
         // computes it directly from simulated humidity + cool-diurnal.
         float humidityMax = Mathf.Clamp(weather.humidity, 0f, 1f);
-        float tempMax = weather.temperature;
+        float tempMax = weather.airTemperature;
         float windMax = Mathf.Max(weather.windSpeed, 0f);
         float cloudMax = Mathf.Clamp(weather.cloudCover, 0f, 1f);
         float rainMax = Mathf.Clamp(weather.rainAmount, 0f, 1f);
@@ -225,7 +225,7 @@ public static class WeatherSimulation
         // (cold air is closer to saturation) and LOWEST at the warm peak,
         // so we use coolDiurnal as the curve. Hot zones and high-
         // elevation zones damp the ceiling.
-        float humidityFromTempScale = Mathf.Clamp(tempMax / 40f, 0f, 1f); // ~0..1 over 0..40C
+        float humidityFromTempScale = Mathf.Clamp(tempMax / 104f, 0f, 1f); // ~0..1 over 0..104F
         float baseHumidityCeiling = humidityMax
             * (1f - elevation * sim.HumidityFromElevation)
             * (1f - humidityFromTempScale * sim.HumidityFromMaxTemp);
@@ -335,9 +335,9 @@ public static class WeatherSimulation
         float simDust = Mathf.Clamp(dustMax * dustSignal * dustSuppress, 0f, 1f);
 
         // Write back. Wind direction and authored temperature unit
-        // (degrees C) flow through unchanged.
+        // (degrees F) flow through unchanged.
         weather.humidity = simHumidity;
-        weather.temperature = simTemp;
+        weather.airTemperature = simTemp;
         weather.windSpeed = simWind;
         weather.cloudCover = simCloud;
         weather.rainAmount = simRain;

@@ -36,6 +36,10 @@ public partial class Discoverable : Node3D
     // Height above origin used as the LOS raycast endpoint. 0 for a floor
     // pad, ~1.5m for a chest or door so a low wall in front breaks LOS.
     [Export] public float losRayHeight = 1f;
+    // Skip the LOS raycast entirely. Footprints set this true: light already
+    // gates "can't see in the dark / behind a wall," and at footprint
+    // density the per-tick raycast cost across many decals dominates.
+    [Export] public bool skipLineOfSightCheck = false;
 
     // Optional worldspace HUD shown during Detected. Null = no callout.
     [Export] public PackedScene HudScene;
@@ -127,6 +131,7 @@ public partial class Discoverable : Node3D
             discoveredThreshold = discoveredThreshold,
             lightSampleHeight = lightSampleHeight,
             losRayHeight = losRayHeight,
+            skipLineOfSight = skipLineOfSightCheck,
         };
         PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta);
         if (result.stateChanged)

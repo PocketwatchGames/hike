@@ -7,10 +7,11 @@
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/torch.tres" id="6_torch"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/healing_potion.tres" id="7_potion"]
+[ext_resource type="Resource" uid="uid://b7fxk2m4n8q9p" path="res://resources/data/items/armor/fur_coat.tres" id="8_fur_coat"]
 
 [resource]
 script = ExtResource("1_pspawn")
 meleeWeaponData = ExtResource("4_melee")
 rangedWeaponData = ExtResource("5_ranged")
 startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion")])
-startingInventory = Array[ExtResource("3_item_script")]([])
+startingInventory = Array[ExtResource("3_item_script")]([ExtResource("8_fur_coat")])

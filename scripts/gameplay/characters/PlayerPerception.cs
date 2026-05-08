@@ -44,6 +44,13 @@ public struct PerceptionInputs
     // breaks LOS; floor targets use ~0 so a wall in front of the trap
     // blocks perception correctly.
     public float losRayHeight;
+    // Skip the per-tick LOS raycast and treat the target as in sight whenever
+    // the distance + light gates pass. Use for ground decals where the light
+    // gate already encodes "behind a wall" (a wall blocks the light that
+    // would reach the decal) and the per-target raycast cost dominates —
+    // hundreds of footprints from multiple mobs would otherwise raycast every
+    // perception tick.
+    public bool skipLineOfSight;
 }
 
 public struct PerceptionTickResult
@@ -115,15 +122,18 @@ public static class PlayerPerception
                     pd.VisionDistancePower);
                 if (perceptionDelta > pd.perceptionMinimum)
                 {
-                    Vector3 rayStart = targetPos + new Vector3(0f, inputs.losRayHeight, 0f);
-                    Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
-                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
-                    query.CollideWithAreas = false;
-                    query.CollideWithBodies = true;
-                    Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
-                    if (rayResult.Count > 0)
+                    if (!inputs.skipLineOfSight)
                     {
-                        perceptionDelta = 0f;
+                        Vector3 rayStart = targetPos + new Vector3(0f, inputs.losRayHeight, 0f);
+                        Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
+                        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                        query.CollideWithAreas = false;
+                        query.CollideWithBodies = true;
+                        Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
+                        if (rayResult.Count > 0)
+                        {
+                            perceptionDelta = 0f;
+                        }
                     }
                 }
                 else

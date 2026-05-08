@@ -553,4 +553,36 @@ public partial class SimData : Resource
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
 
+    [ExportGroup("Footprints")]
+    // Two shared scenes — one for player prints (visible immediately), one
+    // for mob prints (perception-gated via an internal Discoverable child).
+    // Authoring this here rather than per-actor: the player vs mob choice
+    // is a binary that doesn't vary per-character, and the textures are
+    // what differ between actors (carried per-actor via Player/Mob's
+    // _footprintTexture). World.SpawnFootprint picks the scene from this
+    // pair using the actor-supplied `gated` flag.
+    [Export] public PackedScene PlayerFootprintScene;
+    [Export] public PackedScene MobFootprintScene;
+    // Per-ground-type tint applied to every footprint laid down on that
+    // surface. The Color's RGB tints the actor's footprint texture (sand
+    // → warm tan, mud → dark brown, snow → white); the Color's ALPHA is
+    // the baseline opacity at spawn and is what the runtime fades to 0
+    // over FootprintDurationSeconds. Surfaces that shouldn't take prints
+    // (wood, treated stone) leave their key out of the dictionary — the
+    // emitter treats missing keys as no-emit. Wet status effects multiply
+    // alpha and duration via the StatusEffectData footprint multipliers.
+    [Export] public Godot.Collections.Dictionary<EGroundType, Color> FootprintColors = new()
+    {
+        { EGroundType.Grass, new Color(0.18f, 0.14f, 0.08f, 0.45f) },
+        { EGroundType.Sand,  new Color(0.22f, 0.18f, 0.12f, 0.75f) },
+        { EGroundType.Mud,   new Color(0.10f, 0.07f, 0.04f, 0.85f) },
+        { EGroundType.Dirt,  new Color(0.18f, 0.14f, 0.08f, 0.55f) },
+        { EGroundType.Stone, new Color(0.15f, 0.15f, 0.15f, 0.18f) },
+    };
+    // Global fade lifetime — seconds for a fresh print to dim from its
+    // baseline alpha to zero (then despawn). One global value rather than
+    // per-ground because surface-specific persistence is already encoded
+    // in the per-ground baseline alpha; a faint print can't visually
+    // outlast a deep one anyway.
+    [Export] public float FootprintDurationSeconds = 15f;
 }

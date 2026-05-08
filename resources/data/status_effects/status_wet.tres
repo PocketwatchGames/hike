@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dyby4gvspxr4s"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://cjk01kke4bive" path="res://assets/textures/status_effects/Wet_Status.png" id="1_l86d8"]
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("1_l86d8")
+displayName = &"Wet"
+duration = 30.0
+coldResistance = -25.0
+heatResistance = 25.0

@@ -29,9 +29,17 @@ public partial class WeatherData : Resource
     // via a derivation-based amplitude that rises with cloudCover.
     [Export(PropertyHint.Range, "0,40,0.1")] public float windSpeed = 2.0f;
 
-    // Air temperature in degrees C. Visualization not wired yet —
-    // reserved for snow thresholds, sky hue shift, and heat haze.
-    [Export] public float temperature = 18.0f;
+    // Ambient air temperature in degrees F (the value WeatherSimulation
+    // perturbs each frame; same role the pre-split `temperature` field had).
+    // GameClient.SampleAirTemperature returns this plus the sun's radiant
+    // contribution at the player's position, gated by sun angle and shade.
+    [Export] public float airTemperature = 64.4f;
+
+    // Additional degrees F that direct sunlight contributes on top of
+    // airTemperature when the sun is above the horizon and the sample
+    // point is unshaded. Scaled by the sun's elevation factor (sin of
+    // elevation angle), so it tapers smoothly into / out of night.
+    [Export] public float sunTemperature = 15f;
 
     // 0 = desert-dry, 1 = saturated / tropical. Raises ambient light
     // and cloud edge softness (translucent clouds), desaturates fills,

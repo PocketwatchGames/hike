@@ -1,0 +1,24 @@
+[gd_scene format=3 uid="uid://bvhhmrxjrbjb8"]
+
+[ext_resource type="Script" uid="uid://bkkclrfi76ms1" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
+[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="2_discoverable"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="2_icxdf"]
+
+[node name="Footprint" type="Node3D" unique_id=2086439090 node_paths=PackedStringArray("_decal", "_discoverable")]
+script = ExtResource("1_footprint")
+_decal = NodePath("Decal")
+_discoverable = NodePath("Discoverable")
+metadata/_custom_type_script = "uid://yqzj43w1mevdm"
+
+[node name="Decal" type="Decal" parent="." unique_id=1390100084]
+size = Vector3(0.6, 0.5, 0.6)
+texture_albedo = ExtResource("2_icxdf")
+
+[node name="Discoverable" type="Node3D" parent="." unique_id=2125199758]
+script = ExtResource("2_discoverable")
+prominence = 0.3
+detectedThreshold = 0.4
+lightSampleHeight = 0.05
+losRayHeight = 0.05
+skipLineOfSightCheck = true
+metadata/_custom_type_script = "uid://ccogud7ied6xv"

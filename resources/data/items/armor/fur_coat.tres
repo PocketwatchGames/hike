@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://b7fxk2m4n8rap"]
+
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/ArmorData.cs" id="1_armor"]
+[ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
+
+[resource]
+script = ExtResource("1_armor")
+maxArmor = 10.0
+armorSlot = 2
+displayName = &"Fur Coat"
+maxStack = 1
+inventorySprite = ExtResource("2_sprite")

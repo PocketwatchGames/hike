@@ -20,6 +20,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // on solid ground. Authored in each mob .tscn; missing keys silently
     // emit nothing.
     [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+    // Per-mob footprint texture projected onto the ground at footstep
+    // cadence. Shared mob footprint scene (with the Discoverable child)
+    // and per-ground tints live on SimData.
+    [Export] private Texture2D _footprintTexture;
     // One-shot blood spawned on a non-lethal hit. World-parented so the puff
     // stays where the hit landed even as the mob keeps moving.
     [Export] private PackedScene _bloodDamageEffect;
@@ -189,6 +193,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     float _terrainSpeed = 1f;
     readonly WaterRippleEmitter _rippleEmitter = new();
     readonly FootstepEmitter _footstepEmitter = new();
+    // Spawns persistent ground decals at the same cadence as the FX emitter.
+    // Independent stride memory so the prints don't get desynced from the
+    // FX puffs across walking → idle → walking transitions.
+    readonly FootprintEmitter _footprintEmitter = new();
     // Active loop instances. See Player for the lifecycle pattern — null
     // when the matching state isn't held; created on activation, Stop()'d
     // and dropped on deactivation.
@@ -1112,6 +1120,26 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _statusEffects.Remove(state);
     }
 
+    // Mirrors Player.GetFootprintMultipliers — sums the alpha / duration
+    // contributions from every active status effect so a wet mob leaves more
+    // visible, longer-lasting prints. Multiplicative composition: stacked
+    // Wet states double-multiply.
+    private void GetFootprintMultipliers(out float alphaMultiplier, out float durationMultiplier)
+    {
+        alphaMultiplier = 1f;
+        durationMultiplier = 1f;
+        for (int i = 0; i < _statusEffects.Count; i++)
+        {
+            StatusEffectData data = _statusEffects[i]?.data;
+            if (data == null)
+            {
+                continue;
+            }
+            alphaMultiplier *= data.footprintAlphaMultiplier;
+            durationMultiplier *= data.footprintDurationMultiplier;
+        }
+    }
+
     // Mirrors Player.TickStatusEffects: per-second damage chunks via the
     // state's accumulator, expire-and-prune on timer. Iterating backwards so
     // a removal mid-loop doesn't shift indices for unvisited entries.
@@ -1321,6 +1349,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // we can isolate the footstep emit cost specifically.
         bool footstepFxEnabled = CVars.mobFootstepFx.Value;
         _footstepEmitter.Update(_world, pos, walking && footstepFxEnabled, _footstepStride, ground, _footstepEffects);
+        // Footprint decals. Gated on the same `walking` predicate as the FX
+        // emitter (no prints in water — splash covers the disturbance) but
+        // not on mob_footstep_fx, since that CVar is for bisecting FX cost
+        // and the footprint cost belongs in a separate measurement.
+        GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+        _footprintEmitter.Update(_world, pos, GlobalRotation.Y, walking, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: true);
 
         // One splash at the moment the mob first dips into water. The
         // navigator can drag a mob through a water voxel on a single frame,

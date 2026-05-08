@@ -10,6 +10,7 @@
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="6_rpnd8"]
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="7_d6tgn"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="7_eojnx"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="8_5jukt"]
 [ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="8_lit_materialtemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9b_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="9_lit_shadowcastertemplate"]
@@ -27,8 +28,9 @@
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
 [ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
 [ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
-[ext_resource type="Script" uid="uid://136v75rygtjlf" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
-[ext_resource type="ShaderMaterial" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
+[ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
+[ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
+[ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -556,6 +558,7 @@ _footstepEffects = Dictionary[int, PackedScene]({
 4: ExtResource("6_rpnd8"),
 5: ExtResource("4_xrqxk")
 })
+_footprintTexture = ExtResource("8_5jukt")
 _bloodDamageEffect = ExtResource("12_blooddmg")
 _deathEffect = ExtResource("13_deathlrg")
 _waterEnterSplashEffect = ExtResource("14_watenter")
@@ -566,10 +569,11 @@ _landEffect = ExtResource("18_land")
 _landHardEffect = ExtResource("19_landhard")
 _waterPlungeEffect = ExtResource("20_plunge")
 _shallowWaterFootstepEffect = ExtResource("7_d6tgn")
-_swimIdleLoopEffect = ExtResource("21_tread")
 _hurtVoEffect = ExtResource("22_hurtvo")
 _deathVoEffect = ExtResource("23_deathvo")
+_swimIdleLoopEffect = ExtResource("21_tread")
 _footstepStride = 2.5
+_wetEffectData = ExtResource("26_statuswet")
 
 [node name="AudioListener3D" type="AudioListener3D" parent="." unique_id=1649569787]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
@@ -583,14 +587,14 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(144, 0, 72, 72)
+region_rect = Rect2(72, 72, 72, 72)
 script = ExtResource("4_qgnko")
 MirrorByYaw = true
 ForwardOffset = 0.25
-MaterialTemplate = ExtResource("8_lit_materialtemplate")
 ShadowCasterTemplate = ExtResource("9_lit_shadowcastertemplate")
 BlockLightShadowCasterTemplate = ExtResource("9b_lit_blshadowcastertemplate")
 ReflectionTemplate = ExtResource("10_lit_reflectiontemplate")
+MaterialTemplate = ExtResource("8_lit_materialtemplate")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
@@ -618,7 +622,7 @@ target = NodePath("../Sprite")
 frames = SubResource("SpriteFrames_rpnd8")
 defaultAnimation = &"idle"
 
-[node name="AimingReticle" type="Node3D" parent="." node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_dropLine", "_groundCircle")]
+[node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_dropLine", "_groundCircle")]
 script = ExtResource("24_aimreticle_script")
 _mainLine = NodePath("MainLine")
 _spreadLineLeft = NodePath("SpreadLineLeft")
@@ -626,22 +630,22 @@ _spreadLineRight = NodePath("SpreadLineRight")
 _dropLine = NodePath("DropLine")
 _groundCircle = NodePath("GroundCircle")
 
-[node name="MainLine" type="MeshInstance3D" parent="AimingReticle"]
+[node name="MainLine" type="MeshInstance3D" parent="AimingReticle" unique_id=1299573503]
 visible = false
 mesh = SubResource("BoxMesh_aim_main")
 
-[node name="SpreadLineLeft" type="MeshInstance3D" parent="AimingReticle"]
+[node name="SpreadLineLeft" type="MeshInstance3D" parent="AimingReticle" unique_id=1373545185]
 visible = false
 mesh = SubResource("BoxMesh_aim_spread")
 
-[node name="SpreadLineRight" type="MeshInstance3D" parent="AimingReticle"]
+[node name="SpreadLineRight" type="MeshInstance3D" parent="AimingReticle" unique_id=598129547]
 visible = false
 mesh = SubResource("BoxMesh_aim_spread")
 
-[node name="DropLine" type="MeshInstance3D" parent="AimingReticle"]
+[node name="DropLine" type="MeshInstance3D" parent="AimingReticle" unique_id=1146064527]
 visible = false
 mesh = SubResource("BoxMesh_aim_drop")
 
-[node name="GroundCircle" type="MeshInstance3D" parent="AimingReticle"]
+[node name="GroundCircle" type="MeshInstance3D" parent="AimingReticle" unique_id=208040533]
 visible = false
 mesh = SubResource("PlaneMesh_aim_circle")

@@ -9,6 +9,9 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     // Optional burn zone — only campfires need it. Null on regular wall
     // torches. Tracks _active so a doused campfire stops dealing damage.
     [Export] private DamageZone _damageZone;
+    // Optional warmth zone — only campfires need it. Tracks _active so a
+    // doused campfire stops drying nearby players.
+    [Export] private WarmthZone _warmthZone;
     // Authored interaction list. Torch interactions are toggles (light /
     // douse) — typically instant.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
@@ -54,6 +57,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         UpdateVisuals();
         _light.SetActive(_active);
         _damageZone?.SetActive(_active);
+        _warmthZone?.SetActive(_active);
 
         PackedScene oneShot = _active ? _lightOnEffectScene : _lightOffEffectScene;
         if (oneShot != null)
@@ -109,6 +113,7 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
         instance.UpdateVisuals();
         instance._light.SetActive(instance._active);
         instance._damageZone?.SetActive(instance._active);
+        instance._warmthZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();
 
         return instance;

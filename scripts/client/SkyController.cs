@@ -728,6 +728,18 @@ public partial class SkyController : Node3D
     // struct is small and callers read a single field at a time).
     public DerivedPalette Palette => _palette;
 
+    // Unit vector pointing FROM the sky toward the ground along the sun's
+    // current arc — same value the sky shader gets via sky_sun_dir. Negate
+    // to get the direction toward the sun (used by GameClient.SampleAirTemperature
+    // to raycast for shade).
+    public Vector3 SunDirection => _sunActualDir;
+
+    // Sun elevation factor in [0, 1]: sin of the sun's elevation above the
+    // horizon, clamped at 0 below it. Used as the multiplier on
+    // WeatherData.sunTemperature when sampling environmental temperature —
+    // 0 at night so the sun adds nothing while it's down, full at noon.
+    public float SunFactor => Mathf.Max(0f, -_sunActualDir.Y);
+
     // Push a radial water-ripple impact at world XZ. Called by Player and
     // Mob each physics tick while moving through water (see
     // WaterRippleEmitter). The ripple expands as a ring at

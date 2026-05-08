@@ -8,7 +8,8 @@
 script = ExtResource("2_weather")
 cloudCover = 0.95
 windSpeed = 12.0
-temperature = 12.0
+airTemperature = 60.0
+sunTemperature = 20.0
 rainAmount = 0.8
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
