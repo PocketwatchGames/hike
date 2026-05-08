@@ -621,7 +621,14 @@ public partial class GameClient : Node3D
 			float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
 			activeOutline.SetShaderParameter("forward_offset", forwardOffset);
 		}
-		_highlightOverlay.Reparent(node, false);
+		// Reparent under the sprite's own parent rather than the IInteractive
+		// root so the overlay shares the source's transform chain. For
+		// chest/door/etc. the sprite is a direct child and this resolves to
+		// the IInteractive node; for Mob the sprite lives under MeshContainer,
+		// which is the node that gets dropped during burrow — keeping the
+		// overlay parented there means it tracks the dip rather than hovering.
+		Node3D overlayParent = source.GetParent() as Node3D ?? node;
+		_highlightOverlay.Reparent(overlayParent, false);
 		_highlightOverlay.Visible = true;
 	}
 
@@ -631,6 +638,11 @@ public partial class GameClient : Node3D
 		_highlightOverlay.Reparent(sceneViewport, false);
 	}
 
+	// Depth-first scan for the first visible Sprite3D under `node`. Most
+	// interactives (chest, door, torch, ...) author the sprite as a direct
+	// child so the first iteration hits. Mob nests its sprite under a
+	// MeshContainer for burrow/death transforms, so the recursion is required
+	// for mobs to highlight at all.
 	static Sprite3D FindChildSprite(Node node)
 	{
 		foreach (Node child in node.GetChildren())
@@ -638,6 +650,11 @@ public partial class GameClient : Node3D
 			if (child is Sprite3D sprite && sprite.Visible)
 			{
 				return sprite;
+			}
+			Sprite3D nested = FindChildSprite(child);
+			if (nested != null)
+			{
+				return nested;
 			}
 		}
 		return null;

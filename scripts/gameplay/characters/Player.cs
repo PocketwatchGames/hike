@@ -1125,7 +1125,7 @@ public partial class Player : CharacterBody3D
 			float closestDist = float.MaxValue;
 			foreach (IInteractive interactive in _interactiveCollisions)
 			{
-				if (interactive is Node3D node)
+				if (interactive is Node3D node && interactive.CanActorInteract(this))
 				{
 					float dist = GlobalPosition.DistanceSquaredTo(node.GlobalPosition);
 					if (dist < closestDist)

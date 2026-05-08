@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://pjs8romehiku"]
+
+[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/TerrainData.cs" id="2_p4vhx"]
+[ext_resource type="Resource" uid="uid://chx6p8gf7rf1r" path="res://resources/data/blocks/block_desert_sand.tres" id="3_block_flat"]
+
+[resource]
+script = ExtResource("2_p4vhx")
+Name = "Shore Sand"
+FlatTile = ExtResource("3_block_flat")
+WallBand = Vector2(0.3, 0.75)
+BlendAmp = 0.55
+GroundTint = Color(0.16, 0.13983999, 0.1168, 1)

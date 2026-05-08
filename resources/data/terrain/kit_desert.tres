@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://b6a1sff733ud0"]
+
+[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/TerrainData.cs" id="1_kit"]
+[ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/blocks/block_desert_top.tres" id="5_block_flat"]
+[ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/blocks/block_desert_wall.tres" id="6_block_wall"]
+
+[resource]
+script = ExtResource("1_kit")
+Name = "Desert"
+FlatTile = ExtResource("5_block_flat")
+WallTile = ExtResource("6_block_wall")
+WallBand = Vector2(0.55, 0.85)
+BlendAmp = 0.55
+GroundTint = Color(0.34, 0.26, 0.16, 1)

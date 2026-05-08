@@ -1,12 +1,10 @@
 [gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://d0b71mu3xq5cg"]
 
-[ext_resource type="Script" uid="uid://62oa6hqy3vtuw" path="res://scripts/data/BlockData.cs" id="1_block"]
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/BlockData.cs" id="1_block"]
 
 [resource]
 script = ExtResource("1_block")
 BlockName = &"DesertTop"
 AtlasBaseIndex = 27
 Bands = 2
-VariantsPerBand = 1
 MinimapColorPerBand = PackedColorArray(0.47843137, 0.44313726, 0.2509804, 1, 0.47843137, 0.44313726, 0.2509804, 1)
-GroundType = 2
