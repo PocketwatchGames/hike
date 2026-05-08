@@ -7,6 +7,7 @@
 script = ExtResource("1_armor")
 maxArmor = 10.0
 armorSlot = 2
+coldResistance = 25.0
 displayName = &"Fur Coat"
 maxStack = 1
 inventorySprite = ExtResource("2_sprite")

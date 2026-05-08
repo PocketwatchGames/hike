@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/fire_column_ignite.tscn" id="6_ignite"]
 [ext_resource type="PackedScene" path="res://scenes/effects/fire_column_loop.tscn" id="7_loop"]
 [ext_resource type="Script" path="res://scripts/gameplay/StationaryLight.cs" id="8_light"]
+[ext_resource type="Script" uid="uid://3prfeyoqvrzd3" path="res://scripts/gameplay/WarmthZone.cs" id="9_warmth"]
 
 [sub_resource type="Resource" id="Resource_firetrap_damage"]
 script = ExtResource("3_damage")
@@ -30,11 +31,16 @@ columnLoopEffect = ExtResource("7_loop")
 radius = 0.7
 height = 3.0
 
-[node name="FireTrap" type="Node3D" node_paths=PackedStringArray("_damageZone", "_light")]
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_firetrap_warmth"]
+radius = 2.5
+height = 3.0
+
+[node name="FireTrap" type="Node3D" node_paths=PackedStringArray("_damageZone", "_light", "_warmthZone")]
 script = ExtResource("1_firetrap")
 data = SubResource("Resource_firetrap_data")
 _damageZone = NodePath("DamageZone")
 _light = NodePath("StationaryLight")
+_warmthZone = NodePath("WarmthZone")
 
 [node name="DamageZone" type="Area3D" parent="."]
 collision_layer = 0
@@ -56,3 +62,13 @@ _flicker = true
 _flickerMin = 0.6
 _flickerMax = 1.0
 _flickerHz = 12.0
+
+[node name="WarmthZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+script = ExtResource("9_warmth")
+warmingTemperature = 30.0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="WarmthZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CylinderShape3D_firetrap_warmth")

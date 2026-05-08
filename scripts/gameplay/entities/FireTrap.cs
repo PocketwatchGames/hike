@@ -24,6 +24,10 @@ public partial class FireTrap : Node3D, IWorldEntity
     [Export] public FireTrapData data;
     [Export] private DamageZone _damageZone;
     [Export] private StationaryLight _light;
+    // Optional warmth zone — mirrors campfire wiring. Active only while the
+    // column is erupting, so the trap only contributes heat (and dries the
+    // player) during the dangerous Active phase.
+    [Export] private WarmthZone _warmthZone;
 
     private FireTrapSimState _simState;
     private EFireTrapState _state = EFireTrapState.Idle;
@@ -32,8 +36,9 @@ public partial class FireTrap : Node3D, IWorldEntity
 
     public override void _Ready()
     {
-        // Damage zone starts off — only Active enables it.
+        // Damage / warmth zones start off — only Active enables them.
         _damageZone?.SetActive(false);
+        _warmthZone?.SetActive(false);
         if (_simState != null)
         {
             // WorldGen-spawned: persisted phase offset preserves rhythm across
@@ -93,6 +98,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         _state = EFireTrapState.Active;
         _stateTimer = data.activeSeconds;
         _damageZone?.SetActive(true);
+        _warmthZone?.SetActive(true);
         _light?.SetActive(true);
         if (data.igniteEffect != null)
         {
@@ -109,6 +115,7 @@ public partial class FireTrap : Node3D, IWorldEntity
         _state = EFireTrapState.Idle;
         _stateTimer = data.cooldownSeconds;
         _damageZone?.SetActive(false);
+        _warmthZone?.SetActive(false);
         _light?.SetActive(false);
         if (_columnLoop != null)
         {

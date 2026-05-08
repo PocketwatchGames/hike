@@ -708,6 +708,10 @@ public partial class Player : CharacterBody3D
 			coldResist += sd.coldResistance;
 			heatResist += sd.heatResistance;
 		}
+		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResist, ref heatResist);
+		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResist, ref heatResist);
+		AccumulateArmorResistance(EInventorySlot.ArmorCloak, ref coldResist, ref heatResist);
+		AccumulateArmorResistance(EInventorySlot.ArmorAccessory, ref coldResist, ref heatResist);
 		// Wind chill. Multiplied by windTemperatureReduction (degrees F per
 		// m/s) and shifted onto BOTH thresholds — the comfort band slides
 		// upward in actual ambient, so cold triggers earlier and hot needs
@@ -1001,6 +1005,16 @@ public partial class Player : CharacterBody3D
 		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
 		{
 			total += armor.data.maxArmor;
+		}
+	}
+
+	private void AccumulateArmorResistance(EInventorySlot slot, ref float coldResist, ref float heatResist)
+	{
+		if (_inventory == null) { return; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
+		{
+			coldResist += armor.data.coldResistance;
+			heatResist += armor.data.heatResistance;
 		}
 	}
 
