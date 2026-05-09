@@ -26,6 +26,15 @@ public partial class WarmthZone : Area3D
 		CollisionMask = (uint)ECollisionLayer.Player;
 		BodyEntered += OnBodyEntered;
 		BodyExited += OnBodyExited;
+		if (_active)
+		{
+			World.Current?.HeatField?.RegisterZone(this);
+		}
+	}
+
+	public override void _ExitTree()
+	{
+		World.Current?.HeatField?.UnregisterZone(this);
 	}
 
 	public void SetActive(bool active)
@@ -35,6 +44,15 @@ public partial class WarmthZone : Area3D
 			return;
 		}
 		_active = active;
+		HeatField hf = World.Current?.HeatField;
+		if (_active)
+		{
+			hf?.RegisterZone(this);
+		}
+		else
+		{
+			hf?.UnregisterZone(this);
+		}
 		for (int i = 0; i < _overlapping.Count; i++)
 		{
 			Player p = _overlapping[i];

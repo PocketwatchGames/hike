@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bodv5gd4psxkh"]
+
+[ext_resource type="Shader" uid="uid://dfuwtfbko6sbd" path="res://shaders/heat_shimmer.gdshader" id="1"]
+
+[resource]
+render_priority = -100
+shader = ExtResource("1")
+shader_parameter/shimmer_amplitude = 0.003
+shader_parameter/shimmer_speed = 4.0
+shader_parameter/shimmer_noise_scale_x = 80.0
+shader_parameter/shimmer_noise_scale_y = 60.0

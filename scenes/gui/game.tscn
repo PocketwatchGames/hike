@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
+[ext_resource type="Material" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
@@ -32,6 +33,9 @@ glow_bloom = 0.1
 size = Vector2(2, 2)
 
 [sub_resource type="QuadMesh" id="QuadMesh_fog"]
+size = Vector2(2, 2)
+
+[sub_resource type="QuadMesh" id="QuadMesh_shimmer"]
 size = Vector2(2, 2)
 
 [sub_resource type="Environment" id="Environment_scene"]
@@ -112,6 +116,13 @@ material_override = ExtResource("fog_volumetric_mat")
 cast_shadow = 0
 extra_cull_margin = 16384.0
 mesh = SubResource("QuadMesh_fog")
+
+[node name="HeatShimmerQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201794]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -7)
+material_override = ExtResource("heat_shimmer_mat")
+cast_shadow = 0
+extra_cull_margin = 16384.0
+mesh = SubResource("QuadMesh_shimmer")
 
 [node name="RainEffect" parent="SceneViewport/MainCamera" unique_id=480680992 instance=ExtResource("rain_scene")]
 

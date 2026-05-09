@@ -125,6 +125,14 @@ public static class CVars
     public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
     public static CVarInt pixelScale = new CVarInt("pixel_scale", 4);
 
+    // Heat shimmer post-process. When true, HeatField populates a 2D heat
+    // texture from ambient air temperature + active WarmthZones each tick;
+    // heat_shimmer.gdshader (a fullscreen quad in SceneViewport/MainCamera)
+    // warps SCREEN_TEXTURE UVs by a noise field scaled by per-fragment
+    // heat. Disabling zeros the field — the pass is then a visual no-op
+    // without removing the quad. Tuning lives on heat_shimmer.tres.
+    public static CVarBool heatShimmer = new CVarBool("heat_shimmer", true);
+
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
     public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
@@ -692,6 +700,32 @@ public static class CVars
             Godot.GD.Print($"  dist={h.dist} ({h.wx},{py},{h.wz}) sun={h.sun}");
         }
         if (hits.Count == 0) { Godot.GD.Print("  no brighter air found in radius."); }
+    });
+
+    // Prints the sampled air temperature (°F) at the player's current
+    // position, broken into base + sun contribution. Mirrors what
+    // GameClient.SampleAirTemperature returns each frame so you can verify
+    // weather / sun-shading / fog interactions match the gameplay sample.
+    public static CVar tempProbe = new CVar("temp", (cvar) =>
+    {
+        if (World.Current == null || World.Current.player == null)
+        {
+            Godot.GD.Print("temp: no active world / player.");
+            return;
+        }
+        GameClient client = GameClient.Current;
+        if (client == null)
+        {
+            Godot.GD.Print("temp: no active GameClient.");
+            return;
+        }
+        Godot.Vector3 p = World.Current.player.GlobalPosition;
+        GameClient.AirTemperatureSample s = client.SampleAirTemperatureBreakdown(p);
+        Godot.GD.Print(
+            $"temp at ({p.X:F1}, {p.Y:F1}, {p.Z:F1}): {s.Total:F1}°F\n" +
+            $"  air        = {s.air:F1}°F\n" +
+            $"  sun        = +{s.SunContribution:F1}°F  (sunT {s.sunTemperature:F1} × sunFactor {s.sunFactor:F2} × skyTransmission {s.skyTransmission:F2} × sunMask {s.sunMask:F2})\n" +
+            $"  cloudCover = {s.cloudCover:F2}   fog = {s.fog:F2}");
     });
 
     // Prints the player's current world position and chunk coord.

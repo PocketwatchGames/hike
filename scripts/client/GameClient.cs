@@ -51,6 +51,25 @@ public partial class GameClient : Node3D
 	// the value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
 	[Export(PropertyHint.Range, "0.1,1,0.05")] public float minimapRevealInnerFraction = 0.7f;
 
+	[ExportGroup("Heat Shimmer")]
+	// Texture side length (cells). Locked at boot — HeatField allocates the
+	// ImageTexture in _Ready. Larger = sharper disk edges + finer gradient;
+	// cost is N*N bytes per per-frame upload.
+	[Export(PropertyHint.Range, "32,1024,1")] public int heatShimmerResolution = 256;
+	// Total side length in meters covered by the heat field. Centered on the
+	// player; field UVs are 0 at (player − size/2) and 1 at (player + size/2).
+	[Export(PropertyHint.Range, "8,512,1")] public float heatShimmerSizeMeters = 64f;
+	// Ambient air-temperature ramp (°F). Below START = no shimmer, above
+	// FULL = max shimmer; linear interpolation between.
+	[Export(PropertyHint.Range, "0,200,0.5")] public float heatShimmerAmbientStartF = 90f;
+	[Export(PropertyHint.Range, "0,200,0.5")] public float heatShimmerAmbientFullF = 120f;
+	// WarmthZone shimmer intensity = clamp(warmingTemperature / divisor, 0, 1).
+	// 30°F warming hits ~1.0 intensity; the 20°F campfire default lands at ~0.67.
+	[Export(PropertyHint.Range, "1,200,0.5")] public float heatShimmerWarmIntensityDivisor = 30f;
+	// Inner fraction of stamped disks that paints at full intensity. Outside
+	// this fraction falls linearly to 0 at the disk edge.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float heatShimmerDiskInnerFraction = 0.5f;
+
 	// Sample wind speed in m/s at `worldPos`. Returns 0 when an upward
 	// raycast hits environment geometry — a stand-in for "the player is in
 	// a cave or under a roof", where the open-sky wind from the weather
@@ -83,56 +102,67 @@ public partial class GameClient : Node3D
 		return wind;
 	}
 
+	// Per-component breakdown of the air-temperature sample. The `temp`
+	// console CVar prints these so weather / lighting / occlusion can be
+	// inspected independently. Final temperature is `Total`.
+	public struct AirTemperatureSample
+	{
+		public float air;             // weather.airTemperature (°F, base ambient)
+		public float sunTemperature;  // weather.sunTemperature (°F, max sun add)
+		public float sunFactor;       // sky.SunFactor (time-of-day, 0..1)
+		public float cloudCover;      // weather.cloudCover (0..1)
+		public float fog;             // sky.Palette.Fog (0..1)
+		public float skyTransmission; // 1 − clamp(cloudCover + fog, 0, 1)
+		public float sunMask;         // sunBfs / LightEngine.MAX_LIGHT (0..1)
+
+		public readonly float SunContribution => sunTemperature * sunFactor * skyTransmission * sunMask;
+		public readonly float Total => air + SunContribution;
+	}
+
 	// Sample environmental air temperature in degrees F at `worldPos`.
-	// airTemperature flows through unconditionally; sunTemperature only
-	// stacks on when the sun is above the horizon AND the sample point
-	// has a clear line-of-sight to the sun direction. Player.cs adds its
-	// own warmth-zone bonus on top of this — campfires are not sampled
-	// here because the player tracks zone enter/exit directly.
+	// airTemperature flows through unconditionally; sunTemperature stacks on
+	// scaled by (a) sun strength now, (b) atmospheric transmission (clouds +
+	// fog), and (c) the voxel sunlight BFS mask at the sample point — so
+	// overhangs, caves, and foliage shade the sun's heating exactly the way
+	// the world's lighting pass already classifies them. Player.cs adds its
+	// own warmth-zone bonus on top of this — campfires are not sampled here
+	// because the player tracks zone enter/exit directly.
 	public float SampleAirTemperature(Vector3 worldPos)
 	{
-		SkyController sky = SkyController.Current;
-		if (sky == null) { return 64.4f; }
-		WeatherData weather = sky.Weather;
-		if (weather == null) { return 64.4f; }
+		return SampleAirTemperatureBreakdown(worldPos).Total;
+	}
 
-		float temp = weather.airTemperature;
-		float sunFactor = sky.SunFactor;
-		if (sunFactor > 0f && weather.sunTemperature != 0f)
+	public AirTemperatureSample SampleAirTemperatureBreakdown(Vector3 worldPos)
+	{
+		AirTemperatureSample s = default;
+		SkyController sky = SkyController.Current;
+		if (sky == null) { s.air = 64.4f; return s; }
+		WeatherData weather = sky.Weather;
+		if (weather == null) { s.air = 64.4f; return s; }
+
+		s.air = weather.airTemperature;
+		s.sunTemperature = weather.sunTemperature;
+		s.sunFactor = sky.SunFactor;
+		s.cloudCover = weather.cloudCover;
+		s.fog = sky.Palette.Fog;
+		// Atmospheric attenuation. Cloud cover (weather) and fog (palette,
+		// derived from humidity + cool diurnal) each occlude the sun
+		// independently; their sum is clamped to 1 so a fully overcast OR
+		// fully foggy sky drives the multiplier to 0 without going negative
+		// when both pile up.
+		s.skyTransmission = 1f - Mathf.Clamp(s.cloudCover + s.fog, 0f, 1f);
+
+		s.sunMask = 1f;
+		WorldState ws = World.Current?.WorldState;
+		if (ws != null)
 		{
-			// Atmospheric attenuation. Cloud cover (weather) and fog (palette,
-			// derived from humidity + cool diurnal) each occlude the sun
-			// independently; their sum is clamped to 1 so a fully overcast OR
-			// fully foggy sky drives the multiplier to 0 without going negative
-			// when both pile up.
-			float atmosphericOcclusion = Mathf.Clamp(weather.cloudCover + sky.Palette.Fog, 0f, 1f);
-			float skyTransmission = 1f - atmosphericOcclusion;
-			if (skyTransmission > 0f)
-			{
-				Vector3 sunDir = sky.SunDirection;
-				Vector3 toSun = -sunDir;
-				Vector3 from = worldPos + Vector3.Up * 0.1f;
-				Vector3 to = from + toSun * 200f;
-				World3D world3D = GetWorld3D();
-				bool shaded = false;
-				if (world3D != null)
-				{
-					using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
-					query.CollideWithBodies = true;
-					query.CollideWithAreas = false;
-					if (_player != null)
-					{
-						query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
-					}
-					shaded = world3D.DirectSpaceState.IntersectRay(query).Count > 0;
-				}
-				if (!shaded)
-				{
-					temp += weather.sunTemperature * sunFactor * skyTransmission;
-				}
-			}
+			int px = Mathf.FloorToInt(worldPos.X);
+			int py = Mathf.FloorToInt(worldPos.Y);
+			int pz = Mathf.FloorToInt(worldPos.Z);
+			int sunBfs = ws.GetSunlightWorld(px, py, pz);
+			s.sunMask = Mathf.Clamp((float)sunBfs / LightEngine.MAX_LIGHT, 0f, 1f);
 		}
-		return temp;
+		return s;
 	}
 
 	public Action onInit;

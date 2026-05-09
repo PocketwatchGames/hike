@@ -69,6 +69,8 @@ public partial class World : Node3D
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
     private Minimap _minimap;
     public Minimap Minimap => _minimap;
+    private HeatField _heatField;
+    public HeatField HeatField => _heatField;
     private GameCamera _camera;
     public GameCamera Camera => _camera;
     private Player _player;
@@ -138,6 +140,11 @@ public partial class World : Node3D
         AddChild(_minimap);
         _minimap.Initialize(this);
 
+        _heatField = new HeatField();
+        _heatField.Name = "HeatField";
+        AddChild(_heatField);
+        _heatField.Initialize(this);
+
         CreateWorldBoundary();
     }
 
@@ -184,6 +191,8 @@ public partial class World : Node3D
             _wasNight = isNight;
             RefreshTimeOfDayEntities();
         }
+
+        _heatField?.Tick();
     }
 
     public override void _Process(double delta)

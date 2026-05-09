@@ -712,3 +712,15 @@ player_strength={
 "type": "float",
 "value": 0
 }
+heat_field={
+"type": "sampler2D",
+"value": "res://assets/textures/heat_field_placeholder.tres"
+}
+heat_field_origin_xz={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+heat_field_size={
+"type": "float",
+"value": 64.0
+}
