@@ -10,13 +10,29 @@ public partial class PlayerData : Resource
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
 	[Export] public float visionRange = 25f;
-	[Export] public float VisionDistancePower = 2f;
+	[Export] public float VisionRangePower = 2f;
 	[Export] public float visibilityMovementMin = 0.5f;
 	[Export] public float visibilityMovementPower = 2f;
 	[Export] public float perceptionMinimum = 0.01f;
 	[Export] public float perceptionInstant = 0.75f;
 	[Export] public float PerceptionRelaxationSpeed = 0.1f;
 	[Export] public float PerceptionIncreaseSpeed = 0.25f;
+	// Per-sense multipliers applied to the vision / hearing perception delta
+	// before they're summed and accumulated. Mirrors MobData; the player's
+	// perception of mobs (PlayerPerception.Tick) uses these.
+	[Export] public float VisionStrength = 1f;
+	[Export] public float HearingStrength = 1f;
+	// Hearing reach scalar. A sound of `decibels` is heard if
+	// `decibels * hearingRange > distance`. The player's state transitions
+	// (Hidden→Detected→Discovered) still require active visual contact —
+	// hearing primes perception but can't cross the threshold alone.
+	[Export] public float hearingRange = 10f;
+	[Export] public float hearingRangePower = 0.5f;
+	// Continuous movement noise the player emits. Mapped piecewise: 0 at
+	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs
+	// sample this in their mob-perceives-player tick.
+	[Export] public float sneakDecibels = 1f;
+	[Export] public float runDecibels = 6f;
 
 	[Export] public float shallowWaterSpeed = 0.5f;
 	[Export] public float swimSpeed = 3.5f;

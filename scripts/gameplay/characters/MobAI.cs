@@ -292,6 +292,13 @@ public partial class Mob
             // and mob composes its per-frame modulation into it here.
             float effectiveProminence = mobData.prominence * speedFactor * Mathf.Max(0f, 1f - camouflage);
 
+            // Mob's own movement noise — sampled here so PlayerPerception
+            // can add a hearing contribution. Sneak threshold is half max
+            // speed; mobs don't have an authored sneakSpeed of their own.
+            float mobSpeed = LinearVelocity.Length();
+            float mobSneakSpeed = mobData.maxSpeed * 0.5f;
+            float mobDecibels = PlayerPerception.ComputeMovementDecibels(mobSpeed, mobSneakSpeed, mobData.maxSpeed, mobData.sneakDecibels, mobData.runDecibels);
+
             var inputs = new PerceptionInputs
             {
                 prominence = effectiveProminence,
@@ -299,6 +306,7 @@ public partial class Mob
                 discoveredThreshold = mobData.discoveredThreshold,
                 lightSampleHeight = 1f,
                 losRayHeight = 1.5f,
+                decibels = mobDecibels,
             };
 
             // Marshal the two split fields on MobSimState into the helper's
@@ -352,10 +360,10 @@ public partial class Mob
                 visibilityDistance *= _world.player.visibility;
             }
             bool canSee = false;
-            float perceptionDelta = 0;
+            float visionDelta = 0;
             if (distanceSqToPlayer < visibilityDistance * visibilityDistance)
             {
-                perceptionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionDistancePower);
+                visionDelta = Mathf.Pow(Mathf.Clamp(1f - (distanceSqToPlayer / (visibilityDistance * visibilityDistance)), 0, 1), mobData.VisionRangePower);
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
                 Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
@@ -369,7 +377,7 @@ public partial class Mob
                 }
                 if (result.Count > 0)
                 {
-                    perceptionDelta = 0f;
+                    visionDelta = 0f;
                 }
                 else
                 {
@@ -382,12 +390,33 @@ public partial class Mob
                 target.lastKnownPosition = _world.player.GlobalPosition;
             }
 
+            // Hearing contribution. Audible distance = player's current
+            // decibels * this mob's hearingRange; ramps linearly from 0 at
+            // the edge to 1 at the player. No LOS / light gate.
+            float hearingDelta = 0f;
+            float playerDecibels = _world.player.CurrentDecibels;
+            if (playerDecibels > 0f && mobData.hearingRange > 0f)
+            {
+                float maxAudibleDistance = playerDecibels * mobData.hearingRange;
+                if (distanceSqToPlayer < maxAudibleDistance * maxAudibleDistance)
+                {
+                    hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distanceSqToPlayer) / maxAudibleDistance, mobData.hearingRangePower);
+                }
+            }
+
+            float visionContribution = visionDelta * mobData.VisionStrength;
+            float hearingContribution = hearingDelta * mobData.HearingStrength;
+            float perceptionDelta = visionContribution + hearingContribution;
+
             if (perceptionDelta > mobData.MinPerceptionDelta)
             {
                 target.perception = Mathf.Clamp(
                     target.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
                     0f, 1f);
-                if (target.perception >= mobData.PerceptionThresholdAlert)
+                // Triggered (combat alert) requires active visual contact —
+                // a hearing-only spike raises perception but can't latch the
+                // mob into the alert state on its own.
+                if (canSee && target.perception >= mobData.PerceptionThresholdAlert)
                 {
                     target.triggered = true;
                 }

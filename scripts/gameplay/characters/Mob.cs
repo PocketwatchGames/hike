@@ -1348,7 +1348,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (water-enter splash, water/tall-grass loop gating) still runs so
         // we can isolate the footstep emit cost specifically.
         bool footstepFxEnabled = CVars.mobFootstepFx.Value;
-        _footstepEmitter.Update(_world, pos, walking && footstepFxEnabled, _footstepStride, ground, _footstepEffects);
+        // Player-perception gate: a mob the player has no awareness of doesn't
+        // emit audible footsteps. Once perception is non-zero, footsteps emit
+        // unconditionally — even when the mob is not yet Discovered or is
+        // out of sight — so the player can hear an unseen mob approaching
+        // and use that as a perception cue.
+        bool perceived = _simState.PlayerPerception > 0f;
+        _footstepEmitter.Update(_world, pos, walking && footstepFxEnabled && perceived, _footstepStride, ground, _footstepEffects);
         // Footprint decals. Gated on the same `walking` predicate as the FX
         // emitter (no prints in water — splash covers the disturbance) but
         // not on mob_footstep_fx, since that CVar is for bisecting FX cost

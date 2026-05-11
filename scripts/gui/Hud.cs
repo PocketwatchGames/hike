@@ -21,6 +21,9 @@ public partial class Hud : CanvasLayer
 	[Export] ButtonHint _buttonHintTurnRight;
 	[Export] ButtonHint _buttonHintIndoors;
 	[Export] ButtonHint _buttonHintMap;
+	[Export] TextureRect _weatherDay;
+	[Export] TextureRect _weatherNight;
+	[Export] Control _weatherContainer;
 	Player _player;
 	Inventory _inventory;
 	// Active status-effect HUD nodes keyed by their data. Multiple stacked
@@ -53,6 +56,36 @@ public partial class Hud : CanvasLayer
 	BoundStateTextures _boundA;
 	BoundStateTextures _boundB;
 
+	// Weather widget — clock-face container holds a day icon and a night
+	// icon that crossfade across sunrise/sunset, with the container itself
+	// rotating once per game-day so the icons sweep around like a celestial
+	// dial. The 3×3 texture grid keys on temperature class (cold/normal/hot
+	// against the player's authored thresholds) and cloud cover class
+	// (clear/cloudy/overcast).
+	Texture2D[,] _weatherDayTextures;
+	Texture2D[,] _weatherNightTextures;
+	Texture2D _boundWeatherDayTexture;
+	Texture2D _boundWeatherNightTexture;
+	// Working WeatherData / ZoneData reused each frame for the forecast
+	// blend + diurnal eval. Allocated lazily on first valid frame so HUD
+	// construction order stays cheap.
+	WeatherData _forecastEnvelope;
+	WeatherData _forecastDayPeak;
+	WeatherData _forecastNightTrough;
+	ZoneData _forecastZone;
+	// Cloud cover thresholds for the icon's three-stop classification.
+	// Authored deserts run near 0, overcast biomes push past 0.7 — splitting
+	// the [0, 1] range into rough thirds reads as "few clouds / scattered /
+	// blanketed" without flickering between classes on a quiet day.
+	const float CloudCloudyThreshold = 0.33f;
+	const float CloudOvercastThreshold = 0.66f;
+	// Cave fade: sunlight BFS at the player's voxel, smoothstepped to drive
+	// the icons to zero alpha when the player descends below the sun's reach.
+	// 0.25 of MAX_LIGHT is a soft threshold — a few voxels under an overhang
+	// still shows weather; a proper cave drops it cleanly.
+	const float CaveFadeSunlightFloor = 0.0f;
+	const float CaveFadeSunlightFull = 0.25f;
+
 	public override void _Ready()
 	{
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
@@ -67,6 +100,27 @@ public partial class Hud : CanvasLayer
 		if (_signpostPanel != null)
 		{
 			_signpostPanel.Visible = false;
+		}
+		LoadWeatherTextures();
+	}
+
+	// 18 weather-icon textures keyed by phase × temp × cloud. Loaded once
+	// here so per-frame icon swaps are dictionary-free index lookups.
+	void LoadWeatherTextures()
+	{
+		_weatherDayTextures = new Texture2D[3, 3];
+		_weatherNightTextures = new Texture2D[3, 3];
+		string[] tempLabels = { "cold", "normal", "hot" };
+		string[] cloudLabels = { "clear", "cloudy", "overcast" };
+		for (int t = 0; t < 3; t++)
+		{
+			for (int c = 0; c < 3; c++)
+			{
+				_weatherDayTextures[t, c] = GD.Load<Texture2D>(
+					$"res://assets/textures/weather/day_{tempLabels[t]}_{cloudLabels[c]}.png");
+				_weatherNightTextures[t, c] = GD.Load<Texture2D>(
+					$"res://assets/textures/weather/night_{tempLabels[t]}_{cloudLabels[c]}.png");
+			}
 		}
 	}
 
@@ -180,6 +234,189 @@ public partial class Hud : CanvasLayer
 		}
 
 		UpdateMinimap();
+		UpdateWeatherWidget();
+	}
+
+	// Drive the clock-face weather widget: container rotation, the
+	// day/night icon crossfade across sunrise/sunset, icon selection from
+	// the forecasted peak-of-day / trough-of-night weather, and an
+	// alpha-fade when the player is buried far enough underground that no
+	// sunlight reaches their voxel.
+	//
+	// Rotation: 135° at sunrise, -45° at sunset → 360°/day clockwise.
+	// Day icon alpha:
+	//   [0, dayFadeInStart]            : 0
+	//   [dayFadeInStart, sunriseEnd]   : 0 → 1
+	//   [sunriseEnd, sunsetStart]      : 1
+	//   [sunsetStart, sunsetEnd]       : 1 → 0
+	//   [sunsetEnd, 1]                 : 0
+	// Night icon alpha wraps midnight (mirror of day, opposite phase).
+	// dayFadeInStart = halfway midnight → sunrise window start.
+	// nightFadeInStart = halfway noon → sunset window start.
+	void UpdateWeatherWidget()
+	{
+		if (_weatherContainer == null || _weatherDay == null || _weatherNight == null)
+		{
+			return;
+		}
+		WorldState ws = gameClient?.World?.WorldState;
+		SimData sim = ws?.SimData;
+		if (ws == null || sim == null)
+		{
+			return;
+		}
+
+		float tod = (float)ws.TimeOfDay01;
+		float halfWidth = sim.VarianceCrossfadeHalfWidth01;
+		const float SunriseCenter = 0.25f;
+		const float SunsetCenter = 0.75f;
+		float sunriseStart = SunriseCenter - halfWidth;
+		float sunriseEnd = SunriseCenter + halfWidth;
+		float sunsetStart = SunsetCenter - halfWidth;
+		float sunsetEnd = SunsetCenter + halfWidth;
+		float dayFadeInStart = 0.5f * sunriseStart;
+		float nightFadeInStart = 0.5f * (0.5f + sunsetStart);
+
+		_weatherContainer.RotationDegrees = 135f - 360f * (tod - SunriseCenter);
+
+		float dayAlpha = ComputeDayIconAlpha(tod, dayFadeInStart, sunriseEnd, sunsetStart, sunsetEnd);
+		float nightAlpha = ComputeNightIconAlpha(tod, sunriseStart, sunriseEnd, nightFadeInStart, sunsetEnd);
+
+		Vector3 pos = _player?.GlobalPosition ?? Vector3.Zero;
+		int sunBfs = ws.GetSunlightWorld(
+			Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z));
+		float sunMask = Mathf.Clamp((float)sunBfs / LightEngine.MAX_LIGHT, 0f, 1f);
+		float caveFade = Mathf.SmoothStep(CaveFadeSunlightFloor, CaveFadeSunlightFull, sunMask);
+
+		_weatherDay.Modulate = new Color(1f, 1f, 1f, dayAlpha * caveFade);
+		_weatherNight.Modulate = new Color(1f, 1f, 1f, nightAlpha * caveFade);
+
+		// Forecast peak / trough weather. Re-blend the zone envelope each
+		// frame at the player's XZ so zone crossings update the icon
+		// without a manual refresh.
+		if (_forecastEnvelope == null)
+		{
+			_forecastEnvelope = new WeatherData();
+			_forecastDayPeak = new WeatherData();
+			_forecastNightTrough = new WeatherData();
+			_forecastZone = new ZoneData();
+		}
+		ZoneBlend.Sample(pos, ws, _forecastZone, _forecastEnvelope, out _, out float elevation);
+		CopyWeather(_forecastEnvelope, _forecastDayPeak);
+		CopyWeather(_forecastEnvelope, _forecastNightTrough);
+
+		// Pick the variance source per icon. Phase 0 (the daytime period
+		// starting at sunrise) is even; phase 1 (the night) is odd. The
+		// current phase's settled variance lives in *VarianceCur; the
+		// upcoming phase's is pre-rolled into *VarianceNext, so the
+		// pre-dawn day-icon fade-in can already classify with tomorrow's
+		// daytime variance instead of the night's. Slope is 0 — the icon
+		// shows the steady-state peak/trough, not a mid-handover lerp.
+		//
+		// Fade-out latching: during the icon's fade-out window the
+		// handover has already happened (it lands at the window start),
+		// so *VarianceCur now holds the INCOMING phase's variance and a
+		// fresh roll lives in *VarianceNext. Reading either would pop
+		// the retiring icon to a different classification at the moment
+		// of handover. The retired phase's variance is sitting in
+		// *VariancePrev, so the fading-out icon reads from there and
+		// keeps its old classification all the way to alpha 0.
+		long curPhase = WeatherSimulation.CurrentPhase(ws.TimeOfDayAbsolute, sim);
+		bool inDayPhase = (curPhase & 1L) == 0L;
+		bool dayFadingOut = tod >= sunsetStart && tod < sunsetEnd;
+		bool nightFadingOut = tod >= sunriseStart && tod < sunriseEnd;
+
+		float dayWeatherVar = dayFadingOut ? ws.WeatherVariancePrev
+			: inDayPhase ? ws.WeatherVarianceCur : ws.WeatherVarianceNext;
+		float dayHumidityVar = dayFadingOut ? ws.HumidityVariancePrev
+			: inDayPhase ? ws.HumidityVarianceCur : ws.HumidityVarianceNext;
+		float dayCloudVar = dayFadingOut ? ws.CloudVariancePrev
+			: inDayPhase ? ws.CloudVarianceCur : ws.CloudVarianceNext;
+		float nightWeatherVar = nightFadingOut ? ws.WeatherVariancePrev
+			: inDayPhase ? ws.WeatherVarianceNext : ws.WeatherVarianceCur;
+		float nightHumidityVar = nightFadingOut ? ws.HumidityVariancePrev
+			: inDayPhase ? ws.HumidityVarianceNext : ws.HumidityVarianceCur;
+		float nightCloudVar = nightFadingOut ? ws.CloudVariancePrev
+			: inDayPhase ? ws.CloudVarianceNext : ws.CloudVarianceCur;
+
+		WeatherSimulation.Apply(_forecastDayPeak, _forecastZone, elevation, sim,
+			sim.DiurnalPeak01, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar);
+		WeatherSimulation.Apply(_forecastNightTrough, _forecastZone, elevation, sim,
+			sim.DiurnalTrough01, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar);
+
+		PlayerData pd = _player?.data;
+		int dayTemp = ClassifyTemp(_forecastDayPeak, pd, includeSun: true);
+		int dayCloud = ClassifyCloud(_forecastDayPeak.cloudCover);
+		int nightTemp = ClassifyTemp(_forecastNightTrough, pd, includeSun: false);
+		int nightCloud = ClassifyCloud(_forecastNightTrough.cloudCover);
+
+		Texture2D dayTex = _weatherDayTextures[dayTemp, dayCloud];
+		Texture2D nightTex = _weatherNightTextures[nightTemp, nightCloud];
+		if (dayTex != _boundWeatherDayTexture) { _weatherDay.Texture = dayTex; _boundWeatherDayTexture = dayTex; }
+		if (nightTex != _boundWeatherNightTexture) { _weatherNight.Texture = nightTex; _boundWeatherNightTexture = nightTex; }
+	}
+
+	// Classify forecast weather the same way Player.TickBodyTemperature
+	// triggers cold/hot status, so the icon flips at the same moment the
+	// status effect would. Wind chill shifts BOTH thresholds upward
+	// (matching `coldThreshold = data.coldTemperature + windEffect`), and
+	// the day icon adds the sun's radiant contribution under cloud
+	// attenuation because the player's acclimated body temp at peak
+	// includes that bake. Resistances aren't applied — the icon answers
+	// "would an unprotected player feel cold/hot in this weather?", which
+	// is what the player can plan around. Fog (a derived value) is left
+	// out of the sky transmission term for simplicity.
+	static int ClassifyTemp(WeatherData forecast, PlayerData pd, bool includeSun)
+	{
+		float coldT = pd?.coldTemperature ?? 50f;
+		float hotT = pd?.hotTemperature ?? 90f;
+		float windRed = pd?.windTemperatureReduction ?? 0.5f;
+		float windEffect = forecast.windSpeed * windRed;
+		float perceived = forecast.airTemperature;
+		if (includeSun)
+		{
+			float skyTransmission = 1f - Mathf.Clamp(forecast.cloudCover, 0f, 1f);
+			perceived += forecast.sunTemperature * skyTransmission;
+		}
+		if (perceived < coldT + windEffect) { return 0; }
+		if (perceived >= hotT + windEffect) { return 2; }
+		return 1;
+	}
+
+	static int ClassifyCloud(float cloud)
+	{
+		if (cloud >= CloudOvercastThreshold) { return 2; }
+		if (cloud >= CloudCloudyThreshold) { return 1; }
+		return 0;
+	}
+
+	static void CopyWeather(WeatherData src, WeatherData dst)
+	{
+		dst.cloudCover = src.cloudCover;
+		dst.windSpeed = src.windSpeed;
+		dst.airTemperature = src.airTemperature;
+		dst.sunTemperature = src.sunTemperature;
+		dst.humidity = src.humidity;
+		dst.rainAmount = src.rainAmount;
+		dst.dustAmount = src.dustAmount;
+	}
+
+	static float ComputeDayIconAlpha(float tod, float fadeInStart, float fadeInEnd, float fadeOutStart, float fadeOutEnd)
+	{
+		if (tod < fadeInStart) { return 0f; }
+		if (tod < fadeInEnd) { return (tod - fadeInStart) / (fadeInEnd - fadeInStart); }
+		if (tod < fadeOutStart) { return 1f; }
+		if (tod < fadeOutEnd) { return 1f - (tod - fadeOutStart) / (fadeOutEnd - fadeOutStart); }
+		return 0f;
+	}
+
+	static float ComputeNightIconAlpha(float tod, float fadeOutStart, float fadeOutEnd, float fadeInStart, float fadeInEnd)
+	{
+		if (tod < fadeOutStart) { return 1f; }
+		if (tod < fadeOutEnd) { return 1f - (tod - fadeOutStart) / (fadeOutEnd - fadeOutStart); }
+		if (tod < fadeInStart) { return 0f; }
+		if (tod < fadeInEnd) { return (tod - fadeInStart) / (fadeInEnd - fadeInStart); }
+		return 1f;
 	}
 
 	// Pushes the minimap's two-state crossfade snapshot into the shader

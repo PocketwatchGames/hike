@@ -8,6 +8,9 @@
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
+[ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
+[ext_resource type="Texture2D" uid="uid://dbdfb2i05edbk" path="res://assets/textures/weather/day_cold_clear.png" id="8_6101d"]
+[ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aoesn"]
 content_margin_left = 2.0
@@ -33,7 +36,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap")]
+[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
@@ -47,11 +50,14 @@ _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginCo
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _regionBanner = NodePath("RegionBanner")
-_minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Control/MinimapTexture")
+_minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture")
 _buttonHintTurnLeft = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateLeft")
 _buttonHintTurnRight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateRight")
 _buttonHintIndoors = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintToggleIndoors")
 _buttonHintMap = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintMap")
+_weatherDay = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherDay")
+_weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherNight")
+_weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 anchors_preset = 15
@@ -156,17 +162,18 @@ layout_mode = 2
 layout_mode = 2
 size_flags_horizontal = 8
 size_flags_vertical = 8
+theme_override_constants/margin_right = 50
 
 [node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomRight" unique_id=173035621]
 layout_mode = 2
 
-[node name="Control" type="Control" parent="ScreenMarginContainer/BottomRight/VBoxContainer" unique_id=266946744]
+[node name="Minimap" type="Control" parent="ScreenMarginContainer/BottomRight/VBoxContainer" unique_id=266946744]
 custom_minimum_size = Vector2(250, 250)
 layout_mode = 2
 size_flags_horizontal = 8
 size_flags_vertical = 0
 
-[node name="MinimapTexture" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Control" unique_id=1281083844]
+[node name="MinimapTexture" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap" unique_id=1281083844]
 material = ExtResource("6_minimap_mat")
 layout_mode = 1
 anchors_preset = 15
@@ -178,7 +185,7 @@ rotation = 0.7853982
 pivot_offset = Vector2(125, 125)
 texture = ExtResource("5_gbuxp")
 
-[node name="Label" type="Label" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Control/MinimapTexture" unique_id=1946964906]
+[node name="Label" type="Label" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture" unique_id=1946964906]
 layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
@@ -191,6 +198,61 @@ theme_override_colors/font_outline_color = Color(0, 0, 0, 0.49803922)
 theme_override_constants/outline_size = 5
 theme_override_font_sizes/font_size = 24
 text = "N"
+
+[node name="Border" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap" unique_id=310066966]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -135.0
+offset_top = -135.0
+offset_right = 165.0
+offset_bottom = 165.0
+grow_horizontal = 2
+grow_vertical = 2
+scale = Vector2(0.9, 0.9)
+texture = ExtResource("7_ggjrh")
+
+[node name="Weather" type="Control" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap" unique_id=817794158]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -135.0
+offset_top = -135.0
+offset_right = 135.0
+offset_bottom = 135.0
+grow_horizontal = 2
+grow_vertical = 2
+rotation = -0.8237954
+pivot_offset_ratio = Vector2(0.5, 0.5)
+
+[node name="WeatherDay" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather" unique_id=126216619]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+rotation = 2.3561945
+pivot_offset = Vector2(32, 32)
+texture = ExtResource("8_6101d")
+
+[node name="WeatherNight" type="TextureRect" parent="ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather" unique_id=1545862109]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -64.0
+offset_top = -64.0
+grow_horizontal = 0
+grow_vertical = 0
+rotation = 2.3561945
+pivot_offset = Vector2(32, 32)
+texture = ExtResource("9_is1ux")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomRight/VBoxContainer" unique_id=886045403]
 layout_mode = 2

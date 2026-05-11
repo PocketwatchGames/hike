@@ -183,6 +183,12 @@ public partial class Player : CharacterBody3D
 
 
 	public float visibility = 1f;
+	// Current movement-noise output, in decibels. Sampled by mobs in their
+	// mob-perceives-player tick to add a hearing contribution to perception.
+	// 0 = silent (stationary); peaks at PlayerData.runDecibels at moveSpeed.
+	// Mapped from Velocity in UpdateVisibility once per frame to keep the
+	// per-mob perception tick a plain field read.
+	public float CurrentDecibels { get; private set; }
 	public bool IsAiming => _aiming;
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
@@ -1513,6 +1519,10 @@ public partial class Player : CharacterBody3D
 		}
 
 		visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
+
+		Vector3 horizVel = Velocity;
+		horizVel.Y = 0f;
+		CurrentDecibels = PlayerPerception.ComputeMovementDecibels(horizVel.Length(), data.sneakSpeed, data.moveSpeed, data.sneakDecibels, data.runDecibels);
 	}
 
 	public void AddTerrainModifier(TallGrass tallGrass)

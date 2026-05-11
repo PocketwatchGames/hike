@@ -20,7 +20,8 @@ SpawnAtNight = true
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")
 Data = ExtResource("6_kunkun_data")
-InitialBehavior = null
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.33
 Chance = 0.005
 
 [sub_resource type="Resource" id="Resource_loot"]

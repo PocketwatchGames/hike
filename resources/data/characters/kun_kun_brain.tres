@@ -9,6 +9,7 @@
 [ext_resource type="Script" uid="uid://drpm3lmw62rmu" path="res://scripts/data/behaviors/FleeBehaviorData.cs" id="7_flee"]
 [ext_resource type="Script" uid="uid://b34r1kblkugu0" path="res://scripts/data/behaviors/BurrowBehaviorData.cs" id="8_burrow"]
 [ext_resource type="Script" uid="uid://uwvia1l0j0cx" path="res://scripts/data/behaviors/conditions/CanBurrowAndOutOfRangeCondition.cs" id="9_burrow_cond"]
+[ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_wander"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -67,8 +68,22 @@ name = &"Burrow"
 data = SubResource("Resource_burrow")
 transitions = [SubResource("Resource_burrow_to_idle")]
 
+[sub_resource type="Resource" id="Resource_wander"]
+script = ExtResource("10_wander")
+
+[sub_resource type="Resource" id="Resource_wander_to_flee"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Flee"
+
+[sub_resource type="Resource" id="Resource_wander_node"]
+script = ExtResource("2_node")
+name = &"Wander"
+data = SubResource("Resource_wander")
+transitions = [SubResource("Resource_wander_to_flee")]
+
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

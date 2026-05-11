@@ -51,6 +51,10 @@ public struct PerceptionInputs
     // hundreds of footprints from multiple mobs would otherwise raycast every
     // perception tick.
     public bool skipLineOfSight;
+    // Current sound output of the target in decibels. 0 = silent (no hearing
+    // contribution). Mobs feed in their speed-mapped movement noise; static
+    // discoverables leave this at 0.
+    public float decibels;
 }
 
 public struct PerceptionTickResult
@@ -102,7 +106,7 @@ public static class PlayerPerception
         EPlayerPerceptionState prevState = state.state;
         Vector3 toTarget = targetPos - player.GlobalPosition;
         float distSq = toTarget.LengthSquared();
-        float perceptionDelta = 0f;
+        float visionDelta = 0f;
 
         // Maximum distance at which this target can ever register: the
         // player's own vision range scaled by the target's prominence.
@@ -117,10 +121,10 @@ public static class PlayerPerception
             float visibilityDistance = maxVisibilityDistance * lightFactor;
             if (visibilityDistance > 0f)
             {
-                perceptionDelta = Mathf.Pow(
+                visionDelta = Mathf.Pow(
                     Mathf.Clamp(1f - (distSq / (visibilityDistance * visibilityDistance)), 0f, 1f),
-                    pd.VisionDistancePower);
-                if (perceptionDelta > pd.perceptionMinimum)
+                    pd.VisionRangePower);
+                if (visionDelta > pd.perceptionMinimum)
                 {
                     if (!inputs.skipLineOfSight)
                     {
@@ -132,27 +136,51 @@ public static class PlayerPerception
                         Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
                         if (rayResult.Count > 0)
                         {
-                            perceptionDelta = 0f;
+                            visionDelta = 0f;
                         }
                     }
                 }
                 else
                 {
-                    perceptionDelta = 0f;
+                    visionDelta = 0f;
                 }
             }
         }
 
-        if (perceptionDelta > 0f)
+        // Hearing contribution. Audible distance = decibels * hearingRange;
+        // inside that radius the delta ramps linearly from 0 at the edge to
+        // 1 at the source. No LOS / light gate — sound rounds corners and
+        // works in the dark, which is the whole point of pairing it with
+        // vision.
+        float hearingDelta = 0f;
+        if (inputs.decibels > 0f && pd.hearingRange > 0f)
         {
-            result.activelyPerceived = true;
-            if (perceptionDelta >= pd.perceptionInstant)
+            float maxAudibleDistance = inputs.decibels * pd.hearingRange;
+            if (distSq < maxAudibleDistance * maxAudibleDistance)
+            {
+                hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
+            }
+        }
+
+        float visionContribution = visionDelta * pd.VisionStrength;
+        float hearingContribution = hearingDelta * pd.HearingStrength;
+        float totalContribution = visionContribution + hearingContribution;
+
+        bool visuallyPerceived = visionContribution > 0f;
+        if (totalContribution > 0f)
+        {
+            // activelyPerceived drives mob memory refresh (VisibleTimeMs) —
+            // it must mean "the mob is in active visual contact right now",
+            // not "I can also hear footsteps from around the corner". Keep
+            // it tied to vision only.
+            result.activelyPerceived = visuallyPerceived;
+            if (visionContribution >= pd.perceptionInstant)
             {
                 state.perception = 1f;
             }
             else
             {
-                state.perception = Mathf.Min(1f, state.perception + perceptionDelta * delta * pd.PerceptionIncreaseSpeed);
+                state.perception = Mathf.Min(1f, state.perception + totalContribution * delta * pd.PerceptionIncreaseSpeed);
             }
         }
         else
@@ -160,17 +188,45 @@ public static class PlayerPerception
             state.perception = Mathf.Max(0f, state.perception - pd.PerceptionRelaxationSpeed * delta);
         }
 
-        if (state.perception >= inputs.discoveredThreshold)
+        // State transitions require active visual contact. Hearing builds
+        // the perception meter but can't latch the player into Detected /
+        // Discovered on its own — they have to see the target this tick.
+        if (visuallyPerceived)
         {
-            state.state = EPlayerPerceptionState.Discovered;
-        }
-        else if (state.perception >= inputs.detectedThreshold && state.state == EPlayerPerceptionState.Hidden)
-        {
-            state.state = EPlayerPerceptionState.Detected;
+            if (state.perception >= inputs.discoveredThreshold)
+            {
+                state.state = EPlayerPerceptionState.Discovered;
+            }
+            else if (state.perception >= inputs.detectedThreshold && state.state == EPlayerPerceptionState.Hidden)
+            {
+                state.state = EPlayerPerceptionState.Detected;
+            }
         }
 
         result.stateChanged = state.state != prevState;
         return result;
+    }
+
+    // Speed → continuous-noise decibel mapping shared by Player and Mob.
+    // Piecewise linear: 0 at rest, sneakDecibels at sneakSpeed, runDecibels
+    // at runSpeed (and capped at runDecibels above that). Stationary actors
+    // emit 0 so a frozen mob is acoustically invisible.
+    public static float ComputeMovementDecibels(float speed, float sneakSpeed, float runSpeed, float sneakDecibels, float runDecibels)
+    {
+        if (speed <= 0.001f)
+        {
+            return 0f;
+        }
+        if (speed >= runSpeed)
+        {
+            return runDecibels;
+        }
+        if (speed >= sneakSpeed)
+        {
+            float t = (speed - sneakSpeed) / Mathf.Max(0.001f, runSpeed - sneakSpeed);
+            return Mathf.Lerp(sneakDecibels, runDecibels, t);
+        }
+        return sneakDecibels * (speed / Mathf.Max(0.001f, sneakSpeed));
     }
 
     // Force-promote a target to Discovered. Used when a trap triggers — the

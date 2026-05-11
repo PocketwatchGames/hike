@@ -9,11 +9,23 @@ public partial class MobData : Resource
     // state in MobAI.UpdatePerception's mob-to-player block.
     [Export] public float VisionRange = 15f;
     [Export] public float VisionDotPower = 0.5f;
-    [Export] public float VisionDistancePower = 2f;
+    [Export] public float VisionRangePower = 0.5f;
     [Export] public float PerceptionIncreaseSpeed = 0.5f;
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
+    // Per-sense multipliers applied to the vision / hearing perception delta
+    // before they're summed and accumulated. VisionStrength=0 turns this mob
+    // blind (still hears); HearingStrength=0 turns it deaf (still sees).
+    [Export] public float VisionStrength = 1f;
+    [Export] public float HearingStrength = 1f;
+    // Hearing reach scalar. A sound of `decibels` is heard if
+    // `decibels * hearingRange > distance` — i.e. the audible distance is
+    // `decibels * hearingRange`. State transitions (triggered / discovered)
+    // are gated on active visual contact, so a hearing-only spike raises
+    // perception but won't cross the threshold without sight.
+    [Export] public float hearingRange = 5f;
+    [Export] public float hearingRangePower = 0.5f;
 
     [ExportGroup("Player Perceives Mob")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
@@ -68,6 +80,13 @@ public partial class MobData : Resource
     [Export] public float armorRecoverTime = 30f;
     [Export] public float yellVolume = 15;
     [Export] public float maxSpeed = 4f;
+    // Continuous movement noise this mob emits. Mapped from current speed:
+    // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
+    // Listeners (player + other mobs) check `decibels * hearingRange >
+    // distance` to hear, and add a hearing contribution to their perception
+    // delta when they do.
+    [Export] public float sneakDecibels = 1f;
+    [Export] public float runDecibels = 4f;
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
     [Export] public BrainData brain;

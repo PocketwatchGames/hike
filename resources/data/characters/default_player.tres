@@ -9,6 +9,7 @@
 script = ExtResource("1_mknwc")
 stepHeight = 1.1
 perceptionMinimum = 0.0
+hearingRange = 15.0
 dropLootScene = ExtResource("2_loot")
 coldTemperature = 40.0
 coldStatus = ExtResource("4_cold")

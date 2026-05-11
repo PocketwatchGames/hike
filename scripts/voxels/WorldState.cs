@@ -92,15 +92,18 @@ public class WorldState
     // channels (below) so a humid front can roll in without dragging
     // temperature with it.
     //
-    // Each channel has prev / next + a HANDOVER PHASE INDEX. Phase
-    // increments at the start of each sunrise/sunset crossfade window;
-    // when it does, prev := next (so displayed value is continuous)
-    // and a fresh next is rolled. Inside the window, the displayed
-    // value smooth-steps prev → next; outside, it sits at next until
-    // the next window. Lives on WorldState so a save/reload resumes
-    // the same forecast rather than snapping to a new value.
+    // Each channel has prev / cur / next + a HANDOVER PHASE INDEX.
+    // Phase increments at the start of each sunrise/sunset crossfade
+    // window; when it does, prev := cur, cur := next, next := fresh
+    // roll. Inside the window, the displayed value smooth-steps
+    // prev → cur; outside, it sits at cur until the next window. The
+    // pre-rolled `next` holds the variance for the UPCOMING phase so
+    // the HUD weather icon can preview tomorrow's day / tonight's
+    // night peak before its own handover lands. Lives on WorldState
+    // so a save/reload resumes the same forecast rather than snapping.
     public float WeatherVariance = 0.5f;
     public float WeatherVariancePrev = 0.5f;
+    public float WeatherVarianceCur = 0.5f;
     public float WeatherVarianceNext = 0.5f;
     // Per-day-fraction analytical slope of WeatherVariance. 0 outside
     // the crossfade window; ramps with SmoothStep' inside. Wind /
@@ -109,8 +112,8 @@ public class WorldState
     public float WeatherVarianceSlope = 0.0f;
     // Most recently completed handover phase index. long.MinValue means
     // "uninitialized" — first UpdateVariance call snaps this to the
-    // current phase without rolling, so the freshly seeded prev/next
-    // values aren't promoted away on frame 0.
+    // current phase without rolling, so the freshly seeded prev/cur/next
+    // triple isn't promoted away on frame 0.
     public long WeatherVariancePhase = long.MinValue;
 
     // Independent humidity-variance channel. Same handover-phase
@@ -120,6 +123,7 @@ public class WorldState
     // pattern in.
     public float HumidityVariance = 0.5f;
     public float HumidityVariancePrev = 0.5f;
+    public float HumidityVarianceCur = 0.5f;
     public float HumidityVarianceNext = 0.5f;
     public float HumidityVarianceSlope = 0.0f;
     public long HumidityVariancePhase = long.MinValue;
@@ -130,6 +134,7 @@ public class WorldState
     // whatever the variance says is "out there".
     public float CloudVariance = 0.5f;
     public float CloudVariancePrev = 0.5f;
+    public float CloudVarianceCur = 0.5f;
     public float CloudVarianceNext = 0.5f;
     public float CloudVarianceSlope = 0.0f;
     public long CloudVariancePhase = long.MinValue;
@@ -175,20 +180,24 @@ public class WorldState
         TimeOfDay01 = simData?.InitialTimeOfDay ?? 0.3f;
         TimeOfDayAbsolute = TimeOfDay01;
         WeatherRng.Randomize();
-        // Pre-roll prev/next on each channel so the first frame has a
-        // valid lerp pair. The phase fields stay at long.MinValue —
+        // Seed prev/cur/next on each channel so the first frame has a
+        // valid lerp pair AND a pre-rolled upcoming-phase value for the
+        // HUD forecast. The phase fields stay at long.MinValue —
         // UpdateVariance snaps each channel's phase to "current" on
         // first call without rolling, so these initial values aren't
         // promoted away.
         WeatherVariancePrev = WeatherRng.Randf();
+        WeatherVarianceCur = WeatherRng.Randf();
         WeatherVarianceNext = WeatherRng.Randf();
-        WeatherVariance = WeatherVarianceNext;
+        WeatherVariance = WeatherVarianceCur;
         HumidityVariancePrev = WeatherRng.Randf();
+        HumidityVarianceCur = WeatherRng.Randf();
         HumidityVarianceNext = WeatherRng.Randf();
-        HumidityVariance = HumidityVarianceNext;
+        HumidityVariance = HumidityVarianceCur;
         CloudVariancePrev = WeatherRng.Randf();
+        CloudVarianceCur = WeatherRng.Randf();
         CloudVarianceNext = WeatherRng.Randf();
-        CloudVariance = CloudVarianceNext;
+        CloudVariance = CloudVarianceCur;
     }
 
     // World-coordinate accessors for cross-chunk light propagation
