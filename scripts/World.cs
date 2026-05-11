@@ -439,7 +439,7 @@ public partial class World : Node3D
         {
             return null;
         }
-        PackedScene scene = gated ? sim.MobFootprintScene : sim.PlayerFootprintScene;
+        PackedScene scene = gated ? sim.FootprintDiscoverable : sim.FootprintVisible;
         if (scene == null)
         {
             return null;

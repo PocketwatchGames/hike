@@ -1360,7 +1360,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // not on mob_footstep_fx, since that CVar is for bisecting FX cost
         // and the footprint cost belongs in a separate measurement.
         GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
-        _footprintEmitter.Update(_world, pos, GlobalRotation.Y, walking, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: true);
+        // Per-print awareness gate. If the player has any current perception
+        // of this mob, or still holds an active memory window on it, the
+        // print is laid as the ungated player-style decal — visible the
+        // moment it touches ground (you saw / are sensing the mob walk).
+        // If awareness is fully cold, the print uses the Discoverable-gated
+        // mob scene so the player has to come back and notice the decal
+        // itself for it to fade in. Decision is made at emit time and
+        // baked into the spawned print; later changes in awareness don't
+        // retroactively reveal already-laid prints.
+        bool perceivedAtEmit = _simState.PlayerPerception > 0f || _simState.MemoryTimeMs > _world.GameTimeMs;
+        _footprintEmitter.Update(_world, pos, GlobalRotation.Y, walking, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: !perceivedAtEmit);
 
         // One splash at the moment the mob first dips into water. The
         // navigator can drag a mob through a water voxel on a single frame,

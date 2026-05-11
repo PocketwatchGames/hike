@@ -554,15 +554,17 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
 
     [ExportGroup("Footprints")]
-    // Two shared scenes — one for player prints (visible immediately), one
-    // for mob prints (perception-gated via an internal Discoverable child).
-    // Authoring this here rather than per-actor: the player vs mob choice
-    // is a binary that doesn't vary per-character, and the textures are
-    // what differ between actors (carried per-actor via Player/Mob's
-    // _footprintTexture). World.SpawnFootprint picks the scene from this
-    // pair using the actor-supplied `gated` flag.
-    [Export] public PackedScene PlayerFootprintScene;
-    [Export] public PackedScene MobFootprintScene;
+    // Two shared scenes — one always-visible (player prints, and mob prints
+    // laid while the player was already aware of the mob), one with an
+    // internal Discoverable child that gates visibility on the player
+    // perceiving the decal itself. Authoring this here rather than
+    // per-actor: the visible/discoverable choice is a binary that doesn't
+    // vary per-character, and the textures are what differ between actors
+    // (carried per-actor via Player/Mob's _footprintTexture).
+    // World.SpawnFootprint picks the scene from this pair using the
+    // actor-supplied `gated` flag.
+    [Export] public PackedScene FootprintVisible;
+    [Export] public PackedScene FootprintDiscoverable;
     // Per-ground-type tint applied to every footprint laid down on that
     // surface. The Color's RGB tints the actor's footprint texture (sand
     // → warm tan, mud → dark brown, snow → white); the Color's ALPHA is
