@@ -14,4 +14,10 @@ public class WorldSimState
     // WorldMapScreen reads it to gate which region-name labels are
     // visible. Keyed by the shared RegionData resource instance.
     public readonly HashSet<RegionData> DiscoveredRegions = new();
+
+    // Recipes the player has crafted at least once during this run.
+    // Keyed by the shared RecipeData resource instance; the value tracks
+    // whether the high-quality output has been produced and the minimum
+    // ingredient counts that have yielded a standard-quality success.
+    public readonly Dictionary<RecipeData, DiscoveredRecipeState> DiscoveredRecipes = new();
 }

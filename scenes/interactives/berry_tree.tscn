@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_habc4"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_interactivebox"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="5_litsprite"]
-[ext_resource type="PackedScene" uid="uid://cnq6q51o8cimn" path="res://scenes/interactives/berry_red.tscn" id="6_5ksji"]
+[ext_resource type="Resource" uid="uid://c7m9pd2qkx8vt" path="res://resources/data/loot/berry_red_loot.tres" id="6_5ksji"]
 [ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="7_lit_blshadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="8_lit_shadowcastertemplate"]
 [ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="9_lit_reflectiontemplate"]
@@ -63,7 +63,7 @@ _animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
-_berryScene = ExtResource("6_5ksji")
+_berryLootData = ExtResource("6_5ksji")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=117381297]
 

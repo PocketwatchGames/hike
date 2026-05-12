@@ -247,7 +247,7 @@ public class Inventory
 		Vector3 pos = _owner.GlobalPosition + Vector3.Up * 0.5f;
 		Vector3 forward = -_owner.GlobalTransform.Basis.Z;
 		Vector3 impulse = forward * 2f + Vector3.Up * 1.5f;
-		_owner.World?.DropItem(dropped, pos, impulse, _data.dropLootScene);
+		_owner.World?.DropItem(dropped, pos, impulse, _data.dropLootData);
 	}
 
 	public ItemState GetActiveConsumable()

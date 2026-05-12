@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://b8q3p5krxztww"]
+
+[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/LootData.cs" id="1_loot_data"]
+[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="2_auto_loot_scene"]
+
+[resource]
+script = ExtResource("1_loot_data")
+Scene = ExtResource("2_auto_loot_scene")
+AutoPickup = true

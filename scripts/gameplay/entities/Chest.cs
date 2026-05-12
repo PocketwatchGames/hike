@@ -17,6 +17,11 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // are visible from spawn.
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
+    // LootData paired with the chest's drops. Authored on the chest .tscn —
+    // most chests share the same LootData (auto-pickup default), but per-scene
+    // authoring lets variants (e.g. a "locked-style" chest that drops
+    // interactive loot) override it without touching the sim state.
+    [Export] private LootData _lootData;
     // Optional ITriggerable nodes pinged when the chest finishes opening.
     // Lets a chest fire a poison-cloud deployer, an upstream
     // TriggerSource (e.g. a nearby spike trap's pad chained off the
@@ -97,7 +102,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
                 horizontalSpeed * Mathf.Sin(angle)
             );
 
-            _world.SpawnLoot(_interactiveState.LootScene, GlobalPosition + Vector3.Up, impulse);
+            _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, _lootData);
         }
 
         // Fire any wired traps/effects. The chest itself is the source —

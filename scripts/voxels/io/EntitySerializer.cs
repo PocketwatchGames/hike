@@ -19,7 +19,14 @@ public static class EntitySerializer
         Signpost = 7,
         FireTrap = 8,
         BerryTree = 9,
+        Loot = 10,
     }
+
+    // Legacy PropType byte values for loot. PropSimState used to cover loot
+    // before LootSimState was split out; old world files still carry Tag.Prop
+    // with these PropType bytes and must round-trip through the legacy reader.
+    private const byte LegacyPropTypeAutoLoot = 2;
+    private const byte LegacyPropTypeLoot = 3;
 
     public static void WriteList(BinaryWriter w, List<EntitySimState> entities)
     {
@@ -56,7 +63,17 @@ public static class EntitySerializer
                 WriteVec3(w, prop.WorldPosition);
                 WriteScene(w, prop.Scene);
                 w.Write((byte)prop.Type);
-                w.Write(prop.PickedUp);
+                // Legacy "PickedUp" byte in the Tag.Prop payload. Tree and
+                // TallGrass never pick up; write false to keep the wire shape
+                // unchanged so existing .hike files keep loading.
+                w.Write(false);
+                break;
+
+            case LootSimState loot:
+                w.Write((byte)Tag.Loot);
+                WriteVec3(w, loot.WorldPosition);
+                WriteResource(w, loot.Data);
+                w.Write(loot.PickedUp);
                 break;
 
             case MobSimState mob:
@@ -103,7 +120,10 @@ public static class EntitySerializer
                 WriteVec3(w, chest.WorldPosition);
                 WriteScene(w, chest.Scene);
                 w.Write(chest.LootCount);
-                WriteScene(w, chest.LootScene);
+                // Legacy LootScene slot. ChestSimState no longer carries its
+                // own loot scene — chest.tscn authors a LootData instead. Keep
+                // the wire shape unchanged so old .hike files still load.
+                WriteScene(w, null);
                 w.Write(chest.Active);
                 w.Write(chest.SpawnAtNight);
                 break;
@@ -151,11 +171,32 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                var type = (PropType)r.ReadByte();
+                byte typeByte = r.ReadByte();
                 bool pickedUp = r.ReadBoolean();
-                var prop = new PropSimState(type, pos, scene);
-                prop.PickedUp = pickedUp;
-                return prop;
+                // Legacy migration: pre-split PropSimState covered loot too.
+                // Old world files with the retired AutoLoot/Loot PropType
+                // bytes are upgraded to LootSimState on read; new code only
+                // ever writes Tree/TallGrass under Tag.Prop. Data is null —
+                // LootSimState's null-Data fallback yields auto-pickup, which
+                // matches the legacy behavior (byte 3 "Loot" was never written
+                // by any callsite, so this fallback is unreachable in practice
+                // for the interactive variant).
+                if (typeByte == LegacyPropTypeAutoLoot || typeByte == LegacyPropTypeLoot)
+                {
+                    var loot = new LootSimState(pos, scene, data: null);
+                    loot.PickedUp = pickedUp;
+                    return loot;
+                }
+                return new PropSimState((PropType)typeByte, pos, scene);
+            }
+            case Tag.Loot:
+            {
+                Vector3 pos = ReadVec3(r);
+                var data = ReadResource<LootData>(r);
+                bool pickedUp = r.ReadBoolean();
+                var loot = new LootSimState(pos, data);
+                loot.PickedUp = pickedUp;
+                return loot;
             }
             case Tag.Mob:
             {
@@ -225,10 +266,12 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 int lootCount = r.ReadInt32();
-                PackedScene lootScene = ReadScene(r);
+                // Legacy LootScene slot — discarded; chest.tscn carries the
+                // authored LootData reference now.
+                ReadScene(r);
                 bool active = r.ReadBoolean();
                 bool spawnAtNight = r.ReadBoolean();
-                var chest = new ChestSimState(pos, scene, lootCount, lootScene);
+                var chest = new ChestSimState(pos, scene, lootCount);
                 chest.Active = active;
                 chest.SpawnAtNight = spawnAtNight;
                 return chest;

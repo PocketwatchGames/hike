@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://cjvf30nl7ddfv"]
+
+[ext_resource type="Script" path="res://scripts/data/RecipeInput.cs" id="1_bh5ab"]
+[ext_resource type="Script" path="res://scripts/data/RecipeData.cs" id="2_gna3y"]
+
+[resource]
+script = ExtResource("2_gna3y")

@@ -379,9 +379,13 @@ public partial class World : Node3D
         );
     }
 
-    public AutoLoot SpawnLoot(PackedScene scene, Vector3 position, Vector3 impulse)
+    public AutoLoot SpawnLoot(Vector3 position, Vector3 impulse, LootData lootData)
     {
-        var simState = new PropSimState(PropType.AutoLoot, position, scene);
+        if (lootData == null || lootData.Scene == null)
+        {
+            return null;
+        }
+        var simState = new LootSimState(position, lootData);
         _worldState.AddEntity(simState);
         AutoLoot loot = AutoLoot.Create(this, simState, impulse);
 
@@ -398,17 +402,16 @@ public partial class World : Node3D
 
     // Spawn an AutoLoot carrying a specific ItemState (player-dropped item
     // path). The item is held on the sim state; pickup deposits it into the
-    // picker's inventory via AutoLoot.PickUp. Caller supplies the scene to
-    // use for the physical loot pickup (ItemData carries no scene of its own
-    // yet).
-    public AutoLoot DropItem(ItemState item, Vector3 position, Vector3 impulse, PackedScene scene)
+    // picker's inventory via AutoLoot.PickUp. The LootData supplies both the
+    // physical pickup scene and the auto-pickup behavior.
+    public AutoLoot DropItem(ItemState item, Vector3 position, Vector3 impulse, LootData lootData)
     {
-        if (item == null || scene == null)
+        if (item == null || lootData == null || lootData.Scene == null)
         {
             return null;
         }
 
-        var simState = new PropSimState(PropType.AutoLoot, position, scene);
+        var simState = new LootSimState(position, lootData);
         simState.Item = item;
         _worldState.AddEntity(simState);
         AutoLoot loot = AutoLoot.Create(this, simState, impulse);

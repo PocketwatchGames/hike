@@ -4,14 +4,14 @@ using Godot;
 [GlobalClass]
 public partial class LootSpawnEntry : SpawnEntryData
 {
-    [Export] public PackedScene Scene;
+    [Export] public LootData LootData;
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Scene == null)
+        if (LootData == null || LootData.Scene == null)
         {
             return;
         }
-        ws.AddEntity(new PropSimState(PropType.AutoLoot, position, Scene));
+        ws.AddEntity(new LootSimState(position, LootData));
     }
 }

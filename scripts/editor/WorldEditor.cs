@@ -453,13 +453,13 @@ public partial class WorldEditor : Node3D
             case "Loot":
             {
                 LootSpawnEntry loot = FindFirstSurfaceEntry<LootSpawnEntry>(firstZone);
-                return loot?.Scene != null ? new PropSimState(PropType.AutoLoot, position, loot.Scene) : null;
+                return loot?.LootData?.Scene != null ? new LootSimState(position, loot.LootData) : null;
             }
             case "Chest":
             {
                 ChestSpawnEntry chest = FindFirstCaveEntry<ChestSpawnEntry>(firstZone);
-                return chest?.Scene != null && chest.LootScene != null
-                    ? new ChestSimState(position, chest.Scene, 3, chest.LootScene)
+                return chest?.Scene != null
+                    ? new ChestSimState(position, chest.Scene, 3)
                     : null;
             }
             case "Torch":

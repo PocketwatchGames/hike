@@ -24,7 +24,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// later as the design evolves.
 	[Export] private Array<InteractiveAction> _actions = new();
 
-	private PropSimState _simState;
+	private LootSimState _simState;
 	private bool _pickedUp;
 	private World _world;
 	private Vector3 _initialImpulse;
@@ -158,7 +158,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 	}
 
-	public static Loot Create(World world, PropSimState data, Vector3 impulse = default)
+	public static Loot Create(World world, LootSimState data, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<Loot>();
 		instance.Position = data.WorldPosition;

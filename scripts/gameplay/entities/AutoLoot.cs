@@ -14,7 +14,7 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 	[Export] private PackedScene _pickupEffectScene;
 	[Export] private PackedScene _spawnEffectScene;
 
-	private PropSimState _simState;
+	private LootSimState _simState;
 	private bool _pickedUp;
 	private World _world;
 	private Vector3 _initialImpulse;
@@ -134,7 +134,7 @@ public partial class AutoLoot : RigidBody3D, IWorldEntity
 		}
 	}
 
-	public static AutoLoot Create(World world, PropSimState data, Vector3 impulse = default)
+	public static AutoLoot Create(World world, LootSimState data, Vector3 impulse = default)
 	{
 		var instance = data.Scene.Instantiate<AutoLoot>();
 		instance.Position = data.WorldPosition;

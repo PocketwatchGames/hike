@@ -8,10 +8,10 @@
 [ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="6_goblin_data"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="7_kunkun_data"]
-[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="8_loot_scene"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="9_chest_scene"]
 [ext_resource type="PackedScene" path="res://scenes/interactives/chest_poison.tscn" id="10_poison_scene"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="11_torch_scene"]
+[ext_resource type="Resource" uid="uid://b8q3p5krxztww" path="res://resources/data/loot/auto_pickup_loot.tres" id="12_loot_data"]
 
 [sub_resource type="Resource" id="Resource_goblin"]
 script = ExtResource("2_mob_entry")
@@ -29,14 +29,13 @@ Chance = 0.005
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("4_loot_entry")
-Scene = ExtResource("8_loot_scene")
+LootData = ExtResource("12_loot_data")
 Chance = 0.005
 
 [sub_resource type="Resource" id="Resource_chest"]
 script = ExtResource("3_chest_entry")
 Scene = ExtResource("9_chest_scene")
 AltScene = ExtResource("10_poison_scene")
-LootScene = ExtResource("8_loot_scene")
 Chance = 0.002
 
 [sub_resource type="Resource" id="Resource_torch"]

@@ -6,7 +6,7 @@
 [ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/torch.tres" id="6_torch"]
-[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/healing_potion.tres" id="7_potion"]
+[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="7_potion"]
 [ext_resource type="Resource" uid="uid://b7fxk2m4n8rap" path="res://resources/data/items/armor/fur_coat.tres" id="8_fur_coat"]
 
 [resource]

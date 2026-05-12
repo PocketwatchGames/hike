@@ -46,10 +46,10 @@ public partial class PlayerData : Resource
 	[Export] public int backpackCapacity = 20;
 	[Export] public int consumableSlotCount = 3;
 
-	// Scene used when the player drops an item from the inventory. Same Loot
-	// scene the world drops use; we keep it on PlayerData so player drops
-	// don't depend on which zone they're standing in.
-	[Export] public PackedScene dropLootScene;
+	// LootData used when the player drops an item from the inventory. Carries
+	// both the loot scene and the auto-pickup flag; kept on PlayerData so
+	// player drops don't depend on which zone they're standing in.
+	[Export] public LootData dropLootData;
 
 	[Export] public float maxHealth = 100f;
 

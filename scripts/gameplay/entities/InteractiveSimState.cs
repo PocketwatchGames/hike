@@ -43,17 +43,15 @@ public class ChestSimState : EntitySimState
 {
     public bool Active = true;
     public readonly int LootCount;
-    public readonly PackedScene LootScene;
     // When true, the chest's node is only created if the chunk activates during
     // nighttime. Authored at worldgen for chests anchored to night-only
     // encounters (e.g. campfire encampments). Mirrors MobSimState.SpawnAtNight.
     public bool SpawnAtNight;
 
-    public ChestSimState(Vector3 worldPosition, PackedScene scene, int lootCount, PackedScene lootScene)
+    public ChestSimState(Vector3 worldPosition, PackedScene scene, int lootCount)
         : base(worldPosition, scene)
     {
         LootCount = lootCount;
-        LootScene = lootScene;
     }
 
     public override bool ShouldSpawn(World world)

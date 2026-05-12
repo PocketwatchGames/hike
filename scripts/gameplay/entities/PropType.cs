@@ -1,11 +1,10 @@
 // Wire bytes are stable; entries are append-only so existing world files keep
-// loading. AutoLoot replaced the original "Loot" enum value at byte 2 — same
-// auto-pickup semantics, renamed for clarity now that an interactive Loot
-// variant exists in the Loot.cs class.
+// loading. Bytes 2 (legacy "AutoLoot") and 3 (legacy "Loot") were retired when
+// loot moved to its own LootSimState — EntitySerializer's legacy Tag.Prop
+// reader still recognises those bytes and converts them to LootSimState, so
+// 2 and 3 must not be reused by any future PropType entry.
 public enum PropType : byte
 {
 	Tree = 0,
 	TallGrass = 1,
-	AutoLoot = 2,
-	Loot = 3,
 }
