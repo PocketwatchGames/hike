@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4glsf0vs"]
 
-[ext_resource type="Script" uid="uid://b3rgnd05hike01" path="res://scripts/data/ZoneGenData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/zones/mountain.tres" id="2_region"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
+[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="5_ycgd3"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_w82ce"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="11_w82ce"]
-[ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_default.tres" id="12_surface"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="13_cave"]
 
 [resource]
@@ -23,5 +23,5 @@ PathBlendBand = 0.05
 TunnelThreshold = 0.1
 CaveNoiseFrequency = 0.04
 GrassThreshold = 0.5
-SurfaceEntities = ExtResource("12_surface")
+SurfaceEntities = ExtResource("5_ycgd3")
 CaveEntities = ExtResource("13_cave")

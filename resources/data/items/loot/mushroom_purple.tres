@@ -8,5 +8,5 @@
 script = ExtResource("2_ythwi")
 displayName = &"Purple Mushroom"
 maxStack = 99
-inventorySprite = ExtResource("1_f6xqq")
-worldSprite = ExtResource("3_ythwi")
+inventorySprite = ExtResource("3_ythwi")
+worldSprite = ExtResource("1_f6xqq")
