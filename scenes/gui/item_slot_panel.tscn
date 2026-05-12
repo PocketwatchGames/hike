@@ -2,8 +2,9 @@
 
 [ext_resource type="Script" uid="uid://dwvo544owdw66" path="res://scripts/gui/ItemSlotPanel.cs" id="1_a5bqt"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="2_a5bqt"]
-[ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="3_cj85m"]
-[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="4_wxcd7"]
+[ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="3_wxcd7"]
+[ext_resource type="Texture2D" uid="uid://clv3byf0k0up5" path="res://assets/textures/gui/item_button_hover.png" id="4_fb484"]
+[ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 
 [node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_slotBackground", "_stackLabel", "_stackContainer")]
 custom_minimum_size = Vector2(80, 80)
@@ -24,9 +25,9 @@ stretch_mode = 5
 
 [node name="TextureButton" type="TextureButton" parent="." unique_id=1069392873]
 layout_mode = 2
-texture_pressed = ExtResource("3_cj85m")
-texture_hover = ExtResource("4_wxcd7")
-texture_focused = ExtResource("4_wxcd7")
+texture_pressed = ExtResource("3_wxcd7")
+texture_hover = ExtResource("4_fb484")
+texture_focused = ExtResource("5_w7sa8")
 ignore_texture_size = true
 stretch_mode = 5
 

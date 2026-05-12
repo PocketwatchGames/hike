@@ -18,6 +18,11 @@ public class StatusEffectState
 	// integer-stable even if dt jitters.
 	public float tickAccumulator;
 
+	// Loop fx parented to the actor while the effect is active. Set by the
+	// actor's AddStatusEffect path when data.loopFx is set; Stop()'d and
+	// nulled by the End path so the trailing audio + particles wind down.
+	public Fx loopInstance;
+
 	public StatusEffectState(StatusEffectData data, ulong nowMs)
 	{
 		this.data = data;

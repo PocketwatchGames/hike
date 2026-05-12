@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://b8q3p5krx0tww"]
+
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/ItemData.cs" id="1_item_data"]
+[ext_resource type="Texture2D" uid="uid://c56xlitxf10lu" path="res://assets/textures/items/MushroomGold.png" id="1_x4kx3"]
+[ext_resource type="Texture2D" uid="uid://c0irq1o2lg6rx" path="res://assets/textures/items/pickups/MushroomGold.png" id="3_2a1x4"]
+
+[resource]
+script = ExtResource("1_item_data")
+displayName = &"Gold Mushroom"
+maxStack = 99
+inventorySprite = ExtResource("1_x4kx3")
+worldSprite = ExtResource("3_2a1x4")

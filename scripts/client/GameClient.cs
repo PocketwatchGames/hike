@@ -19,6 +19,11 @@ public partial class GameClient : Node3D
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
 	[Export] public PackedScene mobChatterScene;
+	// Shared world-pickup scene. Every dropped or spawned item materializes
+	// through this one scene with its sprite swapped to the item's
+	// worldSprite on spawn. The Loot runtime decides per-player whether to
+	// auto-pickup (walk over) or require interact based on inventory state.
+	[Export] public PackedScene lootScene;
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
 	// FlatLitSprite — the upright outline shader's vertex math would build
@@ -249,6 +254,20 @@ public partial class GameClient : Node3D
 		_highlightOverlay.Visible = false;
 		sceneViewport.AddChild(_highlightOverlay);
 
+		// Start every input-consuming modal hidden regardless of how the
+		// authored .tscn left them, and clear InputSuppressed so the player
+		// can drive the world on the first frame. Saves a step-on-rake when a
+		// new modal lands without `visible = false` on its instance line.
+		if (worldMapScreen != null)
+		{
+			worldMapScreen.Visible = false;
+		}
+		if (inventoryScreen != null)
+		{
+			inventoryScreen.Visible = false;
+		}
+		InputSuppressed = false;
+
 		GetTree().Root.SizeChanged += UpdateViewportSize;
 		UpdateViewportSize();
 
@@ -321,6 +340,14 @@ public partial class GameClient : Node3D
 			// consumable-use action started from the inventory screen can
 			// still advance through the runner.
 			_player.ProcessInput(camera.Yaw);
+		}
+		else
+		{
+			// Input suppressed by a modal. ClearInput zeroes the cached
+			// move/look vectors so a stick held when the modal opened
+			// doesn't keep coasting the character — _PhysicsProcess reads
+			// _inputMove every frame regardless of who last wrote it.
+			_player.ClearInput();
 		}
 
 		// Per-frame push to the detail_sprite shader so grass bends around
@@ -697,7 +724,7 @@ public partial class GameClient : Node3D
 		}
 
 		_highlightOverlay.Texture = source.Texture;
-		_highlightOverlay.Transform = source.Transform;
+		_highlightOverlay.Transform = Transform3D.Identity;
 		_highlightOverlay.Centered = source.Centered;
 		_highlightOverlay.Offset = source.Offset;
 		_highlightOverlay.PixelSize = source.PixelSize;
@@ -736,14 +763,11 @@ public partial class GameClient : Node3D
 			float forwardOffset = source is LitSprite lit ? lit.ForwardOffset : 0f;
 			activeOutline.SetShaderParameter("forward_offset", forwardOffset);
 		}
-		// Reparent under the sprite's own parent rather than the IInteractive
-		// root so the overlay shares the source's transform chain. For
-		// chest/door/etc. the sprite is a direct child and this resolves to
-		// the IInteractive node; for Mob the sprite lives under MeshContainer,
-		// which is the node that gets dropped during burrow — keeping the
-		// overlay parented there means it tracks the dip rather than hovering.
-		Node3D overlayParent = source.GetParent() as Node3D ?? node;
-		_highlightOverlay.Reparent(overlayParent, false);
+		// Reparent as a child of the source sprite so the overlay inherits
+		// its full transform chain — both the parent chain (Mob's MeshContainer
+		// drop during burrow) and any sprite-local animation (Loot's bob).
+		// Local transform stays identity since the parent IS what we're tracking.
+		_highlightOverlay.Reparent(source, false);
 		_highlightOverlay.Visible = true;
 	}
 

@@ -47,6 +47,21 @@ tracks/0/keys = {
 "values": [0.0, 1.0, 0.0]
 }
 
+[sub_resource type="Animation" id="Animation_72em6"]
+resource_name = "Idle"
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite:position:y")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0.0]
+}
+
 [sub_resource type="Animation" id="Animation_pickedup"]
 resource_name = "PickedUp"
 length = 0.67
@@ -75,24 +90,43 @@ tracks/1/keys = {
 "values": [Vector3(1, 1, 1), Vector3(0, 0, 0)]
 }
 
+[sub_resource type="Animation" id="Animation_1ntuc"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Sprite:position:y")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 1,
+"values": [0.0]
+}
+
 [sub_resource type="AnimationLibrary" id="AnimationLibrary_loot"]
 _data = {
 &"Bob": SubResource("Animation_bob"),
-&"PickedUp": SubResource("Animation_pickedup")
+&"Idle": SubResource("Animation_72em6"),
+&"PickedUp": SubResource("Animation_pickedup"),
+&"RESET": SubResource("Animation_1ntuc")
 }
 
-[node name="Loot" type="RigidBody3D" unique_id=1123862929 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode")]
+[node name="Loot" type="RigidBody3D" unique_id=1123862929 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode", "_sprite")]
 collision_layer = 8
 axis_lock_angular_x = true
 axis_lock_angular_y = true
 axis_lock_angular_z = true
 physics_material_override = SubResource("PhysicsMaterial_loot")
+gravity_scale = 3.0
 script = ExtResource("1_loot")
 _collisionShape = NodePath("CollisionShape3D")
 _animationPlayer = NodePath("AnimationPlayer")
 _interactArea = NodePath("InteractArea")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
+_sprite = NodePath("Sprite")
 _pickupEffectScene = ExtResource("9_lootpickup")
 _spawnEffectScene = ExtResource("10_lootspawn")
 _actions = Array[ExtResource("11_action")]([SubResource("Resource_loot_action_open")])
@@ -119,7 +153,7 @@ MaterialTemplate = ExtResource("5_spritemat")
 
 [node name="InteractArea" type="Area3D" parent="." unique_id=1090654577 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
-collision_mask = 0
+collision_mask = 2
 monitoring = false
 script = ExtResource("8_interactivebox")
 _interactiveNode = NodePath("..")

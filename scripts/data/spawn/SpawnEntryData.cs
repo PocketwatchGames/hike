@@ -37,6 +37,16 @@ public partial class SpawnEntryData : Resource
         return 1;
     }
 
+    // `position` is the GROUND TOP (top face of the solid voxel below the
+    // entity), unified across both the surface and cave passes so subclasses
+    // are pass-agnostic. Subclasses consume it as-is — every entity sits
+    // with its scene root on this anchor, so the scene itself is the right
+    // place to author any internal Y offset (a campfire bowl raised slightly
+    // off the floor, a sprite stem lifted to avoid z-fighting, etc.). No
+    // per-entry spawn-time lift; doing one here adds an in-air drop on
+    // first physics tick, which can tunnel mobs through the floor when the
+    // chunk's trimesh collider isn't registered yet.
+    //
     // SpawnContext lets composite entries (SpawnGroupData) scatter sub-
     // entries within the placement domain of the calling pass. Leaf entries
     // (MobSpawnEntry, LootSpawnEntry, ...) ignore it. May be null when the

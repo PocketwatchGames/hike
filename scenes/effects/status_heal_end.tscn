@@ -1,0 +1,49 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_heal_04.wav" id="2_h04"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_healfinal"]
+emission_shape = 1
+emission_sphere_radius = 0.28
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 0.7
+initial_velocity_max = 1.6
+gravity = Vector3(0, -0.4, 0)
+damping_min = 0.5
+damping_max = 1.2
+scale_min = 0.5
+scale_max = 1.0
+color = Color(0.6, 1, 0.7, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_healfinal"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.6, 1, 0.7, 0.9)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_healfinal"]
+material = SubResource("StandardMaterial3D_healfinal")
+size = Vector2(0.07, 0.07)
+
+[node name="StatusHealEnd" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Sparkles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+emitting = false
+amount = 14
+lifetime = 0.9
+one_shot = true
+explosiveness = 0.85
+randomness = 0.55
+process_material = SubResource("ParticleProcessMaterial_healfinal")
+draw_pass_1 = SubResource("QuadMesh_healfinal")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_h04")
+unit_size = 5.0
+max_distance = 22.0
+volume_db = -2.0
+bus = &"World3D"

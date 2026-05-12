@@ -18,10 +18,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
     // Item the chest drops. Authored on the chest .tscn so each chest variant
-    // can drop a different item without touching the sim state. ItemData
-    // carries both the world-pickup scene and the AutoPickup flag, so a chest
-    // could spawn an interactive Loot pile by pointing at an item authored
-    // with AutoPickup=false.
+    // can drop a different item without touching the sim state. The Loot
+    // scene decides at run time whether the player auto-picks up (existing
+    // same-kind stack with room) or has to press Interact.
     [Export] private ItemData _lootItem;
     // Optional ITriggerable nodes pinged when the chest finishes opening.
     // Lets a chest fire a poison-cloud deployer, an upstream

@@ -1,0 +1,105 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_01.wav" id="2_we01"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_02.wav" id="2_we02"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_03.wav" id="2_we03"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_04.wav" id="2_we04"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_05.wav" id="2_we05"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_06.wav" id="2_we06"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wetsplash"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 55.0
+initial_velocity_min = 1.6
+initial_velocity_max = 3.4
+gravity = Vector3(0, -8.0, 0)
+damping_min = 0.6
+damping_max = 1.4
+scale_min = 0.5
+scale_max = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wetsplash"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.55, 0.78, 0.95, 0.8)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_wetsplash"]
+material = SubResource("StandardMaterial3D_wetsplash")
+size = Vector2(0.08, 0.08)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wetmist"]
+emission_shape = 1
+emission_sphere_radius = 0.25
+direction = Vector3(0, 1, 0)
+spread = 40.0
+initial_velocity_min = 0.5
+initial_velocity_max = 1.2
+gravity = Vector3(0, -1.0, 0)
+damping_min = 0.5
+damping_max = 1.1
+scale_min = 0.8
+scale_max = 1.5
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wetmist"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.7, 0.86, 0.98, 0.4)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_wetmist"]
+material = SubResource("StandardMaterial3D_wetmist")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_wetstart"]
+playback_mode = 1
+random_pitch = 1.08
+random_volume_offset_db = 2.0
+streams_count = 6
+stream_0/stream = ExtResource("2_we01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_we02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_we03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_we04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_we05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_we06")
+stream_5/weight = 1.0
+
+[node name="StatusWetStart" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Splash" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+emitting = false
+amount = 24
+lifetime = 0.8
+one_shot = true
+explosiveness = 0.95
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_wetsplash")
+draw_pass_1 = SubResource("QuadMesh_wetsplash")
+
+[node name="Mist" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+emitting = false
+amount = 14
+lifetime = 1.0
+one_shot = true
+explosiveness = 0.85
+randomness = 0.55
+process_material = SubResource("ParticleProcessMaterial_wetmist")
+draw_pass_1 = SubResource("QuadMesh_wetmist")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_wetstart")
+unit_size = 4.0
+max_distance = 22.0
+volume_db = -2.0
+bus = &"World3D"

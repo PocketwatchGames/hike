@@ -2786,7 +2786,11 @@ public static class WorldGen
                         continue;
                     }
                     int sy = SurfaceYAt(wx, wz);
-                    var pos = new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f);
+                    // Anchor at the ground top (top face of the surface voxel),
+                    // matching the cave pass below. Every SpawnEntryData sits
+                    // with its scene root on this anchor; any per-entity Y
+                    // offset is authored inside the scene itself.
+                    var pos = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
                     foreach (SpawnEntryData entry in rg.SurfaceEntities.Entries)
                     {
                         if (entry == null) { continue; }

@@ -30,6 +30,21 @@ public class Inventory
 
 	public Action<EInventorySlot> onSlotChanged;
 	public Action<int> onActiveConsumableChanged;
+	// Generic "something in the inventory changed" pulse. Fires for slot
+	// equips, stack-count mutations from runner events (DoDecrementStack),
+	// and any other path that doesn't fit the slot/consumable callbacks
+	// above. UI panels that re-derive everything from a Refresh() call
+	// listen to this; slot-specific consumers can keep using the typed
+	// signals.
+	public Action onChanged;
+
+	// Fire onChanged from outside the Inventory class — used by the action
+	// runner's DecrementStack handler when it mutates item.stackCount
+	// directly without going through one of Inventory's mutation methods.
+	public void NotifyChanged()
+	{
+		onChanged?.Invoke();
+	}
 
 	public int BackpackCapacity => _data.backpackCapacity;
 	public int BackpackCount => _backpack.Count;
@@ -88,10 +103,16 @@ public class Inventory
 			_backpack.Add(item);
 			int added = item.stackCount;
 			item.stackCount = initialStack;  // not actually consumed; full ref stored
+			onChanged?.Invoke();
 			return initialStack;
 		}
 
-		return initialStack - item.stackCount;
+		int totalAdded = initialStack - item.stackCount;
+		if (totalAdded > 0)
+		{
+			onChanged?.Invoke();
+		}
+		return totalAdded;
 	}
 
 	// Removes an item from wherever it lives in the inventory. If it's
@@ -129,6 +150,7 @@ public class Inventory
 		}
 
 		_backpack.Remove(item);
+		onChanged?.Invoke();
 	}
 
 	public ItemState GetEquipped(EInventorySlot slot)
@@ -243,7 +265,11 @@ public class Inventory
 		Vector3 pos = _owner.GlobalPosition + Vector3.Up * 0.5f;
 		Vector3 forward = -_owner.GlobalTransform.Basis.Z;
 		Vector3 impulse = forward * 2f + Vector3.Up * 1.5f;
-		_owner.World?.DropItem(dropped, pos, impulse);
+		// Player drops latch into interact-only mode so the loot doesn't
+		// immediately auto-pickup back into the inventory the next time the
+		// player steps on it.
+		_owner.World?.DropItem(dropped, pos, impulse, requireInteract: true);
+		onChanged?.Invoke();
 	}
 
 	public ItemState GetActiveConsumable()
@@ -277,6 +303,7 @@ public class Inventory
 				{
 					SetActiveConsumableIndex(i);
 				}
+				onChanged?.Invoke();
 				return true;
 			}
 		}
@@ -315,6 +342,7 @@ public class Inventory
 				_activeConsumableIndex = -1;
 				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
 			}
+			onChanged?.Invoke();
 			return true;
 		}
 		return false;
@@ -426,5 +454,6 @@ public class Inventory
 	private void NotifySlot(EInventorySlot slot)
 	{
 		onSlotChanged?.Invoke(slot);
+		onChanged?.Invoke();
 	}
 }

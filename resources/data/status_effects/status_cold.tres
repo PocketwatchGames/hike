@@ -2,9 +2,17 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://b4ngt7o3oi8cj" path="res://assets/textures/status_effects/Temperature-1.png" id="2_icon"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_cold_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_cold_end.tscn" id="4_endfx"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_cold_loop.tscn" id="5_loopfx"]
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Cold"
 duration = 5.0
+movementMultiplier = 0.75
+animationSpeedMultiplier = 0.75
+startFx = ExtResource("3_startfx")
+endFx = ExtResource("4_endfx")
+loopFx = ExtResource("5_loopfx")

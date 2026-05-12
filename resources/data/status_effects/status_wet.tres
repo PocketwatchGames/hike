@@ -2,6 +2,9 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://cjk01kke4bive" path="res://assets/textures/status_effects/Wet_Status.png" id="1_l86d8"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_end.tscn" id="4_endfx"]
+[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_loop.tscn" id="5_loopfx"]
 
 [resource]
 script = ExtResource("1_data")
@@ -10,3 +13,6 @@ displayName = &"Wet"
 duration = 30.0
 coldResistance = -25.0
 heatResistance = 25.0
+startFx = ExtResource("3_startfx")
+endFx = ExtResource("4_endfx")
+loopFx = ExtResource("5_loopfx")

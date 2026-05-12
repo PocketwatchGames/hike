@@ -115,6 +115,17 @@ public partial class ItemSlotPanel : PanelContainer
 		_button?.GrabFocus();
 	}
 
+	// Toggle whether the slot button accepts keyboard / gamepad focus. Set to
+	// false while a sub-modal (e.g. DropCountPanel) is up so ui_left/right
+	// from the analog stick can't traverse focus onto the slots.
+	public void SetFocusable(bool focusable)
+	{
+		if (_button != null)
+		{
+			_button.FocusMode = focusable ? FocusModeEnum.All : FocusModeEnum.None;
+		}
+	}
+
 	void OnButtonFocusEntered()
 	{
 		onFocusEntered?.Invoke(this);

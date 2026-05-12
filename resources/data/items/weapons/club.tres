@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="1_owk1l"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
@@ -17,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/effects/sword_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/effects/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
+[ext_resource type="Texture2D" uid="uid://clsxls6s8mfqk" path="res://assets/textures/items/pickups/Club.png" id="16_world"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -69,6 +69,6 @@ statusEffects = null
 script = ExtResource("2_weapon")
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
+description = "Bashy bashy"
 inventorySprite = ExtResource("15_3a20y")
-Scene = ExtResource("1_owk1l")
-AutoPickup = false
+worldSprite = ExtResource("16_world")

@@ -214,18 +214,22 @@ public static class ItemEventHandlers
 			return;
 		}
 		item.stackCount--;
+		// We mutated stackCount directly — Inventory has no other way to
+		// learn that an item changed under it. Fire its onChanged signal so
+		// any listening UI (e.g. the inventory screen's stack badge) can
+		// refresh without polling.
+		Inventory inv = (actor is Player player) ? player.Inventory : null;
 		if (item.stackCount > 0)
 		{
+			inv?.NotifyChanged();
 			return;
 		}
 		// Stack hit zero — remove from inventory. The Player's Inventory
 		// holds the canonical reference; route through it so equip/active-slot
-		// fields clear too. For non-Player actors (mobs), the item simply
-		// drops out of context with no further bookkeeping.
-		if (actor is Player player && player.Inventory != null)
-		{
-			player.Inventory.Remove(item);
-		}
+		// fields clear too (Remove fires onChanged itself). For non-Player
+		// actors (mobs), the item simply drops out of context with no further
+		// bookkeeping.
+		inv?.Remove(item);
 	}
 
 	public static void DoToggleMovingLight(IActionActor actor, ItemEvent ev, ref PlayerAction action)

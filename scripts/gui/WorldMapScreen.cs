@@ -59,6 +59,10 @@ public partial class WorldMapScreen : Control
 		if (gameClient != null)
 		{
 			gameClient.InputSuppressed = true;
+			if (gameClient.hud != null)
+			{
+				gameClient.hud.Visible = false;
+			}
 		}
 		Visible = true;
 	}
@@ -73,6 +77,10 @@ public partial class WorldMapScreen : Control
 		if (gameClient != null)
 		{
 			gameClient.InputSuppressed = false;
+			if (gameClient.hud != null)
+			{
+				gameClient.hud.Visible = true;
+			}
 		}
 		System.Action cb = _onClose;
 		_onClose = null;

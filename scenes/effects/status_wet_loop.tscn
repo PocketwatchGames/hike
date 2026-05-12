@@ -1,0 +1,55 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_treadingWater_lp.wav" id="2_twlp"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_wetloop"]
+playback_mode = 1
+random_pitch = 1.0
+random_volume_offset_db = 0.0
+streams_count = 1
+stream_0/stream = ExtResource("2_twlp")
+stream_0/weight = 1.0
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wetdrip"]
+emission_shape = 1
+emission_sphere_radius = 0.32
+direction = Vector3(0, -1, 0)
+spread = 15.0
+initial_velocity_min = 0.4
+initial_velocity_max = 0.9
+gravity = Vector3(0, -3.5, 0)
+damping_min = 0.0
+damping_max = 0.3
+scale_min = 0.3
+scale_max = 0.7
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wetdrip"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.55, 0.78, 0.95, 0.85)
+billboard_mode = 3
+
+[sub_resource type="QuadMesh" id="QuadMesh_wetdrip"]
+material = SubResource("StandardMaterial3D_wetdrip")
+size = Vector2(0.035, 0.06)
+
+[node name="StatusWetLoop" type="Node3D"]
+script = ExtResource("1_oneshot")
+_loop = true
+
+[node name="Drips" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+amount = 10
+lifetime = 1.0
+randomness = 0.7
+process_material = SubResource("ParticleProcessMaterial_wetdrip")
+draw_pass_1 = SubResource("QuadMesh_wetdrip")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_wetloop")
+unit_size = 2.5
+max_distance = 10.0
+volume_db = -16.0
+pitch_scale = 1.1
+bus = &"World3D"

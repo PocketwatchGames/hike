@@ -28,9 +28,10 @@ public sealed class SpawnContext
     public Func<int, int, bool> IsValidColumn;
 
     // Pick a position within `radius` of `anchor` whose column passes
-    // IsValidColumn, resolving Y as SurfaceYAt + 1.5 (matches the anchor
-    // Y convention WorldGen uses for surface props/mobs). Returns false
-    // if all attempts were rejected — caller skips the spawn instance.
+    // IsValidColumn, resolving Y to the ground top (SurfaceYAt + 1 — top
+    // face of the surface voxel). Matches the unified anchor convention
+    // both WorldGen passes use. Returns false if all attempts were
+    // rejected — caller skips the spawn instance.
     public bool TryPickInRadius(Vector3 anchor, float radius, Random rng,
         int attempts, out Vector3 result)
     {
@@ -50,7 +51,7 @@ public sealed class SpawnContext
                 continue;
             }
             int sy = SurfaceYAt(wx, wz);
-            result = new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f);
+            result = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
             return true;
         }
         result = anchor;

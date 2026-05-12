@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" format=3 uid="uid://chpmfha5lvycx"]
+
+[ext_resource type="Texture2D" uid="uid://bisi2rc0ojgf6" path="res://assets/textures/items/pickups/MushroomPurple.png" id="1_f6xqq"]
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/ItemData.cs" id="2_ythwi"]
+[ext_resource type="Texture2D" uid="uid://bnhpbdnlt5ur0" path="res://assets/textures/items/MushroomPurple.png" id="3_ythwi"]
+
+[resource]
+script = ExtResource("2_ythwi")
+displayName = &"Purple Mushroom"
+maxStack = 99
+inventorySprite = ExtResource("1_f6xqq")
+worldSprite = ExtResource("3_ythwi")

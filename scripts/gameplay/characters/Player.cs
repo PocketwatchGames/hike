@@ -149,8 +149,8 @@ public partial class Player : CharacterBody3D
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
 	// instances of the same StatusEffectData stack — each AddStatusEffect
 	// appends a fresh state and ticks independently. The HUD groups by data
-	// when rendering. List grows at most to a handful of concurrent effects.
-	readonly List<StatusEffectState> _statusEffects = new();
+	// when rendering. Wired in Initialize once `_world` is known.
+	StatusEffectController _statusEffects;
 	// Live handle to the player's wet effect (null when dry). Reused across
 	// re-wettings so the HUD shows a single Wet stack rather than rolling a
 	// fresh icon every time the player enters/leaves rain.
@@ -198,7 +198,7 @@ public partial class Player : CharacterBody3D
 	public float MaxHealth => data?.maxHealth ?? 100f;
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor;
-	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
+	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public IInteractive CurInteractive => _curInteractive;
@@ -563,26 +563,9 @@ public partial class Player : CharacterBody3D
 	// are intentional — the HUD shows them as one icon with a count, and each
 	// instance ticks independently. Returns the new state so the caller (e.g.
 	// the wet-after-swim trigger) can hold a handle and arm the timer later.
-	public StatusEffectState AddStatusEffect(StatusEffectData data)
-	{
-		if (data == null)
-		{
-			return null;
-		}
-		ulong now = _world?.GameTimeMs ?? 0;
-		var state = new StatusEffectState(data, now);
-		_statusEffects.Add(state);
-		return state;
-	}
+	public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
 
-	public void RemoveStatusEffect(StatusEffectState state)
-	{
-		if (state == null)
-		{
-			return;
-		}
-		_statusEffects.Remove(state);
-	}
+	public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
 	// WarmthZone (campfires, etc.) calls these on body enter/exit. Counter,
 	// not bool, so two campfires whose zones overlap don't release the player
@@ -705,15 +688,7 @@ public partial class Player : CharacterBody3D
 		// Resistances from active status effects shift the trigger thresholds.
 		// Positive coldResistance lowers the cold threshold (harder to chill);
 		// positive heatResistance raises the hot threshold (harder to overheat).
-		float coldResist = 0f;
-		float heatResist = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectData sd = _statusEffects[i]?.data;
-			if (sd == null) { continue; }
-			coldResist += sd.coldResistance;
-			heatResist += sd.heatResistance;
-		}
+		_statusEffects.GetThermalResistances(out float coldResist, out float heatResist);
 		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResist, ref heatResist);
 		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResist, ref heatResist);
 		// Wind chill. Multiplied by windTemperatureReduction (degrees F per
@@ -796,67 +771,6 @@ public partial class Player : CharacterBody3D
 		return result.Count == 0;
 	}
 
-	// Sum the alpha / duration multipliers contributed by every active status
-	// effect, so the footprint emitter can scale the per-ground FootprintData
-	// at spawn. Effects without footprint authoring contribute their default
-	// (1f, 1f) — no-op — so unrelated effects (poison, regeneration) never
-	// affect prints. Multiplicative composition: two stacked Wet states
-	// double-multiply alpha and duration.
-	private void GetFootprintMultipliers(out float alphaMultiplier, out float durationMultiplier)
-	{
-		alphaMultiplier = 1f;
-		durationMultiplier = 1f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null)
-			{
-				continue;
-			}
-			alphaMultiplier *= data.footprintAlphaMultiplier;
-			durationMultiplier *= data.footprintDurationMultiplier;
-		}
-	}
-
-	// Walks all active status effects, applies each one's per-second damage in
-	// integer 1.0s chunks, and prunes any whose timer has expired. Iterates
-	// backwards so a removal mid-loop doesn't shift indices for unvisited
-	// entries. Persistent effects (expireTimeMs == 0) survive forever and rely
-	// on gameplay code to call RemoveStatusEffect explicitly.
-	private void TickStatusEffects(float dt)
-	{
-		if (_statusEffects.Count == 0)
-		{
-			return;
-		}
-		ulong now = _world?.GameTimeMs ?? 0;
-		for (int i = _statusEffects.Count - 1; i >= 0; i--)
-		{
-			StatusEffectState s = _statusEffects[i];
-			if (s.data == null)
-			{
-				_statusEffects.RemoveAt(i);
-				continue;
-			}
-			s.tickAccumulator += dt;
-			while (s.tickAccumulator >= 1f)
-			{
-				s.tickAccumulator -= 1f;
-				if (s.data.damagePerSecond != 0f)
-				{
-					// damagePerSecond > 0 = poison; < 0 = heal. Convert to a
-					// signed HP delta (heal positive, damage negative) for the
-					// shared application path below.
-					ApplyStatusHealthDelta(-s.data.damagePerSecond);
-				}
-			}
-			if (s.IsTimed && now >= s.expireTimeMs)
-			{
-				_statusEffects.RemoveAt(i);
-			}
-		}
-	}
-
 	// Signed HP delta from a status-effect tick. Positive heals, negative
 	// damages. Bypasses armor — poison-style ticks are designed to chip
 	// regardless of armor in most games, and routing through OnHurtBoxHit
@@ -919,6 +833,7 @@ public partial class Player : CharacterBody3D
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_runner = new ActionRunner(this);
+		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
 		_health = MaxHealth;
 
 		if (spawnData != null)
@@ -1054,7 +969,7 @@ public partial class Player : CharacterBody3D
 		UpdateTerrainSpeed();
 		UpdateWaterState();
 		TickArmor(dt);
-		TickStatusEffects(dt);
+		_statusEffects.Tick(dt);
 		TickWetEffect();
 		TickBodyTemperature(dt);
 
@@ -1089,7 +1004,7 @@ public partial class Player : CharacterBody3D
 		// Footprint decal cadence. Skipped while swimming (no contact) and
 		// while wading (the splash already represents the disturbance) — only
 		// dry-land contact leaves prints.
-		GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+		_statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
 		_footprintEmitter.Update(_world, GlobalPosition, GlobalRotation.Y, walkingDry, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: false);
 
 		// Movement-gated continuous loops. The water swim loop only plays
@@ -1121,6 +1036,12 @@ public partial class Player : CharacterBody3D
 		else if (_waterState == EWaterState.Swimming)
 		{
 			speed = data.swimSpeed;
+		}
+		_statusEffects.GetMovementMultipliers(out float statusMoveMul, out float statusAnimMul);
+		speed *= statusMoveMul;
+		if (_animator != null)
+		{
+			_animator.effectSpeedMultiplier = statusAnimMul;
 		}
 		if (_curInteractive != null)
 		{
@@ -1294,6 +1215,17 @@ public partial class Player : CharacterBody3D
 		{ EInventorySlot.WeaponLeft, "AttackMelee" },
 		{ EInventorySlot.WeaponRight, "AttackRanged" }
 	};
+	// Zero the cached input vectors so _PhysicsProcess stops applying the
+	// last-known stick deflection while gameplay input is suppressed (e.g.
+	// inventory open). Without this, opening a modal mid-movement leaves the
+	// player coasting in the held direction since ProcessInput is the only
+	// thing that refreshes these.
+	public void ClearInput()
+	{
+		_inputMove = Vector3.Zero;
+		_inputLook = Vector3.Zero;
+	}
+
 	public void ProcessInput(float cameraYaw)
 	{
 		Vector2 move = Vector2.Zero;
@@ -1617,8 +1549,4 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	public void OnAutoLootCollision(AutoLoot loot)
-	{
-		loot.PickUp(this);
-	}
 }

@@ -32,6 +32,18 @@ public partial class StatusEffectData : Resource
 	[Export] public float footprintAlphaMultiplier = 1f;
 	[Export] public float footprintDurationMultiplier = 1f;
 
+	// Per-tick motion modulators. The actor's movement update sums these
+	// multiplicatively across every active StatusEffectState and applies the
+	// product to its move speed (and to the sprite animator's playback rate
+	// via LitSpriteAnimator.effectSpeedMultiplier) so movement and footwork
+	// stay in lockstep. Defaults are 1 so existing effects don't change
+	// motion; the Cold effect drops both to 0.75 to make a chilled actor
+	// trudge with matching slowed animation. The two fields are independent
+	// so authors can desync them on purpose (e.g. a "drunk" effect could
+	// slow animation more than movement).
+	[Export] public float movementMultiplier = 1f;
+	[Export] public float animationSpeedMultiplier = 1f;
+
 	// Per-effect shifts to the player's hot / cold trigger thresholds in
 	// degrees F. Player.cs sums these across every active StatusEffectState
 	// and applies them as: effective coldThreshold = base - sumColdResistance,
@@ -41,4 +53,12 @@ public partial class StatusEffectData : Resource
 	// skin chills sooner and resists overheating.
 	[Export] public float coldResistance;
 	[Export] public float heatResistance;
+
+	// Audiovisual cues bound to the effect's lifecycle. `startFx` and `endFx`
+	// are one-shot Fx scenes spawned on the actor at apply / remove. `loopFx`
+	// is a looping Fx scene (Fx._loop = true) parented to the actor while the
+	// effect is active and Stop()'d when it's removed.
+	[Export] public PackedScene startFx;
+	[Export] public PackedScene endFx;
+	[Export] public PackedScene loopFx;
 }

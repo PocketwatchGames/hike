@@ -2,9 +2,12 @@
 
 [ext_resource type="Script" uid="uid://ch1bcra4yc4s3" path="res://scripts/gui/InventoryScreen.cs" id="1_7a5n3"]
 [ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventoryPanel.tscn" id="2_hmtof"]
+[ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="3_aue6y"]
+[ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_j245h"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="6_vc0ui"]
 
-[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_panel")]
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_panel", "_statsPanel", "_itemInfoPanel", "_dropCountPanel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,7 +15,10 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7a5n3")
-_panel = NodePath("MarginContainer/Inventory")
+_panel = NodePath("MarginContainer/HBoxContainer/Inventory")
+_statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
+_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_dropCountPanel = NodePath("MarginContainer/MarginContainer/DropCountPanel")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
 layout_mode = 1
@@ -25,14 +31,6 @@ theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
-
-[node name="Inventory" parent="MarginContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintEquip", "_buttonHintUse", "_buttonHintDrop") instance=ExtResource("2_hmtof")]
-layout_mode = 2
-size_flags_horizontal = 4
-size_flags_vertical = 4
-_buttonHintEquip = NodePath("../ButtonHints/ButtonHintA")
-_buttonHintUse = NodePath("../ButtonHints/ButtonHintX")
-_buttonHintDrop = NodePath("../ButtonHints/ButtonHintY")
 
 [node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
 layout_mode = 2
@@ -53,3 +51,43 @@ InputAction = "X"
 layout_mode = 2
 ActionName = "Drop"
 InputAction = "Y"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 100
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1380523122]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 0
+
+[node name="PlayerStats" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=1646474992 instance=ExtResource("3_aue6y")]
+layout_mode = 2
+
+[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintEquip", "_buttonHintUse", "_buttonHintDrop") instance=ExtResource("2_hmtof")]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+_buttonHintEquip = NodePath("../../ButtonHints/ButtonHintA")
+_buttonHintUse = NodePath("../../ButtonHints/ButtonHintX")
+_buttonHintDrop = NodePath("../../ButtonHints/ButtonHintY")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer" unique_id=1086251021]
+layout_mode = 2
+theme_override_constants/margin_bottom = 100
+
+[node name="DropCountPanel" parent="MarginContainer/MarginContainer" unique_id=695241055 instance=ExtResource("6_vc0ui")]
+layout_mode = 2
+size_flags_vertical = 8

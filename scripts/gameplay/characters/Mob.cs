@@ -185,9 +185,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Status effects (poison, heal-over-time, hot, wet, ...). Same lifecycle
     // model as Player — multiple instances of the same data stack and tick
     // independently. Mob has no HUD currently, but the data is exposed for
-    // future debug / HUD work.
-    readonly List<StatusEffectState> _statusEffects = new();
-    public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
+    // future debug / HUD work. Wired in Initialize once `_world` is known.
+    StatusEffectController _statusEffects;
+    public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
@@ -329,6 +329,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
+        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
         InitBehaviors();
         world.AddChild(this);
     }
@@ -772,7 +773,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (alive)
         {
             TickArmor((float)delta);
-            TickStatusEffects((float)delta);
+            _statusEffects.Tick((float)delta);
             TickAI((float)delta, out AIOutput aiOutput);
 
             // Drive the action runner from AIOutput. BehaviorAttack populates
@@ -811,6 +812,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Otherwise, if we're walking toward a path target, face that direction.
             float? targetYaw = aiOutput.yaw;
 
+            _statusEffects.GetMovementMultipliers(out float statusMoveMul, out float statusAnimMul);
+            if (_animator != null)
+            {
+                _animator.effectSpeedMultiplier = statusAnimMul;
+            }
+
             // Decide LinearDamp target without writing yet — we want one
             // gated assignment at the end rather than three branches each
             // hitting the setter.
@@ -826,7 +833,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
                     linearDampTarget = 0f;
                     Vector3 dir = toTarget / dist;
-                    Vector3 desiredVelocity = dir * _simState.MobData.maxSpeed * aiOutput.speed * _terrainSpeed * speedScale;
+                    Vector3 desiredVelocity = dir * _simState.MobData.maxSpeed * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
@@ -1100,80 +1107,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    public StatusEffectState AddStatusEffect(StatusEffectData data)
-    {
-        if (data == null)
-        {
-            return null;
-        }
-        ulong now = _world?.GameTimeMs ?? 0;
-        var state = new StatusEffectState(data, now);
-        _statusEffects.Add(state);
-        return state;
-    }
+    public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
 
-    public void RemoveStatusEffect(StatusEffectState state)
-    {
-        if (state == null)
-        {
-            return;
-        }
-        _statusEffects.Remove(state);
-    }
-
-    // Mirrors Player.GetFootprintMultipliers — sums the alpha / duration
-    // contributions from every active status effect so a wet mob leaves more
-    // visible, longer-lasting prints. Multiplicative composition: stacked
-    // Wet states double-multiply.
-    private void GetFootprintMultipliers(out float alphaMultiplier, out float durationMultiplier)
-    {
-        alphaMultiplier = 1f;
-        durationMultiplier = 1f;
-        for (int i = 0; i < _statusEffects.Count; i++)
-        {
-            StatusEffectData data = _statusEffects[i]?.data;
-            if (data == null)
-            {
-                continue;
-            }
-            alphaMultiplier *= data.footprintAlphaMultiplier;
-            durationMultiplier *= data.footprintDurationMultiplier;
-        }
-    }
-
-    // Mirrors Player.TickStatusEffects: per-second damage chunks via the
-    // state's accumulator, expire-and-prune on timer. Iterating backwards so
-    // a removal mid-loop doesn't shift indices for unvisited entries.
-    private void TickStatusEffects(float dt)
-    {
-        if (_statusEffects.Count == 0)
-        {
-            return;
-        }
-        ulong now = _world?.GameTimeMs ?? 0;
-        for (int i = _statusEffects.Count - 1; i >= 0; i--)
-        {
-            StatusEffectState s = _statusEffects[i];
-            if (s.data == null)
-            {
-                _statusEffects.RemoveAt(i);
-                continue;
-            }
-            s.tickAccumulator += dt;
-            while (s.tickAccumulator >= 1f)
-            {
-                s.tickAccumulator -= 1f;
-                if (s.data.damagePerSecond != 0f)
-                {
-                    ApplyStatusHealthDelta(-s.data.damagePerSecond);
-                }
-            }
-            if (s.IsTimed && now >= s.expireTimeMs)
-            {
-                _statusEffects.RemoveAt(i);
-            }
-        }
-    }
+    public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
     // Signed HP delta from a status-effect tick. Bypasses armor (per-second
     // poison ticks aren't supposed to be soaked) and skips Damage()'s blood /
@@ -1360,7 +1296,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // emitter (no prints in water — splash covers the disturbance) but
         // not on mob_footstep_fx, since that CVar is for bisecting FX cost
         // and the footprint cost belongs in a separate measurement.
-        GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+        _statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
         // Per-print awareness gate. If the player has any current perception
         // of this mob, or still holds an active memory window on it, the
         // print is laid as the ungated player-style decal — visible the

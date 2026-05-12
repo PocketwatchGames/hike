@@ -1,14 +1,16 @@
 [gd_scene format=3 uid="uid://b4jsgyw5h7jda"]
 
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="1_ovktt"]
-[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="2_w6y8h"]
-[ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="3_fhocj"]
-[ext_resource type="Texture2D" uid="uid://2r15rei7uocy" path="res://assets/textures/gui/mob_hud_armor5.png" id="4_dtglw"]
-[ext_resource type="Script" uid="uid://b8mz3p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
+[ext_resource type="Texture2D" uid="uid://chixl4m3rybwi" path="res://assets/textures/gui/inventory_bg_head.png" id="3_dtglw"]
+[ext_resource type="Texture2D" uid="uid://b8keti2u2iu5d" path="res://assets/textures/gui/inventory_bg_left_hand.png" id="4_sds0e"]
+[ext_resource type="Texture2D" uid="uid://6a8fdtc3s2sy" path="res://assets/textures/gui/inventory_bg_body.png" id="5_0ygo7"]
+[ext_resource type="Script" uid="uid://b8m03p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
+[ext_resource type="Texture2D" uid="uid://gcw65djqyj64" path="res://assets/textures/gui/inventory_bg_right_hand.png" id="6_2xylm"]
+[ext_resource type="Texture2D" uid="uid://cl2pe70xguhi5" path="res://assets/textures/gui/inventory_bg_consumable.png" id="7_htin2"]
 
 [node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_armorHeadPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_consumablePanels", "_backpackPanels")]
-script = ExtResource("5_panel")
 theme_override_constants/separation = 100
+script = ExtResource("5_panel")
 _armorHeadPanel = NodePath("Equipment/VBoxContainer/HBoxContainer/Head")
 _armorBodyPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/Body")
 _weaponLeftPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/WeaponLeft")
@@ -31,7 +33,7 @@ alignment = 1
 
 [node name="Head" parent="Equipment/VBoxContainer/HBoxContainer" unique_id=982744505 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("2_w6y8h")
+BackgroundTexture = ExtResource("3_dtglw")
 
 [node name="HBoxContainer3" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=549815624]
 layout_mode = 2
@@ -39,15 +41,15 @@ alignment = 1
 
 [node name="WeaponLeft" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=1990252477 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("3_fhocj")
+BackgroundTexture = ExtResource("4_sds0e")
 
 [node name="Body" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=85943605 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("4_dtglw")
+BackgroundTexture = ExtResource("5_0ygo7")
 
 [node name="WeaponRight" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=1321801567 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("3_fhocj")
+BackgroundTexture = ExtResource("6_2xylm")
 
 [node name="HBoxContainer4" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=574760090]
 layout_mode = 2
@@ -55,15 +57,15 @@ alignment = 1
 
 [node name="Consumable1" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=661065185 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("2_w6y8h")
+BackgroundTexture = ExtResource("7_htin2")
 
 [node name="Consumable2" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=1866558077 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("2_w6y8h")
+BackgroundTexture = ExtResource("7_htin2")
 
 [node name="Consumable3" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=203541355 instance=ExtResource("1_ovktt")]
 layout_mode = 2
-BackgroundTexture = ExtResource("2_w6y8h")
+BackgroundTexture = ExtResource("7_htin2")
 
 [node name="Backpack" type="MarginContainer" parent="Equipment/VBoxContainer" unique_id=1264455197]
 layout_mode = 2

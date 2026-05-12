@@ -23,6 +23,12 @@ public partial class LitSpriteAnimator : Node
     [Export] public StringName defaultAnimation;
     [Export] public float speed = 1f;
 
+    // Runtime-only modulator multiplied into the authored `speed` each frame.
+    // Actors drive this from their StatusEffectController so slow / haste
+    // effects retime the sprite without clobbering the per-animator base
+    // tuning. Not [Export] — owners reset it from their motion update.
+    public float effectSpeedMultiplier = 1f;
+
     public StringName CurrentAnimation { get; private set; }
     public bool Finished { get; private set; }
 
@@ -129,7 +135,7 @@ public partial class LitSpriteAnimator : Node
         {
             frameDuration = 1f;
         }
-        _accum += (float)delta * speed * fps / frameDuration;
+        _accum += (float)delta * speed * effectSpeedMultiplier * fps / frameDuration;
 
         while (_accum >= 1f)
         {

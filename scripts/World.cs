@@ -379,15 +379,21 @@ public partial class World : Node3D
         );
     }
 
-    public AutoLoot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
+    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
     {
-        if (item == null || item.Scene == null)
+        if (item == null)
+        {
+            return null;
+        }
+        GameClient gc = GameClient.Current;
+        PackedScene scene = gc?.lootScene;
+        if (scene == null)
         {
             return null;
         }
         var simState = new LootSimState(position, item);
         _worldState.AddEntity(simState);
-        AutoLoot loot = AutoLoot.Create(this, simState, impulse);
+        Loot loot = Loot.Create(this, simState, scene, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
@@ -401,23 +407,27 @@ public partial class World : Node3D
     }
 
     // Spawn a pickup carrying a specific ItemState (player-dropped item path).
-    // Mirrors LootSimState.CreateEntity's branching: ItemData.AutoPickup picks
-    // between AutoLoot (walk over to collect) and Loot (press Interact). The
-    // item is held on the sim state; pickup deposits it into the picker's
-    // inventory. Null Scene means the item isn't authored as droppable.
-    public Node3D DropItem(ItemState item, Vector3 position, Vector3 impulse)
+    // requireInteract latches the dropped pile into "press Interact to pick
+    // up" mode so the player doesn't immediately re-pick up what they just
+    // threw. Loot.Create swaps in the item's worldSprite on spawn.
+    public Loot DropItem(ItemState item, Vector3 position, Vector3 impulse, bool requireInteract = false)
     {
-        if (item == null || item.data == null || item.data.Scene == null)
+        if (item == null || item.data == null)
+        {
+            return null;
+        }
+        GameClient gc = GameClient.Current;
+        PackedScene scene = gc?.lootScene;
+        if (scene == null)
         {
             return null;
         }
 
         var simState = new LootSimState(position, item.data);
         simState.Item = item;
+        simState.RequireInteract = requireInteract;
         _worldState.AddEntity(simState);
-        Node3D pickup = item.data.AutoPickup
-            ? AutoLoot.Create(this, simState, impulse)
-            : Loot.Create(this, simState, impulse);
+        Loot pickup = Loot.Create(this, simState, scene, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))

@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="PackedScene" uid="uid://c8wmscn8tx5y2" path="res://scenes/gui/world_map_screen.tscn" id="18_wmap"]
 [ext_resource type="PackedScene" uid="uid://d115dmvboelcp" path="res://scenes/gui/inventory_screen.tscn" id="18_yg14s"]
+[ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
@@ -69,6 +70,7 @@ fogMaterial = ExtResource("fog_volumetric_mat")
 hudTextScene = ExtResource("2_o78e0")
 interactHudScene = ExtResource("3_0q6jn")
 mobChatterScene = ExtResource("3a_mobchat")
+lootScene = ExtResource("20_loot")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")

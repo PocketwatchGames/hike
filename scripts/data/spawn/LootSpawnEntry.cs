@@ -8,7 +8,7 @@ public partial class LootSpawnEntry : SpawnEntryData
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Item == null || Item.Scene == null)
+        if (Item == null)
         {
             return;
         }

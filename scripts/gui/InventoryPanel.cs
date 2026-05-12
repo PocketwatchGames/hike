@@ -28,11 +28,31 @@ public partial class InventoryPanel : Control
 	[Export] private StringName _useAction = "UseItem";
 	[Export] private StringName _dropAction = "Drop";
 
+	// Fires whenever the focused slot's currently-displayed ItemState changes —
+	// either because focus moved to a different slot, or because the focused
+	// slot's contents were mutated (used / dropped / equipped) and Refresh
+	// re-bound a different item to the same panel. ItemState may be null when
+	// the focused slot is empty or no slot has focus. InventoryScreen forwards
+	// this to the side ItemInfoPanel.
+	public System.Action<ItemState> onFocusedItemChanged;
+
+	// Fires when the drop key has been held past DropHoldSeconds on a focused
+	// item. InventoryScreen pops the DropCountPanel in response. Tap-drop
+	// (release before threshold) is handled internally — drops a single unit
+	// directly and does not fire this signal.
+	public System.Action<ItemState> onDropHoldComplete;
+
+	// External gate flipped by InventoryScreen while the DropCountPanel is up.
+	// Suspends drop hold/tap processing so the still-held key doesn't re-fire
+	// the hold once the sub-panel is on screen.
+	public bool DropLocked { get; set; }
+
 	const float DropHoldSeconds = 0.5f;
 
 	Player _player;
 	Inventory _inventory;
 	ItemSlotPanel _focused;
+	ItemState _lastFocusedItem;
 	float _dropHold;
 	// True between a successful Use press and its release. Lets the release
 	// event reach the runner only when we actually started something, and lets
@@ -81,6 +101,7 @@ public partial class InventoryPanel : Control
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
 			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_player = player;
 		_inventory = player.Inventory;
@@ -88,12 +109,19 @@ public partial class InventoryPanel : Control
 		{
 			_inventory.onSlotChanged += OnInventoryChanged;
 			_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
+			// Generic pulse fires for stack-count mutations (e.g. consumable
+			// Use's DecrementStack event) that the slot signals don't cover.
+			_inventory.onChanged += OnInventoryGenericChanged;
 		}
 		_active = true;
 		RefreshAll();
 		ItemSlotPanel start = _focused ?? FindFirstFocusable();
 		start?.GrabFocus();
 		UpdateButtonHints();
+		// Force a focused-item pulse so InventoryScreen's side panels can sync
+		// on Open even if focus is already where it needs to be (which would
+		// otherwise skip the FocusEntered → OnPanelFocused → fire path).
+		EmitFocusedItem(force: true);
 	}
 
 	// Detach from the player's inventory. Cancels any in-flight hold state
@@ -105,10 +133,14 @@ public partial class InventoryPanel : Control
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
 			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 		_inventory = null;
 		_player = null;
 		_active = false;
+		// Reset cached focused-item so the next Bind doesn't suppress the
+		// initial fire by comparing against a stale value.
+		_lastFocusedItem = null;
 	}
 
 	void WirePanel(ItemSlotPanel panel)
@@ -135,6 +167,7 @@ public partial class InventoryPanel : Control
 
 	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
 	void OnActiveConsumableChanged(int _) => RefreshAll();
+	void OnInventoryGenericChanged() => RefreshAll();
 
 	void RefreshAll()
 	{
@@ -166,6 +199,10 @@ public partial class InventoryPanel : Control
 			}
 		}
 		UpdateButtonHints();
+		// Focused slot may now hold a different item (e.g. a drop shifted the
+		// backpack list under the focus index). Pulse so the side info panel
+		// reflects the new content; EmitFocusedItem suppresses no-op fires.
+		EmitFocusedItem();
 	}
 
 	void OnPanelFocused(ItemSlotPanel panel)
@@ -173,6 +210,21 @@ public partial class InventoryPanel : Control
 		_focused = panel;
 		CancelHeldActions();
 		UpdateButtonHints();
+		EmitFocusedItem();
+	}
+
+	// Fires onFocusedItemChanged when the focused slot's item differs from
+	// the last value we broadcast. `force` skips the equality check — used on
+	// Bind so the side panels populate even if focus didn't move.
+	void EmitFocusedItem(bool force = false)
+	{
+		ItemState current = _focused?.Item;
+		if (!force && current == _lastFocusedItem)
+		{
+			return;
+		}
+		_lastFocusedItem = current;
+		onFocusedItemChanged?.Invoke(current);
 	}
 
 	// Slot button press (ui_accept / mouse click) is the Equip verb — the
@@ -185,6 +237,39 @@ public partial class InventoryPanel : Control
 			return;
 		}
 		DoToggleEquip(panel, item);
+	}
+
+	// Flip focusability on every slot. Used by InventoryScreen to keep
+	// ui_left/right from traversing focus onto inventory slots while a
+	// sub-modal (DropCountPanel) is up.
+	public void SetSlotsFocusable(bool focusable)
+	{
+		_armorHeadPanel?.SetFocusable(focusable);
+		_armorBodyPanel?.SetFocusable(focusable);
+		_weaponLeftPanel?.SetFocusable(focusable);
+		_weaponRightPanel?.SetFocusable(focusable);
+		ApplyFocusable(_consumablePanels, focusable);
+		ApplyFocusable(_backpackPanels, focusable);
+	}
+
+	static void ApplyFocusable(Array<ItemSlotPanel> panels, bool focusable)
+	{
+		if (panels == null)
+		{
+			return;
+		}
+		foreach (ItemSlotPanel panel in panels)
+		{
+			panel?.SetFocusable(focusable);
+		}
+	}
+
+	// Put focus back on the last-focused slot — used after a sub-modal that
+	// stole focus closes.
+	public void RestoreFocus()
+	{
+		ItemSlotPanel target = _focused ?? FindFirstFocusable();
+		target?.GrabFocus();
 	}
 
 	ItemSlotPanel FindFirstFocusable()
@@ -245,8 +330,9 @@ public partial class InventoryPanel : Control
 		}
 
 		ItemState item = _focused?.Item;
-		bool dropHeld = item != null
-			&& InputMap.HasAction(_dropAction)
+		bool dropActionRegistered = item != null && InputMap.HasAction(_dropAction);
+		bool dropHeld = !DropLocked
+			&& dropActionRegistered
 			&& Input.IsActionPressed(_dropAction);
 		if (dropHeld)
 		{
@@ -255,13 +341,23 @@ public partial class InventoryPanel : Control
 			_buttonHintDrop?.SetProgress(progress);
 			if (_dropHold >= DropHoldSeconds)
 			{
+				// Threshold crossed — fire the hold signal and lock so the
+				// still-held key doesn't keep re-firing on subsequent frames.
+				// InventoryScreen clears DropLocked when the count panel closes.
 				_dropHold = 0f;
 				_buttonHintDrop?.SetProgress(0f);
-				DoDrop(item);
+				DropLocked = true;
+				onDropHoldComplete?.Invoke(item);
 			}
 		}
-		else if (_dropHold != 0f)
+		else if (_dropHold > 0f)
 		{
+			// Released before threshold — tap. Drop a single unit of the
+			// stack (non-stackable items drop in full since min stack is 1).
+			if (dropActionRegistered)
+			{
+				_inventory?.Drop(item, 1);
+			}
 			_dropHold = 0f;
 			_buttonHintDrop?.SetProgress(0f);
 		}

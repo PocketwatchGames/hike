@@ -1,7 +1,6 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://fpa73eeswwnb"]
 
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/ConsumableData.cs" id="1_consumable"]
-[ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="1_rxcoj"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
@@ -10,6 +9,7 @@
 [ext_resource type="Resource" path="res://resources/data/status_effects/status_heal.tres" id="5_aqdwl"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="7_5gdvb"]
+[ext_resource type="Texture2D" uid="uid://d1e6kk71hv51d" path="res://assets/textures/items/pickups/Potion_red.png" id="8_world"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
@@ -39,7 +39,7 @@ locksMovement = true
 script = ExtResource("1_consumable")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Healing Potion"
+description = "Heals you right up!"
 maxStack = 5
 inventorySprite = ExtResource("7_5gdvb")
-Scene = ExtResource("1_rxcoj")
-AutoPickup = false
+worldSprite = ExtResource("8_world")

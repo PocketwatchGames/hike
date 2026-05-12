@@ -2,15 +2,13 @@
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
-[ext_resource type="PackedScene" uid="uid://cx01c2pt77fch" path="res://scenes/interactives/auto_loot.tscn" id="3_loot_scene"]
+[ext_resource type="Texture2D" uid="uid://d4butxw0b2yun" path="res://assets/textures/items/pickups/WolfCloak.png" id="3_world"]
 
 [resource]
 script = ExtResource("1_armor")
-displayName = &"Fur Coat"
-maxStack = 1
-inventorySprite = ExtResource("2_sprite")
-Scene = ExtResource("3_loot_scene")
-AutoPickup = true
 maxArmor = 10.0
-armorSlot = 2
 coldResistance = 25.0
+displayName = &"Fur Coat"
+description = "Polar bears stay warm in the winter!"
+inventorySprite = ExtResource("2_sprite")
+worldSprite = ExtResource("3_world")

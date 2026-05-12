@@ -25,6 +25,8 @@ public static class EntitySerializer
     // Legacy PropType byte values for loot. PropSimState used to cover loot
     // before LootSimState was split out; old world files still carry Tag.Prop
     // with these PropType bytes and must round-trip through the legacy reader.
+    // Both bytes now route to the same unified Loot path; the historical split
+    // between auto/interact pickup is decided at run time from inventory state.
     private const byte LegacyPropTypeAutoLoot = 2;
     private const byte LegacyPropTypeLoot = 3;
 
@@ -177,13 +179,12 @@ public static class EntitySerializer
                 // Old world files with the retired AutoLoot/Loot PropType
                 // bytes are upgraded to LootSimState on read; new code only
                 // ever writes Tree/TallGrass under Tag.Prop. Data is null —
-                // LootSimState's null-Data fallback yields auto-pickup, which
-                // matches the legacy behavior (byte 3 "Loot" was never written
-                // by any callsite, so this fallback is unreachable in practice
-                // for the interactive variant).
+                // Loot's runtime pickup probe handles the null-Data path the
+                // same way it handled the legacy AutoLoot case (no item to
+                // deposit, just despawn).
                 if (typeByte == LegacyPropTypeAutoLoot || typeByte == LegacyPropTypeLoot)
                 {
-                    var loot = new LootSimState(pos, scene, data: null);
+                    var loot = new LootSimState(pos, data: null);
                     loot.PickedUp = pickedUp;
                     return loot;
                 }
