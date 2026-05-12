@@ -36,7 +36,13 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="CanvasLayer" unique_id=993450555 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_ahhtf")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
@@ -60,6 +66,7 @@ _weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minima
 _weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -281,5 +288,7 @@ size_flags_vertical = 0
 
 [node name="HudSignpostPanel" parent="." unique_id=170382741 instance=ExtResource("4_signpost")]
 visible = false
+layout_mode = 1
 
 [node name="RegionBanner" parent="." unique_id=935851705 instance=ExtResource("4_banner")]
+layout_mode = 1

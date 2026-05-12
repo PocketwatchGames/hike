@@ -20,8 +20,6 @@ public class Inventory
 	// equipped. To enumerate every item the player owns, use EnumerateAll().
 	private ItemState _armorHead;
 	private ItemState _armorBody;
-	private ItemState _armorCloak;
-	private ItemState _armorAccessory;
 	private WeaponState _weaponLeft;
 	private WeaponState _weaponRight;
 
@@ -139,8 +137,6 @@ public class Inventory
 		{
 			EInventorySlot.ArmorHead => _armorHead,
 			EInventorySlot.ArmorBody => _armorBody,
-			EInventorySlot.ArmorCloak => _armorCloak,
-			EInventorySlot.ArmorAccessory => _armorAccessory,
 			EInventorySlot.WeaponLeft => _weaponLeft,
 			EInventorySlot.WeaponRight => _weaponRight,
 			EInventorySlot.Consumable => GetActiveConsumable(),
@@ -247,7 +243,7 @@ public class Inventory
 		Vector3 pos = _owner.GlobalPosition + Vector3.Up * 0.5f;
 		Vector3 forward = -_owner.GlobalTransform.Basis.Z;
 		Vector3 impulse = forward * 2f + Vector3.Up * 1.5f;
-		_owner.World?.DropItem(dropped, pos, impulse, _data.dropLootData);
+		_owner.World?.DropItem(dropped, pos, impulse);
 	}
 
 	public ItemState GetActiveConsumable()
@@ -283,6 +279,43 @@ public class Inventory
 				}
 				return true;
 			}
+		}
+		return false;
+	}
+
+	// Move a consumable out of the hotbar back into the backpack. Mirror of
+	// TryMoveToConsumableSlot — used by the inventory screen's Unequip path
+	// for items that live in inactive hotbar slots (GetEquippedSlot only
+	// reports the active slot). Refused outright if the backpack is full —
+	// no silent drop.
+	public bool TryRemoveFromConsumableSlot(ItemState item)
+	{
+		if (item == null)
+		{
+			return false;
+		}
+		for (int i = 0; i < _consumableSlots.Length; i++)
+		{
+			if (_consumableSlots[i] != item)
+			{
+				continue;
+			}
+			if (_backpack.Count >= _data.backpackCapacity)
+			{
+				return false;
+			}
+			if (_activeConsumableIndex == i && item is ConsumableState cs)
+			{
+				cs.OnUnequipped(_owner);
+			}
+			_consumableSlots[i] = null;
+			_backpack.Add(item);
+			if (_activeConsumableIndex == i)
+			{
+				_activeConsumableIndex = -1;
+				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
+			}
+			return true;
 		}
 		return false;
 	}
@@ -348,8 +381,6 @@ public class Inventory
 		}
 		if (item == _armorHead) { return EInventorySlot.ArmorHead; }
 		if (item == _armorBody) { return EInventorySlot.ArmorBody; }
-		if (item == _armorCloak) { return EInventorySlot.ArmorCloak; }
-		if (item == _armorAccessory) { return EInventorySlot.ArmorAccessory; }
 		if (item == _weaponLeft) { return EInventorySlot.WeaponLeft; }
 		if (item == _weaponRight) { return EInventorySlot.WeaponRight; }
 		if (item == GetActiveConsumable()) { return EInventorySlot.Consumable; }
@@ -371,8 +402,6 @@ public class Inventory
 		}
 		if (_armorHead != null) { yield return _armorHead; }
 		if (_armorBody != null) { yield return _armorBody; }
-		if (_armorCloak != null) { yield return _armorCloak; }
-		if (_armorAccessory != null) { yield return _armorAccessory; }
 		// Weapons live in equip-slot pointers only; they're not duplicated in the
 		// backpack list, so enumerate them here too.
 		if (_weaponLeft != null) { yield return _weaponLeft; }
@@ -388,8 +417,6 @@ public class Inventory
 		{
 			case EInventorySlot.ArmorHead: _armorHead = item; break;
 			case EInventorySlot.ArmorBody: _armorBody = item; break;
-			case EInventorySlot.ArmorCloak: _armorCloak = item; break;
-			case EInventorySlot.ArmorAccessory: _armorAccessory = item; break;
 			case EInventorySlot.WeaponLeft: _weaponLeft = item as WeaponState; break;
 			case EInventorySlot.WeaponRight: _weaponRight = item as WeaponState; break;
 			default: break;

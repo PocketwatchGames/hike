@@ -1,0 +1,55 @@
+[gd_scene format=3 uid="uid://d115dmvboelcp"]
+
+[ext_resource type="Script" uid="uid://ch1bcra4yc4s3" path="res://scripts/gui/InventoryScreen.cs" id="1_7a5n3"]
+[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventoryPanel.tscn" id="2_hmtof"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
+
+[node name="InventoryScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_panel")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7a5n3")
+_panel = NodePath("MarginContainer/Inventory")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="Inventory" parent="MarginContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintEquip", "_buttonHintUse", "_buttonHintDrop") instance=ExtResource("2_hmtof")]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+_buttonHintEquip = NodePath("../ButtonHints/ButtonHintA")
+_buttonHintUse = NodePath("../ButtonHints/ButtonHintX")
+_buttonHintDrop = NodePath("../ButtonHints/ButtonHintY")
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("4_wawlv")]
+layout_mode = 2
+ActionName = "Equip"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("4_wawlv")]
+layout_mode = 2
+ActionName = "Use"
+InputAction = "X"
+
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("4_wawlv")]
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "Y"

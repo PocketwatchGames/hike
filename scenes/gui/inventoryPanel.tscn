@@ -1,0 +1,114 @@
+[gd_scene format=3 uid="uid://b4jsgyw5h7jda"]
+
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="1_ovktt"]
+[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="2_w6y8h"]
+[ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="3_fhocj"]
+[ext_resource type="Texture2D" uid="uid://2r15rei7uocy" path="res://assets/textures/gui/mob_hud_armor5.png" id="4_dtglw"]
+[ext_resource type="Script" uid="uid://b8mz3p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
+
+[node name="Inventory" type="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_armorHeadPanel", "_armorBodyPanel", "_weaponLeftPanel", "_weaponRightPanel", "_consumablePanels", "_backpackPanels")]
+script = ExtResource("5_panel")
+theme_override_constants/separation = 100
+_armorHeadPanel = NodePath("Equipment/VBoxContainer/HBoxContainer/Head")
+_armorBodyPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/Body")
+_weaponLeftPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/WeaponLeft")
+_weaponRightPanel = NodePath("Equipment/VBoxContainer/HBoxContainer3/WeaponRight")
+_consumablePanels = [NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable1"), NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable2"), NodePath("Equipment/VBoxContainer/HBoxContainer4/Consumable3")]
+_backpackPanels = [NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack1"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack2"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack3"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack4"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack5"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack6"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack7"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack8"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack9"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack10"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack11"), NodePath("Equipment/VBoxContainer/Backpack/GridContainer/Backpack12")]
+
+[node name="Equipment" type="MarginContainer" parent="." unique_id=659057288]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Equipment" unique_id=1507243022]
+layout_mode = 2
+size_flags_horizontal = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=1830396103]
+layout_mode = 2
+alignment = 1
+
+[node name="Head" parent="Equipment/VBoxContainer/HBoxContainer" unique_id=982744505 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("2_w6y8h")
+
+[node name="HBoxContainer3" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=549815624]
+layout_mode = 2
+alignment = 1
+
+[node name="WeaponLeft" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=1990252477 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("3_fhocj")
+
+[node name="Body" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=85943605 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("4_dtglw")
+
+[node name="WeaponRight" parent="Equipment/VBoxContainer/HBoxContainer3" unique_id=1321801567 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("3_fhocj")
+
+[node name="HBoxContainer4" type="HBoxContainer" parent="Equipment/VBoxContainer" unique_id=574760090]
+layout_mode = 2
+alignment = 1
+
+[node name="Consumable1" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=661065185 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("2_w6y8h")
+
+[node name="Consumable2" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=1866558077 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("2_w6y8h")
+
+[node name="Consumable3" parent="Equipment/VBoxContainer/HBoxContainer4" unique_id=203541355 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+BackgroundTexture = ExtResource("2_w6y8h")
+
+[node name="Backpack" type="MarginContainer" parent="Equipment/VBoxContainer" unique_id=1264455197]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_override_constants/margin_top = 30
+
+[node name="GridContainer" type="GridContainer" parent="Equipment/VBoxContainer/Backpack" unique_id=41419042]
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 4
+columns = 3
+
+[node name="Backpack1" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1078262302 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack2" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1394424261 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack3" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=597953048 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack4" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1443045127 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack5" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1740917505 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack6" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1593784667 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack7" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1423400585 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack8" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1035136888 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack9" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=1097979185 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack10" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=176711388 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack11" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=288003680 instance=ExtResource("1_ovktt")]
+layout_mode = 2
+
+[node name="Backpack12" parent="Equipment/VBoxContainer/Backpack/GridContainer" unique_id=2030975938 instance=ExtResource("1_ovktt")]
+layout_mode = 2

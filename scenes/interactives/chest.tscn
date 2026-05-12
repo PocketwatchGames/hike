@@ -17,7 +17,7 @@
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="15_i4oq8"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="16_xray"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="17_anim"]
-[ext_resource type="Resource" uid="uid://b8q3p5krxztww" path="res://resources/data/loot/auto_pickup_loot.tres" id="18_lootdata"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/loot/gold_coin.tres" id="18_lootdata"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("10_event")
@@ -69,7 +69,7 @@ _hurtBox = NodePath("HurtBox")
 _actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
 _discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
-_lootData = ExtResource("18_lootdata")
+_lootItem = ExtResource("18_lootdata")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
 

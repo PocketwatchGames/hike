@@ -716,8 +716,6 @@ public partial class Player : CharacterBody3D
 		}
 		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResist, ref heatResist);
 		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResist, ref heatResist);
-		AccumulateArmorResistance(EInventorySlot.ArmorCloak, ref coldResist, ref heatResist);
-		AccumulateArmorResistance(EInventorySlot.ArmorAccessory, ref coldResist, ref heatResist);
 		// Wind chill. Multiplied by windTemperatureReduction (degrees F per
 		// m/s) and shifted onto BOTH thresholds — the comfort band slides
 		// upward in actual ambient, so cold triggers earlier and hot needs
@@ -977,9 +975,7 @@ public partial class Player : CharacterBody3D
 	private void OnInventorySlotChanged(EInventorySlot slot)
 	{
 		if (slot == EInventorySlot.ArmorHead
-			|| slot == EInventorySlot.ArmorBody
-			|| slot == EInventorySlot.ArmorCloak
-			|| slot == EInventorySlot.ArmorAccessory)
+			|| slot == EInventorySlot.ArmorBody)
 		{
 			RecalculateMaxArmor();
 		}
@@ -996,8 +992,6 @@ public partial class Player : CharacterBody3D
 		{
 			AccumulateArmor(EInventorySlot.ArmorHead, ref total);
 			AccumulateArmor(EInventorySlot.ArmorBody, ref total);
-			AccumulateArmor(EInventorySlot.ArmorCloak, ref total);
-			AccumulateArmor(EInventorySlot.ArmorAccessory, ref total);
 		}
 		_maxArmor = total;
 		if (_armor > _maxArmor)

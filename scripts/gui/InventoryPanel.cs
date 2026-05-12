@@ -1,0 +1,404 @@
+using Godot;
+using System.Collections.Generic;
+using Godot.Collections;
+
+// The interactive inventory body — slots, button hints, and the verb logic
+// (equip / use / drop). Authored as its own scene so the modal wrapper
+// (InventoryScreen) can stay focused on open/close lifecycle and InputSuppressed
+// plumbing. The panel is dormant until InventoryScreen.Open() calls Bind(player)
+// on it; Unbind() detaches it from the player's inventory signals and stops
+// reacting to input.
+[GlobalClass]
+public partial class InventoryPanel : Control
+{
+	[Export] private ItemSlotPanel _armorHeadPanel;
+	[Export] private ItemSlotPanel _armorBodyPanel;
+	[Export] private ItemSlotPanel _weaponLeftPanel;
+	[Export] private ItemSlotPanel _weaponRightPanel;
+	[Export] private Array<ItemSlotPanel> _consumablePanels;
+	[Export] private Array<ItemSlotPanel> _backpackPanels;
+	[Export] private ButtonHint _buttonHintEquip;
+	[Export] private ButtonHint _buttonHintUse;
+	[Export] private ButtonHint _buttonHintDrop;
+
+	// Input actions wired to the three menu verbs. Equip rides on the slot
+	// button's own Pressed signal (ui_accept / mouse click), so we only need
+	// custom actions for the Use hold and the half-second Drop hold.
+	[Export] private StringName _equipHintAction = "ui_accept";
+	[Export] private StringName _useAction = "UseItem";
+	[Export] private StringName _dropAction = "Drop";
+
+	const float DropHoldSeconds = 0.5f;
+
+	Player _player;
+	Inventory _inventory;
+	ItemSlotPanel _focused;
+	float _dropHold;
+	// True between a successful Use press and its release. Lets the release
+	// event reach the runner only when we actually started something, and lets
+	// focus changes / Unbind() abort the in-flight action cleanly.
+	bool _useStarted;
+	// Bind/Unbind gate. Slot signal subscriptions, input handling, and per-
+	// frame ticks all key off this so the panel stays inert before the screen
+	// has shown it.
+	bool _active;
+
+	public override void _Ready()
+	{
+		WirePanel(_armorHeadPanel);
+		WirePanel(_armorBodyPanel);
+		WirePanel(_weaponLeftPanel);
+		WirePanel(_weaponRightPanel);
+		WirePanels(_consumablePanels);
+		WirePanels(_backpackPanels);
+
+		_buttonHintEquip?.SetHint(_equipHintAction, "Equip");
+		_buttonHintUse?.SetHint(_useAction, "Use");
+		_buttonHintDrop?.SetHint(_dropAction, "Drop");
+
+		UpdateButtonHints();
+	}
+
+	public override void _ExitTree()
+	{
+		if (_inventory != null)
+		{
+			_inventory.onSlotChanged -= OnInventoryChanged;
+			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+		}
+	}
+
+	// Attach to a player's inventory: subscribe to slot/consumable signals,
+	// fill every slot with the current state, and grab focus on the first
+	// focusable panel so gamepad navigation has a starting point.
+	public void Bind(Player player)
+	{
+		if (player == null)
+		{
+			return;
+		}
+		if (_inventory != null)
+		{
+			_inventory.onSlotChanged -= OnInventoryChanged;
+			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+		}
+		_player = player;
+		_inventory = player.Inventory;
+		if (_inventory != null)
+		{
+			_inventory.onSlotChanged += OnInventoryChanged;
+			_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
+		}
+		_active = true;
+		RefreshAll();
+		ItemSlotPanel start = _focused ?? FindFirstFocusable();
+		start?.GrabFocus();
+		UpdateButtonHints();
+	}
+
+	// Detach from the player's inventory. Cancels any in-flight hold state
+	// (drop timer, runner-driven use) so a later Bind starts clean.
+	public void Unbind()
+	{
+		CancelHeldActions();
+		if (_inventory != null)
+		{
+			_inventory.onSlotChanged -= OnInventoryChanged;
+			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+		}
+		_inventory = null;
+		_player = null;
+		_active = false;
+	}
+
+	void WirePanel(ItemSlotPanel panel)
+	{
+		if (panel == null)
+		{
+			return;
+		}
+		panel.onFocusEntered += OnPanelFocused;
+		panel.onPressed += OnPanelPressed;
+	}
+
+	void WirePanels(Array<ItemSlotPanel> panels)
+	{
+		if (panels == null)
+		{
+			return;
+		}
+		foreach (ItemSlotPanel panel in panels)
+		{
+			WirePanel(panel);
+		}
+	}
+
+	void OnInventoryChanged(EInventorySlot _) => RefreshAll();
+	void OnActiveConsumableChanged(int _) => RefreshAll();
+
+	void RefreshAll()
+	{
+		if (_inventory == null)
+		{
+			UpdateButtonHints();
+			return;
+		}
+
+		_armorHeadPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.ArmorHead));
+		_armorBodyPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.ArmorBody));
+		_weaponLeftPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponLeft));
+		_weaponRightPanel?.SetItem(_inventory.GetEquipped(EInventorySlot.WeaponRight));
+
+		if (_consumablePanels != null)
+		{
+			IReadOnlyList<ItemState> slots = _inventory.ConsumableSlots;
+			for (int i = 0; i < _consumablePanels.Count; i++)
+			{
+				_consumablePanels[i]?.SetItem(i < slots.Count ? slots[i] : null);
+			}
+		}
+		if (_backpackPanels != null)
+		{
+			IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+			for (int i = 0; i < _backpackPanels.Count; i++)
+			{
+				_backpackPanels[i]?.SetItem(i < backpack.Count ? backpack[i] : null);
+			}
+		}
+		UpdateButtonHints();
+	}
+
+	void OnPanelFocused(ItemSlotPanel panel)
+	{
+		_focused = panel;
+		CancelHeldActions();
+		UpdateButtonHints();
+	}
+
+	// Slot button press (ui_accept / mouse click) is the Equip verb — the
+	// button hint on the same input action drives the visible label.
+	void OnPanelPressed(ItemSlotPanel panel)
+	{
+		ItemState item = panel?.Item;
+		if (item == null)
+		{
+			return;
+		}
+		DoToggleEquip(panel, item);
+	}
+
+	ItemSlotPanel FindFirstFocusable()
+	{
+		if (_backpackPanels != null)
+		{
+			foreach (ItemSlotPanel panel in _backpackPanels)
+			{
+				if (panel != null) { return panel; }
+			}
+		}
+		return _armorHeadPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel;
+	}
+
+	bool IsBackpackPanel(ItemSlotPanel panel)
+	{
+		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
+	}
+
+	void UpdateButtonHints()
+	{
+		ItemState item = _focused?.Item;
+		bool hasItem = item != null;
+		bool inBackpack = IsBackpackPanel(_focused);
+
+		if (_buttonHintEquip != null)
+		{
+			_buttonHintEquip.Visible = hasItem && CanEquipOrUnequip(item);
+			_buttonHintEquip.ActionName = inBackpack ? "Equip" : "Unequip";
+		}
+		if (_buttonHintUse != null)
+		{
+			_buttonHintUse.Visible = hasItem && CanUseItem(item);
+			_buttonHintUse.SetProgress(0f);
+		}
+		if (_buttonHintDrop != null)
+		{
+			_buttonHintDrop.Visible = hasItem;
+			_buttonHintDrop.SetProgress(0f);
+		}
+	}
+
+	static bool CanEquipOrUnequip(ItemState item)
+	{
+		return item?.data is ArmorData or WeaponData or ConsumableData;
+	}
+
+	static bool CanUseItem(ItemState item)
+	{
+		return item is ConsumableState consumable && consumable.data?.actionProfile != null;
+	}
+
+	public override void _Process(double delta)
+	{
+		if (!_active || _player == null)
+		{
+			return;
+		}
+
+		ItemState item = _focused?.Item;
+		bool dropHeld = item != null
+			&& InputMap.HasAction(_dropAction)
+			&& Input.IsActionPressed(_dropAction);
+		if (dropHeld)
+		{
+			_dropHold += (float)delta;
+			float progress = Mathf.Clamp(_dropHold / DropHoldSeconds, 0f, 1f);
+			_buttonHintDrop?.SetProgress(progress);
+			if (_dropHold >= DropHoldSeconds)
+			{
+				_dropHold = 0f;
+				_buttonHintDrop?.SetProgress(0f);
+				DoDrop(item);
+			}
+		}
+		else if (_dropHold != 0f)
+		{
+			_dropHold = 0f;
+			_buttonHintDrop?.SetProgress(0f);
+		}
+	}
+
+	public override void _UnhandledInput(InputEvent e)
+	{
+		if (!_active)
+		{
+			return;
+		}
+
+		ItemState item = _focused?.Item;
+		if (InputMap.HasAction(_useAction))
+		{
+			if (e.IsActionPressed(_useAction))
+			{
+				if (item != null)
+				{
+					DoUseStart(item);
+				}
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+			if (e.IsActionReleased(_useAction))
+			{
+				DoUseRelease();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+		}
+	}
+
+	void CancelHeldActions()
+	{
+		_dropHold = 0f;
+		_buttonHintDrop?.SetProgress(0f);
+		if (_useStarted)
+		{
+			_player?.Runner?.TryAbort();
+			_useStarted = false;
+		}
+	}
+
+	void DoToggleEquip(ItemSlotPanel panel, ItemState item)
+	{
+		if (_inventory == null || item == null)
+		{
+			return;
+		}
+		if (IsBackpackPanel(panel))
+		{
+			EquipFromBackpack(item);
+		}
+		else
+		{
+			UnequipToBackpack(item);
+		}
+		RefreshAll();
+	}
+
+	void EquipFromBackpack(ItemState item)
+	{
+		switch (item.data)
+		{
+			case ArmorData armor:
+				_inventory.TryEquip(item, armor.armorSlot);
+				break;
+			case WeaponData weapon:
+				// Two-hand layout: ranged (ammo-bearing) lands in the right
+				// slot, melee in the left — matches Player.Initialize's
+				// PlayerSpawnData wiring since WeaponData itself doesn't
+				// author a target slot.
+				EInventorySlot target = weapon.useAmmo ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
+				_inventory.TryEquip(item, target);
+				break;
+			case ConsumableData:
+				_inventory.TryMoveToConsumableSlot(item);
+				break;
+		}
+	}
+
+	void UnequipToBackpack(ItemState item)
+	{
+		EInventorySlot? slot = _inventory.GetEquippedSlot(item);
+		if (slot.HasValue && slot.Value != EInventorySlot.Consumable)
+		{
+			_inventory.TryUnequip(slot.Value);
+			return;
+		}
+		// GetEquippedSlot only reports the ACTIVE consumable hotbar slot.
+		// Items in inactive hotbar slots have to be removed by scanning the
+		// hotbar directly.
+		_inventory.TryRemoveFromConsumableSlot(item);
+	}
+
+	void DoUseStart(ItemState item)
+	{
+		if (item is not ConsumableState consumable)
+		{
+			return;
+		}
+		ConsumableData data = consumable.data;
+		if (data?.actionProfile == null)
+		{
+			return;
+		}
+		ActionRunner runner = _player?.Runner;
+		if (runner == null || runner.IsBusy)
+		{
+			return;
+		}
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Consumable,
+		};
+		if (runner.TryStart(data.actionProfile, context))
+		{
+			_useStarted = true;
+		}
+	}
+
+	void DoUseRelease()
+	{
+		if (!_useStarted)
+		{
+			return;
+		}
+		_player?.Runner?.OnInputReleased();
+		_useStarted = false;
+	}
+
+	void DoDrop(ItemState item)
+	{
+		_inventory?.Drop(item);
+		RefreshAll();
+	}
+}

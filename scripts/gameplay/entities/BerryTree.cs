@@ -11,11 +11,12 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     // action; the array shape stays for parity with other interactives so
     // future variants (e.g. shake-tree alt action) can append entries.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
-    // LootData spawned for each berry. Tied to the tree species (apple tree →
+    // Item spawned for each berry. Tied to the tree species (apple tree →
     // apples, blackberry bush → blackberries) so it lives on the .tscn rather
-    // than the per-instance sim state. Carries both the berry scene and the
-    // auto-pickup flag.
-    [Export] private LootData _berryLootData;
+    // than the per-instance sim state. Typed ItemData (not LootData) so any
+    // droppable item works here; berries author themselves as LootData for
+    // future spoilage/decay behavior.
+    [Export] private ItemData _berryItem;
     [Export] private float _lootSpeed = 10;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
@@ -96,7 +97,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
                 horizontalSpeed * Mathf.Sin(angle)
             );
 
-            _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, _berryLootData);
+            _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, _berryItem);
         }
     }
 

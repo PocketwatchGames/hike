@@ -7,7 +7,7 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="5_goblin_data"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="6_kunkun_data"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="8_campfire_group"]
-[ext_resource type="Resource" uid="uid://b8q3p5krxztww" path="res://resources/data/loot/auto_pickup_loot.tres" id="9_loot_data"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/loot/gold_coin.tres" id="9_loot_data"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
@@ -26,7 +26,7 @@ Chance = 0.005
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("3_loot_entry")
-LootData = ExtResource("9_loot_data")
+Item = ExtResource("9_loot_data")
 Chance = 0.005
 
 [resource]

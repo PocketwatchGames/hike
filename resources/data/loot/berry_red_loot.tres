@@ -5,5 +5,7 @@
 
 [resource]
 script = ExtResource("1_loot_data")
+displayName = &"Red Berry"
+maxStack = 99
 Scene = ExtResource("2_berry_scene")
 AutoPickup = true

@@ -24,7 +24,7 @@ using Godot;
 //
 // No mouse interaction — every Control here keeps mouse_filter = Ignore.
 [GlobalClass]
-public partial class WorldMapScreen : CanvasLayer
+public partial class WorldMapScreen : Control
 {
 	[Export] public GameClient gameClient;
 	[Export] public TextureRect mapTexture;
@@ -46,23 +46,50 @@ public partial class WorldMapScreen : CanvasLayer
 	// Lazy-created on first visible frame, once WorldState is available.
 	readonly Dictionary<RegionData, Label> _labels = new();
 
+	System.Action _onClose;
+
 	public override void _Ready()
 	{
-		Visible = gameClient.MapOpen;
-		gameClient.onMapToggled += OnMapToggled;
+		Visible = false;
 	}
 
-	public override void _ExitTree()
+	public void Open(System.Action onClose = null)
 	{
+		_onClose = onClose;
 		if (gameClient != null)
 		{
-			gameClient.onMapToggled -= OnMapToggled;
+			gameClient.InputSuppressed = true;
 		}
+		Visible = true;
 	}
 
-	void OnMapToggled(bool open)
+	public void Close()
 	{
-		Visible = open;
+		if (!Visible)
+		{
+			return;
+		}
+		Visible = false;
+		if (gameClient != null)
+		{
+			gameClient.InputSuppressed = false;
+		}
+		System.Action cb = _onClose;
+		_onClose = null;
+		cb?.Invoke();
+	}
+
+	public override void _UnhandledInput(InputEvent e)
+	{
+		if (!Visible)
+		{
+			return;
+		}
+		if (e.IsActionPressed("ui_cancel"))
+		{
+			Close();
+			GetViewport().SetInputAsHandled();
+		}
 	}
 
 	public override void _Process(double delta)

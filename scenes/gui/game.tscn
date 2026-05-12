@@ -7,10 +7,11 @@
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="PackedScene" uid="uid://c8wmscn8tx5y2" path="res://scenes/gui/world_map_screen.tscn" id="18_wmap"]
+[ext_resource type="PackedScene" uid="uid://d115dmvboelcp" path="res://scenes/gui/inventory_screen.tscn" id="18_yg14s"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
-[ext_resource type="Material" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
+[ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
@@ -54,11 +55,13 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "worldHUD", "sceneViewport", "bloomQuad")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "worldMapScreen", "inventoryScreen", "worldHUD", "sceneViewport", "bloomQuad")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
-hud = NodePath("HUD")
-worldHUD = NodePath("WorldHUD")
+hud = NodePath("GUICanvas/HUD")
+worldMapScreen = NodePath("GUICanvas/WorldMapScreen")
+inventoryScreen = NodePath("GUICanvas/Inventory")
+worldHUD = NodePath("")
 sceneViewport = NodePath("SceneViewport")
 bloomQuad = NodePath("BloomQuad")
 upscaleMaterial = ExtResource("upscale_mat")
@@ -230,15 +233,27 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 mouse_filter = 2
 
-[node name="WorldHUD" type="CanvasLayer" parent="." unique_id=151387425]
+[node name="GUICanvas" type="CanvasLayer" parent="." unique_id=1576235917]
 
-[node name="HUD" parent="." unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
-gameClient = NodePath("..")
+[node name="WorldHUD" type="Control" parent="GUICanvas" unique_id=731931548]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 
-[node name="WorldMapScreen" parent="." unique_id=8722710 node_paths=PackedStringArray("gameClient") instance=ExtResource("18_wmap")]
+[node name="HUD" parent="GUICanvas" unique_id=993450555 node_paths=PackedStringArray("gameClient") instance=ExtResource("4_lbhrr")]
+gameClient = NodePath("../..")
+
+[node name="WorldMapScreen" parent="GUICanvas" unique_id=8722710 node_paths=PackedStringArray("gameClient") instance=ExtResource("18_wmap")]
 visible = false
-gameClient = NodePath("..")
+gameClient = NodePath("../..")
 
-[node name="PauseMenu" parent="." unique_id=1047961363 node_paths=PackedStringArray("gameClient") instance=ExtResource("17_0v2ir")]
+[node name="Inventory" parent="GUICanvas" unique_id=499722772 node_paths=PackedStringArray("gameClient") instance=ExtResource("18_yg14s")]
 visible = false
-gameClient = NodePath("..")
+gameClient = NodePath("../..")
+
+[node name="PauseMenu" parent="GUICanvas" unique_id=1047961363 node_paths=PackedStringArray("gameClient") instance=ExtResource("17_0v2ir")]
+visible = false
+gameClient = NodePath("../..")

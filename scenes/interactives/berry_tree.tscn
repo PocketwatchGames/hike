@@ -63,7 +63,7 @@ _animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("10_action")]([SubResource("Resource_berry_action_pick")])
-_berryLootData = ExtResource("6_5ksji")
+_berryItem = ExtResource("6_5ksji")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=117381297]
 

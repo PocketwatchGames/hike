@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://blg3pgh6i7iea"]
+
+[ext_resource type="Script" uid="uid://dwvo544owdw66" path="res://scripts/gui/ItemSlotPanel.cs" id="1_a5bqt"]
+[ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="2_a5bqt"]
+[ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="3_cj85m"]
+[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="4_wxcd7"]
+
+[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_slotBackground", "_stackLabel", "_stackContainer")]
+custom_minimum_size = Vector2(80, 80)
+size_flags_horizontal = 4
+size_flags_vertical = 4
+script = ExtResource("1_a5bqt")
+_button = NodePath("TextureButton")
+_slotBackground = NodePath("TextureRect")
+_stackLabel = NodePath("MarginContainer/PanelContainer/MarginContainer/Label")
+_stackContainer = NodePath("MarginContainer/PanelContainer")
+
+[node name="TextureRect" type="TextureRect" parent="." unique_id=1680811436]
+visible = false
+layout_mode = 2
+texture = ExtResource("2_a5bqt")
+expand_mode = 5
+stretch_mode = 5
+
+[node name="TextureButton" type="TextureButton" parent="." unique_id=1069392873]
+layout_mode = 2
+texture_pressed = ExtResource("3_cj85m")
+texture_hover = ExtResource("4_wxcd7")
+texture_focused = ExtResource("4_wxcd7")
+ignore_texture_size = true
+stretch_mode = 5
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=979741011]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer" unique_id=1749277760]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/PanelContainer" unique_id=704585576]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_right = 3
+
+[node name="Label" type="Label" parent="MarginContainer/PanelContainer/MarginContainer" unique_id=2034665965]
+layout_mode = 2
+text = "99"
+horizontal_alignment = 1

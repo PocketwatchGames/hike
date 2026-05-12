@@ -1,7 +1,7 @@
 using Godot;
 using System;
 
-public partial class PauseMenu : PanelContainer
+public partial class PauseMenu : Control
 {
 	[Export] public GameClient gameClient;
 	[Export] public Label versionLabel;

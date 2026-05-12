@@ -2,36 +2,44 @@
 
 [ext_resource type="Script" uid="uid://cnsfkwrocp31e" path="res://scripts/gui/PauseMenu.cs" id="1_k6lk2"]
 
-[node name="PauseMenu" type="PanelContainer" unique_id=1047961363 node_paths=PackedStringArray("versionLabel")]
-custom_minimum_size = Vector2(300, 0)
+[node name="PauseMenu" type="Control" unique_id=1939885248 node_paths=PackedStringArray("versionLabel")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_k6lk2")
+versionLabel = NodePath("PanelContainer/MarginContainer/VBoxContainer/MarginContainer/VersionLabel")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=555062874]
+layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -82.5
-offset_right = 150.0
-offset_bottom = 82.5
+offset_left = -168.5
+offset_top = -153.0
+offset_right = 168.5
+offset_bottom = 153.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
-script = ExtResource("1_k6lk2")
-versionLabel = NodePath("MarginContainer/VBoxContainer/MarginContainer/VersionLabel")
 
-[node name="MarginContainer" type="MarginContainer" parent="." unique_id=351294326]
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer" unique_id=351294326]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=880511343]
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer/MarginContainer" unique_id=880511343]
 layout_mode = 2
 size_flags_vertical = 8
 
-[node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=377405553]
+[node name="Label" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=377405553]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 size_flags_vertical = 1
@@ -39,31 +47,31 @@ theme_override_font_sizes/font_size = 48
 text = "Game Paused"
 horizontal_alignment = 1
 
-[node name="SaveButton" type="Button" parent="MarginContainer/VBoxContainer" unique_id=903124947]
+[node name="SaveButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=903124947]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Save Game"
 
-[node name="ResumeButton" type="Button" parent="MarginContainer/VBoxContainer" unique_id=982488480]
+[node name="ResumeButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=982488480]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Resume"
 
-[node name="QuitButton" type="Button" parent="MarginContainer/VBoxContainer" unique_id=2142242905]
+[node name="QuitButton" type="Button" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=2142242905]
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Quit to Menu"
 
-[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer" unique_id=1254404579]
+[node name="MarginContainer" type="MarginContainer" parent="PanelContainer/MarginContainer/VBoxContainer" unique_id=1254404579]
 layout_mode = 2
 size_flags_horizontal = 8
 theme_override_constants/margin_top = 10
 
-[node name="VersionLabel" type="Label" parent="MarginContainer/VBoxContainer/MarginContainer" unique_id=954580598]
+[node name="VersionLabel" type="Label" parent="PanelContainer/MarginContainer/VBoxContainer/MarginContainer" unique_id=954580598]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "v 10543503948"
 
-[connection signal="pressed" from="MarginContainer/VBoxContainer/SaveButton" to="." method="OnSaveButtonPressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/ResumeButton" to="." method="OnResumeButtonPressed"]
-[connection signal="pressed" from="MarginContainer/VBoxContainer/QuitButton" to="." method="OnQuitButtonPressed"]
+[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/SaveButton" to="." method="OnSaveButtonPressed"]
+[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/ResumeButton" to="." method="OnResumeButtonPressed"]
+[connection signal="pressed" from="PanelContainer/MarginContainer/VBoxContainer/QuitButton" to="." method="OnQuitButtonPressed"]

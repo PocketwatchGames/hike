@@ -192,7 +192,7 @@ public static class EntitySerializer
             case Tag.Loot:
             {
                 Vector3 pos = ReadVec3(r);
-                var data = ReadResource<LootData>(r);
+                var data = ReadResource<ItemData>(r);
                 bool pickedUp = r.ReadBoolean();
                 var loot = new LootSimState(pos, data);
                 loot.PickedUp = pickedUp;

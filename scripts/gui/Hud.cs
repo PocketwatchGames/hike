@@ -1,7 +1,7 @@
 using Godot;
 using System.Collections.Generic;
 
-public partial class Hud : CanvasLayer
+public partial class Hud : Control
 {
 	[Export] public GameClient gameClient;
 	[Export] PackedScene _statusEffectHudScene;
@@ -90,6 +90,7 @@ public partial class Hud : CanvasLayer
 	{
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onRegionEntered += OnRegionEntered;
+		_signpostPanel.gameClient = gameClient;
 		_weaponLeftButtonHint.SetHint("AttackMelee", string.Empty);
 		_weaponRightButtonHint.SetHint("AttackRanged", string.Empty);
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
@@ -128,7 +129,7 @@ public partial class Hud : CanvasLayer
 
 	public void ShowSignpost(string text)
 	{
-		_signpostPanel?.Show(text);
+		_signpostPanel?.Open(text);
 	}
 
 	public void CloseSignpost()

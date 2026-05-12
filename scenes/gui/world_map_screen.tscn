@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c8wmscn8tx5y2"]
 
-[ext_resource type="Script" uid="uid://b9wmscr5pq4z7" path="res://scripts/gui/WorldMapScreen.cs" id="1_wmap"]
+[ext_resource type="Script" uid="uid://cawmscr5pq407" path="res://scripts/gui/WorldMapScreen.cs" id="1_wmap"]
 [ext_resource type="Material" uid="uid://d3wmmatlrun1c" path="res://resources/materials/worldmap.tres" id="2_wmmat"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="3_wmtex"]
 
@@ -20,12 +20,20 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="WorldMapScreen" type="CanvasLayer" node_paths=PackedStringArray("gameClient", "mapTexture", "regionLabels")]
+[node name="WorldMapScreen" type="Control" unique_id=590275791 node_paths=PackedStringArray("mapTexture", "regionLabels")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 script = ExtResource("1_wmap")
 mapTexture = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture")
 regionLabels = NodePath("Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture/RegionLabels")
 
-[node name="Panel" type="PanelContainer" parent="."]
+[node name="Panel" type="PanelContainer" parent="." unique_id=1072787642]
+layout_mode = 1
+anchors_preset = -1
 anchor_left = 0.1
 anchor_top = 0.1
 anchor_right = 0.9
@@ -33,7 +41,7 @@ anchor_bottom = 0.9
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_wmap")
 
-[node name="MarginContainer" type="MarginContainer" parent="Panel"]
+[node name="MarginContainer" type="MarginContainer" parent="Panel" unique_id=1836099372]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/margin_left = 16
@@ -41,28 +49,25 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
-[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="Panel/MarginContainer" unique_id=2057263976]
 layout_mode = 2
 mouse_filter = 2
 theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer"]
+[node name="Title" type="Label" parent="Panel/MarginContainer/VBoxContainer" unique_id=964114756]
 layout_mode = 2
-mouse_filter = 2
 theme_override_font_sizes/font_size = 32
 text = "World Map"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="AspectRatio" type="AspectRatioContainer" parent="Panel/MarginContainer/VBoxContainer"]
+[node name="AspectRatio" type="AspectRatioContainer" parent="Panel/MarginContainer/VBoxContainer" unique_id=62111397]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
-ratio = 1.0
-stretch_mode = 2
 
-[node name="MapTexture" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio"]
+[node name="MapTexture" type="TextureRect" parent="Panel/MarginContainer/VBoxContainer/AspectRatio" unique_id=1089334264]
 material = ExtResource("2_wmmat")
 layout_mode = 2
 mouse_filter = 2
@@ -70,7 +75,7 @@ texture = ExtResource("3_wmtex")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="RegionLabels" type="Control" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture"]
+[node name="RegionLabels" type="Control" parent="Panel/MarginContainer/VBoxContainer/AspectRatio/MapTexture" unique_id=1061466252]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0

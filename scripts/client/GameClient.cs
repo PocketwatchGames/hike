@@ -9,6 +9,8 @@ public partial class GameClient : Node3D
 
 	[Export] public GameCamera camera;
 	[Export] public Hud hud;
+	[Export] public WorldMapScreen worldMapScreen;
+	[Export] public InventoryScreen inventoryScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
 	[Export] public MeshInstance3D bloomQuad;
@@ -173,7 +175,6 @@ public partial class GameClient : Node3D
 	// to the speaker's HudAnchor.
 	public Action<Mob, string, ulong> onMobChatter;
 	public Action<bool> onPauseToggled;
-	public Action<bool> onMapToggled;
 	public Action onQuitToMenu;
 
 	// Fired when the player enters a named region (CurrentRegion null →
@@ -200,7 +201,12 @@ public partial class GameClient : Node3D
 	Vector3 _currentRegionEnterPos;
 
 	public bool paused { get; private set; } = false;
-	public bool MapOpen { get; private set; } = false;
+	// Single gate that any input-consuming modal (signpost, map, inventory)
+	// flips when it opens and clears when it closes. Players sees this and
+	// skips ProcessInput; _UnhandledInput sees it and drops gameplay input.
+	// World.Tick keeps running regardless so the runner can still advance a
+	// consumable-use action started from the inventory screen.
+	public bool InputSuppressed { get; set; } = false;
 	public Player Player => _player;
 	public World World => _world;
 
@@ -292,28 +298,28 @@ public partial class GameClient : Node3D
 
 	public override void _Process(double deltaTime)
 	{
-		if (_player == null || ConsoleUI.IsOpen || paused || MapOpen)
+		if (_player == null || ConsoleUI.IsOpen || paused)
 		{
 			return;
 		}
 		_world.Tick(deltaTime);
 		UpdateRegion(deltaTime);
 
-		// Signpost-panel modal: while open, the Interact press only closes
-		// the panel and the player is held still. Capturing the press here
-		// (before ProcessInput) keeps the same press from immediately
-		// reopening the same signpost via _highlightInteractive. Camera
-		// and rendering keep updating below.
-		bool signpostOpen = hud != null && hud.IsSignpostOpen;
-		if (signpostOpen)
+		// Signpost panel shares the Interact key with the gameplay press that
+		// opens it. The close has to be caught here (before ProcessInput) so
+		// the same press doesn't fall through and immediately retrigger an
+		// interaction via _highlightInteractive. Other modals close on
+		// ui_cancel in their own _UnhandledInput, which has no such conflict.
+		if (hud != null && hud.IsSignpostOpen && Input.IsActionJustPressed("Interact"))
 		{
-			if (Input.IsActionJustPressed("Interact"))
-			{
-				hud.CloseSignpost();
-			}
+			hud.CloseSignpost();
 		}
-		else
+		else if (!InputSuppressed)
 		{
+			// Any modal that wants to block gameplay input flips
+			// InputSuppressed in its Open(); World.Tick keeps running so a
+			// consumable-use action started from the inventory screen can
+			// still advance through the runner.
 			_player.ProcessInput(camera.Yaw);
 		}
 
@@ -593,23 +599,6 @@ public partial class GameClient : Node3D
 	{
 		base._UnhandledInput(e);
 
-		// Map screen takes priority while open: ui_cancel closes it,
-		// the Map action is absorbed (so a re-press doesn't fall through
-		// to gameplay), and every other gameplay input is dropped.
-		if (MapOpen)
-		{
-			if (e.IsActionPressed("ui_cancel"))
-			{
-				CloseMap();
-				GetViewport().SetInputAsHandled();
-			}
-			else if (e.IsActionPressed("Map"))
-			{
-				GetViewport().SetInputAsHandled();
-			}
-			return;
-		}
-
 		if (e.IsActionPressed("TogglePause"))
 		{
 			TogglePause();
@@ -617,14 +606,26 @@ public partial class GameClient : Node3D
 			return;
 		}
 
-		if (paused)
+		// While paused, or while any input-consuming modal is up, gameplay
+		// input is dropped. Modal-close keys (ui_cancel for map/inventory,
+		// Interact for signpost) fall through to the modal itself in its
+		// own _UnhandledInput or to GameClient._Process — see InputSuppressed
+		// gate below.
+		if (paused || InputSuppressed)
 		{
 			return;
 		}
 
-		if (e.IsActionPressed("Map"))
+		if (e.IsActionPressed("Map") && worldMapScreen != null)
 		{
-			OpenMap();
+			worldMapScreen.Open();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
+
+		if (e.IsActionPressed("Inventory") && inventoryScreen != null)
+		{
+			inventoryScreen.Open();
 			GetViewport().SetInputAsHandled();
 			return;
 		}
@@ -821,26 +822,6 @@ public partial class GameClient : Node3D
 	{
 		paused = !paused;
 		onPauseToggled?.Invoke(paused);
-	}
-
-	public void OpenMap()
-	{
-		if (MapOpen)
-		{
-			return;
-		}
-		MapOpen = true;
-		onMapToggled?.Invoke(true);
-	}
-
-	public void CloseMap()
-	{
-		if (!MapOpen)
-		{
-			return;
-		}
-		MapOpen = false;
-		onMapToggled?.Invoke(false);
 	}
 
 	public void Save()

@@ -379,13 +379,13 @@ public partial class World : Node3D
         );
     }
 
-    public AutoLoot SpawnLoot(Vector3 position, Vector3 impulse, LootData lootData)
+    public AutoLoot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
     {
-        if (lootData == null || lootData.Scene == null)
+        if (item == null || item.Scene == null)
         {
             return null;
         }
-        var simState = new LootSimState(position, lootData);
+        var simState = new LootSimState(position, item);
         _worldState.AddEntity(simState);
         AutoLoot loot = AutoLoot.Create(this, simState, impulse);
 
@@ -400,21 +400,24 @@ public partial class World : Node3D
         return loot;
     }
 
-    // Spawn an AutoLoot carrying a specific ItemState (player-dropped item
-    // path). The item is held on the sim state; pickup deposits it into the
-    // picker's inventory via AutoLoot.PickUp. The LootData supplies both the
-    // physical pickup scene and the auto-pickup behavior.
-    public AutoLoot DropItem(ItemState item, Vector3 position, Vector3 impulse, LootData lootData)
+    // Spawn a pickup carrying a specific ItemState (player-dropped item path).
+    // Mirrors LootSimState.CreateEntity's branching: ItemData.AutoPickup picks
+    // between AutoLoot (walk over to collect) and Loot (press Interact). The
+    // item is held on the sim state; pickup deposits it into the picker's
+    // inventory. Null Scene means the item isn't authored as droppable.
+    public Node3D DropItem(ItemState item, Vector3 position, Vector3 impulse)
     {
-        if (item == null || lootData == null || lootData.Scene == null)
+        if (item == null || item.data == null || item.data.Scene == null)
         {
             return null;
         }
 
-        var simState = new LootSimState(position, lootData);
+        var simState = new LootSimState(position, item.data);
         simState.Item = item;
         _worldState.AddEntity(simState);
-        AutoLoot loot = AutoLoot.Create(this, simState, impulse);
+        Node3D pickup = item.data.AutoPickup
+            ? AutoLoot.Create(this, simState, impulse)
+            : Loot.Create(this, simState, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
@@ -422,9 +425,9 @@ public partial class World : Node3D
             entities = new List<Node3D>();
             _activeEntities[coord] = entities;
         }
-        RegisterEntity(loot, entities, simState);
+        RegisterEntity(pickup, entities, simState);
 
-        return loot;
+        return pickup;
     }
 
     // Spawn a transient footprint decal at `position`. Parented directly to

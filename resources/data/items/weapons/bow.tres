@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b6n2vvhvirjdk"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
+[ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="1_of4bb"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
@@ -80,3 +81,5 @@ maxAmmo = 5
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
 inventorySprite = ExtResource("15_tnjmy")
+Scene = ExtResource("1_of4bb")
+AutoPickup = false
