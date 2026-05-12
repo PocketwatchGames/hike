@@ -1,31 +1,37 @@
 [gd_scene format=3 uid="uid://byjufllnj0ow2"]
 
 [ext_resource type="Script" uid="uid://d3jeapewa8mkj" path="res://scripts/gui/DiscoverableHud.cs" id="1_r788d"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_xqdoc"]
-bg_color = Color(0.6, 0, 0, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-corner_detail = 6
+[ext_resource type="Texture2D" uid="uid://o5hwqlxrrmty" path="res://assets/textures/gui/mob_hud_bg.png" id="2_xk1ci"]
+[ext_resource type="Texture2D" uid="uid://ckqpyp83mscdd" path="res://assets/textures/gui/mob_hud_discovery.png" id="3_2gcaj"]
+[ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="4_c4vyv"]
 
 [node name="DiscoverableHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_perceptionBar")]
 script = ExtResource("1_r788d")
-_perceptionBar = NodePath("Perception")
+_perceptionBar = NodePath("Discovery")
 
-[node name="Perception" type="ProgressBar" parent="." unique_id=1204843325]
-anchors_preset = 7
-anchor_left = 0.5
-anchor_top = 1.0
-anchor_right = 0.5
+[node name="Background" type="TextureRect" parent="." unique_id=448291154]
+anchors_preset = 15
+anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -8.0
-offset_top = -16.0
-offset_right = 8.0
 grow_horizontal = 2
-grow_vertical = 0
-theme_override_styles/fill = SubResource("StyleBoxFlat_xqdoc")
+grow_vertical = 2
+texture = ExtResource("2_xk1ci")
+
+[node name="Discovery" type="TextureProgressBar" parent="." unique_id=615995239]
+offset_left = -24.0
+offset_top = -23.0
+offset_right = 24.0
+offset_bottom = 25.0
 max_value = 1.0
+step = 0.01
+value = 0.2
 fill_mode = 3
-show_percentage = false
+texture_progress = ExtResource("3_2gcaj")
+
+[node name="Foreground" type="TextureRect" parent="." unique_id=1472550015]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("4_c4vyv")

@@ -100,9 +100,9 @@ public class MobSimState : EntitySimState
         SpawnRotationY = spawnRotationY;
         MobData = mobData;
         Alive = true;
-        MaxHealth = 1f;
-        Health = 1f;
-        Armor = mobData?.maxArmor ?? 0f;
+        MaxHealth = mobData.maxHealth;
+        Health = mobData.maxHealth;
+        Armor = mobData.maxArmor;
         PlayerPerception = 0f;
         DiscoveryState = EPlayerPerceptionState.Hidden;
         MemoryTimeMs = 0;

@@ -95,18 +95,16 @@ public partial class DebugDrawRenderer : Node3D
     {
         // Tick lifetimes BEFORE rendering so a fresh single-frame segment
         // (added with remaining=0 between frames) renders this frame and
-        // is then cleaned up at the top of next frame. Segments added
-        // during _Process by other nodes will get their first render
-        // here; that's fine — they'll have remaining=0 and be cleaned
-        // out next frame.
+        // is then cleaned up at the top of next frame. The cull check is
+        // strict < 0 so a just-added remaining=0 segment survives one
+        // render, gets decremented to negative here, then is removed on
+        // the next pass.
         float dt = (float)delta;
         for (int i = _segments.Count - 1; i >= 0; i--)
         {
             Segment s = _segments[i];
-            if (s.remaining <= 0f)
+            if (s.remaining < 0f)
             {
-                // Drawn last frame already (or freshly added with no
-                // lifetime). Remove via swap-pop.
                 _segments[i] = _segments[_segments.Count - 1];
                 _segments.RemoveAt(_segments.Count - 1);
                 continue;

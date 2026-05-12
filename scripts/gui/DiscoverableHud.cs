@@ -7,7 +7,7 @@ using Godot;
 // off-screen handling is identical.
 public partial class DiscoverableHud : Node2D
 {
-    [Export] private ProgressBar _perceptionBar;
+    [Export] private TextureProgressBar _perceptionBar;
 
     private Camera3D _camera;
     private Discoverable _discoverable;

@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public class DoorSimState : EntitySimState
 {
@@ -73,10 +74,10 @@ public class ChestSimState : EntitySimState
         return Chest.Create(world, this);
     }
 
-    public override Vector3I? PathBlockerCell => new Vector3I(
-        Mathf.FloorToInt(WorldPosition.X),
-        Mathf.FloorToInt(WorldPosition.Y),
-        Mathf.FloorToInt(WorldPosition.Z));
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
 }
 
 public class BerryTreeSimState : EntitySimState
@@ -99,10 +100,10 @@ public class BerryTreeSimState : EntitySimState
         return BerryTree.Create(world, this);
     }
 
-    public override Vector3I? PathBlockerCell => new Vector3I(
-        Mathf.FloorToInt(WorldPosition.X),
-        Mathf.FloorToInt(WorldPosition.Y),
-        Mathf.FloorToInt(WorldPosition.Z));
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
 }
 
 public class TrapSimState : EntitySimState

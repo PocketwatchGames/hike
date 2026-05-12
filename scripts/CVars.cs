@@ -135,7 +135,7 @@ public static class CVars
 
     // When true, Mob._PhysicsProcess prints yaw/angular-velocity diagnostics
     // each frame for alive mobs. Used to diagnose yaw oscillation.
-    public static CVarBool debugMobYaw = new CVarBool("debug_mob_yaw", false);
+    public static CVarBool mobDebugYaw = new CVarBool("mob_debug_yaw", false);
 
     // When true, Fx prints a line each time it starts an audio
     // player — scene name, stream resource path, and a wall-clock timestamp.
@@ -148,14 +148,14 @@ public static class CVars
     // DebugDraw — green for upcoming waypoints, yellow for the current
     // segment from the mob to its next waypoint, red dot at the goal.
     // Off by default; toggle from the in-game console.
-    public static CVarBool debugMobPath = new CVarBool("debug_mob_path", false);
+    public static CVarBool mobDebugPath = new CVarBool("mob_debug_path", false);
 
     // When true, Mob._PhysicsProcess prints a diagnostic line each time the
     // torch-conditions block runs — ambientLight, useTorch, discovery state,
     // playerRemembers, and whether _torch / MobData.torch are populated. Use
     // when goblins fail to light their torches to see which gating step is
     // blocking the spawn.
-    public static CVarBool debugMobTorch = new CVarBool("debug_mob_torch", false);
+    public static CVarBool mobDebugTorch = new CVarBool("mob_debug_torch", false);
 
     // Generic CPU section profiler. While `profile` is true, code sections
     // wrapped in Profiler.Section.Begin/End record per-section call count,
@@ -311,7 +311,7 @@ public static class CVars
     public static CVarBool detailsVisible = new CVarBool("details_visible", true);
 
     // Log per-chunk active cell / quad counts from the DC mesher.
-    public static CVarBool debugDC = new CVarBool("debug_dc", false, (cvar) =>
+    public static CVarBool dcDebug = new CVarBool("dc_debug", false, (cvar) =>
     {
         ChunkMesherDC.DebugLog = ((CVarBool)cvar).Value;
     });

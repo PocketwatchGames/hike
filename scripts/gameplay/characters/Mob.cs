@@ -788,14 +788,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
             _runner?.Tick();
 
-            // Draw the navigator's current path when the debug CVar is on.
+            // Draw the mob's active movement target when the debug CVar is on.
             // Single-frame lifetime — this is called every physics tick so
-            // the path stays visible without accumulating stale segments.
-            // Visualization: yellow from the mob to its next waypoint, then
-            // green for upcoming waypoints, with a red sphere at the goal.
-            if (CVars.debugMobPath.Value && _navigator != null)
+            // the line stays visible without accumulating stale segments.
+            // Visualizes aiOutput.pathTarget (the single contract every
+            // behavior writes to move the mob) so any new behavior shows
+            // up here for free without its own debug code.
+            if (CVars.mobDebugPath.Value)
             {
-                DrawPathDebug();
+                DrawPathDebug(aiOutput.pathTarget);
             }
 
             using var _profPostTick = Profiler.Sample("Mob.PostTickMove");
@@ -857,7 +858,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     Rotation = new Vector3(currentRot.X, currentRot.Y + step, currentRot.Z);
                 }
 
-                if (CVars.debugMobYaw.Value)
+                if (CVars.mobDebugYaw.Value)
                 {
                     GD.Print($"[yaw] {Name} target={targetYaw.Value:F3} cur={currentRot.Y:F3} delta={yawDelta:F3} step={step:F3} behavior={_curBehavior}");
                 }
@@ -944,7 +945,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Die() since this block doesn't run for dead mobs.
             bool playerRemembers = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
                 && _simState.MemoryTimeMs > _world.GameTimeMs;
-            if (CVars.debugMobTorch.Value)
+            if (CVars.mobDebugTorch.Value)
             {
                 MobData md = _simState.MobData;
                 string mdState = md == null ? "null" : (md.movingLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.movingLightScene.ResourcePath}");
@@ -1408,45 +1409,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Lifted slightly off the surface so paths don't z-fight with the
     // ground mesh on flat terrain. Single-frame lifetime — relies on this
     // method being called every physics tick to stay on screen.
-    private void DrawPathDebug()
+    private void DrawPathDebug(Vector3? pathTarget)
     {
-        const float Lift = 0.15f;
-        var waypoints = _navigator.Waypoints;
-        Vector3 mobPos = GlobalPosition + new Vector3(0f, Lift, 0f);
-
-        if (waypoints == null || waypoints.Count == 0)
+        if (!pathTarget.HasValue)
         {
-            // No path yet — if the navigator has a goal, draw a single
-            // dashed-style segment from the mob to the goal so we can see
-            // it's trying. Use a darker shade to distinguish from a real
-            // routed path.
-            if (_navigator.CurrentState != MobNavigator.State.Idle)
-            {
-                Vector3 goal = _navigator.Goal + new Vector3(0f, Lift, 0f);
-                DebugDraw.Line(mobPos, goal, new Color(0.5f, 0.5f, 0.5f));
-                DebugDraw.Sphere(_navigator.Goal + new Vector3(0f, Lift, 0f), 0.3f, new Color(1f, 0.3f, 0.3f));
-            }
             return;
         }
-
-        int idx = _navigator.WaypointIndex;
-        // Mob → current waypoint: yellow (the segment actively being
-        // walked). Subsequent waypoints: green polyline.
-        Color current = new(1f, 0.85f, 0.1f);
-        Color upcoming = new(0.2f, 0.9f, 0.3f);
-
-        Vector3 prev = mobPos;
-        for (int i = idx; i < waypoints.Count; i++)
-        {
-            Vector3 wp = waypoints[i] + new Vector3(0f, Lift, 0f);
-            DebugDraw.Line(prev, wp, i == idx ? current : upcoming);
-            prev = wp;
-        }
-        // Goal sphere at the last waypoint so it's easy to spot.
-        if (waypoints.Count > 0)
-        {
-            DebugDraw.Sphere(waypoints[waypoints.Count - 1] + new Vector3(0f, Lift, 0f), 0.25f, new Color(1f, 0.3f, 0.3f));
-        }
+        const float Lift = 0.15f;
+        Vector3 mobPos = GlobalPosition + new Vector3(0f, Lift, 0f);
+        Vector3 target = pathTarget.Value + new Vector3(0f, Lift, 0f);
+        DebugDraw.Line(mobPos, target, new Color(1f, 0.85f, 0.1f));
+        DebugDraw.Sphere(target, 0.25f, new Color(1f, 0.3f, 0.3f));
     }
 
 }

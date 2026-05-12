@@ -1,26 +1,25 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://cuqyeyeg5imfv"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="uid://bmexg1iyjueyk" path="res://assets/textures/props/decor_desert.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 
-
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
-height = 5.7564
-radius = 2.4354
+height = 3.0
+radius = 2.0
 
-[node name="PropInstance" type="Node3D"]
+[node name="PropInstance" type="Node3D" unique_id=1186425889]
 script = ExtResource("1_prop")
 
-[node name="Body" type="StaticBody3D" parent="."]
+[node name="Body" type="StaticBody3D" parent="." unique_id=867682873]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.8782, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=843171230]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 0)
 shape = SubResource("CylinderShape3D_body")
 
-[node name="Sprite" type="Sprite3D" parent="."]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=833444207]
 centered = false
-offset = Vector2(-33.0, 0)
+offset = Vector2(-33, 0)
 pixel_size = 0.0738
 texture = ExtResource("2_decor")
 region_enabled = true

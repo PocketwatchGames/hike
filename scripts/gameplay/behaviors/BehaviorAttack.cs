@@ -90,14 +90,14 @@ public partial class BehaviorAttack : BehaviorBase
         // Standoff via encircle slot. Each mob leases one angular slot
         // around the current target; PickStandoffPoint resolves it to a
         // walkable, line-of-sight world point that the navigator paths
-        // toward. Far-out mobs (outside approachRange) just barrel toward
-        // the last known position so they don't waste a slot resolution
-        // when they aren't even close to the ring yet.
+        // toward. Far-out mobs (outside approachRange) just head for the
+        // last known position so they don't waste a slot resolution
+        // when they aren't even close to the ring yet. Both paths route
+        // through MobNavigator so A* steers around obstacles; allowFalling
+        // lets a chase drop off a ledge the mob can't climb back up.
         if (dist2d > _data.approachRange)
         {
-            output.pathTarget = targetPerception.lastKnownPosition;
-            output.pathSuccessDistance = 0.5f;
-            output.speed = 1f;
+            me.Navigator.Goto(targetPerception.lastKnownPosition, allowFalling: true);
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
@@ -121,9 +121,7 @@ public partial class BehaviorAttack : BehaviorBase
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
             standoff = NavigationGoals.PickStandoffPoint(world, target.GlobalPosition, standoffDistance, slotAngle);
         }
-        output.pathTarget = standoff;
-        output.pathSuccessDistance = 0.5f;
-        output.speed = 1f;
+        me.Navigator.Goto(standoff, allowFalling: true);
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 

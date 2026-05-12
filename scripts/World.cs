@@ -542,14 +542,32 @@ public partial class World : Node3D
                 }
             };
         }
-        if (state?.PathBlockerCell is Vector3I cell)
+        if (state != null)
         {
-            AddPathBlocker(cell);
-            // Capture the cell so removal is automatic regardless of why the
-            // node leaves the tree (chunk eviction, editor delete, scene
-            // teardown). World outlives its child entities, so the closure's
-            // implicit `this` is safe.
-            entity.TreeExiting += () => RemovePathBlocker(cell);
+            // Refcounted: each blocker entity adds 1 to every cell it
+            // occupies, and removes 1 on TreeExiting. Overlapping props (a
+            // chest tucked next to a tree, two adjacent trees sharing a cell)
+            // keep the cell blocked until the last owner leaves.
+            List<Vector3I> blockerCells = new();
+            state.GetPathBlockerCells(entity, blockerCells);
+            if (blockerCells.Count > 0)
+            {
+                for (int i = 0; i < blockerCells.Count; i++)
+                {
+                    AddPathBlocker(blockerCells[i]);
+                }
+                // Capture so removal is automatic regardless of why the node
+                // leaves the tree (chunk eviction, editor delete, scene
+                // teardown). World outlives its child entities, so the
+                // closure's implicit `this` is safe.
+                entity.TreeExiting += () =>
+                {
+                    for (int i = 0; i < blockerCells.Count; i++)
+                    {
+                        RemovePathBlocker(blockerCells[i]);
+                    }
+                };
+            }
         }
         entities.Add(entity);
     }

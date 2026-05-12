@@ -1,12 +1,12 @@
 using Godot;
-using System;
+using Godot.Collections;
 
 public partial class MobHUD : Node2D
 {
-	[Export] private ProgressBar _healthBar;
-	[Export] private ProgressBar _armorBar;
-	[Export] private ProgressBar _aggroBar;
-	[Export] private ProgressBar _perceptionBar;
+	[Export] private TextureProgressBar _healthBar;
+	[Export] private Array<TextureRect> _armorTextures;
+	[Export] private TextureProgressBar _aggroBar;
+	[Export] private TextureProgressBar _perceptionBar;
 
 	Camera3D _camera;
 	Mob _mob;
@@ -46,10 +46,6 @@ public partial class MobHUD : Node2D
 		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
 		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
 		_healthBar.Visible = (_mob.triggered || (_mob.playerCanSee && (_mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor))) && !_mob.burrowed;
-		if (_armorBar != null)
-		{
-			_armorBar.Visible = _mob.maxArmor > 0f && _healthBar.Visible;
-		}
 		if (!_aggroBar.Visible && !_perceptionBar.Visible && !_healthBar.Visible)
 		{
 			Visible = false;
@@ -64,11 +60,28 @@ public partial class MobHUD : Node2D
 			_healthBar.MaxValue = _mob.maxHealth;
 			_healthBar.Value = _mob.health;
 		}
-		if (_armorBar != null)
+		int activeArmorIndex = -1;
+		if (_healthBar.Visible && _mob.maxArmor > 0f && _mob.armor > 0f)
 		{
-			_armorBar.MinValue = 0;
-			_armorBar.MaxValue = _mob.maxArmor > 0f ? _mob.maxArmor : 1f;
-			_armorBar.Value = _mob.armor;
+			float armorPercent = _mob.armor / _mob.maxArmor;
+			if (armorPercent >= 1f)
+			{
+				activeArmorIndex = 4;
+			}
+			else
+			{
+				activeArmorIndex = Mathf.Clamp((int)Mathf.Floor(armorPercent * 4f), 0, 3);
+			}
+		}
+		if (_armorTextures != null)
+		{
+			for (int i = 0; i < _armorTextures.Count; i++)
+			{
+				if (_armorTextures[i] != null)
+				{
+					_armorTextures[i].Visible = i == activeArmorIndex;
+				}
+			}
 		}
 		if (_aggroBar != null)
 		{

@@ -35,11 +35,14 @@ public abstract class EntitySimState
     // Not serialized — purely runtime bookkeeping.
     public Node3D RuntimeNode;
 
-    // The voxel cell this entity occupies for the purposes of mob pathfinding,
-    // or null if it doesn't block walkability. World registers/unregisters this
-    // cell as the entity spawns/despawns; the walkability sampler treats any
-    // surface column whose stand-in cells are blocked as unwalkable. Only
-    // entities with a meaningful physical footprint (trees, chests) should
-    // override — pickups, decorative grass, and torches return null.
-    public virtual Vector3I? PathBlockerCell => null;
+    // Voxel cells this entity occupies for the purposes of mob pathfinding.
+    // World refcount-registers each cell on spawn and decrements on
+    // TreeExiting, so overlapping props (e.g. a chest tucked against a tree)
+    // keep the union of their cells blocked until the last entity leaves.
+    // The walkability sampler treats any surface column whose stand-in cells
+    // are blocked as unwalkable. Default: emit nothing — only entities with
+    // a meaningful physical footprint should override. `entity` is the live
+    // runtime node, so shape-derived implementations (e.g. trees rasterizing
+    // their cylinder collider) can read its CollisionShape3D directly.
+    public virtual void GetPathBlockerCells(Node3D entity, System.Collections.Generic.List<Vector3I> outCells) { }
 }

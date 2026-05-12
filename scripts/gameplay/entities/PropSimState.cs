@@ -1,4 +1,5 @@
 using Godot;
+using System.Collections.Generic;
 
 public class PropSimState : EntitySimState
 {
@@ -33,18 +34,18 @@ public class PropSimState : EntitySimState
         };
     }
 
-    public override Vector3I? PathBlockerCell
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
     {
-        get
+        if (Type != PropType.Tree)
         {
-            if (Type != PropType.Tree)
-            {
-                return null;
-            }
-            return new Vector3I(
-                Mathf.FloorToInt(WorldPosition.X),
-                Mathf.FloorToInt(WorldPosition.Y),
-                Mathf.FloorToInt(WorldPosition.Z));
+            return;
         }
+        // Trees have a CylinderShape3D collider with radius ~1.0–1.5m,
+        // physically covering 3×3 (or 5×5) voxel cells around the trunk.
+        // The older single-cell registration left A* routing mobs through
+        // the adjacent cells the cylinder still blocks; the rasterizer
+        // walks every Environment-layer collider on the entity and emits
+        // the union of their footprints.
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }

@@ -61,7 +61,7 @@ queueWindowSeconds = 0.2
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
-healthDamage = 0.5
+healthDamage = 3.0
 statusEffects = null
 
 [resource]
