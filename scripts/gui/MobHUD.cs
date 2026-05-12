@@ -5,8 +5,8 @@ public partial class MobHUD : Node2D
 {
 	[Export] private TextureProgressBar _healthBar;
 	[Export] private Array<TextureRect> _armorTextures;
-	[Export] private TextureProgressBar _aggroBar;
 	[Export] private TextureProgressBar _perceptionBar;
+	[Export] private TextureProgressBar _discoveryBar;
 
 	Camera3D _camera;
 	Mob _mob;
@@ -43,10 +43,10 @@ public partial class MobHUD : Node2D
 			return;
 		}
 
-		_aggroBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
-		_perceptionBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-		_healthBar.Visible = (_mob.triggered || (_mob.playerCanSee && (_mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor))) && !_mob.burrowed;
-		if (!_aggroBar.Visible && !_perceptionBar.Visible && !_healthBar.Visible)
+		_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
+		_perceptionBar.Visible = _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
+		_healthBar.Visible = _mob.triggered && !_mob.burrowed;
+		if (!_perceptionBar.Visible && !_discoveryBar.Visible && !_healthBar.Visible)
 		{
 			Visible = false;
 			return;
@@ -83,13 +83,13 @@ public partial class MobHUD : Node2D
 				}
 			}
 		}
-		if (_aggroBar != null)
-		{
-			_aggroBar.Value = _mob.perception;
-		}
 		if (_perceptionBar != null)
 		{
-			_perceptionBar.Value = _mob.perceptionProgress;
+			_perceptionBar.Value = _mob.perception;
+		}
+		if (_discoveryBar != null)
+		{
+			_discoveryBar.Value = _mob.discoveryProgress;
 		}
 	}
 

@@ -12,12 +12,12 @@
 [ext_resource type="Texture2D" uid="uid://ckqpyp83mscdd" path="res://assets/textures/gui/mob_hud_discovery.png" id="10_p45vd"]
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="11_x8n20"]
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorTextures", "_aggroBar", "_perceptionBar")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorTextures", "_perceptionBar", "_discoveryBar")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
 _armorTextures = [NodePath("Control/Armor1"), NodePath("Control/Armor2"), NodePath("Control/Armor3"), NodePath("Control/Armor4"), NodePath("Control/Armor5")]
-_aggroBar = NodePath("Perception")
-_perceptionBar = NodePath("Discovery")
+_perceptionBar = NodePath("Perception")
+_discoveryBar = NodePath("Discovery")
 
 [node name="Background" type="TextureRect" parent="." unique_id=240532080]
 anchors_preset = 15

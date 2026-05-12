@@ -79,7 +79,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the dither pattern a chance to resolve rather than popping.
     private const float VisibilityFadeTime = 0.3f;
 
-    public float perceptionProgress
+    public float discoveryProgress
     {
         get
         {
