@@ -1,7 +1,27 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://cjvf30nl7ddfv"]
 
-[ext_resource type="Script" path="res://scripts/data/RecipeInput.cs" id="1_bh5ab"]
-[ext_resource type="Script" path="res://scripts/data/RecipeData.cs" id="2_gna3y"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/RecipeInput.cs" id="1_bh5ab"]
+[ext_resource type="Resource" uid="uid://c7napd2qkx8vt" path="res://resources/data/items/loot/berry_purple.tres" id="2_5hmlk"]
+[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="2_gna3y"]
+[ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="3_a7oo5"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="4_y2ey5"]
+[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="5_ipkd8"]
+
+[sub_resource type="Resource" id="Resource_mflev"]
+script = ExtResource("1_bh5ab")
+item = ExtResource("2_5hmlk")
+count = 2
+minCountRange = -1
+maxCountRange = 1
+metadata/_custom_type_script = "uid://7alstngwip3e"
+
+[sub_resource type="Resource" id="Resource_fdwdh"]
+script = ExtResource("1_bh5ab")
+item = ExtResource("3_a7oo5")
+metadata/_custom_type_script = "uid://7alstngwip3e"
 
 [resource]
 script = ExtResource("2_gna3y")
+outputHighQuality = ExtResource("4_y2ey5")
+outputStandard = ExtResource("5_ipkd8")
+inputs = Array[ExtResource("1_bh5ab")]([SubResource("Resource_mflev"), SubResource("Resource_fdwdh")])

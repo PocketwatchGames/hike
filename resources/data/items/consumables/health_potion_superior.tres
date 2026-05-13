@@ -1,0 +1,45 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://cvf5c3uphf55d"]
+
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="1_gdqt6"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_qvsyu"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_smk86"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_xext6"]
+[ext_resource type="Resource" uid="uid://bx03scg2f2668" path="res://resources/data/status_effects/status_heal_superior.tres" id="5_gdqt6"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_uhmpx"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="7_5unc7"]
+[ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="8_b3uw6"]
+[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/ConsumableData.cs" id="9_7l8j2"]
+[ext_resource type="Texture2D" uid="uid://d1e6kk71hv51d" path="res://assets/textures/items/pickups/Potion_red.png" id="10_nixa3"]
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("1_gdqt6")
+type = 64
+
+[sub_resource type="Resource" id="Resource_apply_heal"]
+script = ExtResource("4_xext6")
+statusEffect = ExtResource("5_gdqt6")
+
+[sub_resource type="Resource" id="Resource_event_apply_decrement"]
+script = ExtResource("1_gdqt6")
+type = 24
+effects = Array[ExtResource("2_qvsyu")]([SubResource("Resource_apply_heal")])
+
+[sub_resource type="Resource" id="Resource_charged"]
+script = ExtResource("3_smk86")
+chargeTime = 1.5
+events = Array[ExtResource("1_gdqt6")]([SubResource("Resource_event_apply_decrement")])
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("7_5unc7")
+chargedActions = Array[ExtResource("3_smk86")]([SubResource("Resource_charged")])
+chargeEvents = Array[ExtResource("1_gdqt6")]([SubResource("Resource_event_anim")])
+locksMovement = true
+
+[resource]
+script = ExtResource("9_7l8j2")
+actionProfile = SubResource("Resource_profile")
+displayName = &"Superior Health Potion"
+description = "Heals you right up!"
+maxStack = 5
+inventorySprite = ExtResource("8_b3uw6")
+worldSprite = ExtResource("10_nixa3")

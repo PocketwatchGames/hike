@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://dn1uamwxkqjal"]
+
+[ext_resource type="Texture2D" uid="uid://whcsmapxod45" path="res://assets/textures/items/Armor.png" id="1_pan60"]
+
+[node name="Button" type="Button" unique_id=753642782]
+custom_minimum_size = Vector2(0, 32)
+text = "Health Potion"
+icon = ExtResource("1_pan60")
+alignment = 0
+expand_icon = true

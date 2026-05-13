@@ -2,12 +2,16 @@ using Godot;
 using System.Collections.Generic;
 using Godot.Collections;
 
-// The interactive inventory body — slots, button hints, and the verb logic
-// (equip / use / drop). Authored as its own scene so the modal wrapper
-// (InventoryScreen) can stay focused on open/close lifecycle and InputSuppressed
-// plumbing. The panel is dormant until InventoryScreen.Open() calls Bind(player)
-// on it; Unbind() detaches it from the player's inventory signals and stops
-// reacting to input.
+// The interactive inventory body — slot grid, button hints, focus tracking,
+// and the input plumbing that turns presses into verb callbacks. The panel
+// itself owns NO verb behavior; the controlling screen (InventoryScreen for
+// gameplay equip/use/drop, CookingScreen for cook/drop) wires
+// onPrimaryTap / onPrimaryHoldComplete / onSecondaryPressed / onSecondaryReleased /
+// onDropTap / onDropHoldComplete plus the button-hint labels so this script
+// can be reused under any modal that lays out the player's items.
+//
+// The panel is dormant until the screen calls Bind(player) on it; Unbind()
+// detaches from inventory signals and stops reacting to input.
 [GlobalClass]
 public partial class InventoryPanel : Control
 {
@@ -17,50 +21,85 @@ public partial class InventoryPanel : Control
 	[Export] private ItemSlotPanel _weaponRightPanel;
 	[Export] private Array<ItemSlotPanel> _consumablePanels;
 	[Export] private Array<ItemSlotPanel> _backpackPanels;
-	[Export] private ButtonHint _buttonHintEquip;
-	[Export] private ButtonHint _buttonHintUse;
+	[Export] private ButtonHint _buttonHintPrimary;
+	[Export] private ButtonHint _buttonHintSecondary;
 	[Export] private ButtonHint _buttonHintDrop;
 
-	// Input actions wired to the three menu verbs. Equip rides on the slot
-	// button's own Pressed signal (ui_accept / mouse click), so we only need
-	// custom actions for the Use hold and the half-second Drop hold.
-	[Export] private StringName _equipHintAction = "ui_accept";
-	[Export] private StringName _useAction = "UseItem";
+	// Input actions surfaced as button-hint glyphs. The Primary action drives
+	// ui_accept tap/hold detection through ButtonDown/ButtonUp on each slot;
+	// Secondary uses a custom action with press/release semantics; Drop uses
+	// a custom action with tap/hold semantics.
+	[Export] private StringName _primaryAction = "ui_accept";
+	[Export] private StringName _secondaryAction = "UseItem";
 	[Export] private StringName _dropAction = "Drop";
 
 	// Fires whenever the focused slot's currently-displayed ItemState changes —
 	// either because focus moved to a different slot, or because the focused
-	// slot's contents were mutated (used / dropped / equipped) and Refresh
-	// re-bound a different item to the same panel. ItemState may be null when
-	// the focused slot is empty or no slot has focus. InventoryScreen forwards
-	// this to the side ItemInfoPanel.
-	public System.Action<ItemState> onFocusedItemChanged;
+	// slot's contents mutated (used / dropped / equipped) and Refresh re-bound
+	// a different item to the same panel. Screen subscribes to refresh the
+	// side info panel AND update verb button-hint labels (e.g. Equip ↔ Unequip).
+	public System.Action<ItemSlotPanel, ItemState> onFocusedItemChanged;
 
-	// Fires when the drop key has been held past DropHoldSeconds on a focused
-	// item. InventoryScreen pops the DropCountPanel in response. Tap-drop
-	// (release before threshold) is handled internally — drops a single unit
-	// directly and does not fire this signal.
-	public System.Action<ItemState> onDropHoldComplete;
+	// Verb callbacks — wired by the controlling screen. null = the panel
+	// silently ignores that verb (no progress fill, no fire). Hold callbacks
+	// are independent of tap callbacks: a tap-only verb leaves the hold one
+	// null and never accumulates a hold timer.
+	public System.Action<ItemSlotPanel, ItemState> onPrimaryTap;
+	public System.Action<ItemSlotPanel, ItemState> onPrimaryHoldComplete;
+	public System.Action<ItemSlotPanel, ItemState> onSecondaryPressed;
+	public System.Action onSecondaryReleased;
+	public System.Action<ItemSlotPanel, ItemState> onDropTap;
+	public System.Action<ItemSlotPanel, ItemState> onDropHoldComplete;
 
-	// External gate flipped by InventoryScreen while the DropCountPanel is up.
-	// Suspends drop hold/tap processing so the still-held key doesn't re-fire
-	// the hold once the sub-panel is on screen.
-	public bool DropLocked { get; set; }
+	// Button hint references — screen sets `.Visible` / `.ActionName` /
+	// `.SetHint(...)` to control labels per-context. Visibility is left to
+	// the screen: the panel does NOT auto-hide hints based on item presence.
+	public ButtonHint ButtonHintPrimary => _buttonHintPrimary;
+	public ButtonHint ButtonHintSecondary => _buttonHintSecondary;
+	public ButtonHint ButtonHintDrop => _buttonHintDrop;
 
-	const float DropHoldSeconds = 0.5f;
+	public StringName PrimaryAction => _primaryAction;
+	public StringName SecondaryAction => _secondaryAction;
+	public StringName DropAction => _dropAction;
+
+	public ItemSlotPanel FocusedPanel => _focused;
+	public ItemState FocusedItem => _focused?.Item;
+	public Player Player => _player;
+	public Inventory Inventory => _inventory;
+
+	// External gate flipped by the screen while a sub-modal (count picker)
+	// is on screen. Suspends every hold/tap tick so the still-held key can't
+	// re-fire while the picker has focus.
+	public bool HoldLocked { get; set; }
+
+	const float HoldSeconds = 0.5f;
 
 	Player _player;
 	Inventory _inventory;
 	ItemSlotPanel _focused;
 	ItemState _lastFocusedItem;
+	// Currently-pressed slot for the primary verb (set on ButtonDown, cleared
+	// on ButtonUp). Drives the hold timer in _Process.
+	ItemSlotPanel _primaryPressed;
+	float _primaryHold;
+	// Latched between a successful onPrimaryHoldComplete fire and the next
+	// ButtonUp so the release isn't also treated as a tap.
+	bool _primaryHoldFired;
 	float _dropHold;
-	// True between a successful Use press and its release. Lets the release
-	// event reach the runner only when we actually started something, and lets
-	// focus changes / Unbind() abort the in-flight action cleanly.
-	bool _useStarted;
-	// Bind/Unbind gate. Slot signal subscriptions, input handling, and per-
-	// frame ticks all key off this so the panel stays inert before the screen
-	// has shown it.
+	// Latched on Bind when the Drop action was already held (e.g. the same
+	// gamepad button is bound to both Interact and Drop — pressing Y to
+	// open the campfire's cooking screen lands here with Drop reading
+	// pressed). Tick suppresses drop processing until we observe Drop
+	// released at least once, so the inherited press doesn't fire a tap
+	// or hold on the freshly-opened panel.
+	bool _dropAwaitingRelease;
+	// True between a secondary press and its release. Lets the release
+	// callback fire only when we actually started something, and lets focus
+	// changes / Unbind() abort the in-flight callback chain cleanly.
+	bool _secondaryStarted;
+	// Bind/Unbind gate. Signal subscriptions, input handling, and per-frame
+	// ticks all key off this so the panel stays inert before the screen has
+	// shown it.
 	bool _active;
 
 	public override void _Ready()
@@ -72,11 +111,12 @@ public partial class InventoryPanel : Control
 		WirePanels(_consumablePanels);
 		WirePanels(_backpackPanels);
 
-		_buttonHintEquip?.SetHint(_equipHintAction, "Equip");
-		_buttonHintUse?.SetHint(_useAction, "Use");
-		_buttonHintDrop?.SetHint(_dropAction, "Drop");
-
-		UpdateButtonHints();
+		// Seed every hint with its bound action's glyph. The screen overrides
+		// `ActionName` per-context (Equip / Cook / Use / Drop) but the glyph
+		// stays driven by the same input action regardless of the label.
+		_buttonHintPrimary?.SetHint(_primaryAction, _buttonHintPrimary.ActionName);
+		_buttonHintSecondary?.SetHint(_secondaryAction, _buttonHintSecondary.ActionName);
+		_buttonHintDrop?.SetHint(_dropAction, _buttonHintDrop.ActionName);
 	}
 
 	public override void _ExitTree()
@@ -85,6 +125,7 @@ public partial class InventoryPanel : Control
 		{
 			_inventory.onSlotChanged -= OnInventoryChanged;
 			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+			_inventory.onChanged -= OnInventoryGenericChanged;
 		}
 	}
 
@@ -114,18 +155,21 @@ public partial class InventoryPanel : Control
 			_inventory.onChanged += OnInventoryGenericChanged;
 		}
 		_active = true;
+		// Inherited-press guard: when the same physical button drives both
+		// Interact (open) and Drop (here), the press that opened the screen
+		// still reads as Drop. Latch awaiting-release so the tick below
+		// waits for a clean release before processing.
+		_dropAwaitingRelease = InputMap.HasAction(_dropAction) && Input.IsActionPressed(_dropAction);
 		RefreshAll();
 		ItemSlotPanel start = _focused ?? FindFirstFocusable();
 		start?.GrabFocus();
-		UpdateButtonHints();
-		// Force a focused-item pulse so InventoryScreen's side panels can sync
-		// on Open even if focus is already where it needs to be (which would
-		// otherwise skip the FocusEntered → OnPanelFocused → fire path).
+		// Force a focused-item pulse so the screen can sync side panels and
+		// button hints on Open even if focus is already where it needs to be.
 		EmitFocusedItem(force: true);
 	}
 
-	// Detach from the player's inventory. Cancels any in-flight hold state
-	// (drop timer, runner-driven use) so a later Bind starts clean.
+	// Detach from the player's inventory. Cancels any in-flight hold/secondary
+	// state so a later Bind starts clean.
 	public void Unbind()
 	{
 		CancelHeldActions();
@@ -150,7 +194,8 @@ public partial class InventoryPanel : Control
 			return;
 		}
 		panel.onFocusEntered += OnPanelFocused;
-		panel.onPressed += OnPanelPressed;
+		panel.onButtonDown += OnPanelButtonDown;
+		panel.onButtonUp += OnPanelButtonUp;
 	}
 
 	void WirePanels(Array<ItemSlotPanel> panels)
@@ -169,11 +214,10 @@ public partial class InventoryPanel : Control
 	void OnActiveConsumableChanged(int _) => RefreshAll();
 	void OnInventoryGenericChanged() => RefreshAll();
 
-	void RefreshAll()
+	public void RefreshAll()
 	{
 		if (_inventory == null)
 		{
-			UpdateButtonHints();
 			return;
 		}
 
@@ -198,10 +242,9 @@ public partial class InventoryPanel : Control
 				_backpackPanels[i]?.SetItem(i < backpack.Count ? backpack[i] : null);
 			}
 		}
-		UpdateButtonHints();
 		// Focused slot may now hold a different item (e.g. a drop shifted the
-		// backpack list under the focus index). Pulse so the side info panel
-		// reflects the new content; EmitFocusedItem suppresses no-op fires.
+		// backpack list under the focus index). Pulse so the screen reflects
+		// the new content; EmitFocusedItem suppresses no-op fires.
 		EmitFocusedItem();
 	}
 
@@ -209,7 +252,6 @@ public partial class InventoryPanel : Control
 	{
 		_focused = panel;
 		CancelHeldActions();
-		UpdateButtonHints();
 		EmitFocusedItem();
 	}
 
@@ -224,24 +266,45 @@ public partial class InventoryPanel : Control
 			return;
 		}
 		_lastFocusedItem = current;
-		onFocusedItemChanged?.Invoke(current);
+		onFocusedItemChanged?.Invoke(_focused, current);
 	}
 
-	// Slot button press (ui_accept / mouse click) is the Equip verb — the
-	// button hint on the same input action drives the visible label.
-	void OnPanelPressed(ItemSlotPanel panel)
+	void OnPanelButtonDown(ItemSlotPanel panel)
 	{
-		ItemState item = panel?.Item;
-		if (item == null)
+		_primaryPressed = panel;
+		_primaryHold = 0f;
+		_primaryHoldFired = false;
+		_buttonHintPrimary?.SetProgress(0f);
+	}
+
+	// Mouse / keyboard release on the focused slot. If the hold timer crossed
+	// the threshold during the press, we already fired onPrimaryHoldComplete —
+	// in that case eat the release. Otherwise this is a tap.
+	void OnPanelButtonUp(ItemSlotPanel panel)
+	{
+		ItemSlotPanel pressed = _primaryPressed;
+		_primaryPressed = null;
+		_buttonHintPrimary?.SetProgress(0f);
+		float held = _primaryHold;
+		_primaryHold = 0f;
+		bool fired = _primaryHoldFired;
+		_primaryHoldFired = false;
+		if (fired || HoldLocked || !_active)
 		{
 			return;
 		}
-		DoToggleEquip(panel, item);
+		// Ignore the release if the user dragged focus off the originally
+		// pressed slot before letting go — feels like a cancel gesture.
+		if (pressed != null && pressed != panel)
+		{
+			return;
+		}
+		onPrimaryTap?.Invoke(panel, panel?.Item);
 	}
 
-	// Flip focusability on every slot. Used by InventoryScreen to keep
-	// ui_left/right from traversing focus onto inventory slots while a
-	// sub-modal (DropCountPanel) is up.
+	// Flip focusability on every slot. Used by the screen to keep ui_left/right
+	// from traversing focus onto inventory slots while a sub-modal (count
+	// picker) is up.
 	public void SetSlotsFocusable(bool focusable)
 	{
 		_armorHeadPanel?.SetFocusable(focusable);
@@ -284,42 +347,9 @@ public partial class InventoryPanel : Control
 		return _armorHeadPanel ?? _armorBodyPanel ?? _weaponLeftPanel ?? _weaponRightPanel;
 	}
 
-	bool IsBackpackPanel(ItemSlotPanel panel)
+	public bool IsBackpackPanel(ItemSlotPanel panel)
 	{
 		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
-	}
-
-	void UpdateButtonHints()
-	{
-		ItemState item = _focused?.Item;
-		bool hasItem = item != null;
-		bool inBackpack = IsBackpackPanel(_focused);
-
-		if (_buttonHintEquip != null)
-		{
-			_buttonHintEquip.Visible = hasItem && CanEquipOrUnequip(item);
-			_buttonHintEquip.ActionName = inBackpack ? "Equip" : "Unequip";
-		}
-		if (_buttonHintUse != null)
-		{
-			_buttonHintUse.Visible = hasItem && CanUseItem(item);
-			_buttonHintUse.SetProgress(0f);
-		}
-		if (_buttonHintDrop != null)
-		{
-			_buttonHintDrop.Visible = hasItem;
-			_buttonHintDrop.SetProgress(0f);
-		}
-	}
-
-	static bool CanEquipOrUnequip(ItemState item)
-	{
-		return item?.data is ArmorData or WeaponData or ConsumableData;
-	}
-
-	static bool CanUseItem(ItemState item)
-	{
-		return item is ConsumableState consumable && consumable.data?.actionProfile != null;
 	}
 
 	public override void _Process(double delta)
@@ -328,35 +358,72 @@ public partial class InventoryPanel : Control
 		{
 			return;
 		}
+		TickPrimaryHold((float)delta);
+		TickDropHold((float)delta);
+	}
 
-		ItemState item = _focused?.Item;
+	void TickPrimaryHold(float dt)
+	{
+		if (_primaryPressed == null || onPrimaryHoldComplete == null || HoldLocked || _primaryHoldFired)
+		{
+			return;
+		}
+		_primaryHold += dt;
+		float progress = Mathf.Clamp(_primaryHold / HoldSeconds, 0f, 1f);
+		_buttonHintPrimary?.SetProgress(progress);
+		if (_primaryHold >= HoldSeconds)
+		{
+			ItemSlotPanel pressed = _primaryPressed;
+			_primaryHoldFired = true;
+			_primaryHold = 0f;
+			_buttonHintPrimary?.SetProgress(0f);
+			HoldLocked = true;
+			onPrimaryHoldComplete.Invoke(pressed, pressed?.Item);
+		}
+	}
+
+	void TickDropHold(float dt)
+	{
+		// Gate on actual focus ownership so the global Drop key doesn't
+		// fire here while a sibling panel (CookingPanel) holds focus.
+		ItemState item = _focused != null && _focused.HasButtonFocus() ? _focused.Item : null;
 		bool dropActionRegistered = item != null && InputMap.HasAction(_dropAction);
-		bool dropHeld = !DropLocked
+		// Clear the inherited-press guard the first frame Drop reads
+		// unpressed — only then will subsequent presses fire tap/hold.
+		if (_dropAwaitingRelease)
+		{
+			if (!dropActionRegistered || !Input.IsActionPressed(_dropAction))
+			{
+				_dropAwaitingRelease = false;
+			}
+			else
+			{
+				return;
+			}
+		}
+		bool dropHeld = !HoldLocked
 			&& dropActionRegistered
-			&& Input.IsActionPressed(_dropAction);
+			&& Input.IsActionPressed(_dropAction)
+			&& onDropHoldComplete != null;
 		if (dropHeld)
 		{
-			_dropHold += (float)delta;
-			float progress = Mathf.Clamp(_dropHold / DropHoldSeconds, 0f, 1f);
+			_dropHold += dt;
+			float progress = Mathf.Clamp(_dropHold / HoldSeconds, 0f, 1f);
 			_buttonHintDrop?.SetProgress(progress);
-			if (_dropHold >= DropHoldSeconds)
+			if (_dropHold >= HoldSeconds)
 			{
-				// Threshold crossed — fire the hold signal and lock so the
-				// still-held key doesn't keep re-firing on subsequent frames.
-				// InventoryScreen clears DropLocked when the count panel closes.
 				_dropHold = 0f;
 				_buttonHintDrop?.SetProgress(0f);
-				DropLocked = true;
-				onDropHoldComplete?.Invoke(item);
+				HoldLocked = true;
+				onDropHoldComplete.Invoke(_focused, item);
 			}
 		}
 		else if (_dropHold > 0f)
 		{
-			// Released before threshold — tap. Drop a single unit of the
-			// stack (non-stackable items drop in full since min stack is 1).
+			// Released before threshold — tap.
 			if (dropActionRegistered)
 			{
-				_inventory?.Drop(item, 1);
+				onDropTap?.Invoke(_focused, item);
 			}
 			_dropHold = 0f;
 			_buttonHintDrop?.SetProgress(0f);
@@ -371,20 +438,25 @@ public partial class InventoryPanel : Control
 		}
 
 		ItemState item = _focused?.Item;
-		if (InputMap.HasAction(_useAction))
+		if (InputMap.HasAction(_secondaryAction) && onSecondaryPressed != null)
 		{
-			if (e.IsActionPressed(_useAction))
+			if (e.IsActionPressed(_secondaryAction))
 			{
 				if (item != null)
 				{
-					DoUseStart(item);
+					_secondaryStarted = true;
+					onSecondaryPressed.Invoke(_focused, item);
 				}
 				GetViewport().SetInputAsHandled();
 				return;
 			}
-			if (e.IsActionReleased(_useAction))
+			if (e.IsActionReleased(_secondaryAction))
 			{
-				DoUseRelease();
+				if (_secondaryStarted)
+				{
+					_secondaryStarted = false;
+					onSecondaryReleased?.Invoke();
+				}
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -395,106 +467,14 @@ public partial class InventoryPanel : Control
 	{
 		_dropHold = 0f;
 		_buttonHintDrop?.SetProgress(0f);
-		if (_useStarted)
+		_primaryHold = 0f;
+		_primaryHoldFired = false;
+		_primaryPressed = null;
+		_buttonHintPrimary?.SetProgress(0f);
+		if (_secondaryStarted)
 		{
-			_player?.Runner?.TryAbort();
-			_useStarted = false;
+			_secondaryStarted = false;
+			onSecondaryReleased?.Invoke();
 		}
-	}
-
-	void DoToggleEquip(ItemSlotPanel panel, ItemState item)
-	{
-		if (_inventory == null || item == null)
-		{
-			return;
-		}
-		if (IsBackpackPanel(panel))
-		{
-			EquipFromBackpack(item);
-		}
-		else
-		{
-			UnequipToBackpack(item);
-		}
-		RefreshAll();
-	}
-
-	void EquipFromBackpack(ItemState item)
-	{
-		switch (item.data)
-		{
-			case ArmorData armor:
-				_inventory.TryEquip(item, armor.armorSlot);
-				break;
-			case WeaponData weapon:
-				// Two-hand layout: ranged (ammo-bearing) lands in the right
-				// slot, melee in the left — matches Player.Initialize's
-				// PlayerSpawnData wiring since WeaponData itself doesn't
-				// author a target slot.
-				EInventorySlot target = weapon.useAmmo ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
-				_inventory.TryEquip(item, target);
-				break;
-			case ConsumableData:
-				_inventory.TryMoveToConsumableSlot(item);
-				break;
-		}
-	}
-
-	void UnequipToBackpack(ItemState item)
-	{
-		EInventorySlot? slot = _inventory.GetEquippedSlot(item);
-		if (slot.HasValue && slot.Value != EInventorySlot.Consumable)
-		{
-			_inventory.TryUnequip(slot.Value);
-			return;
-		}
-		// GetEquippedSlot only reports the ACTIVE consumable hotbar slot.
-		// Items in inactive hotbar slots have to be removed by scanning the
-		// hotbar directly.
-		_inventory.TryRemoveFromConsumableSlot(item);
-	}
-
-	void DoUseStart(ItemState item)
-	{
-		if (item is not ConsumableState consumable)
-		{
-			return;
-		}
-		ConsumableData data = consumable.data;
-		if (data?.actionProfile == null)
-		{
-			return;
-		}
-		ActionRunner runner = _player?.Runner;
-		if (runner == null || runner.IsBusy)
-		{
-			return;
-		}
-		var context = new ActionContext
-		{
-			verb = EActionVerb.Use,
-			primaryItem = item,
-			sourceSlot = EInventorySlot.Consumable,
-		};
-		if (runner.TryStart(data.actionProfile, context))
-		{
-			_useStarted = true;
-		}
-	}
-
-	void DoUseRelease()
-	{
-		if (!_useStarted)
-		{
-			return;
-		}
-		_player?.Runner?.OnInputReleased();
-		_useStarted = false;
-	}
-
-	void DoDrop(ItemState item)
-	{
-		_inventory?.Drop(item);
-		RefreshAll();
 	}
 }

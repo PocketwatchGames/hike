@@ -41,7 +41,7 @@ theme_override_constants/separation = 30
 
 [node name="Label" type="Label" parent="VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=398849526]
 layout_mode = 2
-text = "Drop how many?"
+text = "How many?"
 
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/PanelContainer/MarginContainer/VBoxContainer/HBoxContainer" unique_id=1046627705]
 layout_mode = 2

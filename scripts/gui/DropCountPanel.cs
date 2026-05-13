@@ -15,7 +15,7 @@ public partial class DropCountPanel : MarginContainer
 	public Action onCancel;
 
 
-	public void Init(int maxCount, Action<int> onConfirm, Action onCancel)
+	public void Init(int maxCount, Action<int> onConfirm, Action onCancel, string prompt = null)
 	{
 		this.onConfirm = onConfirm;
 		this.onCancel = onCancel;
@@ -24,6 +24,13 @@ public partial class DropCountPanel : MarginContainer
 		count.Text = _count.ToString();
 		down.Disabled = _count <= 0;
 		up.Disabled = _count >= _maxCount;
+		// Per-context prompt — "Drop how many?" by default, but the cooking
+		// screen passes "Cook how many?" / "Remove how many?" so the same
+		// panel reads correctly under both modal hosts.
+		if (label != null && !string.IsNullOrEmpty(prompt))
+		{
+			label.Text = prompt;
+		}
 		// Pull focus onto the up button so a sub-sequent ui_left/right doesn't
 		// land on whatever was focused before (an inventory slot). Combined
 		// with SetSlotsFocusable(false) on the inventory side, this fully

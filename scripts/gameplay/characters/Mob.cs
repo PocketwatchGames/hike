@@ -332,6 +332,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
         InitBehaviors();
         world.AddChild(this);
+        // A mob loaded mid-burrow (from save data) needs its rigid body +
+        // collision layer to match — _Ready (run during AddChild above)
+        // applied the default Mob/Env|Player setup, and SimState is the
+        // only authority on burrow state at this point.
+        if (burrowing || burrowed)
+        {
+            SetBurrowed(true);
+        }
     }
 
     // IActionActor — what ActionRunner and ItemEventHandlers read. Forward
@@ -818,11 +826,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _animator.effectSpeedMultiplier = statusAnimMul;
             }
 
+            // Skip the path / yaw blocks below while dug in. SetBurrowed
+            // (called on the edges from the burrow transition block) owns
+            // the actual freeze + velocity zero + layer swap; this flag
+            // just keeps us from rotating a frozen body or writing
+            // LinearDamp on a pinned one every tick. aiOutput.burrow is
+            // OR'd in so the gate already covers the initial-burrow tick
+            // before the transition block runs further down and flips the
+            // `burrowing` flag.
+            bool inBurrow = aiOutput.burrow || burrowing || burrowed;
+
             // Decide LinearDamp target without writing yet — we want one
             // gated assignment at the end rather than three branches each
             // hitting the setter.
             float linearDampTarget = 8f;
-            if (aiOutput.pathTarget.HasValue)
+            if (!inBurrow && aiOutput.pathTarget.HasValue)
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
@@ -850,7 +868,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _lastLinearDamp = linearDampTarget;
             }
 
-            if (targetYaw.HasValue)
+            if (!inBurrow && targetYaw.HasValue)
             {
                 Vector3 currentRot = Rotation;
                 float yawDelta = Mathf.Wrap(targetYaw.Value - currentRot.Y, -Mathf.Pi, Mathf.Pi);
@@ -912,17 +930,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 {
                     burrowing = true;
                     burrowTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.burrowTime * 1000f);
+                    SetBurrowed(true);
                 }
                 else if (burrowing && _world.GameTimeMs >= burrowTimeMs)
                 {
                     burrowing = false;
                     burrowed = true;
+                    // No SetBurrowed call — body stays pinned, layer stays
+                    // Burrowed. burrowing → burrowed is internal to the
+                    // "in burrow" state and doesn't touch the rigid body.
                 }
             }
-            else
+            else if (burrowing || burrowed)
             {
                 burrowing = false;
                 burrowed = false;
+                SetBurrowed(false);
             }
 
             // Burrow-state effect transitions. The loop runs while actively
@@ -942,6 +965,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
             _prevBurrowing = burrowing;
             _prevBurrowed = burrowed;
+
 
             // Torch visibility is gated on the player's memory of this mob —
             // once memory expires, the mob has left the player's awareness
@@ -1006,6 +1030,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void ApplyImpulse(Vector3 impulse)
     {
+        // Burrowed mobs are pinned — the per-tick Freeze + zero-velocity
+        // block in _PhysicsProcess holds them put, and the inner
+        // ApplyCentralImpulse below would also flip Freeze off as a side
+        // effect, so reject impulses outright while dug in. The path
+        // block above already gates on `burrowPin`; this guard catches
+        // any external caller (e.g. Player.PushTouchedMobs).
+        if (burrowing || burrowed)
+        {
+            return;
+        }
         // ApplyCentralImpulse is a method, so caching its result
         // doesn't apply — but skipping it for an effectively-zero
         // impulse saves a Jolt call per stable mob per frame.
@@ -1187,6 +1221,47 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             Freeze = false;
         }
         PlayOneShot(EAnimation.Die);
+    }
+
+    // Called on the burrow edges (false→burrowing in the transition block,
+    // burrowing/burrowed→false in the same block) and from Initialize so a
+    // mob loaded in a saved burrow state ends up with the right rigid-body
+    // + collision configuration without waiting a tick. The per-frame
+    // `inBurrow` gate on path/yaw is independent — it skips work; this
+    // sets up the underlying state.
+    private void SetBurrowed(bool isBurrowed)
+    {
+        if (isBurrowed)
+        {
+            // Descent visual is the mesh drop in _Process, not physics
+            // motion. Pin the body so behaviors / external impulses can't
+            // shove it around (ApplyImpulse also early-returns while
+            // burrowed for defense in depth).
+            if (LinearVelocity != Vector3.Zero)
+            {
+                LinearVelocity = Vector3.Zero;
+            }
+            if (!Freeze)
+            {
+                Freeze = true;
+            }
+            // Player↔Mob is suppressed in both directions: Player.mask
+            // doesn't include Burrowed, and the mob's own mask drops the
+            // Player bit. Environment stays so the body still rests on
+            // the ground.
+            CollisionLayer = (uint)ECollisionLayer.Burrowed;
+            CollisionMask = (uint)ECollisionLayer.Environment;
+        }
+        else
+        {
+            // Restore default mob collision. Freeze is left as-is — the
+            // next impulse from a behavior unfreezes naturally via
+            // ApplyImpulse, and the auto-freeze block at the bottom of
+            // _PhysicsProcess keeps it pinned if the mob has no movement
+            // intent. Explicitly unfreezing here would race with that.
+            CollisionLayer = (uint)ECollisionLayer.Mob;
+            CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
+        }
     }
 
     // World-parented one-shot at the mob's feet — matches the footstep /

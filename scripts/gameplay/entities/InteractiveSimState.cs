@@ -39,6 +39,76 @@ public class TorchSimState : EntitySimState
     }
 }
 
+// Campfires / cooking stations. Standalone from TorchSimState — campfires
+// share a similar lit/doused shape with wall torches but the persistent
+// cooking inputs and the cook-job timer are forge-specific. The runtime
+// Forge node owns its own lighting fx so there is no behavioral coupling
+// to Torch.
+public class ForgeSimState : EntitySimState
+{
+    // Number of cooking slots a forge exposes. Mirrored by the
+    // CookingPanel.tscn layout — adding a slot here requires adding a
+    // matching ItemSlotPanel reference there.
+    public const int CookingSlotCount = 3;
+
+    public bool Active = true;
+    // When true, Forge.Create overrides Active based on world time-of-day
+    // at chunk activation: lit at night, unlit during the day. Authored on
+    // worldgen-spawned campfires so they "come alive" after dark without
+    // the player having to light each one.
+    public bool AutoLightAtNight;
+
+    // Persistent cooking inputs. Forge reads/writes through this array so
+    // contents survive CookingScreen open/close; idle-close returns them
+    // to the player's inventory, mid-cook close leaves them for the active
+    // job to consume.
+    public ItemState[] CookingSlots = new ItemState[CookingSlotCount];
+
+    // Non-null while a cook job is in flight. Forge._PhysicsProcess ticks
+    // remainingSeconds; on completion the slots are drained and the output
+    // is delivered through the bound CookingScreen (if any) or spawned as
+    // Loot at the forge's position.
+    public CookJob ActiveCookJob;
+
+    public ForgeSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Forge.Create(world, this);
+    }
+}
+
+// Active cook job — recipe + timer + output preview. Owned by
+// ForgeSimState; the forge's runtime entity ticks the timer. Discovery
+// flags aren't tracked here — Forge.CompleteCookJob computes them against
+// the live WorldSimState at the moment the cook actually finishes, so a
+// cancelled cook doesn't leak credit and an offscreen completion still
+// records correctly.
+public class CookJob
+{
+    public RecipeData recipe;
+    public ItemData outputItem;
+    public bool isHighQuality;
+    public float remainingSeconds;
+    public float totalSeconds;
+
+    public float Progress01
+    {
+        get
+        {
+            if (totalSeconds <= 0f)
+            {
+                return 0f;
+            }
+            float elapsed = totalSeconds - remainingSeconds;
+            return Godot.Mathf.Clamp(elapsed / totalSeconds, 0f, 1f);
+        }
+    }
+}
+
 public class ChestSimState : EntitySimState
 {
     public bool Active = true;

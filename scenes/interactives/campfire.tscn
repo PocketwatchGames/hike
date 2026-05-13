@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://4hqhwaeg3xwx"]
 
-[ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/entities/Torch.cs" id="1_5bkwe"]
+[ext_resource type="Script" uid="uid://dq8wzkn7p4mr3" path="res://scripts/gameplay/entities/Forge.cs" id="1_5bkwe"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_light.tscn" id="2_q0pgg"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_extinguish.tscn" id="3_qk6wi"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_loop.tscn" id="4_4nu01"]
@@ -25,7 +25,7 @@ type = 256
 
 [sub_resource type="Resource" id="Resource_torch_action_use"]
 script = ExtResource("5_yf2vb")
-verb = 3
+verb = 2
 completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_event_open")])
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_5bkwe"]
@@ -84,6 +84,7 @@ _actions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_torch_action_use
 _lightOnEffectScene = ExtResource("2_q0pgg")
 _lightOffEffectScene = ExtResource("3_qk6wi")
 _lightLoopEffectScene = ExtResource("4_4nu01")
+_forgeType = 0
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1484772802]
 

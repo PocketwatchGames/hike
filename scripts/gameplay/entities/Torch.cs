@@ -1,19 +1,24 @@
 using Godot;
 
+// Simple lighting interactive. Tap-interact toggles the flame on/off,
+// which routes through SetLit so the animator, light, damage zone, warmth
+// zone, and fx all flip together. Wall torches use this class; campfires
+// have their own runtime entity (Forge) so this class stays focused on
+// lighting and doesn't grow cooking concerns.
 [GlobalClass]
 public partial class Torch : Node3D, IInteractive, IWorldEntity
 {
     [Export] private LitSpriteAnimator _animator;
     [Export] private StationaryLight _light;
     [Export] private Node3D _hudNode;
-    // Optional burn zone — only campfires need it. Null on regular wall
-    // torches. Tracks _active so a doused campfire stops dealing damage.
+    // Optional burn zone — campfires reuse this scene layout in the editor
+    // even though they're spawned as Forge instances; on a pure wall torch
+    // _damageZone is null. Tracks _active so a doused light stops dealing
+    // damage.
     [Export] private DamageZone _damageZone;
-    // Optional warmth zone — only campfires need it. Tracks _active so a
-    // doused campfire stops drying nearby players.
+    // Optional warmth zone — same shape as _damageZone. Tracks _active so
+    // a doused light stops drying nearby players.
     [Export] private WarmthZone _warmthZone;
-    // Authored interaction list. Torch interactions are toggles (light /
-    // douse) — typically instant.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     [Export] private PackedScene _lightOnEffectScene;
     [Export] private PackedScene _lightOffEffectScene;

@@ -1,4 +1,5 @@
 using Godot;
+using Godot.Collections;
 
 // Static, authored world-level simulation constants. Mutable runtime state
 // (TimeOfDay01, WindDirection, ShadowLightDirection, etc.) lives on WorldState
@@ -7,6 +8,12 @@ using Godot;
 public partial class SimData : Resource
 {
     [Export] public float Gravity = 9.8f;
+
+    // Master recipe library. CookingScreen iterates this list to match the
+    // current cooking inputs against an authored recipe. Discovery for any
+    // hit is recorded in WorldSimState.DiscoveredRecipes keyed by the same
+    // RecipeData reference. Adding a recipe = adding it here.
+    [Export] public Array<RecipeData> Recipes = new();
     [Export] public float VisibleTime = 0.25f;
     // World-wide threshold for "fully visible to perception". Light readings
     // at the target's sample point are clamped to [0, this] then divided

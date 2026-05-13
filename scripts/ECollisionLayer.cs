@@ -10,4 +10,5 @@ public enum ECollisionLayer
     Mob = 16,
     HurtBox = 32,
     Water = 64,
+    Burrowed = 128,
 }

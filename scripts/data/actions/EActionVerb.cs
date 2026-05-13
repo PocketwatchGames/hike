@@ -10,5 +10,9 @@ public enum EActionVerb
 	// NPC conversation — the interactive's Complete spawns a chatter HUD
 	// bubble anchored to the speaker. Authored as an InteractiveAction with
 	// verb=Talk on a friendly mob's _interactiveActions array.
-	Talk
+	Talk,
+	// Open the cooking screen against this interactive. Authored on lit
+	// campfires; Torch.Complete branches on this verb and asks GameClient
+	// for the shared CookingScreen instead of toggling the flame.
+	Cook,
 }

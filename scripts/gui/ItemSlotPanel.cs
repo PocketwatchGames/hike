@@ -29,6 +29,12 @@ public partial class ItemSlotPanel : PanelContainer
 
 	public Action<ItemSlotPanel> onFocusEntered;
 	public Action<ItemSlotPanel> onPressed;
+	// Raw down/up signals on top of `onPressed` (which is Godot's release-
+	// driven Pressed signal). InventoryPanel uses these to distinguish tap
+	// vs. hold on the slot's primary action — ButtonDown starts a hold
+	// timer, ButtonUp ends it.
+	public Action<ItemSlotPanel> onButtonDown;
+	public Action<ItemSlotPanel> onButtonUp;
 
 	public ItemState Item { get; private set; }
 
@@ -47,6 +53,8 @@ public partial class ItemSlotPanel : PanelContainer
 		{
 			_button.FocusEntered += OnButtonFocusEntered;
 			_button.Pressed += OnButtonPressed;
+			_button.ButtonDown += OnButtonDown;
+			_button.ButtonUp += OnButtonUp;
 			// Mouse hover grabs focus so the focused-panel state (and the
 			// Use / Drop hints that key off it) tracks the cursor the same
 			// way D-pad navigation does on gamepad.
@@ -64,6 +72,8 @@ public partial class ItemSlotPanel : PanelContainer
 		{
 			_button.FocusEntered -= OnButtonFocusEntered;
 			_button.Pressed -= OnButtonPressed;
+			_button.ButtonDown -= OnButtonDown;
+			_button.ButtonUp -= OnButtonUp;
 			_button.MouseEntered -= OnButtonMouseEntered;
 		}
 	}
@@ -115,6 +125,15 @@ public partial class ItemSlotPanel : PanelContainer
 		_button?.GrabFocus();
 	}
 
+	// True iff this slot's underlying button is the keyboard focus owner.
+	// InventoryPanel / CookingPanel gate their input-action polling on this
+	// so a stale `_focused` reference (last slot focused before focus moved
+	// to a sibling panel) doesn't keep firing Drop / Remove ticks.
+	public bool HasButtonFocus()
+	{
+		return _button != null && _button.HasFocus();
+	}
+
 	// Toggle whether the slot button accepts keyboard / gamepad focus. Set to
 	// false while a sub-modal (e.g. DropCountPanel) is up so ui_left/right
 	// from the analog stick can't traverse focus onto the slots.
@@ -134,6 +153,16 @@ public partial class ItemSlotPanel : PanelContainer
 	void OnButtonPressed()
 	{
 		onPressed?.Invoke(this);
+	}
+
+	void OnButtonDown()
+	{
+		onButtonDown?.Invoke(this);
+	}
+
+	void OnButtonUp()
+	{
+		onButtonUp?.Invoke(this);
 	}
 
 	void OnButtonMouseEntered()

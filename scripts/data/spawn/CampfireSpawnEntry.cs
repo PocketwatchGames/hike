@@ -20,7 +20,7 @@ public partial class CampfireSpawnEntry : SpawnEntryData
         {
             return;
         }
-        var campfire = new TorchSimState(position, Scene);
+        var campfire = new ForgeSimState(position, Scene);
         campfire.AutoLightAtNight = true;
         campfire.Active = false;
         ws.AddEntity(campfire);

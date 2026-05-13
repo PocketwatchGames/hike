@@ -863,12 +863,19 @@ public partial class Player : CharacterBody3D
 			}
 			if (spawnData.startingInventory != null)
 			{
-				foreach (ItemData id in spawnData.startingInventory)
+				foreach (ItemCount ic in spawnData.startingInventory)
 				{
-					if (id == null) { continue; }
-					ItemState item = id.CreateState();
-					item.stackCount = id.maxStack;
-					_inventory.TryAdd(item);
+					if (ic == null || ic.item == null || ic.count <= 0) { continue; }
+					int stackSize = ic.item.maxStack > 0 ? ic.item.maxStack : 1;
+					int remaining = ic.count;
+					while (remaining > 0)
+					{
+						int n = System.Math.Min(remaining, stackSize);
+						ItemState state = ic.item.CreateState();
+						state.stackCount = n;
+						_inventory.TryAdd(state);
+						remaining -= n;
+					}
 				}
 			}
 		}

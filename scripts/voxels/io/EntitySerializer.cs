@@ -20,6 +20,7 @@ public static class EntitySerializer
         FireTrap = 8,
         BerryTree = 9,
         Loot = 10,
+        Forge = 11,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -107,6 +108,18 @@ public static class EntitySerializer
                 WriteScene(w, door.Scene);
                 w.Write(door.RotationY);
                 w.Write(door.Active);
+                break;
+
+            case ForgeSimState forge:
+                w.Write((byte)Tag.Forge);
+                WriteVec3(w, forge.WorldPosition);
+                WriteScene(w, forge.Scene);
+                w.Write(forge.Active);
+                w.Write(forge.AutoLightAtNight);
+                // Transient cooking state (CookingSlots, ActiveCookJob) is
+                // not serialized — open jobs are abandoned and slot
+                // contents reset on world reload. Persisting them would
+                // need stable ItemData refs and recipe wire IDs first.
                 break;
 
             case TorchSimState torch:
@@ -261,6 +274,17 @@ public static class EntitySerializer
                 torch.Active = active;
                 torch.AutoLightAtNight = autoLightAtNight;
                 return torch;
+            }
+            case Tag.Forge:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                bool active = r.ReadBoolean();
+                bool autoLightAtNight = r.ReadBoolean();
+                var forge = new ForgeSimState(pos, scene);
+                forge.Active = active;
+                forge.AutoLightAtNight = autoLightAtNight;
+                return forge;
             }
             case Tag.Chest:
             {
