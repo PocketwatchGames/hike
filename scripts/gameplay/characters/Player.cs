@@ -203,6 +203,26 @@ public partial class Player : CharacterBody3D
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public IInteractive CurInteractive => _curInteractive;
 	public int CurInteractiveActionIndex => _curInteractiveActionIndex;
+
+	// Hold-to-open-options state. InteractHUD reads InteractHoldProgress to
+	// fill its hold bar; it subscribes to onInteractMenuOpenRequested to pop
+	// the modal options panel and calls CloseInteractMenu when it dismisses.
+	// While InteractMenuOpen, ProcessInput skips the press/release path so
+	// the same Interact button can re-confirm a selection without firing a
+	// stale tap-start.
+	public float InteractHoldProgress { get; private set; }
+	public bool InteractMenuOpen { get; private set; }
+	public Action onInteractMenuOpenRequested;
+	bool _interactPressActive;
+	ulong _interactHoldStartMs;
+	const ulong InteractHoldDurationMs = 500;
+
+	public void CloseInteractMenu()
+	{
+		InteractMenuOpen = false;
+		InteractHoldProgress = 0f;
+		_interactPressActive = false;
+	}
 	// HUD progress fill while the runner is driving an interactive action.
 	// Reads directly off the in-flight PlayerAction so the bar reflects what
 	// the runner is actually doing — no separate timer to keep in sync.
@@ -1202,6 +1222,68 @@ public partial class Player : CharacterBody3D
 		_inputLook = new Vector3(mousePos.X, 0, mousePos.Y).Rotated(Vector3.Up, cameraYaw);
 	}
 
+	void HandleInteractInput()
+	{
+		if (InteractMenuOpen)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (Input.IsActionJustPressed("Interact"))
+		{
+			if (_curInteractive != null)
+			{
+				CancelInteract();
+				return;
+			}
+			if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
+			{
+				Godot.Collections.Array<InteractiveAction> actions = _highlightInteractive.GetActions(this);
+				if (actions != null && actions.Count > 1)
+				{
+					_interactPressActive = true;
+					_interactHoldStartMs = now;
+					InteractHoldProgress = 0f;
+					return;
+				}
+				if (actions != null && actions.Count == 1)
+				{
+					if (TryStartInteractiveAction(_highlightInteractive))
+					{
+						_highlightInteractive = null;
+						onHighlightChanged?.Invoke(null);
+					}
+				}
+			}
+		}
+		if (_interactPressActive)
+		{
+			ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
+			InteractHoldProgress = Mathf.Clamp((float)elapsed / InteractHoldDurationMs, 0f, 1f);
+			bool stillHeld = Input.IsActionPressed("Interact");
+			if (!stillHeld)
+			{
+				_interactPressActive = false;
+				InteractHoldProgress = 0f;
+				// Tap (released before threshold): start the default action.
+				if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
+				{
+					if (TryStartInteractiveAction(_highlightInteractive))
+					{
+						_highlightInteractive = null;
+						onHighlightChanged?.Invoke(null);
+					}
+				}
+			}
+			else if (elapsed >= InteractHoldDurationMs)
+			{
+				_interactPressActive = false;
+				InteractMenuOpen = true;
+				onInteractMenuOpenRequested?.Invoke();
+			}
+		}
+	}
+
 	void CancelInteract()
 	{
 		// If the runner is mid-interactive, abort it so completionEvents
@@ -1251,23 +1333,12 @@ public partial class Player : CharacterBody3D
 		look = look.LengthSquared() > 1 ? look.Normalized() : look;
 		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
 
-		// Handle interact input
-		if (Input.IsActionJustPressed("Interact"))
-		{
-			if (_curInteractive != null)
-			{
-				CancelInteract();
-			} else if (_highlightInteractive != null && _highlightInteractive.CanActorInteract(this))
-			{
-				// Hold-for-radial verb selection is future UI work — the
-				// runner currently always runs the interactive's DefaultVerb.
-				if (TryStartInteractiveAction(_highlightInteractive))
-				{
-					_highlightInteractive = null;
-					onHighlightChanged?.Invoke(null);
-				}
-			}
-		}
+		// Handle interact input. Multi-action interactives split tap vs hold:
+		// a tap (release before InteractHoldDurationMs) runs the default
+		// action; a hold past the threshold raises the options modal via
+		// onInteractMenuOpenRequested. Single-action interactives still run
+		// on JustPressed so the snappy feel is preserved.
+		HandleInteractInput();
 
 		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee"))
 		{

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // The grid of cooking input slots, progress bar, and Cook / Cancel commit
 // button. Like InventoryPanel this script owns only slot/focus/input
 // plumbing — the persistent backing store (the campfire's TorchSimState
-// CookingSlots array) lives outside, and the verb behavior (recipe match,
+// ForgeSlots array) lives outside, and the verb behavior (recipe match,
 // item routing, completion delivery) lives in CookingScreen. The screen
 // hands us the slot array on Bind and drives the in-progress UI state via
 // SetCookingProgress / SetCookingActive each frame.
@@ -158,7 +158,7 @@ public partial class CookingPanel : MarginContainer
 		}
 	}
 
-	// Bind the panel to its backing slot array (the campfire's CookingSlots).
+	// Bind the panel to its backing slot array (the campfire's ForgeSlots).
 	// All TryAdd / TryRemove / DrainInputs operations mutate this array
 	// directly so the persistent owner sees the changes immediately.
 	public void Bind(ItemState[] slots)

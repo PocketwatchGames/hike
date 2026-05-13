@@ -24,6 +24,11 @@ public partial class InteractiveAction : Resource
 	// the verb's enum name.
 	[Export] public StringName displayName = "";
 
+	// Icon shown in the InteractHUD (large default-action icon + each entry
+	// in the hold-menu option list). Per-action so the same interactive can
+	// surface different icons for Cook vs Douse vs Light on the same forge.
+	[Export] public Texture2D icon;
+
 	// Events fired during the action, on a timeline measured from the start
 	// of Active. For most interactives this is just the per-frame animation
 	// and sound that plays *while* the player is holding interact.

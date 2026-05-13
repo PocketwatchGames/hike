@@ -66,6 +66,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private PackedScene _armorDepletedEffect;
     [Export] private PackedScene _armorRechargeStartEffect;
     [Export] private PackedScene _armorRecoverStartEffect;
+    // Stun fx. Begin one-shot fires on the unstunned→stunned edge (the hit
+    // that crosses stunThreshold); the loop holds while stunned and stops
+    // when TickStun recovers the mob. Die() also stops the loop because the
+    // per-frame TickStun gate is alive-only.
+    [Export] private PackedScene _stunBeginEffect;
+    [Export] private PackedScene _stunLoopEffect;
     // Distance the mob must travel in XZ between footstep effect emits.
     // Larger = slower step cadence.
     [Export] private float _footstepStride = 1.2f;
@@ -100,6 +106,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
+    public bool stunned => _simState.Stunned;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     public MobData mobData => _simState.MobData;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
@@ -203,6 +210,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     Fx _waterMovementLoop;
     Fx _tallGrassMovementLoop;
     Fx _burrowLoop;
+    Fx _stunLoop;
     // Single active anim-loop reference + the scene it was created from. We
     // swap wholesale on transitions instead of cross-fading — simple, and
     // the listener barely registers the gap in practice.
@@ -339,6 +347,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (burrowing || burrowed)
         {
             SetBurrowed(true);
+        }
+        // Same pattern for stun — a loaded stunned mob needs the loop fx
+        // started by hand. SetStunned would no-op because _simState.Stunned
+        // is already true; the begin one-shot is deliberately not fired
+        // since this isn't a fresh transition.
+        if (stunned)
+        {
+            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, true);
         }
     }
 
@@ -781,8 +797,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (alive)
         {
             TickArmor((float)delta);
+            TickStun((float)delta);
             _statusEffects.Tick((float)delta);
-            TickAI((float)delta, out AIOutput aiOutput);
+            // Stun freezes intentional behavior — no path target, no attack
+            // request, no torch / yell / burrow output. Physics, status ticks,
+            // and the action runner still run so an in-flight attack can wind
+            // down naturally and gravity / impulses still act on the body.
+            AIOutput aiOutput;
+            if (stunned)
+            {
+                aiOutput = default;
+            }
+            else
+            {
+                TickAI((float)delta, out aiOutput);
+            }
 
             // Drive the action runner from AIOutput. BehaviorAttack populates
             // attackProfile when in range and off cooldown; the runner gates
@@ -1065,6 +1094,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return EHitResult.None;
         }
+        // Mirror Hit()'s swap so a stunned-mob crit is reflected in the
+        // impact-effect pick (e.g. Lethal when crit damage finishes a mob
+        // that the regular damage wouldn't have).
+        hit = ApplyStunCrit(hit);
         float incoming = hit.healthDamage;
         if (incoming <= 0f)
         {
@@ -1084,6 +1117,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
+        // Crit-on-stun: a stunned mob takes the attacker's crit payload, not
+        // the regular one. Swap before everything so armor, health, status,
+        // and the in-Damage wake-up all read the crit values consistently.
+        hit = ApplyStunCrit(hit);
+
         // External-interrupt damage during an in-flight attack — interrupt
         // before applying damage so abortEvents fire on coherent pre-damage
         // state. Gated by the action's profile.interruptOnDamage and the
@@ -1101,6 +1139,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Swap the hit's payload to its crit variant when the mob is stunned
+    // and the attacker authored crit data. Returns the (possibly rebuilt)
+    // hit so GetHitType and Hit see the same numbers.
+    private HitInfo ApplyStunCrit(HitInfo hit)
+    {
+        if (stunned && hit.critDamage != null)
+        {
+            return new HitInfo(hit.critDamage, hit.source, hit.hitDirection);
+        }
+        return hit;
+    }
+
     public void Damage(HitInfo hit)
     {
         float incoming = hit.healthDamage;
@@ -1112,23 +1162,42 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             armor -= incoming;
             ulong now = _world?.GameTimeMs ?? 0;
-            MobData md = mobData;
             if (armor <= 0f)
             {
                 armor = 0f;
                 _simState.ArmorDepleted = true;
-                _simState.ArmorRechargeStartMs = now + (ulong)((md?.armorRecoverTime ?? 0f) * 1000f);
+                _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
                 SpawnWorldEffect(_armorDepletedEffect);
             }
             else
             {
                 _simState.ArmorDepleted = false;
-                _simState.ArmorRechargeStartMs = now + (ulong)((md?.armorRechargeDelay ?? 0f) * 1000f);
+                _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRechargeDelay * 1000f);
             }
             _simState.ArmorRecharging = false;
             incoming = 0f;
         }
 
+        // Any hit wakes a stunned mob (the crit swap in Hit() has already
+        // amplified the damage payload before we got here). Otherwise, stun-
+        // bearing hits accumulate into the meter and tip into Stunned when
+        // they cross stunThreshold.
+        if (stunned)
+        {
+            SetStunned(false);
+        }
+        else if (hit.stun > 0)
+        {
+            _simState.Stun += hit.stun;
+            if (_simState.Stun >= mobData.stunThreshold)
+            {
+                SetStunned(true);
+            }
+            else
+            {
+                _simState.StunRechargeStartMs = _world.GameTimeMs + (ulong)(mobData.stunRechargeDelay * 1000f);
+            }
+        }
         health -= incoming;
         if (health <= 0f)
         {
@@ -1194,6 +1263,51 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    private void TickStun(float dt)
+    {
+        ulong now = _world?.GameTimeMs ?? 0;
+        if (stunned)
+        {
+            if (now >= _simState.StunRecoverMs)
+            {
+                SetStunned(false);
+            }
+            return;
+        }
+        if (_simState.Stun <= 0f || now < _simState.StunRechargeStartMs)
+        {
+            return;
+        }
+        _simState.Stun = Mathf.Max(0f, _simState.Stun - dt * mobData.stunRechargeSpeed);
+    }
+
+    // Single owner for stun state transitions. Damage(), TickStun(), and Die()
+    // all funnel through here so the explicit Stunned flag, the wake-up
+    // deadline, the meter reset, and the begin/loop fx stay in sync. No-op
+    // when already in the target state — Die() can call this safely on a
+    // never-stunned mob.
+    private void SetStunned(bool isStunned)
+    {
+        if (_simState.Stunned == isStunned)
+        {
+            return;
+        }
+        _simState.Stunned = isStunned;
+        if (isStunned)
+        {
+            _simState.StunRecoverMs = _world.GameTimeMs + (ulong)(mobData.stunRecoverTime * 1000f);
+            SpawnWorldEffect(_stunBeginEffect);
+            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, true);
+        }
+        else
+        {
+            _simState.Stun = 0f;
+            _simState.StunRecoverMs = 0;
+            _simState.StunRechargeStartMs = 0;
+            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, false);
+        }
+    }
+
     private void Die()
     {
         if (!alive)
@@ -1213,6 +1327,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _torch.QueueFree();
             _torch = null;
         }
+        // TickStun is gated on `alive`, so a mob killed mid-stun would leave
+        // the loop running until QueueFree. Same "only runs while alive"
+        // rationale as the torch cleanup above; SetStunned no-ops when the
+        // mob wasn't stunned.
+        SetStunned(false);
         SpawnWorldEffect(_deathEffect);
         SpawnWorldEffect(_deathVoEffect);
         AxisLockAngularY = false;

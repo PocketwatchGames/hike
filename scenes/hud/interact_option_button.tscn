@@ -1,0 +1,10 @@
+[gd_scene format=3 uid="uid://cw17wrdmbx3k8"]
+
+[ext_resource type="Texture2D" uid="uid://dhp4qjqqs0pcx" path="res://assets/textures/interactives/goblin.png" id="1_jy7i2"]
+
+[node name="Button" type="Button" unique_id=910894566]
+size_flags_vertical = 4
+text = "Interact"
+icon = ExtResource("1_jy7i2")
+alignment = 0
+expand_icon = true

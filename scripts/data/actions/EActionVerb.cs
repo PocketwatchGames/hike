@@ -15,4 +15,11 @@ public enum EActionVerb
 	// campfires; Torch.Complete branches on this verb and asks GameClient
 	// for the shared CookingScreen instead of toggling the flame.
 	Cook,
+	// Ignite an unlit fire / torch / campfire — the interactive's Complete
+	// flips the active state on and runs the on-fx.
+	Light,
+	// Extinguish a lit fire / torch / campfire — the secondary action on a
+	// lit campfire so the player can re-cool the station without cycling
+	// through the cooking screen.
+	Douse,
 }

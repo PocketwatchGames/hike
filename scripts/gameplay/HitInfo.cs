@@ -12,11 +12,16 @@ public struct HitInfo
     public float stun;
     public Godot.Collections.Array<StatusEffectData> statusEffects;
     public Vector3 hitDirection;
+    // Optional crit override. Receivers that implement crit-eligible states
+    // (e.g., stunned mobs) swap this in for the entire damage payload before
+    // applying. Ignored by receivers that don't.
+    public DamageData critDamage;
 
-    public HitInfo(DamageData template, Node source, Vector3 hitDirection = default)
+    public HitInfo(DamageData template, Node source, Vector3 hitDirection = default, DamageData critDamage = null)
     {
         this.source = source;
         this.hitDirection = hitDirection;
+        this.critDamage = critDamage;
         if (template != null)
         {
             healthDamage = template.healthDamage;

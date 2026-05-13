@@ -8,15 +8,15 @@ using Godot;
 //
 // Interact verb dispatch:
 //   * EActionVerb.Cook on a lit forge → opens the CookingScreen against
-//     this forge. The screen drives StartCookJob / CancelCookJob via the
-//     Cook button and reads CookingSlots / ActiveCookJob each frame.
+//     this forge. The screen drives StartForgeJob / CancelForgeJob via the
+//     Cook button and reads ForgeSlots / ActiveForgeJob each frame.
 //   * Anything else (or Cook on an unlit forge) → toggles the flame.
 //
 // Cook-job lifecycle:
-//   * StartCookJob seeds the timer; items stay in CookingSlots so a Cancel
+//   * StartForgeJob seeds the timer; items stay in ForgeSlots so a Cancel
 //     leaves the inputs intact.
 //   * _PhysicsProcess decrements remainingSeconds; on expiry,
-//     CompleteCookJob drains the slots and routes the output either
+//     CompleteForgeJob drains the slots and routes the output either
 //     through deliveryCallback (set by the bound CookingScreen) or
 //     spawns Loot at the forge for the player to find later.
 //   * Dousing the flame (SetLit(false)) cancels any active job — items
@@ -29,7 +29,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _hudNode;
     [Export] private DamageZone _damageZone;
     [Export] private WarmthZone _warmthZone;
-    [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
+    // Actions shown while the forge is lit. The first entry is the default
+    // (Cook); secondary entries (Douse) surface through the hold-menu.
+    [Export] private Godot.Collections.Array<InteractiveAction> _litActions = new();
+    // Actions shown while the forge is unlit — typically a single Light entry.
+    [Export] private Godot.Collections.Array<InteractiveAction> _unlitActions = new();
     [Export] private PackedScene _lightOnEffectScene;
     [Export] private PackedScene _lightOffEffectScene;
     [Export] private PackedScene _lightLoopEffectScene;
@@ -38,7 +42,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private EForgeType _forgeType;
     // How long (seconds) a single cook job takes. Per-recipe override comes
     // later once the player can pick a target cook time.
-    [Export] private float _cookingTimeSeconds = 1.5f;
+    [Export] private float _forgeTimeSeconds = 1.5f;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _active = true;
@@ -48,15 +52,15 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // CookingScreen subscribes when bound so the forge can hand off a
     // completed output to the player's inventory instead of dropping it.
     // Null = nobody listening; the forge spawns the loot itself.
-    public Action<CookCompletion> deliveryCallback;
+    public Action<ForgeCompletion> deliveryCallback;
     // Fires every Tick the active cook job advances, plus once with `null`
     // when the job ends (complete OR cancelled). Lets the cooking screen
     // refresh its progress bar without polling state itself.
-    public Action<CookJob> onCookJobChanged;
+    public Action<ForgeJob> onForgeJobChanged;
 
     public ForgeSimState SimState => _simState;
-    public CookJob ActiveCookJob => _simState?.ActiveCookJob;
-    public ItemState[] CookingSlots => _simState?.CookingSlots;
+    public ForgeJob ActiveForgeJob => _simState?.ActiveForgeJob;
+    public ItemState[] ForgeSlots => _simState?.ForgeSlots;
     public bool IsLit => _active;
     public EForgeType ForgeType => _forgeType;
 
@@ -77,19 +81,21 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
-        return _actions != null && _actions.Count > 0 ? _actions : null;
+        Godot.Collections.Array<InteractiveAction> active = _active ? _litActions : _unlitActions;
+        return active != null && active.Count > 0 ? active : null;
     }
 
     public void Complete(int actionIndex)
     {
-        // EActionVerb.Cook on a lit forge pops the cooking screen; on an
-        // unlit forge it falls through to the toggle path so the player
-        // still has to light it before cooking. Douse moves to a secondary
-        // radial action later.
-        InteractiveAction action = _actions != null && actionIndex >= 0 && actionIndex < _actions.Count
-            ? _actions[actionIndex]
+        Godot.Collections.Array<InteractiveAction> active = _active ? _litActions : _unlitActions;
+        InteractiveAction action = active != null && actionIndex >= 0 && actionIndex < active.Count
+            ? active[actionIndex]
             : null;
-        if (action != null && action.verb == EActionVerb.Cook && _active)
+        if (action == null)
+        {
+            return;
+        }
+        if (action.verb == EActionVerb.Cook && _active)
         {
             GameClient gc = GameClient.Current;
             Player player = gc?.Player;
@@ -99,12 +105,21 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             }
             return;
         }
-
+        if (action.verb == EActionVerb.Light)
+        {
+            SetLit(true);
+            return;
+        }
+        if (action.verb == EActionVerb.Douse)
+        {
+            SetLit(false);
+            return;
+        }
         SetLit(!_active);
     }
 
     // Toggle helper. Updates visuals, zones, fx, and cancels any in-flight
-    // cook job when the flame goes out — items stay in CookingSlots for
+    // cook job when the flame goes out — items stay in ForgeSlots for
     // the player to reclaim on relight.
     private void SetLit(bool lit)
     {
@@ -119,7 +134,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         }
         if (!_active)
         {
-            CancelCookJob();
+            CancelForgeJob();
         }
 
         UpdateVisuals();
@@ -137,7 +152,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 
     public override void _PhysicsProcess(double delta)
     {
-        CookJob job = _simState?.ActiveCookJob;
+        ForgeJob job = _simState?.ActiveForgeJob;
         if (job == null)
         {
             return;
@@ -145,51 +160,51 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         job.remainingSeconds -= (float)delta;
         if (job.remainingSeconds <= 0f)
         {
-            CompleteCookJob();
+            CompleteForgeJob();
         }
         else
         {
-            onCookJobChanged?.Invoke(job);
+            onForgeJobChanged?.Invoke(job);
         }
     }
 
     // Begin a cook job. Caller has already verified the slots match the
-    // recipe via Cooking.TryMatch. Items remain in CookingSlots until
+    // recipe via Cooking.TryMatch. Items remain in ForgeSlots until
     // completion — Cancel restores access without consuming anything.
-    // Discovery is NOT credited here: it lands in CompleteCookJob so a
+    // Discovery is NOT credited here: it lands in CompleteForgeJob so a
     // cancelled cook never marks the recipe as learned.
-    public void StartCookJob(RecipeData recipe, ItemData output, bool isHighQuality)
+    public void StartForgeJob(RecipeData recipe, ItemData output, bool isHighQuality)
     {
         if (_simState == null || recipe == null || output == null)
         {
             return;
         }
-        if (_simState.ActiveCookJob != null)
+        if (_simState.ActiveForgeJob != null)
         {
             return;
         }
-        _simState.ActiveCookJob = new CookJob
+        _simState.ActiveForgeJob = new ForgeJob
         {
             recipe = recipe,
             outputItem = output,
             isHighQuality = isHighQuality,
-            remainingSeconds = _cookingTimeSeconds,
-            totalSeconds = _cookingTimeSeconds,
+            remainingSeconds = _forgeTimeSeconds,
+            totalSeconds = _forgeTimeSeconds,
         };
-        onCookJobChanged?.Invoke(_simState.ActiveCookJob);
+        onForgeJobChanged?.Invoke(_simState.ActiveForgeJob);
     }
 
-    // Cancel any in-flight job. Items in CookingSlots stay put — cancel is
+    // Cancel any in-flight job. Items in ForgeSlots stay put — cancel is
     // an opt-out, not a destructive operation. Safe to call when no job is
     // active.
-    public void CancelCookJob()
+    public void CancelForgeJob()
     {
-        if (_simState == null || _simState.ActiveCookJob == null)
+        if (_simState == null || _simState.ActiveForgeJob == null)
         {
             return;
         }
-        _simState.ActiveCookJob = null;
-        onCookJobChanged?.Invoke(null);
+        _simState.ActiveForgeJob = null;
+        onForgeJobChanged?.Invoke(null);
     }
 
     // Job ran to completion: record discovery, drain slots, and deliver
@@ -200,9 +215,9 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // (deliveryCallback set), it takes the output and decides between
     // inventory and drop. Otherwise the forge spawns the loot at its
     // position for the player to walk back to.
-    private void CompleteCookJob()
+    private void CompleteForgeJob()
     {
-        CookJob job = _simState?.ActiveCookJob;
+        ForgeJob job = _simState?.ActiveForgeJob;
         if (job == null)
         {
             return;
@@ -215,24 +230,24 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             wasNewHighQualityDiscovery = wasNewDiscovery || !worldSim.DiscoveredRecipes[job.recipe].discoveredHighQuality;
         }
         var match = new Cooking.MatchResult(job.recipe, job.isHighQuality);
-        Cooking.RecordDiscovery(worldSim, match, _simState.CookingSlots);
+        Cooking.RecordDiscovery(worldSim, match, _simState.ForgeSlots);
 
-        if (_simState.CookingSlots != null)
+        if (_simState.ForgeSlots != null)
         {
-            for (int i = 0; i < _simState.CookingSlots.Length; i++)
+            for (int i = 0; i < _simState.ForgeSlots.Length; i++)
             {
-                _simState.CookingSlots[i] = null;
+                _simState.ForgeSlots[i] = null;
             }
         }
-        var completion = new CookCompletion
+        var completion = new ForgeCompletion
         {
             output = job.outputItem,
             isHighQuality = job.isHighQuality,
             wasNewDiscovery = wasNewDiscovery,
             wasNewHighQualityDiscovery = wasNewHighQualityDiscovery,
         };
-        _simState.ActiveCookJob = null;
-        onCookJobChanged?.Invoke(null);
+        _simState.ActiveForgeJob = null;
+        onForgeJobChanged?.Invoke(null);
 
         if (deliveryCallback != null)
         {
@@ -304,7 +319,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
 // forge's deliveryCallback hands one of these to the bound CookingScreen
 // so the announcement system can decide between "New Recipe Discovered"
 // vs "Cooking Complete" without re-querying state.
-public struct CookCompletion
+public struct ForgeCompletion
 {
     public ItemData output;
     public bool isHighQuality;

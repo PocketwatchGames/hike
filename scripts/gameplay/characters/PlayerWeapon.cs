@@ -150,7 +150,7 @@ public partial class Player : CharacterBody3D, IActionActor
 	// and Interacting-anim checks elsewhere can key off _curInteractive.
 	// Returns true on a successful start. _PhysicsProcess clears
 	// _curInteractive when the runner finishes the action.
-	bool TryStartInteractiveAction(IInteractive interactive, int actionIndex = 0)
+	public bool TryStartInteractiveAction(IInteractive interactive, int actionIndex = 0)
 	{
 		if (_runner == null || _runner.IsBusy || interactive == null)
 		{

@@ -20,6 +20,7 @@
 [ext_resource type="Script" uid="uid://b4fimcftsikmx" path="res://scripts/gameplay/entities/GasCloudDeployer.cs" id="18_gasdeployer"]
 [ext_resource type="PackedScene" uid="uid://c3a8m1hhlwljn" path="res://scenes/effects/gas_poison.tscn" id="19_gascloud"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="20_lootdata"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="21_open"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("10_event")
@@ -28,7 +29,9 @@ fx = ExtResource("8_chestopen")
 
 [sub_resource type="Resource" id="Resource_chest_action_open"]
 script = ExtResource("9_action")
-verb = 4
+verb = 0
+displayName = &"Open"
+icon = ExtResource("21_open")
 completionEvents = Array[ExtResource("10_event")]([SubResource("Resource_chest_event_open")])
 durationSeconds = 3.0
 locksMovement = true

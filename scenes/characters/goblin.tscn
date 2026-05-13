@@ -27,6 +27,8 @@
 [ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
 [ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
+[ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/stun_begin.tscn" id="23_stunbegin"]
+[ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="24_stunloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -301,6 +303,8 @@ _runLoopEffect = ExtResource("19_run")
 _swimIdleLoopEffect = ExtResource("20_swimidle")
 _deathVoEffect = ExtResource("21_deathvo")
 _armorDepletedEffect = ExtResource("22_armorbrk")
+_stunBeginEffect = ExtResource("23_stunbegin")
+_stunLoopEffect = ExtResource("24_stunloop")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1610472919]

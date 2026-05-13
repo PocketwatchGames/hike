@@ -29,6 +29,8 @@
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="22_brwcmp"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="23_brwemg"]
 [ext_resource type="PackedScene" uid="uid://dextdjcpcdj8k" path="res://scenes/effects/kunkun_death_vo.tscn" id="24_deathvo"]
+[ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/stun_begin.tscn" id="25_stunbegin"]
+[ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="26_stunloop"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 radius = 0.3
@@ -364,6 +366,8 @@ _idleLoopEffect = ExtResource("18_idle")
 _runLoopEffect = ExtResource("19_run")
 _swimIdleLoopEffect = ExtResource("20_swimidle")
 _deathVoEffect = ExtResource("24_deathvo")
+_stunBeginEffect = ExtResource("25_stunbegin")
+_stunLoopEffect = ExtResource("26_stunloop")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]

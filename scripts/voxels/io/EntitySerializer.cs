@@ -100,6 +100,13 @@ public static class EntitySerializer
                 w.Write((byte)mob.DiscoveryState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
                 w.Write(mob.SpawnAtNight);
+                // Stun state. Persisted so a mob saved mid-stun reloads in
+                // the same state and TickStun can resume the wake-up clock
+                // without a discontinuity.
+                w.Write(mob.Stun);
+                w.Write(mob.Stunned);
+                w.Write(mob.StunRecoverMs);
+                w.Write(mob.StunRechargeStartMs);
                 break;
 
             case DoorSimState door:
@@ -116,7 +123,7 @@ public static class EntitySerializer
                 WriteScene(w, forge.Scene);
                 w.Write(forge.Active);
                 w.Write(forge.AutoLightAtNight);
-                // Transient cooking state (CookingSlots, ActiveCookJob) is
+                // Transient cooking state (ForgeSlots, ActiveForgeJob) is
                 // not serialized — open jobs are abandoned and slot
                 // contents reset on world reload. Persisting them would
                 // need stable ItemData refs and recipe wire IDs first.
@@ -233,6 +240,10 @@ public static class EntitySerializer
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
                 bool spawnAtNight = r.ReadBoolean();
+                float stun = r.ReadSingle();
+                bool stunned = r.ReadBoolean();
+                ulong stunRecoverMs = r.ReadUInt64();
+                ulong stunRechargeStartMs = r.ReadUInt64();
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 if (!string.IsNullOrEmpty(initialBehavior))
@@ -252,6 +263,10 @@ public static class EntitySerializer
                 mob.PlayerPerception = playerPerception;
                 mob.MemoryTimeMs = memoryTimeMs;
                 mob.DiscoveryState = perceptionState;
+                mob.Stun = stun;
+                mob.Stunned = stunned;
+                mob.StunRecoverMs = stunRecoverMs;
+                mob.StunRechargeStartMs = stunRechargeStartMs;
                 return mob;
             }
             case Tag.Door:

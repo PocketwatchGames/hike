@@ -75,6 +75,10 @@ public partial class MobData : Resource
     [Export] public float hideRange = 20f;
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
+    [Export] public float stunThreshold = 5f;
+    [Export] public float stunRechargeDelay = 6f;
+    [Export] public float stunRechargeSpeed = 1f;
+    [Export] public float stunRecoverTime = 5f;
     [Export] public float armorRechargeDelay = 6f;
     [Export] public float armorRechargeSpeed = 1f;
     [Export] public float armorRecoverTime = 30f;

@@ -42,6 +42,16 @@ public class MobSimState : EntitySimState
     public bool Burrowed;
     public float MaxHealth;
     public float Health;
+    // Stun has two distinct deadlines, so each gets its own field rather than
+    // one variable doing double duty. Stunned is the explicit binary state
+    // (mirrors Armor's ArmorDepleted/ArmorRecharging pattern); StunRecoverMs
+    // is the wake-up deadline (only meaningful while Stunned); StunRechargeStartMs
+    // is the post-hit delay before the sub-threshold meter starts draining
+    // (only meaningful while !Stunned && Stun > 0). One is always 0/unused.
+    public float Stun;
+    public bool Stunned;
+    public ulong StunRecoverMs;
+    public ulong StunRechargeStartMs;
     public float Armor;
     // Game-time at which armor recharge can begin. Set on every armor-
     // absorbing hit; the longer recover window is what ArmorDepleted tracks

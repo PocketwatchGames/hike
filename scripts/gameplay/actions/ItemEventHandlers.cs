@@ -305,15 +305,20 @@ public static class ItemEventHandlers
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
 		DamageData template = ev.damageData;
-		if (template == null && action.context.primaryItem is WeaponState weapon)
+		DamageData crit = null;
+		if (action.context.primaryItem is WeaponState weapon)
 		{
-			template = weapon.data?.damageData;
+			if (template == null)
+			{
+				template = weapon.data?.damageData;
+			}
+			crit = weapon.data?.critDamageData;
 		}
 		if (template == null)
 		{
 			return default;
 		}
-		return new HitInfo(template, actor.AttackerNode);
+		return new HitInfo(template, actor.AttackerNode, default, crit);
 	}
 
 	private static float SampleCurve(Curve curve, float t, float fallback)

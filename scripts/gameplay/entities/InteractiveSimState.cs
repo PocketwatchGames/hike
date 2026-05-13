@@ -49,7 +49,7 @@ public class ForgeSimState : EntitySimState
     // Number of cooking slots a forge exposes. Mirrored by the
     // CookingPanel.tscn layout — adding a slot here requires adding a
     // matching ItemSlotPanel reference there.
-    public const int CookingSlotCount = 3;
+    public const int ForgeSlotCount = 3;
 
     public bool Active = true;
     // When true, Forge.Create overrides Active based on world time-of-day
@@ -62,13 +62,13 @@ public class ForgeSimState : EntitySimState
     // contents survive CookingScreen open/close; idle-close returns them
     // to the player's inventory, mid-cook close leaves them for the active
     // job to consume.
-    public ItemState[] CookingSlots = new ItemState[CookingSlotCount];
+    public ItemState[] ForgeSlots = new ItemState[ForgeSlotCount];
 
     // Non-null while a cook job is in flight. Forge._PhysicsProcess ticks
     // remainingSeconds; on completion the slots are drained and the output
     // is delivered through the bound CookingScreen (if any) or spawned as
     // Loot at the forge's position.
-    public CookJob ActiveCookJob;
+    public ForgeJob ActiveForgeJob;
 
     public ForgeSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
@@ -83,11 +83,11 @@ public class ForgeSimState : EntitySimState
 
 // Active cook job — recipe + timer + output preview. Owned by
 // ForgeSimState; the forge's runtime entity ticks the timer. Discovery
-// flags aren't tracked here — Forge.CompleteCookJob computes them against
+// flags aren't tracked here — Forge.CompleteForgeJob computes them against
 // the live WorldSimState at the moment the cook actually finishes, so a
 // cancelled cook doesn't leak credit and an offscreen completion still
 // records correctly.
-public class CookJob
+public class ForgeJob
 {
     public RecipeData recipe;
     public ItemData outputItem;

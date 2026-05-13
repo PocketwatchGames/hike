@@ -16,6 +16,7 @@
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="11_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="12_event"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
+[ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="14_pickup"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -26,7 +27,9 @@ type = 256
 
 [sub_resource type="Resource" id="Resource_loot_action_open"]
 script = ExtResource("11_action")
-verb = 4
+verb = 0
+displayName = &"Pick Up"
+icon = ExtResource("14_pickup")
 completionEvents = Array[ExtResource("12_event")]([SubResource("Resource_loot_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_loot"]

@@ -15,11 +15,11 @@ using System.Collections.Generic;
 //   opens the count picker). Cook button toggles between starting a cook
 //   job and cancelling the active one.
 //
-// The forge owns the persistent cooking state (ForgeSimState.CookingSlots
-// and ActiveCookJob); this screen is a thin view + verb dispatcher over
+// The forge owns the persistent cooking state (ForgeSimState.ForgeSlots
+// and ActiveForgeJob); this screen is a thin view + verb dispatcher over
 // that. On close:
 //   * If a cook job is in flight, the forge keeps the slots (consumed on
-//     completion, which may now happen offscreen — Forge.CompleteCookJob
+//     completion, which may now happen offscreen — Forge.CompleteForgeJob
 //     drops the output as Loot at the forge when no screen is bound).
 //   * If idle, every populated slot is returned to the player's inventory
 //     (or dropped at the player's feet if no space).
@@ -178,9 +178,9 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		_cookingPanel.Bind(_forge.CookingSlots);
+		_cookingPanel.Bind(_forge.ForgeSlots);
 		_forge.deliveryCallback = OnCookOutputDelivered;
-		_forge.onCookJobChanged += OnCookJobChanged;
+		_forge.onForgeJobChanged += OnForgeJobChanged;
 		// Recipe-list disabled states track inventory contents — subscribe
 		// so an inventory mutation (item taken into slots, output delivered,
 		// drop, etc.) immediately re-evaluates which buttons are clickable.
@@ -190,7 +190,7 @@ public partial class CookingScreen : Control
 		}
 		// Seed the panel with the current job state so a re-open mid-cook
 		// shows the in-progress bar immediately.
-		OnCookJobChanged(_forge.ActiveCookJob);
+		OnForgeJobChanged(_forge.ActiveForgeJob);
 		RefreshRecipeList();
 	}
 
@@ -201,7 +201,7 @@ public partial class CookingScreen : Control
 			return;
 		}
 		_forge.deliveryCallback = null;
-		_forge.onCookJobChanged -= OnCookJobChanged;
+		_forge.onForgeJobChanged -= OnForgeJobChanged;
 		if (_player?.Inventory != null)
 		{
 			_player.Inventory.onChanged -= OnInventoryChanged;
@@ -368,7 +368,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		bool cooking = _forge != null && _forge.ActiveCookJob != null;
+		bool cooking = _forge != null && _forge.ActiveForgeJob != null;
 		bool hasItem = item != null && !cooking;
 		ButtonHint primary = _inventoryPanel.ButtonHintPrimary;
 		ButtonHint drop = _inventoryPanel.ButtonHintDrop;
@@ -471,7 +471,7 @@ public partial class CookingScreen : Control
 	{
 		_itemInfoPanel?.SetItem(item);
 		UpdateInventoryHints(item);
-		bool cooking = _forge != null && _forge.ActiveCookJob != null;
+		bool cooking = _forge != null && _forge.ActiveForgeJob != null;
 		ButtonHint primary = _inventoryPanel?.ButtonHintPrimary;
 		if (primary != null)
 		{
@@ -543,7 +543,7 @@ public partial class CookingScreen : Control
 	// Cook button — commit (start a job) or cancel (stop the active one).
 	// -------------------------------------------------------------------
 
-	bool IsCooking => _forge != null && _forge.ActiveCookJob != null;
+	bool IsCooking => _forge != null && _forge.ActiveForgeJob != null;
 
 	void OnCookCommit()
 	{
@@ -577,22 +577,22 @@ public partial class CookingScreen : Control
 			return;
 		}
 
-		// Items remain in the slots — Forge.CompleteCookJob drains them on
+		// Items remain in the slots — Forge.CompleteForgeJob drains them on
 		// timer expiry, which lets Cancel preserve the inputs. Discovery
 		// is recorded by the forge at completion so a cancel mid-cook
 		// doesn't credit the recipe.
-		_forge.StartCookJob(match.recipe, match.OutputItem, match.isHighQuality);
+		_forge.StartForgeJob(match.recipe, match.OutputItem, match.isHighQuality);
 	}
 
 	void OnCookCancel()
 	{
-		_forge?.CancelCookJob();
+		_forge?.CancelForgeJob();
 	}
 
 	// Forge fires this every physics tick while a job is in flight and once
 	// with null when the job ends (complete OR cancel). Updates the cook
 	// button label, progress bar, and the inventory-side hint visibilities.
-	void OnCookJobChanged(CookJob job)
+	void OnForgeJobChanged(ForgeJob job)
 	{
 		if (_cookingPanel != null)
 		{
@@ -600,7 +600,7 @@ public partial class CookingScreen : Control
 			_cookingPanel.SetCookingActive(job != null, progress);
 			if (job == null)
 			{
-				// Cook ended — the forge cleared CookingSlots on completion
+				// Cook ended — the forge cleared ForgeSlots on completion
 				// (and left them alone on Cancel). Re-sync the slot visuals
 				// to whatever the backing array now holds; on completion
 				// this clears the stale icons in the input slots.
@@ -616,7 +616,7 @@ public partial class CookingScreen : Control
 	// bound. Try to fit the output in the player's inventory; spill any
 	// remainder onto the ground at the player's feet. Also fires the
 	// "cooking complete" / "new recipe discovered" announcement.
-	void OnCookOutputDelivered(CookCompletion completion)
+	void OnCookOutputDelivered(ForgeCompletion completion)
 	{
 		if (completion.output == null || _player == null)
 		{
@@ -632,7 +632,7 @@ public partial class CookingScreen : Control
 			? $"New Recipe Discovered: {outputName}"
 			: $"Cooking Complete: {outputName}";
 		_cookingPanel?.ShowAnnouncement(text, completion.output.inventorySprite);
-		// Forge.CompleteCookJob just recorded the discovery — surface any
+		// Forge.CompleteForgeJob just recorded the discovery — surface any
 		// new recipe button right now. Inventory.onChanged from the output
 		// add above already triggers this, but a full inventory (output
 		// goes to drop) bypasses that path.
@@ -685,7 +685,7 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		if (_forge.ActiveCookJob != null)
+		if (_forge.ActiveForgeJob != null)
 		{
 			return;
 		}

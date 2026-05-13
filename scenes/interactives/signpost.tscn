@@ -12,6 +12,7 @@
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="11_open"]
 
 [sub_resource type="Resource" id="Resource_signpost_event_open"]
 script = ExtResource("9_event")
@@ -19,6 +20,8 @@ type = 256
 
 [sub_resource type="Resource" id="Resource_signpost_action_read"]
 script = ExtResource("8_action")
+displayName = &"Read"
+icon = ExtResource("11_open")
 completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_signpost_event_open")])
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_w7day"]

@@ -718,6 +718,30 @@ public partial class GameClient : Node3D
 		{
 			ApplyHighlight(node);
 		}
+		UpdateInteractHUD();
+	}
+
+	// Single source of truth for spawning/freeing the InteractHUD. Called
+	// whenever the player's highlight OR current interactive changes: the
+	// HUD survives the press-to-start transition (highlight clears the same
+	// frame _curInteractive becomes non-null) by binding to whichever target
+	// is currently meaningful.
+	void UpdateInteractHUD()
+	{
+		IInteractive target = _player?.CurInteractive ?? _player?.HighlightInteractive;
+		if (_interactHUD != null && _interactHUD.Interactive != target)
+		{
+			_interactHUD.QueueFree();
+			_interactHUD = null;
+		}
+		if (target == null)
+		{
+			return;
+		}
+		if (_interactHUD == null && interactHudScene != null)
+		{
+			_interactHUD = InteractHUD.Create(interactHudScene, camera, _player, target, worldHUD);
+		}
 	}
 
 	void ApplyHighlight(Node3D node)
@@ -816,15 +840,7 @@ public partial class GameClient : Node3D
 
 	void OnPlayerInteractChanged(IInteractive interactive)
 	{
-		if (_interactHUD != null)
-		{
-			_interactHUD.QueueFree();
-			_interactHUD = null;
-		}
-		if (interactive != null && interactHudScene != null)
-		{
-			_interactHUD = InteractHUD.Create(interactHudScene, camera, _player, interactive, worldHUD);
-		}
+		UpdateInteractHUD();
 	}
 
 	void OnMobSpawned(Mob mob)
