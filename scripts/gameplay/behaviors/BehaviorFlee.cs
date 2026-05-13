@@ -42,13 +42,14 @@ public partial class BehaviorFlee : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
-        // Yell once on first sighting so nearby mobs also investigate. Mirrors
-        // BehaviorAttack's latch so the next engagement yells again.
+        // Yell once on first sighting so nearby mobs also investigate. Mob's
+        // AIOutput processing flips _simState.Yelled when the yell actually
+        // fires; MobAI clears it again when perception drops so the next
+        // engagement yells again.
         if (!me.yelled && targetPerception.canSee)
         {
             output.yell = true;
             output.targetPos = target.GlobalPosition;
-            me.yelled = true;
         }
 
         Vector3 diff = target.GlobalPosition - me.weaponPosition;

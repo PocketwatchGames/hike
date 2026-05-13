@@ -223,11 +223,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Tracks the previous frame's water-at-feet sample so we can detect the
     // false→true transition and fire one splash, not one per frame.
     bool _wasInWaterPrev;
-    // Captured in _Ready so burrow can drop the mesh and restore it. The drop
-    // is sized from the collision capsule so kun_kun (short) and goblin (tall)
-    // both end up about 3/4 of their body underground.
-    private Vector3 _meshRestPosition;
-    private float _meshBurrowDrop;
     // Current fade values, stepped toward their target every _Process tick.
     // Start at 0 so a freshly-spawned mob dithers IN rather than popping on
     // its first frame; if it's already within visible time the target snaps
@@ -249,7 +244,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool _lastMeshVisibleInit;
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
-    private float _lastBurrowT = float.NaN;
     private float _lastLinearDamp = float.NaN;
     private bool _impulseApplied;
     // Tracks the last observed mob_physics CVar value so the bisection
@@ -298,17 +292,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _hurtBox.OnHit = Hit;
             _hurtBox.GetHitType = GetHitType;
         }
-
-        if (_mesh != null)
-        {
-            _meshRestPosition = _mesh.Position;
-        }
-        float capsuleHeight = 1.5f;
-        if (_collisionShape?.Shape is CapsuleShape3D capsule)
-        {
-            capsuleHeight = capsule.Height;
-        }
-        _meshBurrowDrop = capsuleHeight * 0.75f;
     }
 
     public void OnSpawned(World world)
@@ -461,6 +444,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (!alive)
         {
             loopAnim = AnimationNames.Dead;
+        }
+        else if (stunned)
+        {
+            loopAnim = AnimationNames.Stunned;
+        }
+        else if (burrowed)
+        {
+            loopAnim = AnimationNames.Burrowed;
+        }
+        else if (burrowing)
+        {
+            loopAnim = AnimationNames.Burrowing;
         }
         else
         {
@@ -650,31 +645,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         bool hudVisibleTarget = CVars.mobHud.Value;
         bool castsShadowTarget = _visibility > 0f && CVars.mobShadows.Value;
 
-        // Burrow visual: fully burrowed mobs sit 3/4 underground, and
-        // burrowing mobs lerp smoothly from rest to that depth over the
-        // mob's burrowTime window. Dropping the mesh in local space (not
-        // the rigid body) keeps physics and collision put — the mob is
-        // still standing, just hiding.
-        float burrowT = 0f;
-        if (burrowed)
-        {
-            burrowT = 1f;
-        }
-        else if (burrowing)
-        {
-            float totalMs = _simState.MobData.burrowTime * 1000f;
-            if (totalMs > 0f)
-            {
-                ulong now = _world.GameTimeMs;
-                float remaining = burrowTimeMs > now ? burrowTimeMs - now : 0f;
-                burrowT = Mathf.Clamp(1f - remaining / totalMs, 0f, 1f);
-            }
-            else
-            {
-                burrowT = 1f;
-            }
-        }
-
         // Push to Godot only when something actually changed. Each setter is
         // a managed→native marshal that pushes uniform updates / dirties the
         // transform, so skipping them on stable frames is the bulk of the
@@ -708,14 +678,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             litSprite.Visibility = _visibility;
             litSprite.Silhouette = _silhouette;
             litSprite.CastsShadow = castsShadowTarget;
-        }
-
-        if (burrowT != _lastBurrowT)
-        {
-            Vector3 meshPos = _meshRestPosition;
-            meshPos.Y -= _meshBurrowDrop * burrowT;
-            _mesh.Position = meshPos;
-            _lastBurrowT = burrowT;
+            // Burrowed mobs are underground — the normal depth-tested mesh is
+            // already hidden by terrain, but the next_pass X-ray would still
+            // silhouette them through the ground. Suppress it so a buried mob
+            // is genuinely invisible.
+            litSprite.XrayAmount = burrowed ? 0f : 1f;
         }
     }
 
@@ -928,26 +895,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
             if (aiOutput.yell)
             {
-                SpawnWorldEffect(_yellEffect);
-                _simState.PlayerPerception = 1;
-                _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
-                _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
-                float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
-                using (Profiler.Sample("Mob.YellBroadcast"))
-                {
-                    foreach (Mob mob in _world.GetEntities<Mob>())
-                    {
-                        if (mob == this)
-                        {
-                            continue;
-                        }
-                        if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
-                        {
-                            mob.Investigate(aiOutput.targetPos, 8, 30000, 3000);
-                        }
-                    }
-                }
-                _simState.Yelled = true;
+                Yell(aiOutput.targetPos);
             }
             // Two-phase burrow. When aiOutput.burrow first goes true we start
             // a Burrowing descent and arm burrowTime. Once the timer elapses
@@ -1027,11 +975,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                         AddChild(_torch);
                     }
                 }
-                else if (_torch != null)
+                else
                 {
-                    _torch.Deactivate();
-                    _torch.QueueFree();
-                    _torch = null;
+                    DespawnTorch();
                 }
             }
         }
@@ -1094,10 +1040,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return EHitResult.None;
         }
-        // Mirror Hit()'s swap so a stunned-mob crit is reflected in the
-        // impact-effect pick (e.g. Lethal when crit damage finishes a mob
-        // that the regular damage wouldn't have).
-        hit = ApplyStunCrit(hit);
+        // Mirror Hit()'s swap so a crit (stunned or unaware mob) is reflected
+        // in the impact-effect pick (e.g. Lethal when crit damage finishes a
+        // mob that the regular damage wouldn't have).
+        hit = ApplyCrit(hit);
         float incoming = hit.healthDamage;
         if (incoming <= 0f)
         {
@@ -1117,16 +1063,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
-        // Crit-on-stun: a stunned mob takes the attacker's crit payload, not
-        // the regular one. Swap before everything so armor, health, status,
-        // and the in-Damage wake-up all read the crit values consistently.
-        hit = ApplyStunCrit(hit);
+        // Crit: a stunned or untriggered (unaware) mob takes the attacker's
+        // crit payload, not the regular one. Swap before everything so armor,
+        // health, status, and the in-Damage wake-up all read the crit values
+        // consistently.
+        hit = ApplyCrit(hit);
 
         // External-interrupt damage during an in-flight attack — interrupt
         // before applying damage so abortEvents fire on coherent pre-damage
         // state. Gated by the action's profile.interruptOnDamage and the
         // tier's canInterrupt; non-interruptible swings keep going.
         _runner?.TryInterrupt();
+
+        // Becoming aware of the attacker. Singleplayer assumes slot[0]
+        // tracks the player, so only player-sourced hits write a perception
+        // edge here — non-player damage (DamageZone, traps) leaves the
+        // perception array alone until it grows multi-source support. Done
+        // before Damage so the trigger is recorded even on a killing blow.
+        if (hit.source is Player attacker)
+        {
+            ref PerceptionState slot = ref _simState.PerceptionTargets[0];
+            slot.target = attacker;
+            slot.perception = 1f;
+            slot.aggro = 1f;
+            slot.triggered = true;
+            slot.lastKnownPosition = attacker.GlobalPosition;
+        }
 
         Damage(hit);
 
@@ -1137,14 +1099,52 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 AddStatusEffect(hit.statusEffects[i]);
             }
         }
+
+        // First-hit yell so nearby mobs converge to investigate. After
+        // Damage so a killing or stunning blow doesn't yell — stunned mobs
+        // are silent for the same reason TickAI suppresses their AIOutput.
+        // Yell() flips _simState.Yelled, mirroring the AIOutput-driven path
+        // from BehaviorAttack / BehaviorFlee.
+        if (alive && !stunned && !_simState.Yelled && hit.source is Node3D sourceNode)
+        {
+            Yell(sourceNode.GlobalPosition);
+        }
     }
 
-    // Swap the hit's payload to its crit variant when the mob is stunned
-    // and the attacker authored crit data. Returns the (possibly rebuilt)
-    // hit so GetHitType and Hit see the same numbers.
-    private HitInfo ApplyStunCrit(HitInfo hit)
+    // Shared yell path used by both the AIOutput-driven yell (set by combat
+    // behaviors on first sighting) and the damage-driven yell from Hit().
+    // Owns the _simState.Yelled flip so callers never set it directly.
+    private void Yell(Vector3 targetPos)
     {
-        if (stunned && hit.critDamage != null)
+        SpawnWorldEffect(_yellEffect);
+        _simState.PlayerPerception = 1;
+        _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
+        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
+        float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
+        using (Profiler.Sample("Mob.YellBroadcast"))
+        {
+            foreach (Mob mob in _world.GetEntities<Mob>())
+            {
+                if (mob == this)
+                {
+                    continue;
+                }
+                if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
+                {
+                    mob.Investigate(targetPos, 8, 30000, 3000);
+                }
+            }
+        }
+        _simState.Yelled = true;
+    }
+
+    // Swap the hit's payload to its crit variant when the mob is stunned or
+    // not yet triggered (unaware of the attacker) and the attacker authored
+    // crit data. Returns the (possibly rebuilt) hit so GetHitType and Hit see
+    // the same numbers.
+    private HitInfo ApplyCrit(HitInfo hit)
+    {
+        if ((stunned || !triggered) && hit.critDamage != null)
         {
             return new HitInfo(hit.critDamage, hit.source, hit.hitDirection);
         }
@@ -1308,6 +1308,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Deactivate fires the LightOff fx authored on the MovingLight as the
+    // natural "torch goes out" cue, then QueueFree drops the node. No-op
+    // when no torch is held.
+    private void DespawnTorch()
+    {
+        if (_torch == null)
+        {
+            return;
+        }
+        _torch.Deactivate();
+        _torch.QueueFree();
+        _torch = null;
+    }
+
     private void Die()
     {
         if (!alive)
@@ -1318,15 +1332,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         alive = false;
         // The per-frame torch gating in _PhysicsProcess only runs while alive,
         // so a dead mob's lit torch would otherwise leak its light deposit
-        // and loop FX. Deactivate + free explicitly — Deactivate fires the
-        // LightOff fx authored on the MovingLight as the natural "torch
-        // goes out" cue, then QueueFree drops the node.
-        if (_torch != null)
-        {
-            _torch.Deactivate();
-            _torch.QueueFree();
-            _torch = null;
-        }
+        // and loop FX.
+        DespawnTorch();
         // TickStun is gated on `alive`, so a mob killed mid-stun would leave
         // the loop running until QueueFree. Same "only runs while alive"
         // rationale as the torch cleanup above; SetStunned no-ops when the

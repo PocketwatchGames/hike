@@ -48,12 +48,13 @@ public partial class BehaviorAttack : BehaviorBase
             ReleaseSlot(me);
         }
 
-        // Yell once on first sighting this engagement. MobAI clears the flag
-        // when perception drops so the next engagement yells again.
+        // Yell once on first sighting this engagement. Mob's AIOutput
+        // processing flips _simState.Yelled when the yell actually fires;
+        // MobAI clears it again when perception drops so the next engagement
+        // yells again.
         if (!me.yelled && targetPerception.canSee)
         {
             output.yell = true;
-            me.yelled = true;
         }
 
         

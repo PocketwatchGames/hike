@@ -12,7 +12,6 @@ public partial class BehaviorInvestigate : BehaviorBase
     // arrival check by a few centimeters.
     private const float ArrivalSlack = 1f;
     private const float InvestigateSpeed = 0.25f;
-    private const float RepathSuccessDistance = 0.5f;
 
     private readonly InvestigateBehaviorData _data;
 
@@ -39,24 +38,32 @@ public partial class BehaviorInvestigate : BehaviorBase
         }
 
         InvestigateState investigation = me.investigation.Value;
-        output.pathTarget = investigation.position;
-        output.pathSuccessDistance = investigation.range;
+        // Route through the navigator so the mob A*-paths around obstacles
+        // instead of walking into walls between us and the noise. Speed is
+        // set explicitly so the navigator's defaults-fallback (1f) doesn't
+        // pull us up to full sprint.
+        me.Navigator.Goto(investigation.position, arrivalDistance: investigation.range, allowFalling: true);
         output.speed = InvestigateSpeed;
 
         Vector3 diff = investigation.position - me.GlobalPosition;
         float distSq = diff.LengthSquared();
         float arriveRange = investigation.range + ArrivalSlack;
 
+        // Face the investigation point every tick — a yell that drops us into
+        // Investigate should snap our head toward the source immediately, not
+        // wait for the path-direction auto-yaw to kick in (and not depend on
+        // LOS, since a yell from behind cover still draws attention).
+        Vector2 flat = new Vector2(diff.X, diff.Z);
+        if (flat.LengthSquared() > 0.0001f)
+        {
+            output.yaw = Mathf.Atan2(flat.X, flat.Y);
+        }
+
         if (distSq < arriveRange * arriveRange && HasLineOfSight(me, investigation.position))
         {
-            // Arrived and can see the point — face it and start the pause
-            // countdown. Clamp the existing cancelTime down so a very long
-            // investigation doesn't keep us parked here past pauseTime.
-            Vector2 flat = new Vector2(diff.X, diff.Z);
-            if (flat.LengthSquared() > 0.0001f)
-            {
-                output.yaw = Mathf.Atan2(flat.X, flat.Y);
-            }
+            // Arrived and can see the point — start the pause countdown.
+            // Clamp the existing cancelTime down so a very long investigation
+            // doesn't keep us parked here past pauseTime.
             ulong pauseUntil = time + investigation.pauseTime;
             if (pauseUntil < investigation.cancelTime)
             {

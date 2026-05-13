@@ -60,14 +60,23 @@ autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.2
 
+[sub_resource type="Resource" id="Resource_owk1l"]
+script = ExtResource("1_damage")
+healthDamage = 15.0
+stun = 10.0
+statusEffects = null
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"
+
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
 healthDamage = 3.0
+stun = 3.0
 statusEffects = null
 
 [resource]
 script = ExtResource("2_weapon")
 damageData = SubResource("Resource_damage")
+critDamageData = SubResource("Resource_owk1l")
 actionProfile = SubResource("Resource_profile")
 description = "Bashy bashy"
 inventorySprite = ExtResource("15_3a20y")

@@ -10,6 +10,8 @@
 [ext_resource type="Script" uid="uid://b34r1kblkugu0" path="res://scripts/data/behaviors/BurrowBehaviorData.cs" id="8_burrow"]
 [ext_resource type="Script" uid="uid://uwvia1l0j0cx" path="res://scripts/data/behaviors/conditions/CanBurrowAndOutOfRangeCondition.cs" id="9_burrow_cond"]
 [ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_wander"]
+[ext_resource type="Script" uid="uid://d9zzhikfreq41" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_lookat"]
+[ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="12_has_investigation"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -22,11 +24,19 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Flee"
 
+[sub_resource type="Resource" id="Resource_cond_has_investigation"]
+script = ExtResource("12_has_investigation")
+
+[sub_resource type="Resource" id="Resource_idle_to_lookat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"LookAt"
+
 [sub_resource type="Resource" id="Resource_idle_node"]
 script = ExtResource("2_node")
 name = &"Idle"
 data = SubResource("Resource_idle")
-transitions = [SubResource("Resource_idle_to_flee")]
+transitions = [SubResource("Resource_idle_to_flee"), SubResource("Resource_idle_to_lookat")]
 
 [sub_resource type="Resource" id="Resource_flee"]
 script = ExtResource("7_flee")
@@ -76,14 +86,34 @@ script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Flee"
 
+[sub_resource type="Resource" id="Resource_wander_to_lookat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_has_investigation")
+destination = &"LookAt"
+
 [sub_resource type="Resource" id="Resource_wander_node"]
 script = ExtResource("2_node")
 name = &"Wander"
 data = SubResource("Resource_wander")
-transitions = [SubResource("Resource_wander_to_flee")]
+transitions = [SubResource("Resource_wander_to_flee"), SubResource("Resource_wander_to_lookat")]
+
+[sub_resource type="Resource" id="Resource_lookat"]
+script = ExtResource("11_lookat")
+lookDurationSeconds = 3.0
+
+[sub_resource type="Resource" id="Resource_lookat_to_flee"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_aggro_acquired")
+destination = &"Flee"
+
+[sub_resource type="Resource" id="Resource_lookat_node"]
+script = ExtResource("2_node")
+name = &"LookAt"
+data = SubResource("Resource_lookat")
+transitions = [SubResource("Resource_lookat_to_flee")]
 
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node")]
+behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node"), SubResource("Resource_lookat_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

@@ -299,6 +299,18 @@ public partial class Mob
             float mobSneakSpeed = mobData.maxSpeed * 0.5f;
             float mobDecibels = PlayerPerception.ComputeMovementDecibels(mobSpeed, mobSneakSpeed, mobData.maxSpeed, mobData.sneakDecibels, mobData.runDecibels);
 
+            // Burrowed mobs are underground and invisible (no mesh above
+            // ground, X-ray suppressed). Zero prominence + decibels so the
+            // perception helper takes the decay branch — a player who never
+            // discovered the mob can't latch onto it through dirt, and an
+            // already-discovered mob's perception drains so its memory
+            // eventually expires.
+            if (burrowed)
+            {
+                effectiveProminence = 0f;
+                mobDecibels = 0f;
+            }
+
             var inputs = new PerceptionInputs
             {
                 prominence = effectiveProminence,

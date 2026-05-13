@@ -58,9 +58,6 @@ region = Rect2(96, 96, 48, 48)
 atlas = ExtResource("6_cham")
 region = Rect2(48, 96, 48, 48)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_ee4qp"]
-region = Rect2(96, 96, 48, 48)
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_gby2u"]
 atlas = ExtResource("6_cham")
 region = Rect2(96, 96, 48, 48)
@@ -116,6 +113,10 @@ region = Rect2(96, 48, 48, 48)
 [sub_resource type="AtlasTexture" id="AtlasTexture_bpq1b"]
 atlas = ExtResource("6_cham")
 region = Rect2(144, 48, 48, 48)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qhnjr"]
+atlas = ExtResource("6_cham")
+region = Rect2(48, 96, 48, 48)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_k11hd"]
 atlas = ExtResource("6_cham")
@@ -177,9 +178,6 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
-"texture": SubResource("AtlasTexture_ee4qp")
-}, {
-"duration": 1.0,
 "texture": SubResource("AtlasTexture_gby2u")
 }],
 "loop": false,
@@ -239,6 +237,14 @@ animations = [{
 "loop": true,
 "name": &"run",
 "speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qhnjr")
+}],
+"loop": true,
+"name": &"stunned",
+"speed": 5.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -317,7 +323,7 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(144, 0, 48, 48)
+region_rect = Rect2(0, 0, 48, 48)
 script = ExtResource("7_litsprite")
 MirrorByYaw = true
 ForwardOffset = 0.35

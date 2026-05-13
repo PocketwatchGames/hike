@@ -19,7 +19,10 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
     // Optional warmth zone — same shape as _damageZone. Tracks _active so
     // a doused light stops drying nearby players.
     [Export] private WarmthZone _warmthZone;
-    [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
+    // Actions shown while lit (Douse) and unlit (Light). Mirrors Forge's
+    // split so the InteractHUD icon flips with the flame.
+    [Export] private Godot.Collections.Array<InteractiveAction> _litActions = new();
+    [Export] private Godot.Collections.Array<InteractiveAction> _unlitActions = new();
     [Export] private PackedScene _lightOnEffectScene;
     [Export] private PackedScene _lightOffEffectScene;
     [Export] private PackedScene _lightLoopEffectScene;
@@ -51,7 +54,8 @@ public partial class Torch : Node3D, IInteractive, IWorldEntity
 
     public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
-        return _actions != null && _actions.Count > 0 ? _actions : null;
+        Godot.Collections.Array<InteractiveAction> active = _active ? _litActions : _unlitActions;
+        return active != null && active.Count > 0 ? active : null;
     }
 
     public void Complete(int actionIndex)
