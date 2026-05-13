@@ -1,11 +1,9 @@
 using System.Collections.Generic;
 using Godot;
 
-// Modal world-map overlay. Shown when the player presses the Map input
-// action; closed via ui_cancel. While open, GameClient suppresses gameplay
-// input and freezes World ticking the same way it does for the pause menu.
-// Built on a CanvasLayer (matching Hud) so its children anchor against the
-// root viewport rect — a top-level Control parented to Node3D does not.
+// World-map tab rendered inside AlmanacScreen. The Almanac wrapper owns
+// InputSuppressed / hud-visibility / ui_cancel handling; this screen just
+// renders when its tab is visible.
 //
 // Renders the entire world via the same minimap shader the HUD uses,
 // driving the same state-A / state-B uniforms but with a wider
@@ -26,12 +24,18 @@ using Godot;
 [GlobalClass]
 public partial class WorldMapScreen : Control
 {
-	[Export] public GameClient gameClient;
 	[Export] public TextureRect mapTexture;
 	// Overlay control sized to MapTexture's rect; region labels are
 	// added as children and positioned in local pixels each frame.
 	[Export] public Control regionLabels;
 	[Export(PropertyHint.Range, "8,64,1")] public int regionLabelFontSize = 24;
+
+	GameClient _gameClient;
+
+	public void Initialize(GameClient gameClient)
+	{
+		_gameClient = gameClient;
+	}
 
 	Texture2D _boundTileLut;
 	Texture2D _boundFoliageLut;
@@ -46,58 +50,9 @@ public partial class WorldMapScreen : Control
 	// Lazy-created on first visible frame, once WorldState is available.
 	readonly Dictionary<RegionData, Label> _labels = new();
 
-	System.Action _onClose;
-
 	public override void _Ready()
 	{
 		Visible = false;
-	}
-
-	public void Open(System.Action onClose = null)
-	{
-		_onClose = onClose;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = true;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = false;
-			}
-		}
-		Visible = true;
-	}
-
-	public void Close()
-	{
-		if (!Visible)
-		{
-			return;
-		}
-		Visible = false;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = false;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = true;
-			}
-		}
-		System.Action cb = _onClose;
-		_onClose = null;
-		cb?.Invoke();
-	}
-
-	public override void _UnhandledInput(InputEvent e)
-	{
-		if (!Visible)
-		{
-			return;
-		}
-		if (e.IsActionPressed("ui_cancel"))
-		{
-			Close();
-			GetViewport().SetInputAsHandled();
-		}
 	}
 
 	public override void _Process(double delta)
@@ -106,7 +61,7 @@ public partial class WorldMapScreen : Control
 		{
 			return;
 		}
-		Minimap minimap = gameClient?.World?.Minimap;
+		Minimap minimap = _gameClient?.World?.Minimap;
 		if (minimap == null || mapTexture == null)
 		{
 			return;
@@ -162,7 +117,7 @@ public partial class WorldMapScreen : Control
 		{
 			return;
 		}
-		WorldState ws = gameClient?.World?.WorldState;
+		WorldState ws = _gameClient?.World?.WorldState;
 		if (ws == null)
 		{
 			return;

@@ -20,6 +20,11 @@ public partial class ItemData : Resource
 
 	public bool IsStackable => maxStack > 1;
 
+	// Item-leveling cap. 0 = does not level (consumables, loot). Weapons and
+	// armor override this with an exported value. WeaponState.AddExp /
+	// ArmorState.AddExp walk SimData.ExpPerLevel up to this many entries.
+	public virtual int maxLevel { get; set; } = 0;
+
 	public virtual ItemState CreateState()
 	{
 		return new ItemState(this);

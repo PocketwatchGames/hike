@@ -12,6 +12,8 @@ public partial class ArmorData : ItemData
 	[Export] public float coldResistance = 0f;
 	[Export] public float heatResistance = 0f;
 
+	[Export] public override int maxLevel { get; set; } = 5;
+
 	public override ItemState CreateState()
 	{
 		return new ArmorState(this);

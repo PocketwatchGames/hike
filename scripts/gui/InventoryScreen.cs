@@ -1,30 +1,30 @@
 using Godot;
-using System;
 
-// Modal wrapper around InventoryPanel for the gameplay inventory screen. The
-// panel hands us slot focus events, primary tap (equip/unequip), secondary
-// press/release (use), and drop tap/hold — this screen owns the actual
-// behavior for each verb plus the button-hint labels, the InputSuppressed
-// gate, and the ui_cancel close.
+// Inventory tab rendered inside AlmanacScreen. The panel hands us slot focus
+// events, primary tap (equip/unequip), secondary press/release (use), and
+// drop tap/hold — this screen owns the actual behavior for each verb plus
+// the button-hint labels. The Almanac wrapper owns InputSuppressed, mouse
+// mode, hud visibility, and the ui_cancel close; this screen just binds /
+// unbinds when its tab is shown.
 [GlobalClass]
 public partial class InventoryScreen : Control
 {
-	[Export] public GameClient gameClient;
 	[Export] private InventoryPanel _panel;
 	[Export] private PlayerStatsPanel _statsPanel;
 	[Export] private ItemInfoPanel _itemInfoPanel;
 	[Export] private DropCountPanel _dropCountPanel;
 
-	Action _onClose;
+	GameClient _gameClient;
 	Player _player;
+
+	public void Initialize(GameClient gameClient)
+	{
+		_gameClient = gameClient;
+	}
 
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
-		if (gameClient != null)
-		{
-			gameClient.onPlayerSpawned += OnPlayerSpawned;
-		}
 		if (_panel != null)
 		{
 			// Primary verb: tap = equip/unequip. No hold on the gameplay
@@ -55,10 +55,6 @@ public partial class InventoryScreen : Control
 
 	public override void _ExitTree()
 	{
-		if (gameClient != null)
-		{
-			gameClient.onPlayerSpawned -= OnPlayerSpawned;
-		}
 		if (_panel != null)
 		{
 			_panel.onPrimaryTap -= OnPrimaryTap;
@@ -263,57 +259,15 @@ public partial class InventoryScreen : Control
 		}
 	}
 
-	void OnPlayerSpawned(Player player)
-	{
-		_player = player;
-		// If the screen happens to already be visible when the player spawns
-		// (load-order edge case), forward the bind immediately so the slots
-		// populate without waiting for an Open() / Close() cycle.
-		if (Visible)
-		{
-			_panel?.Bind(_player);
-		}
-	}
-
-	public void Open(Action onClose = null)
-	{
-		_onClose = onClose;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = true;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = false;
-			}
-		}
-		Visible = true;
-	}
-
-	public void Close()
-	{
-		if (!Visible)
-		{
-			return;
-		}
-		Visible = false;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = false;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = true;
-			}
-		}
-		Action cb = _onClose;
-		_onClose = null;
-		cb?.Invoke();
-	}
-
 	void OnVisibilityChanged()
 	{
-		Input.MouseMode = Visible ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
 		if (Visible)
 		{
+			// Fetch the player from gameClient on demand instead of subscribing
+			// to onPlayerSpawned in _Ready — the Almanac wrapper sets our
+			// gameClient field on Open() (before our tab is shown), and by
+			// the time this tab is ever shown the player has long since spawned.
+			_player = _gameClient?.Player;
 			_panel?.Bind(_player);
 		}
 		else
@@ -322,19 +276,6 @@ public partial class InventoryScreen : Control
 			// Closing the inventory drops any in-flight count-picker state so
 			// the next open starts clean.
 			CloseDropCountPanel();
-		}
-	}
-
-	public override void _UnhandledInput(InputEvent e)
-	{
-		if (!Visible)
-		{
-			return;
-		}
-		if (e.IsActionPressed("ui_cancel"))
-		{
-			Close();
-			GetViewport().SetInputAsHandled();
 		}
 	}
 }

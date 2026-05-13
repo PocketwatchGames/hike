@@ -9,4 +9,11 @@ using Godot;
 [GlobalClass]
 public partial class LootData : ItemData
 {
+    // Lifetime of the world pickup in milliseconds. 0 = never expires (the
+    // default, matches behavior before this field existed). When >0 the
+    // Loot scene tracks elapsed time and, once the threshold is crossed,
+    // plays the loot scene's removeFX and despawns. Used for foodstuffs
+    // like raw meat that should rot off the ground if the player doesn't
+    // grab them.
+    [Export] public int removeTimeMs = 0;
 }

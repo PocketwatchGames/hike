@@ -1,4 +1,5 @@
 using Godot;
+using Godot.Collections;
 
 [GlobalClass]
 public partial class MobData : Resource
@@ -93,6 +94,10 @@ public partial class MobData : Resource
     [Export] public float runDecibels = 4f;
     [Export] public StringName defaultBehavior = "Idle";
     [Export] public bool dangerous = false;
+    // Exp awarded to each of the killing player's equipped weapons and armor
+    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
+    // effect kills (poison without an attributable source) do not award exp.
+    [Export] public int exp = 0;
     [Export] public BrainData brain;
     // Scene instantiated for this mob type. Single source of truth — every
     // place that previously paired a (PackedScene, MobData) reference
@@ -104,6 +109,12 @@ public partial class MobData : Resource
     // the conditions clear — same instantiate/free pattern and field name
     // as TorchData.movingLightScene. Null on torch-less species.
     [Export] public PackedScene movingLightScene;
+
+    // Loot ejected from the mob's body when it dies. Each entry spawns
+    // `count` Loot instances of `item`, fired outward from the mob's
+    // position with the same upward-arc impulse pattern chests use. Empty
+    // (or null entries) on a mob means no drops.
+    [Export] public Array<LootCount> loot = new();
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

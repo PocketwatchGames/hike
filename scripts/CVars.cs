@@ -32,10 +32,11 @@ public static class CVars
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);
 
-    // Mouse aim sensitivity. The aim vector accumulates mouseMotion.Relative
-    // and is clamped to magnitude 1/mouseSensitivity. Lower = larger cap =
-    // needs more mouse motion to swing the aim direction = less sensitive.
-    public static CVarFloat mouseSensitivity = new CVarFloat("mouse_sensitivity", 0.5f);
+    // Mouse aim sensitivity. Multiplies raw mouseMotion.Relative before
+    // accumulating into the aim cursor (clamped to a fixed pixel radius in
+    // GameClient). Higher = more cursor travel per pixel of mouse motion =
+    // more responsive. 1.0 ≈ raw pixels.
+    public static CVarFloat mouseSensitivity = new CVarFloat("mouse_sensitivity", 1.0f);
 
     // Fog shader debug mode (see shaders/fog_volumetric.gdshader):
     //   0 = normal fog render

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -1201,6 +1202,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         health -= incoming;
         if (health <= 0f)
         {
+            if (hit.source is Player killer)
+            {
+                killer.GrantEquippedExperience(mobData.exp);
+            }
             Die();
         }
         else if (incoming > 0f)
@@ -1341,12 +1346,48 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         SetStunned(false);
         SpawnWorldEffect(_deathEffect);
         SpawnWorldEffect(_deathVoEffect);
+        EjectLoot();
         AxisLockAngularY = false;
         if (Freeze)
         {
             Freeze = false;
         }
         PlayOneShot(EAnimation.Die);
+    }
+
+    // Mirrors Chest.Complete's loot ejection: each LootCount entry on MobData
+    // fires `count` Loot instances outward on a 45° upward arc. Random
+    // horizontal angle per item so a multi-drop carcass scatters rather than
+    // dropping in a tight stack.
+    private void EjectLoot()
+    {
+        MobData md = mobData;
+        if (md?.loot == null || md.loot.Count == 0 || _world == null)
+        {
+            return;
+        }
+        var rng = new Random();
+        const float SPEED = 5f;
+        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        for (int i = 0; i < md.loot.Count; i++)
+        {
+            LootCount entry = md.loot[i];
+            if (entry?.item == null)
+            {
+                continue;
+            }
+            for (int n = 0; n < entry.count; n++)
+            {
+                float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+                var impulse = new Vector3(
+                    horizontalSpeed * Mathf.Cos(angle),
+                    verticalSpeed,
+                    horizontalSpeed * Mathf.Sin(angle)
+                );
+                _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, entry.item);
+            }
+        }
     }
 
     // Called on the burrow edges (false→burrowing in the transition block,

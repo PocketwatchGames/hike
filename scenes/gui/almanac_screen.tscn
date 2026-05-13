@@ -1,0 +1,117 @@
+[gd_scene format=3 uid="uid://dqghp00idjmuy"]
+
+[ext_resource type="Script" uid="uid://dpqoox4rfvkcx" path="res://scripts/gui/AlmanacScreen.cs" id="1_enyfv"]
+[ext_resource type="PackedScene" uid="uid://d115dmvboelcp" path="res://scenes/gui/inventory_screen.tscn" id="2_idb3r"]
+[ext_resource type="PackedScene" uid="uid://c8wmscn8tx5y2" path="res://scenes/gui/world_map_screen.tscn" id="3_bxxtj"]
+[ext_resource type="PackedScene" uid="uid://dmddv683wptoh" path="res://scenes/gui/bestiary_screen.tscn" id="4_7d2n1"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_idb3r"]
+[ext_resource type="PackedScene" uid="uid://c0s173tq07vqh" path="res://scenes/gui/recipe_screen.tscn" id="5_7ewlq"]
+
+[node name="AlmanacScreen" type="Control" unique_id=1182491772 node_paths=PackedStringArray("_inventoryScreen", "_worldMapScreen", "_bestiaryScreen", "_recipeScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_inventoryTab", "_worldMapTab", "_bestiaryTab", "_recipeTab")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_enyfv")
+_inventoryScreen = NodePath("MarginContainer2/InventoryScreen")
+_worldMapScreen = NodePath("MarginContainer2/WorldMapScreen")
+_bestiaryScreen = NodePath("MarginContainer2/BestiaryScreen")
+_recipeScreen = NodePath("MarginContainer2/RecipeScreen")
+_tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
+_tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
+_inventoryTab = NodePath("MarginContainer/HBoxContainer/InventoryTab")
+_worldMapTab = NodePath("MarginContainer/HBoxContainer/WorldMapTab")
+_bestiaryTab = NodePath("MarginContainer/HBoxContainer/BestiaryTab")
+_recipeTab = NodePath("MarginContainer/HBoxContainer/RecipeTab")
+
+[node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1471085455]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_top = 50
+
+[node name="InventoryScreen" parent="MarginContainer2" unique_id=1391817300 instance=ExtResource("2_idb3r")]
+layout_mode = 2
+
+[node name="WorldMapScreen" parent="MarginContainer2" unique_id=590275791 instance=ExtResource("3_bxxtj")]
+visible = false
+layout_mode = 2
+
+[node name="BestiaryScreen" parent="MarginContainer2" unique_id=361542241 instance=ExtResource("4_7d2n1")]
+layout_mode = 2
+
+[node name="RecipeScreen" parent="MarginContainer2" unique_id=1756643681 node_paths=PackedStringArray("_ingredientSlots") instance=ExtResource("5_7ewlq")]
+layout_mode = 2
+_ingredientSlots = []
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1825680303]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=2043221750]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="TabLeft" parent="MarginContainer/HBoxContainer" unique_id=959365210 instance=ExtResource("4_idb3r")]
+layout_mode = 2
+InputAction = "TabLeft"
+
+[node name="InventoryTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=376300006]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/InventoryTab" unique_id=254634264]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/InventoryTab/MarginContainer" unique_id=1348383687]
+layout_mode = 2
+text = "Inventory"
+
+[node name="WorldMapTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1908585019]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/WorldMapTab" unique_id=1283014871]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/WorldMapTab/MarginContainer" unique_id=121430654]
+layout_mode = 2
+text = "World Map"
+
+[node name="BestiaryTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=38180903]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/BestiaryTab" unique_id=751974256]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/BestiaryTab/MarginContainer" unique_id=1090199611]
+layout_mode = 2
+text = "Bestiary"
+
+[node name="RecipeTab" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=711631382]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/RecipeTab" unique_id=267697363]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/RecipeTab/MarginContainer" unique_id=1759403611]
+layout_mode = 2
+text = "Recipes"
+
+[node name="TabRight" parent="MarginContainer/HBoxContainer" unique_id=143488523 instance=ExtResource("4_idb3r")]
+layout_mode = 2
+InputAction = "TabRight"

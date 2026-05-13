@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://drcp4n7p2q8wt"]
+
+[ext_resource type="Script" uid="uid://64jki9zhf4p5i" path="res://scripts/data/RecipeInput.cs" id="1_input"]
+[ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="2_meat"]
+[ext_resource type="Script" uid="uid://rmq2wdsc9r3qk" path="res://scripts/data/RecipeData.cs" id="3_recipe"]
+[ext_resource type="Resource" uid="uid://csgk7oap2r3x0" path="res://resources/data/items/consumables/succulent_grilled_kun_kun.tres" id="4_high"]
+[ext_resource type="Resource" uid="uid://b6gkk2m3p5rwx" path="res://resources/data/items/consumables/grilled_kun_kun.tres" id="5_standard"]
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("1_input")
+item = ExtResource("2_meat")
+count = 3
+minCountRange = -2
+maxCountRange = 1
+metadata/_custom_type_script = "uid://64jki9zhf4p5i"
+
+[resource]
+script = ExtResource("3_recipe")
+outputHighQuality = ExtResource("4_high")
+outputStandard = ExtResource("5_standard")
+inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat")])

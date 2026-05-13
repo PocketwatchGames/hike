@@ -21,6 +21,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	[Export] private Sprite3D _sprite;
 	[Export] private PackedScene _pickupEffectScene;
 	[Export] private PackedScene _spawnEffectScene;
+	// Played at the loot's position when it expires (LootData.removeTimeMs).
+	// Same Fx.Create one-shot pattern as the pickup/spawn effects; null leaves
+	// the despawn silent (e.g. test scenes that don't author a remove cue).
+	[Export] private PackedScene _removeEffectScene;
 
 	// Authored interaction list. The first entry's events should include an
 	// OpenInteractive event that triggers Complete() — that's how the runner
@@ -30,10 +34,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	private LootSimState _simState;
 	private bool _pickedUp;
+	private bool _removed;
 	private World _world;
 	private Vector3 _initialImpulse;
 	private Player _picker;
 	private bool _playSpawnEffects;
+	// Elapsed time the pickup has been in the world, in seconds. Compared
+	// against LootData.removeTimeMs (converted to seconds) to decide when to
+	// fire the remove FX and despawn. Local to the live instance — re-enters
+	// at 0 if the chunk unloads and re-streams the loot.
+	private float _ageSeconds;
 
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -61,6 +71,55 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			Settle();
 		}
+	}
+
+	public override void _Process(double delta)
+	{
+		if (_pickedUp || _removed)
+		{
+			return;
+		}
+		ItemData data = _simState?.Item?.data ?? _simState?.Data;
+		if (data is not LootData lootData || lootData.removeTimeMs <= 0)
+		{
+			return;
+		}
+		_ageSeconds += (float)delta;
+		if (_ageSeconds * 1000f >= lootData.removeTimeMs)
+		{
+			Expire();
+		}
+	}
+
+	private void Expire()
+	{
+		if (_removed || _pickedUp)
+		{
+			return;
+		}
+		_removed = true;
+		// Reuse the PickedUp latch on the sim state — the only thing that
+		// flag gates is LootSimState.CreateEntity returning null, which is
+		// exactly the behavior we want for expired loot (don't respawn it
+		// when the chunk re-streams).
+		if (_simState != null)
+		{
+			_simState.PickedUp = true;
+		}
+		if (_removeEffectScene != null)
+		{
+			Fx.Create(_removeEffectScene, GetParent(), Position);
+		}
+		if (_collisionShape != null)
+		{
+			_collisionShape.Disabled = true;
+		}
+		if (_interactArea != null)
+		{
+			_interactArea.Monitoring = false;
+		}
+		_world?.RemoveEntity(this);
+		QueueFree();
 	}
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)

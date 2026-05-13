@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://b34r1kblkugu0" path="res://scripts/data/behaviors/BurrowBehaviorData.cs" id="8_burrow"]
 [ext_resource type="Script" uid="uid://uwvia1l0j0cx" path="res://scripts/data/behaviors/conditions/CanBurrowAndOutOfRangeCondition.cs" id="9_burrow_cond"]
 [ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_wander"]
-[ext_resource type="Script" uid="uid://d9zzhikfreq41" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_lookat"]
+[ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="12_has_investigation"]
 
 [sub_resource type="Resource" id="Resource_idle"]
@@ -99,7 +99,6 @@ transitions = [SubResource("Resource_wander_to_flee"), SubResource("Resource_wan
 
 [sub_resource type="Resource" id="Resource_lookat"]
 script = ExtResource("11_lookat")
-lookDurationSeconds = 3.0
 
 [sub_resource type="Resource" id="Resource_lookat_to_flee"]
 script = ExtResource("4_transition")

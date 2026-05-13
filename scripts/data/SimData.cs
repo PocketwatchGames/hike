@@ -14,6 +14,13 @@ public partial class SimData : Resource
     // hit is recorded in WorldSimState.DiscoveredRecipes keyed by the same
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> Recipes = new();
+
+    // Shared item-leveling thresholds. Entry i is the cumulative exp required
+    // to reach level (i+1); WeaponState.AddExp / ArmorState.AddExp walk this
+    // list and promote level while the running total has crossed the next
+    // entry. Per-item ItemData.maxLevel caps how many of these entries the
+    // item is allowed to consume (a maxLevel=0 item never levels regardless).
+    [Export] public Array<int> ExpPerLevel = new() { 100, 200, 500, 2000, 10000 };
     [Export] public float VisibleTime = 0.25f;
     // World-wide threshold for "fully visible to perception". Light readings
     // at the target's sample point are clamped to [0, this] then divided

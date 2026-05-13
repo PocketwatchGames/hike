@@ -9,8 +9,7 @@ public partial class GameClient : Node3D
 
 	[Export] public GameCamera camera;
 	[Export] public Hud hud;
-	[Export] public WorldMapScreen worldMapScreen;
-	[Export] public InventoryScreen inventoryScreen;
+	[Export] public AlmanacScreen almanacScreen;
 	[Export] public CookingScreen cookingScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
@@ -31,8 +30,15 @@ public partial class GameClient : Node3D
 	// a Y-aligned billboard outline that misses the flat geometry by 90°.
 	[Export] public ShaderMaterial outlineFlatMaterial;
 	[Export] public ShaderMaterial postProcessMaterial;
-	[Export] public float mouseSensitivityMin = 0.1f;
-	[Export] public float mouseSensitivityRange = 30;
+	// Aim-cursor saturation radius (pixels). Larger = more mouse travel
+	// before the virtual cursor reaches the edge of its disk, so the aim
+	// direction takes longer to swing. Direction-only after this — atan2
+	// in Player ignores magnitude.
+	const float AIM_CURSOR_RADIUS_PX = 200f;
+	// Below this magnitude the accumulator is treated as "at rest" and the
+	// player's aim direction is left alone. Stops sub-pixel jitter from
+	// continuously re-aiming when the player is trying to hold steady.
+	const float AIM_CURSOR_DEADZONE_PX = 5f;
 
 	[ExportGroup("Minimap")]
 	// Slice-view color for solid-rock columns. Painted at the reserved
@@ -259,13 +265,9 @@ public partial class GameClient : Node3D
 		// authored .tscn left them, and clear InputSuppressed so the player
 		// can drive the world on the first frame. Saves a step-on-rake when a
 		// new modal lands without `visible = false` on its instance line.
-		if (worldMapScreen != null)
+		if (almanacScreen != null)
 		{
-			worldMapScreen.Visible = false;
-		}
-		if (inventoryScreen != null)
-		{
-			inventoryScreen.Visible = false;
+			almanacScreen.Visible = false;
 		}
 		if (cookingScreen != null)
 		{
@@ -625,6 +627,37 @@ public partial class GameClient : Node3D
 	{
 		base._Input(e);
 		InputDevice.HandleInputEvent(e);
+
+		// Mouse-motion aim has to live in _Input, not _UnhandledInput: while
+		// the cursor is in Captured mode (gameplay), motion events never reach
+		// the UnhandledInput tier, so we'd otherwise never see them. Gameplay
+		// is gated by the same paused/InputSuppressed/no-player checks the
+		// UnhandledInput block uses.
+		if (e is InputEventMouseMotion mouseMotion && !paused && !InputSuppressed && _player != null)
+		{
+			if (CVars.debugFlyCam.Value && Input.IsMouseButtonPressed(MouseButton.Right))
+			{
+				_flyYaw -= mouseMotion.Relative.X * FLYCAM_LOOK_SENSITIVITY;
+				_flyPitch -= mouseMotion.Relative.Y * FLYCAM_LOOK_SENSITIVITY;
+				_flyPitch = Mathf.Clamp(_flyPitch, -Mathf.Pi / 2f + 0.01f, Mathf.Pi / 2f - 0.01f);
+				return;
+			}
+			// Virtual aim-stick model: _mousePosition is the deflection of an
+			// imaginary cursor around the player, in pixels. Mouse Relative is
+			// scaled by sensitivity, accumulated, and clamped to a fixed
+			// radius so the cursor lives on a disk. Direction-only after that
+			// — atan2 in Player ignores magnitude. The deadzone keeps the
+			// resting direction stable when only sub-pixel jitter is arriving.
+			_mousePosition += mouseMotion.Relative * CVars.mouseSensitivity.Value;
+			if (_mousePosition.LengthSquared() > AIM_CURSOR_RADIUS_PX * AIM_CURSOR_RADIUS_PX)
+			{
+				_mousePosition = _mousePosition.Normalized() * AIM_CURSOR_RADIUS_PX;
+			}
+			if (_mousePosition.LengthSquared() >= AIM_CURSOR_DEADZONE_PX * AIM_CURSOR_DEADZONE_PX)
+			{
+				_player.ProcessMouseMotion(_mousePosition, camera.Yaw);
+			}
+		}
 	}
 
 	public override void _UnhandledInput(InputEvent e)
@@ -648,39 +681,18 @@ public partial class GameClient : Node3D
 			return;
 		}
 
-		if (e.IsActionPressed("Map") && worldMapScreen != null)
+		if (e.IsActionPressed("Map") && almanacScreen != null)
 		{
-			worldMapScreen.Open();
+			almanacScreen.Open(AlmanacScreen.EAlmanacTab.WorldMap, this);
 			GetViewport().SetInputAsHandled();
 			return;
 		}
 
-		if (e.IsActionPressed("Inventory") && inventoryScreen != null)
+		if (e.IsActionPressed("Inventory") && almanacScreen != null)
 		{
-			inventoryScreen.Open();
+			almanacScreen.Open(AlmanacScreen.EAlmanacTab.Inventory, this);
 			GetViewport().SetInputAsHandled();
 			return;
-		}
-
-		if (e is InputEventMouseMotion mouseMotion)
-		{
-			if (CVars.debugFlyCam.Value && Input.IsMouseButtonPressed(MouseButton.Right))
-			{
-				_flyYaw -= mouseMotion.Relative.X * FLYCAM_LOOK_SENSITIVITY;
-				_flyPitch -= mouseMotion.Relative.Y * FLYCAM_LOOK_SENSITIVITY;
-				_flyPitch = Mathf.Clamp(_flyPitch, -Mathf.Pi / 2f + 0.01f, Mathf.Pi / 2f - 0.01f);
-				return;
-			}
-			if (_player != null)
-			{
-				_mousePosition += mouseMotion.Relative;
-				float mouseSensitivity = CVars.mouseSensitivity.Value * mouseSensitivityRange + mouseSensitivityMin ;
-				if (_mousePosition.LengthSquared() > 1.0f / (mouseSensitivity * mouseSensitivity)) // Prevent overflow from large mouse movements
-				{
-					_mousePosition = _mousePosition.Normalized() / mouseSensitivity;
-				}
-				_player.ProcessMouseMotion(_mousePosition, camera.Yaw);
-			}
 		}
 
 		if (e.IsActionPressed("CameraLeft"))

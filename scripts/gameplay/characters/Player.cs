@@ -104,11 +104,15 @@ public partial class Player : CharacterBody3D
 	// pick Lockpick/Break/Open on a chest.
 	int _curInteractiveActionIndex;
 	IInteractive _highlightInteractive;
+	// Latched at AttackContextSensitive press time so the release routes to
+	// the same weapon slot even if the player releases Aim mid-attack.
+	EInventorySlot? _contextSensitiveAttackSlot;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
 	bool _aiming;
+	bool _sneaking;
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
@@ -190,6 +194,7 @@ public partial class Player : CharacterBody3D
 	// per-mob perception tick a plain field read.
 	public float CurrentDecibels { get; private set; }
 	public bool IsAiming => _aiming;
+	public bool IsSneaking => _sneaking;
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
@@ -313,6 +318,7 @@ public partial class Player : CharacterBody3D
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
+		_sneaking = false;
 
 		float incomingDamage = hit.healthDamage;
 		// Armor absorbs the entire hit when present — even an overflow drop
@@ -482,6 +488,10 @@ public partial class Player : CharacterBody3D
 		else if (fallReady)
 		{
 			loopAnim = AnimationNames.Fall;
+		}
+		else if (_sneaking)
+		{
+			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Sneak, AnimationNames.SneakIdle);
 		}
 		else
 		{
@@ -950,6 +960,27 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Awards `amount` exp to every equipped weapon and armor piece. Called
+	// from Mob.Damage on the lethal hit when the killer is this player; each
+	// state walks SimData.ExpPerLevel and promotes level as thresholds are
+	// crossed, capped at its own data.maxLevel.
+	public void GrantEquippedExperience(int amount)
+	{
+		if (amount <= 0 || _inventory == null)
+		{
+			return;
+		}
+		var thresholds = _world?.SimData?.ExpPerLevel;
+		if (thresholds == null)
+		{
+			return;
+		}
+		(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.ArmorHead) as ArmorState)?.AddExp(amount, thresholds);
+		(_inventory.GetEquipped(EInventorySlot.ArmorBody) as ArmorState)?.AddExp(amount, thresholds);
+	}
+
 	private void AccumulateArmorResistance(EInventorySlot slot, ref float coldResist, ref float heatResist)
 	{
 		if (_inventory == null) { return; }
@@ -1050,7 +1081,7 @@ public partial class Player : CharacterBody3D
 		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad);
 
 		float speed = data.moveSpeed;
-		if (Input.IsActionPressed("Sneak") || _aiming)
+		if (_sneaking)
 		{
 			speed = data.sneakSpeed;
 		}
@@ -1206,8 +1237,13 @@ public partial class Player : CharacterBody3D
 		// variant.
 		if (!wasOnFloor && _grounded && _waterState == EWaterState.None && inboundFallSpeed >= LandSoftSpeedThreshold)
 		{
-			PackedScene landScene = inboundFallSpeed >= LandHardSpeedThreshold ? _landHardEffect : _landEffect;
+			bool hardLand = inboundFallSpeed >= LandHardSpeedThreshold;
+			PackedScene landScene = hardLand ? _landHardEffect : _landEffect;
 			SpawnWorldEffect(landScene);
+			if (hardLand)
+			{
+				_sneaking = false;
+			}
 		}
 		UpdateVisibility();
 
@@ -1325,13 +1361,20 @@ public partial class Player : CharacterBody3D
 		move = move.LengthSquared() > 1 ? move.Normalized() : move;
 		_inputMove = new Vector3(move.X, 0, move.Y).Rotated(Vector3.Up, cameraYaw);
 
-		Vector2 look = Vector2.Zero;
-		look.X -= Input.GetActionStrength("LookLeft");
-		look.X += Input.GetActionStrength("LookRight");
-		look.Y -= Input.GetActionStrength("LookUp");
-		look.Y += Input.GetActionStrength("LookDown");
-		look = look.LengthSquared() > 1 ? look.Normalized() : look;
-		_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
+		// Look is device-gated. Gamepad sources from the right-stick axes here;
+		// KBM sources from accumulated mouse motion via ProcessMouseMotion, so
+		// we must NOT overwrite _inputLook on KBM frames — the axes are zero,
+		// and overwriting would cancel out mouse-driven aim every frame.
+		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
+		{
+			Vector2 look = Vector2.Zero;
+			look.X -= Input.GetActionStrength("LookLeft");
+			look.X += Input.GetActionStrength("LookRight");
+			look.Y -= Input.GetActionStrength("LookUp");
+			look.Y += Input.GetActionStrength("LookDown");
+			look = look.LengthSquared() > 1 ? look.Normalized() : look;
+			_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
+		}
 
 		// Handle interact input. Multi-action interactives split tap vs hold:
 		// a tap (release before InteractHoldDurationMs) runs the default
@@ -1340,9 +1383,22 @@ public partial class Player : CharacterBody3D
 		// on JustPressed so the snappy feel is preserved.
 		HandleInteractInput();
 
-		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee"))
+		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive"))
 		{
 			CancelInteract();
+		}
+
+		// Sneak is broken by overt actions: jumping, swinging, firing, using
+		// a consumable. Gated on input intent rather than action success so a
+		// pressed-but-blocked attack (no ammo, runner busy) still ends sneak —
+		// the player is plainly not trying to stay quiet.
+		if (Input.IsActionJustPressed("Jump")
+			|| Input.IsActionJustPressed("AttackMelee")
+			|| Input.IsActionJustPressed("AttackRanged")
+			|| Input.IsActionJustPressed("AttackContextSensitive")
+			|| Input.IsActionJustPressed("UseItem"))
+		{
+			_sneaking = false;
 		}
 
 		if (Input.IsActionJustPressed("ConsumableCycleLeft"))
@@ -1354,14 +1410,20 @@ public partial class Player : CharacterBody3D
 			_inventory?.CycleConsumable(+1);
 		}
 
-		// Sneak press doubles as the player-initiated abort key while a
-		// runner action is in flight. Charging always cancels; Active
-		// cancels only if the selected tier opts in via canAbort. The press
-		// is not consumed — holding Sneak still applies sneak speed afterward,
-		// which feels right ("tap to bail out and crouch").
-		if (Input.IsActionJustPressed("Sneak") && _runner != null && _runner.IsBusy)
+		// Sneak is a toggle. Pressing also doubles as the player-initiated
+		// abort key while a runner action is in flight (charging always
+		// cancels; Active cancels only if the selected tier opts in via
+		// canAbort). Toggling after the abort still flips _sneaking, so the
+		// classic "tap Sneak to bail out of an attack and crouch" feel is
+		// preserved — attacking cleared sneak when it started, and the abort
+		// tap turns it back on.
+		if (Input.IsActionJustPressed("Sneak"))
 		{
-			_runner.TryAbort();
+			if (_runner != null && _runner.IsBusy)
+			{
+				_runner.TryAbort();
+			}
+			_sneaking = !_sneaking;
 		}
 
 		if (Input.IsActionJustPressed("UseItem"))
@@ -1404,6 +1466,23 @@ public partial class Player : CharacterBody3D
 			{
 				ReleaseWeaponAction(slot);
 			}
+		}
+
+		// AttackContextSensitive routes to ranged when Aim is held at press
+		// time, melee otherwise. Slot is latched until release so a mid-press
+		// Aim toggle doesn't switch which weapon's release fires.
+		if (Input.IsActionJustPressed("AttackContextSensitive"))
+		{
+			EInventorySlot slot = Input.IsActionPressed("Aim")
+				? EInventorySlot.WeaponRight
+				: EInventorySlot.WeaponLeft;
+			_contextSensitiveAttackSlot = slot;
+			TryStartWeaponAction(slot);
+		}
+		if (Input.IsActionJustReleased("AttackContextSensitive") && _contextSensitiveAttackSlot is EInventorySlot latchedSlot)
+		{
+			ReleaseWeaponAction(latchedSlot);
+			_contextSensitiveAttackSlot = null;
 		}
 	}
 
@@ -1567,6 +1646,7 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateWaterState()
 	{
+		EWaterState prev = _waterState;
 		int fx = Mathf.FloorToInt(GlobalPosition.X);
 		int fy = Mathf.FloorToInt(GlobalPosition.Y);
 		int fz = Mathf.FloorToInt(GlobalPosition.Z);
@@ -1601,6 +1681,13 @@ public partial class Player : CharacterBody3D
 			scanY++;
 		}
 		_waterSurfaceY = scanY;
+
+		// Going over your head breaks sneak — splashing in is plainly audible.
+		// Only the swim-edge counts; wading through shallows is fine.
+		if (prev != EWaterState.Swimming && _waterState == EWaterState.Swimming)
+		{
+			_sneaking = false;
+		}
 	}
 
 	private void ApplyWaterPhysics(float dt)

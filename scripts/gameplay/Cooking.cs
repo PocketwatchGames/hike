@@ -9,11 +9,16 @@ using Godot.Collections;
 //   * recipe.forgeType must equal the supplied forgeType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
 //     smelter).
-//   * Every authored ingredient in the recipe must appear in the inputs with
-//     a count inside [count + minCountRange, count + maxCountRange].
+//   * Every authored ingredient must satisfy the provided count being inside
+//     [count + minCountRange, count + maxCountRange]. An ingredient is
+//     OPTIONAL when its low bound is <= 0 — absence then counts as a
+//     provided amount of 0 and the recipe still matches. Required
+//     ingredients (low > 0) must appear in the inputs.
 //   * The inputs must contain NO ingredient kinds outside the recipe.
-//   * High-quality matches iff every ingredient's count equals exactly
-//     recipe.count AND the recipe declares an outputHighQuality.
+//   * High-quality matches iff every ingredient's provided count equals
+//     exactly recipe.count AND the recipe declares an outputHighQuality.
+//     An optional ingredient with count > 0 must be present at exactly
+//     that count to satisfy the exact-match criterion.
 // Aggregates duplicate ingredient slots so two stacks of the same item count
 // together as a single input bucket.
 public static class Cooking
@@ -72,12 +77,6 @@ public static class Cooking
 			{
 				continue;
 			}
-			if (recipe.inputs.Count != totals.Count)
-			{
-				// Player has the wrong number of ingredient kinds — extras
-				// or missing buckets disqualify the recipe outright.
-				continue;
-			}
 			bool inRange = true;
 			bool exact = true;
 			for (int i = 0; i < recipe.inputs.Count; i++)
@@ -88,13 +87,15 @@ public static class Cooking
 					inRange = false;
 					break;
 				}
-				if (!totals.TryGetValue(ri.item, out int provided))
-				{
-					inRange = false;
-					break;
-				}
 				int low = ri.count + ri.minCountRange;
 				int high = ri.count + ri.maxCountRange;
+				if (!totals.TryGetValue(ri.item, out int provided))
+				{
+					// Absent ingredient. Treat as provided=0 — this is in
+					// range iff the recipe author set low <= 0, which is the
+					// signal that the ingredient is optional.
+					provided = 0;
+				}
 				if (provided < low || provided > high)
 				{
 					inRange = false;
@@ -106,6 +107,32 @@ public static class Cooking
 				}
 			}
 			if (!inRange)
+			{
+				continue;
+			}
+			// Reject if the player has piled in an ingredient kind this
+			// recipe doesn't author. The old "inputs.Count == totals.Count"
+			// check did this for us, but it also rejected omitted optional
+			// ingredients — so it's replaced with a one-way subset check.
+			bool hasExtras = false;
+			foreach (ItemData kind in totals.Keys)
+			{
+				bool found = false;
+				for (int i = 0; i < recipe.inputs.Count; i++)
+				{
+					if (recipe.inputs[i]?.item == kind)
+					{
+						found = true;
+						break;
+					}
+				}
+				if (!found)
+				{
+					hasExtras = true;
+					break;
+				}
+			}
+			if (hasExtras)
 			{
 				continue;
 			}

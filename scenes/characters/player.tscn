@@ -271,22 +271,6 @@ region = Rect2(216, 1224, 72, 72)
 atlas = ExtResource("3_eojnx")
 region = Rect2(504, 1152, 72, 72)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_qmarm"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(0, 1224, 72, 72)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_w5bca"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(72, 1224, 72, 72)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_j057w"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(144, 1224, 72, 72)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_18mi3"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(216, 1224, 72, 72)
-
 [sub_resource type="SpriteFrames" id="SpriteFrames_rpnd8"]
 animations = [{
 "frames": [{
@@ -502,24 +486,40 @@ animations = [{
 "texture": SubResource("AtlasTexture_tnye5")
 }],
 "loop": true,
+"name": &"sneak",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_as8yd")
+}],
+"loop": true,
+"name": &"sneak_idle",
+"speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6aj6e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_n7k00")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lnpl6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5bn3a")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tnye5")
+}],
+"loop": true,
 "name": &"swim",
 "speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_as8yd")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_qmarm")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_w5bca")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_j057w")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_18mi3")
 }],
 "loop": true,
 "name": &"swim_idle",
@@ -587,7 +587,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(0, 0, 72, 72)
+region_rect = Rect2(504, 0, 72, 72)
 script = ExtResource("4_qgnko")
 MirrorByYaw = true
 ForwardOffset = 0.25

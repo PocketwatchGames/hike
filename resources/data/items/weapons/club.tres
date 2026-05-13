@@ -78,6 +78,7 @@ script = ExtResource("2_weapon")
 damageData = SubResource("Resource_damage")
 critDamageData = SubResource("Resource_owk1l")
 actionProfile = SubResource("Resource_profile")
+displayName = &"Big Stick"
 description = "Bashy bashy"
 inventorySprite = ExtResource("15_3a20y")
 worldSprite = ExtResource("16_world")

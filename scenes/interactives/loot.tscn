@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
 [ext_resource type="PackedScene" uid="uid://cfugslgplto77" path="res://scenes/effects/loot_pickup.tscn" id="9_lootpickup"]
 [ext_resource type="PackedScene" uid="uid://cfugvse2e2o77" path="res://scenes/effects/loot_spawn.tscn" id="10_lootspawn"]
+[ext_resource type="PackedScene" uid="uid://crm8k3n4p5q7w" path="res://scenes/effects/loot_remove.tscn" id="10b_lootremove"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="11_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="12_event"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
@@ -132,6 +133,7 @@ _hudNode = NodePath("HUDNode")
 _sprite = NodePath("Sprite")
 _pickupEffectScene = ExtResource("9_lootpickup")
 _spawnEffectScene = ExtResource("10_lootspawn")
+_removeEffectScene = ExtResource("10b_lootremove")
 _actions = Array[ExtResource("11_action")]([SubResource("Resource_loot_action_open")])
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=655283780]

@@ -1,10 +1,12 @@
-[gd_resource type="Resource" script_class="SimData" load_steps=5 format=3 uid="uid://vwejw0habed3"]
+[gd_resource type="Resource" script_class="SimData" load_steps=7 format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
 [ext_resource type="PackedScene" path="res://scenes/effects/footprint_discoverable.tscn" id="1_atie7"]
 [ext_resource type="PackedScene" path="res://scenes/effects/footprint_visible.tscn" id="2_7ttre"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
+[ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
+[ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -17,5 +19,5 @@ MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
 FootprintVisible = ExtResource("2_7ttre")
 FootprintDiscoverable = ExtResource("1_atie7")
-Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp")])
+Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg")])
 metadata/_custom_type_script = "uid://chvgahtb671mg"

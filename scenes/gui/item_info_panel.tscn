@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://cloo3byck0dx4" path="res://scripts/gui/ItemInfoPanel.cs" id="1_55ro3"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_08k4j"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelProgress", "_levelLabel")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -11,6 +11,8 @@ script = ExtResource("1_55ro3")
 _nameLabel = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Name")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
+_levelProgress = NodePath("MarginContainer/VBoxContainer/ProgressBar")
+_levelLabel = NodePath("MarginContainer/VBoxContainer/ProgressBar/Label")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -38,6 +40,28 @@ stretch_mode = 5
 layout_mode = 2
 theme_override_font_sizes/font_size = 32
 text = "Health Potion"
+
+[node name="ProgressBar" type="ProgressBar" parent="MarginContainer/VBoxContainer" unique_id=1006564954]
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+max_value = 1.0
+step = 0.001
+show_percentage = false
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer/ProgressBar" unique_id=1602310525]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -20.0
+offset_top = -11.5
+offset_right = 20.0
+offset_bottom = 11.5
+grow_horizontal = 2
+grow_vertical = 2
+text = "Level 1"
 
 [node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1074940947]
 layout_mode = 2

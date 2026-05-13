@@ -80,6 +80,7 @@ useAmmo = true
 maxAmmo = 5
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
+displayName = &"Short Bow"
 description = "Shooty shooty"
 inventorySprite = ExtResource("15_tnjmy")
 worldSprite = ExtResource("16_world")

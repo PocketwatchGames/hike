@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://crm8k3n4p5q7w"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootremove"]
+emission_shape = 1
+emission_sphere_radius = 0.15
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 0.8
+initial_velocity_max = 1.8
+gravity = Vector3(0, -1, 0)
+damping_min = 0.8
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 1.0
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lootremove"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.45, 0.4, 0.35, 0.75)
+billboard_mode = 3
+particles_anim_h_frames = 1
+particles_anim_v_frames = 1
+particles_anim_loop = false
+
+[sub_resource type="QuadMesh" id="QuadMesh_lootremove"]
+material = SubResource("StandardMaterial3D_lootremove")
+size = Vector2(0.1, 0.1)
+
+[node name="LootRemove" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Puff" type="GPUParticles3D" parent="."]
+emitting = false
+amount = 10
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_lootremove")
+draw_pass_1 = SubResource("QuadMesh_lootremove")

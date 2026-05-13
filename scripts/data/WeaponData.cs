@@ -15,6 +15,8 @@ public partial class WeaponData : ItemData
 	// adds multi-tier (Light/Heavy) authoring.
 	[Export] public ItemActionProfile actionProfile;
 
+	[Export] public override int maxLevel { get; set; } = 5;
+
 	public override ItemState CreateState()
 	{
 		return new WeaponState(this);
