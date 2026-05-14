@@ -335,6 +335,12 @@ public partial class LitSprite : SpriteBase
     // and is XOR'd into the final uniform.
     private bool _yawMirrorInitialized;
     private bool _yawMirrorLast;
+    // Effective mirror state currently pushed to the shader: FlipH XOR the
+    // camera-yaw flip. Read by external snapshot consumers (e.g.
+    // DashGhostTrail) that need to render the same mirrored frame the source
+    // is showing this tick. Falls back to FlipH alone before UpdateYawMirror
+    // has cached a value (first frame post-spawn, or MirrorByYaw disabled).
+    public bool EffectiveMirror => _yawMirrorInitialized ? _yawMirrorLast : FlipH;
     // Camera lookup is a tree traversal (viewport → active camera stack);
     // caching it saves that cost per LitSprite per frame. Refreshed lazily
     // when the cached reference becomes invalid (camera freed, scene swap).

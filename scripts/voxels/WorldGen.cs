@@ -590,6 +590,22 @@ public static class WorldGen
             }
         }
 
+        // One-off KnowledgeStone test fixture three voxels west of the
+        // default player spawn (mirrors the villager to the east). Lets the
+        // language-learning flow be exercised without a real placement pass.
+        // Skipped if the worldgen data doesn't carry a stone scene/language —
+        // worlds that don't want the test fixture leave those null.
+        const int KnowledgeStoneX = -3;
+        const int KnowledgeStoneZ = 0;
+        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null
+            && KnowledgeStoneX >= ws.Min.X && KnowledgeStoneX <= ws.Max.X
+            && KnowledgeStoneZ >= ws.Min.Z && KnowledgeStoneZ <= ws.Max.Z)
+        {
+            int sy = heightMap.GetHeight(KnowledgeStoneX, KnowledgeStoneZ);
+            var pos = new Vector3(KnowledgeStoneX + 0.5f, sy + 1f, KnowledgeStoneZ + 0.5f);
+            ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage));
+        }
+
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
             GenerateSignposts(ws, genData, heightMap, worldSeed);
@@ -1682,7 +1698,7 @@ public static class WorldGen
                 }
                 int sy = heightMap.GetHeight(wx, wz);
                 var pos = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
-                ws.AddEntity(new SignpostSimState(pos, genData.SignpostScene, text));
+                ws.AddEntity(new SignpostSimState(pos, genData.SignpostScene, text, genData.SignpostLanguage));
                 break;
             }
         }

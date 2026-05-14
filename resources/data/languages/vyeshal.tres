@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="LanguageData" format=3 uid="uid://ck46or2f3b77r"]
+
+[ext_resource type="Script" path="res://scripts/data/LanguageData.cs" id="1_uqcsc"]
+
+[resource]
+script = ExtResource("1_uqcsc")
+displayName = &"Vyeshal"

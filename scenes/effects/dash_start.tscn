@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://br5x8h2qkvr3m"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_01.wav" id="2_j01"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_02.wav" id="2_j02"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_03.wav" id="2_j03"]
+[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_04.wav" id="2_j04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dashstart"]
+emission_shape = 1
+emission_sphere_radius = 0.25
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.5
+initial_velocity_max = 3.5
+gravity = Vector3(0, -3, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 1.2
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dashstart"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.9, 0.85, 0.7, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_dashstart"]
+material = SubResource("ShaderMaterial_dashstart")
+size = Vector2(0.14, 0.14)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dashstart"]
+playback_mode = 1
+random_pitch = 1.15
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_j01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_j02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_j03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_j04")
+stream_3/weight = 1.0
+
+[node name="DashStart" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Dust" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
+emitting = false
+amount = 18
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_dashstart")
+draw_pass_1 = SubResource("QuadMesh_dashstart")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_dashstart")
+unit_size = 4.0
+max_distance = 25.0
+bus = &"World3D"

@@ -44,6 +44,15 @@ public partial class StatusEffectData : Resource
 	[Export] public float movementMultiplier = 1f;
 	[Export] public float animationSpeedMultiplier = 1f;
 
+	// Per-effect multiplier applied to incoming healthDamage on the actor's
+	// HurtBox hit. Multiplicative across active effects — StatusEffectController.
+	// DamageMultiplier reads the product; Player.OnHurtBoxHit scales incoming
+	// healthDamage by it and Player.GetHitType returns None when the product
+	// is zero. 1.0 is neutral; 0.0 is full invulnerability (dash i-frames);
+	// 0.5 is a damage-reduction buff; values >1 amplify damage (glass-cannon
+	// debuff).
+	[Export] public float damageMultiplier = 1f;
+
 	// Per-effect shifts to the player's hot / cold trigger thresholds in
 	// degrees F. Player.cs sums these across every active StatusEffectState
 	// and applies them as: effective coldThreshold = base - sumColdResistance,

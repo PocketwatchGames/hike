@@ -66,8 +66,73 @@ public partial class Player : CharacterBody3D, IActionActor
 		return 0f;
 	}
 
+	// Dash press. Dash is a runner-driven action (not item-backed): the press
+	// runs gates here, then TryStart fires the dashActionProfile so its
+	// ApplyMotion / ApplyStatusEffect / PlayAnim / fx events drive the motion,
+	// i-frames, animation, and AV cues. Cooldown lives on the player rather
+	// than on an item because dash isn't an inventory entry. Weapon-Active
+	// blocks dash (committed swing); weapon-Charging and interactive-Active
+	// are interrupted so the player can dash out of a draw or out of a
+	// chest-open prompt.
+	void TryStartDash()
+	{
+		if (data?.dashActionProfile == null || _runner == null)
+		{
+			return;
+		}
+		if (_stamina <= 0f)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _dashCooldownEndMs)
+		{
+			return;
+		}
+		// Prevent dash from cancelling a long fall. Velocity.Y is signed —
+		// negative is downward — so this rejects fast descents while allowing
+		// upward arcs and gentle falls.
+		if (Velocity.Y < -data.dashMaxFallSpeed)
+		{
+			return;
+		}
+		// Block dash during a committed weapon swing (Active phase with a
+		// weapon profile). Other runner states (Charging, interactive Active)
+		// abort cleanly to make room for the dash.
+		if (_runner.IsBusy)
+		{
+			bool weaponActive = _runner.Phase == EActionPhase.Active
+				&& _runner.Current.profile != null
+				&& _runner.Current.interactiveAction == null;
+			if (weaponActive)
+			{
+				return;
+			}
+			_runner.TryAbort();
+		}
+		var context = new ActionContext();
+		if (!_runner.TryStart(data.dashActionProfile, context))
+		{
+			return;
+		}
+		_dashCooldownEndMs = now + (ulong)(data.dashCooldown * 1000f);
+		// Spend stamina unconditionally — stamina is allowed to go negative,
+		// and the recharge delay re-arms either way.
+		_stamina -= data.dashStaminaCost;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		// Dash is an overt action — like the swing/jump/use cluster in
+		// ProcessInput's sneak-break list. Cleared here as well so the intent
+		// stays local to dash if that list is ever refactored.
+		_sneaking = false;
+	}
+
 	void TryStartWeaponAction(EInventorySlot slot)
 	{
+		// Committing to an attack always wins over an in-flight movement burst —
+		// cancel any active dash and end sprint before the gate. After the
+		// cancel the runner is free (dash tier has canAbort=true), so the
+		// IsBusy check below only rejects when ANOTHER action is in flight.
+		CancelDashAndSprint();
 		if (_runner == null || _runner.IsBusy)
 		{
 			return;
@@ -108,6 +173,9 @@ public partial class Player : CharacterBody3D, IActionActor
 
 	void TryUseActiveConsumable()
 	{
+		// Same as TryStartWeaponAction — consumable use is an overt action
+		// that ends the movement burst.
+		CancelDashAndSprint();
 		if (_runner == null || _runner.IsBusy)
 		{
 			return;
@@ -224,5 +292,27 @@ public partial class Player : CharacterBody3D, IActionActor
 	public void PlayAnim(EAnimation anim)
 	{
 		PlayOneShot(anim);
+	}
+
+	// Seeded from an ApplyMotion event in the dash action profile. Direction
+	// preference: active move input first (lets the player dash sideways or
+	// backward independent of facing); fall back to facing rotation so a
+	// stationary dash still goes somewhere. The dash state machine in
+	// _PhysicsProcess consumes these fields.
+	public void ApplyMotion(float speed, float duration, bool freezeGravity)
+	{
+		Vector3 dir;
+		if (_inputMove.LengthSquared() > 0f)
+		{
+			dir = _inputMove.Normalized();
+		}
+		else
+		{
+			dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
+		}
+		_dashDir = dir;
+		_dashSpeed = speed;
+		_dashTimeRemaining = duration;
+		_dashFreezeGravity = freezeGravity;
 	}
 }

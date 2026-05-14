@@ -375,6 +375,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PlayOneShot(anim);
     }
 
+    // No-op until mob attacks author lunge motion. The interface is required
+    // by IActionActor so the runner can dispatch ApplyMotion events without
+    // type-checking the actor.
+    public void ApplyMotion(float speed, float duration, bool freezeGravity) { }
+
     public void PlayOneShot(EAnimation anim) => PlayOneShot(AnimationNames.Get(anim));
 
     public void PlayOneShot(StringName name)
@@ -449,6 +454,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
+        Player player = GameClient.Current?.Player;
+        bool scramble = md.language != null && player != null && !player.HasLearnedLanguage(md.language);
         _dialogueLines.Clear();
         for (int i = 0; i < md.dialogueLocKeys.Count; i++)
         {
@@ -457,7 +464,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 continue;
             }
-            _dialogueLines.Add(Loc.Get(key));
+            string line = Loc.Get(key);
+            _dialogueLines.Add(scramble ? TextScrambler.Scramble(line, md.language) : line);
         }
         Speak(_dialogueLines);
     }

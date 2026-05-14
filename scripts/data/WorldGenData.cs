@@ -73,4 +73,13 @@ public partial class WorldGenData : Resource
     [Export(PropertyHint.MultilineText)] public string SignpostTextNW = "";
     [Export(PropertyHint.MultilineText)] public string SignpostTextSE = "";
     [Export(PropertyHint.MultilineText)] public string SignpostTextSW = "";
+    [Export] public LanguageData SignpostLanguage;
+
+    // Single test-fixture KnowledgeStone placed near the default player spawn
+    // by WorldGen — the player walks east to the villager and west to the
+    // stone. Temporary scaffolding for the language-learning system; folded
+    // into a real placement pass once authored stone spawn rules exist.
+    [Export] public PackedScene KnowledgeStoneScene;
+    [Export] public LanguageData KnowledgeStoneLanguage;
+    [Export(PropertyHint.MultilineText)] public string KnowledgeStoneText = "";
 }

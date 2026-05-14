@@ -381,6 +381,15 @@ public partial class GameClient : Node3D
 			_player.ClearInput();
 		}
 
+		// Recenter the virtual aim cursor while Aim is not held so each new
+		// aim session starts centered. The _Input gate above blocks motion
+		// accumulation while not aiming; this clears any residue from the
+		// previous session.
+		if (!Input.IsActionPressed("Aim"))
+		{
+			_mousePosition = Vector2.Zero;
+		}
+
 		// Per-frame push to the detail_sprite shader so grass bends around
 		// the player. Single global, sub-byte cost; written every frame so
 		// stale values don't persist when the player teleports.
@@ -680,6 +689,16 @@ public partial class GameClient : Node3D
 			// radius so the cursor lives on a disk. Direction-only after that
 			// — atan2 in Player ignores magnitude. The deadzone keeps the
 			// resting direction stable when only sub-pixel jitter is arriving.
+			//
+			// Gated on Aim being held: without Aim, the player faces movement
+			// direction, so accumulating cursor motion would just feed a
+			// direction the rotation block ignores. Recentering on release
+			// (see _Process) makes each aim session start centered, matching
+			// gamepad right-stick recentering.
+			if (!Input.IsActionPressed("Aim"))
+			{
+				return;
+			}
 			_mousePosition += mouseMotion.Relative * CVars.mouseSensitivity.Value;
 			if (_mousePosition.LengthSquared() > AIM_CURSOR_RADIUS_PX * AIM_CURSOR_RADIUS_PX)
 			{

@@ -28,9 +28,10 @@
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
 [ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
 [ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
-[ext_resource type="Script" uid="uid://136v75rygtjlf" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
+[ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
+[ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -58,6 +59,18 @@ region = Rect2(504, 432, 72, 72)
 [sub_resource type="AtlasTexture" id="AtlasTexture_aphfe"]
 atlas = ExtResource("3_eojnx")
 region = Rect2(0, 504, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_lvr6b"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(144, 360, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_nktl3"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(216, 360, 72, 72)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_yyjep"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(288, 360, 72, 72)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_rpnd8"]
 atlas = ExtResource("3_eojnx")
@@ -195,18 +208,6 @@ region = Rect2(144, 1224, 72, 72)
 atlas = ExtResource("3_eojnx")
 region = Rect2(216, 1224, 72, 72)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_lvr6b"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(144, 360, 72, 72)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_nktl3"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(216, 360, 72, 72)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_yyjep"]
-atlas = ExtResource("3_eojnx")
-region = Rect2(288, 360, 72, 72)
-
 [sub_resource type="AtlasTexture" id="AtlasTexture_3wg1y"]
 atlas = ExtResource("3_eojnx")
 region = Rect2(432, 144, 72, 72)
@@ -292,6 +293,20 @@ animations = [{
 "loop": false,
 "name": &"attack",
 "speed": 100.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lvr6b")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_nktl3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_yyjep")
+}],
+"loop": false,
+"name": &"dash",
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -499,6 +514,41 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_3wg1y")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_kmyvj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_a2luo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_eir2k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_inhyd")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_wqk1x")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_dm10o")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_o6auj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j8g38")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tswxa")
+}],
+"loop": true,
+"name": &"sprint",
+"speed": 20.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_6aj6e")
 }, {
 "duration": 1.0,
@@ -524,6 +574,26 @@ animations = [{
 "loop": true,
 "name": &"swim_idle",
 "speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6aj6e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_n7k00")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_lnpl6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5bn3a")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_tnye5")
+}],
+"loop": true,
+"name": &"swim_sprint",
+"speed": 20.0
 }]
 
 [sub_resource type="BoxMesh" id="BoxMesh_aim_main"]
@@ -542,12 +612,13 @@ size = Vector3(0.12, 1, 0.12)
 material = ExtResource("25_aimreticle_mat")
 size = Vector2(0.4, 0.4)
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_audioListener", "_aimingReticle")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
 _hurtBox = NodePath("HurtBox")
 _animator = NodePath("LitSpriteAnimator")
+_dashGhostTrail = NodePath("DashGhostTrail")
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _footstepEffects = Dictionary[int, PackedScene]({
@@ -587,7 +658,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(504, 0, 72, 72)
+region_rect = Rect2(288, 0, 72, 72)
 script = ExtResource("4_qgnko")
 MirrorByYaw = true
 ForwardOffset = 0.25
@@ -621,6 +692,10 @@ script = ExtResource("7_eojnx")
 target = NodePath("../Sprite")
 frames = SubResource("SpriteFrames_rpnd8")
 defaultAnimation = &"idle"
+
+[node name="DashGhostTrail" type="Node3D" parent="." unique_id=567420860 node_paths=PackedStringArray("_source")]
+script = ExtResource("27_dashghost")
+_source = NodePath("../Sprite")
 
 [node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_dropLine", "_groundCircle")]
 script = ExtResource("24_aimreticle_script")

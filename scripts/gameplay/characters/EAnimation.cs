@@ -21,6 +21,9 @@ public enum EAnimation
     Burrowed,
     Sneak,
     SneakIdle,
+    Dash,
+    Sprint,
+    SwimSprint,
 }
 
 public static class AnimationNames
@@ -44,6 +47,9 @@ public static class AnimationNames
     public static readonly StringName Burrowed = "burrowed";
     public static readonly StringName Sneak = "sneak";
     public static readonly StringName SneakIdle = "sneak_idle";
+    public static readonly StringName Dash = "dash";
+    public static readonly StringName Sprint = "sprint";
+    public static readonly StringName SwimSprint = "swim_sprint";
 
     // Indexed by EAnimation cast to int — declaration order in EAnimation
     // and the array MUST match. Add new entries at the bottom of both.
@@ -51,6 +57,7 @@ public static class AnimationNames
     {
         Attack, Dead, Die, Fall, Idle, Jump, Run, Swim, SwimIdle, Interacting,
         Stunned, Burrowing, Burrowed, Sneak, SneakIdle,
+        Dash, Sprint, SwimSprint,
     };
 
     public static StringName Get(EAnimation anim) => _byEnum[(int)anim];

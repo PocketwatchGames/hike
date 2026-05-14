@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_cdvrj"]
 [ext_resource type="Resource" uid="uid://dwfk3naq2pr5x" path="res://resources/data/status_effects/status_well_fed.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]

@@ -33,10 +33,15 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
-        Hud hud = GameClient.Current?.hud;
+        GameClient gc = GameClient.Current;
+        Hud hud = gc?.hud;
         if (hud != null)
         {
-            hud.ShowSignpost(_text, this);
+            Player player = gc?.Player;
+            string display = player == null || player.HasLearnedLanguage(_language)
+                ? _text
+                : TextScrambler.Scramble(_text, _language);
+            hud.ShowSignpost(display, this);
         }
     }
 
@@ -48,6 +53,10 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         if (!string.IsNullOrEmpty(data.Text))
         {
             instance._text = data.Text;
+        }
+        if (data.Language != null)
+        {
+            instance._language = data.Language;
         }
         world.AddChild(instance);
         return instance;

@@ -21,6 +21,7 @@ public static class EntitySerializer
         BerryTree = 9,
         Loot = 10,
         Forge = 11,
+        KnowledgeStone = 12,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -161,7 +162,16 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Signpost);
                 WriteVec3(w, signpost.WorldPosition);
                 WriteScene(w, signpost.Scene);
+                WriteResource(w, signpost.Language);
                 w.Write(signpost.Text ?? string.Empty);
+                break;
+
+            case KnowledgeStoneSimState stone:
+                w.Write((byte)Tag.KnowledgeStone);
+                WriteVec3(w, stone.WorldPosition);
+                WriteScene(w, stone.Scene);
+                WriteResource(w, stone.Language);
+                w.Write(stone.Text ?? string.Empty);
                 break;
 
             case FireTrapSimState fire:
@@ -329,8 +339,17 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
+                var languageData = ReadResource<LanguageData>(r);
                 string text = r.ReadString();
-                return new SignpostSimState(pos, scene, text);
+                return new SignpostSimState(pos, scene, text, languageData);
+            }
+            case Tag.KnowledgeStone:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var languageData = ReadResource<LanguageData>(r);
+                string text = r.ReadString();
+                return new KnowledgeStoneSimState(pos, scene, text, languageData);
             }
             case Tag.FireTrap:
             {

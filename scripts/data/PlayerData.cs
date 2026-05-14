@@ -68,11 +68,59 @@ public partial class PlayerData : Resource
 	[Export] public float staminaRechargeDelay = 1.5f;
 	[Export] public float staminaRechargeTime = 3f;
 
-	// Dash: horizontal one-tick velocity override. The cost is deducted
-	// unconditionally on press (stamina can go negative); the only gate is
-	// that current stamina must be > 0 at press time.
+	// Dash. The motion itself (speed / duration / freeze-gravity) is authored
+	// on the dashActionProfile's ApplyMotion event so weapons / mob lunges can
+	// reuse the same event shape with different tuning. The fields here are
+	// player-side gates and post-dash behavior the runner doesn't model.
+	[Export] public ItemActionProfile dashActionProfile;
+	// Activation gates. Stamina is deducted unconditionally on press (allowed
+	// to go negative); the only gate is that current stamina must be > 0 at
+	// press time. dashCooldown is per-actor since dash isn't an inventory
+	// item (so ItemAction.cooldownSeconds doesn't apply). dashMaxFallSpeed
+	// prevents using dash to halt a long fall: pressing Dash while falling
+	// faster than this is dropped silently.
 	[Export] public float dashStaminaCost = 25f;
-	[Export] public float dashSpeed = 30f;
+	[Export] public float dashCooldown = 0.35f;
+	[Export] public float dashMaxFallSpeed = 8f;
+	// Underwater speed scalar applied to the dash event's motionSpeed. 1.0
+	// matches dry land; lower values give a slower swim-dash so the player
+	// can't rocket through water.
+	[Export] public float dashSwimSpeedScale = 0.5f;
+	// Post-dash glide. When _dashTimeRemaining hits zero, _dashGlideRemaining
+	// starts at dashGlideTime and counts down; while > 0 the player's
+	// horizontal velocity is held at dashEndSpeedCap in the dash direction
+	// (tapered linearly) instead of snapping to input speed. Lets the dash
+	// carry momentum without leaving the player permanently fast.
+	[Export] public float dashGlideTime = 0.15f;
+	[Export] public float dashEndSpeedCap = 7f;
+	// Wall handling during dash. After MoveAndSlide the player iterates
+	// collisions: if the dash direction is within dashWallHeadOnAngle of
+	// the wall normal (radians), the dash short-circuits (head-on bonk).
+	// Otherwise the dash direction is reprojected onto the wall plane so
+	// the player slides along it at full speed.
+	[Export] public float dashWallHeadOnAngle = 0.785f;
+
+	// Sprint: continuous movement modifier engaged by holding Dash past the
+	// initial dash burst. Sprint is intent-based (any hold + move input);
+	// stamina gates the speed boost but not the intent — holding Dash with
+	// depleted stamina drops to moveSpeed but still arms the recharge delay,
+	// so the player can't refill while gripping the sprint button.
+	[Export] public float sprintSpeed = 12f;
+	[Export] public float sprintStaminaDrainPerSecond = 15f;
+
+	// Fallback speeds when stamina runs out and the player isn't actively
+	// sprinting. tiredRunSpeed is the on-foot "exhausted run" — slower than
+	// moveSpeed; tiredSwimSpeed is the swim equivalent. Sprinting with empty
+	// stamina uses moveSpeed (not tiredRunSpeed) so the player is rewarded
+	// for the effort while paying the recharge-delay cost.
+	[Export] public float tiredRunSpeed = 4.5f;
+	[Export] public float tiredSwimSpeed = 2f;
+
+	// Continuous stamina drain (per second) while swimming and trying to move.
+	// Stamina is allowed to go negative — movement is never gated on it, but
+	// each tick of swim drain re-arms the recharge delay so the bar can't
+	// refill until the player stops swimming or stops giving move input.
+	[Export] public float swimStaminaDrainPerSecond = 10f;
 
 	// Impulse the player applies to a mob when they run into it. Scaled
 	// by the player's current horizontal speed and divided by the mob's

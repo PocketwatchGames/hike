@@ -8,8 +8,8 @@
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="6_kunkun_data"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="8_campfire_group"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="9_loot_data"]
-[ext_resource type="Script" uid="uid://b8wellspawn001" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
-[ext_resource type="PackedScene" uid="uid://b8wellscene001" path="res://scenes/interactives/well.tscn" id="11_well_scene"]
+[ext_resource type="Script" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
+[ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="11_well_scene"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")

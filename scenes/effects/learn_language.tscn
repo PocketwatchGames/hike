@@ -1,0 +1,77 @@
+[gd_scene format=3 uid="uid://bltjwssh6fblq"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_learnsparkle"]
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 1.0
+initial_velocity_max = 2.4
+gravity = Vector3(0, 0.6, 0)
+damping_min = 0.4
+damping_max = 1.0
+scale_min = 0.6
+scale_max = 1.4
+color = Color(0.75, 0.55, 1, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_learnsparkle"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.7, 0.5, 1, 0.95)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_learnsparkle"]
+material = SubResource("ShaderMaterial_learnsparkle")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_learnring"]
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3(0, 1, 0)
+spread = 12.0
+initial_velocity_min = 0.4
+initial_velocity_max = 0.9
+gravity = Vector3(0, 0.4, 0)
+damping_min = 0.5
+damping_max = 1.2
+scale_min = 1.0
+scale_max = 1.8
+color = Color(0.55, 0.95, 1, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_learnring"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.5, 0.95, 1, 0.55)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_learnring"]
+material = SubResource("ShaderMaterial_learnring")
+size = Vector2(0.18, 0.18)
+
+[node name="LearnLanguage" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Sparkles" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+emitting = false
+amount = 30
+lifetime = 1.4
+one_shot = true
+explosiveness = 0.9
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_learnsparkle")
+draw_pass_1 = SubResource("QuadMesh_learnsparkle")
+
+[node name="Halo" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+emitting = false
+amount = 14
+lifetime = 1.2
+one_shot = true
+explosiveness = 0.7
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_learnring")
+draw_pass_1 = SubResource("QuadMesh_learnring")

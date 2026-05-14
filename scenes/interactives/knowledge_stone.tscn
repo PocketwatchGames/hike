@@ -1,0 +1,78 @@
+[gd_scene format=3 uid="uid://ck5nlyf58chsy"]
+
+[ext_resource type="Script" uid="uid://00f5fp6egt2" path="res://scripts/gameplay/entities/KnowledgeStone.cs" id="1_knowledgestone"]
+[ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="2_atlas"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_wxwuj"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_lit_materialtemplate"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_45v1k"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
+[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="11_open"]
+[ext_resource type="PackedScene" path="res://scenes/effects/learn_language.tscn" id="12_learnfx"]
+
+[sub_resource type="Resource" id="Resource_ks_event_open"]
+script = ExtResource("9_event")
+type = 256
+
+[sub_resource type="Resource" id="Resource_ks_action_read"]
+script = ExtResource("8_action")
+displayName = &"Read"
+icon = ExtResource("11_open")
+completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_ks_event_open")])
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ks_block"]
+size = Vector3(2, 4, 2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_ks_interact"]
+size = Vector3(2, 4, 2)
+
+[node name="KnowledgeStone" type="Node3D" unique_id=630626371 node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_knowledgestone")
+_hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("8_action")]([SubResource("Resource_ks_action_read")])
+_text = "Worn glyphs spiral around the stone, just barely legible."
+_firstLearnEffect = ExtResource("12_learnfx")
+
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=1745360662]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1347426430]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("BoxShape3D_ks_block")
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=1493033016 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("3_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1995500732]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("BoxShape3D_ks_interact")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=908062916]
+cast_shadow = 0
+centered = false
+offset = Vector2(-15.5, 0)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("2_atlas")
+region_enabled = true
+region_rect = Rect2(4, 329, 24, 56)
+script = ExtResource("4_litsprite")
+ForwardOffset = 0.5
+ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
+ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
+MaterialTemplate = ExtResource("5_lit_materialtemplate")
+
+[node name="HUDNode" type="Node3D" parent="." unique_id=725243340]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=94587318 node_paths=PackedStringArray("_sprites")]
+script = ExtResource("10_xray")
+_sprites = [NodePath("../Sprite")]

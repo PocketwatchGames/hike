@@ -5,13 +5,15 @@
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_region_forest"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_region_mountain"]
 [ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_region_swamp"]
+[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
 [ext_resource type="Resource" path="res://resources/regions/desert.tres" id="3_named_desert"]
 [ext_resource type="Resource" path="res://resources/regions/forest.tres" id="3_named_forest"]
 [ext_resource type="Resource" path="res://resources/regions/mountain.tres" id="3_named_mountain"]
 [ext_resource type="Resource" path="res://resources/regions/swamp.tres" id="3_named_swamp"]
-[ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
+[ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="6_gcffr"]
 [ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signpost"]
+[ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="8_stone"]
 
 [resource]
 script = ExtResource("1_script")
@@ -24,3 +26,7 @@ SignpostTextNE = "The mountains rise sharp and cold ahead. Bring rope."
 SignpostTextNW = "Desert. Water is scarce — fill skins before crossing."
 SignpostTextSE = "Swampland. Stay on the high ground after dusk."
 SignpostTextSW = "Forest path. Mind the roots, mind the wolves."
+SignpostLanguage = ExtResource("6_gcffr")
+KnowledgeStoneScene = ExtResource("8_stone")
+KnowledgeStoneLanguage = ExtResource("6_gcffr")
+KnowledgeStoneText = "Vyeshal-en mar tovesh. Hresta volun karadi ek tirun-eshal."

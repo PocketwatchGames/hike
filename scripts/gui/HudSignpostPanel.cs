@@ -1,11 +1,11 @@
 using Godot;
 
-// HUD panel that appears when the player interacts with a Signpost. Opens
-// via Hud.ShowSignpost(text, signpost). Stays up while the source signpost
-// remains the player's highlighted (or in-progress) interactive; auto-
-// closes as soon as the player walks away or aims at a different
-// interactive. Does NOT suppress input — the player keeps full gameplay
-// control while reading.
+// HUD panel that appears when the player interacts with a readable
+// interactive (Signpost, KnowledgeStone, etc.). Opens via
+// Hud.ShowSignpost(text, source). Stays up while the source remains the
+// player's highlighted (or in-progress) interactive; auto-closes as soon
+// as the player walks away or aims at a different interactive. Does NOT
+// suppress input — the player keeps full gameplay control while reading.
 [GlobalClass]
 public partial class HudSignpostPanel : Control
 {
@@ -14,7 +14,7 @@ public partial class HudSignpostPanel : Control
 
 	public bool IsOpen => Visible;
 
-	Signpost _source;
+	IInteractive _source;
 	// Grace window after Open before the highlight check arms. The press
 	// flow briefly clears Player._highlightInteractive between Interact and
 	// the next UpdateHighlightInteractive pass; without the grace, the
@@ -27,7 +27,7 @@ public partial class HudSignpostPanel : Control
 		Visible = false;
 	}
 
-	public void Open(string text, Signpost source)
+	public void Open(string text, IInteractive source)
 	{
 		if (label != null)
 		{
@@ -63,8 +63,7 @@ public partial class HudSignpostPanel : Control
 		{
 			return;
 		}
-		IInteractive src = _source;
-		if (player.HighlightInteractive == src || player.CurInteractive == src)
+		if (player.HighlightInteractive == _source || player.CurInteractive == _source)
 		{
 			return;
 		}

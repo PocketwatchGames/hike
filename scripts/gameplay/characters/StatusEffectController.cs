@@ -153,6 +153,28 @@ public class StatusEffectController
 		}
 	}
 
+	// Product of every active effect's damageMultiplier. Player.OnHurtBoxHit
+	// scales incoming healthDamage by this; an authored 0.0 multiplier on a
+	// dash i-frame status reduces the product to 0, which the damage path
+	// treats as "no hit landed" so impact effects and interrupts are skipped.
+	public float DamageMultiplier
+	{
+		get
+		{
+			float product = 1f;
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				StatusEffectData data = _statusEffects[i]?.data;
+				if (data == null)
+				{
+					continue;
+				}
+				product *= data.damageMultiplier;
+			}
+			return product;
+		}
+	}
+
 	// Stop the loop fx and spawn the one-shot end cue. Called from both the
 	// explicit Remove path and the Tick expiry branch so end-of-effect is
 	// uniform regardless of how the effect was cleared.

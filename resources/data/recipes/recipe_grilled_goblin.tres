@@ -18,9 +18,7 @@ metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 [sub_resource type="Resource" id="Resource_input_mushroom"]
 script = ExtResource("1_input")
 item = ExtResource("3_mushroom")
-count = 1
 minCountRange = -1
-maxCountRange = 0
 metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 
 [resource]

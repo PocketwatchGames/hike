@@ -24,5 +24,19 @@ public enum EItemEventType
 	// reaching zero, the supporting item is removed from the player's
 	// inventory.
 	ConsumeFromInventory = 1 << 9,
+	// Dispatches to IActionActor.ApplyMotion — the actor's physics layer
+	// reads the event's speed/duration/freeze-gravity fields and drives the
+	// resulting motion itself (dash for Player, lunge for Mob). Action events
+	// emit motion *intent*; actor implementations resolve direction, friction,
+	// terrain interactions, and end-of-motion behavior. Keeps the runner
+	// physics-agnostic.
+	ApplyMotion = 1 << 10,
+	// Teaches Player.LearnLanguage(ev.language). Reusable across sources —
+	// knowledge stones author it in their interactive's completionEvents, mob
+	// dialogue can fire it from a chatter timeline, and a language-teaching
+	// consumable authors it on the profile's release tick. The first-time
+	// flash plays on the actor (typically the player) only when Add returns
+	// true so re-reading a stone whose language is already known is silent.
+	LearnLanguage = 1 << 11,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

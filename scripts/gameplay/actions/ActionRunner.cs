@@ -561,6 +561,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoToggleMovingLight(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.LearnLanguage) != 0)
+		{
+			ItemEventHandlers.DoLearnLanguage(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.OpenInteractive) != 0)
 		{
 			ItemEventHandlers.DoOpenInteractive(_actor, ev, ref _action);
@@ -568,6 +572,10 @@ public class ActionRunner
 		if ((t & EItemEventType.ConsumeFromInventory) != 0)
 		{
 			ItemEventHandlers.DoConsumeFromInventory(_actor, ev, ref _action);
+		}
+		if ((t & EItemEventType.ApplyMotion) != 0)
+		{
+			ItemEventHandlers.DoApplyMotion(_actor, ev, ref _action);
 		}
 		if ((t & EItemEventType.DecrementStack) != 0)
 		{

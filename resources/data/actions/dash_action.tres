@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://b5x8h2qkvr3wm"]
+
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="1_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_invulnerable.tres" id="6_invuln"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_myocs"]
+[ext_resource type="PackedScene" uid="uid://br5x8h2qkvr3m" path="res://scenes/effects/dash_start.tscn" id="7_dashfx"]
+
+[sub_resource type="Resource" id="Resource_event_motion"]
+script = ExtResource("3_event")
+type = 1024
+
+[sub_resource type="Resource" id="Resource_apply_invuln"]
+script = ExtResource("4_apply")
+statusEffect = ExtResource("6_invuln")
+
+[sub_resource type="Resource" id="Resource_event_invuln"]
+script = ExtResource("3_event")
+type = 8
+effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_invuln")])
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("3_event")
+type = 64
+animName = 15
+
+[sub_resource type="Resource" id="Resource_action"]
+script = ExtResource("2_action")
+activeDurationSeconds = 0.2
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_motion"), SubResource("Resource_event_invuln"), SubResource("Resource_event_anim")])
+canAbort = true
+chargeStartEffect = ExtResource("7_dashfx")
+
+[resource]
+script = ExtResource("1_profile")
+chargedActions = Array[ExtResource("2_action")]([SubResource("Resource_action")])
+locksMovement = true

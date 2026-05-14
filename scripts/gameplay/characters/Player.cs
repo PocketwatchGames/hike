@@ -16,6 +16,7 @@ public partial class Player : CharacterBody3D
 	[Export] public Area3D interactArea;
 	[Export] private HurtBox _hurtBox;
 	[Export] private LitSpriteAnimator _animator;
+	[Export] private DashGhostTrail _dashGhostTrail;
 	[Export] private AudioListener3D _audioListener;
 	[Export] private AimingReticle _aimingReticle;
 	// Per-ground-type one-shot effect played at the player's feet while
@@ -113,6 +114,12 @@ public partial class Player : CharacterBody3D
 	bool _grounded;
 	bool _aiming;
 	bool _sneaking;
+	// Active while Dash is held past the initial dash burst with move input
+	// and positive stamina. Drains stamina continuously and rearms the
+	// recharge delay each tick. Blocks aim, ends on Dash release / stamina
+	// depletion / attack press / weapon Active. Set each frame in ProcessInput
+	// from current conditions — not latched.
+	bool _sprinting;
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
@@ -159,10 +166,20 @@ public partial class Player : CharacterBody3D
 	// Game-time at which stamina recharge can begin. Set to (now + rechargeDelay)
 	// on every ConsumeStamina call; TickStamina is a no-op until now reaches it.
 	ulong _staminaRechargeStartMs;
-	// Pending horizontal dash velocity. Set from ProcessInput on dash press;
-	// consumed in _PhysicsProcess after the input-driven horizontal velocity
-	// rebuild so the impulse isn't wiped. Y is always 0.
-	Vector3 _dashImpulse;
+	// Dash state machine. Seeded by Player.ApplyMotion (driven by an
+	// ApplyMotion event in the dash action profile). While
+	// _dashTimeRemaining > 0, _PhysicsProcess overrides the input-driven
+	// horizontal velocity with _dashDir * _dashSpeed (terrain-scaled) and,
+	// if _dashFreezeGravity, zeros Y and skips gravity. When the timer
+	// hits zero, _dashGlideRemaining counts down a tapered carry-over so
+	// the player doesn't snap from dash speed to input speed in one tick.
+	// _dashCooldownEndMs gates re-activation.
+	Vector3 _dashDir;
+	float _dashSpeed;
+	float _dashTimeRemaining;
+	float _dashGlideRemaining;
+	bool _dashFreezeGravity;
+	ulong _dashCooldownEndMs;
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
 	// instances of the same StatusEffectData stack — each AddStatusEffect
 	// appends a fresh state and ticks independently. The HUD groups by data
@@ -314,7 +331,17 @@ public partial class Player : CharacterBody3D
 	// networked-play motivation.
 	private EHitResult GetHitType(HitInfo hit)
 	{
-		float incoming = hit.healthDamage;
+		// Status-driven i-frames: any active effect with damageMultiplier=0
+		// reduces the product to 0, signaling "no hit landed." Dash i-frames
+		// are authored as an ApplyStatusEffect event on the dash profile, so
+		// the i-frame window is data-tunable independent of the dash's
+		// physical duration.
+		float damageMultiplier = _statusEffects?.DamageMultiplier ?? 1f;
+		if (damageMultiplier <= 0f)
+		{
+			return EHitResult.None;
+		}
+		float incoming = hit.healthDamage * damageMultiplier;
 		if (incoming <= 0f)
 		{
 			return EHitResult.None;
@@ -332,13 +359,22 @@ public partial class Player : CharacterBody3D
 
 	private void OnHurtBoxHit(HitInfo hit)
 	{
+		// Scale by status-driven damage multipliers. A 0.0 product (dash
+		// i-frames, etc.) drops the hit before interrupt/sneak side-effects
+		// fire — a dashing player should not have their dash interrupted
+		// nor lose sneak from a hit that did nothing.
+		float damageMultiplier = _statusEffects?.DamageMultiplier ?? 1f;
+		float incomingDamage = hit.healthDamage * damageMultiplier;
+		if (incomingDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		{
+			return;
+		}
+
 		// Damage may interrupt an in-flight action (gated by profile +
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 		_sneaking = false;
-
-		float incomingDamage = hit.healthDamage;
 		// Armor absorbs the entire hit when present — even an overflow drop
 		// to zero leaves health untouched. The recharge timer is rearmed on
 		// every absorbing hit; a hit that takes armor to zero arms the longer
@@ -501,7 +537,13 @@ public partial class Player : CharacterBody3D
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
-			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Swim, AnimationNames.SwimIdle);
+			// Sprint underwater swaps the moving variant only — the idle pose
+			// is the same whether or not Dash is held. (Holding Dash while
+			// idle in water is still "sprint intent" per UpdateSprintState,
+			// but visually there's nothing to differentiate from a normal
+			// tread until the player starts moving.)
+			StringName swimMove = _sprinting ? AnimationNames.SwimSprint : AnimationNames.Swim;
+			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, AnimationNames.SwimIdle);
 		}
 		else if (fallReady)
 		{
@@ -510,6 +552,13 @@ public partial class Player : CharacterBody3D
 		else if (_sneaking)
 		{
 			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Sneak, AnimationNames.SneakIdle);
+		}
+		else if (_sprinting)
+		{
+			// Sprint replaces run as the moving variant; idle stays the same
+			// (sprint intent without movement is a transient state that
+			// resolves to one or the other within a frame).
+			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Sprint, AnimationNames.Idle);
 		}
 		else
 		{
@@ -1071,6 +1120,97 @@ public partial class Player : CharacterBody3D
 		_stamina = Mathf.Min(max, _stamina + rate * dt);
 	}
 
+	// Swimming + active move input drains stamina at a flat per-second rate
+	// and re-arms the recharge delay each tick (mirrors the dash pattern:
+	// spend is unconditional, stamina is allowed to go negative, movement is
+	// never gated on it).
+	private void TickSwimStamina(float dt)
+	{
+		if (data == null || _waterState != EWaterState.Swimming)
+		{
+			return;
+		}
+		if (_inputMove.LengthSquared() <= 0.0001f)
+		{
+			return;
+		}
+		_stamina -= data.swimStaminaDrainPerSecond * dt;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
+	// Gates aiming and look-driven rotation. Returns false during dash and
+	// sprint so the player commits to facing movement direction during the
+	// burst — both _aiming (which drives the aim reticle, ranged routing,
+	// gamepad stick fallback) and the rotation block in _PhysicsProcess
+	// consult this single function so they can't drift out of sync.
+	private bool CanLook()
+	{
+		return _dashTimeRemaining <= 0f && !_sprinting;
+	}
+
+	// Recompute _sprinting each tick from current state. Sprint is
+	// intent-based: it engages when Dash is held past the initial dash burst
+	// with move input, regardless of stamina. Stamina gates the *speed boost*
+	// in the speed calc (sprintSpeed → moveSpeed when depleted) but the
+	// intent still arms the recharge delay via TickSprintStamina, so holding
+	// sprint while exhausted prevents refill. Clears the post-dash glide on
+	// the transition into sprint so the dash-to-sprint hand-off skips the
+	// tapered carry.
+	private void UpdateSprintState()
+	{
+		if (data == null)
+		{
+			_sprinting = false;
+			return;
+		}
+		bool runnerBlocks = _runner != null
+			&& _runner.IsBusy
+			&& _runner.Current.profile != data.dashActionProfile;
+		bool wantsSprint = Input.IsActionPressed("Dash")
+			&& _dashTimeRemaining <= 0f
+			&& _inputMove.LengthSquared() > 0.0001f
+			&& _curInteractive == null
+			&& !runnerBlocks;
+		if (wantsSprint && !_sprinting)
+		{
+			_dashGlideRemaining = 0f;
+		}
+		_sprinting = wantsSprint;
+	}
+
+	// Mirrors TickSwimStamina. Sprint drains a flat per-second amount and
+	// re-arms the recharge delay each tick (stamina is allowed to go
+	// negative; movement is never gated on it, but UpdateSprintState ends
+	// sprint as soon as stamina hits zero).
+	private void TickSprintStamina(float dt)
+	{
+		if (!_sprinting || data == null)
+		{
+			return;
+		}
+		_stamina -= data.sprintStaminaDrainPerSecond * dt;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+	}
+
+	// Centralized cancel for dash-and-sprint. Called from attack handlers so
+	// committing to a swing always wins over an in-flight movement state.
+	// TryAbort on the runner only fires AbortActive when the active tier's
+	// canAbort is true (set on the dash tier in dash_action.tres), so this
+	// also explicitly zeroes the per-actor dash timers — AbortActive only
+	// resets the runner's PlayerAction, not Player's physics state.
+	private void CancelDashAndSprint()
+	{
+		if (_runner != null && _runner.IsBusy && _runner.Current.profile == data?.dashActionProfile)
+		{
+			_runner.TryAbort();
+		}
+		_dashTimeRemaining = 0f;
+		_dashGlideRemaining = 0f;
+		_sprinting = false;
+	}
+
 	public override void _PhysicsProcess(double delta)
 	{
 		float dt = (float)delta;
@@ -1083,8 +1223,11 @@ public partial class Player : CharacterBody3D
 
 		UpdateTerrainSpeed();
 		UpdateWaterState();
+		UpdateSprintState();
 		TickArmor(dt);
 		TickStamina(dt);
+		TickSwimStamina(dt);
+		TickSprintStamina(dt);
 		_statusEffects.Tick(dt);
 		TickWetEffect();
 		TickBodyTemperature(dt);
@@ -1136,12 +1279,34 @@ public partial class Player : CharacterBody3D
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
 		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
 
-		_aiming = Input.IsActionPressed("Aim") || (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad);
+		// Dash and sprint suppress aim — the player commits to the movement
+		// burst, so look-rotation and the gamepad-stick aim fallback both
+		// yield to movement direction. Single gate for both _aiming below and
+		// the rotation block further down.
+		bool canLook = CanLook();
+		_aiming = canLook
+			&& (Input.IsActionPressed("Aim")
+				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad));
 
+		// Stamina-gated speed table:
+		//   sneaking                         → sneakSpeed
+		//   sprinting + stamina > 0          → sprintSpeed
+		//   sprinting + stamina ≤ 0          → moveSpeed   (effort with no gas left)
+		//   not sprinting + stamina ≤ 0      → tiredRunSpeed
+		//   else                             → moveSpeed
+		bool exhausted = _stamina <= 0f;
 		float speed = data.moveSpeed;
 		if (_sneaking)
 		{
 			speed = data.sneakSpeed;
+		}
+		else if (_sprinting)
+		{
+			speed = exhausted ? data.moveSpeed : data.sprintSpeed;
+		}
+		else if (exhausted)
+		{
+			speed = data.tiredRunSpeed;
 		}
 		speed *= _terrainSpeed;
 
@@ -1151,7 +1316,11 @@ public partial class Player : CharacterBody3D
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
-			speed = data.swimSpeed;
+			// Same stamina gating as run: depleted swimmer drops to
+			// tiredSwimSpeed. Swim drain runs whenever swimming + moving
+			// (see TickSwimStamina) so an exhausted swimmer can't refill
+			// until they stop trying to move.
+			speed = exhausted ? data.tiredSwimSpeed : data.swimSpeed;
 		}
 		_statusEffects.GetMovementMultipliers(out float statusMoveMul, out float statusAnimMul);
 		speed *= statusMoveMul;
@@ -1164,18 +1333,68 @@ public partial class Player : CharacterBody3D
 			speed = 0;
 		}
 
-		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
-
-		// Dash overrides the input-driven horizontal velocity for this one
-		// physics tick. Consume the impulse so subsequent ticks rebuild
-		// velocity from input as normal.
-		if (_dashImpulse.LengthSquared() > 0f)
+		// Horizontal velocity: dash and its glide window override the input-
+		// driven rebuild. Both still honor _terrainSpeed (tall grass slows)
+		// and status moveMul (Cold etc.) so dashing through a thicket isn't
+		// the same as dashing across open ground.
+		if (_dashTimeRemaining > 0f)
 		{
-			Velocity = new Vector3(_dashImpulse.X, Velocity.Y, _dashImpulse.Z);
-			_dashImpulse = Vector3.Zero;
+			float dashSpeedActual = _dashSpeed * _terrainSpeed * statusMoveMul;
+			if (_waterState == EWaterState.Swimming)
+			{
+				dashSpeedActual *= data.dashSwimSpeedScale;
+			}
+			Velocity = new Vector3(_dashDir.X * dashSpeedActual, Velocity.Y, _dashDir.Z * dashSpeedActual);
+			_dashTimeRemaining -= dt;
+			if (_dashTimeRemaining <= 0f)
+			{
+				// Dash ended this tick — arm the glide so the player doesn't
+				// snap from dash speed to input speed.
+				EndDash();
+			}
+		}
+		else if (_dashGlideRemaining > 0f)
+		{
+			// Post-dash carry: hold dashEndSpeedCap in the dash direction,
+			// tapered linearly to 0 over dashGlideTime. Input still steers
+			// rotation; the regular input-driven rebuild resumes once glide
+			// expires.
+			float t = _dashGlideRemaining / data.dashGlideTime;
+			float glideSpeed = data.dashEndSpeedCap * _terrainSpeed * statusMoveMul * t;
+			Velocity = new Vector3(_dashDir.X * glideSpeed, Velocity.Y, _dashDir.Z * glideSpeed);
+			_dashGlideRemaining -= dt;
+			if (_dashGlideRemaining < 0f)
+			{
+				_dashGlideRemaining = 0f;
+			}
+		}
+		else
+		{
+			Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
 		}
 
-		if (_waterState == EWaterState.Swimming)
+		// Ghost-trail emit state is a side-effect of the dash phase, not part
+		// of the velocity chain — it must NOT live inside the if/else if/else
+		// above or the glide and input-rebuild branches get skipped whenever
+		// the trail is wired, leaving Velocity locked at the last dash value
+		// for the rest of the run.
+		if (_dashGhostTrail != null)
+		{
+			_dashGhostTrail.EmitEnabled = _dashTimeRemaining > 0f;
+		}
+
+		// Vertical: airborne dry-land dash with freezeGravity zeros Y and
+		// suppresses gravity for the dash hang. Grounded dash falls through to
+		// the grounded branch's -1 downward so step-down still hugs slopes
+		// (and walks off cliffs by clearing _grounded when no floor is found).
+		// Swim dash keeps normal water physics so buoyancy and drag still apply.
+		bool dashFreezeY = _dashTimeRemaining > 0f && _dashFreezeGravity
+			&& !_grounded && _waterState != EWaterState.Swimming;
+		if (dashFreezeY)
+		{
+			Velocity = new Vector3(Velocity.X, 0f, Velocity.Z);
+		}
+		else if (_waterState == EWaterState.Swimming)
 		{
 			ApplyWaterPhysics(dt);
 		}
@@ -1189,7 +1408,9 @@ public partial class Player : CharacterBody3D
 			Velocity = new Vector3(Velocity.X, -1f, Velocity.Z); // Small downward force to keep grounded
 		}
 
-		if (_inputLook != Vector3.Zero)
+		// Same CanLook gate as the _aiming suppression above — during dash or
+		// sprint, rotation falls through to move direction.
+		if (CanLook() && _inputLook != Vector3.Zero)
 		{
 			Rotation = new Vector3(0, Mathf.Atan2(_inputLook.X, _inputLook.Z), 0);
 		}
@@ -1231,6 +1452,10 @@ public partial class Player : CharacterBody3D
 		float inboundFallSpeed = -Velocity.Y;
 		MoveAndSlide();
 		PushTouchedMobs();
+		if (_dashTimeRemaining > 0f)
+		{
+			HandleDashWallCollisions();
+		}
 
 		// Step down: snap back to the ground after moving
 		if (wasOnFloor && _waterState != EWaterState.Swimming)
@@ -1428,10 +1653,13 @@ public partial class Player : CharacterBody3D
 		move = move.LengthSquared() > 1 ? move.Normalized() : move;
 		_inputMove = new Vector3(move.X, 0, move.Y).Rotated(Vector3.Up, cameraYaw);
 
-		// Look is device-gated. Gamepad sources from the right-stick axes here;
-		// KBM sources from accumulated mouse motion via ProcessMouseMotion, so
-		// we must NOT overwrite _inputLook on KBM frames — the axes are zero,
-		// and overwriting would cancel out mouse-driven aim every frame.
+		// Look input. Gamepad: every frame from the right-stick axes (stick
+		// centered → _inputLook = Zero, so the rotation block falls back to
+		// move direction). KBM: ProcessMouseMotion only writes _inputLook
+		// while Aim is held (GameClient gates the motion event), but a stale
+		// _inputLook can survive an Aim release until the next mouse event,
+		// so explicitly zero it on KBM frames without Aim to guarantee the
+		// rotation block sees a clean state.
 		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
 		{
 			Vector2 look = Vector2.Zero;
@@ -1441,6 +1669,10 @@ public partial class Player : CharacterBody3D
 			look.Y += Input.GetActionStrength("LookDown");
 			look = look.LengthSquared() > 1 ? look.Normalized() : look;
 			_inputLook = new Vector3(look.X, 0, look.Y).Rotated(Vector3.Up, cameraYaw);
+		}
+		else if (!Input.IsActionPressed("Aim"))
+		{
+			_inputLook = Vector3.Zero;
 		}
 
 		// Handle interact input. Multi-action interactives split tap vs hold:
@@ -1536,27 +1768,9 @@ public partial class Player : CharacterBody3D
 			_jumpHeld = false;
 		}
 
-		if (Input.IsActionJustPressed("Dash") && _stamina > 0f && data != null)
+		if (Input.IsActionJustPressed("Dash"))
 		{
-			// Direction preference: active move input first (lets the player
-			// dash sideways or backward independent of facing); fall back to
-			// facing rotation so a stationary dash still goes somewhere.
-			Vector3 dir;
-			if (_inputMove.LengthSquared() > 0f)
-			{
-				dir = _inputMove.Normalized();
-			}
-			else
-			{
-				dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
-			}
-			_dashImpulse = new Vector3(dir.X * data.dashSpeed, 0f, dir.Z * data.dashSpeed);
-
-			// Spend stamina unconditionally — stamina is allowed to go
-			// negative, and the recharge delay re-arms either way.
-			_stamina -= data.dashStaminaCost;
-			ulong now = _world?.GameTimeMs ?? 0;
-			_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+			TryStartDash();
 		}
 
 		foreach (var (slot, actionName) in _weaponActions)
@@ -1655,6 +1869,54 @@ public partial class Player : CharacterBody3D
 		foreach (TallGrass grass in _tallGrassCollisions)
 		{
 			_terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
+		}
+	}
+
+	// React to walls hit by an in-flight dash. Head-on contact (dash direction
+	// within data.dashWallHeadOnAngle of the wall normal) short-circuits the
+	// dash, dropping into the glide window. Glancing contact reprojects the
+	// dash direction onto the wall plane so the next tick continues at full
+	// dash speed along the tangent — MoveAndSlide has already removed the
+	// into-wall component from Velocity, but without reprojecting _dashDir the
+	// next tick would push back into the wall again. Skips floors and ceilings:
+	// step-up / step-down handles ground transitions, and a head-bonk on a
+	// ceiling shouldn't kill horizontal momentum.
+	// Tear down dash physics at the end of the dash phase: zero the timer
+	// and arm the glide window so velocity tapers instead of snapping.
+	// Called from natural timeout and the head-on wall short-circuit. The
+	// i-frame status effect is runner-managed (applied at t=0 via an
+	// ApplyStatusEffect event, auto-expires on its own duration timer), so
+	// a wall short-circuit at t<duration leaves a small invuln tail — fine.
+	private void EndDash()
+	{
+		_dashTimeRemaining = 0f;
+		_dashGlideRemaining = data.dashGlideTime;
+	}
+
+	private void HandleDashWallCollisions()
+	{
+		float floorDotMin = Mathf.Cos(FloorMaxAngle);
+		float headOnDot = Mathf.Cos(data.dashWallHeadOnAngle);
+		int count = GetSlideCollisionCount();
+		for (int i = 0; i < count; i++)
+		{
+			using KinematicCollision3D c = GetSlideCollision(i);
+			Vector3 n = c.GetNormal();
+			if (Mathf.Abs(n.Y) >= floorDotMin)
+			{
+				continue;
+			}
+			float hitDot = -_dashDir.Dot(n);
+			if (hitDot >= headOnDot)
+			{
+				EndDash();
+				return;
+			}
+			Vector3 tangent = _dashDir - _dashDir.Dot(n) * n;
+			if (tangent.LengthSquared() > 1e-6f)
+			{
+				_dashDir = tangent.Normalized();
+			}
 		}
 	}
 

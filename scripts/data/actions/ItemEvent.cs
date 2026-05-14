@@ -80,6 +80,23 @@ public partial class ItemEvent : Resource
 	// a WeaponState.
 	[Export] public DamageData damageData;
 
+	// ApplyMotion fields. Speed in m/s and duration in seconds describe the
+	// motion phase the actor should enter; the actor resolves direction
+	// (input/facing/etc) and any per-actor scaling (e.g. swim speed). When
+	// freezeGravity is true, the actor zeros vertical velocity and suppresses
+	// gravity for the duration — the dash hang. Sword-lunge style events
+	// leave it false so gravity still applies.
+	[Export] public float motionSpeed = 30f;
+	[Export] public float motionDuration = 0.2f;
+	[Export] public bool motionFreezeGravity = true;
+
+	// LearnLanguage fields. `language` is the LanguageData to add to the
+	// learner's known set. `firstLearnEffect` plays on the actor only the
+	// first time the language is learned (Player.LearnLanguage returns true);
+	// a re-trigger on an already-known language is silent.
+	[Export] public LanguageData language;
+	[Export] public PackedScene firstLearnEffect;
+
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
 	// on what the swing/ray hit. Authored on the event so a single weapon can
 	// give light vs heavy attacks distinct impact signatures, and so mob
@@ -114,6 +131,8 @@ public partial class ItemEvent : Resource
 			nameof(animName) => EItemEventType.PlayAnim,
 			nameof(fx) => EItemEventType.OpenInteractive,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
+			nameof(motionSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) => EItemEventType.ApplyMotion,
+			nameof(language) or nameof(firstLearnEffect) => EItemEventType.LearnLanguage,
 			nameof(damageData)
 				or nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)

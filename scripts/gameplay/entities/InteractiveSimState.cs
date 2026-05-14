@@ -195,16 +195,42 @@ public class SignpostSimState : EntitySimState
     // sim state so each placed signpost in a world file can carry its own
     // message — the .tscn is shared.
     public string Text;
+    public LanguageData Language;
 
-    public SignpostSimState(Vector3 worldPosition, PackedScene scene, string text)
+    public SignpostSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language)
         : base(worldPosition, scene)
     {
         Text = text ?? string.Empty;
+        Language = language;
     }
 
     public override Node3D CreateEntity(World world)
     {
         return Signpost.Create(world, this);
+    }
+}
+
+public class KnowledgeStoneSimState : EntitySimState
+{
+    // Inscription shown to the player when read. Stored per-instance so a
+    // single .tscn can carry many different stones across the world file.
+    public string Text;
+    // Language the inscription is written in AND the language the player
+    // learns on a successful read. The InteractiveAction authored on the
+    // .tscn already references the same LanguageData on its LearnLanguage
+    // event — the SimState's value is the inscription-scramble key.
+    public LanguageData Language;
+
+    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language)
+        : base(worldPosition, scene)
+    {
+        Text = text ?? string.Empty;
+        Language = language;
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return KnowledgeStone.Create(world, this);
     }
 }
 

@@ -270,6 +270,32 @@ public static class ItemEventHandlers
 		}
 	}
 
+	public static void DoApplyMotion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		actor.ApplyMotion(ev.motionSpeed, ev.motionDuration, ev.motionFreezeGravity);
+	}
+
+	// Adds ev.language to the learner's known set — for sources whose
+	// language is uniform across all uses (consumables, mob dialogue) and
+	// can therefore be authored on the event itself. Player.LearnLanguage
+	// returns true only on the *first* successful add; we use that to gate
+	// the firstLearnEffect so re-firing on an already-known language is
+	// silent. Non-Player actors don't have a learned-language set — they
+	// no-op. Per-instance teaching (KnowledgeStone) doesn't go through this
+	// flag — it handles its own learn-and-display inside Complete() to
+	// guarantee ordering against the same-tick text reveal.
+	public static void DoLearnLanguage(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.language == null || actor is not Player player)
+		{
+			return;
+		}
+		if (player.LearnLanguage(ev.language))
+		{
+			SpawnOnActor(actor, ev.firstLearnEffect);
+		}
+	}
+
 	public static void DoConsumeFromInventory(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.reagent == null || action.context.supportingItems == null)
