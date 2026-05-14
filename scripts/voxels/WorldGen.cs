@@ -1332,6 +1332,15 @@ public static class WorldGen
     // happens to have BaseElevation near 0) ever spawn props.
     private static bool IsFlatDryGrassAt(int wx, int wz, HeightMap heightMap)
     {
+        // Scatter samplers (SpawnGroupData.ScatterRadius via SpawnContext.TryPickInRadius)
+        // can probe positions outside the heightmap range when the anchor is
+        // near a world edge — treat those as not-grass rather than indexing
+        // the Height/Plateau arrays out of bounds.
+        if (wx < heightMap.WorldMinX || wx > heightMap.WorldMaxX
+            || wz < heightMap.WorldMinZ || wz > heightMap.WorldMaxZ)
+        {
+            return false;
+        }
         int h = heightMap.GetHeight(wx, wz);
         // h is the topmost solid voxel; the walkable surface sits at h+1, so
         // "above water" is h+1 > WATER_LEVEL, i.e. h >= WATER_LEVEL. Strict
