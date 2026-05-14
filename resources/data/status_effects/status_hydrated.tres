@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://b8hydratedwell"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Hydrated"
+duration = 300.0
