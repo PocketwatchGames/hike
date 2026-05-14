@@ -610,9 +610,53 @@ public static class WorldGen
         // the (eventually editor-authored) serialized bytes.
         EnvTagGen.ComputeEnvTagGrid(ws);
 
+        // Stamp a procedural test pattern into every chunk's water-current
+        // subgrid so the water shader has something to advect. Real worlds
+        // will author this in the editor; this stays out of the way for
+        // disk-loaded chunks (they use serialized bytes) and produces a
+        // visibly varying flow field where the test world has water.
+        GenerateTestWaterCurrents(ws);
+
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
         return ws;
+    }
+
+    // Procedural sinusoidal current field — direction and magnitude vary
+    // smoothly across world XZ so the on-screen drift unmistakably reads
+    // as a flow field (rather than uniform wind drift). Run after voxel
+    // carving; cells whose voxels contain no water still get stamped,
+    // but the water shader only samples on water surface fragments so
+    // unused stamps cost nothing at render time.
+    private static void GenerateTestWaterCurrents(WorldState ws)
+    {
+        const float SpatialFreq = 0.04f;
+        const float Magnitude = 0.7f;
+        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
+        {
+            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
+            {
+                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
+                {
+                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
+                    if (chunk == null) { continue; }
+                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
+                    {
+                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
+                        {
+                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
+                            {
+                                int wx = cx * ChunkState.SIZE + sx * ChunkState.ENV_VOXELS_PER_CELL + ChunkState.ENV_VOXELS_PER_CELL / 2;
+                                int wz = cz * ChunkState.SIZE + sz * ChunkState.ENV_VOXELS_PER_CELL + ChunkState.ENV_VOXELS_PER_CELL / 2;
+                                float fx = Mathf.Cos(wz * SpatialFreq) * Magnitude;
+                                float fz = Mathf.Sin(wx * SpatialFreq) * Magnitude;
+                                chunk.SetCurrent(sx, sy, sz, fx, fz);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Stamp a chunk into one of the world's zones. Legacy 4-quadrant

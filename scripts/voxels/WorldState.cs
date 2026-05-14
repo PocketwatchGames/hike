@@ -172,6 +172,11 @@ public class WorldState
     // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
     public readonly HashSet<Vector3I> FogChunkDirty = new();
 
+    // Same pattern for WaterCurrentMap. Populated by anything that mutates
+    // water-current vectors at runtime; ChunkManager drains it each frame
+    // to push only touched chunks back to the GPU.
+    public readonly HashSet<Vector3I> WaterCurrentChunkDirty = new();
+
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
         Min = min;

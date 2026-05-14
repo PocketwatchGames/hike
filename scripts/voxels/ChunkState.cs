@@ -112,6 +112,19 @@ public class ChunkState
     // openness; uploaded to the GPU as the `wind_map` global texture.
     public readonly byte[,,] WindFactor;
 
+    // Coarse water-current subgrid. One 2D vector per ENV cell — CurrentX
+    // is the world +X velocity component, CurrentZ is the world +Z
+    // component. Bytes 0..255 map to signed [-1, 1] via the
+    // (byte - 128) / 127 convention; the shader multiplies by the
+    // `water_current_speed` global to convert to world m/s. Y is ignored
+    // (currents are 2D in the XZ plane). Trilinearly sampled via the
+    // `water_current_map` global texture, so chunk-edge / cave-mouth
+    // transitions blend across roughly one cell footprint (~4m). Zero =
+    // no current; the water shader's ripple_normal path early-outs to
+    // the single-sample (non-flow) cost in that case.
+    public readonly byte[,,] CurrentX;
+    public readonly byte[,,] CurrentZ;
+
     // Fog density: 0 = clear air, 255 = thickest fog. Two consumers:
     //   - LightEngine BFS uses this as extra per-step falloff so torches dim
     //     faster in fog (step 5 of the roadmap).
@@ -138,6 +151,46 @@ public class ChunkState
         FogDensity = new byte[SIZE, SIZE, SIZE];
         WindFactor = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
         EnvTag = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+        CurrentX = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+        CurrentZ = new byte[ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE, ENV_SUBGRID_SIZE];
+        // Default = byte 128 = signed zero. Plain `new byte[]` zeros to 0,
+        // which would mean "max negative current"; initialize explicitly.
+        for (int sx = 0; sx < ENV_SUBGRID_SIZE; sx++)
+        {
+            for (int sy = 0; sy < ENV_SUBGRID_SIZE; sy++)
+            {
+                for (int sz = 0; sz < ENV_SUBGRID_SIZE; sz++)
+                {
+                    CurrentX[sx, sy, sz] = 128;
+                    CurrentZ[sx, sy, sz] = 128;
+                }
+            }
+        }
+    }
+
+    public Vector2 GetCurrent(int sx, int sy, int sz)
+    {
+        if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
+        {
+            return Vector2.Zero;
+        }
+        float fx = (CurrentX[sx, sy, sz] - 128f) / 127f;
+        float fz = (CurrentZ[sx, sy, sz] - 128f) / 127f;
+        return new Vector2(fx, fz);
+    }
+
+    public void SetCurrent(int sx, int sy, int sz, float fx, float fz)
+    {
+        if (sx < 0 || sx >= ENV_SUBGRID_SIZE || sy < 0 || sy >= ENV_SUBGRID_SIZE || sz < 0 || sz >= ENV_SUBGRID_SIZE)
+        {
+            return;
+        }
+        if (fx < -1f) { fx = -1f; }
+        if (fx > 1f) { fx = 1f; }
+        if (fz < -1f) { fz = -1f; }
+        if (fz > 1f) { fz = 1f; }
+        CurrentX[sx, sy, sz] = (byte)(Mathf.RoundToInt(fx * 127f) + 128);
+        CurrentZ[sx, sy, sz] = (byte)(Mathf.RoundToInt(fz * 127f) + 128);
     }
 
     public int GetWindFactor(int sx, int sy, int sz)

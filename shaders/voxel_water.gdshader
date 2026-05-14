@@ -167,6 +167,23 @@ global uniform vec3 wind_dir;
 global uniform sampler3D wind_map : filter_linear;
 global uniform vec3 wind_map_origin;
 global uniform vec3 wind_map_inv_size;
+// Coarse water-current 3D texture — 2D vector per cell stored in RG8
+// with byte 128 = signed zero, decoded in-shader as `rg * 2.0 - 1.0` to
+// recover [-1, 1] (normalized world-XZ velocity). Same UVW convention as
+// wind_map. Sampled by ripple_normal to advect the ripple texture
+// in-line with per-cell water flow.
+global uniform sampler3D water_current_map : filter_linear;
+global uniform vec3 water_current_map_origin;
+global uniform vec3 water_current_map_inv_size;
+// Master toggle and tuning for water currents. `water_current_speed`
+// multiplies the stored [-1, 1] sample to convert it to world m/s of
+// surface drift. `water_current_phase_period` is the seconds-per-cycle
+// of the two-phase scroll trick — a longer period gives a less obvious
+// "lerp wobble" but stretches the texture more between resets. The
+// `enabled` flag short-circuits the per-fragment sample entirely.
+global uniform float water_current_speed;
+global uniform float water_current_phase_period;
+global uniform bool water_currents_enabled;
 // Shoreline foam — lighter noise band where water thickness falls below
 // `foam_depth`, so shallow edges of water bodies read as surf.
 global uniform vec3 foam_color;
@@ -256,6 +273,16 @@ const float MIN_AMBIENT = 0.0;
 float sample_wind_factor(vec3 world_pos) {
 	vec3 uvw = (world_pos - wind_map_origin) * wind_map_inv_size;
 	return texture(wind_map, uvw).r;
+}
+
+// Trilinear water-current sample at a world-space point. Decodes the
+// RG8 byte-128-is-zero packing back to a signed [-1, 1] XZ vector
+// (R = currentX, G = currentZ). Returns zero when currents are
+// disabled globally so the caller can stay branch-free.
+vec2 sample_water_current(vec3 world_pos) {
+	if (!water_currents_enabled) { return vec2(0.0); }
+	vec3 uvw = (world_pos - water_current_map_origin) * water_current_map_inv_size;
+	return texture(water_current_map, uvw).rg * 2.0 - 1.0;
 }
 
 float hash13(vec3 p) {
@@ -451,11 +478,54 @@ float wave_height(vec2 world_xz, vec2 dir, float time_phase) {
 // water); at ripple_strength=1 it's the raw combined texture normal.
 // Each texture is sampled at its own scale (ripple_scale_a/b) with its
 // own integrated wind offset — scrolling stays locked to the world.
-vec3 ripple_normal(vec2 world_xz, float time) {
-	vec2 uv_a = world_xz * ripple_scale_a + ripple_offset_a;
-	vec2 uv_b = world_xz * ripple_scale_b + ripple_offset_b;
-	vec3 na = decode_normal_map(ripple_tex_a, uv_a);
-	vec3 nb = decode_normal_map(ripple_tex_b, uv_b);
+//
+// `current` is the per-fragment water-current vector (world XZ, m/s
+// after scaling). When nonzero, the texture UVs are also advected in
+// the current direction using a two-phase scroll: spatially varying
+// drift would stretch the texture (fast cells drag texels their slow
+// neighbors still own), so each phase resets every
+// water_current_phase_period seconds and we blend the two phases by a
+// triangle wave so the visible sample is always the youngest, least
+// stretched one. Wind drift stays in ripple_offset_X (globally uniform
+// — no stretching), so only the per-fragment current term needs two-
+// phase work.
+vec3 ripple_normal(vec2 world_xz, vec2 current, float time) {
+	vec2 base_a = world_xz * ripple_scale_a + ripple_offset_a;
+	vec2 base_b = world_xz * ripple_scale_b + ripple_offset_b;
+
+	vec3 na;
+	vec3 nb;
+	// Calm cells skip the two-phase work — same single-sample cost as
+	// before. Most water surface area is expected to fall here (no flow
+	// authored), so this keeps the per-frame budget flat.
+	if (dot(current, current) < 1e-4) {
+		na = decode_normal_map(ripple_tex_a, base_a);
+		nb = decode_normal_map(ripple_tex_b, base_b);
+	} else {
+		float tau = max(water_current_phase_period, 0.1);
+		float p = time / tau;
+		float p1 = fract(p);
+		float p2 = fract(p + 0.5);
+		// Triangle wave: 1 at phase boundary (newest phase just started),
+		// 0 at midpoint. Display the "newer" phase more heavily so
+		// stretching never accumulates past half a period.
+		float phase_blend = abs(2.0 * p1 - 1.0);
+		// Drift in world meters per phase. Multiply by ripple_scale_X
+		// inside the sample to convert to UV units — that way the
+		// VISIBLE surface drift speed matches `current` in m/s for both
+		// ripple layers, regardless of their tile scale.
+		vec2 drift_world_1 = current * water_current_speed * p1 * tau;
+		vec2 drift_world_2 = current * water_current_speed * p2 * tau;
+		// Subtract so the texture appears to flow WITH the current
+		// (positive current along +X drifts visible features along +X).
+		vec3 na1 = decode_normal_map(ripple_tex_a, base_a - drift_world_1 * ripple_scale_a);
+		vec3 na2 = decode_normal_map(ripple_tex_a, base_a - drift_world_2 * ripple_scale_a);
+		vec3 nb1 = decode_normal_map(ripple_tex_b, base_b - drift_world_1 * ripple_scale_b);
+		vec3 nb2 = decode_normal_map(ripple_tex_b, base_b - drift_world_2 * ripple_scale_b);
+		na = mix(na1, na2, phase_blend);
+		nb = mix(nb1, nb2, phase_blend);
+	}
+
 	vec3 combined = normalize(na + nb);
 	return slerp_normals(vec3(0.0, 1.0, 0.0), combined, ripple_strength);
 }
@@ -631,7 +701,13 @@ void fragment() {
 	// the slerp at the end of the perturbation block flattens the result anyway,
 	// so the ripple texture work would be discarded.
 	bool ripples_active = is_top && !water_disable_ripples && ripple_strength > 0.01 && wind_factor > 0.01;
-	vec3 n = ripples_active ? ripple_normal(world_vertex.xz, TIME) : (is_top ? vec3(0.0, 1.0, 0.0) : world_normal);
+	// Per-fragment water-current vector (m/s in world XZ). Advects the
+	// ripple texture inside ripple_normal via a two-phase scroll.
+	// Currently affects the rippled normal only — wave streaks, foam,
+	// whitecaps stay wind-coupled. sample_water_current short-circuits
+	// to zero when currents are disabled globally.
+	vec2 water_current = ripples_active ? sample_water_current(world_vertex) : vec2(0.0);
+	vec3 n = ripples_active ? ripple_normal(world_vertex.xz, water_current, TIME) : (is_top ? vec3(0.0, 1.0, 0.0) : world_normal);
 
 	// Wave streaks: a coarser scrolling-noise layer that adds tilt onto
 	// the base ripple normal — conceptually just "ripple layer 2" with its

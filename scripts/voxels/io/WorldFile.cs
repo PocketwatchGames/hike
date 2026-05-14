@@ -62,7 +62,11 @@ public static class WorldFile
     //      that table after ZoneIndex. Regions are an independent top-level
     //      subdivision from zones — a single named region can span multiple
     //      biomes, and the zone field used to double as the region anchor.
-    public const uint VERSION = 15;
+    // v16: chunk payload appended two coarse current subgrids (4³ bytes each:
+    //      currentX then currentZ) between envTag and zoneIndex — drives the
+    //      water_current_map 3D shader global, advecting ripple normals on
+    //      the water surface to visualize streams/rivers/tidal flow.
+    public const uint VERSION = 16;
 
     public struct IndexEntry
     {
