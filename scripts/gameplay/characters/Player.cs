@@ -154,6 +154,10 @@ public partial class Player : CharacterBody3D
 	// Game-time at which stamina recharge can begin. Set to (now + rechargeDelay)
 	// on every ConsumeStamina call; TickStamina is a no-op until now reaches it.
 	ulong _staminaRechargeStartMs;
+	// Pending horizontal dash velocity. Set from ProcessInput on dash press;
+	// consumed in _PhysicsProcess after the input-driven horizontal velocity
+	// rebuild so the impulse isn't wiped. Y is always 0.
+	Vector3 _dashImpulse;
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
 	// instances of the same StatusEffectData stack — each AddStatusEffect
 	// appends a fresh state and ticks independently. The HUD groups by data
@@ -1154,6 +1158,15 @@ public partial class Player : CharacterBody3D
 
 		Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
 
+		// Dash overrides the input-driven horizontal velocity for this one
+		// physics tick. Consume the impulse so subsequent ticks rebuild
+		// velocity from input as normal.
+		if (_dashImpulse.LengthSquared() > 0f)
+		{
+			Velocity = new Vector3(_dashImpulse.X, Velocity.Y, _dashImpulse.Z);
+			_dashImpulse = Vector3.Zero;
+		}
+
 		if (_waterState == EWaterState.Swimming)
 		{
 			ApplyWaterPhysics(dt);
@@ -1429,7 +1442,7 @@ public partial class Player : CharacterBody3D
 		// on JustPressed so the snappy feel is preserved.
 		HandleInteractInput();
 
-		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive"))
+		if (Input.IsActionJustPressed("Jump") || Input.IsActionJustPressed("UseItem") || Input.IsActionJustPressed("AttackMelee") || Input.IsActionJustPressed("AttackContextSensitive") || Input.IsActionJustPressed("Dash"))
 		{
 			CancelInteract();
 		}
@@ -1442,7 +1455,8 @@ public partial class Player : CharacterBody3D
 			|| Input.IsActionJustPressed("AttackMelee")
 			|| Input.IsActionJustPressed("AttackRanged")
 			|| Input.IsActionJustPressed("AttackContextSensitive")
-			|| Input.IsActionJustPressed("UseItem"))
+			|| Input.IsActionJustPressed("UseItem")
+			|| Input.IsActionJustPressed("Dash"))
 		{
 			_sneaking = false;
 		}
@@ -1500,6 +1514,29 @@ public partial class Player : CharacterBody3D
 		else if (!Input.IsActionPressed("Jump"))
 		{
 			_jumpHeld = false;
+		}
+
+		if (Input.IsActionJustPressed("Dash") && _stamina > 0f && data != null)
+		{
+			// Direction preference: active move input first (lets the player
+			// dash sideways or backward independent of facing); fall back to
+			// facing rotation so a stationary dash still goes somewhere.
+			Vector3 dir;
+			if (_inputMove.LengthSquared() > 0f)
+			{
+				dir = _inputMove.Normalized();
+			}
+			else
+			{
+				dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
+			}
+			_dashImpulse = new Vector3(dir.X * data.dashSpeed, 0f, dir.Z * data.dashSpeed);
+
+			// Spend stamina unconditionally — stamina is allowed to go
+			// negative, and the recharge delay re-arms either way.
+			_stamina -= data.dashStaminaCost;
+			ulong now = _world?.GameTimeMs ?? 0;
+			_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
 		}
 
 		foreach (var (slot, actionName) in _weaponActions)

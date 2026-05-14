@@ -61,6 +61,12 @@ public partial class PlayerData : Resource
 	[Export] public float staminaRechargeDelay = 1.5f;
 	[Export] public float staminaRechargeTime = 3f;
 
+	// Dash: horizontal one-tick velocity override. The cost is deducted
+	// unconditionally on press (stamina can go negative); the only gate is
+	// that current stamina must be > 0 at press time.
+	[Export] public float dashStaminaCost = 25f;
+	[Export] public float dashSpeed = 30f;
+
 	// Impulse the player applies to a mob when they run into it. Scaled
 	// by the player's current horizontal speed and divided by the mob's
 	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
