@@ -668,15 +668,15 @@ public static class WorldGen
         }
     }
 
-    // Procedural sinusoidal current field — direction and magnitude vary
-    // smoothly across world XZ so the on-screen drift unmistakably reads
-    // as a flow field (rather than uniform wind drift). Run after voxel
-    // carving; cells whose voxels contain no water still get stamped,
+    // Seed per-cell water currents perpendicular to the chunk's zone wind
+    // direction in XZ — a 90° CCW rotation, so wind (wx, wz) maps to
+    // current (-wz, wx). Matches WindGen's per-zone seeding shape: one
+    // direction per chunk, stamped uniformly into every cell. Run after
+    // voxel carving; cells whose voxels contain no water still get stamped,
     // but the water shader only samples on water surface fragments so
     // unused stamps cost nothing at render time.
     private static void GenerateTestWaterCurrents(WorldState ws)
     {
-        const float SpatialFreq = 0.04f;
         const float Magnitude = 0.7f;
         for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
         {
@@ -686,16 +686,26 @@ public static class WorldGen
                 {
                     ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
                     if (chunk == null) { continue; }
+
+                    Vector3 zoneDir = Vector3.Zero;
+                    if (ws.Zones != null && chunk.ZoneIndex < ws.Zones.Length)
+                    {
+                        zoneDir = ws.Zones[chunk.ZoneIndex].WindDirection;
+                    }
+                    float dx = zoneDir.X;
+                    float dz = zoneDir.Z;
+                    float len = Mathf.Sqrt(dx * dx + dz * dz);
+                    if (len < 1e-6f) { continue; }
+                    float invLen = 1f / len;
+                    float fx = -dz * invLen * Magnitude;
+                    float fz = dx * invLen * Magnitude;
+
                     for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
                     {
                         for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
                         {
                             for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
                             {
-                                int wx = cx * ChunkState.SIZE + sx * ChunkState.ENV_VOXELS_PER_CELL + ChunkState.ENV_VOXELS_PER_CELL / 2;
-                                int wz = cz * ChunkState.SIZE + sz * ChunkState.ENV_VOXELS_PER_CELL + ChunkState.ENV_VOXELS_PER_CELL / 2;
-                                float fx = Mathf.Cos(wz * SpatialFreq) * Magnitude;
-                                float fz = Mathf.Sin(wx * SpatialFreq) * Magnitude;
                                 chunk.SetCurrent(sx, sy, sz, fx, fz);
                             }
                         }
