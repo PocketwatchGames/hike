@@ -219,6 +219,19 @@ public partial class GameClient : Node3D
 	// World.Tick keeps running regardless so the runner can still advance a
 	// consumable-use action started from the inventory screen.
 	public bool InputSuppressed { get; set; } = false;
+	// Deferred-clear flag for InputSuppressed. A modal closing on B (ui_cancel
+	// shares the gamepad button with Sneak) MUST keep the suppression gate up
+	// for the rest of the current frame so Player.ProcessInput's polled
+	// IsActionJustPressed("Sneak") doesn't toggle sneak from the same press.
+	// CallDeferred and the process_frame signal both fire before _Process, so
+	// we defer the clear inside _Process itself: modals call
+	// RequestInputSuppressClear, _Process runs the gate read, then clears at
+	// end-of-frame so the next frame starts clean.
+	bool _inputSuppressClearPending = false;
+	public void RequestInputSuppressClear()
+	{
+		_inputSuppressClearPending = true;
+	}
 	public Player Player => _player;
 	public World World => _world;
 
@@ -385,6 +398,14 @@ public partial class GameClient : Node3D
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
 		UpdatePostProcess();
+
+		// Service the deferred input-suppress clear AFTER ProcessInput has
+		// been gated for this frame. See _inputSuppressClearPending docs.
+		if (_inputSuppressClearPending)
+		{
+			InputSuppressed = false;
+			_inputSuppressClearPending = false;
+		}
 	}
 
 	// Reads the region under the player and turns the raw "what region am

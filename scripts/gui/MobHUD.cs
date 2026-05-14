@@ -43,9 +43,10 @@ public partial class MobHUD : Node2D
 			return;
 		}
 
+
 		_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-		_perceptionBar.Visible = _mob.mobData.team != ETeam.Neutral && _mob.mobData.team != ETeam.Friendly && _mob.mobData.team != ETeam.Player &&  _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
-		_healthBar.Visible = !_discoveryBar.Visible && (_mob.triggered || _perceptionBar.Visible) && !_mob.burrowed;
+		_perceptionBar.Visible = _mob.mobData.team == ETeam.Hostile &&  _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
+		_healthBar.Visible = _mob.mobData.team == ETeam.Hostile && !_discoveryBar.Visible && (_mob.triggered || _perceptionBar.Visible) && !_mob.burrowed;
 		if (!_perceptionBar.Visible && !_discoveryBar.Visible && !_healthBar.Visible)
 		{
 			Visible = false;

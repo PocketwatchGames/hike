@@ -196,6 +196,36 @@ public partial class InventoryScreen : Control
 		_player?.Runner?.OnInputReleased();
 	}
 
+	// Mirror the HUD hotbar's charge-progress fill on the inventory's Use hint
+	// while the runner is charging the focused consumable. Without this the
+	// player gets no visual cue that Use is hold-to-fire, taps the button, and
+	// the runner aborts before reaching the tier — looks like nothing happened.
+	public override void _Process(double delta)
+	{
+		if (!Visible || _panel == null)
+		{
+			return;
+		}
+		ButtonHint secondary = _panel.ButtonHintSecondary;
+		if (secondary == null || !secondary.Visible)
+		{
+			return;
+		}
+		ActionRunner runner = _player?.Runner;
+		if (runner == null)
+		{
+			secondary.SetProgress(0f);
+			return;
+		}
+		ref readonly PlayerAction action = ref runner.Current;
+		if (action.phase != EActionPhase.Charging || action.context.primaryItem != _panel.FocusedItem)
+		{
+			secondary.SetProgress(0f);
+			return;
+		}
+		secondary.SetProgress(runner.CurrentChargeT);
+	}
+
 	void OnDropTap(ItemSlotPanel panel, ItemState item)
 	{
 		if (item == null)

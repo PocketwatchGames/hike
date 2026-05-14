@@ -348,6 +348,22 @@ public class Inventory
 		return false;
 	}
 
+	// Directly select a consumable slot by index. Empty slots and out-of-range
+	// indices are no-ops so a hotbar key bound past the configured slot count
+	// just does nothing rather than wiping the active selection.
+	public void SelectConsumable(int index)
+	{
+		if (index < 0 || index >= _consumableSlots.Length)
+		{
+			return;
+		}
+		if (_consumableSlots[index] == null)
+		{
+			return;
+		}
+		SetActiveConsumableIndex(index);
+	}
+
 	// Cycle active consumable left/right with wrapping. Skips empty slots.
 	// No-op if no consumables exist at all.
 	public void CycleConsumable(int direction)

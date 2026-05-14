@@ -81,17 +81,16 @@ public partial class AlmanacScreen : Control
 		UpdateTab(_recipeScreen, _recipeTab, false);
 		if (_gameClient != null)
 		{
-			// Defer the input re-enable until end-of-frame. The close key
-			// (ui_cancel = B on gamepad) is also bound to a gameplay action
-			// (Sneak = B), and Player.ProcessInput polls
+			// Defer the input re-enable until *after* this frame's _Process
+			// runs. The close key (ui_cancel = B on gamepad) is also bound to
+			// a gameplay action (Sneak = B), and Player.ProcessInput polls
 			// Input.IsActionJustPressed("Sneak") — which still reports true
 			// for the rest of the current frame even after we mark the input
-			// event handled. Clearing InputSuppressed inline would let the
-			// next _Process tick fall through and toggle sneak; deferring it
-			// runs after _Process so the press is consumed by the suppression
-			// gate first.
-			GameClient client = _gameClient;
-			Callable.From(() => client.InputSuppressed = false).CallDeferred();
+			// event handled. CallDeferred and the process_frame signal both
+			// fire before _Process, so they clear too early; routing the
+			// clear through GameClient.RequestInputSuppressClear lets it
+			// happen at the end of GameClient._Process, after the gate read.
+			_gameClient.RequestInputSuppressClear();
 			if (_gameClient.hud != null) { _gameClient.hud.Visible = true; }
 		}
 		Input.MouseMode = Input.MouseModeEnum.Captured;

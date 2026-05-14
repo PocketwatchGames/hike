@@ -15,55 +15,55 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_7a5n3")
-_panel = NodePath("HBoxContainer/Inventory")
-_statsPanel = NodePath("HBoxContainer/MarginContainer2/PlayerStats")
-_itemInfoPanel = NodePath("HBoxContainer/MarginContainer/ItemInfoPanel")
-_dropCountPanel = NodePath("MarginContainer2/DropCountPanel")
+_panel = NodePath("MarginContainer/HBoxContainer/Inventory")
+_statsPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer2/PlayerStats")
+_itemInfoPanel = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_dropCountPanel = NodePath("MarginContainer/MarginContainer2/DropCountPanel")
 
-[node name="ButtonHints" type="HBoxContainer" parent="." unique_id=1245740980]
-layout_mode = 0
-offset_left = 10.0
-offset_top = 1040.0
-offset_right = 1910.0
-offset_bottom = 1070.0
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2000139086]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+layout_mode = 2
 size_flags_vertical = 8
 theme_override_constants/separation = 30
 alignment = 1
 
-[node name="ButtonHintA" parent="ButtonHints" unique_id=959365210 instance=ExtResource("4_wawlv")]
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("4_wawlv")]
 layout_mode = 2
 ActionName = "Equip"
 
-[node name="ButtonHintX" parent="ButtonHints" unique_id=1258403697 instance=ExtResource("4_wawlv")]
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("4_wawlv")]
 layout_mode = 2
 ActionName = "Use"
 InputAction = "X"
 
-[node name="ButtonHintY" parent="ButtonHints" unique_id=2009547151 instance=ExtResource("4_wawlv")]
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("4_wawlv")]
 layout_mode = 2
 ActionName = "Drop"
 InputAction = "Y"
 
-[node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=270012993]
-layout_mode = 0
-offset_left = 236.0
-offset_top = 233.0
-offset_right = 1684.0
-offset_bottom = 847.0
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
+layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 4
 theme_override_constants/separation = 100
 
-[node name="MarginContainer2" type="MarginContainer" parent="HBoxContainer" unique_id=1380523122]
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1380523122]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 4
 size_flags_vertical = 0
 
-[node name="PlayerStats" parent="HBoxContainer/MarginContainer2" unique_id=1646474992 instance=ExtResource("3_aue6y")]
+[node name="PlayerStats" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=1646474992 instance=ExtResource("3_aue6y")]
 layout_mode = 2
 
-[node name="Inventory" parent="HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintDrop") instance=ExtResource("2_hmtof")]
+[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintDrop") instance=ExtResource("2_hmtof")]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
@@ -71,23 +71,19 @@ _buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
 _buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
 _buttonHintDrop = NodePath("../../ButtonHints/ButtonHintY")
 
-[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer" unique_id=1484389953]
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 
-[node name="ItemInfoPanel" parent="HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
 layout_mode = 2
 
-[node name="MarginContainer2" type="MarginContainer" parent="." unique_id=1086251021]
-layout_mode = 0
-offset_left = 10.0
-offset_top = 10.0
-offset_right = 1910.0
-offset_bottom = 1070.0
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=1086251021]
+layout_mode = 2
 theme_override_constants/margin_bottom = 100
 
-[node name="DropCountPanel" parent="MarginContainer2" unique_id=695241055 instance=ExtResource("6_vc0ui")]
+[node name="DropCountPanel" parent="MarginContainer/MarginContainer2" unique_id=695241055 instance=ExtResource("6_vc0ui")]
 layout_mode = 2
 size_flags_vertical = 8

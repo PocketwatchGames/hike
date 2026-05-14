@@ -26,12 +26,12 @@ public partial class InventoryPanel : Control
 	[Export] private ButtonHint _buttonHintDrop;
 
 	// Input actions surfaced as button-hint glyphs. The Primary action drives
-	// ui_accept tap/hold detection through ButtonDown/ButtonUp on each slot;
+	// ui_select tap/hold detection through ButtonDown/ButtonUp on each slot;
 	// Secondary uses a custom action with press/release semantics; Drop uses
 	// a custom action with tap/hold semantics.
-	[Export] private StringName _primaryAction = "ui_accept";
-	[Export] private StringName _secondaryAction = "UseItem";
-	[Export] private StringName _dropAction = "Drop";
+	[Export] private StringName _primaryAction = "ui_select";
+	[Export] private StringName _secondaryAction = "MenuSecondary";
+	[Export] private StringName _dropAction = "MenuTertiary";
 
 	// Fires whenever the focused slot's currently-displayed ItemState changes —
 	// either because focus moved to a different slot, or because the focused

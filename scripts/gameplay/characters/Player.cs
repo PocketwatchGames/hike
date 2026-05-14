@@ -1409,6 +1409,18 @@ public partial class Player : CharacterBody3D
 		{
 			_inventory?.CycleConsumable(+1);
 		}
+		if (Input.IsActionJustPressed("ConsumableSelect1"))
+		{
+			_inventory?.SelectConsumable(0);
+		}
+		if (Input.IsActionJustPressed("ConsumableSelect2"))
+		{
+			_inventory?.SelectConsumable(1);
+		}
+		if (Input.IsActionJustPressed("ConsumableSelect3"))
+		{
+			_inventory?.SelectConsumable(2);
+		}
 
 		// Sneak is a toggle. Pressing also doubles as the player-initiated
 		// abort key while a runner action is in flight (charging always
