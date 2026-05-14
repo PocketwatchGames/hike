@@ -11,6 +11,7 @@ public partial class GameClient : Node3D
 	[Export] public Hud hud;
 	[Export] public AlmanacScreen almanacScreen;
 	[Export] public CookingScreen cookingScreen;
+	[Export] public MerchantScreen merchantScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
 	[Export] public MeshInstance3D bloomQuad;
@@ -272,6 +273,10 @@ public partial class GameClient : Node3D
 		if (cookingScreen != null)
 		{
 			cookingScreen.Visible = false;
+		}
+		if (merchantScreen != null)
+		{
+			merchantScreen.Visible = false;
 		}
 		InputSuppressed = false;
 
