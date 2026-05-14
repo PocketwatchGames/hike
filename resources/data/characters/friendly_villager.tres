@@ -7,8 +7,7 @@
 [resource]
 script = ExtResource("1_mobdata")
 team = 1
-chatterLocKey = &"villager_greeting"
-chatterDurationSeconds = 3.0
+dialogueLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
 maxHealth = 10.0
 maxSpeed = 0.0
 defaultBehavior = &"Idle"

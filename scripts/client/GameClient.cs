@@ -18,7 +18,6 @@ public partial class GameClient : Node3D
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
-	[Export] public PackedScene mobChatterScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
 	// through this one scene with its sprite swapped to the item's
 	// worldSprite on spawn. The Loot runtime decides per-player whether to
@@ -182,13 +181,10 @@ public partial class GameClient : Node3D
 	public Action onInit;
 	public Action<Player> onPlayerSpawned;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
-	// Mob speech bubble. Fired by Mob.SpeakChatter when a Talk interaction
-	// completes; OnMobChatterRequested instantiates a MobChatter HUD anchored
-	// to the speaker's HudAnchor.
-	public Action<Mob, string, ulong> onMobChatter;
-	// Multi-line typewriter dialogue. Fired by Mob.Speak; OnDialogueRequested
-	// forwards to the HUD's DialogueController which handles typing,
-	// ui_accept advance/skip, and player-input suppression while open.
+	// Multi-line typewriter dialogue. Fired by Mob.Speak when a Talk
+	// interaction completes; OnDialogueRequested forwards to the HUD's
+	// DialogueController which handles typing, ui_accept advance/skip, and
+	// player-input suppression while open.
 	public Action<IReadOnlyList<string>> onDialogue;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
@@ -291,7 +287,6 @@ public partial class GameClient : Node3D
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
 	{
 		onHudText += OnHudTextRequested;
-		onMobChatter += OnMobChatterRequested;
 		onDialogue += OnDialogueRequested;
 		onInit?.Invoke();
 
@@ -848,11 +843,6 @@ public partial class GameClient : Node3D
 	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
 	{
 		HudText.Create(hudTextScene, _world, camera, position, text, fadeMs, verticalMovement, color, this);
-	}
-
-	void OnMobChatterRequested(Mob mob, string text, ulong durationMs)
-	{
-		MobChatter.Create(mobChatterScene, camera, mob, text, durationMs, worldHUD);
 	}
 
 	void OnDialogueRequested(IReadOnlyList<string> lines)

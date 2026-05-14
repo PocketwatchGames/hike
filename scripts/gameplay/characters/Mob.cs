@@ -409,21 +409,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         switch (action.verb)
         {
             case EActionVerb.Talk:
-                SpeakChatter();
+                SpeakDialogue();
                 break;
         }
     }
 
-    private void SpeakChatter()
+    // Resolves MobData.dialogueLocKeys through Loc.Get on each Talk so a
+    // mid-game language switch picks up new strings on the next press,
+    // then opens the typewriter dialogue panel.
+    private void SpeakDialogue()
     {
         MobData md = mobData;
-        if (md == null || md.chatterLocKey == default || md.chatterLocKey == "")
+        if (md == null || md.dialogueLocKeys == null || md.dialogueLocKeys.Count == 0)
         {
             return;
         }
-        string line = Loc.Get(md.chatterLocKey);
-        ulong durationMs = (ulong)Mathf.Max(0f, md.chatterDurationSeconds * 1000f);
-        GameClient.Current?.onMobChatter?.Invoke(this, line, durationMs);
+        _dialogueLines.Clear();
+        for (int i = 0; i < md.dialogueLocKeys.Count; i++)
+        {
+            StringName key = md.dialogueLocKeys[i];
+            if (key == default || key == "")
+            {
+                continue;
+            }
+            _dialogueLines.Add(Loc.Get(key));
+        }
+        Speak(_dialogueLines);
     }
 
     // Opens the typewriter dialogue panel with the supplied lines. Lines
@@ -438,6 +449,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         GameClient.Current?.onDialogue?.Invoke(lines);
     }
+
+    // Reused per-Talk so the localized-line scratch list doesn't churn the GC.
+    private readonly List<string> _dialogueLines = new();
 
     private void UpdateAnimation()
     {

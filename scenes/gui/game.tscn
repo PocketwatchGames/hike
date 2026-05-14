@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
 [ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/hud/hud_text.tscn" id="2_o78e0"]
-[ext_resource type="PackedScene" uid="uid://dn7p5q2k4r3wm" path="res://scenes/hud/mob_chatter.tscn" id="3a_mobchat"]
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
@@ -69,7 +68,6 @@ upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
 hudTextScene = ExtResource("2_o78e0")
 interactHudScene = ExtResource("3_0q6jn")
-mobChatterScene = ExtResource("3a_mobchat")
 lootScene = ExtResource("20_loot")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
