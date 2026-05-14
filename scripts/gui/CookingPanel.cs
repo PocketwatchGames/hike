@@ -380,9 +380,11 @@ public partial class CookingPanel : MarginContainer
 			toFree?.QueueFree();
 		}
 
-		// Create missing buttons; refresh the Disabled flag on every entry
-		// so an inventory change correctly grays / un-grays the row without
-		// recreating it.
+		// Create missing buttons; refresh the Disabled flag AND the Text on
+		// every entry — Text needs to re-evaluate because the output may
+		// have just been identified (placeholder → real name), which fires
+		// via Inventory.onChanged → RefreshRecipeList → here while the
+		// cooking screen is still open.
 		foreach (var key in desired)
 		{
 			if (!_recipeButtons.TryGetValue(key, out Button button))
@@ -396,6 +398,13 @@ public partial class CookingPanel : MarginContainer
 			if (button != null)
 			{
 				button.Disabled = !HasIngredients(key.recipe, key.isHighQuality, combined);
+				ItemData output = key.isHighQuality ? key.recipe.outputHighQuality : key.recipe.outputStandard;
+				if (output != null)
+				{
+					button.Text = worldSim != null
+						? worldSim.GetItemDisplayName(output)
+						: output.displayName.ToString();
+				}
 			}
 		}
 
@@ -431,10 +440,8 @@ public partial class CookingPanel : MarginContainer
 		{
 			return null;
 		}
-		WorldSimState worldSim = World.Current?.WorldState?.SimState;
-		button.Text = worldSim != null
-			? worldSim.GetItemDisplayName(output)
-			: output.displayName.ToString();
+		// Text is set by the caller (RefreshRecipes) on every refresh so the
+		// label re-evaluates against the current identification state.
 		button.Icon = output.inventorySprite;
 		RecipeData capturedRecipe = recipe;
 		bool capturedHQ = isHighQuality;

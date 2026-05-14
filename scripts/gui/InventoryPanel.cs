@@ -437,7 +437,10 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
-		ItemState item = _focused?.Item;
+		// Gate on actual focus ownership so the global secondary key doesn't
+		// fire here while a sibling panel (CookingPanel) holds focus.
+		bool focused = _focused != null && _focused.HasButtonFocus();
+		ItemState item = focused ? _focused.Item : null;
 		if (InputMap.HasAction(_secondaryAction) && onSecondaryPressed != null)
 		{
 			if (e.IsActionPressed(_secondaryAction))
@@ -446,8 +449,8 @@ public partial class InventoryPanel : Control
 				{
 					_secondaryStarted = true;
 					onSecondaryPressed.Invoke(_focused, item);
+					GetViewport().SetInputAsHandled();
 				}
-				GetViewport().SetInputAsHandled();
 				return;
 			}
 			if (e.IsActionReleased(_secondaryAction))
@@ -456,8 +459,8 @@ public partial class InventoryPanel : Control
 				{
 					_secondaryStarted = false;
 					onSecondaryReleased?.Invoke();
+					GetViewport().SetInputAsHandled();
 				}
-				GetViewport().SetInputAsHandled();
 				return;
 			}
 		}

@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://bil32l24fys4k" path="res://scripts/data/PlayerSpawnData.cs" id="1_pspawn"]
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/ConsumableData.cs" id="2_consumable_script"]
 [ext_resource type="Script" uid="uid://mdofgaaseydt6" path="res://scripts/data/ItemCount.cs" id="3_itemcount"]
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/ItemData.cs" id="3_itemdata"]
 [ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/torch.tres" id="6_torch"]
@@ -34,3 +35,4 @@ meleeWeaponData = ExtResource("4_melee")
 rangedWeaponData = ExtResource("5_ranged")
 startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion")])
 startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_furcoat"), SubResource("Resource_berry"), SubResource("Resource_mushroom")])
+initiallyIdentifiedItems = Array[ExtResource("3_itemdata")]([ExtResource("7_potion")])

@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cpsn4k2p3qr5w"]
 
+[ext_resource type="Texture2D" uid="uid://dxksnc4t6wym2" path="res://assets/textures/status_effects/Poison_Status.png" id="1_asibn"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="2_icon"]
 
 [resource]
 script = ExtResource("1_data")
-icon = ExtResource("2_icon")
+icon = ExtResource("1_asibn")
 displayName = &"Poisoned"
 damagePerSecond = 1.0
 duration = 5.0

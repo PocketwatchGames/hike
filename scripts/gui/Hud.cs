@@ -553,7 +553,7 @@ public partial class Hud : Control
 		for (int i = 0; i < effects.Count; i++)
 		{
 			StatusEffectState s = effects[i];
-			if (s?.data == null)
+			if (s?.data == null || s.data.icon == null)
 			{
 				continue;
 			}

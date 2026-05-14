@@ -996,6 +996,21 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
+			// Seed "common knowledge" items into the identification set so
+			// their real displayName shows from the very first frame instead
+			// of "Unknown Food" / "Unknown Potion". IdentifyItem no-ops on
+			// items without a placeholder, so accidental entries are safe.
+			if (spawnData.initiallyIdentifiedItems != null)
+			{
+				WorldSimState sim = world?.WorldState?.SimState;
+				if (sim != null)
+				{
+					foreach (ItemData id in spawnData.initiallyIdentifiedItems)
+					{
+						sim.IdentifyItem(id);
+					}
+				}
+			}
 		}
 
 		// Start the player at full armor so freshly-spawned armor reads as

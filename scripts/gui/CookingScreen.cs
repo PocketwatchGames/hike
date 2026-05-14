@@ -49,15 +49,14 @@ public partial class CookingScreen : Control
 		{
 			_inventoryPanel.onPrimaryTap += OnInventoryCookTap;
 			_inventoryPanel.onPrimaryHoldComplete += OnInventoryCookHold;
+			_inventoryPanel.onSecondaryPressed += OnInventoryUsePressed;
+			_inventoryPanel.onSecondaryReleased += OnInventoryUseReleased;
 			_inventoryPanel.onDropTap += OnInventoryDropTap;
 			_inventoryPanel.onDropHoldComplete += OnInventoryDropHold;
 			_inventoryPanel.onFocusedItemChanged += OnInventoryFocusChanged;
 
 			_inventoryPanel.ButtonHintPrimary?.SetHint(_inventoryPanel.PrimaryAction, "Cook");
-			if (_inventoryPanel.ButtonHintSecondary != null)
-			{
-				_inventoryPanel.ButtonHintSecondary.Visible = false;
-			}
+			_inventoryPanel.ButtonHintSecondary?.SetHint(_inventoryPanel.SecondaryAction, "Use");
 			_inventoryPanel.ButtonHintDrop?.SetHint(_inventoryPanel.DropAction, "Drop");
 		}
 		if (_cookingPanel != null)
@@ -87,6 +86,8 @@ public partial class CookingScreen : Control
 		{
 			_inventoryPanel.onPrimaryTap -= OnInventoryCookTap;
 			_inventoryPanel.onPrimaryHoldComplete -= OnInventoryCookHold;
+			_inventoryPanel.onSecondaryPressed -= OnInventoryUsePressed;
+			_inventoryPanel.onSecondaryReleased -= OnInventoryUseReleased;
 			_inventoryPanel.onDropTap -= OnInventoryDropTap;
 			_inventoryPanel.onDropHoldComplete -= OnInventoryDropHold;
 			_inventoryPanel.onFocusedItemChanged -= OnInventoryFocusChanged;
@@ -371,6 +372,7 @@ public partial class CookingScreen : Control
 		bool cooking = _forge != null && _forge.ActiveForgeJob != null;
 		bool hasItem = item != null && !cooking;
 		ButtonHint primary = _inventoryPanel.ButtonHintPrimary;
+		ButtonHint secondary = _inventoryPanel.ButtonHintSecondary;
 		ButtonHint drop = _inventoryPanel.ButtonHintDrop;
 		if (primary != null)
 		{
@@ -383,10 +385,19 @@ public partial class CookingScreen : Control
 			drop.Visible = hasItem;
 			drop.SetProgress(0f);
 		}
-		if (_inventoryPanel.ButtonHintSecondary != null)
+		if (secondary != null)
 		{
-			_inventoryPanel.ButtonHintSecondary.Visible = false;
+			// Use is independent of the forge — drinking a potion mid-cook is
+			// fine — so don't gate it on `cooking`.
+			secondary.Visible = item != null && CanUseItem(item);
+			secondary.ActionName = "Use";
+			secondary.SetProgress(0f);
 		}
+	}
+
+	static bool CanUseItem(ItemState item)
+	{
+		return item is ConsumableState consumable && consumable.data?.actionProfile != null;
 	}
 
 	void OnInventoryCookTap(ItemSlotPanel panel, ItemState item)
@@ -482,6 +493,71 @@ public partial class CookingScreen : Control
 		{
 			_inventoryPanel.ButtonHintDrop.Visible = false;
 		}
+		// Use is only meaningful while focus is on the inventory panel; the
+		// cooking slots can't hold consumables the player would drink.
+		if (_inventoryPanel?.ButtonHintSecondary != null)
+		{
+			_inventoryPanel.ButtonHintSecondary.Visible = false;
+		}
+	}
+
+	void OnInventoryUsePressed(ItemSlotPanel panel, ItemState item)
+	{
+		if (item is not ConsumableState consumable || _player == null)
+		{
+			return;
+		}
+		ConsumableData data = consumable.data;
+		if (data?.actionProfile == null)
+		{
+			return;
+		}
+		ActionRunner runner = _player.Runner;
+		if (runner == null || runner.IsBusy)
+		{
+			return;
+		}
+		var context = new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Consumable,
+		};
+		runner.TryStart(data.actionProfile, context);
+	}
+
+	void OnInventoryUseReleased()
+	{
+		_player?.Runner?.OnInputReleased();
+	}
+
+	// Mirror the HUD hotbar's charge-progress fill on the Use hint while the
+	// runner is charging the focused consumable. Without this the player gets
+	// no visual cue that Use is hold-to-fire. Same pattern as InventoryScreen.
+	public override void _Process(double delta)
+	{
+		if (!Visible || _inventoryPanel == null)
+		{
+			return;
+		}
+		ButtonHint secondary = _inventoryPanel.ButtonHintSecondary;
+		if (secondary == null || !secondary.Visible)
+		{
+			return;
+		}
+		ActionRunner runner = _player?.Runner;
+		if (runner == null)
+		{
+			secondary.SetProgress(0f);
+			return;
+		}
+		ref readonly PlayerAction action = ref runner.Current;
+		if (action.phase != EActionPhase.Charging || action.context.primaryItem != _inventoryPanel.FocusedItem)
+		{
+			secondary.SetProgress(0f);
+			return;
+		}
+		secondary.SetProgress(runner.CurrentChargeT);
 	}
 
 	void OnCookingRemoveTap(int index, ItemSlotPanel panel, ItemState item)

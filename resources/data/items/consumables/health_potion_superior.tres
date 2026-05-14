@@ -39,6 +39,7 @@ locksMovement = true
 script = ExtResource("9_7l8j2")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Superior Health Potion"
+unidentifiedDisplayName = &"Unknown Potion"
 description = "Heals you right up!"
 maxStack = 5
 inventorySprite = ExtResource("8_b3uw6")

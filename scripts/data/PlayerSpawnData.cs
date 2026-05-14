@@ -13,4 +13,11 @@ public partial class PlayerSpawnData : Resource
 	// Items added to the player's backpack at spawn. Each entry's count is
 	// split into maxStack-sized stacks. No equip / hotbar placement.
 	[Export] public ItemCount[] startingInventory;
+
+	// Items whose name the player already knows when the run begins. Each
+	// entry is seeded into WorldSimState.IdentifiedItems during
+	// Player.Initialize so its unidentifiedDisplayName never shows.
+	// Items whose ItemData has no placeholder are silently skipped by
+	// IdentifyItem; listing them here is harmless.
+	[Export] public ItemData[] initiallyIdentifiedItems;
 }

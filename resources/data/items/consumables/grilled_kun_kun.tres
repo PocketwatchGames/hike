@@ -39,6 +39,7 @@ locksMovement = true
 script = ExtResource("1_consumable")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Grilled Kun Kun"
+unidentifiedDisplayName = &"Unknown Food"
 description = "A hearty cut, freshly grilled."
 maxStack = 5
 inventorySprite = ExtResource("8_inv")
