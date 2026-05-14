@@ -36,7 +36,19 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stam0"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(0.2, 0.85, 0.3, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -54,6 +66,7 @@ _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContain
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
+_staminaBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer/StaminaBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _regionBanner = NodePath("RegionBanner")
 _minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture")
@@ -113,6 +126,18 @@ size_flags_horizontal = 4
 theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")
 max_value = 1.0
 value = 0.3
+show_percentage = false
+
+[node name="StaminaMarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=565732423]
+layout_mode = 2
+
+[node name="StaminaBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer" unique_id=181068373]
+custom_minimum_size = Vector2(250, 12)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/fill = SubResource("StyleBoxFlat_stam0")
+max_value = 1.0
+value = 1.0
 show_percentage = false
 
 [node name="MarginContainer2" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=1536408953]

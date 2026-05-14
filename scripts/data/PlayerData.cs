@@ -52,6 +52,21 @@ public partial class PlayerData : Resource
 	[Export] public float armorRechargeSpeed = 20f;
 	[Export] public float armorRecoverTime = 8f;
 
+	// Stamina drains as the player performs effortful actions and refills on
+	// its own. After any spend, recharge is gated for `staminaRechargeDelay`
+	// seconds; once it begins, the bar refills from 0 to maxStamina over
+	// `staminaRechargeTime` seconds (a flat rate, so partial spends refill
+	// proportionally faster).
+	[Export] public float maxStamina = 100f;
+	[Export] public float staminaRechargeDelay = 1.5f;
+	[Export] public float staminaRechargeTime = 3f;
+
+	// Dash: horizontal one-tick velocity override. The cost is deducted
+	// unconditionally on press (stamina can go negative); the only gate is
+	// that current stamina must be > 0 at press time.
+	[Export] public float dashStaminaCost = 25f;
+	[Export] public float dashSpeed = 30f;
+
 	// Impulse the player applies to a mob when they run into it. Scaled
 	// by the player's current horizontal speed and divided by the mob's
 	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
