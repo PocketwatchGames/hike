@@ -409,7 +409,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         switch (action.verb)
         {
             case EActionVerb.Talk:
-                SpeakChatter();
+                SpeakDialogue();
                 break;
         }
     }
@@ -425,17 +425,41 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         gc.merchantScreen.Open(player, onClose);
     }
 
-    private void SpeakChatter()
+    private void SpeakDialogue()
     {
         MobData md = mobData;
-        if (md == null || md.chatterLocKey == default || md.chatterLocKey == "")
+        if (md == null || md.dialogueLocKeys == null || md.dialogueLocKeys.Count == 0)
         {
             return;
         }
-        string line = Loc.Get(md.chatterLocKey);
-        ulong durationMs = (ulong)Mathf.Max(0f, md.chatterDurationSeconds * 1000f);
-        GameClient.Current?.onMobChatter?.Invoke(this, line, durationMs);
+        _dialogueLines.Clear();
+        for (int i = 0; i < md.dialogueLocKeys.Count; i++)
+        {
+            StringName key = md.dialogueLocKeys[i];
+            if (key == default || key == "")
+            {
+                continue;
+            }
+            _dialogueLines.Add(Loc.Get(key));
+        }
+        Speak(_dialogueLines);
     }
+
+    // Opens the typewriter dialogue panel with the supplied lines. Lines
+    // type out at CVars.dialogueTypingSpeed; ui_accept finishes / advances.
+    // Caller passes a List<string> (already localized) — the panel does not
+    // attempt to translate via Loc here.
+    public void Speak(IReadOnlyList<string> lines)
+    {
+        if (lines == null || lines.Count == 0)
+        {
+            return;
+        }
+        GameClient.Current?.onDialogue?.Invoke(lines);
+    }
+
+    // Reused per-Talk so the localized-line scratch list doesn't churn the GC.
+    private readonly List<string> _dialogueLines = new();
 
     private void UpdateAnimation()
     {

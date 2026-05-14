@@ -38,6 +38,12 @@ public static class CVars
     // more responsive. 1.0 ≈ raw pixels.
     public static CVarFloat mouseSensitivity = new CVarFloat("mouse_sensitivity", 1.0f);
 
+    // Typewriter speed (characters per second) for the dialogue HUD.
+    // DialogueController advances revealed-char count by dt × this value;
+    // ui_accept while typing skips to the end of the current line and a
+    // second press advances to the next line in the list.
+    public static CVarFloat dialogueTypingSpeed = new CVarFloat("dialogue_typing_speed", 40f);
+
     // Fog shader debug mode (see shaders/fog_volumetric.gdshader):
     //   0 = normal fog render
     //   1 = visualize reconstructed surface world Y as grayscale

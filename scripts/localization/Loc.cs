@@ -83,7 +83,7 @@ public static partial class Loc
 	}
 
 	// String-keyed lookup for content-driven sites that store loc keys as
-	// authored data (e.g. MobData.chatterLocKey). The typed `Keys` enum is
+	// authored data (e.g. MobData.dialogueLocKeys). The typed `Keys` enum is
 	// preferred at code call sites because the build-time generator catches
 	// typos; this overload is the escape hatch when the key only exists as
 	// a piece of authored data.

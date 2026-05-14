@@ -3,6 +3,8 @@ public static partial class Loc
 {
 	public enum Keys
 	{
-		villager_greeting
+		villager_greeting,
+		villager_dialogue_1,
+		villager_dialogue_2
 	}
 }
