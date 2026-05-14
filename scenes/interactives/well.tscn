@@ -1,0 +1,86 @@
+[gd_scene format=3 uid="uid://b8wellscene001"]
+
+[ext_resource type="Script" uid="uid://b8wellscript01" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
+[ext_resource type="Resource" uid="uid://b8hydratedwell" path="res://resources/data/status_effects/status_hydrated.tres" id="6_status"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="9_xray"]
+[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="10_litsprite"]
+[ext_resource type="Texture2D" uid="uid://d0gltouyah0uc" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Esoteric.png" id="11_atlas"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="12_lit_mat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="13_shadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="14_blshadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="15_reflect"]
+[ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="16_drink"]
+
+[sub_resource type="Resource" id="Resource_apply_hydrated"]
+script = ExtResource("4_apply")
+statusEffect = ExtResource("6_status")
+
+[sub_resource type="Resource" id="Resource_well_event_drink"]
+script = ExtResource("2_event")
+type = 264
+effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_hydrated")])
+
+[sub_resource type="Resource" id="Resource_well_action_drink"]
+script = ExtResource("3_action")
+displayName = &"Drink"
+icon = ExtResource("16_drink")
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_well_event_drink")])
+durationSeconds = 2.0
+locksMovement = true
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
+size = Vector3(1, 2, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(1.5, 2, 1.5)
+
+[node name="Well" type="Node3D" unique_id=918273645 node_paths=PackedStringArray("_hudNode")]
+script = ExtResource("1_well")
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_well_action_drink")])
+_hudNode = NodePath("HUDNode")
+
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=918273646]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=918273647]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_block")
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=918273648 node_paths=PackedStringArray("_interactiveNode")]
+collision_layer = 4
+collision_mask = 0
+monitoring = false
+script = ExtResource("8_interactivebox")
+_interactiveNode = NodePath("..")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=918273649]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("BoxShape3D_interact")
+
+[node name="Sprite" type="Sprite3D" parent="." unique_id=918273650]
+cast_shadow = 0
+centered = false
+offset = Vector2(-16, 0)
+pixel_size = 0.0738
+alpha_cut = 1
+texture = ExtResource("11_atlas")
+region_enabled = true
+region_rect = Rect2(144, 0, 32, 32)
+script = ExtResource("10_litsprite")
+ForwardOffset = 0.5
+ShadowCasterTemplate = ExtResource("13_shadow")
+BlockLightShadowCasterTemplate = ExtResource("14_blshadow")
+ReflectionTemplate = ExtResource("15_reflect")
+MaterialTemplate = ExtResource("12_lit_mat")
+
+[node name="HUDNode" type="Node3D" parent="." unique_id=918273651]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=918273652 node_paths=PackedStringArray("_sprites")]
+script = ExtResource("9_xray")
+_sprites = [NodePath("../Sprite")]
