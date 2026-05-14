@@ -16,6 +16,17 @@ using Godot;
 //   envTag         : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, EnvironmentTag
 //                    enum: 0 = Outdoor, 1 = Building, 2 = Cave, 3 = Tunnel —
 //                    same row-major layout as windFactor)
+//   currentX       : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, signed water-
+//                    current X component encoded as (byte - 128) / 127 in
+//                    world-XZ velocity normalized units)
+//   currentZ       : 64 bytes (same as currentX, for the Z component)
+//   windVelocityX  : 64 bytes (ENV_SUBGRID_SIZE^3 byte cells, signed wind
+//                    velocity X component, same byte-128-zero encoding as
+//                    currentX; multiplied by `wind_velocity_scale` global
+//                    in shader to convert to world m/s)
+//   windVelocityY  : 64 bytes (Y component — wind has updrafts unlike
+//                    water currents, so all three axes are stored)
+//   windVelocityZ  : 64 bytes (Z component)
 //   zoneIndex    : 1 byte (index into WorldState.Zones[])
 //   regionIndex  : 1 byte (index into WorldState.Regions[])
 //   entities : type-tagged list (see EntitySerializer)
@@ -39,6 +50,8 @@ public static class ChunkSerializer
     public const int DETAIL_STRENGTH_BYTES = ChunkState.SIZE * ChunkState.SIZE * ChunkState.SIZE;
     public const int WIND_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
     public const int ENV_TAG_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
+    public const int CURRENT_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
+    public const int WIND_VELOCITY_BYTES = ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE * ChunkState.ENV_SUBGRID_SIZE;
 
     public static void Write(BinaryWriter w, ChunkState chunk, List<EntitySimState> entities)
     {
@@ -148,6 +161,61 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
                 {
                     w.Write(chunk.EnvTag[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.CurrentX[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.CurrentZ[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.WindVelocityX[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.WindVelocityY[x, y, z]);
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    w.Write(chunk.WindVelocityZ[x, y, z]);
                 }
             }
         }
@@ -268,6 +336,61 @@ public static class ChunkSerializer
                 for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
                 {
                     chunk.EnvTag[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.CurrentX[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.CurrentZ[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.WindVelocityX[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.WindVelocityY[x, y, z] = r.ReadByte();
+                }
+            }
+        }
+
+        for (int x = 0; x < ChunkState.ENV_SUBGRID_SIZE; x++)
+        {
+            for (int y = 0; y < ChunkState.ENV_SUBGRID_SIZE; y++)
+            {
+                for (int z = 0; z < ChunkState.ENV_SUBGRID_SIZE; z++)
+                {
+                    chunk.WindVelocityZ[x, y, z] = r.ReadByte();
                 }
             }
         }

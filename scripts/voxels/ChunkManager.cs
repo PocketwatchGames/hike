@@ -25,6 +25,7 @@ public partial class ChunkManager : Node3D
     private LightMap _lightMap;
     private FogMap _fogMap;
     private WindMap _windMap;
+    private WaterCurrentMap _waterCurrentMap;
     private ShaderMaterial _fogMaterial;
     private Camera3D _camera;
 
@@ -34,6 +35,7 @@ public partial class ChunkManager : Node3D
         _lightMap = new LightMap(worldData);
         _fogMap = new FogMap(worldData);
         _windMap = new WindMap(worldData);
+        _waterCurrentMap = new WaterCurrentMap(worldData);
         _fogMaterial = fogMaterial;
         _camera = camera;
         _getPlayerPosition = getPlayerPosition;
@@ -71,6 +73,21 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("wind_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _windMap.Texture);
         ShaderGlobals.Register("wind_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _windMap.Origin);
         ShaderGlobals.Register("wind_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _windMap.Size);
+        // Maps stored RGB (signed [-1, 1]) to world m/s when shaders decode
+        // wind_map velocity. Must match WindGen.WIND_VELOCITY_SCALE — change
+        // them together (or re-bake chunks) so disk values keep their
+        // intended magnitudes.
+        ShaderGlobals.Register("wind_velocity_scale", RenderingServer.GlobalShaderParameterType.Float, WindGen.WIND_VELOCITY_SCALE);
+        // Water-current subgrid — same UVW convention as wind_map / light_map.
+        // Declared in project.godot with a PlaceholderTexture3D so the editor
+        // can compile voxel_water.gdshader; the runtime ImageTexture3D is
+        // swapped in here before the water material first compiles.
+        ShaderGlobals.Register("water_current_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _waterCurrentMap.Texture);
+        ShaderGlobals.Register("water_current_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _waterCurrentMap.Origin);
+        ShaderGlobals.Register("water_current_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _waterCurrentMap.Size);
+        ShaderGlobals.Register("water_current_speed", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentSpeed.Value);
+        ShaderGlobals.Register("water_current_phase_period", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentPhasePeriod.Value);
+        ShaderGlobals.Register("water_currents_enabled", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterCurrentsEnabled.Value);
         // Day/night-driven sun controls. Intensity is overall brightness;
         // color is the RGB tint (warm at dawn/dusk, cool at noon, etc.).
         // Both default to "noon" values; the day/night sim will write them.
@@ -144,6 +161,18 @@ public partial class ChunkManager : Node3D
             DrainFogChunkDirty();
             _fogMap.Flush(_worldData, _loadedChunks.Keys);
         }
+
+        using (Profiler.Sample("ChunkManager.WaterCurrentFlush"))
+        {
+            DrainWaterCurrentChunkDirty();
+            _waterCurrentMap.Flush(_worldData, _loadedChunks.Keys);
+        }
+
+        using (Profiler.Sample("ChunkManager.WindFlush"))
+        {
+            DrainWindChunkDirty();
+            _windMap.Flush(_worldData, _loadedChunks.Keys);
+        }
     }
 
     public void UpdateLighting(List<Vector3I> changedPositions)
@@ -206,6 +235,26 @@ public partial class ChunkManager : Node3D
             _fogMap.MarkChunkDirty(coord);
         }
         _worldData.FogChunkDirty.Clear();
+    }
+
+    private void DrainWaterCurrentChunkDirty()
+    {
+        if (_worldData.WaterCurrentChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.WaterCurrentChunkDirty)
+        {
+            _waterCurrentMap.MarkChunkDirty(coord);
+        }
+        _worldData.WaterCurrentChunkDirty.Clear();
+    }
+
+    private void DrainWindChunkDirty()
+    {
+        if (_worldData.WindChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.WindChunkDirty)
+        {
+            _windMap.MarkChunkDirty(coord);
+        }
+        _worldData.WindChunkDirty.Clear();
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

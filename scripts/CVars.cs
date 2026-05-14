@@ -564,6 +564,31 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("water_disable_ripples", ((CVarBool)cvar).Value);
     });
 
+    // Master toggle for per-cell water currents. When false, the water
+    // shader skips the current sample entirely and ripple_normal falls
+    // back to the wind-only single-sample path.
+    public static CVarBool waterCurrentsEnabled = new CVarBool("water_currents_enabled", true, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_currents_enabled", ((CVarBool)cvar).Value);
+    });
+
+    // World m/s of surface drift at the maximum stored current value
+    // (signed 1.0). Storage is normalized to [-1, 1] so this CVar tunes
+    // the global magnitude without re-baking chunks.
+    public static CVarFloat waterCurrentSpeed = new CVarFloat("water_current_speed", 1.0f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_current_speed", ((CVarFloat)cvar).Value);
+    });
+
+    // Seconds-per-cycle for the ripple texture's two-phase scroll. Longer
+    // = less obvious "lerp wobble" between phases, but more visible UV
+    // stretching mid-phase. Sub-second values pump too fast; ~2s reads
+    // as continuous drift.
+    public static CVarFloat waterCurrentPhasePeriod = new CVarFloat("water_current_phase_period", 2.0f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("water_current_phase_period", ((CVarFloat)cvar).Value);
+    });
+
     // Disable all sprite-based water reflections (the flipped child sprites
     // LitSprite spawns under water surfaces). Doesn't tear down the
     // reflection nodes — just zeroes the global reflection_tint that

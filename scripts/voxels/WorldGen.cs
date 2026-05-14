@@ -610,9 +610,109 @@ public static class WorldGen
         // the (eventually editor-authored) serialized bytes.
         EnvTagGen.ComputeEnvTagGrid(ws);
 
+        // Stamp a procedural test pattern into every chunk's water-current
+        // subgrid so the water shader has something to advect. Real worlds
+        // will author this in the editor; this stays out of the way for
+        // disk-loaded chunks (they use serialized bytes) and produces a
+        // visibly varying flow field where the test world has water.
+        GenerateTestWaterCurrents(ws);
+
+        // Test override demonstrating the wind-velocity authoring path.
+        // Amplifies a small region around the origin to ~3× the default
+        // ambient speed so future consumers (particles, visual debug,
+        // audio) can verify that authored gust regions read correctly
+        // without needing the editor.
+        GenerateTestStrongWind(ws);
+
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
         return ws;
+    }
+
+    // Authored "strong gust" region — multiplies the WindGen-baked
+    // velocity by GustMultiplier inside a horizontal box around the
+    // world origin. Stays bounded by the storage scale (clipping happens
+    // inside SetWindVelocity), so over-amplification just clamps. Real
+    // worlds will get this from the editor; this is the test seed so we
+    // can prove out per-cell authoring without one.
+    private static void GenerateTestStrongWind(WorldState ws)
+    {
+        const float GustMultiplier = 3f;
+        const int RadiusXZ = 32;
+        const int VoxelsPerCell = ChunkState.ENV_VOXELS_PER_CELL;
+        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
+        {
+            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
+            {
+                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
+                {
+                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
+                    if (chunk == null) { continue; }
+                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
+                    {
+                        int wx = cx * ChunkState.SIZE + sx * VoxelsPerCell + VoxelsPerCell / 2;
+                        if (wx < -RadiusXZ || wx > RadiusXZ) { continue; }
+                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
+                        {
+                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
+                            {
+                                int wz = cz * ChunkState.SIZE + sz * VoxelsPerCell + VoxelsPerCell / 2;
+                                if (wz < -RadiusXZ || wz > RadiusXZ) { continue; }
+                                Vector3 v = chunk.GetWindVelocity(sx, sy, sz) * GustMultiplier;
+                                chunk.SetWindVelocity(sx, sy, sz, v.X, v.Y, v.Z);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Seed per-cell water currents perpendicular to the chunk's zone wind
+    // direction in XZ — a 90° CCW rotation, so wind (wx, wz) maps to
+    // current (-wz, wx). Matches WindGen's per-zone seeding shape: one
+    // direction per chunk, stamped uniformly into every cell. Run after
+    // voxel carving; cells whose voxels contain no water still get stamped,
+    // but the water shader only samples on water surface fragments so
+    // unused stamps cost nothing at render time.
+    private static void GenerateTestWaterCurrents(WorldState ws)
+    {
+        const float Magnitude = 0.7f;
+        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
+        {
+            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
+            {
+                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
+                {
+                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
+                    if (chunk == null) { continue; }
+
+                    Vector3 zoneDir = Vector3.Zero;
+                    if (ws.Zones != null && chunk.ZoneIndex < ws.Zones.Length)
+                    {
+                        zoneDir = ws.Zones[chunk.ZoneIndex].WindDirection;
+                    }
+                    float dx = zoneDir.X;
+                    float dz = zoneDir.Z;
+                    float len = Mathf.Sqrt(dx * dx + dz * dz);
+                    if (len < 1e-6f) { continue; }
+                    float invLen = 1f / len;
+                    float fx = -dz * invLen * Magnitude;
+                    float fz = dx * invLen * Magnitude;
+
+                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
+                    {
+                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
+                        {
+                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
+                            {
+                                chunk.SetCurrent(sx, sy, sz, fx, fz);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Stamp a chunk into one of the world's zones. Legacy 4-quadrant
