@@ -414,6 +414,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    public void OpenMerchantScreen(Action onClose)
+    {
+        GameClient gc = GameClient.Current;
+        Player player = gc?.Player;
+        if (gc?.merchantScreen == null || player == null)
+        {
+            return;
+        }
+        gc.merchantScreen.Open(player, onClose);
+    }
+
     private void SpeakChatter()
     {
         MobData md = mobData;

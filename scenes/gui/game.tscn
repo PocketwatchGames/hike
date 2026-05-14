@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="21_hkfxp"]
+[ext_resource type="PackedScene" uid="uid://u31qutqxv8kz9" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
@@ -56,12 +57,13 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "worldHUD", "sceneViewport", "bloomQuad")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "worldHUD", "sceneViewport", "bloomQuad")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
 almanacScreen = NodePath("GUICanvas/AlmanacScreen")
 cookingScreen = NodePath("GUICanvas/CookingScreen")
+merchantScreen = NodePath("GUICanvas/MerchantScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 bloomQuad = NodePath("BloomQuad")
@@ -256,5 +258,9 @@ visible = false
 gameClient = NodePath("../..")
 
 [node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("21_hkfxp")]
+visible = false
+gameClient = NodePath("../..")
+
+[node name="MerchantScreen" parent="GUICanvas" node_paths=PackedStringArray("gameClient") instance=ExtResource("22_merch")]
 visible = false
 gameClient = NodePath("../..")
