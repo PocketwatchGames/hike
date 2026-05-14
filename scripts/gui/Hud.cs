@@ -14,6 +14,7 @@ public partial class Hud : Control
 	[Export] Control _statusEffectContainer;
 	[Export] ProgressBar _healthBar;
 	[Export] ProgressBar _armorBar;
+	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] HudRegionBanner _regionBanner;
 	[Export] TextureRect _minimapTexture;
@@ -216,6 +217,12 @@ public partial class Hud : Control
 		_armorBar.MaxValue = 1;
 		_armorBar.Visible = maxArmor > 0f;
 		_armorBar.Value = maxArmor > 0f ? _player.Armor / maxArmor : 0f;
+
+		float maxStamina = _player.MaxStamina;
+		_staminaBar.MinValue = 0;
+		_staminaBar.MaxValue = 1;
+		_staminaBar.Visible = maxStamina > 0f;
+		_staminaBar.Value = maxStamina > 0f ? _player.Stamina / maxStamina : 0f;
 
 		ulong now = gameClient.World?.GameTimeMs ?? 0;
 		_weaponLeftHud.Tick(now);

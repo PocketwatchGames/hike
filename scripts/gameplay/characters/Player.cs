@@ -150,6 +150,10 @@ public partial class Player : CharacterBody3D
 	ulong _armorRechargeStartMs;
 	bool _armorRecharging;
 	bool _armorDepleted;
+	float _stamina;
+	// Game-time at which stamina recharge can begin. Set to (now + rechargeDelay)
+	// on every ConsumeStamina call; TickStamina is a no-op until now reaches it.
+	ulong _staminaRechargeStartMs;
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
 	// instances of the same StatusEffectData stack — each AddStatusEffect
 	// appends a fresh state and ticks independently. The HUD groups by data
@@ -203,6 +207,8 @@ public partial class Player : CharacterBody3D
 	public float MaxHealth => data?.maxHealth ?? 100f;
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor;
+	public float Stamina => _stamina;
+	public float MaxStamina => data?.maxStamina ?? 0f;
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
@@ -914,6 +920,7 @@ public partial class Player : CharacterBody3D
 		// "ready" rather than charging up through the HUD on first frame.
 		RecalculateMaxArmor();
 		_armor = _maxArmor;
+		_stamina = MaxStamina;
 
 		// Seed body temperature to the spawn ambient so the player isn't
 		// born already cold / hot just because the default float is 70°F.
@@ -1014,6 +1021,44 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Spend stamina and arm the recharge delay. Returns false (without
+	// charging) when there isn't enough in the pool, so callers can use this
+	// as a gate for sprint / dodge / etc.
+	public bool ConsumeStamina(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return true;
+		}
+		if (_stamina < amount)
+		{
+			return false;
+		}
+		_stamina -= amount;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
+		return true;
+	}
+
+	private void TickStamina(float dt)
+	{
+		float max = MaxStamina;
+		if (max <= 0f || _stamina >= max)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _staminaRechargeStartMs)
+		{
+			return;
+		}
+		// staminaRechargeTime is the 0-to-full duration; convert to a flat
+		// per-second rate. A partial spend then refills proportionally faster.
+		float rechargeTime = data.staminaRechargeTime;
+		float rate = rechargeTime > 0f ? max / rechargeTime : max;
+		_stamina = Mathf.Min(max, _stamina + rate * dt);
+	}
+
 	public override void _PhysicsProcess(double delta)
 	{
 		float dt = (float)delta;
@@ -1027,6 +1072,7 @@ public partial class Player : CharacterBody3D
 		UpdateTerrainSpeed();
 		UpdateWaterState();
 		TickArmor(dt);
+		TickStamina(dt);
 		_statusEffects.Tick(dt);
 		TickWetEffect();
 		TickBodyTemperature(dt);
