@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://u31qutqxv8kz9"]
+[gd_scene format=3 uid="uid://br0ewj5o2768g"]
 
 [ext_resource type="Script" uid="uid://psp7ces4z54jv" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
 
