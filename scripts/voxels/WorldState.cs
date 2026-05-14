@@ -581,6 +581,57 @@ public class WorldState
         return weights;
     }
 
+    // Trilinearly-sampled water current at a world position, in world m/s.
+    // Storage is normalized to [-1, 1] per axis; CVars.waterCurrentSpeed
+    // scales it to m/s, matching the water shader's drift integration so
+    // gameplay physics agrees with the visible surface flow. Y is always
+    // 0 — currents are 2D in the XZ plane.
+    public Vector3 SampleWaterCurrent(Vector3 worldPos)
+    {
+        const float CELL = ChunkState.ENV_VOXELS_PER_CELL;
+        float fx = worldPos.X / CELL - 0.5f;
+        float fy = worldPos.Y / CELL - 0.5f;
+        float fz = worldPos.Z / CELL - 0.5f;
+        int cx0 = (int)Math.Floor(fx);
+        int cy0 = (int)Math.Floor(fy);
+        int cz0 = (int)Math.Floor(fz);
+        float tx = fx - cx0;
+        float ty = fy - cy0;
+        float tz = fz - cz0;
+
+        Vector2 c000 = GetCurrentAtCell(cx0,     cy0,     cz0);
+        Vector2 c100 = GetCurrentAtCell(cx0 + 1, cy0,     cz0);
+        Vector2 c010 = GetCurrentAtCell(cx0,     cy0 + 1, cz0);
+        Vector2 c110 = GetCurrentAtCell(cx0 + 1, cy0 + 1, cz0);
+        Vector2 c001 = GetCurrentAtCell(cx0,     cy0,     cz0 + 1);
+        Vector2 c101 = GetCurrentAtCell(cx0 + 1, cy0,     cz0 + 1);
+        Vector2 c011 = GetCurrentAtCell(cx0,     cy0 + 1, cz0 + 1);
+        Vector2 c111 = GetCurrentAtCell(cx0 + 1, cy0 + 1, cz0 + 1);
+
+        Vector2 c00 = c000 * (1f - tx) + c100 * tx;
+        Vector2 c01 = c001 * (1f - tx) + c101 * tx;
+        Vector2 c10 = c010 * (1f - tx) + c110 * tx;
+        Vector2 c11 = c011 * (1f - tx) + c111 * tx;
+        Vector2 c0 = c00 * (1f - ty) + c10 * ty;
+        Vector2 c1 = c01 * (1f - ty) + c11 * ty;
+        Vector2 c = c0 * (1f - tz) + c1 * tz;
+        float speed = CVars.waterCurrentSpeed.Value;
+        return new Vector3(c.X * speed, 0f, c.Y * speed);
+    }
+
+    private Vector2 GetCurrentAtCell(int cellWx, int cellWy, int cellWz)
+    {
+        Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return Vector2.Zero;
+        }
+        int sx = Mod(cellWx, ChunkState.ENV_SUBGRID_SIZE);
+        int sy = Mod(cellWy, ChunkState.ENV_SUBGRID_SIZE);
+        int sz = Mod(cellWz, ChunkState.ENV_SUBGRID_SIZE);
+        return chunk.GetCurrent(sx, sy, sz);
+    }
+
     private int GetWindFactorAtCell(int cellWx, int cellWy, int cellWz)
     {
         Vector3I cc = CellWorldToChunkCoord(cellWx, cellWy, cellWz);

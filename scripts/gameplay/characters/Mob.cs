@@ -224,6 +224,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Tracks the previous frame's water-at-feet sample so we can detect the
     // false→true transition and fire one splash, not one per frame.
     bool _wasInWaterPrev;
+    // True when the water above this mob's feet is at least
+    // MobData.swimDepthThreshold meters deep — swimming physics is applied
+    // and nav clamps to swimSpeed. Wading (in water but below the
+    // threshold) leaves both off; the existing footstep / loop fx still
+    // run from the simpler voxel-at-feet check.
+    bool _swimming;
+    float _waterSurfaceY;
     // Current fade values, stepped toward their target every _Process tick.
     // Start at 0 so a freshly-spawned mob dithers IN rather than popping on
     // its first frame; if it's already within visible time the target snaps
@@ -246,6 +253,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
     private float _lastLinearDamp = float.NaN;
+    // Authored GravityScale captured on first swim entry. The swim gate
+    // sets GravityScale=0 (buoyancy + drag own vertical motion; without
+    // this engine gravity bleeds in alongside, and the net force at
+    // moderate depth wasn't enough to keep mobs from sinking to the
+    // seafloor); on exit we restore this original value so a mob with a
+    // non-default scale in its .tscn keeps it.
+    private float _gravityScaleAuthored = 1f;
+    private bool _gravityScaleCaptured;
+    private bool _gravityScaleSwimActive;
     private bool _impulseApplied;
     // Tracks the last observed mob_physics CVar value so the bisection
     // toggle's force-freeze / force-unfreeze block only fires on actual
@@ -628,6 +644,91 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             Mathf.FloorToInt(pos.Z)) == VoxelType.Water;
     }
 
+    // Set _swimming when the contiguous water column at this mob's XZ is
+    // at least swimDepthThreshold voxels deep. Walks the column up and
+    // down from the feet voxel so the decision is independent of where the
+    // mob currently sits within the column: a mob that's just splashed in
+    // and hasn't risen to the surface yet still tests as swimming because
+    // the column it landed in is deep. Probing only below feet (the prior
+    // approach) failed at the seafloor — the voxel below is the floor, so
+    // _swimming never turned on and buoyancy never fired. Matches the
+    // pathfinder's wade/swim cost split in WalkabilityGrid.SampleColumn.
+    private void UpdateWaterState()
+    {
+        WorldState ws = _world?.WorldState;
+        MobData md = _simState?.MobData;
+        if (ws == null || md == null)
+        {
+            _swimming = false;
+            return;
+        }
+        Vector3 pos = GlobalPosition;
+        int fx = Mathf.FloorToInt(pos.X);
+        int fy = Mathf.FloorToInt(pos.Y);
+        int fz = Mathf.FloorToInt(pos.Z);
+        if (ws.GetVoxelWorld(fx, fy, fz) != VoxelType.Water)
+        {
+            _swimming = false;
+            return;
+        }
+        int topY = fy;
+        while (ws.GetVoxelWorld(fx, topY + 1, fz) == VoxelType.Water)
+        {
+            topY++;
+        }
+        int bottomY = fy;
+        while (ws.GetVoxelWorld(fx, bottomY - 1, fz) == VoxelType.Water)
+        {
+            bottomY--;
+        }
+        int columnDepth = topY - bottomY + 1;
+        int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(md.swimDepthThreshold));
+        _swimming = columnDepth >= thresholdVoxels;
+        if (_swimming)
+        {
+            _waterSurfaceY = topY + 1;
+        }
+    }
+
+    // Mirrors Player.ApplyWaterPhysics but applies forces as impulses
+    // because Mob is a RigidBody3D. Buoyancy + a vertical drag damp the
+    // mob to the water surface; SampleWaterCurrent drags horizontal
+    // velocity toward the local current. The sink-speed clamp is a
+    // direct LinearVelocity write — that path only triggers above the
+    // auto-freeze threshold so it doesn't fight the idle freeze.
+    private void ApplyWaterPhysics(float dt)
+    {
+        MobData md = _simState.MobData;
+        Vector3 pos = GlobalPosition;
+        Vector3 vel = LinearVelocity;
+        Vector3 deltaVel = Vector3.Zero;
+
+        float targetY = _waterSurfaceY - md.waterSurfaceOffset;
+        float depthBelowSurface = targetY - pos.Y;
+        if (depthBelowSurface > 0f)
+        {
+            deltaVel.Y += Mathf.Min(depthBelowSurface, 1f) * md.buoyancyAcceleration * dt;
+        }
+        else
+        {
+            deltaVel.Y -= md.buoyancyAcceleration * 0.5f * dt;
+        }
+
+        deltaVel.Y -= vel.Y * md.waterDrag * dt;
+
+        Vector3 current = _world.WorldState.SampleWaterCurrent(pos);
+        deltaVel.X += (current.X - vel.X) * md.waterCurrentDrag * dt;
+        deltaVel.Z += (current.Z - vel.Z) * md.waterCurrentDrag * dt;
+
+        ApplyImpulse(deltaVel * Mass);
+
+        if (LinearVelocity.Y < -md.waterSinkSpeed)
+        {
+            Vector3 v = LinearVelocity;
+            LinearVelocity = new Vector3(v.X, -md.waterSinkSpeed, v.Z);
+        }
+    }
+
     // Writes the node's current transform back into the persistent sim state so
     // that when this Mob is freed (chunk unload, save), the saved position is
     // current rather than the original spawn position.
@@ -802,6 +903,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             TickArmor((float)delta);
             TickStun((float)delta);
             _statusEffects.Tick((float)delta);
+            UpdateWaterState();
+            // Engine gravity is owned by ApplyWaterPhysics while swimming —
+            // disable Godot's default gravity application on this body so
+            // buoyancy + drag can settle to their own equilibrium without
+            // gravity also acting. Capture the authored scale once so a
+            // non-default scene value (e.g. heavier-than-normal species) is
+            // preserved across swim entries.
+            if (!_gravityScaleCaptured)
+            {
+                _gravityScaleAuthored = GravityScale;
+                _gravityScaleCaptured = true;
+            }
+            if (_swimming && !_gravityScaleSwimActive)
+            {
+                GravityScale = 0f;
+                _gravityScaleSwimActive = true;
+            }
+            else if (!_swimming && _gravityScaleSwimActive)
+            {
+                GravityScale = _gravityScaleAuthored;
+                _gravityScaleSwimActive = false;
+            }
             // Stun freezes intentional behavior — no path target, no attack
             // request, no torch / yell / burrow output. Physics, status ticks,
             // and the action runner still run so an in-flight attack can wind
@@ -883,7 +1006,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
                     linearDampTarget = 0f;
                     Vector3 dir = toTarget / dist;
-                    Vector3 desiredVelocity = dir * _simState.MobData.maxSpeed * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
+                    float maxSpd = _swimming ? _simState.MobData.swimSpeed : _simState.MobData.maxSpeed;
+                    Vector3 desiredVelocity = dir * maxSpd * aiOutput.speed * _terrainSpeed * speedScale * statusMoveMul;
                     Vector3 currentVel = LinearVelocity;
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
@@ -894,10 +1018,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     }
                 }
             }
+            // While swimming, the explicit waterDrag in ApplyWaterPhysics
+            // owns vertical damping and the current drag owns horizontal.
+            // Letting the engine's LinearDamp run on top would muddy both
+            // — pin it to zero so the physics block is the only damper.
+            if (_swimming && !inBurrow)
+            {
+                linearDampTarget = 0f;
+            }
             if (linearDampTarget != _lastLinearDamp)
             {
                 LinearDamp = linearDampTarget;
                 _lastLinearDamp = linearDampTarget;
+            }
+
+            if (_swimming && !inBurrow)
+            {
+                ApplyWaterPhysics((float)delta);
             }
 
             if (!inBurrow && targetYaw.HasValue)

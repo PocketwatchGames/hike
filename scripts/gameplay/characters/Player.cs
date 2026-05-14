@@ -1810,6 +1810,19 @@ public partial class Player : CharacterBody3D
 		// Drag to damp vertical oscillation
 		Velocity = new Vector3(Velocity.X, Velocity.Y - Velocity.Y * data.waterDrag * dt, Velocity.Z);
 
+		// Carried by the water current — add the current's velocity directly,
+		// scaled by waterCurrentDrag. The XZ component of Velocity was just
+		// overwritten by input above, so a per-second drag rate would never
+		// integrate; treat this as the steady-state push instead. drag=1
+		// means the player drifts at exactly the current's m/s when standing
+		// still, with input simply layered on top.
+		Vector3 current = _world.WorldState.SampleWaterCurrent(GlobalPosition);
+		Velocity = new Vector3(
+			Velocity.X + current.X * data.waterCurrentDrag,
+			Velocity.Y,
+			Velocity.Z + current.Z * data.waterCurrentDrag
+		);
+
 		// Clamp sinking speed
 		if (Velocity.Y < -data.waterSinkSpeed)
 		{

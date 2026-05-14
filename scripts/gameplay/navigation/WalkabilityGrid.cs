@@ -46,6 +46,14 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public readonly bool canClimb;
     public readonly bool canSwim;
     public readonly float waterCost;
+    // Higher pathfinder cost charged when the water column is at least
+    // swimDepthThreshold voxels deep (the mob would be swimming there
+    // rather than wading). Routes prefer wading detours over swim legs.
+    public readonly float swimCost;
+    // Water column depth (voxels) at which a water cell flips from wade to
+    // swim cost. Mirrors MobData.swimDepthThreshold; SampleColumn floors
+    // it to an int for the voxel-grid check.
+    public readonly float swimDepthThreshold;
     public readonly bool canFly;
     public readonly float clearanceRadius;
     // Vertical clearance the mob needs above the surface to fit, in voxels.
@@ -60,6 +68,8 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
         canClimb = data?.canClimb ?? false;
         canSwim = data?.canSwim ?? true;
         waterCost = data?.waterCost ?? 5f;
+        swimCost = data?.swimCost ?? 15f;
+        swimDepthThreshold = data?.swimDepthThreshold ?? 2f;
         canFly = data?.canFly ?? false;
         clearanceRadius = data?.clearanceRadius ?? 0.4f;
         verticalClearance = 2;
@@ -76,6 +86,8 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
             && canClimb == o.canClimb
             && canSwim == o.canSwim
             && waterCost == o.waterCost
+            && swimCost == o.swimCost
+            && swimDepthThreshold == o.swimDepthThreshold
             && canFly == o.canFly
             && clearanceRadius == o.clearanceRadius
             && verticalClearance == o.verticalClearance;
@@ -84,8 +96,9 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public override int GetHashCode()
     {
         return System.HashCode.Combine(
-            maxStepHeight, maxFallHeight, canClimb, canSwim,
-            waterCost, canFly, clearanceRadius, verticalClearance);
+            System.HashCode.Combine(maxStepHeight, maxFallHeight, canClimb, canSwim),
+            waterCost, swimCost, swimDepthThreshold,
+            canFly, clearanceRadius, verticalClearance);
     }
 }
 
@@ -226,16 +239,31 @@ public class WalkabilityGrid
             bool inWater = here == VoxelType.Water;
 
             // Water surface: the cell is "walkable" only if the mob can swim.
-            // Cost is multiplied so non-amphibious mobs detour.
+            // The top-down scan enters at `wy`, but that's only the actual
+            // water surface when the search anchor is above water — for a
+            // long path through a deep lake the anchor can be far below
+            // surface, dropping us mid-column. Walk back up to the true
+            // top water voxel so surfaceY lands on the surface, matching
+            // the player's swim-equilibrium height, not arbitrary underwater
+            // terrain. Cost splits wade vs swim by the mob's threshold so
+            // routes prefer a wading detour over a swim leg.
             if (inWater)
             {
                 if (!profile.canSwim)
                 {
                     return cell;
                 }
-                cell.surfaceY = (short)wy;
+                int topY = wy;
+                while (ws.IsInBounds(wx, topY + 1, wz) && ws.GetVoxelWorld(wx, topY + 1, wz) == VoxelType.Water)
+                {
+                    topY++;
+                }
+                cell.surfaceY = (short)topY;
                 cell.flags = CellFlags.Walkable | CellFlags.Water;
-                cell.cost = profile.waterCost;
+                int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
+                int probeY = topY - (thresholdVoxels - 1);
+                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
+                cell.cost = swimming ? profile.swimCost : profile.waterCost;
                 return cell;
             }
 

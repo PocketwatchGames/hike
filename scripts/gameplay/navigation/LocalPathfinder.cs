@@ -132,26 +132,40 @@ public class LocalPathfinder
                     // (or climbing); dy < 0: stepping down (or falling).
                     // Climbers ignore both limits; everyone else has a
                     // tight up-limit and a permissive down-limit gated by
-                    // the per-call allowFalling flag.
+                    // the per-call allowFalling flag. Water destinations
+                    // bypass the step-up cap and the "allowFalling required"
+                    // gate — entering water isn't a climb (the mob swims
+                    // up to the surface) and falling in is just a splash,
+                    // capped only by maxFallHeight.
                     int dy = n.surfaceY - currentCell.surfaceY;
                     if (!profile.canClimb)
                     {
-                        if (dy > profile.maxStepHeight)
+                        if (n.IsWater)
                         {
-                            continue;
-                        }
-                        if (dy < 0)
-                        {
-                            int drop = -dy;
-                            if (drop > profile.maxStepHeight)
+                            if (dy < 0 && -dy > profile.maxFallHeight)
                             {
-                                if (!allowFalling)
+                                continue;
+                            }
+                        }
+                        else
+                        {
+                            if (dy > profile.maxStepHeight)
+                            {
+                                continue;
+                            }
+                            if (dy < 0)
+                            {
+                                int drop = -dy;
+                                if (drop > profile.maxStepHeight)
                                 {
-                                    continue;
-                                }
-                                if (drop > profile.maxFallHeight)
-                                {
-                                    continue;
+                                    if (!allowFalling)
+                                    {
+                                        continue;
+                                    }
+                                    if (drop > profile.maxFallHeight)
+                                    {
+                                        continue;
+                                    }
                                 }
                             }
                         }

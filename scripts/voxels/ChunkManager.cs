@@ -25,6 +25,7 @@ public partial class ChunkManager : Node3D
     private LightMap _lightMap;
     private FogMap _fogMap;
     private WindMap _windMap;
+    private GpuParticlesAttractorVectorField3D _windAttractor;
     private WaterCurrentMap _waterCurrentMap;
     private ShaderMaterial _fogMaterial;
     private Camera3D _camera;
@@ -78,6 +79,31 @@ public partial class ChunkManager : Node3D
         // them together (or re-bake chunks) so disk values keep their
         // intended magnitudes.
         ShaderGlobals.Register("wind_velocity_scale", RenderingServer.GlobalShaderParameterType.Float, WindGen.WIND_VELOCITY_SCALE);
+
+        // Global wind force on GPU particles. The wind_map's RGB channel is
+        // already encoded with byte 128 = signed zero, which is exactly what
+        // GpuParticlesAttractorVectorField3D's vector_field texture expects
+        // (0.5 = no force). Bounding box spans the full world extent so every
+        // GPU particle in the scene sits inside it and reads its local wind
+        // sample. Per-particle response falls out of each ParticleProcessMaterial's
+        // existing `damping`: low-damping particles (embers, dust) drift far,
+        // high-damping particles (blood, debris) barely budge — physically
+        // intuitive without any per-effect authoring. Effects that should NOT
+        // get wind (rain's falling drops, which already do their own wind tilt)
+        // set attractor_interaction_enabled = false on their process material.
+        _windAttractor = new GpuParticlesAttractorVectorField3D();
+        _windAttractor.Name = "WindAttractor";
+        _windAttractor.Texture = _windMap.Texture;
+        // GpuParticlesAttractor3D.size is half-extents (the AABB is [-size, +size]
+        // around the node position), so divide by 2 and offset the position by
+        // half-size so the AABB lands at [WindMap.Origin, WindMap.Origin + WindMap.Size].
+        _windAttractor.Size = _windMap.Size * 0.5f;
+        _windAttractor.Position = _windMap.Origin + _windMap.Size * 0.5f;
+        // Strength is the m/s² acceleration applied at peak signed wind (RGB
+        // = 0 or 255). Defaults small because particles have low damping;
+        // tunable live via CVars.particleWindStrength (polled in _Process).
+        _windAttractor.Strength = WindGen.WIND_VELOCITY_SCALE * CVars.particleWindStrength.Value;
+        AddChild(_windAttractor);
         // Water-current subgrid — same UVW convention as wind_map / light_map.
         // Declared in project.godot with a PlaceholderTexture3D so the editor
         // can compile voxel_water.gdshader; the runtime ImageTexture3D is
@@ -172,6 +198,13 @@ public partial class ChunkManager : Node3D
         {
             DrainWindChunkDirty();
             _windMap.Flush(_worldData, _loadedChunks.Keys);
+        }
+
+        if (_windAttractor != null)
+        {
+            // Live re-poll so tuning particle_wind_strength via the in-game
+            // console takes effect immediately. Cheap: just a float assignment.
+            _windAttractor.Strength = WindGen.WIND_VELOCITY_SCALE * CVars.particleWindStrength.Value;
         }
     }
 

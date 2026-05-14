@@ -281,14 +281,15 @@ float sample_wind_factor(vec3 world_pos) {
 	return texture(wind_map, uvw).a;
 }
 
-// Trilinear wind-velocity sample at a world-space point. Decodes the
-// RGB byte-128-is-zero packing back to a signed [-1, 1] XYZ vector and
-// scales by `wind_velocity_scale` to produce world m/s. Includes the
-// per-zone default direction as well as any authored overrides; does
-// NOT apply the WindFactor (sealed) damping — caller composes that
-// with `sample_wind_factor` if needed, since some consumers (e.g.
-// indoor air-pressure / mob hearing) want raw velocity even where
-// surface wind is muted.
+// Trilinear EFFECTIVE-wind-velocity sample at a world-space point.
+// Decodes the RGB byte-128-is-zero packing back to a signed [-1, 1] XYZ
+// vector and scales by `wind_velocity_scale` to produce world m/s. The
+// stored RGB is already pre-multiplied by WindFactor at upload time, so
+// sealed cells (cave interiors, building rooms) decode to zero without
+// the caller having to look at alpha. Per-zone direction plus any
+// authored overrides are included. Consumers that need RAW velocity
+// (calm-day direction even inside sealed rooms) must read CPU-side
+// ChunkState.WindVelocityX/Y/Z — the GPU texture no longer carries it.
 vec3 sample_wind_velocity(vec3 world_pos) {
 	vec3 uvw = (world_pos - wind_map_origin) * wind_map_inv_size;
 	vec3 v = texture(wind_map, uvw).rgb * 2.0 - 1.0;

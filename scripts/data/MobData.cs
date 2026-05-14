@@ -150,7 +150,15 @@ public partial class MobData : Resource
     // Pathfinder cost multiplier for water cells. 1 = neutral. Higher values
     // mean the mob will detour around water if there's a dry path within
     // cost*distance — so 5 means "swim only if dry path is 5x longer".
+    // Used for wading cells (water column shallower than swimDepthThreshold);
+    // deeper columns price through swimCost instead.
     [Export] public float waterCost = 5f;
+
+    // Pathfinder cost multiplier for swim cells — water columns at least
+    // swimDepthThreshold voxels deep, where the mob has to swim rather than
+    // wade. Higher than waterCost so a mob picks a wading detour over a
+    // swim leg when both routes are otherwise equivalent.
+    [Export] public float swimCost = 15f;
 
     // True if the mob ignores ground entirely. Pathfinder runs in 3D for
     // these and steering applies a hover force toward terrain+hoverHeight.
@@ -164,4 +172,28 @@ public partial class MobData : Resource
     // Mob's half-width for clearance checks. Used to validate that a path
     // cell has enough horizontal room and to size the separation kernel.
     [Export] public float clearanceRadius = 0.4f;
+
+    // ---- Water / swim profile ----
+    // Per-mob swim physics. Defaults match PlayerData so a stock mob feels
+    // the same in water as the player; override per-species to make a
+    // bobbing leaf-fish very different from a heavy bear.
+
+    // Minimum contiguous water-column depth (in voxels) under this mob's
+    // feet that triggers swimming — buoyancy, current drag, and the
+    // swimSpeed cap kick in once the column reaches this depth; otherwise
+    // the mob wades on the seafloor with ground physics. 2 matches the
+    // player (swims in 2+ deep water, wades through 1-voxel puddles); a
+    // frog uses 1 (swims in any water), a moose uses 3+ (chest-deep before
+    // it has to swim). Shared by Mob.UpdateWaterState and the pathfinder's
+    // wade/swim cost split so both layers agree on what's a swim cell.
+    [Export] public float swimDepthThreshold = 2f;
+    [Export] public float swimSpeed = 3.5f;
+    [Export] public float buoyancyAcceleration = 15f;
+    [Export] public float waterDrag = 5f;
+    [Export] public float waterSinkSpeed = 2f;
+    [Export] public float waterSurfaceOffset = 1f;
+    // Rate (per second) at which the swimming mob's horizontal velocity is
+    // dragged toward the local water current. High = the river carries
+    // the mob; low = it mostly swims under its own power.
+    [Export] public float waterCurrentDrag = 2f;
 }

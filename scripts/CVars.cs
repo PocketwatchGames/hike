@@ -589,6 +589,17 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("water_current_phase_period", ((CVarFloat)cvar).Value);
     });
 
+    // Multiplier on the wind-map vector field driving the global
+    // GpuParticlesAttractorVectorField3D. The attractor's force scales by
+    // wind_velocity_scale × this, so each particle's existing `damping`
+    // (drag coefficient) determines its steady-state response — low-damping
+    // particles (embers, dust) drift far in wind and high-damping particles
+    // (blood, debris) barely budge — physically intuitive without any
+    // per-effect authoring. Polled each frame by ChunkManager so live
+    // tweaks via the in-game console take effect immediately. 0 = wind has
+    // no effect on particles.
+    public static CVarFloat particleWindStrength = new CVarFloat("particle_wind_strength", 0.15f);
+
     // Disable all sprite-based water reflections (the flipped child sprites
     // LitSprite spawns under water surfaces). Doesn't tear down the
     // reflection nodes — just zeroes the global reflection_tint that

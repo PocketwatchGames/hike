@@ -219,19 +219,33 @@ public partial class GameClient : Node3D
 	// skips ProcessInput; _UnhandledInput sees it and drops gameplay input.
 	// World.Tick keeps running regardless so the runner can still advance a
 	// consumable-use action started from the inventory screen.
-	public bool InputSuppressed { get; set; } = false;
-	// Deferred-clear flag for InputSuppressed. A modal closing on B (ui_cancel
-	// shares the gamepad button with Sneak) MUST keep the suppression gate up
-	// for the rest of the current frame so Player.ProcessInput's polled
-	// IsActionJustPressed("Sneak") doesn't toggle sneak from the same press.
-	// CallDeferred and the process_frame signal both fire before _Process, so
-	// we defer the clear inside _Process itself: modals call
-	// RequestInputSuppressClear, _Process runs the gate read, then clears at
-	// end-of-frame so the next frame starts clean.
+	//
+	// Setting to false is *deferred to end of _Process* rather than applied
+	// synchronously. A modal closing on a shared key (B = ui_cancel + Sneak,
+	// A = ui_accept + Jump) MUST keep the gate up for the rest of the current
+	// frame, because Player.ProcessInput polls IsActionJustPressed which keeps
+	// reporting true for the rest of the frame even after the modal marks the
+	// event handled. CallDeferred and the process_frame signal both fire
+	// before _Process, so they clear too early — the end-of-_Process flush
+	// (after the gate read) is the only safe point. Setting to true is
+	// immediate and cancels any pending clear.
+	bool _inputSuppressed = false;
 	bool _inputSuppressClearPending = false;
-	public void RequestInputSuppressClear()
+	public bool InputSuppressed
 	{
-		_inputSuppressClearPending = true;
+		get => _inputSuppressed;
+		set
+		{
+			if (value)
+			{
+				_inputSuppressed = true;
+				_inputSuppressClearPending = false;
+			}
+			else
+			{
+				_inputSuppressClearPending = true;
+			}
+		}
 	}
 	public Player Player => _player;
 	public World World => _world;
@@ -291,7 +305,8 @@ public partial class GameClient : Node3D
 		{
 			merchantScreen.Visible = false;
 		}
-		InputSuppressed = false;
+		_inputSuppressed = false;
+		_inputSuppressClearPending = false;
 
 		GetTree().Root.SizeChanged += UpdateViewportSize;
 		UpdateViewportSize();
@@ -405,10 +420,10 @@ public partial class GameClient : Node3D
 		UpdatePostProcess();
 
 		// Service the deferred input-suppress clear AFTER ProcessInput has
-		// been gated for this frame. See _inputSuppressClearPending docs.
+		// been gated for this frame. See InputSuppressed property docs.
 		if (_inputSuppressClearPending)
 		{
-			InputSuppressed = false;
+			_inputSuppressed = false;
 			_inputSuppressClearPending = false;
 		}
 	}

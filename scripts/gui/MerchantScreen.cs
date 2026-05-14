@@ -44,8 +44,7 @@ public partial class MerchantScreen : Control
 		Visible = false;
 		if (gameClient != null)
 		{
-			GameClient client = gameClient;
-			Callable.From(() => client.InputSuppressed = false).CallDeferred();
+			gameClient.InputSuppressed = false;
 			if (gameClient.hud != null)
 			{
 				gameClient.hud.Visible = true;

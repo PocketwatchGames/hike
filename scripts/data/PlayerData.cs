@@ -42,6 +42,13 @@ public partial class PlayerData : Resource
 	[Export] public float waterDrag = 5f;
 	[Export] public float waterSurfaceOffset = 1f;
 	[Export] public float waterJumpOffset = 1.5f;
+	// Fraction of the local water current's velocity added to the player's
+	// horizontal velocity each tick while swimming. Input is applied first
+	// each tick and this layers on top, so 1.0 means the player drifts at
+	// exactly the current's m/s when standing still and swims across-the-
+	// current at input+current. Values above 1 amplify the push (debris in
+	// rapids); below 1 lets a strong swimmer fight the flow.
+	[Export] public float waterCurrentDrag = 1f;
 
 	[Export] public int backpackCapacity = 20;
 	[Export] public int consumableSlotCount = 3;

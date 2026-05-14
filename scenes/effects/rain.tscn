@@ -15,6 +15,7 @@ initial_velocity_max = 26.0
 gravity = Vector3(0, 0, 0)
 scale_min = 0.8
 scale_max = 1.2
+attractor_interaction_enabled = false
 
 [sub_resource type="QuadMesh" id="QuadMesh_drop"]
 material = ExtResource("2_drop_mat")
@@ -34,6 +35,7 @@ gravity = Vector3(0, -30, 0)
 scale_min = 0.3
 scale_max = 0.7
 color_ramp = SubResource("GradientTexture1D_splashFade")
+attractor_interaction_enabled = false
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
 lightmap_size_hint = Vector2i(27, 27)
@@ -45,6 +47,7 @@ orientation = 1
 direction = Vector3(0, 1, 0)
 spread = 0.0
 gravity = Vector3(0, 0, 0)
+attractor_interaction_enabled = false
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_debugMarker"]
 shading_mode = 0

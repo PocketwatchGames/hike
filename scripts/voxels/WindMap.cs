@@ -2,18 +2,24 @@ using System.Collections.Generic;
 using Godot;
 
 // Coarse wind 3D texture, RGBA8. Each cell covers a 4x4x4 voxel block
-// (ENV_VOXELS_PER_CELL on each axis). Sampled in world space by shaders
-// and (eventually) by audio code via the `wind_map` global uniform; the
-// hardware sampler's trilinear filter smooths cave-mouth transitions
-// over the cell footprint.
+// (ENV_VOXELS_PER_CELL on each axis). Sampled in world space by shaders,
+// particle attractors, and (eventually) audio code via the `wind_map`
+// global uniform; the hardware sampler's trilinear filter smooths
+// cave-mouth transitions over the cell footprint.
 //
 // Channel layout:
-//   R, G, B = WindVelocityX, Y, Z. Signed, byte-128-zero encoding —
+//   R, G, B = EFFECTIVE wind velocity (raw zone/override velocity already
+//             multiplied by WindFactor). Signed, byte-128-zero encoding —
 //             shader does `texture(wind_map, uvw).rgb * 2.0 - 1.0` to
 //             recover [-1, 1], then multiplies by `wind_velocity_scale`
-//             to get world m/s. Carries per-zone wind direction by
-//             default (baked by WindGen) plus any authored overrides
-//             (mountain pass funnels, cave drafts, localized gusts).
+//             to get world m/s. Sealed cells (WindFactor = 0) decode to
+//             zero, so a single `texture()` lookup gives consumers like
+//             GpuParticlesAttractorVectorField3D the right "no wind in
+//             caves" behavior without a second sample. The pre-multiply
+//             happens at upload time in EncodeChunkIfPresent — the
+//             ChunkState arrays stay raw, so any CPU consumer that wants
+//             the calm-day direction can still read it from
+//             WindVelocityX/Y/Z.
 //   A       = WindFactor. 0 = sealed (deep cave / building interior),
 //             255 = full ambient wind. Existing damping multiplier
 //             unchanged from when wind_map was R8 — consumers that only
@@ -156,10 +162,20 @@ public class WindMap
                 for (int sx = 0; sx < CELLS_PER_CHUNK; sx++)
                 {
                     int o = rowOffset + sx * BYTES_PER_PIXEL;
-                    pixels[o + 0] = chunk.WindVelocityX[sx, sy, sz];
-                    pixels[o + 1] = chunk.WindVelocityY[sx, sy, sz];
-                    pixels[o + 2] = chunk.WindVelocityZ[sx, sy, sz];
-                    pixels[o + 3] = chunk.WindFactor[sx, sy, sz];
+                    // Pre-multiply velocity by WindFactor so sealed cells
+                    // (factor = 0) read as zero wind on the GPU side. The
+                    // byte-128-zero signed offset scales linearly by
+                    // factor/255: (raw - 128) * factor / 255 + 128. Keeps
+                    // single-sample consumers like the particle attractor
+                    // correct without forcing them to look at alpha.
+                    byte factor = chunk.WindFactor[sx, sy, sz];
+                    int vx = chunk.WindVelocityX[sx, sy, sz];
+                    int vy = chunk.WindVelocityY[sx, sy, sz];
+                    int vz = chunk.WindVelocityZ[sx, sy, sz];
+                    pixels[o + 0] = (byte)(((vx - 128) * factor) / 255 + 128);
+                    pixels[o + 1] = (byte)(((vy - 128) * factor) / 255 + 128);
+                    pixels[o + 2] = (byte)(((vz - 128) * factor) / 255 + 128);
+                    pixels[o + 3] = factor;
                 }
             }
         }
