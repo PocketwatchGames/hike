@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_02.wav" id="2_s02"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_03.wav" id="2_s03"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_04.wav" id="2_s04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootspawn"]
 emission_shape = 1
@@ -19,17 +20,14 @@ damping_max = 1.8
 scale_min = 0.5
 scale_max = 1.2
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lootspawn"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.85, 0.95, 1, 0.7)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lootspawn"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(0.85, 0.95, 1, 0.7)
 
 [sub_resource type="QuadMesh" id="QuadMesh_lootspawn"]
-material = SubResource("StandardMaterial3D_lootspawn")
+material = SubResource("ShaderMaterial_lootspawn")
 size = Vector2(0.1, 0.1)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_lootspawn"]

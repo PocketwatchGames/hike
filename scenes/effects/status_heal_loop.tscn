@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_charge_lp.wav" id="2_bclp"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_healloop"]
 playback_mode = 1
@@ -25,14 +26,14 @@ scale_min = 0.4
 scale_max = 0.9
 color = Color(0.6, 1, 0.65, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_healrise"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.6, 1, 0.65, 0.9)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_healrise"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(0.6, 1, 0.65, 0.9)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healrise"]
-material = SubResource("StandardMaterial3D_healrise")
+material = SubResource("ShaderMaterial_healrise")
 size = Vector2(0.05, 0.05)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_healaura"]
@@ -49,14 +50,14 @@ scale_min = 1.0
 scale_max = 1.6
 color = Color(0.9, 1, 0.7, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_healaura"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.92, 1, 0.7, 0.3)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_healaura"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(0.92, 1, 0.7, 0.3)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healaura"]
-material = SubResource("StandardMaterial3D_healaura")
+material = SubResource("ShaderMaterial_healaura")
 size = Vector2(0.16, 0.16)
 
 [node name="StatusHealLoop" type="Node3D"]

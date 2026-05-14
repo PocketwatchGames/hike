@@ -6,6 +6,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_pickup_03.wav" id="2_p03"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_pickup_04.wav" id="2_p04"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_pickup_05.wav" id="2_p05"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootpickup"]
 emission_shape = 1
@@ -20,17 +21,14 @@ damping_max = 1.5
 scale_min = 0.6
 scale_max = 1.4
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_lootpickup"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(1, 0.92, 0.45, 0.9)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_lootpickup"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.92, 0.45, 0.9)
 
 [sub_resource type="QuadMesh" id="QuadMesh_lootpickup"]
-material = SubResource("StandardMaterial3D_lootpickup")
+material = SubResource("ShaderMaterial_lootpickup")
 size = Vector2(0.1, 0.1)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_lootpickup"]

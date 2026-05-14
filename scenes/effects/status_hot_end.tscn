@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_lantern_tail.wav" id="2_lt"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hotsmoke"]
 emission_shape = 1
@@ -16,14 +17,14 @@ damping_max = 1.0
 scale_min = 1.2
 scale_max = 2.2
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hotsmoke"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.42, 0.4, 0.38, 0.5)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hotsmoke"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.42, 0.4, 0.38, 0.5)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_hotsmoke"]
-material = SubResource("StandardMaterial3D_hotsmoke")
+material = SubResource("ShaderMaterial_hotsmoke")
 size = Vector2(0.26, 0.26)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hotashes"]
@@ -39,14 +40,14 @@ damping_max = 1.0
 scale_min = 0.4
 scale_max = 0.7
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hotashes"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.3, 0.22, 0.18, 0.85)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hotashes"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.3, 0.22, 0.18, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_hotashes"]
-material = SubResource("StandardMaterial3D_hotashes")
+material = SubResource("ShaderMaterial_hotashes")
 size = Vector2(0.04, 0.04)
 
 [node name="StatusHotEnd" type="Node3D"]

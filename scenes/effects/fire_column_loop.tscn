@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxloop"]
 [ext_resource type="AudioStream" uid="uid://bwc1qjsmwj8ow" path="res://audio/source/weapons/sfx_player_lantern_lp.wav" id="2_lantern_lp"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="Gradient" id="Gradient_muwwq"]
 offsets = PackedFloat32Array(0, 0.056603774, 0.9150943, 1)
@@ -25,18 +26,14 @@ scale_max = 2.4
 color = Color(1, 0.6, 0.18, 1)
 color_ramp = SubResource("GradientTexture1D_di3vq")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_firecol_flame"]
-transparency = 1
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(1, 0.55, 0.15, 0.95)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_firecol_flame"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.55, 0.15, 0.95)
 
 [sub_resource type="QuadMesh" id="QuadMesh_firecol_flame"]
-material = SubResource("StandardMaterial3D_firecol_flame")
+material = SubResource("ShaderMaterial_firecol_flame")
 size = Vector2(0.1, 0.1)
 
 [sub_resource type="Gradient" id="Gradient_3kyhl"]
@@ -58,18 +55,14 @@ damping_max = 1.0
 scale_min = 0.5
 color_ramp = SubResource("GradientTexture1D_djkwk")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_firecol_embers"]
-transparency = 1
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(1, 0.45, 0.1, 1)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_firecol_embers"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.45, 0.1, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_firecol_embers"]
-material = SubResource("StandardMaterial3D_firecol_embers")
+material = SubResource("ShaderMaterial_firecol_embers")
 size = Vector2(0.06, 0.06)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_firecol_smoke"]
@@ -85,17 +78,14 @@ damping_max = 0.4
 scale_min = 1.8
 scale_max = 3.0
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_firecol_smoke"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.32, 0.3, 0.28, 0.45)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_firecol_smoke"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.32, 0.3, 0.28, 0.45)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_firecol_smoke"]
-material = SubResource("StandardMaterial3D_firecol_smoke")
+material = SubResource("ShaderMaterial_firecol_smoke")
 size = Vector2(0.5, 0.5)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_firecolumnloop"]

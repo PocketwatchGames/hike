@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" uid="uid://c1pmmojd710k2" path="res://audio/source/interactives/sfx_spikeTrap_spike_02.wav" id="2_s02"]
 [ext_resource type="AudioStream" uid="uid://byrpyjc0ju8oo" path="res://audio/source/interactives/sfx_spikeTrap_spike_03.wav" id="2_s03"]
 [ext_resource type="AudioStream" uid="uid://cyr8l1m3gyyl" path="res://audio/source/interactives/sfx_spikeTrap_spike_04.wav" id="2_s04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="Gradient" id="Gradient_gfca1"]
 offsets = PackedFloat32Array(0, 0.056603774, 0.7704403, 1)
@@ -28,18 +29,14 @@ scale_max = 2.8
 color = Color(1, 0.7, 0.25, 1)
 color_ramp = SubResource("GradientTexture1D_dndan")
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_fireignite_burst"]
-transparency = 1
-shading_mode = 0
-vertex_color_use_as_albedo = true
-albedo_color = Color(1, 0.6, 0.2, 1)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fireignite_burst"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.6, 0.2, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_fireignite_burst"]
-material = SubResource("StandardMaterial3D_fireignite_burst")
+material = SubResource("ShaderMaterial_fireignite_burst")
 size = Vector2(0.1, 0.1)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_fireignite"]

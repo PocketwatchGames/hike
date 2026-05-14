@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_02.wav" id="2_ch02"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_03.wav" id="2_ch03"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_04.wav" id="2_ch04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_coldcrystals"]
 emission_shape = 1
@@ -20,14 +21,14 @@ scale_min = 0.4
 scale_max = 1.0
 color = Color(0.75, 0.92, 1, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coldcrystals"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.78, 0.94, 1, 0.95)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_coldcrystals"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.78, 0.94, 1, 0.95)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_coldcrystals"]
-material = SubResource("StandardMaterial3D_coldcrystals")
+material = SubResource("ShaderMaterial_coldcrystals")
 size = Vector2(0.06, 0.06)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_coldmist"]
@@ -43,14 +44,14 @@ damping_max = 1.0
 scale_min = 1.2
 scale_max = 2.2
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coldmist"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.85, 0.95, 1, 0.4)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_coldmist"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.85, 0.95, 1, 0.4)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_coldmist"]
-material = SubResource("StandardMaterial3D_coldmist")
+material = SubResource("ShaderMaterial_coldmist")
 size = Vector2(0.22, 0.22)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_coldstart"]

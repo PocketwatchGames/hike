@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_lantern_lp.wav" id="2_llp"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_hotloop"]
 playback_mode = 1
@@ -25,14 +26,14 @@ scale_min = 0.8
 scale_max = 1.6
 color = Color(1, 0.7, 0.3, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_heatwave"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(1, 0.55, 0.18, 0.55)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_heatwave"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.55, 0.18, 0.55)
 
 [sub_resource type="QuadMesh" id="QuadMesh_heatwave"]
-material = SubResource("StandardMaterial3D_heatwave")
+material = SubResource("ShaderMaterial_heatwave")
 size = Vector2(0.14, 0.14)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_hotember"]
@@ -48,14 +49,14 @@ damping_max = 0.3
 scale_min = 0.4
 scale_max = 0.7
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_hotember"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(1, 0.45, 0.1, 0.95)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_hotember"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.45, 0.1, 0.95)
 
 [sub_resource type="QuadMesh" id="QuadMesh_hotember"]
-material = SubResource("StandardMaterial3D_hotember")
+material = SubResource("ShaderMaterial_hotember")
 size = Vector2(0.03, 0.03)
 
 [node name="StatusHotLoop" type="Node3D"]
