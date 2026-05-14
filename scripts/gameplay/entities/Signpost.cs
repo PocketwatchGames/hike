@@ -12,6 +12,10 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
     // prefab variants). The SimState's Text overrides this when the signpost
     // is spawned by the world loader.
     [Export(PropertyHint.MultilineText)] private string _text = "";
+    // Language the signpost text is written in. The reader can decipher it
+    // only if Player.LearnedLanguages contains this resource. Null = legible
+    // to everyone (player's own language).
+    [Export] private LanguageData _language;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 

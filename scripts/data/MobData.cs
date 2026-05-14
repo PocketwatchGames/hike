@@ -59,6 +59,11 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
+    // Native language spoken by this mob. Drives whether the player can
+    // understand chatter and Talk interactions — players who have not learned
+    // this language hear/read the chatter as gibberish. Null = speaks the
+    // player's language unconditionally (universal NPCs).
+    [Export] public LanguageData language;
     // Localization key for the line spoken when an interact action with verb
     // Talk completes. Empty string = no chatter line. Resolved through
     // Loc.Get at speak time so language switches mid-game pick up the new
