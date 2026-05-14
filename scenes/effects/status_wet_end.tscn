@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_02.wav" id="2_ws02"]
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_03.wav" id="2_ws03"]
 [ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_04.wav" id="2_ws04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wetfinal"]
 emission_shape = 1
@@ -19,14 +20,14 @@ damping_max = 0.4
 scale_min = 0.4
 scale_max = 0.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_wetfinal"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.55, 0.78, 0.95, 0.85)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wetfinal"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.55, 0.78, 0.95, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_wetfinal"]
-material = SubResource("StandardMaterial3D_wetfinal")
+material = SubResource("ShaderMaterial_wetfinal")
 size = Vector2(0.04, 0.07)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_wetend"]

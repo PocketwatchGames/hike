@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_lantern_tail.wav" id="2_lt"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campsmokepuff"]
 emission_shape = 1
@@ -16,14 +17,14 @@ damping_max = 1.0
 scale_min = 1.4
 scale_max = 2.6
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_campsmokepuff"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.4, 0.4, 0.4, 0.55)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_campsmokepuff"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.4, 0.4, 0.4, 0.55)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_campsmokepuff"]
-material = SubResource("StandardMaterial3D_campsmokepuff")
+material = SubResource("ShaderMaterial_campsmokepuff")
 size = Vector2(0.32, 0.32)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campash"]
@@ -39,14 +40,14 @@ damping_max = 1.2
 scale_min = 0.4
 scale_max = 0.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_campash"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.25, 0.22, 0.2, 0.85)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_campash"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.25, 0.22, 0.2, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_campash"]
-material = SubResource("StandardMaterial3D_campash")
+material = SubResource("ShaderMaterial_campash")
 size = Vector2(0.05, 0.05)
 
 [node name="CampfireExtinguish" type="Node3D"]

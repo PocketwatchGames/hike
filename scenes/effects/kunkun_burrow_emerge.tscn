@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_burrow_head_02.wav" id="2_bh02"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_burrow_head_03.wav" id="2_bh03"]
 [ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_burrow_head_04.wav" id="2_bh04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dirt"]
 emission_shape = 1
@@ -19,17 +20,14 @@ damping_max = 1.8
 scale_min = 0.7
 scale_max = 2.0
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dirt"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.45, 0.35, 0.22, 0.8)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dirt"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.45, 0.35, 0.22, 0.8)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_dirt"]
-material = SubResource("StandardMaterial3D_dirt")
+material = SubResource("ShaderMaterial_dirt")
 size = Vector2(0.12, 0.12)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_bhead"]

@@ -5,6 +5,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_tail_02.wav" id="2_ct02"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_tail_03.wav" id="2_ct03"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_tail_04.wav" id="2_ct04"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_thaw"]
 emission_shape = 1
@@ -20,14 +21,14 @@ scale_min = 0.4
 scale_max = 0.8
 color = Color(0.7, 0.9, 1, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_thaw"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.75, 0.92, 1, 0.85)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_thaw"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.75, 0.92, 1, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_thaw"]
-material = SubResource("StandardMaterial3D_thaw")
+material = SubResource("ShaderMaterial_thaw")
 size = Vector2(0.04, 0.04)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_coldfade"]
@@ -43,14 +44,14 @@ damping_max = 1.2
 scale_min = 1.0
 scale_max = 1.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coldfade"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.88, 0.97, 1, 0.4)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_coldfade"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.88, 0.97, 1, 0.4)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_coldfade"]
-material = SubResource("StandardMaterial3D_coldfade")
+material = SubResource("ShaderMaterial_coldfade")
 size = Vector2(0.18, 0.18)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_coldend"]

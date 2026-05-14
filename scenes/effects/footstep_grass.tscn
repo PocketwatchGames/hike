@@ -11,6 +11,7 @@
 [ext_resource type="AudioStream" uid="uid://bjkx5ksd7r7p6" path="res://audio/source/footsteps/un_shr_foot_grass_08.wav" id="2_g08"]
 [ext_resource type="AudioStream" uid="uid://iwatr3apxd3c" path="res://audio/source/footsteps/un_shr_foot_grass_09.wav" id="2_g09"]
 [ext_resource type="AudioStream" uid="uid://bpmq0ikwma0n2" path="res://audio/source/footsteps/un_shr_foot_grass_10.wav" id="2_g10"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
 emission_shape = 1
@@ -25,17 +26,14 @@ damping_max = 2.0
 scale_min = 0.5
 scale_max = 2.0
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_dust"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.28530002, 0.3, 0.17400002, 0.7019608)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dust"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.28530002, 0.3, 0.17400002, 0.7019608)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_dust"]
-material = SubResource("StandardMaterial3D_dust")
+material = SubResource("ShaderMaterial_dust")
 size = Vector2(0.1, 0.1)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_grass"]

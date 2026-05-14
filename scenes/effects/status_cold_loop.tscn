@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/ambience/wind/amb_base_wind_light.wav" id="2_wind"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_coldloop"]
 playback_mode = 1
@@ -25,14 +26,14 @@ scale_min = 0.4
 scale_max = 0.9
 color = Color(0.82, 0.95, 1, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coldflakes"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.82, 0.96, 1, 0.85)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_coldflakes"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.82, 0.96, 1, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_coldflakes"]
-material = SubResource("StandardMaterial3D_coldflakes")
+material = SubResource("ShaderMaterial_coldflakes")
 size = Vector2(0.05, 0.05)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_coldbreath"]
@@ -48,14 +49,14 @@ damping_max = 0.9
 scale_min = 0.9
 scale_max = 1.6
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_coldbreath"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.88, 0.97, 1, 0.32)
-billboard_mode = 3
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_coldbreath"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.88, 0.97, 1, 0.32)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_coldbreath"]
-material = SubResource("StandardMaterial3D_coldbreath")
+material = SubResource("ShaderMaterial_coldbreath")
 size = Vector2(0.18, 0.18)
 
 [node name="StatusColdLoop" type="Node3D"]

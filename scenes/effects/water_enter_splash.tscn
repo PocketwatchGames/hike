@@ -12,6 +12,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_09.wav" id="2_we09"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_10.wav" id="2_we10"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_11.wav" id="2_we11"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
 emission_shape = 1
@@ -26,17 +27,14 @@ damping_max = 2.0
 scale_min = 0.6
 scale_max = 1.8
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_splash"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.6, 0.8, 0.95, 0.7)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_splash"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.6, 0.8, 0.95, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
-material = SubResource("StandardMaterial3D_splash")
+material = SubResource("ShaderMaterial_splash")
 size = Vector2(0.12, 0.12)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_waterenter"]

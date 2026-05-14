@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://6d2llur7apbo"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_poisoncloud"]
 emission_shape = 1
@@ -16,17 +17,14 @@ scale_min = 1.6
 scale_max = 2.6
 color = Color(0.55, 0.78, 0.22, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_poisoncloud"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.45, 0.7, 0.18, 0.32)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_poisoncloud"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.45, 0.7, 0.18, 0.32)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_poisoncloud"]
-material = SubResource("StandardMaterial3D_poisoncloud")
+material = SubResource("ShaderMaterial_poisoncloud")
 size = Vector2(0.55, 0.55)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_poisonwisps"]
@@ -43,17 +41,14 @@ scale_min = 0.6
 scale_max = 1.1
 color = Color(0.7, 0.95, 0.25, 1)
 
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_poisonwisps"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.6, 0.9, 0.2, 0.55)
-billboard_mode = 3
-particles_anim_h_frames = 1
-particles_anim_v_frames = 1
-particles_anim_loop = false
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_poisonwisps"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.6, 0.9, 0.2, 0.55)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_poisonwisps"]
-material = SubResource("StandardMaterial3D_poisonwisps")
+material = SubResource("ShaderMaterial_poisonwisps")
 size = Vector2(0.18, 0.18)
 
 [node name="GasPoisonLoop" type="Node3D" unique_id=698323505]
