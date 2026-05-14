@@ -171,8 +171,30 @@ public static class EntitySerializer
                 w.Write((byte)Tag.KnowledgeStone);
                 WriteVec3(w, stone.WorldPosition);
                 WriteScene(w, stone.Scene);
-                WriteResource(w, stone.Language);
-                w.Write((int)stone.Components);
+                // Wire shape: inscription language + a flat language-component
+                // bitset that the loader synthesizes back into a single
+                // LanguageTeachable concept. The full polymorphic concept
+                // array isn't persisted here — authored stones with non-
+                // language concepts (recipes / regions) lean on the scene's
+                // _concepts override path and don't ride this slot. When the
+                // editor lands and needs to author arbitrary concepts on
+                // placed stones, extend the wire format with a typed concept
+                // list and bump the format version.
+                LanguageData wireLanguage = stone.InscriptionLanguage;
+                ELanguageComponents wireComponents = ELanguageComponents.None;
+                if (stone.Concepts != null)
+                {
+                    for (int i = 0; i < stone.Concepts.Count; i++)
+                    {
+                        if (stone.Concepts[i] is LanguageTeachable lt && lt.language != null)
+                        {
+                            wireLanguage ??= lt.language;
+                            if (lt.language == wireLanguage) { wireComponents |= lt.components; }
+                        }
+                    }
+                }
+                WriteResource(w, wireLanguage);
+                w.Write((int)wireComponents);
                 w.Write(stone.Text ?? string.Empty);
                 break;
 
@@ -354,7 +376,19 @@ public static class EntitySerializer
                 var languageData = ReadResource<LanguageData>(r);
                 var components = (ELanguageComponents)r.ReadInt32();
                 string text = r.ReadString();
-                return new KnowledgeStoneSimState(pos, scene, text, languageData, components);
+                // Reconstruct the SimState concept override list from the
+                // wire's language + components bitset — old .hike files
+                // taught one language component bundle per stone, and that's
+                // still the shape this Tag.KnowledgeStone wire encodes. A
+                // None components value means "no override" — leave Concepts
+                // null so KnowledgeStone.Create falls back to the scene's
+                // authored _concepts array.
+                Godot.Collections.Array<TeachableConcept> concepts = null;
+                if (languageData != null && components != ELanguageComponents.None)
+                {
+                    concepts = new() { new LanguageTeachable { language = languageData, components = components } };
+                }
+                return new KnowledgeStoneSimState(pos, scene, text, languageData, concepts);
             }
             case Tag.FireTrap:
             {

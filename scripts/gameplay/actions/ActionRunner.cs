@@ -565,6 +565,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoLearnLanguage(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.LearnConcept) != 0)
+		{
+			ItemEventHandlers.DoLearnConcept(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.OpenInteractive) != 0)
 		{
 			ItemEventHandlers.DoOpenInteractive(_actor, ev, ref _action);

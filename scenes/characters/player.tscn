@@ -28,10 +28,10 @@
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
 [ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
 [ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
-[ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
+[ext_resource type="Script" uid="uid://136v75rygtjlf" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
-[ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
+[ext_resource type="Script" uid="uid://zqvdnuyqmxad7" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25

@@ -308,6 +308,45 @@ public static class ItemEventHandlers
 		}
 	}
 
+	// Generalized teach event — dispatches a TeachableConcept against the
+	// player's world-state collections (language pieces, recipe discovery
+	// set, region discovery set, ...). First-learn fx gates on concept.Teach
+	// returning true, matching DoLearnLanguage's silent-on-re-teach contract.
+	//
+	// Concept resolution prefers the event-authored ref (`ev.concept`); when
+	// that's null, falls back to the consuming item's concept if it's a
+	// ScrollData. This lets every scroll variant share a single action
+	// profile — the profile fires a concept-less LearnConcept event and the
+	// handler pulls the specific concept off the scroll being used, keeping
+	// ScrollData.concept the single source of truth for both the displayed
+	// name and the granted concept.
+	public static void DoLearnConcept(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		GD.Print($"[DoLearnConcept] actor={actor?.GetType().Name} ev.concept={ev.concept?.GetType().Name ?? "null"} primaryItem.data={action.context.primaryItem?.data?.GetType().Name ?? "null"}");
+		if (actor is not Player player)
+		{
+			GD.Print("[DoLearnConcept] EXIT: actor is not Player");
+			return;
+		}
+		TeachableConcept concept = ev.concept;
+		if (concept == null && action.context.primaryItem?.data is ScrollData scroll)
+		{
+			concept = scroll.concept;
+			GD.Print($"[DoLearnConcept] fallback from ScrollData.concept type={concept?.GetType().Name ?? "null"}");
+		}
+		if (concept == null)
+		{
+			GD.Print("[DoLearnConcept] EXIT: concept is null");
+			return;
+		}
+		bool taught = concept.Teach(player);
+		GD.Print($"[DoLearnConcept] concept.Teach returned {taught}");
+		if (taught)
+		{
+			SpawnOnActor(actor, ev.firstLearnEffect);
+		}
+	}
+
 	public static void DoConsumeFromInventory(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.reagent == null || action.context.supportingItems == null)

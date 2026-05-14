@@ -22,6 +22,13 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // scene decides at run time whether the player auto-picks up (existing
     // same-kind stack with room) or has to press Interact.
     [Export] private ItemData _lootItem;
+    // Additional one-of-each loot. Drops alongside the LootCount × _lootItem
+    // stack so a chest can carry both bulk items (mushrooms, coins) and
+    // unique pickups (scrolls, key items). Authored on the .tscn rather
+    // than on the sim state — sim state still controls the LootCount stack
+    // size for _lootItem, but a chest's identity (a "scroll chest") is a
+    // scene-level decision. Leave empty for legacy single-item chests.
+    [Export] private Godot.Collections.Array<ItemData> _lootItems = new();
     // Optional ITriggerable nodes pinged when the chest finishes opening.
     // Lets a chest fire a poison-cloud deployer, an upstream
     // TriggerSource (e.g. a nearby spike trap's pad chained off the
@@ -93,16 +100,21 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
         float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
 
-        for (int i = 0; i < _interactiveState.LootCount; i++)
+        if (_lootItem != null)
         {
-            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-            var impulse = new Vector3(
-                horizontalSpeed * Mathf.Cos(angle),
-                verticalSpeed,
-                horizontalSpeed * Mathf.Sin(angle)
-            );
-
-            _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, _lootItem);
+            for (int i = 0; i < _interactiveState.LootCount; i++)
+            {
+                _world.SpawnLoot(GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed), _lootItem);
+            }
+        }
+        if (_lootItems != null)
+        {
+            for (int i = 0; i < _lootItems.Count; i++)
+            {
+                ItemData item = _lootItems[i];
+                if (item == null) { continue; }
+                _world.SpawnLoot(GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed), item);
+            }
         }
 
         // Fire any wired traps/effects. The chest itself is the source —
@@ -122,12 +134,36 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         }
     }
 
+    private static Vector3 RandomImpulse(Random rng, float horizontalSpeed, float verticalSpeed)
+    {
+        float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+        return new Vector3(
+            horizontalSpeed * Mathf.Cos(angle),
+            verticalSpeed,
+            horizontalSpeed * Mathf.Sin(angle)
+        );
+    }
+
     public static Chest Create(World world, ChestSimState data)
     {
         var instance = data.Scene.Instantiate<Chest>();
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
         instance._world = world;
+        // Apply SimState's per-instance loot override (worldgen-authored
+        // drop list). Replaces the scene's _lootItems entirely so the
+        // override is the authoritative list — partial appending would
+        // surprise placement-driven setups whose intent is "this chest
+        // drops exactly these items, not these plus whatever the scene
+        // had."
+        if (data.LootItems != null && data.LootItems.Length > 0)
+        {
+            instance._lootItems = new Godot.Collections.Array<ItemData>();
+            for (int i = 0; i < data.LootItems.Length; i++)
+            {
+                instance._lootItems.Add(data.LootItems[i]);
+            }
+        }
         world.AddChild(instance);
 
         instance._open = !data.Active;

@@ -606,11 +606,9 @@ public static class WorldGen
         const int KnowledgeStoneZ = 0;
         var stoneComponents = new (int x, ELanguageComponents component)[]
         {
-            (-3, ELanguageComponents.Grammar),
-            (-4, ELanguageComponents.Numbers),
-            (-5, ELanguageComponents.Vocabulary1),
-            (-6, ELanguageComponents.Vocabulary2),
-            (-7, ELanguageComponents.Vocabulary3),
+            (-3, ELanguageComponents.Vocabulary1),
+            (-4, ELanguageComponents.Vocabulary2),
+            (-5, ELanguageComponents.Vocabulary3),
         };
         // ws.Min/Max are in *chunks*; the stone coordinates are voxels.
         // Compare against the chunk extent expressed in voxels so the row
@@ -629,8 +627,40 @@ public static class WorldGen
                 if (sx < stoneWorldMinX || sx > stoneWorldMaxX) { continue; }
                 int sy = heightMap.GetHeight(sx, KnowledgeStoneZ);
                 var pos = new Vector3(sx + 0.5f, sy + 1f, KnowledgeStoneZ + 0.5f);
-                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, component));
+                // Wrap the per-fixture (language, component) pair in a
+                // LanguageTeachable so the stone runs through the unified
+                // TeachableConcept path. Resource is constructed transient
+                // — never gets serialized as its own .tres; saves/loads
+                // round-trip through EntitySerializer's Tag.KnowledgeStone
+                // wire format which re-synthesizes a LanguageTeachable on
+                // read.
+                var concepts = new Godot.Collections.Array<TeachableConcept>
+                {
+                    new LanguageTeachable { language = genData.KnowledgeStoneLanguage, components = component },
+                };
+                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, concepts));
             }
+        }
+
+        // Near-spawn test chest. Generic chest scene (genData.NearSpawnChestScene
+        // wires the regular chest.tscn) with a worldgen-authored drop list —
+        // composes the fixture through data instead of through a chest-variant
+        // scene. LootCount stays 0 so the chest's singular _lootItem path is
+        // a no-op; the entire drop comes from the SimState.LootItems override.
+        const int NearSpawnChestX = 0;
+        const int NearSpawnChestZ = 3;
+        if (genData.NearSpawnChestScene != null
+            && genData.NearSpawnChestItems != null && genData.NearSpawnChestItems.Length > 0
+            && NearSpawnChestX >= stoneWorldMinX && NearSpawnChestX <= stoneWorldMaxX
+            && NearSpawnChestZ >= stoneWorldMinZ && NearSpawnChestZ <= stoneWorldMaxZ)
+        {
+            int sy = heightMap.GetHeight(NearSpawnChestX, NearSpawnChestZ);
+            var pos = new Vector3(NearSpawnChestX + 0.5f, sy + 1f, NearSpawnChestZ + 0.5f);
+            var chestSim = new ChestSimState(pos, genData.NearSpawnChestScene, 0)
+            {
+                LootItems = genData.NearSpawnChestItems,
+            };
+            ws.AddEntity(chestSim);
         }
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)

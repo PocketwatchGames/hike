@@ -117,6 +117,16 @@ public class ChestSimState : EntitySimState
     // nighttime. Authored at worldgen for chests anchored to night-only
     // encounters (e.g. campfire encampments). Mirrors MobSimState.SpawnAtNight.
     public bool SpawnAtNight;
+    // Optional per-instance override for the chest's _lootItems array. When
+    // non-empty Chest.Create writes it onto the spawned node, so a generic
+    // chest scene can carry a worldgen-authored drop list (test fixtures,
+    // future quest rewards) without authoring a new chest variant per drop
+    // set. EntitySerializer does NOT persist this — the override only lives
+    // for chests placed by WorldGen on the current run; a .hike round-trip
+    // drops it back to the scene's authored loot. Persisting would require
+    // a wire-format bump (ItemData ref array), deferred until save/load
+    // grows beyond test fixtures.
+    public ItemData[] LootItems;
 
     public ChestSimState(Vector3 worldPosition, PackedScene scene, int lootCount)
         : base(worldPosition, scene)
@@ -215,21 +225,24 @@ public class KnowledgeStoneSimState : EntitySimState
     // Inscription shown to the player when read. Stored per-instance so a
     // single .tscn can carry many different stones across the world file.
     public string Text;
-    // Language the inscription is written in AND the language the player
-    // learns on a successful read. The InteractiveAction authored on the
-    // .tscn already references the same LanguageData on its LearnLanguage
-    // event — the SimState's value is the inscription-scramble key.
-    public LanguageData Language;
-    // Components of `Language` this specific stone teaches. None falls
-    // back to whatever the scene authored on its `_components` field.
-    public ELanguageComponents Components;
+    // Language the inscription is written in (drives the scramble gating on
+    // display). Decoupled from what the stone teaches — see KnowledgeStone
+    // for the split rationale.
+    public LanguageData InscriptionLanguage;
+    // Concepts this specific stone grants on read. Empty/null falls back to
+    // whatever the scene authored on its `_concepts` field. Polymorphic
+    // resource refs — LanguageTeachable, RecipeTeachable, RegionTeachable.
+    // EntitySerializer's legacy KnowledgeStone wire format (Language +
+    // Components int) is converted into a single-entry LanguageTeachable
+    // here on read so old .hike files keep working.
+    public Godot.Collections.Array<TeachableConcept> Concepts;
 
-    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language, ELanguageComponents components)
+    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData inscriptionLanguage, Godot.Collections.Array<TeachableConcept> concepts)
         : base(worldPosition, scene)
     {
         Text = text ?? string.Empty;
-        Language = language;
-        Components = components;
+        InscriptionLanguage = inscriptionLanguage;
+        Concepts = concepts;
     }
 
     public override Node3D CreateEntity(World world)

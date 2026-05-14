@@ -175,6 +175,26 @@ public class StatusEffectController
 		}
 	}
 
+	// Sum of every active effect's maxStaminaBonus. Player.MaxStamina folds
+	// this in so a Hydrated player gets +50 to their cap for the duration.
+	public float MaxStaminaBonus
+	{
+		get
+		{
+			float sum = 0f;
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				StatusEffectData data = _statusEffects[i]?.data;
+				if (data == null)
+				{
+					continue;
+				}
+				sum += data.maxStaminaBonus;
+			}
+			return sum;
+		}
+	}
+
 	// Stop the loop fx and spawn the one-shot end cue. Called from both the
 	// explicit Remove path and the Tick expiry branch so end-of-effect is
 	// uniform regardless of how the effect was cleared.

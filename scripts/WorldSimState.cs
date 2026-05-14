@@ -71,6 +71,16 @@ public class WorldSimState
         {
             return data.unidentifiedDisplayName.ToString();
         }
+        // Scrolls auto-derive their identified name from the concept they
+        // teach ("Scroll of <region name>", etc) so authors don't have to
+        // keep the displayName field in sync with the concept ref. The
+        // unidentified path above still uses the static placeholder
+        // (typically "Unknown Scroll") so the reveal moment shows the
+        // specific thing the scroll teaches in one go.
+        if (data is ScrollData scroll)
+        {
+            return scroll.GetEffectiveDisplayName();
+        }
         return data.displayName.ToString();
     }
 }

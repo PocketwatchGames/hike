@@ -38,9 +38,11 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         if (hud != null)
         {
             Player player = gc?.Player;
+            ELanguageComponents learned = player == null ? ELanguageComponents.None : player.GetLearnedComponents(_language);
             ELanguageComponents missing = player == null
                 ? ELanguageComponents.None
-                : ELanguageComponents.All & ~player.GetLearnedComponents(_language);
+                : ELanguageComponents.All & ~learned;
+            GD.Print($"[Signpost] language={_language?.displayName ?? "null"} id={_language?.GetInstanceId()} path={_language?.ResourcePath} learned={learned} missing={missing}");
             string display = missing == ELanguageComponents.None
                 ? _text
                 : TextScrambler.Scramble(_text, _language, missing);

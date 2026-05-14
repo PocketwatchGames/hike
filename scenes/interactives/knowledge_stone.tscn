@@ -18,7 +18,6 @@
 [sub_resource type="Resource" id="Resource_ks_event_open"]
 script = ExtResource("9_event")
 type = 256
-languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_ks_action_read"]
 script = ExtResource("8_action")

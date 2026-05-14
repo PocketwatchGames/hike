@@ -258,7 +258,7 @@ public partial class Player : CharacterBody3D
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor;
 	public float Stamina => _stamina;
-	public float MaxStamina => data?.maxStamina ?? 0f;
+	public float MaxStamina => (data?.maxStamina ?? 0f) + (_statusEffects?.MaxStaminaBonus ?? 0f);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
@@ -1140,6 +1140,13 @@ public partial class Player : CharacterBody3D
 	private void TickStamina(float dt)
 	{
 		float max = MaxStamina;
+		// A status effect with maxStaminaBonus can shrink the cap when it
+		// expires (e.g. Hydrated wearing off). Clamp before the recharge
+		// early-out so a higher-than-cap value comes back down to the new max.
+		if (_stamina > max)
+		{
+			_stamina = max;
+		}
 		if (max <= 0f || _stamina >= max)
 		{
 			return;

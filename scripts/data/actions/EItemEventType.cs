@@ -38,5 +38,12 @@ public enum EItemEventType
 	// flash plays on the actor (typically the player) only when Add returns
 	// true so re-reading a stone whose language is already known is silent.
 	LearnLanguage = 1 << 11,
+	// Teaches ev.concept (a TeachableConcept) to the learner. Superset of
+	// LearnLanguage — handles language pieces, recipes, region locations,
+	// and any future TeachableConcept subclass through one event type.
+	// Scrolls author this on the consumable's release tick alongside
+	// DecrementStack; NPCs (once IInteractive-backed) author it on a Talk
+	// action's completion events.
+	LearnConcept = 1 << 12,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

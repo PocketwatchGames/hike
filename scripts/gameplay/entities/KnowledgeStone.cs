@@ -1,19 +1,27 @@
 using Godot;
 
-// A stone inscribed in some language. Reading it teaches the player the
-// stone's language AND shows the inscription via the same HUD panel as
-// Signpost — the text flips from scrambled to legible the moment the
-// language is learned. Subsequent reads silently re-show the legible text.
+// A stone inscribed in some language. Reading it grants every concept on
+// `_concepts` AND shows the inscription via the same HUD panel as Signpost —
+// the text flips from scrambled to legible the moment the player has all
+// `_inscriptionLanguage` components. Subsequent reads silently re-show the
+// legible text.
 //
-// Learning happens INSIDE Complete() rather than via a LearnLanguage
-// ItemEvent in the action's completionEvents because the read-and-reveal
-// flow is tightly coupled: we need an unambiguous "learn first, then
-// display" ordering even on a zero-duration interactive where every
-// completionEvent fires in the same call stack. Doing the learn inline
-// guarantees that ordering without depending on event-array iteration
-// quirks. The LearnLanguage ItemEvent flag still exists for sources that
-// can use the event-driven flow (language-teaching consumables, mob
-// dialogue) — they don't have a parent Complete() to host the work.
+// The concepts and the inscription language are intentionally decoupled:
+// most stones teach their own inscription language (a LanguageTeachable for
+// `_inscriptionLanguage` lives in `_concepts`), but a stone written in a
+// language the player already knows can teach something else (a recipe, a
+// map region) — the inscription field still drives the scramble while the
+// concepts drive the grant. NPCs follow the same pattern through the
+// LearnConcept ItemEvent on a Talk action's completionEvents.
+//
+// Learning happens INSIDE Complete() rather than via a LearnConcept event in
+// the action's completionEvents because the read-and-reveal flow is tightly
+// coupled: we need an unambiguous "learn first, then display" ordering even
+// on a zero-duration interactive where every completionEvent fires in the
+// same call stack. Doing the learn inline guarantees that ordering without
+// depending on event-array iteration quirks. The LearnConcept ItemEvent
+// flag still exists for sources that can use the event-driven flow (scrolls,
+// NPC dialogue) — they don't have a parent Complete() to host the work.
 [GlobalClass]
 public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
 {
@@ -23,23 +31,24 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     // the learning + fx in code, before showing the inscription.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     // Inscription shown on Read. Pre-learning it scrambles through
-    // TextScrambler keyed on `_language`; post-learning it shows raw.
+    // TextScrambler keyed on `_inscriptionLanguage`; post-learning it shows raw.
     [Export(PropertyHint.MultilineText)] private string _text = "";
-    // Language the inscription is written in AND the language that reading
-    // the stone teaches. Single field — when the player reads, this gets
-    // added to their LearnedLanguages set, and the same field gates the
-    // scramble of the displayed text. Per-instance override goes through
-    // KnowledgeStoneSimState (worldgen / world file).
-    [Export] private LanguageData _language;
-    // Components of `_language` this stone teaches when read. A stone
-    // typically grants one of the four pieces (Grammar / Numbers / Glyphs
-    // / Spelling); a hand-authored "master" stone could grant All. Per-
-    // instance override flows through KnowledgeStoneSimState.Components.
-    [Export, CompactFlags] private ELanguageComponents _components = ELanguageComponents.All;
-    // FX spawned on the player the first time this read adds a new
-    // component to the player's learned-set for `_language`. Subsequent
-    // reads — including re-reads of the same stone, or reads of a stone
-    // that only teaches components the player already had — are silent.
+    // Language the inscription is written in (drives the TextScrambler
+    // gating on display). Separate from what the stone teaches — most
+    // stones teach their own inscription language via a LanguageTeachable
+    // in `_concepts`, but the two fields are independent so a stone can
+    // teach a recipe / region while still presenting as inscribed text.
+    [Export] private LanguageData _inscriptionLanguage;
+    // Concepts granted on read. Polymorphic — language pieces, recipes,
+    // map-region locations, future skills. Each concept's Teach() is called
+    // in order; _firstLearnEffect fires once if ANY return true (so a stone
+    // that teaches two concepts the player already has one of still gets
+    // the celebration when the second one lands).
+    [Export] private Godot.Collections.Array<TeachableConcept> _concepts = new();
+    // FX spawned on the player the first time this read newly grants any
+    // concept. Subsequent reads — including re-reads of the same stone, or
+    // reads of a stone whose entire concept set the player already knows —
+    // are silent.
     [Export] private PackedScene _firstLearnEffect;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
@@ -65,21 +74,37 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             return;
         }
         Player player = gc?.Player;
-        // Learn first, then display. LearnLanguageComponents returns true
-        // only when this read actually added a new component bit, so the
-        // firstLearnEffect doesn't fire on re-reads or on a stone teaching
-        // a component the player already has. The scramble check below
-        // then runs against the freshly-updated learned-set.
-        if (player != null && player.LearnLanguageComponents(_language, _components) && _firstLearnEffect != null)
+        // Learn first, then display. Each concept's Teach() returns true
+        // only when it newly granted something, so the firstLearnEffect
+        // gates on the OR across the concept array — a stone teaching two
+        // things the player already knows one of still gets the
+        // celebration when the second one lands.
+        bool learnedSomething = false;
+        if (player != null && _concepts != null)
+        {
+            for (int i = 0; i < _concepts.Count; i++)
+            {
+                TeachableConcept concept = _concepts[i];
+                if (concept != null && concept.Teach(player))
+                {
+                    learnedSomething = true;
+                }
+            }
+        }
+        if (learnedSomething && _firstLearnEffect != null)
         {
             Fx.Create(_firstLearnEffect, player, Vector3.Zero);
         }
-        ELanguageComponents missing = player == null
+        // Display scramble is gated on the inscription language only — the
+        // other concept types don't affect text legibility. A stone teaching
+        // only a recipe / region renders its inscription scrambled until
+        // some other source teaches the inscription language.
+        ELanguageComponents missing = player == null || _inscriptionLanguage == null
             ? ELanguageComponents.None
-            : ELanguageComponents.All & ~player.GetLearnedComponents(_language);
+            : ELanguageComponents.All & ~player.GetLearnedComponents(_inscriptionLanguage);
         string display = missing == ELanguageComponents.None
             ? _text
-            : TextScrambler.Scramble(_text, _language, missing);
+            : TextScrambler.Scramble(_text, _inscriptionLanguage, missing);
         hud.ShowSignpost(display, this);
     }
 
@@ -92,13 +117,19 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         {
             instance._text = data.Text;
         }
-        if (data.Language != null)
+        if (data.InscriptionLanguage != null)
         {
-            instance._language = data.Language;
+            instance._inscriptionLanguage = data.InscriptionLanguage;
         }
-        if (data.Components != ELanguageComponents.None)
+        // SimState concept overrides REPLACE the scene's authored set —
+        // worldgen / world-file placements drive the full teach list. The
+        // scene's authored _concepts stays in place when the SimState
+        // doesn't carry an override (null/empty), so authored-only stones
+        // (those placed by hand in a scene file with no SimState mutation)
+        // keep working.
+        if (data.Concepts != null && data.Concepts.Count > 0)
         {
-            instance._components = data.Components;
+            instance._concepts = data.Concepts;
         }
         world.AddChild(instance);
         return instance;

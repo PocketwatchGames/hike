@@ -19,19 +19,37 @@ public partial class ChunkMesh : Node3D
     private Vector3I _scatteredChunkCoord;
     private bool _scatterPosted;
 
-    private static readonly ShaderMaterial SharedMaterial;
-    private static readonly ShaderMaterial ShadowCasterMaterial;
-    private static readonly ShaderMaterial WaterMaterial;
-    private static readonly ShaderMaterial WaterBackfaceMaterial;
+    // Lazy-initialized on first ChunkMesh.Create / SetTerrains call rather
+    // than from a static constructor. Static cctors fire when Godot walks
+    // the script-class registry at editor startup (via the source-gen-
+    // emitted GetGodotMethodList / GetGodotPropertyList statics), and at
+    // that point user C# resource types may not be registered yet —
+    // `GD.Load<BlockCatalog>(...)` would come back as a plain Godot.Resource
+    // and the cast throws. Deferring to first use guarantees registration
+    // is complete and keeps the cctor from triggering during introspection.
+    private static ShaderMaterial SharedMaterial;
+    private static ShaderMaterial ShadowCasterMaterial;
+    private static ShaderMaterial WaterMaterial;
+    private static ShaderMaterial WaterBackfaceMaterial;
     // Materials used by the off-screen cap-mask render. Both apply to the
     // same chunk mesh on CapMaskLayer-only MeshInstance3Ds and produce a
     // black-and-white texture the cap shader samples to discard non-cap
     // pixels.
-    private static readonly ShaderMaterial MaskTerrainMaterial;
-    private static readonly ShaderMaterial MaskBackfaceMaterial;
+    private static ShaderMaterial MaskTerrainMaterial;
+    private static ShaderMaterial MaskBackfaceMaterial;
+    private static bool _materialsInitialized;
 
-    static ChunkMesh()
+    private static void EnsureMaterialsInitialized()
     {
+        if (_materialsInitialized)
+        {
+            return;
+        }
+        // Set the flag first so a load failure inside this method doesn't
+        // re-enter and double-build the materials on the retry path. Any
+        // exception below is a real bug to surface, not transient.
+        _materialsInitialized = true;
+
         var shader = GD.Load<Shader>("res://shaders/voxel_clip.gdshader");
         SharedMaterial = new ShaderMaterial();
         SharedMaterial.Shader = shader;
@@ -144,6 +162,7 @@ public partial class ChunkMesh : Node3D
     // first renders; subsequent calls are a no-op if kits haven't changed.
     public static void SetTerrains(TerrainData[] terrains)
     {
+        EnsureMaterialsInitialized();
         _activeTerrains = terrains;
         // terrain_tiles[i] = (flat, wall, _, _). The shader reads .x/.y for
         //   the flat↔wall smoothstep blend. Overlays are authored per-voxel
@@ -197,6 +216,7 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, bool> chunkExists)
     {
         using var _prof = Profiler.Sample("ChunkMesh.Create");
+        EnsureMaterialsInitialized();
         var chunk = new ChunkMesh();
         chunk.Position = new Vector3(
             data.ChunkCoord.X * ChunkState.SIZE,

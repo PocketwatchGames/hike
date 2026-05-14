@@ -102,6 +102,12 @@ public partial class ItemEvent : Resource
 	[Export, CompactFlags] public ELanguageComponents languageComponents = ELanguageComponents.All;
 	[Export] public PackedScene firstLearnEffect;
 
+	// LearnConcept field. Polymorphic resource ref — any TeachableConcept
+	// subclass (LanguageTeachable, RecipeTeachable, RegionTeachable, ...).
+	// Shares `firstLearnEffect` with the LearnLanguage path: handler plays
+	// it on the actor when concept.Teach returns true (newly added).
+	[Export] public TeachableConcept concept;
+
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
 	// on what the swing/ray hit. Authored on the event so a single weapon can
 	// give light vs heavy attacks distinct impact signatures, and so mob
@@ -137,7 +143,9 @@ public partial class ItemEvent : Resource
 			nameof(fx) => EItemEventType.OpenInteractive,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) => EItemEventType.ApplyMotion,
-			nameof(language) or nameof(languageComponents) or nameof(firstLearnEffect) => EItemEventType.LearnLanguage,
+			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
+			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
+			nameof(concept) => EItemEventType.LearnConcept,
 			nameof(damageData)
 				or nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)

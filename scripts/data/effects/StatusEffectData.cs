@@ -53,6 +53,12 @@ public partial class StatusEffectData : Resource
 	// debuff).
 	[Export] public float damageMultiplier = 1f;
 
+	// Flat bonus added to the actor's maxStamina while this effect is active.
+	// Summed across active effects on StatusEffectController.MaxStaminaBonus
+	// and folded into Player.MaxStamina. 0 is neutral; status_hydrated.tres
+	// authors +50 so drinking from a well raises the cap for the duration.
+	[Export] public float maxStaminaBonus;
+
 	// Per-effect shifts to the player's hot / cold trigger thresholds in
 	// degrees F. Player.cs sums these across every active StatusEffectState
 	// and applies them as: effective coldThreshold = base - sumColdResistance,

@@ -153,7 +153,6 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	private void OnHurtBoxHit(HitInfo hit)
 	{
-		GD.Print($"Loot hit for {hit.healthDamage} from {hit.source?.Name}");
 	}
 
 	private void OnInteractAreaBodyEntered(Node body)

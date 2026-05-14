@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://b7gskto31x441"]
 
-[ext_resource type="Script" uid="uid://b7gsktphwax41" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
+[ext_resource type="Script" uid="uid://b8wellscript01" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]

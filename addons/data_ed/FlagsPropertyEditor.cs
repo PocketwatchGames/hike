@@ -2,6 +2,7 @@
 
 using Godot;
 using System;
+using System.Collections.Generic;
 
 // Compact dropdown replacement for Godot's default flags-grid editor.
 // Hint string format matches Godot's PropertyHint.Flags: comma-separated
@@ -19,7 +20,18 @@ public partial class FlagsPropertyEditor : EditorProperty
 
 	public FlagsPropertyEditor(string hintString)
 	{
-		_button = new MenuButton { Alignment = HorizontalAlignment.Left, ClipText = true };
+		_button = new MenuButton
+		{
+			Alignment = HorizontalAlignment.Left,
+			ClipText = true,
+			// Without ExpandFill the button collapses to its zero-text size on
+			// first paint — the property row renders the label but the
+			// MenuButton looks invisible / unclickable until the user types
+			// into the property and forces a re-layout. ExpandFill claims
+			// the row's right-hand editor strip, matching how the default
+			// flags-grid editor lays out.
+			SizeFlagsHorizontal = SizeFlags.ExpandFill,
+		};
 		AddChild(_button);
 		AddFocusable(_button);
 
@@ -31,19 +43,31 @@ public partial class FlagsPropertyEditor : EditorProperty
 		_menu.HideOnCheckableItemSelection = false;
 
 		var options = hintString.Split(',', StringSplitOptions.RemoveEmptyEntries);
-		_names = new string[options.Length];
-		_flags = new int[options.Length];
+		var names = new List<string>(options.Length);
+		var flags = new List<int>(options.Length);
 		for (int i = 0; i < options.Length; i++)
 		{
 			var ss = options[i].Split(':', StringSplitOptions.RemoveEmptyEntries);
-			_names[i] = ss[0];
-			_flags[i] = 1 << i;
+			int value = 1 << i;
 			if (ss.Length > 1 && int.TryParse(ss[1], out int j))
 			{
-				_flags[i] = j;
+				value = j;
 			}
-			_menu.AddCheckItem(ss[0], _flags[i]);
+			// Skip the zero entry (None) and any multi-bit alias (All) — these
+			// are convenience constants for code, not togglable flags. The
+			// menu should only list single-bit primaries the user can flip
+			// on/off independently. Mirrors Godot's own default flags
+			// inspector, which also hides aliases.
+			if (value <= 0 || (value & (value - 1)) != 0)
+			{
+				continue;
+			}
+			names.Add(ss[0]);
+			flags.Add(value);
+			_menu.AddCheckItem(ss[0], value);
 		}
+		_names = names.ToArray();
+		_flags = flags.ToArray();
 	}
 
 	private void MenuIdPressed(long id)
