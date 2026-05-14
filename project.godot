@@ -618,6 +618,10 @@ wind_map_inv_size={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }
+wind_velocity_scale={
+"type": "float",
+"value": 30.0
+}
 water_current_map={
 "type": "sampler3D",
 "value": "res://assets/textures/water_current_map_placeholder.tres"

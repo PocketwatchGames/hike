@@ -66,7 +66,13 @@ public static class WorldFile
     //      currentX then currentZ) between envTag and zoneIndex — drives the
     //      water_current_map 3D shader global, advecting ripple normals on
     //      the water surface to visualize streams/rivers/tidal flow.
-    public const uint VERSION = 16;
+    // v17: chunk payload appended three coarse wind-velocity subgrids
+    //      (4³ bytes each: windVelocityX, Y, Z) after currentZ. Stored as
+    //      the RGB channels of the existing wind_map texture (alpha kept
+    //      as WindFactor) so per-cell air currents can flow through caves,
+    //      mountain passes, and other authored regions instead of the
+    //      whole world sharing a single global wind_dir.
+    public const uint VERSION = 17;
 
     public struct IndexEntry
     {

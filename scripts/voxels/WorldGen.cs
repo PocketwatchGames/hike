@@ -617,9 +617,55 @@ public static class WorldGen
         // visibly varying flow field where the test world has water.
         GenerateTestWaterCurrents(ws);
 
+        // Test override demonstrating the wind-velocity authoring path.
+        // Amplifies a small region around the origin to ~3× the default
+        // ambient speed so future consumers (particles, visual debug,
+        // audio) can verify that authored gust regions read correctly
+        // without needing the editor.
+        GenerateTestStrongWind(ws);
+
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
         return ws;
+    }
+
+    // Authored "strong gust" region — multiplies the WindGen-baked
+    // velocity by GustMultiplier inside a horizontal box around the
+    // world origin. Stays bounded by the storage scale (clipping happens
+    // inside SetWindVelocity), so over-amplification just clamps. Real
+    // worlds will get this from the editor; this is the test seed so we
+    // can prove out per-cell authoring without one.
+    private static void GenerateTestStrongWind(WorldState ws)
+    {
+        const float GustMultiplier = 3f;
+        const int RadiusXZ = 32;
+        const int VoxelsPerCell = ChunkState.ENV_VOXELS_PER_CELL;
+        for (int cz = ws.Min.Z; cz <= ws.Max.Z; cz++)
+        {
+            for (int cy = ws.Min.Y; cy <= ws.Max.Y; cy++)
+            {
+                for (int cx = ws.Min.X; cx <= ws.Max.X; cx++)
+                {
+                    ChunkState chunk = ws.GetChunk(new Vector3I(cx, cy, cz));
+                    if (chunk == null) { continue; }
+                    for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
+                    {
+                        int wx = cx * ChunkState.SIZE + sx * VoxelsPerCell + VoxelsPerCell / 2;
+                        if (wx < -RadiusXZ || wx > RadiusXZ) { continue; }
+                        for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
+                        {
+                            for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
+                            {
+                                int wz = cz * ChunkState.SIZE + sz * VoxelsPerCell + VoxelsPerCell / 2;
+                                if (wz < -RadiusXZ || wz > RadiusXZ) { continue; }
+                                Vector3 v = chunk.GetWindVelocity(sx, sy, sz) * GustMultiplier;
+                                chunk.SetWindVelocity(sx, sy, sz, v.X, v.Y, v.Z);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // Procedural sinusoidal current field — direction and magnitude vary

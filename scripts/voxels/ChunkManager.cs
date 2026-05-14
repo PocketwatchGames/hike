@@ -73,6 +73,11 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("wind_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _windMap.Texture);
         ShaderGlobals.Register("wind_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _windMap.Origin);
         ShaderGlobals.Register("wind_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _windMap.Size);
+        // Maps stored RGB (signed [-1, 1]) to world m/s when shaders decode
+        // wind_map velocity. Must match WindGen.WIND_VELOCITY_SCALE — change
+        // them together (or re-bake chunks) so disk values keep their
+        // intended magnitudes.
+        ShaderGlobals.Register("wind_velocity_scale", RenderingServer.GlobalShaderParameterType.Float, WindGen.WIND_VELOCITY_SCALE);
         // Water-current subgrid — same UVW convention as wind_map / light_map.
         // Declared in project.godot with a PlaceholderTexture3D so the editor
         // can compile voxel_water.gdshader; the runtime ImageTexture3D is
@@ -162,6 +167,12 @@ public partial class ChunkManager : Node3D
             DrainWaterCurrentChunkDirty();
             _waterCurrentMap.Flush(_worldData, _loadedChunks.Keys);
         }
+
+        using (Profiler.Sample("ChunkManager.WindFlush"))
+        {
+            DrainWindChunkDirty();
+            _windMap.Flush(_worldData, _loadedChunks.Keys);
+        }
     }
 
     public void UpdateLighting(List<Vector3I> changedPositions)
@@ -234,6 +245,16 @@ public partial class ChunkManager : Node3D
             _waterCurrentMap.MarkChunkDirty(coord);
         }
         _worldData.WaterCurrentChunkDirty.Clear();
+    }
+
+    private void DrainWindChunkDirty()
+    {
+        if (_worldData.WindChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.WindChunkDirty)
+        {
+            _windMap.MarkChunkDirty(coord);
+        }
+        _worldData.WindChunkDirty.Clear();
     }
 
     public void RebuildNearbyChunkMeshes(Vector3 worldPos, List<Vector3I> changedPositions)

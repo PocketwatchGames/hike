@@ -167,6 +167,11 @@ global uniform vec3 wind_dir;
 global uniform sampler3D wind_map : filter_linear;
 global uniform vec3 wind_map_origin;
 global uniform vec3 wind_map_inv_size;
+// Stored wind-velocity range: a cell's RGB sample (decoded to [-1,1])
+// times this scalar yields wind velocity in world m/s. Lets authored
+// strong currents reach beyond the per-zone baseline without re-baking
+// chunks when the global "max gust" target changes.
+global uniform float wind_velocity_scale;
 // Coarse water-current 3D texture — 2D vector per cell stored in RG8
 // with byte 128 = signed zero, decoded in-shader as `rg * 2.0 - 1.0` to
 // recover [-1, 1] (normalized world-XZ velocity). Same UVW convention as
@@ -270,9 +275,24 @@ const float MIN_AMBIENT = 0.0;
 // Trilinear wind-factor sample at a world-space point. Texture sampler
 // clamps to edge so out-of-bounds positions read the boundary cell —
 // fine for finite worlds where water never sits beyond the map extent.
+// `.a` carries WindFactor (RGB carries WindVelocity now).
 float sample_wind_factor(vec3 world_pos) {
 	vec3 uvw = (world_pos - wind_map_origin) * wind_map_inv_size;
-	return texture(wind_map, uvw).r;
+	return texture(wind_map, uvw).a;
+}
+
+// Trilinear wind-velocity sample at a world-space point. Decodes the
+// RGB byte-128-is-zero packing back to a signed [-1, 1] XYZ vector and
+// scales by `wind_velocity_scale` to produce world m/s. Includes the
+// per-zone default direction as well as any authored overrides; does
+// NOT apply the WindFactor (sealed) damping — caller composes that
+// with `sample_wind_factor` if needed, since some consumers (e.g.
+// indoor air-pressure / mob hearing) want raw velocity even where
+// surface wind is muted.
+vec3 sample_wind_velocity(vec3 world_pos) {
+	vec3 uvw = (world_pos - wind_map_origin) * wind_map_inv_size;
+	vec3 v = texture(wind_map, uvw).rgb * 2.0 - 1.0;
+	return v * wind_velocity_scale;
 }
 
 // Trilinear water-current sample at a world-space point. Decodes the

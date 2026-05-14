@@ -177,6 +177,11 @@ public class WorldState
     // to push only touched chunks back to the GPU.
     public readonly HashSet<Vector3I> WaterCurrentChunkDirty = new();
 
+    // Same pattern for WindMap. Used for both per-cell wind velocity (RGB
+    // channels) and WindFactor (alpha channel) writes — they share a
+    // texture, so a change to either marks the chunk for re-encode.
+    public readonly HashSet<Vector3I> WindChunkDirty = new();
+
     public WorldState(Vector3I min, Vector3I max, SimData simData)
     {
         Min = min;

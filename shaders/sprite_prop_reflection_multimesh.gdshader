@@ -402,7 +402,8 @@ void fragment() {
             // matches voxel_water.gdshader's smooth trilinear sampling.
             vec3 wind_sample_pos = vec3(surface_xz.x, water_y_var, surface_xz.y);
             vec3 wind_uvw = (wind_sample_pos - wind_map_origin) * wind_map_inv_size;
-            float wind_factor = texture(wind_map, wind_uvw).r;
+            // .a holds WindFactor (RGB now carries per-cell wind velocity).
+            float wind_factor = texture(wind_map, wind_uvw).a;
             vec2 ripple_tilt = mix(vec2(0.0), n_combined.xz, ripple_strength * wind_factor);
             dbg_ripple_tilt = ripple_tilt;
 

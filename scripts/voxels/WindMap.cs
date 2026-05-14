@@ -1,12 +1,23 @@
 using System.Collections.Generic;
 using Godot;
 
-// Coarse wind-factor 3D texture. Mirrors FogMap's R8 ImageTexture3D
-// pattern, but at 1/ENV_VOXELS_PER_CELL the resolution per axis — each
-// texel covers a 4x4x4 voxel block. Sampled in world space by shaders
+// Coarse wind 3D texture, RGBA8. Each cell covers a 4x4x4 voxel block
+// (ENV_VOXELS_PER_CELL on each axis). Sampled in world space by shaders
 // and (eventually) by audio code via the `wind_map` global uniform; the
 // hardware sampler's trilinear filter smooths cave-mouth transitions
 // over the cell footprint.
+//
+// Channel layout:
+//   R, G, B = WindVelocityX, Y, Z. Signed, byte-128-zero encoding —
+//             shader does `texture(wind_map, uvw).rgb * 2.0 - 1.0` to
+//             recover [-1, 1], then multiplies by `wind_velocity_scale`
+//             to get world m/s. Carries per-zone wind direction by
+//             default (baked by WindGen) plus any authored overrides
+//             (mountain pass funnels, cave drafts, localized gusts).
+//   A       = WindFactor. 0 = sealed (deep cave / building interior),
+//             255 = full ambient wind. Existing damping multiplier
+//             unchanged from when wind_map was R8 — consumers that only
+//             need the factor read `.a` instead of the old `.r`.
 //
 // Sized to the full WorldState voxel extent so origin/inv_size match the
 // LightMap and FogMap convention: shader does
@@ -16,6 +27,7 @@ public class WindMap
 {
     private const int CELL = ChunkState.ENV_VOXELS_PER_CELL;
     private const int CELLS_PER_CHUNK = ChunkState.ENV_SUBGRID_SIZE;
+    private const int BYTES_PER_PIXEL = 4;
 
     private readonly int _width;
     private readonly int _height;
@@ -62,8 +74,18 @@ public class WindMap
         _imageList = new Godot.Collections.Array<Image>();
         for (int z = 0; z < _depth; z++)
         {
-            _slicePixels[z] = new byte[_width * _height];
-            _slices[z] = Image.CreateFromData(_width, _height, false, Image.Format.R8, _slicePixels[z]);
+            _slicePixels[z] = new byte[_width * _height * BYTES_PER_PIXEL];
+            // Seed velocity channels (RGB) to byte 128 = signed zero so
+            // unauthored cells decode to zero wind, not max-negative. Alpha
+            // (WindFactor) defaults to 0 = sealed, the safe pre-bake state.
+            for (int i = 0; i < _slicePixels[z].Length; i += BYTES_PER_PIXEL)
+            {
+                _slicePixels[z][i + 0] = 128;
+                _slicePixels[z][i + 1] = 128;
+                _slicePixels[z][i + 2] = 128;
+                _slicePixels[z][i + 3] = 0;
+            }
+            _slices[z] = Image.CreateFromData(_width, _height, false, Image.Format.Rgba8, _slicePixels[z]);
             _imageList.Add(_slices[z]);
         }
 
@@ -130,10 +152,14 @@ public class WindMap
             byte[] pixels = _slicePixels[baseZ + sz];
             for (int sy = 0; sy < CELLS_PER_CHUNK; sy++)
             {
-                int rowOffset = (baseY + sy) * _width + baseX;
+                int rowOffset = ((baseY + sy) * _width + baseX) * BYTES_PER_PIXEL;
                 for (int sx = 0; sx < CELLS_PER_CHUNK; sx++)
                 {
-                    pixels[rowOffset + sx] = chunk.WindFactor[sx, sy, sz];
+                    int o = rowOffset + sx * BYTES_PER_PIXEL;
+                    pixels[o + 0] = chunk.WindVelocityX[sx, sy, sz];
+                    pixels[o + 1] = chunk.WindVelocityY[sx, sy, sz];
+                    pixels[o + 2] = chunk.WindVelocityZ[sx, sy, sz];
+                    pixels[o + 3] = chunk.WindFactor[sx, sy, sz];
                 }
             }
         }
@@ -141,7 +167,7 @@ public class WindMap
         for (int sz = 0; sz < CELLS_PER_CHUNK; sz++)
         {
             int sliceIdx = baseZ + sz;
-            _slices[sliceIdx] = Image.CreateFromData(_width, _height, false, Image.Format.R8, _slicePixels[sliceIdx]);
+            _slices[sliceIdx] = Image.CreateFromData(_width, _height, false, Image.Format.Rgba8, _slicePixels[sliceIdx]);
             _imageList[sliceIdx] = _slices[sliceIdx];
         }
     }
@@ -150,7 +176,7 @@ public class WindMap
     {
         if (initialCreate || !_textureCreated)
         {
-            _texture.Create(Image.Format.R8, _width, _height, _depth, false, _imageList);
+            _texture.Create(Image.Format.Rgba8, _width, _height, _depth, false, _imageList);
             _textureCreated = true;
         }
         else
