@@ -253,6 +253,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
     private float _lastLinearDamp = float.NaN;
+    private float _lastGravityScale = float.NaN;
     // Authored GravityScale captured on first swim entry. The swim gate
     // sets GravityScale=0 (buoyancy + drag own vertical motion; without
     // this engine gravity bleeds in alongside, and the net force at
@@ -1030,6 +1031,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 LinearDamp = linearDampTarget;
                 _lastLinearDamp = linearDampTarget;
+            }
+
+            // Engine gravity continues to act on a RigidBody every tick.
+            // Buoyancy in ApplyWaterPhysics caps at `buoyancyAcceleration`
+            // upward, so any nonzero gravity-scale leaves a net downward
+            // force at the surface (depth=0, buoyancy=0) and the mob sinks
+            // until the depth-scaled buoyancy balances g. The player skips
+            // gravity entirely while swimming; do the same here by zeroing
+            // GravityScale, then restoring 1 on exit.
+            float gravityScaleTarget = (_swimming && !inBurrow) ? 0f : 1f;
+            if (gravityScaleTarget != _lastGravityScale)
+            {
+                GravityScale = gravityScaleTarget;
+                _lastGravityScale = gravityScaleTarget;
             }
 
             if (_swimming && !inBurrow)

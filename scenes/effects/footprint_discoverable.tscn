@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bvhhmrxjrbjb8"]
 
-[ext_resource type="Script" uid="uid://bkkclrfi76ms1" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
+[ext_resource type="Script" uid="uid://yqzj43w1mevdm" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="2_discoverable"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="2_icxdf"]
 

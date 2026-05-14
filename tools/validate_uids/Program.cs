@@ -7,6 +7,7 @@ class Program
 {
 	static readonly string[] ScriptScanRoots = new[] { "scripts", "addons", "tools" };
 	static readonly string[] SceneScanRoots = new[] { "scenes", "resources", "addons" };
+	static readonly string[] ShaderScanRoots = new[] { "shaders" };
 	static readonly string[] SceneExtensions = new[] { ".tscn", ".tres" };
 
 	static readonly Regex UidValueRegex = new Regex(@"^uid://[a-z0-9]+$", RegexOptions.Compiled);
@@ -34,7 +35,7 @@ class Program
 		}
 
 		Console.WriteLine($"Repo root: {repoRoot}");
-		Console.WriteLine($"Mode: {(fix ? "validate + auto-fix missing .cs.uid sidecars" : "validate only")}");
+		Console.WriteLine($"Mode: {(fix ? "validate + auto-fix missing .cs.uid sidecars + rewrite mismatched ext_resource uids" : "validate only")}");
 		Console.WriteLine();
 
 		var issues = new List<string>();
@@ -42,7 +43,7 @@ class Program
 		var uidByPath = ScanUidSidecars(repoRoot, issues);
 		ValidateScriptSidecars(repoRoot, uidByPath, issues, fix);
 		ValidateUidUniqueness(uidByPath, issues);
-		ValidateSceneReferences(repoRoot, uidByPath, issues);
+		ValidateSceneReferences(repoRoot, uidByPath, issues, fix);
 
 		Console.WriteLine();
 		if (issues.Count == 0)
@@ -97,6 +98,19 @@ class Program
 		}
 
 		foreach (string root in EnumerateRoots(repoRoot, ScriptScanRoots))
+		{
+			foreach (string uidFile in Directory.EnumerateFiles(root, "*.uid", SearchOption.AllDirectories))
+			{
+				if (IsExcluded(uidFile))
+				{
+					continue;
+				}
+
+				ReadAndRecordUid(repoRoot, uidFile, uidByPath, issues);
+			}
+		}
+
+		foreach (string root in EnumerateRoots(repoRoot, ShaderScanRoots))
 		{
 			foreach (string uidFile in Directory.EnumerateFiles(root, "*.uid", SearchOption.AllDirectories))
 			{
@@ -189,7 +203,7 @@ class Program
 		}
 	}
 
-	static void ValidateSceneReferences(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues)
+	static void ValidateSceneReferences(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues, bool fix)
 	{
 		var uidLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 		foreach (var kv in uidByPath)
@@ -221,7 +235,7 @@ class Program
 					continue;
 				}
 
-				ValidateSceneFile(repoRoot, sceneFile, uidByPath, uidLookup, issues);
+				ValidateSceneFile(repoRoot, sceneFile, uidByPath, uidLookup, issues, fix);
 			}
 		}
 	}
@@ -231,10 +245,19 @@ class Program
 		string sceneFile,
 		Dictionary<string, string> uidByPath,
 		Dictionary<string, string> uidLookup,
-		List<string> issues)
+		List<string> issues,
+		bool fix)
 	{
-		string[] lines = File.ReadAllLines(sceneFile);
+		string originalText = File.ReadAllText(sceneFile);
+		string newline = originalText.Contains("\r\n") ? "\r\n" : "\n";
+		bool trailingNewline = originalText.EndsWith(newline);
+		string[] lines = originalText.Split(new[] { newline }, StringSplitOptions.None);
+		if (trailingNewline && lines.Length > 0 && lines[lines.Length - 1].Length == 0)
+		{
+			Array.Resize(ref lines, lines.Length - 1);
+		}
 		string sceneRel = Relative(repoRoot, sceneFile);
+		bool dirty = false;
 
 		for (int i = 0; i < lines.Length; i++)
 		{
@@ -288,8 +311,17 @@ class Program
 			{
 				if (!string.Equals(expected, uid, StringComparison.OrdinalIgnoreCase))
 				{
-					issues.Add(
-						$"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)}.uid ({expected})");
+					if (fix)
+					{
+						lines[i] = lines[i].Replace($"uid=\"{uid}\"", $"uid=\"{expected}\"");
+						dirty = true;
+						Console.WriteLine($"  fixed: {sceneRel}:{i + 1} uid {uid} -> {expected} ({Relative(repoRoot, targetAbs)})");
+					}
+					else
+					{
+						issues.Add(
+							$"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)}.uid ({expected})");
+					}
 				}
 			}
 			else
@@ -300,6 +332,12 @@ class Program
 						$"{sceneRel}:{i + 1}: uid {uid} belongs to {Relative(repoRoot, owner)} but reference points to {path}");
 				}
 			}
+		}
+
+		if (dirty)
+		{
+			string output = string.Join(newline, lines) + (trailingNewline ? newline : string.Empty);
+			File.WriteAllText(sceneFile, output);
 		}
 	}
 

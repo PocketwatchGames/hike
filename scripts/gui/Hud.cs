@@ -133,9 +133,9 @@ public partial class Hud : Control
 
 	public bool IsSignpostOpen => _signpostPanel != null && _signpostPanel.IsOpen;
 
-	public void ShowSignpost(string text)
+	public void ShowSignpost(string text, Signpost source)
 	{
-		_signpostPanel?.Open(text);
+		_signpostPanel?.Open(text, source);
 	}
 
 	public void CloseSignpost()

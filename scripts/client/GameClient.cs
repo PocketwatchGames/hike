@@ -214,7 +214,7 @@ public partial class GameClient : Node3D
 	Vector3 _currentRegionEnterPos;
 
 	public bool paused { get; private set; } = false;
-	// Single gate that any input-consuming modal (signpost, map, inventory)
+	// Single gate that any input-consuming modal (map, inventory, etc.)
 	// flips when it opens and clears when it closes. Players sees this and
 	// skips ProcessInput; _UnhandledInput sees it and drops gameplay input.
 	// World.Tick keeps running regardless so the runner can still advance a
@@ -364,16 +364,7 @@ public partial class GameClient : Node3D
 		_world.Tick(deltaTime);
 		UpdateRegion(deltaTime);
 
-		// Signpost panel shares the Interact key with the gameplay press that
-		// opens it. The close has to be caught here (before ProcessInput) so
-		// the same press doesn't fall through and immediately retrigger an
-		// interaction via _highlightInteractive. Other modals close on
-		// ui_cancel in their own _UnhandledInput, which has no such conflict.
-		if (hud != null && hud.IsSignpostOpen && Input.IsActionJustPressed("Interact"))
-		{
-			hud.CloseSignpost();
-		}
-		else if (!InputSuppressed)
+		if (!InputSuppressed)
 		{
 			// Any modal that wants to block gameplay input flips
 			// InputSuppressed in its Open(); World.Tick keeps running so a
@@ -713,10 +704,9 @@ public partial class GameClient : Node3D
 		}
 
 		// While paused, or while any input-consuming modal is up, gameplay
-		// input is dropped. Modal-close keys (ui_cancel for map/inventory,
-		// Interact for signpost) fall through to the modal itself in its
-		// own _UnhandledInput or to GameClient._Process — see InputSuppressed
-		// gate below.
+		// input is dropped. Modal-close keys (ui_cancel for map/inventory)
+		// fall through to the modal itself in its own _UnhandledInput —
+		// see InputSuppressed gate below.
 		if (paused || InputSuppressed)
 		{
 			return;

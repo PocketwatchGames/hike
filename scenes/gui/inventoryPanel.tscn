@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://chixl4m3rybwi" path="res://assets/textures/gui/inventory_bg_head.png" id="3_dtglw"]
 [ext_resource type="Texture2D" uid="uid://b8keti2u2iu5d" path="res://assets/textures/gui/inventory_bg_left_hand.png" id="4_sds0e"]
 [ext_resource type="Texture2D" uid="uid://6a8fdtc3s2sy" path="res://assets/textures/gui/inventory_bg_body.png" id="5_0ygo7"]
-[ext_resource type="Script" uid="uid://b8m03p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
+[ext_resource type="Script" uid="uid://b8mz3p4f7q2nk" path="res://scripts/gui/InventoryPanel.cs" id="5_panel"]
 [ext_resource type="Texture2D" uid="uid://gcw65djqyj64" path="res://assets/textures/gui/inventory_bg_right_hand.png" id="6_2xylm"]
 [ext_resource type="Texture2D" uid="uid://cl2pe70xguhi5" path="res://assets/textures/gui/inventory_bg_consumable.png" id="7_htin2"]
 

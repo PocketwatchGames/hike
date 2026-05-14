@@ -36,7 +36,7 @@ public partial class Signpost : Node3D, IInteractive, IWorldEntity
         Hud hud = GameClient.Current?.hud;
         if (hud != null)
         {
-            hud.ShowSignpost(_text);
+            hud.ShowSignpost(_text, this);
         }
     }
 

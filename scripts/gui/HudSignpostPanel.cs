@@ -1,10 +1,11 @@
 using Godot;
-using System;
 
-// HUD panel that appears when the player interacts with a Signpost. Opened
-// via Hud.ShowSignpost(text); dismissed when the player presses Interact
-// again — GameClient consumes that press before the player processes input,
-// so the close press doesn't also trigger a fresh interaction.
+// HUD panel that appears when the player interacts with a Signpost. Opens
+// via Hud.ShowSignpost(text, signpost). Stays up while the source signpost
+// remains the player's highlighted (or in-progress) interactive; auto-
+// closes as soon as the player walks away or aims at a different
+// interactive. Does NOT suppress input — the player keeps full gameplay
+// control while reading.
 [GlobalClass]
 public partial class HudSignpostPanel : Control
 {
@@ -13,24 +14,27 @@ public partial class HudSignpostPanel : Control
 
 	public bool IsOpen => Visible;
 
-	Action _onClose;
+	Signpost _source;
+	// Grace window after Open before the highlight check arms. The press
+	// flow briefly clears Player._highlightInteractive between Interact and
+	// the next UpdateHighlightInteractive pass; without the grace, the
+	// panel would close on the same frame it opened.
+	const ulong GraceMs = 250;
+	ulong _openedAtMs;
 
 	public override void _Ready()
 	{
 		Visible = false;
 	}
 
-	public void Open(string text, Action onClose = null)
+	public void Open(string text, Signpost source)
 	{
 		if (label != null)
 		{
 			label.Text = text ?? string.Empty;
 		}
-		_onClose = onClose;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = true;
-		}
+		_source = source;
+		_openedAtMs = Time.GetTicksMsec();
 		Visible = true;
 	}
 
@@ -41,12 +45,29 @@ public partial class HudSignpostPanel : Control
 			return;
 		}
 		Visible = false;
-		if (gameClient != null)
+		_source = null;
+	}
+
+	public override void _Process(double delta)
+	{
+		if (!Visible || _source == null)
 		{
-			gameClient.InputSuppressed = false;
+			return;
 		}
-		Action cb = _onClose;
-		_onClose = null;
-		cb?.Invoke();
+		if (Time.GetTicksMsec() - _openedAtMs < GraceMs)
+		{
+			return;
+		}
+		Player player = gameClient?.Player;
+		if (player == null)
+		{
+			return;
+		}
+		IInteractive src = _source;
+		if (player.HighlightInteractive == src || player.CurInteractive == src)
+		{
+			return;
+		}
+		Close();
 	}
 }

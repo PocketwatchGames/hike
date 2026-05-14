@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://csgnpsce4t7gb"]
 
-[ext_resource type="Script" uid="uid://bsgnpst1laq4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_signpost"]
+[ext_resource type="Script" uid="uid://bsgnpst1k9q4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_signpost"]
 [ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="2_atlas"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]

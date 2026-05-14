@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bq3flcvyjqp3f"]
 
-[ext_resource type="Script" uid="uid://bkkclrfi76ms1" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
+[ext_resource type="Script" uid="uid://yqzj43w1mevdm" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="2_e62r6"]
 
 [node name="Footprint" type="Node3D" unique_id=1671344440 node_paths=PackedStringArray("_decal")]
