@@ -139,6 +139,11 @@ public partial class Player : CharacterBody3D
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
+	// Languages the player has learned this run. Keyed by the shared
+	// LanguageData resource instance, mirroring the WorldSimState.DiscoveredRegions
+	// pattern. Signposts and mobs whose `language` is in this set are
+	// comprehensible; everything else reads as gibberish.
+	readonly HashSet<LanguageData> _learnedLanguages = new();
 	ActionRunner _runner;
 	float _health;
 	float _armor;
@@ -206,6 +211,9 @@ public partial class Player : CharacterBody3D
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
+	public IReadOnlyCollection<LanguageData> LearnedLanguages => _learnedLanguages;
+	public bool HasLearnedLanguage(LanguageData language) => language == null || _learnedLanguages.Contains(language);
+	public bool LearnLanguage(LanguageData language) => language != null && _learnedLanguages.Add(language);
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
 	public float MaxHealth => data?.maxHealth ?? 100f;
