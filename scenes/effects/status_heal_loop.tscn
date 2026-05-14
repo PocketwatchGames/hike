@@ -29,8 +29,8 @@ color = Color(0.6, 1, 0.65, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_healrise"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(0.6, 1, 0.65, 0.9)
+shader_parameter/albedo = Color(0.6, 1, 0.65, 0.9)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healrise"]
 material = SubResource("ShaderMaterial_healrise")
@@ -53,8 +53,8 @@ color = Color(0.9, 1, 0.7, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_healaura"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(0.92, 1, 0.7, 0.3)
+shader_parameter/albedo = Color(0.92, 1, 0.7, 0.3)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healaura"]
 material = SubResource("ShaderMaterial_healaura")

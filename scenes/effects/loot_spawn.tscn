@@ -23,8 +23,8 @@ scale_max = 1.2
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lootspawn"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(0.85, 0.95, 1, 0.7)
+shader_parameter/albedo = Color(0.85, 0.95, 1, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_lootspawn"]
 material = SubResource("ShaderMaterial_lootspawn")

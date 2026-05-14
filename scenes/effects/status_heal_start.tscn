@@ -24,8 +24,8 @@ color = Color(0.55, 1, 0.65, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_healburst"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(0.55, 1, 0.6, 0.95)
+shader_parameter/albedo = Color(0.55, 1, 0.6, 0.95)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healburst"]
 material = SubResource("ShaderMaterial_healburst")
@@ -48,8 +48,8 @@ color = Color(0.9, 1, 0.65, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_healglow"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(0.95, 1, 0.6, 0.45)
+shader_parameter/albedo = Color(0.95, 1, 0.6, 0.45)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_healglow"]
 material = SubResource("ShaderMaterial_healglow")

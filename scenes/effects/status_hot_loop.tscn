@@ -29,8 +29,8 @@ color = Color(1, 0.7, 0.3, 1)
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_heatwave"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(1, 0.55, 0.18, 0.55)
+shader_parameter/albedo = Color(1, 0.55, 0.18, 0.55)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_heatwave"]
 material = SubResource("ShaderMaterial_heatwave")
@@ -52,8 +52,8 @@ scale_max = 0.7
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_hotember"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
-shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(1, 0.45, 0.1, 0.95)
+shader_parameter/albedo = Color(1, 0.45, 0.1, 0.95)
+shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_hotember"]
 material = SubResource("ShaderMaterial_hotember")
