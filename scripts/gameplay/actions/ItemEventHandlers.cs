@@ -322,26 +322,20 @@ public static class ItemEventHandlers
 	// name and the granted concept.
 	public static void DoLearnConcept(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		GD.Print($"[DoLearnConcept] actor={actor?.GetType().Name} ev.concept={ev.concept?.GetType().Name ?? "null"} primaryItem.data={action.context.primaryItem?.data?.GetType().Name ?? "null"}");
 		if (actor is not Player player)
 		{
-			GD.Print("[DoLearnConcept] EXIT: actor is not Player");
 			return;
 		}
 		TeachableConcept concept = ev.concept;
 		if (concept == null && action.context.primaryItem?.data is ScrollData scroll)
 		{
 			concept = scroll.concept;
-			GD.Print($"[DoLearnConcept] fallback from ScrollData.concept type={concept?.GetType().Name ?? "null"}");
 		}
 		if (concept == null)
 		{
-			GD.Print("[DoLearnConcept] EXIT: concept is null");
 			return;
 		}
-		bool taught = concept.Teach(player);
-		GD.Print($"[DoLearnConcept] concept.Teach returned {taught}");
-		if (taught)
+		if (concept.Teach(player))
 		{
 			SpawnOnActor(actor, ev.firstLearnEffect);
 		}

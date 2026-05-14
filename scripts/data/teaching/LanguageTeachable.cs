@@ -24,7 +24,6 @@ public partial class LanguageTeachable : TeachableConcept
         {
             return false;
         }
-        Godot.GD.Print($"[LanguageTeachable.Teach] language={language.displayName} id={language.GetInstanceId()} path={language.ResourcePath} components={components}");
         return player.LearnLanguageComponents(language, components);
     }
 }
