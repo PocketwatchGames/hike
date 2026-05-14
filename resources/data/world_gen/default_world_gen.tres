@@ -29,4 +29,4 @@ SignpostTextSW = "Forest path. Mind the roots, mind the wolves."
 SignpostLanguage = ExtResource("6_gcffr")
 KnowledgeStoneScene = ExtResource("8_stone")
 KnowledgeStoneLanguage = ExtResource("6_gcffr")
-KnowledgeStoneText = "Vyeshal-en mar tovesh. Hresta volun karadi ek tirun-eshal."
+KnowledgeStoneText = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."

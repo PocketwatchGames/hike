@@ -25,6 +25,12 @@ public class MobSimState : EntitySimState
     // Optional per-mob override for the behavior the mob starts in (and returns to
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
+    // Optional per-instance override for the mob's spoken language. When
+    // non-null, Mob.SpeakDialogue uses this in place of MobData.language —
+    // lets WorldGen / world files assign a language to a mob whose
+    // MobData is shared across many spawns without mutating the resource.
+    // Null falls through to MobData.language.
+    public LanguageData Language;
     // When true, the mob's node is only created if the chunk activates during
     // nighttime. Authored at worldgen for surface goblins so they only show up
     // after dark. The MobSimState persists in WorldState either way; if the

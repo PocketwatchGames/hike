@@ -131,7 +131,10 @@ public partial class RecipeScreen : Control
 		{
 			return null;
 		}
-		button.Text = output.displayName.ToString();
+		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
+		button.Text = worldSim != null
+			? worldSim.GetItemDisplayName(output)
+			: output.displayName.ToString();
 		button.Icon = output.inventorySprite;
 		RecipeData capturedRecipe = recipe;
 		bool capturedHQ = isHighQuality;

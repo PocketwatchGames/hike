@@ -12,6 +12,7 @@
 [sub_resource type="Resource" id="Resource_event_motion"]
 script = ExtResource("3_event")
 type = 1024
+languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_apply_invuln"]
 script = ExtResource("4_apply")
@@ -21,11 +22,13 @@ statusEffect = ExtResource("6_invuln")
 script = ExtResource("3_event")
 type = 8
 effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_invuln")])
+languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("3_event")
 type = 64
 animName = 15
+languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_action"]
 script = ExtResource("2_action")

@@ -213,12 +213,23 @@ public static class ItemEventHandlers
 		{
 			return;
 		}
+		Inventory inv = (actor is Player player) ? player.Inventory : null;
+		// Reveal the item's real name on first successful use. Decrement is
+		// the canonical "actually consumed" hook — only consumables flow
+		// through here, and only ones whose timeline reached this event.
+		// Identification is shared across all stacks/recipes of the same
+		// ItemData; the read-side (WorldSimState.GetItemDisplayName) picks it
+		// up immediately so the inventory row, recipe button, and cook
+		// announcement all reveal in lockstep.
+		if (actor is Player identifyingPlayer && identifyingPlayer.World?.WorldState?.SimState?.IdentifyItem(item.data) == true)
+		{
+			inv?.NotifyChanged();
+		}
 		item.stackCount--;
 		// We mutated stackCount directly — Inventory has no other way to
 		// learn that an item changed under it. Fire its onChanged signal so
 		// any listening UI (e.g. the inventory screen's stack badge) can
 		// refresh without polling.
-		Inventory inv = (actor is Player player) ? player.Inventory : null;
 		if (item.stackCount > 0)
 		{
 			inv?.NotifyChanged();
@@ -275,22 +286,23 @@ public static class ItemEventHandlers
 		actor.ApplyMotion(ev.motionSpeed, ev.motionDuration, ev.motionFreezeGravity);
 	}
 
-	// Adds ev.language to the learner's known set — for sources whose
-	// language is uniform across all uses (consumables, mob dialogue) and
-	// can therefore be authored on the event itself. Player.LearnLanguage
-	// returns true only on the *first* successful add; we use that to gate
-	// the firstLearnEffect so re-firing on an already-known language is
-	// silent. Non-Player actors don't have a learned-language set — they
-	// no-op. Per-instance teaching (KnowledgeStone) doesn't go through this
-	// flag — it handles its own learn-and-display inside Complete() to
-	// guarantee ordering against the same-tick text reveal.
+	// Grants ev.languageComponents of ev.language to the learner — for
+	// sources whose language is uniform across all uses (consumables, mob
+	// dialogue). LearnLanguageComponents returns true only when this call
+	// newly added at least one bit, so the firstLearnEffect doesn't fire on
+	// re-trigger of a fully-known language (or on a partial event whose
+	// pieces the player already had). Non-Player actors don't have a
+	// learned-language set — they no-op. Per-instance teaching
+	// (KnowledgeStone) doesn't go through this flag — it handles its own
+	// learn-and-display inside Complete() to guarantee ordering against the
+	// same-tick text reveal.
 	public static void DoLearnLanguage(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.language == null || actor is not Player player)
 		{
 			return;
 		}
-		if (player.LearnLanguage(ev.language))
+		if (player.LearnLanguageComponents(ev.language, ev.languageComponents))
 		{
 			SpawnOnActor(actor, ev.firstLearnEffect);
 		}

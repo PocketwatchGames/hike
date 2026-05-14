@@ -20,13 +20,20 @@ public partial class ItemInfoPanel : PanelContainer
 			Visible = false;
 			return;
 		}
+		WorldSimState worldSim = World.Current?.WorldState?.SimState;
+		bool identified = worldSim == null || worldSim.IsItemIdentified(data);
 		if (_nameLabel != null)
 		{
-			_nameLabel.Text = data.displayName.ToString();
+			_nameLabel.Text = worldSim != null
+				? worldSim.GetItemDisplayName(data)
+				: data.displayName.ToString();
 		}
 		if (_descriptionLabel != null)
 		{
-			_descriptionLabel.Text = data.description ?? string.Empty;
+			// Hide flavor text while the item is unidentified — revealing the
+			// recipe of a "?" potion via its description would defeat the
+			// reveal-on-use design.
+			_descriptionLabel.Text = identified ? (data.description ?? string.Empty) : string.Empty;
 		}
 		if (_icon != null)
 		{

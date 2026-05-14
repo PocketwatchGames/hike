@@ -90,11 +90,16 @@ public partial class ItemEvent : Resource
 	[Export] public float motionDuration = 0.2f;
 	[Export] public bool motionFreezeGravity = true;
 
-	// LearnLanguage fields. `language` is the LanguageData to add to the
-	// learner's known set. `firstLearnEffect` plays on the actor only the
-	// first time the language is learned (Player.LearnLanguage returns true);
-	// a re-trigger on an already-known language is silent.
+	// LearnLanguage fields. `language` is the LanguageData to grant on.
+	// `languageComponents` is the bitset of pieces (Grammar / Numbers /
+	// Glyphs / Spelling) this event teaches — default All matches the
+	// pre-component "whole language" behavior so existing consumables/
+	// dialogue events keep working. `firstLearnEffect` plays on the actor
+	// only when this firing actually adds at least one new component to
+	// the player's learned-set; re-triggers on a fully-known language are
+	// silent.
 	[Export] public LanguageData language;
+	[Export, CompactFlags] public ELanguageComponents languageComponents = ELanguageComponents.All;
 	[Export] public PackedScene firstLearnEffect;
 
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
@@ -132,7 +137,7 @@ public partial class ItemEvent : Resource
 			nameof(fx) => EItemEventType.OpenInteractive,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) => EItemEventType.ApplyMotion,
-			nameof(language) or nameof(firstLearnEffect) => EItemEventType.LearnLanguage,
+			nameof(language) or nameof(languageComponents) or nameof(firstLearnEffect) => EItemEventType.LearnLanguage,
 			nameof(damageData)
 				or nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)

@@ -31,9 +31,15 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     // scramble of the displayed text. Per-instance override goes through
     // KnowledgeStoneSimState (worldgen / world file).
     [Export] private LanguageData _language;
-    // FX spawned on the player the first time a given player reads this
-    // stone (Player.LearnLanguage returns true → first add). Subsequent
-    // reads — including re-reading the same stone — are silent.
+    // Components of `_language` this stone teaches when read. A stone
+    // typically grants one of the four pieces (Grammar / Numbers / Glyphs
+    // / Spelling); a hand-authored "master" stone could grant All. Per-
+    // instance override flows through KnowledgeStoneSimState.Components.
+    [Export, CompactFlags] private ELanguageComponents _components = ELanguageComponents.All;
+    // FX spawned on the player the first time this read adds a new
+    // component to the player's learned-set for `_language`. Subsequent
+    // reads — including re-reads of the same stone, or reads of a stone
+    // that only teaches components the player already had — are silent.
     [Export] private PackedScene _firstLearnEffect;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
@@ -59,17 +65,21 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             return;
         }
         Player player = gc?.Player;
-        // Learn first, then display. LearnLanguage returns true only on the
-        // first add; gate the firstLearnEffect on that so re-reads of the
-        // same stone are silent. The scramble check below then resolves to
-        // the legible branch in the same call.
-        if (player != null && player.LearnLanguage(_language) && _firstLearnEffect != null)
+        // Learn first, then display. LearnLanguageComponents returns true
+        // only when this read actually added a new component bit, so the
+        // firstLearnEffect doesn't fire on re-reads or on a stone teaching
+        // a component the player already has. The scramble check below
+        // then runs against the freshly-updated learned-set.
+        if (player != null && player.LearnLanguageComponents(_language, _components) && _firstLearnEffect != null)
         {
             Fx.Create(_firstLearnEffect, player, Vector3.Zero);
         }
-        string display = player == null || player.HasLearnedLanguage(_language)
+        ELanguageComponents missing = player == null
+            ? ELanguageComponents.None
+            : ELanguageComponents.All & ~player.GetLearnedComponents(_language);
+        string display = missing == ELanguageComponents.None
             ? _text
-            : TextScrambler.Scramble(_text, _language);
+            : TextScrambler.Scramble(_text, _language, missing);
         hud.ShowSignpost(display, this);
     }
 
@@ -85,6 +95,10 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
         if (data.Language != null)
         {
             instance._language = data.Language;
+        }
+        if (data.Components != ELanguageComponents.None)
+        {
+            instance._components = data.Components;
         }
         world.AddChild(instance);
         return instance;

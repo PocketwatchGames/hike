@@ -220,12 +220,16 @@ public class KnowledgeStoneSimState : EntitySimState
     // .tscn already references the same LanguageData on its LearnLanguage
     // event — the SimState's value is the inscription-scramble key.
     public LanguageData Language;
+    // Components of `Language` this specific stone teaches. None falls
+    // back to whatever the scene authored on its `_components` field.
+    public ELanguageComponents Components;
 
-    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language)
+    public KnowledgeStoneSimState(Vector3 worldPosition, PackedScene scene, string text, LanguageData language, ELanguageComponents components)
         : base(worldPosition, scene)
     {
         Text = text ?? string.Empty;
         Language = language;
+        Components = components;
     }
 
     public override Node3D CreateEntity(World world)

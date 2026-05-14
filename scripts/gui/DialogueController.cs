@@ -98,6 +98,12 @@ public partial class DialogueController : Control
 		{
 			return;
 		}
+		if (e.IsActionPressed("ui_cancel"))
+		{
+			GetViewport().SetInputAsHandled();
+			Close();
+			return;
+		}
 		if (!e.IsActionPressed("ui_accept"))
 		{
 			return;

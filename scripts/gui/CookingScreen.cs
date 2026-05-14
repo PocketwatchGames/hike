@@ -626,7 +626,13 @@ public partial class CookingScreen : Control
 		state.stackCount = 1;
 		AddOrDropAtPlayer(state);
 
-		string outputName = completion.output.displayName.ToString();
+		// Route through WorldSimState so the announcement shows "unknown food"
+		// until the player has actually used one — discovering the recipe and
+		// learning what it is are decoupled.
+		WorldSimState worldSim = _player?.World?.WorldState?.SimState;
+		string outputName = worldSim != null
+			? worldSim.GetItemDisplayName(completion.output)
+			: completion.output.displayName.ToString();
 		bool isNewDiscovery = completion.wasNewDiscovery || completion.wasNewHighQualityDiscovery;
 		string text = isNewDiscovery
 			? $"New Recipe Discovered: {outputName}"

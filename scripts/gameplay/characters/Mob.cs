@@ -455,7 +455,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Player player = GameClient.Current?.Player;
-        bool scramble = md.language != null && player != null && !player.HasLearnedLanguage(md.language);
+        // Per-instance Language on the SimState wins over MobData.language —
+        // lets WorldGen pin a language onto a shared MobData without
+        // mutating the resource.
+        LanguageData spokenLanguage = _simState?.Language ?? md.language;
+        ELanguageComponents missing = (player == null || spokenLanguage == null)
+            ? ELanguageComponents.None
+            : ELanguageComponents.All & ~player.GetLearnedComponents(spokenLanguage);
         _dialogueLines.Clear();
         for (int i = 0; i < md.dialogueLocKeys.Count; i++)
         {
@@ -465,7 +471,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 continue;
             }
             string line = Loc.Get(key);
-            _dialogueLines.Add(scramble ? TextScrambler.Scramble(line, md.language) : line);
+            _dialogueLines.Add(missing == ELanguageComponents.None
+                ? line
+                : TextScrambler.Scramble(line, spokenLanguage, missing));
         }
         Speak(_dialogueLines);
     }

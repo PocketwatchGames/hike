@@ -586,24 +586,51 @@ public static class WorldGen
             {
                 int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
                 var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
-                ws.AddEntity(new MobSimState(pos, 0f, villagerData.MobScene, villagerData));
+                var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
+                // The villager test fixture speaks the same language the
+                // KnowledgeStone fixtures teach, so reading the stones
+                // progressively un-scrambles the dialogue too. Set per-
+                // instance via SimState rather than on MobData so the shared
+                // friendly_villager.tres stays language-agnostic.
+                villagerSim.Language = genData.KnowledgeStoneLanguage;
+                ws.AddEntity(villagerSim);
             }
         }
 
-        // One-off KnowledgeStone test fixture three voxels west of the
-        // default player spawn (mirrors the villager to the east). Lets the
-        // language-learning flow be exercised without a real placement pass.
-        // Skipped if the worldgen data doesn't carry a stone scene/language —
-        // worlds that don't want the test fixture leave those null.
-        const int KnowledgeStoneX = -3;
+        // KnowledgeStone test fixtures placed in a row west of the default
+        // player spawn. One stone per language component (Grammar, Numbers,
+        // Vocabulary1, Vocabulary2, Vocabulary3) so the partial-learning
+        // flow can be exercised by walking down the line and reading each
+        // in turn. Skipped if the worldgen data doesn't carry a stone
+        // scene/language.
         const int KnowledgeStoneZ = 0;
-        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null
-            && KnowledgeStoneX >= ws.Min.X && KnowledgeStoneX <= ws.Max.X
-            && KnowledgeStoneZ >= ws.Min.Z && KnowledgeStoneZ <= ws.Max.Z)
+        var stoneComponents = new (int x, ELanguageComponents component)[]
         {
-            int sy = heightMap.GetHeight(KnowledgeStoneX, KnowledgeStoneZ);
-            var pos = new Vector3(KnowledgeStoneX + 0.5f, sy + 1f, KnowledgeStoneZ + 0.5f);
-            ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage));
+            (-3, ELanguageComponents.Grammar),
+            (-4, ELanguageComponents.Numbers),
+            (-5, ELanguageComponents.Vocabulary1),
+            (-6, ELanguageComponents.Vocabulary2),
+            (-7, ELanguageComponents.Vocabulary3),
+        };
+        // ws.Min/Max are in *chunks*; the stone coordinates are voxels.
+        // Compare against the chunk extent expressed in voxels so the row
+        // doesn't get clipped by the unit mismatch (the original single-
+        // stone fixture got away with this by coincidence — -3 happened to
+        // be >= -4, the default-world chunk min).
+        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
+        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null
+            && KnowledgeStoneZ >= stoneWorldMinZ && KnowledgeStoneZ <= stoneWorldMaxZ)
+        {
+            foreach (var (sx, component) in stoneComponents)
+            {
+                if (sx < stoneWorldMinX || sx > stoneWorldMaxX) { continue; }
+                int sy = heightMap.GetHeight(sx, KnowledgeStoneZ);
+                var pos = new Vector3(sx + 0.5f, sy + 1f, KnowledgeStoneZ + 0.5f);
+                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, component));
+            }
         }
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)

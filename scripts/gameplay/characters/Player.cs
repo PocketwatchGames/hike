@@ -146,11 +146,13 @@ public partial class Player : CharacterBody3D
 	ulong _coyoteTimeEndMs;
 	bool _jumpHeld;
 	Inventory _inventory;
-	// Languages the player has learned this run. Keyed by the shared
-	// LanguageData resource instance, mirroring the WorldSimState.DiscoveredRegions
-	// pattern. Signposts and mobs whose `language` is in this set are
-	// comprehensible; everything else reads as gibberish.
-	readonly HashSet<LanguageData> _learnedLanguages = new();
+	// Languages the player has partially or fully learned this run. Keyed by
+	// the shared LanguageData resource instance; value is the set of
+	// components learned (Grammar/Numbers/Glyphs/Spelling). A missing key
+	// means the language is fully unknown — all four components scramble.
+	// TextScrambler reads the per-language gap to decide which transforms
+	// to apply at display time.
+	readonly Dictionary<LanguageData, ELanguageComponents> _learnedLanguages = new();
 	ActionRunner _runner;
 	float _health;
 	float _armor;
@@ -228,9 +230,28 @@ public partial class Player : CharacterBody3D
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
-	public IReadOnlyCollection<LanguageData> LearnedLanguages => _learnedLanguages;
-	public bool HasLearnedLanguage(LanguageData language) => language == null || _learnedLanguages.Contains(language);
-	public bool LearnLanguage(LanguageData language) => language != null && _learnedLanguages.Add(language);
+	public IReadOnlyDictionary<LanguageData, ELanguageComponents> LearnedLanguages => _learnedLanguages;
+	// Returns the components the player has learned for `language`. Null
+	// language is treated as universally readable — All. Otherwise, an
+	// unseen language returns None.
+	public ELanguageComponents GetLearnedComponents(LanguageData language)
+	{
+		if (language == null) { return ELanguageComponents.All; }
+		return _learnedLanguages.TryGetValue(language, out var c) ? c : ELanguageComponents.None;
+	}
+	public bool HasLearnedLanguage(LanguageData language) => GetLearnedComponents(language) == ELanguageComponents.All;
+	// OR `components` into the player's learned-set for `language`. Returns
+	// true only when this call newly added at least one component bit — used
+	// by stones / consumables to gate the one-shot firstLearnEffect.
+	public bool LearnLanguageComponents(LanguageData language, ELanguageComponents components)
+	{
+		if (language == null || components == ELanguageComponents.None) { return false; }
+		_learnedLanguages.TryGetValue(language, out var existing);
+		ELanguageComponents combined = existing | components;
+		if (combined == existing) { return false; }
+		_learnedLanguages[language] = combined;
+		return true;
+	}
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
 	public float MaxHealth => data?.maxHealth ?? 100f;

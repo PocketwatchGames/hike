@@ -108,6 +108,7 @@ public static class EntitySerializer
                 w.Write(mob.Stunned);
                 w.Write(mob.StunRecoverMs);
                 w.Write(mob.StunRechargeStartMs);
+                WriteResource(w, mob.Language);
                 break;
 
             case DoorSimState door:
@@ -171,6 +172,7 @@ public static class EntitySerializer
                 WriteVec3(w, stone.WorldPosition);
                 WriteScene(w, stone.Scene);
                 WriteResource(w, stone.Language);
+                w.Write((int)stone.Components);
                 w.Write(stone.Text ?? string.Empty);
                 break;
 
@@ -254,8 +256,10 @@ public static class EntitySerializer
                 bool stunned = r.ReadBoolean();
                 ulong stunRecoverMs = r.ReadUInt64();
                 ulong stunRechargeStartMs = r.ReadUInt64();
+                var language = ReadResource<LanguageData>(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
+                mob.Language = language;
                 if (!string.IsNullOrEmpty(initialBehavior))
                 {
                     mob.InitialBehavior = initialBehavior;
@@ -348,8 +352,9 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 var languageData = ReadResource<LanguageData>(r);
+                var components = (ELanguageComponents)r.ReadInt32();
                 string text = r.ReadString();
-                return new KnowledgeStoneSimState(pos, scene, text, languageData);
+                return new KnowledgeStoneSimState(pos, scene, text, languageData, components);
             }
             case Tag.FireTrap:
             {

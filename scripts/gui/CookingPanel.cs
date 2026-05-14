@@ -431,7 +431,10 @@ public partial class CookingPanel : MarginContainer
 		{
 			return null;
 		}
-		button.Text = output.displayName.ToString();
+		WorldSimState worldSim = World.Current?.WorldState?.SimState;
+		button.Text = worldSim != null
+			? worldSim.GetItemDisplayName(output)
+			: output.displayName.ToString();
 		button.Icon = output.inventorySprite;
 		RecipeData capturedRecipe = recipe;
 		bool capturedHQ = isHighQuality;

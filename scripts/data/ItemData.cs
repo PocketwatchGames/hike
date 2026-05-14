@@ -4,6 +4,14 @@ using Godot;
 public partial class ItemData : Resource
 {
 	[Export] public StringName displayName = "";
+	// Placeholder name shown until the player identifies this item (e.g.
+	// "unknown food", "unknown potion"). Empty = the item is always shown by
+	// its real displayName. Identification fires the first time the player
+	// uses the item (ItemEventHandlers.DoDecrementStack); the discovered set
+	// lives in WorldSimState.IdentifiedItems and is keyed by this resource,
+	// so every recipe and inventory stack of the same ItemData reveals at
+	// once. See WorldSimState.GetItemDisplayName for the read-side.
+	[Export] public StringName unidentifiedDisplayName = "";
 	// Inspector multiline flavor text. Shown on the inventory screen's
 	// ItemInfoPanel when an item is highlighted. Plain string (not localized)
 	// to match displayName's StringName convention.
