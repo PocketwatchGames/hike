@@ -186,6 +186,10 @@ public partial class GameClient : Node3D
 	// completes; OnMobChatterRequested instantiates a MobChatter HUD anchored
 	// to the speaker's HudAnchor.
 	public Action<Mob, string, ulong> onMobChatter;
+	// Multi-line typewriter dialogue. Fired by Mob.Speak; OnDialogueRequested
+	// forwards to the HUD's DialogueController which handles typing,
+	// ui_accept advance/skip, and player-input suppression while open.
+	public Action<IReadOnlyList<string>> onDialogue;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
@@ -288,6 +292,7 @@ public partial class GameClient : Node3D
 	{
 		onHudText += OnHudTextRequested;
 		onMobChatter += OnMobChatterRequested;
+		onDialogue += OnDialogueRequested;
 		onInit?.Invoke();
 
 		_world = new World();
@@ -848,6 +853,11 @@ public partial class GameClient : Node3D
 	void OnMobChatterRequested(Mob mob, string text, ulong durationMs)
 	{
 		MobChatter.Create(mobChatterScene, camera, mob, text, durationMs, worldHUD);
+	}
+
+	void OnDialogueRequested(IReadOnlyList<string> lines)
+	{
+		hud?.ShowDialogue(lines);
 	}
 
 	void OnPlayerInteractChanged(IInteractive interactive)

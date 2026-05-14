@@ -15,6 +15,7 @@ public partial class Hud : Control
 	[Export] ProgressBar _healthBar;
 	[Export] ProgressBar _armorBar;
 	[Export] HudSignpostPanel _signpostPanel;
+	[Export] DialogueController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
 	[Export] TextureRect _minimapTexture;
 	[Export] ButtonHint _buttonHintTurnLeft;
@@ -91,6 +92,10 @@ public partial class Hud : Control
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onRegionEntered += OnRegionEntered;
 		_signpostPanel.gameClient = gameClient;
+		if (_dialoguePanel != null)
+		{
+			_dialoguePanel.gameClient = gameClient;
+		}
 		_weaponLeftButtonHint.SetHint("AttackMelee", string.Empty);
 		_weaponRightButtonHint.SetHint("AttackRanged", string.Empty);
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
@@ -135,6 +140,18 @@ public partial class Hud : Control
 	public void CloseSignpost()
 	{
 		_signpostPanel?.Close();
+	}
+
+	public bool IsDialogueOpen => _dialoguePanel != null && _dialoguePanel.IsOpen;
+
+	public void ShowDialogue(System.Collections.Generic.IReadOnlyList<string> lines, System.Action onClose = null)
+	{
+		_dialoguePanel?.Show(lines, onClose);
+	}
+
+	public void CloseDialogue()
+	{
+		_dialoguePanel?.Close();
 	}
 
 	public override void _ExitTree()

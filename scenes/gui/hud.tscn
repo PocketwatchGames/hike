@@ -6,6 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="4_banner"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
+[ext_resource type="PackedScene" uid="uid://dlogscnehike01" path="res://scenes/hud/dialogue_panel.tscn" id="4_dialogue"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
@@ -36,7 +37,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -55,6 +56,7 @@ _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContai
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
 _signpostPanel = NodePath("HudSignpostPanel")
+_dialoguePanel = NodePath("DialoguePanel")
 _regionBanner = NodePath("RegionBanner")
 _minimapTexture = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/MinimapTexture")
 _buttonHintTurnLeft = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxContainer/ButtonHintRotateLeft")
@@ -287,6 +289,10 @@ size_flags_horizontal = 0
 size_flags_vertical = 0
 
 [node name="HudSignpostPanel" parent="." unique_id=170382741 instance=ExtResource("4_signpost")]
+visible = false
+layout_mode = 1
+
+[node name="DialoguePanel" parent="." unique_id=170382742 instance=ExtResource("4_dialogue")]
 visible = false
 layout_mode = 1
 

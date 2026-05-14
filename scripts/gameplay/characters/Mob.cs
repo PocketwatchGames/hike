@@ -426,6 +426,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         GameClient.Current?.onMobChatter?.Invoke(this, line, durationMs);
     }
 
+    // Opens the typewriter dialogue panel with the supplied lines. Lines
+    // type out at CVars.dialogueTypingSpeed; ui_accept finishes / advances.
+    // Caller passes a List<string> (already localized) — the panel does not
+    // attempt to translate via Loc here.
+    public void Speak(IReadOnlyList<string> lines)
+    {
+        if (lines == null || lines.Count == 0)
+        {
+            return;
+        }
+        GameClient.Current?.onDialogue?.Invoke(lines);
+    }
+
     private void UpdateAnimation()
     {
         if (_animator == null)
