@@ -1,7 +1,8 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://cnpc1villdata"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://cnpc1villbrain" path="res://resources/data/characters/friendly_villager_brain.tres" id="2_brain"]
+[ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/friendly_villager_brain.tres" id="2_brain"]
+[ext_resource type="Script" uid="uid://bxk4n2mp7q5wa" path="res://scripts/data/LootCount.cs" id="3_4qdy7"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="3_scene"]
 
 [resource]
@@ -10,9 +11,7 @@ displayName = &"Villager"
 appearsInBestiary = false
 team = 1
 dialogueLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
-maxHealth = 10.0
 maxSpeed = 0.0
-defaultBehavior = &"Idle"
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

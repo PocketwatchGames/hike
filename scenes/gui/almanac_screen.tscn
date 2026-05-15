@@ -50,9 +50,8 @@ layout_mode = 2
 visible = false
 layout_mode = 2
 
-[node name="RecipeScreen" parent="MarginContainer2" unique_id=1756643681 node_paths=PackedStringArray("_ingredientSlots") instance=ExtResource("5_7ewlq")]
+[node name="RecipeScreen" parent="MarginContainer2" unique_id=1756643681 instance=ExtResource("5_7ewlq")]
 layout_mode = 2
-_ingredientSlots = []
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1825680303]
 layout_mode = 1

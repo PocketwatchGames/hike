@@ -8,4 +8,4 @@ script = ExtResource("1_data")
 icon = ExtResource("1_asibn")
 displayName = &"Poisoned"
 damagePerSecond = 1.0
-duration = 5.0
+duration = 60.0
