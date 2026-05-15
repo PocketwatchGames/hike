@@ -18,6 +18,7 @@ public partial class Hud : Control
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] DialogueController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
+	[Export] HudAnnouncementPanel _announcementPanel;
 	[Export] TextureRect _minimapTexture;
 	[Export] ButtonHint _buttonHintTurnLeft;
 	[Export] ButtonHint _buttonHintTurnRight;
@@ -28,6 +29,13 @@ public partial class Hud : Control
 	[Export] Control _weatherContainer;
 	Player _player;
 	Inventory _inventory;
+	// FIFO of pending announcements. Anyone can fire many in a row
+	// (chained region crossings, a scroll that teaches several concepts at
+	// once); we serialize them so each gets its full visible window. The
+	// in-flight flag gates DispatchNext so the active surface's onDone
+	// callback is the only thing that advances the queue.
+	readonly Queue<Announcement> _announcementQueue = new();
+	bool _announcementInFlight;
 	// Active status-effect HUD nodes keyed by their data. Multiple stacked
 	// instances of the same data show as one HUD entry — count is set on the
 	// existing entry instead of spawning duplicates. Entries are added /
@@ -91,8 +99,9 @@ public partial class Hud : Control
 	public override void _Ready()
 	{
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
-		gameClient.onRegionEntered += OnRegionEntered;
+		gameClient.onAnnouncement += OnAnnouncement;
 		_signpostPanel.gameClient = gameClient;
+		_announcementPanel?.Bind(gameClient);
 		if (_dialoguePanel != null)
 		{
 			_dialoguePanel.gameClient = gameClient;
@@ -160,7 +169,7 @@ public partial class Hud : Control
 		if (gameClient != null)
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
-			gameClient.onRegionEntered -= OnRegionEntered;
+			gameClient.onAnnouncement -= OnAnnouncement;
 		}
 		if (_inventory != null)
 		{
@@ -169,9 +178,57 @@ public partial class Hud : Control
 		}
 	}
 
-	void OnRegionEntered(RegionData region)
+	void OnAnnouncement(Announcement a)
 	{
-		_regionBanner?.Show(region);
+		if (a == null) { return; }
+		_announcementQueue.Enqueue(a);
+		if (!_announcementInFlight)
+		{
+			DispatchNext();
+		}
+	}
+
+	void DispatchNext()
+	{
+		if (_announcementQueue.Count == 0)
+		{
+			_announcementInFlight = false;
+			return;
+		}
+		Announcement next = _announcementQueue.Dequeue();
+		_announcementInFlight = true;
+		switch (next.type)
+		{
+			case EAnnouncementType.Region:
+				if (_regionBanner != null)
+				{
+					_regionBanner.Show(next.region, OnAnnouncementSurfaceDone);
+				}
+				else
+				{
+					OnAnnouncementSurfaceDone();
+				}
+				break;
+			default:
+				if (_announcementPanel != null)
+				{
+					_announcementPanel.Show(next, OnAnnouncementSurfaceDone);
+				}
+				else
+				{
+					OnAnnouncementSurfaceDone();
+				}
+				break;
+		}
+	}
+
+	void OnAnnouncementSurfaceDone()
+	{
+		// Defer the next dispatch — the surface that just finished is in
+		// the middle of its tween-complete callback chain, and starting
+		// the next presentation synchronously would re-enter Show on the
+		// same node before its current state has settled.
+		Callable.From(DispatchNext).CallDeferred();
 	}
 
 	void OnPlayerSpawned(Player player)

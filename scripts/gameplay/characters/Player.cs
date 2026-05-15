@@ -242,14 +242,20 @@ public partial class Player : CharacterBody3D
 	public bool HasLearnedLanguage(LanguageData language) => GetLearnedComponents(language) == ELanguageComponents.All;
 	// OR `components` into the player's learned-set for `language`. Returns
 	// true only when this call newly added at least one component bit — used
-	// by stones / consumables to gate the one-shot firstLearnEffect.
+	// by stones / consumables to gate the one-shot firstLearnEffect. Fires
+	// onLanguageLearned with the bits that were NEWLY added (combined &
+	// ~existing) so listeners can describe exactly what was gained ("Vyeshal
+	// Grammar" rather than the player's full known set).
+	public Action<LanguageData, ELanguageComponents> onLanguageLearned;
 	public bool LearnLanguageComponents(LanguageData language, ELanguageComponents components)
 	{
 		if (language == null || components == ELanguageComponents.None) { return false; }
 		_learnedLanguages.TryGetValue(language, out var existing);
 		ELanguageComponents combined = existing | components;
 		if (combined == existing) { return false; }
+		ELanguageComponents added = combined & ~existing;
 		_learnedLanguages[language] = combined;
+		onLanguageLearned?.Invoke(language, added);
 		return true;
 	}
 	public ActionRunner Runner => _runner;

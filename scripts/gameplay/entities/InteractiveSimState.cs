@@ -91,7 +91,6 @@ public class ForgeJob
 {
     public RecipeData recipe;
     public ItemData outputItem;
-    public bool isHighQuality;
     public float remainingSeconds;
     public float totalSeconds;
 

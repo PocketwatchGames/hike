@@ -198,6 +198,19 @@ public partial class GameClient : Node3D
 	public Action<RegionData> onRegionEntered;
 	public RegionData CurrentRegion { get; private set; }
 
+	// Generic announcement bus. Anything that wants to surface a one-shot
+	// notification (region entry, recipe / item / language discovery,
+	// future level-up / boss intro) builds an Announcement and routes it
+	// through Announce. The Hud subscribes, queues entries, and dispatches
+	// each to the appropriate surface (region banner vs panel) so callers
+	// don't have to know about the visual layer.
+	public Action<Announcement> onAnnouncement;
+	public void Announce(Announcement a)
+	{
+		if (a == null) { return; }
+		onAnnouncement?.Invoke(a);
+	}
+
 	// Region-entry hysteresis. Wiggling on a seam mustn't flicker the
 	// banner; an intentional crossing should fire within a step or two;
 	// a chain of border zones can't keep the player tagged with a region
@@ -330,6 +343,19 @@ public partial class GameClient : Node3D
 		sceneViewport.AddChild(_world);
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
 
+		// Bridge sim-side discovery events to the announcement bus. The
+		// underlying SimState lives across save/load and will outlive any
+		// individual GameClient if we ever support hot-swapping the client;
+		// no unsubscribe needed today because GameClient and WorldState are
+		// torn down together.
+		WorldSimState sim = worldState?.SimState;
+		if (sim != null)
+		{
+			sim.onItemIdentified += OnSimItemIdentified;
+			sim.onRecipeDiscovered += OnSimRecipeDiscovered;
+			sim.onMobDiscovered += OnSimMobDiscovered;
+		}
+
 		while (!_world.IsSpawnChunkReady(playerPosition))
 		{
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
@@ -338,6 +364,7 @@ public partial class GameClient : Node3D
 		_player = playerScene.Instantiate<Player>();
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
 		_player.onInteractChanged += OnPlayerInteractChanged;
+		_player.onLanguageLearned += OnPlayerLanguageLearned;
 		sceneViewport.AddChild(_player);
 		_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
 
@@ -347,6 +374,105 @@ public partial class GameClient : Node3D
 		camera.SetInitialPosition(_player.GlobalPosition);
 
 		onPlayerSpawned?.Invoke(_player);
+	}
+
+	void OnSimItemIdentified(ItemData data)
+	{
+		if (data == null) { return; }
+		WorldSimState sim = _world?.WorldState?.SimState;
+		string name = sim != null ? sim.GetItemDisplayName(data) : data.displayName.ToString();
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.ItemIdentified,
+			title = "Item Identified",
+			subtitle = name,
+			icon = data.inventorySprite,
+			showAlmanacHint = true,
+			almanacTab = AlmanacScreen.EAlmanacTab.Inventory,
+			almanacHintLabel = "View",
+		});
+	}
+
+	void OnSimRecipeDiscovered(RecipeData recipe)
+	{
+		if (recipe == null) { return; }
+		ItemData output = recipe.outputItem;
+		WorldSimState sim = _world?.WorldState?.SimState;
+		string name = output == null
+			? string.Empty
+			: (sim != null ? sim.GetItemDisplayName(output) : output.displayName.ToString());
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.Recipe,
+			title = "Recipe Discovered",
+			subtitle = name,
+			icon = output?.inventorySprite,
+			showAlmanacHint = true,
+			almanacTab = AlmanacScreen.EAlmanacTab.Recipe,
+			almanacHintLabel = "View",
+		});
+	}
+
+	void OnSimMobDiscovered(MobData mob)
+	{
+		if (mob == null) { return; }
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.MobDiscovered,
+			title = "Creature Discovered",
+			subtitle = mob.displayName.ToString(),
+			showAlmanacHint = true,
+			almanacTab = AlmanacScreen.EAlmanacTab.Bestiary,
+			almanacHintLabel = "View",
+		});
+	}
+
+	void OnPlayerLanguageLearned(LanguageData language, ELanguageComponents addedComponents)
+	{
+		if (language == null) { return; }
+		string langName = language.displayName.ToString();
+		string subtitle = FormatLanguageSubtitle(langName, addedComponents);
+		Announce(new Announcement
+		{
+			type = EAnnouncementType.LanguageLearned,
+			title = "Language Learned",
+			subtitle = subtitle,
+		});
+	}
+
+	// Single-bit grants describe the specific component ("Vyeshal Grammar");
+	// All-bit and multi-bit grants collapse to the language name to avoid
+	// long compound strings in a 3-second banner. Vocabulary slots use a
+	// 1/2/3 suffix so the player can tell partial vocabulary unlocks apart.
+	static string FormatLanguageSubtitle(string langName, ELanguageComponents added)
+	{
+		if (added == ELanguageComponents.All || added == ELanguageComponents.None)
+		{
+			return langName;
+		}
+		string component = added switch
+		{
+			ELanguageComponents.Grammar => "Grammar",
+			ELanguageComponents.Numbers => "Numbers",
+			ELanguageComponents.Vocabulary1 => "Vocabulary 1",
+			ELanguageComponents.Vocabulary2 => "Vocabulary 2",
+			ELanguageComponents.Vocabulary3 => "Vocabulary 3",
+			_ => null,
+		};
+		return component != null ? $"{langName} {component}" : langName;
+	}
+
+	// Routes a Map / Inventory press from an announcement's almanac hint
+	// into the existing modal-open flow. Mirrors the input handling in
+	// _UnhandledInput so the gating (suppressed input, mouse capture, HUD
+	// hide) stays in one place.
+	public void OpenAlmanac(AlmanacScreen.EAlmanacTab tab)
+	{
+		if (almanacScreen == null || paused || InputSuppressed)
+		{
+			return;
+		}
+		almanacScreen.Open(tab, this);
 	}
 
 	// Push radius and bend strength for the detail-sprite shader's player
@@ -498,6 +624,11 @@ public partial class GameClient : Node3D
 			_pendingRegionElapsed = 0f;
 			ws.SimState.DiscoveredRegions.Add(CurrentRegion);
 			onRegionEntered?.Invoke(CurrentRegion);
+			Announce(new Announcement
+			{
+				type = EAnnouncementType.Region,
+				region = CurrentRegion,
+			});
 		}
 	}
 

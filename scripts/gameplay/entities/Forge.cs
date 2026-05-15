@@ -173,7 +173,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // completion — Cancel restores access without consuming anything.
     // Discovery is NOT credited here: it lands in CompleteForgeJob so a
     // cancelled cook never marks the recipe as learned.
-    public void StartForgeJob(RecipeData recipe, ItemData output, bool isHighQuality)
+    public void StartForgeJob(RecipeData recipe, ItemData output)
     {
         if (_simState == null || recipe == null || output == null)
         {
@@ -187,7 +187,6 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             recipe = recipe,
             outputItem = output,
-            isHighQuality = isHighQuality,
             remainingSeconds = _forgeTimeSeconds,
             totalSeconds = _forgeTimeSeconds,
         };
@@ -208,13 +207,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     }
 
     // Job ran to completion: record discovery, drain slots, and deliver
-    // the output. Discovery work happens BEFORE the drain so the slot
-    // contents are still readable for RecordDiscovery's min-count tracking,
-    // and runs directly here (not via the bound screen) so an offscreen
-    // completion still credits the recipe. If a CookingScreen is bound
-    // (deliveryCallback set), it takes the output and decides between
-    // inventory and drop. Otherwise the forge spawns the loot at its
-    // position for the player to walk back to.
+    // the output. Discovery runs directly here (not via the bound screen)
+    // so an offscreen completion still credits the recipe. If a
+    // CookingScreen is bound (deliveryCallback set), it takes the output
+    // and decides between inventory and drop. Otherwise the forge spawns
+    // the loot at its position for the player to walk back to.
     private void CompleteForgeJob()
     {
         ForgeJob job = _simState?.ActiveForgeJob;
@@ -223,14 +220,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             return;
         }
         WorldSimState worldSim = World.Current?.WorldState?.SimState;
-        bool wasNewDiscovery = job.recipe != null && (worldSim == null || !worldSim.DiscoveredRecipes.ContainsKey(job.recipe));
-        bool wasNewHighQualityDiscovery = false;
-        if (job.isHighQuality && job.recipe != null && worldSim != null)
-        {
-            wasNewHighQualityDiscovery = wasNewDiscovery || !worldSim.DiscoveredRecipes[job.recipe].discoveredHighQuality;
-        }
-        var match = new Cooking.MatchResult(job.recipe, job.isHighQuality);
-        Cooking.RecordDiscovery(worldSim, match, _simState.ForgeSlots);
+        bool wasNewDiscovery = job.recipe != null && (worldSim == null || !worldSim.DiscoveredRecipes.Contains(job.recipe));
+        Cooking.RecordDiscovery(worldSim, new Cooking.MatchResult(job.recipe));
 
         if (_simState.ForgeSlots != null)
         {
@@ -242,9 +233,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         var completion = new ForgeCompletion
         {
             output = job.outputItem,
-            isHighQuality = job.isHighQuality,
             wasNewDiscovery = wasNewDiscovery,
-            wasNewHighQualityDiscovery = wasNewHighQualityDiscovery,
         };
         _simState.ActiveForgeJob = null;
         onForgeJobChanged?.Invoke(null);
@@ -315,14 +304,12 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     }
 }
 
-// Bundled completion info — recipe context plus the produced item. The
-// forge's deliveryCallback hands one of these to the bound CookingScreen
-// so the announcement system can decide between "New Recipe Discovered"
-// vs "Cooking Complete" without re-querying state.
+// Bundled completion info — the produced item plus a "first time" flag.
+// The forge's deliveryCallback hands one of these to the bound CookingScreen
+// so the in-screen announcement can read "New Recipe Discovered" vs
+// "Cooking Complete" without re-querying state.
 public struct ForgeCompletion
 {
     public ItemData output;
-    public bool isHighQuality;
     public bool wasNewDiscovery;
-    public bool wasNewHighQualityDiscovery;
 }

@@ -336,7 +336,14 @@ public partial class Mob
                 result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref perception, delta);
             }
             _simState.PlayerPerception = perception.perception;
+            EPlayerPerceptionState prevDiscoveryState = _simState.DiscoveryState;
             _simState.DiscoveryState = perception.state;
+
+            if (prevDiscoveryState != EPlayerPerceptionState.Discovered
+                && _simState.DiscoveryState == EPlayerPerceptionState.Discovered)
+            {
+                _world.WorldState?.SimState?.DiscoverMob(mobData);
+            }
 
             if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)
             {

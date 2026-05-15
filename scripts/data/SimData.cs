@@ -15,6 +15,13 @@ public partial class SimData : Resource
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> Recipes = new();
 
+    // Master mob library. BestiaryScreen iterates this list, filtering to
+    // the entries the player has discovered (WorldSimState.DiscoveredMobs),
+    // so the bestiary's row ordering tracks the authored order here rather
+    // than discovery order. Adding a new mob species = adding it here so it
+    // can appear in the bestiary once spotted.
+    [Export] public Array<MobData> Mobs = new();
+
     // Shared item-leveling thresholds. Entry i is the cumulative exp required
     // to reach level (i+1); WeaponState.AddExp / ArmorState.AddExp walk this
     // list and promote level while the running total has crossed the next

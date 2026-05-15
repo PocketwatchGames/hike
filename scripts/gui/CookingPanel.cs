@@ -49,12 +49,10 @@ public partial class CookingPanel : MarginContainer
 	public System.Action onCookPressed;
 	public System.Action onCancelPressed;
 
-	// A recipe button in the right-hand list was clicked. Screen handles the
-	// item routing (return slot contents to inventory, then load the recipe's
-	// ingredients from inventory into slots). `isHighQuality` picks between
-	// the exact-count load (high-quality output) and the cheapest-load
-	// (count + minCountRange — produces the standard output).
-	public System.Action<RecipeData, bool> onRecipeSelected;
+	// A recipe button in the right-hand list was clicked. Screen handles
+	// the item routing (return slot contents to inventory, then load the
+	// recipe's ingredients from inventory into slots).
+	public System.Action<RecipeData> onRecipeSelected;
 
 	public ButtonHint ButtonHintPrimary { get; set; }
 
@@ -68,10 +66,10 @@ public partial class CookingPanel : MarginContainer
 
 	const float HoldSeconds = 0.5f;
 
-	// Recipe button cache keyed by (recipe, isHighQuality). Diff-based
-	// rebuild in RefreshRecipes reuses these so the focused button survives
-	// an inventory mutation.
-	readonly System.Collections.Generic.Dictionary<(RecipeData recipe, bool isHighQuality), Button> _recipeButtons = new();
+	// Recipe button cache keyed by recipe. Diff-based rebuild in
+	// RefreshRecipes reuses these so the focused button survives an
+	// inventory mutation.
+	readonly System.Collections.Generic.Dictionary<RecipeData, Button> _recipeButtons = new();
 
 	ItemSlotPanel _focused;
 	ItemState _lastFocusedItem;
@@ -305,15 +303,13 @@ public partial class CookingPanel : MarginContainer
 
 	// Rebuild the right-hand recipe list. Walks every recipe in SimData,
 	// filters to those that (a) match this forge's type and (b) the player
-	// has discovered, and reconciles one Button per output tier the player
-	// knows (standard always, high-quality only after RecordDiscovery flips
-	// state.discoveredHighQuality). Diff-based — existing buttons stay alive
-	// across refreshes so focus held on a recipe button survives an
-	// inventory mutation. Buttons whose ingredient demand can't be met by
-	// inventory + currently-loaded slots come back disabled; the click
-	// handler swaps slot contents in-place against the recipe target rather
-	// than draining and re-adding, so items already in the right slots
-	// don't visibly flash.
+	// has discovered, and reconciles one Button per discovered recipe.
+	// Diff-based — existing buttons stay alive across refreshes so focus
+	// held on a recipe button survives an inventory mutation. Buttons whose
+	// ingredient demand can't be met by inventory + currently-loaded slots
+	// come back disabled; the click handler swaps slot contents in-place
+	// against the recipe target rather than draining and re-adding, so
+	// items already in the right slots don't visibly flash.
 	public void RefreshRecipes(Array<RecipeData> allRecipes, WorldSimState worldSim, Inventory inventory, EForgeType forgeType)
 	{
 		if (_recipeButtonContainer == null)
@@ -337,7 +333,7 @@ public partial class CookingPanel : MarginContainer
 			}
 		}
 
-		var desired = new System.Collections.Generic.HashSet<(RecipeData recipe, bool isHighQuality)>();
+		var desired = new System.Collections.Generic.HashSet<RecipeData>();
 		if (worldSim != null && allRecipes != null)
 		{
 			for (int i = 0; i < allRecipes.Count; i++)
@@ -347,17 +343,13 @@ public partial class CookingPanel : MarginContainer
 				{
 					continue;
 				}
-				if (!worldSim.DiscoveredRecipes.TryGetValue(recipe, out DiscoveredRecipeState state))
+				if (!worldSim.DiscoveredRecipes.Contains(recipe))
 				{
 					continue;
 				}
-				if (recipe.outputStandard != null)
+				if (recipe.outputItem != null)
 				{
-					desired.Add((recipe, false));
-				}
-				if (state.discoveredHighQuality && recipe.outputHighQuality != null)
-				{
-					desired.Add((recipe, true));
+					desired.Add(recipe);
 				}
 			}
 		}
@@ -365,7 +357,7 @@ public partial class CookingPanel : MarginContainer
 		// Drop buttons whose recipe no longer belongs in the list (only
 		// happens on rebind to a different forge; discovered recipes don't
 		// un-discover within a session).
-		var stale = new System.Collections.Generic.List<(RecipeData, bool)>();
+		var stale = new System.Collections.Generic.List<RecipeData>();
 		foreach (var key in _recipeButtons.Keys)
 		{
 			if (!desired.Contains(key))
@@ -385,20 +377,20 @@ public partial class CookingPanel : MarginContainer
 		// have just been identified (placeholder → real name), which fires
 		// via Inventory.onChanged → RefreshRecipeList → here while the
 		// cooking screen is still open.
-		foreach (var key in desired)
+		foreach (RecipeData recipe in desired)
 		{
-			if (!_recipeButtons.TryGetValue(key, out Button button))
+			if (!_recipeButtons.TryGetValue(recipe, out Button button))
 			{
-				button = CreateRecipeButton(key.recipe, key.isHighQuality);
+				button = CreateRecipeButton(recipe);
 				if (button != null)
 				{
-					_recipeButtons[key] = button;
+					_recipeButtons[recipe] = button;
 				}
 			}
 			if (button != null)
 			{
-				button.Disabled = !HasIngredients(key.recipe, key.isHighQuality, combined);
-				ItemData output = key.isHighQuality ? key.recipe.outputHighQuality : key.recipe.outputStandard;
+				button.Disabled = !HasIngredients(recipe, combined);
+				ItemData output = recipe.outputItem;
 				if (output != null)
 				{
 					button.Text = worldSim != null
@@ -424,13 +416,13 @@ public partial class CookingPanel : MarginContainer
 		totals[s.data] = existing + s.stackCount;
 	}
 
-	Button CreateRecipeButton(RecipeData recipe, bool isHighQuality)
+	Button CreateRecipeButton(RecipeData recipe)
 	{
 		if (_recipeButtonScene == null || _recipeButtonContainer == null)
 		{
 			return null;
 		}
-		ItemData output = isHighQuality ? recipe.outputHighQuality : recipe.outputStandard;
+		ItemData output = recipe.outputItem;
 		if (output == null)
 		{
 			return null;
@@ -443,14 +435,18 @@ public partial class CookingPanel : MarginContainer
 		// Text is set by the caller (RefreshRecipes) on every refresh so the
 		// label re-evaluates against the current identification state.
 		button.Icon = output.inventorySprite;
-		RecipeData capturedRecipe = recipe;
-		bool capturedHQ = isHighQuality;
-		button.Pressed += () => onRecipeSelected?.Invoke(capturedRecipe, capturedHQ);
+		RecipeData captured = recipe;
+		button.Pressed += () => onRecipeSelected?.Invoke(captured);
 		_recipeButtonContainer.AddChild(button);
 		return button;
 	}
 
-	static bool HasIngredients(RecipeData recipe, bool isHighQuality, System.Collections.Generic.Dictionary<ItemData, int> combined)
+	// Loads the recipe's exact authored count for each ingredient — the
+	// matcher already accepts anything in [count - range, count + range],
+	// so the target count is always a valid match. Optional ingredients
+	// (count <= 0) don't need to be present, so they don't count toward
+	// "have enough".
+	static bool HasIngredients(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> combined)
 	{
 		if (recipe?.inputs == null)
 		{
@@ -463,10 +459,7 @@ public partial class CookingPanel : MarginContainer
 			{
 				return false;
 			}
-			// Standard load uses the cheapest count in the recipe's accepted
-			// range; high-quality load matches exact count so Cooking.TryMatch
-			// picks outputHighQuality.
-			int needed = isHighQuality ? input.count : (input.count + input.minCountRange);
+			int needed = input.count;
 			if (needed <= 0)
 			{
 				continue;

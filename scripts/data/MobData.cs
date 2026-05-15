@@ -4,6 +4,20 @@ using Godot.Collections;
 [GlobalClass]
 public partial class MobData : Resource
 {
+    // Player-facing name shown in the Bestiary, announcement banners, and any
+    // future "Goblin attacks!" UI. Matches the StringName pattern other
+    // *Data resources use for human-readable identity (ItemData, RegionData).
+    [Export] public StringName displayName;
+
+    // Whether this species shows up in the bestiary and fires a discovery
+    // announcement the first time a player sees one. False for "common
+    // knowledge" species the player wouldn't catalogue — villagers,
+    // livestock, future named NPCs. Distinct from the per-instance
+    // EPlayerPerceptionState.Discovered, which still progresses normally
+    // on these mobs for AI / HUD purposes; this flag just controls the
+    // species-level bestiary entry.
+    [Export] public bool appearsInBestiary = true;
+
     [ExportGroup("Mob Perceives Player")]
     // How this mob's AI sees the player — sight cone reach and shape, the
     // accumulation curve that turns "in sight" into the triggered/alert

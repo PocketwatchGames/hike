@@ -1323,6 +1323,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         SpawnWorldEffect(_yellEffect);
         _simState.PlayerPerception = 1;
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
+        _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
         _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
         float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
         using (Profiler.Sample("Mob.YellBroadcast"))

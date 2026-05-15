@@ -14,6 +14,7 @@ metadata/_custom_type_script = "uid://bxk4n2mp7q5wa"
 
 [resource]
 script = ExtResource("1_vvowg")
+displayName = &"Goblin"
 VisionRange = 20.0
 MinPerceptionDelta = 0.0
 visibilityMovementMin = 0.75

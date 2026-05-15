@@ -1,12 +1,19 @@
-[gd_resource type="Resource" script_class="SimData" load_steps=7 format=3 uid="uid://vwejw0habed3"]
+[gd_resource type="Resource" script_class="SimData" load_steps=14 format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
 [ext_resource type="PackedScene" path="res://scenes/effects/footprint_discoverable.tscn" id="1_atie7"]
 [ext_resource type="PackedScene" path="res://scenes/effects/footprint_visible.tscn" id="2_7ttre"]
 [ext_resource type="Script" uid="uid://rmq2wdsc9r3qk" path="res://scripts/data/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
+[ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
+[ext_resource type="Resource" uid="uid://b9k7m4n2p8qrx" path="res://resources/data/recipes/recipe_succulent_grilled_kun_kun.tres" id="5_recipe_gkk_hi"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
+[ext_resource type="Resource" uid="uid://d7n3p5k2j9rwx" path="res://resources/data/recipes/recipe_succulent_grilled_goblin.tres" id="6_recipe_gg_hi"]
+[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="7_mob_script"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="8_mob_goblin"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="9_mob_kun_kun"]
+[ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/friendly_villager.tres" id="10_mob_villager"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -19,5 +26,6 @@ MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
 FootprintVisible = ExtResource("2_7ttre")
 FootprintDiscoverable = ExtResource("1_atie7")
-Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg")])
+Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk_hi"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg_hi"), ExtResource("6_recipe_gg")])
+Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
 metadata/_custom_type_script = "uid://chvgahtb671mg"

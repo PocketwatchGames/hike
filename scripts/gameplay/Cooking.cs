@@ -1,48 +1,36 @@
 using System.Collections.Generic;
-using Godot;
 using Godot.Collections;
 
 // Pure recipe matcher. Given the current cooking inputs (any number of slots,
 // each holding an ItemState or null), the master recipe list from SimData,
-// and the forge type performing the cook, returns the first matching recipe
-// along with whether the high-quality output should be produced. Match rules:
+// and the forge type performing the cook, returns the most-specific matching
+// recipe. Match rules:
 //   * recipe.forgeType must equal the supplied forgeType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
 //     smelter).
 //   * Every authored ingredient must satisfy the provided count being inside
-//     [count + minCountRange, count + maxCountRange]. An ingredient is
-//     OPTIONAL when its low bound is <= 0 — absence then counts as a
+//     [count - range, count + range] (low bound clamped at 0). An ingredient
+//     is OPTIONAL when its low bound is <= 0 — absence then counts as a
 //     provided amount of 0 and the recipe still matches. Required
 //     ingredients (low > 0) must appear in the inputs.
 //   * The inputs must contain NO ingredient kinds outside the recipe.
-//   * High-quality matches iff every ingredient's provided count equals
-//     exactly recipe.count AND the recipe declares an outputHighQuality.
-//     An optional ingredient with count > 0 must be present at exactly
-//     that count to satisfy the exact-match criterion.
-// Aggregates duplicate ingredient slots so two stacks of the same item count
-// together as a single input bucket.
+//
+// Tier variation (standard vs high-quality output) is expressed by separate
+// RecipeData files, not by a per-match quality flag — a high-quality recipe
+// is just a recipe whose ingredients all have range=0. When multiple
+// recipes match the same inputs, the one with the smallest total range wins
+// (i.e. the more specific one). Ties resolve to whichever appears first.
 public static class Cooking
 {
 	public readonly struct MatchResult
 	{
 		public readonly RecipeData recipe;
-		public readonly bool isHighQuality;
-		public MatchResult(RecipeData recipe, bool isHighQuality)
+		public MatchResult(RecipeData recipe)
 		{
 			this.recipe = recipe;
-			this.isHighQuality = isHighQuality;
 		}
 		public bool IsValid => recipe != null;
-		public ItemData OutputItem
-		{
-			get
-			{
-				if (recipe == null) { return null; }
-				return isHighQuality && recipe.outputHighQuality != null
-					? recipe.outputHighQuality
-					: recipe.outputStandard;
-			}
-		}
+		public ItemData OutputItem => recipe?.outputItem;
 	}
 
 	public static MatchResult TryMatch(IReadOnlyList<ItemState> inputs, Array<RecipeData> recipes, EForgeType forgeType)
@@ -66,114 +54,99 @@ public static class Cooking
 		{
 			return default;
 		}
+		RecipeData bestRecipe = null;
+		int bestSpecificity = int.MaxValue;
 		for (int r = 0; r < recipes.Count; r++)
 		{
 			RecipeData recipe = recipes[r];
-			if (recipe?.inputs == null || recipe.inputs.Count == 0)
+			if (!Matches(recipe, totals, forgeType))
 			{
 				continue;
 			}
-			if (recipe.forgeType != forgeType)
+			int spec = TotalRange(recipe);
+			if (spec < bestSpecificity)
 			{
-				continue;
+				bestSpecificity = spec;
+				bestRecipe = recipe;
 			}
-			bool inRange = true;
-			bool exact = true;
-			for (int i = 0; i < recipe.inputs.Count; i++)
-			{
-				RecipeInput ri = recipe.inputs[i];
-				if (ri?.item == null)
-				{
-					inRange = false;
-					break;
-				}
-				int low = ri.count + ri.minCountRange;
-				int high = ri.count + ri.maxCountRange;
-				if (!totals.TryGetValue(ri.item, out int provided))
-				{
-					// Absent ingredient. Treat as provided=0 — this is in
-					// range iff the recipe author set low <= 0, which is the
-					// signal that the ingredient is optional.
-					provided = 0;
-				}
-				if (provided < low || provided > high)
-				{
-					inRange = false;
-					break;
-				}
-				if (provided != ri.count)
-				{
-					exact = false;
-				}
-			}
-			if (!inRange)
-			{
-				continue;
-			}
-			// Reject if the player has piled in an ingredient kind this
-			// recipe doesn't author. The old "inputs.Count == totals.Count"
-			// check did this for us, but it also rejected omitted optional
-			// ingredients — so it's replaced with a one-way subset check.
-			bool hasExtras = false;
-			foreach (ItemData kind in totals.Keys)
-			{
-				bool found = false;
-				for (int i = 0; i < recipe.inputs.Count; i++)
-				{
-					if (recipe.inputs[i]?.item == kind)
-					{
-						found = true;
-						break;
-					}
-				}
-				if (!found)
-				{
-					hasExtras = true;
-					break;
-				}
-			}
-			if (hasExtras)
-			{
-				continue;
-			}
-			bool wantsHigh = exact && recipe.outputHighQuality != null;
-			return new MatchResult(recipe, wantsHigh);
 		}
-		return default;
+		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	// Record discovery of a recipe / quality tier into WorldSimState. Updates
-	// the per-ingredient minSuccessfulIngredientCounts so the UI can later
-	// hint at the lower bound the player has confirmed by trial.
-	public static void RecordDiscovery(WorldSimState sim, in MatchResult match, IReadOnlyList<ItemState> inputs)
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, EForgeType forgeType)
+	{
+		if (recipe?.inputs == null || recipe.inputs.Count == 0)
+		{
+			return false;
+		}
+		if (recipe.forgeType != forgeType)
+		{
+			return false;
+		}
+		for (int i = 0; i < recipe.inputs.Count; i++)
+		{
+			RecipeInput ri = recipe.inputs[i];
+			if (ri?.item == null)
+			{
+				return false;
+			}
+			int low = ri.count - ri.range;
+			int high = ri.count + ri.range;
+			if (!totals.TryGetValue(ri.item, out int provided))
+			{
+				// Absent ingredient. Treat as provided=0 — in range iff
+				// low <= 0, which is the signal that the ingredient is
+				// optional.
+				provided = 0;
+			}
+			if (provided < low || provided > high)
+			{
+				return false;
+			}
+		}
+		// Reject if the player has piled in an ingredient kind this recipe
+		// doesn't author.
+		foreach (ItemData kind in totals.Keys)
+		{
+			bool found = false;
+			for (int i = 0; i < recipe.inputs.Count; i++)
+			{
+				if (recipe.inputs[i]?.item == kind)
+				{
+					found = true;
+					break;
+				}
+			}
+			if (!found)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// Sum of per-ingredient range. Lower = more specific. A recipe with
+	// every input pinned to range=0 has specificity 0, so it always wins
+	// over a looser recipe sharing the same ingredients.
+	static int TotalRange(RecipeData recipe)
+	{
+		int total = 0;
+		for (int i = 0; i < recipe.inputs.Count; i++)
+		{
+			RecipeInput ri = recipe.inputs[i];
+			if (ri != null) { total += ri.range; }
+		}
+		return total;
+	}
+
+	// Record discovery via the WorldSimState bus so the announcement
+	// pipeline picks up the first-time discovery.
+	public static void RecordDiscovery(WorldSimState sim, in MatchResult match)
 	{
 		if (sim == null || !match.IsValid)
 		{
 			return;
 		}
-		if (!sim.DiscoveredRecipes.TryGetValue(match.recipe, out DiscoveredRecipeState state))
-		{
-			state = new DiscoveredRecipeState();
-			sim.DiscoveredRecipes[match.recipe] = state;
-		}
-		if (match.isHighQuality)
-		{
-			state.discoveredHighQuality = true;
-		}
-		if (inputs != null)
-		{
-			for (int i = 0; i < inputs.Count; i++)
-			{
-				ItemState s = inputs[i];
-				if (s?.data == null || s.stackCount <= 0)
-				{
-					continue;
-				}
-				if (!state.minSuccessfulIngredientCounts.TryGetValue(s.data, out int prev) || s.stackCount < prev)
-				{
-					state.minSuccessfulIngredientCounts[s.data] = s.stackCount;
-				}
-			}
-		}
+		sim.DiscoverRecipe(match.recipe);
 	}
 }

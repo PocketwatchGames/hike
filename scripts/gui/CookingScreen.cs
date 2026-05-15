@@ -234,10 +234,11 @@ public partial class CookingScreen : Control
 	// recipe target in-place: items already in the right slots stay put
 	// (so the user doesn't see them flash out and back in), excess and
 	// off-recipe contents return to the inventory, and any deficit pulls
-	// fresh stock from the inventory. Standard quality loads cheapest
-	// (count + minCountRange) so Cooking.TryMatch picks outputStandard;
-	// high-quality loads exact count so it picks outputHighQuality.
-	void OnRecipeSelected(RecipeData recipe, bool isHighQuality)
+	// fresh stock from the inventory. Loads the recipe's exact authored
+	// count for each required ingredient — the matcher accepts anything
+	// inside [count - range, count + range], so the target count is
+	// always a valid match for the recipe that produced it.
+	void OnRecipeSelected(RecipeData recipe)
 	{
 		if (recipe == null || recipe.inputs == null || _cookingPanel == null || _player?.Inventory == null || _forge == null || IsCooking)
 		{
@@ -251,7 +252,7 @@ public partial class CookingScreen : Control
 			{
 				continue;
 			}
-			int needed = isHighQuality ? input.count : (input.count + input.minCountRange);
+			int needed = input.count;
 			if (needed > 0)
 			{
 				remaining[input.item] = needed;
@@ -657,7 +658,7 @@ public partial class CookingScreen : Control
 		// timer expiry, which lets Cancel preserve the inputs. Discovery
 		// is recorded by the forge at completion so a cancel mid-cook
 		// doesn't credit the recipe.
-		_forge.StartForgeJob(match.recipe, match.OutputItem, match.isHighQuality);
+		_forge.StartForgeJob(match.recipe, match.OutputItem);
 	}
 
 	void OnCookCancel()
@@ -709,8 +710,7 @@ public partial class CookingScreen : Control
 		string outputName = worldSim != null
 			? worldSim.GetItemDisplayName(completion.output)
 			: completion.output.displayName.ToString();
-		bool isNewDiscovery = completion.wasNewDiscovery || completion.wasNewHighQualityDiscovery;
-		string text = isNewDiscovery
+		string text = completion.wasNewDiscovery
 			? $"New Recipe Discovered: {outputName}"
 			: $"Cooking Complete: {outputName}";
 		_cookingPanel?.ShowAnnouncement(text, completion.output.inventorySprite);
