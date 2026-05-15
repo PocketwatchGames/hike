@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="StatusEffectData" format=3]
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bbr2g5iqvgi7r"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://b4ngt7o3oi8cj" path="res://assets/textures/status_effects/Temperature-1.png" id="2_icon"]
@@ -11,6 +11,7 @@ script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Cold"
 duration = 5.0
+maxStack = 1
 movementMultiplier = 0.75
 animationSpeedMultiplier = 0.75
 startFx = ExtResource("3_startfx")

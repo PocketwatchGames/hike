@@ -10,6 +10,7 @@ script = ExtResource("1_data")
 icon = ExtResource("1_bf5kg")
 displayName = &"Hydrated"
 duration = 300.0
+maxStack = 1
 maxStaminaBonus = 50.0
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")

@@ -23,6 +23,14 @@ public partial class StatusEffectData : Resource
 	// wanted (e.g. wet effect arms 10s only after the player leaves water).
 	[Export] public float duration;
 
+	// Cap on simultaneous instances of this effect on a single actor. When a
+	// new Add would push the count past this, the controller refreshes the
+	// oldest existing instance's timer instead of appending a fresh state.
+	// Default 99 is effectively "unbounded stacking" for poison-like effects;
+	// authored 1 on consumable/situational effects (Well Fed, Hydrated, Wet,
+	// Hot, Cold) so re-eating / re-drinking just extends the timer.
+	[Export] public int maxStack = 99;
+
 	// Per-footprint visual modulators. The actor's footprint emitter sums
 	// these across all active StatusEffectStates and multiplies into the
 	// per-ground FootprintData baseAlpha / durationSeconds at spawn time.

@@ -23,7 +23,6 @@ fx = ExtResource("8_chestopen")
 
 [sub_resource type="Resource" id="Resource_chest_action_open"]
 script = ExtResource("9_action")
-verb = 0
 displayName = &"Open"
 icon = ExtResource("19_open")
 completionEvents = Array[ExtResource("10_event")]([SubResource("Resource_chest_event_open")])

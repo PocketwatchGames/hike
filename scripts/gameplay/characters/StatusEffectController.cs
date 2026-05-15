@@ -33,6 +33,36 @@ public class StatusEffectController
 			return null;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
+		// Enforce data.maxStack by refreshing the oldest still-alive instance
+		// instead of appending. List order is insertion order (Tick prunes in
+		// place via RemoveAt) so the first match is the oldest. ArmTimer is a
+		// no-op for persistent effects (duration == 0), which is fine — the
+		// stack cap still suppresses the duplicate add.
+		if (data.maxStack > 0)
+		{
+			int count = 0;
+			StatusEffectState oldest = null;
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				if (_statusEffects[i]?.data == data)
+				{
+					count++;
+					if (oldest == null)
+					{
+						oldest = _statusEffects[i];
+					}
+				}
+			}
+			if (count >= data.maxStack && oldest != null)
+			{
+				oldest.ArmTimer(now);
+				if (data.startFx != null && _world != null)
+				{
+					Fx.Create(data.startFx, _world, _actor.GlobalPosition);
+				}
+				return oldest;
+			}
+		}
 		var state = new StatusEffectState(data, now);
 		_statusEffects.Add(state);
 		if (data.startFx != null && _world != null)

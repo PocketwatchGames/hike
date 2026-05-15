@@ -3,8 +3,8 @@ using Godot.Collections;
 
 // Pure recipe matcher. Given the current cooking inputs (any number of slots,
 // each holding an ItemState or null), the master recipe list from SimData,
-// and the forge type performing the cook, returns the most-specific matching
-// recipe. Match rules:
+// and the forge type performing the cook, returns the best matching recipe.
+// Match rules:
 //   * recipe.forgeType must equal the supplied forgeType — recipes are
 //     scoped to a station (e.g. cooking-only recipes never match at a
 //     smelter).
@@ -16,10 +16,10 @@ using Godot.Collections;
 //   * The inputs must contain NO ingredient kinds outside the recipe.
 //
 // Tier variation (standard vs high-quality output) is expressed by separate
-// RecipeData files, not by a per-match quality flag — a high-quality recipe
-// is just a recipe whose ingredients all have range=0. When multiple
-// recipes match the same inputs, the one with the smallest total range wins
-// (i.e. the more specific one). Ties resolve to whichever appears first.
+// RecipeData files, not by a per-match quality flag. When multiple recipes
+// match the same inputs, the recipe with the highest authored `priority`
+// wins; ties broken by smallest total range (more specific). Final tie
+// resolves to whichever appears first.
 public static class Cooking
 {
 	public readonly struct MatchResult
@@ -55,6 +55,7 @@ public static class Cooking
 			return default;
 		}
 		RecipeData bestRecipe = null;
+		int bestPriority = int.MinValue;
 		int bestSpecificity = int.MaxValue;
 		for (int r = 0; r < recipes.Count; r++)
 		{
@@ -64,8 +65,9 @@ public static class Cooking
 				continue;
 			}
 			int spec = TotalRange(recipe);
-			if (spec < bestSpecificity)
+			if (recipe.priority > bestPriority || (recipe.priority == bestPriority && spec < bestSpecificity))
 			{
+				bestPriority = recipe.priority;
 				bestSpecificity = spec;
 				bestRecipe = recipe;
 			}

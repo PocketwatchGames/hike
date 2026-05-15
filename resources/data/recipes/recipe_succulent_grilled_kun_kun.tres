@@ -15,3 +15,4 @@ metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 script = ExtResource("3_recipe")
 outputItem = ExtResource("4_output")
 inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat")])
+priority = 1

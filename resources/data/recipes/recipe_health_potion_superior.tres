@@ -21,3 +21,4 @@ metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 script = ExtResource("3_recipe")
 outputItem = ExtResource("5_output")
 inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_berry"), SubResource("Resource_input_mushroom")])
+priority = 1

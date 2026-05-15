@@ -11,5 +11,6 @@ icon = ExtResource("1_v78a8")
 displayName = &"Well Fed"
 damagePerSecond = -0.02
 duration = 720.0
+maxStack = 1
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
