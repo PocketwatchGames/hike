@@ -13,6 +13,7 @@ public enum EAnnouncementType
 	LevelUp,
 	Boss,
 	MobDiscovered,
+	MobLevelUp,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the
@@ -49,4 +50,11 @@ public class Announcement
 	public bool showAlmanacHint;
 	public AlmanacScreen.EAlmanacTab almanacTab;
 	public string almanacHintLabel;
+
+	// Optional mob to auto-focus when the shortcut opens the Bestiary tab.
+	// Only meaningful when almanacTab == Bestiary; ignored on other tabs.
+	// Used so a "Goblin Discovered" / "Goblin Level 2" banner jumps the
+	// user straight to the goblin row instead of the first discovered
+	// entry.
+	public MobData almanacFocusMob;
 }

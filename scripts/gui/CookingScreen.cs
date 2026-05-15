@@ -49,15 +49,15 @@ public partial class CookingScreen : Control
 		{
 			_inventoryPanel.onPrimaryTap += OnInventoryCookTap;
 			_inventoryPanel.onPrimaryHoldComplete += OnInventoryCookHold;
-			_inventoryPanel.onSecondaryPressed += OnInventoryUsePressed;
-			_inventoryPanel.onSecondaryReleased += OnInventoryUseReleased;
-			_inventoryPanel.onDropTap += OnInventoryDropTap;
-			_inventoryPanel.onDropHoldComplete += OnInventoryDropHold;
+			_inventoryPanel.onTertiaryPressed += OnInventoryUsePressed;
+			_inventoryPanel.onTertiaryReleased += OnInventoryUseReleased;
+			_inventoryPanel.onSecondaryTap += OnInventoryDropTap;
+			_inventoryPanel.onSecondaryHoldComplete += OnInventoryDropHold;
 			_inventoryPanel.onFocusedItemChanged += OnInventoryFocusChanged;
 
 			_inventoryPanel.ButtonHintPrimary?.SetHint(_inventoryPanel.PrimaryAction, "Cook");
-			_inventoryPanel.ButtonHintSecondary?.SetHint(_inventoryPanel.SecondaryAction, "Use");
-			_inventoryPanel.ButtonHintDrop?.SetHint(_inventoryPanel.DropAction, "Drop");
+			_inventoryPanel.ButtonHintSecondary?.SetHint(_inventoryPanel.SecondaryAction, "Drop");
+			_inventoryPanel.ButtonHintTertiary?.SetHint(_inventoryPanel.TertiaryAction, "Use");
 		}
 		if (_cookingPanel != null)
 		{
@@ -86,10 +86,10 @@ public partial class CookingScreen : Control
 		{
 			_inventoryPanel.onPrimaryTap -= OnInventoryCookTap;
 			_inventoryPanel.onPrimaryHoldComplete -= OnInventoryCookHold;
-			_inventoryPanel.onSecondaryPressed -= OnInventoryUsePressed;
-			_inventoryPanel.onSecondaryReleased -= OnInventoryUseReleased;
-			_inventoryPanel.onDropTap -= OnInventoryDropTap;
-			_inventoryPanel.onDropHoldComplete -= OnInventoryDropHold;
+			_inventoryPanel.onTertiaryPressed -= OnInventoryUsePressed;
+			_inventoryPanel.onTertiaryReleased -= OnInventoryUseReleased;
+			_inventoryPanel.onSecondaryTap -= OnInventoryDropTap;
+			_inventoryPanel.onSecondaryHoldComplete -= OnInventoryDropHold;
 			_inventoryPanel.onFocusedItemChanged -= OnInventoryFocusChanged;
 		}
 		if (_cookingPanel != null)
@@ -374,25 +374,25 @@ public partial class CookingScreen : Control
 		bool hasItem = item != null && !cooking;
 		ButtonHint primary = _inventoryPanel.ButtonHintPrimary;
 		ButtonHint secondary = _inventoryPanel.ButtonHintSecondary;
-		ButtonHint drop = _inventoryPanel.ButtonHintDrop;
+		ButtonHint tertiary = _inventoryPanel.ButtonHintTertiary;
 		if (primary != null)
 		{
 			primary.Visible = hasItem;
 			primary.ActionName = "Cook";
 			primary.SetProgress(0f);
 		}
-		if (drop != null)
-		{
-			drop.Visible = hasItem;
-			drop.SetProgress(0f);
-		}
 		if (secondary != null)
+		{
+			secondary.Visible = hasItem;
+			secondary.SetProgress(0f);
+		}
+		if (tertiary != null)
 		{
 			// Use is independent of the forge — drinking a potion mid-cook is
 			// fine — so don't gate it on `cooking`.
-			secondary.Visible = item != null && CanUseItem(item);
-			secondary.ActionName = "Use";
-			secondary.SetProgress(0f);
+			tertiary.Visible = item != null && CanUseItem(item);
+			tertiary.ActionName = "Use";
+			tertiary.SetProgress(0f);
 		}
 	}
 
@@ -490,9 +490,9 @@ public partial class CookingScreen : Control
 			primary.ActionName = "Remove";
 			primary.Visible = item != null && !cooking;
 		}
-		if (_inventoryPanel?.ButtonHintDrop != null)
+		if (_inventoryPanel?.ButtonHintTertiary != null)
 		{
-			_inventoryPanel.ButtonHintDrop.Visible = false;
+			_inventoryPanel.ButtonHintTertiary.Visible = false;
 		}
 		// Use is only meaningful while focus is on the inventory panel; the
 		// cooking slots can't hold consumables the player would drink.

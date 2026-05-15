@@ -10,10 +10,6 @@
 [ext_resource type="Texture2D" uid="uid://dm4sjbwpduw2t" path="res://assets/textures/interactions/talk.png" id="6_wal8y"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="7_litanim"]
 [ext_resource type="Texture2D" uid="uid://djgtvyk4mwcyh" path="res://assets/textures/characters/com_bellafide_unarmed.png" id="7_wal8y"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="8_lit_material"]
-[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="9_blshadow"]
-[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="10_shadow"]
-[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="11_reflection"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="12_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="13_event"]
 
@@ -137,12 +133,9 @@ texture = ExtResource("7_wal8y")
 region_enabled = true
 region_rect = Rect2(360, 0, 72, 72)
 script = ExtResource("6_litsprite")
+Material = 1
 MirrorByYaw = true
 ForwardOffset = 0.35
-ShadowCasterTemplate = ExtResource("10_shadow")
-BlockLightShadowCasterTemplate = ExtResource("9_blshadow")
-ReflectionTemplate = ExtResource("11_reflection")
-MaterialTemplate = ExtResource("8_lit_material")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1842591515]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

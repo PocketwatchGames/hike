@@ -90,7 +90,7 @@ public static class Cooking
 			{
 				return false;
 			}
-			int low = ri.count - ri.range;
+			int low = ri.count;
 			int high = ri.count + ri.range;
 			if (!totals.TryGetValue(ri.item, out int provided))
 			{

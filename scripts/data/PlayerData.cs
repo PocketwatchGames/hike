@@ -34,6 +34,17 @@ public partial class PlayerData : Resource
 	[Export] public float sneakDecibels = 1f;
 	[Export] public float runDecibels = 6f;
 
+	// Scent trail authoring. The player drops timestamped breadcrumbs that
+	// advect with wind (per-crumb, voxel-collided) and decay linearly toward
+	// zero strength. Lifetime is implicit: lifetime = strength / decayRate,
+	// so a stronger emission lasts proportionally longer. Mobs sample the
+	// crumb list in their mob-perceives-player tick (LOS-gated by raycast).
+	[Export] public float scentStrength = 1f;
+	[Export] public float scentDecayRate = 0.1f;
+	[Export] public float scentStampInterval = 0.5f;
+	[Export] public float scentStampMoveDistance = 1f;
+	[Export] public int scentMaxCrumbs = 20;
+
 	[Export] public float shallowWaterSpeed = 0.5f;
 	[Export] public float swimSpeed = 3.5f;
 	[Export] public float swimVerticalSpeed = 4f;
@@ -122,11 +133,14 @@ public partial class PlayerData : Resource
 	// refill until the player stops swimming or stops giving move input.
 	[Export] public float swimStaminaDrainPerSecond = 10f;
 
-	// Impulse the player applies to a mob when they run into it. Scaled
-	// by the player's current horizontal speed and divided by the mob's
-	// mass, so heavy mobs barely budge while light mobs scatter. 0 disables
-	// player-pushes-mob entirely.
-	[Export] public float mobPushStrength = 8f;
+	// Multiplier on the player's horizontal speed used as the *cap* on a
+	// pushed mob's resulting velocity along the push direction. 1.5 = a
+	// mob the player runs into ends up moving 1.5× the player's speed at
+	// most, regardless of how many physics ticks contact lasts. 0 disables
+	// player-pushes-mob entirely. Mass-independent — heavier mobs no longer
+	// resist proportionally, since Player.PushTouchedMobs scales the impulse
+	// by mob.Mass so the velocity change is the same for any mass.
+	[Export] public float mobPushStrength = 1.5f;
 
 	// Degrees F per second that bodyTemperature drifts toward the sampled
 	// environmental temperature. Lower = more inertia (a brief gust through

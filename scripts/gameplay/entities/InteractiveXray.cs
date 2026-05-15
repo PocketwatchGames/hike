@@ -50,6 +50,15 @@ public partial class InteractiveXray : Node3D
     private float _xrayAmount;
     private float _xrayTarget;
     private float _probeAccumulator;
+    // Host that the X-ray follows. Resolved from GetParent() in _Ready —
+    // every current InteractiveXray sits as a direct child of an
+    // IInteractive root (chest, loot, door, trap, campfire). When the host
+    // reports CanInteract() == false (chest opened, loot picked up, etc.),
+    // the probe is suppressed and the silhouette fades out — no point
+    // highlighting something the player can no longer act on. Null means
+    // "no host found" — the xray runs unconditionally, matching the old
+    // behavior so scenes without an IInteractive parent still work.
+    private IInteractive _interactive;
 
     public override void _Ready()
     {
@@ -62,6 +71,7 @@ public partial class InteractiveXray : Node3D
         {
             _discoverable.OnStateChanged += OnDiscoverableStateChanged;
         }
+        _interactive = GetParent() as IInteractive;
         ApplyXrayAmount(0f);
     }
 
@@ -89,11 +99,22 @@ public partial class InteractiveXray : Node3D
         }
 
         float dt = (float)delta;
-        _probeAccumulator += dt;
-        if (_probeAccumulator >= probeInterval)
+        // Skip the LOS probe (and force the target to 0) when the host is
+        // no longer interactable. Falls through to the fade path below so
+        // the silhouette dims away naturally instead of snapping off.
+        bool interactable = _interactive == null || _interactive.CanInteract();
+        if (interactable)
         {
-            _probeAccumulator = 0f;
-            _xrayTarget = Probe();
+            _probeAccumulator += dt;
+            if (_probeAccumulator >= probeInterval)
+            {
+                _probeAccumulator = 0f;
+                _xrayTarget = Probe();
+            }
+        }
+        else
+        {
+            _xrayTarget = 0f;
         }
 
         if (_xrayAmount == _xrayTarget)

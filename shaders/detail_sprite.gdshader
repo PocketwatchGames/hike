@@ -13,6 +13,16 @@ shader_type spatial;
 // stencil pipeline, so detail_sprite no longer needs to participate in
 // any alpha-queue ordering for the cap to work.
 render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform;
+// Stamp the same character/interactive stencil value sprite_lit_character
+// writes. Grass blades, pebbles, etc. are foreground decor — they shouldn't
+// count as "real cover" for the X-ray pass. Without this, a grass blade
+// landing between the camera and the player writes depth at that pixel, the
+// player's sprite_xray next_pass sees the player as occluded, and the bright
+// silhouette flashes through the grass. Reusing stencil=8 piggybacks on
+// sprite_xray's existing `compare_not_equal, 8` discard so X-ray skips
+// pixels covered by detail sprites the same way it already skips pixels
+// covered by another character or interactive.
+stencil_mode write, compare_always, 8;
 
 // MultiMesh-instanced detail sprite (grass, flowers, twigs, etc.).
 //

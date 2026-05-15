@@ -15,8 +15,12 @@ metadata/_custom_type_script = "uid://bxk4n2mp7q5wa"
 [resource]
 script = ExtResource("1_vvowg")
 displayName = &"Goblin"
+killsPerLevel = Array[int]([5, 15, 30, 60, 100])
 VisionRange = 20.0
 MinPerceptionDelta = 0.0
+SmellStrength = 0.25
+smellRange = 16.0
+smellRangePower = 2.0
 visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
 maxArmor = 5.0

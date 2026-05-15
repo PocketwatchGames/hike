@@ -24,12 +24,27 @@ using Godot;
 //     surface under the sprite's XZ column.
 //
 // In the editor this node falls back to Sprite3D's default unshaded path so
-// the sprite is visible while authoring colliders. The sprite_lit shader is
-// applied at runtime by binding a shared MaterialTemplate-derived material.
+// the sprite is visible while authoring colliders. At runtime the visible
+// material is the shared (template, texture) variant from SpriteBase's
+// material cache, with the template resolved from MaterialRegistry by the
+// LitMaterial enum (Standard / Character).
 [Tool]
 [GlobalClass]
 public partial class LitSprite : SpriteBase
 {
+    // Material picker resolved at Apply() time against MaterialRegistry.
+    // Two flavors today:
+    //   - Standard: sprite_lit.tres. No next_pass, single visible draw.
+    //   - Character: sprite_lit_character.tres. Carries the X-ray silhouette
+    //     next_pass that mobs/players use to read through cover (the per-
+    //     instance Xray flag on SpriteBase strips it on a per-sprite basis
+    //     for static interactives that opt out).
+    // Authors pick the kind here; the actual ShaderMaterial reference lives
+    // in autoloads/material_registry.tscn so a future template change ripples
+    // through every scene without re-wiring.
+    public enum LitMaterial { Standard, Character }
+    [Export] public LitMaterial Material { get; set; } = LitMaterial.Standard;
+
     // When true, _Process flips `sprite_mirror` each frame based on whether
     // the sprite's world yaw points to the left or right of the camera.
     // Intended for side-view character art so the sprite's facing direction
@@ -98,36 +113,14 @@ public partial class LitSprite : SpriteBase
     }
     private float _forwardOffset = 0f;
 
-    // Whether this sprite contributes a flipped child sprite under nearby
-    // water surfaces. Off skips reflection entirely (cheapest — props that
-    // never see water, e.g. interior furniture, should be Off). On forces a
-    // reflection regardless of size. Auto enables it only when the sprite
-    // is taller than `AutoReflectMinHeight` in world units — small detail
-    // sprites (loot, torches' flame frames, tiny props) get culled because
-    // their flipped duplicate is too small to read on a rippled surface.
-    public enum ReflectMode { Off, On, Auto }
-    [Export] public ReflectMode Reflects { get; set; } = ReflectMode.Auto;
-    // World-unit height threshold for ReflectMode.Auto. Computed from the
-    // sprite's pixel rect × pixel_size at runtime; defaults to ~1.5m which
-    // covers player + most mobs/trees but skips loot/grass/small props.
-    [Export(PropertyHint.Range, "0,8,0.05")] public float AutoReflectMinHeight { get; set; } = 1.5f;
-    // Cap on the above-water height that drives the geometric mirror.
-    // Below this, the reflection tracks player jumps / bobs by sinking
-    // below water proportionally; above this, the reflection anchors at
-    // the waterline so tall sprites on hills don't have reflections way
-    // below the seabed. ~2m is a sensible default — covers jumps and
-    // shoulder-deep wading without sinking trees off-world.
-    [Export(PropertyHint.Range, "0,8,0.05")] public float MaxReflectionAboveWater { get; set; } = 2.0f;
-    // How far below the sprite feet to search for a water surface. 16
-    // voxels handles a sprite standing on a pier over a deep lake; beyond
-    // that the reflection is so dimmed by water depth tint it won't read.
-    [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
-
-    // Toggle for hiding the directional-shadow contribution at runtime
-    // (e.g. an undiscovered mob should be totally absent from the scene
-    // including its shadow). Updated by owners that need it; the visible
-    // sprite stays unaffected.
-    public bool CastsShadow
+    // Per-scene opt-in for the directional-shadow + block-light-projector
+    // proxies (they always travel together). Default true so most sprites
+    // get shadows for free; set false on sprites that shouldn't cast (e.g.
+    // an undiscovered mob whose entire silhouette is suppressed). Toggling
+    // at runtime updates existing proxies' visibility/cast — but doesn't
+    // create them retroactively, so a sprite that started with false won't
+    // gain shadows by flipping true.
+    [Export] public bool CastsShadow
     {
         get => _castsShadow;
         set
@@ -148,19 +141,32 @@ public partial class LitSprite : SpriteBase
     }
     private bool _castsShadow = true;
 
-    // Per-scene proxy/reflection material templates wired via [Export].
-    // Each LitSprite binds these via the shared-material cache (one
-    // ShaderMaterial per (template, texture) so Godot can batch).
-    [Export] public ShaderMaterial ShadowCasterTemplate { get; set; }
-    // Visible-only sibling of ShadowCasterTemplate, used by the
-    // BlockLightShadowProjector pass. Two proxies per sprite, one job
-    // each: the sun/moon proxy uses ShadowCasterTemplate (ShadowsOnly,
-    // default layer, ALBEDO=0) and the projector proxy uses this
-    // template (visible, projector-only layer, ALBEDO=1). Combining
-    // them into one CastShadow.On proxy made per-sprite sun/moon
-    // shadows vanish even though terrain shadows kept casting.
-    [Export] public ShaderMaterial BlockLightShadowCasterTemplate { get; set; }
-    [Export] public ShaderMaterial ReflectionTemplate { get; set; }
+    public enum ReflectMode { Off, On, Auto }
+
+    // Whether this sprite contributes a flipped child sprite under nearby
+    // water surfaces. Off skips reflection entirely (cheapest — props that
+    // never see water, e.g. interior furniture, should be Off). On forces a
+    // reflection regardless of size. Auto enables it only when the sprite
+    // is taller than `AutoReflectMinHeight` in world units — small detail
+    // sprites (loot, torches' flame frames, tiny props) get culled because
+    // their flipped duplicate is too small to read on a rippled surface.
+    [ExportGroup("Reflection")]
+    [Export] public ReflectMode Reflects { get; set; } = ReflectMode.Auto;
+    // World-unit height threshold for ReflectMode.Auto. Computed from the
+    // sprite's pixel rect × pixel_size at runtime; defaults to ~1.5m which
+    // covers player + most mobs/trees but skips loot/grass/small props.
+    [Export(PropertyHint.Range, "0,8,0.05")] public float AutoReflectMinHeight { get; set; } = 1.5f;
+    // Cap on the above-water height that drives the geometric mirror.
+    // Below this, the reflection tracks player jumps / bobs by sinking
+    // below water proportionally; above this, the reflection anchors at
+    // the waterline so tall sprites on hills don't have reflections way
+    // below the seabed. ~2m is a sensible default — covers jumps and
+    // shoulder-deep wading without sinking trees off-world.
+    [Export(PropertyHint.Range, "0,8,0.05")] public float MaxReflectionAboveWater { get; set; } = 2.0f;
+    // How far below the sprite feet to search for a water surface. 16
+    // voxels handles a sprite standing on a pier over a deep lake; beyond
+    // that the reflection is so dimmed by water depth tint it won't read.
+    [Export(PropertyHint.Range, "0,64,1")] public int WaterReflectionSearchDepth { get; set; } = 16;
 
     private Sprite3D _shadowProxy;
     private Sprite3D _blockLightShadowProxy;
@@ -252,6 +258,21 @@ public partial class LitSprite : SpriteBase
         }
     }
 
+    private ShaderMaterial ResolveTemplate()
+    {
+        MaterialRegistry reg = MaterialRegistry.Instance;
+        if (reg == null)
+        {
+            return null;
+        }
+        return Material switch
+        {
+            LitMaterial.Standard => reg.LitStandard,
+            LitMaterial.Character => reg.LitCharacter,
+            _ => null,
+        };
+    }
+
     protected override void Apply()
     {
         ApplyCommonAuthoring(out Vector2I spriteSize, out Vector2I regionOrigin);
@@ -262,9 +283,10 @@ public partial class LitSprite : SpriteBase
             return;
         }
 
-        if (MaterialTemplate == null)
+        ShaderMaterial template = ResolveTemplate();
+        if (template == null)
         {
-            GD.PushError($"LitSprite '{Name}' is missing MaterialTemplate.");
+            GD.PushError($"LitSprite '{Name}': MaterialRegistry missing entry for {Material}.");
             MaterialOverride = null;
             return;
         }
@@ -273,7 +295,7 @@ public partial class LitSprite : SpriteBase
         // LitSprite that hits the same combo points at the same material,
         // which is what enables Godot's draw-call batching. Per-sprite values
         // live in RenderingServer instance data and are pushed below.
-        ShaderMaterial sharedMat = GetSharedMaterial(MaterialTemplate, Texture);
+        ShaderMaterial sharedMat = GetSharedMaterial(template, Texture, !Xray);
         if (MaterialOverride != sharedMat)
         {
             MaterialOverride = sharedMat;
@@ -382,11 +404,16 @@ public partial class LitSprite : SpriteBase
 
     private void EnsureShadowProxy(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (Texture == null)
+        if (Texture == null || !_castsShadow)
         {
             return;
         }
-        if (ShadowCasterTemplate != null)
+        MaterialRegistry reg = MaterialRegistry.Instance;
+        if (reg == null)
+        {
+            return;
+        }
+        if (reg.LitShadowCaster != null)
         {
             if (_shadowProxy == null)
             {
@@ -394,9 +421,7 @@ public partial class LitSprite : SpriteBase
                 _shadowProxy.Name = "ShadowProxy";
                 _shadowProxy.Centered = false;
                 _shadowProxy.PixelSize = 1.0f;
-                _shadowProxy.CastShadow = _castsShadow
-                    ? ShadowCastingSetting.ShadowsOnly
-                    : ShadowCastingSetting.Off;
+                _shadowProxy.CastShadow = ShadowCastingSetting.ShadowsOnly;
                 _shadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
                 AddChild(_shadowProxy);
             }
@@ -405,7 +430,7 @@ public partial class LitSprite : SpriteBase
             _shadowProxy.RegionEnabled = RegionEnabled;
             _shadowProxy.RegionRect = RegionRect;
 
-            ShaderMaterial sharedShadow = GetSharedMaterial(ShadowCasterTemplate, Texture);
+            ShaderMaterial sharedShadow = GetSharedMaterial(reg.LitShadowCaster, Texture);
             if (_shadowProxy.MaterialOverride != sharedShadow)
             {
                 _shadowProxy.MaterialOverride = sharedShadow;
@@ -419,7 +444,7 @@ public partial class LitSprite : SpriteBase
         // ShadowsOnly proxy above on the default layer. Main camera's
         // cull mask excludes SHADOW_PROXY_LAYER_MASK, so this proxy
         // doesn't appear visibly in the player's view.
-        if (BlockLightShadowCasterTemplate != null)
+        if (reg.LitBlockLightShadowCaster != null)
         {
             if (_blockLightShadowProxy == null)
             {
@@ -429,7 +454,6 @@ public partial class LitSprite : SpriteBase
                 _blockLightShadowProxy.PixelSize = 1.0f;
                 _blockLightShadowProxy.CastShadow = ShadowCastingSetting.Off;
                 _blockLightShadowProxy.Layers = BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK;
-                _blockLightShadowProxy.Visible = _castsShadow;
                 _blockLightShadowProxy.TextureFilter = BaseMaterial3D.TextureFilterEnum.Nearest;
                 AddChild(_blockLightShadowProxy);
             }
@@ -438,7 +462,7 @@ public partial class LitSprite : SpriteBase
             _blockLightShadowProxy.RegionEnabled = RegionEnabled;
             _blockLightShadowProxy.RegionRect = RegionRect;
 
-            ShaderMaterial sharedProj = GetSharedMaterial(BlockLightShadowCasterTemplate, Texture);
+            ShaderMaterial sharedProj = GetSharedMaterial(reg.LitBlockLightShadowCaster, Texture);
             if (_blockLightShadowProxy.MaterialOverride != sharedProj)
             {
                 _blockLightShadowProxy.MaterialOverride = sharedProj;
@@ -471,7 +495,12 @@ public partial class LitSprite : SpriteBase
 
     private void EnsureReflection(Vector2I spriteSize, Vector2I regionOrigin)
     {
-        if (ReflectionTemplate == null || Texture == null)
+        if (Texture == null)
+        {
+            return;
+        }
+        ShaderMaterial reflectionTemplate = MaterialRegistry.Instance?.LitReflection;
+        if (reflectionTemplate == null)
         {
             return;
         }
@@ -511,7 +540,7 @@ public partial class LitSprite : SpriteBase
         // RenderingServer instead, so _reflectionMaterial only serves as the
         // "do I currently have a reflection" flag and the shared-material
         // reference for completeness.
-        ShaderMaterial sharedRefl = GetSharedMaterial(ReflectionTemplate, Texture);
+        ShaderMaterial sharedRefl = GetSharedMaterial(reflectionTemplate, Texture);
         if (sharedRefl != null)
         {
             // Reflection shader samples the same ripple normal-map pair voxel_water

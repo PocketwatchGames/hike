@@ -205,10 +205,27 @@ public partial class GameClient : Node3D
 	// each to the appropriate surface (region banner vs panel) so callers
 	// don't have to know about the visual layer.
 	public Action<Announcement> onAnnouncement;
+	// Gate that drops announcements at the source. Used during spawn-time
+	// knowledge seeding and (future) save-load rehydration so the banner
+	// queue doesn't pop for every initially-known item, recipe, region,
+	// or language. The downstream discovery events on WorldSimState /
+	// Player still fire — only the visual announcement is suppressed.
+	public bool SuppressAnnouncements;
 	public void Announce(Announcement a)
 	{
-		if (a == null) { return; }
+		if (a == null || SuppressAnnouncements) { return; }
 		onAnnouncement?.Invoke(a);
+	}
+
+	// Fired the moment a mob's Die() runs, with the per-instance
+	// DamagedByPlayer flag piped through so subscribers can decide whether
+	// the player earned credit (bestiary kill count, future quest counters).
+	// GameClient subscribes its own bestiary bridge in Init.
+	public Action<MobData, bool> onMobKilled;
+	public void NotifyMobKilled(MobData mob, bool damagedByPlayer)
+	{
+		if (mob == null) { return; }
+		onMobKilled?.Invoke(mob, damagedByPlayer);
 	}
 
 	// Region-entry hysteresis. Wiggling on a seam mustn't flicker the
@@ -355,6 +372,7 @@ public partial class GameClient : Node3D
 			sim.onRecipeDiscovered += OnSimRecipeDiscovered;
 			sim.onMobDiscovered += OnSimMobDiscovered;
 		}
+		onMobKilled += OnMobKilled;
 
 		while (!_world.IsSpawnChunkReady(playerPosition))
 		{
@@ -366,7 +384,20 @@ public partial class GameClient : Node3D
 		_player.onInteractChanged += OnPlayerInteractChanged;
 		_player.onLanguageLearned += OnPlayerLanguageLearned;
 		sceneViewport.AddChild(_player);
-		_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
+		// Suppress announcements during spawn-time knowledge application so
+		// the starting health potion, known recipes, etc. don't pop banners
+		// on the first frame. Player.Initialize walks
+		// PlayerSpawnData.initialKnowledge under this gate; everything else
+		// it does (inventory seeding, ability setup) doesn't touch the bus.
+		SuppressAnnouncements = true;
+		try
+		{
+			_player.Initialize(_world, playerSpawnData, playerPosition, Vector3.Zero);
+		}
+		finally
+		{
+			SuppressAnnouncements = false;
+		}
 
 		_world.SetPlayer(_player);
 
@@ -413,6 +444,37 @@ public partial class GameClient : Node3D
 		});
 	}
 
+	void OnMobKilled(MobData mob, bool damagedByPlayer)
+	{
+		if (!damagedByPlayer || mob == null) { return; }
+		WorldSimState sim = _world?.WorldState?.SimState;
+		if (sim == null) { return; }
+
+		// Snapshot the entry's level before the kill is recorded so we can
+		// announce on threshold-crossing edges. A first-kill entry hasn't
+		// been created yet — TryGetValue leaves kills at 0, which maps to
+		// level 0 in ComputeLevel.
+		int prevKills = sim.DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry prev) ? prev.Kills : 0;
+		sim.RecordMobKill(mob);
+		int newKills = sim.DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry next) ? next.Kills : prevKills;
+
+		int prevLevel = MobBestiaryEntry.ComputeLevel(prevKills, mob.killsPerLevel);
+		int newLevel = MobBestiaryEntry.ComputeLevel(newKills, mob.killsPerLevel);
+		if (newLevel > prevLevel)
+		{
+			Announce(new Announcement
+			{
+				type = EAnnouncementType.MobLevelUp,
+				title = "Bestiary Level Up",
+				subtitle = $"{mob.displayName} Level {newLevel}",
+				showAlmanacHint = true,
+				almanacTab = AlmanacScreen.EAlmanacTab.Bestiary,
+				almanacHintLabel = "View",
+				almanacFocusMob = mob,
+			});
+		}
+	}
+
 	void OnSimMobDiscovered(MobData mob)
 	{
 		if (mob == null) { return; }
@@ -424,6 +486,7 @@ public partial class GameClient : Node3D
 			showAlmanacHint = true,
 			almanacTab = AlmanacScreen.EAlmanacTab.Bestiary,
 			almanacHintLabel = "View",
+			almanacFocusMob = mob,
 		});
 	}
 
@@ -465,14 +528,16 @@ public partial class GameClient : Node3D
 	// Routes a Map / Inventory press from an announcement's almanac hint
 	// into the existing modal-open flow. Mirrors the input handling in
 	// _UnhandledInput so the gating (suppressed input, mouse capture, HUD
-	// hide) stays in one place.
-	public void OpenAlmanac(AlmanacScreen.EAlmanacTab tab)
+	// hide) stays in one place. focusMob is only honored when tab ==
+	// Bestiary; the announcement's almanacFocusMob threads through so a
+	// discovery / level-up banner jumps to its row.
+	public void OpenAlmanac(AlmanacScreen.EAlmanacTab tab, MobData focusMob = null)
 	{
 		if (almanacScreen == null || paused || InputSuppressed)
 		{
 			return;
 		}
-		almanacScreen.Open(tab, this);
+		almanacScreen.Open(tab, this, focusMob: focusMob);
 	}
 
 	// Push radius and bend strength for the detail-sprite shader's player

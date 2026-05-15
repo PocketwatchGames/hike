@@ -4,12 +4,12 @@
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="PackedScene" uid="uid://cakjul286ucv4" path="res://scenes/effects/gas_poison_burst.tscn" id="2_wmtne"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_dmg"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="4_js1uy"]
 [ext_resource type="PackedScene" uid="uid://6d2llur7apbo" path="res://scenes/effects/gas_poison_loop.tscn" id="4_loop"]
 
 [sub_resource type="Resource" id="Resource_gas_poison_damage"]
 script = ExtResource("3_dmg")
-healthDamage = 5.0
-statusEffects = null
+statusEffects = Array[Object]([ExtResource("4_js1uy")])
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_gas_poison_zone"]
@@ -31,6 +31,6 @@ metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 shape = SubResource("SphereShape3D_gas_poison_zone")
 
-[node name="Burst" parent="." instance=ExtResource("2_wmtne")]
+[node name="Burst" parent="." unique_id=1325392562 instance=ExtResource("2_wmtne")]
 
-[node name="Loop" parent="." instance=ExtResource("4_loop")]
+[node name="Loop" parent="." unique_id=1753816722 instance=ExtResource("4_loop")]

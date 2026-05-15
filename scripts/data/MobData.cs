@@ -18,6 +18,19 @@ public partial class MobData : Resource
     // species-level bestiary entry.
     [Export] public bool appearsInBestiary = true;
 
+    // Cumulative kill thresholds for the bestiary entry's level. Entry i
+    // is the total kills required to reach level (i+1); the bestiary
+    // shows current level + progress to the next threshold. Empty list
+    // means the entry doesn't level (stays at level 0). At max level the
+    // bar fills and shows total kills instead of a target.
+    [Export] public Array<int> killsPerLevel = new();
+
+    // Portrait shown on the right-hand bestiary detail panel for this
+    // species. Authored at higher resolution than the in-world sprite —
+    // the bestiary's TextureRect controls final size. Null leaves the
+    // portrait slot empty (hidden).
+    [Export] public Texture2D bestiaryPortrait;
+
     [ExportGroup("Mob Perceives Player")]
     // How this mob's AI sees the player — sight cone reach and shape, the
     // accumulation curve that turns "in sight" into the triggered/alert
@@ -29,11 +42,13 @@ public partial class MobData : Resource
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
-    // Per-sense multipliers applied to the vision / hearing perception delta
-    // before they're summed and accumulated. VisionStrength=0 turns this mob
-    // blind (still hears); HearingStrength=0 turns it deaf (still sees).
+    // Per-sense multipliers applied to the vision / hearing / smell perception
+    // delta before they're summed and accumulated. Setting any of these to 0
+    // turns off that sense for this mob (blind / deaf / anosmic) while
+    // leaving the others intact.
     [Export] public float VisionStrength = 1f;
     [Export] public float HearingStrength = 1f;
+    [Export] public float SmellStrength = 0f;
     // Hearing reach scalar. A sound of `decibels` is heard if
     // `decibels * hearingRange > distance` — i.e. the audible distance is
     // `decibels * hearingRange`. State transitions (triggered / discovered)
@@ -41,6 +56,13 @@ public partial class MobData : Resource
     // perception but won't cross the threshold without sight.
     [Export] public float hearingRange = 5f;
     [Export] public float hearingRangePower = 0.5f;
+    // Smell reach in meters. The mob walks the target's ScentEmitter.Crumbs
+    // each perception tick; a crumb contributes when it's within smellRange
+    // AND a physics raycast from the mob's nose to the crumb is unblocked.
+    // Like hearing, smell can't trigger the alert state on its own — only
+    // active visual contact crosses the perception threshold.
+    [Export] public float smellRange = 8f;
+    [Export] public float smellRangePower = 0.5f;
 
     [ExportGroup("Player Perceives Mob")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement

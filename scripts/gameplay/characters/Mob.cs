@@ -302,7 +302,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public override void _Ready()
     {
         CollisionLayer = (uint)ECollisionLayer.Mob;
-        CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
+        // Mob-vs-mob is on so crowds physically separate — combined with
+        // the existing LinearDamp the body falls into a stable pack with
+        // its neighbors rather than overlapping or stacking. Player bit
+        // is kept because the player's CollisionMask no longer carries
+        // Mob; keeping it here is harmless and leaves a single audit
+        // point if we ever want one-way physical interaction.
+        CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
         AxisLockAngularY = true;
 
         if (_hurtBox != null)
@@ -862,7 +868,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Freeze = false;
                 CollisionLayer = (uint)ECollisionLayer.Mob;
-                CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
+                CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
             }
             else
             {
@@ -1187,15 +1193,35 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         else
         {
-            AngularDamp = 0.25f;
+            // AxisLockAngularY is cleared in Die() so a corpse can tumble
+            // when pushed, but a residual slow Y spin keeps re-flipping
+            // LitSprite's yaw-mirror (sign of forward · camRight), making
+            // the sprite oscillate. Heavy angular damp settles the tumble
+            // fast, and the snap-to-zero below kills the last sub-flicker
+            // residual the contact resolver leaves behind.
+            AngularDamp = 5f;
             LinearDamp = 0.25f;
+            const float SettledAngularSpeedSq = 0.04f;
+            Vector3 angVel = AngularVelocity;
+            if (angVel.LengthSquared() < SettledAngularSpeedSq && angVel != Vector3.Zero)
+            {
+                AngularVelocity = Vector3.Zero;
+            }
         }
 
-        if (!Freeze
-        && !_impulseApplied
-        && alive
-        && LinearVelocity.LengthSquared() < 0.01f
-        && _simState.SuspendAITimeMs > _world.GameTimeMs)
+        // Auto-freeze on settle. Living mobs additionally gate on
+        // SuspendAITimeMs (so we don't pin a mob that's waiting to make
+        // its next AI decision); dead mobs only need to be at rest. A
+        // corpse that died in motion (cliff fall, explosion knockback)
+        // tumbles naturally, then this block pins it the tick its
+        // velocity drops below threshold. Weapon hits unfreeze it again
+        // by routing through ApplyImpulse → !_impulseApplied is false
+        // that tick → re-pin happens once the body re-settles.
+        bool wantsFreeze = !Freeze
+            && !_impulseApplied
+            && LinearVelocity.LengthSquared() < 0.01f
+            && (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs);
+        if (wantsFreeze)
         {
             Freeze = true;
         }
@@ -1358,6 +1384,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void Damage(HitInfo hit)
     {
+        // Bestiary kill credit: any damaging hit sourced from the player
+        // latches the flag, even when armor soaks the payload. Status-
+        // effect ticks and trap damage don't pass through here, so they
+        // can't grant credit on their own — but a player setting a mob
+        // on fire and then walking away still earns credit because the
+        // initial player hit already flipped the flag.
+        if (hit.source is Player)
+        {
+            _simState.DamagedByPlayer = true;
+        }
         float incoming = hit.healthDamage;
         // Armor absorbs the full hit when present — even an overflow drop to
         // zero leaves health untouched. The recharge timer is rearmed on every
@@ -1539,6 +1575,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         alive = false;
+        // Fire the death event before the despawn / fx cascade below so
+        // subscribers see a consistent snapshot (mob still in the world,
+        // sim state intact). GameClient bridges this into bestiary kill
+        // credit when DamagedByPlayer is set.
+        GameClient.Current?.NotifyMobKilled(_simState.MobData, _simState.DamagedByPlayer);
         // The per-frame torch gating in _PhysicsProcess only runs while alive,
         // so a dead mob's lit torch would otherwise leak its light deposit
         // and loop FX.
@@ -1552,10 +1593,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         SpawnWorldEffect(_deathVoEffect);
         EjectLoot();
         AxisLockAngularY = false;
-        if (Freeze)
-        {
-            Freeze = false;
-        }
+        // Don't unfreeze on death — a mob that was idle-pinned when it
+        // died stays pinned. A mob that died mid-motion / from a hit
+        // already has Freeze=false; the new auto-freeze branch above
+        // re-pins it once it settles.
         PlayOneShot(EAnimation.Die);
     }
 
@@ -1631,7 +1672,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // _PhysicsProcess keeps it pinned if the mob has no movement
             // intent. Explicitly unfreezing here would race with that.
             CollisionLayer = (uint)ECollisionLayer.Mob;
-            CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player);
+            CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
         }
     }
 

@@ -1,18 +1,14 @@
 [gd_scene format=3 uid="uid://csgnpsce4t7gb"]
 
-[ext_resource type="Script" uid="uid://bsgnpst1k9q4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_signpost"]
+[ext_resource type="Script" uid="uid://bsgnpst1laq4m" path="res://scripts/gameplay/entities/Signpost.cs" id="1_signpost"]
 [ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="2_atlas"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_w7day"]
 [ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_4hym0"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_kopq1"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_lit_materialtemplate"]
-[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
-[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
-[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="10_xray"]
 
 [sub_resource type="Resource" id="Resource_signpost_event_open"]
 script = ExtResource("9_event")
@@ -64,13 +60,6 @@ region_enabled = true
 region_rect = Rect2(145, 688, 31, 49)
 script = ExtResource("4_litsprite")
 ForwardOffset = 0.5
-ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
-ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-MaterialTemplate = ExtResource("5_lit_materialtemplate")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=377577924]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
-
-[node name="InteractiveXray" type="Node3D" parent="." unique_id=680078846 node_paths=PackedStringArray("_sprites")]
-script = ExtResource("10_xray")
-_sprites = [NodePath("../Sprite")]

@@ -423,9 +423,59 @@ public partial class Mob
                 }
             }
 
+            // Smell contribution. Walks the player's breadcrumb list; each
+            // crumb in range contributes `strength * falloff(distance)`. Wind
+            // already shaped crumb positions during advection (and voxel-
+            // collided their drift), so direction is implicit in the crumb
+            // layout. LOS raycast from the mob's nose to each candidate
+            // prevents smelling through walls — without it a stationary
+            // crumb on the far side of a thin wall would leak through.
+            // Greedy gate: skip the raycast for any crumb whose potential
+            // can't beat the running best. Same alert-gate shape as hearing:
+            // smell raises perception but only vision crosses the triggered
+            // threshold.
+            float smellDelta = 0f;
+            ScentEmitter scent = _world.player.Scent;
+            if (mobData.SmellStrength > 0f && mobData.smellRange > 0f && scent != null)
+            {
+                float smellRange = mobData.smellRange;
+                float smellRangeSq = smellRange * smellRange;
+                Vector3 nose = GlobalPosition + new Vector3(0f, 1.5f, 0f);
+                System.Collections.Generic.IReadOnlyList<ScentEmitter.Breadcrumb> crumbs = scent.Crumbs;
+                for (int ci = 0; ci < crumbs.Count; ci++)
+                {
+                    ScentEmitter.Breadcrumb c = crumbs[ci];
+                    float distSq = (c.pos - GlobalPosition).LengthSquared();
+                    if (distSq >= smellRangeSq)
+                    {
+                        continue;
+                    }
+                    float dist = Mathf.Sqrt(distSq);
+                    float potential = c.strength * Mathf.Pow(1f - dist / smellRange, mobData.smellRangePower);
+                    if (potential <= smellDelta)
+                    {
+                        continue;
+                    }
+                    Vector3 crumbTarget = c.pos + new Vector3(0f, 0.5f, 0f);
+                    Godot.Collections.Dictionary smellHit;
+                    using (Profiler.Sample("Mob.PerceptionRays"))
+                    {
+                        using var query = PhysicsRayQueryParameters3D.Create(nose, crumbTarget, (uint)ECollisionLayer.Environment);
+                        query.CollideWithAreas = false;
+                        query.CollideWithBodies = true;
+                        smellHit = GetWorld3D().DirectSpaceState.IntersectRay(query);
+                    }
+                    if (smellHit.Count == 0)
+                    {
+                        smellDelta = potential;
+                    }
+                }
+            }
+
             float visionContribution = visionDelta * mobData.VisionStrength;
             float hearingContribution = hearingDelta * mobData.HearingStrength;
-            float perceptionDelta = visionContribution + hearingContribution;
+            float smellContribution = smellDelta * mobData.SmellStrength;
+            float perceptionDelta = visionContribution + hearingContribution + smellContribution;
 
             if (perceptionDelta > mobData.MinPerceptionDelta)
             {

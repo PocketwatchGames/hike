@@ -5,8 +5,8 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="5_px0pf"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_px0pf"]
-[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="8_inv"]
 [ext_resource type="Texture2D" uid="uid://cvpjwqyb4050k" path="res://assets/textures/items/pickups/BadMeat.png" id="9_world"]
@@ -17,7 +17,7 @@ type = 64
 
 [sub_resource type="Resource" id="Resource_apply_poison"]
 script = ExtResource("5_apply")
-statusEffect = ExtResource("6_status")
+statusEffect = ExtResource("5_px0pf")
 
 [sub_resource type="Resource" id="Resource_event_apply_decrement"]
 script = ExtResource("4_event")

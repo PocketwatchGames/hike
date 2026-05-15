@@ -1,0 +1,18 @@
+[gd_scene load_steps=8 format=3 uid="uid://dmrgsce5sb02b"]
+
+[ext_resource type="Script" uid="uid://cmrgreg5sb01a" path="res://scripts/MaterialRegistry.cs" id="1_script"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="2_lit_std"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="3_lit_char"]
+[ext_resource type="Material" path="res://resources/materials/sprite_lit_flat.tres" id="4_lit_flat"]
+[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="5_shadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6_blshadow"]
+[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_reflect"]
+
+[node name="MaterialRegistry" type="Node"]
+script = ExtResource("1_script")
+LitStandard = ExtResource("2_lit_std")
+LitCharacter = ExtResource("3_lit_char")
+LitFlat = ExtResource("4_lit_flat")
+LitShadowCaster = ExtResource("5_shadow")
+LitBlockLightShadowCaster = ExtResource("6_blshadow")
+LitReflection = ExtResource("7_reflect")

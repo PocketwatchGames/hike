@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://o5h18pefbo0i" path="res://scripts/gui/BestiaryScreen.cs" id="1_2ltib"]
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="2_mob_btn"]
 
-[node name="BestiaryScreen" type="Control" unique_id=361542241 node_paths=PackedStringArray("_mobListContainer", "_mobPanel", "_mobNameLabel", "_noMobsLabel")]
+[node name="BestiaryScreen" type="Control" unique_id=361542241 node_paths=PackedStringArray("_mobListContainer", "_mobPanel", "_mobNameLabel", "_mobPortrait", "_mobLevelLabel", "_mobKillProgressBar", "_mobKillProgressLabel", "_noMobsLabel")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -15,6 +15,10 @@ _mobButtonScene = ExtResource("2_mob_btn")
 _mobListContainer = NodePath("HBoxContainer/PanelContainer/MarginContainer/VBoxContainer")
 _mobPanel = NodePath("HBoxContainer/VBoxContainer/PanelContainer2")
 _mobNameLabel = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/NameLabel")
+_mobPortrait = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/Portrait")
+_mobLevelLabel = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/LevelPanel/MarginContainer/LevelLabel")
+_mobKillProgressBar = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/KillProgressBar")
+_mobKillProgressLabel = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/KillProgressBar/KillProgressLabel")
 _noMobsLabel = NodePath("HBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Label")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1036400828]
@@ -64,7 +68,52 @@ theme_override_constants/margin_bottom = 10
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer" unique_id=893044243]
 layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="NameLabel" type="Label" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=982744506]
 layout_mode = 2
 text = ""
+
+[node name="Portrait" type="TextureRect" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=982744513]
+custom_minimum_size = Vector2(256, 256)
+layout_mode = 2
+size_flags_horizontal = 4
+expand_mode = 1
+stretch_mode = 5
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=982744507]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="LevelPanel" type="PanelContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=982744508]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/LevelPanel" unique_id=982744509]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5
+
+[node name="LevelLabel" type="Label" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/LevelPanel/MarginContainer" unique_id=982744510]
+layout_mode = 2
+text = "Level: 0"
+horizontal_alignment = 1
+
+[node name="KillProgressBar" type="ProgressBar" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer" unique_id=982744511]
+custom_minimum_size = Vector2(0, 32)
+layout_mode = 2
+size_flags_horizontal = 3
+show_percentage = false
+
+[node name="KillProgressLabel" type="Label" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HBoxContainer/KillProgressBar" unique_id=982744512]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1

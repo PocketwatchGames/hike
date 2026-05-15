@@ -175,12 +175,11 @@ DECOR_PNG = os.path.join(REPO, "assets", "textures", "decor.png")
 BASE_ROWS = 25
 ALPHA_THRESHOLD = 1
 
-PROP_TEMPLATE = """[gd_scene load_steps=5 format=3]
+PROP_TEMPLATE = """[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="{decor_uid}" path="res://assets/textures/decor.png" id="2_decor"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="4_spritemat"]
+[ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
 height = {cyl_height}
@@ -202,11 +201,8 @@ pixel_size = {pixel_size}
 texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2({rx}, {ry}, {rw}, {rh})
-script = ExtResource("3_litsprite")
-Mirror = true
-CenteredAtBase = false
+script = ExtResource("3_mmprop")
 ForwardOffset = {forward_offset}
-MaterialTemplate = ExtResource("4_spritemat")
 """
 
 

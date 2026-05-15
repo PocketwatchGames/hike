@@ -15,6 +15,10 @@ metadata/_custom_type_script = "uid://bxk4n2mp7q5wa"
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Kun-Kun"
+killsPerLevel = Array[int]([3, 10, 25, 50])
+SmellStrength = 1.0
+smellRange = 16.0
+smellRangePower = 2.0
 visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
 prominence = 0.75

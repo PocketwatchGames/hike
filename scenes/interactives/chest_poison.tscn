@@ -6,11 +6,7 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_jlbbr"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="5_lit_materialtemplate"]
-[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="6b_lit_blshadowcastertemplate"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_au63r"]
-[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="6_lit_shadowcastertemplate"]
-[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="7_lit_reflectiontemplate"]
 [ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="8_chestopen"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="9_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="10_event"]
@@ -106,11 +102,8 @@ texture = ExtResource("3_17q7g")
 region_enabled = true
 region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("4_litsprite")
+Material = 1
 ForwardOffset = 0.5
-ShadowCasterTemplate = ExtResource("6_lit_shadowcastertemplate")
-BlockLightShadowCasterTemplate = ExtResource("6b_lit_blshadowcastertemplate")
-ReflectionTemplate = ExtResource("7_lit_reflectiontemplate")
-MaterialTemplate = ExtResource("5_lit_materialtemplate")
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=463948692 node_paths=PackedStringArray("target")]
 script = ExtResource("17_anim")

@@ -16,12 +16,14 @@ shader_type spatial;
 // silhouette lines up texel-for-texel with the lit base pass. Must stay in
 // sync with that shader's vertex math — keep changes paired across both.
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_disabled, skip_vertex_transform, ambient_light_disabled;
-// Skip pixels that were stamped by another character/interactive
-// (sprite_lit_character.gdshader writes stencil=8). When the player
-// stands at a campfire the campfire's pixels are stencil=8, so the
-// player's X-ray pass discards there before fragment work runs. Voxel
-// terrain and sprite_lit props leave stencil at 0, so X-ray still fires
-// correctly when the character is genuinely behind world geometry.
+// Skip pixels that were stamped with stencil=8 — that set includes
+// sprite_lit_character (player / mobs / interactives) and detail_sprite
+// (grass, pebbles, etc.). When the player stands at a campfire the
+// campfire's pixels are stencil=8, so the player's X-ray pass discards
+// there before fragment work runs; same for a grass blade overlapping
+// the player. Voxel terrain and sprite_lit props leave stencil at 0, so
+// X-ray still fires correctly when the character is genuinely behind
+// world geometry.
 //
 // Note: water_clip_cap / sprite_reflection use stencil values 2 and 4 —
 // they don't equal 8 either, so X-ray will paint over water surfaces /

@@ -54,6 +54,13 @@ public class MobSimState : EntitySimState
     // is the wake-up deadline (only meaningful while Stunned); StunRechargeStartMs
     // is the post-hit delay before the sub-threshold meter starts draining
     // (only meaningful while !Stunned && Stun > 0). One is always 0/unused.
+    // Latches true the first time the player deals damage to this mob (any
+    // hit with hit.source == Player, regardless of whether armor absorbed
+    // it). Decides whether the eventual death awards bestiary kill credit:
+    // a mob that dies from a trap, status effect, or another mob with no
+    // player intervention doesn't count. Never cleared once set — staying
+    // alive after a player hit doesn't revoke credit on a later death.
+    public bool DamagedByPlayer;
     public float Stun;
     public bool Stunned;
     public ulong StunRecoverMs;

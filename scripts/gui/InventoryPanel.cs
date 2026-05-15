@@ -6,8 +6,8 @@ using Godot.Collections;
 // and the input plumbing that turns presses into verb callbacks. The panel
 // itself owns NO verb behavior; the controlling screen (InventoryScreen for
 // gameplay equip/use/drop, CookingScreen for cook/drop) wires
-// onPrimaryTap / onPrimaryHoldComplete / onSecondaryPressed / onSecondaryReleased /
-// onDropTap / onDropHoldComplete plus the button-hint labels so this script
+// onPrimaryTap / onPrimaryHoldComplete / onTertiaryPressed / onTertiaryReleased /
+// onSecondaryTap / onSecondaryHoldComplete plus the button-hint labels so this script
 // can be reused under any modal that lays out the player's items.
 //
 // The panel is dormant until the screen calls Bind(player) on it; Unbind()
@@ -23,15 +23,15 @@ public partial class InventoryPanel : Control
 	[Export] private Array<ItemSlotPanel> _backpackPanels;
 	[Export] private ButtonHint _buttonHintPrimary;
 	[Export] private ButtonHint _buttonHintSecondary;
-	[Export] private ButtonHint _buttonHintDrop;
+	[Export] private ButtonHint _buttonHintTertiary;
 
 	// Input actions surfaced as button-hint glyphs. The Primary action drives
 	// ui_select tap/hold detection through ButtonDown/ButtonUp on each slot;
-	// Secondary uses a custom action with press/release semantics; Drop uses
-	// a custom action with tap/hold semantics.
+	// Secondary uses a custom action with tap/hold semantics (drop); Tertiary
+	// uses a custom action with press/release semantics (use).
 	[Export] private StringName _primaryAction = "ui_select";
 	[Export] private StringName _secondaryAction = "MenuSecondary";
-	[Export] private StringName _dropAction = "MenuTertiary";
+	[Export] private StringName _tertiaryAction = "MenuTertiary";
 
 	// Fires whenever the focused slot's currently-displayed ItemState changes —
 	// either because focus moved to a different slot, or because the focused
@@ -46,21 +46,21 @@ public partial class InventoryPanel : Control
 	// null and never accumulates a hold timer.
 	public System.Action<ItemSlotPanel, ItemState> onPrimaryTap;
 	public System.Action<ItemSlotPanel, ItemState> onPrimaryHoldComplete;
-	public System.Action<ItemSlotPanel, ItemState> onSecondaryPressed;
-	public System.Action onSecondaryReleased;
-	public System.Action<ItemSlotPanel, ItemState> onDropTap;
-	public System.Action<ItemSlotPanel, ItemState> onDropHoldComplete;
+	public System.Action<ItemSlotPanel, ItemState> onTertiaryPressed;
+	public System.Action onTertiaryReleased;
+	public System.Action<ItemSlotPanel, ItemState> onSecondaryTap;
+	public System.Action<ItemSlotPanel, ItemState> onSecondaryHoldComplete;
 
 	// Button hint references — screen sets `.Visible` / `.ActionName` /
 	// `.SetHint(...)` to control labels per-context. Visibility is left to
 	// the screen: the panel does NOT auto-hide hints based on item presence.
 	public ButtonHint ButtonHintPrimary => _buttonHintPrimary;
 	public ButtonHint ButtonHintSecondary => _buttonHintSecondary;
-	public ButtonHint ButtonHintDrop => _buttonHintDrop;
+	public ButtonHint ButtonHintTertiary => _buttonHintTertiary;
 
 	public StringName PrimaryAction => _primaryAction;
 	public StringName SecondaryAction => _secondaryAction;
-	public StringName DropAction => _dropAction;
+	public StringName TertiaryAction => _tertiaryAction;
 
 	public ItemSlotPanel FocusedPanel => _focused;
 	public ItemState FocusedItem => _focused?.Item;
@@ -93,10 +93,10 @@ public partial class InventoryPanel : Control
 	// released at least once, so the inherited press doesn't fire a tap
 	// or hold on the freshly-opened panel.
 	bool _dropAwaitingRelease;
-	// True between a secondary press and its release. Lets the release
+	// True between a tertiary press and its release. Lets the release
 	// callback fire only when we actually started something, and lets focus
 	// changes / Unbind() abort the in-flight callback chain cleanly.
-	bool _secondaryStarted;
+	bool _tertiaryStarted;
 	// Bind/Unbind gate. Signal subscriptions, input handling, and per-frame
 	// ticks all key off this so the panel stays inert before the screen has
 	// shown it.
@@ -116,7 +116,7 @@ public partial class InventoryPanel : Control
 		// stays driven by the same input action regardless of the label.
 		_buttonHintPrimary?.SetHint(_primaryAction, _buttonHintPrimary.ActionName);
 		_buttonHintSecondary?.SetHint(_secondaryAction, _buttonHintSecondary.ActionName);
-		_buttonHintDrop?.SetHint(_dropAction, _buttonHintDrop.ActionName);
+		_buttonHintTertiary?.SetHint(_tertiaryAction, _buttonHintTertiary.ActionName);
 	}
 
 	public override void _ExitTree()
@@ -159,7 +159,7 @@ public partial class InventoryPanel : Control
 		// Interact (open) and Drop (here), the press that opened the screen
 		// still reads as Drop. Latch awaiting-release so the tick below
 		// waits for a clean release before processing.
-		_dropAwaitingRelease = InputMap.HasAction(_dropAction) && Input.IsActionPressed(_dropAction);
+		_dropAwaitingRelease = InputMap.HasAction(_secondaryAction) && Input.IsActionPressed(_secondaryAction);
 		RefreshAll();
 		ItemSlotPanel start = _focused ?? FindFirstFocusable();
 		start?.GrabFocus();
@@ -387,12 +387,12 @@ public partial class InventoryPanel : Control
 		// Gate on actual focus ownership so the global Drop key doesn't
 		// fire here while a sibling panel (CookingPanel) holds focus.
 		ItemState item = _focused != null && _focused.HasButtonFocus() ? _focused.Item : null;
-		bool dropActionRegistered = item != null && InputMap.HasAction(_dropAction);
+		bool dropActionRegistered = item != null && InputMap.HasAction(_secondaryAction);
 		// Clear the inherited-press guard the first frame Drop reads
 		// unpressed — only then will subsequent presses fire tap/hold.
 		if (_dropAwaitingRelease)
 		{
-			if (!dropActionRegistered || !Input.IsActionPressed(_dropAction))
+			if (!dropActionRegistered || !Input.IsActionPressed(_secondaryAction))
 			{
 				_dropAwaitingRelease = false;
 			}
@@ -403,19 +403,19 @@ public partial class InventoryPanel : Control
 		}
 		bool dropHeld = !HoldLocked
 			&& dropActionRegistered
-			&& Input.IsActionPressed(_dropAction)
-			&& onDropHoldComplete != null;
+			&& Input.IsActionPressed(_secondaryAction)
+			&& onSecondaryHoldComplete != null;
 		if (dropHeld)
 		{
 			_dropHold += dt;
 			float progress = Mathf.Clamp(_dropHold / HoldSeconds, 0f, 1f);
-			_buttonHintDrop?.SetProgress(progress);
+			_buttonHintSecondary?.SetProgress(progress);
 			if (_dropHold >= HoldSeconds)
 			{
 				_dropHold = 0f;
-				_buttonHintDrop?.SetProgress(0f);
+				_buttonHintSecondary?.SetProgress(0f);
 				HoldLocked = true;
-				onDropHoldComplete.Invoke(_focused, item);
+				onSecondaryHoldComplete.Invoke(_focused, item);
 			}
 		}
 		else if (_dropHold > 0f)
@@ -423,10 +423,10 @@ public partial class InventoryPanel : Control
 			// Released before threshold — tap.
 			if (dropActionRegistered)
 			{
-				onDropTap?.Invoke(_focused, item);
+				onSecondaryTap?.Invoke(_focused, item);
 			}
 			_dropHold = 0f;
-			_buttonHintDrop?.SetProgress(0f);
+			_buttonHintSecondary?.SetProgress(0f);
 		}
 	}
 
@@ -437,28 +437,28 @@ public partial class InventoryPanel : Control
 			return;
 		}
 
-		// Gate on actual focus ownership so the global secondary key doesn't
+		// Gate on actual focus ownership so the global tertiary key doesn't
 		// fire here while a sibling panel (CookingPanel) holds focus.
 		bool focused = _focused != null && _focused.HasButtonFocus();
 		ItemState item = focused ? _focused.Item : null;
-		if (InputMap.HasAction(_secondaryAction) && onSecondaryPressed != null)
+		if (InputMap.HasAction(_tertiaryAction) && onTertiaryPressed != null)
 		{
-			if (e.IsActionPressed(_secondaryAction))
+			if (e.IsActionPressed(_tertiaryAction))
 			{
 				if (item != null)
 				{
-					_secondaryStarted = true;
-					onSecondaryPressed.Invoke(_focused, item);
+					_tertiaryStarted = true;
+					onTertiaryPressed.Invoke(_focused, item);
 					GetViewport().SetInputAsHandled();
 				}
 				return;
 			}
-			if (e.IsActionReleased(_secondaryAction))
+			if (e.IsActionReleased(_tertiaryAction))
 			{
-				if (_secondaryStarted)
+				if (_tertiaryStarted)
 				{
-					_secondaryStarted = false;
-					onSecondaryReleased?.Invoke();
+					_tertiaryStarted = false;
+					onTertiaryReleased?.Invoke();
 					GetViewport().SetInputAsHandled();
 				}
 				return;
@@ -469,15 +469,15 @@ public partial class InventoryPanel : Control
 	void CancelHeldActions()
 	{
 		_dropHold = 0f;
-		_buttonHintDrop?.SetProgress(0f);
+		_buttonHintSecondary?.SetProgress(0f);
 		_primaryHold = 0f;
 		_primaryHoldFired = false;
 		_primaryPressed = null;
 		_buttonHintPrimary?.SetProgress(0f);
-		if (_secondaryStarted)
+		if (_tertiaryStarted)
 		{
-			_secondaryStarted = false;
-			onSecondaryReleased?.Invoke();
+			_tertiaryStarted = false;
+			onTertiaryReleased?.Invoke();
 		}
 	}
 }

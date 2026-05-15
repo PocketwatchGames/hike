@@ -32,16 +32,7 @@ public partial class FlatLitSprite : SpriteBase
 {
     // Flat sprites anchor at full center (the Node3D position is the
     // middle of the sprite, not the bottom edge). Override the base's
-    // upright/center-bottom convention. CenteredAtBase is meaningless
-    // here — hide it from the inspector so authors don't waste time
-    // toggling it.
-    public override void _ValidateProperty(Godot.Collections.Dictionary property)
-    {
-        if (property["name"].AsStringName() == "CenteredAtBase")
-        {
-            property["usage"] = (int)PropertyUsageFlags.NoEditor;
-        }
-    }
+    // upright/center-bottom convention via ApplyOffset below.
 
     public override void _Ready()
     {
@@ -74,14 +65,15 @@ public partial class FlatLitSprite : SpriteBase
             return;
         }
 
-        if (MaterialTemplate == null)
+        ShaderMaterial template = MaterialRegistry.Instance?.LitFlat;
+        if (template == null)
         {
-            GD.PushError($"FlatLitSprite '{Name}' is missing MaterialTemplate.");
+            GD.PushError($"FlatLitSprite '{Name}': MaterialRegistry has no LitFlat entry.");
             MaterialOverride = null;
             return;
         }
 
-        ShaderMaterial sharedMat = GetSharedMaterial(MaterialTemplate, Texture);
+        ShaderMaterial sharedMat = GetSharedMaterial(template, Texture, !Xray);
         if (MaterialOverride != sharedMat)
         {
             MaterialOverride = sharedMat;

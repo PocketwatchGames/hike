@@ -31,11 +31,11 @@ public partial class InventoryScreen : Control
 			// inventory screen.
 			_panel.onPrimaryTap += OnPrimaryTap;
 			// Secondary verb: held UseItem fires the consumable's action.
-			_panel.onSecondaryPressed += OnSecondaryPressed;
-			_panel.onSecondaryReleased += OnSecondaryReleased;
+			_panel.onTertiaryPressed += OnTertiaryPressed;
+			_panel.onTertiaryReleased += OnTertiaryReleased;
 			// Drop tap drops a single unit; hold opens the count picker.
-			_panel.onDropTap += OnDropTap;
-			_panel.onDropHoldComplete += OnDropHoldComplete;
+			_panel.onSecondaryTap += OnSecondaryTap;
+			_panel.onSecondaryHoldComplete += OnSecondaryHoldComplete;
 			// Focus pulse: refresh side info panel + per-slot Equip/Unequip
 			// label.
 			_panel.onFocusedItemChanged += OnFocusedItemChanged;
@@ -43,8 +43,8 @@ public partial class InventoryScreen : Control
 			// Seed button-hint labels. Per-slot label flips happen in
 			// OnFocusedItemChanged.
 			_panel.ButtonHintPrimary?.SetHint(_panel.PrimaryAction, "Equip");
-			_panel.ButtonHintSecondary?.SetHint(_panel.SecondaryAction, "Use");
-			_panel.ButtonHintDrop?.SetHint(_panel.DropAction, "Drop");
+			_panel.ButtonHintSecondary?.SetHint(_panel.SecondaryAction, "Drop");
+			_panel.ButtonHintTertiary?.SetHint(_panel.TertiaryAction, "Use");
 		}
 		_itemInfoPanel?.SetItem(null);
 		if (_dropCountPanel != null)
@@ -58,10 +58,10 @@ public partial class InventoryScreen : Control
 		if (_panel != null)
 		{
 			_panel.onPrimaryTap -= OnPrimaryTap;
-			_panel.onSecondaryPressed -= OnSecondaryPressed;
-			_panel.onSecondaryReleased -= OnSecondaryReleased;
-			_panel.onDropTap -= OnDropTap;
-			_panel.onDropHoldComplete -= OnDropHoldComplete;
+			_panel.onTertiaryPressed -= OnTertiaryPressed;
+			_panel.onTertiaryReleased -= OnTertiaryReleased;
+			_panel.onSecondaryTap -= OnSecondaryTap;
+			_panel.onSecondaryHoldComplete -= OnSecondaryHoldComplete;
 			_panel.onFocusedItemChanged -= OnFocusedItemChanged;
 		}
 	}
@@ -80,22 +80,22 @@ public partial class InventoryScreen : Control
 		bool hasItem = item != null;
 		bool inBackpack = _panel != null && _panel.IsBackpackPanel(panel);
 		ButtonHint primary = _panel?.ButtonHintPrimary;
-		ButtonHint secondary = _panel?.ButtonHintSecondary;
-		ButtonHint drop = _panel?.ButtonHintDrop;
+		ButtonHint drop = _panel?.ButtonHintSecondary;
+		ButtonHint use = _panel?.ButtonHintTertiary;
 		if (primary != null)
 		{
 			primary.Visible = hasItem && CanEquipOrUnequip(item);
 			primary.ActionName = inBackpack ? "Equip" : "Unequip";
 		}
-		if (secondary != null)
-		{
-			secondary.Visible = hasItem && CanUseItem(item);
-			secondary.SetProgress(0f);
-		}
 		if (drop != null)
 		{
 			drop.Visible = hasItem;
 			drop.SetProgress(0f);
+		}
+		if (use != null)
+		{
+			use.Visible = hasItem && CanUseItem(item);
+			use.SetProgress(0f);
 		}
 	}
 
@@ -166,7 +166,7 @@ public partial class InventoryScreen : Control
 		inventory.TryRemoveFromConsumableSlot(item);
 	}
 
-	void OnSecondaryPressed(ItemSlotPanel panel, ItemState item)
+	void OnTertiaryPressed(ItemSlotPanel panel, ItemState item)
 	{
 		if (item is not ConsumableState consumable || _player == null)
 		{
@@ -191,7 +191,7 @@ public partial class InventoryScreen : Control
 		runner.TryStart(data.actionProfile, context);
 	}
 
-	void OnSecondaryReleased()
+	void OnTertiaryReleased()
 	{
 		_player?.Runner?.OnInputReleased();
 	}
@@ -206,27 +206,27 @@ public partial class InventoryScreen : Control
 		{
 			return;
 		}
-		ButtonHint secondary = _panel.ButtonHintSecondary;
-		if (secondary == null || !secondary.Visible)
+		ButtonHint use = _panel.ButtonHintTertiary;
+		if (use == null || !use.Visible)
 		{
 			return;
 		}
 		ActionRunner runner = _player?.Runner;
 		if (runner == null)
 		{
-			secondary.SetProgress(0f);
+			use.SetProgress(0f);
 			return;
 		}
 		ref readonly PlayerAction action = ref runner.Current;
 		if (action.phase != EActionPhase.Charging || action.context.primaryItem != _panel.FocusedItem)
 		{
-			secondary.SetProgress(0f);
+			use.SetProgress(0f);
 			return;
 		}
-		secondary.SetProgress(runner.CurrentChargeT);
+		use.SetProgress(runner.CurrentChargeT);
 	}
 
-	void OnDropTap(ItemSlotPanel panel, ItemState item)
+	void OnSecondaryTap(ItemSlotPanel panel, ItemState item)
 	{
 		if (item == null)
 		{
@@ -237,7 +237,7 @@ public partial class InventoryScreen : Control
 
 	// Hold-drop on the inventory panel — pop the count picker so the player
 	// can pick how many to drop from a stack.
-	void OnDropHoldComplete(ItemSlotPanel panel, ItemState item)
+	void OnSecondaryHoldComplete(ItemSlotPanel panel, ItemState item)
 	{
 		if (item == null || _dropCountPanel == null || _panel == null)
 		{
@@ -246,6 +246,13 @@ public partial class InventoryScreen : Control
 		Inventory inventory = _panel.Inventory;
 		if (inventory == null)
 		{
+			return;
+		}
+		// Single-item stacks skip the count picker — there's nothing to pick.
+		if (item.stackCount <= 1)
+		{
+			inventory.Drop(item, 1);
+			_panel.HoldLocked = false;
 			return;
 		}
 		// Lock the inventory slots out of focus traversal so the analog stick

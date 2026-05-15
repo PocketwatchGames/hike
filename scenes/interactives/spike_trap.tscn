@@ -10,10 +10,6 @@
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
 [ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="10_tex"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit_character.tres" id="11_lit_mat"]
-[ext_resource type="Material" path="res://resources/materials/sprite_shadow_caster.tres" id="12_shadow"]
-[ext_resource type="Material" path="res://resources/materials/sprite_block_light_shadow_caster.tres" id="13_blshadow"]
-[ext_resource type="Material" path="res://resources/materials/sprite_reflection.tres" id="14_reflect"]
 [ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="15_hud"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_warning.tscn" id="16_warning"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_emerge.tscn" id="17_emerge"]
@@ -66,11 +62,8 @@ texture = ExtResource("10_tex")
 region_enabled = true
 region_rect = Rect2(736, 165, 16, 27)
 script = ExtResource("5_litsprite")
+Material = 1
 ForwardOffset = 0.5
-MaterialTemplate = ExtResource("11_lit_mat")
-ShadowCasterTemplate = ExtResource("12_shadow")
-BlockLightShadowCasterTemplate = ExtResource("13_blshadow")
-ReflectionTemplate = ExtResource("14_reflect")
 
 [node name="SpikesSprite" type="Sprite3D" parent="." unique_id=2021099695]
 visible = false
@@ -83,11 +76,8 @@ texture = ExtResource("10_tex")
 region_enabled = true
 region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("5_litsprite")
+Material = 1
 ForwardOffset = 0.5
-MaterialTemplate = ExtResource("11_lit_mat")
-ShadowCasterTemplate = ExtResource("12_shadow")
-BlockLightShadowCasterTemplate = ExtResource("13_blshadow")
-ReflectionTemplate = ExtResource("14_reflect")
 
 [node name="TriggerSource" type="Area3D" parent="." node_paths=PackedStringArray("_targets")]
 collision_layer = 0

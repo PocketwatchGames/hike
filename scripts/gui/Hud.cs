@@ -260,12 +260,10 @@ public partial class Hud : Control
 			case EInventorySlot.WeaponLeft:
 				_weaponLeftHud.SetItem(item);
 				_weaponLeftButtonHint.Visible = item != null;
-				_weaponLeftButtonHint.ActionName = item?.data?.displayName ?? string.Empty;
 				break;
 			case EInventorySlot.WeaponRight:
 				_weaponRightHud.SetItem(item);
 				_weaponRightButtonHint.Visible = item != null;
-				_weaponRightButtonHint.ActionName = item?.data?.displayName ?? string.Empty;
 				break;
 			case EInventorySlot.Consumable:
 				_consumableHud.SetItem(item);

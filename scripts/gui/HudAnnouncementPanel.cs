@@ -46,6 +46,7 @@ public partial class HudAnnouncementPanel : Control
 	Action _onDone;
 	GameClient _gameClient;
 	AlmanacScreen.EAlmanacTab _pendingTab;
+	MobData _pendingFocusMob;
 	bool _hintActive;
 
 	public override void _Ready()
@@ -88,6 +89,7 @@ public partial class HudAnnouncementPanel : Control
 
 		_hintActive = a.showAlmanacHint;
 		_pendingTab = a.almanacTab;
+		_pendingFocusMob = a.almanacFocusMob;
 		if (almanacHint != null)
 		{
 			almanacHint.Visible = _hintActive;
@@ -145,7 +147,7 @@ public partial class HudAnnouncementPanel : Control
 		}
 		if (e.IsActionPressed(almanacHintAction))
 		{
-			_gameClient.OpenAlmanac(_pendingTab);
+			_gameClient.OpenAlmanac(_pendingTab, _pendingFocusMob);
 			GetViewport().SetInputAsHandled();
 		}
 	}

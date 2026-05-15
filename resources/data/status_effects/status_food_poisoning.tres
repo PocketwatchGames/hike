@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cfgrdp0ehape4"]
+
+[ext_resource type="Texture2D" uid="uid://dxksnc4t6wym2" path="res://assets/textures/status_effects/Poison_Status.png" id="1_5gph6"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_flu34"]
+
+[resource]
+script = ExtResource("2_flu34")
+icon = ExtResource("1_5gph6")
+displayName = &"Poisoned"
+damagePerSecond = 1.0
+duration = 60.0

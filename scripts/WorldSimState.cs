@@ -28,12 +28,13 @@ public class WorldSimState
     // always identified and never appear in this set.
     public readonly HashSet<ItemData> IdentifiedItems = new();
 
-    // Mob types the player has perceived to the Discovered threshold at
-    // least once. Keyed by the shared MobData resource so every individual
-    // goblin contributes to one bestiary entry. The bestiary lists this set;
-    // the entry persists once added (the per-mob DiscoveryState can decay
-    // back to Hidden, the bestiary entry doesn't).
-    public readonly HashSet<MobData> DiscoveredMobs = new();
+    // Mob types the player has discovered, keyed by the shared MobData
+    // resource so every individual goblin contributes to one bestiary
+    // entry. The value carries the running per-species progress (kills,
+    // future sightings / drop logs). The entry persists once added — the
+    // per-mob EPlayerPerceptionState can decay back to Hidden, but the
+    // bestiary entry stays. ContainsKey(mob) is the "is discovered?" test.
+    public readonly Dictionary<MobData, MobBestiaryEntry> DiscoveredMobs = new();
 
     // Fired the first time an item is identified. GameClient subscribes to
     // forward an announcement; UI surfaces that show item names refresh
@@ -108,12 +109,34 @@ public class WorldSimState
     // first time the player sees one.
     public bool DiscoverMob(MobData mob)
     {
-        if (mob == null || !mob.appearsInBestiary || !DiscoveredMobs.Add(mob))
+        if (mob == null || !mob.appearsInBestiary || DiscoveredMobs.ContainsKey(mob))
         {
             return false;
         }
+        DiscoveredMobs[mob] = new MobBestiaryEntry();
         onMobDiscovered?.Invoke(mob);
         return true;
+    }
+
+    // Records a confirmed player kill against the given mob species. If
+    // the species hasn't been discovered yet this also creates the entry
+    // and fires onMobDiscovered (killing a mob you never properly spotted
+    // still earns the bestiary row + the discovery announcement). Mobs
+    // whose MobData.appearsInBestiary is false silently no-op — villagers
+    // killed in error don't show up in the bestiary either.
+    public void RecordMobKill(MobData mob)
+    {
+        if (mob == null || !mob.appearsInBestiary)
+        {
+            return;
+        }
+        if (!DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry entry))
+        {
+            entry = new MobBestiaryEntry();
+            DiscoveredMobs[mob] = entry;
+            onMobDiscovered?.Invoke(mob);
+        }
+        entry.Kills++;
     }
 
     // Single read-side for item names — returns the placeholder while the

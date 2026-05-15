@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""Generate LitSprite prop .tscn files from decor atlas key files.
+"""Generate prop .tscn files from decor atlas key files.
 
 Reads pairs of (texture_path, key_file) and emits one .tscn per key whose
 sprite is at least MIN_SIZE pixels in either dimension. Smaller entries are
 expected to be wired in later as DetailEntries.
+
+Each emitted prop is a MultimeshPropSprite — registered with WorldPropScatter
+at runtime, batched by (atlas, ForwardOffset, pass), and drawn through one
+multimesh per bucket. The Sprite3D's MaterialOverride is bound by
+WorldPropScatter from sprite_prop_*_multimesh templates; no MaterialTemplate
+is needed on the scene.
 """
 
 from pathlib import Path
@@ -18,12 +24,11 @@ ATLASES = [
     ("res://assets/textures/decor_snow.png",   "uid://cojfqwmkajlpq", REPO / "tools" / "decor_snow.txt"),
 ]
 
-TEMPLATE = """[gd_scene load_steps=5 format=3]
+TEMPLATE = """[gd_scene format=3]
 
-[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="{tex_uid}" path="{tex_path}" id="2_decor"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/LitSprite.cs" id="3_litsprite"]
-[ext_resource type="Material" path="res://resources/materials/sprite_lit.tres" id="4_spritemat"]
+[ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
 height = {height}
@@ -45,12 +50,8 @@ pixel_size = {pixel_size}
 texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2({rx}, {ry}, {rw}, {rh})
-script = ExtResource("3_litsprite")
-Mirror = true
-CenteredAtBase = false
+script = ExtResource("3_mmprop")
 ForwardOffset = {radius}
-MaterialTemplate = ExtResource("4_spritemat")
-alpha_cut = 1
 """
 
 

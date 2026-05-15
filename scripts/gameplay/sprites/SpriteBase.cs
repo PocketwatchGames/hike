@@ -26,36 +26,12 @@ using Godot;
 [GlobalClass]
 public partial class SpriteBase : Sprite3D
 {
-    // When true, each instance has a 50% chance of being horizontally
-    // mirrored at spawn. The coin flip is XOR'd into Sprite3D.FlipH in
-    // _Ready (so an author who sets FlipH on the scene keeps that as
-    // the baseline, with Mirror adding a coin flip around it). FlipH is
-    // then the authoritative stored state — the shaders read it through
-    // the sprite_mirror uniform because Sprite3D's built-in FlipH drives
-    // mesh UVs, which these texelFetch-based shaders ignore.
-    [Export] public bool Mirror { get; set; }
-
     // Index into MinimapFoliageColors palette. 0 = no minimap stamp; non-zero
     // stamps the matching darken-multiplier at this sprite's XZ during the
     // minimap's prop pass. Same semantic as MultimeshPropSprite.MinimapFoliageId,
     // exposed here so LitSprite / FlatLitSprite / interactives can also
     // appear on the map.
     [Export] public byte MinimapFoliageId { get; set; } = 0;
-
-    // Anchor mode for the sprite's Offset. Default is overridden per
-    // subclass — upright sprites anchor at center-bottom, flat sprites
-    // anchor at full center. ApplyOffset() is virtual so each subclass
-    // picks its own convention; the flag is exposed so authors can
-    // disable the override and supply Offset by hand.
-    [Export] public bool CenteredAtBase { get; set; } = true;
-
-    // Random uniform-scale range, applied once at spawn as Node3D.Scale.
-    // Default (1, 1) disables variation. Inclusive bounds. The sprite
-    // shaders read scale out of MODEL_MATRIX so the visible sprite,
-    // shadow proxy, and water reflection all pick it up via the standard
-    // parent transform chain — no shader uniform plumbing.
-    [Export] public float ScaleMin { get; set; } = 1.0f;
-    [Export] public float ScaleMax { get; set; } = 1.0f;
 
     // Discovery fade (0 = fully dithered away, 1 = fully opaque). Pushed to
     // every per-instance render data the subclass owns (visible + any
@@ -119,6 +95,35 @@ public partial class SpriteBase : Sprite3D
     }
     private Color _silhouetteTint = Colors.Black;
 
+    // Structural toggle for the X-ray silhouette pass: when false, the
+    // shared material is bound with its NextPass stripped so the silhouette
+    // never renders for this sprite (the next_pass draw is gone too).
+    // Default true matches mobs/players (always-on silhouette through
+    // cover, optionally gated to 0 by an InteractiveXray driver). Set
+    // false on static interactives that don't need to be findable through
+    // walls (signposts, torches, knowledge stones) — also avoids the
+    // "always silhouetting through walls" failure mode that happens if the
+    // template carries a next_pass but no driver pulls XrayAmount to 0.
+    // Companion to XrayAmount: this is the structural switch, XrayAmount
+    // is the per-frame intensity.
+    [Export] public bool Xray
+    {
+        get => _xray;
+        set
+        {
+            if (_xray == value)
+            {
+                return;
+            }
+            _xray = value;
+            // Rebind via the subclass's Apply override so the visible
+            // sprite picks up a new shared material with/without the
+            // next_pass on the new key.
+            Apply();
+        }
+    }
+    private bool _xray = true;
+
     // Per-instance fade for the X-ray (next_pass) silhouette. 1 = X-ray
     // fully on whenever occluded, 0 = X-ray entirely suppressed. Player +
     // mobs leave this at 1 so they always silhouette through cover; an
@@ -139,38 +144,41 @@ public partial class SpriteBase : Sprite3D
     }
     private float _xrayAmount = 1f;
 
-    // Material template wired per-scene via [Export]. Bound through the
-    // shared-material cache so every sprite that hits the same (template,
-    // texture) combo points at the same ShaderMaterial — the precondition
-    // Godot needs to batch their draws.
-    [Export] public ShaderMaterial MaterialTemplate { get; set; }
+    // Shared materials, keyed by (template, texture, stripNextPass).
+    // sprite_texture lives on the material because sampler2D can't be an
+    // instance uniform in Godot 4; everything else is per-instance. The
+    // strip flag is part of the key so a sprite that opts out of the X-ray
+    // pass gets its own cached variant rather than mutating the shared one.
+    private static readonly System.Collections.Generic.Dictionary<(ShaderMaterial, Texture2D, bool), ShaderMaterial> _sharedMaterials = new();
 
-    // Shared materials, keyed by (template, texture). sprite_texture lives
-    // on the material because sampler2D can't be an instance uniform in
-    // Godot 4; everything else is per-instance.
-    private static readonly System.Collections.Generic.Dictionary<(ShaderMaterial, Texture2D), ShaderMaterial> _sharedMaterials = new();
-
-    protected static ShaderMaterial GetSharedMaterial(ShaderMaterial template, Texture2D texture)
+    protected static ShaderMaterial GetSharedMaterial(ShaderMaterial template, Texture2D texture, bool stripNextPass = false)
     {
         if (template == null || texture == null)
         {
             return null;
         }
-        var key = (template, texture);
+        var key = (template, texture, stripNextPass);
         if (!_sharedMaterials.TryGetValue(key, out ShaderMaterial mat))
         {
             mat = (ShaderMaterial)template.Duplicate();
             mat.SetShaderParameter("sprite_texture", texture);
-            // If the template carries a next_pass (e.g. the character X-ray
-            // silhouette wired into sprite_lit_character.tres), Duplicate()'s
-            // shallow copy leaves NextPass pointing at the shared template
-            // resource — so every character texture would clobber that single
-            // material's `sprite_texture` uniform and end up rendering the
-            // same character in every silhouette. Specialize per (template,
-            // texture) by duplicating the next_pass too and binding the
-            // matching texture into it.
-            if (template.NextPass is ShaderMaterial nextTemplate)
+            if (stripNextPass)
             {
+                // Duplicate is shallow, so NextPass currently points at the
+                // shared template's silhouette material. Null it explicitly
+                // so this sprite skips the next_pass draw entirely.
+                mat.NextPass = null;
+            }
+            else if (template.NextPass is ShaderMaterial nextTemplate)
+            {
+                // If the template carries a next_pass (e.g. the character X-ray
+                // silhouette wired into sprite_lit_character.tres), Duplicate()'s
+                // shallow copy leaves NextPass pointing at the shared template
+                // resource — so every character texture would clobber that single
+                // material's `sprite_texture` uniform and end up rendering the
+                // same character in every silhouette. Specialize per (template,
+                // texture) by duplicating the next_pass too and binding the
+                // matching texture into it.
                 ShaderMaterial nextMat = (ShaderMaterial)nextTemplate.Duplicate();
                 nextMat.SetShaderParameter("sprite_texture", texture);
                 mat.NextPass = nextMat;
@@ -205,20 +213,6 @@ public partial class SpriteBase : Sprite3D
     {
         if (!Engine.IsEditorHint())
         {
-            // Resolve the random mirror flip once and XOR it into FlipH,
-            // which becomes the authoritative stored state read by Apply().
-            // Rolling once here keeps subsequent Apply() calls (from
-            // TextureChanged, etc.) from re-randomizing.
-            if (Mirror && GD.Randf() < 0.5f)
-            {
-                FlipH = !FlipH;
-            }
-            // Roll the per-instance scale once and bake it into the
-            // transform. If the author left the range at its (1, 1)
-            // default this is a no-op.
-            float s = (float)GD.RandRange(ScaleMin, ScaleMax);
-            Scale = new Vector3(s, s, s);
-
             // Subscribe to Node3D's VisibilityChanged signal once and toggle
             // SetProcess based on IsVisibleInTree. The signal fires when
             // *this* node OR any ancestor flips its Visible flag, which is
@@ -263,16 +257,12 @@ public partial class SpriteBase : Sprite3D
         origin = Vector2I.Zero;
     }
 
-    // Apply Offset for the sprite's anchor convention. Default is
-    // upright/center-bottom (CenteredAtBase). FlatLitSprite overrides to
-    // anchor at full center.
+    // Apply Offset for the sprite's anchor convention. Base anchors at
+    // center-bottom (LitSprite's upright billboard convention). FlatLitSprite
+    // overrides to anchor at full center.
     protected virtual void ApplyOffset(Vector2I size)
     {
-        if (CenteredAtBase)
-        {
-            Offset = new Vector2(-size.X / 2.0f, 0);
-        }
-        // else: leave as authored
+        Offset = new Vector2(-size.X / 2.0f, 0);
     }
 
     // Push the per-instance render data for ONE sprite RID. Used when a

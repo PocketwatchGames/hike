@@ -9,7 +9,6 @@
 [sub_resource type="Resource" id="Resource_input_berry"]
 script = ExtResource("1_input")
 item = ExtResource("2_berry")
-count = 2
 range = 1
 metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 

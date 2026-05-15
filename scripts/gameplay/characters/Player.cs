@@ -133,6 +133,10 @@ public partial class Player : CharacterBody3D
 	// _footstepEmitter. Independent stride memory so footprint cadence stays
 	// distinct from FX cadence if the two strides ever diverge.
 	readonly FootprintEmitter _footprintEmitter = new();
+	// Breadcrumb-based scent trail. Constructed in Initialize once `_world`
+	// and PlayerData are known. Mobs read Scent.Crumbs in their
+	// mob-perceives-player tick.
+	ScentEmitter _scent;
 	// Active loop instances. Null when the matching state isn't held; created
 	// on the first frame state becomes active and Stop()'d when it ends. We
 	// drop the reference at Stop() so the next activation creates a fresh
@@ -219,6 +223,7 @@ public partial class Player : CharacterBody3D
 
 
 	public float visibility = 1f;
+	public ScentEmitter Scent => _scent;
 	// Current movement-noise output, in decibels. Sampled by mobs in their
 	// mob-perceives-player tick to add a hearing contribution to perception.
 	// 0 = silent (stationary); peaks at PlayerData.runDecibels at moveSpeed.
@@ -334,7 +339,11 @@ public partial class Player : CharacterBody3D
 	public override void _Ready()
 	{
 		CollisionLayer = (uint)ECollisionLayer.Player;
-		CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Mob);
+		// Player does NOT physically collide with mobs — running into a mob
+		// must never slow or deflect the player. The reaction (mob lurches
+		// out of the way) is applied in PushTouchedMobs via an overlap
+		// query against MobSpatialHash, not through MoveAndSlide contacts.
+		CollisionMask = (uint)ECollisionLayer.Environment;
 
 		// Setting current=true in the .tscn is unreliable when a Camera3D
 		// is also in the tree — Godot picks the camera as listener. Force
@@ -958,6 +967,8 @@ public partial class Player : CharacterBody3D
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
+		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
+			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
 
 		if (spawnData != null)
@@ -1002,19 +1013,18 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			// Seed "common knowledge" items into the identification set so
-			// their real displayName shows from the very first frame instead
-			// of "Unknown Food" / "Unknown Potion". IdentifyItem no-ops on
-			// items without a placeholder, so accidental entries are safe.
-			if (spawnData.initiallyIdentifiedItems != null)
+			// Apply the spawn-time knowledge pack. Each entry is a
+			// TeachableConcept (item identification, recipe, language piece,
+			// region reveal, mob bestiary seed) and routes through the same
+			// Teach() flow that scrolls / NPC dialogue use. Announcements
+			// are gated by GameClient.SuppressAnnouncements (set around
+			// this whole Init call) so the player doesn't see a wall of
+			// banners on the first frame for things they already know.
+			if (spawnData.initialKnowledge != null)
 			{
-				WorldSimState sim = world?.WorldState?.SimState;
-				if (sim != null)
+				for (int i = 0; i < spawnData.initialKnowledge.Count; i++)
 				{
-					foreach (ItemData id in spawnData.initiallyIdentifiedItems)
-					{
-						sim.IdentifyItem(id);
-					}
+					spawnData.initialKnowledge[i]?.Teach(this);
 				}
 			}
 		}
@@ -1280,6 +1290,7 @@ public partial class Player : CharacterBody3D
 		_statusEffects.Tick(dt);
 		TickWetEffect();
 		TickBodyTemperature(dt);
+		_scent?.Tick(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer
 		// while wading (discrete step impacts) than while swimming
@@ -1969,15 +1980,24 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Apply a horizontal impulse to any mob the player just slid into.
-	// Magnitude scales with the player's planar speed and inversely with
-	// the mob's mass — heavy mobs barely budge, light mobs scatter. Ignores
-	// vertical motion so jumping onto a mob doesn't shove it sideways.
-	// Called after MoveAndSlide because slide collisions are populated by
-	// that call; running it before would walk a stale collision list.
+	// Mobs the player is currently overlapping get nudged toward a target
+	// horizontal velocity along the player's direction of travel. The push
+	// is a velocity TARGET, not a per-frame impulse — running into a mob
+	// for many ticks doesn't compound, so corpses / merchants no longer
+	// fly across the map. Skips dead and Freeze-pinned mobs entirely so
+	// settled corpses and idle-locked NPCs stay where they are. Player no
+	// longer carries the Mob bit in its CollisionMask, so MoveAndSlide
+	// can't surface mob contacts; the overlap query against MobSpatialHash
+	// is now the only path that turns "player touches mob" into a reaction.
+	private static readonly List<Mob> _pushTouchedScratch = [];
 	private void PushTouchedMobs()
 	{
 		if (data == null || data.mobPushStrength <= 0f)
+		{
+			return;
+		}
+		MobSpatialHash hash = _world?.MobSpatialHash;
+		if (hash == null)
 		{
 			return;
 		}
@@ -1988,16 +2008,52 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		int count = GetSlideCollisionCount();
-		for (int i = 0; i < count; i++)
+		Vector3 dir = vel / speed;
+		// Capping the mob's resulting horizontal speed (along the push
+		// direction) at speed * mobPushStrength is the fix for the
+		// "merchant flies off the map" bug — without it, every physics
+		// tick of contact added another mass²-amplified impulse.
+		float maxPushSpeed = speed * data.mobPushStrength;
+		// 1m covers the widest player+mob capsule overlap (player 0.25 +
+		// goblin/villager 0.35 = 0.6, padded so a single fast tick doesn't
+		// step past the contact band before this runs).
+		const float QueryRadius = 1f;
+		const float ContactRadius = 0.6f;
+		const float ContactRadiusSq = ContactRadius * ContactRadius;
+		const float MaxVerticalSeparation = 1.5f;
+
+		_pushTouchedScratch.Clear();
+		hash.QueryRadius(GlobalPosition, QueryRadius, _pushTouchedScratch);
+
+		Vector3 playerPos = GlobalPosition;
+		for (int i = 0; i < _pushTouchedScratch.Count; i++)
 		{
-			using KinematicCollision3D c = GetSlideCollision(i);
-			if (c?.GetCollider() is not Mob mob)
+			Mob mob = _pushTouchedScratch[i];
+			if (mob == null || !mob.alive || mob.Freeze)
 			{
 				continue;
 			}
-			float mass = Mathf.Max(mob.Mass, 0.01f);
-			Vector3 impulse = vel * (data.mobPushStrength / mass);
+			Vector3 toMob = mob.GlobalPosition - playerPos;
+			if (Mathf.Abs(toMob.Y) > MaxVerticalSeparation)
+			{
+				continue;
+			}
+			float distSq = toMob.X * toMob.X + toMob.Z * toMob.Z;
+			if (distSq > ContactRadiusSq)
+			{
+				continue;
+			}
+			Vector3 mobVel = mob.LinearVelocity;
+			float currentAlong = mobVel.X * dir.X + mobVel.Z * dir.Z;
+			if (currentAlong >= maxPushSpeed)
+			{
+				continue;
+			}
+			float deltaAlong = maxPushSpeed - currentAlong;
+			// ApplyImpulse divides by mass internally, so multiply by mass
+			// here to make the resulting velocity change exactly deltaAlong
+			// regardless of how heavy the mob is authored.
+			Vector3 impulse = dir * (deltaAlong * mob.Mass);
 			mob.ApplyImpulse(new Vector3(impulse.X, 0f, impulse.Z));
 		}
 	}
