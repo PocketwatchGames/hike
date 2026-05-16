@@ -3,7 +3,9 @@
 [ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/entities/Trap.cs" id="1_trap"]
 [ext_resource type="Script" uid="uid://d3ycyn0iacjxh" path="res://scripts/data/SpikeTrapData.cs" id="2_data"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_b1xdv"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_0b7b2"]
 [ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="5_litsprite"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="6_discoverable"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="7_xray"]
@@ -13,18 +15,8 @@
 [ext_resource type="PackedScene" uid="uid://byjufllnj0ow2" path="res://scenes/hud/discoverable_hud.tscn" id="15_hud"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_warning.tscn" id="16_warning"]
 [ext_resource type="PackedScene" path="res://scenes/effects/spiketrap_emerge.tscn" id="17_emerge"]
-[ext_resource type="Script" path="res://scripts/gameplay/entities/TriggerSource.cs" id="18_trigsrc"]
-[ext_resource type="Script" path="res://scripts/gameplay/entities/SpikeDeployer.cs" id="19_deployer"]
-
-[sub_resource type="Resource" id="Resource_trap_damage"]
-script = ExtResource("3_damage")
-healthDamage = 15.0
-
-[sub_resource type="Resource" id="Resource_trap_data"]
-script = ExtResource("2_data")
-damageData = SubResource("Resource_trap_damage")
-warningEffect = ExtResource("16_warning")
-emergeEffect = ExtResource("17_emerge")
+[ext_resource type="Script" uid="uid://dsu0nvrw5cdsi" path="res://scripts/gameplay/entities/TriggerSource.cs" id="18_trigsrc"]
+[ext_resource type="Script" uid="uid://7k5dqthgen3e" path="res://scripts/gameplay/entities/SpikeDeployer.cs" id="19_deployer"]
 
 [sub_resource type="Resource" id="Resource_trap_event_disarm"]
 script = ExtResource("9_event")
@@ -40,6 +32,17 @@ locksMovement = true
 [sub_resource type="BoxShape3D" id="BoxShape3D_trigger"]
 size = Vector3(1.5, 0.5, 1.5)
 
+[sub_resource type="Resource" id="Resource_trap_damage"]
+script = ExtResource("3_damage")
+healthDamage = 15.0
+statusEffects = null
+
+[sub_resource type="Resource" id="Resource_trap_data"]
+script = ExtResource("2_data")
+damageData = SubResource("Resource_trap_damage")
+warningEffect = ExtResource("16_warning")
+emergeEffect = ExtResource("17_emerge")
+
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
 size = Vector3(2, 1.5, 2)
 
@@ -48,9 +51,9 @@ script = ExtResource("1_trap")
 _triggerSource = NodePath("TriggerSource")
 _deployers = [NodePath("SpikeDeployer")]
 _interactBox = NodePath("InteractiveBox")
-_actions = Array[ExtResource("8_action")]([SubResource("Resource_trap_action_disarm")])
 _discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
+_actions = Array[ExtResource("8_action")]([SubResource("Resource_trap_action_disarm")])
 
 [node name="HolesSprite" type="Sprite3D" parent="." unique_id=1453525520]
 cast_shadow = 0
@@ -64,6 +67,7 @@ region_rect = Rect2(736, 165, 16, 27)
 script = ExtResource("5_litsprite")
 Material = 1
 ForwardOffset = 0.5
+Xray = true
 
 [node name="SpikesSprite" type="Sprite3D" parent="." unique_id=2021099695]
 visible = false
@@ -78,18 +82,19 @@ region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("5_litsprite")
 Material = 1
 ForwardOffset = 0.5
+Xray = true
 
-[node name="TriggerSource" type="Area3D" parent="." node_paths=PackedStringArray("_targets")]
+[node name="TriggerSource" type="Area3D" parent="." unique_id=1383798344 node_paths=PackedStringArray("_targets")]
 collision_layer = 0
 collision_mask = 0
 script = ExtResource("18_trigsrc")
 _targets = [NodePath("../SpikeDeployer")]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TriggerSource" unique_id=1611217989]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
 shape = SubResource("BoxShape3D_trigger")
 
-[node name="SpikeDeployer" type="Node3D" parent="." node_paths=PackedStringArray("_spikesSprite", "_discoverable")]
+[node name="SpikeDeployer" type="Node3D" parent="." unique_id=177041867 node_paths=PackedStringArray("_spikesSprite", "_discoverable")]
 script = ExtResource("19_deployer")
 data = SubResource("Resource_trap_data")
 _spikesSprite = NodePath("../SpikesSprite")

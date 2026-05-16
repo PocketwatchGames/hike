@@ -157,6 +157,19 @@ public static class CVars
     // Off by default; toggle from the in-game console.
     public static CVarBool mobDebugPath = new CVarBool("mob_debug_path", false);
 
+    // When true, MobHUD shows a two-line text overlay over each visible mob
+    // breaking down PLAYER-perceives-MOB. Top line: V/H/S sense deltas
+    // (smell is always 0 — player doesn't smell). Bottom line: L (light at
+    // mob), D (distance closeness), F (facing — always 1 for the player),
+    // S (mob's speed-based visibility), C (1 - mob camouflage).
+    public static CVarBool debugPlayerPerception = new CVarBool("debug_player_perception", false);
+
+    // When true, MobHUD shows the same two-line breakdown for MOB-perceives-
+    // PLAYER. Top: V/H/S sense deltas. Bottom: L (player light), D (distance
+    // closeness vs mob VisionRange), F (mob's facing dot-power), S (player
+    // speed-based visibility), C (1 - player camouflage).
+    public static CVarBool debugMobPerception = new CVarBool("debug_mob_perception", false);
+
     // When true, Mob._PhysicsProcess prints a diagnostic line each time the
     // torch-conditions block runs — ambientLight, useTorch, discovery state,
     // playerRemembers, and whether _torch / MobData.torch are populated. Use

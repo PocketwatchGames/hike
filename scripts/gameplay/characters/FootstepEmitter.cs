@@ -1,85 +1,18 @@
 using Godot;
 
-// Distance-based footstep effect emitter for moving entities (Player, Mob).
-// Mirrors WaterRippleEmitter: each holder ticks Update every physics frame
-// while grounded, and a single one-shot effect is spawned each time the
-// entity has moved more than `stride` meters in XZ since the last emit.
+// One-shot footstep FX dispatch for Player / Mob. Stateless — callers
+// decide when to fire (an animation frame match drives the timing), this
+// just resolves the per-ground-type scene from the supplied dict (or uses
+// the single scene overload for the shallow-water variant where there's
+// no EGroundType dispatch) and spawns it through Fx.Create.
 //
-// Why distance-based rather than time-based: emission rate scales with speed
-// without tracking velocity. A sneak emits fewer dust puffs than a sprint
-// naturally; a stationary entity emits none. The host only needs a position,
-// a "should emit" flag, the resolved EGroundType, and the per-host effect
-// dictionary.
-//
-// Fx.Create parents the spawned node to the supplied `parent` and
-// frees it once all child CpuParticles3D stop emitting. To keep the puff put
-// in world space rather than tracking the actor, callers pass World (or any
+// Fx.Create parents the spawned node to the supplied `parent` and frees
+// it once all child CpuParticles3D stop emitting. To keep the puff put in
+// world space rather than tracking the actor, callers pass World (or any
 // world-space root) as parent and GlobalPosition as the position.
-public class FootstepEmitter
+public static class FootstepEmitter
 {
-    private Vector2 _lastEmitXZ;
-    private bool _hasLastEmit;
-
-    public void Update(
-        Node parent,
-        Vector3 worldPos,
-        bool emitting,
-        float stride,
-        EGroundType ground,
-        Godot.Collections.Dictionary<EGroundType, PackedScene> effects)
-    {
-        if (!emitting)
-        {
-            _hasLastEmit = false;
-            return;
-        }
-        Vector2 xz = new Vector2(worldPos.X, worldPos.Z);
-        if (!_hasLastEmit)
-        {
-            _lastEmitXZ = xz;
-            _hasLastEmit = true;
-            return;
-        }
-        if (xz.DistanceSquaredTo(_lastEmitXZ) >= stride * stride)
-        {
-            Emit(parent, worldPos, ground, effects);
-            _lastEmitXZ = xz;
-        }
-    }
-
-    // Single-scene variant — used by the shallow-water emitter where there
-    // is no ground-type dispatch (the scene is selected upstream by water-
-    // state, not by EGroundType). Same stride logic, just a different Emit.
-    public void Update(
-        Node parent,
-        Vector3 worldPos,
-        bool emitting,
-        float stride,
-        PackedScene effect)
-    {
-        if (!emitting)
-        {
-            _hasLastEmit = false;
-            return;
-        }
-        Vector2 xz = new Vector2(worldPos.X, worldPos.Z);
-        if (!_hasLastEmit)
-        {
-            _lastEmitXZ = xz;
-            _hasLastEmit = true;
-            return;
-        }
-        if (xz.DistanceSquaredTo(_lastEmitXZ) >= stride * stride)
-        {
-            if (parent != null && effect != null)
-            {
-                Fx.Create(effect, parent, worldPos);
-            }
-            _lastEmitXZ = xz;
-        }
-    }
-
-    private static void Emit(
+    public static void Emit(
         Node parent,
         Vector3 worldPos,
         EGroundType ground,
@@ -94,5 +27,14 @@ public class FootstepEmitter
             return;
         }
         Fx.Create(scene, parent, worldPos);
+    }
+
+    public static void Emit(Node parent, Vector3 worldPos, PackedScene effect)
+    {
+        if (parent == null || effect == null)
+        {
+            return;
+        }
+        Fx.Create(effect, parent, worldPos);
     }
 }

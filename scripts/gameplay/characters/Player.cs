@@ -19,78 +19,89 @@ public partial class Player : CharacterBody3D
 	[Export] private DashGhostTrail _dashGhostTrail;
 	[Export] private AudioListener3D _audioListener;
 	[Export] private AimingReticle _aimingReticle;
-	// Per-ground-type one-shot effect played at the player's feet while
-	// walking/running on solid ground. Authored in the player .tscn; missing
-	// keys silently emit nothing.
-	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
-	// Per-character footprint texture projected onto the ground at footstep
-	// cadence. The shared player vs mob footprint scenes (and per-ground
-	// tints) live on SimData; this is the only print authoring that varies
-	// per character.
-	[Export] private Texture2D _footprintTexture;
-	// One-shot blood splatter spawned at the player's position on a non-lethal
-	// damage hit. Spawned in world space so the puff stays put as the player
-	// runs through it, matching the footstep effect convention.
-	[Export] private PackedScene _bloodDamageEffect;
-	// One-shot death blood spawned the moment _health crosses to zero.
-	[Export] private PackedScene _deathEffect;
-	// One-shot splash spawned when the player first enters a water trigger
-	// (overlap count goes 0 → 1 in WaterAreaEntered).
-	[Export] private PackedScene _waterEnterSplashEffect;
-	// Continuous loop scenes (see Fx._loop). Parented to the player
-	// so they follow the body; held alive while in the matching state and
-	// stopped when leaving so the trailing audio + particles wind down cleanly.
-	[Export] private PackedScene _waterMovementLoopEffect;
-	[Export] private PackedScene _tallGrassMovementLoopEffect;
-	// One-shots for vertical motion. Jump fires the moment input takes the
-	// player off the floor. Land fires on every floor reacquisition unless
-	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
-	// case landHard takes its place — a heavier impact deserves dust + a
-	// harder hit.
-	[Export] private PackedScene _jumpEffect;
-	[Export] private PackedScene _landEffect;
-	[Export] private PackedScene _landHardEffect;
-	// High-speed water entry. Picked over the standard splash when inbound
-	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
-	[Export] private PackedScene _waterPlungeEffect;
-	// Per-stride splash effect emitted while running through Shallow water.
-	// Drives a separate FootstepEmitter from the ground-material dict because
-	// shallow-water detection lives in _waterState (an Area-trigger flag),
-	// not the EGroundType resolver — running across a thin film of water
-	// over grass should still trigger water audio rather than grass audio.
-	[Export] private PackedScene _shallowWaterFootstepEffect;
-	// VO that plays in tandem with _bloodDamageEffect / _deathEffect on
-	// the same hit. Separate scenes so the per-actor voice clips can ride on
-	// top of the shared impact / death-splat audio without authoring per-
-	// actor blood scenes.
-	[Export] private PackedScene _hurtVoEffect;
-	[Export] private PackedScene _deathVoEffect;
-	// Armor lifecycle one-shots. Depleted plays the moment armor hits zero
-	// from damage; rechargeStart plays when the post-hit recharge delay
-	// elapses and the bar starts climbing again; recoverStart replaces it
-	// when the recharge follows a full depletion (longer recover delay).
-	[Export] private PackedScene _armorDepletedEffect;
-	[Export] private PackedScene _armorRechargeStartEffect;
-	[Export] private PackedScene _armorRecoverStartEffect;
-	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
-	// one of these scenes; only one (or none) is active at a time. Slots can
-	// be left null in the .tscn — the actor falls silent for that state,
-	// which is the current player default until per-character idle / run /
-	// swim_idle audio is authored.
-	[Export] private PackedScene _idleLoopEffect;
-	[Export] private PackedScene _runLoopEffect;
-	[Export] private PackedScene _swimIdleLoopEffect;
-	// Distance the player must travel in XZ between footstep effect emits.
-	// Larger = slower step cadence.
-	[Export] private float _footstepStride = 1.2f;
-	// Minimum horizontal speed² to count as "walking" for footstep / loop
-	// gating. Below this the player is treated as standing still.
-	[Export] private float _footstepMinSpeedSq = 0.25f;
 	// Status effect applied while the player is in water or in unsheltered
 	// rain. Authored data lives on the resource (duration, displayName, icon);
 	// TickWetEffect arms / pauses the timer so the 30s dry-out only counts
 	// while the player is actually drying.
 	[Export] private StatusEffectData _wetEffectData;
+
+	[ExportGroup("FX")]
+	// One-shot blood splatter spawned at the player's position on a non-lethal
+	// damage hit. Spawned in world space so the puff stays put as the player
+	// runs through it, matching the footstep effect convention.
+	[Export] private PackedScene _bloodDamageFx;
+	// One-shot death blood spawned the moment _health crosses to zero.
+	[Export] private PackedScene _deathFx;
+	// One-shot splash spawned when the player first enters a water trigger
+	// (overlap count goes 0 → 1 in WaterAreaEntered).
+	[Export] private PackedScene _waterEnterSplashFx;
+	// Continuous loop scenes (see Fx._loop). Parented to the player
+	// so they follow the body; held alive while in the matching state and
+	// stopped when leaving so the trailing audio + particles wind down cleanly.
+	[Export] private PackedScene _waterMovementLoopFx;
+	[Export] private PackedScene _tallGrassMovementLoopFx;
+	// One-shots for vertical motion. Jump fires the moment input takes the
+	// player off the floor. Land fires on every floor reacquisition unless
+	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
+	// case landHard takes its place — a heavier impact deserves dust + a
+	// harder hit.
+	[Export] private PackedScene _jumpFx;
+	[Export] private PackedScene _landFx;
+	[Export] private PackedScene _landHardFx;
+	// High-speed water entry. Picked over the standard splash when inbound
+	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
+	[Export] private PackedScene _waterPlungeFx;
+	// VO that plays in tandem with _bloodDamageFx / _deathFx on
+	// the same hit. Separate scenes so the per-actor voice clips can ride on
+	// top of the shared impact / death-splat audio without authoring per-
+	// actor blood scenes.
+	[Export] private PackedScene _hurtVoFx;
+	[Export] private PackedScene _deathVoFx;
+	// Armor lifecycle one-shots. Depleted plays the moment armor hits zero
+	// from damage; rechargeStart plays when the post-hit recharge delay
+	// elapses and the bar starts climbing again; recoverStart replaces it
+	// when the recharge follows a full depletion (longer recover delay).
+	[Export] private PackedScene _armorDepletedFx;
+	[Export] private PackedScene _armorRechargeStartFx;
+	[Export] private PackedScene _armorRecoverStartFx;
+	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
+	// one of these scenes; only one (or none) is active at a time. Slots can
+	// be left null in the .tscn — the actor falls silent for that state,
+	// which is the current player default until per-character idle / run /
+	// swim_idle audio is authored.
+	[Export] private PackedScene _idleLoopFx;
+	[Export] private PackedScene _runLoopFx;
+	[Export] private PackedScene _swimIdleLoopFx;
+
+	[ExportGroup("Footsteps & Footprints")]
+	// Per-ground-type one-shot effect played at the player's feet on each
+	// footfall. Authored in the player .tscn; missing keys silently emit
+	// nothing.
+	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+	// Splash effect emitted on footfall while running through Shallow water.
+	// Bypasses the per-ground dict because shallow-water detection lives in
+	// _waterState (an Area-trigger flag), not the EGroundType resolver — a
+	// thin film of water over grass should still trigger water audio.
+	[Export] private PackedScene _shallowWaterFootstepFx;
+	// Per-animation footfall frame indices. One entry per animation that
+	// should emit footsteps (run, sprint, sneak, …); each entry names the
+	// animation and lists the frame numbers within it where the foot
+	// strikes the ground. The animator fires OnFrameAdvanced as the sprite
+	// cycles; a matching (anim, frame) pair triggers a footstep + footprint.
+	// Anims absent from this list (idle, jump, fall, attack, …) never emit.
+	[Export] private Godot.Collections.Array<FootstepFrameSet> _footstepFrames = new();
+	// Minimum horizontal speed² to count as "moving" for loop-FX gating
+	// (water swim loop, tall-grass rustle). Footstep cadence itself is
+	// frame-driven and ignores this.
+	[Export] private float _movingMinSpeedSq = 0.25f;
+	// Per-character footprint texture projected onto the ground on each
+	// footfall. The shared player vs mob footprint scenes (and per-ground
+	// tints) live on SimData; this is the only print authoring that varies
+	// per character.
+	[Export] private Texture2D _footprintTexture;
+	// World-space size (meters) of the projected footprint decal — X is the
+	// print's width (perpendicular to facing), Y is its length (along facing).
+	[Export] private Vector2 _footprintSize = new(0.3f, 0.4f);
 
 	public Action<Node3D> onHighlightChanged;
 	public Action<IInteractive> onInteractChanged;
@@ -124,15 +135,6 @@ public partial class Player : CharacterBody3D
 	float _waterSurfaceY;
 	int _waterOverlapCount;
 	readonly WaterRippleEmitter _rippleEmitter = new();
-	readonly FootstepEmitter _footstepEmitter = new();
-	// Independent stride emitter for the shallow-water splash. Has its own
-	// last-emit memory so the cadence resets cleanly when the player
-	// transitions between dry land and a wet patch.
-	readonly FootstepEmitter _shallowWaterFootstepEmitter = new();
-	// Spawns persistent ground decals at the same stride cadence as
-	// _footstepEmitter. Independent stride memory so footprint cadence stays
-	// distinct from FX cadence if the two strides ever diverge.
-	readonly FootprintEmitter _footprintEmitter = new();
 	// Breadcrumb-based scent trail. Constructed in Initialize once `_world`
 	// and PlayerData are known. Mobs read Scent.Crumbs in their
 	// mob-perceives-player tick.
@@ -223,6 +225,12 @@ public partial class Player : CharacterBody3D
 
 
 	public float visibility = 1f;
+	// Individual factors that compose into `visibility`, exposed for the
+	// mob-perceives-player debug HUD (CVars.debugMobPerception). Written each
+	// UpdateVisibility tick alongside the composite.
+	public float visibilityLight = 1f;
+	public float visibilitySpeed = 1f;
+	public float visibilityCamouflage = 1f; // 1 - max(grass.camouflage)
 	public ScentEmitter Scent => _scent;
 	// Current movement-noise output, in decibels. Sampled by mobs in their
 	// mob-perceives-player tick to add a hearing contribution to perception.
@@ -360,7 +368,46 @@ public partial class Player : CharacterBody3D
 			_hurtBox.GetHitType = GetHitType;
 		}
 
+		if (_animator != null)
+		{
+			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
+		}
+
 		_aimingReticle?.Initialize(this);
+	}
+
+	// Footstep / footprint emission is driven by the sprite animator instead
+	// of distance travelled. The animator fires this whenever its frame
+	// changes; we look up the current animation in _footstepFrames and emit
+	// when the frame index matches an authored footfall. State gates the
+	// spawn: skip while ungrounded, swimming, or interacting; route to the
+	// shallow-water splash variant while wading.
+	private void OnAnimFrameAdvanced(StringName anim, int frame)
+	{
+		if (_world == null || _footstepFrames == null)
+		{
+			return;
+		}
+		if (!FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+		{
+			return;
+		}
+		if (!_grounded || _waterState == EWaterState.Swimming || _curInteractive != null)
+		{
+			return;
+		}
+		Vector3 pos = GlobalPosition;
+		EGroundType ground = GroundTypeResolver.Resolve(_world.WorldState, pos);
+		if (_waterState == EWaterState.Shallow)
+		{
+			FootstepEmitter.Emit(_world, pos, _shallowWaterFootstepFx);
+		}
+		else
+		{
+			FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
+			_statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+			FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: false);
+		}
 	}
 
 	// Pure prediction — no state mutation. See Mob.GetHitType for the
@@ -424,7 +471,7 @@ public partial class Player : CharacterBody3D
 				_armor = 0f;
 				_armorDepleted = true;
 				_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
-				SpawnWorldEffect(_armorDepletedEffect);
+				SpawnWorldEffect(_armorDepletedFx);
 			}
 			else
 			{
@@ -443,15 +490,15 @@ public partial class Player : CharacterBody3D
 			// a follow-up hit on an already-dead body shouldn't re-emit.
 			if (wasAlive)
 			{
-				SpawnWorldEffect(_deathEffect);
-				SpawnWorldEffect(_deathVoEffect);
+				SpawnWorldEffect(_deathFx);
+				SpawnWorldEffect(_deathVoFx);
 			}
 			PlayOneShot(EAnimation.Die);
 		}
 		else if (incomingDamage > 0f)
 		{
-			SpawnWorldEffect(_bloodDamageEffect);
-			SpawnWorldEffect(_hurtVoEffect);
+			SpawnWorldEffect(_bloodDamageFx);
+			SpawnWorldEffect(_hurtVoFx);
 		}
 
 		if (hit.statusEffects != null)
@@ -608,9 +655,9 @@ public partial class Player : CharacterBody3D
 		PackedScene animLoopTarget = null;
 		if (_health > 0f)
 		{
-			if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopEffect;
-			else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopEffect;
-			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopEffect;
+			if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopFx;
+			else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopFx;
+			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopFx;
 		}
 		UpdateAnimLoop(animLoopTarget);
 	}
@@ -919,8 +966,8 @@ public partial class Player : CharacterBody3D
 		_health = Mathf.Clamp(_health + delta, 0f, MaxHealth);
 		if (_health <= 0f && wasAlive)
 		{
-			SpawnWorldEffect(_deathEffect);
-			SpawnWorldEffect(_deathVoEffect);
+			SpawnWorldEffect(_deathFx);
+			SpawnWorldEffect(_deathVoFx);
 			PlayOneShot(EAnimation.Die);
 		}
 	}
@@ -1125,7 +1172,7 @@ public partial class Player : CharacterBody3D
 		if (!_armorRecharging)
 		{
 			_armorRecharging = true;
-			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartEffect : _armorRechargeStartEffect);
+			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
 		}
 		_armor = Mathf.Min(_maxArmor, _armor + data.armorRechargeSpeed * dt);
 		if (_armor >= _maxArmor)
@@ -1304,40 +1351,24 @@ public partial class Player : CharacterBody3D
 		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
 		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
 
-		// Footstep effects. The dry-land emitter dispatches by EGroundType
-		// (grass / stone / sand / etc.); the shallow-water emitter is its
-		// own thing because shallow vs deep is an Area-trigger flag, not a
-		// ground material. Both gate on grounded + moving but mutually
-		// exclude each other via _waterState.
+		// Footsteps and footprints are driven by sprite animation events
+		// (see OnAnimFrameAdvanced), not anything in this method. Movement-
+		// gated continuous loops below still key off horizontal speed.
 		Vector2 horizVel = new(Velocity.X, Velocity.Z);
 		float horizSpeedSq = horizVel.LengthSquared();
-		bool walkingDry = _grounded
-			&& _waterState == EWaterState.None
-			&& horizSpeedSq > _footstepMinSpeedSq;
-		bool walkingShallow = _grounded
-			&& _waterState == EWaterState.Shallow
-			&& horizSpeedSq > _footstepMinSpeedSq;
-		EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
-		_footstepEmitter.Update(_world, GlobalPosition, walkingDry, _footstepStride, ground, _footstepEffects);
-		_shallowWaterFootstepEmitter.Update(_world, GlobalPosition, walkingShallow, _footstepStride, _shallowWaterFootstepEffect);
-		// Footprint decal cadence. Skipped while swimming (no contact) and
-		// while wading (the splash already represents the disturbance) — only
-		// dry-land contact leaves prints.
-		_statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
-		_footprintEmitter.Update(_world, GlobalPosition, GlobalRotation.Y, walkingDry, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: false);
 
 		// Movement-gated continuous loops. The water swim loop only plays
 		// while actually swimming — shallow wading is covered by the
-		// shallow-water footstep emitter above, so playing the swim loop
-		// there too would double-up the audio.
+		// shallow-water footstep FX, so playing the swim loop there too
+		// would double-up the audio.
 		bool intentMoving = _inputMove.LengthSquared() > 0.0001f;
-		bool moving = intentMoving || horizSpeedSq > _footstepMinSpeedSq;
+		bool moving = intentMoving || horizSpeedSq > _movingMinSpeedSq;
 		bool waterLoopActive = moving && _waterState == EWaterState.Swimming;
 		// Tall-grass and water are mutually exclusive — when wading, the
 		// shallow footsteps win so we don't double up on rustle + slosh.
 		bool tallGrassLoopActive = moving && _tallGrassCollisions.Count > 0 && _waterState == EWaterState.None;
-		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
-		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
+		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, waterLoopActive);
+		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopFx, tallGrassLoopActive);
 
 		// Dash and sprint suppress aim — the player commits to the movement
 		// burst, so look-rotation and the gamepad-stick aim fallback both
@@ -1590,7 +1621,7 @@ public partial class Player : CharacterBody3D
 		if (!wasOnFloor && _grounded && _waterState == EWaterState.None && inboundFallSpeed >= LandSoftSpeedThreshold)
 		{
 			bool hardLand = inboundFallSpeed >= LandHardSpeedThreshold;
-			PackedScene landScene = hardLand ? _landHardEffect : _landEffect;
+			PackedScene landScene = hardLand ? _landHardFx : _landFx;
 			SpawnWorldEffect(landScene);
 			if (hardLand)
 			{
@@ -1816,7 +1847,7 @@ public partial class Player : CharacterBody3D
 				_coyoteTimeEndMs = 0;
 				_jumpHeld = true;
 				PlayOneShot(EAnimation.Jump);
-				SpawnWorldEffect(_jumpEffect);
+				SpawnWorldEffect(_jumpFx);
 			}
 			else if (_waterState == EWaterState.Swimming)
 			{
@@ -2009,11 +2040,16 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		Vector3 dir = vel / speed;
+		// Tangent is dir rotated 90° clockwise in XZ (right-hand). Used to
+		// score how off-center the player hit the mob and to apply the
+		// "slip" impulse that scoots the mob out of the player's path.
+		Vector3 tangent = new Vector3(-dir.Z, 0f, dir.X);
 		// Capping the mob's resulting horizontal speed (along the push
 		// direction) at speed * mobPushStrength is the fix for the
 		// "merchant flies off the map" bug — without it, every physics
 		// tick of contact added another mass²-amplified impulse.
 		float maxPushSpeed = speed * data.mobPushStrength;
+		float maxSlipSpeed = speed * data.mobPushSlip;
 		// 1m covers the widest player+mob capsule overlap (player 0.25 +
 		// goblin/villager 0.35 = 0.6, padded so a single fast tick doesn't
 		// step past the contact band before this runs).
@@ -2044,16 +2080,39 @@ public partial class Player : CharacterBody3D
 				continue;
 			}
 			Vector3 mobVel = mob.LinearVelocity;
+
+			// Forward push: top up the mob's velocity along player heading
+			// to maxPushSpeed. No-op if the mob is already going faster.
 			float currentAlong = mobVel.X * dir.X + mobVel.Z * dir.Z;
-			if (currentAlong >= maxPushSpeed)
+			float deltaAlong = currentAlong < maxPushSpeed ? maxPushSpeed - currentAlong : 0f;
+
+			// Slip: nudge the mob sideways AWAY from the player's path,
+			// proportional to how off-center the contact was. A dead-center
+			// hit gives no slip; a graze on the edge gives full slip. Sign
+			// of lateralOffset picks left vs. right; only push further away
+			// (never pull the mob across the player's path).
+			float lateralOffset = toMob.X * tangent.X + toMob.Z * tangent.Z;
+			float slipScale = Mathf.Clamp(lateralOffset / ContactRadius, -1f, 1f);
+			float currentLateral = mobVel.X * tangent.X + mobVel.Z * tangent.Z;
+			float targetLateral = maxSlipSpeed * slipScale;
+			float deltaLateral = 0f;
+			if (slipScale > 0f && currentLateral < targetLateral)
+			{
+				deltaLateral = targetLateral - currentLateral;
+			}
+			else if (slipScale < 0f && currentLateral > targetLateral)
+			{
+				deltaLateral = targetLateral - currentLateral;
+			}
+
+			if (deltaAlong == 0f && deltaLateral == 0f)
 			{
 				continue;
 			}
-			float deltaAlong = maxPushSpeed - currentAlong;
 			// ApplyImpulse divides by mass internally, so multiply by mass
-			// here to make the resulting velocity change exactly deltaAlong
-			// regardless of how heavy the mob is authored.
-			Vector3 impulse = dir * (deltaAlong * mob.Mass);
+			// here to make the resulting velocity change exactly the
+			// (deltaAlong, deltaLateral) pair regardless of mob mass.
+			Vector3 impulse = (dir * deltaAlong + tangent * deltaLateral) * mob.Mass;
 			mob.ApplyImpulse(new Vector3(impulse.X, 0f, impulse.Z));
 		}
 	}
@@ -2072,6 +2131,9 @@ public partial class Player : CharacterBody3D
 		}
 
 		visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
+		visibilityLight = lightFactor;
+		visibilitySpeed = speedFactor;
+		visibilityCamouflage = Mathf.Max(0f, 1f - camouflage);
 
 		Vector3 horizVel = Velocity;
 		horizVel.Y = 0f;
@@ -2097,9 +2159,9 @@ public partial class Player : CharacterBody3D
 			// at this signal still reflects inbound fall speed — water is an
 			// Area3D, not a colliding body, so MoveAndSlide hasn't zeroed Y.
 			float fallSpeed = -Velocity.Y;
-			PackedScene scene = (fallSpeed >= WaterPlungeSpeedThreshold && _waterPlungeEffect != null)
-				? _waterPlungeEffect
-				: _waterEnterSplashEffect;
+			PackedScene scene = (fallSpeed >= WaterPlungeSpeedThreshold && _waterPlungeFx != null)
+				? _waterPlungeFx
+				: _waterEnterSplashFx;
 			SpawnWorldEffect(scene);
 			OnWaterEnter?.Invoke(this);
 		}

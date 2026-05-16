@@ -100,6 +100,7 @@ region_rect = Rect2(752, 165, 16, 27)
 script = ExtResource("4_litsprite")
 Material = 1
 ForwardOffset = 0.5
+Xray = true
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=980757277 node_paths=PackedStringArray("target")]
 script = ExtResource("17_anim")

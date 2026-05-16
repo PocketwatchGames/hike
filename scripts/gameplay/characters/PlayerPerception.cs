@@ -80,9 +80,11 @@ public static class PlayerPerception
         Vector3 targetPos,
         in PerceptionInputs inputs,
         ref PerceivedByPlayerState state,
-        float delta)
+        float delta,
+        out PerceptionDebug debug)
     {
         var result = new PerceptionTickResult();
+        debug = default;
         if (world == null || world.player == null)
         {
             return result;
@@ -114,10 +116,19 @@ public static class PlayerPerception
         // returns 0 anyway.
         float maxVisibilityDistance = pd.visionRange * inputs.prominence;
 
+        // Player has no facing-based gating on perception (the camera frames
+        // the player's view independent of body orientation), so facing is
+        // always 1 for the debug breakdown.
+        debug.facing = 1f;
+        debug.distance = maxVisibilityDistance > 0f
+            ? Mathf.Clamp(1f - Mathf.Sqrt(distSq) / maxVisibilityDistance, 0f, 1f)
+            : 0f;
+
         if (maxVisibilityDistance > 0f && distSq < maxVisibilityDistance * maxVisibilityDistance)
         {
             float lightAtTarget = world.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
+            debug.lighting = lightFactor;
             float visibilityDistance = maxVisibilityDistance * lightFactor;
             if (visibilityDistance > 0f)
             {
@@ -161,6 +172,13 @@ public static class PlayerPerception
                 hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
             }
         }
+
+        debug.vision = visionDelta;
+        debug.hearing = hearingDelta;
+        // Player doesn't smell — leave debug.smell at 0.
+        // visionDelta is non-zero only when range, light, and LOS (or skip)
+        // all passed — equivalent to "the player can see the target right now".
+        debug.los = visionDelta > 0f;
 
         float visionContribution = visionDelta * pd.VisionStrength;
         float hearingContribution = hearingDelta * pd.HearingStrength;

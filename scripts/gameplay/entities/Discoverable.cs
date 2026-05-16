@@ -133,7 +133,7 @@ public partial class Discoverable : Node3D
             losRayHeight = losRayHeight,
             skipLineOfSight = skipLineOfSightCheck,
         };
-        PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta);
+        PerceptionTickResult result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref _state, tickDelta, out _);
         if (result.stateChanged)
         {
             ApplyInteractGate();

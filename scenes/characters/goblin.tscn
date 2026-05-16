@@ -25,6 +25,7 @@
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/stun_begin.tscn" id="23_stunbegin"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="24_stunloop"]
+[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
@@ -232,7 +233,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"run",
-"speed": 10.0
+"speed": 8.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -274,6 +275,12 @@ animations = [{
 "speed": 10.0
 }]
 
+[sub_resource type="Resource" id="Resource_footsteps_run"]
+script = ExtResource("25_ftsetframes")
+anim = &"run"
+frames = Array[int]([3, 6])
+metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+
 [node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_animator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
@@ -285,6 +292,19 @@ _sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
+_bloodDamageFx = ExtResource("12_blooddmg")
+_deathFx = ExtResource("13_deathmed")
+_waterEnterSplashFx = ExtResource("14_watenter")
+_waterMovementLoopFx = ExtResource("15_watloop")
+_tallGrassMovementLoopFx = ExtResource("16_grassloop")
+_yellFx = ExtResource("17_yell")
+_idleLoopFx = ExtResource("18_idle")
+_runLoopFx = ExtResource("19_run")
+_swimIdleLoopFx = ExtResource("20_swimidle")
+_deathVoFx = ExtResource("21_deathvo")
+_armorDepletedFx = ExtResource("22_armorbrk")
+_stunBeginFx = ExtResource("23_stunbegin")
+_stunLoopFx = ExtResource("24_stunloop")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_fstgrass"),
 1: ExtResource("11_fststone"),
@@ -293,20 +313,9 @@ _footstepEffects = Dictionary[int, PackedScene]({
 4: ExtResource("11_fstmud"),
 5: ExtResource("11_fststone")
 })
+_footstepFrames = Array[ExtResource("25_ftsetframes")]([SubResource("Resource_footsteps_run")])
 _footprintTexture = ExtResource("8_hi5vn")
-_bloodDamageEffect = ExtResource("12_blooddmg")
-_deathEffect = ExtResource("13_deathmed")
-_waterEnterSplashEffect = ExtResource("14_watenter")
-_waterMovementLoopEffect = ExtResource("15_watloop")
-_tallGrassMovementLoopEffect = ExtResource("16_grassloop")
-_yellEffect = ExtResource("17_yell")
-_idleLoopEffect = ExtResource("18_idle")
-_runLoopEffect = ExtResource("19_run")
-_swimIdleLoopEffect = ExtResource("20_swimidle")
-_deathVoEffect = ExtResource("21_deathvo")
-_armorDepletedEffect = ExtResource("22_armorbrk")
-_stunBeginEffect = ExtResource("23_stunbegin")
-_stunLoopEffect = ExtResource("24_stunloop")
+_footprintSize = Vector2(0.4, 0.6)
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1610472919]
@@ -319,9 +328,10 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(0, 0, 48, 48)
+region_rect = Rect2(96, 0, 48, 48)
 script = ExtResource("7_litsprite")
 Material = 1
+Xray = true
 MirrorByYaw = true
 ForwardOffset = 0.35
 

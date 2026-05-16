@@ -54,6 +54,15 @@ public static class NavigationGoals
             {
                 continue;
             }
+            // Reject slots at a cliff edge — the cell directly behind the
+            // slot (away from the target) must also be standable at roughly
+            // the same Y. A player shove sends the mob backwards along this
+            // axis, so without this check the encircle ring places mobs
+            // exactly where they can be punted off a ledge.
+            if (!HasStableBacking(ws, world, surfacePoint, targetPos))
+            {
+                continue;
+            }
             if (requireLineOfSight && !HasLineOfSight(world, surfacePoint, targetPos))
             {
                 continue;
@@ -117,6 +126,29 @@ public static class NavigationGoals
             return true;
         }
         return false;
+    }
+
+    // True if the cell one voxel behind `slotSurface` (away from `targetPos`)
+    // is also a standable surface within ±1 voxel of slotSurface.Y. Used to
+    // reject ring slots that sit at the literal edge of a cliff — the
+    // mob arrives, idles, and the player walks into it and shoves it over.
+    private static bool HasStableBacking(WorldState ws, World world, Vector3 slotSurface, Vector3 targetPos)
+    {
+        Vector3 awayXZ = new Vector3(slotSurface.X - targetPos.X, 0f, slotSurface.Z - targetPos.Z);
+        float len = awayXZ.Length();
+        if (len < 0.0001f)
+        {
+            return true;
+        }
+        Vector3 backCell = slotSurface + (awayXZ / len);
+        if (!IsStandable(ws, world, backCell, out Vector3 backSurface))
+        {
+            return false;
+        }
+        // Same-plateau check: if the back cell's surface is more than one
+        // voxel below the slot, the slot is on an overhang / step down,
+        // not stable ground.
+        return Mathf.Abs(backSurface.Y - slotSurface.Y) <= 1.001f;
     }
 
     // Environment-only line-of-sight raycast at eye height. Mirrors the

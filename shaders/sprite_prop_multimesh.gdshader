@@ -5,6 +5,21 @@ shader_type spatial;
 // depth prepass to write correct cut-out depth before the color pass, and
 // then sorts come for free out of the depth buffer.
 render_mode depth_prepass_alpha, depth_draw_opaque, cull_disabled, ambient_light_disabled, skip_vertex_transform;
+// Multimesh props deliberately do NOT write the stencil=8 occluder flag.
+// An earlier version did, but it broke the cliff case: grass on top of a
+// cliff renders in front of (closer than) the cliff terrain in the depth
+// buffer, so the stencil=8 at those pixels suppressed the player's X-ray
+// pass even though the player was genuinely behind a thick wall (the
+// cliff). Stencil is binary — it can't distinguish "right behind a thin
+// prop" from "behind a thin prop in front of a thick wall." The X-ray
+// pass uses a view-space depth-gap threshold instead (xray_min_depth_gap
+// in sprite_xray.gdshader), which naturally handles both cases — small
+// gap = thin prop right in front of player = no xray, large gap = real
+// occluder behind the prop = xray fires. Sprite_lit_character and
+// detail_sprite still stamp stencil=8 because their use case is
+// sprite-on-sprite at near-equal depth (player vs goblin in front,
+// player overlapping a grass blade), where the depth gap is too small
+// to discriminate.
 
 // Multimesh-instanced prop sprite. Forked from sprite_lit.gdshader for the
 // prop migration. The visual quality target (texelFetch from a FRAGCOORD-

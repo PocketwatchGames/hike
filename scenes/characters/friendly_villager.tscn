@@ -134,6 +134,7 @@ region_enabled = true
 region_rect = Rect2(360, 0, 72, 72)
 script = ExtResource("6_litsprite")
 Material = 1
+Xray = true
 MirrorByYaw = true
 ForwardOffset = 0.35
 

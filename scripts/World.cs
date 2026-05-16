@@ -448,7 +448,7 @@ public partial class World : Node3D
     // `yaw` rotates the decal box around Y so the texture aligns with the
     // direction the actor is facing — toe of the print points where they
     // were walking.
-    public Footprint SpawnFootprint(Texture2D texture, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
+    public Footprint SpawnFootprint(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
     {
         SimData sim = SimData;
         if (sim == null || texture == null)
@@ -467,7 +467,7 @@ public partial class World : Node3D
         fp.Position = position;
         fp.Rotation = new Vector3(0f, yaw, 0f);
         AddChild(fp);
-        fp.Initialize(this, texture, tint, durationSeconds);
+        fp.Initialize(this, texture, size, tint, durationSeconds);
         return fp;
     }
 

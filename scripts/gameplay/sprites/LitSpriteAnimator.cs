@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 // Drives a SpriteBase subclass's Texture / RegionRect from a Godot
@@ -31,6 +32,14 @@ public partial class LitSpriteAnimator : Node
 
     public StringName CurrentAnimation { get; private set; }
     public bool Finished { get; private set; }
+    public int CurrentFrame => _frame;
+
+    // Fires every time the current frame index changes (each forward step,
+    // and on Play() when the new animation lands on a different starting
+    // frame than what was previously showing). Footstep and footprint
+    // emission subscribes to this so cadence stays locked to the animator
+    // regardless of movement speed, status retiming, or paused locomotion.
+    public event Action<StringName, int> OnFrameAdvanced;
 
     private int _frame;
     private float _accum;
@@ -93,6 +102,7 @@ public partial class LitSpriteAnimator : Node
         _accum = 0f;
         Finished = false;
         ApplyFrame();
+        OnFrameAdvanced?.Invoke(CurrentAnimation, _frame);
     }
 
     public override void _Process(double delta)
@@ -137,6 +147,7 @@ public partial class LitSpriteAnimator : Node
         }
         _accum += (float)delta * speed * effectSpeedMultiplier * fps / frameDuration;
 
+        bool advanced = false;
         while (_accum >= 1f)
         {
             _accum -= 1f;
@@ -151,11 +162,17 @@ public partial class LitSpriteAnimator : Node
                 {
                     _frame = count - 1;
                     Finished = true;
+                    advanced = true;
                     break;
                 }
             }
+            advanced = true;
+            OnFrameAdvanced?.Invoke(CurrentAnimation, _frame);
         }
-        ApplyFrame();
+        if (advanced)
+        {
+            ApplyFrame();
+        }
     }
 
     private void ApplyFrame()

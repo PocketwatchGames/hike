@@ -1,7 +1,11 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://w120od8kk15w"]
 
-[ext_resource type="Shader" path="res://shaders/sprite_xray.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://7g5hdh27phv4" path="res://shaders/sprite_xray.gdshader" id="1_shader"]
 
 [resource]
 render_priority = 1
 shader = ExtResource("1_shader")
+shader_parameter/xray_tint = Color(1, 1, 1, 1)
+shader_parameter/xray_alpha = 0.6000000285
+shader_parameter/xray_silhouette_alpha = 0.3
+shader_parameter/xray_depth_bias = 0.05

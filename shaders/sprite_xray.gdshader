@@ -1,60 +1,67 @@
 shader_type spatial;
-// X-ray silhouette pass for character sprites — wired as the next_pass of
-// sprite_lit_character.tres. Renders the sprite's alpha-cut shape as a flat
-// tinted color, but ONLY where the sprite fragment is occluded by something
-// else in the depth buffer (terrain, props, other characters in front).
-// Where the sprite is visible normally, this pass discards so the lit base
-// pass shows through unchanged.
+// X-ray pass for character sprites — wired as the next_pass of
+// sprite_lit_character.tres. Where the sprite fragment is occluded by
+// anything in the depth buffer (terrain, props, other characters in
+// front), alpha-blends translucent BLACK over the occluder, darkening
+// it by `xray_alpha`. Where the sprite is visible normally, the depth
+// check discards and the lit base pass shows through unchanged.
 //
-// Queue placement: depth_test_disabled pushes this material into the
-// transparent queue, which runs after the entire opaque pass — so
-// DEPTH_TEXTURE here is fully populated with the base sprite_lit write +
-// terrain + props. Comparing each fragment's view-space Z against the
-// captured scene depth tells us whether something is in front of us.
+// Godot's default blend (over alpha-blend) does the math for free:
+//   framebuffer = framebuffer * (1 - alpha) + ALBEDO * alpha
+// With ALBEDO = vec3(0), that's just `framebuffer * (1 - alpha)` per
+// channel. One uniform, no per-channel tint, no clamp. EMISSION is
+// zeroed so the unshaded `ALBEDO + EMISSION` output stays black.
 //
-// Vertex stage: identical to sprite_lit.gdshader's billboard transform so the
-// silhouette lines up texel-for-texel with the lit base pass. Must stay in
-// sync with that shader's vertex math — keep changes paired across both.
+// depth_test_disabled puts the pass in the transparent queue so
+// DEPTH_TEXTURE is fully populated by the time we sample it.
+//
+// Vertex stage: identical to sprite_lit.gdshader's billboard transform so
+// the silhouette lines up texel-for-texel with the lit base pass. Must
+// stay in sync with that shader's vertex math — keep changes paired
+// across both.
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_disabled, skip_vertex_transform, ambient_light_disabled;
-// Skip pixels that were stamped with stencil=8 — that set includes
-// sprite_lit_character (player / mobs / interactives) and detail_sprite
-// (grass, pebbles, etc.). When the player stands at a campfire the
-// campfire's pixels are stencil=8, so the player's X-ray pass discards
-// there before fragment work runs; same for a grass blade overlapping
-// the player. Voxel terrain and sprite_lit props leave stencil at 0, so
-// X-ray still fires correctly when the character is genuinely behind
-// world geometry.
-//
-// Note: water_clip_cap / sprite_reflection use stencil values 2 and 4 —
-// they don't equal 8 either, so X-ray will paint over water surfaces /
-// reflections without interaction. That's fine; water depth is rarely the
-// occluder of interest, and the visual result reads correctly.
+// Skip pixels stamped with stencil=8 by sprite_lit_character (player /
+// mobs / character-style interactives). Keeps the X-ray pass from
+// drawing over other characters in front of the player. Voxel terrain,
+// sprite_lit props, detail sprites, and multimesh props all leave
+// stencil at 0, so X-ray fires correctly through every kind of cover
+// the character is genuinely behind. water_clip_cap / sprite_reflection
+// use stencil values 2 and 4 — they don't equal 8 either, so X-ray
+// paints over water surfaces / reflections without interaction.
 stencil_mode read, compare_not_equal, 8;
 
 uniform sampler2D sprite_texture : source_color, filter_linear;
-// Godot 4.6 removed the built-in DEPTH_TEXTURE; we now bind it explicitly via
-// hint_depth_texture. Filter must stay nearest-equivalent (or at least not
-// blur across geometry edges) for the occlusion compare to be sharp at
-// silhouette boundaries — `filter_nearest` would be more accurate but the
-// error message's recommended form is filter_linear_mipmap and the linear
-// blend is harmless for a flat-tinted X-ray.
-uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_linear_mipmap;
-uniform vec3 xray_tint : source_color = vec3(0.55, 0.65, 0.85);
-uniform float xray_alpha : hint_range(0.0, 1.0) = 1.0;
-// Alpha used when the mob is BOTH X-rayed (occluded) AND memory-silhouetted
-// (silhouette_amount > 0). At silhouette_amount = 1 the X-ray output blends
-// fully toward (silhouette_tint, xray_silhouette_alpha) — a translucent
-// memory shape behind cover, less attention-grabbing than the bright X-ray
-// tint. Default 0.3 = 30% alpha; tweak in the inspector if needed.
-uniform float xray_silhouette_alpha : hint_range(0.0, 1.0) = 0.3;
-// Tie-breaker against the base pass's own depth write. The base pass
-// writes the sprite's front face into the depth buffer, so without a bias
-// every non-occluded fragment would compare equal and we'd flicker. ~5cm
+// Main viewport's depth buffer, sampled to decide whether this fragment
+// is occluded. MUST be filter_nearest — depth values can't be
+// interpolated across geometry boundaries; linear filtering would
+// average player depth with whatever is behind it at sprite edges and
+// fake an occluder that doesn't exist, firing xray on the player's own
+// visible body.
+uniform sampler2D DEPTH_TEXTURE : hint_depth_texture, filter_nearest;
+// How much the X-ray darkens the framebuffer where the sprite is
+// occluded. 0 = invisible, 1 = solid black silhouette. 0.2 reads as a
+// subtle "something behind cover" cue. Authored on sprite_xray.tres
+// so the whole game shares one xray strength.
+uniform float xray_alpha : hint_range(0.0, 1.0) = 0.2;
+// FP-precision tie-breaker against the base pass's own depth write. ~5cm
 // is well inside any meaningful occluder thickness while staying outside
-// FP noise. Sprite-on-sprite false positives are now filtered by the
-// stencil compare above, so this no longer needs to absorb that case.
+// FP noise. Sprite-on-sprite false positives are filtered by the stencil
+// compare above, so this doesn't need to absorb that case.
 uniform float xray_depth_bias : hint_range(0.0, 1.0) = 0.05;
 
+// Instance-uniform order MUST match sprite_lit_common.gdshaderinc exactly
+// for every uniform name shared between the base pass and this next_pass.
+// Godot assigns instance-uniform indices in declaration order; mismatched
+// indices across passes produce
+//   "More than one material in instance export the same instance shader
+//   uniform '<name>', but they do it with different indices."
+// and silently route push(name, value) to whichever index Godot picked
+// first — the other shader reads stale defaults. The depth-compare quad
+// (forward_offset, etc.) is in this set, so a mis-aligned index makes
+// the xray vertex stage compute a different POSITION than the base pass,
+// breaking the discard-when-visible check entirely.
+// Xray-only uniforms (xray_amount) go AFTER all shared names so they get
+// fresh, non-conflicting indices.
 instance uniform ivec2 sprite_size = ivec2(1, 1);
 instance uniform ivec2 sprite_region_origin = ivec2(0, 0);
 instance uniform bool sprite_mirror = false;
@@ -62,14 +69,13 @@ instance uniform float align_to_terrain : hint_range(0.0, 1.0) = 0.0;
 instance uniform vec3 terrain_normal = vec3(0.0, 1.0, 0.0);
 instance uniform float forward_offset = 0.0;
 instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
-// Memory-silhouette uniforms shared with sprite_lit by name. When the mob
-// is "discovered but currently unseen" the owner sets silhouette_amount
-// toward 1 + silhouette_tint to whatever flat color reads as memory; the
-// base pass already paints that tint over the visible body, and we mirror
-// the same blend here so the through-cover X-ray output matches the memory
-// look instead of contradicting it with the bright xray_tint.
+// Memory-silhouette uniforms. NOT read by this shader anymore — the
+// X-ray pass is just a flat black-at-alpha cue, independent of memory
+// state. They MUST stay declared (same name + position) to keep
+// instance-uniform indices aligned with sprite_lit_common.
 instance uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
 instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
+// === xray-only uniforms below — must follow all shared names ===
 // Per-instance fade multiplier for the X-ray pass. Player + mobs leave
 // this at the default 1 so the silhouette is always-on whenever they're
 // occluded; interactives drive 0→1→0 from a coarse visibility probe so the
@@ -149,8 +155,8 @@ void fragment() {
 	}
 
 	// Recover source-pixel coordinate using the same basis-inversion the
-	// base pass uses; we only need integer pixel coords for the alpha cut,
-	// no subpixel AA since we're outputting a flat tint.
+	// base pass uses; we only need the integer pixel coord for the alpha
+	// cut (output is flat black, no per-texel color sampling).
 	vec2 d = FRAGCOORD.xy - anchor_px;
 	float basis_det = sprite_right_screen.x * sprite_up_screen.y - sprite_up_screen.x * sprite_right_screen.y;
 	float inv_det = 1.0 / (abs(basis_det) < 1e-6 ? 1e-6 : basis_det);
@@ -195,8 +201,9 @@ void fragment() {
 
 	// Occlusion test in linearized view-space depth. Comparing the raw
 	// non-linear depth-buffer values directly is also doable but brittle
-	// across reverse-Z / projection variants — going through INV_PROJECTION
-	// gives us a robust "meters in front of camera" comparison.
+	// across reverse-Z / projection variants — going through
+	// INV_PROJECTION_MATRIX gives us a robust "meters in front of camera"
+	// comparison.
 	float scene_depth_raw = textureLod(DEPTH_TEXTURE, SCREEN_UV, 0.0).x;
 	vec4 scene_clip = vec4(SCREEN_UV * 2.0 - 1.0, scene_depth_raw, 1.0);
 	vec4 scene_view = INV_PROJECTION_MATRIX * scene_clip;
@@ -210,12 +217,10 @@ void fragment() {
 		discard;
 	}
 
-	// Compose with the memory-silhouette state. silhouette_amount = 0 is the
-	// pure X-ray case (bright xray_tint at xray_alpha). silhouette_amount = 1
-	// is "this mob is also flagged as memory" — fade toward the memory tint
-	// at xray_silhouette_alpha (default 30%) so the through-cover read is a
-	// quiet translucent shape, not a loud bright silhouette layered on top
-	// of the already-flat memory body.
-	ALBEDO = mix(xray_tint, silhouette_tint, silhouette_amount);
-	ALPHA = mix(xray_alpha, xray_silhouette_alpha, silhouette_amount) * xray_amount;
+	// Alpha-blend translucent black: framebuffer *= (1 - ALPHA). xray_amount
+	// is the per-instance fade (InteractiveXray driver gates 0→1→0); the
+	// shader-wide xray_alpha is the global strength knob.
+	ALBEDO = vec3(0.0);
+	EMISSION = vec3(0.0);
+	ALPHA = xray_alpha * xray_amount;
 }

@@ -142,6 +142,13 @@ public partial class PlayerData : Resource
 	// by mob.Mass so the velocity change is the same for any mass.
 	[Export] public float mobPushStrength = 1.5f;
 
+	// Multiplier on player speed for the lateral "slip" cap — when the
+	// player grazes the side of a mob's capsule, the mob is nudged
+	// sideways out of the path proportional to how off-center the
+	// contact was. A dead-center hit produces no slip. 0 disables the
+	// slip entirely (pure forward push).
+	[Export] public float mobPushSlip = 1.0f;
+
 	// Degrees F per second that bodyTemperature drifts toward the sampled
 	// environmental temperature. Lower = more inertia (a brief gust through
 	// a cold zone won't trigger Cold); higher = the player tracks ambient

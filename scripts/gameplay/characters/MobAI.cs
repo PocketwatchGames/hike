@@ -80,6 +80,30 @@ public struct InvestigateState
     public ulong pauseTime;
 }
 
+// Per-mob per-frame breakdown of the perception math, captured for the
+// debug HUD overlay (CVars.debugPlayerPerception, CVars.debugMobPerception).
+// Top row: per-sense delta contributions (vision/hearing/smell) BEFORE the
+// per-sense Strength multipliers. Bottom row: input modulators going into
+// the vision computation specifically — lighting at the target, distance
+// closeness, facing alignment, speed-based visibility, and (1 - camouflage).
+// Filled twice per mob per perception tick: once for player-perceives-mob,
+// once for mob-perceives-player.
+public struct PerceptionDebug
+{
+    public float vision;
+    public float hearing;
+    public float smell;
+    public float lighting;
+    public float distance;
+    public float facing;
+    public float speed;
+    public float camouflage;
+    // True when the perceiving entity has unobstructed visual contact with
+    // the target this tick (within range AND raycast unblocked). False if
+    // out of range or the LOS check failed.
+    public bool los;
+}
+
 
 public partial class Mob
 {
@@ -331,10 +355,17 @@ public partial class Mob
                 state = _simState.DiscoveryState,
             };
             PerceptionTickResult result;
+            PerceptionDebug ptmDebug;
             using (Profiler.Sample("Mob.PerceptionRays"))
             {
-                result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref perception, delta);
+                result = PlayerPerception.Tick(_world, GlobalPosition, in inputs, ref perception, delta, out ptmDebug);
             }
+            // Mob's transient visibility terms (speed factor, 1-camouflage) are
+            // folded into prominence at the call site, so PlayerPerception.Tick
+            // can't recover them — copy them in here.
+            ptmDebug.speed = speedFactor;
+            ptmDebug.camouflage = Mathf.Max(0f, 1f - camouflage);
+            playerToMobDebug = ptmDebug;
             _simState.PlayerPerception = perception.perception;
             EPlayerPerceptionState prevDiscoveryState = _simState.DiscoveryState;
             _simState.DiscoveryState = perception.state;
@@ -476,6 +507,22 @@ public partial class Mob
             float hearingContribution = hearingDelta * mobData.HearingStrength;
             float smellContribution = smellDelta * mobData.SmellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
+
+            // Debug breakdown — written every perception tick for the
+            // CVars.debugMobPerception HUD overlay. Facing factor mirrors
+            // the dot-power gate above; distance uses the mob's raw VisionRange
+            // so the readout is independent of facing / player visibility.
+            mobToPlayerDebug.vision = visionDelta;
+            mobToPlayerDebug.hearing = hearingDelta;
+            mobToPlayerDebug.smell = smellDelta;
+            mobToPlayerDebug.lighting = _world.player.visibilityLight;
+            mobToPlayerDebug.distance = mobData.VisionRange > 0f
+                ? Mathf.Clamp(1f - Mathf.Sqrt(distanceSqToPlayer) / mobData.VisionRange, 0f, 1f)
+                : 0f;
+            mobToPlayerDebug.facing = Mathf.Pow(Mathf.Max(0f, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
+            mobToPlayerDebug.speed = _world.player.visibilitySpeed;
+            mobToPlayerDebug.camouflage = _world.player.visibilityCamouflage;
+            mobToPlayerDebug.los = canSee;
 
             if (perceptionDelta > mobData.MinPerceptionDelta)
             {

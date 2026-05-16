@@ -95,17 +95,11 @@ public partial class SpriteBase : Sprite3D
     }
     private Color _silhouetteTint = Colors.Black;
 
-    // Structural toggle for the X-ray silhouette pass: when false, the
-    // shared material is bound with its NextPass stripped so the silhouette
-    // never renders for this sprite (the next_pass draw is gone too).
-    // Default true matches mobs/players (always-on silhouette through
-    // cover, optionally gated to 0 by an InteractiveXray driver). Set
-    // false on static interactives that don't need to be findable through
-    // walls (signposts, torches, knowledge stones) — also avoids the
-    // "always silhouetting through walls" failure mode that happens if the
-    // template carries a next_pass but no driver pulls XrayAmount to 0.
-    // Companion to XrayAmount: this is the structural switch, XrayAmount
-    // is the per-frame intensity.
+    // Structural toggle for the X-ray pass. When false the shared material
+    // is bound with its NextPass stripped, so the xray draw is gone — not
+    // just runtime-suppressed. Opt in for Player + mobs (always-on) and
+    // for interactives paired with an InteractiveXray driver (which fades
+    // XrayAmount based on a player-LOS probe).
     [Export] public bool Xray
     {
         get => _xray;
@@ -122,7 +116,7 @@ public partial class SpriteBase : Sprite3D
             Apply();
         }
     }
-    private bool _xray = true;
+    private bool _xray = false;
 
     // Per-instance fade for the X-ray (next_pass) silhouette. 1 = X-ray
     // fully on whenever occluded, 0 = X-ray entirely suppressed. Player +

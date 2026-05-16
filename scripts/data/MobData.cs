@@ -31,6 +31,12 @@ public partial class MobData : Resource
     // portrait slot empty (hidden).
     [Export] public Texture2D bestiaryPortrait;
 
+    // Scale multiplier applied to the worldspace MobHUD once this species
+    // has been discovered or triggered. Smaller creatures use values <1
+    // so their callout doesn't dwarf them; bosses go >1. The pre-discovery
+    // perception meter always renders at a fixed small scale regardless.
+    [Export] public float hudScale = 1f;
+
     [ExportGroup("Mob Perceives Player")]
     // How this mob's AI sees the player — sight cone reach and shape, the
     // accumulation curve that turns "in sight" into the triggered/alert

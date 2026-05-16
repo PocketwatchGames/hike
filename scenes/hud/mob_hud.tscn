@@ -3,21 +3,17 @@
 [ext_resource type="Script" uid="uid://bhirtbc35e6n8" path="res://scripts/gui/MobHUD.cs" id="1_1douw"]
 [ext_resource type="Texture2D" uid="uid://o5hwqlxrrmty" path="res://assets/textures/gui/mob_hud_bg.png" id="2_gv8b6"]
 [ext_resource type="Texture2D" uid="uid://dgbmxyvfchhgr" path="res://assets/textures/gui/mob_hud_health.png" id="3_1mpnv"]
-[ext_resource type="Texture2D" uid="uid://ydt8jxrj47w2" path="res://assets/textures/gui/mob_hud_armor1.png" id="4_uqnku"]
-[ext_resource type="Texture2D" uid="uid://bm2gej44m5xp0" path="res://assets/textures/gui/mob_hud_armor2.png" id="5_a4x3v"]
-[ext_resource type="Texture2D" uid="uid://dtuqr2xi2int0" path="res://assets/textures/gui/mob_hud_armor3.png" id="6_8mecg"]
-[ext_resource type="Texture2D" uid="uid://dgup355aidst8" path="res://assets/textures/gui/mob_hud_armor4.png" id="7_naty8"]
-[ext_resource type="Texture2D" uid="uid://2r15rei7uocy" path="res://assets/textures/gui/mob_hud_armor5.png" id="8_7osd7"]
 [ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="9_u6btk"]
 [ext_resource type="Texture2D" uid="uid://ckqpyp83mscdd" path="res://assets/textures/gui/mob_hud_discovery.png" id="10_p45vd"]
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="11_x8n20"]
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorTextures", "_perceptionBar", "_discoveryBar")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
-_armorTextures = [NodePath("Control/Armor1"), NodePath("Control/Armor2"), NodePath("Control/Armor3"), NodePath("Control/Armor4"), NodePath("Control/Armor5")]
+_armorBar = NodePath("Armor")
 _perceptionBar = NodePath("Perception")
 _discoveryBar = NodePath("Discovery")
+_debugLabel = NodePath("DebugLabel")
 
 [node name="Background" type="TextureRect" parent="." unique_id=240532080]
 anchors_preset = 15
@@ -28,6 +24,7 @@ grow_vertical = 2
 texture = ExtResource("2_gv8b6")
 
 [node name="Health" type="TextureProgressBar" parent="." unique_id=1265537752]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -38,89 +35,34 @@ value = 0.5
 fill_mode = 3
 texture_progress = ExtResource("3_1mpnv")
 
-[node name="Control" type="Control" parent="." unique_id=342049831]
-layout_mode = 3
-anchors_preset = 0
-offset_right = 40.0
-offset_bottom = 40.0
-
-[node name="Armor1" type="TextureRect" parent="Control" unique_id=853418709]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -24.0
-offset_top = -24.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("4_uqnku")
-
-[node name="Armor2" type="TextureRect" parent="Control" unique_id=2133155793]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -24.0
-offset_top = -24.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("5_a4x3v")
-
-[node name="Armor3" type="TextureRect" parent="Control" unique_id=1796159569]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -24.0
-offset_top = -24.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("6_8mecg")
-
-[node name="Armor4" type="TextureRect" parent="Control" unique_id=2075787636]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -24.0
-offset_top = -24.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("7_naty8")
-
-[node name="Armor5" type="TextureRect" parent="Control" unique_id=597494664]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-offset_left = -24.0
-offset_top = -24.0
-offset_right = -16.0
-offset_bottom = -16.0
-grow_horizontal = 2
-grow_vertical = 2
-texture = ExtResource("8_7osd7")
-
-[node name="Perception" type="TextureProgressBar" parent="." unique_id=1145867871]
+[node name="Armor" type="TextureProgressBar" parent="." unique_id=1179322545]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
 offset_bottom = 25.0
 max_value = 1.0
 step = 0.01
-value = 0.5
-fill_mode = 4
+value = 0.4
+fill_mode = 8
+radial_initial_angle = 180.0
 texture_progress = ExtResource("9_u6btk")
+tint_progress = Color(0, 0, 1, 1)
+
+[node name="Perception" type="TextureProgressBar" parent="." unique_id=12252757]
+offset_left = -24.0
+offset_top = -23.0
+offset_right = 24.0
+offset_bottom = 25.0
+max_value = 1.0
+step = 0.01
+value = 0.2
+fill_mode = 3
+texture_progress = ExtResource("10_p45vd")
+tint_progress = Color(1, 1, 0, 1)
 
 [node name="Discovery" type="TextureProgressBar" parent="." unique_id=1251883728]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -138,3 +80,12 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 texture = ExtResource("11_x8n20")
+
+[node name="DebugLabel" type="Label" parent="." unique_id=1583924712]
+visible = false
+offset_left = -80.0
+offset_top = -64.0
+offset_right = 80.0
+offset_bottom = -32.0
+horizontal_alignment = 1
+vertical_alignment = 1

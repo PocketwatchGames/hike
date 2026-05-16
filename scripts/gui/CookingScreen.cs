@@ -303,7 +303,9 @@ public partial class CookingScreen : Control
 	// (backpack, hotbar, equipped — EnumerateAll covers all of them) and
 	// stops as soon as the requested amount is placed or the slots refuse
 	// more. A snapshot list is used because Inventory.Remove during the
-	// walk would otherwise mutate the underlying collection.
+	// walk would otherwise mutate the underlying collection. Donors are
+	// sorted smallest-stack-first so partial stacks consolidate into the
+	// cooking slot instead of cracking a fresh large stack open.
 	void LoadIngredientIntoSlots(ItemData itemKind, int amount)
 	{
 		if (itemKind == null || amount <= 0 || _cookingPanel == null || _player?.Inventory == null)
@@ -319,6 +321,7 @@ public partial class CookingScreen : Control
 				donors.Add(s);
 			}
 		}
+		donors.Sort((a, b) => a.stackCount.CompareTo(b.stackCount));
 		for (int i = 0; i < donors.Count && amount > 0; i++)
 		{
 			ItemState s = donors[i];
@@ -541,24 +544,24 @@ public partial class CookingScreen : Control
 		{
 			return;
 		}
-		ButtonHint secondary = _inventoryPanel.ButtonHintSecondary;
-		if (secondary == null || !secondary.Visible)
+		ButtonHint use = _inventoryPanel.ButtonHintTertiary;
+		if (use == null || !use.Visible)
 		{
 			return;
 		}
 		ActionRunner runner = _player?.Runner;
 		if (runner == null)
 		{
-			secondary.SetProgress(0f);
+			use.SetProgress(0f);
 			return;
 		}
 		ref readonly PlayerAction action = ref runner.Current;
 		if (action.phase != EActionPhase.Charging || action.context.primaryItem != _inventoryPanel.FocusedItem)
 		{
-			secondary.SetProgress(0f);
+			use.SetProgress(0f);
 			return;
 		}
-		secondary.SetProgress(runner.CurrentChargeT);
+		use.SetProgress(runner.CurrentChargeT);
 	}
 
 	void OnCookingRemoveTap(int index, ItemSlotPanel panel, ItemState item)

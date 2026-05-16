@@ -17,68 +17,80 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // mobs that aren't interactable — the InteractiveBox on the mob's .tscn
     // shouldn't be wired in that case so the player never highlights them.
     [Export] private Godot.Collections.Array<InteractiveAction> _interactiveActions = new();
-    // Per-ground-type one-shot effect played at the mob's feet while moving
-    // on solid ground. Authored in each mob .tscn; missing keys silently
-    // emit nothing.
-    [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
-    // Per-mob footprint texture projected onto the ground at footstep
-    // cadence. Shared mob footprint scene (with the Discoverable child)
-    // and per-ground tints live on SimData.
-    [Export] private Texture2D _footprintTexture;
+
+    [ExportGroup("FX")]
     // One-shot blood spawned on a non-lethal hit. World-parented so the puff
     // stays where the hit landed even as the mob keeps moving.
-    [Export] private PackedScene _bloodDamageEffect;
+    [Export] private PackedScene _bloodDamageFx;
     // One-shot death blood. Per-mob in the .tscn so each species can pick the
     // appropriate small/medium/large variant from scenes/effects/.
-    [Export] private PackedScene _deathEffect;
+    [Export] private PackedScene _deathFx;
     // One-shot splash on the alive→in-water transition (voxel-detected).
-    [Export] private PackedScene _waterEnterSplashEffect;
+    [Export] private PackedScene _waterEnterSplashFx;
     // Continuous loop scenes (see Fx._loop). Parented to the mob
     // so they track the body; held alive while in the matching state and
     // Stop()'d when leaving.
-    [Export] private PackedScene _waterMovementLoopEffect;
-    [Export] private PackedScene _tallGrassMovementLoopEffect;
+    [Export] private PackedScene _waterMovementLoopFx;
+    [Export] private PackedScene _tallGrassMovementLoopFx;
     // Fired the moment AIOutput.yell goes true — once per alert acquisition,
     // not per tick (the yell broadcast block below already runs once per
     // transition because nothing else flips _simState.Yelled back).
-    [Export] private PackedScene _yellEffect;
+    [Export] private PackedScene _yellFx;
     // Burrow lifecycle effects. Loop runs while the mob is mid-descent
     // (`burrowing` flag); complete fires on the burrowing→burrowed transition;
     // emerge fires when the mob leaves either burrow state and re-surfaces.
-    [Export] private PackedScene _burrowLoopEffect;
-    [Export] private PackedScene _burrowCompleteEffect;
-    [Export] private PackedScene _burrowEmergeEffect;
+    [Export] private PackedScene _burrowLoopFx;
+    [Export] private PackedScene _burrowCompleteFx;
+    [Export] private PackedScene _burrowEmergeFx;
     // Per-anim-state loops. Driven by the loopAnim picked in UpdateAnimation —
     // exactly one (or none) is active at a time, swapped on state change.
     // Authored per-species so each mob can have its own breathing / footstep
     // signature.
-    [Export] private PackedScene _idleLoopEffect;
-    [Export] private PackedScene _runLoopEffect;
-    [Export] private PackedScene _swimIdleLoopEffect;
+    [Export] private PackedScene _idleLoopFx;
+    [Export] private PackedScene _runLoopFx;
+    [Export] private PackedScene _swimIdleLoopFx;
     // VO that plays on top of the shared blood/death scenes. Per-actor so
     // each species can carry its own voice without authoring per-actor blood
     // scenes. Either may be null — the asset library doesn't always include
     // a hurt VO for every species.
-    [Export] private PackedScene _hurtVoEffect;
-    [Export] private PackedScene _deathVoEffect;
+    [Export] private PackedScene _hurtVoFx;
+    [Export] private PackedScene _deathVoFx;
     // Armor lifecycle one-shots. See Player for the lifecycle: depleted on
     // the hit that drains the bar to zero; rechargeStart when the post-hit
     // delay elapses; recoverStart when the recharge follows a full depletion.
-    [Export] private PackedScene _armorDepletedEffect;
-    [Export] private PackedScene _armorRechargeStartEffect;
-    [Export] private PackedScene _armorRecoverStartEffect;
+    [Export] private PackedScene _armorDepletedFx;
+    [Export] private PackedScene _armorRechargeStartFx;
+    [Export] private PackedScene _armorRecoverStartFx;
     // Stun fx. Begin one-shot fires on the unstunned→stunned edge (the hit
     // that crosses stunThreshold); the loop holds while stunned and stops
     // when TickStun recovers the mob. Die() also stops the loop because the
     // per-frame TickStun gate is alive-only.
-    [Export] private PackedScene _stunBeginEffect;
-    [Export] private PackedScene _stunLoopEffect;
-    // Distance the mob must travel in XZ between footstep effect emits.
-    // Larger = slower step cadence.
-    [Export] private float _footstepStride = 1.2f;
-    // Minimum horizontal speed² to count as "walking" for footstep / loop
-    // gating. Below this the mob is treated as standing still.
-    [Export] private float _footstepMinSpeedSq = 0.25f;
+    [Export] private PackedScene _stunBeginFx;
+    [Export] private PackedScene _stunLoopFx;
+
+    [ExportGroup("Footsteps & Footprints")]
+    // Per-ground-type one-shot effect played at the mob's feet on each
+    // footfall. Authored in each mob .tscn; missing keys silently emit
+    // nothing.
+    [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
+    // Per-animation footfall frame indices. One entry per animation that
+    // should emit footsteps (run, …); each entry names the animation and
+    // lists the frame numbers within it where the foot strikes the ground.
+    // The animator fires OnFrameAdvanced as the sprite cycles; a matching
+    // (anim, frame) pair triggers a footstep + footprint. Anims absent from
+    // this list never emit.
+    [Export] private Godot.Collections.Array<FootstepFrameSet> _footstepFrames = new();
+    // Minimum horizontal speed² to count as "moving" for loop-FX gating
+    // (water swim loop, tall-grass rustle). Footstep cadence itself is
+    // frame-driven and ignores this.
+    [Export] private float _movingMinSpeedSq = 0.25f;
+    // Per-mob footprint texture projected onto the ground on each footfall.
+    // Shared mob footprint scene (with the Discoverable child) and
+    // per-ground tints live on SimData.
+    [Export] private Texture2D _footprintTexture;
+    // World-space size (meters) of the projected footprint decal — X is the
+    // print's width (perpendicular to facing), Y is its length (along facing).
+    [Export] private Vector2 _footprintSize = new(0.3f, 0.4f);
 
     // Seconds to lerp visibility/silhouette toward their target. 0.1s is
     // short enough that transitions read as "now" rather than a slow fade
@@ -170,6 +182,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         set => _simState.PerceptionTargets[0].triggered = value;
     }
 
+    // Per-mob per-frame perception breakdowns for the debug HUD overlay.
+    // Written each perception tick from UpdatePerception; consumed by
+    // MobHUD when CVars.debugPlayerPerception / debugMobPerception is set.
+    public PerceptionDebug playerToMobDebug;
+    public PerceptionDebug mobToPlayerDebug;
+
     private MobSimState _simState;
     World _world;
     public World World => _world;
@@ -200,11 +218,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
     readonly WaterRippleEmitter _rippleEmitter = new();
-    readonly FootstepEmitter _footstepEmitter = new();
-    // Spawns persistent ground decals at the same cadence as the FX emitter.
-    // Independent stride memory so the prints don't get desynced from the
-    // FX puffs across walking → idle → walking transitions.
-    readonly FootprintEmitter _footprintEmitter = new();
     // Active loop instances. See Player for the lifecycle pattern — null
     // when the matching state isn't held; created on activation, Stop()'d
     // and dropped on deactivation.
@@ -316,6 +329,54 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _hurtBox.OnHit = Hit;
             _hurtBox.GetHitType = GetHitType;
         }
+
+        if (_animator != null)
+        {
+            _animator.OnFrameAdvanced += OnAnimFrameAdvanced;
+        }
+    }
+
+    // Footstep / footprint emission is driven by the sprite animator instead
+    // of distance travelled. The animator fires this whenever its frame
+    // changes; we look up the current animation in _footstepFrames and emit
+    // when the frame index matches an authored footfall. Skip while in
+    // water (the wading ripple covers it). The mob_footstep_fx CVar gates
+    // the audible/visible FX puff for perf bisection; the perception gate
+    // suppresses footsteps the player has no awareness of. Footprints are
+    // always laid (subject to the discoverability gate) regardless of CVar.
+    private void OnAnimFrameAdvanced(StringName anim, int frame)
+    {
+        if (_world == null || _footstepFrames == null)
+        {
+            return;
+        }
+        if (!FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+        {
+            return;
+        }
+        WorldState ws = _world.WorldState;
+        if (ws == null)
+        {
+            return;
+        }
+        Vector3 pos = GlobalPosition;
+        int fx = Mathf.FloorToInt(pos.X);
+        int fy = Mathf.FloorToInt(pos.Y);
+        int fz = Mathf.FloorToInt(pos.Z);
+        bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
+        if (inWater)
+        {
+            return;
+        }
+        EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
+        bool perceived = _simState.PlayerPerception > 0f;
+        if (perceived && CVars.mobFootstepFx.Value)
+        {
+            FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
+        }
+        _statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+        bool perceivedAtEmit = _simState.PlayerPerception > 0f || _simState.MemoryTimeMs > _world.GameTimeMs;
+        FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: !perceivedAtEmit);
     }
 
     public void OnSpawned(World world)
@@ -361,7 +422,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // since this isn't a fresh transition.
         if (stunned)
         {
-            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, true);
+            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, true);
         }
     }
 
@@ -537,10 +598,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             Vector3 vel = LinearVelocity;
             Vector3 horizVel = new(vel.X, 0f, vel.Z);
             float horizSpeedSq = horizVel.LengthSquared();
-            // Mob "intent to move" — navigator has an active goal/path. Lets
-            // a mob jammed against a wall while pursuing keep playing the run
-            // anim instead of snapping to idle when LinearVelocity zeros out.
-            bool intentMoving = _navigator != null && _navigator.CurrentState != MobNavigator.State.Idle;
+            // Mob "intent to move" — navigator has an active goal/path AND
+            // hasn't yet reached it. Lets a mob jammed against a wall while
+            // pursuing keep playing the run anim (LinearVelocity may zero out
+            // from collision, but the navigator still hasn't arrived), while
+            // a mob holding station on its standoff slot drops back to idle.
+            bool intentMoving = _navigator != null
+                && _navigator.CurrentState != MobNavigator.State.Idle
+                && !_navigator.HasArrived;
 
             // Sustained-fall tracking. Without the grace window, hopping over
             // small ledges or being shoved by another mob flickers the fall
@@ -585,9 +650,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PackedScene animLoopTarget = null;
         if (alive && !burrowing && !burrowed)
         {
-            if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopEffect;
-            else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopEffect;
-            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopEffect;
+            if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopFx;
+            else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopFx;
+            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopFx;
         }
         UpdateAnimLoop(animLoopTarget);
     }
@@ -1141,14 +1206,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // one-shot fires when leaving any burrow state — either the mob
             // popped back up from underground or its descent was interrupted
             // mid-dig.
-            UpdateLoopEffect(ref _burrowLoop, _burrowLoopEffect, burrowing);
+            UpdateLoopEffect(ref _burrowLoop, _burrowLoopFx, burrowing);
             if (burrowed && !_prevBurrowed)
             {
-                SpawnWorldEffect(_burrowCompleteEffect);
+                SpawnWorldEffect(_burrowCompleteFx);
             }
             if (!burrowing && !burrowed && (_prevBurrowing || _prevBurrowed))
             {
-                SpawnWorldEffect(_burrowEmergeEffect);
+                SpawnWorldEffect(_burrowEmergeFx);
             }
             _prevBurrowing = burrowing;
             _prevBurrowed = burrowed;
@@ -1346,7 +1411,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Owns the _simState.Yelled flip so callers never set it directly.
     private void Yell(Vector3 targetPos)
     {
-        SpawnWorldEffect(_yellEffect);
+        SpawnWorldEffect(_yellFx);
         _simState.PlayerPerception = 1;
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
         _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
@@ -1408,7 +1473,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 armor = 0f;
                 _simState.ArmorDepleted = true;
                 _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
-                SpawnWorldEffect(_armorDepletedEffect);
+                SpawnWorldEffect(_armorDepletedFx);
             }
             else
             {
@@ -1450,8 +1515,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         else if (incoming > 0f)
         {
-            SpawnWorldEffect(_bloodDamageEffect);
-            SpawnWorldEffect(_hurtVoEffect);
+            SpawnWorldEffect(_bloodDamageFx);
+            SpawnWorldEffect(_hurtVoFx);
         }
     }
 
@@ -1497,7 +1562,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (!_simState.ArmorRecharging)
         {
             _simState.ArmorRecharging = true;
-            SpawnWorldEffect(_simState.ArmorDepleted ? _armorRecoverStartEffect : _armorRechargeStartEffect);
+            SpawnWorldEffect(_simState.ArmorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
         }
         MobData md = mobData;
         float speed = md?.armorRechargeSpeed ?? 0f;
@@ -1541,15 +1606,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (isStunned)
         {
             _simState.StunRecoverMs = _world.GameTimeMs + (ulong)(mobData.stunRecoverTime * 1000f);
-            SpawnWorldEffect(_stunBeginEffect);
-            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, true);
+            SpawnWorldEffect(_stunBeginFx);
+            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, true);
         }
         else
         {
             _simState.Stun = 0f;
             _simState.StunRecoverMs = 0;
             _simState.StunRechargeStartMs = 0;
-            UpdateLoopEffect(ref _stunLoop, _stunLoopEffect, false);
+            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, false);
         }
     }
 
@@ -1589,8 +1654,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // rationale as the torch cleanup above; SetStunned no-ops when the
         // mob wasn't stunned.
         SetStunned(false);
-        SpawnWorldEffect(_deathEffect);
-        SpawnWorldEffect(_deathVoEffect);
+        SpawnWorldEffect(_deathFx);
+        SpawnWorldEffect(_deathVoFx);
         EjectLoot();
         AxisLockAngularY = false;
         // Don't unfreeze on death — a mob that was idle-pinned when it
@@ -1745,12 +1810,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _rippleEmitter.Update(ripplePos, true, 0.8f, 0.5f);
     }
 
-    // Spawn a footstep one-shot at the mob's feet at a fixed stride. Skipped
-    // when standing in water — UpdateWaterRipples already covers wading. The
-    // emitter does its own stride gating, so a stationary mob won't emit.
-    // Also drives the water-enter splash + the water/tall-grass movement
-    // loops, which all key off the same voxel-at-feet sample so we only do
-    // one lookup per tick.
+    // Footsteps and footprints emit on sprite-animation events (see
+    // OnAnimFrameAdvanced) rather than from this method. What stays here is
+    // the water-enter splash + the water/tall-grass movement loop gates,
+    // which key off the voxel-at-feet sample and the navigator's intent.
     private void UpdateFootsteps()
     {
         WorldState ws = _world?.WorldState;
@@ -1765,36 +1828,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         bool inWater = ws.GetVoxelWorld(fx, fy, fz) == VoxelType.Water;
         Vector2 horizVel = new(LinearVelocity.X, LinearVelocity.Z);
         float horizSpeedSq = horizVel.LengthSquared();
-        bool walking = !inWater && horizSpeedSq > _footstepMinSpeedSq;
-        EGroundType ground = GroundTypeResolver.Resolve(ws, pos);
-        // mob_footstep_fx is a bisection toggle — when off, the per-stride
-        // footstep one-shots are suppressed but the rest of UpdateFootsteps
-        // (water-enter splash, water/tall-grass loop gating) still runs so
-        // we can isolate the footstep emit cost specifically.
-        bool footstepFxEnabled = CVars.mobFootstepFx.Value;
-        // Player-perception gate: a mob the player has no awareness of doesn't
-        // emit audible footsteps. Once perception is non-zero, footsteps emit
-        // unconditionally — even when the mob is not yet Discovered or is
-        // out of sight — so the player can hear an unseen mob approaching
-        // and use that as a perception cue.
-        bool perceived = _simState.PlayerPerception > 0f;
-        _footstepEmitter.Update(_world, pos, walking && footstepFxEnabled && perceived, _footstepStride, ground, _footstepEffects);
-        // Footprint decals. Gated on the same `walking` predicate as the FX
-        // emitter (no prints in water — splash covers the disturbance) but
-        // not on mob_footstep_fx, since that CVar is for bisecting FX cost
-        // and the footprint cost belongs in a separate measurement.
-        _statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
-        // Per-print awareness gate. If the player has any current perception
-        // of this mob, or still holds an active memory window on it, the
-        // print is laid as the ungated player-style decal — visible the
-        // moment it touches ground (you saw / are sensing the mob walk).
-        // If awareness is fully cold, the print uses the Discoverable-gated
-        // mob scene so the player has to come back and notice the decal
-        // itself for it to fade in. Decision is made at emit time and
-        // baked into the spawned print; later changes in awareness don't
-        // retroactively reveal already-laid prints.
-        bool perceivedAtEmit = _simState.PlayerPerception > 0f || _simState.MemoryTimeMs > _world.GameTimeMs;
-        _footprintEmitter.Update(_world, pos, GlobalRotation.Y, walking, _footstepStride, ground, _footprintTexture, fpAlphaMul, fpDurMul, gated: !perceivedAtEmit);
 
         // One splash at the moment the mob first dips into water. The
         // navigator can drag a mob through a water voxel on a single frame,
@@ -1802,20 +1835,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // it's later kicked into water.
         if (inWater && !_wasInWaterPrev && alive)
         {
-            SpawnWorldEffect(_waterEnterSplashEffect);
+            SpawnWorldEffect(_waterEnterSplashFx);
         }
         _wasInWaterPrev = inWater;
 
         // Movement-gated loops. Navigator intent counts as "moving" even
         // when LinearVelocity hasn't built up yet — same reason Player keys
-        // off _inputMove. Tall-grass and water are mutually exclusive: if
-        // the mob's feet are wet, the water loop wins.
-        bool intentMoving = _navigator != null && _navigator.CurrentState != MobNavigator.State.Idle;
-        bool moving = alive && (intentMoving || horizSpeedSq > _footstepMinSpeedSq);
+        // off _inputMove. A mob that has arrived at its goal (e.g. holding
+        // an encircle slot) no longer counts as intent-moving even though
+        // its state stays Goto until the behavior switches. Tall-grass and
+        // water are mutually exclusive: if the mob's feet are wet, the
+        // water loop wins.
+        bool intentMoving = _navigator != null
+            && _navigator.CurrentState != MobNavigator.State.Idle
+            && !_navigator.HasArrived;
+        bool moving = alive && (intentMoving || horizSpeedSq > _movingMinSpeedSq);
         bool waterLoopActive = moving && inWater;
         bool tallGrassLoopActive = moving && !inWater && _tallGrassCollisions.Count > 0;
-        UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopEffect, waterLoopActive);
-        UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopEffect, tallGrassLoopActive);
+        UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, waterLoopActive);
+        UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopFx, tallGrassLoopActive);
     }
 
     public void AddTerrainModifier(TallGrass tallGrass)

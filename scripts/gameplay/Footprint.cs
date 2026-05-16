@@ -18,8 +18,10 @@ using Godot;
 public partial class Footprint : Node3D
 {
 	// The projected ground decal. Authored in the .tscn with a sensible
-	// box size and albedo_mix; this script writes texture_albedo and
-	// modulate at runtime.
+	// projection depth (Decal.Size.Y) and albedo_mix; this script writes
+	// texture_albedo, the X/Z size (from the actor-supplied footprint size),
+	// and modulate at runtime, so each actor can size their own prints
+	// without needing a per-actor scene.
 	[Export] private Decal _decal;
 	// Optional perception gate for mob-laid prints. When wired, the
 	// print is held invisible until the player notices it; player-print
@@ -38,7 +40,7 @@ public partial class Footprint : Node3D
 	// Discoverable) this stays pinned at 1.
 	private float _discoveryAlpha;
 
-	public void Initialize(World world, Texture2D texture, Color tint, float durationSeconds)
+	public void Initialize(World world, Texture2D texture, Vector2 footprintSize, Color tint, float durationSeconds)
 	{
 		_world = world;
 		_tintColor = tint;
@@ -48,6 +50,10 @@ public partial class Footprint : Node3D
 		if (_decal != null)
 		{
 			_decal.TextureAlbedo = texture;
+			Vector3 size = _decal.Size;
+			size.X = footprintSize.X;
+			size.Z = footprintSize.Y;
+			_decal.Size = size;
 		}
 		PushModulate(1f);
 	}
