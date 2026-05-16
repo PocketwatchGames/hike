@@ -150,6 +150,16 @@ public partial class Player : CharacterBody3D
 	Fx _animLoopFx;
 	PackedScene _animLoopScene;
 	ulong _coyoteTimeEndMs;
+	// Last position the player was grounded at — teleport target for the
+	// stuck-in-crevice recovery below. Initialized to the spawn position so
+	// the recovery has a sane fallback even if the player wedges before ever
+	// touching the ground.
+	Vector3 _lastGroundedPosition;
+	// Deadline (game-time ms) after which the stuck-recovery fires. Pushed
+	// forward every airborne tick the player has meaningful velocity; only
+	// elapses when motion has stalled (wedged geometry, pinched capsule).
+	// Zero when grounded or when the deadline hasn't been armed yet.
+	ulong _stuckCheckDeadlineMs;
 	bool _jumpHeld;
 	Inventory _inventory;
 	// Languages the player has partially or fully learned this run. Keyed by
@@ -1010,6 +1020,8 @@ public partial class Player : CharacterBody3D
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;
+		_lastGroundedPosition = position;
+		_stuckCheckDeadlineMs = 0;
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_runner = new ActionRunner(this);
@@ -1628,6 +1640,43 @@ public partial class Player : CharacterBody3D
 				_sneaking = false;
 			}
 		}
+
+		// Stuck-in-crevice recovery. The voxel mesher can produce geometry
+		// (e.g. a 1-voxel-wide vertical crevice) where the capsule pinches
+		// against wall normals at the bottom and IsOnFloor never trips —
+		// gravity keeps pulling into the same wedged contact and the player
+		// is frozen airborne. Detection here is purely motion-based: while
+		// grounded, snapshot a safe teleport target; while airborne, push a
+		// deadline forward every tick the player has meaningful velocity.
+		// If the deadline elapses (motion stalled long enough) restore the
+		// last grounded position. Swimming has its own physics and forces
+		// _grounded=false so it's excluded from the check.
+		if (_waterState != EWaterState.Swimming)
+		{
+			if (_grounded)
+			{
+				_lastGroundedPosition = GlobalPosition;
+				_stuckCheckDeadlineMs = 0;
+			}
+			else
+			{
+				float vt = _world.SimData.PlayerStuckVelocityThreshold;
+				bool moving = Velocity.LengthSquared() > vt * vt;
+				if (moving || _stuckCheckDeadlineMs == 0)
+				{
+					_stuckCheckDeadlineMs = _world.GameTimeMs
+						+ (ulong)(_world.SimData.PlayerStuckTimeoutSeconds * 1000);
+				}
+				else if (_world.GameTimeMs >= _stuckCheckDeadlineMs)
+				{
+					GlobalPosition = _lastGroundedPosition;
+					Velocity = Vector3.Zero;
+					_grounded = true;
+					_stuckCheckDeadlineMs = 0;
+				}
+			}
+		}
+
 		UpdateVisibility();
 
 		// Update highlight interactive

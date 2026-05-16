@@ -9,6 +9,16 @@ public partial class SimData : Resource
 {
     [Export] public float Gravity = 9.8f;
 
+    // Stuck-recovery: if the player is airborne with total velocity below
+    // PlayerStuckVelocityThreshold for PlayerStuckTimeoutSeconds, they're
+    // wedged (e.g. in a 1-voxel crevice where IsOnFloor never trips because
+    // the bottom of the capsule pinches against wall normals instead of the
+    // floor). Player teleports back to the last position it was grounded.
+    // The deadline is pushed forward every tick the player has any
+    // meaningful velocity, so this only fires when motion has truly stalled.
+    [Export] public float PlayerStuckTimeoutSeconds = 1.5f;
+    [Export] public float PlayerStuckVelocityThreshold = 0.1f;
+
     // Master recipe library. CookingScreen iterates this list to match the
     // current cooking inputs against an authored recipe. Discovery for any
     // hit is recorded in WorldSimState.DiscoveredRecipes keyed by the same
