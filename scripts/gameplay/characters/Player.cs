@@ -1661,8 +1661,7 @@ public partial class Player : CharacterBody3D
 			else
 			{
 				float vt = _world.SimData.PlayerStuckVelocityThreshold;
-				bool moving = Velocity.LengthSquared() > vt * vt;
-				if (moving || _stuckCheckDeadlineMs == 0)
+				if (Velocity.LengthSquared() > vt * vt || _stuckCheckDeadlineMs == 0)
 				{
 					_stuckCheckDeadlineMs = _world.GameTimeMs
 						+ (ulong)(_world.SimData.PlayerStuckTimeoutSeconds * 1000);
