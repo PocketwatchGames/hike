@@ -5,6 +5,10 @@ public partial class GameCamera : Camera3D
 	[Export] public float pitchDegrees = -65;
 	[Export] public float distance = 80;
 	[Export] public float rotationTime = 0.5f;
+	[Export] public float followTimeNormal = 0.2f;
+	[Export] public float followTimeSprinting = 0.4f;
+	[Export] public float followTimeAirAscending = 0.5f;
+	[Export] public float followTimeDashing = 1f;
 
 	private const float CLIP_EPSILON = 0.1f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
@@ -35,6 +39,8 @@ public partial class GameCamera : Camera3D
 	// reflection-sun alignment expectations.
 	private float _yaw = Mathf.Pi / 4f;
 	private float _destYaw = Mathf.Pi / 4f;
+	private Vector3 _followPosition;
+	private bool _followInitialized;
 	private bool _clipAlways = false;
 	private MeshInstance3D _clipCapPlane;
 	private MeshInstance3D _waterCapPlane;
@@ -194,16 +200,29 @@ public partial class GameCamera : Camera3D
 
 	public void SetInitialPosition(Vector3 playerPosition)
 	{
+		_followPosition = playerPosition;
+		_followInitialized = true;
 		GlobalPosition = playerPosition + GlobalTransform.Basis.Z * distance;
 	}
 
-	public void UpdateCamera(double deltaTime, Vector3 playerPosition)
+	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
 	{
 		float t = 1f - Mathf.Pow(0.01f, (float)deltaTime / rotationTime);
 		_yaw = Mathf.LerpAngle(_yaw, _destYaw, t);
 
+		if (!_followInitialized)
+		{
+			_followPosition = playerPosition;
+			_followInitialized = true;
+		}
+		else
+		{
+			float followT = 1f - Mathf.Pow(0.01f, (float)deltaTime / Mathf.Max(0.0001f, followTime));
+			_followPosition = _followPosition.Lerp(playerPosition, followT);
+		}
+
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
-		GlobalPosition = playerPosition + GlobalTransform.Basis.Z * distance;
+		GlobalPosition = _followPosition + GlobalTransform.Basis.Z * distance;
 
 		if (!ManualClipMode)
 		{

@@ -9,13 +9,17 @@ public partial class SimData : Resource
 {
     [Export] public float Gravity = 9.8f;
 
-    // Stuck-recovery: if the player is airborne with total velocity below
+    // Stuck-recovery: if the player is airborne with effective speed below
     // PlayerStuckVelocityThreshold for PlayerStuckTimeoutSeconds, they're
     // wedged (e.g. in a 1-voxel crevice where IsOnFloor never trips because
     // the bottom of the capsule pinches against wall normals instead of the
-    // floor). Player teleports back to the last position it was grounded.
-    // The deadline is pushed forward every tick the player has any
-    // meaningful velocity, so this only fires when motion has truly stalled.
+    // floor). Player teleports back to the last position they were grounded.
+    // "Effective speed" is measured as actual per-tick displacement, NOT the
+    // Velocity field: MoveAndSlide's slide projection barely damps Y against
+    // near-vertical wall normals, so Velocity runs to a huge terminal value
+    // in the wedged case even when the body isn't moving. Threshold is m/s
+    // of real displacement; deadline is pushed forward every tick the
+    // player is actually moving, so this only fires on true motion stalls.
     [Export] public float PlayerStuckTimeoutSeconds = 1.5f;
     [Export] public float PlayerStuckVelocityThreshold = 0.1f;
 

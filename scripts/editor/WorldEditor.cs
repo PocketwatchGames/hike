@@ -124,7 +124,7 @@ public partial class WorldEditor : Node3D
             _cursorPosition += (forward * input.Y + right * input.X) * MOVE_SPEED * dt;
         }
 
-        camera.UpdateCamera(deltaTime, _cursorPosition);
+        camera.UpdateCamera(deltaTime, _cursorPosition, 0f);
         camera.SetClip(_clipY - CLIP_VISUAL_BIAS, _cursorPosition);
         CullProps(camera.Clip);
         _world.UpdateEntityLoading(_cursorPosition);

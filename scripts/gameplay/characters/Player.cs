@@ -150,14 +150,25 @@ public partial class Player : CharacterBody3D
 	Fx _animLoopFx;
 	PackedScene _animLoopScene;
 	ulong _coyoteTimeEndMs;
-	// Last position the player was grounded at — teleport target for the
-	// stuck-in-crevice recovery below. Initialized to the spawn position so
-	// the recovery has a sane fallback even if the player wedges before ever
-	// touching the ground.
-	Vector3 _lastGroundedPosition;
+	// Ring buffer of recent grounded positions — teleport target for the
+	// stuck-in-crevice recovery below. The recovery uses the OLDEST entry
+	// so the player respawns ~0.5s back along their path, well clear of
+	// the cliff edge that launched them in. Using the most recent grounded
+	// position would land them on the edge tile itself and they'd fall
+	// straight back into the crevice. Initialized to spawn so recovery has
+	// a sane fallback even if the player wedges before ever touching ground.
+	const int SafeGroundedHistorySize = 30; // ~0.5s at 60Hz physics
+	readonly Vector3[] _safeGroundedHistory = new Vector3[SafeGroundedHistorySize];
+	int _safeGroundedHistoryWriteIdx;
+	// Position at the end of the previous physics tick. Used by the stuck-
+	// recovery to measure actual displacement-per-tick — Velocity can't be
+	// trusted in this code path because MoveAndSlide's slide projection
+	// barely damps Y against near-vertical wall normals, so Velocity.Y
+	// grows to large terminal values even when the body isn't moving.
+	Vector3 _lastTickPosition;
 	// Deadline (game-time ms) after which the stuck-recovery fires. Pushed
-	// forward every airborne tick the player has meaningful velocity; only
-	// elapses when motion has stalled (wedged geometry, pinched capsule).
+	// forward every airborne tick the player is actually moving; only
+	// elapses when displacement has stalled (wedged geometry, pinched capsule).
 	// Zero when grounded or when the deadline hasn't been armed yet.
 	ulong _stuckCheckDeadlineMs;
 	bool _jumpHeld;
@@ -250,6 +261,9 @@ public partial class Player : CharacterBody3D
 	public float CurrentDecibels { get; private set; }
 	public bool IsAiming => _aiming;
 	public bool IsSneaking => _sneaking;
+	public bool IsDashing => _dashTimeRemaining > 0f;
+	public bool IsGrounded => _grounded;
+	public bool IsSprinting => _sprinting;
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
@@ -1020,7 +1034,12 @@ public partial class Player : CharacterBody3D
 		GlobalPosition = position;
 		Rotation = rotation;
 		_grounded = false;
-		_lastGroundedPosition = position;
+		for (int i = 0; i < SafeGroundedHistorySize; i++)
+		{
+			_safeGroundedHistory[i] = position;
+		}
+		_safeGroundedHistoryWriteIdx = 0;
+		_lastTickPosition = position;
 		_stuckCheckDeadlineMs = 0;
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
@@ -1554,6 +1573,7 @@ public partial class Player : CharacterBody3D
 		// pick after the grounding logic resolves.
 		float inboundFallSpeed = -Velocity.Y;
 		MoveAndSlide();
+
 		PushTouchedMobs();
 		if (_dashTimeRemaining > 0f)
 		{
@@ -1645,36 +1665,54 @@ public partial class Player : CharacterBody3D
 		// (e.g. a 1-voxel-wide vertical crevice) where the capsule pinches
 		// against wall normals at the bottom and IsOnFloor never trips —
 		// gravity keeps pulling into the same wedged contact and the player
-		// is frozen airborne. Detection here is purely motion-based: while
-		// grounded, snapshot a safe teleport target; while airborne, push a
-		// deadline forward every tick the player has meaningful velocity.
-		// If the deadline elapses (motion stalled long enough) restore the
-		// last grounded position. Swimming has its own physics and forces
-		// _grounded=false so it's excluded from the check.
+		// is frozen airborne. The "still moving" test uses actual per-tick
+		// displacement, not Velocity: MoveAndSlide's slide projection only
+		// cancels velocity along the contact normal, and near-vertical wall
+		// normals barely touch the Y axis, so Velocity.Y runs to a huge
+		// terminal value even when the body isn't moving at all. Position
+		// delta is the ground truth. Swimming has its own physics and
+		// forces _grounded=false so it's excluded from the check.
 		if (_waterState != EWaterState.Swimming)
 		{
 			if (_grounded)
 			{
-				_lastGroundedPosition = GlobalPosition;
+				_safeGroundedHistory[_safeGroundedHistoryWriteIdx] = GlobalPosition;
+				_safeGroundedHistoryWriteIdx = (_safeGroundedHistoryWriteIdx + 1) % SafeGroundedHistorySize;
 				_stuckCheckDeadlineMs = 0;
 			}
 			else
 			{
 				float vt = _world.SimData.PlayerStuckVelocityThreshold;
-				if (Velocity.LengthSquared() > vt * vt || _stuckCheckDeadlineMs == 0)
+				float tickThreshold = vt * dt;
+				float displacementSq = (GlobalPosition - _lastTickPosition).LengthSquared();
+				if (displacementSq > tickThreshold * tickThreshold || _stuckCheckDeadlineMs == 0)
 				{
 					_stuckCheckDeadlineMs = _world.GameTimeMs
 						+ (ulong)(_world.SimData.PlayerStuckTimeoutSeconds * 1000);
 				}
 				else if (_world.GameTimeMs >= _stuckCheckDeadlineMs)
 				{
-					GlobalPosition = _lastGroundedPosition;
+					// Oldest entry — the slot that's about to be overwritten next
+					// is the one furthest back in time. Recovers to a position
+					// ~SafeGroundedHistorySize ticks ago, well clear of the
+					// edge tile that launched the player into the crevice.
+					Vector3 safePos = _safeGroundedHistory[_safeGroundedHistoryWriteIdx];
+					GlobalPosition = safePos;
 					Velocity = Vector3.Zero;
 					_grounded = true;
 					_stuckCheckDeadlineMs = 0;
+					// Flush the history to the recovery point — otherwise the
+					// next stuck event could pull the player back to the same
+					// pre-recovery edge tile that's still buffered.
+					for (int i = 0; i < SafeGroundedHistorySize; i++)
+					{
+						_safeGroundedHistory[i] = safePos;
+					}
+					_safeGroundedHistoryWriteIdx = 0;
 				}
 			}
 		}
+		_lastTickPosition = GlobalPosition;
 
 		UpdateVisibility();
 

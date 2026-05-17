@@ -596,7 +596,24 @@ public partial class GameClient : Node3D
 		else
 		{
 			_flyInitialized = false;
-			camera.UpdateCamera(deltaTime, _player.GlobalPosition);
+			float followTime;
+			if (_player.IsDashing)
+			{
+				followTime = camera.followTimeDashing;
+			}
+			else if (!_player.IsGrounded && _player.Velocity.Y > 0f)
+			{
+				followTime = camera.followTimeAirAscending;
+			}
+			else if (_player.IsSprinting)
+			{
+				followTime = camera.followTimeSprinting;
+			}
+			else
+			{
+				followTime = camera.followTimeNormal;
+			}
+			camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
 			SnapCameraAndUpdateUpscale();
 			CullProps(camera.Clip);
 		}

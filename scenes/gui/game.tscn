@@ -6,11 +6,11 @@
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
-[ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="19_banner"]
 [ext_resource type="PackedScene" uid="uid://chdk3bxannpan" path="res://scenes/gui/announcement_panel.tscn" id="19_announce"]
+[ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="19_banner"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="21_hkfxp"]
-[ext_resource type="PackedScene" uid="uid://u31qutqxv8kz9" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
+[ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
@@ -116,6 +116,10 @@ near = 5.0
 far = 200.0
 script = ExtResource("camera_script")
 pitchDegrees = -40.0
+followTimeNormal = 0.35
+followTimeSprinting = 1.0
+followTimeAirAscending = 0.65
+followTimeDashing = 1.5
 
 [node name="FogQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201793]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
@@ -252,25 +256,24 @@ gameClient = NodePath("../..")
 _regionBanner = NodePath("../../AnnouncementCanvas/RegionBanner")
 _announcementPanel = NodePath("../../AnnouncementCanvas/AnnouncementPanel")
 
-[node name="AlmanacScreen" parent="GUICanvas" unique_id=1182491772 node_paths=PackedStringArray("_gameClient") instance=ExtResource("18_ofv2n")]
-_gameClient = NodePath("../..")
+[node name="AlmanacScreen" parent="GUICanvas" unique_id=1182491772 instance=ExtResource("18_ofv2n")]
 
 [node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("21_hkfxp")]
 visible = false
 gameClient = NodePath("../..")
 
-[node name="MerchantScreen" parent="GUICanvas" node_paths=PackedStringArray("gameClient") instance=ExtResource("22_merch")]
+[node name="MerchantScreen" parent="GUICanvas" unique_id=2099428519 node_paths=PackedStringArray("gameClient") instance=ExtResource("22_merch")]
 visible = false
 gameClient = NodePath("../..")
 
-[node name="AnnouncementCanvas" type="CanvasLayer" parent="."]
+[node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]
 layer = 5
 
-[node name="RegionBanner" parent="AnnouncementCanvas" instance=ExtResource("19_banner")]
+[node name="RegionBanner" parent="AnnouncementCanvas" unique_id=1777277464 instance=ExtResource("19_banner")]
 
-[node name="AnnouncementPanel" parent="AnnouncementCanvas" instance=ExtResource("19_announce")]
+[node name="AnnouncementPanel" parent="AnnouncementCanvas" unique_id=1686959481 instance=ExtResource("19_announce")]
 
-[node name="PauseCanvas" type="CanvasLayer" parent="."]
+[node name="PauseCanvas" type="CanvasLayer" parent="." unique_id=1733053098]
 layer = 10
 
 [node name="PauseMenu" parent="PauseCanvas" unique_id=1047961363 node_paths=PackedStringArray("gameClient") instance=ExtResource("17_0v2ir")]
