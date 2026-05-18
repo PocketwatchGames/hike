@@ -1,0 +1,68 @@
+using Godot;
+using Godot.Collections;
+
+// Conditional partial-override layer on top of a base DamageData. Authored
+// as an entry in DamageData.modifiers; the receiver folds matching entries
+// onto the live hit via HitInfo.ApplyTrigger when its trigger condition is
+// met (crit-eligible target, this hit crossed stun threshold, etc.).
+//
+// `overrides` is a flag mask — only the fields whose bit is set are read.
+// The inspector hides untoggled fields via `_ValidateProperty`; storage is
+// preserved while hidden so toggling a flag off and back on doesn't drop
+// previously-authored values (same pattern as ItemEvent). `[Tool]` is
+// required for `_ValidateProperty` to fire in the editor.
+[Tool]
+[GlobalClass]
+public partial class DamageDataModifier : Resource
+{
+	[Export] public EDamageTrigger trigger = EDamageTrigger.OnCrit;
+
+	private EDamageFields _overrides;
+	[Export, CompactFlags] public EDamageFields overrides
+	{
+		get => _overrides;
+		set
+		{
+			if (_overrides == value) { return; }
+			_overrides = value;
+			// Defer the property-list rebuild so a custom editor that triggered
+			// this set (FlagsPropertyEditor) isn't torn down mid-callback —
+			// same shape as ItemEvent.type.
+			CallDeferred(MethodName.NotifyPropertyListChanged);
+			EmitChanged();
+		}
+	}
+
+	[Export] public float healthDamage;
+	[Export] public float stun;
+	[Export] public float hitstun;
+	[Export] public float knockbackDistance;
+	[Export] public float knockbackTime;
+	// Appended to the running statusEffects list (NOT replacing it) when the
+	// AddStatusEffects bit is set. See EDamageFields.AddStatusEffects.
+	[Export] public Array<StatusEffectData> addStatusEffects;
+
+	public override void _ValidateProperty(Dictionary property)
+	{
+		string name = property["name"].AsString();
+		EDamageFields requiredFlag = GetRequiredFlag(name);
+		if (requiredFlag == EDamageFields.None) { return; }
+		if ((_overrides & requiredFlag) != 0) { return; }
+		PropertyUsageFlags usage = property["usage"].As<PropertyUsageFlags>() & ~PropertyUsageFlags.Editor;
+		property["usage"] = (int)usage;
+	}
+
+	private static EDamageFields GetRequiredFlag(string fieldName)
+	{
+		return fieldName switch
+		{
+			nameof(healthDamage) => EDamageFields.HealthDamage,
+			nameof(stun) => EDamageFields.Stun,
+			nameof(hitstun) => EDamageFields.Hitstun,
+			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
+			nameof(knockbackTime) => EDamageFields.KnockbackTime,
+			nameof(addStatusEffects) => EDamageFields.AddStatusEffects,
+			_ => EDamageFields.None,
+		};
+	}
+}

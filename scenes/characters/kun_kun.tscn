@@ -29,6 +29,12 @@
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="26_stunloop"]
 [ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="27_ftsetframes"]
 
+[sub_resource type="Resource" id="Resource_footsteps_run"]
+script = ExtResource("27_ftsetframes")
+anim = &"run"
+frames = Array[int]([3, 6])
+metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 radius = 0.3
 height = 0.9
@@ -96,6 +102,10 @@ region = Rect2(18, 144, 18, 18)
 [sub_resource type="AtlasTexture" id="AtlasTexture_2e3uu"]
 atlas = ExtResource("5_mouse")
 region = Rect2(36, 144, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_o1ojb"]
+atlas = ExtResource("5_mouse")
+region = Rect2(0, 36, 18, 18)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_2iybm"]
 atlas = ExtResource("5_mouse")
@@ -291,6 +301,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_o1ojb")
+}],
+"loop": true,
+"name": &"hitstun",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_2iybm")
 }, {
 "duration": 1.0,
@@ -384,12 +402,6 @@ animations = [{
 "speed": 5.0
 }]
 
-[sub_resource type="Resource" id="Resource_footsteps_run"]
-script = ExtResource("27_ftsetframes")
-anim = &"run"
-frames = Array[int]([3, 6])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
-
 [node name="Mob" type="RigidBody3D" unique_id=1153493867 node_paths=PackedStringArray("_collisionShape", "_animator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
@@ -401,16 +413,6 @@ _sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
-_footstepEffects = Dictionary[int, PackedScene]({
-0: ExtResource("11_fstgrass"),
-1: ExtResource("11_fststone"),
-2: ExtResource("11_fstsand"),
-3: ExtResource("11_fstwater"),
-4: ExtResource("11_fstmud"),
-5: ExtResource("11_fststone")
-})
-_footstepFrames = Array[ExtResource("27_ftsetframes")]([SubResource("Resource_footsteps_run")])
-_footprintTexture = ExtResource("8_dfn4c")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
 _waterEnterSplashFx = ExtResource("14_watenter")
@@ -426,6 +428,16 @@ _swimIdleLoopFx = ExtResource("20_swimidle")
 _deathVoFx = ExtResource("24_deathvo")
 _stunBeginFx = ExtResource("25_stunbegin")
 _stunLoopFx = ExtResource("26_stunloop")
+_footstepEffects = Dictionary[int, PackedScene]({
+0: ExtResource("11_fstgrass"),
+1: ExtResource("11_fststone"),
+2: ExtResource("11_fstsand"),
+3: ExtResource("11_fstwater"),
+4: ExtResource("11_fstmud"),
+5: ExtResource("11_fststone")
+})
+_footstepFrames = Array[ExtResource("27_ftsetframes")]([SubResource("Resource_footsteps_run")])
+_footprintTexture = ExtResource("8_dfn4c")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]
@@ -438,12 +450,12 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("5_mouse")
 region_enabled = true
-region_rect = Rect2(36, 0, 18, 18)
+region_rect = Rect2(54, 0, 18, 18)
 script = ExtResource("6_litsprite")
 Material = 1
-Xray = true
 MirrorByYaw = true
 ForwardOffset = 0.3
+Xray = true
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)

@@ -6,7 +6,6 @@ public partial class WeaponData : ItemData
 	[Export] public bool useAmmo = false;
 	[Export] public int maxAmmo = 0;
 	[Export] public DamageData damageData;
-	[Export] public DamageData critDamageData;
 
 	// Authored timeline + tier list. Replaces the old cooldownTime / activeTime
 	// / activateOnRelease / events fields. A tap-fire weapon has a single tier

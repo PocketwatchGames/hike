@@ -184,6 +184,16 @@ public partial class Player : CharacterBody3D
 	float _health;
 	float _armor;
 	float _maxArmor;
+	// Per-hit flinch state. _hitstunTime counts down each physics tick while
+	// > 0 and holds the hitstun anim's effect on UpdateAnimation; _knockbackTime
+	// mirrors it for the knockback lockout window. Independent of any stun
+	// meter (which the player doesn't have today) — every hit that authors
+	// hitstun flinches. _knockbackVelocity is the horizontal velocity forced
+	// onto Velocity each physics tick while _knockbackTime > 0 (distance/time
+	// at hit time), so the body covers exactly the authored distance.
+	float _hitstunTime;
+	float _knockbackTime;
+	Vector3 _knockbackVelocity;
 	// Game-time at which armor recharge can begin. Set to (now + rechargeDelay)
 	// on every armor-absorbing hit, and to (now + recoverTime) on the hit that
 	// drops armor to zero — the longer recover window is what _armorDepleted
@@ -237,7 +247,7 @@ public partial class Player : CharacterBody3D
 	StatusEffectState _coldState;
 	StatusEffectState _hotState;
 	MovingLight _movingLight;
-	StringName _oneShotAnim;
+	EAnimation? _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
 	// Drives the fall-anim grace window — running up/down hills momentarily
 	// lifts off, and we don't want a one-frame !_grounded to spike the fall
@@ -532,6 +542,36 @@ public partial class Player : CharacterBody3D
 				AddStatusEffect(hit.statusEffects[i]);
 			}
 		}
+
+		// Hitstun + knockback: latch the flinch + knockback windows so
+		// per-frame ticks can count them down. Player has no stun state today,
+		// so no OnStun modifier folds in here — the path is still wired so
+		// future player-stun work picks it up for free. Direction comes from
+		// the sender via HitInfo.hitDirection; a zero direction drops
+		// knockback entirely regardless of distance. Death overrides the
+		// hitstun anim because the Die one-shot above latches first.
+		if (hit.hitstun > 0f && _health > 0f)
+		{
+			_hitstunTime = Mathf.Max(_hitstunTime, hit.hitstun);
+			PlayOneShot(EAnimation.Hitstun);
+		}
+		if (hit.knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero && _health > 0f)
+		{
+			Vector3 dir = hit.hitDirection;
+			dir.Y = 0f;
+			if (dir.LengthSquared() > 0.0001f)
+			{
+				// Constant-velocity knockback: distance/time gives the m/s
+				// the body holds during the window so it covers exactly
+				// `distance` meters in `time` seconds. _PhysicsProcess
+				// forces this onto Velocity.X/Z each tick (overriding the
+				// input-driven rebuild) and the trailing edge in TickHitstun
+				// snaps horizontal back to zero so the body stops cleanly.
+				float speed = hit.knockbackDistance / hit.knockbackTime;
+				_knockbackVelocity = dir.Normalized() * speed;
+				_knockbackTime = Mathf.Max(_knockbackTime, hit.knockbackTime);
+			}
+		}
 	}
 
 	// One-shot effect parented to World so it stays put as the player
@@ -574,24 +614,32 @@ public partial class Player : CharacterBody3D
 	// shot is latched, UpdateAnimation defers; once Finished (or the animator
 	// gets reassigned by something else) we clear the latch and resume the
 	// state-driven loop pick.
-	public void PlayOneShot(EAnimation anim) => PlayOneShot(AnimationNames.Get(anim));
-
-	public void PlayOneShot(StringName name)
+	public void PlayOneShot(EAnimation anim)
 	{
-		if (_animator == null || name == default || !_animator.HasAnimation(name))
+		if (_animator == null || data == null)
 		{
 			return;
 		}
-		_oneShotAnim = name;
+		StringName name = data.GetAnimationName(anim);
+		if (name == default || !_animator.HasAnimation(name))
+		{
+			return;
+		}
+		_oneShotAnim = anim;
 		_animator.Play(name);
 	}
 
 	private void UpdateAnimation()
 	{
-		if (_animator == null)
+		if (_animator == null || data == null)
 		{
 			return;
 		}
+		// Default the animator back to authored speed every tick — the
+		// movement-loop branch below re-enables status retiming when (and only
+		// when) it picks a speed-scaled loop. One-shots (attack, hitstun, jump,
+		// die) take the early return below, so this default sticks for them.
+		_animator.effectSpeedMultiplier = 1f;
 
 		// Track airborne dwell time. Cleared the instant we hit ground so the
 		// next lift-off starts a fresh grace window. Running up a slope tends
@@ -606,16 +654,34 @@ public partial class Player : CharacterBody3D
 			_airborneStartMs = _world.GameTimeMs;
 		}
 
-		if (_oneShotAnim != default)
+		if (_oneShotAnim.HasValue)
 		{
-			if (_animator.CurrentAnimation == _oneShotAnim && !_animator.Finished)
+			EAnimation oneShot = _oneShotAnim.Value;
+			// Hitstun is gated solely by _hitstunTime — when the timer hits
+			// zero the latch releases regardless of the clip's loop flag or
+			// Finished state, so a looping hitstun clip doesn't trap the
+			// player in the anim past the flinch window. Other one-shots
+			// hold while the animator says the clip is still playing.
+			if (oneShot == EAnimation.Hitstun)
 			{
-				return;
+				if (_hitstunTime > 0f)
+				{
+					return;
+				}
+				_oneShotAnim = null;
 			}
-			_oneShotAnim = default;
+			else
+			{
+				StringName oneShotName = data.GetAnimationName(oneShot);
+				if (_animator.CurrentAnimation == oneShotName && !_animator.Finished)
+				{
+					return;
+				}
+				_oneShotAnim = null;
+			}
 		}
 
-		StringName loopAnim;
+		EAnimation loopAnim;
 		// Horizontal speed only — vertical motion belongs to fall/jump/grav,
 		// not to the run-vs-idle decision. While stepping up a slope the body
 		// briefly leaves the floor and Velocity.Y from gravity dominates the
@@ -633,14 +699,14 @@ public partial class Player : CharacterBody3D
 			&& _world.GameTimeMs - _airborneStartMs >= FallGraceMs;
 		if (_health <= 0f)
 		{
-			loopAnim = AnimationNames.Dead;
+			loopAnim = EAnimation.Dead;
 		}
 		else if (_curInteractive != null)
 		{
 			// Interaction holds the player still (movement speed is forced to
 			// 0 above) — show the interaction loop regardless of water/ground
 			// state until the action completes or is cancelled.
-			loopAnim = AnimationNames.Interacting;
+			loopAnim = EAnimation.Interacting;
 		}
 		else if (_waterState == EWaterState.Swimming)
 		{
@@ -649,29 +715,43 @@ public partial class Player : CharacterBody3D
 			// idle in water is still "sprint intent" per UpdateSprintState,
 			// but visually there's nothing to differentiate from a normal
 			// tread until the player starts moving.)
-			StringName swimMove = _sprinting ? AnimationNames.SwimSprint : AnimationNames.Swim;
-			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, AnimationNames.SwimIdle);
+			EAnimation swimMove = _sprinting ? EAnimation.SwimSprint : EAnimation.Swim;
+			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, EAnimation.SwimIdle);
 		}
 		else if (fallReady)
 		{
-			loopAnim = AnimationNames.Fall;
+			loopAnim = EAnimation.Fall;
 		}
 		else if (_sneaking)
 		{
-			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Sneak, AnimationNames.SneakIdle);
+			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Sneak, EAnimation.SneakIdle);
 		}
 		else if (_sprinting)
 		{
 			// Sprint replaces run as the moving variant; idle stays the same
 			// (sprint intent without movement is a transient state that
 			// resolves to one or the other within a frame).
-			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Sprint, AnimationNames.Idle);
+			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Sprint, EAnimation.Idle);
 		}
 		else
 		{
-			loopAnim = PickMoveLoop(speedSq, intentMoving, AnimationNames.Run, AnimationNames.Idle);
+			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Run, EAnimation.Idle);
 		}
-		_animator.Play(loopAnim);
+		StringName loopName = data.GetAnimationName(loopAnim);
+		if (loopName != default)
+		{
+			_animator.Play(loopName);
+		}
+
+		// Status retiming (Cold etc.) is gated per-anim by AnimationData —
+		// only loops authored with affectedBySpeedMultiplier track statusAnimMul
+		// (movement anims whose underlying action is also slowed by statusMoveMul).
+		// One-shots already returned above, so this branch only runs for loops.
+		if (data.IsAnimationSpeedAffected(loopAnim))
+		{
+			_statusEffects.GetMovementMultipliers(out _, out float animSpeedMul);
+			_animator.effectSpeedMultiplier = animSpeedMul;
+		}
 
 		// Drive the anim-audio loop off the same loopAnim. Only idle / run /
 		// swim_idle have audio; everything else (fall, dead, interacting,
@@ -679,9 +759,9 @@ public partial class Player : CharacterBody3D
 		PackedScene animLoopTarget = null;
 		if (_health > 0f)
 		{
-			if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopFx;
-			else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopFx;
-			else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopFx;
+			if (loopAnim == EAnimation.Idle) animLoopTarget = _idleLoopFx;
+			else if (loopAnim == EAnimation.Run) animLoopTarget = _runLoopFx;
+			else if (loopAnim == EAnimation.SwimIdle) animLoopTarget = _swimIdleLoopFx;
 		}
 		UpdateAnimLoop(animLoopTarget);
 	}
@@ -734,7 +814,7 @@ public partial class Player : CharacterBody3D
 	// hold whatever's currently playing in between.
 	const float MoveLoopEnterSpeedSq = 0.01f;     // 0.1 m/s
 	const float MoveLoopExitSpeedSq = 0.0001f;    // 0.01 m/s
-	private StringName PickMoveLoop(float speedSq, bool intentMoving, StringName moveAnim, StringName idleAnim)
+	private EAnimation PickMoveLoop(float speedSq, bool intentMoving, EAnimation moveAnim, EAnimation idleAnim)
 	{
 		// Input intent forces "moving" — keeps the run anim playing while
 		// pinned against geometry, where Velocity would otherwise be ~0.
@@ -746,10 +826,18 @@ public partial class Player : CharacterBody3D
 		{
 			return idleAnim;
 		}
+		// Hold-current band — compare the animator's currently-playing clip
+		// against each candidate's authored name to decide which side of the
+		// band to stick to. Both lookups are dictionary reads, so this is
+		// cheap to run every tick.
 		StringName current = _animator.CurrentAnimation;
-		if (current == moveAnim || current == idleAnim)
+		if (current == data.GetAnimationName(moveAnim))
 		{
-			return current;
+			return moveAnim;
+		}
+		if (current == data.GetAnimationName(idleAnim))
+		{
+			return idleAnim;
 		}
 		return idleAnim;
 	}
@@ -1189,6 +1277,31 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Counts the per-hit flinch + knockback windows down each physics tick.
+	// The hitstun anim is latched as a one-shot in OnHurtBoxHit, so this
+	// method only owns the state-clear for that timer — the animator falls
+	// out of the anim naturally when it finishes or another one-shot replaces
+	// it. Knockback is two-phase: while _knockbackTime > 0 the horizontal
+	// velocity is forced to _knockbackVelocity (in the velocity rebuild
+	// below); on the trailing edge we snap it back to zero and clear the
+	// cached vector so the next frame's input rebuild starts clean.
+	private void TickHitstun(float dt)
+	{
+		if (_hitstunTime > 0f)
+		{
+			_hitstunTime = Mathf.Max(0f, _hitstunTime - dt);
+		}
+		if (_knockbackTime > 0f)
+		{
+			_knockbackTime = Mathf.Max(0f, _knockbackTime - dt);
+			if (_knockbackTime <= 0f)
+			{
+				Velocity = new Vector3(0f, Velocity.Y, 0f);
+				_knockbackVelocity = Vector3.Zero;
+			}
+		}
+	}
+
 	private void TickArmor(float dt)
 	{
 		if (_maxArmor <= 0f || _armor >= _maxArmor)
@@ -1365,6 +1478,7 @@ public partial class Player : CharacterBody3D
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
+		TickHitstun(dt);
 		_statusEffects.Tick(dt);
 		TickWetEffect();
 		TickBodyTemperature(dt);
@@ -1444,22 +1558,31 @@ public partial class Player : CharacterBody3D
 			// until they stop trying to move.
 			speed = exhausted ? data.tiredSwimSpeed : data.swimSpeed;
 		}
-		_statusEffects.GetMovementMultipliers(out float statusMoveMul, out float statusAnimMul);
+		_statusEffects.GetMovementMultipliers(out float statusMoveMul, out float _);
 		speed *= statusMoveMul;
-		if (_animator != null)
-		{
-			_animator.effectSpeedMultiplier = statusAnimMul;
-		}
+		// Sprite anim retiming is gated to movement-loop anims only — see
+		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
+		// on the currently-picked loopAnim. Attack / hitstun / death anims
+		// play at authored speed regardless of status.
 		if (_curInteractive != null)
 		{
 			speed = 0;
 		}
 
-		// Horizontal velocity: dash and its glide window override the input-
-		// driven rebuild. Both still honor _terrainSpeed (tall grass slows)
-		// and status moveMul (Cold etc.) so dashing through a thicket isn't
-		// the same as dashing across open ground.
-		if (_dashTimeRemaining > 0f)
+		// Horizontal velocity: knockback wins over everything (dash, glide,
+		// input) — _knockbackVelocity is the constant m/s the hit author
+		// wants the body to travel at for the duration of _knockbackTime, and
+		// only when the timer expires does control return to the rest of the
+		// table. Otherwise dash and its glide window override the input-driven
+		// rebuild. All paths still honor _terrainSpeed (tall grass slows) and
+		// status moveMul (Cold etc.) so dashing through a thicket isn't the
+		// same as dashing across open ground — except knockback, which is a
+		// fixed-distance shove and ignores those.
+		if (_knockbackTime > 0f)
+		{
+			Velocity = new Vector3(_knockbackVelocity.X, Velocity.Y, _knockbackVelocity.Z);
+		}
+		else if (_dashTimeRemaining > 0f)
 		{
 			float dashSpeedActual = _dashSpeed * _terrainSpeed * statusMoveMul;
 			if (_waterState == EWaterState.Swimming)
@@ -1850,6 +1973,17 @@ public partial class Player : CharacterBody3D
 		else if (!Input.IsActionPressed("Aim"))
 		{
 			_inputLook = Vector3.Zero;
+		}
+
+		// Hitstun rejects every action press for the duration of the flinch.
+		// Movement / look input has already been latched above so the body
+		// keeps coasting in the held direction (subject to knockback velocity);
+		// what we drop is interact, jump, dash, weapon attacks, consumables,
+		// and the sneak toggle. The runner is still allowed to tick down its
+		// in-flight action on its own so wind-downs complete naturally.
+		if (_hitstunTime > 0f)
+		{
+			return;
 		}
 
 		// Handle interact input. Multi-action interactives split tap vs hold:

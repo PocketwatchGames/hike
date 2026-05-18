@@ -5,6 +5,64 @@
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://bxk4n2mp7q5wa" path="res://scripts/data/LootCount.cs" id="4_lootcount"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="5_meat"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]
+
+[sub_resource type="Resource" id="Resource_anim_dead"]
+script = ExtResource("6_animdata")
+name = &"dead"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_die"]
+script = ExtResource("6_animdata")
+name = &"die"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_fall"]
+script = ExtResource("6_animdata")
+name = &"fall"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_idle"]
+script = ExtResource("6_animdata")
+name = &"idle"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_run"]
+script = ExtResource("6_animdata")
+name = &"run"
+affectedBySpeedMultiplier = true
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_swim"]
+script = ExtResource("6_animdata")
+name = &"swim"
+affectedBySpeedMultiplier = true
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_swim_idle"]
+script = ExtResource("6_animdata")
+name = &"swim_idle"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_stunned"]
+script = ExtResource("6_animdata")
+name = &"stunned"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_burrowing"]
+script = ExtResource("6_animdata")
+name = &"burrowing"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_burrowed"]
+script = ExtResource("6_animdata")
+name = &"burrowed"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_hitstun"]
+script = ExtResource("6_animdata")
+name = &"hitstun"
+metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("4_lootcount")
@@ -14,6 +72,19 @@ metadata/_custom_type_script = "uid://bxk4n2mp7q5wa"
 
 [resource]
 script = ExtResource("1_mobdata")
+animations = Dictionary[int, ExtResource("6_animdata")]({
+1: SubResource("Resource_anim_dead"),
+2: SubResource("Resource_anim_die"),
+3: SubResource("Resource_anim_fall"),
+4: SubResource("Resource_anim_idle"),
+6: SubResource("Resource_anim_run"),
+7: SubResource("Resource_anim_swim"),
+8: SubResource("Resource_anim_swim_idle"),
+10: SubResource("Resource_anim_stunned"),
+11: SubResource("Resource_anim_burrowing"),
+12: SubResource("Resource_anim_burrowed"),
+18: SubResource("Resource_anim_hitstun")
+})
 displayName = &"Kun-Kun"
 killsPerLevel = Array[int]([3, 10, 25, 50])
 hudScale = 0.5

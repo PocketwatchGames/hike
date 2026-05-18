@@ -27,6 +27,12 @@
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="24_stunloop"]
 [ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
 
+[sub_resource type="Resource" id="Resource_footsteps_run"]
+script = ExtResource("25_ftsetframes")
+anim = &"run"
+frames = Array[int]([3, 6])
+metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.35
 height = 1.5
@@ -66,6 +72,10 @@ region = Rect2(288, 0, 48, 48)
 [sub_resource type="AtlasTexture" id="AtlasTexture_lis1s"]
 atlas = ExtResource("6_cham")
 region = Rect2(336, 0, 48, 48)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xgxne"]
+atlas = ExtResource("6_cham")
+region = Rect2(288, 0, 48, 48)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_bo3bm"]
 atlas = ExtResource("6_cham")
@@ -194,6 +204,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_xgxne")
+}],
+"loop": true,
+"name": &"hitstun",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_bo3bm")
 }, {
 "duration": 1.0,
@@ -275,12 +293,6 @@ animations = [{
 "speed": 10.0
 }]
 
-[sub_resource type="Resource" id="Resource_footsteps_run"]
-script = ExtResource("25_ftsetframes")
-anim = &"run"
-frames = Array[int]([3, 6])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
-
 [node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_animator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
@@ -328,12 +340,12 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(96, 0, 48, 48)
+region_rect = Rect2(0, 0, 48, 48)
 script = ExtResource("7_litsprite")
 Material = 1
-Xray = true
 MirrorByYaw = true
 ForwardOffset = 0.35
+Xray = true
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)

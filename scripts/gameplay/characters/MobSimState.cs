@@ -65,6 +65,18 @@ public class MobSimState : EntitySimState
     public bool Stunned;
     public ulong StunRecoverMs;
     public ulong StunRechargeStartMs;
+    // Per-hit flinch state. HitstunTime counts down each tick while > 0 and
+    // the hitstun anim is held; KnockbackTime mirrors it for the knockback
+    // lockout window so receivers that suspend their own movement during
+    // knockback have a shared deadline. Independent of Stunned — a hit can
+    // hitstun without crossing the stun threshold.
+    public float HitstunTime;
+    public float KnockbackTime;
+    // Horizontal velocity (m/s) forced onto the body each physics tick
+    // while KnockbackTime > 0. distance/time at hit time. Snapped back to
+    // zero on the trailing edge so the mob doesn't coast past the authored
+    // distance under residual physics damping. Y component unused.
+    public Vector3 KnockbackVelocity;
     public float Armor;
     // Game-time at which armor recharge can begin. Set on every armor-
     // absorbing hit; the longer recover window is what ArmorDepleted tracks

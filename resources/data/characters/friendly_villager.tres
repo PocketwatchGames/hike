@@ -1,9 +1,16 @@
-[gd_resource type="Resource" script_class="MobData" format=3 uid="uid://cnpc1villdata"]
+[gd_resource type="Resource" script_class="MobData" load_steps=6 format=3 uid="uid://cnpc1villdata"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/friendly_villager_brain.tres" id="2_brain"]
 [ext_resource type="Script" uid="uid://bxk4n2mp7q5wa" path="res://scripts/data/LootCount.cs" id="3_4qdy7"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="3_scene"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
+
+[sub_resource type="Resource" id="Resource_anim_idle"]
+script = ExtResource("4_animdata")
+name = &"idle"
+affectedBySpeedMultiplier = false
+metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [resource]
 script = ExtResource("1_mobdata")
@@ -11,6 +18,9 @@ displayName = &"Villager"
 appearsInBestiary = false
 team = 1
 dialogueLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
+animations = Dictionary[int, ExtResource("4_animdata")]({
+4: SubResource("Resource_anim_idle")
+})
 maxSpeed = 0.0
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")

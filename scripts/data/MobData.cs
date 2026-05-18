@@ -4,6 +4,30 @@ using Godot.Collections;
 [GlobalClass]
 public partial class MobData : Resource
 {
+    // Per-EAnimation binding from logical slot to SpriteFrames clip name plus
+    // retiming policy. Empty slots resolve to default-StringName and the
+    // animator silently skips them — author the dictionary in each mob .tres
+    // to wire each slot to its concrete clip. See AnimationData.
+    [Export] public Godot.Collections.Dictionary<EAnimation, AnimationData> animations = new();
+
+    // Look up the SpriteFrames clip name for an EAnimation slot. Returns
+    // default StringName when the slot is unbound — callers route this
+    // through LitSpriteAnimator.Play / HasAnimation, both of which no-op
+    // on unknown names, so an unbound slot is a silent skip rather than a
+    // hard error.
+    public StringName GetAnimationName(EAnimation anim)
+    {
+        return animations.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
+    }
+
+    // Returns whether the slot is authored to track statusAnimMul. Returns
+    // false for unbound slots — playing nothing at status-retimed speed is
+    // the same as playing nothing at authored speed.
+    public bool IsAnimationSpeedAffected(EAnimation anim)
+    {
+        return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
+    }
+
     // Player-facing name shown in the Bestiary, announcement banners, and any
     // future "Goblin attacks!" UI. Matches the StringName pattern other
     // *Data resources use for human-readable identity (ItemData, RegionData).

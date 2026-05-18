@@ -372,24 +372,24 @@ public static class ItemEventHandlers
 	// event's per-event DamageData override, then fall back to the driving
 	// weapon's damageData (item-driven actions). Source is the actor so
 	// receivers see the attacker. Returns a default HitInfo (no damage) if
-	// neither template is set — caller should early-out.
+	// neither template is set — caller should early-out. Conditional crit /
+	// stun behavior rides on `template.modifiers`, no separate parameter
+	// needed here.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
 		DamageData template = ev.damageData;
-		DamageData crit = null;
-		if (action.context.primaryItem is WeaponState weapon)
+		if (template == null && action.context.primaryItem is WeaponState weapon)
 		{
-			if (template == null)
-			{
-				template = weapon.data?.damageData;
-			}
-			crit = weapon.data?.critDamageData;
+			template = weapon.data?.damageData;
 		}
 		if (template == null)
 		{
 			return default;
 		}
-		return new HitInfo(template, actor.AttackerNode, default, crit);
+		// Hit direction = attacker's forward. Knockback uses this to push
+		// the target along the swing axis; senders that need a different
+		// direction (e.g. radial pop-up from a trap) build HitInfo directly.
+		return new HitInfo(template, actor.AttackerNode, actor.ActorForward);
 	}
 
 	private static float SampleCurve(Curve curve, float t, float fallback)

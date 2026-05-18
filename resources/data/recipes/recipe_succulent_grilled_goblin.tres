@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://c8743nsy2v56"]
 
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/RecipeInput.cs" id="1_input"]
+[ext_resource type="Script" uid="uid://64jki9zhf4p5i" path="res://scripts/data/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="2_meat"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="3_mushroom"]
-[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="4_recipe"]
+[ext_resource type="Script" uid="uid://rmq2wdsc9r3qk" path="res://scripts/data/RecipeData.cs" id="4_recipe"]
 [ext_resource type="Resource" uid="uid://csg7p3n5k2rwt" path="res://resources/data/items/consumables/succulent_grilled_goblin.tres" id="5_output"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]

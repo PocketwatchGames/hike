@@ -298,7 +298,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
     // until LitSpriteAnimator.Finished flips. Behaviors emit via
     // AIOutput.oneShotAnim; combat events route here through PlayAnim.
-    private StringName _oneShotAnim;
+    private EAnimation? _oneShotAnim;
     // Game-time at which the mob first started falling fast (vel.Y below the
     // FallEnterSpeed threshold). Cleared as soon as the body is no longer
     // descending. Used to gate the "fall" loop behind a sustained-fall grace
@@ -447,15 +447,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // type-checking the actor.
     public void ApplyMotion(float speed, float duration, bool freezeGravity) { }
 
-    public void PlayOneShot(EAnimation anim) => PlayOneShot(AnimationNames.Get(anim));
-
-    public void PlayOneShot(StringName name)
+    public void PlayOneShot(EAnimation anim)
     {
-        if (_animator == null || name == default || !_animator.HasAnimation(name))
+        if (_animator == null || mobData == null)
         {
             return;
         }
-        _oneShotAnim = name;
+        StringName name = mobData.GetAnimationName(anim);
+        if (name == default || !_animator.HasAnimation(name))
+        {
+            return;
+        }
+        _oneShotAnim = anim;
         _animator.Play(name);
     }
 
@@ -563,35 +566,58 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     private void UpdateAnimation()
     {
-        if (_animator == null)
+        if (_animator == null || mobData == null)
         {
             return;
         }
-        if (_oneShotAnim != default)
+        // Default the animator back to authored speed every tick — the
+        // movement-loop branch below re-enables status retiming when (and
+        // only when) it picks a speed-scaled loop. One-shots take the early
+        // return below, so this default sticks for them.
+        _animator.effectSpeedMultiplier = 1f;
+        if (_oneShotAnim.HasValue)
         {
-            if (_animator.CurrentAnimation == _oneShotAnim && !_animator.Finished)
+            EAnimation oneShot = _oneShotAnim.Value;
+            // Hitstun is gated solely by HitstunTime — when the timer hits
+            // zero the latch releases regardless of the clip's loop flag or
+            // Finished state, so a looping hitstun clip doesn't trap the mob
+            // in the anim past the flinch window. Other one-shots hold while
+            // the animator says the clip is still playing.
+            if (oneShot == EAnimation.Hitstun)
             {
-                return;
+                if (_simState.HitstunTime > 0f)
+                {
+                    return;
+                }
+                _oneShotAnim = null;
             }
-            _oneShotAnim = default;
+            else
+            {
+                StringName oneShotName = mobData.GetAnimationName(oneShot);
+                if (_animator.CurrentAnimation == oneShotName && !_animator.Finished)
+                {
+                    return;
+                }
+                _oneShotAnim = null;
+            }
         }
 
-        StringName loopAnim;
+        EAnimation loopAnim;
         if (!alive)
         {
-            loopAnim = AnimationNames.Dead;
+            loopAnim = EAnimation.Dead;
         }
         else if (stunned)
         {
-            loopAnim = AnimationNames.Stunned;
+            loopAnim = EAnimation.Stunned;
         }
         else if (burrowed)
         {
-            loopAnim = AnimationNames.Burrowed;
+            loopAnim = EAnimation.Burrowed;
         }
         else if (burrowing)
         {
-            loopAnim = AnimationNames.Burrowing;
+            loopAnim = EAnimation.Burrowing;
         }
         else
         {
@@ -627,20 +653,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
             if (IsInWater())
             {
-                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, AnimationNames.Swim, AnimationNames.SwimIdle);
+                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, EAnimation.Swim, EAnimation.SwimIdle);
             }
             else if (fallReady)
             {
-                loopAnim = AnimationNames.Fall;
+                loopAnim = EAnimation.Fall;
             }
             else
             {
-                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, AnimationNames.Run, AnimationNames.Idle);
+                loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, EAnimation.Run, EAnimation.Idle);
             }
         }
-        if (_animator.HasAnimation(loopAnim))
+        StringName loopName = mobData.GetAnimationName(loopAnim);
+        if (loopName != default && _animator.HasAnimation(loopName))
         {
-            _animator.Play(loopAnim);
+            _animator.Play(loopName);
+        }
+
+        // Status retiming is gated per-anim by AnimationData — only loops
+        // authored with affectedBySpeedMultiplier track statusAnimMul. Idle /
+        // fall / burrow / dead / stunned default to authored speed.
+        if (mobData.IsAnimationSpeedAffected(loopAnim))
+        {
+            _statusEffects.GetMovementMultipliers(out _, out float animSpeedMul);
+            _animator.effectSpeedMultiplier = animSpeedMul;
         }
 
         // Drive the anim-audio loop off the same loopAnim. Burrowing mobs
@@ -650,9 +686,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PackedScene animLoopTarget = null;
         if (alive && !burrowing && !burrowed)
         {
-            if (loopAnim == AnimationNames.Idle) animLoopTarget = _idleLoopFx;
-            else if (loopAnim == AnimationNames.Run) animLoopTarget = _runLoopFx;
-            else if (loopAnim == AnimationNames.SwimIdle) animLoopTarget = _swimIdleLoopFx;
+            if (loopAnim == EAnimation.Idle) animLoopTarget = _idleLoopFx;
+            else if (loopAnim == EAnimation.Run) animLoopTarget = _runLoopFx;
+            else if (loopAnim == EAnimation.SwimIdle) animLoopTarget = _swimIdleLoopFx;
         }
         UpdateAnimLoop(animLoopTarget);
     }
@@ -697,7 +733,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // every other frame.
     const float MoveLoopEnterSpeedSq = 0.01f;     // 0.1 m/s
     const float MoveLoopExitSpeedSq = 0.0001f;    // 0.01 m/s
-    private StringName PickMoveLoop(float speedSq, bool intentMoving, StringName moveAnim, StringName idleAnim)
+    private EAnimation PickMoveLoop(float speedSq, bool intentMoving, EAnimation moveAnim, EAnimation idleAnim)
     {
         if (intentMoving || speedSq > MoveLoopEnterSpeedSq)
         {
@@ -707,10 +743,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return idleAnim;
         }
+        // Hold-current band — compare the animator's currently-playing clip
+        // against each candidate's authored name to decide which side of the
+        // band to stick to.
         StringName current = _animator.CurrentAnimation;
-        if (current == moveAnim || current == idleAnim)
+        if (current == mobData.GetAnimationName(moveAnim))
         {
-            return current;
+            return moveAnim;
+        }
+        if (current == mobData.GetAnimationName(idleAnim))
+        {
+            return idleAnim;
         }
         return idleAnim;
     }
@@ -986,6 +1029,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.LightSampleAccumulator = 0f;
         }
 
+        // Knockback timer + velocity force run on alive AND dead bodies — a
+        // killing blow should still send the corpse flying for the authored
+        // distance. TickHitstun also decrements HitstunTime, which is a no-op
+        // for corpses (no anim to release) but harmless.
+        TickHitstun((float)delta);
+
         if (alive)
         {
             TickArmor((float)delta);
@@ -1013,12 +1062,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 GravityScale = _gravityScaleAuthored;
                 _gravityScaleSwimActive = false;
             }
-            // Stun freezes intentional behavior — no path target, no attack
-            // request, no torch / yell / burrow output. Physics, status ticks,
-            // and the action runner still run so an in-flight attack can wind
-            // down naturally and gravity / impulses still act on the body.
+            // Stun and per-hit hitstun both freeze intentional behavior — no
+            // path target, no attack request, no torch / yell / burrow output.
+            // Physics, status ticks, and the action runner still run so an
+            // in-flight attack can wind down naturally and gravity / impulses
+            // still act on the body. Stun is the heavy-meter state; hitstun
+            // is the short flinch window between hits.
             AIOutput aiOutput;
-            if (stunned)
+            if (stunned || _simState.HitstunTime > 0f)
             {
                 aiOutput = default;
             }
@@ -1063,11 +1114,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Otherwise, if we're walking toward a path target, face that direction.
             float? targetYaw = aiOutput.yaw;
 
-            _statusEffects.GetMovementMultipliers(out float statusMoveMul, out float statusAnimMul);
-            if (_animator != null)
-            {
-                _animator.effectSpeedMultiplier = statusAnimMul;
-            }
+            _statusEffects.GetMovementMultipliers(out float statusMoveMul, out float _);
+            // Sprite anim retiming is gated to movement-loop anims only — see
+            // UpdateAnimation, which writes effectSpeedMultiplier per-frame
+            // based on the currently-picked loopAnim. Attack / hitstun / die
+            // one-shots play at authored speed regardless of status.
 
             // Skip the path / yaw blocks below while dug in. SetBurrowed
             // (called on the edges from the burrow transition block) owns
@@ -1111,6 +1162,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Letting the engine's LinearDamp run on top would muddy both
             // — pin it to zero so the physics block is the only damper.
             if (_swimming && !inBurrow)
+            {
+                linearDampTarget = 0f;
+            }
+            // Knockback forces velocity directly each tick (see ApplyKnockback
+            // below) — leaving any LinearDamp engaged would compete with the
+            // forced velocity and could make the body sub-step under-shoot.
+            if (_simState.KnockbackTime > 0f)
             {
                 linearDampTarget = 0f;
             }
@@ -1265,7 +1323,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // fast, and the snap-to-zero below kills the last sub-flicker
             // residual the contact resolver leaves behind.
             AngularDamp = 5f;
-            LinearDamp = 0.25f;
+            // Knockback owns linear damping while active — the per-tick
+            // velocity force in ApplyKnockback wants no decay so the corpse
+            // covers exactly the authored distance over the window. Once the
+            // timer expires the corpse settles into the normal low-damp coast.
+            LinearDamp = _simState.KnockbackTime > 0f ? 0f : 0.25f;
             const float SettledAngularSpeedSq = 0.04f;
             Vector3 angVel = AngularVelocity;
             if (angVel.LengthSquared() < SettledAngularSpeedSq && angVel != Vector3.Zero)
@@ -1273,6 +1335,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 AngularVelocity = Vector3.Zero;
             }
         }
+
+        // Knockback velocity force runs on alive AND dead bodies — see the
+        // TickHitstun lift above. Placed outside the alive/dead branch so a
+        // killing blow's knockback carries the corpse for the authored time.
+        ApplyKnockback();
 
         // Auto-freeze on settle. Living mobs additionally gate on
         // SuspendAITimeMs (so we don't pin a mob that's waiting to make
@@ -1434,15 +1501,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.Yelled = true;
     }
 
-    // Swap the hit's payload to its crit variant when the mob is stunned or
-    // not yet triggered (unaware of the attacker) and the attacker authored
-    // crit data. Returns the (possibly rebuilt) hit so GetHitType and Hit see
-    // the same numbers.
+    // Fold the hit's OnCrit modifiers when the mob is stunned or not yet
+    // triggered (unaware of the attacker) — these are the crit-eligible
+    // states. Mutates the passed-in HitInfo in place via ApplyTrigger and
+    // returns it so GetHitType and Hit see the same numbers.
     private HitInfo ApplyCrit(HitInfo hit)
     {
-        if ((stunned || !triggered) && hit.critDamage != null)
+        if (stunned || !triggered)
         {
-            return new HitInfo(hit.critDamage, hit.source, hit.hitDirection);
+            hit.ApplyTrigger(EDamageTrigger.OnCrit);
         }
         return hit;
     }
@@ -1488,6 +1555,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // amplified the damage payload before we got here). Otherwise, stun-
         // bearing hits accumulate into the meter and tip into Stunned when
         // they cross stunThreshold.
+        bool stunTriggered = false;
         if (stunned)
         {
             SetStunned(false);
@@ -1498,12 +1566,55 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (_simState.Stun >= mobData.stunThreshold)
             {
                 SetStunned(true);
+                stunTriggered = true;
             }
             else
             {
                 _simState.StunRechargeStartMs = _world.GameTimeMs + (ulong)(mobData.stunRechargeDelay * 1000f);
             }
         }
+
+        // Hitstun + knockback: stack on top of any stun handling above so a
+        // sub-threshold stun hit still flinches and shoves. When this hit
+        // crossed the stun threshold, fold any OnStun modifiers in first so
+        // authored "extra knockback when I just stunned them" overrides
+        // apply to the read below. Direction comes from the sender via
+        // HitInfo.hitDirection — a zero direction means no knockback
+        // regardless of distance.
+        if (stunTriggered)
+        {
+            hit.ApplyTrigger(EDamageTrigger.OnStun);
+        }
+        if (hit.hitstun > 0f)
+        {
+            _simState.HitstunTime = Mathf.Max(_simState.HitstunTime, hit.hitstun);
+            PlayOneShot(EAnimation.Hitstun);
+        }
+        float knockbackDistance = hit.knockbackDistance;
+        if (knockbackDistance > 0f && hit.knockbackTime > 0f && hit.hitDirection != Vector3.Zero)
+        {
+            Vector3 dir = hit.hitDirection;
+            dir.Y = 0f;
+            if (dir.LengthSquared() > 0.0001f)
+            {
+                // Constant-velocity knockback: distance / time gives the
+                // m/s the body needs to hold during the KnockbackTime
+                // window to travel exactly `distance` meters. _PhysicsProcess
+                // forces this onto LinearVelocity each tick and suppresses
+                // LinearDamp so the integral lands on `distance`; the
+                // trailing-edge snap below kills residual velocity once the
+                // window expires. Beats impulse + damp integration because
+                // the result is exact and trivially predictable.
+                float speed = knockbackDistance / hit.knockbackTime;
+                _simState.KnockbackVelocity = dir.Normalized() * speed;
+                _simState.KnockbackTime = Mathf.Max(_simState.KnockbackTime, hit.knockbackTime);
+                if (Freeze)
+                {
+                    Freeze = false;
+                }
+            }
+        }
+
         health -= incoming;
         if (health <= 0f)
         {
@@ -1571,6 +1682,54 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _simState.ArmorDepleted = false;
         }
+    }
+
+    // Counts the per-hit flinch + knockback windows down each physics tick.
+    // The hitstun anim is a one-shot (latched via PlayOneShot in Damage), so
+    // this method only owns the state-clear for that field — the animator
+    // naturally falls out of the anim when it finishes or another PlayOneShot
+    // replaces it. Knockback is two-phase: while KnockbackTime > 0 the body's
+    // horizontal velocity is forced to KnockbackVelocity (see ApplyKnockback);
+    // when the timer hits zero we snap horizontal velocity to zero so the body
+    // doesn't coast past the authored distance.
+    private void TickHitstun(float dt)
+    {
+        if (_simState.HitstunTime > 0f)
+        {
+            _simState.HitstunTime = Mathf.Max(0f, _simState.HitstunTime - dt);
+        }
+        if (_simState.KnockbackTime > 0f)
+        {
+            _simState.KnockbackTime = Mathf.Max(0f, _simState.KnockbackTime - dt);
+            if (_simState.KnockbackTime <= 0f)
+            {
+                // Trailing edge — kill residual horizontal velocity so the
+                // body stops cleanly at distance. Y is preserved so gravity
+                // / buoyancy continue uninterrupted.
+                LinearVelocity = new Vector3(0f, LinearVelocity.Y, 0f);
+                _simState.KnockbackVelocity = Vector3.Zero;
+            }
+        }
+    }
+
+    // Forces horizontal velocity to the cached knockback vector each tick
+    // during the window. Bypasses LinearDamp + path-driven impulses (the AI
+    // gate above already returns aiOutput=default during hitstun, so there's
+    // no pathTarget block running) so the body covers exactly `distance`
+    // meters over `time` seconds.
+    private void ApplyKnockback()
+    {
+        if (_simState.KnockbackTime <= 0f)
+        {
+            return;
+        }
+        if (Freeze)
+        {
+            Freeze = false;
+        }
+        _impulseApplied = true;
+        Vector3 v = _simState.KnockbackVelocity;
+        LinearVelocity = new Vector3(v.X, LinearVelocity.Y, v.Z);
     }
 
     private void TickStun(float dt)

@@ -147,7 +147,12 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         HurtBox hurtBox = body.GetNodeOrNull<HurtBox>("HurtBox");
         if (hurtBox != null)
         {
-            HitInfo hit = new HitInfo(data.damageData, this);
+            // Spike pops up under the target — knockback (if any) lifts
+            // and bumps along the same axis. Y is stripped at apply time
+            // for horizontal-only knockback, so Vector3.Up reads as a zero
+            // horizontal impulse in practice; senders that want a horizontal
+            // shove from a trap should author a different direction here.
+            HitInfo hit = new HitInfo(data.damageData, this, Vector3.Up);
             hurtBox.Hit(hit);
         }
     }
