@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://bs7n2k9wxq3rm"]
+
+[ext_resource type="Script" uid="uid://6ovxx49en3ayz" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
+[ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="2_arrowtex"]
+
+[node name="BowArrow" type="Node3D"]
+script = ExtResource("1_proj")
+
+[node name="Sprite" type="Sprite3D" parent="."]
+cast_shadow = 0
+pixel_size = 0.0738
+billboard = 2
+alpha_cut = 1
+texture = ExtResource("2_arrowtex")
+texture_filter = 0

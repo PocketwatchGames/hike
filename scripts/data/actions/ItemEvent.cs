@@ -119,6 +119,24 @@ public partial class ItemEvent : Resource
 	[Export] public PackedScene impactArmorEffect;
 	[Export] public PackedScene impactLethalEffect;
 
+	// Projectile fields. Spawned by DoProjectile at the actor's position,
+	// flying along the actor's forward (with the tier's accuracy spread
+	// applied via accuracyScaleCurve). Damage on impact comes from the
+	// event's damageData (or the firing weapon's damageData if null).
+	// Authored inline rather than via a ProjectileData sub-resource because
+	// brand-new [GlobalClass] C# Resources don't reliably bind to typed
+	// [Export] slots in Godot 4.6 — the same fields a sibling sub-resource
+	// would carry just live on the event itself, matching how `meleeRange`
+	// / `hitScanRange` are authored.
+	[Export] public PackedScene projectileScene;
+	[Export] public float projectileSpeed = 25f;
+	// Hard cap on flight time before the projectile despawns; the reticle
+	// derives effective range as projectileSpeed * projectileLifetimeSeconds.
+	[Export] public float projectileLifetimeSeconds = 1f;
+	// Optional looping audio-visual cue parented to the projectile for the
+	// duration of its flight (fire trail, shockwave, magic glow).
+	[Export] public PackedScene projectileLoopEffect;
+
 	public override void _ValidateProperty(Dictionary property)
 	{
 		string name = property["name"].AsString();
@@ -151,7 +169,11 @@ public partial class ItemEvent : Resource
 				or nameof(impactEnvironmentEffect)
 				or nameof(impactHealthEffect)
 				or nameof(impactArmorEffect)
-				or nameof(impactLethalEffect) => EItemEventType.Melee | EItemEventType.Hitscan,
+				or nameof(impactLethalEffect) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
+			nameof(projectileScene)
+				or nameof(projectileSpeed)
+				or nameof(projectileLifetimeSeconds)
+				or nameof(projectileLoopEffect) => EItemEventType.Projectile,
 			_ => 0,
 		};
 	}

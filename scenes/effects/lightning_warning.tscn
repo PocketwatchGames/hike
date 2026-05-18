@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://bln1war1abcde"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bvw7yb6djxb5d" path="res://audio/source/ambience/thunder/amb_base_thunder_med_01.wav" id="med_01"]
+[ext_resource type="AudioStream" uid="uid://bx6vutqgmubce" path="res://audio/source/ambience/thunder/amb_base_thunder_med_02.wav" id="med_02"]
+[ext_resource type="AudioStream" uid="uid://c2jcx7kxvi27i" path="res://audio/source/ambience/thunder/amb_base_thunder_med_03.wav" id="med_03"]
+[ext_resource type="AudioStream" uid="uid://b6pqrk4yomyhp" path="res://audio/source/ambience/thunder/amb_base_thunder_med_04.wav" id="med_04"]
+[ext_resource type="AudioStream" uid="uid://lnyausnqodey" path="res://audio/source/ambience/thunder/amb_base_thunder_med_05.wav" id="med_05"]
+[ext_resource type="AudioStream" uid="uid://cl3cn5ipalgui" path="res://audio/source/ambience/thunder/amb_base_thunder_med_06.wav" id="med_06"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_warningSparks"]
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 8.0
+initial_velocity_min = 1.5
+initial_velocity_max = 4.0
+gravity = Vector3(0, 0, 0)
+damping_min = 0.4
+damping_max = 0.9
+scale_min = 0.18
+scale_max = 0.35
+color = Color(0.7, 0.85, 1.0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_warningSparks"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.8, 0.9, 1.0, 0.6)
+shader_parameter/emission = Color(0.9, 0.95, 1.0, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_warningSparks"]
+material = SubResource("ShaderMaterial_warningSparks")
+size = Vector2(0.18, 0.18)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_warningRumble"]
+playback_mode = 1
+random_pitch = 1.05
+random_volume_offset_db = 2.0
+streams_count = 6
+stream_0/stream = ExtResource("med_01")
+stream_1/stream = ExtResource("med_02")
+stream_2/stream = ExtResource("med_03")
+stream_3/stream = ExtResource("med_04")
+stream_4/stream = ExtResource("med_05")
+stream_5/stream = ExtResource("med_06")
+
+[node name="LightningWarning" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Sparks" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+amount = 40
+lifetime = 0.7
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_warningSparks")
+draw_pass_1 = SubResource("QuadMesh_warningSparks")
+
+[node name="Rumble" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_warningRumble")
+volume_db = -6.0
+unit_size = 8.0
+max_distance = 60.0
+bus = &"World3D"

@@ -1,10 +1,11 @@
 [gd_scene format=3 uid="uid://deyfwm11cdj8k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_01.wav" id="2_y01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_02.wav" id="2_y02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_03.wav" id="2_y03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_04.wav" id="2_y04"]
+[ext_resource type="AudioStream" uid="uid://bsdotlarxfs78" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_01.wav" id="2_y01"]
+[ext_resource type="AudioStream" uid="uid://dcxjnyu8u2k5y" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_02.wav" id="2_y02"]
+[ext_resource type="AudioStream" uid="uid://cpkcl5xt4hku2" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_03.wav" id="2_y03"]
+[ext_resource type="AudioStream" uid="uid://b0hyr3wgog4wd" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_04.wav" id="2_y04"]
+[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/effects/yell_particle.tscn" id="6_2fn4x"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_kkyell"]
 playback_mode = 1
@@ -12,20 +13,18 @@ random_pitch = 1.1
 random_volume_offset_db = 2.0
 streams_count = 4
 stream_0/stream = ExtResource("2_y01")
-stream_0/weight = 1.0
 stream_1/stream = ExtResource("2_y02")
-stream_1/weight = 1.0
 stream_2/stream = ExtResource("2_y03")
-stream_2/weight = 1.0
 stream_3/stream = ExtResource("2_y04")
-stream_3/weight = 1.0
 
-[node name="KunkunYell" type="Node3D"]
+[node name="KunkunYell" type="Node3D" unique_id=1426293285]
 script = ExtResource("1_oneshot")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1029406578]
 stream = SubResource("AudioStreamRandomizer_kkyell")
+volume_db = 2.0
 unit_size = 5.0
 max_distance = 32.0
-volume_db = 2.0
 bus = &"World3D"
+
+[node name="Yell" parent="." unique_id=939476039 instance=ExtResource("6_2fn4x")]

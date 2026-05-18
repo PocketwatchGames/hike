@@ -8,13 +8,13 @@ _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector
 point_count = 4
 
 [sub_resource type="Curve" id="Curve_rain_med_band"]
-_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.5, 0), 0.0, 0.0, 0, 0, Vector2(0.8, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
+_data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.2, 0), 0.0, 0.0, 0, 0, Vector2(0.5, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
 point_count = 4
 
 [resource]
 script = ExtResource("layer_script")
 stream = ExtResource("stream_rain_b")
-sourceField = 0
+sourceField = 9
 volumeCurve = SubResource("Curve_rain_med_band")
 gateField = 5
 gateCurve = SubResource("Curve_gate_outdoor")

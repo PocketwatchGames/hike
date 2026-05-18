@@ -428,13 +428,29 @@ public partial class SimData : Resource
     // `Variance*` knobs shape the per-12h perturbation around it.
 
     [ExportSubgroup("Diurnal Curve")]
-    // Normalized time-of-day at which the diurnal curve peaks (max
-    // temperature, max wind, peak dust lift). 0.6 ≈ early afternoon.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalPeak01 = 0.6f;
-    // Normalized time-of-day at which the diurnal curve troughs
-    // (coolest point of the day, fog max, lowest wind). 0.275 ≈ just
-    // after sunrise.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalTrough01 = 0.275f;
+    // The diurnal curve is a flat-topped trapezoid: a day plateau
+    // centered on DiurnalPeak01 (full diurnal = 1), a night plateau
+    // centered on DiurnalTrough01 (diurnal = 0), and SmoothStep ramps
+    // in between. Plateau half-width is DiurnalPlateauHalfWidth.
+    //
+    // Defaults: day plateau centered on noon (tod = 0.5) with
+    // half-width 0.125 — so the day stays "at peak" from tod = 0.375
+    // through tod = 0.625 (halfway between sunrise and noon through
+    // halfway between noon and sunset). Night plateau centered on
+    // midnight (tod = 0.0, wrapping) covers tod = 0.875 through 0.125.
+    // Warming ramp lives between [0.125, 0.375], cooling between
+    // [0.625, 0.875]; coolingRate (= max(0, -slope)) is therefore
+    // strictly positive only inside the cooling ramp and exactly zero
+    // on either plateau and on the warming half.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalPeak01 = 0.5f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float DiurnalTrough01 = 0.0f;
+    // Half-width of the day plateau (and, symmetrically, the night
+    // plateau). 0.125 puts the plateau edges at sunrise+sunset/2 and
+    // noon±0.125 / midnight±0.125. Width 0 collapses the trapezoid to
+    // a triangle wave with peaks at the plateau centers; 0.25 makes
+    // the day and night plateaus touch at sunrise / sunset, killing
+    // the ramps entirely.
+    [Export(PropertyHint.Range, "0,0.249,0.005")] public float DiurnalPlateauHalfWidth = 0.125f;
 
     [ExportSubgroup("Weather Variance")]
     // Game-hours between weather-variance re-rolls. The simulation
@@ -564,6 +580,51 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float RainCloudThreshold = 0.5f;
     [Export(PropertyHint.Range, "0,5,0.01")] public float RainFromCoolingRate = 2.0f;
 
+    // WET-MODE thunderstorm: heavy cloud × active rain. The air-mass /
+    // frontal thunderstorm — warm humid afternoon convection. The
+    // dominant mode for forest, swamp, and other temperate zones.
+    // SmoothStep from threshold to 1.0 on both axes; both must be high
+    // for the gate to open, so a wet day with thin cloud (or a stormy
+    // sky with no rain) produces no wet-mode lightning.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float LightningCloudThreshold = 0.7f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float LightningRainThreshold = 0.4f;
+
+    // DRY-MODE thunderstorm: cloud × low humidity × high temperature.
+    // High-base storm in hot arid air — virga (rain evaporates before
+    // reaching ground), wildfire-igniting strikes. Desert summers. NO
+    // rain required, so the wet gate's rain threshold doesn't apply.
+    // Cloud threshold is lower than wet because dry storms typically
+    // have less total cloud coverage but the cloud they do have reaches
+    // very high (cumulonimbus).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DryLightningCloudThreshold = 0.3f;
+    // Humidity inversion: humidity below this contributes, above shuts
+    // the gate. Sweep is 0 → DryLightningHumidityMax (so humidity = 0
+    // is full dry, humidity = max kills the gate).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float DryLightningHumidityMax = 0.3f;
+    // Air temperature (°F) sweep for the heat axis. Below TempMin the
+    // gate is shut; above TempMax it's fully open. ~75 → 95°F matches
+    // the temperature range where atmospheric instability lifts dry
+    // storm activity in real climates.
+    [Export] public float DryLightningTempMin = 75f;
+    [Export] public float DryLightningTempMax = 95f;
+
+    // OROGRAPHIC-MODE thunderstorm: cloud × strong wind × high
+    // elevation. Air forced up a mountainside, condenses on the
+    // windward slope, lightning concentrates along ridgelines. Mountain
+    // zones. NO rain required (orographic storms often have lighter
+    // precipitation than air-mass storms but more dramatic lightning).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float OrographicLightningCloudThreshold = 0.4f;
+    // Wind speed (m/s) sweep. Below WindMin no lift; above WindMax full
+    // gate. Matched roughly to AdvectedVarianceWindRef so "wind that
+    // moves weather around" also drives orographic activity.
+    [Export(PropertyHint.Range, "0,40,0.1")] public float OrographicLightningWindMin = 6f;
+    [Export(PropertyHint.Range, "0,40,0.1")] public float OrographicLightningWindMax = 14f;
+    // Zone elevation (0..1, blended runtime ZoneState.Elevation) sweep.
+    // ElevationMin → 1.0. Default 0.5 means only the upper half of the
+    // elevation range qualifies — flatland zones don't get orographic
+    // lightning regardless of cloud/wind.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float OrographicLightningElevationMin = 0.5f;
+
     // Dust: wind × elevation × diurnal-warmth, suppressed by humidity
     // and rain. Authored dustMax is the ceiling.
     [Export(PropertyHint.Range, "0,2,0.01")] public float DustFromWind = 1.0f;
@@ -622,4 +683,21 @@ public partial class SimData : Resource
     // in the per-ground baseline alpha; a faint print can't visually
     // outlast a deep one anyway.
     [Export] public float FootprintDurationSeconds = 15f;
+
+    [ExportGroup("Audio")]
+    // Distant rolling-thunder scheduler asset + tuning. Sim-wide, since
+    // the rolling-thunder bed sounds the same across zones (the per-zone
+    // story is whether the zone gets lightning at all, controlled by
+    // WeatherData.lightningAmount). Null = no thunder audio; the
+    // ThunderScheduler node is still spawned but dormant.
+    [Export] public ThunderSchedulerData thunderScheduler;
+
+    [ExportGroup("Weather Lightning")]
+    // Damaging lightning strikes spawned around the player by
+    // WeatherLightningSpawner. Same intensity signal as the thunder
+    // bed but a separate, much-rarer cadence. Null = no weather
+    // strikes; the spawner stays dormant. Distinct from the
+    // ThunderScheduler audio above (distant rumble atmosphere) — this
+    // is the gameplay hazard.
+    [Export] public LightningData weatherLightning;
 }

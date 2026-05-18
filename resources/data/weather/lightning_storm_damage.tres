@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DamageData" format=3 uid="uid://bln1dmg1klmno"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
+
+[resource]
+script = ExtResource("1_damage")
+healthDamage = 35.0
+stun = 0.6
+hitstun = 0.5
+knockbackDistance = 6.0
+knockbackTime = 0.35
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"

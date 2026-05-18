@@ -11,6 +11,7 @@ windSpeed = 15.0
 airTemperature = 40.0
 sunTemperature = 20.0
 humidity = 0.35
+rainAmount = 0.2
 metadata/_custom_type_script = "uid://d25sc6n2mi728"
 
 [resource]

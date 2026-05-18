@@ -195,4 +195,24 @@ public partial class PlayerData : Resource
 	// SampleWindSpeed already drops to 0 under overhead shelter so caves and
 	// covered structures don't fake a draft.
 	[Export] public float windTemperatureReduction = 0.5f;
+
+	// Player accumulates wetness in [0, 1] while exposed to rain or in
+	// water; the wet status only arms once it crosses wetnessArmThreshold,
+	// and only releases once it falls below wetnessDisarmThreshold
+	// (hysteresis prevents the status flapping when wetness hovers near
+	// one boundary). Standing in water snaps wetness to 1 immediately —
+	// you're soaked the moment you step in.
+	//
+	// Rates are units-per-second of wetness with the input at full
+	// strength. wetnessRainRate of 0.02 means it takes ~25 seconds in
+	// full RainIntensity = 1 rain to cross the 0.5 arm threshold (and
+	// ~50 seconds to fully saturate). Drying inversely scales with
+	// temperature — a warm dry day dries faster — so wetnessDryRate is
+	// the *baseline* rate at neutral conditions; warmth zones override
+	// it via wetnessWarmthDryRate.
+	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessRainRate = 0.02f;
+	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessDryRate = 0.003f;
+	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessWarmthDryRate = 0.1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessArmThreshold = 0.5f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessDisarmThreshold = 0.1f;
 }

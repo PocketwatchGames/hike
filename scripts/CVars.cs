@@ -85,6 +85,126 @@ public static class CVars
     // authoring new looks means editing ZoneData.tres + WeatherData.tres
     // (or the derivation tuning group on SimData), not CVars.
 
+    // Debug: when > 0, overrides simulated lightningAmount each frame
+    // after WeatherSimulation.Apply runs, bypassing the cloud/rain
+    // gates and the lightning-variance roll. 1.0 = full electrical
+    // storm immediately. 0 = no override (normal sim behavior, lightning
+    // emerges from the gated variance system). Affects every Apply
+    // call including the HUD's forecast objects, so the thunder icon
+    // also lights up while the override is on.
+    public static CVarFloat forceLightning = new CVarFloat("force_lightning", 0f, (cvar) =>
+    {
+        float v = ((CVarFloat)cvar).Value;
+        WeatherSimulation.ForceLightningOverride = v > 0f ? (float?)v : null;
+    });
+
+    // Debug: spawn a single damaging lightning strike at a random
+    // position in the weather-lightning spawn annulus around the
+    // player. Bypasses the spawner's cadence and intensity floor so
+    // you can hit-test the strike entity end-to-end (warning,
+    // flash, screen overlay, radial damage) without waiting for a
+    // storm to roll in. Uses World.Current.SimData.weatherLightning
+    // — wire it in the resource for this to do anything.
+    public static CVar strikeLightning = new CVar("strike_lightning", (cvar) =>
+    {
+        World world = World.Current;
+        Player player = world?.player;
+        LightningData data = world?.SimData?.weatherLightning;
+        if (world == null || player == null || data == null)
+        {
+            Godot.GD.PushWarning("strike_lightning: need a running world, player, and SimData.weatherLightning");
+            return;
+        }
+        var rng = new Godot.RandomNumberGenerator();
+        rng.Randomize();
+        float minR = Godot.Mathf.Max(0f, data.weatherSpawnRadiusMinMeters);
+        float maxR = Godot.Mathf.Max(minR, data.weatherSpawnRadiusMaxMeters);
+        float yaw = rng.RandfRange(0f, Godot.Mathf.Tau);
+        float u = rng.Randf();
+        float r = Godot.Mathf.Sqrt(minR * minR + u * (maxR * maxR - minR * minR));
+        Godot.Vector3 query2d = player.GlobalPosition + new Godot.Vector3(Godot.Mathf.Cos(yaw) * r, 0f, Godot.Mathf.Sin(yaw) * r);
+        Godot.Vector3 from = query2d + new Godot.Vector3(0f, 80f, 0f);
+        Godot.Vector3 to = query2d + new Godot.Vector3(0f, -80f, 0f);
+        using var rayQuery = Godot.PhysicsRayQueryParameters3D.Create(from, to);
+        rayQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+        var result = world.GetWorld3D().DirectSpaceState.IntersectRay(rayQuery);
+        Godot.Vector3 strikePos = result.Count > 0 ? (Godot.Vector3)result["position"] : query2d;
+        LightningStrike.Create(world, strikePos, data);
+    });
+
+    // Debug: dump the current weather state plus the variance prev/cur/next
+    // triples and the lightning-gate breakdown. Use to diagnose why a
+    // thunderstorm isn't firing — the print shows whether the bottleneck
+    // is low simCloud, low simRain, or a fair lightningVariance roll.
+    public static CVar weatherProbe = new CVar("weather", (cvar) =>
+    {
+        WorldState ws = World.Current?.WorldState;
+        SkyController sky = SkyController.Current;
+        if (ws == null || sky == null)
+        {
+            Godot.GD.Print("weather: no active world / sky.");
+            return;
+        }
+        WeatherData w = sky.Weather;
+        ZoneData zone = sky.Zone;
+        SimData sim = ws.SimData;
+        if (w == null || sim == null)
+        {
+            Godot.GD.Print("weather: world/sim not initialized.");
+            return;
+        }
+
+        float tod = (float)ws.TimeOfDay01;
+        float diurnal = WeatherSimulation.DiurnalCurve(tod, sim);
+        float diurnalSlope = WeatherSimulation.DiurnalCurveSlope(tod, sim);
+        float coolingRate = Godot.Mathf.Max(0f, -diurnalSlope);
+        long phase = WeatherSimulation.CurrentPhase(ws.TimeOfDayAbsolute, sim);
+        int hpd = WeatherSimulation.HandoversPerDay(sim);
+        double nextHandover = ((double)(phase + 1) / hpd) + 0.25;
+        double daysUntilHandover = nextHandover - ws.TimeOfDayAbsolute;
+
+        // Three storm-mode gates — match WeatherSimulation.Apply.
+        float wetGate = Godot.Mathf.SmoothStep(sim.LightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(sim.LightningRainThreshold, 1f, w.rainAmount);
+        float dryGate = Godot.Mathf.SmoothStep(sim.DryLightningCloudThreshold, 1f, w.cloudCover)
+            * (1f - Godot.Mathf.SmoothStep(0f, sim.DryLightningHumidityMax, w.humidity))
+            * Godot.Mathf.SmoothStep(sim.DryLightningTempMin, sim.DryLightningTempMax, w.airTemperature);
+        // Elevation: use blended ZoneState if available.
+        float elev = SkyController.Current?.ZoneState.Elevation ?? 0f;
+        float orographicGate = Godot.Mathf.SmoothStep(sim.OrographicLightningCloudThreshold, 1f, w.cloudCover)
+            * Godot.Mathf.SmoothStep(sim.OrographicLightningWindMin, sim.OrographicLightningWindMax, w.windSpeed)
+            * Godot.Mathf.SmoothStep(sim.OrographicLightningElevationMin, 1f, elev);
+        float gateAny = Godot.Mathf.Max(wetGate, Godot.Mathf.Max(dryGate, orographicGate));
+        string winner = wetGate >= dryGate && wetGate >= orographicGate ? "WET"
+            : dryGate >= orographicGate ? "DRY" : "OROGRAPHIC";
+
+        Godot.GD.Print("=== weather probe ===");
+        Godot.GD.Print($"  time-of-day:    tod={tod:F3} (abs={ws.TimeOfDayAbsolute:F3})  diurnal={diurnal:F3}  slope={diurnalSlope:F3}  coolingRate={coolingRate:F3}");
+        Godot.GD.Print($"  phase:          {phase} (next handover in {daysUntilHandover * sim.DayLengthSeconds:F0}s wall time @ time_scale=1)");
+        if (zone != null)
+        {
+            Godot.GD.Print($"  blended zone:   {zone.ResourcePath}");
+        }
+        Godot.GD.Print($"  SIMULATED (post-Apply, what audio/visuals read):");
+        Godot.GD.Print($"    cloudCover     = {w.cloudCover:F3}");
+        Godot.GD.Print($"    rainAmount     = {w.rainAmount:F3}");
+        Godot.GD.Print($"    lightningAmt   = {w.lightningAmount:F3}{(WeatherSimulation.ForceLightningOverride.HasValue ? "  [FORCED]" : "")}");
+        Godot.GD.Print($"    humidity       = {w.humidity:F3}");
+        Godot.GD.Print($"    windSpeed      = {w.windSpeed:F2} m/s");
+        Godot.GD.Print($"    airTemperature = {w.airTemperature:F1}°F");
+        Godot.GD.Print($"  VARIANCE  (prev → cur → next   |   currently displayed)");
+        Godot.GD.Print($"    weather    = {ws.WeatherVariancePrev:F3} → {ws.WeatherVarianceCur:F3} → {ws.WeatherVarianceNext:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
+        Godot.GD.Print($"    humidity   = {ws.HumidityVariancePrev:F3} → {ws.HumidityVarianceCur:F3} → {ws.HumidityVarianceNext:F3}   |  {ws.HumidityVariance:F3}");
+        Godot.GD.Print($"    cloud      = {ws.CloudVariancePrev:F3} → {ws.CloudVarianceCur:F3} → {ws.CloudVarianceNext:F3}   |  {ws.CloudVariance:F3}");
+        Godot.GD.Print($"    lightning  = {ws.LightningVariancePrev:F3} → {ws.LightningVarianceCur:F3} → {ws.LightningVarianceNext:F3}   |  {ws.LightningVariance:F3}");
+        Godot.GD.Print($"    (cloud variance is INVERSE: low = cloudier; lightning variance reads through directly)");
+        Godot.GD.Print($"  LIGHTNING GATES (3 modes, max wins)  active mode: {winner}");
+        Godot.GD.Print($"    WET        = {wetGate:F3}   (cloud × rain — warm humid w/ rain)");
+        Godot.GD.Print($"    DRY        = {dryGate:F3}   (cloud × low-humidity × high-temp — desert virga)");
+        Godot.GD.Print($"    OROGRAPHIC = {orographicGate:F3}   (cloud × wind × elevation={elev:F2} — mountain ridge)");
+        Godot.GD.Print($"    × varianceFactor (lightningVar={ws.LightningVariance:F3}) × lightningMax = simLightning {w.lightningAmount:F3}");
+    });
+
     // Multiplier on the time-of-day advance rate. 1 = SimData.DayLengthSeconds
     // is a real-time day; 60 fast-forwards the cycle 60x for testing sunset /
     // night look without waiting. Does not affect GameTimeMs so player

@@ -1,0 +1,35 @@
+[gd_scene format=3 uid="uid://cllgx17yuurot"]
+
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_rsf1q"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rkves"]
+emission_shape = 1
+emission_sphere_radius = 0.2
+direction = Vector3(0, 1, 0)
+initial_velocity_min = 2.5
+initial_velocity_max = 6.0
+gravity = Vector3(0, -10, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.6
+scale_max = 1.8
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_splash"]
+render_priority = 0
+shader = ExtResource("1_rsf1q")
+shader_parameter/albedo = Color(0.6, 0.8, 0.95, 0.7)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_u4lrp"]
+material = SubResource("ShaderMaterial_splash")
+size = Vector2(0.12, 0.12)
+
+[node name="Yell" type="GPUParticles3D" unique_id=939476039]
+emitting = false
+amount = 18
+lifetime = 0.6
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_rkves")
+draw_pass_1 = SubResource("QuadMesh_u4lrp")

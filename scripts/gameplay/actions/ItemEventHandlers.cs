@@ -149,6 +149,7 @@ public static class ItemEventHandlers
 
 		var hurtResult = spaceState.IntersectRay(hurtQuery);
 		EHitResult hitResult = EHitResult.None;
+		HurtBox hitHurtBox = null;
 		if (hurtResult.Count > 0)
 		{
 			var collider = hurtResult["collider"].Obj;
@@ -161,6 +162,7 @@ public static class ItemEventHandlers
 					hitResult = hurtBox.QueryHitType(hit);
 					hurtBox.Hit(hit);
 					hitPos = (Vector3)hurtResult["position"];
+					hitHurtBox = hurtBox;
 				}
 			}
 		}
@@ -179,7 +181,142 @@ public static class ItemEventHandlers
 			SpawnImpact(actor, ev.impactMissEffect, hitPos);
 		}
 
+		// Recoverable arrow. Triggers only for weapons that author an
+		// arrowLootData reference (currently the bow); other hitscan sources
+		// (mob attacks, traps) leave it null and fire and forget. World.Current
+		// is the active game world — used here rather than threading a World
+		// through IActionActor since the hitscan handler already targets the
+		// player's running game.
+		//
+		// Branch: a hit that landed on a still-living mob's hurtbox sticks the
+		// arrow on that mob (Mob.Die later drops it as loose loot with an
+		// outward impulse). Everything else — environment clip, miss, or a
+		// lethal hit that just killed the mob — drops the arrow at the impact
+		// point.
+		if (action.context.primaryItem is WeaponState shootingWeapon
+			&& shootingWeapon.data?.arrowLootData != null
+			&& World.Current != null)
+		{
+			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
+			if (targetMob != null && targetMob.alive)
+			{
+				targetMob.StickArrow(shootingWeapon, shootingWeapon.data.arrowLootData, hitPos);
+			}
+			else
+			{
+				// Chest-style 45° pop on a random horizontal heading. Same
+				// arc Mob.EjectLoot / EjectStuckArrows use, so arrows landing
+				// on the ground vs popping off a corpse have a consistent
+				// "freshly dropped" read. The launch also kicks the bob
+				// animation in Loot.Settle on rest (the AnimationPlayer
+				// branch keys on _initialImpulse != Vector3.Zero).
+				World.Current.SpawnArrowLoot(hitPos, BuildArrowEjectImpulse(), shootingWeapon.data.arrowLootData, shootingWeapon);
+			}
+		}
+
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
+	}
+
+	// Walks up from a HurtBox's tree position looking for the owning Mob.
+	// Mobs author the HurtBox as a child Area3D, so walking GetParent() will
+	// always find the Mob within a handful of hops. Non-mob hurtboxes (the
+	// player's own, environmental damageables) return null and fall through
+	// to the loose-loot path.
+	public static Mob FindOwningMob(Node node)
+	{
+		while (node != null)
+		{
+			if (node is Mob mob)
+			{
+				return mob;
+			}
+			node = node.GetParent();
+		}
+		return null;
+	}
+
+	// 45° upward pop on a random horizontal heading at chest-eject speed.
+	// Shared by the env-hit and miss paths so both produce the same
+	// "freshly dropped" arc through Loot's physics; Mob.EjectStuckArrows
+	// uses the same shape inline for arrows scattering off a corpse.
+	private const float ARROW_EJECT_SPEED = 5f;
+	public static Vector3 BuildArrowEjectImpulse()
+	{
+		float horizontalSpeed = ARROW_EJECT_SPEED * Mathf.Cos(Mathf.Pi / 4f);
+		float verticalSpeed = ARROW_EJECT_SPEED * Mathf.Sin(Mathf.Pi / 4f);
+		float angle = (float)GD.RandRange(0.0, Mathf.Tau);
+		return new Vector3(
+			horizontalSpeed * Mathf.Cos(angle),
+			verticalSpeed,
+			horizontalSpeed * Mathf.Sin(angle)
+		);
+	}
+
+	// Spawns a Projectile at the actor's position, flying along the actor's
+	// forward (with the tier's accuracy spread applied). Damage on impact
+	// comes from ResolveHit — same template precedence as melee/hitscan.
+	// Mirrors DoHitscan's spread/range scaling so a single weapon can swap
+	// between hitscan and projectile without re-authoring its curves.
+	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.projectileScene == null)
+		{
+			return;
+		}
+		HitInfo hit = ResolveHit(ev, action, actor);
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		{
+			return;
+		}
+
+		Node3D attacker = actor.AttackerNode;
+		Node parent = attacker?.GetParent();
+		if (parent == null)
+		{
+			return;
+		}
+
+		// Per-tier accuracy curve — same convention as DoHitscan. Range
+		// scaling on a projectile would shorten its lifetime; left to a
+		// later pass, so the curve remains a spread-only knob for now.
+		ItemAction tier = action.selectedTier;
+		float chargeT = action.chargeT;
+		float spreadScale = SampleCurve(tier?.accuracyScaleCurve, chargeT, 0f);
+
+		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
+		Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
+
+		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
+		DamageData damageData = ev.damageData ?? firingWeapon?.data?.damageData;
+
+		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
+		// Authored cues + arrow-recovery binding ride along on the projectile
+		// so impact-time decisions don't need to peek back at the event /
+		// action context (which may be torn down by the time the projectile
+		// lands several seconds into flight).
+		ProjectileImpact impact = new ProjectileImpact
+		{
+			miss = ev.impactMissEffect,
+			environment = ev.impactEnvironmentEffect,
+			health = ev.impactHealthEffect,
+			armor = ev.impactArmorEffect,
+			lethal = ev.impactLethalEffect,
+			sourceWeapon = firingWeapon,
+		};
+		Projectile.Launch(
+			parent,
+			ev.projectileScene,
+			ev.projectileSpeed,
+			ev.projectileLifetimeSeconds,
+			ev.projectileLoopEffect,
+			origin,
+			direction,
+			damageData,
+			attacker,
+			actor.AttackHurtboxMask,
+			actor.SelfHurtBoxRid,
+			excludeBody,
+			impact);
 	}
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -420,7 +557,7 @@ public static class ItemEventHandlers
 		};
 	}
 
-	private static PackedScene PickImpactScene(ItemEvent ev, EHitResult result)
+	public static PackedScene PickImpactScene(ItemEvent ev, EHitResult result)
 	{
 		return result switch
 		{

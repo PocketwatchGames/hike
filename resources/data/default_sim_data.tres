@@ -14,6 +14,8 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="8_mob_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="9_mob_kun_kun"]
 [ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/friendly_villager.tres" id="10_mob_villager"]
+[ext_resource type="Resource" uid="uid://cc52pkmouqeuk" path="res://resources/audio/thunder_distant.tres" id="11_thunder_distant"]
+[ext_resource type="Resource" uid="uid://bln1dat1pqrst" path="res://resources/data/weather/lightning_storm.tres" id="12_lightning"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -28,4 +30,6 @@ MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
 FootprintVisible = ExtResource("2_7ttre")
 FootprintDiscoverable = ExtResource("1_atie7")
+thunderScheduler = ExtResource("11_thunder_distant")
+weatherLightning = ExtResource("12_lightning")
 metadata/_custom_type_script = "uid://chvgahtb671mg"

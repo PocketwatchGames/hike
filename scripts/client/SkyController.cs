@@ -484,6 +484,16 @@ public partial class SkyController : Node3D
     // separate knob for whole-scene shadow floor.
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShadowStrength = 0.66f;
 
+    // Peak DirectionalLight3D energy added on top of the body's normal
+    // LightEnergy during a lightning flash (flash intensity 1.0 adds
+    // exactly this much; intensity 0.3 adds 30% of it). 3.0 reads as a
+    // sharp pop above midday sun without saturating the scene to pure
+    // white — adjustable per project. Applied to both sun and moon
+    // lights so flashes light the world correctly at night too; only
+    // the active body is Visible, so the energy on the inactive body
+    // is harmless.
+    [Export(PropertyHint.Range, "0,16,0.1")] public float lightningFlashEnergyBoost = 3.0f;
+
     [ExportGroup("Fog")]
     // Wire this to res://resources/materials/fog_volumetric.tres — the
     // shader's per-material uniforms are pushed here from the palette.
@@ -1242,6 +1252,18 @@ public partial class SkyController : Node3D
         float lightFadeStart = lightFadeEnd + Mathf.Max(lightEnergyFadeRangeDegrees, 0.01f);
         float sunEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _sunLightElevationDegrees);
         float moonEnergyFactor = Mathf.SmoothStep(lightFadeEnd, lightFadeStart, _moonLightElevationDegrees);
+
+        // Lightning flash boost. Added on top of each body's baseline
+        // LightEnergy so a flash brightens the scene at any time of
+        // day. Only the active body is Visible, so the boost on the
+        // inactive one is silently discarded. The companion
+        // cloud_shadow_strength blank-out below ensures the boost
+        // actually reaches the ground even where a cloud was darkening
+        // it (the user-requested "should brighten even under cloud
+        // shadows" behavior).
+        float flashIntensity = LightningFlasher.Current?.Intensity ?? 0f;
+        float flashEnergy = flashIntensity * lightningFlashEnergyBoost;
+
         // Hard-disable the inactive body. Even at LightEnergy=0 a
         // DirectionalLight3D with ShadowEnabled=true still renders a
         // full shadow atlas pass and (in PSSM mode) splits the atlas
@@ -1251,12 +1273,12 @@ public partial class SkyController : Node3D
         // shadow contributions cleanly.
         if (sunLight != null)
         {
-            sunLight.LightEnergy = sunEnergyFactor;
+            sunLight.LightEnergy = sunEnergyFactor + flashEnergy;
             sunLight.Visible = _sunIsPrimary;
         }
         if (moonLight != null)
         {
-            moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity;
+            moonLight.LightEnergy = moonEnergyFactor * _palette.NightPrimaryIntensity + flashEnergy;
             moonLight.Visible = !_sunIsPrimary;
         }
 
@@ -1360,7 +1382,14 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", _palette.CloudSharpness);
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
         RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
-        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength);
+        // Cloud-shadow attenuation. Multiplicatively blanked by an
+        // active lightning flash so the flash energy boost above reaches
+        // the ground even where a cloud was darkening it — the
+        // "brighten even under cloud shadows" requirement. At flash
+        // intensity 1.0 cloud shadows fully disappear; at 0 the
+        // authored cloudShadowStrength is unchanged.
+        float flashShadowMask = 1f - Mathf.Clamp(flashIntensity, 0f, 1f);
+        RenderingServer.GlobalShaderParameterSet("cloud_shadow_strength", cloudShadowStrength * flashShadowMask);
         RenderingServer.GlobalShaderParameterSet("wetness_level", World.Current?.WorldState?.WetnessLevel ?? 0f);
         RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);

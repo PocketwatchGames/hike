@@ -25,6 +25,11 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// Same Fx.Create one-shot pattern as the pickup/spawn effects; null leaves
 	// the despawn silent (e.g. test scenes that don't author a remove cue).
 	[Export] private PackedScene _removeEffectScene;
+	// How long after spawn an impulse-launched pickup becomes grabbable, even
+	// if it's still moving. Lets arrows be recovered mid-flight after the
+	// initial firing arc has cleared the shooter; loot that comes to rest
+	// before this elapses unlocks pickup at rest via Settle() instead.
+	[Export] private float _pickupReadyDelaySeconds = 0.6f;
 
 	// Authored interaction list. The first entry's events should include an
 	// OpenInteractive event that triggers Complete() — that's how the runner
@@ -39,10 +44,10 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private Vector3 _initialImpulse;
 	private Player _picker;
 	private bool _playSpawnEffects;
-	// Elapsed time the pickup has been in the world, in seconds. Compared
-	// against LootData.removeTimeMs (converted to seconds) to decide when to
-	// fire the remove FX and despawn. Local to the live instance — re-enters
-	// at 0 if the chunk unloads and re-streams the loot.
+	// Elapsed time the pickup has been in the world, in seconds. Drives both
+	// the settle-timeout fallback (force pickup-ready if physics never rests)
+	// and the LootData.removeTimeMs despawn. Local to the live instance —
+	// re-enters at 0 if the chunk unloads and re-streams the loot.
 	private float _ageSeconds;
 
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
@@ -79,13 +84,18 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return;
 		}
-		ItemData data = _simState?.Item?.data ?? _simState?.Data;
-		if (data is not LootData lootData || lootData.removeTimeMs <= 0)
-		{
-			return;
-		}
 		_ageSeconds += (float)delta;
-		if (_ageSeconds * 1000f >= lootData.removeTimeMs)
+		// Enable the interact area once the firing arc has cleared without
+		// freezing the body — pickup remains available even if the loot is
+		// still tumbling. Settle() (called from _IntegrateForces on rest)
+		// also sets Monitoring=true, so whichever path fires first wins.
+		if (_interactArea != null && !_interactArea.Monitoring
+			&& _pickupReadyDelaySeconds > 0f && _ageSeconds >= _pickupReadyDelaySeconds)
+		{
+			_interactArea.Monitoring = true;
+		}
+		ItemData data = _simState?.Item?.data ?? _simState?.Data;
+		if (data is LootData lootData && lootData.removeTimeMs > 0 && _ageSeconds * 1000f >= lootData.removeTimeMs)
 		{
 			Expire();
 		}
@@ -105,6 +115,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		if (_simState != null)
 		{
 			_simState.PickedUp = true;
+			_simState.OnRemovedFromWorld();
 		}
 		if (_removeEffectScene != null)
 		{
@@ -119,7 +130,20 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			_interactArea.Monitoring = false;
 		}
 		_world?.RemoveEntity(this);
-		QueueFree();
+		// Play the PickedUp shrink/lift animation as the despawn outro — same
+		// visual outro as a player pickup, so an arrow timing out reads as
+		// "vanished" rather than "popped out of existence." OnPickedUpFinished
+		// runs QueueFree once the animation ends. No animation player → free
+		// immediately, matching the pre-animation behavior.
+		if (_animationPlayer != null)
+		{
+			_animationPlayer.AnimationFinished += OnPickedUpFinished;
+			_animationPlayer.Play("PickedUp");
+		}
+		else
+		{
+			QueueFree();
+		}
 	}
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
@@ -187,6 +211,23 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			return false;
 		}
 
+		// Per-loot-kind gate (e.g. arrow bound to a specific weapon) — must
+		// pass before any auto-pickup path. Without this, a loose arrow's
+		// pickup would trigger regardless of which player walks over it.
+		if (!_simState.CanPickup(player))
+		{
+			return false;
+		}
+
+		// Loot that doesn't deposit into the inventory (arrows return ammo
+		// to the source weapon) auto-picks up on collision unconditionally —
+		// no stack-space search needed since nothing is being added to a
+		// slot. CanPickup above already vetted the binding.
+		if (!_simState.ShouldDepositToInventory())
+		{
+			return true;
+		}
+
 		ItemData data = _simState.Item?.data ?? _simState.Data;
 		if (data == null || !data.IsStackable)
 		{
@@ -217,12 +258,25 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			return false;
 		}
+		// Per-loot-kind gate — arrow drops bound to a specific weapon refuse
+		// pickup unless that weapon is still equipped.
+		if (_simState != null && !_simState.CanPickup(player))
+		{
+			return false;
+		}
 		// Auto-pickup loot suppresses its own interact highlight — body entry
 		// will commit the pickup on the next physics frame, so showing the
 		// "press to interact" affordance would just flicker.
 		if (CanAutoPickup(player))
 		{
 			return false;
+		}
+		// Backpack-fit gate only applies to loot that actually deposits into
+		// the inventory. Arrows return to the source weapon's ammo pool and
+		// don't take a slot, so a full backpack must not block recovering them.
+		if (_simState != null && !_simState.ShouldDepositToInventory())
+		{
+			return true;
 		}
 		// If the loot carries an item, only allow interact when there's
 		// space; otherwise the action would run to completion and silently
@@ -294,6 +348,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		if (_simState != null)
 		{
 			_simState.PickedUp = true;
+			_simState.OnRemovedFromWorld();
 		}
 		if (_pickupEffectScene != null)
 		{
@@ -318,6 +373,20 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private bool TryDepositItem(Player player)
 	{
 		if (_simState == null)
+		{
+			return true;
+		}
+		// Per-loot-kind gate — refuse the commit so the runner's
+		// completionEvents pass turns into a no-op (e.g. an arrow whose
+		// source weapon was dropped between highlight and action commit).
+		if (!_simState.CanPickup(player))
+		{
+			return false;
+		}
+		// Pickup with no inventory deposit — arrow ammo returns to the
+		// source weapon via OnRemovedFromWorld; the Loot still despawns
+		// normally.
+		if (!_simState.ShouldDepositToInventory())
 		{
 			return true;
 		}

@@ -359,6 +359,18 @@ public partial class AmbienceController : Node3D
     {
         _state.Wetness = ws.WetnessLevel;
         _state.WindSpeed = ws.SampleWindFactor(listenerPos);
+        // SkyController rewrites the blended WeatherData in place each
+        // frame, so .lightningAmount here is the simulated current
+        // value (already gated by storm conditions + variance) rather
+        // than the authored zone max. Mirrors how Wetness reads
+        // ws.WetnessLevel instead of the authored rain ceiling.
+        _state.LightningIntensity = SkyController.Current?.Weather?.lightningAmount ?? 0f;
+        // Visual rain intensity. Reads palette.RainIntensity — the
+        // SLEWED display value SkyController writes after the rain-
+        // effect look-ahead pass — rather than the raw simulated
+        // rainAmount. Keeps rain audio in lock-step with the visible
+        // particle effect.
+        _state.RainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
         EnvTagWeights tagWeights = ws.SampleEnvTagWeights(listenerPos);
 
         // Geometric enclosure at the listener — short rays in 6 directions

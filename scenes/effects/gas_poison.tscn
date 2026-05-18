@@ -10,6 +10,7 @@
 [sub_resource type="Resource" id="Resource_gas_poison_damage"]
 script = ExtResource("3_dmg")
 statusEffects = Array[Object]([ExtResource("4_js1uy")])
+modifiers = null
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_gas_poison_zone"]

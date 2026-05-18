@@ -217,6 +217,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
+
+    // Arrows currently stuck in this mob. Populated by StickArrow when the
+    // player hits with a bow; drained by Die (each becomes loose loot with
+    // an outward impulse, transferring the source-weapon binding) and by
+    // _ExitTree (any remaining → ammo returns to the weapon, no loot).
+    readonly List<ArrowStuck> _stuckArrows = new();
     readonly WaterRippleEmitter _rippleEmitter = new();
     // Active loop instances. See Player for the lifecycle pattern — null
     // when the matching state isn't held; created on activation, Stop()'d
@@ -1816,6 +1822,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         SpawnWorldEffect(_deathFx);
         SpawnWorldEffect(_deathVoFx);
         EjectLoot();
+        EjectStuckArrows();
         AxisLockAngularY = false;
         // Don't unfreeze on death — a mob that was idle-pinned when it
         // died stays pinned. A mob that died mid-motion / from a hit
@@ -1857,6 +1864,78 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, entry.item);
             }
         }
+    }
+
+    // Spawn an ArrowStuck child at the world-space hit point. Caller has
+    // already verified `alive` and that the firing weapon authors an
+    // arrowLootData. The stuck arrow registers with the source weapon's
+    // outstandingArrows list so it counts against the cap and recovers
+    // ammo via the standard OnArrowRemoved path when it leaves play.
+    public void StickArrow(WeaponState sourceWeapon, ArrowLootData data, Vector3 worldHitPos)
+    {
+        if (sourceWeapon == null || data == null)
+        {
+            return;
+        }
+        ArrowStuck stuck = ArrowStuck.Create(this, data, sourceWeapon, worldHitPos);
+        if (stuck == null)
+        {
+            return;
+        }
+        _stuckArrows.Add(stuck);
+        sourceWeapon.RegisterArrow(stuck);
+    }
+
+    // Drop each stuck arrow as loose loot with the same 45° outward arc
+    // EjectLoot uses for mob drops. Called from Die after EjectLoot so the
+    // arrows scatter alongside the mob's authored loot. The stuck instance
+    // hands its weapon binding off to the new ArrowLoot via DropAsLoot —
+    // no ammo is bumped on the transition.
+    private void EjectStuckArrows()
+    {
+        if (_stuckArrows.Count == 0)
+        {
+            return;
+        }
+        var rng = new Random();
+        const float SPEED = 5f;
+        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        // Iterate a snapshot — DropAsLoot frees each ArrowStuck, which will
+        // null out _sourceWeapon and remove the node from the tree.
+        ArrowStuck[] snapshot = _stuckArrows.ToArray();
+        _stuckArrows.Clear();
+        for (int i = 0; i < snapshot.Length; i++)
+        {
+            float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+            var impulse = new Vector3(
+                horizontalSpeed * Mathf.Cos(angle),
+                verticalSpeed,
+                horizontalSpeed * Mathf.Sin(angle)
+            );
+            snapshot[i].DropAsLoot(impulse);
+        }
+    }
+
+    // Mob is leaving the scene tree. Two cases:
+    //   - Mob died: Die already drained _stuckArrows via EjectStuckArrows,
+    //     so the list is empty and this loop is a no-op.
+    //   - Mob unloaded mid-stuck (chunk eviction, despawn): each remaining
+    //     stuck arrow returns 1 ammo to its source weapon. The visual is
+    //     about to be freed anyway as a child of this mob, so no loot
+    //     spawns — the arrow is treated as "lost with the mob."
+    public override void _ExitTree()
+    {
+        if (_stuckArrows.Count > 0)
+        {
+            ArrowStuck[] snapshot = _stuckArrows.ToArray();
+            _stuckArrows.Clear();
+            for (int i = 0; i < snapshot.Length; i++)
+            {
+                snapshot[i].ReturnAmmoOnRemoval();
+            }
+        }
+        base._ExitTree();
     }
 
     // Called on the burrow edges (false→burrowing in the transition block,

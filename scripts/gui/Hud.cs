@@ -3,6 +3,12 @@ using System.Collections.Generic;
 
 public partial class Hud : Control
 {
+	// Single active HUD per running game. Set in _Ready / cleared in
+	// _ExitTree so callers outside the scene tree (LightningStrike's
+	// proximity screen flash, etc.) can reach it without an explicit
+	// reference chain.
+	public static Hud Current { get; private set; }
+
 	[Export] public GameClient gameClient;
 	[Export] PackedScene _statusEffectHudScene;
 	[Export] WeaponHud _weaponLeftHud;
@@ -27,6 +33,17 @@ public partial class Hud : Control
 	[Export] TextureRect _weatherDay;
 	[Export] TextureRect _weatherNight;
 	[Export] Control _weatherContainer;
+	// Full-screen white overlay flashed by TriggerLightningFlash. Sits
+	// on top of every other HUD layer; mouse_filter = Ignore so it
+	// never eats clicks. Alpha is driven each frame by _lightningFlashAlpha;
+	// authored alpha in the scene should be 0 so the overlay is
+	// invisible at boot.
+	[Export] ColorRect _lightningFlashOverlay;
+	// Current alpha of the lightning flash overlay (0 = invisible,
+	// 1 = solid white). Decays at _lightningFlashFadeRate each second
+	// back to 0.
+	float _lightningFlashAlpha;
+	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
 	// FIFO of pending announcements. Anyone can fire many in a row
@@ -69,9 +86,12 @@ public partial class Hud : Control
 	// Weather widget — clock-face container holds a day icon and a night
 	// icon that crossfade across sunrise/sunset, with the container itself
 	// rotating once per game-day so the icons sweep around like a celestial
-	// dial. The 3×3 texture grid keys on temperature class (cold/normal/hot
-	// against the player's authored thresholds) and cloud cover class
-	// (clear/cloudy/overcast).
+	// dial. The 3×5 texture grid keys on temperature class (cold/normal/hot
+	// against the player's authored thresholds) and weather class
+	// (clear/cloudy/overcast/rainy/thunder). The weather-class axis is a
+	// priority chain — thunder beats rainy beats cloud cover — so a
+	// forecast with light rain AND an electric storm reads as thunder, not
+	// rain.
 	Texture2D[,] _weatherDayTextures;
 	Texture2D[,] _weatherNightTextures;
 	Texture2D _boundWeatherDayTexture;
@@ -83,12 +103,28 @@ public partial class Hud : Control
 	WeatherData _forecastDayPeak;
 	WeatherData _forecastNightTrough;
 	ZoneData _forecastZone;
-	// Cloud cover thresholds for the icon's three-stop classification.
+	// Cloud cover thresholds for the icon's three-stop cloud classification.
 	// Authored deserts run near 0, overcast biomes push past 0.7 — splitting
 	// the [0, 1] range into rough thirds reads as "few clouds / scattered /
 	// blanketed" without flickering between classes on a quiet day.
 	const float CloudCloudyThreshold = 0.33f;
 	const float CloudOvercastThreshold = 0.66f;
+	// Rain / lightning promotion thresholds. simRain peaks under heavy
+	// cloud + cooling-rate forcing, simLightning peaks only inside a
+	// thunderstorm (heavy cloud × active rain × variance), so these can
+	// stay low — anything above the threshold is visibly raining /
+	// striking in the world.
+	const float RainyThreshold = 0.1f;
+	const float ThunderThreshold = 0.05f;
+	// Weather-class enum encoded as int index into the icon grid's
+	// second axis. Kept as named consts rather than an enum to avoid
+	// a cast at every Texture2D[,] lookup.
+	const int WeatherClassClear = 0;
+	const int WeatherClassCloudy = 1;
+	const int WeatherClassOvercast = 2;
+	const int WeatherClassRainy = 3;
+	const int WeatherClassThunder = 4;
+	const int WeatherClassCount = 5;
 	// Cave fade: sunlight BFS at the player's voxel, smoothstepped to drive
 	// the icons to zero alpha when the player descends below the sun's reach.
 	// 0.25 of MAX_LIGHT is a soft threshold — a few voxels under an overhang
@@ -98,6 +134,7 @@ public partial class Hud : Control
 
 	public override void _Ready()
 	{
+		Current = this;
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onAnnouncement += OnAnnouncement;
 		_signpostPanel.gameClient = gameClient;
@@ -120,22 +157,23 @@ public partial class Hud : Control
 		LoadWeatherTextures();
 	}
 
-	// 18 weather-icon textures keyed by phase × temp × cloud. Loaded once
-	// here so per-frame icon swaps are dictionary-free index lookups.
+	// 30 weather-icon textures keyed by phase × temp × weather class.
+	// Loaded once here so per-frame icon swaps are dictionary-free index
+	// lookups.
 	void LoadWeatherTextures()
 	{
-		_weatherDayTextures = new Texture2D[3, 3];
-		_weatherNightTextures = new Texture2D[3, 3];
+		_weatherDayTextures = new Texture2D[3, WeatherClassCount];
+		_weatherNightTextures = new Texture2D[3, WeatherClassCount];
 		string[] tempLabels = { "cold", "normal", "hot" };
-		string[] cloudLabels = { "clear", "cloudy", "overcast" };
+		string[] classLabels = { "clear", "cloudy", "overcast", "rainy", "thunder" };
 		for (int t = 0; t < 3; t++)
 		{
-			for (int c = 0; c < 3; c++)
+			for (int c = 0; c < WeatherClassCount; c++)
 			{
 				_weatherDayTextures[t, c] = GD.Load<Texture2D>(
-					$"res://assets/textures/weather/day_{tempLabels[t]}_{cloudLabels[c]}.png");
+					$"res://assets/textures/weather/day_{tempLabels[t]}_{classLabels[c]}.png");
 				_weatherNightTextures[t, c] = GD.Load<Texture2D>(
-					$"res://assets/textures/weather/night_{tempLabels[t]}_{cloudLabels[c]}.png");
+					$"res://assets/textures/weather/night_{tempLabels[t]}_{classLabels[c]}.png");
 			}
 		}
 	}
@@ -166,6 +204,7 @@ public partial class Hud : Control
 
 	public override void _ExitTree()
 	{
+		if (Current == this) { Current = null; }
 		if (gameClient != null)
 		{
 			gameClient.onPlayerSpawned -= OnPlayerSpawned;
@@ -175,6 +214,51 @@ public partial class Hud : Control
 		{
 			_inventory.onSlotChanged -= OnInventorySlotChanged;
 			_inventory.onActiveConsumableChanged -= OnActiveConsumableChanged;
+		}
+	}
+
+	// Per-frame decay of the lightning flash overlay's alpha. Runs
+	// unconditionally (no player-alive gate) so the overlay still
+	// fades out cleanly across a death / respawn boundary.
+	void UpdateLightningFlash(float delta)
+	{
+		if (_lightningFlashOverlay == null) { return; }
+		if (_lightningFlashAlpha > 0f && _lightningFlashFadeRate > 0f)
+		{
+			_lightningFlashAlpha -= _lightningFlashFadeRate * delta;
+			if (_lightningFlashAlpha <= 0f)
+			{
+				_lightningFlashAlpha = 0f;
+				_lightningFlashFadeRate = 0f;
+			}
+		}
+		Color c = _lightningFlashOverlay.Color;
+		if (Mathf.Abs(c.A - _lightningFlashAlpha) > 0.001f)
+		{
+			c.A = _lightningFlashAlpha;
+			_lightningFlashOverlay.Color = c;
+		}
+	}
+
+	// White full-screen flash for a lightning strike near the player.
+	// `intensity` (0..1) is the peak overlay alpha (LightningStrike
+	// computes this from the player's distance to the strike point).
+	// `fadeSeconds` is how long the overlay takes to decay back to
+	// transparent — short, so the flash reads as a stroke not a wash.
+	// Multiple overlapping strikes take the MAX peak (a brighter
+	// strike during a fading dim one shouldn't dim back down).
+	public void TriggerLightningFlash(float intensity, float fadeSeconds)
+	{
+		if (intensity <= 0f) { return; }
+		if (intensity > 1f) { intensity = 1f; }
+		if (intensity > _lightningFlashAlpha) { _lightningFlashAlpha = intensity; }
+		// Fade rate computed per strike from THIS strike's intensity
+		// and fadeSeconds, not from the current alpha — keeps the
+		// per-strike decay shape consistent regardless of overlap.
+		if (fadeSeconds > 0f)
+		{
+			float rate = intensity / fadeSeconds;
+			if (rate > _lightningFlashFadeRate) { _lightningFlashFadeRate = rate; }
 		}
 	}
 
@@ -274,6 +358,8 @@ public partial class Hud : Control
 
 	public override void _Process(double delta)
 	{
+		UpdateLightningFlash((float)delta);
+
 		if (_player == null)
 		{
 			return;
@@ -358,7 +444,6 @@ public partial class Hud : Control
 		float nightFadeInStart = 0.5f * (0.5f + sunsetStart);
 
 		_weatherContainer.RotationDegrees = 135f - 360f * (tod - SunriseCenter);
-
 		float dayAlpha = ComputeDayIconAlpha(tod, dayFadeInStart, sunriseEnd, sunsetStart, sunsetEnd);
 		float nightAlpha = ComputeNightIconAlpha(tod, sunriseStart, sunriseEnd, nightFadeInStart, sunsetEnd);
 
@@ -412,26 +497,30 @@ public partial class Hud : Control
 			: inDayPhase ? ws.HumidityVarianceCur : ws.HumidityVarianceNext;
 		float dayCloudVar = dayFadingOut ? ws.CloudVariancePrev
 			: inDayPhase ? ws.CloudVarianceCur : ws.CloudVarianceNext;
+		float dayLightningVar = dayFadingOut ? ws.LightningVariancePrev
+			: inDayPhase ? ws.LightningVarianceCur : ws.LightningVarianceNext;
 		float nightWeatherVar = nightFadingOut ? ws.WeatherVariancePrev
 			: inDayPhase ? ws.WeatherVarianceNext : ws.WeatherVarianceCur;
 		float nightHumidityVar = nightFadingOut ? ws.HumidityVariancePrev
 			: inDayPhase ? ws.HumidityVarianceNext : ws.HumidityVarianceCur;
 		float nightCloudVar = nightFadingOut ? ws.CloudVariancePrev
 			: inDayPhase ? ws.CloudVarianceNext : ws.CloudVarianceCur;
+		float nightLightningVar = nightFadingOut ? ws.LightningVariancePrev
+			: inDayPhase ? ws.LightningVarianceNext : ws.LightningVarianceCur;
 
 		WeatherSimulation.Apply(_forecastDayPeak, _forecastZone, elevation, sim,
-			sim.DiurnalPeak01, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar);
+			sim.DiurnalPeak01, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar, dayLightningVar);
 		WeatherSimulation.Apply(_forecastNightTrough, _forecastZone, elevation, sim,
-			sim.DiurnalTrough01, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar);
+			sim.DiurnalTrough01, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar, nightLightningVar);
 
 		PlayerData pd = _player?.data;
 		int dayTemp = ClassifyTemp(_forecastDayPeak, pd, includeSun: true);
-		int dayCloud = ClassifyCloud(_forecastDayPeak.cloudCover);
+		int dayClass = ClassifyWeather(_forecastDayPeak);
 		int nightTemp = ClassifyTemp(_forecastNightTrough, pd, includeSun: false);
-		int nightCloud = ClassifyCloud(_forecastNightTrough.cloudCover);
+		int nightClass = ClassifyWeather(_forecastNightTrough);
 
-		Texture2D dayTex = _weatherDayTextures[dayTemp, dayCloud];
-		Texture2D nightTex = _weatherNightTextures[nightTemp, nightCloud];
+		Texture2D dayTex = _weatherDayTextures[dayTemp, dayClass];
+		Texture2D nightTex = _weatherNightTextures[nightTemp, nightClass];
 		if (dayTex != _boundWeatherDayTexture) { _weatherDay.Texture = dayTex; _boundWeatherDayTexture = dayTex; }
 		if (nightTex != _boundWeatherNightTexture) { _weatherNight.Texture = nightTex; _boundWeatherNightTexture = nightTex; }
 	}
@@ -463,11 +552,19 @@ public partial class Hud : Control
 		return 1;
 	}
 
-	static int ClassifyCloud(float cloud)
+	// Picks one slot from {clear, cloudy, overcast, rainy, thunder} for
+	// the icon's weather-class axis. Priority order: thunder beats rainy
+	// beats cloud cover, so a forecast with light rain AND an electric
+	// storm reads as the more dramatic of the two — players plan around
+	// the worst hazard present, not the average. Cloud classification
+	// stays as the fallback for non-precipitating weather.
+	static int ClassifyWeather(WeatherData forecast)
 	{
-		if (cloud >= CloudOvercastThreshold) { return 2; }
-		if (cloud >= CloudCloudyThreshold) { return 1; }
-		return 0;
+		if (forecast.lightningAmount >= ThunderThreshold) { return WeatherClassThunder; }
+		if (forecast.rainAmount >= RainyThreshold) { return WeatherClassRainy; }
+		if (forecast.cloudCover >= CloudOvercastThreshold) { return WeatherClassOvercast; }
+		if (forecast.cloudCover >= CloudCloudyThreshold) { return WeatherClassCloudy; }
+		return WeatherClassClear;
 	}
 
 	static void CopyWeather(WeatherData src, WeatherData dst)
@@ -657,6 +754,18 @@ public partial class Hud : Control
 			{
 				float totalMs = data.duration * 1000f;
 				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
+			}
+			// Continuous-state effects (currently wet; future thirst /
+			// hunger / cold / hot) can override the timer-based progress
+			// with a player-side value via Player.GetStatusEffectProgress.
+			// When non-null we also force the bar visible since these
+			// effects typically have their timer paused (the underlying
+			// state controls arm/disarm directly).
+			float? customProgress = _player.GetStatusEffectProgress(data);
+			if (customProgress.HasValue)
+			{
+				progress = customProgress.Value;
+				hasTimer = true;
 			}
 			hud.Set(data, count, progress, hasTimer);
 		}

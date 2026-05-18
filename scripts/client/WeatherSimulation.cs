@@ -25,48 +25,72 @@ using Godot;
 // Pure-data design: no node references, no allocations on the hot path.
 public static class WeatherSimulation
 {
-    // Smoothed sinusoid in [0, 1] reaching 1 at sim.DiurnalPeak01 and
-    // 0 at sim.DiurnalTrough01, with continuous derivative everywhere
-    // (slope vanishes at both extrema, so wind / temp / cloud / dust
-    // ride a smooth wave through noon and midnight rather than popping
-    // at the peak / trough boundary). Mapping:
-    //   t_rel  = (timeOfDay01 - trough) mod 1   ∈ [0, 1)
-    //   warmingHalf = (peak - trough) mod 1     ∈ (0, 1)
-    //   u: piecewise-linear in t_rel, 0 at trough → 1 at peak → 0 at next trough.
-    //   value = 0.5 - 0.5·cos(π·u)
+    // Debug override: when set, Apply writes this value to
+    // weather.lightningAmount after the normal gates+variance
+    // computation, bypassing the cloud/rain thresholds and the
+    // variance multiplier. Used by the `force_lightning` CVar to
+    // immediately trigger the audio scheduler, visual flash, and HUD
+    // thunder icon without waiting on a favorable variance roll.
+    // null = no override (normal sim behavior). Affects every Apply
+    // call — including the HUD's forecast for the day peak / night
+    // trough — so the thunder icon also lights up when the override
+    // is active.
+    public static float? ForceLightningOverride { get; set; }
+
+
+    // Flat-topped trapezoid in [0, 1]. Day plateau (value 1) covers
+    //   |tod - DiurnalPeak01| ≤ DiurnalPlateauHalfWidth
+    // (wrapping in normalized time); night plateau (value 0) covers
+    // the symmetric band around DiurnalTrough01 = DiurnalPeak01 ± 0.5.
+    // SmoothStep ramps fill the two quarter-day windows in between.
+    //
+    // The ramps are C¹ (zero derivative at the plateau boundaries
+    // because SmoothStep's slope vanishes at its endpoints), so wind /
+    // temperature / cloud / dust glide smoothly off and onto the
+    // plateaus rather than popping at the boundary. Slope is exactly
+    // zero on both plateaus, which is what kills coolingRate while the
+    // day weather is "at peak."
     public static float DiurnalCurve(float timeOfDay01, SimData sim)
     {
-        float peak = sim?.DiurnalPeak01 ?? 0.6f;
-        float trough = sim?.DiurnalTrough01 ?? 0.275f;
-        float tRel = Mathf.PosMod(timeOfDay01 - trough, 1f);
-        float warmingHalf = Mathf.PosMod(peak - trough, 1f);
-        if (warmingHalf < 1e-4f) { warmingHalf = 0.5f; }
-        float u = tRel < warmingHalf
-            ? tRel / warmingHalf                                // 0 → 1 across warming half
-            : 1f - (tRel - warmingHalf) / (1f - warmingHalf);   // 1 → 0 across cooling half
-        return 0.5f - 0.5f * Mathf.Cos(u * Mathf.Pi);
+        float peak = sim?.DiurnalPeak01 ?? 0.5f;
+        float halfWidth = Mathf.Clamp(sim?.DiurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
+        // Signed distance from the day-plateau center in normalized
+        // time, wrapped to [-0.5, 0.5). Negative = before peak
+        // (warming), positive = after peak (cooling).
+        float dt = Mathf.PosMod(timeOfDay01 - peak + 0.5f, 1f) - 0.5f;
+        float ad = Mathf.Abs(dt);
+        if (ad <= halfWidth) { return 1f; }
+        if (ad >= 0.5f - halfWidth) { return 0f; }
+        float rampSpan = 0.5f - 2f * halfWidth;
+        // p ∈ (0, 1): 0 at the day-plateau edge, 1 at the night-plateau edge.
+        float p = (ad - halfWidth) / rampSpan;
+        return 1f - Mathf.SmoothStep(0f, 1f, p);
     }
 
     // Signed time-derivative of DiurnalCurve at the current time, in
-    // per-day-fraction units. Positive on the trough→peak (warming)
-    // half, negative on the peak→trough (cooling) half, and exactly
-    // zero at both extrema (so cooling-rate / warming-rate signals
-    // taper smoothly into and out of the inflection points).
+    // per-day-fraction units. Exactly zero on both plateaus and at the
+    // plateau boundaries (SmoothStep's vanishing endpoint derivative).
+    // Positive across the warming ramp, negative across the cooling
+    // ramp; coolingRate = max(0, -slope) is therefore strictly positive
+    // only inside [day-plateau-end, night-plateau-start].
     public static float DiurnalCurveSlope(float timeOfDay01, SimData sim)
     {
-        float peak = sim?.DiurnalPeak01 ?? 0.6f;
-        float trough = sim?.DiurnalTrough01 ?? 0.275f;
-        float tRel = Mathf.PosMod(timeOfDay01 - trough, 1f);
-        float warmingHalf = Mathf.PosMod(peak - trough, 1f);
-        if (warmingHalf < 1e-4f) { warmingHalf = 0.5f; }
-        bool warming = tRel < warmingHalf;
-        float u = warming
-            ? tRel / warmingHalf
-            : 1f - (tRel - warmingHalf) / (1f - warmingHalf);
-        float dudt = warming
-            ? 1f / warmingHalf
-            : -1f / (1f - warmingHalf);
-        return 0.5f * Mathf.Pi * Mathf.Sin(u * Mathf.Pi) * dudt;
+        float peak = sim?.DiurnalPeak01 ?? 0.5f;
+        float halfWidth = Mathf.Clamp(sim?.DiurnalPlateauHalfWidth ?? 0.125f, 0f, 0.249f);
+        float dt = Mathf.PosMod(timeOfDay01 - peak + 0.5f, 1f) - 0.5f;
+        float ad = Mathf.Abs(dt);
+        if (ad <= halfWidth) { return 0f; }
+        if (ad >= 0.5f - halfWidth) { return 0f; }
+        float rampSpan = 0.5f - 2f * halfWidth;
+        float p = (ad - halfWidth) / rampSpan;
+        // d/dp SmoothStep = 6p(1-p); diurnal = 1 - SmoothStep(p), so
+        // d(diurnal)/dp = -6p(1-p). p = (ad - halfWidth) / rampSpan;
+        // d(ad)/dt = sign(dt). Chain rule:
+        //   d(diurnal)/dt = -6p(1-p) × (1/rampSpan) × sign(dt)
+        // sign(dt) > 0 in the cooling ramp ⇒ slope negative ⇒
+        // coolingRate positive.
+        float magnitude = 6f * p * (1f - p) / rampSpan;
+        return dt > 0f ? -magnitude : magnitude;
     }
 
     // Total swing magnitude of the curve over a day — used as the
@@ -221,6 +245,11 @@ public static class WeatherSimulation
             ref ws.CloudVariancePhase,
             ws.WeatherRng,
             out ws.CloudVariance, out ws.CloudVarianceSlope);
+        AdvanceChannel(gameDay, hpd, halfWidth,
+            ref ws.LightningVariancePrev, ref ws.LightningVarianceCur, ref ws.LightningVarianceNext,
+            ref ws.LightningVariancePhase,
+            ws.WeatherRng,
+            out ws.LightningVariance, out ws.LightningVarianceSlope);
     }
 
     // Rewrite weather fields in place using (zone, zone max,
@@ -237,7 +266,8 @@ public static class WeatherSimulation
         Apply(weather, zone, elevation, sim,
             (float)(ws?.TimeOfDay01 ?? 0.5),
             ws?.WeatherVariance ?? 0.5f, ws?.WeatherVarianceSlope ?? 0f,
-            ws?.HumidityVariance ?? 0.5f, ws?.CloudVariance ?? 0.5f);
+            ws?.HumidityVariance ?? 0.5f, ws?.CloudVariance ?? 0.5f,
+            ws?.LightningVariance ?? 0.5f);
     }
 
     // Fully-explicit overload used by the HUD weather widget. Lets the
@@ -251,7 +281,8 @@ public static class WeatherSimulation
     public static void Apply(WeatherData weather, ZoneData zone, float elevation, SimData sim,
         float timeOfDay01,
         float weatherVariance, float weatherVarianceSlope,
-        float humidityVariance, float cloudVariance)
+        float humidityVariance, float cloudVariance,
+        float lightningVariance)
     {
         if (weather == null || sim == null) { return; }
 
@@ -267,6 +298,7 @@ public static class WeatherSimulation
         float windMax = Mathf.Max(weather.windSpeed, 0f);
         float cloudMax = Mathf.Clamp(weather.cloudCover, 0f, 1f);
         float rainMax = Mathf.Clamp(weather.rainAmount, 0f, 1f);
+        float lightningMax = Mathf.Clamp(weather.lightningAmount, 0f, 1f);
         float dustMax = Mathf.Clamp(zone?.DustAmount ?? 0f, 0f, 1f);
         elevation = Mathf.Clamp(elevation, 0f, 1f);
 
@@ -373,6 +405,45 @@ public static class WeatherSimulation
         float rainSignal = cloudGate * sim.RainFromCloudCover * (1f + coolingRate * sim.RainFromCoolingRate);
         float simRain = Mathf.Clamp(rainMax * rainSignal, 0f, 1f);
 
+        // Lightning: three independent storm-mode gates, max-merged.
+        // Each gate models a different real-world storm physics
+        // routed through variables we already simulate; the strongest
+        // signal wins so a zone's character is determined by which
+        // variables it authors high. The SmoothStep gates rise softly
+        // through a crossfade window, so distant thunder rolls in
+        // smoothly as conditions cross thresholds rather than popping.
+        //
+        // WET: warm humid air with active rain — air-mass / frontal
+        //   thunderstorm. Forest, swamp, temperate.
+        // DRY: high-base storm in hot arid air — desert summer virga
+        //   storms. No rain required; humidity has to be LOW.
+        // OROGRAPHIC: strong wind lifting air over high terrain —
+        //   mountain ridge-line storms. No rain required.
+        //
+        // Variance reads through directly (no centering): full 0..1
+        // range maps to "no lightning at all" → "full electrical
+        // storm" so storms don't come in at half strength on average.
+        // lightningMax above 1 doesn't make simLightning exceed 1
+        // (final clamp) — it just widens the partial-gate range that
+        // still produces a meaningful signal.
+        float lightningWetGate =
+            Mathf.SmoothStep(sim.LightningCloudThreshold, 1f, simCloud)
+            * Mathf.SmoothStep(sim.LightningRainThreshold, 1f, simRain);
+        float lightningDryGate =
+            Mathf.SmoothStep(sim.DryLightningCloudThreshold, 1f, simCloud)
+            * (1f - Mathf.SmoothStep(0f, sim.DryLightningHumidityMax, simHumidity))
+            * Mathf.SmoothStep(sim.DryLightningTempMin, sim.DryLightningTempMax, simTemp);
+        float lightningOrographicGate =
+            Mathf.SmoothStep(sim.OrographicLightningCloudThreshold, 1f, simCloud)
+            * Mathf.SmoothStep(sim.OrographicLightningWindMin, sim.OrographicLightningWindMax, simWind)
+            * Mathf.SmoothStep(sim.OrographicLightningElevationMin, 1f, elevation);
+        float lightningGateAny = Mathf.Max(lightningWetGate,
+            Mathf.Max(lightningDryGate, lightningOrographicGate));
+        float lightningVarianceFactor = Mathf.Clamp(lightningVariance, 0f, 1f);
+        float simLightning = Mathf.Clamp(
+            lightningMax * lightningGateAny * lightningVarianceFactor,
+            0f, 1f);
+
         // Dust: lifted by wind, elevation, and warmth; suppressed by
         // humidity and rain.
         float windLift = windMax > 1e-3f ? Mathf.Clamp(simWind / windMax, 0f, 2f) : 0f;
@@ -390,7 +461,16 @@ public static class WeatherSimulation
         weather.windSpeed = simWind;
         weather.cloudCover = simCloud;
         weather.rainAmount = simRain;
+        weather.lightningAmount = simLightning;
         weather.dustAmount = simDust;
+
+        // Debug overrides applied AFTER the sim path so a force-on
+        // value reaches every downstream consumer (audio, sky flash,
+        // HUD forecast icon) without each having to query the CVar.
+        if (ForceLightningOverride.HasValue)
+        {
+            weather.lightningAmount = Mathf.Clamp(ForceLightningOverride.Value, 0f, 1f);
+        }
     }
 
 }

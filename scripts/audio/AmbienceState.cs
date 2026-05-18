@@ -65,6 +65,25 @@ public struct AmbienceState
     // the reverb bus and the mute-pull on distant positional emitters.
     public float FogDensity;
 
+    // Current simulated lightning intensity in [0, 1]. Mirror of
+    // SkyController.Current.Weather.lightningAmount (which
+    // WeatherSimulation rewrites in place each frame). Drives the
+    // distant rolling-thunder scheduler; rises smoothly across a
+    // stormy-phase crossfade window, so thunder rolls in BEFORE the
+    // storm fully arrives rather than popping on at peak.
+    public float LightningIntensity;
+
+    // Current visual rain intensity in [0, 1]. Mirror of
+    // SkyController.Current.Palette.RainIntensity — the SLEWED display
+    // value used by the rain particle effect, not the raw simulated
+    // rainAmount. Drives the rain audio layers (rain_light /
+    // rain_medium / rain_heavy) so audio and visual stay locked
+    // together: same lead time as the variance crossfade commits to
+    // rain, same min-visible floor when "barely raining," same ramp-
+    // down. Distinct from Wetness, which lingers after rain stops and
+    // is the right driver for rain-on-leaves / dripping audio.
+    public float RainIntensity;
+
     // Index of the dominant zone at the listener (chunk's ZoneIndex
     // at the listener's chunk). -1 if no zone data. Used by positional
     // emitter palettes and by the time-of-day insect bed selector to pick

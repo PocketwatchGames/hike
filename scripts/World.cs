@@ -66,6 +66,9 @@ public partial class World : Node3D
     private WorldDetailScatter _detailScatter;
     private WorldPropScatter _propScatter;
     private AmbienceController _ambienceController;
+    private ThunderScheduler _thunderScheduler;
+    private LightningFlasher _lightningFlasher;
+    private WeatherLightningSpawner _weatherLightningSpawner;
     private ChunkAmbienceSpawner _chunkAmbienceSpawner;
     private Minimap _minimap;
     public Minimap Minimap => _minimap;
@@ -129,6 +132,38 @@ public partial class World : Node3D
         _ambienceController = new AmbienceController();
         _ambienceController.Name = "AmbienceController";
         AddChild(_ambienceController);
+
+        // Lightning flash intensity producer. Must exist before
+        // ThunderScheduler so the first strike's TriggerFlash hits a
+        // live LightningFlasher.Current. SkyController reads
+        // LightningFlasher.Current.Intensity each frame to boost
+        // directional light energy + blank cloud-shadow attenuation.
+        _lightningFlasher = new LightningFlasher();
+        _lightningFlasher.Name = "LightningFlasher";
+        AddChild(_lightningFlasher);
+
+        // Distant rolling-thunder scheduler. Reads
+        // AmbienceController.Current.State.LightningIntensity, fires
+        // one-shot far-thunder claps at exponentially-jittered intervals
+        // proportional to that intensity. Triggers a LightningFlasher
+        // flash NOW on every strike and queues the audible clap to fire
+        // after a per-strike audio-visual lag. Dormant when SimData has
+        // no thunder data wired up. Spawned here rather than as a child
+        // of AmbienceController so the scheduler can live across
+        // whatever future restructuring AmbienceController gets.
+        _thunderScheduler = new ThunderScheduler();
+        _thunderScheduler.Name = "ThunderScheduler";
+        AddChild(_thunderScheduler);
+
+        // Damaging lightning strikes around the player. Reads the
+        // same AmbienceController lightning intensity ThunderScheduler
+        // does, but spawns LightningStrike entities on a separate
+        // (much rarer) cadence — distant rumbles for atmosphere vs
+        // near strikes for gameplay. Dormant when SimData has no
+        // weatherLightning data wired up.
+        _weatherLightningSpawner = new WeatherLightningSpawner();
+        _weatherLightningSpawner.Name = "WeatherLightningSpawner";
+        AddChild(_weatherLightningSpawner);
 
         _chunkAmbienceSpawner = new ChunkAmbienceSpawner();
         _chunkAmbienceSpawner.Name = "ChunkAmbienceSpawner";
@@ -393,6 +428,41 @@ public partial class World : Node3D
         }
         var simState = new LootSimState(position, item);
         _worldState.AddEntity(simState);
+        Loot loot = Loot.Create(this, simState, scene, impulse);
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            entities = new List<Node3D>();
+            _activeEntities[coord] = entities;
+        }
+        RegisterEntity(loot, entities, simState);
+
+        return loot;
+    }
+
+    // Spawn an arrow drop at the impact point of a hitscan shot. The arrow
+    // binds back to the firing WeaponState — recovering it (player pickup,
+    // 30s LootData.removeTimeMs timeout) routes through ArrowLootSimState
+    // and returns 1 ammo to the source weapon. The weapon also tracks the
+    // arrow in its outstandingArrows list so the binding survives the
+    // player dropping the bow (the weapon instance lives in inventory and
+    // outlives the bow's equip state).
+    public Loot SpawnArrowLoot(Vector3 position, Vector3 impulse, ArrowLootData data, WeaponState sourceWeapon)
+    {
+        if (data == null || sourceWeapon == null)
+        {
+            return null;
+        }
+        GameClient gc = GameClient.Current;
+        PackedScene scene = gc?.lootScene;
+        if (scene == null)
+        {
+            return null;
+        }
+        var simState = new ArrowLootSimState(position, data, sourceWeapon);
+        _worldState.AddEntity(simState);
+        sourceWeapon.RegisterArrow(simState);
         Loot loot = Loot.Create(this, simState, scene, impulse);
 
         Vector3I coord = WorldToChunkCoord(position);

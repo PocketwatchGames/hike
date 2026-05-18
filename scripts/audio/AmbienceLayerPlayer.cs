@@ -122,6 +122,8 @@ public partial class AmbienceLayerPlayer : Node
             case AmbienceField.Openness: return state.Openness;
             case AmbienceField.Caveness: return state.Caveness;
             case AmbienceField.FogDensity: return state.FogDensity;
+            case AmbienceField.LightningIntensity: return state.LightningIntensity;
+            case AmbienceField.RainIntensity: return state.RainIntensity;
             case AmbienceField.Constant: return 1f;
             default: return 0f;
         }

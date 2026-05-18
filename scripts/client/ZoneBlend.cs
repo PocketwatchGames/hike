@@ -220,7 +220,7 @@ public static class ZoneBlend
         if (sum < MinTotalWeight) { return; }
         float inv = 1f / sum;
 
-        float cloudCover = 0, windSpeed = 0, airTemperature = 0, sunTemperature = 0, humidity = 0, rainAmount = 0;
+        float cloudCover = 0, windSpeed = 0, airTemperature = 0, sunTemperature = 0, humidity = 0, rainAmount = 0, lightningAmount = 0;
         for (int i = 0; i < weights.Length; i++)
         {
             float w = weights[i];
@@ -234,6 +234,7 @@ public static class ZoneBlend
             sunTemperature += wd.sunTemperature * nw;
             humidity += wd.humidity * nw;
             rainAmount += wd.rainAmount * nw;
+            lightningAmount += wd.lightningAmount * nw;
         }
 
         dst.cloudCover = cloudCover;
@@ -242,6 +243,7 @@ public static class ZoneBlend
         dst.sunTemperature = sunTemperature;
         dst.humidity = humidity;
         dst.rainAmount = rainAmount;
+        dst.lightningAmount = lightningAmount;
     }
 
     private static Vector2 SafeNormalizeXZ(Vector3 v)

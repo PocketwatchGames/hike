@@ -53,6 +53,21 @@ public partial class WeatherData : Resource
     // wind susceptibility) is derived from cloudCover.
     [Export(PropertyHint.Range, "0,1,0.01")] public float rainAmount = 0.0f;
 
+    // Lightning intensity. 0 = no lightning ever, 1 = full electrical
+    // storm eligibility, > 1 = lightning fires under wider partial-gate
+    // conditions (the final simLightning is still clamped to 1, but
+    // mediocre cloud/rain/wind rolls still produce meaningful output).
+    // Authored as the per-zone MAX — opt-out rather than opt-in: zones
+    // inherit 1.0 by default. WeatherSimulation routes the value
+    // through three independent storm-mode gates (wet / dry /
+    // orographic) and picks whichever is most active, so a forest with
+    // active rain, a desert with hot dry air, and a windy mountain
+    // peak all qualify for their respective storm character without
+    // any per-zone authoring beyond this single value. Audio (distant
+    // rolling thunder bed, future near-strike one-shots) and gameplay
+    // hazards both gate on the simulated current value.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float lightningAmount = 1.0f;
+
     // Atmospheric dust amount — the scattering medium that makes
     // shafts visible. NOT authored: WeatherSimulation writes a
     // simulated value here each frame, derived from the zone's

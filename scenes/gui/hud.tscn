@@ -4,8 +4,8 @@
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
+[ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/dialogue_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
-[ext_resource type="PackedScene" uid="uid://dlogscnehike01" path="res://scenes/hud/dialogue_panel.tscn" id="4_dialogue"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
@@ -48,7 +48,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -77,6 +77,7 @@ _buttonHintMap = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxC
 _weatherDay = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherDay")
 _weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherNight")
 _weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
+_lightningFlashOverlay = NodePath("LightningFlashOverlay")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
 layout_mode = 1
@@ -267,7 +268,7 @@ pivot_offset_ratio = Vector2(0.5, 0.5)
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 40.0
-rotation = 2.3561945
+rotation = -0.7853982
 pivot_offset = Vector2(32, 32)
 texture = ExtResource("8_6101d")
 
@@ -311,6 +312,16 @@ layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
 
+[node name="LightningFlashOverlay" type="ColorRect" parent="." unique_id=1924019999]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(1, 1, 1, 0)
+
 [node name="HudSignpostPanel" parent="." unique_id=170382741 instance=ExtResource("4_signpost")]
 visible = false
 layout_mode = 1
@@ -318,4 +329,3 @@ layout_mode = 1
 [node name="DialoguePanel" parent="." unique_id=170382742 instance=ExtResource("4_dialogue")]
 visible = false
 layout_mode = 1
-

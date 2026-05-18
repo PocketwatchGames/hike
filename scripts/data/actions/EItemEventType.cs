@@ -45,5 +45,11 @@ public enum EItemEventType
 	// DecrementStack; NPCs (once IInteractive-backed) author it on a Talk
 	// action's completion events.
 	LearnConcept = 1 << 12,
+	// Spawns a Projectile from ev.projectileData at the actor's position,
+	// flying along the actor's forward (with the tier's accuracy spread).
+	// On collision the projectile builds a HitInfo from ev.damageData (or
+	// the firing weapon's damageData) and calls HurtBox.Hit — same payload
+	// shape as Hitscan, just delayed by flight time.
+	Projectile = 1 << 13,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

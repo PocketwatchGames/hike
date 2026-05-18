@@ -1,0 +1,29 @@
+[gd_scene format=3 uid="uid://ch0bnt8x4q7m3"]
+
+[ext_resource type="Script" uid="uid://dli4mphe7goaj" path="res://scripts/gameplay/entities/LightningStrike.cs" id="1_strike"]
+
+[sub_resource type="QuadMesh" id="QuadMesh_bolt"]
+size = Vector2(0.35, 40)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_bolt"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 1, 1, 1)
+emission_enabled = true
+emission = Color(1, 1, 1, 1)
+emission_energy_multiplier = 4.0
+billboard_mode = 2
+billboard_keep_scale = true
+blend_mode = 1
+cull_mode = 2
+
+[node name="LightningStrike" type="Node3D" node_paths=PackedStringArray("_bolt")]
+script = ExtResource("1_strike")
+_bolt = NodePath("Bolt")
+
+[node name="Bolt" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 0)
+visible = false
+transparency = 1.0
+mesh = SubResource("QuadMesh_bolt")
+surface_material_override/0 = SubResource("StandardMaterial3D_bolt")

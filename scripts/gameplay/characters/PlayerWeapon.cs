@@ -14,7 +14,10 @@ public partial class Player : CharacterBody3D, IActionActor
 	// currently-selected tier and live charge fraction; otherwise samples the
 	// snap tier (tier 0) at chargeT=0 — what an immediate fire would produce.
 	// Hitscan range scales with `rangeScaleCurve` (matches DoHitscan); melee
-	// range is the authored value (DoMelee ignores the curve).
+	// range is the authored value (DoMelee ignores the curve); projectile
+	// range is derived as `speed * maxLifetimeSeconds` — the projectile
+	// itself doesn't clip by distance, so the indicator just reflects how
+	// far it could fly before timing out.
 	public float GetWeaponRange(EInventorySlot slot)
 	{
 		WeaponState weapon = _inventory?.GetWeapon(slot);
@@ -57,6 +60,10 @@ public partial class Player : CharacterBody3D, IActionActor
 					? tier.rangeScaleCurve.Sample(Mathf.Clamp(chargeT, 0f, 1f))
 					: 1f;
 				return ev.hitScanRange * rangeScale;
+			}
+			if ((ev.type & EItemEventType.Projectile) != 0 && ev.projectileScene != null)
+			{
+				return ev.projectileSpeed * ev.projectileLifetimeSeconds;
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{

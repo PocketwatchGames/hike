@@ -5,6 +5,11 @@ public partial class WeaponData : ItemData
 {
 	[Export] public bool useAmmo = false;
 	[Export] public int maxAmmo = 0;
+	// Optional drop spawned at every Hitscan impact point. When wired, each
+	// shot leaves a recoverable arrow in the world that returns 1 ammo when
+	// removed (player pickup or LootData.removeTimeMs timeout). Null = no
+	// drop, ammo decrements permanently.
+	[Export] public ArrowLootData arrowLootData;
 	[Export] public DamageData damageData;
 
 	// Authored timeline + tier list. Replaces the old cooldownTime / activeTime

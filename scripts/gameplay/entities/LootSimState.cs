@@ -37,4 +37,27 @@ public class LootSimState : EntitySimState
         }
         return Loot.Create(world, this, scene);
     }
+
+    // Overrides for the per-loot-kind pickup contract — base implementation
+    // is the default "any player can pick up and the item goes into the
+    // backpack" behavior. ArrowLootSimState overrides these to gate pickup
+    // on the source weapon being equipped and to route the picked-up arrow
+    // back to the weapon's ammo pool instead of the inventory.
+
+    // Player-side gate consulted alongside the inventory-fit checks in
+    // Loot.CanActorInteract / TryDepositItem. Return false to refuse
+    // pickup outright.
+    public virtual bool CanPickup(Player player) => true;
+
+    // When false, FinalizePickup skips the inventory-deposit step and just
+    // runs the despawn animation + OnRemovedFromWorld hook. Use for loot
+    // whose pickup semantics aren't "add to backpack" (e.g. arrows that
+    // return ammo to the source weapon).
+    public virtual bool ShouldDepositToInventory() => true;
+
+    // Called from Loot after the world-removal commit (PickedUp set true)
+    // for any removal cause — player pickup, LootData.removeTimeMs timeout,
+    // future causes. Not invoked by deserialization; load-time PickedUp
+    // values from disk skip this hook.
+    public virtual void OnRemovedFromWorld() { }
 }

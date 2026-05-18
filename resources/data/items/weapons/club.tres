@@ -63,17 +63,18 @@ queueWindowSeconds = 0.2
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-trigger = 0
 overrides = 11
 healthDamage = 15.0
 stun = 10.0
 knockbackDistance = 2.0
+addStatusEffects = null
 
 [sub_resource type="Resource" id="Resource_mod_stun"]
 script = ExtResource("1_modifier")
 trigger = 1
 overrides = 8
 knockbackDistance = 2.0
+addStatusEffects = null
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")

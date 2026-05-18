@@ -18,6 +18,8 @@
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/effects/bow_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 [ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
+[ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
+[ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 
 [sub_resource type="Curve" id="Curve_accuracy"]
 _data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
@@ -25,12 +27,14 @@ point_count = 3
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
-type = 70
-hitScanRange = 25.0
+type = 8260
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
+projectileScene = ExtResource("18_arrowscene")
+projectileSpeed = 30.0
+projectileLifetimeSeconds = 0.5
 
 [sub_resource type="Curve" id="Curve_range"]
 _data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(0.5, 0.7), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
@@ -48,12 +52,12 @@ releaseEffect = ExtResource("8_atklight")
 
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
-type = 70
-hitScanRange = 25.0
+type = 8260
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
+projectileScene = ExtResource("18_arrowscene")
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
@@ -75,6 +79,7 @@ script = ExtResource("1_modifier")
 trigger = 1
 overrides = 8
 knockbackDistance = 2.0
+addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -89,6 +94,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_stun")])
 script = ExtResource("2_weapon")
 useAmmo = true
 maxAmmo = 5
+arrowLootData = ExtResource("17_arrow")
 damageData = SubResource("Resource_damage")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Short Bow"

@@ -1,24 +1,23 @@
-[gd_scene format=3 uid="uid://bwatentersp0001"]
+[gd_scene format=3 uid="uid://daohlmjuuje6s"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_01.wav" id="2_we01"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_02.wav" id="2_we02"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_03.wav" id="2_we03"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_04.wav" id="2_we04"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_05.wav" id="2_we05"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_06.wav" id="2_we06"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_07.wav" id="2_we07"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_08.wav" id="2_we08"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_09.wav" id="2_we09"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_10.wav" id="2_we10"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_water_unit_enter_11.wav" id="2_we11"]
+[ext_resource type="AudioStream" uid="uid://dalveyhoxpwj4" path="res://audio/source/movement/un_shr_move_water_unit_enter_01.wav" id="2_we01"]
+[ext_resource type="AudioStream" uid="uid://c2ghcht0dki2x" path="res://audio/source/movement/un_shr_move_water_unit_enter_02.wav" id="2_we02"]
+[ext_resource type="AudioStream" uid="uid://c2icvg04wk6k0" path="res://audio/source/movement/un_shr_move_water_unit_enter_03.wav" id="2_we03"]
+[ext_resource type="AudioStream" uid="uid://ljy2i2v3ekwy" path="res://audio/source/movement/un_shr_move_water_unit_enter_04.wav" id="2_we04"]
+[ext_resource type="AudioStream" uid="uid://c78o7f1bguile" path="res://audio/source/movement/un_shr_move_water_unit_enter_05.wav" id="2_we05"]
+[ext_resource type="AudioStream" uid="uid://ceprkl5q5vd82" path="res://audio/source/movement/un_shr_move_water_unit_enter_06.wav" id="2_we06"]
+[ext_resource type="AudioStream" uid="uid://digrd355pk06y" path="res://audio/source/movement/un_shr_move_water_unit_enter_07.wav" id="2_we07"]
+[ext_resource type="AudioStream" uid="uid://upwxbtwruvwk" path="res://audio/source/movement/un_shr_move_water_unit_enter_08.wav" id="2_we08"]
+[ext_resource type="AudioStream" uid="uid://bsh4h7bt4ks0q" path="res://audio/source/movement/un_shr_move_water_unit_enter_09.wav" id="2_we09"]
+[ext_resource type="AudioStream" uid="uid://bipwed6r4slev" path="res://audio/source/movement/un_shr_move_water_unit_enter_10.wav" id="2_we10"]
+[ext_resource type="AudioStream" uid="uid://wjel723spbrp" path="res://audio/source/movement/un_shr_move_water_unit_enter_11.wav" id="2_we11"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_splash"]
 emission_shape = 1
 emission_sphere_radius = 0.2
 direction = Vector3(0, 1, 0)
-spread = 45.0
 initial_velocity_min = 2.5
 initial_velocity_max = 6.0
 gravity = Vector3(0, -10, 0)
@@ -27,14 +26,14 @@ damping_max = 2.0
 scale_min = 0.6
 scale_max = 1.8
 
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_splash"]
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ee7h7"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
 shader_parameter/albedo = Color(0.6, 0.8, 0.95, 0.7)
 shader_parameter/emission = Color(0, 0, 0, 0)
 
 [sub_resource type="QuadMesh" id="QuadMesh_splash"]
-material = SubResource("ShaderMaterial_splash")
+material = SubResource("ShaderMaterial_ee7h7")
 size = Vector2(0.12, 0.12)
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_waterenter"]
@@ -43,32 +42,21 @@ random_pitch = 1.1
 random_volume_offset_db = 3.0
 streams_count = 11
 stream_0/stream = ExtResource("2_we01")
-stream_0/weight = 1.0
 stream_1/stream = ExtResource("2_we02")
-stream_1/weight = 1.0
 stream_2/stream = ExtResource("2_we03")
-stream_2/weight = 1.0
 stream_3/stream = ExtResource("2_we04")
-stream_3/weight = 1.0
 stream_4/stream = ExtResource("2_we05")
-stream_4/weight = 1.0
 stream_5/stream = ExtResource("2_we06")
-stream_5/weight = 1.0
 stream_6/stream = ExtResource("2_we07")
-stream_6/weight = 1.0
 stream_7/stream = ExtResource("2_we08")
-stream_7/weight = 1.0
 stream_8/stream = ExtResource("2_we09")
-stream_8/weight = 1.0
 stream_9/stream = ExtResource("2_we10")
-stream_9/weight = 1.0
 stream_10/stream = ExtResource("2_we11")
-stream_10/weight = 1.0
 
-[node name="WaterEnterSplash" type="Node3D"]
+[node name="WaterEnterSplash" type="Node3D" unique_id=393661546]
 script = ExtResource("1_oneshot")
 
-[node name="Splash" type="GPUParticles3D" parent="."]
+[node name="Splash" type="GPUParticles3D" parent="." unique_id=1858488125]
 emitting = false
 amount = 18
 lifetime = 0.6
@@ -78,7 +66,7 @@ randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_splash")
 draw_pass_1 = SubResource("QuadMesh_splash")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=856841578]
 stream = SubResource("AudioStreamRandomizer_waterenter")
 unit_size = 4.0
 max_distance = 25.0

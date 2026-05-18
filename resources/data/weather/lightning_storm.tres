@@ -1,0 +1,26 @@
+[gd_resource type="Resource" script_class="LightningData" format=3 uid="uid://bln1dat1pqrst"]
+
+[ext_resource type="Script" uid="uid://b3tauwovjamm2" path="res://scripts/data/LightningData.cs" id="1_data"]
+[ext_resource type="Resource" uid="uid://bln1dmg1klmno" path="res://resources/data/weather/lightning_storm_damage.tres" id="2_damage"]
+[ext_resource type="PackedScene" uid="uid://bln1war1abcde" path="res://scenes/effects/lightning_warning.tscn" id="3_warning"]
+[ext_resource type="PackedScene" uid="uid://bln1str1fghij" path="res://scenes/effects/lightning_strike_fx.tscn" id="4_strike"]
+
+[resource]
+script = ExtResource("1_data")
+damage = ExtResource("2_damage")
+damageRadiusMeters = 3.5
+warningDurationSeconds = 0.75
+boltVisibleSeconds = 0.12
+boltFadeSeconds = 0.4
+warningFx = ExtResource("3_warning")
+strikeFx = ExtResource("4_strike")
+flashAmplitude = 1.0
+screenFlashMaxIntensity = 0.85
+screenFlashFalloffMeters = 35.0
+screenFlashFadeOutSeconds = 0.45
+weatherSpawnIntensityFloor = 0.15
+weatherSpawnIntervalAtPeak = 7.0
+weatherSpawnIntervalAtFloor = 90.0
+weatherSpawnRadiusMinMeters = 7.0
+weatherSpawnRadiusMaxMeters = 28.0
+metadata/_custom_type_script = "uid://b3tauwovjamm2"

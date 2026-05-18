@@ -12,6 +12,17 @@ public class WeaponState : ItemState
 	public int exp;
 	public int level;
 
+	// Arrows this bow has fired that are still recoverable. Spans both
+	// forms an arrow can take: loose loot on the ground (ArrowLootSimState)
+	// and stuck on a mob (ArrowStuck). Each entry returns 1 ammo via
+	// OnArrowRemoved when it leaves play (player pickup, removeTimeMs
+	// timeout, mob removed without dying). The weapon — not the arrow —
+	// is the source of truth for ammo bookkeeping, so the binding survives
+	// the player dropping the weapon: arrows still return ammo to this
+	// WeaponState instance regardless of who's holding it. Runtime-only;
+	// not persisted (the weapon itself lives on Inventory, which isn't
+	// world-serialized).
+	public readonly System.Collections.Generic.List<IWeaponArrow> outstandingArrows = new();
 	public override WeaponData data => _data;
 	private readonly WeaponData _data;
 
@@ -22,6 +33,48 @@ public class WeaponState : ItemState
 		{
 			ammo = _data.maxAmmo;
 		}
+	}
+
+	// Registers a freshly-spawned arrow with this weapon. The caller is
+	// responsible for invoking OnArrowRemoved (typically when its own
+	// "leaving play" event fires) so the ammo bump is uniform across
+	// removal causes.
+	public void RegisterArrow(IWeaponArrow arrow)
+	{
+		if (arrow == null)
+		{
+			return;
+		}
+		outstandingArrows.Add(arrow);
+	}
+
+	// Called by IWeaponArrow implementations when the arrow leaves play for
+	// any reason (player pickup, timeout, mob despawn). One arrow → one
+	// ammo bump, capped at the authored maxAmmo so a stale reference can't
+	// overshoot.
+	public void OnArrowRemoved(IWeaponArrow arrow)
+	{
+		if (!outstandingArrows.Remove(arrow))
+		{
+			return;
+		}
+		if (_data != null && ammo < _data.maxAmmo)
+		{
+			ammo++;
+		}
+	}
+
+	// Removes the arrow from the outstanding list WITHOUT bumping ammo.
+	// Used when an arrow transitions between forms (stuck on a mob
+	// becoming loose loot when the mob dies) — the new form re-registers
+	// separately, so the net ammo accounting stays balanced.
+	public void DetachArrow(IWeaponArrow arrow)
+	{
+		if (arrow == null)
+		{
+			return;
+		}
+		outstandingArrows.Remove(arrow);
 	}
 
 	// Adds exp and promotes level while the running total has crossed the

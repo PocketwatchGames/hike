@@ -228,6 +228,15 @@ public partial class Player : CharacterBody3D
 	// re-wettings so the HUD shows a single Wet stack rather than rolling a
 	// fresh icon every time the player enters/leaves rain.
 	StatusEffectState _wetState;
+	// Player's accumulated wetness in [0, 1]. Integrates the rain-exposure
+	// signal each tick (gated by sky exposure) and decays back to 0 in dry
+	// conditions. The wet status arms only when wetness crosses the arm
+	// threshold and disarms when it falls below the disarm threshold,
+	// giving rain a build-up window before the gameplay effect fires and
+	// a drying period after rain stops. Standing in water snaps to 1
+	// immediately.
+	float _wetness;
+	public float Wetness => _wetness;
 	// Count of overlapping active warmth zones (campfires). > 0 suppresses
 	// wet entirely and clears any in-flight wet timer. Counter (not bool) so
 	// two adjacent campfires don't release the player from one's overlap
@@ -861,22 +870,19 @@ public partial class Player : CharacterBody3D
 
 	// WarmthZone (campfires, etc.) calls these on body enter/exit. Counter,
 	// not bool, so two campfires whose zones overlap don't release the player
-	// from one when they leave the other. Entering immediately clears any
-	// in-flight wet effect — a player walking up to a fire dries off rather
-	// than waiting out the timer. The zone's warmingTemperature is summed
-	// into _warmthBonus so SampleEnvironmentTemperature can stack heat from
-	// multiple overlapping fires.
+	// from one when they leave the other. Entering accelerates the wetness
+	// decay rate (PlayerData.wetnessWarmthDryRate) — a player walking up to
+	// a fire dries off in seconds rather than minutes, and the wet status
+	// releases naturally once wetness falls below the disarm threshold. The
+	// zone's warmingTemperature is summed into _warmthBonus so
+	// SampleEnvironmentTemperature can stack heat from multiple overlapping
+	// fires.
 	public void EnterWarmthZone(WarmthZone zone)
 	{
 		_warmthZoneCount++;
 		if (zone != null)
 		{
 			_warmthBonus += zone.warmingTemperature;
-		}
-		if (_wetState != null)
-		{
-			RemoveStatusEffect(_wetState);
-			_wetState = null;
 		}
 	}
 
@@ -892,16 +898,19 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Per-physics-tick wet state machine. Source conditions: swimming/wading,
-	// or unsheltered while it's raining. While the player is wet AND in any
-	// of those conditions, the timer stays paused (expireTimeMs == 0). When
-	// they reach dry conditions the timer is armed for a full data.duration
-	// window — re-entering rain mid-dry-out cancels the countdown back to 0
-	// (matches the design: each dry-out runs the full 30s). Warmth zones are
-	// handled separately by EnterWarmthZone, which clears the effect outright.
-	private void TickWetEffect()
+	// Per-physics-tick wet state machine driven by an accumulating
+	// wetness float on the player (0 = bone dry, 1 = soaked). Sources:
+	// standing in water snaps wetness to 1 immediately; standing in rain
+	// while sky-exposed builds wetness at wetnessRainRate × RainIntensity
+	// per second. Dry conditions decay wetness back toward 0 at
+	// wetnessDryRate (or wetnessWarmthDryRate if the player is inside a
+	// warmth zone). The wet status only arms when wetness crosses
+	// wetnessArmThreshold and only releases when it falls below
+	// wetnessDisarmThreshold — hysteresis prevents the status flapping
+	// while wetness hovers near either boundary.
+	private void TickWetEffect(float dt)
 	{
-		if (_wetEffectData == null)
+		if (_wetEffectData == null || data == null)
 		{
 			return;
 		}
@@ -912,31 +921,104 @@ public partial class Player : CharacterBody3D
 			_wetState = null;
 		}
 
-		// Inside a warmth zone the player is kept dry — skip both wet
-		// application and timer arming. A wet effect already cleared on enter
-		// in EnterWarmthZone; nothing to do until they leave.
-		if (_warmthZoneCount > 0)
+		// Source classification — water beats rain beats nothing. Warmth
+		// zones (campfires) suppress rain accumulation entirely so the
+		// player dries off at the fire even when it's raining around
+		// them; the fast warmthDryRate then takes them down regardless
+		// of overhead conditions. Water still wins over warmth — if you
+		// step into a stream at a campfire, you're soaked.
+		bool inWater = _waterState != EWaterState.None;
+		bool inWarmth = _warmthZoneCount > 0;
+		bool inRain = !inWater && !inWarmth && IsInRain();
+
+		if (inWater)
 		{
-			return;
+			_wetness = 1f;
+		}
+		else if (inRain)
+		{
+			float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
+			_wetness = Mathf.Clamp(_wetness + data.wetnessRainRate * rainIntensity * dt, 0f, 1f);
+		}
+		else
+		{
+			float dryRate = inWarmth ? data.wetnessWarmthDryRate : data.wetnessDryRate;
+			_wetness = Mathf.Clamp(_wetness - dryRate * dt, 0f, 1f);
 		}
 
-		bool wetSource = IsInWetConditions();
-		if (wetSource)
+		// Hysteresis: arm above wetnessArmThreshold, release below
+		// wetnessDisarmThreshold. Between the two, the status holds its
+		// current state — prevents single-frame flapping when wetness
+		// brushes the arm boundary on a low-intensity drizzle.
+		if (_wetState == null)
 		{
-			if (_wetState == null)
+			if (_wetness >= data.wetnessArmThreshold)
 			{
 				_wetState = AddStatusEffect(_wetEffectData);
+				_wetState?.PauseTimer();
 			}
-			_wetState?.PauseTimer();
-			return;
 		}
-
-		// Dry conditions: arm the countdown the first frame we transition out
-		// of a wet source so the 30s starts fresh.
-		if (_wetState != null && !_wetState.IsTimed)
+		else
 		{
-			_wetState.ArmTimer(_world?.GameTimeMs ?? 0);
+			if (_wetness <= data.wetnessDisarmThreshold)
+			{
+				RemoveStatusEffect(_wetState);
+				_wetState = null;
+			}
+			else
+			{
+				// Status persists; timer stays paused so it doesn't auto-
+				// expire on us — wetness decay is what releases the status.
+				_wetState.PauseTimer();
+			}
 		}
+	}
+
+	// Surface a continuous 0..1 progress value the HUD's status-effect
+	// strip can render as a fill bar, for status effects whose intensity
+	// is driven by a continuous player-side state rather than a timer.
+	// Returns null for effects that don't have a custom mapping (the HUD
+	// falls back to its timer-based progress).
+	//
+	// Mapping for wet: the bar's floor (0) is wetnessDisarmThreshold —
+	// the wetness at which the status auto-clears — so the bar empties
+	// as the player approaches drying off. The ceiling (1) is full
+	// saturation. Rain-armed status enters the bar partway up
+	// ((armThreshold - disarm) / (1 - disarm) ≈ 44% at defaults), swim-
+	// armed status enters at full. Future thirst / hunger / cold / hot
+	// status effects can hook into the same method.
+	public float? GetStatusEffectProgress(StatusEffectData effectData)
+	{
+		if (effectData == null || data == null) { return null; }
+		if (effectData == _wetEffectData)
+		{
+			float disarm = data.wetnessDisarmThreshold;
+			float denom = Mathf.Max(1f - disarm, 1e-4f);
+			return Mathf.Clamp((_wetness - disarm) / denom, 0f, 1f);
+		}
+		return null;
+	}
+
+	// Are we outdoors with rain falling? Replaces the old IsInWetConditions
+	// for the wet-status path — water-state is handled separately so the
+	// caller can snap wetness to 1 directly.
+	//
+	// Gated on a perceptible-rain floor instead of strict `> 0`. The
+	// simRain → palette.RainIntensity formula is `pow(simRain, 1.25)`, and
+	// simCloud clipping its rain threshold by epsilon produces a simRain
+	// of ~1e-5 (displays as 0.000) that maps to a ~1e-7 RainIntensity. A
+	// strict positive check keeps the rain branch active at that value,
+	// so wetness never drains. RainPerceptibleFloor filters the noise.
+	private const float RainPerceptibleFloor = 0.01f;
+
+	private bool IsInRain()
+	{
+		SkyController sky = SkyController.Current;
+		if (sky == null || sky.Palette.RainIntensity < RainPerceptibleFloor)
+		{
+			return false;
+		}
+		return IsSkyExposed();
 	}
 
 	// Slides _bodyTemperature toward the sampled environment + warmth bonus,
@@ -1026,26 +1108,12 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	private bool IsInWetConditions()
-	{
-		if (_waterState != EWaterState.None)
-		{
-			return true;
-		}
-		SkyController sky = SkyController.Current;
-		if (sky == null || sky.Palette.RainIntensity <= 0f)
-		{
-			return false;
-		}
-		return IsSkyExposed();
-	}
-
 	// Single upward raycast against environment voxels. A clear shot to the
 	// arbitrary high cap means the player has open sky overhead — anything in
 	// the way (cave roof, balcony, tree canopy that registers as collidable)
 	// counts as shelter. Cheap enough to run every physics tick (one ray);
-	// the per-tick gating in IsInWetConditions skips it whenever it's not
-	// raining or the player is already in water.
+	// the per-tick gating in IsInRain skips it whenever it's not raining or
+	// the player is already in water.
 	private bool IsSkyExposed()
 	{
 		World3D world3D = GetWorld3D();
@@ -1480,7 +1548,7 @@ public partial class Player : CharacterBody3D
 		TickSprintStamina(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
-		TickWetEffect();
+		TickWetEffect(dt);
 		TickBodyTemperature(dt);
 		_scent?.Tick(dt);
 

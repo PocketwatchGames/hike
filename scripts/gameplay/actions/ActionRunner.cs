@@ -553,6 +553,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoHitscan(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.Projectile) != 0)
+		{
+			ItemEventHandlers.DoProjectile(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.UseAmmo) != 0)
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);

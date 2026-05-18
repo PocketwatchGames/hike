@@ -139,6 +139,21 @@ public class WorldState
     public float CloudVarianceSlope = 0.0f;
     public long CloudVariancePhase = long.MinValue;
 
+    // Independent lightning variance channel. Same handover-phase
+    // structure as the other variance channels. Multiplies the zone's
+    // authored lightningAmount (zone max) AFTER the storm gate (heavy
+    // cloud + active rain), so it expresses "this storm is electric"
+    // vs "this storm is just wet" — two adjacent rainy phases can have
+    // very different lightning levels. Not wind-gated: unlike humidity
+    // and cloud (which model advection), lightning is generated in
+    // place by the storm itself, so its variance reads through directly.
+    public float LightningVariance = 0.5f;
+    public float LightningVariancePrev = 0.5f;
+    public float LightningVarianceCur = 0.5f;
+    public float LightningVarianceNext = 0.5f;
+    public float LightningVarianceSlope = 0.0f;
+    public long LightningVariancePhase = long.MinValue;
+
     // Lingering surface wetness in [0, 1]. Integrates rainAmount, derived
     // fog, and humidity (per-second gains in SimData) and decays with an
     // exponential half-life so surfaces stay visibly wet for a few minutes
@@ -208,6 +223,10 @@ public class WorldState
         CloudVarianceCur = WeatherRng.Randf();
         CloudVarianceNext = WeatherRng.Randf();
         CloudVariance = CloudVarianceCur;
+        LightningVariancePrev = WeatherRng.Randf();
+        LightningVarianceCur = WeatherRng.Randf();
+        LightningVarianceNext = WeatherRng.Randf();
+        LightningVariance = LightningVarianceCur;
     }
 
     // World-coordinate accessors for cross-chunk light propagation
