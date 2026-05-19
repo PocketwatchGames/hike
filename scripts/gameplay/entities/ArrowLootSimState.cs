@@ -49,4 +49,9 @@ public class ArrowLootSimState : LootSimState, IWeaponArrow
     {
         SourceWeapon?.OnArrowRemoved(this);
     }
+
+    public float GetReplenishProgress()
+    {
+        return RuntimeNode is Loot loot ? loot.GetReplenishProgress() : 0f;
+    }
 }

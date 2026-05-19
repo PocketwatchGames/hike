@@ -100,15 +100,17 @@ public static class ItemEventHandlers
 			return;
 		}
 
-		// Per-tier charge curves — sampled at activation, stashed on chargeT.
-		// Range scales the authored hitScanRange; spread perturbs the aim
-		// direction uniformly within a cone whose half-angle scales with the
-		// accuracy curve. Null curves = 1.0 (no scaling) for range and
-		// "fully accurate" (0.0 spread) for accuracy.
+		// Per-tier scalars — sampled at activation, stashed on chargeT.
+		// Range scales the event's authored hitScanRange (chargedRangeScale
+		// multiplier, lerp from 1 at chargeT=0 to chargedRangeScale at
+		// chargeT=1). Spread perturbs the aim direction uniformly within a
+		// cone whose half-angle = MAX_SPREAD_HALF_ANGLE * spreadFraction,
+		// with spread = accuracySpread01 / lerp(1, chargedAccuracyScale,
+		// chargeT) so holding tightens.
 		ItemAction tier = action.selectedTier;
 		float chargeT = action.chargeT;
-		float rangeScale = SampleCurve(tier?.rangeScaleCurve, chargeT, 1f);
-		float spreadScale = SampleCurve(tier?.accuracyScaleCurve, chargeT, 0f);
+		float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
+		float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
 
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
 		Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
@@ -182,8 +184,10 @@ public static class ItemEventHandlers
 		}
 
 		// Recoverable arrow. Triggers only for weapons that author an
-		// arrowLootData reference (currently the bow); other hitscan sources
-		// (mob attacks, traps) leave it null and fire and forget. World.Current
+		// arrowLootData reference (currently the bow) AND on tiers that flag
+		// useAmmo — a non-ammo tier on the same weapon (e.g. a melee-bash
+		// with a bow) skips the drop. Other hitscan sources (mob attacks,
+		// traps) leave arrowLootData null and fire-and-forget. World.Current
 		// is the active game world — used here rather than threading a World
 		// through IActionActor since the hitscan handler already targets the
 		// player's running game.
@@ -195,6 +199,7 @@ public static class ItemEventHandlers
 		// point.
 		if (action.context.primaryItem is WeaponState shootingWeapon
 			&& shootingWeapon.data?.arrowLootData != null
+			&& action.selectedTier?.useAmmo == true
 			&& World.Current != null)
 		{
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
@@ -276,12 +281,13 @@ public static class ItemEventHandlers
 			return;
 		}
 
-		// Per-tier accuracy curve — same convention as DoHitscan. Range
-		// scaling on a projectile would shorten its lifetime; left to a
-		// later pass, so the curve remains a spread-only knob for now.
+		// Per-tier scalars — same convention as DoHitscan. Range scaling
+		// shortens the projectile's lifetime so reach drops proportionally;
+		// speed stays constant so flight feel doesn't change.
 		ItemAction tier = action.selectedTier;
 		float chargeT = action.chargeT;
-		float spreadScale = SampleCurve(tier?.accuracyScaleCurve, chargeT, 0f);
+		float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
+		float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
 
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
 		Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
@@ -290,6 +296,12 @@ public static class ItemEventHandlers
 		DamageData damageData = ev.damageData ?? firingWeapon?.data?.damageData;
 
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
+		// Arrow-recovery binding is decided here at fire time: only populate
+		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
+		// the same weapon (e.g. a melee-bash with a bow) leaves it null and
+		// the projectile skips the drop even though the weapon authors an
+		// arrowLootData reference.
+		ArrowLootData arrowLootData = (tier?.useAmmo == true) ? firingWeapon?.data?.arrowLootData : null;
 		// Authored cues + arrow-recovery binding ride along on the projectile
 		// so impact-time decisions don't need to peek back at the event /
 		// action context (which may be torn down by the time the projectile
@@ -302,12 +314,13 @@ public static class ItemEventHandlers
 			armor = ev.impactArmorEffect,
 			lethal = ev.impactLethalEffect,
 			sourceWeapon = firingWeapon,
+			arrowLootData = arrowLootData,
 		};
 		Projectile.Launch(
 			parent,
 			ev.projectileScene,
 			ev.projectileSpeed,
-			ev.projectileLifetimeSeconds,
+			ev.projectileLifetimeSeconds * rangeScale,
 			ev.projectileLoopEffect,
 			origin,
 			direction,
@@ -529,18 +542,9 @@ public static class ItemEventHandlers
 		return new HitInfo(template, actor.AttackerNode, actor.ActorForward);
 	}
 
-	private static float SampleCurve(Curve curve, float t, float fallback)
-	{
-		if (curve == null)
-		{
-			return fallback;
-		}
-		return curve.Sample(Mathf.Clamp(t, 0f, 1f));
-	}
-
-	// Maximum spread cone half-angle, in radians, when the accuracy curve
-	// outputs 1.0. Tuned so an early-release bow shot is visibly inaccurate
-	// without being absurd. Curve outputs in [0, 1] scale this.
+	// Maximum spread cone half-angle, in radians, when the tier's spread
+	// fraction is 1.0. Tuned so an early-release bow shot is visibly
+	// inaccurate without being absurd. Per-tier accuracySpread01 scales this.
 	public const float MAX_SPREAD_HALF_ANGLE = 0.18f;
 
 	// Best-of priority for melee swings that overlap multiple hurtboxes:

@@ -3,10 +3,14 @@ using Godot;
 // Authored cues + arrow-binding payload the projectile carries from its
 // firing event. The fx fields (miss/environment/health/armor/lethal) come
 // straight from the event's impact fields — same hit-result mapping
-// DoHitscan uses. sourceWeapon, when non-null and carrying an arrowLootData,
-// drives the StickArrow / SpawnArrowLoot follow-up: a hurtbox hit on a
-// still-living mob sticks the arrow, anything else (env clip, lethal,
-// miss-at-range) drops loose loot at the impact point.
+// DoHitscan uses. arrowLootData, when non-null, drives the StickArrow /
+// SpawnArrowLoot follow-up: a hurtbox hit on a still-living mob sticks the
+// arrow, anything else (env clip, lethal, miss-at-range) drops loose loot
+// at the impact point. The firing handler decides at fire time whether to
+// populate it (weapon authors arrowLootData AND the firing tier flags
+// useAmmo), so the projectile doesn't need to peek back at the action.
+// sourceWeapon is the ammo-bookkeeping target — arrows that resolve into
+// loot or stuck-on-mob register back to this WeaponState for recovery.
 public struct ProjectileImpact
 {
 	public PackedScene miss;
@@ -15,6 +19,7 @@ public struct ProjectileImpact
 	public PackedScene armor;
 	public PackedScene lethal;
 	public WeaponState sourceWeapon;
+	public ArrowLootData arrowLootData;
 }
 
 // In-flight arrow / bolt / magic missile. Spawned by ItemEventHandlers.DoProjectile
@@ -231,18 +236,19 @@ public partial class Projectile : Node3D
 		}
 
 		WeaponState weapon = _impact.sourceWeapon;
-		if (weapon == null || weapon.data?.arrowLootData == null || World.Current == null)
+		ArrowLootData arrowLootData = _impact.arrowLootData;
+		if (weapon == null || arrowLootData == null || World.Current == null)
 		{
 			return;
 		}
 		Mob targetMob = result != EHitResult.None ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
 		if (targetMob != null && targetMob.alive)
 		{
-			targetMob.StickArrow(weapon, weapon.data.arrowLootData, position);
+			targetMob.StickArrow(weapon, arrowLootData, position);
 		}
 		else
 		{
-			World.Current.SpawnArrowLoot(position, ItemEventHandlers.BuildArrowEjectImpulse(), weapon.data.arrowLootData, weapon);
+			World.Current.SpawnArrowLoot(position, ItemEventHandlers.BuildArrowEjectImpulse(), arrowLootData, weapon);
 		}
 	}
 }

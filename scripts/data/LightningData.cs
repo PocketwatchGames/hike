@@ -41,7 +41,26 @@ public partial class LightningData : Resource
     // Seconds between strike spawn and the strike going off. The
     // warning fx runs for this whole window so the player has time
     // to dodge.
-    [Export(PropertyHint.Range, "0,5,0.05")] public float warningDurationSeconds = 0.7f;
+    [Export(PropertyHint.Range, "0,10,0.05")] public float warningDurationSeconds = 0.7f;
+
+    // ------- Wander (during warning phase) --------
+
+    // Horizontal wander speed (m/s) during the warning window.
+    // Drives both the noise-driven meander when nothing is in
+    // targeting range AND the homing seek when a target is within
+    // `targetingRadiusMeters`. Set to 0 to lock the strike in place.
+    [Export(PropertyHint.Range, "0,10,0.1")] public float wanderSpeedMetersPerSecond = 2f;
+
+    // Radius (m) within which the preview homes toward the nearest
+    // living target (player or mob) instead of wandering. Set to 0
+    // to disable targeting (pure wander).
+    [Export(PropertyHint.Range, "0,40,0.5")] public float targetingRadiusMeters = 8f;
+
+    // Spatial frequency of the wander-direction Perlin noise. Higher
+    // values change direction more often; the sample input is
+    // `wanderTime * frequency`, so 0.5 gives noise features of roughly
+    // 2 seconds — about one direction shift per couple seconds.
+    [Export(PropertyHint.Range, "0.05,5,0.05")] public float wanderNoiseFrequency = 0.5f;
 
     // Seconds the bolt sprite holds at full opacity after strike.
     // Short — the bolt is a flicker, not a sustained beam.
@@ -115,11 +134,8 @@ public partial class LightningData : Resource
     // weather has teeth.
     [Export(PropertyHint.Range, "5,600,1")] public float weatherSpawnIntervalAtFloor = 25f;
 
-    // Strikes land in an annulus around the player. Min keeps a
-    // small no-strike-here ring so the player isn't instantly hit
-    // on spawn; max is the visible range — pick to match the
-    // ENTITY_LOAD_RADIUS in chunks so strikes don't pop in past
-    // loaded geometry.
-    [Export(PropertyHint.Range, "0,40,0.5")] public float weatherSpawnRadiusMinMeters = 6f;
-    [Export(PropertyHint.Range, "1,80,0.5")] public float weatherSpawnRadiusMaxMeters = 30f;
+    // Radius (m) of the disk around the player in which strikes can
+    // land. Pick to match the ENTITY_LOAD_RADIUS in chunks so strikes
+    // don't pop in past loaded geometry.
+    [Export(PropertyHint.Range, "1,80,0.5")] public float weatherSpawnRadius = 30f;
 }

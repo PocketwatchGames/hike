@@ -1,11 +1,13 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://w0qx7uc667j4"]
 
-[ext_resource type="Shader" uid="uid://6afkmsmke3y37" path="res://shaders/aiming_reticle.gdshader" id="1_shader"]
+[ext_resource type="Shader" uid="uid://c5lwdajvhy13" path="res://shaders/aiming_reticle.gdshader" id="1_mtm5t"]
+[ext_resource type="Texture2D" uid="uid://c3mmhhwc7ne3e" path="res://assets/textures/gui/aiming_reticle_line.png" id="2_lineTexture"]
 
 [resource]
 render_priority = 5
-shader = ExtResource("1_shader")
+shader = ExtResource("1_mtm5t")
+shader_parameter/line_texture = ExtResource("2_lineTexture")
 shader_parameter/line_color = Color(1, 1, 1, 1)
-shader_parameter/max_alpha = 0.5
+shader_parameter/max_alpha = 0.10000000475
 shader_parameter/occluded_alpha_scale = 0.5
 shader_parameter/depth_bias = 0.05

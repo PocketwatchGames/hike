@@ -13,11 +13,9 @@ public partial class Player : CharacterBody3D, IActionActor
 	// charge state. While the runner is Charging that slot, samples the
 	// currently-selected tier and live charge fraction; otherwise samples the
 	// snap tier (tier 0) at chargeT=0 — what an immediate fire would produce.
-	// Hitscan range scales with `rangeScaleCurve` (matches DoHitscan); melee
-	// range is the authored value (DoMelee ignores the curve); projectile
-	// range is derived as `speed * maxLifetimeSeconds` — the projectile
-	// itself doesn't clip by distance, so the indicator just reflects how
-	// far it could fly before timing out.
+	// Hitscan and projectile range both scale with the tier's `rangeScale01`
+	// (projectile scales lifetime, matching DoProjectile); melee range is
+	// the authored value (DoMelee ignores the scalar).
 	public float GetWeaponRange(EInventorySlot slot)
 	{
 		WeaponState weapon = _inventory?.GetWeapon(slot);
@@ -54,16 +52,14 @@ public partial class Player : CharacterBody3D, IActionActor
 			{
 				continue;
 			}
+			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
 			if ((ev.type & EItemEventType.Hitscan) != 0)
 			{
-				float rangeScale = tier.rangeScaleCurve != null
-					? tier.rangeScaleCurve.Sample(Mathf.Clamp(chargeT, 0f, 1f))
-					: 1f;
 				return ev.hitScanRange * rangeScale;
 			}
 			if ((ev.type & EItemEventType.Projectile) != 0 && ev.projectileScene != null)
 			{
-				return ev.projectileSpeed * ev.projectileLifetimeSeconds;
+				return ev.projectileSpeed * ev.projectileLifetimeSeconds * rangeScale;
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{
@@ -133,7 +129,7 @@ public partial class Player : CharacterBody3D, IActionActor
 		_sneaking = false;
 	}
 
-	void TryStartWeaponAction(EInventorySlot slot)
+	void TryStartWeaponAction(EInventorySlot slot, string actionName)
 	{
 		// Committing to an attack always wins over an in-flight movement burst —
 		// cancel any active dash and end sprint before the gate. After the
@@ -149,12 +145,30 @@ public partial class Player : CharacterBody3D, IActionActor
 		{
 			return;
 		}
-		// Per-weapon ammo gate. Cooldown gate is handled by ActionRunner via
-		// ItemState.cooldownExpireMs.
-		if (weapon.data.useAmmo && weapon.ammo <= 0)
+		// Per-weapon ammo gate. maxAmmo > 0 marks an ammo-bearing weapon; an
+		// empty one (ammo <= 0) blocks the press even if individual tiers on
+		// the profile don't all flag useAmmo — the bow shouldn't dry-fire
+		// just because you walked over to its melee-bash tier.
+		if (weapon.data.maxAmmo > 0 && weapon.ammo <= 0)
 		{
 			return;
 		}
+
+		// Pre-cooldown press: latch and let ProcessInput's polling fire it when
+		// cooldown ends, provided the player is still holding the button.
+		// Charging only begins at conversion time, not at the original press —
+		// keeping the chargeT timeline anchored to cooldown-end (not press-time)
+		// is what the runner expects, and lets the player hold through the tail
+		// of the cooldown without burning charge time on the inactive window.
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (weapon.cooldownExpireMs > now)
+		{
+			_pendingWeaponPressSlot = slot;
+			_pendingWeaponPressActionName = actionName;
+			return;
+		}
+		_pendingWeaponPressSlot = null;
+		_pendingWeaponPressActionName = null;
 
 		var context = new ActionContext
 		{
@@ -289,9 +303,203 @@ public partial class Player : CharacterBody3D, IActionActor
 	// IActionActor — what ActionRunner and ItemEventHandlers read from the
 	// player. Position / Forward use the player's body transform; Forward
 	// matches the existing aim direction (basis Z axis, same as
-	// PlayerWeapon's old Melee/Hitscan code).
+	// PlayerWeapon's old Melee/Hitscan code), composed with the live aim
+	// pitch so ranged hitscan / projectile fire along the auto-aimed
+	// elevation. The player body itself only rotates around Y — pitch lives
+	// purely in this composition so the sprite, capsule, and basis stay flat.
 	public Vector3 ActorWorldPosition => GlobalPosition;
-	public Vector3 ActorForward => GlobalTransform.Basis.Z;
+	public Vector3 ActorForward
+	{
+		get
+		{
+			Vector3 horizontal = GlobalTransform.Basis.Z;
+			if (_aimPitchRadians == 0f)
+			{
+				return horizontal;
+			}
+			// basis.Z is always horizontal (player rotates around Y only), so
+			// composing with world Up by sin/cos of pitch produces a unit
+			// vector tilted in the vertical plane along the facing.
+			return horizontal * Mathf.Cos(_aimPitchRadians) + Vector3.Up * Mathf.Sin(_aimPitchRadians);
+		}
+	}
+	public float AimPitchRadians => _aimPitchRadians;
+	// Updated each physics tick by UpdateAimAssist. Zero when not aiming with
+	// a ranged weapon that authored a pitch range; otherwise the smoothed
+	// elevation angle (radians, positive = up) toward the assist target.
+	float _aimPitchRadians;
+
+	// Vertical chest-pivot offset above feet. Must match the +Up shift the
+	// hitscan and projectile handlers apply to ActorWorldPosition so the
+	// assist origin and the actual shot share an origin.
+	const float AimOriginHeight = 1f;
+
+	// Reused across ticks to avoid allocating the candidate list every frame.
+	List<Mob> _aimAssistScratch;
+
+	// Per-physics-tick aim assist for ranged weapons. Stateless: every tick
+	// reads the stick-driven yaw, picks the best mob inside the weapon's
+	// yaw + pitch cones (LOS-checked), and applies a static bias to yaw +
+	// pitch. Nothing accumulates across ticks — the effect is a pure
+	// spatial function of (stickYaw, target).
+	//
+	// Curve: bias = strength × smoothstep-falloff(yawDistanceOutsideSilhouette).
+	// Inside the target's silhouette (yaw delta ≤ halfWidth) the bias is at
+	// max strength; at the cone edge it's zero. The same scalar drives both
+	// yaw and pitch so they fade in/out together as the player pans across
+	// the target.
+	//
+	// Target selection scores by max(0, sqrt(Δyaw² + Δpitch²) − halfWidth);
+	// targets the aim already covers tie at 0 and the closer one wins
+	// (the "aiming at the target ⇒ closer wins" rule). Distance is the
+	// tiebreak.
+	//
+	// Must run AFTER the stick-driven rotation block in _PhysicsProcess so
+	// the cone is evaluated against the just-applied yaw and the bias lands
+	// before _runner.Tick reads ActorForward.
+	void UpdateAimAssist()
+	{
+		if (!_aiming)
+		{
+			_aimPitchRadians = 0f;
+			return;
+		}
+		WeaponData weaponData = _inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+		if (weaponData == null)
+		{
+			_aimPitchRadians = 0f;
+			return;
+		}
+		float pitchRangeRad = Mathf.DegToRad(weaponData.pitchRangeDegrees);
+		float yawAssistRad = Mathf.DegToRad(weaponData.yawAssistDegrees);
+		float strength = Mathf.Clamp(weaponData.aimAssistStrength, 0f, 1f);
+		if (yawAssistRad <= 0f || strength <= 0f)
+		{
+			// Without a yaw cone or any strength there's no assist to apply.
+			_aimPitchRadians = 0f;
+			return;
+		}
+		float range = GetWeaponRange(EInventorySlot.WeaponRight);
+		World3D world3D = GetWorld3D();
+		if (range <= 0f || world3D == null || _world?.MobSpatialHash == null)
+		{
+			_aimPitchRadians = 0f;
+			return;
+		}
+
+		Vector3 origin = GlobalPosition + Vector3.Up * AimOriginHeight;
+		float stickYaw = Rotation.Y;
+		var spaceState = world3D.DirectSpaceState;
+		var selfBodyExclude = new Godot.Collections.Array<Rid> { GetRid() };
+
+		_aimAssistScratch ??= new List<Mob>(16);
+		_aimAssistScratch.Clear();
+		_world.MobSpatialHash.QueryRadius(origin, range, _aimAssistScratch);
+
+		Mob bestMob = null;
+		float bestCost = float.PositiveInfinity;
+		float bestDistSq = float.PositiveInfinity;
+		float bestPitch = 0f;
+		float bestYaw = 0f;
+		float bestHalfWidth = 0f;
+
+		for (int i = 0; i < _aimAssistScratch.Count; i++)
+		{
+			Mob mob = _aimAssistScratch[i];
+			if (mob == null || !mob.alive || mob.burrowed)
+			{
+				continue;
+			}
+			// Assist gates on discovery — undiscovered mobs aren't yet "real"
+			// to the player's awareness, so the bow shouldn't auto-correct
+			// toward them. Hidden/Detected mobs still take direct hits, the
+			// player just doesn't get assist help to land them.
+			if (mob.playerPerceptionState != EPlayerPerceptionState.Discovered)
+			{
+				continue;
+			}
+			Vector3 center = mob.AimCenter;
+			Vector3 delta = center - origin;
+			float horizontalDistSq = delta.X * delta.X + delta.Z * delta.Z;
+			if (horizontalDistSq < 1e-6f)
+			{
+				continue;
+			}
+			float horizontalDist = Mathf.Sqrt(horizontalDistSq);
+			float distSq = horizontalDistSq + delta.Y * delta.Y;
+			if (distSq > range * range)
+			{
+				continue;
+			}
+			float targetPitch = Mathf.Atan2(delta.Y, horizontalDist);
+			if (pitchRangeRad > 0f && Mathf.Abs(targetPitch) > pitchRangeRad)
+			{
+				continue;
+			}
+			float targetYaw = Mathf.Atan2(delta.X, delta.Z);
+			float deltaYaw = Mathf.AngleDifference(stickYaw, targetYaw);
+			if (Mathf.Abs(deltaYaw) > yawAssistRad)
+			{
+				continue;
+			}
+			// LOS clip against environment — keeps the assist from acquiring
+			// a mob behind a wall. Cheaper than the old two-pass clip because
+			// we already have the exact target point; if the env ray hits
+			// before reaching AimCenter, the mob is occluded.
+			using var envQuery = PhysicsRayQueryParameters3D.Create(origin, center, (uint)ECollisionLayer.Environment);
+			envQuery.CollideWithBodies = true;
+			envQuery.CollideWithAreas = false;
+			envQuery.Exclude = selfBodyExclude;
+			var envResult = spaceState.IntersectRay(envQuery);
+			if (envResult.Count > 0)
+			{
+				continue;
+			}
+			// Width-aware angular cost: mobs the aim already covers score 0
+			// and tie-break on distance. clearanceRadius is the authored
+			// mob half-width used for path clearance — same physical width
+			// as the silhouette we want to "stick to".
+			float radius = mob.mobData != null ? mob.mobData.clearanceRadius : 0.4f;
+			float halfWidth = Mathf.Atan2(radius, horizontalDist);
+			float angular = Mathf.Sqrt(deltaYaw * deltaYaw + targetPitch * targetPitch);
+			float cost = Mathf.Max(0f, angular - halfWidth);
+			if (cost < bestCost || (cost == bestCost && distSq < bestDistSq))
+			{
+				bestCost = cost;
+				bestDistSq = distSq;
+				bestMob = mob;
+				bestPitch = targetPitch;
+				bestYaw = targetYaw;
+				bestHalfWidth = halfWidth;
+			}
+		}
+
+		if (bestMob == null)
+		{
+			// No candidate in the cone → no bias at all. The next tick will
+			// re-evaluate; this is a pure spatial function of stickYaw and
+			// the world, no time-domain memory.
+			_aimPitchRadians = 0f;
+			return;
+		}
+
+		// Curve input: how far the stick yaw is OUTSIDE the target's
+		// silhouette. Inside the silhouette → 0 (max assist); at the cone
+		// edge → coneExcess (zero assist). Same scalar drives both yaw and
+		// pitch bias so they fade in/out together as the player pans across
+		// the target.
+		float stickDeltaYaw = Mathf.Abs(Mathf.AngleDifference(stickYaw, bestYaw));
+		float excessYaw = Mathf.Max(0f, stickDeltaYaw - bestHalfWidth);
+		float coneExcess = yawAssistRad - bestHalfWidth;
+		float t01 = coneExcess <= 0f ? 1f : (1f - Mathf.SmoothStep(0f, coneExcess, excessYaw));
+		float bias = strength * t01;
+
+		if (bias > 0f)
+		{
+			Rotation = new Vector3(0f, Mathf.LerpAngle(stickYaw, bestYaw, bias), 0f);
+		}
+		_aimPitchRadians = bias * bestPitch;
+	}
 	public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
 	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();

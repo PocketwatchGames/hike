@@ -101,6 +101,24 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 	}
 
+	// Fraction in [0, 1] of the way to the LootData.removeTimeMs expiry.
+	// 0 when no timeout is authored or removal has already started. Used
+	// by ArrowLootSimState to surface "time until ammo replenishes" on
+	// the weapon HUD.
+	public float GetReplenishProgress()
+	{
+		if (_pickedUp || _removed)
+		{
+			return 0f;
+		}
+		ItemData data = _simState?.Item?.data ?? _simState?.Data;
+		if (data is not LootData lootData || lootData.removeTimeMs <= 0)
+		{
+			return 0f;
+		}
+		return Mathf.Clamp(_ageSeconds * 1000f / lootData.removeTimeMs, 0f, 1f);
+	}
+
 	private void Expire()
 	{
 		if (_removed || _pickedUp)

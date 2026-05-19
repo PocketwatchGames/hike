@@ -121,7 +121,7 @@ public partial class ItemEvent : Resource
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
-	// applied via accuracyScaleCurve). Damage on impact comes from the
+	// applied via accuracySpread01). Damage on impact comes from the
 	// event's damageData (or the firing weapon's damageData if null).
 	// Authored inline rather than via a ProjectileData sub-resource because
 	// brand-new [GlobalClass] C# Resources don't reliably bind to typed

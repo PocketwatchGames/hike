@@ -3,7 +3,12 @@ using Godot;
 [GlobalClass]
 public partial class WeaponData : ItemData
 {
-	[Export] public bool useAmmo = false;
+	// Non-zero = this is an ammo-bearing weapon. Drives the equip-slot pick
+	// (ammo weapons go to WeaponRight), the HUD ammo counter, and the
+	// press-time ammo gate. Per-tier `ItemAction.useAmmo` is the source of
+	// truth for whether a given firing tier consumes ammo / drops arrows;
+	// `maxAmmo > 0` is just the weapon-level rollup callers use without
+	// having to walk the profile.
 	[Export] public int maxAmmo = 0;
 	// Optional drop spawned at every Hitscan impact point. When wired, each
 	// shot leaves a recoverable arrow in the world that returns 1 ammo when
@@ -12,11 +17,32 @@ public partial class WeaponData : ItemData
 	[Export] public ArrowLootData arrowLootData;
 	[Export] public DamageData damageData;
 
-	// Authored timeline + tier list. Replaces the old cooldownTime / activeTime
-	// / activateOnRelease / events fields. A tap-fire weapon has a single tier
-	// with chargeTime=0 and autoActivateAtMax=true; a charge-and-release bow
-	// has a single tier with chargeTime=0 and autoActivateAtMax=false; phase 3
-	// adds multi-tier (Light/Heavy) authoring.
+	// Half-angle (in degrees) of the vertical auto-aim cone for ranged weapons.
+	// While aiming, Player finds the best mob within this cone and adopts its
+	// elevation as the firing pitch (clamped to the same range). 0 = pitch
+	// assist disabled — fire flat along the yaw. Melee weapons leave this 0.
+	[Export] public float pitchRangeDegrees = 0f;
+
+	// Half-angle (in degrees) of the horizontal auto-aim cone. While aiming,
+	// the player's yaw is gently pulled toward the best mob inside this cone
+	// after the stick-driven rotation lands — the cone falls off smoothly so
+	// the player can still rotate freely outside it (full 360° preserved).
+	// 0 = yaw assist disabled.
+	[Export] public float yawAssistDegrees = 0f;
+
+	// Per-tick bias fraction in [0, 1] for both yaw pull and pitch smoothing.
+	// 0 = no assist (the player aims raw); 1 = fully snap to the target each
+	// tick. Yaw additionally has a smoothstep falloff to 0 at the cone edge
+	// so the assist is strongest near a target's silhouette and fades out
+	// before the player rotates past it. Pitch has no falloff because the
+	// pitch cone is purely an acquisition gate.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float aimAssistStrength = 0.4f;
+
+	// Authored timeline + tier list. A tap-fire weapon has a single tier with
+	// chargeTime=0 and autoActivateAtMax=true. A charge-and-release bow can
+	// be authored as a single tier with chargeTime > 0 (release before the
+	// hold completes fires early) or as multiple tiers chaining via per-tier
+	// chargeTime windows.
 	[Export] public ItemActionProfile actionProfile;
 
 	[Export] public override int maxLevel { get; set; } = 5;

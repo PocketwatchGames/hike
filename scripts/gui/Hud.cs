@@ -145,8 +145,8 @@ public partial class Hud : Control
 		{
 			_dialoguePanel.gameClient = gameClient;
 		}
-		_weaponLeftButtonHint.SetHint("AttackMelee", string.Empty);
-		_weaponRightButtonHint.SetHint("AttackRanged", string.Empty);
+		_weaponLeftButtonHint.SetHint("AttackContextSensitive", "AttackMelee", string.Empty, string.Empty);
+		_weaponRightButtonHint.SetHint("AttackContextSensitive", "AttackRanged", "Aim", string.Empty);
 		_consumableButtonHint.SetHint("UseItem", string.Empty);
 		_buttonHintTurnLeft.SetHint("CameraLeft", string.Empty);
 		_buttonHintTurnRight.SetHint("CameraRight", string.Empty);
@@ -778,8 +778,11 @@ public partial class Hud : Control
 		}
 	}
 
-	// Charge fill toward the next tier's chargeTime while the slot's item is
-	// in the runner's Charging phase. Cooldown is shown by WeaponHud, not here.
+	// Charge fill across the current tier's hold window. With per-tier
+	// chargeTime semantics, the bar fills 0 → 1 as `chargeT` ramps within
+	// the selected tier, resets when the next tier takes over, then fills
+	// again. A tier with chargeTime = 0 (snap fire) reports 1 immediately.
+	// Cooldown is shown by WeaponHud, not here.
 	float GetChargeProgress(EInventorySlot slot, ulong nowMs)
 	{
 		ItemState item = _inventory?.GetEquipped(slot);
@@ -801,27 +804,13 @@ public partial class Hud : Control
 		{
 			return 0f;
 		}
-
-
+		ItemAction tier = action.selectedTier;
+		if (tier == null || tier.chargeTime <= 0f)
+		{
+			return 1f;
+		}
+		float tierStart = ItemActionProfile.GetTierStartTime(profile, action.selectedTierIndex, tier.comboIndex);
 		float elapsed = (nowMs - action.pressMs) / 1000f;
-		int nextIndex = action.selectedTierIndex + 1;
-		if (nextIndex >= profile.chargedActions.Count)
-		{
-			return 1f;
-		}
-		ItemAction nextTier = profile.chargedActions[nextIndex];
-		if (nextTier == null)
-		{
-			return 1f;
-		}
-		float prevChargeTime = action.selectedTierIndex >= 0
-			? profile.chargedActions[action.selectedTierIndex].chargeTime
-			: 0f;
-		float span = nextTier.chargeTime - prevChargeTime;
-		if (span <= 0f)
-		{
-			return 1f;
-		}
-		return Mathf.Clamp((elapsed - prevChargeTime) / span, 0f, 1f);
+		return Mathf.Clamp((elapsed - tierStart) / tier.chargeTime, 0f, 1f);
 	}
 }

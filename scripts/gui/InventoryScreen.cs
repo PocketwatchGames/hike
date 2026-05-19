@@ -143,7 +143,7 @@ public partial class InventoryScreen : Control
 				// slot, melee in the left — matches Player.Initialize's
 				// PlayerSpawnData wiring since WeaponData itself doesn't
 				// author a target slot.
-				EInventorySlot target = weapon.useAmmo ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
+				EInventorySlot target = weapon.maxAmmo > 0 ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 				inventory.TryEquip(item, target);
 				break;
 			case ConsumableData:

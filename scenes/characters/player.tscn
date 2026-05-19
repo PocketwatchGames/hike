@@ -24,11 +24,11 @@
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
 [ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
 [ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
-[ext_resource type="Script" uid="uid://136v75rygtjlf" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
+[ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
-[ext_resource type="Script" uid="uid://zqvdnuyqmxad7" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
-[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
+[ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
+[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("28_ftsetframes")
@@ -611,21 +611,19 @@ animations = [{
 "speed": 20.0
 }]
 
-[sub_resource type="BoxMesh" id="BoxMesh_aim_main"]
+[sub_resource type="QuadMesh" id="QuadMesh_aim_line"]
 material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.15, 0.15, 1)
-
-[sub_resource type="BoxMesh" id="BoxMesh_aim_spread"]
-material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.12, 0.12, 1)
-
-[sub_resource type="BoxMesh" id="BoxMesh_aim_drop"]
-material = ExtResource("25_aimreticle_mat")
-size = Vector3(0.12, 1, 0.12)
 
 [sub_resource type="PlaneMesh" id="PlaneMesh_aim_circle"]
 material = ExtResource("25_aimreticle_mat")
-size = Vector2(0.4, 0.4)
+size = Vector2(4, 4)
+
+[sub_resource type="SphereMesh" id="SphereMesh_aim_knob"]
+material = ExtResource("25_aimreticle_mat")
+radius = 0.06
+height = 0.12
+radial_segments = 12
+rings = 6
 
 [node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
 script = ExtResource("1_kqtwu")
@@ -674,7 +672,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(360, 0, 72, 72)
+region_rect = Rect2(504, 0, 72, 72)
 script = ExtResource("4_qgnko")
 Material = 1
 MirrorByYaw = true
@@ -711,30 +709,35 @@ defaultAnimation = &"idle"
 script = ExtResource("27_dashghost")
 _source = NodePath("../Sprite")
 
-[node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_dropLine", "_groundCircle")]
+[node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob")]
 script = ExtResource("24_aimreticle_script")
 _mainLine = NodePath("MainLine")
 _spreadLineLeft = NodePath("SpreadLineLeft")
 _spreadLineRight = NodePath("SpreadLineRight")
-_dropLine = NodePath("DropLine")
 _groundCircle = NodePath("GroundCircle")
+_endKnob = NodePath("EndKnob")
+_groundRingOuterRadius = 0.25
+_groundRingInnerRadius = 0.0
+_groundRingLockedRadiusMultiplier = 2.0
+_groundRingUnlockedAlphaScale = 0.25
 
 [node name="MainLine" type="MeshInstance3D" parent="AimingReticle" unique_id=1299573503]
-visible = false
-mesh = SubResource("BoxMesh_aim_main")
+extra_cull_margin = 32.0
+mesh = SubResource("QuadMesh_aim_line")
 
 [node name="SpreadLineLeft" type="MeshInstance3D" parent="AimingReticle" unique_id=1373545185]
 visible = false
-mesh = SubResource("BoxMesh_aim_spread")
+extra_cull_margin = 32.0
+mesh = SubResource("QuadMesh_aim_line")
 
 [node name="SpreadLineRight" type="MeshInstance3D" parent="AimingReticle" unique_id=598129547]
 visible = false
-mesh = SubResource("BoxMesh_aim_spread")
-
-[node name="DropLine" type="MeshInstance3D" parent="AimingReticle" unique_id=1146064527]
-visible = false
-mesh = SubResource("BoxMesh_aim_drop")
+extra_cull_margin = 32.0
+mesh = SubResource("QuadMesh_aim_line")
 
 [node name="GroundCircle" type="MeshInstance3D" parent="AimingReticle" unique_id=208040533]
-visible = false
 mesh = SubResource("PlaneMesh_aim_circle")
+
+[node name="EndKnob" type="MeshInstance3D" parent="AimingReticle" unique_id=911384672]
+extra_cull_margin = 32.0
+mesh = SubResource("SphereMesh_aim_knob")

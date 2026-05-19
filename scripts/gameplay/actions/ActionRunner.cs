@@ -50,7 +50,7 @@ public class ActionRunner
 				return _action.chargeT;
 			}
 			float elapsed = (_actor.GameTimeMs - _action.pressMs) / 1000f;
-			return ComputeChargeT(_action.profile, _action.selectedTier, elapsed);
+			return ComputeChargeT(_action.profile, _action.selectedTier, _action.selectedTierIndex, elapsed);
 		}
 	}
 	public bool LocksMovement => _action.IsBusy && (
@@ -79,8 +79,7 @@ public class ActionRunner
 			return TryQueue(profile, context);
 		}
 
-		StartImmediate(profile, context);
-		return true;
+		return StartImmediate(profile, context);
 	}
 
 	// Begin a new interactive action. No queueing, no charging — the action
@@ -213,12 +212,21 @@ public class ActionRunner
 		return false;
 	}
 
-	private void StartImmediate(ItemActionProfile profile, ActionContext context)
+	private bool StartImmediate(ItemActionProfile profile, ActionContext context)
 	{
 		ulong now = _actor.GameTimeMs;
 		int targetComboIndex = ResolveTargetComboIndex(profile, context, now);
 		int tier0Index = SelectTierIndex(profile, context, 0f, targetComboIndex);
 		ItemAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
+
+		// Stamina gate at press time. Only tier 0 is checked — higher tiers
+		// may cost more, and that cost is paid (allowed to go negative) when
+		// the player actually releases into that tier in EnterActive.
+		if (tier0 != null && !_actor.HasStamina(tier0.staminaCost))
+		{
+			return false;
+		}
+
 		_action = new PlayerAction
 		{
 			phase = EActionPhase.Charging,
@@ -234,10 +242,10 @@ public class ActionRunner
 			targetComboIndex = targetComboIndex,
 		};
 
-		// Fire chargeEvents at t=0 and announce the initial tier (if reached
-		// at t=0, like a Light tier with chargeTime=0 — readyEvents say
-		// "weapon armed"). No-op when tier0 is null (rare; only if all tiers
-		// have chargeTime > 0).
+		// Fire chargeEvents at t=0 and announce the initial tier (always
+		// reached at t=0 because tier 0's start time is 0 — readyEvents say
+		// "weapon armed"). No-op when tier0 is null (rare; only if no tier
+		// matches the current combo step or requirements gate the lowest).
 		WalkChargeEvents(now);
 		if (tier0 != null)
 		{
@@ -245,8 +253,11 @@ public class ActionRunner
 			StartChargeEffects(tier0);
 		}
 
-		// Auto-activate path: top tier with chargeTime <= 0 fires same tick.
+		// Auto-activate path: if the profile's combo timeline has zero total
+		// hold (every tier's chargeTime == 0) and the top tier is selectable,
+		// fire on the same tick.
 		MaybeAutoActivate(now);
+		return true;
 	}
 
 	private bool TryQueue(ItemActionProfile profile, ActionContext context)
@@ -318,7 +329,7 @@ public class ActionRunner
 		}
 		// Auto-fire only the highest tier (and only when it's the selected
 		// tier — phase 4 adds the requirements gate that may keep selection
-		// at a lower tier even past the top's chargeTime).
+		// at a lower tier even past the top's threshold).
 		int topIndex = profile.chargedActions.Count - 1;
 		if (_action.selectedTierIndex != topIndex)
 		{
@@ -329,8 +340,14 @@ public class ActionRunner
 		{
 			return;
 		}
+		// "Filled" = top tier has held for its full chargeTime past its own
+		// start time. For a tap-fire weapon (top.chargeTime == 0 and no
+		// predecessors with chargeTime > 0), this evaluates to 0 and fires
+		// immediately on press.
+		float topStart = ItemActionProfile.GetTierStartTime(profile, topIndex, top.comboIndex);
+		float fillTime = topStart + top.chargeTime;
 		float elapsed = (now - _action.pressMs) / 1000f;
-		if (elapsed + 1e-6f >= top.chargeTime)
+		if (elapsed + 1e-6f >= fillTime)
 		{
 			EnterActive(top, now);
 		}
@@ -338,6 +355,15 @@ public class ActionRunner
 
 	private void EnterActive(ItemAction tier, ulong now)
 	{
+		// Pay the activated tier's stamina cost. Unconditional — by this
+		// point the press has been committed and (for charging weapons) the
+		// player has held through the windup. Allowed to drive stamina
+		// negative so a tier-1 release the player couldn't fully afford
+		// still fires.
+		if (tier != null)
+		{
+			_actor.ConsumeStamina(tier.staminaCost);
+		}
 		FireChargeEndEvents();
 		StopChargeLoop();
 		ItemEventHandlers.SpawnOnActor(_actor, tier?.releaseEffect);
@@ -348,7 +374,7 @@ public class ActionRunner
 		_action.activateMs = now;
 		_action.endMs = now + (ulong)(tier.activeDurationSeconds * 1000f);
 		_action.lastEventIndex = -1;
-		_action.chargeT = ComputeChargeT(_action.profile, tier, chargeElapsed);
+		_action.chargeT = ComputeChargeT(_action.profile, tier, _action.selectedTierIndex, chargeElapsed);
 
 		// Combo bookkeeping (weapon-driving tiers only). The activated tier's
 		// comboIndex becomes the weapon's current chain position. comboWindowMs
@@ -594,16 +620,18 @@ public class ActionRunner
 	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds, int comboIndex)
 	{
 		// Highest-to-lowest, return first whose comboIndex matches the chain
-		// target AND whose chargeTime is reached AND whose requirements all
-		// pass. Requirements failing fall through to the next lower tier — a
-		// Strong attack short on mana drops to Weak (within the same combo
-		// step). The combo filter is fixed for the duration of the charge.
+		// target AND whose cumulative start time is reached AND whose
+		// requirements all pass. Requirements failing fall through to the
+		// next lower tier — a Strong attack short on mana drops to Weak
+		// (within the same combo step). The combo filter is fixed for the
+		// duration of the charge.
 		for (int i = profile.chargedActions.Count - 1; i >= 0; i--)
 		{
 			ItemAction action = profile.chargedActions[i];
 			if (action == null) { continue; }
 			if (action.comboIndex != comboIndex) { continue; }
-			if (chargeElapsedSeconds + 1e-6f < action.chargeTime) { continue; }
+			float tierStart = ItemActionProfile.GetTierStartTime(profile, i, comboIndex);
+			if (chargeElapsedSeconds + 1e-6f < tierStart) { continue; }
 			if (!RequirementsMet(action, context)) { continue; }
 			return i;
 		}
@@ -702,29 +730,19 @@ public class ActionRunner
 		}
 	}
 
-	public static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, float chargeElapsedSeconds)
+	public static float ComputeChargeT(ItemActionProfile profile, ItemAction selectedTier, int tierIndex, float chargeElapsedSeconds)
 	{
-		// Sampling window precedence:
-		//   1. selectedTier.maxChargeSeconds (per-action explicit window —
-		//      lets a single-tier weapon scale curves over its hold time)
-		//   2. profile's top-tier chargeTime (multi-tier without per-action
-		//      curves — phase 3 weapons like the multi-tier club don't sample
-		//      chargeT in their event handlers, so this fallback is mostly
-		//      diagnostic)
-		// Returns 0 when no meaningful window exists.
-		if (selectedTier != null && selectedTier.maxChargeSeconds > 0f)
-		{
-			return Mathf.Clamp(chargeElapsedSeconds / selectedTier.maxChargeSeconds, 0f, 1f);
-		}
-		if (profile == null || profile.chargedActions.Count == 0)
+		// Per-tier window: chargeT ramps 0 → 1 across this tier's own
+		// `chargeTime`, measured from the tier's cumulative start time
+		// (the moment it became selected). Tiers with chargeTime == 0
+		// don't ramp — chargeT stays at 0, and any chargedRangeScale /
+		// chargedAccuracyScale on the tier has no effect (lerp(1, x, 0) = 1
+		// for range; press value / lerp(1, x, 0) = press value for spread).
+		if (selectedTier == null || selectedTier.chargeTime <= 0f)
 		{
 			return 0f;
 		}
-		ItemAction top = profile.chargedActions[profile.chargedActions.Count - 1];
-		if (top == null || top.chargeTime <= 0f)
-		{
-			return 0f;
-		}
-		return Mathf.Clamp(chargeElapsedSeconds / top.chargeTime, 0f, 1f);
+		float tierStart = ItemActionProfile.GetTierStartTime(profile, tierIndex, selectedTier.comboIndex);
+		return Mathf.Clamp((chargeElapsedSeconds - tierStart) / selectedTier.chargeTime, 0f, 1f);
 	}
 }

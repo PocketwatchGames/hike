@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // A single lightning strike at a world position. Spawned by
@@ -9,6 +10,15 @@ using Godot;
 // All authored content (bolt sprite, warning fx, strike fx, damage,
 // flash amplitude, etc.) lives on a LightningData resource passed in
 // at Create time. The C# class is just the runtime conductor.
+//
+// During the warning phase the strike WANDERS horizontally — a
+// continuous Perlin noise field drives a 2 m/s meander so the preview
+// hunts erratically across the ground. If a player or mob crosses
+// inside `targetingRadiusMeters` the wander locks onto the closest
+// target instead, biasing the strike toward whatever stepped into
+// the kill zone. Position changes propagate to the warning fx (a
+// child node) and the bolt automatically, so the visible preview
+// tracks the moving strike point.
 [GlobalClass]
 public partial class LightningStrike : Node3D
 {
@@ -20,6 +30,13 @@ public partial class LightningStrike : Node3D
     // them without re-authoring the strike scene.
     private const string SCENE_PATH = "res://scenes/effects/lightning_strike.tscn";
 
+    // Vertical raycast envelope used to keep the wandering strike
+    // snapped to the ground each tick. Generous on both sides so
+    // small terrain steps (single-voxel ledges) and overhangs don't
+    // make the strike lose its ground sample.
+    private const float GROUND_RAY_HEIGHT_OFFSET = 40f;
+    private const float GROUND_RAY_DEPTH_OFFSET = 40f;
+
     // Bolt visibility uses MeshInstance3D.Transparency (0 = opaque,
     // 1 = invisible) — built-in per-instance fade that doesn't
     // require touching the shared material.
@@ -30,6 +47,12 @@ public partial class LightningStrike : Node3D
     private float _phaseTimer;
     private EPhase _phase;
     private Fx _warningFx;
+    private FastNoiseLite _wanderNoise;
+    private float _wanderTime;
+    // Per-instance scratch list reused each wander tick so target
+    // queries don't allocate. List itself is small (mob density per
+    // 8m XZ disk is rarely more than a handful).
+    private readonly List<Mob> _mobBuffer = new();
 
     private enum EPhase
     {
@@ -86,6 +109,14 @@ public partial class LightningStrike : Node3D
         {
             _warningFx = Fx.Create(_data.warningFx, this, Vector3.Zero);
         }
+
+        // Per-strike noise seed so two strikes that spawn on the
+        // same frame wander in different directions instead of
+        // marching in lockstep.
+        _wanderNoise = new FastNoiseLite();
+        _wanderNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        _wanderNoise.Frequency = _data.wanderNoiseFrequency;
+        _wanderNoise.Seed = (int)GD.Randi();
     }
 
     public override void _Process(double delta)
@@ -100,6 +131,7 @@ public partial class LightningStrike : Node3D
         switch (_phase)
         {
             case EPhase.Warning:
+                UpdateWander((float)delta);
                 if (_phaseTimer <= 0f)
                 {
                     FireStrike();
@@ -192,7 +224,11 @@ public partial class LightningStrike : Node3D
         using var query = new PhysicsShapeQueryParameters3D();
         query.Shape = shape;
         query.Transform = new Transform3D(Basis.Identity, GlobalPosition);
-        query.CollisionMask = (uint)ECollisionLayer.HurtBox;
+        // Lightning ignores cover, so it also ignores burrow depth — strikes
+        // reach underground hurtboxes the same as surface ones. Default
+        // weapons mask HurtBox only and naturally skip the BurrowedHurtBox
+        // layer; lightning opts in explicitly.
+        query.CollisionMask = (uint)(ECollisionLayer.HurtBox | ECollisionLayer.BurrowedHurtBox);
         query.CollideWithAreas = true;
         query.CollideWithBodies = false;
 
@@ -216,6 +252,148 @@ public partial class LightningStrike : Node3D
             var hit = new HitInfo(_data.damage, this, Vector3.Up);
             hb.Hit(hit);
         }
+    }
+
+    // Horizontal drift during the warning window. Picks between two
+    // movement modes per tick: SEEK the closest player/mob inside
+    // `targetingRadiusMeters` if one exists, otherwise WANDER along
+    // a continuous Perlin vector. Both modes move at the same speed
+    // (`wanderSpeedMetersPerSecond`) so a target stepping into range
+    // doesn't visibly snap the strike's pace, only its direction.
+    // After horizontal move, raycast back down to keep the strike
+    // glued to the terrain — without this the preview floats over
+    // dips and rises.
+    private void UpdateWander(float delta)
+    {
+        if (_data.wanderSpeedMetersPerSecond <= 0f)
+        {
+            return;
+        }
+        _wanderTime += delta;
+
+        Vector3 dir;
+        if (TryFindClosestTarget(out Vector3 targetPos))
+        {
+            Vector3 toTarget = targetPos - GlobalPosition;
+            toTarget.Y = 0f;
+            if (toTarget.LengthSquared() < 1e-4f)
+            {
+                return;
+            }
+            dir = toTarget.Normalized();
+        }
+        else
+        {
+            // Sample two well-separated rows of 2D noise so X and Z
+            // components are uncorrelated — sampling (t, 0) and
+            // (0, t) on a single noise field would tie the components
+            // together along the diagonal.
+            float nx = _wanderNoise.GetNoise2D(_wanderTime, 0f);
+            float nz = _wanderNoise.GetNoise2D(_wanderTime, 1000f);
+            Vector3 raw = new Vector3(nx, 0f, nz);
+            if (raw.LengthSquared() < 1e-4f)
+            {
+                return;
+            }
+            dir = raw.Normalized();
+        }
+
+        Vector3 candidate = GlobalPosition + dir * _data.wanderSpeedMetersPerSecond * delta;
+        if (TryFindGround(candidate, out Vector3 ground))
+        {
+            GlobalPosition = ground;
+        }
+    }
+
+    // Closest player-or-mob within targetingRadiusMeters (XZ
+    // distance). Returns false if targeting is disabled, the world
+    // isn't available, or nothing is in range — caller falls back
+    // to noise-driven wander.
+    private bool TryFindClosestTarget(out Vector3 targetPos)
+    {
+        targetPos = default;
+        if (_data.targetingRadiusMeters <= 0f || _world == null)
+        {
+            return false;
+        }
+        float radius = _data.targetingRadiusMeters;
+        float bestDistSq = radius * radius;
+        bool found = false;
+        Vector3 origin = GlobalPosition;
+
+        Player player = _world.player;
+        if (player != null)
+        {
+            Vector3 p = player.GlobalPosition;
+            float dx = p.X - origin.X;
+            float dz = p.Z - origin.Z;
+            float d2 = dx * dx + dz * dz;
+            if (d2 < bestDistSq)
+            {
+                bestDistSq = d2;
+                targetPos = p;
+                found = true;
+            }
+        }
+
+        _mobBuffer.Clear();
+        _world.MobSpatialHash?.QueryRadius(origin, radius, _mobBuffer);
+        for (int i = 0; i < _mobBuffer.Count; i++)
+        {
+            Mob m = _mobBuffer[i];
+            if (m == null || !GodotObject.IsInstanceValid(m))
+            {
+                continue;
+            }
+            // Burrowed mobs are damaged on coincidental overlap (the
+            // radial query masks BurrowedHurtBox), but the wander seek
+            // shouldn't actively home in on something underground — the
+            // strike has no surface cue to "see" them. Skip them as
+            // target candidates; the spatial hash isn't layer-aware.
+            if (m.burrowed)
+            {
+                continue;
+            }
+            Vector3 p = m.GlobalPosition;
+            float dx = p.X - origin.X;
+            float dz = p.Z - origin.Z;
+            float d2 = dx * dx + dz * dz;
+            if (d2 < bestDistSq)
+            {
+                bestDistSq = d2;
+                targetPos = p;
+                found = true;
+            }
+        }
+        return found;
+    }
+
+    // Vertical ground probe used to re-snap Y after each horizontal
+    // wander step. Mirrors WeatherLightningSpawner's spawn-time
+    // version — same Environment mask, same downward sweep — just
+    // run continuously instead of once. Returns false off the map
+    // so we don't drift the strike into thin air.
+    private bool TryFindGround(Vector3 query2d, out Vector3 ground)
+    {
+        ground = default;
+        World3D world3D = _world?.GetWorld3D();
+        if (world3D == null)
+        {
+            return false;
+        }
+        Vector3 from = new Vector3(query2d.X, query2d.Y + GROUND_RAY_HEIGHT_OFFSET, query2d.Z);
+        Vector3 to = new Vector3(query2d.X, query2d.Y - GROUND_RAY_DEPTH_OFFSET, query2d.Z);
+        using var query = PhysicsRayQueryParameters3D.Create(from, to);
+        query.CollisionMask = (uint)ECollisionLayer.Environment;
+        query.CollideWithBodies = true;
+        query.CollideWithAreas = false;
+        var result = world3D.DirectSpaceState.IntersectRay(query);
+        if (result.Count == 0)
+        {
+            return false;
+        }
+        ground = (Vector3)result["position"];
+        return true;
     }
 
     // Screen flash intensity falls off linearly from

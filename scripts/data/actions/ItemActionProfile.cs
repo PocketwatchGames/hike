@@ -8,10 +8,12 @@ using Godot.Collections;
 [GlobalClass]
 public partial class ItemActionProfile : Resource
 {
-	// Charge tiers, ascending by chargeTime. A tap-fire weapon has a single
-	// entry with chargeTime=0 and autoActivateAtMax=true. A charge-then-fire
-	// bow has a single entry with chargeTime=0 and autoActivateAtMax=false
-	// (release fires it). Multi-tier weapons (Light/Heavy) authored in phase 3.
+	// Charge tiers, listed in the order they take over. Each tier holds for
+	// its own `chargeTime` before the next same-comboIndex tier becomes
+	// selected. A tap-fire weapon has a single entry with chargeTime=0 and
+	// autoActivateAtMax=true. A charge-then-fire bow has a single entry with
+	// chargeTime > 0 and autoActivateAtMax=false (release before chargeTime
+	// fires early; full hold reaches the next tier or auto-fires).
 	[Export] public Array<ItemAction> chargedActions = new();
 
 	// Events fired while Charging. PlayAnim "wind up", spawn charge particle,
@@ -28,9 +30,10 @@ public partial class ItemActionProfile : Resource
 	// tier (player released too early).
 	[Export] public Array<ItemEvent> abortEvents = new();
 
-	// If true and the player holds past the highest tier's chargeTime,
-	// auto-fire that tier (gated by its requirements when phase 4 lands).
-	// If false, the player must release to commit.
+	// If true and the player holds past the cumulative chargeTime of every
+	// tier on the current combo step, auto-fire the top tier (gated by its
+	// requirements when phase 4 lands). If false, the player must release
+	// to commit.
 	[Export] public bool autoActivateAtMax = true;
 
 	// Apply a movement lock for the duration of the action (Charging + Active).
@@ -45,4 +48,23 @@ public partial class ItemActionProfile : Resource
 	// within queueWindowSeconds of ending and the profile is queueable.
 	[Export] public bool queueable = false;
 	[Export] public float queueWindowSeconds = 0.2f;
+
+	// Cumulative time-from-press at which the tier at `tierIndex` becomes
+	// selectable: sum of `chargeTime` across all preceding tiers in
+	// `chargedActions` that share `comboIndex`. Other-combo tiers don't
+	// contribute, so each combo step has its own independent timeline.
+	public static float GetTierStartTime(ItemActionProfile profile, int tierIndex, int comboIndex)
+	{
+		if (profile?.chargedActions == null || tierIndex <= 0) { return 0f; }
+		int count = Mathf.Min(tierIndex, profile.chargedActions.Count);
+		float t = 0f;
+		for (int i = 0; i < count; i++)
+		{
+			ItemAction a = profile.chargedActions[i];
+			if (a == null) { continue; }
+			if (a.comboIndex != comboIndex) { continue; }
+			t += a.chargeTime;
+		}
+		return t;
+	}
 }

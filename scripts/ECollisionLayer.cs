@@ -18,4 +18,24 @@ public enum ECollisionLayer
     HurtBox = 32,
     Water = 64,
     Burrowed = 128,
+    // Hurtbox of a burrowed mob — split from Burrowed so attack-scan tools
+    // can pick up the targetable shape independently of the body's
+    // movement-collision volume. Default attack masks use HurtBox only, so
+    // anything on this layer is naturally hidden from regular weapons until
+    // a tool opts in explicitly.
+    BurrowedHurtBox = 256,
+    // Corpse rigid body — moved here in Mob.Die(). Mask keeps Environment
+    // so the body still rests on terrain and accepts knockback impulses,
+    // while staying invisible to projectile sweeps and aim raycasts (both
+    // mask Environment for body queries, not Dead). Live mobs no longer
+    // collide with corpses as a side effect — fine, since pathing already
+    // steers around the mob spatial hash. Future "loot corpse" or "drag
+    // corpse" tools opt in by masking this bit explicitly.
+    Dead = 512,
+    // Hurtbox of a corpse — split from Dead so future tools that scan
+    // corpses as targets (revive spell, butcher tool) can pick up the
+    // targetable shape independently of the body's movement-collision
+    // volume. Default attack masks use HurtBox only, so anything on this
+    // layer is naturally hidden from regular weapons until a tool opts in.
+    DeadHurtBox = 1024,
 }

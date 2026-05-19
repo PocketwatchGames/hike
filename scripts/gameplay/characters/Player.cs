@@ -119,6 +119,14 @@ public partial class Player : CharacterBody3D
 	// Latched at AttackContextSensitive press time so the release routes to
 	// the same weapon slot even if the player releases Aim mid-attack.
 	EInventorySlot? _contextSensitiveAttackSlot;
+	// Press received while the weapon's cooldown is still ticking. Each tick
+	// ProcessInput re-checks: button no longer held → discard; cooldown now
+	// elapsed and runner free → convert to a real start. Lets the player hold
+	// the button through the tail of the cooldown to chain attacks without
+	// frame-perfect timing. The action-name is stored alongside the slot so
+	// the polling check can re-read the input the player is actually holding.
+	EInventorySlot? _pendingWeaponPressSlot;
+	string _pendingWeaponPressActionName;
 	readonly List<IInteractive> _interactiveCollisions = new();
 	readonly List<TallGrass> _tallGrassCollisions = new();
 	float _terrainSpeed = 1f;
@@ -1393,23 +1401,31 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Spend stamina and arm the recharge delay. Returns false (without
-	// charging) when there isn't enough in the pool, so callers can use this
-	// as a gate for sprint / dodge / etc.
-	public bool ConsumeStamina(float amount)
+	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0
+	// or less always pass.
+	public bool HasStamina(float amount)
 	{
 		if (amount <= 0f)
 		{
 			return true;
 		}
-		if (_stamina < amount)
+		return _stamina >= amount;
+	}
+
+	// IActionActor — unconditional spend at EnterActive. Allowed to drive
+	// stamina negative; sprint / swim gating already keys off `_stamina <= 0`
+	// and the recharge tick re-fills from negative without special handling.
+	// Arms the recharge delay so a heavy action doesn't begin refilling
+	// immediately after firing.
+	public void ConsumeStamina(float amount)
+	{
+		if (amount <= 0f)
 		{
-			return false;
+			return;
 		}
 		_stamina -= amount;
 		ulong now = _world?.GameTimeMs ?? 0;
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
-		return true;
 	}
 
 	private void TickStamina(float dt)
@@ -1731,6 +1747,11 @@ public partial class Player : CharacterBody3D
 		{
 			Rotation = new Vector3(0, Mathf.Atan2(_inputMove.X, _inputMove.Z), 0);
 		}
+
+		// Ranged aim assist runs after the stick-driven rotation so the yaw
+		// cone is evaluated against the just-applied yaw, and so the gentle
+		// yaw pull lands before _runner.Tick reads ActorForward to fire.
+		UpdateAimAssist();
 
 		_runner?.Tick();
 
@@ -2104,17 +2125,18 @@ public partial class Player : CharacterBody3D
 		// Sneak is a toggle. Pressing also doubles as the player-initiated
 		// abort key while a runner action is in flight (charging always
 		// cancels; Active cancels only if the selected tier opts in via
-		// canAbort). Toggling after the abort still flips _sneaking, so the
-		// classic "tap Sneak to bail out of an attack and crouch" feel is
-		// preserved — attacking cleared sneak when it started, and the abort
-		// tap turns it back on.
+		// canAbort). A successful abort consumes the press — the player
+		// wanted to bail out of the attack, not also flip into sneak.
 		if (Input.IsActionJustPressed("Sneak"))
 		{
-			if (_runner != null && _runner.IsBusy)
+			if (_runner != null && _runner.IsBusy && _runner.TryAbort())
 			{
-				_runner.TryAbort();
+				// abort consumed the press
 			}
-			_sneaking = !_sneaking;
+			else
+			{
+				_sneaking = !_sneaking;
+			}
 		}
 
 		if (Input.IsActionJustPressed("UseItem"))
@@ -2152,11 +2174,34 @@ public partial class Player : CharacterBody3D
 			TryStartDash();
 		}
 
+		// Convert a pending pre-cooldown press if the player is still holding
+		// the button and the cooldown has now elapsed. Runs before this
+		// frame's JustPressed handling so a press that lands on the exact
+		// frame the cooldown expires still goes through TryStartWeaponAction
+		// normally — the pending field is only set when cooldown is in flight.
+		if (_pendingWeaponPressSlot is EInventorySlot pendingSlot)
+		{
+			if (!Input.IsActionPressed(_pendingWeaponPressActionName))
+			{
+				_pendingWeaponPressSlot = null;
+				_pendingWeaponPressActionName = null;
+			}
+			else if (_runner != null && !_runner.IsBusy)
+			{
+				WeaponState pendingWeapon = _inventory?.GetWeapon(pendingSlot);
+				ulong nowMs = _world?.GameTimeMs ?? 0;
+				if (pendingWeapon != null && pendingWeapon.cooldownExpireMs <= nowMs)
+				{
+					TryStartWeaponAction(pendingSlot, _pendingWeaponPressActionName);
+				}
+			}
+		}
+
 		foreach (var (slot, actionName) in _weaponActions)
 		{
 			if (Input.IsActionJustPressed(actionName))
 			{
-				TryStartWeaponAction(slot);
+				TryStartWeaponAction(slot, actionName);
 			}
 			if (Input.IsActionJustReleased(actionName))
 			{
@@ -2173,7 +2218,7 @@ public partial class Player : CharacterBody3D
 				? EInventorySlot.WeaponRight
 				: EInventorySlot.WeaponLeft;
 			_contextSensitiveAttackSlot = slot;
-			TryStartWeaponAction(slot);
+			TryStartWeaponAction(slot, "AttackContextSensitive");
 		}
 		if (Input.IsActionJustReleased("AttackContextSensitive") && _contextSensitiveAttackSlot is EInventorySlot latchedSlot)
 		{

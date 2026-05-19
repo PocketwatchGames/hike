@@ -23,6 +23,7 @@ public partial class ButtonHint : BoxContainer
 
 	// Input action whose first matching key/button glyph drives the button
 	// label. Resolved from InputMap so rebinding takes effect without code.
+	// Used for both devices unless InputActionGamepad is set.
 	string _inputAction = string.Empty;
 	[Export]
 	public string InputAction
@@ -31,6 +32,37 @@ public partial class ButtonHint : BoxContainer
 		set
 		{
 			_inputAction = value ?? string.Empty;
+			UpdateButtonText();
+		}
+	}
+
+	// Optional gamepad-specific action. When set, takes precedence over
+	// InputAction on gamepad. Use when the K&M and gamepad bindings live on
+	// different actions (e.g. weapon attacks: AttackContextSensitive on K&M,
+	// AttackMelee/AttackRanged on gamepad).
+	string _inputActionGamepad = string.Empty;
+	[Export]
+	public string InputActionGamepad
+	{
+		get => _inputActionGamepad;
+		set
+		{
+			_inputActionGamepad = value ?? string.Empty;
+			UpdateButtonText();
+		}
+	}
+
+	// Optional K&M-only modifier action whose glyph is prepended (joined with
+	// "+") to InputAction's glyph. Use for chorded inputs like Aim+LMB. Not
+	// applied on gamepad — gamepad uses InputActionGamepad as the full glyph.
+	string _inputActionModifier = string.Empty;
+	[Export]
+	public string InputActionModifier
+	{
+		get => _inputActionModifier;
+		set
+		{
+			_inputActionModifier = value ?? string.Empty;
 			UpdateButtonText();
 		}
 	}
@@ -58,6 +90,17 @@ public partial class ButtonHint : BoxContainer
 	public void SetHint(string inputAction, string hint)
 	{
 		_inputAction = inputAction ?? string.Empty;
+		_inputActionGamepad = string.Empty;
+		_inputActionModifier = string.Empty;
+		ActionName = hint;
+		UpdateButtonText();
+	}
+
+	public void SetHint(string inputAction, string inputActionGamepad, string inputActionModifier, string hint)
+	{
+		_inputAction = inputAction ?? string.Empty;
+		_inputActionGamepad = inputActionGamepad ?? string.Empty;
+		_inputActionModifier = inputActionModifier ?? string.Empty;
 		ActionName = hint;
 		UpdateButtonText();
 	}
@@ -97,6 +140,24 @@ public partial class ButtonHint : BoxContainer
 		{
 			return;
 		}
-		_buttonText.Text = InputGlyph.Resolve(_inputAction, InputDevice.Current);
+		_buttonText.Text = ResolveGlyph(InputDevice.Current);
+	}
+
+	string ResolveGlyph(InputDevice.EDevice device)
+	{
+		if (device == InputDevice.EDevice.Gamepad && !string.IsNullOrEmpty(_inputActionGamepad))
+		{
+			return InputGlyph.Resolve(_inputActionGamepad, device);
+		}
+		string main = InputGlyph.Resolve(_inputAction, device);
+		if (device == InputDevice.EDevice.KeyboardMouse && !string.IsNullOrEmpty(_inputActionModifier))
+		{
+			string mod = InputGlyph.Resolve(_inputActionModifier, device);
+			if (!string.IsNullOrEmpty(mod))
+			{
+				return mod + "+" + main;
+			}
+		}
+		return main;
 	}
 }

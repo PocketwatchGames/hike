@@ -1,25 +1,28 @@
 using Godot;
 
-// Aiming overlay attached to the player. Forward line, vertical drop line,
-// ground ring, and the two parallel spread lines all share
-// aiming_reticle.gdshader. Per-frame work: a forward raycast (clamps the line
-// at walls), a down raycast (places drop / circle), and the transform / shader
-// uniform writes that fall out of those distances.
+// Aiming overlay attached to the player. Main forward line, two spread lines,
+// and ground ring all share aiming_reticle.gdshader.
+//
+// Geometry strategy: each line is a unit QuadMesh with a billboard vertex
+// shader that expands it into a camera-facing ribbon between line_start_world
+// and line_end_world. We never touch the mesh transforms; per-frame work is
+// just instance-uniform writes. This avoids the BoxMesh "side faces have
+// constant cross-section r" problem that prevented shader AA from working
+// — a billboard quad's cross-section UV varies smoothly across the visible
+// surface, so fwidth+smoothstep AA produces partial-alpha coverage at edges.
+// At the inner viewport's chunky resolution that reads as "edge pixels carry
+// fractional alpha" — the pixel-art-style AA the reticle wants.
 [GlobalClass]
 public partial class AimingReticle : Node3D
 {
-	// Main forward beam. Mesh authored as a unit-Z box; scale.z + position.z
-	// per frame so the line ends at the wall hit (or weapon range if clear).
-	// Alpha ramps from 1m→3m via gradient instance uniforms.
 	[Export] private MeshInstance3D _mainLine;
-	// Two parallel spread markers, fixed length, positioned at the line
-	// endpoint with X offsets of ±tan(halfAngle) * lineLength.
 	[Export] private MeshInstance3D _spreadLineLeft;
 	[Export] private MeshInstance3D _spreadLineRight;
-	// Vertical drop from line endpoint to ground. Y scale = drop distance.
-	[Export] private MeshInstance3D _dropLine;
-	// Always-visible ring on the ground beneath the drop line.
 	[Export] private MeshInstance3D _groundCircle;
+	// Small sphere placed at the mainline's endpoint. Shares the aiming reticle
+	// material so it inherits the same gradient ramp, depth-based occlusion
+	// scaling, and alpha-multiplier fade as the mainline itself.
+	[Export] private MeshInstance3D _endKnob;
 
 	// Vertical offset of the chest pivot above the player's feet.
 	[Export] private float _aimHeight = 1f;
@@ -28,24 +31,78 @@ public partial class AimingReticle : Node3D
 	[Export] private float _gradientStartDistance = 1f;
 	[Export] private float _gradientEndDistance = 3f;
 	// Max distance below the line endpoint to search for ground when placing
-	// the drop line + ground circle. Misses hide both for that frame.
+	// the ground circle. Misses hide both for that frame.
 	[Export] private float _maxGroundDropDistance = 30f;
-	// Fixed length of each parallel spread marker.
+	// Fixed length of each parallel spread marker (centered on the endpoint).
 	[Export] private float _spreadLineLength = 1f;
 	// When the forward raycast hits a wall, the drop raycast backs off this
 	// far along -forward so it starts in open air rather than coplanar with
-	// (or fractionally inside) the wall surface. Without it the drop ray can
-	// self-hit or pass through the wall on the first cell, missing the floor
-	// entirely and rendering the drop line at max length.
+	// (or fractionally inside) the wall surface.
 	[Export] private float _wallBackoff = 0.05f;
-	// Ground ring geometry. Outer radius matches the source PlaneMesh extent
-	// (size 2 * outer); inner radius is the inside of the band. Both are set
-	// once on the ground circle's instance uniforms so the shader's discard
-	// path produces a clean annulus.
+	// World-space thicknesses for each ribbon. At the inner viewport's
+	// ~13.5 px/m density these map to ~2-inner-pixel-wide lines; the cross-
+	// section AA fades the outermost ~0.5 px on each side to partial alpha.
+	[Export] private float _mainLineWidth = 0.15f;
+	[Export] private float _spreadLineWidth = 0.12f;
+	// Ground ring radii in WORLD METERS (mesh-local coords match world units
+	// at scale 1, so authoring values directly here works). The unlocked
+	// outer/inner pair defines the base ring AND the line thickness used
+	// for every ring size — when the bow locks onto a mob the outer grows
+	// to the mob's collision radius and the inner trails it by the same
+	// `outer − inner` thickness so the band's width stays constant. The
+	// PlaneMesh on the ground circle in the scene must be sized large
+	// enough to contain the largest outer radius you'll ever lerp to
+	// (a typical mob clearanceRadius is ~0.4m, biggest creatures may be
+	// well over 1m).
 	[Export] private float _groundRingOuterRadius = 0.2f;
 	[Export] private float _groundRingInnerRadius = 0.16f;
+	// Tint multiplied into the ground ring shader while locked on a mob.
+	// Red by default; white (Colors.White) would disable the tint.
+	[Export] private Color _groundRingLockedColor = new(1f, 0.25f, 0.2f, 1f);
+	// Multiplier applied to the mob's clearanceRadius when sizing the locked
+	// ring. clearanceRadius is the tight body half-width used for path
+	// clearance; the visible ring reads better when it sits a bit outside the
+	// silhouette, so we scale it up here.
+	[Export] private float _groundRingLockedRadiusMultiplier = 3f;
+	// Extra alpha scale applied to the ground ring only while NOT locked on
+	// a mob. Lets the unlocked ring read as quieter without affecting the
+	// mainline / knob / spread lines. Snaps in sync with the red-tint switch
+	// when lock state changes (the radius transition is the smooth one).
+	[Export] private float _groundRingUnlockedAlphaScale = 0.6f;
+
+	// Linear ease from current outer radius to the new target whenever the
+	// target changes (lock on/off, or the targeted mob's clearance differs
+	// from the previous one). Inner derives from outer so a single lerp
+	// drives the whole ring.
+	const float RingTransitionSeconds = 0.15f;
+
+	// Fade duration when the ranged weapon becomes unavailable mid-aim
+	// (cooldown after firing, ammo runs out, weapon swapped, etc.). Same
+	// constant for fade-in so reticle pop-on is symmetric and not jarring.
+	const float FadeDurationSeconds = 0.15f;
 
 	Player _player;
+	// Last forward-raycast clamp distance from an active update. Reused as
+	// the line length while the reticle is fading out, since the whole point
+	// of being unavailable is that we shouldn't be paying for a new raycast.
+	float _lastLineLength;
+	// Cached "we hit a mob this update" flag so the fade-out path keeps the
+	// ground ring in its locked styling instead of snapping back to the
+	// default radii while alpha is fading to zero.
+	bool _lastMobTargeted;
+	// Cached target outer radius for the fade-out path (mob's clearanceRadius
+	// when the lock was acquired, base radius otherwise).
+	float _lastMobTargetOuter;
+	// 0..1, lerped each frame toward target (1 while available, 0 otherwise).
+	// Drives the alpha_multiplier instance uniform on every reticle mesh.
+	float _currentAlpha;
+	// Lerp state for the ground ring's outer radius. Linear interpolation
+	// from `_ringSource` to `_ringTarget` over RingTransitionSeconds,
+	// restarted whenever the target changes (lock on/off, or mob swap).
+	float _currentOuterRadius;
+	float _ringSource;
+	float _ringTarget;
+	float _ringElapsed;
 
 	public void Initialize(Player player)
 	{
@@ -54,11 +111,54 @@ public partial class AimingReticle : Node3D
 
 	public override void _Ready()
 	{
+		// Per-line width is set once — the shader checks line_width_world > 0
+		// to switch into billboard mode. The ground circle leaves it at 0 so
+		// the shader takes the standard MODEL_MATRIX path for the ring.
+		SetLineWidth(_mainLine, _mainLineWidth);
+		SetLineWidth(_spreadLineLeft, _spreadLineWidth);
+		SetLineWidth(_spreadLineRight, _spreadLineWidth);
+
+		// Texture-vs-procedural is auto-detected from the shared material:
+		// if the .tres assigns a `line_texture`, the main line samples it; if
+		// the slot is empty we fall back to the fwidth+smoothstep coverage AA.
+		// Spread lines stay on procedural AA regardless (the main-line
+		// texture is a styled element, not a global look).
+		if (_mainLine != null)
+		{
+			bool hasTexture = false;
+			if (_mainLine.GetActiveMaterial(0) is ShaderMaterial mat)
+			{
+				hasTexture = mat.GetShaderParameter("line_texture").As<Texture2D>() != null;
+			}
+			_mainLine.SetInstanceShaderParameter("use_line_texture", hasTexture ? 1f : 0f);
+		}
+
+		// Lerp state starts at the base radius so the first render frame
+		// doesn't grow into the unlocked size. RenderReticle drives further
+		// changes whenever the target shifts (lock on/off / mob swap).
+		_currentOuterRadius = _groundRingOuterRadius;
+		_ringSource = _groundRingOuterRadius;
+		_ringTarget = _groundRingOuterRadius;
+		_ringElapsed = RingTransitionSeconds;
+		_lastMobTargetOuter = _groundRingOuterRadius;
+
 		if (_groundCircle != null)
 		{
+			// Initial radii — RenderReticle drives these per-frame. PlaneMesh
+			// size is authored on the scene and must be large enough to
+			// contain the largest outer radius the ring will ever use,
+			// plus an AA pad, because ring_outer_radius is in mesh-local
+			// coords (length(VERTEX.xz)) — radii beyond the mesh edge get
+			// clipped by the rasterizer.
 			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _groundRingOuterRadius);
 			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", _groundRingInnerRadius);
 		}
+	}
+
+	static void SetLineWidth(MeshInstance3D mesh, float width)
+	{
+		if (mesh == null) { return; }
+		mesh.SetInstanceShaderParameter("line_width_world", width);
 	}
 
 	public override void _Process(double delta)
@@ -68,107 +168,285 @@ public partial class AimingReticle : Node3D
 			return;
 		}
 
-		bool aiming = _player.IsAiming;
+		bool active = _player.IsAiming && IsRangedWeaponAvailable();
+		float dt = (float)delta;
+		float step = dt / FadeDurationSeconds;
 
-		// Aiming-only meshes follow IsAiming. Drop / circle visibility is
-		// also gated below by the down raycast.
-		if (_mainLine != null) { _mainLine.Visible = aiming; }
-		if (_spreadLineLeft != null) { _spreadLineLeft.Visible = aiming; }
-		if (_spreadLineRight != null) { _spreadLineRight.Visible = aiming; }
-
-		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
-		Vector3 forward = GlobalTransform.Basis.Z.Normalized();
-
-		// Forward raycast: clamp the line at the first environment hit so it
-		// doesn't bury into geometry. Without this clamp the drop raycast
-		// could start inside a wall and miss the floor entirely, producing
-		// the "infinite" drop line.
-		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
-		float lineLength = maxRange;
-		bool clippedAtWall = false;
-		if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit))
+		if (active)
 		{
-			lineLength = (forwardHit - chestWorld).Length();
-			clippedAtWall = true;
+			_currentAlpha = Mathf.Min(_currentAlpha + step, 1f);
+			UpdateReticle(dt);
+		}
+		else
+		{
+			_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
+			if (_currentAlpha > 0f)
+			{
+				// Fade-out path: keep rendering at the cached range so we
+				// don't pay for the forward raycast while the weapon is
+				// unavailable. Chest / forward still update each frame so
+				// the fading reticle follows the player rather than
+				// hovering in dead space.
+				RenderReticle(_lastLineLength, clippedAtSurface: false, mobTargeted: _lastMobTargeted, mobTargetOuter: _lastMobTargetOuter, dt: dt);
+			}
 		}
 
-		// Main line: unit-Z box scaled to lineLength, centered halfway along.
+		if (_currentAlpha > 0f)
+		{
+			ApplyAlpha(_currentAlpha);
+		}
+		else
+		{
+			HideReticle();
+		}
+	}
+
+	// Aiming-off path: zero every mesh's Visible so a transition from aiming
+	// to not-aiming clears any spread / ring state left over from the
+	// last visible frame. No raycasts, no uniform writes — cheap.
+	void HideReticle()
+	{
+		if (_mainLine != null) { _mainLine.Visible = false; }
+		if (_spreadLineLeft != null) { _spreadLineLeft.Visible = false; }
+		if (_spreadLineRight != null) { _spreadLineRight.Visible = false; }
+		if (_groundCircle != null) { _groundCircle.Visible = false; }
+		if (_endKnob != null) { _endKnob.Visible = false; }
+	}
+
+	// Mirrors the gate Player uses in TryStartWeaponAction: a weapon must be
+	// equipped with an action profile, have ammo if it consumes any, not be
+	// on cooldown, and the action runner must not be running a DIFFERENT
+	// slot's action (charging the bow itself is fine — that's the reticle's
+	// whole point of existing during charge).
+	bool IsRangedWeaponAvailable()
+	{
+		if (_player?.Inventory == null) { return false; }
+		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
+		if (weapon?.data?.actionProfile == null) { return false; }
+		if (weapon.data.maxAmmo > 0 && weapon.ammo <= 0) { return false; }
+		if (weapon.cooldownExpireMs > _player.GameTimeMs) { return false; }
+		ActionRunner runner = _player.Runner;
+		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
+		{
+			return false;
+		}
+		return true;
+	}
+
+	// Fresh active update: forward raycast → store new range → render.
+	void UpdateReticle(float dt)
+	{
+		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
+		// Use the player's pitched forward so the main beam, spread, and
+		// ground circle anchor all follow the same elevation the next shot
+		// will fire along (Player.ActorForward folds in the auto-aim pitch).
+		Vector3 forward = _player.ActorForward.Normalized();
+
+		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
+		float lineLength = maxRange;
+		bool clippedAtSurface = false;
+		bool mobTargeted = false;
+		float mobTargetOuter = _groundRingOuterRadius;
+		if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit, out Mob hitMob))
+		{
+			if (hitMob != null)
+			{
+				// Extend "range" to the mob's body center along the aim line.
+				// This puts the drop ray's origin above the mob's feet instead
+				// of at the front of its hurtbox, so the ground circle lands
+				// directly under the creature. Project onto `forward` so a
+				// mob that's slightly off-axis doesn't pull the endpoint
+				// sideways — we want the line to stay on the aim direction
+				// and just travel to the depth of the mob center.
+				float centerProjection = (hitMob.AimCenter - chestWorld).Dot(forward);
+				lineLength = Mathf.Clamp(centerProjection, 0f, maxRange);
+				mobTargeted = true;
+				// Ground ring grows to sit just outside the mob's footprint.
+				// `clearanceRadius` is the tight half-width path uses for
+				// body clearance; the visible ring reads better scaled up
+				// (designer knob) so it haloes the silhouette rather than
+				// hugging it.
+				if (hitMob.mobData != null)
+				{
+					mobTargetOuter = hitMob.mobData.clearanceRadius * _groundRingLockedRadiusMultiplier;
+				}
+			}
+			else
+			{
+				lineLength = (forwardHit - chestWorld).Length();
+				clippedAtSurface = true;
+			}
+		}
+		_lastLineLength = lineLength;
+		_lastMobTargeted = mobTargeted;
+		_lastMobTargetOuter = mobTargetOuter;
+
+		RenderReticle(lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, dt);
+	}
+
+	// Render path — used by both the live update and the fade-out path. The
+	// only state held across frames is the ground-ring radius lerp; the rest
+	// (chest, forward, down raycast, spread sampling) recomputes from current
+	// state so the fading reticle still follows the player. `mobTargeted`
+	// gates the red tint; `mobTargetOuter` is the outer radius to ease into.
+	void RenderReticle(float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float dt)
+	{
+		if (_mainLine != null) { _mainLine.Visible = true; }
+
+		// Ground ring lerp. New target whenever lock state or mob radius
+		// changes — capture the current value as the source and reset the
+		// elapsed clock so the next 0.15s plays out linearly from here.
+		float targetOuter = mobTargeted ? mobTargetOuter : _groundRingOuterRadius;
+		if (Mathf.Abs(targetOuter - _ringTarget) > 1e-4f)
+		{
+			_ringSource = _currentOuterRadius;
+			_ringTarget = targetOuter;
+			_ringElapsed = 0f;
+		}
+		_ringElapsed += dt;
+		float t = Mathf.Clamp(_ringElapsed / RingTransitionSeconds, 0f, 1f);
+		_currentOuterRadius = Mathf.Lerp(_ringSource, _ringTarget, t);
+		// Thickness preserved across all sizes — the band's width never
+		// changes, only its radius. Inner is clamped at 0 so a target outer
+		// smaller than the thickness still renders as a filled disc.
+		float thickness = _groundRingOuterRadius - _groundRingInnerRadius;
+		float currentInner = Mathf.Max(0f, _currentOuterRadius - thickness);
+
+		if (_groundCircle != null)
+		{
+			_groundCircle.Visible = true;
+			Vector3 tint = mobTargeted
+				? new Vector3(_groundRingLockedColor.R, _groundRingLockedColor.G, _groundRingLockedColor.B)
+				: Vector3.One;
+			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _currentOuterRadius);
+			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", currentInner);
+			_groundCircle.SetInstanceShaderParameter("instance_color", tint);
+		}
+
+		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
+		Vector3 forward = _player.ActorForward.Normalized();
+		// Right stays horizontal (basis.X) — the spread cone is yaw spread,
+		// so the markers should sit at the lateral cone radius in the
+		// horizontal plane regardless of how high or low the beam tilts.
+		Vector3 right = GlobalTransform.Basis.X.Normalized();
+
+		// Main line: ribbon from chest pivot to the (cached or fresh) endpoint.
+		Vector3 mainStart = chestWorld;
+		Vector3 mainEnd = chestWorld + forward * lineLength;
+		SetLineEndpoints(_mainLine, mainStart, mainEnd);
 		if (_mainLine != null)
 		{
-			_mainLine.Position = new Vector3(0f, _aimHeight, lineLength * 0.5f);
-			_mainLine.Scale = new Vector3(1f, 1f, lineLength);
 			_mainLine.SetInstanceShaderParameter("gradient_origin_world", chestWorld);
 			_mainLine.SetInstanceShaderParameter("gradient_start_distance", _gradientStartDistance);
 			_mainLine.SetInstanceShaderParameter("gradient_end_distance", _gradientEndDistance);
 		}
 
+		// Knob at the mainline endpoint. Same gradient origin/range as the
+		// mainline so the knob fades in over the first few meters identically.
+		if (_endKnob != null)
+		{
+			_endKnob.Visible = true;
+			_endKnob.Position = ToLocal(mainEnd);
+			_endKnob.SetInstanceShaderParameter("gradient_origin_world", chestWorld);
+			_endKnob.SetInstanceShaderParameter("gradient_start_distance", _gradientStartDistance);
+			_endKnob.SetInstanceShaderParameter("gradient_end_distance", _gradientEndDistance);
+		}
+
 		// Spread offset at the actual aim distance. tan(halfAngle) * range
 		// gives the lateral cone radius at the endpoint; the parallel markers
 		// land there so the visible width matches the cone width at where the
-		// shot would actually hit.
+		// shot would actually hit. When fully accurate (offset ≈ 0) the
+		// markers collapse onto the main line, so we hide them instead.
 		float spread01 = ComputeSpread01();
 		float halfAngle = ItemEventHandlers.MAX_SPREAD_HALF_ANGLE * spread01;
 		float spreadOffset = Mathf.Tan(halfAngle) * lineLength;
-		PlaceSpreadLine(_spreadLineLeft, +spreadOffset, lineLength);
-		PlaceSpreadLine(_spreadLineRight, -spreadOffset, lineLength);
+		bool showSpread = spreadOffset > 1e-3f;
+		if (_spreadLineLeft != null) { _spreadLineLeft.Visible = showSpread; }
+		if (_spreadLineRight != null) { _spreadLineRight.Visible = showSpread; }
+		if (showSpread)
+		{
+			PlaceSpreadLine(_spreadLineLeft, chestWorld, forward, right, lineLength, +spreadOffset);
+			PlaceSpreadLine(_spreadLineRight, chestWorld, forward, right, lineLength, -spreadOffset);
+		}
 
-		// Drop line + ground circle anchor to the (possibly wall-clipped)
-		// endpoint, not the max-range endpoint. When the line clipped on a
-		// wall we back the drop start off the surface along -forward — the
-		// few-cm offset is invisible at game scale and keeps the down ray
-		// from starting flush with the wall it just hit.
+		// Ground circle anchor to the (possibly clipped) endpoint,
+		// not the max-range endpoint. When the line clipped on a wall we back
+		// the drop start off the surface along -forward — the few-cm offset
+		// is invisible at game scale and keeps the down ray from starting
+		// flush with the wall it just hit. The mob-targeted path skips the
+		// backoff because the endpoint is already inside the mob, not
+		// coplanar with a surface. During fade-out we pass clippedAtSurface
+		// = false (no fresh raycast, so we don't know if the cached range
+		// came from a surface hit).
 		Vector3 dropOriginWorld = chestWorld + forward * lineLength;
-		if (clippedAtWall)
+		if (clippedAtSurface)
 		{
 			dropOriginWorld -= forward * _wallBackoff;
 		}
-		if (TryRaycastDown(dropOriginWorld, _maxGroundDropDistance, out Vector3 hitWorld))
+		if (_groundCircle != null)
 		{
-			float dropHeight = dropOriginWorld.Y - hitWorld.Y;
-			if (_dropLine != null)
-			{
-				bool show = aiming && dropHeight > 0.01f;
-				_dropLine.Visible = show;
-				if (show)
-				{
-					Vector3 topLocal = ToLocal(dropOriginWorld);
-					_dropLine.Position = topLocal + Vector3.Down * (dropHeight * 0.5f);
-					_dropLine.Scale = new Vector3(1f, dropHeight, 1f);
-				}
-			}
-			if (_groundCircle != null)
+			if (TryRaycastDown(dropOriginWorld, _maxGroundDropDistance, out Vector3 hitWorld))
 			{
 				_groundCircle.Visible = true;
 				_groundCircle.Position = ToLocal(hitWorld);
+			} else
+			{
+				_groundCircle.Visible = false;
 			}
-		}
-		else
-		{
-			if (_dropLine != null) { _dropLine.Visible = false; }
-			if (_groundCircle != null) { _groundCircle.Visible = false; }
 		}
 	}
 
-	void PlaceSpreadLine(MeshInstance3D line, float xOffset, float lineLength)
+	// Writes the fade alpha into every reticle mesh's alpha_multiplier so
+	// the shader can scale ALPHA at fragment exit. Called every frame the
+	// reticle is at all visible (alpha > 0).
+	void ApplyAlpha(float alpha)
 	{
-		if (line == null)
-		{
-			return;
-		}
-		// Centered on the line endpoint Z: a unit-Z box scaled to
-		// _spreadLineLength straddles the endpoint, half ahead and half
-		// behind, producing a clear "bullets land around here" indicator.
-		line.Position = new Vector3(xOffset, _aimHeight, lineLength);
-		line.Scale = new Vector3(1f, 1f, _spreadLineLength);
+		SetMeshAlpha(_mainLine, alpha);
+		SetMeshAlpha(_spreadLineLeft, alpha);
+		SetMeshAlpha(_spreadLineRight, alpha);
+		// Ground ring gets an extra dim while not locked on a mob. Snaps with
+		// the red-tint switch; the radius lerp carries the smooth half.
+		float groundScale = _lastMobTargeted ? 1f : _groundRingUnlockedAlphaScale;
+		SetMeshAlpha(_groundCircle, alpha * groundScale);
+		SetMeshAlpha(_endKnob, alpha);
+	}
+
+	static void SetMeshAlpha(MeshInstance3D mesh, float alpha)
+	{
+		if (mesh == null) { return; }
+		mesh.SetInstanceShaderParameter("alpha_multiplier", alpha);
+	}
+
+	void PlaceSpreadLine(MeshInstance3D line, Vector3 chestWorld, Vector3 forward, Vector3 right, float lineLength, float lateralOffset)
+	{
+		if (line == null) { return; }
+		// Ribbon ends at the main line's endpoint and extends `spreadLineLength`
+		// back toward the player. Capped by the main line's length so a wall
+		// clip that shortens the beam doesn't leave the spread markers poking
+		// out behind the chest. Lateral offset matches the cone radius at the
+		// actual aim distance.
+		float length = Mathf.Min(_spreadLineLength, lineLength);
+		Vector3 endPoint = chestWorld + forward * lineLength + right * lateralOffset;
+		Vector3 startPoint = endPoint - forward * length;
+		SetLineEndpoints(line, startPoint, endPoint);
+	}
+
+	static void SetLineEndpoints(MeshInstance3D mesh, Vector3 startWorld, Vector3 endWorld)
+	{
+		if (mesh == null) { return; }
+		mesh.SetInstanceShaderParameter("line_start_world", startWorld);
+		mesh.SetInstanceShaderParameter("line_end_world", endWorld);
 	}
 
 	// Mirrors DoHitscan's two-pass clip so the reticle ends where the actual
 	// shot would land: environment first (bodies) for terrain, then hurtboxes
 	// (areas) up to the env hit for mobs / destructible props. Whichever is
-	// closer wins.
-	bool TryRaycastForward(Vector3 from, Vector3 dir, float distance, out Vector3 hitWorld)
+	// closer wins. `hitMob` is set when the closer hit was a mob hurtbox,
+	// letting the caller swap the endpoint for the mob's body center.
+	bool TryRaycastForward(Vector3 from, Vector3 dir, float distance, out Vector3 hitWorld, out Mob hitMob)
 	{
 		hitWorld = default;
+		hitMob = null;
 		World3D world3D = GetWorld3D();
 		if (world3D == null || distance <= 0f)
 		{
@@ -177,8 +455,6 @@ public partial class AimingReticle : Node3D
 		Vector3 to = from + dir * distance;
 		var spaceState = world3D.DirectSpaceState;
 
-		// Environment clip. Exclude the player's own body — otherwise the chest
-		// origin sitting inside the capsule self-hits at zero distance.
 		Godot.Collections.Array<Rid> bodyExclude = new();
 		if (_player != null)
 		{
@@ -198,7 +474,6 @@ public partial class AimingReticle : Node3D
 			clipped = true;
 		}
 
-		// Hurtbox clip up to the env hit point. Exclude the player's own hurtbox.
 		using var hurtQuery = PhysicsRayQueryParameters3D.Create(from, envEnd, (uint)ECollisionLayer.HurtBox);
 		hurtQuery.CollideWithBodies = false;
 		hurtQuery.CollideWithAreas = true;
@@ -211,6 +486,10 @@ public partial class AimingReticle : Node3D
 		if (hurtResult.Count > 0)
 		{
 			hitWorld = (Vector3)hurtResult["position"];
+			if (hurtResult["collider"].Obj is HurtBox hurtBox)
+			{
+				hitMob = ItemEventHandlers.FindOwningMob(hurtBox);
+			}
 			return true;
 		}
 
@@ -278,10 +557,6 @@ public partial class AimingReticle : Node3D
 			tier = profile.chargedActions[0];
 			chargeT = 0f;
 		}
-		if (tier?.accuracyScaleCurve == null)
-		{
-			return 0f;
-		}
-		return tier.accuracyScaleCurve.Sample(Mathf.Clamp(chargeT, 0f, 1f));
+		return ItemAction.SampleAccuracySpread(tier, chargeT);
 	}
 }

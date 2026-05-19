@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
@@ -29,7 +29,9 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
+chargeTime = 0.4
 cooldownSeconds = 0.4
+staminaCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
 releaseEffect = ExtResource("8_atklight")
@@ -46,8 +48,8 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
-chargeTime = 0.4
 cooldownSeconds = 0.8
+staminaCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
 chargeStartEffect = ExtResource("8_chghead")
 chargeLoopEffect = ExtResource("8_chgloop")
@@ -67,14 +69,14 @@ overrides = 11
 healthDamage = 15.0
 stun = 10.0
 knockbackDistance = 2.0
-addStatusEffects = null
+addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_mod_stun"]
 script = ExtResource("1_modifier")
 trigger = 1
 overrides = 8
 knockbackDistance = 2.0
-addStatusEffects = null
+addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")

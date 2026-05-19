@@ -16,13 +16,26 @@ using Godot;
 //   - ReturnAmmoOnRemoval() is called by Mob._ExitTree if the mob is
 //     unloaded with the arrow still stuck (no death). Fires the standard
 //     OnArrowRemoved so the weapon recovers 1 ammo.
+//   - The same ArrowLootData.removeTimeMs that expires loose arrows on the
+//     ground also expires arrows still embedded in a live mob, so a missed
+//     pickup window doesn't permanently lock up an ammo slot.
 [GlobalClass]
 public partial class ArrowStuck : Node3D, IWeaponArrow
 {
     private WeaponState _sourceWeapon;
     private ArrowLootData _data;
+    private float _ageSeconds;
 
     public WeaponState SourceWeapon => _sourceWeapon;
+
+    public float GetReplenishProgress()
+    {
+        if (_data == null || _data.removeTimeMs <= 0)
+        {
+            return 0f;
+        }
+        return Mathf.Clamp(_ageSeconds * 1000f / _data.removeTimeMs, 0f, 1f);
+    }
 
     public static ArrowStuck Create(Mob mob, ArrowLootData data, WeaponState sourceWeapon, Vector3 worldHitPos)
     {
@@ -52,6 +65,32 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
             stuck.AddChild(sprite);
         }
         return stuck;
+    }
+
+    public override void _Process(double delta)
+    {
+        if (_data == null || _data.removeTimeMs <= 0)
+        {
+            return;
+        }
+        _ageSeconds += (float)delta;
+        if (_ageSeconds * 1000f < _data.removeTimeMs)
+        {
+            return;
+        }
+        // Notify the parent mob first so it can drop us from _stuckArrows
+        // before we free — otherwise its _ExitTree would later iterate a
+        // freed reference and double-fire ReturnAmmoOnRemoval. The mob
+        // forwards to ReturnAmmoOnRemoval itself, which returns ammo and
+        // frees this node.
+        if (GetParent() is Mob mob)
+        {
+            mob.OnStuckArrowExpired(this);
+        }
+        else
+        {
+            ReturnAmmoOnRemoval();
+        }
     }
 
     // Transition stuck → loose loot. Removes the stuck instance from the

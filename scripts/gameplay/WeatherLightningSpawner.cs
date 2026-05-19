@@ -84,12 +84,10 @@ public partial class WeatherLightningSpawner : Node
         Vector3 playerPos = player.GlobalPosition;
 
         float yaw = _rng.RandfRange(0f, Mathf.Tau);
-        float minR = Mathf.Max(0f, data.weatherSpawnRadiusMinMeters);
-        float maxR = Mathf.Max(minR, data.weatherSpawnRadiusMaxMeters);
-        // sqrt of uniform gives a uniform distribution across the
-        // annulus area (more area = more strikes farther out).
-        float u = _rng.Randf();
-        float r = Mathf.Sqrt(minR * minR + u * (maxR * maxR - minR * minR));
+        float maxR = Mathf.Max(0f, data.weatherSpawnRadius);
+        // sqrt of uniform gives a uniform distribution across disk
+        // area (more area at larger radii = more strikes farther out).
+        float r = Mathf.Sqrt(_rng.Randf()) * maxR;
         Vector2 offset = new Vector2(Mathf.Cos(yaw), Mathf.Sin(yaw)) * r;
         Vector3 query2d = playerPos + new Vector3(offset.X, 0f, offset.Y);
 

@@ -3,7 +3,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/desert_kit.tres" id="2_qtgnd"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_sandstone_kit.tres" id="3_nc5be"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_uxbjh"]
-[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/zones/desert.tres" id="5_25es0"]
+[ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/data/zones/desert.tres" id="5_25es0"]
 [ext_resource type="Resource" uid="uid://dc3pchs6rhlok" path="res://resources/data/world_gen/spawn_lists/surface_entities_desert.tres" id="5_stsr1"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_25es0"]
 [ext_resource type="Script" uid="uid://b3rgnd05hike01" path="res://scripts/data/ZoneGenData.cs" id="28_8kxn4"]

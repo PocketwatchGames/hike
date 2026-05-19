@@ -334,6 +334,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _hurtBox.OnHit = Hit;
             _hurtBox.GetHitType = GetHitType;
+            foreach (Node child in _hurtBox.GetChildren())
+            {
+                if (child is CollisionShape3D shape)
+                {
+                    _hurtBoxShape = shape;
+                    break;
+                }
+            }
         }
 
         if (_animator != null)
@@ -442,6 +450,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
     public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
     public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
+
+    // World-space body center used by the player's aim assist as the "where to
+    // pull toward" point. Falls back to the body root if the hurtbox or its
+    // collision shape isn't authored (early in setup, or a malformed mob).
+    public Vector3 AimCenter
+    {
+        get
+        {
+            if (_hurtBoxShape != null)
+            {
+                return _hurtBoxShape.GlobalPosition;
+            }
+            return GlobalPosition;
+        }
+    }
+    CollisionShape3D _hurtBoxShape;
     public Node3D AttackerNode => this;
     public void PlayAnim(EAnimation anim)
     {
@@ -452,6 +476,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // by IActionActor so the runner can dispatch ApplyMotion events without
     // type-checking the actor.
     public void ApplyMotion(float speed, float duration, bool freezeGravity) { }
+
+    // Mobs don't have a stamina pool yet; attack tiers always pass the gate
+    // and the spend is a no-op. If mob stamina is ever authored, both can
+    // route into a MobSimState pool the same way the player's does.
+    public bool HasStamina(float amount) => true;
+    public void ConsumeStamina(float amount) { }
 
     public void PlayOneShot(EAnimation anim)
     {
@@ -1805,6 +1835,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         alive = false;
+        // Move the rigid body onto Dead and the hurtbox onto DeadHurtBox
+        // so projectile sweeps / aim raycasts / melee + hitscan attack
+        // masks (all keyed off Mob / HurtBox) stop picking up the corpse.
+        // The body keeps Environment in its mask so it still rests on
+        // terrain and knockback impulses carry the corpse through the rest
+        // of the hitstun window. Live mobs no longer collide with corpses
+        // as a side effect (their mask is Environment | Player | Mob),
+        // which is fine — pathing already steers around the mob spatial
+        // hash. Split into two layers (matching Burrowed/BurrowedHurtBox)
+        // so future corpse-targeting tools can pick the hurtbox shape
+        // without also catching the movement-collision volume.
+        CollisionLayer = (uint)ECollisionLayer.Dead;
+        CollisionMask = (uint)ECollisionLayer.Environment;
+        if (_hurtBox != null)
+        {
+            _hurtBox.CollisionLayer = (uint)ECollisionLayer.DeadHurtBox;
+        }
         // Fire the death event before the despawn / fx cascade below so
         // subscribers see a consistent snapshot (mob still in the world,
         // sim state intact). GameClient bridges this into bestiary kill
@@ -1884,6 +1931,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _stuckArrows.Add(stuck);
         sourceWeapon.RegisterArrow(stuck);
+    }
+
+    // Called by ArrowStuck when its removeTimeMs elapses while still embedded
+    // in this (live) mob. Drops the arrow from _stuckArrows so the upcoming
+    // ReturnAmmoOnRemoval doesn't get re-fired by _ExitTree later. Mirrors
+    // the "lost with the mob" path: 1 ammo returns to the source weapon, no
+    // loose loot spawns.
+    public void OnStuckArrowExpired(ArrowStuck stuck)
+    {
+        if (stuck == null)
+        {
+            return;
+        }
+        _stuckArrows.Remove(stuck);
+        stuck.ReturnAmmoOnRemoval();
     }
 
     // Drop each stuck arrow as loose loot with the same 45° outward arc
@@ -1966,6 +2028,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // the ground.
             CollisionLayer = (uint)ECollisionLayer.Burrowed;
             CollisionMask = (uint)ECollisionLayer.Environment;
+            // Hurtbox moves to its own BurrowedHurtBox layer so attack
+            // raycasts (which mask ECollisionLayer.HurtBox) no longer hit
+            // it. Keeping it separate from the body's Burrowed movement
+            // layer lets a future scan / dig tool target underground
+            // creatures (mask BurrowedHurtBox) without also picking up the
+            // movement-collision volume.
+            if (_hurtBox != null)
+            {
+                _hurtBox.CollisionLayer = (uint)ECollisionLayer.BurrowedHurtBox;
+            }
         }
         else
         {
@@ -1976,6 +2048,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // intent. Explicitly unfreezing here would race with that.
             CollisionLayer = (uint)ECollisionLayer.Mob;
             CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
+            if (_hurtBox != null)
+            {
+                _hurtBox.CollisionLayer = (uint)ECollisionLayer.HurtBox;
+            }
         }
     }
 

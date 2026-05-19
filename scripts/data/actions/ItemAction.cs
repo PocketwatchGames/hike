@@ -2,16 +2,24 @@ using Godot;
 using Godot.Collections;
 
 // One charge tier within an ItemActionProfile. The charge timeline runs from
-// press; reaching this action's chargeTime makes it the selected tier. On
-// activation (release, or autoActivateAtMax), the runner enters Active and
-// walks `events` over `activeDurationSeconds`. The action's cooldownSeconds
-// is written to the driving item's cooldownExpireMs at activation, gating
-// re-firing of that specific item.
+// press; each tier holds for its own `chargeTime` before the next tier in
+// `chargedActions` (same comboIndex) takes over. On activation (release, or
+// autoActivateAtMax when the final tier's window completes), the runner
+// enters Active and walks `events` over `activeDurationSeconds`. The
+// action's cooldownSeconds is written to the driving item's cooldownExpireMs
+// at activation, gating re-firing of that specific item.
 [GlobalClass]
 public partial class ItemAction : Resource
 {
-	// Hold time required to "reach" this tier. The lowest tier is typically 0.
-	// Tiers must be authored in ascending chargeTime order.
+	// Duration the player must continue holding while THIS tier is selected
+	// before the next tier (same comboIndex, next in chargedActions) takes
+	// over. `chargeT` ramps 0 → 1 across this window — so a Light tier with
+	// chargeTime = 0.7 hands off to Heavy at 0.7s and lets `chargedRangeScale`
+	// / `chargedAccuracyScale` scale across that span. A single-tier weapon
+	// can put chargeTime on its only tier to get a press-to-full ramp before
+	// firing (autoActivateAtMax). 0 (the default) = no within-tier ramp:
+	// the tier fires at its event's base stats, and (if there's a next tier)
+	// the next tier becomes selectable immediately.
 	[Export] public float chargeTime = 0f;
 
 	// Length of the Active phase in seconds. May be 0 — t=0 events fire and
@@ -21,6 +29,23 @@ public partial class ItemAction : Resource
 	// Cooldown applied to the driving item after activation. Independent
 	// per-item (a weapon's cooldown doesn't block other items).
 	[Export] public float cooldownSeconds = 0f;
+
+	// Stamina spent on activation. Checked at press against tier 0 — if the
+	// actor can't afford the press-time tier, TryStart refuses and the action
+	// never enters Charging. Charging is allowed to continue into higher
+	// tiers even if their costs exceed current stamina; the actually-selected
+	// tier's cost is deducted unconditionally at EnterActive (driving stamina
+	// negative is fine, matching the sprint/swim drain pattern).
+	[Export] public float staminaCost = 0f;
+
+	// True if this tier consumes ammo from the driving WeaponState — gates
+	// the press at zero ammo (PlayerWeapon / AimingReticle / WeaponHud read
+	// this through WeaponData.UsesAmmo) and gates arrow-loot generation in
+	// DoHitscan / DoProjectile (so a melee-bash tier on a bow doesn't drop
+	// arrows even though the weapon authors arrowLootData). The actual ammo
+	// decrement still rides on the per-event EItemEventType.UseAmmo flag so
+	// authors can pick which timeline moment burns the ammo.
+	[Export] public bool useAmmo = false;
 
 	// Events fired during Active, on a timeline measured from activateMs.
 	[Export] public Array<ItemEvent> events = new();
@@ -51,21 +76,27 @@ public partial class ItemAction : Resource
 	[Export] public bool canAbort = false;
 	[Export] public bool canInterrupt = true;
 
-	// Per-action continuous-charge curves. Sampled against the action's
-	// `chargeT` stashed on PlayerAction at activation. Curve outputs are
-	// multipliers/spread fractions in [0, 1]; handlers apply them to the
-	// event's base values. Null curve = "no scaling" (1.0 for range, 0.0
-	// for accuracy spread). Used by Hitscan for bow accuracy/range; Melee
-	// ignores them.
-	[Export] public Curve rangeScaleCurve;
-	[Export] public Curve accuracyScaleCurve;
-
-	// When > 0, defines the hold window for `chargeT` sampling INDEPENDENTLY
-	// of tier chargeTime. A single-tier bow with chargeTime=0 + maxChargeSeconds=1.5
-	// fires on any release but scales the curves across [0, 1.5]. When 0 (the
-	// default), `chargeT` is normalized against the profile's top-tier chargeTime
-	// — works for multi-tier weapons without per-action curves.
-	[Export] public float maxChargeSeconds = 0f;
+	// Press-time spread fraction in [0, 1] for ranged events on this tier.
+	// 0 = pinpoint, 1 = full MAX_SPREAD_HALF_ANGLE cone. Melee ignores it.
+	// Combined with `chargedAccuracyScale` below to model "hold to steady".
+	[Export] public float accuracySpread01 = 0f;
+	// Within-tier charge response on Hitscan / Projectile events. Each event
+	// authors its own base firing stats (hitScanRange, projectileSpeed,
+	// projectileLifetimeSeconds); these scalars only modulate the FRACTION
+	// of base/press that ends up being applied at fire time.
+	//
+	// `chargedRangeScale` MULTIPLIES the event's base range as `chargeT`
+	// runs 0 → 1: at chargeT=0 the range is base; at chargeT=1 it's
+	// `base * chargedRangeScale`. 1.0 (default) = no within-tier ramp; the
+	// tier fires at its event's authored range regardless of hold length.
+	// `chargedAccuracyScale` DIVIDES `accuracySpread01` as `chargeT` runs
+	// 0 → 1: at chargeT=0 spread = accuracySpread01; at chargeT=1 spread
+	// = `accuracySpread01 / chargedAccuracyScale`. 1.0 (default) = no
+	// tightening from holding. Asymmetric (divide, not multiply) because
+	// accuracy improves toward zero — a multiplicative 0→1 ramp can't
+	// reach pinpoint while still allowing a non-zero press value.
+	[Export] public float chargedRangeScale = 1f;
+	[Export] public float chargedAccuracyScale = 1f;
 
 	// Per-tier charge audio/effect lifecycle, managed by ActionRunner. Each is
 	// a PackedScene wrapping an Fx.
@@ -86,4 +117,26 @@ public partial class ItemAction : Resource
 	[Export] public PackedScene chargeLoopEffect;
 	[Export] public PackedScene chargeCancelEffect;
 	[Export] public PackedScene releaseEffect;
+
+	// Range multiplier at the given chargeT. Lerps from 1 (chargeT=0, fire
+	// at the event's base range) to `chargedRangeScale` (chargeT=1).
+	// Handlers multiply the event's authored range by this value.
+	public static float SampleRangeScale(ItemAction tier, float chargeT)
+	{
+		if (tier == null) { return 1f; }
+		return Mathf.Lerp(1f, tier.chargedRangeScale, Mathf.Clamp(chargeT, 0f, 1f));
+	}
+
+	// Resolved spread fraction at the given chargeT. Press value
+	// `accuracySpread01` is divided by the lerp(1, chargedAccuracyScale,
+	// chargeT) — so chargeT=0 returns the press value flat and chargeT=1
+	// returns press / chargedAccuracyScale. A divisor of 1 (default)
+	// leaves the press value unchanged across the whole hold.
+	public static float SampleAccuracySpread(ItemAction tier, float chargeT)
+	{
+		if (tier == null) { return 0f; }
+		float divisor = Mathf.Lerp(1f, tier.chargedAccuracyScale, Mathf.Clamp(chargeT, 0f, 1f));
+		if (divisor <= 0f) { return tier.accuracySpread01; }
+		return tier.accuracySpread01 / divisor;
+	}
 }

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b6n2vvhvirjdk"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
@@ -21,10 +21,6 @@
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 
-[sub_resource type="Curve" id="Curve_accuracy"]
-_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(0.5, 0.5), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
-point_count = 3
-
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
 type = 8260
@@ -33,20 +29,16 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
-projectileSpeed = 30.0
-projectileLifetimeSeconds = 0.5
-
-[sub_resource type="Curve" id="Curve_range"]
-_data = [Vector2(0, 0.45), 0.0, 0.0, 0, 0, Vector2(0.5, 0.7), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]
-point_count = 3
+projectileSpeed = 24.0
+projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
+chargeTime = 0.7
 cooldownSeconds = 0.5
+useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
-rangeScaleCurve = SubResource("Curve_range")
-accuracyScaleCurve = SubResource("Curve_accuracy")
-maxChargeSeconds = 1.5
+chargedRangeScale = 2.0
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
 
@@ -58,11 +50,13 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
+projectileSpeed = 48.0
+projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
-chargeTime = 0.7
 cooldownSeconds = 0.5
+useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
 chargeStartEffect = ExtResource("8_chgtail")
 chargeLoopEffect = ExtResource("8_chgloop")
@@ -92,10 +86,12 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_stun")])
 
 [resource]
 script = ExtResource("2_weapon")
-useAmmo = true
 maxAmmo = 5
 arrowLootData = ExtResource("17_arrow")
 damageData = SubResource("Resource_damage")
+pitchRangeDegrees = 45.0
+yawAssistDegrees = 60.0
+aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
 displayName = &"Short Bow"
 description = "Shooty shooty"

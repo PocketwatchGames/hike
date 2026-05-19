@@ -19,4 +19,11 @@ public interface IActionActor
 	// and end-of-motion behavior. Actors that don't drive motion from authored
 	// events (basic mobs today) may no-op.
 	void ApplyMotion(float speed, float duration, bool freezeGravity);
+
+	// Stamina gate for ItemAction.staminaCost. HasStamina is a non-mutating
+	// peek used at press time to refuse an action the actor can't afford.
+	// ConsumeStamina is an unconditional spend at EnterActive; actors are
+	// expected to allow negative stamina (matching sprint/swim drain).
+	bool HasStamina(float amount);
+	void ConsumeStamina(float amount);
 }

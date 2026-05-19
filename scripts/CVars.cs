@@ -117,11 +117,9 @@ public static class CVars
         }
         var rng = new Godot.RandomNumberGenerator();
         rng.Randomize();
-        float minR = Godot.Mathf.Max(0f, data.weatherSpawnRadiusMinMeters);
-        float maxR = Godot.Mathf.Max(minR, data.weatherSpawnRadiusMaxMeters);
+        float maxR = Godot.Mathf.Max(0f, data.weatherSpawnRadius);
         float yaw = rng.RandfRange(0f, Godot.Mathf.Tau);
-        float u = rng.Randf();
-        float r = Godot.Mathf.Sqrt(minR * minR + u * (maxR * maxR - minR * minR));
+        float r = Godot.Mathf.Sqrt(rng.Randf()) * maxR;
         Godot.Vector3 query2d = player.GlobalPosition + new Godot.Vector3(Godot.Mathf.Cos(yaw) * r, 0f, Godot.Mathf.Sin(yaw) * r);
         Godot.Vector3 from = query2d + new Godot.Vector3(0f, 80f, 0f);
         Godot.Vector3 to = query2d + new Godot.Vector3(0f, -80f, 0f);
