@@ -73,6 +73,18 @@ public struct AmbienceState
     // storm fully arrives rather than popping on at peak.
     public float LightningIntensity;
 
+    // Destination simulated lightning intensity — what LightningIntensity
+    // would be if the current variance crossfade were complete (i.e. the
+    // lightning variance settled at LightningVarianceCur). Mirror of
+    // SkyController.Current.Weather.destinationLightningAmount. Used by
+    // ThunderScheduler / WeatherLightningSpawner as the storm GATE so a
+    // transient non-storm variance lerp blipping through the lightning
+    // gate doesn't trigger thunder; only an actual storm we're heading
+    // INTO does. Cadence inside the gate still uses LightningIntensity
+    // so an approaching storm gets sparse early rumbles building up to
+    // the destination peak.
+    public float DestinationLightningIntensity;
+
     // Current visual rain intensity in [0, 1]. Mirror of
     // SkyController.Current.Palette.RainIntensity — the SLEWED display
     // value used by the rain particle effect, not the raw simulated

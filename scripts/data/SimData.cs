@@ -506,15 +506,25 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromTempDiff = 0.5f;
     [Export(PropertyHint.Range, "0,2,0.01")] public float WindFromElevation = 0.6f;
 
-    // Baseline cloud cover depends on wind (clouds blowing in) and on
-    // humid+warm air rising to the cloud layer.
+    // Cloud cover is the sum of two physically-distinct components:
+    //
+    //   STRATIFORM (authored): cloudMax × (1 + (windFraction-1) × CloudFromWind)
+    //     The "weather system" present in this zone — overcast / nimbostratus
+    //     from frontal systems, low pressure cells. Wind brings systems in
+    //     (CloudFromWind). Persists day AND night — no diurnal scale. Variance
+    //     perturbs this channel only.
+    //
+    //   CONVECTIVE (derived): simHumidity × diurnal × ConvectiveStrength
+    //     Cumulus / cumulonimbus from warm humid air rising. Peaks in the
+    //     afternoon (× diurnal), zero overnight (× 0). Not authorable — falls
+    //     out of the humidity and temperature simulation automatically.
+    //
+    // simCloud = clamp(stratiform + convective, 0, 1). A storm front + hot
+    // humid afternoon produces saturated cloud; a clear hot humid afternoon
+    // produces afternoon-only cumulus; a stormy night stays cloudy because
+    // stratiform doesn't diurnal-fade.
     [Export(PropertyHint.Range, "0,1,0.01")] public float CloudFromWind = 0.35f;
-    [Export(PropertyHint.Range, "0,2,0.01")] public float CloudFromHumidityWarmth = 1.0f;
-    // Diurnal damping on cloud cover. Storms can roll in any time, but
-    // typical convective cloud builds across the day and dissipates
-    // overnight. Small by design — 0 keeps clouds at the max regardless
-    // of time of day.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float CloudDiurnalDepth = 0.2f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float ConvectiveStrength = 1.0f;
 
     [ExportSubgroup("Variance (Per-12h)")]
     // Variance lives in [0, 1]; 0 = stormy / unstable, 1 = fair / stable.

@@ -87,21 +87,33 @@ public partial class LightningData : Resource
 
     // ------- Weather-driven spawn cadence (ignored by weapon callers) --------
 
-    // AmbienceController.State.LightningIntensity below this floor
-    // produces no strikes. Independent of ThunderScheduler's
-    // distant-rumble floor — wet/dry/orographic gates can produce
-    // visible flashes long before damaging strikes start landing
-    // near the player.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float weatherSpawnIntensityFloor = 0.15f;
+    // STORM GATE: applied to AmbienceState.DestinationLightningIntensity
+    // (end of current variance crossfade), NOT the in-flight displayed
+    // intensity. Should match ThunderScheduler's intensityFloor so
+    // strikes and ambient thunder fire together — no thunder without
+    // strikes, no strikes without thunder. Transient mid-crossfade
+    // blips on non-storm variance values stay below the destination
+    // floor and don't trigger either.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float weatherSpawnIntensityFloor = 0.10f;
 
-    // Mean inter-strike interval (seconds) at intensity = 1. Sampled
-    // around exponentially for Poisson-like cadence. Default 6s
-    // means a peak storm rolls a strike every few seconds.
-    [Export(PropertyHint.Range, "0.5,60,0.1")] public float weatherSpawnIntervalAtPeak = 6f;
+    // Intensity value at which the cadence reaches atPeak. Realistic
+    // weather intensity is lightningMax * cloud/rain smoothstep gate
+    // * variance — typical heavy storms peak around 0.2–0.3 even
+    // though the simulation field is nominally [0, 1]. Setting this
+    // to a realistic ceiling rather than 1.0 means moderate storms
+    // actually hit the short-interval end of the curve.
+    [Export(PropertyHint.Range, "0.05,1,0.01")] public float weatherSpawnIntensityForPeak = 0.3f;
+
+    // Mean inter-strike interval (seconds) at intensity = peak.
+    // Sampled around exponentially for Poisson-like cadence. Default
+    // 4s means a heavy storm rolls a strike every few seconds.
+    [Export(PropertyHint.Range, "0.5,60,0.1")] public float weatherSpawnIntervalAtPeak = 4f;
 
     // Mean inter-strike interval (seconds) at the intensity floor.
-    // Long — a weak storm should only land one every minute or two.
-    [Export(PropertyHint.Range, "5,600,1")] public float weatherSpawnIntervalAtFloor = 90f;
+    // A weak storm should still land one occasionally — long enough
+    // to feel like punctuation, short enough that the player notices
+    // weather has teeth.
+    [Export(PropertyHint.Range, "5,600,1")] public float weatherSpawnIntervalAtFloor = 25f;
 
     // Strikes land in an annulus around the player. Min keeps a
     // small no-strike-here ring so the player isn't instantly hit

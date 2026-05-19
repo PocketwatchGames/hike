@@ -271,6 +271,15 @@ public static class CVars
     // log identify the culprit.
     public static CVarBool audioLog = new CVarBool("audio_log", false);
 
+    // When true, prints a line each time WeatherLightningSpawner picks
+    // a strike interval, skips a strike (no ground, no data), or fires
+    // one. Use to verify the spawner is awake and observe its cadence
+    // against the current lightning intensity. Lines look like:
+    //   [lightning] intensity=0.18 interval=8.2s
+    //   [lightning] FIRE at (12.3, 4.0, -6.1) (intensity=0.21)
+    //   [lightning] skip: no ground at (12.3, 0.0, -6.1)
+    public static CVarBool lightningLog = new CVarBool("lightning_log", false);
+
     // When true, draws each alive mob's active path as line segments via
     // DebugDraw — green for upcoming waypoints, yellow for the current
     // segment from the mob to its next waypoint, red dot at the goal.

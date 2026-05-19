@@ -44,8 +44,16 @@ public partial class WeatherLightningSpawner : Node
         {
             return;
         }
-        float intensity = AmbienceController.Current?.State.LightningIntensity ?? 0f;
-        if (intensity <= data.weatherSpawnIntensityFloor)
+        // STORM GATE: destination intensity (end of current variance
+        // crossfade). Mirrors ThunderScheduler so strikes and ambient
+        // thunder always travel together — no thunder without
+        // possible strikes, no strikes without ambient thunder.
+        // Cadence inside the gate uses CURRENT intensity so an
+        // approaching storm gets sparse early strikes that build up.
+        AmbienceState s = AmbienceController.Current?.State ?? default;
+        float destIntensity = s.DestinationLightningIntensity;
+        float intensity = s.LightningIntensity;
+        if (destIntensity <= data.weatherSpawnIntensityFloor)
         {
             // Park the timer at a reasonable wait so we don't fire
             // on the same frame intensity crosses the floor.
@@ -57,11 +65,15 @@ public partial class WeatherLightningSpawner : Node
         {
             return;
         }
-        TrySpawnStrike(data);
+        TrySpawnStrike(data, intensity);
         _timeUntilNext = SampleInterval(data, intensity);
+        if (CVars.lightningLog.Value)
+        {
+            GD.Print($"[lightning] intensity={intensity:F3} dest={destIntensity:F3} next_interval={_timeUntilNext:F1}s");
+        }
     }
 
-    private void TrySpawnStrike(LightningData data)
+    private void TrySpawnStrike(LightningData data, float intensity)
     {
         World world = World.Current;
         Player player = world?.player;
@@ -83,9 +95,17 @@ public partial class WeatherLightningSpawner : Node
 
         if (!TryFindGround(query2d, out Vector3 groundPos))
         {
+            if (CVars.lightningLog.Value)
+            {
+                GD.Print($"[lightning] skip: no ground at ({query2d.X:F1}, {query2d.Y:F1}, {query2d.Z:F1})");
+            }
             return;
         }
         LightningStrike.Create(world, groundPos, data);
+        if (CVars.lightningLog.Value)
+        {
+            GD.Print($"[lightning] FIRE at ({groundPos.X:F1}, {groundPos.Y:F1}, {groundPos.Z:F1}) (intensity={intensity:F3})");
+        }
     }
 
     // Vertical raycast through the candidate XZ position, returning
@@ -122,9 +142,23 @@ public partial class WeatherLightningSpawner : Node
     // mean. Same Poisson-like distribution shape ThunderScheduler
     // uses, but with a separate (typically much longer) mean so
     // strikes land less often than the distant rumbles.
+    //
+    // Intensity is remapped: raw lightningAmount peaks around
+    // 0.1-0.3 in realistic storms (it's lightningMax * smoothstep
+    // gate * variance, see WeatherSimulation), rarely reaching 1.0.
+    // A linear lerp on raw intensity would leave the mean parked at
+    // atFloor for the entire useful range. Remap (intensity - floor)
+    // / (atFullIntensity - floor) clamped to [0, 1], then sqrt-curve
+    // so even moderate above-floor activity pulls the mean toward
+    // atPeak.
     private double SampleInterval(LightningData data, float intensity)
     {
-        float t = Mathf.Clamp(intensity, 0f, 1f);
+        float floor = data.weatherSpawnIntensityFloor;
+        float ceiling = Mathf.Max(floor + 1e-3f, data.weatherSpawnIntensityForPeak);
+        float t = Mathf.Clamp((intensity - floor) / (ceiling - floor), 0f, 1f);
+        // sqrt biases the curve toward the peak end so a modest
+        // above-floor storm doesn't sit at the atFloor interval.
+        t = Mathf.Sqrt(t);
         float mean = Mathf.Lerp(data.weatherSpawnIntervalAtFloor, data.weatherSpawnIntervalAtPeak, t);
         if (mean < 0.1f) { mean = 0.1f; }
         float u = Mathf.Max(_rng.Randf(), 1e-4f);

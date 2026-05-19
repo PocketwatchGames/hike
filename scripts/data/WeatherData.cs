@@ -68,6 +68,19 @@ public partial class WeatherData : Resource
     // hazards both gate on the simulated current value.
     [Export(PropertyHint.Range, "0,2,0.01")] public float lightningAmount = 1.0f;
 
+    // Destination simulated lightning intensity — what `lightningAmount`
+    // would be RIGHT NOW if every variance channel were settled at its
+    // upcoming `Cur` value (i.e., the end-of-crossfade state of the
+    // currently in-flight variance handover). Written by
+    // WeatherSimulation.Apply alongside the displayed `lightningAmount`.
+    // Consumers gate "is this lerping TOWARD an actual storm" on this
+    // value so transient mid-crossfade blips into the lightning gate
+    // (variance lerping between two non-storm values that happens to
+    // pass through the gate's smoothstep band) don't fire thunder or
+    // strikes. Runtime-only: not [Export]'d since it's purely a
+    // simulation output, not authorable.
+    public float destinationLightningAmount = 0f;
+
     // Atmospheric dust amount — the scattering medium that makes
     // shafts visible. NOT authored: WeatherSimulation writes a
     // simulated value here each frame, derived from the zone's

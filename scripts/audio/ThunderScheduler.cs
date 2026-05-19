@@ -92,8 +92,18 @@ public partial class ThunderScheduler : Node
 
         DrainPendingClaps(delta);
 
-        float intensity = AmbienceController.Current?.State.LightningIntensity ?? 0f;
-        if (intensity <= _data.intensityFloor)
+        // Storm GATE uses DESTINATION intensity — what we're lerping
+        // TOWARD, not the in-flight crossfade value. A non-storm
+        // variance lerp that incidentally passes through the lightning
+        // gate has a low destination value (cur variance is in the
+        // calm half), so thunder stays silent. Only when the
+        // destination is an actual storm do we fire — that lets thunder
+        // roll in across the approaching crossfade, then stop the
+        // moment the storm's exit handover commits.
+        AmbienceState s = AmbienceController.Current?.State ?? default;
+        float destIntensity = s.DestinationLightningIntensity;
+        float intensity = s.LightningIntensity;
+        if (destIntensity <= _data.intensityFloor)
         {
             // Park the timer at a reasonable wait so we don't fire on
             // the same frame intensity crosses the floor — gives a
@@ -105,6 +115,10 @@ public partial class ThunderScheduler : Node
         _timeUntilNext -= delta;
         if (_timeUntilNext > 0.0) { return; }
 
+        // CADENCE uses CURRENT intensity — sparse claps early in the
+        // approach, building toward the destination peak. A storm
+        // that's still 30 minutes from peak should sound like one
+        // 30 minutes out, not like it's already overhead.
         TriggerStrike(intensity);
         _timeUntilNext = SampleInterval(intensity);
     }

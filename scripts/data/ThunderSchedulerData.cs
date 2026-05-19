@@ -35,11 +35,17 @@ public partial class ThunderSchedulerData : Resource
     // around this mean so claps don't fire on a metronome.
     [Export] public Curve intervalCurve;
 
-    // Lightning intensity below this floor disables firing entirely.
-    // Prevents an essentially-silent stream of strikes during the very
-    // beginning of a transition (when intensity is < 0.01) and avoids
-    // the curve sampling division-by-zero edge.
-    [Export(PropertyHint.Range, "0,0.2,0.005")] public float intensityFloor = 0.02f;
+    // STORM GATE: applied to AmbienceState.DestinationLightningIntensity
+    // (what lightning will settle to at the end of the current variance
+    // crossfade), NOT the in-flight displayed intensity. Below this
+    // floor, no claps fire — so a transient lerp through the lightning
+    // gate between two non-storm variance values stays silent. Above
+    // it, claps fire at a cadence driven by CURRENT intensity (sparse
+    // early in an approach, dense at peak). Tune to roughly the
+    // displayed intensity a "real storm" reaches in your zones —
+    // simLightning = lightningMax × gate × variance, so a storm with
+    // lightningMax=1 + open gates + variance~0.6 lands around 0.3.
+    [Export(PropertyHint.Range, "0,0.5,0.005")] public float intensityFloor = 0.10f;
 
     // Hard ceiling on the mean interval — keeps a degenerate curve
     // (or low-end intensity) from waiting minutes between claps.

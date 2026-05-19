@@ -96,8 +96,8 @@ public partial class Hud : Control
 	Texture2D[,] _weatherNightTextures;
 	Texture2D _boundWeatherDayTexture;
 	Texture2D _boundWeatherNightTexture;
-	// Working WeatherData / ZoneData reused each frame for the forecast
-	// blend + diurnal eval. Allocated lazily on first valid frame so HUD
+	// Working WeatherData / ZoneData reused each frame for the day/night
+	// plateau forecast. Allocated lazily on first valid frame so HUD
 	// construction order stays cheap.
 	WeatherData _forecastEnvelope;
 	WeatherData _forecastDayPeak;
@@ -109,12 +109,14 @@ public partial class Hud : Control
 	// blanketed" without flickering between classes on a quiet day.
 	const float CloudCloudyThreshold = 0.33f;
 	const float CloudOvercastThreshold = 0.66f;
-	// Rain / lightning promotion thresholds. simRain peaks under heavy
-	// cloud + cooling-rate forcing, simLightning peaks only inside a
-	// thunderstorm (heavy cloud × active rain × variance), so these can
-	// stay low — anything above the threshold is visibly raining /
-	// striking in the world.
-	const float RainyThreshold = 0.1f;
+	// Rain / lightning promotion thresholds. Both intentionally low —
+	// they're "is the player perceiving rain / thunder right now" gates,
+	// not "is this a heavy storm." simRain values around 0.1 already
+	// produce audible drizzle (rain_light fades in from RainIntensity
+	// 0.03 ≈ simRain 0.06) and faintly-visible particles, so the icon
+	// should flip at the same point the player can hear / see it
+	// rather than only when the storm is in full swing.
+	const float RainyThreshold = 0.05f;
 	const float ThunderThreshold = 0.05f;
 	// Weather-class enum encoded as int index into the icon grid's
 	// second axis. Kept as named consts rather than an enum to avoid
@@ -456,9 +458,13 @@ public partial class Hud : Control
 		_weatherDay.Modulate = new Color(1f, 1f, 1f, dayAlpha * caveFade);
 		_weatherNight.Modulate = new Color(1f, 1f, 1f, nightAlpha * caveFade);
 
-		// Forecast peak / trough weather. Re-blend the zone envelope each
-		// frame at the player's XZ so zone crossings update the icon
-		// without a manual refresh.
+		// Plateau-based forecast. Day icon shows the day plateau's weather,
+		// night icon shows the night plateau's. Computed by re-blending
+		// the zone envelope at the player's current XZ (so zone crossings
+		// update the icons) and running WeatherSimulation.ApplyAtDiurnal
+		// at diurnal=1 (day peak) and diurnal=0 (night trough). The icon
+		// is steady across the diurnal ramps — it only updates when the
+		// player's zone blend shifts or the variance handover settles.
 		if (_forecastEnvelope == null)
 		{
 			_forecastEnvelope = new WeatherData();
@@ -476,7 +482,7 @@ public partial class Hud : Control
 		// upcoming phase's is pre-rolled into *VarianceNext, so the
 		// pre-dawn day-icon fade-in can already classify with tomorrow's
 		// daytime variance instead of the night's. Slope is 0 — the icon
-		// shows the steady-state peak/trough, not a mid-handover lerp.
+		// shows the steady-state plateau, not a mid-handover lerp.
 		//
 		// Fade-out latching: during the icon's fade-out window the
 		// handover has already happened (it lands at the window start),
@@ -508,10 +514,10 @@ public partial class Hud : Control
 		float nightLightningVar = nightFadingOut ? ws.LightningVariancePrev
 			: inDayPhase ? ws.LightningVarianceNext : ws.LightningVarianceCur;
 
-		WeatherSimulation.Apply(_forecastDayPeak, _forecastZone, elevation, sim,
-			sim.DiurnalPeak01, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar, dayLightningVar);
-		WeatherSimulation.Apply(_forecastNightTrough, _forecastZone, elevation, sim,
-			sim.DiurnalTrough01, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar, nightLightningVar);
+		WeatherSimulation.ApplyAtDiurnal(_forecastDayPeak, _forecastZone, elevation, sim,
+			diurnal: 1f, dayWeatherVar, 0f, dayHumidityVar, dayCloudVar, dayLightningVar);
+		WeatherSimulation.ApplyAtDiurnal(_forecastNightTrough, _forecastZone, elevation, sim,
+			diurnal: 0f, nightWeatherVar, 0f, nightHumidityVar, nightCloudVar, nightLightningVar);
 
 		PlayerData pd = _player?.data;
 		int dayTemp = ClassifyTemp(_forecastDayPeak, pd, includeSun: true);
@@ -575,6 +581,7 @@ public partial class Hud : Control
 		dst.sunTemperature = src.sunTemperature;
 		dst.humidity = src.humidity;
 		dst.rainAmount = src.rainAmount;
+		dst.lightningAmount = src.lightningAmount;
 		dst.dustAmount = src.dustAmount;
 	}
 

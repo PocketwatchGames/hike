@@ -365,6 +365,7 @@ public partial class AmbienceController : Node3D
         // than the authored zone max. Mirrors how Wetness reads
         // ws.WetnessLevel instead of the authored rain ceiling.
         _state.LightningIntensity = SkyController.Current?.Weather?.lightningAmount ?? 0f;
+        _state.DestinationLightningIntensity = SkyController.Current?.Weather?.destinationLightningAmount ?? 0f;
         // Visual rain intensity. Reads palette.RainIntensity — the
         // SLEWED display value SkyController writes after the rain-
         // effect look-ahead pass — rather than the raw simulated
