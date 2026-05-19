@@ -27,7 +27,7 @@
 [ext_resource type="PackedScene" uid="uid://dextdjcpcdj8k" path="res://scenes/effects/kunkun_death_vo.tscn" id="24_deathvo"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/stun_begin.tscn" id="25_stunbegin"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="26_stunloop"]
-[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="27_ftsetframes"]
+[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="27_ftsetframes"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("27_ftsetframes")
@@ -35,9 +35,12 @@ anim = &"run"
 frames = Array[int]([3, 6])
 metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
-radius = 0.3
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
+radius = 0.35
 height = 0.9
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
+height = 1.5
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ehotk"]
 atlas = ExtResource("5_mouse")
@@ -459,7 +462,7 @@ Xray = true
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
-shape = SubResource("CapsuleShape3D_kk0")
+shape = SubResource("CapsuleShape3D_s1jhf")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1912608487]
 collision_layer = 32
@@ -467,7 +470,7 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=837705627]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_kk0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=720373046]

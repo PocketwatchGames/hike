@@ -25,7 +25,7 @@
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/stun_begin.tscn" id="23_stunbegin"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/stun_loop.tscn" id="24_stunloop"]
-[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
+[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("25_ftsetframes")
@@ -33,9 +33,12 @@ anim = &"run"
 frames = Array[int]([3, 6])
 metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
 
-[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
-radius = 0.35
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
 height = 1.5
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
+radius = 0.8
+height = 1.6
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_574xa"]
 atlas = ExtResource("6_cham")
@@ -340,7 +343,7 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("6_cham")
 region_enabled = true
-region_rect = Rect2(0, 0, 48, 48)
+region_rect = Rect2(144, 0, 48, 48)
 script = ExtResource("7_litsprite")
 Material = 1
 MirrorByYaw = true
@@ -349,7 +352,7 @@ Xray = true
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
-shape = SubResource("CapsuleShape3D_1uit0")
+shape = SubResource("CapsuleShape3D_gby2u")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1798461975]
 collision_layer = 32
@@ -357,7 +360,7 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=35722461]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=1599354847]

@@ -263,16 +263,20 @@ public static class WeatherSimulation
     // value for every weather channel.
     public static void Apply(WeatherData weather, ZoneData zone, float elevation, WorldState ws, SimData sim)
     {
-        // destLightningVariance = LightningVarianceCur: the end-of-crossfade
-        // value of the lightning variance channel. Apply computes a parallel
-        // destinationLightningAmount using this so consumers (ThunderScheduler,
-        // WeatherLightningSpawner) can gate "are we lerping TOWARD a storm"
-        // without re-running the simulation themselves.
+        // Destination variances are the end-of-crossfade `Cur` values for
+        // every channel — every variance channel rotates on the same
+        // sunrise/sunset handover, so by the time the in-flight lerp
+        // commits, ALL channels are sitting at their respective Cur
+        // values. Slope is implicitly 0 at the destination (the chain
+        // has settled).
         Apply(weather, zone, elevation, sim,
             (float)(ws?.TimeOfDay01 ?? 0.5),
             ws?.WeatherVariance ?? 0.5f, ws?.WeatherVarianceSlope ?? 0f,
             ws?.HumidityVariance ?? 0.5f, ws?.CloudVariance ?? 0.5f,
             ws?.LightningVariance ?? 0.5f,
+            ws?.WeatherVarianceCur ?? 0.5f,
+            ws?.HumidityVarianceCur ?? 0.5f,
+            ws?.CloudVarianceCur ?? 0.5f,
             ws?.LightningVarianceCur ?? 0.5f);
     }
 
@@ -289,45 +293,68 @@ public static class WeatherSimulation
         float weatherVariance, float weatherVarianceSlope,
         float humidityVariance, float cloudVariance,
         float lightningVariance,
+        float destWeatherVariance,
+        float destHumidityVariance, float destCloudVariance,
         float destLightningVariance)
     {
         if (weather == null || sim == null) { return; }
         elevation = Mathf.Clamp(elevation, 0f, 1f);
 
-        // Compute the channel values at the DAY-PLATEAU steady state
-        // (diurnal = 1) and the NIGHT-PLATEAU steady state (diurnal = 0).
-        // Both are computed purely from variance + zone authoring with
-        // no slope-derived boost — every input that varies through the
-        // ramps gets evaluated at the plateau extremes only. The current
-        // simulated value is then a sine-shaped lerp between the two
-        // plateau values driven by the current diurnal curve, so each
-        // channel is flat at the plateaus and sine-traverses the ramps
-        // between, never escalating beyond either plateau's value.
+        // FOUR Compute calls: peak/trough × displayed/destination.
         //
-        // Lightning is doubled: peak/trough Lightning is the DISPLAYED
-        // value at each plateau (using the lerping `lightningVariance`),
-        // peak/trough DestLightning is the DESTINATION value (using
-        // `destLightningVariance` = LightningVarianceCur). The whole
-        // cloud/rain/gate stack is shared between the two — only the
-        // final `lightningMax × gate × variance` line differs, so the
-        // extra cost per Apply call is two multiplies, not a second
-        // simulation pass.
+        // The DISPLAYED pair uses the in-flight crossfade values
+        // (WorldState.*Variance, *VarianceSlope) and produces the
+        // weather state currently in effect.
+        //
+        // The DESTINATION pair uses the end-of-crossfade `*VarianceCur`
+        // values with slope=0 (the chain has settled by definition at
+        // the destination), and produces the weather state we'll have
+        // once the active sunrise/sunset handover completes. All four
+        // variance channels share the same handover window, so ALL of
+        // them are settled at the destination — not just lightning.
+        // Consumers (ThunderScheduler, WeatherLightningSpawner) read
+        // weather.destinationLightningAmount to gate "are we lerping
+        // TOWARD a real storm" so a transient mid-lerp blip that
+        // happens to pass through the lightning gate doesn't fire
+        // thunder or strikes.
+        //
+        // ALL FOUR CALLS HAPPEN BEFORE ANY WRITEBACK. ComputeChannelValuesAtDiurnal
+        // reads weather.X as the zone-blended MAX for each channel
+        // (the inputs); writing displayed values to weather.X first
+        // would corrupt those inputs for the destination pass. Reads
+        // are batched, then writes follow.
+        //
+        // Cost: 4 × Compute is a few dozen multiplies / smoothsteps —
+        // not a hot path, runs once per frame on the main blended
+        // WeatherData. ApplyAtDiurnal (HUD forecast) and the variance
+        // values being predictable from WorldState mean nothing here
+        // is performance-critical or approximate.
         ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
             diurnal: 1f,
-            weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance,
-            lightningVariance, destLightningVariance,
+            weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
             out float peakHumidity, out float peakTemp, out float peakWind,
-            out float peakCloud, out float peakRain,
-            out float peakLightning, out float peakDestLightning,
-            out float peakDust);
+            out float peakCloud, out float peakRain, out float peakLightning, out float peakDust);
         ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
             diurnal: 0f,
-            weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance,
-            lightningVariance, destLightningVariance,
+            weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
             out float troughHumidity, out float troughTemp, out float troughWind,
-            out float troughCloud, out float troughRain,
-            out float troughLightning, out float troughDestLightning,
-            out float troughDust);
+            out float troughCloud, out float troughRain, out float troughLightning, out float troughDust);
+        // Destination pass: ALL channels at their *VarianceCur values,
+        // slope=0 (settled). We discard the non-lightning outputs —
+        // only destinationLightningAmount is consumed downstream — but
+        // a unified Compute keeps the math identical to the displayed
+        // pass, so the destination value reflects the real
+        // cloud/rain/wind-gated lightning amount once the chain
+        // settles, not an approximation that mixes in-flight cloud
+        // with settled lightning.
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+            diurnal: 1f,
+            destWeatherVariance, 0f, destHumidityVariance, destCloudVariance, destLightningVariance,
+            out _, out _, out _, out _, out _, out float peakDestLightning, out _);
+        ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
+            diurnal: 0f,
+            destWeatherVariance, 0f, destHumidityVariance, destCloudVariance, destLightningVariance,
+            out _, out _, out _, out _, out _, out float troughDestLightning, out _);
 
         float diurnal = DiurnalCurve(timeOfDay01, sim);   // 0 = night plateau, 1 = day plateau
         weather.humidity = Mathf.Lerp(troughHumidity, peakHumidity, diurnal);
@@ -363,11 +390,9 @@ public static class WeatherSimulation
         float diurnal,
         float weatherVariance, float weatherVarianceSlope,
         float humidityVariance, float cloudVariance,
-        float lightningVariance, float destLightningVariance,
+        float lightningVariance,
         out float simHumidity, out float simTemp, out float simWind,
-        out float simCloud, out float simRain,
-        out float simLightning, out float simDestLightning,
-        out float simDust)
+        out float simCloud, out float simRain, out float simLightning, out float simDust)
     {
         float coolDiurnal = 1f - diurnal;
 
@@ -468,17 +493,6 @@ public static class WeatherSimulation
         simLightning = Mathf.Clamp(
             lightningMax * lightningGateAny * lightningVarianceFactor,
             0f, 1f);
-        // Destination: identical formula but using the end-of-crossfade
-        // lightning variance (LightningVarianceCur). Cloud/rain/wind/etc.
-        // gates use CURRENT plateau values — their own variance channels
-        // crossfade on the same handover window, so the approximation
-        // is "lightning variance has settled, other channels are still
-        // wherever they are right now" which captures the dominant
-        // signal for "is this a real storm we're heading into."
-        float destLightningVarianceFactor = Mathf.Clamp(destLightningVariance, 0f, 1f);
-        simDestLightning = Mathf.Clamp(
-            lightningMax * lightningGateAny * destLightningVarianceFactor,
-            0f, 1f);
 
         // Dust: wind-lifted, elevation/warmth-boosted, humidity/rain-suppressed.
         float windLift = windMax > 1e-3f ? Mathf.Clamp(simWind / windMax, 0f, 2f) : 0f;
@@ -503,15 +517,14 @@ public static class WeatherSimulation
     {
         if (weather == null || sim == null) { return; }
         elevation = Mathf.Clamp(elevation, 0f, 1f);
-        // Forecast path: there's no "destination" distinction — the
-        // forecast IS the destination — so pass `lightningVariance` for
-        // both. The destination output is discarded.
+        // Forecast path: caller selected a single variance set (cur or
+        // next) for the plateau they want to forecast — there's no
+        // "displayed vs destination" distinction here. `weather.lightningAmount`
+        // gets the forecast value; `destinationLightningAmount` is left
+        // untouched (the HUD doesn't consume it).
         ComputeChannelValuesAtDiurnal(weather, zone, elevation, sim,
-            diurnal, weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance,
-            lightningVariance, lightningVariance,
-            out float h, out float t, out float w, out float c, out float r,
-            out float l, out float _,
-            out float d);
+            diurnal, weatherVariance, weatherVarianceSlope, humidityVariance, cloudVariance, lightningVariance,
+            out float h, out float t, out float w, out float c, out float r, out float l, out float d);
         weather.humidity = h;
         weather.airTemperature = t;
         weather.windSpeed = w;
