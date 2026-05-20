@@ -81,6 +81,14 @@ public partial class AimingReticle : Node3D
 	// constant for fade-in so reticle pop-on is symmetric and not jarring.
 	const float FadeDurationSeconds = 0.15f;
 
+	// Positional aim cursor speed scalar. At full input deflection the
+	// cursor sweeps `weaponRange * PositionalCursorRangeFractionPerSecond`
+	// meters per second across the ground — value 1.0 means a full-
+	// deflection sweep covers the disk's edge-to-center in one second,
+	// so short-range and long-range positional tiers both feel like the
+	// same edge-to-edge time regardless of physical range.
+	const float PositionalCursorRangeFractionPerSecond = 1.0f;
+
 	Player _player;
 	// Last forward-raycast clamp distance from an active update. Reused as
 	// the line length while the reticle is fading out, since the whole point
@@ -103,6 +111,29 @@ public partial class AimingReticle : Node3D
 	float _ringSource;
 	float _ringTarget;
 	float _ringElapsed;
+
+	// Canonical world-space aim cursor (the ground circle's position).
+	// Directional aim writes the dropped endpoint of the forward raycast;
+	// Positional aim integrates Player.AimDeflection01 into this each frame.
+	// Held continuous across mid-charge mode flips so the ground circle
+	// glides instead of teleporting between modes. Exposed to downstream
+	// consumers (positional fire handlers) via AimWorldPosition.
+	Vector3 _cursorWorldPos;
+	// Goes false on aim-off so the next aim session re-seeds rather than
+	// reusing a stale cursor from minutes ago. Downstream consumers must
+	// check HasAimWorldPosition before reading the position.
+	bool _cursorValid;
+	// Last frame's resolved aim type — used to detect Pos ↔ Dir transitions
+	// so we can snap the player's facing toward the cursor on Pos → Dir
+	// (the directional raycast THIS SAME FRAME picks up the new yaw).
+	EAimType _lastAimType = EAimType.Directional;
+
+	// World position currently being aimed at — the ground circle anchor.
+	// Read by positional fire handlers (AoE drop target, throw destination)
+	// at activation. Always check HasAimWorldPosition first; the value is
+	// stale when false.
+	public Vector3 AimWorldPosition => _cursorWorldPos;
+	public bool HasAimWorldPosition => _cursorValid;
 
 	public void Initialize(Player player)
 	{
@@ -180,6 +211,12 @@ public partial class AimingReticle : Node3D
 		else
 		{
 			_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
+			// Aim turned off — invalidate the cursor so the next aim session
+			// re-seeds from a fresh raycast / positional default instead of
+			// jumping back to a stale point from minutes ago. Render still
+			// uses the cached lineLength / mob state to ride the fade out.
+			_cursorValid = false;
+			_lastAimType = EAimType.Directional;
 			if (_currentAlpha > 0f)
 			{
 				// Fade-out path: keep rendering at the cached range so we
@@ -187,7 +224,7 @@ public partial class AimingReticle : Node3D
 				// unavailable. Chest / forward still update each frame so
 				// the fading reticle follows the player rather than
 				// hovering in dead space.
-				RenderReticle(_lastLineLength, clippedAtSurface: false, mobTargeted: _lastMobTargeted, mobTargetOuter: _lastMobTargetOuter, dt: dt);
+				RenderReticle(EAimType.Directional, _lastLineLength, clippedAtSurface: false, mobTargeted: _lastMobTargeted, mobTargetOuter: _lastMobTargetOuter, dt: dt);
 			}
 		}
 
@@ -233,8 +270,36 @@ public partial class AimingReticle : Node3D
 		return true;
 	}
 
-	// Fresh active update: forward raycast → store new range → render.
+	// Fresh active update: resolve aim type → update cursor + cached state → render.
+	// Handles the Pos ↔ Dir transition by snapping player yaw toward the cursor
+	// on Pos → Dir BEFORE running the directional raycast, so the same-frame
+	// forward fires through the previous positional cursor.
 	void UpdateReticle(float dt)
+	{
+		EAimType aimType = ResolveActiveAimType();
+		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
+
+		// Mode flip: on Pos → Dir the body needs to face the cursor first so
+		// ActorForward this frame reflects the previously-aimed direction.
+		// Dir → Pos needs no explicit seed — the cursor already sits at the
+		// last directional ground point from the previous tick.
+		if (_cursorValid && aimType == EAimType.Directional && _lastAimType == EAimType.Positional)
+		{
+			_player.SnapAimYawToward(_cursorWorldPos);
+		}
+
+		if (aimType == EAimType.Directional)
+		{
+			UpdateDirectional(maxRange, dt);
+		}
+		else
+		{
+			UpdatePositional(maxRange, dt);
+		}
+		_lastAimType = aimType;
+	}
+
+	void UpdateDirectional(float maxRange, float dt)
 	{
 		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
 		// Use the player's pitched forward so the main beam, spread, and
@@ -242,7 +307,6 @@ public partial class AimingReticle : Node3D
 		// will fire along (Player.ActorForward folds in the auto-aim pitch).
 		Vector3 forward = _player.ActorForward.Normalized();
 
-		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
 		float lineLength = maxRange;
 		bool clippedAtSurface = false;
 		bool mobTargeted = false;
@@ -281,17 +345,137 @@ public partial class AimingReticle : Node3D
 		_lastMobTargeted = mobTargeted;
 		_lastMobTargetOuter = mobTargetOuter;
 
-		RenderReticle(lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, dt);
+		// Cursor = the ground-dropped endpoint, so Positional can seed from
+		// here on the next mode flip and downstream handlers always read a
+		// real ground point. Drop from the (possibly clipped) endpoint with
+		// the wall-backoff applied so we don't start the ray inside the
+		// surface we just hit. Falls back to the un-dropped endpoint if the
+		// drop misses (player aiming off a cliff into space).
+		Vector3 dropOriginWorld = chestWorld + forward * lineLength;
+		if (clippedAtSurface)
+		{
+			dropOriginWorld -= forward * _wallBackoff;
+		}
+		if (TryRaycastDown(dropOriginWorld, _maxGroundDropDistance, out Vector3 dropHit))
+		{
+			_cursorWorldPos = dropHit;
+		}
+		else
+		{
+			_cursorWorldPos = dropOriginWorld;
+		}
+		_cursorValid = true;
+
+		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, dt);
+	}
+
+	void UpdatePositional(float maxRange, float dt)
+	{
+		Vector3 playerPos = _player.GlobalPosition;
+		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
+
+		// First Positional frame in this aim session — seed from a forward
+		// raycast so the cursor doesn't start at (0,0,0). Re-uses the
+		// directional helper to keep "first seed" and "mid-charge Dir → Pos"
+		// flip consistent (in the flip case the cursor was already set by
+		// the previous directional frame and skips this branch).
+		if (!_cursorValid)
+		{
+			Vector3 forward = _player.ActorForward.Normalized();
+			if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit, out Mob _))
+			{
+				if (TryRaycastDown(forwardHit, _maxGroundDropDistance, out Vector3 dropHit))
+				{
+					_cursorWorldPos = dropHit;
+				}
+				else
+				{
+					_cursorWorldPos = forwardHit;
+				}
+			}
+			else
+			{
+				Vector3 fallback = chestWorld + forward * maxRange;
+				if (TryRaycastDown(fallback, _maxGroundDropDistance, out Vector3 dropHit))
+				{
+					_cursorWorldPos = dropHit;
+				}
+				else
+				{
+					_cursorWorldPos = fallback;
+				}
+			}
+			_cursorValid = true;
+		}
+
+		// Integrate per-frame deflection. AimDeflection01 is the player's
+		// aim input pre-rotated by camera yaw and normalized to [0, 1]
+		// magnitude, so the same code path works for gamepad and mouse.
+		// Speed scales with weapon range so short-range and long-range
+		// positional tiers both sweep edge-to-edge in the same wall time.
+		Vector2 deflection = _player.AimDeflection01;
+		float deflectionLenSq = deflection.X * deflection.X + deflection.Y * deflection.Y;
+		if (deflectionLenSq > 0f && maxRange > 0f)
+		{
+			float metersPerSec = maxRange * PositionalCursorRangeFractionPerSecond;
+			float scale = metersPerSec * dt;
+			_cursorWorldPos.X += deflection.X * scale;
+			_cursorWorldPos.Z += deflection.Y * scale;
+		}
+
+		// Clamp to a disk of radius=maxRange around the player. Re-applied
+		// each frame so walking away from the cursor drags it along the
+		// disk edge rather than orphaning it past the weapon's reach.
+		float dx = _cursorWorldPos.X - playerPos.X;
+		float dz = _cursorWorldPos.Z - playerPos.Z;
+		float horizDistSq = dx * dx + dz * dz;
+		if (maxRange > 0f && horizDistSq > maxRange * maxRange)
+		{
+			float horizDist = Mathf.Sqrt(horizDistSq);
+			float pull = maxRange / horizDist;
+			_cursorWorldPos.X = playerPos.X + dx * pull;
+			_cursorWorldPos.Z = playerPos.Z + dz * pull;
+		}
+
+		// Drop Y to the ground at the (possibly clamped) cursor X/Z. Start
+		// the drop from chest height so we don't miss surfaces that are
+		// slightly above the player's feet. Misses leave Y at the last
+		// valid value rather than snapping to the player's feet, so a
+		// cursor swept briefly off a cliff edge doesn't jitter.
+		Vector3 dropFrom = new(_cursorWorldPos.X, chestWorld.Y, _cursorWorldPos.Z);
+		if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
+		{
+			_cursorWorldPos.Y = groundHit.Y;
+		}
+
+		// Face the player body toward the cursor so the sprite and
+		// ActorForward both point at where the throw / drop will land.
+		_player.SnapAimYawToward(_cursorWorldPos);
+
+		// Positional has no concept of mob lock or aim distance line —
+		// the cursor is a free ground point. Cached state still kept up
+		// to date so the fade-out path renders without surprises if the
+		// player switches back to a directional tier later.
+		float lineLength = Mathf.Sqrt(dx * dx + dz * dz);
+		_lastLineLength = lineLength;
+		_lastMobTargeted = false;
+		_lastMobTargetOuter = _groundRingOuterRadius;
+
+		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, dt: dt);
 	}
 
 	// Render path — used by both the live update and the fade-out path. The
 	// only state held across frames is the ground-ring radius lerp; the rest
-	// (chest, forward, down raycast, spread sampling) recomputes from current
-	// state so the fading reticle still follows the player. `mobTargeted`
-	// gates the red tint; `mobTargetOuter` is the outer radius to ease into.
-	void RenderReticle(float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float dt)
+	// (chest, forward, spread sampling) recomputes from current state so the
+	// fading reticle still follows the player. `mobTargeted` gates the red
+	// tint; `mobTargetOuter` is the outer radius to ease into. Positional
+	// aim hides the forward beam / spread markers / knob entirely — the
+	// ground circle alone communicates the throw / drop target. `_cursorWorldPos`
+	// (written by UpdateDirectional / UpdatePositional) is the ground-circle
+	// world position regardless of mode.
+	void RenderReticle(EAimType aimType, float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float dt)
 	{
-		if (_mainLine != null) { _mainLine.Visible = true; }
+		bool showForwardBeam = aimType == EAimType.Directional;
 
 		// Ground ring lerp. New target whenever lock state or mob radius
 		// changes — capture the current value as the source and reset the
@@ -321,7 +505,23 @@ public partial class AimingReticle : Node3D
 			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _currentOuterRadius);
 			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", currentInner);
 			_groundCircle.SetInstanceShaderParameter("instance_color", tint);
+			_groundCircle.Position = ToLocal(_cursorWorldPos);
 		}
+
+		if (!showForwardBeam)
+		{
+			// Positional: forward beam, spread markers, and knob are all
+			// directional concepts that don't apply when the cursor is a
+			// free ground point. Hide them; the ground circle alone tells
+			// the player where the action will land.
+			if (_mainLine != null) { _mainLine.Visible = false; }
+			if (_spreadLineLeft != null) { _spreadLineLeft.Visible = false; }
+			if (_spreadLineRight != null) { _spreadLineRight.Visible = false; }
+			if (_endKnob != null) { _endKnob.Visible = false; }
+			return;
+		}
+
+		if (_mainLine != null) { _mainLine.Visible = true; }
 
 		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
 		Vector3 forward = _player.ActorForward.Normalized();
@@ -367,32 +567,6 @@ public partial class AimingReticle : Node3D
 		{
 			PlaceSpreadLine(_spreadLineLeft, chestWorld, forward, right, lineLength, +spreadOffset);
 			PlaceSpreadLine(_spreadLineRight, chestWorld, forward, right, lineLength, -spreadOffset);
-		}
-
-		// Ground circle anchor to the (possibly clipped) endpoint,
-		// not the max-range endpoint. When the line clipped on a wall we back
-		// the drop start off the surface along -forward — the few-cm offset
-		// is invisible at game scale and keeps the down ray from starting
-		// flush with the wall it just hit. The mob-targeted path skips the
-		// backoff because the endpoint is already inside the mob, not
-		// coplanar with a surface. During fade-out we pass clippedAtSurface
-		// = false (no fresh raycast, so we don't know if the cached range
-		// came from a surface hit).
-		Vector3 dropOriginWorld = chestWorld + forward * lineLength;
-		if (clippedAtSurface)
-		{
-			dropOriginWorld -= forward * _wallBackoff;
-		}
-		if (_groundCircle != null)
-		{
-			if (TryRaycastDown(dropOriginWorld, _maxGroundDropDistance, out Vector3 hitWorld))
-			{
-				_groundCircle.Visible = true;
-				_groundCircle.Position = ToLocal(hitWorld);
-			} else
-			{
-				_groundCircle.Visible = false;
-			}
 		}
 	}
 
@@ -526,37 +700,49 @@ public partial class AimingReticle : Node3D
 		return true;
 	}
 
-	// Spread fraction in [0, 1] for the right-hand ranged weapon. While
-	// charging that slot, samples the live charge fraction; otherwise samples
-	// the snap tier at chargeT=0 — what would happen on an immediate fire.
-	float ComputeSpread01()
+	// Resolve the right-hand weapon's currently-relevant tier — the in-flight
+	// selected tier during a Charging phase, otherwise tier 0 (what an
+	// immediate fire would produce). Returns null when no profile is
+	// equipped. Shared by ComputeSpread01 and ResolveActiveAimType so spread
+	// sampling and aim-mode resolution always agree on which tier is "current".
+	ItemAction ResolveActiveTier(out float chargeT)
 	{
-		if (_player?.Inventory == null)
-		{
-			return 0f;
-		}
-		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
+		chargeT = 0f;
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
 		ItemActionProfile profile = weapon?.data?.actionProfile;
 		if (profile?.chargedActions == null || profile.chargedActions.Count == 0)
 		{
-			return 0f;
+			return null;
 		}
-
-		ItemAction tier;
-		float chargeT;
 		ActionRunner runner = _player.Runner;
 		if (runner != null
 			&& runner.Phase == EActionPhase.Charging
 			&& runner.Current.context.sourceSlot == EInventorySlot.WeaponRight)
 		{
-			tier = runner.Current.selectedTier ?? profile.chargedActions[0];
 			chargeT = runner.CurrentChargeT;
+			return runner.Current.selectedTier ?? profile.chargedActions[0];
 		}
-		else
-		{
-			tier = profile.chargedActions[0];
-			chargeT = 0f;
-		}
+		return profile.chargedActions[0];
+	}
+
+	// Spread fraction in [0, 1] for the right-hand ranged weapon. While
+	// charging that slot, samples the live charge fraction; otherwise samples
+	// the snap tier at chargeT=0 — what would happen on an immediate fire.
+	float ComputeSpread01()
+	{
+		ItemAction tier = ResolveActiveTier(out float chargeT);
+		if (tier == null) { return 0f; }
 		return ItemAction.SampleAccuracySpread(tier, chargeT);
+	}
+
+	// Per-tier aim mode for the right-hand weapon. Mirrors the tier
+	// selection in ResolveActiveTier so the reticle picks Directional /
+	// Positional from the same authority that drives spread / range.
+	// Falls back to Directional when no weapon / profile is equipped so
+	// the reticle's pre-existing aim path keeps running.
+	EAimType ResolveActiveAimType()
+	{
+		ItemAction tier = ResolveActiveTier(out _);
+		return tier?.aimType ?? EAimType.Directional;
 	}
 }

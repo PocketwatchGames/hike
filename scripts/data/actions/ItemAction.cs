@@ -76,6 +76,16 @@ public partial class ItemAction : Resource
 	[Export] public bool canAbort = false;
 	[Export] public bool canInterrupt = true;
 
+	// How player aim input drives this tier. Directional → stick / mouse
+	// drives ActorForward and the aim point is forward × range (matches the
+	// pre-existing bow / hitscan path). Positional → stick / mouse pushes a
+	// world-space aim point across the ground per frame, scaled by weapon
+	// range; the cursor stays where it was when the active tier flips mode
+	// mid-charge, so the reticle's ground circle is continuous. A single
+	// profile can mix modes between tiers (e.g. snap bow shot → charged
+	// rain-of-arrows; melee axe → charged thrown explosive).
+	[Export] public EAimType aimType = EAimType.Directional;
+
 	// Press-time spread fraction in [0, 1] for ranged events on this tier.
 	// 0 = pinpoint, 1 = full MAX_SPREAD_HALF_ANGLE cone. Melee ignores it.
 	// Combined with `chargedAccuracyScale` below to model "hold to steady".

@@ -500,6 +500,29 @@ public partial class Player : CharacterBody3D, IActionActor
 		}
 		_aimPitchRadians = bias * bestPitch;
 	}
+	// Normalized aim input deflection in world XZ (already camera-yaw-rotated
+	// at the input boundary). Magnitude is 0..1 for both gamepad (raw axis
+	// length) and mouse (the virtual aim cursor's offset divided by the disk
+	// radius before being passed in via ProcessMouseMotion). Directional aim
+	// only cares about direction (atan2); Positional aim integrates this as
+	// a rate input so the magnitude matters.
+	public Vector2 AimDeflection01 => new Vector2(_inputLook.X, _inputLook.Z);
+
+	// Snap the player's body yaw to face `worldPos`. Used by the aiming
+	// reticle when a charge tier transitions from Positional to Directional
+	// so the next directional raycast fires through the previous cursor
+	// instead of the previously-held facing. No-op if the target sits on
+	// top of the player (sub-millimeter offset → no defined direction).
+	public void SnapAimYawToward(Vector3 worldPos)
+	{
+		Vector3 delta = worldPos - GlobalPosition;
+		if (delta.X * delta.X + delta.Z * delta.Z < 1e-6f)
+		{
+			return;
+		}
+		Rotation = new Vector3(0f, Mathf.Atan2(delta.X, delta.Z), 0f);
+	}
+
 	public ulong GameTimeMs => _world?.GameTimeMs ?? 0;
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
 	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();

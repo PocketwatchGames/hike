@@ -81,6 +81,15 @@ public partial class DiagnosticsOverlay : CanvasLayer
         // hitches can be caught in the wild.
         UpdateHitchDetector(delta);
 
+        // debug_slopes pins the overlay visible so the slope readout shows
+        // without F3. Hidden again on the next frame after the CVar flips
+        // off, unless F3 had it on independently.
+        if (CVars.debugSlopes.Value && !Visible)
+        {
+            Visible = true;
+            UpdateProfilingState();
+        }
+
         if (!Visible)
         {
             return;
@@ -160,10 +169,49 @@ public partial class DiagnosticsOverlay : CanvasLayer
         var sb = new System.Text.StringBuilder();
         sb.Append("[code]");
         sb.Append("FPS ").Append(Engine.GetFramesPerSecond().ToString("F0")).Append('\n');
+        if (CVars.debugSlopes.Value)
+        {
+            AppendSlopeSection(sb);
+        }
         sb.Append('\n');
         Profiler.AppendTable(sb, useLatched: true);
         sb.Append("[/code]");
         return sb.ToString();
+    }
+
+    // Slope debug readout. "floor" tracks the current standing surface;
+    // "lastWall" sticks until cleared so a quick run-into-and-back shows the
+    // hit angle even after the contact ends. Age is wall-clock seconds since
+    // the last hit, sourced from World.GameTimeMs so the value is in sync
+    // with the [slope] log lines.
+    private void AppendSlopeSection(System.Text.StringBuilder sb)
+    {
+        sb.Append('\n');
+        if (float.IsNaN(Player.DebugFloorAngleDeg))
+        {
+            sb.Append("floor    : airborne\n");
+        }
+        else
+        {
+            sb.Append("floor    : ").Append(Player.DebugFloorAngleDeg.ToString("F1")).Append("°\n");
+        }
+        if (!Player.DebugHasWallHit)
+        {
+            sb.Append("lastWall : none\n");
+            return;
+        }
+        ulong nowMs = World.Current?.GameTimeMs ?? 0;
+        double ageSec = nowMs > Player.DebugLastWallHitMs
+            ? (nowMs - Player.DebugLastWallHitMs) / 1000.0
+            : 0.0;
+        Vector3 n = Player.DebugLastWallNormal;
+        Vector3 p = Player.DebugLastWallPosition;
+        sb.Append("lastWall : ").Append(Player.DebugLastWallAngleDeg.ToString("F1")).Append("° ")
+          .Append(ageSec.ToString("F1")).Append("s ago\n");
+        sb.Append("  normal : (").Append(n.X.ToString("F2")).Append(", ")
+          .Append(n.Y.ToString("F2")).Append(", ").Append(n.Z.ToString("F2")).Append(")\n");
+        sb.Append("  at     : (").Append(p.X.ToString("F2")).Append(", ")
+          .Append(p.Y.ToString("F2")).Append(", ").Append(p.Z.ToString("F2")).Append(")\n");
     }
 
     public override void _UnhandledInput(InputEvent e)

@@ -32,6 +32,13 @@ public static class CVars
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);
 
+    // Slope diagnostics. When true, the F3 overlay shows the current floor
+    // angle + the last hit on an upward-facing surface too steep to climb
+    // (FloorMaxAngle-gated), and prints each unique wall hit to the console.
+    // Logs only fire while the player has move input, throttled so a single
+    // contact doesn't spam per-tick.
+    public static CVarBool debugSlopes = new CVarBool("debug_slopes", false);
+
     // Mouse aim sensitivity. Multiplies raw mouseMotion.Relative before
     // accumulating into the aim cursor (clamped to a fixed pixel radius in
     // GameClient). Higher = more cursor travel per pixel of mouse motion =

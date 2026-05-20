@@ -919,7 +919,12 @@ public partial class GameClient : Node3D
 			}
 			if (_mousePosition.LengthSquared() >= AIM_CURSOR_DEADZONE_PX * AIM_CURSOR_DEADZONE_PX)
 			{
-				_player.ProcessMouseMotion(_mousePosition, camera.Yaw);
+				// Pass the deflection normalized to the disk radius so the
+				// magnitude matches the gamepad right-stick convention (0..1).
+				// Positional aim integrates this as a rate input; Directional
+				// reads only the angle so it doesn't care either way.
+				Vector2 deflection01 = _mousePosition / AIM_CURSOR_RADIUS_PX;
+				_player.ProcessMouseMotion(deflection01, camera.Yaw);
 			}
 		}
 	}

@@ -181,6 +181,19 @@ public partial class Player : CharacterBody3D
 	ulong _stuckCheckDeadlineMs;
 	bool _jumpHeld;
 	Inventory _inventory;
+
+	// Slope diagnostics published by UpdateSlopeDebug when CVars.debugSlopes
+	// is on. Static so DiagnosticsOverlay can read without a Player ref. NaN
+	// floor angle = airborne. Wall fields hold the most recent unwalkable
+	// upward-facing slope hit; HasWallHit gates whether they've ever been set.
+	public static float DebugFloorAngleDeg = float.NaN;
+	public static float DebugLastWallAngleDeg;
+	public static Vector3 DebugLastWallNormal;
+	public static Vector3 DebugLastWallPosition;
+	public static ulong DebugLastWallHitMs;
+	public static bool DebugHasWallHit;
+	float _debugLastLoggedWallAngle = float.NaN;
+	ulong _debugLastWallLogMs;
 	// Languages the player has partially or fully learned this run. Keyed by
 	// the shared LanguageData resource instance; value is the set of
 	// components learned (Grammar/Numbers/Glyphs/Spelling). A missing key
@@ -1215,17 +1228,23 @@ public partial class Player : CharacterBody3D
 
 		if (spawnData != null)
 		{
-			if (spawnData.meleeWeaponData != null)
+			if (spawnData.equippedInventory != null)
 			{
-				var melee = new WeaponState(spawnData.meleeWeaponData);
-				_inventory.TryAdd(melee);
-				_inventory.TryEquip(melee, EInventorySlot.WeaponLeft);
-			}
-			if (spawnData.rangedWeaponData != null)
-			{
-				var ranged = new WeaponState(spawnData.rangedWeaponData);
-				_inventory.TryAdd(ranged);
-				_inventory.TryEquip(ranged, EInventorySlot.WeaponRight);
+				foreach (ItemCount ic in spawnData.equippedInventory)
+				{
+					if (ic == null || ic.item == null || ic.count <= 0) { continue; }
+					int stackSize = ic.item.maxStack > 0 ? ic.item.maxStack : 1;
+					int remaining = ic.count;
+					while (remaining > 0)
+					{
+						int n = System.Math.Min(remaining, stackSize);
+						ItemState state = ic.item.CreateState();
+						state.stackCount = n;
+						_inventory.TryAdd(state);
+						TryAutoEquipFromBackpack(state);
+						remaining -= n;
+					}
+				}
 			}
 			if (spawnData.startingConsumables != null)
 			{
@@ -1283,6 +1302,33 @@ public partial class Player : CharacterBody3D
 		if (client != null)
 		{
 			_bodyTemperature = client.SampleAirTemperature(GlobalPosition);
+		}
+	}
+
+	private void TryAutoEquipFromBackpack(ItemState item)
+	{
+		if (item?.data == null)
+		{
+			return;
+		}
+		switch (item.data)
+		{
+			case ArmorData armor:
+				if (_inventory.GetEquipped(armor.armorSlot) == null)
+				{
+					_inventory.TryEquip(item, armor.armorSlot);
+				}
+				break;
+			case WeaponData:
+				if (_inventory.GetEquipped(EInventorySlot.WeaponLeft) == null)
+				{
+					_inventory.TryEquip(item, EInventorySlot.WeaponLeft);
+				}
+				else if (_inventory.GetEquipped(EInventorySlot.WeaponRight) == null)
+				{
+					_inventory.TryEquip(item, EInventorySlot.WeaponRight);
+				}
+				break;
 		}
 	}
 
@@ -1603,10 +1649,22 @@ public partial class Player : CharacterBody3D
 		// burst, so look-rotation and the gamepad-stick aim fallback both
 		// yield to movement direction. Single gate for both _aiming below and
 		// the rotation block further down.
+		//
+		// Charging a right-hand weapon also forces aim on: the cursor needs
+		// to keep updating (Positional aim wants the player to rest the stick
+		// without dropping out of aim), and the reticle should stay visible
+		// for the full hold. The gate still requires `canLook`, so a dash
+		// out of a charge still suppresses aim (charging cancels via the
+		// existing path).
 		bool canLook = CanLook();
+		bool chargingRightWeapon = _runner != null
+			&& _runner.IsBusy
+			&& _runner.Phase == EActionPhase.Charging
+			&& _runner.Current.context.sourceSlot == EInventorySlot.WeaponRight;
 		_aiming = canLook
 			&& (Input.IsActionPressed("Aim")
-				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad));
+				|| (_inputLook != Vector3.Zero && InputDevice.Current == InputDevice.EDevice.Gamepad)
+				|| chargingRightWeapon);
 
 		// Stamina-gated speed table:
 		//   sneaking                         → sneakSpeed
@@ -1786,6 +1844,11 @@ public partial class Player : CharacterBody3D
 		float inboundFallSpeed = -Velocity.Y;
 		MoveAndSlide();
 
+		if (CVars.debugSlopes.Value)
+		{
+			UpdateSlopeDebug();
+		}
+
 		PushTouchedMobs();
 		if (_dashTimeRemaining > 0f)
 		{
@@ -1934,9 +1997,15 @@ public partial class Player : CharacterBody3D
 		UpdateAnimation();
 	}
 
-	public void ProcessMouseMotion(Vector2 mousePos, float cameraYaw)
+	// Aim deflection from the mouse path. `deflection01` is the virtual aim
+	// cursor's offset from center divided by the disk radius — already in
+	// [0, 1] magnitude so it matches the gamepad right-stick convention and
+	// Positional aim sees a consistent rate input regardless of device.
+	// Directional aim only reads the direction (atan2) so the magnitude
+	// change is invisible there.
+	public void ProcessMouseMotion(Vector2 deflection01, float cameraYaw)
 	{
-		_inputLook = new Vector3(mousePos.X, 0, mousePos.Y).Rotated(Vector3.Up, cameraYaw);
+		_inputLook = new Vector3(deflection01.X, 0, deflection01.Y).Rotated(Vector3.Up, cameraYaw);
 	}
 
 	void HandleInteractInput()
@@ -2315,6 +2384,64 @@ public partial class Player : CharacterBody3D
 	{
 		_dashTimeRemaining = 0f;
 		_dashGlideRemaining = data.dashGlideTime;
+	}
+
+	// Publishes floor angle + unwalkable-wall hits to the static Debug* fields
+	// so DiagnosticsOverlay can render them, and prints a per-hit log line
+	// throttled to changes ≥2° or stale ≥500ms. "Unwalkable" here means an
+	// upward-facing surface (n.Y > 0) whose normal is below cos(FloorMaxAngle)
+	// — i.e. a slope the body classifies as wall, not floor. Vertical walls
+	// (n.Y ≈ 0) and overhangs (n.Y < 0) are skipped: the question is "what
+	// ramp face just stopped the climb", not "did we run into a cliff".
+	private void UpdateSlopeDebug()
+	{
+		float floorDotMin = Mathf.Cos(FloorMaxAngle);
+
+		if (IsOnFloor())
+		{
+			Vector3 fn = GetFloorNormal();
+			DebugFloorAngleDeg = Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(fn.Y, -1f, 1f)));
+		}
+		else
+		{
+			DebugFloorAngleDeg = float.NaN;
+		}
+
+		bool moving = _inputMove.LengthSquared() > 0.0001f;
+		int count = GetSlideCollisionCount();
+		for (int i = 0; i < count; i++)
+		{
+			using KinematicCollision3D c = GetSlideCollision(i);
+			Vector3 n = c.GetNormal();
+			if (n.Y <= 0f || n.Y >= floorDotMin)
+			{
+				continue;
+			}
+			float angleDeg = Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(n.Y, -1f, 1f)));
+			Vector3 pos = c.GetPosition();
+
+			DebugLastWallAngleDeg = angleDeg;
+			DebugLastWallNormal = n;
+			DebugLastWallPosition = pos;
+			DebugLastWallHitMs = _world?.GameTimeMs ?? 0;
+			DebugHasWallHit = true;
+
+			if (!moving)
+			{
+				continue;
+			}
+			bool angleChanged = float.IsNaN(_debugLastLoggedWallAngle)
+				|| Mathf.Abs(angleDeg - _debugLastLoggedWallAngle) > 2f;
+			ulong nowMs = _world?.GameTimeMs ?? 0;
+			bool stale = nowMs == 0 || (nowMs - _debugLastWallLogMs) > 500;
+			if (!angleChanged && !stale)
+			{
+				continue;
+			}
+			_debugLastLoggedWallAngle = angleDeg;
+			_debugLastWallLogMs = nowMs;
+			GD.Print($"[slope] wall hit angle={angleDeg:F1}° normal=({n.X:F2},{n.Y:F2},{n.Z:F2}) at ({pos.X:F2},{pos.Y:F2},{pos.Z:F2})");
+		}
 	}
 
 	private void HandleDashWallCollisions()
