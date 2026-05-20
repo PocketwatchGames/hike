@@ -449,6 +449,189 @@ public static class LightEngine
         return kernels;
     }
 
+    // Adjacent carrier voxels share 4 of 8 corners (the corners on the face
+    // between them). For an axis-aligned ±1 voxel crossing, this skips 4 of
+    // the 8 diffusions by translating the shared kernels from the previous
+    // CornerKernels buffer into the new buffer, then running fresh diffusions
+    // for the 4 new-face corners. Falls back to a full recompute for any
+    // non-axis-aligned or multi-voxel delta.
+    //
+    // Edge truncation: the translated shared kernels lose a 1-voxel slab on
+    // the far side of the new buffer (those voxels had no source in the old
+    // buffer). The 4 fresh corners on the new face fill that slab with their
+    // own contributions; the diffusion field is small at that distance from
+    // any shared seed anyway, so the artifact is below the quantize threshold.
+    public static CornerKernels ComputeCornerKernelsIncremental(
+        WorldState world,
+        Vector3I position,
+        int level,
+        Color color,
+        CornerKernels prevKernels,
+        Vector3I delta)
+    {
+        int absX = Math.Abs(delta.X);
+        int absY = Math.Abs(delta.Y);
+        int absZ = Math.Abs(delta.Z);
+        if (prevKernels == null || absX + absY + absZ != 1)
+        {
+            return ComputeCornerKernels(world, position, level, color);
+        }
+
+        level = Math.Min(level, MAX_LIGHT);
+        int reach = Math.Max(MIN_REACH, level / REACH_DIVISOR);
+        int iterations = Math.Max(MIN_ITERS, level / ITER_DIVISOR);
+        int dim = reach * 2 + 1;
+        int total = dim * dim * dim;
+
+        // Sanity: reach/dim must match the previous buffer for index translation
+        // to be valid. Emission is fixed per MovingLight so this should always
+        // hold; the check is a cheap safety net for future code that mutates
+        // emission at runtime.
+        if (prevKernels.Dim != dim)
+        {
+            return ComputeCornerKernels(world, position, level, color);
+        }
+
+        int ox = position.X - reach;
+        int oy = position.Y - reach;
+        int oz = position.Z - reach;
+
+        var open = new bool[total];
+        var fogAbsorb = new float[total];
+        for (int lz = 0; lz < dim; lz++)
+        {
+            for (int ly = 0; ly < dim; ly++)
+            {
+                int rowBase = (lz * dim + ly) * dim;
+                for (int lx = 0; lx < dim; lx++)
+                {
+                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
+                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+                    open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
+                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
+                }
+            }
+        }
+
+        float baseR = level * SEED_PER_LEVEL * color.R;
+        float baseG = level * SEED_PER_LEVEL * color.G;
+        float baseB = level * SEED_PER_LEVEL * color.B;
+
+        var kernels = new CornerKernels
+        {
+            Reach = reach,
+            Dim = dim,
+            Total = total,
+            Origin = new Vector3I(ox, oy, oz),
+            Open = open,
+            R = new float[8][],
+            G = new float[8][],
+            B = new float[8][],
+            SeedIdx = new int[8],
+            SeedOpen = new bool[8],
+        };
+
+        var scratchR = new float[total];
+        var scratchG = new float[total];
+        var scratchB = new float[total];
+
+        // Translation: world voxel at NEW buffer index (lx,ly,lz) corresponds
+        // to OLD buffer index (lx+delta.X, ly+delta.Y, lz+delta.Z). Valid
+        // when the OLD index is in [0, dim-1] on each axis.
+        int lxMin = Math.Max(0, -delta.X);
+        int lxMax = Math.Min(dim - 1, dim - 1 - delta.X);
+        int lyMin = Math.Max(0, -delta.Y);
+        int lyMax = Math.Min(dim - 1, dim - 1 - delta.Y);
+        int lzMin = Math.Max(0, -delta.Z);
+        int lzMax = Math.Min(dim - 1, dim - 1 - delta.Z);
+
+        for (int c = 0; c < 8; c++)
+        {
+            int cx = c & 1;
+            int cy = (c >> 1) & 1;
+            int cz = (c >> 2) & 1;
+            int seedIdx = ((reach + cz) * dim + (reach + cy)) * dim + (reach + cx);
+            kernels.SeedIdx[c] = seedIdx;
+            kernels.SeedOpen[c] = open[seedIdx];
+
+            kernels.R[c] = new float[total];
+            kernels.G[c] = new float[total];
+            kernels.B[c] = new float[total];
+
+            // New corner c (offset cx,cy,cz from V_new) coincides with old
+            // corner c_old (offset cxOld,cyOld,czOld from V_old) iff their
+            // world positions match: V_new + (cx,cy,cz) = V_old + (cxOld,...)
+            // => cxOld = cx + delta.X, etc. Valid only when ∈ {0,1}.
+            int cxOld = cx + delta.X;
+            int cyOld = cy + delta.Y;
+            int czOld = cz + delta.Z;
+            bool shared = (cxOld >= 0 && cxOld <= 1)
+                       && (cyOld >= 0 && cyOld <= 1)
+                       && (czOld >= 0 && czOld <= 1);
+
+            if (shared)
+            {
+                int cOld = cxOld | (cyOld << 1) | (czOld << 2);
+                float[] oldR = prevKernels.R[cOld];
+                float[] oldG = prevKernels.G[cOld];
+                float[] oldB = prevKernels.B[cOld];
+                float[] newR = kernels.R[c];
+                float[] newG = kernels.G[c];
+                float[] newB = kernels.B[c];
+
+                for (int lz = lzMin; lz <= lzMax; lz++)
+                {
+                    int lzOld = lz + delta.Z;
+                    for (int ly = lyMin; ly <= lyMax; ly++)
+                    {
+                        int lyOld = ly + delta.Y;
+                        int rowNew = (lz * dim + ly) * dim;
+                        int rowOld = (lzOld * dim + lyOld) * dim;
+                        for (int lx = lxMin; lx <= lxMax; lx++)
+                        {
+                            int lxOld = lx + delta.X;
+                            newR[rowNew + lx] = oldR[rowOld + lxOld];
+                            newG[rowNew + lx] = oldG[rowOld + lxOld];
+                            newB[rowNew + lx] = oldB[rowOld + lxOld];
+                        }
+                    }
+                }
+            }
+            else
+            {
+                if (!open[seedIdx]) { continue; }
+                Diffuse(open, fogAbsorb, dim, total, iterations,
+                    seedIdx, baseR, baseG, baseB,
+                    kernels.R[c], kernels.G[c], kernels.B[c],
+                    scratchR, scratchG, scratchB);
+            }
+        }
+
+        var nonZero = new List<int>(total / 4);
+        const float THRESHOLD = 0.5f;
+        for (int idx = 0; idx < total; idx++)
+        {
+            if (!open[idx]) { continue; }
+            bool any = false;
+            for (int c = 0; c < 8; c++)
+            {
+                if (kernels.R[c][idx] > THRESHOLD || kernels.G[c][idx] > THRESHOLD || kernels.B[c][idx] > THRESHOLD)
+                {
+                    any = true;
+                    break;
+                }
+            }
+            if (any)
+            {
+                nonZero.Add(idx);
+            }
+        }
+        kernels.NonZeroIndices = nonZero.ToArray();
+        kernels.NonZeroCount = nonZero.Count;
+
+        return kernels;
+    }
+
     // Single-seed iterative diffusion with absorption + re-injection.
     // Shared by both ComputeFootprint (static lights) and ComputeCornerKernels
     // (carrier lights). Writes results into outR/G/B; scrR/G/B are scratch.

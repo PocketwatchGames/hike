@@ -16,7 +16,6 @@ script = ExtResource("1_mobdata")
 displayName = &"Villager"
 appearsInBestiary = false
 team = 1
-dialogueLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
 animations = Dictionary[int, ExtResource("4_animdata")]({
 4: SubResource("Resource_anim_idle")
 })

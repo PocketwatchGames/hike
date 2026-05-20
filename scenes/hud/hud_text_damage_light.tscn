@@ -1,0 +1,22 @@
+[gd_scene format=3 uid="uid://gzrxk4sp2okzf"]
+
+[ext_resource type="Script" uid="uid://ceoliqg058pis" path="res://scripts/gui/HudText.cs" id="1_rgi1j"]
+
+[node name="HUDText" type="Control" node_paths=PackedStringArray("label")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_rgi1j")
+label = NodePath("Label")
+color = Color(1, 0.25, 0.25, 1)
+fadeDurationMs = 900
+verticalMovement = 28.0
+
+[node name="Label" type="Label" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_font_sizes/font_size = 28

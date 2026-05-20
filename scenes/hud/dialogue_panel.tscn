@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://blmj70p54o01u"]
 
-[ext_resource type="Script" uid="uid://dlogctrlhike1" path="res://scripts/gui/DialogueController.cs" id="1_dlog"]
+[ext_resource type="Script" uid="uid://dlogctrlhike1" path="res://scripts/gui/ConversationController.cs" id="1_dlog"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dialogue"]
 content_margin_left = 20.0

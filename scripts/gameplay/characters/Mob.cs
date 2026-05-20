@@ -215,6 +215,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     StatusEffectController _statusEffects;
     public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 
+    // Rolls up HitInfo.dot per-frame damage / heal into one onDamage / onHeal
+    // invocation per second. Same shape as the player's accumulator — a fast
+    // poison or burn zone shouldn't spawn a floating number every physics
+    // frame above the mob.
+    readonly DotHudAccumulator _dotHud = new();
+
     readonly List<TallGrass> _tallGrassCollisions = new();
     float _terrainSpeed = 1f;
 
@@ -334,6 +340,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _hurtBox.OnHit = Hit;
             _hurtBox.GetHitType = GetHitType;
+            _hurtBox.GetHitTriggers = QueryHitTriggers;
             foreach (Node child in _hurtBox.GetChildren())
             {
                 if (child is CollisionShape3D shape)
@@ -560,50 +567,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     private void SpeakDialogue()
     {
-        MobData md = mobData;
-        if (md == null || md.dialogueLocKeys == null || md.dialogueLocKeys.Count == 0)
+        ConversationData conversation = _simState?.Conversation;
+        if (conversation == null)
         {
             return;
         }
-        Player player = GameClient.Current?.Player;
         // Per-instance Language on the SimState wins over MobData.language —
         // lets WorldGen pin a language onto a shared MobData without
-        // mutating the resource.
-        LanguageData spokenLanguage = _simState?.Language ?? md.language;
-        ELanguageComponents missing = (player == null || spokenLanguage == null)
-            ? ELanguageComponents.None
-            : ELanguageComponents.All & ~player.GetLearnedComponents(spokenLanguage);
-        _dialogueLines.Clear();
-        for (int i = 0; i < md.dialogueLocKeys.Count; i++)
+        // mutating the resource. Branches with their own `language` field
+        // override this; null branches fall back to it.
+        LanguageData spokenLanguage = _simState?.Language ?? mobData?.language;
+        ConversationContext ctx = new ConversationContext
         {
-            StringName key = md.dialogueLocKeys[i];
-            if (key == default || key == "")
-            {
-                continue;
-            }
-            string line = Loc.Get(key);
-            _dialogueLines.Add(missing == ELanguageComponents.None
-                ? line
-                : TextScrambler.Scramble(line, spokenLanguage, missing));
-        }
-        Speak(_dialogueLines);
+            world = _world,
+            player = GameClient.Current?.Player,
+            speaker = this,
+            speakerLanguage = spokenLanguage,
+        };
+        GameClient.Current?.onConversation?.Invoke(conversation, ctx);
     }
-
-    // Opens the typewriter dialogue panel with the supplied lines. Lines
-    // type out at CVars.dialogueTypingSpeed; ui_accept finishes / advances.
-    // Caller passes a List<string> (already localized) — the panel does not
-    // attempt to translate via Loc here.
-    public void Speak(IReadOnlyList<string> lines)
-    {
-        if (lines == null || lines.Count == 0)
-        {
-            return;
-        }
-        GameClient.Current?.onDialogue?.Invoke(lines);
-    }
-
-    // Reused per-Talk so the localized-line scratch list doesn't churn the GC.
-    private readonly List<string> _dialogueLines = new();
 
     private void UpdateAnimation()
     {
@@ -1081,6 +1063,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             TickArmor((float)delta);
             TickStun((float)delta);
             _statusEffects.Tick((float)delta);
+            _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition);
             UpdateWaterState();
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -1148,6 +1131,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (aiOutput.suspendTimeMs.HasValue)
             {
                 _simState.SuspendAITimeMs = aiOutput.suspendTimeMs.Value;
+            }
+
+            // Distance LOD: throttle the AI tick rate on mobs that are far
+            // from the player and not actively in combat. The triggered-
+            // override in TickAI ensures a player walking into perception
+            // range wakes the mob immediately, so this only stretches
+            // intervals for genuinely idle / wandering distant mobs.
+            // Only extends (never shortens) any pre-existing suspend.
+            bool inCombat = !aiOutput.suspended && aiOutput.inCombat;
+            if (!inCombat && _world?.player != null)
+            {
+                const float COLD_DISTANCE_SQ = 30f * 30f;
+                const ulong COLD_AI_TICK_INTERVAL_MS = 250;
+                float distSq = (float)GlobalPosition.DistanceSquaredTo(_world.player.GlobalPosition);
+                if (distSq > COLD_DISTANCE_SQ)
+                {
+                    ulong nextTickMs = _world.GameTimeMs + COLD_AI_TICK_INTERVAL_MS;
+                    if (nextTickMs > _simState.SuspendAITimeMs)
+                    {
+                        _simState.SuspendAITimeMs = nextTickMs;
+                    }
+                }
             }
 
             // An explicit aiOutput.yaw always wins so behaviors like BehaviorAttack
@@ -1447,12 +1452,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // in the impact-effect pick (e.g. Lethal when crit damage finishes a
         // mob that the regular damage wouldn't have).
         hit = ApplyCrit(hit);
+        hit = ApplyBackstab(hit);
         float incoming = hit.healthDamage;
         if (incoming <= 0f)
         {
             return EHitResult.None;
         }
-        if (armor > 0f)
+        // A pierced hit skips armor entirely and lands on health. Otherwise
+        // armor (when present) absorbs the whole hit, matching the legacy
+        // fully-absorbed semantics.
+        if (armor > 0f && !hit.Pierced)
         {
             return EHitResult.Armor;
         }
@@ -1469,8 +1478,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Crit: a stunned or untriggered (unaware) mob takes the attacker's
         // crit payload, not the regular one. Swap before everything so armor,
         // health, status, and the in-Damage wake-up all read the crit values
-        // consistently.
+        // consistently. Backstab folds on top — it's a subset of !triggered
+        // that adds a positional gate, so OnCrit and OnBackstab can both
+        // fire on the same hit.
         hit = ApplyCrit(hit);
+        hit = ApplyBackstab(hit);
 
         // External-interrupt damage during an in-flight attack — interrupt
         // before applying damage so abortEvents fire on coherent pre-damage
@@ -1542,15 +1554,65 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.Yelled = true;
     }
 
-    // Fold the hit's OnCrit modifiers when the mob is stunned or not yet
-    // triggered (unaware of the attacker) — these are the crit-eligible
-    // states. Mutates the passed-in HitInfo in place via ApplyTrigger and
+    // Crit-eligible state — stunned OR not yet aware of the attacker. Shared
+    // by ApplyCrit (which folds OnCrit modifiers onto the hit) and the
+    // QueryHitTriggers path that the attacker reads to pick its overlay fx.
+    private bool IsCritEligible() => stunned || !triggered;
+
+    // Backstab geometry — the attacker is the player, this mob is still
+    // untriggered, and the player attacked from within PlayerData.backstabAngle
+    // of the mob's facing direction (mob facing away from the player). XZ
+    // only; vertical offset doesn't change the directional intent.
+    private bool IsBackstab(HitInfo hit)
+    {
+        if (triggered) { return false; }
+        if (hit.source is not Player attacker) { return false; }
+        PlayerData pd = attacker.data;
+        if (pd == null) { return false; }
+        Vector3 mobForward = GlobalTransform.Basis.Z;
+        mobForward.Y = 0f;
+        Vector3 toMob = GlobalPosition - attacker.GlobalPosition;
+        toMob.Y = 0f;
+        if (mobForward.LengthSquared() < 0.0001f) { return false; }
+        if (toMob.LengthSquared() < 0.0001f) { return false; }
+        float cosAngle = mobForward.Normalized().Dot(toMob.Normalized());
+        return cosAngle >= Mathf.Cos(pd.backstabAngle);
+    }
+
+    // Receiver-side trigger prediction wired into HurtBox.GetHitTriggers —
+    // the attacker reads these flags to spawn ItemAction.impactCritEffect /
+    // impactBackstabEffect alongside the base impactHealth/Lethal/Armor cue.
+    // Mirrors the conditions ApplyCrit / ApplyBackstab use; OnStun isn't
+    // surfaced (depends on the post-hit stun-meter cross, not predictable).
+    public EDamageTriggerFlags QueryHitTriggers(HitInfo hit)
+    {
+        EDamageTriggerFlags flags = EDamageTriggerFlags.None;
+        if (IsCritEligible()) { flags |= EDamageTriggerFlags.Crit; }
+        if (IsBackstab(hit)) { flags |= EDamageTriggerFlags.Backstab; }
+        return flags;
+    }
+
+    // Fold the hit's OnCrit modifiers when the mob is in a crit-eligible
+    // state. Mutates the passed-in HitInfo in place via ApplyTrigger and
     // returns it so GetHitType and Hit see the same numbers.
     private HitInfo ApplyCrit(HitInfo hit)
     {
-        if (stunned || !triggered)
+        if (IsCritEligible())
         {
             hit.ApplyTrigger(EDamageTrigger.OnCrit);
+        }
+        return hit;
+    }
+
+    // Fold the hit's OnBackstab modifiers when the geometry + awareness check
+    // passes. Stacks with ApplyCrit — a backstab is by construction also a
+    // crit, so authors can put generic unawareness bonuses on OnCrit and
+    // backstab-specific bonuses on OnBackstab and both fire.
+    private HitInfo ApplyBackstab(HitInfo hit)
+    {
+        if (IsBackstab(hit))
+        {
+            hit.ApplyTrigger(EDamageTrigger.OnBackstab);
         }
         return hit;
     }
@@ -1568,17 +1630,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.DamagedByPlayer = true;
         }
         float incoming = hit.healthDamage;
-        // Armor absorbs the full hit when present — even an overflow drop to
-        // zero leaves health untouched. The recharge timer is rearmed on every
-        // absorbing hit; a hit that takes armor to zero arms the longer
-        // recover window via ArmorDepleted.
-        if (armor > 0f && incoming > 0f)
+        // Armor handling. Two-part chip: hit.stun always chips armor (when
+        // any is present), and the healthDamage portion piles on top unless
+        // the hit pierced — pierce skips the healthDamage chip but still
+        // counts as "the hit registered," so we reset the recharge timer
+        // regardless. Overflow doesn't bleed into health on the absorbed
+        // path, matching the legacy fully-absorbed semantics. A hit that
+        // takes armor to zero arms the longer recover window via
+        // ArmorDepleted; everything else uses the regular recharge delay.
+        float armorAbsorbed = 0f;
+        if (armor > 0f && (incoming > 0f || hit.stun > 0f))
         {
-            armor -= incoming;
+            float armorDamage = hit.stun + (hit.Pierced ? 0f : incoming);
+            float armorBefore = armor;
+            armor = Mathf.Max(0f, armor - armorDamage);
+            armorAbsorbed = armorBefore - armor;
             ulong now = _world?.GameTimeMs ?? 0;
-            if (armor <= 0f)
+            if (armor <= 0f && armorDamage > 0f)
             {
-                armor = 0f;
                 _simState.ArmorDepleted = true;
                 _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
                 SpawnWorldEffect(_armorDepletedFx);
@@ -1589,7 +1658,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRechargeDelay * 1000f);
             }
             _simState.ArmorRecharging = false;
-            incoming = 0f;
+            if (!hit.Pierced)
+            {
+                incoming = 0f;
+            }
         }
 
         // Any hit wakes a stunned mob (the crit swap in Hit() has already
@@ -1670,6 +1742,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SpawnWorldEffect(_bloodDamageFx);
             SpawnWorldEffect(_hurtVoFx);
         }
+
+        // Floating-number HUD feedback. Armor chip and pierced health damage
+        // both show — total = whatever the bar actually moved (capped by what
+        // armor / health had to give). DoT hits route into the per-second
+        // accumulator; one-shot hits fire onDamage immediately. Mirrors the
+        // path in Player.OnHurtBoxHit so player + mob HUD text behaves the
+        // same regardless of which actor took the hit.
+        float totalShown = armorAbsorbed + Mathf.Max(0f, incoming);
+        if (totalShown > 0f)
+        {
+            if (hit.dot)
+            {
+                _dotHud.AddDamage(totalShown);
+            }
+            else
+            {
+                GameClient.Current?.onDamage?.Invoke(hudPosition, totalShown, EHudTextType.DamageLight);
+            }
+        }
     }
 
     public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
@@ -1685,6 +1776,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
+        float before = health;
         if (delta > 0f)
         {
             health = Mathf.Min(maxHealth, health + delta);
@@ -1695,6 +1787,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (health <= 0f)
             {
                 Die();
+            }
+        }
+        // Status-effect ticks already fire at 1Hz from StatusEffectController,
+        // so route directly through onDamage / onHeal — no DoT accumulation
+        // needed. Use the realized HP change rather than `delta` so a heal
+        // clamped at maxHealth (or a damage tick clamped at 0) only announces
+        // what actually moved.
+        float change = health - before;
+        GameClient client = GameClient.Current;
+        if (client != null)
+        {
+            if (change > 0f)
+            {
+                client.onHeal?.Invoke(hudPosition, change, EHudTextType.HealLight);
+            }
+            else if (change < 0f)
+            {
+                client.onDamage?.Invoke(hudPosition, -change, EHudTextType.DamageLight);
             }
         }
     }
@@ -1808,6 +1918,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.StunRecoverMs = _world.GameTimeMs + (ulong)(mobData.stunRecoverTime * 1000f);
             SpawnWorldEffect(_stunBeginFx);
             UpdateLoopEffect(ref _stunLoop, _stunLoopFx, true);
+            // The stagger that crosses the stun threshold also shakes any
+            // embedded arrows loose — same scatter pattern Die uses, just
+            // fired earlier in the chain. Die's later EjectStuckArrows
+            // call no-ops because the list is already empty.
+            EjectStuckArrows();
         }
         else
         {

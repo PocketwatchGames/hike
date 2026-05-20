@@ -1,7 +1,13 @@
 [gd_scene format=3 uid="uid://cqcbx0hocclf4"]
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
-[ext_resource type="PackedScene" uid="uid://cpgkp3038bxrq" path="res://scenes/hud/hud_text.tscn" id="2_o78e0"]
+[ext_resource type="PackedScene" uid="uid://66r9gy7a8pw0g" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
+[ext_resource type="PackedScene" uid="uid://gzrxk4sp2okzf" path="res://scenes/hud/hud_text_damage_light.tscn" id="hud_text_damage_light"]
+[ext_resource type="PackedScene" uid="uid://d9aepabwyvvzp" path="res://scenes/hud/hud_text_damage_heavy.tscn" id="hud_text_damage_heavy"]
+[ext_resource type="PackedScene" uid="uid://frlf5oxbzf0wy" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
+[ext_resource type="PackedScene" uid="uid://v60rcyq578aqj" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
+[ext_resource type="PackedScene" uid="uid://kzqrei7qgybbh" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
+[ext_resource type="PackedScene" uid="uid://awrdegol14uze" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
@@ -72,7 +78,13 @@ sceneViewport = NodePath("SceneViewport")
 bloomQuad = NodePath("BloomQuad")
 upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
-hudTextScene = ExtResource("2_o78e0")
+hudTextInfoScene = ExtResource("hud_text_info")
+hudTextDamageLightScene = ExtResource("hud_text_damage_light")
+hudTextDamageHeavyScene = ExtResource("hud_text_damage_heavy")
+hudTextCritScene = ExtResource("hud_text_crit")
+hudTextBackstabScene = ExtResource("hud_text_backstab")
+hudTextHealLightScene = ExtResource("hud_text_heal_light")
+hudTextHealHeavyScene = ExtResource("hud_text_heal_heavy")
 interactHudScene = ExtResource("3_0q6jn")
 lootScene = ExtResource("20_loot")
 outlineMaterial = ExtResource("outline_mat")

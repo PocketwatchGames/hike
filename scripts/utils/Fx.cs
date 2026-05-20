@@ -29,6 +29,13 @@ public partial class Fx : Node3D
 	public static int ActiveCount => _activeFx;
 	public static int ActiveAudioCount => _activeAudio;
 	public static int ActiveParticlesCount => _activeParticles;
+	// Per-scene active count, keyed by SceneFilePath. Surfaced by the
+	// `fx_dump` console action so an unexpectedly large per-scene total
+	// can be spotted at a glance — leaks present as a single scene's
+	// count climbing without bound, expected steady states (one anim
+	// loop per mob, one torch loop per chaser) read as round numbers.
+	private static readonly Dictionary<string, int> _activeByScene = new();
+	private string _trackedSceneKey;
 	// Wall-clock time at which Stop() was called, used to defer free until the
 	// longest particle Lifetime has elapsed. Existing particles continue to
 	// render after Emitting flips false, and Godot exposes no "any particles
@@ -91,6 +98,9 @@ public partial class Fx : Node3D
 			}
 		}
 		_activeFx++;
+		_trackedSceneKey = !string.IsNullOrEmpty(SceneFilePath) ? SceneFilePath : Name;
+		_activeByScene.TryGetValue(_trackedSceneKey, out int prev);
+		_activeByScene[_trackedSceneKey] = prev + 1;
 	}
 
 	public override void _ExitTree()
@@ -98,6 +108,33 @@ public partial class Fx : Node3D
 		_activeFx--;
 		_activeAudio -= _audio.Count;
 		_activeParticles -= _particles.Count;
+		if (_trackedSceneKey != null && _activeByScene.TryGetValue(_trackedSceneKey, out int prev))
+		{
+			int next = prev - 1;
+			if (next <= 0) { _activeByScene.Remove(_trackedSceneKey); }
+			else { _activeByScene[_trackedSceneKey] = next; }
+		}
+	}
+
+	// Console action: prints the current per-scene active-Fx breakdown
+	// sorted by count. Use this to verify the engine-monitor's `fx_active`
+	// total — round numbers per scene = expected; one scene dominating or
+	// climbing across invocations = a leak source.
+	public static void DumpActiveByScene()
+	{
+		var entries = new List<KeyValuePair<string, int>>(_activeByScene);
+		entries.Sort((a, b) => b.Value.CompareTo(a.Value));
+		var sb = new System.Text.StringBuilder();
+		sb.Append("[fx_dump] total=").Append(_activeFx)
+		  .Append(" audio=").Append(_activeAudio)
+		  .Append(" particles=").Append(_activeParticles)
+		  .Append('\n');
+		for (int i = 0; i < entries.Count; i++)
+		{
+			sb.Append("  ").Append(entries[i].Value.ToString().PadLeft(5))
+			  .Append(' ').Append(entries[i].Key).Append('\n');
+		}
+		GD.Print(sb.ToString());
 	}
 
 	// Lazy registration so the C# side is the source of truth for the int

@@ -24,6 +24,8 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_drain"]
 content_margin_left = 2.0
 content_margin_top = 2.0
@@ -36,14 +38,12 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
-
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_2pnwd"]
 content_margin_left = 2.0
 content_margin_top = 2.0
 content_margin_right = 2.0
 content_margin_bottom = 2.0
-bg_color = Color(0, 0.6500001, 1, 0.4)
+bg_color = Color(0, 0.6509804, 1, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -70,7 +70,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ahhtf")
-_drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _statusEffectHudScene = ExtResource("2_ueg55")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
 _weaponRightHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
@@ -80,6 +79,7 @@ _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContai
 _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/ConsumableHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
+_drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
 _staminaBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer/StaminaBar")
 _signpostPanel = NodePath("HudSignpostPanel")
@@ -142,13 +142,12 @@ size_flags_horizontal = 4
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
-fill_mode = 1
 max_value = 1.0
-value = 0.0
+fill_mode = 1
 show_percentage = false
 
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068372]
-custom_minimum_size = Vector2(250, 25)
+custom_minimum_size = Vector2(250, 10)
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")

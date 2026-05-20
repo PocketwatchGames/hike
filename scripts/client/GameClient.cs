@@ -18,13 +18,25 @@ public partial class GameClient : Node3D
 	[Export] public MeshInstance3D bloomQuad;
 	[Export] public ShaderMaterial upscaleMaterial;
 	[Export] public ShaderMaterial fogMaterial;
-	[Export] public PackedScene hudTextScene;
 	[Export] public PackedScene interactHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
 	// through this one scene with its sprite swapped to the item's
 	// worldSprite on spawn. The Loot runtime decides per-player whether to
 	// auto-pickup (walk over) or require interact based on inventory state.
 	[Export] public PackedScene lootScene;
+	// Per-type floating-text scenes. GameClient.OnHudTextRequested picks one
+	// from EHudTextType — each scene bakes its own color / fade duration /
+	// vertical movement on the HudText script so callers only pass position
+	// and text.
+	[ExportGroup("Hud Text")]
+	[Export] public PackedScene hudTextInfoScene;
+	[Export] public PackedScene hudTextDamageLightScene;
+	[Export] public PackedScene hudTextDamageHeavyScene;
+	[Export] public PackedScene hudTextCritScene;
+	[Export] public PackedScene hudTextBackstabScene;
+	[Export] public PackedScene hudTextHealLightScene;
+	[Export] public PackedScene hudTextHealHeavyScene;
+	[ExportGroup("")]
 	[Export] public ShaderMaterial outlineMaterial;
 	// Flat-sprite outline variant. Used when ApplyHighlight is wrapping a
 	// FlatLitSprite — the upright outline shader's vertex math would build
@@ -186,12 +198,27 @@ public partial class GameClient : Node3D
 	// subscribers can react alongside the DeathScreen sequence the client
 	// drives directly.
 	public Action<Player> onPlayerDied;
-	public Action<Vector3, string, ulong, float, Color> onHudText;
-	// Multi-line typewriter dialogue. Fired by Mob.Speak when a Talk
-	// interaction completes; OnDialogueRequested forwards to the HUD's
-	// DialogueController which handles typing, ui_accept advance/skip, and
-	// player-input suppression while open.
-	public Action<IReadOnlyList<string>> onDialogue;
+	// Floating world-space text request. Type picks which HudText scene is
+	// instantiated (color / fade timing / vertical drift are baked per scene).
+	// The default subscriber in Init forwards to OnHudTextRequested; callers
+	// typically use the higher-level onDamage / onHeal buses below, which
+	// format the number and pick a damage / heal type, then route through
+	// this event.
+	public Action<Vector3, string, EHudTextType> onHudText;
+	// Combat HUD buses. Player and Mob fire onDamage on every damaging hit
+	// and onHeal on every restoring heal (excluding blood-regen, which pays
+	// back a debt rather than restoring lost HP). Default subscribers in
+	// Init format the number and route through onHudText with the matching
+	// damage / heal scene. Per-frame (DoT) sources accumulate on the actor
+	// and flush once per second so a 60-tick burn doesn't spam 60 numbers.
+	public Action<Vector3, float, EHudTextType> onDamage;
+	public Action<Vector3, float, EHudTextType> onHeal;
+	// Branching NPC conversation. Fired by Mob.SpeakDialogue when a Talk
+	// interaction completes; OnConversationRequested forwards to the HUD's
+	// ConversationController which picks the entry branch, types its lines,
+	// and handles ui_accept advance/skip + player-input suppression while
+	// open.
+	public Action<ConversationData, ConversationContext> onConversation;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
@@ -362,7 +389,9 @@ public partial class GameClient : Node3D
 	{
 		_spawnPosition = playerPosition;
 		onHudText += OnHudTextRequested;
-		onDialogue += OnDialogueRequested;
+		onDamage += OnDamageRequested;
+		onHeal += OnHealRequested;
+		onConversation += OnConversationRequested;
 		onInit?.Invoke();
 
 		_world = new World();
@@ -1124,14 +1153,56 @@ public partial class GameClient : Node3D
 		return null;
 	}
 
-	void OnHudTextRequested(Vector3 position, string text, ulong fadeMs, float verticalMovement, Color color)
+	void OnHudTextRequested(Vector3 position, string text, EHudTextType type)
 	{
-		HudText.Create(hudTextScene, _world, camera, position, text, fadeMs, verticalMovement, color, this);
+		if (worldHUD == null) { return; }
+		PackedScene scene = GetHudTextScene(type);
+		if (scene == null) { return; }
+		// Parent under worldHUD (inside GUICanvas) — same place every other
+		// world-anchored HUD goes. A Control parented to GameClient (Node3D)
+		// has no CanvasLayer ancestor and silently never renders, so we
+		// bail above rather than falling back to the wrong parent.
+		HudText.Create(scene, _world, camera, position, text, worldHUD);
 	}
 
-	void OnDialogueRequested(IReadOnlyList<string> lines)
+	// onDamage default subscriber. Rounds the damage payload to an int and
+	// invokes onHudText so the floating number renders red. Sub-1 deltas
+	// (status-tick chip damage rounded to 0) are dropped — no point spawning
+	// a "0" label.
+	void OnDamageRequested(Vector3 position, float amount, EHudTextType type)
 	{
-		hud?.ShowDialogue(lines);
+		int rounded = Mathf.RoundToInt(amount);
+		if (rounded <= 0) { return; }
+		onHudText?.Invoke(position, rounded.ToString(), type);
+	}
+
+	// onHeal default subscriber. Mirrors OnDamageRequested but prepends a '+'
+	// so the floating green number reads as a gain rather than just a value.
+	void OnHealRequested(Vector3 position, float amount, EHudTextType type)
+	{
+		int rounded = Mathf.RoundToInt(amount);
+		if (rounded <= 0) { return; }
+		onHudText?.Invoke(position, "+" + rounded.ToString(), type);
+	}
+
+	PackedScene GetHudTextScene(EHudTextType type)
+	{
+		return type switch
+		{
+			EHudTextType.Info => hudTextInfoScene,
+			EHudTextType.DamageLight => hudTextDamageLightScene,
+			EHudTextType.DamageHeavy => hudTextDamageHeavyScene,
+			EHudTextType.Crit => hudTextCritScene,
+			EHudTextType.Backstab => hudTextBackstabScene,
+			EHudTextType.HealLight => hudTextHealLightScene,
+			EHudTextType.HealHeavy => hudTextHealHeavyScene,
+			_ => null,
+		};
+	}
+
+	void OnConversationRequested(ConversationData conversation, ConversationContext ctx)
+	{
+		hud?.ShowConversation(conversation, ctx);
 	}
 
 	void OnPlayerInteractChanged(IInteractive interactive)

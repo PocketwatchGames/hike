@@ -18,6 +18,12 @@ public struct ProjectileImpact
 	public PackedScene health;
 	public PackedScene armor;
 	public PackedScene lethal;
+	// Per-tier overlay fx layered on top of health/armor/lethal when the
+	// receiver's HurtBox.QueryHitTriggers reports the matching condition.
+	// Carried by value (rather than holding the ItemAction ref) so the
+	// projectile doesn't outlive the action's runtime context.
+	public PackedScene crit;
+	public PackedScene backstab;
 	public WeaponState sourceWeapon;
 	public ArrowLootData arrowLootData;
 }
@@ -202,9 +208,10 @@ public partial class Projectile : Node3D
 						Vector3 hitPos = (Vector3)hurtResult["position"];
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized());
 						EHitResult hitResult = hurtBox.QueryHitType(hit);
+						EDamageTriggerFlags hitTriggers = hurtBox.QueryHitTriggers(hit);
 						hurtBox.Hit(hit);
 						GlobalPosition = hitPos;
-						Despawn(hitResult, hurtBox, hitPos);
+						Despawn(hitResult, hitTriggers, hurtBox, hitPos);
 						return;
 					}
 				}
@@ -212,7 +219,7 @@ public partial class Projectile : Node3D
 				if (envHit.HasValue)
 				{
 					GlobalPosition = envHit.Value;
-					Despawn(EHitResult.Object, null, envHit.Value);
+					Despawn(EHitResult.Object, EDamageTriggerFlags.None, null, envHit.Value);
 					return;
 				}
 			}
@@ -230,17 +237,19 @@ public partial class Projectile : Node3D
 		}
 		if (_ageSeconds >= _maxLifetimeSeconds)
 		{
-			Despawn(EHitResult.None, null, GlobalPosition);
+			Despawn(EHitResult.None, EDamageTriggerFlags.None, null, GlobalPosition);
 		}
 	}
 
 	// Shared end-of-life path: resolve impact fx + arrow recovery, fire the
 	// authored impactEvent at the landing position (if any), tear down the
 	// loop fx (reparented out so its tail fades naturally), then free the
-	// projectile node.
-	private void Despawn(EHitResult result, HurtBox hurtBox, Vector3 position)
+	// projectile node. `triggers` is non-zero only on the hurtbox-hit path —
+	// env clips and lifetime expiry pass None since there's no receiver to
+	// query.
+	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
-		ResolveImpact(result, hurtBox, position);
+		ResolveImpact(result, triggers, hurtBox, position);
 		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent());
 		StopLoopFx();
 		QueueFree();
@@ -271,7 +280,7 @@ public partial class Projectile : Node3D
 	// mob, otherwise drop loose loot). Environment hits and end-of-range
 	// "miss"es both end up dropping the arrow at the projectile's last
 	// position so a shot into empty space still returns recoverable ammo.
-	private void ResolveImpact(EHitResult result, HurtBox hurtBox, Vector3 position)
+	private void ResolveImpact(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		PackedScene fx = result switch
 		{
@@ -285,6 +294,20 @@ public partial class Projectile : Node3D
 		if (fx != null && parent != null)
 		{
 			Fx.Create(fx, parent, position);
+		}
+		// Crit / backstab overlays — only meaningful on a hurtbox-hit despawn
+		// (triggers is None for env / lifetime exits). Layered on top of the
+		// base impact fx selected above, matching the Melee / Hitscan paths.
+		if (parent != null && triggers != EDamageTriggerFlags.None)
+		{
+			if ((triggers & EDamageTriggerFlags.Crit) != 0 && _impact.crit != null)
+			{
+				Fx.Create(_impact.crit, parent, position);
+			}
+			if ((triggers & EDamageTriggerFlags.Backstab) != 0 && _impact.backstab != null)
+			{
+				Fx.Create(_impact.backstab, parent, position);
+			}
 		}
 
 		WeaponState weapon = _impact.sourceWeapon;

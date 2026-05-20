@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://puiica1tfi3y"]
+
+[ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="1_conv"]
+[ext_resource type="Script" uid="uid://8cc1xf259nmkr" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
+[ext_resource type="Script" uid="uid://0rr6amgnggpp9" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
+
+[sub_resource type="Resource" id="Branch_greeting"]
+script = ExtResource("2_branch")
+name = &"greeting"
+lineLocKeys = Array[StringName]([&"villager_greeting", &"villager_dialogue_1", &"villager_dialogue_2"])
+responses = []
+
+[sub_resource type="Resource" id="Entry_greeting"]
+script = ExtResource("3_entry")
+branch = &"greeting"
+
+[resource]
+script = ExtResource("1_conv")
+entryBranches = [SubResource("Entry_greeting")]
+branches = [SubResource("Branch_greeting")]

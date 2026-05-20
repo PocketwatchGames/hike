@@ -34,6 +34,7 @@ projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
+displayName = &"Light Attack"
 chargeTime = 0.7
 cooldownSeconds = 0.5
 useAmmo = true
@@ -41,6 +42,8 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
 chargedRangeScale = 2.0
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
@@ -55,18 +58,35 @@ projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
+displayName = &"Heavy Attack"
 cooldownSeconds = 0.5
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
 chargeStartEffect = ExtResource("8_chgtail")
 chargeLoopEffect = ExtResource("8_chgloop")
 releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
 chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap"), SubResource("Resource_charged_full")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 1
+healthDamage = 5.0
+addStatusEffects = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 65
+healthDamage = 9.0
+pierce = 1.0
+addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_mod_stun"]
 script = ExtResource("1_modifier")
@@ -77,12 +97,12 @@ addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
-healthDamage = 10.0
+healthDamage = 3.0
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 statusEffects = null
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_stun")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab"), SubResource("Resource_mod_stun")])
 
 [resource]
 script = ExtResource("2_weapon")

@@ -10,6 +10,12 @@ public partial class DamageZone : Area3D
 {
     [Export] public DamageData damage;
 
+    // Wired in the .tscn. Exposed so weapon-driven AoE spawns can resize the
+    // hazard volume per-firing (see GasCloud.Initialize). Only the shape
+    // resource is mutated, and only after a Duplicate(), so siblings of the
+    // same .tscn template aren't disturbed.
+    [Export] private CollisionShape3D _shape;
+
     // Seconds between ticks while a body is inside. 0 = every physics frame.
     [Export] public float tickInterval = 1f;
 
@@ -36,6 +42,33 @@ public partial class DamageZone : Area3D
         AreaEntered += OnAreaEntered;
         AreaExited += OnAreaExited;
         _hit = new HitInfo(damage, this);
+    }
+
+    // Pre-_Ready override hook. Spawning code (currently GasCloud.Initialize)
+    // calls this on a freshly instantiated DamageZone before AddChild so the
+    // HitInfo built in _Ready reflects the weapon-side override. Nulls /
+    // non-positive values leave the .tscn-authored field untouched, so a
+    // partial override only changes the fields the weapon actually authored.
+    public void OverrideAuthoring(DamageData newDamage, float newTickInterval, float radius)
+    {
+        if (newDamage != null)
+        {
+            damage = newDamage;
+        }
+        if (newTickInterval > 0f)
+        {
+            tickInterval = newTickInterval;
+        }
+        if (radius > 0f && _shape?.Shape is SphereShape3D sphere)
+        {
+            // Duplicate before resizing — Godot shares Shape3D resources
+            // across instances of the same .tscn, so an in-place radius
+            // change would bleed into every other live AoE that used the
+            // same scene.
+            SphereShape3D copy = (SphereShape3D)sphere.Duplicate();
+            copy.Radius = radius;
+            _shape.Shape = copy;
+        }
     }
 
     // Toggle whether the zone deals damage. Disabled zones still track

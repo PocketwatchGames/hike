@@ -593,6 +593,12 @@ public static class WorldGen
                 // instance via SimState rather than on MobData so the shared
                 // friendly_villager.tres stays language-agnostic.
                 villagerSim.Language = genData.KnowledgeStoneLanguage;
+                // Branching conversation attached per-instance so the shared
+                // friendly_villager.tres stays conversation-agnostic — a
+                // future quest-specific villager can pin its own conversation
+                // without forking the MobData.
+                villagerSim.Conversation = GD.Load<ConversationData>(
+                    "res://resources/data/characters/friendly_villager_conversation.tres");
                 ws.AddEntity(villagerSim);
             }
         }

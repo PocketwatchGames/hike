@@ -120,10 +120,29 @@ public partial class ItemEvent : Resource
 	[Export] public PackedScene impactLethalEffect;
 
 	// SpawnAreaEffect: Node3D scene spawned at the actor's aim point (or
-	// position when no aim cursor is active). Authored area-of-effect scenes
-	// carry their own DamageZone + particle loop and own their lifetime —
-	// see scenes/projectiles/rain_of_arrows_aoe.tscn for the canonical use.
+	// position when no aim cursor is active). The scene is a "template" —
+	// it carries its own visual (particle loop, mesh), structural collision
+	// mask, and friendly-fire policy. The weapon-side fields below override
+	// damage, hazard radius, lifetime, and tick cadence on the spawned
+	// instance via GasCloud.Initialize so a single AoE scene can be reused
+	// across weapons with different power profiles (a "rain of arrows" vs
+	// a stronger "storm of arrows" reuse the same .tscn).
 	[Export] public PackedScene areaEffectScene;
+	// Override applied to the spawned scene's DamageZone.damage. Null leaves
+	// the scene's authored damage in place.
+	[Export] public DamageData areaDamage;
+	// World-space radius (meters) of the hazard volume. 0 leaves the scene's
+	// authored collision shape unchanged. Currently only SphereShape3D is
+	// resized — non-spherical hazards keep their scene radius.
+	[Export] public float areaRadius = 0f;
+	// Total time the hazard lives, in seconds. 0 leaves the scene's authored
+	// lifetimeSeconds in place. Total expected damage = DPS * duration when
+	// a target stays inside the zone.
+	[Export] public float areaDurationSeconds = 0f;
+	// Seconds between damage ticks while a target is inside the zone. 0
+	// leaves the scene's authored tickInterval in place. With areaDamage's
+	// healthDamage = D and tickInterval = T, DPS = D / T.
+	[Export] public float areaTickInterval = 0f;
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
@@ -245,7 +264,11 @@ public partial class ItemEvent : Resource
 				or nameof(projectileArcing)
 				or nameof(projectileGravity)
 				or nameof(impactEvent) => EItemEventType.Projectile,
-			nameof(areaEffectScene) => EItemEventType.SpawnAreaEffect,
+			nameof(areaEffectScene)
+				or nameof(areaDamage)
+				or nameof(areaRadius)
+				or nameof(areaDurationSeconds)
+				or nameof(areaTickInterval) => EItemEventType.SpawnAreaEffect,
 			_ => 0,
 		};
 	}

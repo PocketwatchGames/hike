@@ -14,8 +14,18 @@ public partial class DamageData : Resource
 {
 	[Export] public float healthDamage = 0f;
 
-	// Seconds of stun applied to the receiver. 0 = no stun. Plumbed through
-	// HitInfo for receivers that implement stun; ignored otherwise.
+	// Chance (0..1) that the entire hit bypasses the receiver's armor pool
+	// and lands directly on health. 0 = always absorbed by armor (the legacy
+	// behavior); 1 = always bypasses. Rolled once when the HitInfo is built
+	// (HitInfo.pierceRoll) so the prediction in HurtBox.QueryHitType and the
+	// real apply in HurtBox.Hit always agree on whether this swing pierced.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 0f;
+
+	// Stun build-up added to the receiver's stun meter on hit. The receiver
+	// crosses into the stunned state once the accumulated meter reaches its
+	// threshold — this is the per-hit contribution, not a duration. 0 = no
+	// build-up. Plumbed through HitInfo for receivers that implement stun;
+	// ignored otherwise.
 	[Export] public float stun = 0f;
 
 	// Seconds of hitstun applied to the receiver — short reaction lockout
@@ -47,4 +57,11 @@ public partial class DamageData : Resource
 	// time. Replaces the old `critDamageData` / `knockbackDistanceOnStun`
 	// fields with a single extensible list.
 	[Export] public Godot.Collections.Array<DamageDataModifier> modifiers;
+
+	// Marks this hit template as a per-frame damage tick (DamageZone with a
+	// fast tickInterval, etc.). Receivers route DoT hits into a per-second
+	// HUD accumulator so a burn or poison cloud emits one rolled-up floating
+	// number per second instead of one per physics frame. No effect on the
+	// underlying damage application — only HUD rollup.
+	[Export] public bool dot = false;
 }

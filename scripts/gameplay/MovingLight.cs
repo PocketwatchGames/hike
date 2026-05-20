@@ -45,6 +45,8 @@ public partial class MovingLight : Node3D
 
     public override void _PhysicsProcess(double delta)
     {
+        using var _prof = Profiler.Sample("MovingLight.PhysicsProcess");
+
         if (Active && !_registered)
         {
             Activate();
@@ -64,16 +66,48 @@ public partial class MovingLight : Node3D
 
         if (voxel != _lastVoxel)
         {
-            _kernels = LightEngine.ComputeCornerKernels(
-                world.WorldState, voxel, Emission, LightColor);
+            using (Profiler.Sample("MovingLight.KernelRecompute"))
+            {
+                Vector3I voxelDelta = voxel - _lastVoxel;
+                bool axisAligned = _kernels != null
+                    && Mathf.Abs(voxelDelta.X) + Mathf.Abs(voxelDelta.Y) + Mathf.Abs(voxelDelta.Z) == 1;
+                if (axisAligned)
+                {
+                    _kernels = LightEngine.ComputeCornerKernelsIncremental(
+                        world.WorldState, voxel, Emission, LightColor, _kernels, voxelDelta);
+                }
+                else
+                {
+                    using (Profiler.Sample("MovingLight.KernelRecompute.Full"))
+                    {
+                        _kernels = LightEngine.ComputeCornerKernels(
+                            world.WorldState, voxel, Emission, LightColor);
+                    }
+                }
+            }
             _lastVoxel = voxel;
             _lastSubVoxel = new Vector3(-1, -1, -1);
         }
 
-        if (sub == _lastSubVoxel) { return; }
+        // Skip blends below ~1/16 voxel of motion in every axis — the
+        // resulting weight delta is below the byte-channel quantization of
+        // the LightMap, so the deposit is visually identical. The voxel-
+        // crossing path resets _lastSubVoxel to (-1,-1,-1), so the first
+        // blend after a kernel recompute always passes (every axis diff is
+        // > 1).
+        const float BLEND_MOTION_THRESHOLD = 1f / 16f;
+        if (Mathf.Abs(sub.X - _lastSubVoxel.X) < BLEND_MOTION_THRESHOLD
+            && Mathf.Abs(sub.Y - _lastSubVoxel.Y) < BLEND_MOTION_THRESHOLD
+            && Mathf.Abs(sub.Z - _lastSubVoxel.Z) < BLEND_MOTION_THRESHOLD)
+        {
+            return;
+        }
         _lastSubVoxel = sub;
 
-        BlendAndDeposit(world.WorldState, sub);
+        using (Profiler.Sample("MovingLight.BlendDeposit"))
+        {
+            BlendAndDeposit(world.WorldState, sub);
+        }
     }
 
     public void SetActive(bool active)

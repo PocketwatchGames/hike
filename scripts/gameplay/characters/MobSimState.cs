@@ -31,6 +31,11 @@ public class MobSimState : EntitySimState
     // MobData is shared across many spawns without mutating the resource.
     // Null falls through to MobData.language.
     public LanguageData Language;
+    // Optional per-instance branching conversation. Mob.SpeakDialogue routes
+    // a Talk action through this when set — lets WorldGen / world files pin
+    // a unique conversation onto a mob whose MobData is shared across many
+    // spawns. Null = no conversation (Talk does nothing).
+    public ConversationData Conversation;
     // When true, the mob's node is only created if the chunk activates during
     // nighttime. Authored at worldgen for surface goblins so they only show up
     // after dark. The MobSimState persists in WorldState either way; if the

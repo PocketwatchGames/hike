@@ -79,6 +79,7 @@ public partial class ChunkAmbienceSpawner : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("ChunkAmbienceSpawner.Process");
         _sweepAccumSec += delta;
         if (_sweepAccumSec < SWEEP_INTERVAL_SEC) { return; }
         _sweepAccumSec = 0.0;

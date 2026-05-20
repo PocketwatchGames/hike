@@ -937,6 +937,7 @@ public partial class SkyController : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("SkyController.Process");
         // Blend zones → (_blendedZone, _blendedWeather). In editor or
         // before the World is up, fall back to previewZone.
         ZoneData currentZone = _blendedZone;

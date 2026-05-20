@@ -125,17 +125,13 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
-    // Native language spoken by this mob. Drives whether the player can
-    // understand Talk interactions — players who have not learned
-    // this language hear/read the dialogue as gibberish. Null = speaks the
-    // player's language unconditionally (universal NPCs).
+    // Native language spoken by this mob. Acts as the default
+    // ConversationContext.speakerLanguage for any branch whose own
+    // `language` field is null — the player's learned components against
+    // this language decide what scrambles. MobSimState.Language overrides
+    // this per-instance. Null = speaks the player's language unconditionally
+    // (universal NPCs).
     [Export] public LanguageData language;
-    // Localization keys for the dialogue lines spoken when an interact
-    // action with verb Talk completes. One entry per line; the dialogue
-    // panel walks through them as the player presses ui_accept. Empty
-    // array = no dialogue. Resolved through Loc.Get at speak time so
-    // language switches mid-game pick up new strings on next interaction.
-    [Export] public Array<StringName> dialogueLocKeys = new();
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking

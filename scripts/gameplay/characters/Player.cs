@@ -291,6 +291,11 @@ public partial class Player : CharacterBody3D
 	// timer arms / pauses on the EXISTING state instead of stacking icons.
 	StatusEffectState _coldState;
 	StatusEffectState _hotState;
+	// Rolls up HitInfo.dot per-frame damage / heal into one onDamage /
+	// onHeal invocation per second so a burn or poison zone emits a single
+	// floating HUD number per second instead of one per physics frame.
+	// Non-DoT hits bypass this and fire onDamage / onHeal immediately.
+	readonly DotHudAccumulator _dotHud = new();
 	MovingLight _movingLight;
 	EAnimation? _oneShotAnim;
 	// Wall-clock time at which the player most recently lost ground contact.
@@ -509,7 +514,10 @@ public partial class Player : CharacterBody3D
 		{
 			return EHitResult.None;
 		}
-		if (_armor > 0f)
+		// A pierced hit skips armor entirely and lands on health. Otherwise
+		// armor (when present) absorbs the whole hit, matching the legacy
+		// fully-absorbed semantics.
+		if (_armor > 0f && !hit.Pierced)
 		{
 			return EHitResult.Armor;
 		}
@@ -522,6 +530,10 @@ public partial class Player : CharacterBody3D
 
 	private void OnHurtBoxHit(HitInfo hit)
 	{
+		if (CVars.invulnerable.Value)
+		{
+			return;
+		}
 		// Scale by status-driven damage multipliers. A 0.0 product (dash
 		// i-frames, etc.) drops the hit before interrupt/sneak side-effects
 		// fire — a dashing player should not have their dash interrupted
@@ -538,17 +550,25 @@ public partial class Player : CharacterBody3D
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 		_sneaking = false;
-		// Armor absorbs the entire hit when present — even an overflow drop
-		// to zero leaves health untouched. The recharge timer is rearmed on
-		// every absorbing hit; a hit that takes armor to zero arms the longer
-		// recover window via _armorDepleted.
-		if (_armor > 0f && incomingDamage > 0f)
+		// Armor handling. Two-part chip: hit.stun always chips armor (when
+		// any is present), and the healthDamage portion piles on top unless
+		// the hit pierced — pierce skips the healthDamage chip but still
+		// counts as "the hit registered," so we reset the recharge timer
+		// regardless. Overflow doesn't bleed into health on the absorbed
+		// path. A hit that takes armor to zero arms the longer recover
+		// window via _armorDepleted; everything else uses the regular
+		// recharge delay. The player has no stun meter today, so hit.stun
+		// is consumed entirely by this armor chip.
+		float armorAbsorbed = 0f;
+		if (_armor > 0f && (incomingDamage > 0f || hit.stun > 0f))
 		{
-			_armor -= incomingDamage;
+			float armorDamage = hit.stun + (hit.Pierced ? 0f : incomingDamage);
+			float armorBefore = _armor;
+			_armor = Mathf.Max(0f, _armor - armorDamage);
+			armorAbsorbed = armorBefore - _armor;
 			ulong now = _world?.GameTimeMs ?? 0;
-			if (_armor <= 0f)
+			if (_armor <= 0f && armorDamage > 0f)
 			{
-				_armor = 0f;
 				_armorDepleted = true;
 				_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
 				SpawnWorldEffect(_armorDepletedFx);
@@ -559,7 +579,10 @@ public partial class Player : CharacterBody3D
 				_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
 			}
 			_armorRecharging = false;
-			incomingDamage = 0f;
+			if (!hit.Pierced)
+			{
+				incomingDamage = 0f;
+			}
 		}
 
 		bool wasAlive = _health > 0f;
@@ -580,6 +603,24 @@ public partial class Player : CharacterBody3D
 		{
 			SpawnWorldEffect(_bloodDamageFx);
 			SpawnWorldEffect(_hurtVoFx);
+		}
+
+		// Floating-number HUD feedback. Armor chip and pierced health damage
+		// both show — total = whatever the bar actually moved (capped by what
+		// armor / health had to give). DoT hits route into the per-second
+		// accumulator so a fast-ticking burn / poison zone emits one rolled-up
+		// number per second; single hits fire onDamage immediately.
+		float totalShown = armorAbsorbed + Mathf.Max(0f, incomingDamage);
+		if (totalShown > 0f)
+		{
+			if (hit.dot)
+			{
+				_dotHud.AddDamage(totalShown);
+			}
+			else
+			{
+				GameClient.Current?.onDamage?.Invoke(GlobalPosition, totalShown, EHudTextType.DamageLight);
+			}
 		}
 
 		if (hit.statusEffects != null)
@@ -902,8 +943,14 @@ public partial class Player : CharacterBody3D
 		// <= MaxHealth` is restored), since the bar's dark region
 		// represents debt that would be repaid into bright HP — and
 		// you've already paid yourself up to the cap.
+		float before = _health;
 		_health = Mathf.Min(MaxHealth, _health + amount);
 		_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+		float restored = _health - before;
+		if (restored > 0f)
+		{
+			GameClient.Current?.onHeal?.Invoke(GlobalPosition, restored, EHudTextType.HealLight);
+		}
 	}
 
 	// IActionActor — press-time blood gate. Non-mutating peek. Costs of 0
@@ -1254,6 +1301,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		bool wasAlive = _health > 0f;
+		float before = _health;
 		// Heal-over-time effects climb to MaxHealth the same way Heal()
 		// does — drain doesn't reduce the effective cap, and any drain
 		// the heal climbs into is forgiven to preserve the
@@ -1262,6 +1310,24 @@ public partial class Player : CharacterBody3D
 		if (delta > 0f)
 		{
 			_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+		}
+		// Status-effect ticks already fire at 1Hz from StatusEffectController,
+		// so route directly through onDamage / onHeal — no DoT accumulation
+		// needed. Use the realized HP change rather than `delta` so a heal
+		// that climbed into the MaxHealth cap (or a damage tick that bottomed
+		// at 0) only announces what actually moved.
+		float change = _health - before;
+		GameClient client = GameClient.Current;
+		if (client != null)
+		{
+			if (change > 0f)
+			{
+				client.onHeal?.Invoke(GlobalPosition, change, EHudTextType.HealLight);
+			}
+			else if (change < 0f)
+			{
+				client.onDamage?.Invoke(GlobalPosition, -change, EHudTextType.DamageLight);
+			}
 		}
 		if (_health <= 0f && wasAlive)
 		{
@@ -1822,6 +1888,7 @@ public partial class Player : CharacterBody3D
 		_statusEffects.Tick(dt);
 		TickWetEffect(dt);
 		TickBodyTemperature(dt);
+		_dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
 		_scent?.Tick(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer

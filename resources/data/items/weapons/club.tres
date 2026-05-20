@@ -35,6 +35,8 @@ staminaCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
 releaseEffect = ExtResource("8_atklight")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
@@ -55,6 +57,8 @@ chargeStartEffect = ExtResource("8_chghead")
 chargeLoopEffect = ExtResource("8_chgloop")
 chargeCancelEffect = ExtResource("8_chgtail")
 releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
@@ -66,16 +70,23 @@ queueWindowSeconds = 0.2
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
 overrides = 11
-healthDamage = 15.0
+healthDamage = 3.0
 stun = 10.0
-knockbackDistance = 2.0
+knockbackDistance = 4.0
+addStatusEffects = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 1
+healthDamage = 6.0
 addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_mod_stun"]
 script = ExtResource("1_modifier")
 trigger = 1
 overrides = 8
-knockbackDistance = 2.0
+knockbackDistance = 4.0
 addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
@@ -86,7 +97,7 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 statusEffects = null
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_stun")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab"), SubResource("Resource_mod_stun")])
 
 [resource]
 script = ExtResource("2_weapon")

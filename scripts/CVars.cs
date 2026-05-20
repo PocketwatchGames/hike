@@ -20,6 +20,16 @@ public static class CVars
         player.Kill();
     });
 
+    // Cheat: when true, every mob's per-tick perception of the player
+    // collapses to zero (vision + hearing + smell deltas), canSee is
+    // forced false, and accumulated perception relaxes naturally. Triggered
+    // mobs disengage as their perception drains below the alert threshold.
+    public static CVarBool invisible = new CVarBool("invisible", false);
+
+    // Cheat: when true, Player.OnHurtBoxHit early-returns so incoming
+    // damage, status effects, hitstun, and knockback are all ignored.
+    public static CVarBool invulnerable = new CVarBool("invulnerable", false);
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".
@@ -347,6 +357,15 @@ public static class CVars
     public static CVar profileDump = new CVar("profile_dump", (cvar) =>
     {
         Profiler.DumpAndReset();
+    });
+
+    // Console action: prints the active Fx instance count broken down by
+    // source scene. Pair with the `fx_active` engine monitor to identify
+    // which scenes account for the headline number — climbing per-scene
+    // counts across repeated invocations indicate a leak.
+    public static CVar fxDump = new CVar("fx_dump", (cvar) =>
+    {
+        Fx.DumpActiveByScene();
     });
 
     // Rolling window length (seconds) for the on-screen overlay and the

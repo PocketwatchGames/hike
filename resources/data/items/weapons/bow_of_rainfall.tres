@@ -30,11 +30,12 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
-projectileSpeed = 24.0
+projectileSpeed = 20.0
 projectileLifetimeSeconds = 0.25
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
+displayName = &"Snapshot"
 chargeTime = 0.7
 cooldownSeconds = 0.5
 useAmmo = true
@@ -42,11 +43,16 @@ events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
 chargedRangeScale = 2.0
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_rain_impact"]
 script = ExtResource("3_event")
 type = 16384
 areaEffectScene = ExtResource("19_rainaoe")
+areaRadius = 2.5
+areaDurationSeconds = 1.5
+areaTickInterval = 0.3
 
 [sub_resource type="Resource" id="Resource_event_rain"]
 script = ExtResource("3_event")
@@ -58,6 +64,7 @@ impactEvent = SubResource("Resource_event_rain_impact")
 
 [sub_resource type="Resource" id="Resource_charged_rain"]
 script = ExtResource("4_charged")
+displayName = &"Rain of Arrows"
 cooldownSeconds = 1.0
 bloodCost = 10.0
 useAmmo = true
@@ -73,6 +80,20 @@ chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 1
+healthDamage = 3.0
+addStatusEffects = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 65
+healthDamage = 5.0
+pierce = 1.0
+addStatusEffects = []
+
 [sub_resource type="Resource" id="Resource_mod_stun"]
 script = ExtResource("1_modifier")
 trigger = 1
@@ -82,12 +103,12 @@ addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
-healthDamage = 10.0
+healthDamage = 3.0
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 statusEffects = null
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_stun")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab"), SubResource("Resource_mod_stun")])
 
 [resource]
 script = ExtResource("2_weapon")

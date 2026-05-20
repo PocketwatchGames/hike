@@ -139,6 +139,7 @@ public partial class BlockLightShadowProjector : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("BlockLightShadowProjector.Process");
         if (Engine.IsEditorHint() || !CVars.blockLightShadow.Value)
         {
             return;

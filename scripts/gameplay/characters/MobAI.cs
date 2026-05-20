@@ -190,7 +190,7 @@ public partial class Mob
     {
         using var _profTickAI = Profiler.Sample("Mob.TickAI");
         output = new AIOutput();
-        if (!alive || _simState.SuspendAITimeMs > _world.GameTimeMs)
+        if (!alive)
         {
             output.suspended = true;
             return;
@@ -198,6 +198,10 @@ public partial class Mob
 
         ulong time = _world.GameTimeMs;
 
+        // Scan perception BEFORE honoring SuspendAITimeMs — a perception
+        // trigger has to wake the mob immediately so the distance-LOD
+        // suspend extension in Mob.PhysicsProcess doesn't strand a mob
+        // through a player approach.
         PerceptionState targetPerception = default;
         PerceptionState[] targets = _simState.PerceptionTargets;
         bool triggered = false;
@@ -215,6 +219,13 @@ public partial class Mob
                 }
             }
         }
+
+        if (!triggered && _simState.SuspendAITimeMs > time)
+        {
+            output.suspended = true;
+            return;
+        }
+
         if (!triggered)
         {
             _simState.Yelled = false;
@@ -507,6 +518,13 @@ public partial class Mob
             float hearingContribution = hearingDelta * mobData.HearingStrength;
             float smellContribution = smellDelta * mobData.SmellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
+
+            if (CVars.invisible.Value)
+            {
+                perceptionDelta = 0f;
+                canSee = false;
+                target.canSee = false;
+            }
 
             // Debug breakdown — written every perception tick for the
             // CVars.debugMobPerception HUD overlay. Facing factor mirrors

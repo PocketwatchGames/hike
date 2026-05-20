@@ -271,6 +271,7 @@ public partial class RainEffect : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("RainEffect.Process");
         float dt = (float)delta;
         World world = World.Current;
         WorldState ws = world?.WorldState;

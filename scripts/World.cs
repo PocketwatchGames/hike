@@ -56,10 +56,12 @@ public partial class World : Node3D
     // around props the voxel grid alone can't see.
     private readonly Dictionary<Vector3I, int> _pathBlockers = new();
     // Tracks the previous night state so Tick can detect the moment tod
-    // crosses a sunrise / sunset boundary and refresh SpawnAtNight entities
-    // for active chunks. Without this, night-only goblins / chests stay
-    // missing on chunks that loaded during the day until the player walks
-    // far enough to evict and reload them.
+    // crosses sunset and spawn SpawnAtNight entities on already-active
+    // chunks. Without this, night-only goblins / chests stay missing on
+    // chunks that loaded during the day until the player walks far enough
+    // to evict and reload them. Only the sunset edge matters — sunrise
+    // does not despawn anything; existing night mobs ride out daytime
+    // until their chunk evicts.
     private bool _wasNight;
     private WorldState _worldState;
     private ChunkManager _chunkManager;
@@ -658,11 +660,14 @@ public partial class World : Node3D
         entities.Add(entity);
     }
 
-    // Walks active chunks and reconciles each sim state's ShouldSpawn against
-    // its current RuntimeNode — spawning night-only entities when night
-    // begins and despawning them at dawn. Non-night entities (cave goblins,
-    // chests, doors, etc.) override ShouldSpawn => true unconditionally and
-    // are unaffected. Called from Tick on day↔night transitions.
+    // Walks active chunks and spawns any night-only entities whose chunk is
+    // active when night begins. The reverse direction is intentionally NOT
+    // handled here: once a SpawnAtNight mob/chest has materialized it stays
+    // alive until its chunk evicts (or it dies / is consumed), even if the
+    // sun comes up. SpawnAtNight is purely a spawn gate, not a presence gate
+    // — a goblin caught out at dawn keeps hunting until the player walks
+    // away. Non-night entities override ShouldSpawn => true unconditionally
+    // and are unaffected. Called from Tick on day↔night transitions.
     private void RefreshTimeOfDayEntities()
     {
         foreach (var pair in _activeEntities)
@@ -675,21 +680,18 @@ public partial class World : Node3D
             List<Node3D> nodes = pair.Value;
             foreach (EntitySimState state in states)
             {
-                bool should = state.ShouldSpawn(this);
-                bool has = state.RuntimeNode != null;
-                if (should && !has)
+                if (state.RuntimeNode != null)
                 {
-                    Node3D entity = state.CreateEntity(this);
-                    if (entity != null)
-                    {
-                        RegisterEntity(entity, nodes, state);
-                    }
+                    continue;
                 }
-                else if (!should && has)
+                if (!state.ShouldSpawn(this))
                 {
-                    Node3D entity = state.RuntimeNode;
-                    nodes.Remove(entity);
-                    entity.QueueFree();
+                    continue;
+                }
+                Node3D entity = state.CreateEntity(this);
+                if (entity != null)
+                {
+                    RegisterEntity(entity, nodes, state);
                 }
             }
         }

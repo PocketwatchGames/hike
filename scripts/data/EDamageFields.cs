@@ -22,4 +22,5 @@ public enum EDamageFields
 	KnockbackDistance = 1 << 3,
 	KnockbackTime = 1 << 4,
 	AddStatusEffects = 1 << 5,
+	Pierce = 1 << 6,
 }

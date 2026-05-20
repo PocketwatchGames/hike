@@ -11,6 +11,12 @@ using Godot.Collections;
 [GlobalClass]
 public partial class ItemAction : Resource
 {
+	// UI label shown in the inventory info panel and (later) the charge-tier
+	// HUD. Free-text per tier so weapons can name their tiers in flavor terms
+	// (Snap Shot / Rain of Arrows / Heavy Bash) rather than relying on a
+	// shared enum. Empty falls back to a generic "Action N" label.
+	[Export] public StringName displayName = "";
+
 	// Duration the player must continue holding while THIS tier is selected
 	// before the next tier (same comboIndex, next in chargedActions) takes
 	// over. `chargeT` ramps 0 → 1 across this window — so a Light tier with
@@ -157,6 +163,16 @@ public partial class ItemAction : Resource
 	[Export] public PackedScene chargeLoopEffect;
 	[Export] public PackedScene chargeCancelEffect;
 	[Export] public PackedScene releaseEffect;
+
+	// Per-tier impact one-shots layered on top of the per-event
+	// impactHealth/Armor/Lethal effects whenever the receiver flags the
+	// matching trigger condition (OnCrit when the mob was stunned or
+	// untriggered, OnBackstab when the player also met PlayerData.backstabAngle
+	// from behind). Authored per-tier so a weapon's flavor (sword zing vs club
+	// thud) carries through to its crit/backstab payoff; null on a tier leaves
+	// the base impact fx unaugmented.
+	[Export] public PackedScene impactCritEffect;
+	[Export] public PackedScene impactBackstabEffect;
 
 	// Range multiplier at the given chargeT. Lerps from 1 (chargeT=0, fire
 	// at the event's base range) to `chargedRangeScale` (chargeT=1).

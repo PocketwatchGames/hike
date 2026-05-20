@@ -61,6 +61,7 @@ public partial class MobHUD : Node2D
 
 	public override void _Process(double delta)
 	{
+		using var _prof = Profiler.Sample("MobHUD.Process");
 		Vector3 worldPosition = _mob.HudAnchor != null ? _mob.HudAnchor.GlobalPosition : _mob.GlobalPosition;
 		bool behindCamera = _camera.IsPositionBehind(worldPosition);
 		Vector2 screenPos = behindCamera ? Vector2.Zero : GameClient.Current.ProjectToScreen(worldPosition);

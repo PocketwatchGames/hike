@@ -15,9 +15,11 @@ using Godot;
 //     that need their own count parameter (chest loot count, berry count)
 //     declare a purpose-named field and roll inside Spawn.
 //
-// SpawnAtNight is honored by mob and chest sim states (their nodes only spawn
-// after dark when set). Subclasses that don't use a night-spawn concept
-// (loot, fire trap, berry tree, plain torch) simply ignore it.
+// SpawnAtNight is honored by mob and chest sim states — their nodes only
+// MATERIALIZE after dark. Once spawned they persist through daytime until
+// their chunk evicts; SpawnAtNight is a one-way spawn gate, not a presence
+// gate. Subclasses that don't use a night-spawn concept (loot, fire trap,
+// berry tree, plain torch) simply ignore it.
 [GlobalClass]
 public partial class SpawnEntryData : Resource
 {
@@ -26,7 +28,8 @@ public partial class SpawnEntryData : Resource
     [Export] public float Chance = 1f;
 
     // Mob and chest sim states honour this by deferring node spawn until
-    // their chunk activates after dark. Other sim states ignore it.
+    // their chunk activates after dark; the resulting entity then persists
+    // across the day/night cycle. Other sim states ignore it.
     [Export] public bool SpawnAtNight;
 
     // Number of instances to scatter when this entry is a sub-entry of a

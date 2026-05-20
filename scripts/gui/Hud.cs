@@ -30,7 +30,7 @@ public partial class Hud : Control
 	[Export] ProgressBar _armorBar;
 	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
-	[Export] DialogueController _dialoguePanel;
+	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
 	[Export] HudAnnouncementPanel _announcementPanel;
 	[Export] TextureRect _minimapTexture;
@@ -200,14 +200,14 @@ public partial class Hud : Control
 		_signpostPanel?.Close();
 	}
 
-	public bool IsDialogueOpen => _dialoguePanel != null && _dialoguePanel.IsOpen;
+	public bool IsConversationOpen => _dialoguePanel != null && _dialoguePanel.IsOpen;
 
-	public void ShowDialogue(System.Collections.Generic.IReadOnlyList<string> lines, System.Action onClose = null)
+	public void ShowConversation(ConversationData conversation, ConversationContext ctx, System.Action onClose = null)
 	{
-		_dialoguePanel?.Show(lines, onClose);
+		_dialoguePanel?.Show(conversation, ctx, onClose);
 	}
 
-	public void CloseDialogue()
+	public void CloseConversation()
 	{
 		_dialoguePanel?.Close();
 	}

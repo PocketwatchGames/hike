@@ -23,6 +23,14 @@ public struct HitInfo
 	// strong.
 	public float knockbackDistance;
 	public float knockbackTime;
+	// Chance (0..1) that this hit bypasses the receiver's armor pool and
+	// lands directly on health. See DamageData.pierce.
+	public float pierce;
+	// Random sample in [0,1) drawn once at construction. Receivers compare
+	// it against the final `pierce` (after modifiers fold) via `Pierced`
+	// instead of re-rolling, so HurtBox.QueryHitType and HurtBox.Hit always
+	// agree on whether the same swing pierced.
+	public float pierceRoll;
 	public Godot.Collections.Array<StatusEffectData> statusEffects;
 	// Direction the receiver should be pushed along on a non-zero knockback
 	// hit. Set by the sender at hit time — melee/hitscan use the attacker's
@@ -35,6 +43,11 @@ public struct HitInfo
 	// ApplyTrigger when they detect the corresponding condition. Null on
 	// templates that don't author any modifiers.
 	public Godot.Collections.Array<DamageDataModifier> modifiers;
+	// Marks this hit as a per-frame damage tick (DamageZone with a fast
+	// tickInterval, future per-frame burn etc.). Receivers route DoT hits
+	// into a per-second accumulator instead of spawning a floating HUD
+	// number every frame.
+	public bool dot;
 	// Tracks whether `statusEffects` has been cloned away from the source
 	// template's array. The first AddStatusEffects fold allocates a fresh
 	// list so we don't mutate the authored DamageData; subsequent folds
@@ -46,6 +59,9 @@ public struct HitInfo
 		this.source = source;
 		this.hitDirection = hitDirection;
 		_statusEffectsOwned = false;
+		// Roll pierce once up-front so the prediction and the apply see the
+		// same outcome even though modifiers may shift `pierce` between them.
+		pierceRoll = GD.Randf();
 		if (template != null)
 		{
 			healthDamage = template.healthDamage;
@@ -53,8 +69,10 @@ public struct HitInfo
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
+			pierce = template.pierce;
 			statusEffects = template.statusEffects;
 			modifiers = template.modifiers;
+			dot = template.dot;
 		}
 		else
 		{
@@ -63,10 +81,17 @@ public struct HitInfo
 			hitstun = 0f;
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
+			pierce = 0f;
 			statusEffects = null;
 			modifiers = null;
+			dot = false;
 		}
 	}
+
+	// True when the rolled chance landed inside the (possibly modifier-
+	// boosted) pierce window. `pierceRoll` is sampled in [0,1), so a pierce
+	// of 0 never fires and a pierce of 1 always fires.
+	public bool Pierced => pierceRoll < pierce;
 
 	// Fold every modifier whose trigger equals `trigger` onto the live
 	// fields. Callers fire one trigger per condition crossing (OnCrit when
@@ -86,6 +111,7 @@ public struct HitInfo
 			if ((f & EDamageFields.Hitstun) != 0) { hitstun = mod.hitstun; }
 			if ((f & EDamageFields.KnockbackDistance) != 0) { knockbackDistance = mod.knockbackDistance; }
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }
+			if ((f & EDamageFields.Pierce) != 0) { pierce = mod.pierce; }
 			if ((f & EDamageFields.AddStatusEffects) != 0 && mod.addStatusEffects != null && mod.addStatusEffects.Count > 0)
 			{
 				if (!_statusEffectsOwned)

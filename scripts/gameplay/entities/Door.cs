@@ -33,7 +33,6 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
 
     private void OnHurtBoxHit(HitInfo hit)
     {
-        GD.Print($"Door hit for {hit.healthDamage} from {hit.source?.Name}");
     }
 
     public void OnSpawned(World world) { }

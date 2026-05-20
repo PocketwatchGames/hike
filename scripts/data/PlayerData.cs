@@ -91,6 +91,13 @@ public partial class PlayerData : Resource
 
 	[Export] public float maxHealth = 100f;
 
+	// Maximum angle (radians) between the mob's facing direction and the
+	// player→mob vector at hit time for the attack to count as a backstab.
+	// A backstab requires the mob to be untriggered (still unaware of the
+	// player); when both conditions hold, Mob.Hit folds OnBackstab modifiers
+	// onto the live hit. ~45° (Pi/4) is the default.
+	[Export] public float backstabAngle = 0.785f;
+
 	[Export] public float armorRechargeDelay = 3f;
 	[Export] public float armorRechargeSpeed = 20f;
 	[Export] public float armorRecoverTime = 8f;

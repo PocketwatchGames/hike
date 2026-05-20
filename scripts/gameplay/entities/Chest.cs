@@ -55,7 +55,6 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
     private void OnHurtBoxHit(HitInfo hit)
     {
-        GD.Print($"Chest hit for {hit.healthDamage} from {hit.source?.Name}");
     }
 
     public void OnSpawned(World world) { }

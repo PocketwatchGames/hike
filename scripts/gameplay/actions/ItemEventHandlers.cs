@@ -34,6 +34,7 @@ public static class ItemEventHandlers
 		var results = world3D.DirectSpaceState.IntersectShape(query);
 		Rid? selfHurtBox = actor.SelfHurtBoxRid;
 		EHitResult bestResult = EHitResult.None;
+		EDamageTriggerFlags bestTriggers = EDamageTriggerFlags.None;
 		Vector3 impactPos = damagePos;
 		foreach (var result in results)
 		{
@@ -46,12 +47,16 @@ public static class ItemEventHandlers
 				}
 				// Query first so the impact effect reflects the pre-hit state
 				// (e.g. Lethal needs to see the target's current health, not
-				// the post-damage zero). Then apply.
+				// the post-damage zero). Trigger flags ride alongside so a
+				// crit/backstab swing layers its tier overlay on the best
+				// hurtbox of a multi-target swing.
 				EHitResult r = hurtBox.QueryHitType(hit);
+				EDamageTriggerFlags t = hurtBox.QueryHitTriggers(hit);
 				hurtBox.Hit(hit);
 				if (HitPriority(r) > HitPriority(bestResult))
 				{
 					bestResult = r;
+					bestTriggers = t;
 					impactPos = hurtBox.GlobalPosition;
 				}
 			}
@@ -81,6 +86,7 @@ public static class ItemEventHandlers
 		else
 		{
 			SpawnImpact(actor, PickImpactScene(ev, bestResult), impactPos);
+			SpawnTriggerOverlays(actor, action.selectedTier, bestTriggers, impactPos);
 		}
 
 		DebugDraw.Sphere(damagePos, ev.meleeRadius, new Color(1f, 0f, 0f, 0.3f), 0.15f);
@@ -151,6 +157,7 @@ public static class ItemEventHandlers
 
 		var hurtResult = spaceState.IntersectRay(hurtQuery);
 		EHitResult hitResult = EHitResult.None;
+		EDamageTriggerFlags hitTriggers = EDamageTriggerFlags.None;
 		HurtBox hitHurtBox = null;
 		if (hurtResult.Count > 0)
 		{
@@ -162,6 +169,7 @@ public static class ItemEventHandlers
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
 					hitResult = hurtBox.QueryHitType(hit);
+					hitTriggers = hurtBox.QueryHitTriggers(hit);
 					hurtBox.Hit(hit);
 					hitPos = (Vector3)hurtResult["position"];
 					hitHurtBox = hurtBox;
@@ -173,6 +181,7 @@ public static class ItemEventHandlers
 		if (hitResult != EHitResult.None)
 		{
 			SpawnImpact(actor, PickImpactScene(ev, hitResult), hitPos);
+			SpawnTriggerOverlays(actor, tier, hitTriggers, hitPos);
 		}
 		else if (envResult.Count > 0)
 		{
@@ -310,6 +319,8 @@ public static class ItemEventHandlers
 			health = ev.impactHealthEffect,
 			armor = ev.impactArmorEffect,
 			lethal = ev.impactLethalEffect,
+			crit = tier?.impactCritEffect,
+			backstab = tier?.impactBackstabEffect,
 			sourceWeapon = firingWeapon,
 			arrowLootData = arrowLootData,
 		};
@@ -393,6 +404,10 @@ public static class ItemEventHandlers
 			if (host != null)
 			{
 				Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
+				// Apply weapon-side overrides BEFORE AddChild — DamageZone's
+				// _Ready builds its HitInfo from the (possibly overridden)
+				// damage field, so the override has to land first.
+				if (instance is GasCloud cloud) { cloud.Initialize(ev); }
 				host.AddChild(instance);
 				instance.GlobalPosition = position;
 			}
@@ -421,6 +436,7 @@ public static class ItemEventHandlers
 			return;
 		}
 		Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
+		if (instance is GasCloud cloud) { cloud.Initialize(ev); }
 		parent.AddChild(instance);
 		instance.GlobalPosition = position;
 	}
@@ -671,6 +687,23 @@ public static class ItemEventHandlers
 	private static void SpawnImpact(IActionActor actor, PackedScene scene, Vector3 position)
 	{
 		SpawnAtWorld(actor, scene, position);
+	}
+
+	// Spawn the tier's crit / backstab overlays on top of the base impact fx.
+	// Called by Melee, Hitscan, and (via ProjectileImpact) the projectile path
+	// once a hurtbox hit lands; the receiver's HurtBox.QueryHitTriggers reports
+	// which trigger conditions held. Null tier or null scenes silently skip.
+	public static void SpawnTriggerOverlays(IActionActor actor, ItemAction tier, EDamageTriggerFlags triggers, Vector3 position)
+	{
+		if (tier == null || triggers == EDamageTriggerFlags.None) { return; }
+		if ((triggers & EDamageTriggerFlags.Crit) != 0)
+		{
+			SpawnAtWorld(actor, tier.impactCritEffect, position);
+		}
+		if ((triggers & EDamageTriggerFlags.Backstab) != 0)
+		{
+			SpawnAtWorld(actor, tier.impactBackstabEffect, position);
+		}
 	}
 
 	// World-parented one-shot at a fixed world position — matches the puff /

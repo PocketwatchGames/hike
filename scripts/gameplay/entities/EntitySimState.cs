@@ -22,11 +22,12 @@ public abstract class EntitySimState
     // (e.g. picked up loot, dead mob).
     public abstract Node3D CreateEntity(World world);
 
-    // True if a node should currently exist for this state. Default mirrors
-    // CreateEntity's "always materialize" contract; overrides drive
-    // SpawnAtNight-style gating. World re-evaluates this on day/night
-    // transitions to spawn or despawn nodes for already-active chunks, so
-    // night-only entities don't need a chunk reload to appear.
+    // True if a node should be CREATED for this state right now. This is a
+    // spawn gate only — not a presence gate. World checks it when loading a
+    // chunk and again at sunset for already-active chunks so night-only
+    // entities can appear without a chunk reload. Once a node exists it
+    // stays alive until the chunk evicts (or gameplay frees it); World
+    // does not despawn it just because ShouldSpawn flips back to false.
     public virtual bool ShouldSpawn(World world) => true;
 
     // Live node reference, set by World when the entity is materialized and

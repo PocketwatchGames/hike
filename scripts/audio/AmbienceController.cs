@@ -78,6 +78,7 @@ public partial class AmbienceController : Node3D
 
     public override void _Process(double delta)
     {
+        using var _prof = Profiler.Sample("AmbienceController.Process");
         World w = World.Current;
         if (w == null) { return; }
         WorldState ws = w.WorldState;
