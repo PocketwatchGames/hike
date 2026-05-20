@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://fpa73eeswwnb"]
 
-[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]

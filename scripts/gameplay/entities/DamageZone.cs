@@ -18,6 +18,13 @@ public partial class DamageZone : Area3D
     // immediate; a slow-burn campfire might not).
     [Export] public bool tickOnEnter = true;
 
+    // When true, only HurtBoxes whose owner is a Mob take damage — the
+    // player (and any other non-Mob hurtboxes) are filtered out at enter
+    // time. Used by player-spawned AoEs (rain of arrows) that should never
+    // friendly-fire. Default false matches the existing fire / poison /
+    // campfire zones that damage everything that walks into them.
+    [Export] public bool enemiesOnly = false;
+
     private readonly List<HurtBox> _hurtBoxes = new();
     private float _tickTimer;
     private HitInfo _hit;
@@ -67,6 +74,10 @@ public partial class DamageZone : Area3D
     private void OnAreaEntered(Area3D area)
     {
         if (area is not HurtBox hb)
+        {
+            return;
+        }
+        if (enemiesOnly && ItemEventHandlers.FindOwningMob(hb) == null)
         {
             return;
         }

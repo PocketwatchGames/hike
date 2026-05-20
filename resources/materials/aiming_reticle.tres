@@ -1,6 +1,6 @@
 [gd_resource type="ShaderMaterial" format=3 uid="uid://w0qx7uc667j4"]
 
-[ext_resource type="Shader" uid="uid://c5lwdajvhy13" path="res://shaders/aiming_reticle.gdshader" id="1_mtm5t"]
+[ext_resource type="Shader" uid="uid://6afkmsmke3y37" path="res://shaders/aiming_reticle.gdshader" id="1_mtm5t"]
 [ext_resource type="Texture2D" uid="uid://c3mmhhwc7ne3e" path="res://assets/textures/gui/aiming_reticle_line.png" id="2_lineTexture"]
 
 [resource]

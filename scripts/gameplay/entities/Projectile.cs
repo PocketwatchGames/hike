@@ -24,8 +24,10 @@ public struct ProjectileImpact
 
 // In-flight arrow / bolt / magic missile. Spawned by ItemEventHandlers.DoProjectile
 // from a weapon or mob action's timeline. Each physics tick the projectile
-// integrates `_velocity * dt`, sweep-casts a ray from its previous position
-// to the proposed next position, and resolves the first hit:
+// integrates `_velocity * dt`, optionally accumulates gravity (Y-) into
+// velocity for ballistic arcs, and (unless _noCollide is set) sweep-casts a
+// ray from its previous position to the proposed next position to resolve
+// the first hit:
 //   - hurtbox first (any matching collision mask) → HitInfo built from the
 //     captured DamageData, hurtBox.Hit called, impact fx + arrow drop
 //     resolved, projectile despawns.
@@ -33,6 +35,12 @@ public struct ProjectileImpact
 // Travelling past maxLifetimeSeconds without hitting anything fires the
 // miss fx and drops the arrow at the projectile's current position, so a
 // shot into empty space still returns recoverable ammo.
+//
+// In `_noCollide` mode (used by arcing delivery projectiles), both sweeps
+// are skipped and the projectile only despawns when its lifetime expires —
+// it passes harmlessly through walls and creatures. Pair with `_gravity`
+// for a true arcing flight; pair with `_impactEvent` to have the landing
+// spawn a follow-up effect (e.g. rain-of-arrows AoE).
 //
 // The source actor's own hurtbox + body are excluded from the sweep so the
 // shooter doesn't self-hit on the first tick.
@@ -47,6 +55,20 @@ public partial class Projectile : Node3D
 	private float _ageSeconds;
 	private float _maxLifetimeSeconds;
 	private uint _hurtboxMask;
+	// Downward acceleration applied to velocity each physics tick. 0 = flat
+	// flight (default for hitscan-replacement arrows). Positive values curve
+	// the trajectory downward; the arcing-projectile path solves for the
+	// launch velocity that lands at the aim cursor after maxLifetimeSeconds
+	// given this gravity.
+	private float _gravity;
+	// Skip both sweep queries; the projectile only ends via lifetime expiry.
+	// Used by arcing delivery projectiles whose impact is the landing point,
+	// not a collision.
+	private bool _noCollide;
+	// Optional follow-up event fired at the despawn position. Currently
+	// supports SpawnAreaEffect (drops areaEffectScene where the projectile
+	// landed). See ItemEventHandlers.DispatchAtPosition.
+	private ItemEvent _impactEvent;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -58,17 +80,19 @@ public partial class Projectile : Node3D
 	public static Projectile Launch(
 		Node parent,
 		PackedScene scene,
-		float speed,
 		float maxLifetimeSeconds,
 		PackedScene loopEffect,
 		Vector3 origin,
-		Vector3 direction,
+		Vector3 velocity,
 		DamageData damageData,
 		Node source,
 		uint hurtboxMask,
 		Rid? excludeHurtBox,
 		Rid? excludeBody,
-		ProjectileImpact impact)
+		ProjectileImpact impact,
+		float gravity = 0f,
+		bool noCollide = false,
+		ItemEvent impactEvent = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -77,10 +101,13 @@ public partial class Projectile : Node3D
 		var inst = scene.Instantiate<Projectile>();
 		inst._damageData = damageData;
 		inst._source = source;
-		inst._velocity = direction.Normalized() * speed;
+		inst._velocity = velocity;
 		inst._maxLifetimeSeconds = maxLifetimeSeconds;
 		inst._hurtboxMask = hurtboxMask;
 		inst._impact = impact;
+		inst._gravity = gravity;
+		inst._noCollide = noCollide;
+		inst._impactEvent = impactEvent;
 		if (excludeHurtBox.HasValue)
 		{
 			inst._hurtBoxExclude = new Godot.Collections.Array<Rid> { excludeHurtBox.Value };
@@ -93,9 +120,11 @@ public partial class Projectile : Node3D
 		inst.GlobalPosition = origin;
 		// Orient the visual along the flight direction. LookAt requires a
 		// non-zero direction and a non-parallel up vector; guard for both.
-		if (direction.LengthSquared() > 1e-6f)
+		// Re-orientation as gravity pitches the arc down happens each tick
+		// in _PhysicsProcess when gravity > 0.
+		if (velocity.LengthSquared() > 1e-6f)
 		{
-			Vector3 fwd = direction.Normalized();
+			Vector3 fwd = velocity.Normalized();
 			Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
 			inst.LookAt(origin + fwd, up);
 		}
@@ -114,82 +143,105 @@ public partial class Projectile : Node3D
 	{
 		float dt = (float)delta;
 		_ageSeconds += dt;
+		// Gravity accumulates BEFORE the position step so the per-tick
+		// trajectory uses the current (post-acceleration) velocity. With
+		// gravity=0 this is a no-op and flat flight is preserved.
+		if (_gravity != 0f)
+		{
+			_velocity.Y -= _gravity * dt;
+		}
 		Vector3 prev = GlobalPosition;
 		Vector3 step = _velocity * dt;
 		Vector3 next = prev + step;
 
-		World3D world3D = GetWorld3D();
-		if (world3D != null)
+		// Arcing / delivery projectiles skip collision entirely — only
+		// lifetime expiry ends them.
+		if (!_noCollide)
 		{
-			var spaceState = world3D.DirectSpaceState;
-
-			// Environment clip first — gives us the wall position the
-			// projectile would have impacted if no hurtbox were in the way.
-			Vector3 endPoint = next;
-			Vector3? envHit = null;
-			using (var envQuery = PhysicsRayQueryParameters3D.Create(prev, next))
+			World3D world3D = GetWorld3D();
+			if (world3D != null)
 			{
-				envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
-				envQuery.CollideWithBodies = true;
-				envQuery.CollideWithAreas = false;
-				if (_bodyExclude != null)
-				{
-					envQuery.Exclude = _bodyExclude;
-				}
-				var envResult = spaceState.IntersectRay(envQuery);
-				if (envResult.Count > 0)
-				{
-					envHit = (Vector3)envResult["position"];
-					endPoint = envHit.Value;
-				}
-			}
+				var spaceState = world3D.DirectSpaceState;
 
-			// Hurtbox sweep up to the (possibly clipped) end point. Query
-			// hit type first so a Lethal result sees pre-damage state — same
-			// rationale as DoMelee / DoHitscan.
-			using (var hurtQuery = PhysicsRayQueryParameters3D.Create(prev, endPoint))
-			{
-				hurtQuery.CollisionMask = _hurtboxMask;
-				hurtQuery.CollideWithAreas = true;
-				hurtQuery.CollideWithBodies = false;
-				if (_hurtBoxExclude != null)
+				// Environment clip first — gives us the wall position the
+				// projectile would have impacted if no hurtbox were in the way.
+				Vector3 endPoint = next;
+				Vector3? envHit = null;
+				using (var envQuery = PhysicsRayQueryParameters3D.Create(prev, next))
 				{
-					hurtQuery.Exclude = _hurtBoxExclude;
+					envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+					envQuery.CollideWithBodies = true;
+					envQuery.CollideWithAreas = false;
+					if (_bodyExclude != null)
+					{
+						envQuery.Exclude = _bodyExclude;
+					}
+					var envResult = spaceState.IntersectRay(envQuery);
+					if (envResult.Count > 0)
+					{
+						envHit = (Vector3)envResult["position"];
+						endPoint = envHit.Value;
+					}
 				}
-				var hurtResult = spaceState.IntersectRay(hurtQuery);
-				if (hurtResult.Count > 0 && hurtResult["collider"].Obj is HurtBox hurtBox)
+
+				// Hurtbox sweep up to the (possibly clipped) end point. Query
+				// hit type first so a Lethal result sees pre-damage state — same
+				// rationale as DoMelee / DoHitscan.
+				using (var hurtQuery = PhysicsRayQueryParameters3D.Create(prev, endPoint))
 				{
-					Vector3 hitPos = (Vector3)hurtResult["position"];
-					var hit = new HitInfo(_damageData, _source, _velocity.Normalized());
-					EHitResult hitResult = hurtBox.QueryHitType(hit);
-					hurtBox.Hit(hit);
-					GlobalPosition = hitPos;
-					Despawn(hitResult, hurtBox, hitPos);
+					hurtQuery.CollisionMask = _hurtboxMask;
+					hurtQuery.CollideWithAreas = true;
+					hurtQuery.CollideWithBodies = false;
+					if (_hurtBoxExclude != null)
+					{
+						hurtQuery.Exclude = _hurtBoxExclude;
+					}
+					var hurtResult = spaceState.IntersectRay(hurtQuery);
+					if (hurtResult.Count > 0 && hurtResult["collider"].Obj is HurtBox hurtBox)
+					{
+						Vector3 hitPos = (Vector3)hurtResult["position"];
+						var hit = new HitInfo(_damageData, _source, _velocity.Normalized());
+						EHitResult hitResult = hurtBox.QueryHitType(hit);
+						hurtBox.Hit(hit);
+						GlobalPosition = hitPos;
+						Despawn(hitResult, hurtBox, hitPos);
+						return;
+					}
+				}
+
+				if (envHit.HasValue)
+				{
+					GlobalPosition = envHit.Value;
+					Despawn(EHitResult.Object, null, envHit.Value);
 					return;
 				}
-			}
-
-			if (envHit.HasValue)
-			{
-				GlobalPosition = envHit.Value;
-				Despawn(EHitResult.Object, null, envHit.Value);
-				return;
 			}
 		}
 
 		GlobalPosition = next;
+		// Re-aim the visual along the current velocity as gravity tilts the
+		// arc downward. Flat flight (gravity=0) skips this — orientation was
+		// fixed at Launch.
+		if (_gravity != 0f && _velocity.LengthSquared() > 1e-6f)
+		{
+			Vector3 fwd = _velocity.Normalized();
+			Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
+			LookAt(next + fwd, up);
+		}
 		if (_ageSeconds >= _maxLifetimeSeconds)
 		{
 			Despawn(EHitResult.None, null, GlobalPosition);
 		}
 	}
 
-	// Shared end-of-life path: resolve impact fx + arrow recovery, tear
-	// down the loop fx (reparented out so its tail fades naturally), then
-	// free the projectile node.
+	// Shared end-of-life path: resolve impact fx + arrow recovery, fire the
+	// authored impactEvent at the landing position (if any), tear down the
+	// loop fx (reparented out so its tail fades naturally), then free the
+	// projectile node.
 	private void Despawn(EHitResult result, HurtBox hurtBox, Vector3 position)
 	{
 		ResolveImpact(result, hurtBox, position);
+		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent());
 		StopLoopFx();
 		QueueFree();
 	}

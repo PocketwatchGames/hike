@@ -77,6 +77,7 @@ public partial class PlayerData : Resource
 	[Export] public float waterDrag = 5f;
 	[Export] public float waterSurfaceOffset = 1f;
 	[Export] public float waterJumpOffset = 1.5f;
+	[Export] public float swimJumpSpeed = 8f;
 	// Fraction of the local water current's velocity added to the player's
 	// horizontal velocity each tick while swimming. Input is applied first
 	// each tick and this layers on top, so 1.0 means the player drifts at
@@ -93,6 +94,16 @@ public partial class PlayerData : Resource
 	[Export] public float armorRechargeDelay = 3f;
 	[Export] public float armorRechargeSpeed = 20f;
 	[Export] public float armorRecoverTime = 8f;
+
+	// "Blood mana" drain regen, modeled on armor: every TryDrainBlood call
+	// pushes _bloodRegenStartMs forward by bloodRegenDelay seconds, then
+	// _drainedHealth refunds at bloodRegenSpeed HP/sec once the delay
+	// elapses. A single shared delay (not per-drain) keeps the system
+	// armor-simple — staggered drains during the delay all wait for the
+	// same start time, after which the whole accumulated pool drains at
+	// the flat rate.
+	[Export] public float bloodRegenDelay = 3f;
+	[Export] public float bloodRegenSpeed = 10f;
 
 	// Stamina drains as the player performs effortful actions and refills on
 	// its own. After any spend, recharge is gated for `staminaRechargeDelay`

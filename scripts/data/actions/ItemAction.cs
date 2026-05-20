@@ -30,13 +30,16 @@ public partial class ItemAction : Resource
 	// per-item (a weapon's cooldown doesn't block other items).
 	[Export] public float cooldownSeconds = 0f;
 
-	// Stamina spent on activation. Checked at press against tier 0 — if the
-	// actor can't afford the press-time tier, TryStart refuses and the action
-	// never enters Charging. Charging is allowed to continue into higher
-	// tiers even if their costs exceed current stamina; the actually-selected
-	// tier's cost is deducted unconditionally at EnterActive (driving stamina
-	// negative is fine, matching the sprint/swim drain pattern).
+	// Resource costs — direct fields rather than ActionRequirement subclasses
+	// because the set is closed (stamina, blood, ammo) and each maps to a
+	// single number. SelectTierIndex reads them inline and gates tier
+	// promotion when the actor can't afford; EnterActive spends them
+	// unconditionally on the activated tier. The separate `requirements`
+	// array below is reserved for non-resource gates (weapon level, language
+	// known, etc.) — keep item-based / inventory-based gates out of
+	// ItemAction entirely (InteractiveAction is the right home for those).
 	[Export] public float staminaCost = 0f;
+	[Export] public float bloodCost = 0f;
 
 	// True if this tier consumes ammo from the driving WeaponState — gates
 	// the press at zero ammo (PlayerWeapon / AimingReticle / WeaponHud read
@@ -65,9 +68,12 @@ public partial class ItemAction : Resource
 	[Export] public int comboIndex = 0;
 	[Export] public ulong comboWindowMs = 0;
 
-	// Per-tier requirements. Action only selectable if all evaluate true.
-	// Phase 3 SelectTier ignored requirements; phase 4 walks them and falls
-	// back to a lower tier on failure.
+	// Per-tier non-resource gates (weapon level, language known, etc.).
+	// Resource costs (stamina, blood, ammo) live on dedicated fields above
+	// — keep this array for world / character state checks only; inventory-
+	// dependent gates belong on InteractiveAction. Action only selectable
+	// when all evaluate true; failed entries drop selection to the next
+	// lower tier.
 	[Export] public Array<ActionRequirement> requirements = new();
 
 	// Active-phase abort policy. Both flags only consulted while Active —
@@ -79,12 +85,36 @@ public partial class ItemAction : Resource
 	// How player aim input drives this tier. Directional → stick / mouse
 	// drives ActorForward and the aim point is forward × range (matches the
 	// pre-existing bow / hitscan path). Positional → stick / mouse pushes a
-	// world-space aim point across the ground per frame, scaled by weapon
-	// range; the cursor stays where it was when the active tier flips mode
-	// mid-charge, so the reticle's ground circle is continuous. A single
-	// profile can mix modes between tiers (e.g. snap bow shot → charged
-	// rain-of-arrows; melee axe → charged thrown explosive).
+	// world-space aim point across the ground per frame, scaled by
+	// `positionalRange` below; the cursor stays where it was when the active
+	// tier flips mode mid-charge, so the reticle's ground circle is
+	// continuous. A single profile can mix modes between tiers (e.g. snap
+	// bow shot → charged rain-of-arrows; melee axe → charged thrown
+	// explosive).
 	[Export] public EAimType aimType = EAimType.Directional;
+
+	// Positional aim only: maximum horizontal distance of the aim cursor
+	// from the player, in world meters. The cursor is clamped to a disk of
+	// this radius and its sweep speed scales with this value so any
+	// positional tier (short or long reach) sweeps edge-to-center in a
+	// consistent wall time. Authored per-tier — a charged AoE on a long-
+	// range bow can still target close to the caster, and a thrown-
+	// explosive on a melee weapon defines its own reach independently of
+	// the weapon's melee range. Ignored for Directional tiers (their reach
+	// comes from the event's hitscan / projectile / melee distance).
+	[Export] public float positionalRange = 10f;
+
+	// Positional aim only: world-space radius of the targeting ring drawn
+	// at the cursor — represents the tier's footprint on the ground (AoE
+	// radius for rain-of-arrows, blast radius for a thrown explosive,
+	// etc.). The reticle's ring outer radius lerps to this value while
+	// Positional aim is active, so designers can tune the telegraph
+	// independently of the gameplay AoE if needed. The AoE event handler
+	// that spawns `areaEffectScene` should read this same value and pass
+	// it into the spawned instance so the visual and the actual damage
+	// zone share one authored number. Ignored for Directional tiers
+	// (the ring there is the small lock-on dot / mob silhouette halo).
+	[Export] public float positionalAreaRadius = 1.5f;
 
 	// Press-time spread fraction in [0, 1] for ranged events on this tier.
 	// 0 = pinpoint, 1 = full MAX_SPREAD_HALF_ANGLE cone. Melee ignores it.

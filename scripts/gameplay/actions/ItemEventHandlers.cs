@@ -257,11 +257,21 @@ public static class ItemEventHandlers
 		);
 	}
 
-	// Spawns a Projectile at the actor's position, flying along the actor's
-	// forward (with the tier's accuracy spread applied). Damage on impact
+	// Spawns a Projectile at the actor's position. Two flight modes:
+	//
+	// Flat (default, `projectileArcing = false`): flies along the actor's
+	// forward with the tier's accuracy spread applied. Damage on impact
 	// comes from ResolveHit — same template precedence as melee/hitscan.
 	// Mirrors DoHitscan's spread/range scaling so a single weapon can swap
 	// between hitscan and projectile without re-authoring its curves.
+	//
+	// Arcing (`projectileArcing = true`): no in-flight collision, gravity-
+	// driven arc, lands at the player's Positional aim cursor at exactly
+	// `projectileLifetimeSeconds`. Velocity is solved for from origin →
+	// cursor over the authored lifetime under world gravity — author sets
+	// lifetime + the arcing flag, the math finds the pitch/speed. Used for
+	// delivery-style attacks (rain of arrows, thrown explosive); pairs with
+	// an authored `impactEvent` that fires at the landing point.
 	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.projectileScene == null)
@@ -281,20 +291,11 @@ public static class ItemEventHandlers
 			return;
 		}
 
-		// Per-tier scalars — same convention as DoHitscan. Range scaling
-		// shortens the projectile's lifetime so reach drops proportionally;
-		// speed stays constant so flight feel doesn't change.
 		ItemAction tier = action.selectedTier;
-		float chargeT = action.chargeT;
-		float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
-		float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
-
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
-		Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = ev.damageData ?? firingWeapon?.data?.damageData;
-
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
 		// Arrow-recovery binding is decided here at fire time: only populate
 		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
@@ -302,10 +303,6 @@ public static class ItemEventHandlers
 		// the projectile skips the drop even though the weapon authors an
 		// arrowLootData reference.
 		ArrowLootData arrowLootData = (tier?.useAmmo == true) ? firingWeapon?.data?.arrowLootData : null;
-		// Authored cues + arrow-recovery binding ride along on the projectile
-		// so impact-time decisions don't need to peek back at the event /
-		// action context (which may be torn down by the time the projectile
-		// lands several seconds into flight).
 		ProjectileImpact impact = new ProjectileImpact
 		{
 			miss = ev.impactMissEffect,
@@ -316,20 +313,116 @@ public static class ItemEventHandlers
 			sourceWeapon = firingWeapon,
 			arrowLootData = arrowLootData,
 		};
+
+		Vector3 velocity;
+		float lifetime;
+		float gravity = 0f;
+		bool noCollide = false;
+		if (ev.projectileArcing)
+		{
+			// Arcing requires a positional aim cursor — without one (mob
+			// attacks, weapon with no AimingReticle) there's nowhere to aim,
+			// so the firing event silently no-ops. Position-aim tiers always
+			// have a valid cursor by the time release fires.
+			if (actor is not Player player || player.AimingReticle == null || !player.AimingReticle.HasAimWorldPosition)
+			{
+				return;
+			}
+			Vector3 target = player.AimingReticle.AimWorldPosition;
+			lifetime = ev.projectileLifetimeSeconds;
+			if (lifetime <= 0f)
+			{
+				return;
+			}
+			gravity = ev.projectileGravity > 0f
+				? ev.projectileGravity
+				: (World.Current?.SimData?.Gravity ?? 9.8f);
+			// Solve ballistic launch: horizontal velocity is delta.xz / t;
+			// vertical solves dy = v0y*t - 0.5*g*t^2 → v0y = (dy + 0.5*g*t^2) / t.
+			Vector3 delta = target - origin;
+			float vx = delta.X / lifetime;
+			float vz = delta.Z / lifetime;
+			float vy = (delta.Y + 0.5f * gravity * lifetime * lifetime) / lifetime;
+			velocity = new Vector3(vx, vy, vz);
+			noCollide = true;
+		}
+		else
+		{
+			// Flat flight: per-tier spread + range scalars (same convention as
+			// DoHitscan). rangeScale shortens lifetime so reach drops
+			// proportionally; speed stays constant so flight feel doesn't change.
+			float chargeT = action.chargeT;
+			float spreadScale = ItemAction.SampleAccuracySpread(tier, chargeT);
+			float rangeScale = ItemAction.SampleRangeScale(tier, chargeT);
+			Vector3 direction = ApplySpread(actor.ActorForward, spreadScale);
+			velocity = direction * ev.projectileSpeed;
+			lifetime = ev.projectileLifetimeSeconds * rangeScale;
+		}
+
 		Projectile.Launch(
 			parent,
 			ev.projectileScene,
-			ev.projectileSpeed,
-			ev.projectileLifetimeSeconds * rangeScale,
+			lifetime,
 			ev.projectileLoopEffect,
 			origin,
-			direction,
+			velocity,
 			damageData,
 			attacker,
 			actor.AttackHurtboxMask,
 			actor.SelfHurtBoxRid,
 			excludeBody,
-			impact);
+			impact,
+			gravity,
+			noCollide,
+			ev.impactEvent);
+	}
+
+	// Position-aware sub-dispatcher for projectile impactEvents (and any
+	// future "fire at a point" sources). Subset of DispatchEvent because
+	// most handlers need an action context (selectedTier, primaryItem,
+	// chargeT, etc.) we don't have here. Currently supports SpawnAreaEffect
+	// — the canonical "arcing arrow lands → spawn AoE at the landing point"
+	// path. Other handlers no-op silently; their authored fields on the
+	// nested event just get ignored.
+	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent)
+	{
+		if (ev == null) { return; }
+		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
+		{
+			Node host = (Node)World.Current ?? parent;
+			if (host != null)
+			{
+				Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
+				host.AddChild(instance);
+				instance.GlobalPosition = position;
+			}
+		}
+	}
+
+	// Spawns ev.areaEffectScene at the player's aim cursor (when valid) or
+	// the actor's feet otherwise. The scene is parented to the World so it
+	// outlives the actor and stays put as the actor keeps moving. Used for
+	// positional-aim AoEs (rain of arrows, fire patch, etc.) whose lifetime
+	// and damage ticking live on the spawned scene itself.
+	public static void DoSpawnAreaEffect(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.areaEffectScene == null)
+		{
+			return;
+		}
+		Vector3 position = actor.ActorWorldPosition;
+		if (actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
+		{
+			position = player.AimingReticle.AimWorldPosition;
+		}
+		Node parent = (Node)World.Current ?? actor.AttackerNode?.GetParent();
+		if (parent == null)
+		{
+			return;
+		}
+		Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
+		parent.AddChild(instance);
+		instance.GlobalPosition = position;
 	}
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)

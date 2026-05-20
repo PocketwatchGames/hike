@@ -1,12 +1,12 @@
-[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b6n2vvhvirjdk"]
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dm4tlaswv03qa"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_qs6tp"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/effects/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/effects/bow_kill.tscn" id="7_hitkill"]
@@ -20,6 +20,7 @@
 [ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
+[ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -42,29 +43,33 @@ chargedRangeScale = 2.0
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
 
-[sub_resource type="Resource" id="Resource_event_full"]
+[sub_resource type="Resource" id="Resource_event_rain_impact"]
+script = ExtResource("3_event")
+type = 16384
+areaEffectScene = ExtResource("19_rainaoe")
+
+[sub_resource type="Resource" id="Resource_event_rain"]
 script = ExtResource("3_event")
 type = 8260
-impactEnvironmentEffect = ExtResource("7_hitsolid")
-impactHealthEffect = ExtResource("7_hitcreature")
-impactArmorEffect = ExtResource("7_hitsolid")
-impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
-projectileSpeed = 48.0
-projectileLifetimeSeconds = 0.25
+projectileLifetimeSeconds = 0.5
+projectileArcing = true
+impactEvent = SubResource("Resource_event_rain_impact")
 
-[sub_resource type="Resource" id="Resource_charged_full"]
+[sub_resource type="Resource" id="Resource_charged_rain"]
 script = ExtResource("4_charged")
-cooldownSeconds = 0.5
+cooldownSeconds = 1.0
+bloodCost = 10.0
 useAmmo = true
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_rain")])
+aimType = 1
 chargeStartEffect = ExtResource("8_chgtail")
 chargeLoopEffect = ExtResource("8_chgloop")
 releaseEffect = ExtResource("8_atkheavy")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("5_profile")
-chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap"), SubResource("Resource_charged_full")])
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_snap"), SubResource("Resource_charged_rain")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
 
@@ -93,7 +98,7 @@ pitchRangeDegrees = 45.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
-displayName = &"Short Bow"
-description = "Shooty shooty"
+displayName = &"Bow of Rainfall"
+description = "A shower of arrows."
 inventorySprite = ExtResource("15_tnjmy")
 worldSprite = ExtResource("16_world")

@@ -5,6 +5,21 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // Console action: kills the player. Routes through Player.Kill so the
+    // full death sequence (blood / VO / Die animation / onDied →
+    // DeathScreen) fires exactly like a fatal hit. No-op if no active
+    // player or the player is already dead.
+    public static CVar die = new CVar("die", (cvar) =>
+    {
+        Player player = World.Current?.player;
+        if (player == null)
+        {
+            Godot.GD.PushWarning("die: no active player.");
+            return;
+        }
+        player.Kill();
+    });
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".

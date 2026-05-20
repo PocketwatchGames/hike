@@ -182,7 +182,7 @@ public partial class MobData : Resource
     // `count` Loot instances of `item`, fired outward from the mob's
     // position with the same upward-arc impulse pattern chests use. Empty
     // (or null entries) on a mob means no drops.
-    [Export] public Array<LootCount> loot = new();
+    [Export] public Array<ItemCount> loot = new();
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

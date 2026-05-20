@@ -19,6 +19,14 @@ public partial class Hud : Control
 	[Export] ButtonHint _consumableButtonHint;
 	[Export] Control _statusEffectContainer;
 	[Export] ProgressBar _healthBar;
+	// Layered ON TOP of _healthBar with fill_mode = END_TO_BEGIN (right-to-
+	// left) and a transparent background, so the dark-red fill anchors to
+	// the right edge of the bar — representing the HP debt pending refund.
+	// Player keeps the invariant `Health + DrainedHealth <= MaxHealth` —
+	// Heal forgives any drain it climbs into, and TickBloodDrain shrinks
+	// drain while growing health in lockstep — so the bright fill and
+	// dark overlay never visually overlap.
+	[Export] ProgressBar _drainedHealthBar;
 	[Export] ProgressBar _armorBar;
 	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
@@ -371,6 +379,15 @@ public partial class Hud : Control
 		_healthBar.MinValue = 0;
 		_healthBar.MaxValue = 1;
 		_healthBar.Value = maxHealth > 0f ? _player.Health / maxHealth : 0f;
+
+		if (_drainedHealthBar != null)
+		{
+			float drained = _player.DrainedHealth;
+			_drainedHealthBar.MinValue = 0;
+			_drainedHealthBar.MaxValue = 1;
+			_drainedHealthBar.Visible = drained > 0f;
+			_drainedHealthBar.Value = maxHealth > 0f ? drained / maxHealth : 0f;
+		}
 
 		float maxArmor = _player.MaxArmor;
 		_armorBar.MinValue = 0;

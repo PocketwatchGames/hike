@@ -51,5 +51,11 @@ public enum EItemEventType
 	// the firing weapon's damageData) and calls HurtBox.Hit — same payload
 	// shape as Hitscan, just delayed by flight time.
 	Projectile = 1 << 13,
+	// Spawns ev.areaEffectScene at the actor's aim point. The scene is a
+	// Node3D parented to the world (e.g. a GasCloud carrying a DamageZone
+	// + particle loop). Pairs with EAimType.Positional — the player's aim
+	// cursor (Player.AimWorldPosition) is the drop target. Falls back to
+	// ActorWorldPosition when no aim cursor is active.
+	SpawnAreaEffect = 1 << 14,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

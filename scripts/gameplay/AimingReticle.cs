@@ -69,6 +69,11 @@ public partial class AimingReticle : Node3D
 	// mainline / knob / spread lines. Snaps in sync with the red-tint switch
 	// when lock state changes (the radius transition is the smooth one).
 	[Export] private float _groundRingUnlockedAlphaScale = 0.6f;
+	// Alpha scale applied to the ground ring while Positional aim is active.
+	// Positional mode hides the main beam / spread / knob and uses the ring
+	// alone to telegraph the AoE footprint, so it reads as a stronger UI
+	// element than the directional-mode ring — 1.0 (fully opaque) by default.
+	[Export] private float _groundRingPositionalAlphaScale = 1.0f;
 
 	// Linear ease from current outer radius to the new target whenever the
 	// target changes (lock on/off, or the targeted mob's clearance differs
@@ -101,6 +106,9 @@ public partial class AimingReticle : Node3D
 	// Cached target outer radius for the fade-out path (mob's clearanceRadius
 	// when the lock was acquired, base radius otherwise).
 	float _lastMobTargetOuter;
+	// Cached Positional tier's authored AoE radius — held across fade-out
+	// so the ring doesn't snap back to the default outer radius mid-fade.
+	float _lastPositionalRadius;
 	// 0..1, lerped each frame toward target (1 while available, 0 otherwise).
 	// Drives the alpha_multiplier instance uniform on every reticle mesh.
 	float _currentAlpha;
@@ -213,10 +221,12 @@ public partial class AimingReticle : Node3D
 			_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
 			// Aim turned off — invalidate the cursor so the next aim session
 			// re-seeds from a fresh raycast / positional default instead of
-			// jumping back to a stale point from minutes ago. Render still
-			// uses the cached lineLength / mob state to ride the fade out.
+			// jumping back to a stale point from minutes ago. `_lastAimType`
+			// stays at its last-active value so the fade-out renders with
+			// the same ring radius / alpha scale the player was just seeing
+			// (a Positional → fade-out doesn't snap the ring back to
+			// directional defaults while alpha is dropping to zero).
 			_cursorValid = false;
-			_lastAimType = EAimType.Directional;
 			if (_currentAlpha > 0f)
 			{
 				// Fade-out path: keep rendering at the cached range so we
@@ -224,7 +234,7 @@ public partial class AimingReticle : Node3D
 				// unavailable. Chest / forward still update each frame so
 				// the fading reticle follows the player rather than
 				// hovering in dead space.
-				RenderReticle(EAimType.Directional, _lastLineLength, clippedAtSurface: false, mobTargeted: _lastMobTargeted, mobTargetOuter: _lastMobTargetOuter, dt: dt);
+				RenderReticle(_lastAimType, _lastLineLength, clippedAtSurface: false, mobTargeted: _lastMobTargeted, mobTargetOuter: _lastMobTargetOuter, positionalRadius: _lastPositionalRadius, dt: dt);
 			}
 		}
 
@@ -277,7 +287,7 @@ public partial class AimingReticle : Node3D
 	void UpdateReticle(float dt)
 	{
 		EAimType aimType = ResolveActiveAimType();
-		float maxRange = _player.GetWeaponRange(EInventorySlot.WeaponRight);
+		float maxRange = ResolveActiveAimRange();
 
 		// Mode flip: on Pos → Dir the body needs to face the cursor first so
 		// ActorForward this frame reflects the previously-aimed direction.
@@ -366,7 +376,10 @@ public partial class AimingReticle : Node3D
 		}
 		_cursorValid = true;
 
-		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, dt);
+		// positionalRadius unused on the Directional path (RenderReticle
+		// ignores it when aimType != Positional); pass 0 to make that
+		// explicit at the call site.
+		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, positionalRadius: 0f, dt: dt);
 	}
 
 	void UpdatePositional(float maxRange, float dt)
@@ -452,6 +465,14 @@ public partial class AimingReticle : Node3D
 		// ActorForward both point at where the throw / drop will land.
 		_player.SnapAimYawToward(_cursorWorldPos);
 
+		// Resolve the AoE/footprint ring radius for the active tier — fed
+		// to RenderReticle's existing ring-radius lerp so the change from
+		// the default outer radius eases in over RingTransitionSeconds.
+		// Cached so the fade-out path holds it through the alpha drop.
+		ItemAction tier = ResolveActiveTier(out _);
+		float positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
+		_lastPositionalRadius = positionalRadius;
+
 		// Positional has no concept of mob lock or aim distance line —
 		// the cursor is a free ground point. Cached state still kept up
 		// to date so the fade-out path renders without surprises if the
@@ -461,7 +482,7 @@ public partial class AimingReticle : Node3D
 		_lastMobTargeted = false;
 		_lastMobTargetOuter = _groundRingOuterRadius;
 
-		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, dt: dt);
+		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: positionalRadius, dt: dt);
 	}
 
 	// Render path — used by both the live update and the fade-out path. The
@@ -473,14 +494,29 @@ public partial class AimingReticle : Node3D
 	// ground circle alone communicates the throw / drop target. `_cursorWorldPos`
 	// (written by UpdateDirectional / UpdatePositional) is the ground-circle
 	// world position regardless of mode.
-	void RenderReticle(EAimType aimType, float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float dt)
+	void RenderReticle(EAimType aimType, float lineLength, bool clippedAtSurface, bool mobTargeted, float mobTargetOuter, float positionalRadius, float dt)
 	{
 		bool showForwardBeam = aimType == EAimType.Directional;
 
-		// Ground ring lerp. New target whenever lock state or mob radius
-		// changes — capture the current value as the source and reset the
-		// elapsed clock so the next 0.15s plays out linearly from here.
-		float targetOuter = mobTargeted ? mobTargetOuter : _groundRingOuterRadius;
+		// Ground ring lerp. New target whenever the active-tier footprint
+		// or lock state changes — capture the current value as the source
+		// and reset the elapsed clock so the next 0.15s plays out linearly
+		// from here. Positional aim drives the ring to the tier's authored
+		// AoE radius; Directional uses the locked-mob silhouette or the
+		// default outer radius.
+		float targetOuter;
+		if (aimType == EAimType.Positional)
+		{
+			targetOuter = positionalRadius;
+		}
+		else if (mobTargeted)
+		{
+			targetOuter = mobTargetOuter;
+		}
+		else
+		{
+			targetOuter = _groundRingOuterRadius;
+		}
 		if (Mathf.Abs(targetOuter - _ringTarget) > 1e-4f)
 		{
 			_ringSource = _currentOuterRadius;
@@ -578,9 +614,25 @@ public partial class AimingReticle : Node3D
 		SetMeshAlpha(_mainLine, alpha);
 		SetMeshAlpha(_spreadLineLeft, alpha);
 		SetMeshAlpha(_spreadLineRight, alpha);
-		// Ground ring gets an extra dim while not locked on a mob. Snaps with
-		// the red-tint switch; the radius lerp carries the smooth half.
-		float groundScale = _lastMobTargeted ? 1f : _groundRingUnlockedAlphaScale;
+		// Ground ring's alpha scale depends on what it's currently
+		// representing: a Positional AoE footprint (loud — the ring is the
+		// only telegraph), a Directional mob lock (full alpha), or an
+		// unlocked Directional reticle (quieter dim). `_lastAimType` is
+		// held across fade-out so the styling stays consistent as alpha
+		// drops to zero.
+		float groundScale;
+		if (_lastAimType == EAimType.Positional)
+		{
+			groundScale = _groundRingPositionalAlphaScale;
+		}
+		else if (_lastMobTargeted)
+		{
+			groundScale = 1f;
+		}
+		else
+		{
+			groundScale = _groundRingUnlockedAlphaScale;
+		}
 		SetMeshAlpha(_groundCircle, alpha * groundScale);
 		SetMeshAlpha(_endKnob, alpha);
 	}
@@ -744,5 +796,23 @@ public partial class AimingReticle : Node3D
 	{
 		ItemAction tier = ResolveActiveTier(out _);
 		return tier?.aimType ?? EAimType.Directional;
+	}
+
+	// Reach of the active tier in world meters — the disk radius for
+	// Positional aim and the directional raycast cap for Directional aim.
+	// Positional tiers author their own `positionalRange` (independent of
+	// weapon hitscan/projectile reach), so a charged AoE on a bow can target
+	// closer than the bow's arrows fly. Directional tiers defer to
+	// Player.GetWeaponRange so the reticle line stays in sync with the
+	// shot's actual range / charge ramp.
+	float ResolveActiveAimRange()
+	{
+		ItemAction tier = ResolveActiveTier(out _);
+		if (tier == null) { return 0f; }
+		if (tier.aimType == EAimType.Positional)
+		{
+			return tier.positionalRange;
+		}
+		return _player.GetWeaponRange(EInventorySlot.WeaponRight);
 	}
 }

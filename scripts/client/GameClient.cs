@@ -12,6 +12,7 @@ public partial class GameClient : Node3D
 	[Export] public AlmanacScreen almanacScreen;
 	[Export] public CookingScreen cookingScreen;
 	[Export] public MerchantScreen merchantScreen;
+	[Export] public DeathScreen deathScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
 	[Export] public MeshInstance3D bloomQuad;
@@ -181,6 +182,10 @@ public partial class GameClient : Node3D
 
 	public Action onInit;
 	public Action<Player> onPlayerSpawned;
+	// Fires once when the player crosses to dead — Hud and any other
+	// subscribers can react alongside the DeathScreen sequence the client
+	// drives directly.
+	public Action<Player> onPlayerDied;
 	public Action<Vector3, string, ulong, float, Color> onHudText;
 	// Multi-line typewriter dialogue. Fired by Mob.Speak when a Talk
 	// interaction completes; OnDialogueRequested forwards to the HUD's
@@ -282,6 +287,12 @@ public partial class GameClient : Node3D
 
 	Player _player;
 	World _world;
+	// Where the player was first placed — reused for respawn so the camera
+	// snap and player teleport always land at the same authored / world-file
+	// spawn point. WorldState.Spawn is the same value today, but holding
+	// our own copy keeps respawn intact if a future save-load path mutates
+	// WorldState.Spawn for a different purpose.
+	Vector3 _spawnPosition;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
@@ -349,6 +360,7 @@ public partial class GameClient : Node3D
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
 	{
+		_spawnPosition = playerPosition;
 		onHudText += OnHudTextRequested;
 		onDialogue += OnDialogueRequested;
 		onInit?.Invoke();
@@ -383,6 +395,7 @@ public partial class GameClient : Node3D
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
 		_player.onInteractChanged += OnPlayerInteractChanged;
 		_player.onLanguageLearned += OnPlayerLanguageLearned;
+		_player.onDied += OnPlayerDiedInternal;
 		sceneViewport.AddChild(_player);
 		// Suppress announcements during spawn-time knowledge application so
 		// the starting health potion, known recipes, etc. don't pop banners
@@ -572,11 +585,14 @@ public partial class GameClient : Node3D
 			_player.ClearInput();
 		}
 
-		// Recenter the virtual aim cursor while Aim is not held so each new
-		// aim session starts centered. The _Input gate above blocks motion
-		// accumulation while not aiming; this clears any residue from the
-		// previous session.
-		if (!Input.IsActionPressed("Aim"))
+		// Recenter the virtual aim cursor when not aiming so each new aim
+		// session starts centered. Gated on IsAiming so a mid-charge release
+		// of the stick (Positional aim with the cursor parked away from
+		// center) doesn't get zeroed out from under the player — IsAiming
+		// stays true through a charge even when the Aim button is released.
+		// The _Input gate above blocks motion accumulation while not aiming;
+		// this just clears any residue between sessions.
+		if (_player != null && !_player.IsAiming)
 		{
 			_mousePosition = Vector2.Zero;
 		}
@@ -899,16 +915,16 @@ public partial class GameClient : Node3D
 			// Virtual aim-stick model: _mousePosition is the deflection of an
 			// imaginary cursor around the player, in pixels. Mouse Relative is
 			// scaled by sensitivity, accumulated, and clamped to a fixed
-			// radius so the cursor lives on a disk. Direction-only after that
-			// — atan2 in Player ignores magnitude. The deadzone keeps the
-			// resting direction stable when only sub-pixel jitter is arriving.
+			// radius so the cursor lives on a disk. Direction (Directional) or
+			// rate-input (Positional) interpretation happens downstream.
 			//
-			// Gated on Aim being held: without Aim, the player faces movement
-			// direction, so accumulating cursor motion would just feed a
-			// direction the rotation block ignores. Recentering on release
-			// (see _Process) makes each aim session start centered, matching
-			// gamepad right-stick recentering.
-			if (!Input.IsActionPressed("Aim"))
+			// Gated on _player.IsAiming rather than the raw Aim button so
+			// mid-charge mouse motion still reaches the Positional cursor:
+			// the player is holding the attack button during charge, not Aim,
+			// but IsAiming is forced true through charging (see Player._aiming).
+			// Recentering on aim-off (see _Process) makes each aim session
+			// start centered, matching gamepad right-stick recentering.
+			if (!_player.IsAiming)
 			{
 				return;
 			}
@@ -1147,6 +1163,43 @@ public partial class GameClient : Node3D
 	{
 		paused = !paused;
 		onPauseToggled?.Invoke(paused);
+	}
+
+	// Player.onDied bridge. Suppress gameplay input for the entire death
+	// sequence (fade-out → prompt → fade-in); DeathScreen clears the gate
+	// at the end of its fade-in. Notify subscribers, then hand control to
+	// the DeathScreen for the visual + audio sequence.
+	void OnPlayerDiedInternal(Player player)
+	{
+		InputSuppressed = true;
+		onPlayerDied?.Invoke(player);
+		if (deathScreen != null)
+		{
+			deathScreen.Show(this);
+		}
+		else
+		{
+			// No screen wired (unit-test scaffolding): respawn immediately
+			// so the gate doesn't strand input forever.
+			RespawnPlayer();
+			InputSuppressed = false;
+		}
+	}
+
+	// Called from DeathScreen when the player accepts the respawn prompt.
+	// Resets player pools / status effects, hard-teleports to the spawn
+	// point, and snaps the camera so the first frame of the fade-in already
+	// shows the spawn position rather than tween-lerping from the death
+	// site. Input stays suppressed by DeathScreen until its fade-in
+	// completes.
+	public void RespawnPlayer()
+	{
+		if (_player == null)
+		{
+			return;
+		}
+		_player.Respawn(_spawnPosition);
+		camera.SetInitialPosition(_spawnPosition);
 	}
 
 	public void Save()

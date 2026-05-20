@@ -626,7 +626,7 @@ radial_segments = 12
 rings = 6
 
 [node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
-floor_max_angle = 0.872665
+floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
@@ -673,7 +673,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(504, 0, 72, 72)
+region_rect = Rect2(72, 72, 72, 72)
 script = ExtResource("4_qgnko")
 Material = 1
 MirrorByYaw = true

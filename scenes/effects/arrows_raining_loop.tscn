@@ -1,0 +1,43 @@
+[gd_scene format=3 uid="uid://bk7nf42rqxlpw"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="2_arrow_tex"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_arrowfall"]
+particle_flag_align_y = true
+emission_shape = 3
+emission_box_extents = Vector3(2.5, 0.1, 2.5)
+direction = Vector3(0, -1, 0)
+spread = 4.0
+initial_velocity_min = 18.0
+initial_velocity_max = 22.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.8
+scale_max = 1.2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_arrowfall"]
+transparency = 1
+shading_mode = 0
+albedo_texture = ExtResource("2_arrow_tex")
+texture_filter = 0
+alpha_scissor_threshold = 0.5
+alpha_antialiasing_mode = 0
+billboard_keep_scale = true
+cull_mode = 2
+
+[sub_resource type="QuadMesh" id="QuadMesh_arrowfall"]
+material = SubResource("StandardMaterial3D_arrowfall")
+size = Vector2(0.4, 0.8)
+
+[node name="ArrowsRainingLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Arrows" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 8, 0)
+amount = 60
+lifetime = 0.6
+randomness = 0.4
+visibility_aabb = AABB(-3, -10, -3, 6, 12, 6)
+process_material = SubResource("ParticleProcessMaterial_arrowfall")
+draw_pass_1 = SubResource("QuadMesh_arrowfall")

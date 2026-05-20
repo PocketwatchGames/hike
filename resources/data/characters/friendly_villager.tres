@@ -1,8 +1,7 @@
-[gd_resource type="Resource" script_class="MobData" load_steps=6 format=3 uid="uid://cnpc1villdata"]
+[gd_resource type="Resource" script_class="MobData" load_steps=5 format=3 uid="uid://cnpc1villdata"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/friendly_villager_brain.tres" id="2_brain"]
-[ext_resource type="Script" uid="uid://bxk4n2mp7q5wa" path="res://scripts/data/LootCount.cs" id="3_4qdy7"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 

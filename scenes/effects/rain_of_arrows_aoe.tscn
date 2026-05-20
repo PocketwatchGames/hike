@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://ck5pq8rxnv7hd"]
+
+[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_dmg"]
+[ext_resource type="PackedScene" uid="uid://bk7nf42rqxlpw" path="res://scenes/effects/arrows_raining_loop.tscn" id="4_loop"]
+
+[sub_resource type="Resource" id="Resource_rain_of_arrows_damage"]
+script = ExtResource("3_dmg")
+healthDamage = 10.0
+statusEffects = null
+modifiers = null
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_rain_of_arrows_zone"]
+radius = 2.5
+
+[node name="RainOfArrowsAoE" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+script = ExtResource("1_gas")
+lifetimeSeconds = 1.5
+_dangerZone = NodePath("DamageZone")
+
+[node name="DamageZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("2_dz")
+damage = SubResource("Resource_rain_of_arrows_damage")
+tickInterval = 0.3
+tickOnEnter = true
+enemiesOnly = true
+metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+shape = SubResource("SphereShape3D_rain_of_arrows_zone")
+
+[node name="Loop" parent="." instance=ExtResource("4_loop")]

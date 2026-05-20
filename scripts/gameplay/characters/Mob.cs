@@ -483,6 +483,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasStamina(float amount) => true;
     public void ConsumeStamina(float amount) { }
 
+    // Mobs don't have a blood-mana pool — attack tiers with bloodCost
+    // always pass the gate and the spend is a no-op.
+    public bool HasBlood(float amount) => true;
+    public void DrainBlood(float amount) { }
+
     public void PlayOneShot(EAnimation anim)
     {
         if (_animator == null || mobData == null)
@@ -1878,7 +1883,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PlayOneShot(EAnimation.Die);
     }
 
-    // Mirrors Chest.Complete's loot ejection: each LootCount entry on MobData
+    // Mirrors Chest.Complete's loot ejection: each ItemCount entry on MobData
     // fires `count` Loot instances outward on a 45° upward arc. Random
     // horizontal angle per item so a multi-drop carcass scatters rather than
     // dropping in a tight stack.
@@ -1895,7 +1900,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
         for (int i = 0; i < md.loot.Count; i++)
         {
-            LootCount entry = md.loot[i];
+            ItemCount entry = md.loot[i];
             if (entry?.item == null)
             {
                 continue;

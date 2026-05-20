@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="TorchData" format=3 uid="uid://bbbqut0x7kpan"]
 
-[ext_resource type="Script" uid="uid://bu6oheeveqr6e" path="res://scripts/data/TorchData.cs" id="1_torch"]
+[ext_resource type="Script" uid="uid://bu6oheeveqr6e" path="res://scripts/data/items/TorchData.cs" id="1_torch"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kburi"]

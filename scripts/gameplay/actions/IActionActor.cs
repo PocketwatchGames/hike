@@ -26,4 +26,12 @@ public interface IActionActor
 	// expected to allow negative stamina (matching sprint/swim drain).
 	bool HasStamina(float amount);
 	void ConsumeStamina(float amount);
+
+	// Blood-mana gate for ItemAction.bloodCost. HasBlood is a non-mutating
+	// peek used at press time to refuse a drain that would kill the actor.
+	// DrainBlood is an unconditional spend at EnterActive that subtracts
+	// from current HP and arms the per-actor blood-regen delay. Mobs no-op
+	// both (no blood-mana system today).
+	bool HasBlood(float amount);
+	void DrainBlood(float amount);
 }

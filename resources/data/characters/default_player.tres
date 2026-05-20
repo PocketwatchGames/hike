@@ -107,8 +107,12 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 17: SubResource("Resource_anim_swim_sprint")
 })
 stepHeight = 1.1
+jumpSpeed = 12.0
+jumpHoldGravityScale = 0.5
 perceptionMinimum = 0.0
 hearingRange = 15.0
+swimJumpSpeed = 16.0
+bloodRegenSpeed = 1.0
 dashActionProfile = ExtResource("6_dash")
 coldTemperature = 40.0
 coldStatus = ExtResource("4_cold")

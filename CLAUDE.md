@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Hike is an isometric exploration game built with Godot 4.6 (C#/.NET 8.0). It features a voxel-based hand-designed environment with 2D sprite props, dual-stick controls, and pixel art visuals. Indoor and outdoor environments transition seamlessly using a ceiling cutaway effect that handles complex environments.
 
+## Priorities
+
+Always prefer code quality, simplicity, and speed/ease of content authoring over implementation cost. This is a small-team project where authored content (`.tres`/`.tscn` files) is the long-tail bottleneck — a slightly harder implementation that makes authoring faster, less error-prone, or simpler to reason about is worth it.
+
 ## Build & Run
 
 ```bash
@@ -78,36 +82,9 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 
 ## Documentation
 
-### World File & Disk Loading (`scripts/voxels/io/`)
+### Voxel World File & Streaming (`scripts/voxels/`)
 
-The game can load its world from a packed `.hike` file instead of running `WorldGen` at startup. This is the foundation for shipping a large hand-authored world produced by a custom editor.
-
-**Format** (`WorldFile.cs`): single file per world, header + per-chunk index + payload. Each chunk's payload is independently addressable via `(offset, length)` in the index, so a future streaming loader can `Seek` to any chunk without loading or rewriting the file. Header carries world `Min`/`Max`, default `Spawn`, and the `SimData` resource path. Lighting is **baked into each chunk blob** so the runtime never has to recompute light at load.
-
-**Components**:
-- `IChunkSource` — interface (Min/Max/Spawn + `EnumerateChunkCoords` + `TryLoadChunk`). The seam where future streaming and save-delta layers will plug in.
-- `WorldFileChunkSource` — `IChunkSource` impl. Opens the file, reads the header + full index up front, then `TryLoadChunk` seeks and decodes a single chunk. Thread-safe via internal lock.
-- `ChunkSerializer` — single-chunk encode/decode (voxels + light + entity list).
-- `EntitySerializer` — type-tagged binary read/write for `EntitySimState` subclasses. **Type tags are stable wire values — append new ones, never reuse old numbers**, so old world files keep loading after new entity types are added. `PackedScene` and `Resource` references are stored as resource paths.
-
-**Bootstrapping** (`Main.cs`): `StartGame` checks `CVars.worldFile`. If non-empty, it builds a `WorldFileChunkSource`, pulls every chunk into a fresh `WorldState`, and uses the file's `Spawn` as the player position. Otherwise it falls back to `WorldGen.Generate()`. `WorldGen` is kept indefinitely as the editor's "generate basic world" template.
-
-**Producing a world file** (`CVars.worldExport`): with a game running, `world_export <path>` writes the active `WorldState` through `WorldFile.Write`. Used for testing the disk loader against real data before the custom editor exists.
-
-### Streaming a Large World (future)
-
-The target is a hand-authored world of roughly **500×500×100 chunks (~8km × 8km × 1.6km of voxels)**, of which only ~1 in 20 chunks contains meaningful data. Procedural generation will not produce this; it will come from a custom editor that writes `.hike` files directly.
-
-The current disk-loading path still loads **every** chunk into memory at boot. The streaming work will replace that without changing the file format — all the seams are already in place:
-
-- **Async chunk loader** behind a worker thread, calling `IChunkSource.TryLoadChunk` for chunks the player approaches. Mesh generation in `ChunkMesh.Create` can be split into off-thread (`SurfaceTool` build) + main-thread (mesh upload + collision).
-- **`WorldState` becomes a bounded cache.** `_chunks` is populated/evicted by `ChunkManager` as the player moves. Cross-chunk accessors (`GetVoxelWorld`, `GetSunlightWorld`, etc.) already return defaults for missing chunks, which is the correct behavior for unloaded neighbors.
-- **`Min`/`Max` go away** (they make the world feel finite and break a sliding `LightMap`). `World.CreateWorldBoundary` and the current `LightMap` constructor depend on them; both need updating. A small world manifest file may take over for spawn / extent if walls are still wanted.
-- **Sliding-window `LightMap`.** The current map is sized to the entire world bounds — at the target scale that's >100 GB of texture. Replace with a player-centric window covering the streaming radius (re-centered as the player crosses chunk boundaries). Since light is baked into each chunk blob, populating the window is just a copy — no propagation pass on load.
-- **Save model is deferred.** When player mutations need persistence, the answer will be either a delta layer over the read-only authored data or copy-on-first-load into a save slot. Either way it's a second `IChunkSource` implementation (likely a `LayeredChunkSource`) — no change to anything that consumes chunks.
-- **Entity sync-back.** Mobs walk; chests change state. Before a chunk is evicted, its live `Node3D` entities must flush their mutable state back to `EntitySimState`. The `IWorldEntity` interface is the right place for a `SyncToSimState()` hook.
-
-**What not to break when working in this area**: keep chunk payloads independently addressable, keep `IChunkSource` as the only thing that touches the file format, keep entity type tags stable, and don't add any code path that iterates "every chunk in the world" — the design must remain compatible with worlds where most chunks are not resident.
+The game loads its world from a packed `.hike` file (`WorldFile` / `WorldFileChunkSource`) when `CVars.worldFile` is set, falling back to `WorldGen.Generate()` otherwise — chunk payloads are independently addressable through the `IChunkSource` interface, with lighting baked into each chunk blob and entity state serialized via stable `EntitySerializer` type tags. This is the seam for future async streaming, a sliding-window `LightMap`, and save-delta layers. See [scripts/voxels/CLAUDE.md](scripts/voxels/CLAUDE.md).
 
 ### Save/Load System (`scripts/SaveGame.cs`)
 
@@ -125,60 +102,11 @@ Runtime configuration variables with an in-game console. Add new CVars as `publi
 
 ### Mob AI System (`scripts/gameplay/MobAI.cs`, `scripts/data/behaviors/`, `scripts/gameplay/behaviors/`)
 
-Per-mob hierarchical state machine driven by polymorphic Resource data.
-
-**Data model (authored in `.tres`):**
-- `BrainData` (`scripts/data/BrainData.cs`) — `idleBehavior` (StringName) + `Array<BehaviorNode> behaviors`. One brain per mob type, referenced from `MobData.brain`.
-- `BehaviorNode` — `name` (StringName, per-brain instance id), `data` (`BehaviorData` subclass), `Array<BehaviorNodeTransition> transitions`.
-- `BehaviorData` (base, `scripts/data/BehaviorData.cs`) — abstract per-behavior tuning. Subclasses live in `scripts/data/behaviors/` (e.g. `IdleBehaviorData`, `AttackBehaviorData`). Override `CreateRuntime()` to return a fresh `BehaviorBase` instance bound to this data.
-- `BehaviorNodeTransition` — `condition` (`BehaviorTransitionData` subclass) + `destination` (StringName naming a sibling node).
-- `BehaviorTransitionData` (base, `scripts/data/BehaviorTransitionData.cs`) — abstract transition predicate. Subclasses live in `scripts/data/behaviors/conditions/` (e.g. `AggroAcquiredCondition`). Override `Evaluate(Mob, ref PerceptionState)`.
-
-**Runtime:**
-- `BehaviorBase` (base, `scripts/gameplay/BehaviorBase.cs`) — runtime instance per mob. Subclasses live in `scripts/gameplay/behaviors/` (e.g. `BehaviorIdle`, `BehaviorAttack`). Override `Run(Mob, time, ref PerceptionState, ref AIOutput)`. Use `TryTransitions(...)` to evaluate the node's transitions; on a hit return `new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination)`. Otherwise write to `AIOutput` and return `Running`. Per-instance state (timers, sub-state) lives on the runtime instance — never on the shared data Resource.
-- `Mob.InitBehaviors()` walks `mobData.brain`, instantiates each `BehaviorData.CreateRuntime()`, calls `Init(node)`, populates `_behaviors` (Dictionary<StringName, BehaviorBase>), validates transition destinations, sets `_curBehavior = brain.idleBehavior`.
-- `Mob.TickAI(deltaTime, out AIOutput)` runs in `_PhysicsProcess` at 60Hz. Picks the highest-perception triggered slot from `_simState.PerceptionTargets`, then runs the current behavior; behavior output drives actuation (`Mob._PhysicsProcess` reads `AIOutput.pathTarget` and applies impulses, with damping toggling for braking).
-
-**Perception:**
-- `MobSimState.PerceptionTargets[]` — one `PerceptionState` slot per potential target (currently sized 1 for the player; preserved as an array for future multiplayer). Each slot has `perception` (slow-accumulating awareness), `triggered` (latched binary; sets when perception hits `MobData.PerceptionThresholdAlert`, clears at 0), `aggro`, `canSee`, `lastKnownPosition`, and the target reference.
-- `Mob.UpdatePerception()` is throttled via `MobSimState.PerceptionTickAccumulator` / `PerceptionTickInterval` (~10Hz, jittered per-mob at construction so raycasts don't clump on the same frame). Behaviors stay at 60Hz so combat reactions are responsive.
-
-**Adding a new behavior:**
-1. Create `FooBehaviorData : BehaviorData` in `scripts/data/behaviors/` with `[Export]` tuning fields and `CreateRuntime() => new BehaviorFoo(this)`.
-2. Create `BehaviorFoo : BehaviorBase` in `scripts/gameplay/behaviors/`. Constructor takes the data; `Run` calls `TryTransitions` first, then writes to `AIOutput`.
-3. Add a `BehaviorNode` to the brain `.tres` with a unique `name`, the new data subclass, and any transitions.
-
-**Adding a new transition condition:**
-1. Create `FooCondition : BehaviorTransitionData` in `scripts/data/behaviors/conditions/` overriding `Evaluate`.
-2. Wire it as the `condition` of a `BehaviorNodeTransition` sub-resource in the brain `.tres`.
-
-Both base classes are non-abstract (`virtual` with `GD.PushError` fallback) so `[GlobalClass]` plays nicely with Godot's editor picker. Subclasses must be tagged `[GlobalClass]` to surface in the inspector.
+Per-mob hierarchical state machine driven by polymorphic Resource data — `BrainData` holds `BehaviorNode`s, each pairing a `BehaviorData` subclass (authored tuning) with `BehaviorNodeTransition`s gated by `BehaviorTransitionData` predicates; `BehaviorBase` runtime instances tick at 60Hz against `PerceptionState[]` slots in `MobSimState` (perception accumulates at ~10Hz and latches `triggered` when crossing `PerceptionThresholdAlert`). See [scripts/gameplay/behaviors/CLAUDE.md](scripts/gameplay/behaviors/CLAUDE.md).
 
 ### Action System: Weapons, Consumables, Interactives (`scripts/data/actions/`, `scripts/gameplay/actions/`)
 
-A single `ActionRunner` (one per actor) drives all timeline-based player and mob actions. Two distinct authored data shapes feed it.
-
-**Slot-driven actions (weapons, consumables, mob attacks)** — pressed via input or AI request:
-- `ItemActionProfile` (`scripts/data/actions/ItemActionProfile.cs`): one profile per slot. Holds an `Array<ItemAction> chargedActions` (the tiers), profile-level `chargeEvents` / `chargeEndEvents` / `abortEvents`, and behavioral flags (`autoActivateAtMax`, `locksMovement`, `interruptOnDamage`, `queueable`/`queueWindowSeconds`).
-- `ItemAction` (`scripts/data/actions/ItemAction.cs`): one charge tier within a profile. Carries `chargeTime`, `activeDurationSeconds`, `cooldownSeconds`, `events` (Active timeline), `readyEvents` (announce reaching this tier), combo position (`comboIndex` / `comboWindowMs`), `requirements`, abort/interrupt policy (`canAbort` / `canInterrupt`), per-tier charge curves, and per-tier charge fx (`chargeStartEffect`, `chargeLoopEffect`, `chargeCancelEffect`, `releaseEffect`).
-- Profiles are referenced from `WeaponData.actionProfile`, `ConsumableData.actionProfile`, and `AttackBehaviorData.actionProfile`.
-
-**Interactive actions (chest, door, torch, loot)** — pressed via Interact:
-- `InteractiveAction` (`scripts/data/actions/InteractiveAction.cs`): one verb's behavior on an interactive. Self-describes its `verb` (EActionVerb) + `displayName` (StringName, used by future radial UI). Carries `interactEvents` (timeline during the wait), `completionEvents` (fired as a batch at `durationSeconds` — this is where `OpenInteractive` lives, so authors don't have to align an event time to the duration), `requirements`, `locksMovement`, `interruptOnDamage`. No charging, queueing, combo, or auto-activate — interactives have one phase that runs to completion.
-- `IInteractive` (`scripts/gameplay/IInteractive.cs`): exposes `Array<InteractiveAction> GetActions(Player)` and `Complete(int actionIndex)`. The first entry is the default action; future radial UI iterates the array reading `displayName` for each entry. The `ActionRunner` calls `interactive.Complete(context.interactiveActionIndex)` from the `OpenInteractive` event handler.
-
-**`ActionRunner` (`scripts/gameplay/actions/ActionRunner.cs`)**: single-action runner with one in-flight `PlayerAction` plus an optional queued action. Two `TryStart` overloads (one per data shape) — `ItemActionProfile` enters Charging, walks tier selection, fires `readyEvents` on tier promotion, transitions to Active on release / `autoActivateAtMax`; `InteractiveAction` enters Active immediately, walks `interactEvents` over `durationSeconds`, fires `completionEvents` from `EndActive`. Aborts (player-initiated `TryAbort`, damage-driven `TryInterrupt`) skip `completionEvents` for interactives; weapons consult per-tier `canAbort` / `canInterrupt`.
-
-**`ItemEvent` (`scripts/data/actions/ItemEvent.cs`)**: shared timeline event used by both shapes. `type` is a bitmask of `EItemEventType` flags (Melee, Hitscan, UseAmmo, ApplyEffect, DecrementStack, ToggleMovingLight, PlayAnim, PlaySound, OpenInteractive, ConsumeFromInventory) — a single event can fire several handlers at once (e.g. a healing potion's release tick is `ApplyEffect | DecrementStack`). Per-flag fields are unioned on the resource; the inspector hides fields whose owning flag isn't selected (`_ValidateProperty`), but storage is preserved so toggling a flag off and back on doesn't lose values. **Wire values are stable: append new bits, never reassign existing ones**, so existing `.tres` files keep loading. The `fx` field is the per-event audiovisual cue (e.g. the chest-creak puff lives on the `OpenInteractive` event in chest.tscn, not on the chest's C# class).
-
-**Player flow**:
-- Press Interact: `Player.TryStartInteractiveAction(highlight)` calls `runner.TryStart(actions[0], context)` and stashes `(_curInteractive, _curInteractiveActionIndex)` so the existing movement-lock and Interacting-anim checks (`_curInteractive != null`) keep working unchanged.
-- After `_runner.Tick()`: if `_curInteractive != null` and the runner is no longer busy, the interactive completed naturally — clear `_curInteractive` and `_highlightInteractive`.
-- Cancel (Jump / Sneak / repeat-Interact press): `CancelInteract` calls `_runner.TryAbort()` if mid-interactive, then clears `_curInteractive`.
-
-**Adding a new interactive**: implement `IInteractive`, expose `[Export] Array<InteractiveAction> _actions`, return it from `GetActions`, branch on `actionIndex` (or `_actions[actionIndex].verb`) inside `Complete`. Author the `.tscn` with one or more inline `InteractiveAction` sub-resources, each carrying `verb`, `durationSeconds`, `interactEvents`, and `completionEvents` (typically `[OpenInteractive]`).
-
-**Adding a new weapon / consumable verb**: extend `EActionVerb`, author a new `ItemAction` tier on the profile with the new verb tag, wire its `events` and per-tier fx. The runner's tier-selection loop picks it up via `comboIndex` / `chargeTime`.
+A single per-actor `ActionRunner` drives all timeline-based player and mob actions via two authored data shapes — `ItemActionProfile` (charge-tier-based `ItemAction`s, used for weapons / consumables / mob attacks, dispatched by `EActionVerb`) and `InteractiveAction` (single-phase wait used for chests / doors / torches / loot via `IInteractive`); both consume `ItemEvent` timelines whose `type` is an `EItemEventType` flag bitmask (Melee, Hitscan, UseAmmo, ApplyEffect, DecrementStack, ToggleMovingLight, PlayAnim, PlaySound, OpenInteractive, ConsumeFromInventory). See [scripts/gameplay/actions/CLAUDE.md](scripts/gameplay/actions/CLAUDE.md).
 
 ### Audio-Visual Effects (`scripts/utils/Fx.cs`)
 
@@ -213,43 +141,7 @@ The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor
 
 ### Minimap (`scripts/gameplay/minimap/`, `shaders/minimap.gdshader`)
 
-Two parallel renderers behind one HUD widget — the **world (heightmap) map** for outdoor view, and the **slice (atlas) map** for indoor / underground view. The HUD shader composites them with a state-A/state-B crossfade so mode toggles (camera cutaway) and slice-level crossings glide smoothly instead of snapping.
-
-**Why two paths**: the outdoor map is a top-down silhouette of terrain — one height per XZ column suffices, so it's a single global texture. The slice map answers "what does this *level* of the world look like in plan view?" — every slice is a separate texture per Y-band, sparsely allocated, because most of the world's volume is empty air or solid rock and only the inhabited bands matter.
-
-**Resolution split**:
-- Outdoor heightmap: **2m/voxel** (`MinimapData.OutdoorMetersPerPixel`). Each pixel covers a 2×2 block; `GenerateSurfaceRow` writes the **max** top-face Y of the block. The max preserves cliff silhouettes (a single-voxel pillar still contributes its height) but **aliases at cliff edges** — see "Slice reveal trace" below.
-- Indoor slice atlas: **1m/voxel** (`MinimapData.IndoorMetersPerPixel`). One full-extent texture per slice level the player has visited, allocated lazily into `MinimapSliceAtlas._layers`. Each cell encodes the slice center as its synthesized height (so all in-slice content has the same `h`).
-- Plateau height = 4m (`MinimapData.PlateauHeight`). Slice levels = `floor(Y / 4)`.
-
-**Surface texture layout** (RGBA8, both maps):
-- R = height low byte, G = height high byte (combined → world Y of top face, 0 = no content)
-- B = resolved tile id (0..63, indexes the `MinimapTileColors` LUT)
-- A = foliage id (0..255, indexes the `MinimapFoliageColors` LUT — multiplicative darken on terrain color)
-
-The **wall slot** (`MinimapTileColors.WALL_SLOT = 32`) is reserved for slice cells that are solid throughout the slice with no air above. It paints kit-agnostic dark grey so underground rock reads consistently, regardless of biome.
-
-**Exploration is a separate R8 texture** per renderer (outdoor mask + per-slice masks). Soft-edged disk reveal writes `max(value, existing)`. Outdoor reveal uses `GameClient.minimapRevealMultiplier × player.visionRange`; slice reveal scales the same value linearly by `WorldState.GetPerceivedLightWorld(playerPos)` (zero light → zero reveal — you can't chart what you can't see).
-
-**Slice reveal trace** (`Minimap.RevealOutdoorSliceColumns`) — *do not change to use the heightmap directly*. The 2m heightmap aliases mixed-elevation 2×2 blocks (cliff edge cells) to the column max, which would misclassify the lower-elevation voxels in those blocks into the wrong slice and leave the lower region unrevealed at the cliff base. The trace uses the heightmap as a search-start hint and walks `WorldState.GetVoxelWorld(wx, wy, wz)` downward at 1m granularity to find each column's actual topmost-non-air voxel. Treats water as content (matches the heightmap and slice-tile passes); using `IsSolid` would skip water surfaces and never reveal lakes.
-
-**View radius vs reveal radius — independent**. Reveal is a sim/persistence concern (`vision × multiplier`). View is presentation (`screenPx / 2 / minimapPixelsPerMeter`, computed in `Hud.UpdateMinimapViewRadius` from the TextureRect size — *not* from player vision). `minimapIndoorZoom` multiplies pixels-per-meter for indoor mode so corridors zoom in; it doesn't affect reveal because the player's perception range doesn't shrink just because we render a tighter view.
-
-**Shader sampling rules** (`shaders/minimap.gdshader`):
-- **Height** comes from a single linear-filtered `texture()` sample (smooth elevation shading + smooth contour curves).
-- **Tile and foliage IDs** sample the surface texture via `texelFetch` (nearest) — interpolated IDs would walk through intermediate slots and bleed grass/bush colors as a halo around tree stamps.
-- **Terrain color** is a 4-tap **bilinear blend of resolved colors**: each corner runs through `tile_lut`, the four resulting RGB values blend by UV fraction. Smooth tile transitions without checkerboarding.
-- **Foliage darken** is applied AFTER the bilinear terrain blend, using the nearest-sampled foliage id, so foliage edges stay sharp (no bilinear bleed of darken into surrounding fragments).
-- **Plateau classification** uses the *nearest-sampled* height, not the linear one. Linear height drifts through values like 9, 8 across the boundary between content (slice center = 10) and empty (h = 0); fragments with `h0 ∈ [8, 12)` would falsely classify as "on the player's plateau" and render bright. Nearest snaps cleanly per cell. The contour line still uses linear height.
-- **Topographic contour** is gated by `is_step` — neighbor differential ≥ 0.9 × plateau_height — so it only draws on actual cliff steps, not on every smooth ramp.
-
-**Foliage stamps** (`Minimap.StampPropsRecursive`) — both `MultimeshPropSprite` (trees, tall grass, decor) and `SpriteBase` (LitSprite/FlatLitSprite — chests, doors, berry trees) expose `MinimapFoliageId`. Non-zero id stamps a single source pixel into the surface texture's A channel for both the outdoor heightmap AND the player's slice atlas layer (slice level computed from `floor((worldY - 1) / PlateauHeight)` so a prop on a plateau's top face lands in the slice that owns the ground).
-
-**Crossfade state ping-pong** (`Minimap.UpdateStateTransition`) — captures the *previous* render state into A when mode/slice changes, sets B to the new state, and damps `_stateTransition` 0 → 1 over ~0.3s. The shader renders both states and `mix()`es by transition. Reference elevation is also damp-lerped (`_smoothedReferenceY`) so the per-pixel above/below classification glides at slice crossings instead of every pixel reclassifying in one frame.
-
-**Reveal cadence**: the disk re-fires every `RevealIntervalSeconds` (0.1s) regardless of player movement. The previous movement gate caused chunks loaded async after spawn to never get revealed until the player moved. The mask uses `max()`-merge so re-running on a stationary player is essentially free — only newly-loaded chunks contribute writes.
-
-**Tuning knobs all live on `GameClient` under the `Minimap` ExportGroup**: `minimapTileColors`, `minimapFoliageColors`, `minimapPixelsPerMeter`, `minimapIndoorZoom`, `minimapRevealMultiplier`, `minimapRevealInnerFraction`. Material shader parameters (above/below brightness/saturation/contrast, contour interval/width/strength, mask radius) live on `resources/materials/minimap.tres`. The runtime-driven uniforms (`view_radius_meters`, `surface_texture_*`, `world_origin_xz_*`, etc.) are pushed each frame from `Hud.UpdateMinimap` — don't author them in the .tres, the runtime overwrites whatever you set.
+Two parallel renderers behind one HUD widget — a global outdoor heightmap (2m/voxel, one height per XZ column) and a sparse per-slice indoor atlas (1m/voxel, slice = `floor(Y / PlateauHeight)`), composited via a state-A/state-B crossfade so mode toggles and slice-level crossings glide. Surface texels pack height + tile id (`MinimapTileColors` LUT) + foliage id (`MinimapFoliageColors` LUT); exploration is a separate R8 mask per renderer, revealed via soft-edged disk writes scaled by `WorldState.GetPerceivedLightWorld` for slices. See [scripts/gameplay/minimap/CLAUDE.md](scripts/gameplay/minimap/CLAUDE.md).
 
 ### Build-Time Code Generation (`hike.csproj`)
 

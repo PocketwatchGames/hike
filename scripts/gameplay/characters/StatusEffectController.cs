@@ -88,6 +88,18 @@ public class StatusEffectController
 		}
 	}
 
+	// Drop every active effect, running the per-effect EndFx so loop instances
+	// stop and end cues fire. Used by Player.Respawn so a cold / wet / poisoned
+	// corpse comes back clean.
+	public void Clear()
+	{
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			EndFx(_statusEffects[i]);
+		}
+		_statusEffects.Clear();
+	}
+
 	// Per-second damagePerSecond chunks + expiry pruning. Iterates backwards
 	// so a mid-loop removal doesn't shift indices for unvisited entries.
 	// Persistent effects (expireTimeMs == 0) survive forever and rely on

@@ -107,6 +107,12 @@ public partial class Player : CharacterBody3D
 	public Action<IInteractive> onInteractChanged;
 	public Action<Player> OnWaterEnter;
 	public Action<Player> OnWaterExit;
+	// Fired once on the alive→dead transition (any source: damage, status
+	// tick). GameClient subscribes to drive the death screen + audio fade.
+	// Re-hits on the corpse do NOT re-fire — gating lives at the call site
+	// in OnHurtBoxHit / ApplyStatusHealthDelta, since those are the only
+	// places that drop _health.
+	public Action<Player> onDied;
 
 	World _world;
 	IInteractive _curInteractive;
@@ -226,6 +232,15 @@ public partial class Player : CharacterBody3D
 	// Game-time at which stamina recharge can begin. Set to (now + rechargeDelay)
 	// on every ConsumeStamina call; TickStamina is a no-op until now reaches it.
 	ulong _staminaRechargeStartMs;
+	// "Blood mana" drain — HP paid by an action via TryDrainBlood that
+	// refunds itself over time. Modeled on armor: a single shared
+	// _bloodRegenStartMs is pushed forward on every drain, after which
+	// _drainedHealth pays back at PlayerData.bloodRegenSpeed HP/sec. HUD
+	// reads DrainedHealth and renders it as a darker red region anchored
+	// to the right edge of the health bar.
+	float _drainedHealth;
+	ulong _bloodRegenStartMs;
+	public float DrainedHealth => _drainedHealth;
 	// Dash state machine. Seeded by Player.ApplyMotion (driven by an
 	// ApplyMotion event in the dash action profile). While
 	// _dashTimeRemaining > 0, _PhysicsProcess overrides the input-driven
@@ -304,6 +319,7 @@ public partial class Player : CharacterBody3D
 	public bool IsDashing => _dashTimeRemaining > 0f;
 	public bool IsGrounded => _grounded;
 	public bool IsSprinting => _sprinting;
+	public bool IsDead => _health <= 0f;
 	public EWaterState WaterState => _waterState;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
@@ -556,6 +572,7 @@ public partial class Player : CharacterBody3D
 			{
 				SpawnWorldEffect(_deathFx);
 				SpawnWorldEffect(_deathVoFx);
+				HandleDeath();
 			}
 			PlayOneShot(EAnimation.Die);
 		}
@@ -878,7 +895,80 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
+		// Healing climbs all the way to MaxHealth regardless of any
+		// outstanding blood drain — a potion brings you to full even
+		// while a spell's HP debt is still pending. Any drain the heal
+		// climbs into is forgiven (the invariant `Health + DrainedHealth
+		// <= MaxHealth` is restored), since the bar's dark region
+		// represents debt that would be repaid into bright HP — and
+		// you've already paid yourself up to the cap.
 		_health = Mathf.Min(MaxHealth, _health + amount);
+		_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+	}
+
+	// IActionActor — press-time blood gate. Non-mutating peek. Costs of 0
+	// or less always pass; otherwise refuses when the cost would drop HP
+	// to 0, so a drain can never kill the actor directly.
+	public bool HasBlood(float amount)
+	{
+		if (amount <= 0f)
+		{
+			return true;
+		}
+		return _health > amount;
+	}
+
+	// IActionActor — unconditional spend at EnterActive. Subtracts from
+	// current HP, adds to _drainedHealth, and re-arms the single shared
+	// regen delay (PlayerData.bloodRegenDelay). Mirrors armor: every
+	// drain pushes _bloodRegenStartMs forward so chained spells hold
+	// regen back until the player stops drawing.
+	public void DrainBlood(float amount)
+	{
+		if (amount <= 0f || data == null)
+		{
+			return;
+		}
+		_health -= amount;
+		_drainedHealth += amount;
+		ulong now = _world?.GameTimeMs ?? 0;
+		_bloodRegenStartMs = now + (ulong)(data.bloodRegenDelay * 1000f);
+	}
+
+	// Per-tick refund. No-op while _drainedHealth is empty or before the
+	// shared delay elapses; otherwise pays back bloodRegenSpeed * dt to
+	// _health and shrinks _drainedHealth by the same amount so the bright
+	// and dark HUD zones meet seamlessly.
+	private void TickBloodDrain(float dt)
+	{
+		if (_drainedHealth <= 0f || data == null)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (now < _bloodRegenStartMs)
+		{
+			return;
+		}
+		float refund = Mathf.Min(_drainedHealth, data.bloodRegenSpeed * dt);
+		_drainedHealth -= refund;
+		_health = Mathf.Min(MaxHealth, _health + refund);
+	}
+
+	// Hard teleport. Zeros velocity and floods the safe-grounded history so
+	// the stuck-recovery can't yank the player back to a pre-teleport position
+	// once the buffer rolls. Used by the ruby slippers' return-to-spawn effect.
+	public void TeleportTo(Vector3 position)
+	{
+		GlobalPosition = position;
+		Velocity = Vector3.Zero;
+		for (int i = 0; i < SafeGroundedHistorySize; i++)
+		{
+			_safeGroundedHistory[i] = position;
+		}
+		_safeGroundedHistoryWriteIdx = 0;
+		_lastTickPosition = position;
+		_stuckCheckDeadlineMs = 0;
 	}
 
 	// Append a fresh state for `data`. Multiple instances of the same data
@@ -1164,12 +1254,131 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		bool wasAlive = _health > 0f;
+		// Heal-over-time effects climb to MaxHealth the same way Heal()
+		// does — drain doesn't reduce the effective cap, and any drain
+		// the heal climbs into is forgiven to preserve the
+		// `Health + DrainedHealth <= MaxHealth` invariant.
 		_health = Mathf.Clamp(_health + delta, 0f, MaxHealth);
+		if (delta > 0f)
+		{
+			_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+		}
 		if (_health <= 0f && wasAlive)
 		{
 			SpawnWorldEffect(_deathFx);
 			SpawnWorldEffect(_deathVoFx);
+			HandleDeath();
 			PlayOneShot(EAnimation.Die);
+		}
+	}
+
+	// Common bookkeeping on the alive→dead transition. Cancels any in-flight
+	// action (weapon charge / consumable / interactive), tears down dash and
+	// sprint, drops sneak / aim / hitstun-driven knockback, releases the
+	// active interactive, and fires onDied so GameClient can start the
+	// death-screen sequence. Position / velocity / animation are left to
+	// _PhysicsProcess — the corpse falls under gravity and the Die one-shot
+	// (latched by the caller) holds the pose.
+	private void HandleDeath()
+	{
+		_runner?.TryAbort();
+		_pendingWeaponPressSlot = null;
+		_pendingWeaponPressActionName = null;
+		_contextSensitiveAttackSlot = null;
+		_dashTimeRemaining = 0f;
+		_dashGlideRemaining = 0f;
+		_sprinting = false;
+		_sneaking = false;
+		_aiming = false;
+		_hitstunTime = 0f;
+		_knockbackTime = 0f;
+		_knockbackVelocity = Vector3.Zero;
+		_jumpHeld = false;
+		if (_curInteractive != null)
+		{
+			SetCurInteractive(null);
+		}
+		if (_highlightInteractive != null)
+		{
+			_highlightInteractive = null;
+			onHighlightChanged?.Invoke(null);
+		}
+		_inputMove = Vector3.Zero;
+		_inputLook = Vector3.Zero;
+		onDied?.Invoke(this);
+	}
+
+	// Console / scripted death entry point. Drops health to zero on the alive
+	// branch only — re-calling on an already-dead body is a silent no-op so a
+	// stray `die` press doesn't re-fire the death audio / animation. Runs the
+	// same blood + VO + animation latch as a fatal hit so the death sequence
+	// reads identically regardless of source.
+	public void Kill()
+	{
+		if (_health <= 0f)
+		{
+			return;
+		}
+		_health = 0f;
+		SpawnWorldEffect(_deathFx);
+		SpawnWorldEffect(_deathVoFx);
+		HandleDeath();
+		PlayOneShot(EAnimation.Die);
+	}
+
+	// Reset for respawn. Keeps inventory / equipped gear / learned languages /
+	// armor max — those are run-scope, not life-scope — but restores
+	// pools and clears every per-life condition (status effects, wetness,
+	// thermal acclimation, hitstun, dash cooldown). Hard-teleports via
+	// TeleportTo so the stuck-recovery history can't yank the body back to
+	// where it died. Caller (GameClient) is responsible for snapping the
+	// camera to the new position.
+	public void Respawn(Vector3 position)
+	{
+		_statusEffects?.Clear();
+		_wetState = null;
+		_coldState = null;
+		_hotState = null;
+		_wetness = 0f;
+		_drainedHealth = 0f;
+		_bloodRegenStartMs = 0;
+		GameClient client = GameClient.Current;
+		_bodyTemperature = client != null
+			? client.SampleAirTemperature(position)
+			: 70f;
+		_warmthZoneCount = 0;
+		_warmthBonus = 0f;
+		_health = MaxHealth;
+		_armor = _maxArmor;
+		_stamina = MaxStamina;
+		_armorRecharging = false;
+		_armorDepleted = false;
+		_armorRechargeStartMs = 0;
+		_staminaRechargeStartMs = 0;
+		_dashTimeRemaining = 0f;
+		_dashGlideRemaining = 0f;
+		_dashCooldownEndMs = 0;
+		_hitstunTime = 0f;
+		_knockbackTime = 0f;
+		_knockbackVelocity = Vector3.Zero;
+		_sneaking = false;
+		_sprinting = false;
+		_aiming = false;
+		_jumpHeld = false;
+		_oneShotAnim = null;
+		_grounded = false;
+		_coyoteTimeEndMs = 0;
+		TeleportTo(position);
+		// Force the animator off the Die clip so the first post-respawn frame
+		// shows the idle pose instead of holding the corpse. UpdateAnimation
+		// will repick on the next physics tick.
+		if (_animator != null && data != null)
+		{
+			StringName idleName = data.GetAnimationName(EAnimation.Idle);
+			if (idleName != default)
+			{
+				_animator.Play(idleName);
+			}
 		}
 	}
 
@@ -1608,6 +1817,7 @@ public partial class Player : CharacterBody3D
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
+		TickBloodDrain(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
 		TickWetEffect(dt);
@@ -2219,9 +2429,11 @@ public partial class Player : CharacterBody3D
 
 		if (Input.IsActionJustPressed("Jump"))
 		{
-			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || (_waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset))
+			bool swimSurfaceJump = _waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset;
+			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || swimSurfaceJump)
 			{
-				Velocity = new Vector3(Velocity.X, data.jumpSpeed, Velocity.Z);
+				float jumpSpeed = swimSurfaceJump ? data.swimJumpSpeed : data.jumpSpeed;
+				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
 				_grounded = false;
 				_coyoteTimeEndMs = 0;
 				_jumpHeld = true;

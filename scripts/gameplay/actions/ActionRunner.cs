@@ -219,13 +219,10 @@ public class ActionRunner
 		int tier0Index = SelectTierIndex(profile, context, 0f, targetComboIndex);
 		ItemAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
 
-		// Stamina gate at press time. Only tier 0 is checked — higher tiers
-		// may cost more, and that cost is paid (allowed to go negative) when
-		// the player actually releases into that tier in EnterActive.
-		if (tier0 != null && !_actor.HasStamina(tier0.staminaCost))
-		{
-			return false;
-		}
+		// Cost gates (stamina, blood, ammo) all live in SelectTierIndex —
+		// if it returned a non-null tier 0, the press is fully affordable.
+		// Higher tiers self-gate during charge promotion, so an unaffordable
+		// tier 2 stays at tier 1 instead of firing and overdrawing.
 
 		_action = new PlayerAction
 		{
@@ -355,14 +352,15 @@ public class ActionRunner
 
 	private void EnterActive(ItemAction tier, ulong now)
 	{
-		// Pay the activated tier's stamina cost. Unconditional — by this
-		// point the press has been committed and (for charging weapons) the
-		// player has held through the windup. Allowed to drive stamina
-		// negative so a tier-1 release the player couldn't fully afford
-		// still fires.
+		// Pay the activated tier's stamina + blood costs unconditionally —
+		// SelectTierIndex has already gated on HasStamina / HasBlood, so
+		// the spend will land safely. Ammo decrement still rides on the
+		// per-event EItemEventType.UseAmmo flag inside the tier's Active
+		// timeline so authors can pick when in the swing the round burns.
 		if (tier != null)
 		{
 			_actor.ConsumeStamina(tier.staminaCost);
+			_actor.DrainBlood(tier.bloodCost);
 		}
 		FireChargeEndEvents();
 		StopChargeLoop();
@@ -583,6 +581,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoProjectile(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.SpawnAreaEffect) != 0)
+		{
+			ItemEventHandlers.DoSpawnAreaEffect(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.UseAmmo) != 0)
 		{
 			ItemEventHandlers.DoUseAmmo(_actor, ev, ref _action);
@@ -621,10 +623,16 @@ public class ActionRunner
 	{
 		// Highest-to-lowest, return first whose comboIndex matches the chain
 		// target AND whose cumulative start time is reached AND whose
-		// requirements all pass. Requirements failing fall through to the
-		// next lower tier — a Strong attack short on mana drops to Weak
-		// (within the same combo step). The combo filter is fixed for the
-		// duration of the charge.
+		// requirements all pass AND whose costs the actor can afford
+		// (stamina, blood, ammo). Any failure falls through to the next
+		// lower tier — a Strong attack short on mana drops to Weak (within
+		// the same combo step). The combo filter is fixed for the duration
+		// of the charge.
+		//
+		// Costs are gated here (not just at press) because EnterActive
+		// spends are unconditional — gating selection ensures the "armed
+		// for tier N" cue never fires for a tier the actor can't pay for,
+		// and on release the highest affordable tier activates instead.
 		for (int i = profile.chargedActions.Count - 1; i >= 0; i--)
 		{
 			ItemAction action = profile.chargedActions[i];
@@ -633,6 +641,15 @@ public class ActionRunner
 			float tierStart = ItemActionProfile.GetTierStartTime(profile, i, comboIndex);
 			if (chargeElapsedSeconds + 1e-6f < tierStart) { continue; }
 			if (!RequirementsMet(action, context)) { continue; }
+			if (!_actor.HasStamina(action.staminaCost)) { continue; }
+			if (!_actor.HasBlood(action.bloodCost)) { continue; }
+			if (action.useAmmo)
+			{
+				if (context.primaryItem is not WeaponState weapon || weapon.ammo <= 0)
+				{
+					continue;
+				}
+			}
 			return i;
 		}
 		return -1;
