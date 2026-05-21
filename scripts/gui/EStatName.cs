@@ -1,0 +1,27 @@
+// UI label keys for the per-stat readouts on the inventory's item info /
+// action / context panels. Display strings live in GameClient.statNames —
+// this enum is purely a stable handle so call sites don't carry hardcoded
+// strings.
+public enum EStatName
+{
+	Damage,
+	Pierce,
+	Stun,
+	Knockback,
+	BloodCost,
+	StaminaCost,
+	Cooldown,
+	Range,
+	Reach,
+	TargetRange,
+	Dps,
+	Radius,
+	Duration,
+	Ammo,
+	Charges,
+	Heal,
+	MoveSpeed,
+	MaxStamina,
+	ColdResist,
+	HeatResist,
+}

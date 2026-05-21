@@ -250,7 +250,7 @@ public partial class Projectile : Node3D
 	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		ResolveImpact(result, triggers, hurtBox, position);
-		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent());
+		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent(), _impact.sourceWeapon?.data);
 		StopLoopFx();
 		QueueFree();
 	}

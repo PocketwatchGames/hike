@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dm4tlaswv03qa"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
@@ -46,9 +46,16 @@ releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
+[sub_resource type="Resource" id="Resource_area_damage"]
+script = ExtResource("1_damage")
+healthDamage = 10.0
+statusEffects = null
+modifiers = null
+
 [sub_resource type="Resource" id="Resource_event_rain_impact"]
 script = ExtResource("3_event")
 type = 16384
+damageProfileKey = &"rain_of_arrows"
 areaEffectScene = ExtResource("19_rainaoe")
 areaRadius = 2.5
 areaDurationSeconds = 1.5
@@ -114,7 +121,10 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 script = ExtResource("2_weapon")
 maxAmmo = 5
 arrowLootData = ExtResource("17_arrow")
-damageData = SubResource("Resource_damage")
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"primary": SubResource("Resource_damage"),
+&"rain_of_arrows": SubResource("Resource_area_damage")
+})
 pitchRangeDegrees = 45.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75

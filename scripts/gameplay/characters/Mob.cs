@@ -130,6 +130,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
+    // Shared "is this a valid target for `weapon` right now" predicate used by
+    // both the aiming reticle's mob-lock styling and the ranged auto-aim, so
+    // the visual telegraph and the assist always agree. Hidden / Detected
+    // mobs aren't yet "real" to the player's awareness so neither path should
+    // acknowledge them; direct hits remain possible because the actual
+    // hitscan/projectile code doesn't gate on this. Takes the weapon so
+    // future weapon-specific targeting rules (e.g. a weapon that can lock
+    // burrowed prey) can land here without churn at the call sites.
+    public bool CanTarget(WeaponData weapon)
+    {
+        return alive && !burrowed && playerPerceptionState == EPlayerPerceptionState.Discovered;
+    }
     public float skyBrightness => _simState.SkyBrightness;
     public float sunExposure => _simState.SunExposure;
     public float ambientLight => _simState.AmbientLight;

@@ -2,8 +2,10 @@
 
 [ext_resource type="Script" uid="uid://cloo3byck0dx4" path="res://scripts/gui/ItemInfoPanel.cs" id="1_55ro3"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_08k4j"]
+[ext_resource type="PackedScene" uid="uid://dhdl6e3d0bqna" path="res://scenes/gui/item_action_panel.tscn" id="2_p0emx"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_iaocb"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelProgress", "_levelLabel")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelProgress", "_levelLabel", "_actionPanelContainer", "_statContainer")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -13,6 +15,10 @@ _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
 _icon = NodePath("MarginContainer/VBoxContainer/HBoxContainer/Icon")
 _levelProgress = NodePath("MarginContainer/VBoxContainer/ProgressBar")
 _levelLabel = NodePath("MarginContainer/VBoxContainer/ProgressBar/Label")
+_actionPanel = ExtResource("2_p0emx")
+_actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
+_statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
+_statScene = ExtResource("3_iaocb")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -63,8 +69,9 @@ grow_horizontal = 2
 grow_vertical = 2
 text = "Level 1"
 
-[node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1074940947]
+[node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1205557154]
 layout_mode = 2
-theme_override_font_sizes/font_size = 24
-text = "Item Description
-Line 2"
+theme_override_font_sizes/font_size = 20
+
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
+layout_mode = 2

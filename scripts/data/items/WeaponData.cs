@@ -1,4 +1,5 @@
 using Godot;
+using Godot.Collections;
 
 [GlobalClass]
 public partial class WeaponData : ItemData
@@ -15,7 +16,28 @@ public partial class WeaponData : ItemData
 	// removed (player pickup or LootData.removeTimeMs timeout). Null = no
 	// drop, ammo decrements permanently.
 	[Export] public ArrowLootData arrowLootData;
-	[Export] public DamageData damageData;
+
+	// Named damage profiles fired by this weapon's events. Convention: the
+	// "primary" key is the default fallback for any event that doesn't
+	// override `damageProfileKey`; secondary keys (e.g. "rain_of_arrows")
+	// hold per-effect variants the same weapon authors against. Lives in a
+	// dict (not a sub-resource on the event) because Godot 4.6's [Tool]
+	// inspector trips on typed DamageData sub-resource pickers — string keys
+	// bind cleanly. Mob attacks don't read this; they'd need a parallel dict
+	// on their own data shape when implemented.
+	[Export] public Dictionary<StringName, DamageData> damageProfiles = new();
+
+	// Convenience lookup. Returns null if the key isn't authored; callers
+	// either treat that as "no damage" (events early-out) or surface as an
+	// authoring error.
+	public DamageData GetDamage(StringName key)
+	{
+		if (damageProfiles == null)
+		{
+			return null;
+		}
+		return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
+	}
 
 	// Half-angle (in degrees) of the vertical auto-aim cone for ranged weapons.
 	// While aiming, Player finds the best mob within this cone and adopts its

@@ -7,6 +7,42 @@ public partial class GameClient : Node3D
 {
 	public static GameClient Current { get; private set; }
 
+	// UI display strings for the inventory's per-action / per-context stat
+	// readouts. Centralized here so a future localization pass swaps them
+	// in one place instead of chasing string literals through every panel.
+	public readonly Dictionary<EStatName, string> statNames = new Dictionary<EStatName, string>
+	{
+		{ EStatName.Damage, "Damage" },
+		{ EStatName.Pierce, "Pierce" },
+		{ EStatName.Stun, "Stun" },
+		{ EStatName.Knockback, "Knockback" },
+		{ EStatName.BloodCost, "Blood Cost" },
+		{ EStatName.StaminaCost, "Stamina Cost" },
+		{ EStatName.Cooldown, "Cooldown" },
+		{ EStatName.Range, "Range" },
+		{ EStatName.Reach, "Reach" },
+		{ EStatName.TargetRange, "Target Range" },
+		{ EStatName.Dps, "DPS" },
+		{ EStatName.Radius, "Radius" },
+		{ EStatName.Duration, "Duration" },
+		{ EStatName.Ammo, "Ammo" },
+		{ EStatName.Charges, "Charges" },
+		{ EStatName.Heal, "Healing" },
+		{ EStatName.MoveSpeed, "Move Speed" },
+		{ EStatName.MaxStamina, "Max Stamina" },
+		{ EStatName.ColdResist, "Cold Resist" },
+		{ EStatName.HeatResist, "Heat Resist" },
+	};
+
+	// Damage modifier trigger labels. Used as the header of the conditional
+	// damage panels under each weapon action ("Crit" / "Stun" / "Backstab").
+	public readonly Dictionary<EDamageTrigger, string> damageTriggerLabels = new Dictionary<EDamageTrigger, string>
+	{
+		{ EDamageTrigger.OnCrit, "Crit" },
+		{ EDamageTrigger.OnStun, "Stun" },
+		{ EDamageTrigger.OnBackstab, "Backstab" },
+	};
+
 	[Export] public GameCamera camera;
 	[Export] public Hud hud;
 	[Export] public AlmanacScreen almanacScreen;

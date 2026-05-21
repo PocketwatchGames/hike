@@ -406,15 +406,7 @@ public partial class Player : CharacterBody3D, IActionActor
 		for (int i = 0; i < _aimAssistScratch.Count; i++)
 		{
 			Mob mob = _aimAssistScratch[i];
-			if (mob == null || !mob.alive || mob.burrowed)
-			{
-				continue;
-			}
-			// Assist gates on discovery — undiscovered mobs aren't yet "real"
-			// to the player's awareness, so the bow shouldn't auto-correct
-			// toward them. Hidden/Detected mobs still take direct hits, the
-			// player just doesn't get assist help to land them.
-			if (mob.playerPerceptionState != EPlayerPerceptionState.Discovered)
+			if (mob == null || !mob.CanTarget(weaponData))
 			{
 				continue;
 			}

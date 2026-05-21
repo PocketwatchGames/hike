@@ -304,7 +304,7 @@ public static class ItemEventHandlers
 		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
-		DamageData damageData = ev.damageData ?? firingWeapon?.data?.damageData;
+		DamageData damageData = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
 		// Arrow-recovery binding is decided here at fire time: only populate
 		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
@@ -395,7 +395,7 @@ public static class ItemEventHandlers
 	// — the canonical "arcing arrow lands → spawn AoE at the landing point"
 	// path. Other handlers no-op silently; their authored fields on the
 	// nested event just get ignored.
-	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent)
+	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, WeaponData sourceWeaponData)
 	{
 		if (ev == null) { return; }
 		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
@@ -407,7 +407,11 @@ public static class ItemEventHandlers
 				// Apply weapon-side overrides BEFORE AddChild — DamageZone's
 				// _Ready builds its HitInfo from the (possibly overridden)
 				// damage field, so the override has to land first.
-				if (instance is GasCloud cloud) { cloud.Initialize(ev); }
+				if (instance is GasCloud cloud)
+				{
+					DamageData damage = sourceWeaponData?.GetDamage(ev.damageProfileKey);
+					cloud.Initialize(ev, damage);
+				}
 				host.AddChild(instance);
 				instance.GlobalPosition = position;
 			}
@@ -436,7 +440,12 @@ public static class ItemEventHandlers
 			return;
 		}
 		Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
-		if (instance is GasCloud cloud) { cloud.Initialize(ev); }
+		if (instance is GasCloud cloud)
+		{
+			WeaponState firingWeapon = action.context.primaryItem as WeaponState;
+			DamageData damage = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
+			cloud.Initialize(ev, damage);
+		}
 		parent.AddChild(instance);
 		instance.GlobalPosition = position;
 	}
@@ -627,19 +636,19 @@ public static class ItemEventHandlers
 		}
 	}
 
-	// Build the HitInfo a Melee/Hitscan event should apply: prefer the
-	// event's per-event DamageData override, then fall back to the driving
-	// weapon's damageData (item-driven actions). Source is the actor so
-	// receivers see the attacker. Returns a default HitInfo (no damage) if
-	// neither template is set — caller should early-out. Conditional crit /
-	// stun behavior rides on `template.modifiers`, no separate parameter
-	// needed here.
+	// Build the HitInfo a Melee/Hitscan event should apply: looks up the
+	// event's damageProfileKey on the driving weapon's damageProfiles dict.
+	// Source is the actor so receivers see the attacker. Returns a default
+	// HitInfo (no damage) if the lookup fails or there's no weapon context —
+	// caller should early-out. Conditional crit / stun behavior rides on
+	// `template.modifiers`, no separate parameter needed here. Mob attacks
+	// don't carry a WeaponState; they'll need a parallel lookup once wired.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
-		DamageData template = ev.damageData;
-		if (template == null && action.context.primaryItem is WeaponState weapon)
+		DamageData template = null;
+		if (action.context.primaryItem is WeaponState weapon)
 		{
-			template = weapon.data?.damageData;
+			template = weapon.data?.GetDamage(ev.damageProfileKey);
 		}
 		if (template == null)
 		{

@@ -13,15 +13,25 @@ public class DotHudAccumulator
 	float _damage;
 	float _heal;
 	ulong _nextFlushMs;
+	ulong _lastDamageMs;
+	ulong _lastHealMs;
 
 	public void AddDamage(float amount)
 	{
-		if (amount > 0f) { _damage += amount; }
+		if (amount > 0f)
+		{
+			_damage += amount;
+			_lastDamageMs = Time.GetTicksMsec();
+		}
 	}
 
 	public void AddHeal(float amount)
 	{
-		if (amount > 0f) { _heal += amount; }
+		if (amount > 0f)
+		{
+			_heal += amount;
+			_lastHealMs = Time.GetTicksMsec();
+		}
 	}
 
 	public void Tick(ulong nowMs, Vector3 position)
@@ -38,17 +48,22 @@ public class DotHudAccumulator
 		GameClient client = GameClient.Current;
 		if (client != null)
 		{
-			if (_damage > 0f)
+			// Defer sub-1 values while the dot is still ticking so tiny per-second
+			// chunks accumulate into a displayable number; flush whatever's left
+			// once a full interval passes with no new event on that channel.
+			bool damageStale = nowMs - _lastDamageMs >= FlushIntervalMs;
+			if (_damage >= 1f || (_damage > 0f && damageStale))
 			{
 				client.onDamage?.Invoke(position, _damage, EHudTextType.DamageLight);
+				_damage = 0f;
 			}
-			if (_heal > 0f)
+			bool healStale = nowMs - _lastHealMs >= FlushIntervalMs;
+			if (_heal >= 1f || (_heal > 0f && healStale))
 			{
 				client.onHeal?.Invoke(position, _heal, EHudTextType.HealLight);
+				_heal = 0f;
 			}
 		}
-		_damage = 0f;
-		_heal = 0f;
 		_nextFlushMs = nowMs + FlushIntervalMs;
 	}
 }

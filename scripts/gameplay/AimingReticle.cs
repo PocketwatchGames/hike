@@ -316,12 +316,15 @@ public partial class AimingReticle : Node3D
 		// ground circle anchor all follow the same elevation the next shot
 		// will fire along (Player.ActorForward folds in the auto-aim pitch).
 		Vector3 forward = _player.ActorForward.Normalized();
+		// Weapon drives the mob-lock filter via Mob.CanTarget so the visual
+		// telegraph matches whatever weapon-specific rules the assist uses.
+		WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
 
 		float lineLength = maxRange;
 		bool clippedAtSurface = false;
 		bool mobTargeted = false;
 		float mobTargetOuter = _groundRingOuterRadius;
-		if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit, out Mob hitMob))
+		if (TryRaycastForward(chestWorld, forward, maxRange, weaponData, out Vector3 forwardHit, out Mob hitMob))
 		{
 			if (hitMob != null)
 			{
@@ -395,7 +398,8 @@ public partial class AimingReticle : Node3D
 		if (!_cursorValid)
 		{
 			Vector3 forward = _player.ActorForward.Normalized();
-			if (TryRaycastForward(chestWorld, forward, maxRange, out Vector3 forwardHit, out Mob _))
+			WeaponData weaponData = _player.Inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data;
+			if (TryRaycastForward(chestWorld, forward, maxRange, weaponData, out Vector3 forwardHit, out Mob _))
 			{
 				if (TryRaycastDown(forwardHit, _maxGroundDropDistance, out Vector3 dropHit))
 				{
@@ -669,7 +673,7 @@ public partial class AimingReticle : Node3D
 	// (areas) up to the env hit for mobs / destructible props. Whichever is
 	// closer wins. `hitMob` is set when the closer hit was a mob hurtbox,
 	// letting the caller swap the endpoint for the mob's body center.
-	bool TryRaycastForward(Vector3 from, Vector3 dir, float distance, out Vector3 hitWorld, out Mob hitMob)
+	bool TryRaycastForward(Vector3 from, Vector3 dir, float distance, WeaponData weapon, out Vector3 hitWorld, out Mob hitMob)
 	{
 		hitWorld = default;
 		hitMob = null;
@@ -711,12 +715,24 @@ public partial class AimingReticle : Node3D
 		var hurtResult = spaceState.IntersectRay(hurtQuery);
 		if (hurtResult.Count > 0)
 		{
-			hitWorld = (Vector3)hurtResult["position"];
+			Mob mob = null;
 			if (hurtResult["collider"].Obj is HurtBox hurtBox)
 			{
-				hitMob = ItemEventHandlers.FindOwningMob(hurtBox);
+				mob = ItemEventHandlers.FindOwningMob(hurtBox);
 			}
-			return true;
+			// Share Mob.CanTarget with UpdateAimAssist so the ring's mob-lock
+			// styling never disagrees with whether the assist would acquire
+			// this mob. Falls through to the env-clip return so the line still
+			// terminates on any wall behind the mob. Direct hits remain
+			// possible — only the visual telegraph is suppressed. Non-mob
+			// hurtboxes (destructible props) keep the existing
+			// clip-at-hurtbox behavior.
+			if (mob == null || mob.CanTarget(weapon))
+			{
+				hitWorld = (Vector3)hurtResult["position"];
+				hitMob = mob;
+				return true;
+			}
 		}
 
 		if (clipped)

@@ -1,0 +1,47 @@
+[gd_scene format=3 uid="uid://be6nv1qgj2e24"]
+
+[ext_resource type="Script" uid="uid://du87gaugcw1um" path="res://scripts/gui/StatPanel.cs" id="1_7rtjs"]
+
+[node name="StatPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_nameLabel", "_valueLabel", "_valueContainer")]
+custom_minimum_size = Vector2(0, 30)
+offset_right = 97.0
+offset_bottom = 30.0
+size_flags_horizontal = 0
+size_flags_vertical = 4
+script = ExtResource("1_7rtjs")
+_nameLabel = NodePath("MarginContainer/HBoxContainer/Title")
+_valueLabel = NodePath("MarginContainer/HBoxContainer/PanelContainer/MarginContainer/Number")
+_valueContainer = NodePath("MarginContainer/HBoxContainer/PanelContainer")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=979741011]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=260691538]
+layout_mode = 2
+
+[node name="Title" type="Label" parent="MarginContainer/HBoxContainer" unique_id=642038354]
+layout_mode = 2
+text = "Pierce"
+horizontal_alignment = 1
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1749277760]
+custom_minimum_size = Vector2(25, 0)
+layout_mode = 2
+size_flags_horizontal = 8
+size_flags_vertical = 8
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/PanelContainer" unique_id=704585576]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_right = 3
+
+[node name="Number" type="Label" parent="MarginContainer/HBoxContainer/PanelContainer/MarginContainer" unique_id=2034665965]
+layout_mode = 2
+text = "50%"
+horizontal_alignment = 1

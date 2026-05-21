@@ -73,12 +73,15 @@ public partial class ItemEvent : Resource
 	[Export] public ItemData reagent;
 	[Export] public int consumeAmount = 1;
 
-	// Optional per-event damage override for Melee / Hitscan. When set, the
-	// combat handler uses this DamageData; otherwise it falls back to the
-	// driving weapon's damageData (`primaryItem as WeaponState).data.damageData`).
-	// Mob attacks set this directly on the event since mobs aren't backed by
-	// a WeaponState.
-	[Export] public DamageData damageData;
+	// Damage profile key the event resolves against the firing weapon's
+	// `WeaponData.damageProfiles` dict. Used by Melee / Hitscan / Projectile
+	// (direct hit damage) AND by SpawnAreaEffect (damage applied to anyone
+	// inside the spawned hazard volume). Default `&"primary"` matches the
+	// convention of authoring a baseline damage under that key; secondary
+	// effects (rain-of-arrows AoE, etc.) set a different key. Mob attacks
+	// don't have a WeaponState — they'll need a parallel mob-side lookup
+	// when implemented.
+	[Export] public StringName damageProfileKey = new("primary");
 
 	// ApplyMotion fields. Speed in m/s and duration in seconds describe the
 	// motion phase the actor should enter; the actor resolves direction
@@ -128,9 +131,6 @@ public partial class ItemEvent : Resource
 	// across weapons with different power profiles (a "rain of arrows" vs
 	// a stronger "storm of arrows" reuse the same .tscn).
 	[Export] public PackedScene areaEffectScene;
-	// Override applied to the spawned scene's DamageZone.damage. Null leaves
-	// the scene's authored damage in place.
-	[Export] public DamageData areaDamage;
 	// World-space radius (meters) of the hazard volume. 0 leaves the scene's
 	// authored collision shape unchanged. Currently only SphereShape3D is
 	// resized — non-spherical hazards keep their scene radius.
@@ -140,14 +140,14 @@ public partial class ItemEvent : Resource
 	// a target stays inside the zone.
 	[Export] public float areaDurationSeconds = 0f;
 	// Seconds between damage ticks while a target is inside the zone. 0
-	// leaves the scene's authored tickInterval in place. With areaDamage's
-	// healthDamage = D and tickInterval = T, DPS = D / T.
+	// leaves the scene's authored tickInterval in place. With the resolved
+	// damage profile's healthDamage = D and tickInterval = T, DPS = D / T.
 	[Export] public float areaTickInterval = 0f;
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
-	// applied via accuracySpread01). Damage on impact comes from the
-	// event's damageData (or the firing weapon's damageData if null).
+	// applied via accuracySpread01). Damage on impact is resolved from the
+	// firing weapon's damageProfiles dict via `damageProfileKey`.
 	// Authored inline rather than via a ProjectileData sub-resource because
 	// brand-new [GlobalClass] C# Resources don't reliably bind to typed
 	// [Export] slots in Godot 4.6 — the same fields a sibling sub-resource
@@ -251,8 +251,8 @@ public partial class ItemEvent : Resource
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
 			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
 			nameof(concept) => EItemEventType.LearnConcept,
-			nameof(damageData)
-				or nameof(impactMissEffect)
+			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile | EItemEventType.SpawnAreaEffect,
+			nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)
 				or nameof(impactHealthEffect)
 				or nameof(impactArmorEffect)
@@ -265,7 +265,6 @@ public partial class ItemEvent : Resource
 				or nameof(projectileGravity)
 				or nameof(impactEvent) => EItemEventType.Projectile,
 			nameof(areaEffectScene)
-				or nameof(areaDamage)
 				or nameof(areaRadius)
 				or nameof(areaDurationSeconds)
 				or nameof(areaTickInterval) => EItemEventType.SpawnAreaEffect,

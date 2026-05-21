@@ -1,0 +1,49 @@
+[gd_scene format=3 uid="uid://cxvwydwbyuusq"]
+
+[ext_resource type="Script" uid="uid://c5d1axrt6ryds" path="res://scripts/gui/ItemActionContextPanel.cs" id="1_tnb7g"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_won3n"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_won3n"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.3, 0.3, 0.3, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[node name="PanelContainer" type="PanelContainer" unique_id=1963051441 node_paths=PackedStringArray("_nameLabel", "_statContainer")]
+script = ExtResource("1_tnb7g")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/HFlowContainer/PanelContainer/MarginContainer/Name")
+_statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
+_statScene = ExtResource("2_won3n")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=828820688]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=1411801328]
+layout_mode = 2
+
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=1013627073]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer/HFlowContainer" unique_id=40666242]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_won3n")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/HFlowContainer/PanelContainer" unique_id=365815169]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_right = 3
+
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/HFlowContainer/PanelContainer/MarginContainer" unique_id=1165216803]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Context"

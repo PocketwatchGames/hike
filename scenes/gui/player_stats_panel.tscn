@@ -1,14 +1,17 @@
 [gd_scene format=3 uid="uid://dhquaxn2wsyge"]
 
 [ext_resource type="Script" uid="uid://fboixafnubck" path="res://scripts/gui/PlayerStatsPanel.cs" id="1_sqdid"]
+[ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="2_4k1ay"]
 
-[node name="PlayerStats" type="PanelContainer" unique_id=1646474992 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel")]
+[node name="PlayerStats" type="PanelContainer" unique_id=1646474992 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_statusEffectContainer")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_sqdid")
 _nameLabel = NodePath("MarginContainer/VBoxContainer/Name")
 _descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
+_statusEffectInfoScene = ExtResource("2_4k1ay")
+_statusEffectContainer = NodePath("MarginContainer/VBoxContainer")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=1586675629]
 layout_mode = 2
@@ -28,6 +31,3 @@ text = "Wyatt Anderson"
 [node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=121515439]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Strength
-Dexterity
-Wisdom"

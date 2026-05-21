@@ -24,7 +24,6 @@ grow_vertical = 2
 texture = ExtResource("2_gv8b6")
 
 [node name="Health" type="TextureProgressBar" parent="." unique_id=1265537752]
-visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -36,7 +35,6 @@ fill_mode = 3
 texture_progress = ExtResource("3_1mpnv")
 
 [node name="Armor" type="TextureProgressBar" parent="." unique_id=1179322545]
-visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -47,9 +45,10 @@ value = 0.4
 fill_mode = 8
 radial_initial_angle = 180.0
 texture_progress = ExtResource("9_u6btk")
-tint_progress = Color(0, 0, 1, 1)
+tint_progress = Color(0.7490196, 0.9137255, 1, 1)
 
 [node name="Perception" type="TextureProgressBar" parent="." unique_id=12252757]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -62,7 +61,6 @@ texture_progress = ExtResource("10_p45vd")
 tint_progress = Color(1, 1, 0, 1)
 
 [node name="Discovery" type="TextureProgressBar" parent="." unique_id=1251883728]
-visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0

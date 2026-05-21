@@ -306,6 +306,11 @@ public partial class InventoryScreen : Control
 			// the time this tab is ever shown the player has long since spawned.
 			_player = _gameClient?.Player;
 			_panel?.Bind(_player);
+			// Snapshot the player's stats / active status effects for the
+			// duration of this open. Effects can still change while the
+			// inventory is up (World.Tick keeps running), but refresh-on-open
+			// is enough for the inventory's reference use case.
+			_statsPanel?.SetPlayer(_player);
 		}
 		else
 		{

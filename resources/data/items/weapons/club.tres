@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
@@ -101,7 +101,9 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 
 [resource]
 script = ExtResource("2_weapon")
-damageData = SubResource("Resource_damage")
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"primary": SubResource("Resource_damage")
+})
 actionProfile = SubResource("Resource_profile")
 displayName = &"Big Stick"
 description = "Bashy bashy"

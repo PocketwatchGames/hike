@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://cbnyp5wql6yh5"]
+
+[ext_resource type="Script" uid="uid://ciwyx38tkut18" path="res://scripts/gui/StatusEffectInfoPanel.cs" id="1_5j7ly"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_cejcy"]
+[ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_je4xg"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_je4xg"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.3, 0.3, 0.3, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[node name="StatusEffectInfoPanel" type="PanelContainer" unique_id=626564021 node_paths=PackedStringArray("_nameLabel", "_statusEffectHud", "_statContainer")]
+offset_right = 97.0
+offset_bottom = 46.0
+size_flags_horizontal = 3
+size_flags_vertical = 0
+script = ExtResource("1_5j7ly")
+_nameLabel = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/Label")
+_statusEffectHud = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/StatusEffectHud")
+_statPanelScene = ExtResource("2_cejcy")
+_statContainer = NodePath("MarginContainer/HFlowContainer")
+metadata/_custom_type_script = "uid://ciwyx38tkut18"
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=2134354237]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 3
+theme_override_constants/margin_bottom = 3
+
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer" unique_id=1263969273]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HFlowContainer" unique_id=82911138]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_je4xg")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HFlowContainer/PanelContainer" unique_id=1698886501]
+layout_mode = 2
+theme_override_constants/margin_left = 3
+theme_override_constants/margin_top = 3
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 3
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer" unique_id=1279392893]
+layout_mode = 2
+
+[node name="StatusEffectHud" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer" unique_id=904480190 instance=ExtResource("2_je4xg")]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer" unique_id=1137402894]
+layout_mode = 2
+text = "Name"
+vertical_alignment = 1

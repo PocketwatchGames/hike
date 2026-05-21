@@ -47,9 +47,10 @@ public enum EItemEventType
 	LearnConcept = 1 << 12,
 	// Spawns a Projectile from ev.projectileData at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread).
-	// On collision the projectile builds a HitInfo from ev.damageData (or
-	// the firing weapon's damageData) and calls HurtBox.Hit — same payload
-	// shape as Hitscan, just delayed by flight time.
+	// On collision the projectile builds a HitInfo from the damage profile
+	// the event resolves against the firing weapon (damageProfileKey) and
+	// calls HurtBox.Hit — same payload shape as Hitscan, just delayed by
+	// flight time.
 	Projectile = 1 << 13,
 	// Spawns ev.areaEffectScene at the actor's aim point. The scene is a
 	// Node3D parented to the world (e.g. a GasCloud carrying a DamageZone

@@ -1,18 +1,13 @@
 using Godot;
 
 // Floating world-space damage / heal / info number. Per-type scenes (one per
-// EHudTextType) bake color, fade duration, and vertical movement as exports
-// so the GameClient call site only passes runtime data (world position +
-// text). GameClient picks which scene to instance from EHudTextType; the
-// scene's exported fields decide how the number reads.
+// EHudTextType) bake fade duration and vertical movement as exports; color
+// is authored directly on the Label inside each scene and cascades through
+// the Control's Modulate untouched. GameClient picks which scene to instance
+// from EHudTextType; this script only owns the alpha fade + upward drift.
 public partial class HudText : Control
 {
 	[Export] public Label label;
-
-	// Color the label tints to. Faded out toward fadeDurationMs along an
-	// ease-in (t²) curve so the number lingers near full opacity and snaps
-	// out at the end rather than ramping linearly.
-	[Export] public Color color = Colors.White;
 
 	// Total lifetime in ms. Drives both the alpha fade and the upward drift.
 	[Export] public ulong fadeDurationMs = 1000;
@@ -38,7 +33,6 @@ public partial class HudText : Control
 		_camera = camera;
 		_worldPosition = worldPosition;
 		label.Text = text;
-		label.Modulate = color;
 		_fadeEndGameTimeMs = fadeDurationMs + _world.GameTimeMs;
 		if (parent != null)
 		{
@@ -70,6 +64,10 @@ public partial class HudText : Control
 		}
 		float t = 1.0f - (float)(_fadeEndGameTimeMs - timeMs) / fadeDurationMs;
 		UpdateScreenPosition(t);
-		label.Modulate = new Color(color.R, color.G, color.B, 1.0f - Mathf.Pow(t, 2));
+		// Touch only the alpha — the Label's authored color (via Modulate or
+		// theme override) cascades through the Control's Modulate, so writing
+		// here would multiply against it. Pulling the current modulate and
+		// substituting alpha preserves whatever the scene authored.
+		Modulate = new Color(Modulate.R, Modulate.G, Modulate.B, 1.0f - Mathf.Pow(t, 2));
 	}
 }

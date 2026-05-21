@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://dhdl6e3d0bqna"]
+
+[ext_resource type="Script" uid="uid://cmdcjcbxyhcav" path="res://scripts/gui/ItemActionPanel.cs" id="1_5fgcr"]
+[ext_resource type="PackedScene" uid="uid://cxvwydwbyuusq" path="res://scenes/gui/item_action_context_panel.tscn" id="2_mj708"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_moshc"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_moshc"]
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+bg_color = Color(0.3, 0.3, 0.3, 0.6)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+corner_detail = 5
+
+[node name="PanelContainer" type="PanelContainer" unique_id=2043349948 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_actionContextContainer", "_statContainer")]
+offset_right = 203.0
+offset_bottom = 81.0
+size_flags_vertical = 0
+script = ExtResource("1_5fgcr")
+_nameLabel = NodePath("MarginContainer/VBoxContainer/PanelContainer/MarginContainer/Name")
+_descriptionLabel = NodePath("MarginContainer/VBoxContainer/Description")
+_actionContextContainer = NodePath("MarginContainer/VBoxContainer")
+_actionContextScene = ExtResource("2_mj708")
+_statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
+_statScene = ExtResource("3_moshc")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=611458383]
+layout_mode = 2
+size_flags_vertical = 0
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=68579100]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/VBoxContainer" unique_id=711147532]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_moshc")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/VBoxContainer/PanelContainer" unique_id=1418178993]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_right = 5
+
+[node name="Name" type="Label" parent="MarginContainer/VBoxContainer/PanelContainer/MarginContainer" unique_id=1165216803]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "Action"
+
+[node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=957630041]
+layout_mode = 2
+theme_override_font_sizes/font_size = 16
+text = "Description"
+
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=1779723869]
+layout_mode = 2

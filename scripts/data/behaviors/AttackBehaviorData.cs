@@ -31,10 +31,12 @@ public partial class AttackBehaviorData : BehaviorData
     [Export] public float encircleDistance = -1f;
 
     // Action profile run through the mob's ActionRunner when an attack fires.
-    // The profile's events should carry their own DamageData (via ItemEvent.damageData)
-    // since mobs aren't backed by a WeaponState. Charging / queueing / multi-tier
-    // all work the same as for the player; for typical mobs author a single tier
-    // with chargeTime=0 and autoActivateAtMax=true (immediate-fire).
+    // Mobs aren't backed by a WeaponState, so the current weapon-side
+    // damageProfiles dict lookup doesn't apply — mob attacks will need a
+    // parallel mob-side damage lookup (not yet implemented; no mob .tres
+    // currently wires this field). Charging / queueing / multi-tier all work
+    // the same as for the player; for typical mobs author a single tier with
+    // chargeTime=0 and autoActivateAtMax=true (immediate-fire).
     [Export] public ItemActionProfile actionProfile;
 
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);

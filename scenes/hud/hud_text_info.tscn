@@ -1,8 +1,8 @@
-[gd_scene format=3 uid="uid://66r9gy7a8pw0g"]
+[gd_scene format=3 uid="uid://bajbqjuap3wxc"]
 
 [ext_resource type="Script" uid="uid://ceoliqg058pis" path="res://scripts/gui/HudText.cs" id="1_rgi1j"]
 
-[node name="HUDText" type="Control" node_paths=PackedStringArray("label")]
+[node name="HUDText" type="Control" unique_id=262094308 node_paths=PackedStringArray("label")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -11,12 +11,12 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_rgi1j")
 label = NodePath("Label")
-color = Color(1, 1, 1, 1)
 fadeDurationMs = 1500
 verticalMovement = 24.0
 
-[node name="Label" type="Label" parent="."]
+[node name="Label" type="Label" parent="." unique_id=923731662]
 layout_mode = 0
 offset_right = 40.0
 offset_bottom = 23.0
 theme_override_font_sizes/font_size = 28
+text = "34"
