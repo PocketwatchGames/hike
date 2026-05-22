@@ -88,6 +88,19 @@ public partial class BehaviorAttack : BehaviorBase
             // through to the standoff path below.
         }
 
+        // A locks-movement action owns the body for its full duration —
+        // windup, dart (via ApplyMotion), strike, and recovery tail. The
+        // navigation goal would be ignored by Mob._PhysicsProcess anyway
+        // (which gates the path impulse on the same flag), so don't compute
+        // it. The encircle slot stays leased — LeaseSlot is idempotent for
+        // the same target and the body will resume against the same slot
+        // when the action ends; if the mob dies mid-attack, TreeExiting
+        // cleans the slot up.
+        if (me.Runner != null && me.Runner.LocksMovement)
+        {
+            return new BehaviorOutput(EBehaviorResult.Running);
+        }
+
         // Standoff via encircle slot. Each mob leases one angular slot
         // around the current target; PickStandoffPoint resolves it to a
         // walkable, line-of-sight world point that the navigator paths
