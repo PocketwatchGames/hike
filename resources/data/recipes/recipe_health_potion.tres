@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://cjvf30nl7ddfv"]
 
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/RecipeInput.cs" id="1_input"]
+[ext_resource type="Script" uid="uid://64jki9zhf4p5i" path="res://scripts/data/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" uid="uid://c7napd2qkx8vt" path="res://resources/data/items/loot/berry_purple.tres" id="2_berry"]
-[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="3_recipe"]
+[ext_resource type="Script" uid="uid://rmq2wdsc9r3qk" path="res://scripts/data/RecipeData.cs" id="3_recipe"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="4_mushroom"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="5_output"]
 

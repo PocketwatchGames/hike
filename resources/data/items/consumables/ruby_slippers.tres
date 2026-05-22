@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_ypscn"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
-[ext_resource type="Script" uid="uid://xuxmdsbhvxsi" path="res://scripts/data/effects/TeleportToSpawnEffect.cs" id="8_teleport"]
+[ext_resource type="Script" uid="uid://drubyteleport01a" path="res://scripts/data/effects/TeleportToSpawnEffect.cs" id="8_teleport"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("6_event")

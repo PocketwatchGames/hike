@@ -1,14 +1,14 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://crwit5kc7vxce"]
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
-[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://rkmhe7m4qcv82" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
-[ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="3_loot_entry"]
+[ext_resource type="Script" uid="uid://liq7jrlo3hldf" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="3_loot_entry"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="5_goblin_data"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="6_kunkun_data"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="8_campfire_group"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="9_loot_data"]
-[ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
+[ext_resource type="Script" uid="uid://b8wellspawn001" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="11_well_scene"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]

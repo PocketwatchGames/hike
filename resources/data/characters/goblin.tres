@@ -4,8 +4,8 @@
 [ext_resource type="Resource" uid="uid://crudckd4dl15b" path="res://resources/data/characters/goblin_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/moving_light_torch.tscn" id="3_torch"]
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="4_scene"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="5_lootcount"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/LoyaltyGift.cs" id="6_id4xl"]
+[ext_resource type="Script" uid="uid://mdofgaaseydt6" path="res://scripts/data/ItemCount.cs" id="5_lootcount"]
+[ext_resource type="Script" uid="uid://mopl8c3ntye1i" path="res://scripts/data/LoyaltyGift.cs" id="6_id4xl"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="6_meat"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="7_animdata"]
 

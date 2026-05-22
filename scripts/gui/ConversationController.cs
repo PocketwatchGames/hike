@@ -171,28 +171,49 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		if (_currentBranch.responses == null || responseOptionScene == null || responseOptionsContainer == null)
+
+		// Look up the exit group. Empty exitGroup = clean end-of-branch
+		// (typewriter done, endActions fired, nothing left to show).
+		StringName exitGroup = _currentBranch.exitGroup;
+		if (exitGroup == default || exitGroup == "" || _conversation == null)
 		{
 			Close();
 			return;
 		}
-		LanguageData lang = _currentBranch.language ?? _ctx.speakerLanguage;
+		ConversationResponseGroup group = FindGroup(_conversation, exitGroup);
+		if (group == null || group.responses == null || responseOptionScene == null || responseOptionsContainer == null)
+		{
+			if (group == null)
+			{
+				GD.PushWarning($"ConversationController: exit group '{exitGroup}' not found in conversation");
+			}
+			Close();
+			return;
+		}
+
+		// Visibility context = the group's canonical entry branch, NOT the
+		// current branch. Keeps the visible set stable when looping back
+		// through a follow-up branch with shorter / different text.
+		ConversationBranch primary = FindPrimaryEntryBranch(_conversation, exitGroup);
+		LanguageData lang = primary?.language ?? _ctx.speakerLanguage;
 		// Look up the language tuning once. Falls back to a sensible default
 		// if SimData is unavailable (e.g. very early bootstrap or tests).
 		float grammarWeight = _ctx.world?.SimData?.LanguageGrammarWeight ?? 0.2f;
 		// Pre-compute the branch score once; Compute mins it with each
 		// response's own score so the bottleneck axis caps visibility.
-		float branchComp = ConversationVisibility.ComputeBranchComprehension(_currentBranch, lang, _ctx.player, grammarWeight);
-		// Missing components for the branch's resolved language — drives
-		// the response-text scramble, same way ResolveAndScrambleLines
-		// drives the NPC lines.
+		float branchComp = primary != null
+			? ConversationVisibility.ComputeBranchComprehension(primary, lang, _ctx.player, grammarWeight)
+			: 1f;
+		// Missing components for the primary branch's language — drives
+		// the response-text scramble. Uses the same language as the
+		// comprehension calc so visibility and scramble agree.
 		ELanguageComponents missing = (_ctx.player == null || lang == null)
 			? ELanguageComponents.None
 			: ELanguageComponents.All & ~_ctx.player.GetLearnedComponents(lang);
 		bool debug = CVars.conversationDebug.Value;
-		for (int i = 0; i < _currentBranch.responses.Count; i++)
+		for (int i = 0; i < group.responses.Count; i++)
 		{
-			ConversationResponse r = _currentBranch.responses[i];
+			ConversationResponse r = group.responses[i];
 			if (r == null)
 			{
 				continue;
@@ -232,6 +253,53 @@ public partial class ConversationController : Control
 				break;
 			}
 		}
+	}
+
+	static ConversationResponseGroup FindGroup(ConversationData conv, StringName name)
+	{
+		if (conv.responseGroups == null)
+		{
+			return null;
+		}
+		for (int i = 0; i < conv.responseGroups.Count; i++)
+		{
+			ConversationResponseGroup g = conv.responseGroups[i];
+			if (g != null && g.name == name)
+			{
+				return g;
+			}
+		}
+		return null;
+	}
+
+	// Resolves the canonical entry branch for a response group. Walks
+	// `branches` once: prefer the first branch whose exitGroup matches
+	// and isPrimaryGroupEntry is true; fall back to the first branch
+	// exiting to the group at all (so a one-incoming-branch group still
+	// has an implicit context without authoring the checkbox). Returns
+	// null if no branch exits to this group, which leaves branchComp=1
+	// and visibility falls to response-only comprehension.
+	static ConversationBranch FindPrimaryEntryBranch(ConversationData conv, StringName groupName)
+	{
+		if (conv.branches == null)
+		{
+			return null;
+		}
+		ConversationBranch fallback = null;
+		for (int i = 0; i < conv.branches.Count; i++)
+		{
+			ConversationBranch b = conv.branches[i];
+			if (b == null || b.exitGroup != groupName)
+			{
+				continue;
+			}
+			if (b.isPrimaryGroupEntry)
+			{
+				return b;
+			}
+			fallback ??= b;
+		}
+		return fallback;
 	}
 
 	static string FormatDebugSuffix(ConversationVisibility.ResponseVisibilityResult vis)
