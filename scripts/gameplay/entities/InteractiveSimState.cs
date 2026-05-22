@@ -111,26 +111,38 @@ public class ForgeJob
 public class ChestSimState : EntitySimState
 {
     public bool Active = true;
-    public readonly int LootCount;
     // When true, the chest's node is only created if the chunk activates during
     // nighttime. Authored at worldgen for chests anchored to night-only
     // encounters (e.g. campfire encampments). Mirrors MobSimState.SpawnAtNight.
     public bool SpawnAtNight;
-    // Optional per-instance override for the chest's _lootItems array. When
-    // non-empty Chest.Create writes it onto the spawned node, so a generic
-    // chest scene can carry a worldgen-authored drop list (test fixtures,
-    // future quest rewards) without authoring a new chest variant per drop
-    // set. EntitySerializer does NOT persist this — the override only lives
-    // for chests placed by WorldGen on the current run; a .hike round-trip
-    // drops it back to the scene's authored loot. Persisting would require
-    // a wire-format bump (ItemData ref array), deferred until save/load
-    // grows beyond test fixtures.
-    public ItemData[] LootItems;
+    // Contents the chest ejects on open. Authored on whatever places the
+    // chest (ChestSpawnEntry for procedural spawns, WorldGenData for test
+    // fixtures, future editor placements) — the chest scene itself carries
+    // no loot, so a single generic chest.tscn handles every variant by
+    // having a different LootItems list pushed onto its SimState. Each
+    // ItemCount ejects as one stacked Loot (single pickup with stackCount
+    // = count), so "5 mushrooms" is one pile rather than five separate
+    // pickups.
+    public ItemCount[] LootItems;
 
-    public ChestSimState(Vector3 worldPosition, PackedScene scene, int lootCount)
+    // Persistent slot contents — the inventory the chest actually holds
+    // between visits. Distinct from LootItems (which is the worldgen-rolled
+    // ejection recipe consumed when the chest is opened): Contents holds
+    // live ItemState instances with stack counts and cooldowns, and rides
+    // the wire format so a stash-style chest keeps whatever the player
+    // deposited across save/load and chunk eviction. Default empty.
+    // Mutators (stash UI, future chest UIs) must write to this list
+    // directly — the runtime Chest node holds a reference to this SimState,
+    // so direct mutation persists without any sync-back hook.
+    // Subclass-specific ItemState fields (WeaponState.ammo/level,
+    // ConsumableState.isActive, ArmorState.exp/level) are NOT preserved
+    // — items round-trip through ItemData.CreateState(), resetting to
+    // authored defaults. Lift this when player Inventory persistence lands.
+    public readonly List<ItemState> Contents = new();
+
+    public ChestSimState(Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {
-        LootCount = lootCount;
     }
 
     public override bool ShouldSpawn(World world)

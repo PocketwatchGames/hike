@@ -109,6 +109,37 @@ public static class EntitySerializer
                 w.Write(mob.StunRecoverMs);
                 w.Write(mob.StunRechargeStartMs);
                 WriteResource(w, mob.Language);
+                // Merchant / loyalty / conversation state — persisted so a
+                // villager's per-instance stock, accumulated loyalty, and
+                // remaining gift rewards survive save/load and chunk eviction.
+                w.Write(mob.WillTrade);
+                w.Write(mob.Loyalty);
+                WriteResource(w, mob.Conversation);
+                int invCount = mob.Inventory?.Count ?? 0;
+                w.Write(invCount);
+                for (int i = 0; i < invCount; i++)
+                {
+                    MobInventoryItem entry = mob.Inventory[i];
+                    WriteItemState(w, entry?.item);
+                    w.Write(entry?.loyaltyCost ?? 0f);
+                    w.Write(entry?.secret ?? false);
+                }
+                int giftCount = mob.LoyaltyGifts?.Count ?? 0;
+                w.Write(giftCount);
+                for (int i = 0; i < giftCount; i++)
+                {
+                    WriteResource(w, mob.LoyaltyGifts[i]);
+                }
+                int giftCountsCount = mob.GiftCounts?.Count ?? 0;
+                w.Write(giftCountsCount);
+                if (mob.GiftCounts != null)
+                {
+                    foreach (KeyValuePair<ItemData, int> kvp in mob.GiftCounts)
+                    {
+                        WriteResource(w, kvp.Key);
+                        w.Write(kvp.Value);
+                    }
+                }
                 break;
 
             case DoorSimState door:
@@ -143,13 +174,19 @@ public static class EntitySerializer
                 w.Write((byte)Tag.Chest);
                 WriteVec3(w, chest.WorldPosition);
                 WriteScene(w, chest.Scene);
-                w.Write(chest.LootCount);
-                // Legacy LootScene slot. ChestSimState no longer carries its
-                // own loot scene — chest.tscn authors a LootData instead. Keep
-                // the wire shape unchanged so old .hike files still load.
-                WriteScene(w, null);
                 w.Write(chest.Active);
                 w.Write(chest.SpawnAtNight);
+                int chestLootCount = chest.LootItems?.Length ?? 0;
+                w.Write(chestLootCount);
+                for (int i = 0; i < chestLootCount; i++)
+                {
+                    ItemCount entry = chest.LootItems[i];
+                    WriteResource(w, entry?.item);
+                    w.Write(entry?.count ?? 0);
+                }
+                // Persistent slot contents (stash-style chests). Distinct
+                // from the LootItems ejection recipe above.
+                WriteItemList(w, chest.Contents);
                 break;
 
             case TrapSimState trap:
@@ -279,6 +316,40 @@ public static class EntitySerializer
                 ulong stunRecoverMs = r.ReadUInt64();
                 ulong stunRechargeStartMs = r.ReadUInt64();
                 var language = ReadResource<LanguageData>(r);
+                bool willTrade = r.ReadBoolean();
+                float loyalty = r.ReadSingle();
+                var conversation = ReadResource<ConversationData>(r);
+                int invCount = r.ReadInt32();
+                var inventory = new List<MobInventoryItem>(invCount);
+                for (int i = 0; i < invCount; i++)
+                {
+                    ItemState invItem = ReadItemState(r);
+                    float loyaltyCost = r.ReadSingle();
+                    bool secret = r.ReadBoolean();
+                    inventory.Add(new MobInventoryItem
+                    {
+                        item = invItem,
+                        loyaltyCost = loyaltyCost,
+                        secret = secret,
+                    });
+                }
+                int giftCount = r.ReadInt32();
+                var loyaltyGifts = new List<LoyaltyGift>(giftCount);
+                for (int i = 0; i < giftCount; i++)
+                {
+                    loyaltyGifts.Add(ReadResource<LoyaltyGift>(r));
+                }
+                int giftCountsCount = r.ReadInt32();
+                var giftCounts = new Dictionary<ItemData, int>(giftCountsCount);
+                for (int i = 0; i < giftCountsCount; i++)
+                {
+                    var key = ReadResource<ItemData>(r);
+                    int val = r.ReadInt32();
+                    if (key != null)
+                    {
+                        giftCounts[key] = val;
+                    }
+                }
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.Language = language;
@@ -303,6 +374,12 @@ public static class EntitySerializer
                 mob.Stunned = stunned;
                 mob.StunRecoverMs = stunRecoverMs;
                 mob.StunRechargeStartMs = stunRechargeStartMs;
+                mob.WillTrade = willTrade;
+                mob.Loyalty = loyalty;
+                mob.Conversation = conversation;
+                mob.Inventory = inventory;
+                mob.LoyaltyGifts = loyaltyGifts;
+                mob.GiftCounts = giftCounts;
                 return mob;
             }
             case Tag.Door:
@@ -341,15 +418,27 @@ public static class EntitySerializer
             {
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
-                int lootCount = r.ReadInt32();
-                // Legacy LootScene slot — discarded; chest.tscn carries the
-                // authored LootData reference now.
-                ReadScene(r);
                 bool active = r.ReadBoolean();
                 bool spawnAtNight = r.ReadBoolean();
-                var chest = new ChestSimState(pos, scene, lootCount);
-                chest.Active = active;
-                chest.SpawnAtNight = spawnAtNight;
+                int n = r.ReadInt32();
+                ItemCount[] lootItems = n > 0 ? new ItemCount[n] : null;
+                for (int i = 0; i < n; i++)
+                {
+                    ItemData item = ReadResource<ItemData>(r);
+                    int count = r.ReadInt32();
+                    lootItems[i] = new ItemCount { item = item, count = count };
+                }
+                var chest = new ChestSimState(pos, scene)
+                {
+                    Active = active,
+                    SpawnAtNight = spawnAtNight,
+                    LootItems = lootItems,
+                };
+                List<ItemState> contents = ReadItemList(r);
+                for (int i = 0; i < contents.Count; i++)
+                {
+                    chest.Contents.Add(contents[i]);
+                }
                 return chest;
             }
             case Tag.Trap:
@@ -457,5 +546,72 @@ public static class EntitySerializer
             return null;
         }
         return GD.Load<T>(path);
+    }
+
+    // ItemState wire format: ItemData resource path + the base ItemState
+    // fields (stackCount, cooldownExpireMs, cooldownDurationMs). Polymorphic
+    // subclass fields (WeaponState.ammo/level, ConsumableState.isActive,
+    // ArmorState.exp/level) are not preserved — items round-trip through
+    // ItemData.CreateState() which resets them to authored defaults. Extend
+    // this when player Inventory persistence lands and subclass state needs
+    // to survive save/load.
+    private static void WriteItemState(BinaryWriter w, ItemState item)
+    {
+        if (item == null || item.data == null)
+        {
+            w.Write("");
+            return;
+        }
+        w.Write(item.data.ResourcePath);
+        w.Write(item.stackCount);
+        w.Write(item.cooldownExpireMs);
+        w.Write(item.cooldownDurationMs);
+    }
+
+    private static ItemState ReadItemState(BinaryReader r)
+    {
+        string path = r.ReadString();
+        if (string.IsNullOrEmpty(path))
+        {
+            return null;
+        }
+        // Read all trailing fields unconditionally to keep the stream aligned
+        // even if the resource itself has been renamed/removed since the file
+        // was written — a missing item silently drops the slot, but the
+        // following entries still parse correctly.
+        ItemData data = GD.Load<ItemData>(path);
+        int stackCount = r.ReadInt32();
+        ulong cooldownExpireMs = r.ReadUInt64();
+        ulong cooldownDurationMs = r.ReadUInt64();
+        if (data == null)
+        {
+            return null;
+        }
+        ItemState state = data.CreateState();
+        state.stackCount = stackCount;
+        state.cooldownExpireMs = cooldownExpireMs;
+        state.cooldownDurationMs = cooldownDurationMs;
+        return state;
+    }
+
+    private static void WriteItemList(BinaryWriter w, IReadOnlyList<ItemState> items)
+    {
+        int count = items?.Count ?? 0;
+        w.Write(count);
+        for (int i = 0; i < count; i++)
+        {
+            WriteItemState(w, items[i]);
+        }
+    }
+
+    private static List<ItemState> ReadItemList(BinaryReader r)
+    {
+        int count = r.ReadInt32();
+        var list = new List<ItemState>(count);
+        for (int i = 0; i < count; i++)
+        {
+            list.Add(ReadItemState(r));
+        }
+        return list;
     }
 }

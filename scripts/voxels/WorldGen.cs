@@ -671,25 +671,32 @@ public static class WorldGen
             }
         }
 
-        // Near-spawn test chest. Generic chest scene (genData.NearSpawnChestScene
-        // wires the regular chest.tscn) with a worldgen-authored drop list —
-        // composes the fixture through data instead of through a chest-variant
-        // scene. LootCount stays 0 so the chest's singular _lootItem path is
-        // a no-op; the entire drop comes from the SimState.LootItems override.
-        const int NearSpawnChestX = 0;
-        const int NearSpawnChestZ = 3;
-        if (genData.NearSpawnChestScene != null
-            && genData.NearSpawnChestItems != null && genData.NearSpawnChestItems.Length > 0
-            && NearSpawnChestX >= stoneWorldMinX && NearSpawnChestX <= stoneWorldMaxX
-            && NearSpawnChestZ >= stoneWorldMinZ && NearSpawnChestZ <= stoneWorldMaxZ)
+        // Near-spawn test stash. The chest_stash.tscn flips Chest._isStash so
+        // interaction opens the StashScreen; the authored item list is
+        // materialized into ItemStates and seeded into Contents (not
+        // LootItems) so the player finds the stash pre-loaded with starter
+        // items rather than ejecting them on first open.
+        const int NearSpawnStashX = 0;
+        const int NearSpawnStashZ = 3;
+        if (genData.NearSpawnStashScene != null
+            && NearSpawnStashX >= stoneWorldMinX && NearSpawnStashX <= stoneWorldMaxX
+            && NearSpawnStashZ >= stoneWorldMinZ && NearSpawnStashZ <= stoneWorldMaxZ)
         {
-            int sy = heightMap.GetHeight(NearSpawnChestX, NearSpawnChestZ);
-            var pos = new Vector3(NearSpawnChestX + 0.5f, sy + 1f, NearSpawnChestZ + 0.5f);
-            var chestSim = new ChestSimState(pos, genData.NearSpawnChestScene, 0)
+            int sy = heightMap.GetHeight(NearSpawnStashX, NearSpawnStashZ);
+            var pos = new Vector3(NearSpawnStashX + 0.5f, sy + 1f, NearSpawnStashZ + 0.5f);
+            var stashSim = new ChestSimState(pos, genData.NearSpawnStashScene);
+            if (genData.NearSpawnStashItems != null)
             {
-                LootItems = genData.NearSpawnChestItems,
-            };
-            ws.AddEntity(chestSim);
+                for (int i = 0; i < genData.NearSpawnStashItems.Length; i++)
+                {
+                    ItemCount entry = genData.NearSpawnStashItems[i];
+                    if (entry == null || entry.item == null || entry.count <= 0) { continue; }
+                    ItemState state = entry.item.CreateState();
+                    state.stackCount = entry.count;
+                    stashSim.Contents.Add(state);
+                }
+            }
+            ws.AddEntity(stashSim);
         }
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)

@@ -9,6 +9,10 @@ public partial class ItemSlotPanel : PanelContainer
 	[Export] private TextureRect _slotBackground;
 	[Export] private Label _stackLabel;
 	[Export] private Control _stackContainer;
+	// Translucent ghost overlay used by select-mode UIs (InventoryScreen /
+	// MerchantScreen). Shows a preview of the item that would land here on
+	// commit. Authored hidden in the scene; null safely no-ops in SetGhost.
+	[Export] private TextureRect _ghostOverlay;
 
 	// Per-instance empty-slot sprite (head silhouette, body silhouette, etc.).
 	// Wrapped in a property setter so inspector edits apply to _slotBackground
@@ -118,6 +122,34 @@ public partial class ItemSlotPanel : PanelContainer
 				_stackLabel.Text = item.stackCount.ToString();
 			}
 		}
+	}
+
+	// Show a translucent ghost overlay of `item` on top of this slot. Used by
+	// select-mode UIs to preview the item that would land here on commit. Null
+	// hides the overlay. No-op when the scene lacks the overlay node.
+	public void SetGhost(ItemState item)
+	{
+		if (_ghostOverlay == null)
+		{
+			return;
+		}
+		Texture2D tex = item?.data?.inventorySprite;
+		_ghostOverlay.Texture = tex;
+		_ghostOverlay.Visible = tex != null;
+	}
+
+	// Dim this slot's icon to signal "the item here has been picked up by
+	// select mode". The slot keeps its real Item — the dim is purely visual.
+	// Cleared by passing false (back to full opacity).
+	public void SetDimmed(bool dimmed)
+	{
+		if (_button == null)
+		{
+			return;
+		}
+		Color m = _button.Modulate;
+		m.A = dimmed ? 0.3f : 1f;
+		_button.Modulate = m;
 	}
 
 	public new void GrabFocus()

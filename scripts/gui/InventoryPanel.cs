@@ -78,6 +78,12 @@ public partial class InventoryPanel : Control
 	Inventory _inventory;
 	ItemSlotPanel _focused;
 	ItemState _lastFocusedItem;
+	// Panel-identity half of the EmitFocusedItem dedupe. A focus move from
+	// panel A (potion) → panel B (same potion kind) needs to fire even though
+	// the item reference matches — listeners drive button-hint labels off the
+	// panel (e.g., Equip vs Unequip flips on backpack vs equip slot), so a
+	// content-only compare suppresses meaningful focus moves.
+	ItemSlotPanel _lastFocusedPanel;
 	// Currently-pressed slot for the primary verb (set on ButtonDown, cleared
 	// on ButtonUp). Drives the hold timer in _Process.
 	ItemSlotPanel _primaryPressed;
@@ -182,9 +188,10 @@ public partial class InventoryPanel : Control
 		_inventory = null;
 		_player = null;
 		_active = false;
-		// Reset cached focused-item so the next Bind doesn't suppress the
-		// initial fire by comparing against a stale value.
+		// Reset cached focus dedupe state so the next Bind doesn't suppress
+		// the initial fire by comparing against stale values.
 		_lastFocusedItem = null;
+		_lastFocusedPanel = null;
 	}
 
 	void WirePanel(ItemSlotPanel panel)
@@ -252,19 +259,41 @@ public partial class InventoryPanel : Control
 	{
 		_focused = panel;
 		CancelHeldActions();
-		EmitFocusedItem();
+		// A real focus change always fires — even if both the panel and item
+		// match the last broadcast, the player may have navigated to another
+		// screen and back, and listeners (button hints, side info panels,
+		// select-mode ghosts) need to re-sync.
+		_lastFocusedPanel = _focused;
+		_lastFocusedItem = _focused?.Item;
+		onFocusedItemChanged?.Invoke(_focused, _lastFocusedItem);
 	}
 
-	// Fires onFocusedItemChanged when the focused slot's item differs from
-	// the last value we broadcast. `force` skips the equality check — used on
-	// Bind so the side panels populate even if focus didn't move.
+	// Used by RefreshAll to surface item-content changes inside the currently-
+	// focused panel without re-firing for unrelated state. Suppresses when
+	// both the panel AND its item are unchanged from the last broadcast.
+	// `force` skips the check — used on Bind so the side panels populate even
+	// if focus didn't move. Note that real focus changes go through
+	// OnPanelFocused, which always fires unconditionally.
+	//
+	// Also gated on `_focused.HasButtonFocus()`: when the user has navigated
+	// to a sibling panel we don't manage (give slot, stash slot, etc.), our
+	// `_focused` lags behind the real OS focus. Surfacing it as a focus event
+	// confuses screen-level listeners that own their own focus tracking and
+	// would overwrite their real focus state with a stale one — most visibly,
+	// a commit-time inventory mutation would re-fire onFocusedItemChanged
+	// with the now-stale source slot and paint a "Cancel" ghost on it.
 	void EmitFocusedItem(bool force = false)
 	{
-		ItemState current = _focused?.Item;
-		if (!force && current == _lastFocusedItem)
+		if (!force && _focused != null && !_focused.HasButtonFocus())
 		{
 			return;
 		}
+		ItemState current = _focused?.Item;
+		if (!force && _focused == _lastFocusedPanel && current == _lastFocusedItem)
+		{
+			return;
+		}
+		_lastFocusedPanel = _focused;
 		_lastFocusedItem = current;
 		onFocusedItemChanged?.Invoke(_focused, current);
 	}
@@ -350,6 +379,134 @@ public partial class InventoryPanel : Control
 	public bool IsBackpackPanel(ItemSlotPanel panel)
 	{
 		return panel != null && _backpackPanels != null && _backpackPanels.Contains(panel);
+	}
+
+	// Resolve a panel to its EInventorySlot identity (ArmorHead, ArmorBody,
+	// WeaponLeft, WeaponRight, Consumable, or None for backpack). For
+	// Consumable, the slot is shared across the hotbar — use GetConsumableIndex
+	// to get the specific position.
+	public EInventorySlot GetEquipSlotKind(ItemSlotPanel panel)
+	{
+		if (panel == null) { return EInventorySlot.None; }
+		if (panel == _armorHeadPanel) { return EInventorySlot.ArmorHead; }
+		if (panel == _armorBodyPanel) { return EInventorySlot.ArmorBody; }
+		if (panel == _weaponLeftPanel) { return EInventorySlot.WeaponLeft; }
+		if (panel == _weaponRightPanel) { return EInventorySlot.WeaponRight; }
+		if (_consumablePanels != null && _consumablePanels.Contains(panel))
+		{
+			return EInventorySlot.Consumable;
+		}
+		return EInventorySlot.None;
+	}
+
+	// Hotbar index for a consumable panel, -1 for any other panel kind.
+	public int GetConsumableIndex(ItemSlotPanel panel)
+	{
+		if (panel == null || _consumablePanels == null) { return -1; }
+		return _consumablePanels.IndexOf(panel);
+	}
+
+	// Backpack index for a backpack panel, -1 for any other panel kind. The
+	// backpack is a sparse array under the hood (Inventory.Backpack[i] is
+	// the item at slot i or null), so the panel's grid position maps
+	// directly to the inventory's storage index — no list-vs-grid offset.
+	public int GetBackpackPanelIndex(ItemSlotPanel panel)
+	{
+		if (panel == null || _backpackPanels == null) { return -1; }
+		return _backpackPanels.IndexOf(panel);
+	}
+
+	// First EMPTY backpack slot, used as the auto-target when unequipping
+	// (or moving items out of the equip slots / stash) in select mode. The
+	// player's expectation is that the item lands in the first available
+	// open position, not slot 0 displacing whatever lived there. Falls back
+	// to the first backpack panel if every slot is occupied, then to
+	// FindFirstFocusable if no backpack panels exist.
+	public ItemSlotPanel GetFirstBackpackPanel()
+	{
+		if (_backpackPanels == null || _backpackPanels.Count == 0)
+		{
+			return FindFirstFocusable();
+		}
+		foreach (ItemSlotPanel p in _backpackPanels)
+		{
+			if (p != null && p.Item == null)
+			{
+				return p;
+			}
+		}
+		return _backpackPanels[0];
+	}
+
+	// Resolve the auto-target slot for select mode: backpack items snap to
+	// their natural equip slot (head/body/L/R/first-empty consumable); already-
+	// equipped items snap to the first backpack slot. Items with no natural
+	// target return null so the caller can fall back to the current focus.
+	public ItemSlotPanel FindAutoTargetForSelect(ItemSlotPanel source, ItemState item)
+	{
+		if (item?.data == null) { return null; }
+		bool sourceIsBackpack = IsBackpackPanel(source);
+		if (sourceIsBackpack)
+		{
+			switch (item.data)
+			{
+				case ArmorData armor:
+					return armor.armorSlot == EInventorySlot.ArmorHead ? _armorHeadPanel : _armorBodyPanel;
+				case WeaponData weapon:
+					return weapon.CanonicalSlot == EInventorySlot.WeaponRight ? _weaponRightPanel : _weaponLeftPanel;
+				case ConsumableData:
+					return FindFirstEmptyConsumablePanel() ?? (_consumablePanels?.Count > 0 ? _consumablePanels[0] : null);
+			}
+			return null;
+		}
+		// Source is an equip slot — autotarget the first backpack position.
+		return GetFirstBackpackPanel();
+	}
+
+	ItemSlotPanel FindFirstEmptyConsumablePanel()
+	{
+		if (_consumablePanels == null) { return null; }
+		foreach (ItemSlotPanel p in _consumablePanels)
+		{
+			if (p != null && p.Item == null) { return p; }
+		}
+		return null;
+	}
+
+	// Walks every slot the panel manages so callers can apply ghost / dim
+	// state uniformly (e.g., clear all ghosts before re-applying on the
+	// currently-focused slot).
+	public IEnumerable<ItemSlotPanel> EnumerateAllSlots()
+	{
+		if (_armorHeadPanel != null) { yield return _armorHeadPanel; }
+		if (_armorBodyPanel != null) { yield return _armorBodyPanel; }
+		if (_weaponLeftPanel != null) { yield return _weaponLeftPanel; }
+		if (_weaponRightPanel != null) { yield return _weaponRightPanel; }
+		if (_consumablePanels != null)
+		{
+			foreach (ItemSlotPanel p in _consumablePanels)
+			{
+				if (p != null) { yield return p; }
+			}
+		}
+		if (_backpackPanels != null)
+		{
+			foreach (ItemSlotPanel p in _backpackPanels)
+			{
+				if (p != null) { yield return p; }
+			}
+		}
+	}
+
+	// Clear ghost + dim state on every slot — used when entering/exiting select
+	// mode or after a commit so the panel doesn't carry stale visual flags.
+	public void ClearSelectVisuals()
+	{
+		foreach (ItemSlotPanel p in EnumerateAllSlots())
+		{
+			p.SetGhost(null);
+			p.SetDimmed(false);
+		}
 	}
 
 	public override void _Process(double delta)

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://br0ewj5o2768g"]
 
-[ext_resource type="Script" uid="uid://psp7ces4z54jv" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
+[ext_resource type="Script" uid="uid://c3px544rdmit" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
 [ext_resource type="Texture2D" uid="uid://ui2onktg02cc" path="res://resources/atlases/bellafide_atlas.tres" id="2_ajsop"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="3_32vq5"]
@@ -212,9 +212,11 @@ layout_mode = 2
 [node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer" unique_id=311712742 instance=ExtResource("3_32vq5")]
 layout_mode = 2
 
-[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary") instance=ExtResource("4_pl1cs")]
+[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("4_pl1cs")]
 layout_mode = 2
 _buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
+_buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
+_buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
 custom_minimum_size = Vector2(500, 0)
@@ -232,6 +234,16 @@ alignment = 1
 [node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("5_fvgyx")]
 layout_mode = 2
 ActionName = "Equip"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=199762041 instance=ExtResource("5_fvgyx")]
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "X"
+
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=1997220129 instance=ExtResource("5_fvgyx")]
+layout_mode = 2
+ActionName = "Use"
+InputAction = "Y"
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
 layout_mode = 2

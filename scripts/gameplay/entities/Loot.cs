@@ -321,9 +321,8 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		{
 			case ArmorData armor:
 				return inv.GetEquipped(armor.armorSlot) == null;
-			case WeaponData _:
-				return inv.GetEquipped(EInventorySlot.WeaponLeft) == null
-					|| inv.GetEquipped(EInventorySlot.WeaponRight) == null;
+			case WeaponData weapon:
+				return inv.GetEquipped(weapon.CanonicalSlot) == null;
 			default:
 				return false;
 		}
@@ -458,14 +457,11 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 					return inv.TryEquip(item, armor.armorSlot);
 				}
 				return false;
-			case WeaponData _:
-				if (inv.GetEquipped(EInventorySlot.WeaponLeft) == null)
+			case WeaponData weapon:
+				EInventorySlot weaponSlot = weapon.CanonicalSlot;
+				if (inv.GetEquipped(weaponSlot) == null)
 				{
-					return inv.TryEquip(item, EInventorySlot.WeaponLeft);
-				}
-				if (inv.GetEquipped(EInventorySlot.WeaponRight) == null)
-				{
-					return inv.TryEquip(item, EInventorySlot.WeaponRight);
+					return inv.TryEquip(item, weaponSlot);
 				}
 				return false;
 			default:

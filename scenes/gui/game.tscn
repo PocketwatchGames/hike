@@ -1,13 +1,6 @@
 [gd_scene format=3 uid="uid://cqcbx0hocclf4"]
 
 [ext_resource type="Script" uid="uid://b2fersxp4s46f" path="res://scripts/client/GameClient.cs" id="1_mu8e5"]
-[ext_resource type="PackedScene" uid="uid://66r9gy7a8pw0g" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
-[ext_resource type="PackedScene" uid="uid://gzrxk4sp2okzf" path="res://scenes/hud/hud_text_damage_light.tscn" id="hud_text_damage_light"]
-[ext_resource type="PackedScene" uid="uid://d9aepabwyvvzp" path="res://scenes/hud/hud_text_damage_heavy.tscn" id="hud_text_damage_heavy"]
-[ext_resource type="PackedScene" uid="uid://frlf5oxbzf0wy" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
-[ext_resource type="PackedScene" uid="uid://v60rcyq578aqj" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
-[ext_resource type="PackedScene" uid="uid://kzqrei7qgybbh" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
-[ext_resource type="PackedScene" uid="uid://awrdegol14uze" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://tb3sld4xt6bx" path="res://scenes/hud/interact_hud.tscn" id="3_0q6jn"]
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
@@ -18,10 +11,18 @@
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="21_hkfxp"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
+[ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="26_5drka"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
+[ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
+[ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
+[ext_resource type="PackedScene" uid="uid://eui37eofo08x" path="res://scenes/hud/hud_text_damage_heavy.tscn" id="hud_text_damage_heavy"]
+[ext_resource type="PackedScene" uid="uid://c5d2y2vhiho8n" path="res://scenes/hud/hud_text_damage_light.tscn" id="hud_text_damage_light"]
+[ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
+[ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
+[ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
 [ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
@@ -65,19 +66,22 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "deathScreen", "worldHUD", "sceneViewport", "bloomQuad")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "bloomQuad")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
 almanacScreen = NodePath("GUICanvas/AlmanacScreen")
 cookingScreen = NodePath("GUICanvas/CookingScreen")
 merchantScreen = NodePath("GUICanvas/MerchantScreen")
+stashScreen = NodePath("GUICanvas/StashScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 bloomQuad = NodePath("BloomQuad")
 upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
+interactHudScene = ExtResource("3_0q6jn")
+lootScene = ExtResource("20_loot")
 hudTextInfoScene = ExtResource("hud_text_info")
 hudTextDamageLightScene = ExtResource("hud_text_damage_light")
 hudTextDamageHeavyScene = ExtResource("hud_text_damage_heavy")
@@ -85,8 +89,6 @@ hudTextCritScene = ExtResource("hud_text_crit")
 hudTextBackstabScene = ExtResource("hud_text_backstab")
 hudTextHealLightScene = ExtResource("hud_text_heal_light")
 hudTextHealHeavyScene = ExtResource("hud_text_heal_heavy")
-interactHudScene = ExtResource("3_0q6jn")
-lootScene = ExtResource("20_loot")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")
@@ -276,9 +278,10 @@ _announcementPanel = NodePath("../../AnnouncementCanvas/AnnouncementPanel")
 visible = false
 gameClient = NodePath("../..")
 
-[node name="MerchantScreen" parent="GUICanvas" unique_id=2099428519 node_paths=PackedStringArray("gameClient") instance=ExtResource("22_merch")]
+[node name="MerchantScreen" parent="GUICanvas" unique_id=2099428519 instance=ExtResource("22_merch")]
 visible = false
-gameClient = NodePath("../..")
+
+[node name="StashScreen" parent="GUICanvas" unique_id=1337731578 instance=ExtResource("26_5drka")]
 
 [node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]
 layer = 5
@@ -294,7 +297,7 @@ layer = 10
 visible = false
 gameClient = NodePath("../..")
 
-[node name="DeathCanvas" type="CanvasLayer" parent="."]
+[node name="DeathCanvas" type="CanvasLayer" parent="." unique_id=1776213388]
 layer = 15
 
-[node name="DeathScreen" parent="DeathCanvas" instance=ExtResource("23_death")]
+[node name="DeathScreen" parent="DeathCanvas" unique_id=491621629 instance=ExtResource("23_death")]

@@ -55,6 +55,7 @@ public partial class GameClient : Node3D
 	[Export] public AlmanacScreen almanacScreen;
 	[Export] public CookingScreen cookingScreen;
 	[Export] public MerchantScreen merchantScreen;
+	[Export] public StashScreen stashScreen;
 	[Export] public DeathScreen deathScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;

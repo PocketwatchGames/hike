@@ -83,16 +83,15 @@ public partial class WorldGenData : Resource
     [Export] public LanguageData KnowledgeStoneLanguage;
     [Export(PropertyHint.MultilineText)] public string KnowledgeStoneText = "";
 
-    // Single test-fixture chest placed near the default player spawn by
-    // WorldGen. Drops the items in NearSpawnChestItems via the chest's
-    // _lootItems override (LootCount stays 0, so the scene's singular
-    // _lootItem doesn't drop). Wired to a generic chest scene rather than
-    // a scroll-specific variant so the fixture composes through data, not
-    // through a new scene per drop set. Skipped if NearSpawnChestScene is
-    // null. Temporary scaffolding — replaced when the editor has a real
-    // placement pass.
-    [Export] public PackedScene NearSpawnChestScene;
-    [Export] public ItemData[] NearSpawnChestItems = [];
+    // Single test-fixture stash chest placed near the default player spawn
+    // by WorldGen. The scene's `_isStash` flag drives the stash-screen
+    // interaction; NearSpawnStashItems is materialized into ItemStates and
+    // dropped into the chest's Contents at worldgen time so the player
+    // finds the stash pre-seeded with starter items. Skipped if
+    // NearSpawnStashScene is null. Temporary scaffolding — replaced when
+    // the editor has a real placement pass.
+    [Export] public PackedScene NearSpawnStashScene;
+    [Export] public ItemCount[] NearSpawnStashItems = [];
 
     // Single test-fixture friendly villager placed a few voxels east of the
     // default player spawn. NearSpawnVillagerData is the species template;

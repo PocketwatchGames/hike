@@ -72,7 +72,13 @@ public static class WorldFile
     //      as WindFactor) so per-cell air currents can flow through caves,
     //      mountain passes, and other authored regions instead of the
     //      whole world sharing a single global wind_dir.
-    public const uint VERSION = 17;
+    // v18: Mob entity payload appended persistent villager state
+    //      (WillTrade, Loyalty, Conversation, Inventory[], LoyaltyGifts[],
+    //      GiftCounts{}) after Language so a villager's per-instance stock
+    //      and accumulated relationship state survive save/load. Chest
+    //      entity payload appended a Contents item-list after LootItems —
+    //      the live ItemState inventory used by stash-style chests.
+    public const uint VERSION = 18;
 
     public struct IndexEntry
     {

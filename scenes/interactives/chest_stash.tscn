@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://4owmi6208pgj"]
+[gd_scene format=3 uid="uid://m4nx2p7vq8r5j"]
 
 [ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/entities/Chest.cs" id="1_chest"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
@@ -61,32 +61,33 @@ animations = [{
 "speed": 1.0
 }]
 
-[node name="Chest" type="Node3D" unique_id=830350690 node_paths=PackedStringArray("_animator", "_hurtBox", "_discoverable", "_hudNode")]
+[node name="Chest" type="Node3D" node_paths=PackedStringArray("_animator", "_hurtBox", "_discoverable", "_hudNode")]
 script = ExtResource("1_chest")
 _animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
 _actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
+_isStash = true
 _discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
 
-[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=805534759]
+[node name="BlockCollider" type="StaticBody3D" parent="."]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1890238440]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="InteractiveBox" type="Area3D" parent="." unique_id=2131074866 node_paths=PackedStringArray("_interactiveNode")]
+[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
 script = ExtResource("3_interactivebox")
 _interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=2007780144]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=1950719213]
+[node name="Sprite" type="Sprite3D" parent="."]
 cast_shadow = 0
 centered = false
 offset = Vector2(-8, 0)
@@ -100,33 +101,33 @@ Material = 1
 ForwardOffset = 0.5
 Xray = true
 
-[node name="LitSpriteAnimator" type="Node" parent="." unique_id=980757277 node_paths=PackedStringArray("target")]
+[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
 script = ExtResource("17_anim")
 target = NodePath("../Sprite")
 frames = SubResource("SpriteFrames_chest")
 defaultAnimation = &"closed"
 metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
-[node name="HurtBox" type="Area3D" parent="." unique_id=1874982792]
+[node name="HurtBox" type="Area3D" parent="."]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1575331386]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_block")
 
-[node name="HUDNode" type="Node3D" parent="." unique_id=925862825]
+[node name="HUDNode" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
 
-[node name="Discoverable" type="Node3D" parent="." unique_id=752536990 node_paths=PackedStringArray("_fadeSprites", "_interactBox")]
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_fadeSprites", "_interactBox")]
 script = ExtResource("15_i4oq8")
 discoveredThreshold = 0.1
 _fadeSprites = [NodePath("../Sprite")]
 _interactBox = NodePath("../InteractiveBox")
 metadata/_custom_type_script = "uid://ccogud7ied6xv"
 
-[node name="InteractiveXray" type="Node3D" parent="." unique_id=420307292 node_paths=PackedStringArray("_sprites", "_discoverable")]
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites", "_discoverable")]
 script = ExtResource("16_xray")
 _sprites = [NodePath("../Sprite")]
 _discoverable = NodePath("../Discoverable")

@@ -33,6 +33,29 @@ public partial class PlayerData : Resource
 	[Export] public float sneakSpeed = 3f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
+
+	// Wall jump. While airborne, pressing Jump probes the capsule
+	// wallJumpCheckDistance forward in the player's movement direction (or
+	// yaw when no input is held). If the hit surface is steeper than the
+	// walkable floor angle and not an overhang, velocity is replaced with
+	// (reflected_xz * wallJumpSpeedXZ, wallJumpSpeedY, …). Gated on
+	// Velocity.Y > -wallJumpMaxFallingSpeed so the player can't claw back a
+	// long fall.
+	[Export] public float wallJumpSpeedY = 10f;
+	[Export] public float wallJumpSpeedXZ = 8f;
+	[Export] public float wallJumpCheckDistance = 0.5f;
+	[Export] public float wallJumpMaxFallingSpeed = 15f;
+	// Stamina paid on each successful wall jump. Mirrors dashStaminaCost:
+	// gated on _stamina > 0 at press time (the press is rejected outright if
+	// already exhausted), then deducted unconditionally — allowed to drive
+	// stamina negative so chained wall jumps eat into the recharge runway.
+	[Export] public float wallJumpStaminaCost = 15f;
+	// Air-control blend window after a wall jump. During this many seconds the
+	// airborne input-velocity rebuild lerps from the kick velocity (t=0) to the
+	// input-driven velocity (t=1) instead of snapping each tick, so the arc
+	// survives long enough to read as a kick rather than vanishing on the next
+	// frame. Set to 0 to restore the snap-to-input behavior.
+	[Export] public float wallJumpAirControlTime = 0.5f;
 	[Export] public float visionRange = 25f;
 	[Export] public float VisionRangePower = 2f;
 	[Export] public float visibilityMovementMin = 0.5f;

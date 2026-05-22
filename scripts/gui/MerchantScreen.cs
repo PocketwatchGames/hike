@@ -15,15 +15,13 @@ using Godot.Collections;
 //                 Give panel is visible. The Give button hands the staged items
 //                 to the NPC.
 //
-// Mobs have no inventory yet — the merchant-side stays empty in trade mode for
-// now. The plumbing is symmetric so this can wire up to a real mob inventory
-// without churn here.
-//
-// The primary action label tracks focus: Offer (player inventory), Request
-// (merchant inventory), Remove (either staging panel). Mid-stack items
-// transfer one unit on tap; holding opens DropCountPanel so the player can
-// pick a larger count. Items the player can't fit after a trade scatter
-// around the merchant via World.DropItem.
+// Interaction model: ui_accept on the player inventory or a give slot enters
+// select-mode (ghost follows focus, auto-target the opposite side); a second
+// ui_accept commits the move; ui_cancel aborts. Slots on the merchant side
+// (merchant inventory / get panel) bypass select-mode: ui_accept there moves
+// instantly because there's no per-position choice on the merchant pile.
+// Hold ui_accept opens the count picker for partial-stack moves on the same
+// destinations.
 [GlobalClass]
 public partial class MerchantScreen : Control
 {
@@ -56,16 +54,11 @@ public partial class MerchantScreen : Control
 	readonly List<ItemState> _giveItems = new();
 	readonly List<ItemState> _getItems = new();
 	// Snapshot of the merchant's shop side for this session. Populated at
-	// Open from _merchant.Inventory (skipping secret entries and any whose
-	// loyaltyCost the player hasn't earned). Mutated freely during the
-	// session; written back to the durable mob inventory only on a
+	// Open from _merchant.Inventory (skipping secret entries). Mutated freely
+	// during the session; written back to the durable mob inventory only on a
 	// successful trade commit, so a cancel leaves the mob's actual stock
 	// untouched.
 	readonly List<ItemState> _merchantItems = new();
-	// Snapshot bookkeeping — maps each displayed ItemData back to the
-	// MobInventoryItem it came from so commit can apply the new stack
-	// counts (or drop the entry if it hit zero). Cleared with the staging
-	// lists in ClearStaging.
 	readonly System.Collections.Generic.Dictionary<ItemData, MobInventoryItem> _merchantSourceByData = new();
 
 	enum EFocusedPanel { None, PlayerInventory, MerchantInventory, Give, Get }
@@ -73,6 +66,18 @@ public partial class MerchantScreen : Control
 	ItemSlotPanel _focusedSlot;
 	ItemState _focusedItem;
 	int _focusedSlotIndex;
+
+	// Select-mode state mirrors InventoryScreen. _selectedSource is the panel
+	// the player picked up from; _selectedItem is the ItemState; _selectedAmount
+	// is how many units (full stack on tap, chosen count on hold). The source
+	// can only ever be a player-inventory slot or a give slot — merchant-side
+	// slots use instant-move and never enter select mode.
+	ItemSlotPanel _selectedSource;
+	EFocusedPanel _selectedSourceCategory;
+	int _selectedSourceIndex;
+	ItemState _selectedItem;
+	int _selectedAmount;
+	bool InSelectMode => _selectedItem != null;
 
 	// Hold-to-count timer for merchant / give / get slots. Player inventory
 	// slots use InventoryPanel's own primary-hold path (onPrimaryHoldComplete).
@@ -89,6 +94,10 @@ public partial class MerchantScreen : Control
 			_playerInventory.onFocusedItemChanged += OnInventoryFocusChanged;
 			_playerInventory.onPrimaryTap += OnInventoryPrimaryTap;
 			_playerInventory.onPrimaryHoldComplete += OnInventoryPrimaryHold;
+			_playerInventory.onSecondaryTap += OnInventorySecondaryTap;
+			_playerInventory.onSecondaryHoldComplete += OnInventorySecondaryHoldComplete;
+			_playerInventory.onTertiaryPressed += OnInventoryTertiaryPressed;
+			_playerInventory.onTertiaryReleased += OnInventoryTertiaryReleased;
 		}
 		WireSlotPanels(_merchantInventorySlotPanels, EFocusedPanel.MerchantInventory);
 		WireSlotPanels(_giveSlotPanels, EFocusedPanel.Give);
@@ -100,9 +109,6 @@ public partial class MerchantScreen : Control
 		if (_tradeButton != null)
 		{
 			_tradeButton.Pressed += OnTradeButtonPressed;
-			// Clear info-panel focus when the trade/give button takes focus
-			// (keyboard nav or mouse hover) so the side panels don't stay
-			// stuck on the last hovered item while the player commits.
 			_tradeButton.FocusEntered += OnTradeButtonFocused;
 			_tradeButton.MouseEntered += OnTradeButtonMouseEntered;
 		}
@@ -117,6 +123,10 @@ public partial class MerchantScreen : Control
 			_playerInventory.onFocusedItemChanged -= OnInventoryFocusChanged;
 			_playerInventory.onPrimaryTap -= OnInventoryPrimaryTap;
 			_playerInventory.onPrimaryHoldComplete -= OnInventoryPrimaryHold;
+			_playerInventory.onSecondaryTap -= OnInventorySecondaryTap;
+			_playerInventory.onSecondaryHoldComplete -= OnInventorySecondaryHoldComplete;
+			_playerInventory.onTertiaryPressed -= OnInventoryTertiaryPressed;
+			_playerInventory.onTertiaryReleased -= OnInventoryTertiaryReleased;
 		}
 		if (_tradeButton != null)
 		{
@@ -176,15 +186,17 @@ public partial class MerchantScreen : Control
 			}
 		}
 		Input.MouseMode = Input.MouseModeEnum.Visible;
-		// Drop the InteractHUD + highlight overlay that surrounded the NPC
-		// before the screen opened — leaving them lit underneath the modal
-		// reads as a layering bug.
 		_player?.ClearInteractive();
 		ClearStaging();
+		ClearSelection();
 		PopulateMerchantSnapshot();
 		UpdateMerchantInfo();
 		ApplyModeVisibility();
-		HidePlayerInventorySecondaryHints();
+		if (_playerInventory != null)
+		{
+			_playerInventory.ButtonHintSecondary?.SetHint(_playerInventory.SecondaryAction, "Drop");
+			_playerInventory.ButtonHintTertiary?.SetHint(_playerInventory.TertiaryAction, "Use");
+		}
 		RefreshAllSlots();
 		SetConversation(trade ? "What have you brought me?" : "What would you like to trade?");
 		Visible = true;
@@ -200,6 +212,7 @@ public partial class MerchantScreen : Control
 		}
 		ReturnStagedItemsToInventory();
 		CloseCountPicker();
+		ClearSelection();
 		_playerInventory?.Unbind();
 		Visible = false;
 		if (_gameClient != null)
@@ -229,7 +242,16 @@ public partial class MerchantScreen : Control
 		}
 		if (e.IsActionPressed("ui_cancel"))
 		{
-			Close();
+			// First ui_cancel cancels a pending selection (if any); a clean
+			// state closes the screen.
+			if (InSelectMode)
+			{
+				CancelSelect();
+			}
+			else
+			{
+				Close();
+			}
 			GetViewport().SetInputAsHandled();
 		}
 	}
@@ -241,6 +263,7 @@ public partial class MerchantScreen : Control
 			return;
 		}
 		TickHold((float)delta);
+		TickTertiaryCharge();
 	}
 
 	// -------------------------------------------------------------------
@@ -258,8 +281,6 @@ public partial class MerchantScreen : Control
 		{
 			_merchantNameLabel.Text = md != null ? md.displayName.ToString() : string.Empty;
 		}
-		// Only swap to a real portrait if MobData has one; otherwise leave the
-		// authored placeholder texture in the scene alone.
 		if (_merchantPortrait != null && md?.bestiaryPortrait != null)
 		{
 			_merchantPortrait.Texture = md.bestiaryPortrait;
@@ -276,16 +297,8 @@ public partial class MerchantScreen : Control
 		{
 			_merchantInventoryPanel.Visible = trading;
 		}
-		// Button label is dynamic — UpdateTradeButtonLabel runs after every
-		// staging change (via RefreshAllSlots) and on Open's first refresh.
 	}
 
-	// Flips between Gift and Trade based purely on what's staged. Gift wins
-	// only when the player has offered items AND requested nothing back; any
-	// items on the get side promote the button to Trade. The rule is mode-
-	// agnostic — in gift-only mode the get panel is hidden so the get list
-	// stays empty, which naturally lands on Gift the moment the player
-	// stages anything.
 	void UpdateTradeButtonLabel()
 	{
 		if (_tradeButton == null)
@@ -300,11 +313,6 @@ public partial class MerchantScreen : Control
 		return _giveItems.Count > 0 && _getItems.Count == 0;
 	}
 
-	// Conversation text is authored in plain English; the merchant "speaks"
-	// in their native language, so anything the player hasn't yet learned in
-	// that language gets scrambled by TextScrambler. Mirrors the lookup that
-	// ConversationController uses for dialogue branches so both surfaces
-	// agree on what's intelligible.
 	void SetConversation(string text)
 	{
 		if (_merchantConversationLabel == null)
@@ -333,25 +341,6 @@ public partial class MerchantScreen : Control
 		return TextScrambler.Scramble(text, lang, missing);
 	}
 
-	// Drop / Use are meaningless on this screen — the inventory panel
-	// keeps its primary hint (we drive its label below) but the other two
-	// stay hidden so the player isn't prompted with stale verbs.
-	void HidePlayerInventorySecondaryHints()
-	{
-		if (_playerInventory == null)
-		{
-			return;
-		}
-		if (_playerInventory.ButtonHintSecondary != null)
-		{
-			_playerInventory.ButtonHintSecondary.Visible = false;
-		}
-		if (_playerInventory.ButtonHintTertiary != null)
-		{
-			_playerInventory.ButtonHintTertiary.Visible = false;
-		}
-	}
-
 	// -------------------------------------------------------------------
 	// Focus tracking — drives info panels + button hint label.
 	// -------------------------------------------------------------------
@@ -363,6 +352,7 @@ public partial class MerchantScreen : Control
 		_focusedPanel = EFocusedPanel.PlayerInventory;
 		_focusedSlotIndex = -1;
 		_focusedItem = item;
+		RefreshGhostOnFocus();
 		UpdateInfoPanels();
 		UpdateButtonHint();
 	}
@@ -374,12 +364,24 @@ public partial class MerchantScreen : Control
 		_focusedPanel = category;
 		_focusedSlotIndex = index;
 		_focusedItem = panel?.Item;
+		RefreshGhostOnFocus();
 		UpdateInfoPanels();
 		UpdateButtonHint();
 	}
 
 	void UpdateInfoPanels()
 	{
+		if (InSelectMode)
+		{
+			// In select mode the info panels track the selected item, but on
+			// the side that matches its source — so the player can keep their
+			// eye on what they're moving even as the cursor wanders.
+			bool sourceIsGiveSide = _selectedSourceCategory == EFocusedPanel.PlayerInventory
+				|| _selectedSourceCategory == EFocusedPanel.Give;
+			_itemInfoPanelGive?.SetItem(sourceIsGiveSide ? _selectedItem : null);
+			_itemInfoPanelGet?.SetItem(sourceIsGiveSide ? null : _selectedItem);
+			return;
+		}
 		bool getSide = _focusedPanel == EFocusedPanel.MerchantInventory || _focusedPanel == EFocusedPanel.Get;
 		bool giveSide = _focusedPanel == EFocusedPanel.PlayerInventory || _focusedPanel == EFocusedPanel.Give;
 		_itemInfoPanelGet?.SetItem(getSide ? _focusedItem : null);
@@ -388,33 +390,158 @@ public partial class MerchantScreen : Control
 
 	void UpdateButtonHint()
 	{
-		ButtonHint hint = _playerInventory?.ButtonHintPrimary;
-		if (hint == null)
+		ButtonHint primary = _playerInventory?.ButtonHintPrimary;
+		ButtonHint drop = _playerInventory?.ButtonHintSecondary;
+		ButtonHint use = _playerInventory?.ButtonHintTertiary;
+		string primaryLabel = string.Empty;
+		bool primaryVisible = _focusedItem != null || (InSelectMode && _focusedSlot != null);
+		bool dropVisible = false;
+		bool useVisible = false;
+		if (InSelectMode)
 		{
-			return;
+			// Drop / Use are hidden mid-selection — committing the move
+			// resolves the item's fate, no other verb makes sense.
+			primaryLabel = ResolveDestinationLabel();
+			primaryVisible = !string.IsNullOrEmpty(primaryLabel);
 		}
-		string label;
-		bool visible = _focusedItem != null;
-		switch (_focusedPanel)
+		else
 		{
-			case EFocusedPanel.PlayerInventory:
-				label = "Offer";
-				break;
-			case EFocusedPanel.MerchantInventory:
-				label = "Request";
-				break;
-			case EFocusedPanel.Give:
-			case EFocusedPanel.Get:
-				label = "Remove";
-				break;
-			default:
-				label = string.Empty;
-				visible = false;
-				break;
+			switch (_focusedPanel)
+			{
+				case EFocusedPanel.PlayerInventory:
+					primaryLabel = "Select";
+					// Drop / Use only on the player-inventory side. Items staged
+					// in the give pile are conceptually offered to the merchant
+					// already; consuming or dropping them mid-trade muddles the
+					// negotiation, so we restrict the verbs to items the player
+					// still firmly owns.
+					dropVisible = _focusedItem != null;
+					useVisible = _focusedItem != null && CanUseItem(_focusedItem);
+					break;
+				case EFocusedPanel.MerchantInventory: primaryLabel = "Request"; break;
+				case EFocusedPanel.Give: primaryLabel = "Select"; break;
+				case EFocusedPanel.Get: primaryLabel = "Return"; break;
+				default:
+					primaryLabel = string.Empty;
+					primaryVisible = false;
+					break;
+			}
 		}
-		hint.ActionName = label;
-		hint.Visible = visible;
-		hint.SetProgress(0f);
+		if (primary != null)
+		{
+			primary.ActionName = primaryLabel;
+			primary.Visible = primaryVisible;
+			primary.SetProgress(0f);
+		}
+		if (drop != null)
+		{
+			drop.Visible = dropVisible;
+			if (!dropVisible) { drop.SetProgress(0f); }
+		}
+		if (use != null)
+		{
+			use.Visible = useVisible;
+			if (!useVisible) { use.SetProgress(0f); }
+		}
+	}
+
+	static bool CanUseItem(ItemState item)
+	{
+		return item is ConsumableState consumable && consumable.data?.actionProfile != null;
+	}
+
+	// What ui_accept will do on the currently-focused slot during select mode.
+	// Empty string = no valid move (hint hidden). Drop onto source labels as
+	// "Cancel" so the user knows they can pick another destination by moving
+	// the cursor first. Cross-side moves (inv↔give) show "Move"; same-side
+	// player-inventory moves piggyback on the inventory screen's verbs
+	// (Equip / Unequip / Move) so the player can rearrange equipment without
+	// having to close the merchant screen.
+	string ResolveDestinationLabel()
+	{
+		if (_focusedSlot == null) { return string.Empty; }
+		if (_focusedSlot == _selectedSource) { return "Cancel"; }
+		if (_selectedSourceCategory == EFocusedPanel.PlayerInventory
+			&& _focusedPanel == EFocusedPanel.PlayerInventory)
+		{
+			return ResolveInventoryMoveLabel(_focusedSlot);
+		}
+		return IsValidSelectDestination(_focusedSlot, _focusedPanel) ? "Move" : string.Empty;
+	}
+
+	// Mirrors InventoryScreen's destination resolver for player-inventory ↔
+	// player-inventory moves. Returns the verb the commit would perform, or
+	// empty if no valid operation exists.
+	string ResolveInventoryMoveLabel(ItemSlotPanel dest)
+	{
+		if (_playerInventory == null || _selectedItem == null) { return string.Empty; }
+		bool sourceBackpack = _playerInventory.IsBackpackPanel(_selectedSource);
+		bool destBackpack = _playerInventory.IsBackpackPanel(dest);
+		EInventorySlot destEquip = _playerInventory.GetEquipSlotKind(dest);
+		EInventorySlot sourceEquip = _playerInventory.GetEquipSlotKind(_selectedSource);
+		if (sourceBackpack && destBackpack) { return "Move"; }
+		if (sourceBackpack)
+		{
+			return InventoryScreen.EquipCompatible(destEquip, _selectedItem) ? "Equip" : string.Empty;
+		}
+		if (destBackpack) { return "Unequip"; }
+		if (sourceEquip == EInventorySlot.Consumable && destEquip == EInventorySlot.Consumable) { return "Move"; }
+		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, _player?.Inventory)) { return "Move"; }
+		return string.Empty;
+	}
+
+	void RefreshGhostOnFocus()
+	{
+		ClearAllGhosts();
+		if (!InSelectMode) { return; }
+		// ClearAllGhosts wipes both ghost AND dim, so the source loses its
+		// dimmed-out indicator on every focus change. Re-apply it here so the
+		// player keeps seeing where they picked the item up from until they
+		// commit or cancel.
+		_selectedSource?.SetDimmed(true);
+		if (_focusedSlot != null && IsValidSelectDestination(_focusedSlot, _focusedPanel))
+		{
+			_focusedSlot.SetGhost(_selectedItem);
+		}
+	}
+
+	bool IsValidSelectDestination(ItemSlotPanel panel, EFocusedPanel category)
+	{
+		if (panel == _selectedSource) { return true; }
+		// Cross-trade moves: player inventory ↔ give panel.
+		if ((_selectedSourceCategory == EFocusedPanel.PlayerInventory && category == EFocusedPanel.Give)
+			|| (_selectedSourceCategory == EFocusedPanel.Give && category == EFocusedPanel.PlayerInventory))
+		{
+			return true;
+		}
+		// Same-side player-inventory rearrangement (equip / unequip / swap /
+		// hotbar reorder). Only consider it valid when the move would
+		// actually do something — otherwise we'd paint a ghost on a slot
+		// where ui_accept is a no-op.
+		if (_selectedSourceCategory == EFocusedPanel.PlayerInventory
+			&& category == EFocusedPanel.PlayerInventory)
+		{
+			return !string.IsNullOrEmpty(ResolveInventoryMoveLabel(panel));
+		}
+		return false;
+	}
+
+	void ClearAllGhosts()
+	{
+		_playerInventory?.ClearSelectVisuals();
+		ClearGhosts(_giveSlotPanels);
+		ClearGhosts(_getSlotPanels);
+		ClearGhosts(_merchantInventorySlotPanels);
+	}
+
+	static void ClearGhosts(Array<ItemSlotPanel> panels)
+	{
+		if (panels == null) { return; }
+		foreach (ItemSlotPanel p in panels)
+		{
+			p?.SetGhost(null);
+			p?.SetDimmed(false);
+		}
 	}
 
 	// -------------------------------------------------------------------
@@ -445,12 +572,39 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
+		HandleSlotTap(panel, category, index);
+	}
+
+	void HandleSlotTap(ItemSlotPanel panel, EFocusedPanel category, int index)
+	{
+		if (InSelectMode)
+		{
+			CommitMove(panel, category, index);
+			return;
+		}
 		ItemState item = panel?.Item;
 		if (item == null)
 		{
 			return;
 		}
-		TransferOne(category, index, item, 1);
+		switch (category)
+		{
+			case EFocusedPanel.MerchantInventory:
+				// Instant request: move one unit from the merchant snapshot to
+				// the get pile. No select mode — the merchant side is just one
+				// pile with no per-slot identity to choose between.
+				MoveMerchantToGet(index, item, 1);
+				RefreshAllSlots();
+				break;
+			case EFocusedPanel.Get:
+				// Instant return: undo a previously-requested unit.
+				MoveGetToMerchant(index, 1);
+				RefreshAllSlots();
+				break;
+			case EFocusedPanel.Give:
+				EnterSelectMode(panel, item, item.stackCount, category, index);
+				break;
+		}
 	}
 
 	void TickHold(float dt)
@@ -472,7 +626,38 @@ public partial class MerchantScreen : Control
 			_holdFired = true;
 			_holdTimer = 0f;
 			_playerInventory?.ButtonHintPrimary?.SetProgress(0f);
-			OpenCountPicker(_focusedPanel, _focusedSlotIndex, item);
+			HandleHoldComplete(_pressedSlot, _focusedPanel, _focusedSlotIndex, item);
+		}
+	}
+
+	void HandleHoldComplete(ItemSlotPanel panel, EFocusedPanel category, int index, ItemState item)
+	{
+		if (InSelectMode)
+		{
+			// Hold inside select mode commits the move (same as tap) so the
+			// user doesn't get stuck after a held release.
+			CommitMove(panel, category, index);
+			return;
+		}
+		switch (category)
+		{
+			case EFocusedPanel.MerchantInventory:
+				OpenInstantMoveCountPicker(item, count =>
+				{
+					MoveMerchantToGet(index, item, count);
+					RefreshAllSlots();
+				}, prompt: "Request how many?");
+				break;
+			case EFocusedPanel.Get:
+				OpenInstantMoveCountPicker(item, count =>
+				{
+					MoveGetToMerchant(index, count);
+					RefreshAllSlots();
+				}, prompt: "Return how many?");
+				break;
+			case EFocusedPanel.Give:
+				OpenSelectCountPicker(panel, item, category, index);
+				break;
 		}
 	}
 
@@ -485,62 +670,270 @@ public partial class MerchantScreen : Control
 	}
 
 	// -------------------------------------------------------------------
-	// Player-inventory verb wiring (Offer one / Offer many).
+	// Player-inventory verb wiring (Select / hold-Select).
 	// -------------------------------------------------------------------
 
 	void OnInventoryPrimaryTap(ItemSlotPanel panel, ItemState item)
 	{
-		if (item == null)
+		if (InSelectMode)
 		{
+			CommitMove(panel, EFocusedPanel.PlayerInventory, -1);
 			return;
 		}
-		TransferOne(EFocusedPanel.PlayerInventory, -1, item, 1);
+		if (item == null) { return; }
+		EnterSelectMode(panel, item, item.stackCount, EFocusedPanel.PlayerInventory, -1);
 	}
 
 	void OnInventoryPrimaryHold(ItemSlotPanel panel, ItemState item)
 	{
+		if (InSelectMode)
+		{
+			CommitMove(panel, EFocusedPanel.PlayerInventory, -1);
+			if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
+			return;
+		}
 		if (item == null)
 		{
+			if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
 			return;
 		}
 		if (item.data == null || !item.data.IsStackable || item.stackCount <= 1)
 		{
-			TransferOne(EFocusedPanel.PlayerInventory, -1, item, 1);
+			EnterSelectMode(panel, item, item.stackCount, EFocusedPanel.PlayerInventory, -1);
+			if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
 			return;
 		}
-		OpenCountPicker(EFocusedPanel.PlayerInventory, -1, item);
+		OpenSelectCountPicker(panel, item, EFocusedPanel.PlayerInventory, -1);
 	}
 
 	// -------------------------------------------------------------------
-	// Count picker plumbing — shared between inventory and merchant sides.
+	// Select mode entry / cancel / commit.
 	// -------------------------------------------------------------------
 
-	void OpenCountPicker(EFocusedPanel category, int index, ItemState item)
+	void EnterSelectMode(ItemSlotPanel sourcePanel, ItemState item, int amount, EFocusedPanel category, int index)
 	{
-		if (_dropCountPanel == null || item == null)
+		_selectedSource = sourcePanel;
+		_selectedSourceCategory = category;
+		_selectedSourceIndex = index;
+		_selectedItem = item;
+		_selectedAmount = Mathf.Max(1, amount);
+		sourcePanel?.SetDimmed(true);
+		ItemSlotPanel autoTarget = FindAutoTargetForSelect(category);
+		if (autoTarget != null && autoTarget != sourcePanel)
+		{
+			autoTarget.GrabFocus();
+		}
+		else
+		{
+			RefreshGhostOnFocus();
+		}
+		UpdateInfoPanels();
+		UpdateButtonHint();
+	}
+
+	// Auto-target the first empty slot on the opposite side of the trade —
+	// give panel for player-inventory sources, player backpack for give-panel
+	// sources. Falls back to the first slot on the opposite side if all are
+	// full so the cursor still lands somewhere predictable.
+	ItemSlotPanel FindAutoTargetForSelect(EFocusedPanel sourceCategory)
+	{
+		if (sourceCategory == EFocusedPanel.PlayerInventory)
+		{
+			return FindFirstEmptySlot(_giveSlotPanels) ?? FirstOf(_giveSlotPanels);
+		}
+		if (sourceCategory == EFocusedPanel.Give)
+		{
+			// Returning a staged offer goes back to the player's hands — first
+			// backpack panel is the predictable landing zone, matching
+			// InventoryScreen's equip-slot-source convention.
+			return _playerInventory?.GetFirstBackpackPanel();
+		}
+		return null;
+	}
+
+	static ItemSlotPanel FindFirstEmptySlot(Array<ItemSlotPanel> panels)
+	{
+		if (panels == null) { return null; }
+		foreach (ItemSlotPanel p in panels)
+		{
+			if (p != null && p.Item == null) { return p; }
+		}
+		return null;
+	}
+
+	static ItemSlotPanel FirstOf(Array<ItemSlotPanel> panels)
+	{
+		if (panels == null || panels.Count == 0) { return null; }
+		return panels[0];
+	}
+
+	void CancelSelect()
+	{
+		ItemSlotPanel source = _selectedSource;
+		ClearSelection();
+		ClearAllGhosts();
+		UpdateInfoPanels();
+		UpdateButtonHint();
+		source?.GrabFocus();
+	}
+
+	void ClearSelection()
+	{
+		_selectedItem = null;
+		_selectedAmount = 0;
+		_selectedSource = null;
+		_selectedSourceCategory = EFocusedPanel.None;
+		_selectedSourceIndex = -1;
+	}
+
+	void CommitMove(ItemSlotPanel dest, EFocusedPanel destCategory, int destIndex)
+	{
+		if (_selectedItem == null || dest == null)
+		{
+			CancelSelect();
+			return;
+		}
+		if (dest == _selectedSource)
+		{
+			CancelSelect();
+			return;
+		}
+		if (!IsValidSelectDestination(dest, destCategory))
 		{
 			return;
 		}
+		bool moved = ExecuteSelectMove(destCategory, destIndex);
+		if (!moved)
+		{
+			RefreshGhostOnFocus();
+			return;
+		}
+		// Belt-and-suspenders cleanup: wipe every ghost / dim from select
+		// mode before clearing state. RefreshAllSlots runs with InSelectMode
+		// already false and won't re-apply select visuals, so any residual
+		// overlays from the in-flight selection would otherwise stick.
+		ClearAllGhosts();
+		ClearSelection();
+		RefreshAllSlots();
+	}
+
+	bool ExecuteSelectMove(EFocusedPanel destCategory, int destIndex)
+	{
+		int amount = Mathf.Min(_selectedAmount, _selectedItem?.stackCount ?? 0);
+		if (amount <= 0) { return false; }
+		switch (_selectedSourceCategory, destCategory)
+		{
+			case (EFocusedPanel.PlayerInventory, EFocusedPanel.Give):
+				MoveInventoryToGive(_selectedItem, amount);
+				return true;
+			case (EFocusedPanel.Give, EFocusedPanel.PlayerInventory):
+				MoveGiveToInventory(_selectedSourceIndex, amount);
+				return true;
+			case (EFocusedPanel.PlayerInventory, EFocusedPanel.PlayerInventory):
+				// Same-side rearrangement — equip / unequip / hotbar reorder /
+				// weapon hand swap. Mirrors the inventory screen so the
+				// player can manage equipment mid-trade.
+				return ExecuteInventoryMove(_focusedSlot);
+			case (EFocusedPanel.Give, EFocusedPanel.Give):
+				// Moving staged items between give slots adds no value — refuse.
+				return false;
+		}
+		return false;
+	}
+
+	// Player-inventory same-side move. Routes the selected item to its
+	// destination via Inventory's public API — equipping, unequipping, or
+	// reordering within backpack / consumable hotbar — without bouncing
+	// through the trade staging. Partial-stack splits aren't handled here:
+	// non-stackables (armor / weapons) have stackCount 1, and partial moves
+	// to consumable / backpack slots within the same side aren't a common
+	// merchant-screen flow.
+	bool ExecuteInventoryMove(ItemSlotPanel dest)
+	{
+		Inventory inv = _player?.Inventory;
+		if (inv == null || _playerInventory == null || dest == null) { return false; }
+		bool sourceBackpack = _playerInventory.IsBackpackPanel(_selectedSource);
+		bool destBackpack = _playerInventory.IsBackpackPanel(dest);
+		EInventorySlot destEquip = _playerInventory.GetEquipSlotKind(dest);
+		EInventorySlot sourceEquip = _playerInventory.GetEquipSlotKind(_selectedSource);
+		if (sourceBackpack && destBackpack)
+		{
+			int srcIdx = _playerInventory.GetBackpackPanelIndex(_selectedSource);
+			int dstIdx = _playerInventory.GetBackpackPanelIndex(dest);
+			if (srcIdx < 0 || dstIdx < 0) { return false; }
+			return inv.TrySwapInBackpack(srcIdx, dstIdx);
+		}
+		if (sourceBackpack)
+		{
+			if (destEquip == EInventorySlot.Consumable)
+			{
+				return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
+			}
+			if (InventoryScreen.EquipCompatible(destEquip, _selectedItem))
+			{
+				return inv.TryEquip(_selectedItem, destEquip);
+			}
+			return false;
+		}
+		if (destBackpack)
+		{
+			if (sourceEquip == EInventorySlot.Consumable)
+			{
+				return inv.TryRemoveFromConsumableSlot(_selectedItem);
+			}
+			return inv.TryUnequip(sourceEquip);
+		}
+		if (sourceEquip == EInventorySlot.Consumable && destEquip == EInventorySlot.Consumable)
+		{
+			return inv.TryMoveToConsumableSlot(_selectedItem, _playerInventory.GetConsumableIndex(dest));
+		}
+		if (InventoryScreen.CanSwapEquipSlots(sourceEquip, destEquip, _selectedItem, inv))
+		{
+			return inv.TrySwapEquipSlots(sourceEquip, destEquip);
+		}
+		return false;
+	}
+
+	// -------------------------------------------------------------------
+	// Count picker plumbing — shared between select-mode and instant-mode.
+	// -------------------------------------------------------------------
+
+	void OpenSelectCountPicker(ItemSlotPanel panel, ItemState item, EFocusedPanel category, int index)
+	{
+		if (_dropCountPanel == null || item == null) { return; }
 		LockSlotsFocus();
 		_dropCountPanel.Visible = true;
 		_dropCountPanel.Init(
 			maxCount: item.stackCount,
-			onConfirm: count => { TransferOne(category, index, item, count); CloseCountPicker(); },
+			onConfirm: count =>
+			{
+				CloseCountPicker();
+				if (count > 0)
+				{
+					EnterSelectMode(panel, item, count, category, index);
+				}
+			},
 			onCancel: CloseCountPicker,
-			prompt: BuildHoldPrompt(category));
+			prompt: "Select how many?");
 	}
 
-	static string BuildHoldPrompt(EFocusedPanel category)
+	void OpenInstantMoveCountPicker(ItemState item, Action<int> apply, string prompt)
 	{
-		switch (category)
-		{
-			case EFocusedPanel.PlayerInventory: return "Offer how many?";
-			case EFocusedPanel.MerchantInventory: return "Request how many?";
-			case EFocusedPanel.Give:
-			case EFocusedPanel.Get:
-				return "Remove how many?";
-			default: return "How many?";
-		}
+		if (_dropCountPanel == null || item == null) { return; }
+		LockSlotsFocus();
+		_dropCountPanel.Visible = true;
+		_dropCountPanel.Init(
+			maxCount: item.stackCount,
+			onConfirm: count =>
+			{
+				CloseCountPicker();
+				if (count > 0)
+				{
+					apply(count);
+				}
+			},
+			onCancel: CloseCountPicker,
+			prompt: prompt);
 	}
 
 	void CloseCountPicker()
@@ -595,33 +988,8 @@ public partial class MerchantScreen : Control
 	}
 
 	// -------------------------------------------------------------------
-	// Transfer logic — one entry point per focus category.
+	// Underlying transfer logic — one entry point per direction.
 	// -------------------------------------------------------------------
-
-	void TransferOne(EFocusedPanel from, int slotIndex, ItemState item, int amount)
-	{
-		if (item == null || amount <= 0)
-		{
-			return;
-		}
-		amount = Mathf.Min(amount, item.stackCount);
-		switch (from)
-		{
-			case EFocusedPanel.PlayerInventory:
-				MoveInventoryToGive(item, amount);
-				break;
-			case EFocusedPanel.MerchantInventory:
-				MoveMerchantToGet(slotIndex, item, amount);
-				break;
-			case EFocusedPanel.Give:
-				MoveGiveToInventory(slotIndex, amount);
-				break;
-			case EFocusedPanel.Get:
-				MoveGetToMerchant(slotIndex, amount);
-				break;
-		}
-		RefreshAllSlots();
-	}
 
 	void MoveInventoryToGive(ItemState item, int amount)
 	{
@@ -713,10 +1081,6 @@ public partial class MerchantScreen : Control
 		SetConversation("Not what you wanted?");
 	}
 
-	// Merge `amount` units of `data` into the destination list. Stackable
-	// items fill any existing same-kind entry first; the rest spills into a
-	// fresh entry as long as `slotCap` has room. Returns the number of units
-	// actually placed.
 	static int AddToStagingList(List<ItemState> list, ItemData data, int amount, int slotCap)
 	{
 		if (list == null || data == null || amount <= 0)
@@ -783,9 +1147,6 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		// Rejection cases leave the staged items in the give panel so the
-		// player can adjust the offering — they only clear when something
-		// actually gets accepted.
 		if (!_merchant.HasReciprocableGift(_player))
 		{
 			SetConversation("I have nothing of value to give you in return.");
@@ -826,11 +1187,6 @@ public partial class MerchantScreen : Control
 		{
 			return;
 		}
-		// Cap-aware: items past the 3-of-a-kind threshold count as zero
-		// value, so a deal that hinges on capped units silently shrinks
-		// here. Get-side is the mob's outgoing inventory — the cap (which
-		// tracks the mob's incoming history) does NOT apply, so sum
-		// PerUnitValue * stackCount directly.
 		float giveValue = _merchant.CalculatePersonalValue(_giveItems);
 		float getValue = 0f;
 		foreach (ItemState s in _getItems)
@@ -840,18 +1196,12 @@ public partial class MerchantScreen : Control
 				getValue += _merchant.PerUnitValue(s.data) * s.stackCount;
 			}
 		}
-		// Equal-value trades are refused — there's no upside for the mob,
-		// and the player can still gift one side outright if they just
-		// want to be generous. giveValue<=0 (no items the mob values)
-		// also fails the inequality, so the early-exit covers that too.
 		if (getValue >= giveValue)
 		{
 			SetConversation("That trade isn't worth my while.");
 			return;
 		}
 		List<ItemState> accepted = ExtractAcceptableFromGive(out _, out _);
-		// Merchant's side returns to the player; anything that won't fit
-		// scatters around the merchant via World.DropItem.
 		for (int i = 0; i < _getItems.Count; i++)
 		{
 			ItemState received = _getItems[i];
@@ -884,14 +1234,6 @@ public partial class MerchantScreen : Control
 		RefreshAllSlots();
 	}
 
-	// Per-stack partition of _giveItems. For each staged stack, asks the
-	// merchant how many units it'll accept; pulls those units out into a
-	// fresh ItemState (so AcceptGift's gift-count tally sees only the
-	// valued units), and leaves any leftover units in place in the give
-	// panel. Stacks the mob refuses entirely stay where they were —
-	// nothing returns to the player's inventory here, so a player who
-	// stages a worthless offering can simply edit the panel and retry.
-	// Walks the list in reverse so RemoveAt is safe.
 	List<ItemState> ExtractAcceptableFromGive(out bool anyLeftover, out float loyaltyGained)
 	{
 		anyLeftover = false;
@@ -931,12 +1273,6 @@ public partial class MerchantScreen : Control
 		return accepted;
 	}
 
-	// Player-side application of every gift the mob handed back in response
-	// to a successful gift / favorable trade. Item gifts route into the
-	// inventory (overflow scatters at the merchant); language gifts route
-	// through Player.LearnLanguageComponents, which fires its own
-	// LanguageLearned announcement, so we only emit the GiftReceived
-	// announcement for the item path.
 	void ApplyAwardedGifts(List<LoyaltyGift> awarded)
 	{
 		if (awarded == null || awarded.Count == 0 || _player == null)
@@ -999,13 +1335,6 @@ public partial class MerchantScreen : Control
 		_merchantSourceByData.Clear();
 	}
 
-	// Snapshot the merchant's stock for this session. Secret entries stay
-	// hidden; everything else is displayed. Each displayed slot is a copy
-	// so the session can mutate stack counts freely; commit walks
-	// _merchantSourceByData to write the deltas back to the durable mob
-	// inventory. loyaltyCost is intentionally NOT consulted here — that
-	// field is data for other systems (pricing, dialogue gates) to read,
-	// not a display filter.
 	void PopulateMerchantSnapshot()
 	{
 		if (_merchant?.Inventory == null)
@@ -1023,13 +1352,6 @@ public partial class MerchantScreen : Control
 		}
 	}
 
-	// Standard post-commit pipeline. WriteBack applies decremented stacks to
-	// the durable mob inventory; AddSoldItemsToMerchantInventory deposits
-	// whatever the player just gifted / traded away; then we rebuild the
-	// snapshot so the slot panels show the new state (including any items
-	// the player just sold to the merchant). Used by both CommitGift and
-	// CommitTrade so the inventory rules stay symmetric across the two
-	// paths.
 	void FinalizeMerchantInventoryAfterCommit(IList<ItemState> sold)
 	{
 		WriteBackMerchantInventory();
@@ -1039,13 +1361,6 @@ public partial class MerchantScreen : Control
 		PopulateMerchantSnapshot();
 	}
 
-	// Deposit items the player just handed over (gift or trade) into the
-	// merchant's durable inventory. Stackable items merge into the first
-	// existing non-secret entry with room (and overflow into a fresh
-	// entry); non-stackable items always land in a fresh entry. The
-	// underlying list is unbounded — the slot UI's 9-slot cap is purely a
-	// display limit. Items added here carry no loyaltyCost and are not
-	// secret.
 	void AddSoldItemsToMerchantInventory(IList<ItemState> sold)
 	{
 		if (_merchant?.Inventory == null || sold == null)
@@ -1095,11 +1410,6 @@ public partial class MerchantScreen : Control
 		}
 	}
 
-	// Push the snapshot's current state back to the mob's durable inventory.
-	// Sums the remaining stack count for each ItemData that was displayed,
-	// updates the matching MobInventoryItem, and removes entries that
-	// reached zero. Secret entries are not in the map so they're left
-	// untouched.
 	void WriteBackMerchantInventory()
 	{
 		if (_merchant?.Inventory == null || _merchantSourceByData.Count == 0)
@@ -1130,10 +1440,6 @@ public partial class MerchantScreen : Control
 		}
 	}
 
-	// Anything still in the player's give pile on close goes back to their
-	// inventory (overflow at their feet). Get-pile items get re-merged into
-	// _merchantItems for symmetry; with no real mob inventory they just
-	// vanish when the list clears next.
 	void ReturnStagedItemsToInventory()
 	{
 		Inventory inv = _player?.Inventory;
@@ -1174,12 +1480,16 @@ public partial class MerchantScreen : Control
 		RefreshSlotList(_giveSlotPanels, _giveItems);
 		RefreshSlotList(_getSlotPanels, _getItems);
 		RefreshSlotList(_merchantInventorySlotPanels, _merchantItems);
-		// Focused slot may now hold a different item (or none) after a
-		// transfer shifted the list under the focus index. Re-sync the
-		// info panels and button hint so the visual state stays in step.
 		if (_focusedSlot != null)
 		{
 			_focusedItem = _focusedSlot.Item;
+		}
+		// Re-apply select visuals so a RefreshAll mid-selection doesn't wipe
+		// the dimmed source / ghost preview.
+		if (InSelectMode)
+		{
+			_selectedSource?.SetDimmed(true);
+			RefreshGhostOnFocus();
 		}
 		UpdateInfoPanels();
 		UpdateButtonHint();
@@ -1196,5 +1506,109 @@ public partial class MerchantScreen : Control
 		{
 			panels[i]?.SetItem(i < items.Count ? items[i] : null);
 		}
+	}
+
+	// -------------------------------------------------------------------
+	// Drop / Use — player inventory only. The give pile, get pile, and
+	// merchant inventory all hide these hints (see UpdateButtonHint) and
+	// the underlying InventoryPanel callbacks only fire when its own slot
+	// owns focus, so we don't need polling for the other sides.
+	// -------------------------------------------------------------------
+
+	void OnInventorySecondaryTap(ItemSlotPanel panel, ItemState item)
+	{
+		if (InSelectMode || item == null)
+		{
+			return;
+		}
+		_player?.Inventory?.Drop(item, 1);
+	}
+
+	void OnInventorySecondaryHoldComplete(ItemSlotPanel panel, ItemState item)
+	{
+		if (InSelectMode || item == null || _dropCountPanel == null || _playerInventory == null)
+		{
+			if (_playerInventory != null) { _playerInventory.HoldLocked = false; }
+			return;
+		}
+		Inventory inv = _player?.Inventory;
+		if (inv == null)
+		{
+			return;
+		}
+		if (item.stackCount <= 1)
+		{
+			inv.Drop(item, 1);
+			_playerInventory.HoldLocked = false;
+			return;
+		}
+		LockSlotsFocus();
+		_dropCountPanel.Visible = true;
+		_dropCountPanel.Init(
+			maxCount: item.stackCount,
+			onConfirm: count =>
+			{
+				CloseCountPicker();
+				if (count > 0) { inv.Drop(item, count); }
+			},
+			onCancel: CloseCountPicker,
+			prompt: "Drop how many?");
+	}
+
+	void OnInventoryTertiaryPressed(ItemSlotPanel panel, ItemState item)
+	{
+		if (InSelectMode || item is not ConsumableState consumable || _player == null)
+		{
+			return;
+		}
+		ConsumableData data = consumable.data;
+		if (data?.actionProfile == null)
+		{
+			return;
+		}
+		ActionRunner runner = _player.Runner;
+		if (runner == null || runner.IsBusy)
+		{
+			return;
+		}
+		runner.TryStart(data.actionProfile, new ActionContext
+		{
+			verb = EActionVerb.Use,
+			primaryItem = item,
+			sourceSlot = EInventorySlot.Consumable,
+		});
+	}
+
+	void OnInventoryTertiaryReleased()
+	{
+		if (InSelectMode)
+		{
+			return;
+		}
+		_player?.Runner?.OnInputReleased();
+	}
+
+	// Mirror the HUD hotbar / InventoryScreen charge-progress fill on the
+	// Use hint while the runner is charging the focused consumable.
+	void TickTertiaryCharge()
+	{
+		ButtonHint use = _playerInventory?.ButtonHintTertiary;
+		if (use == null || !use.Visible || InSelectMode)
+		{
+			return;
+		}
+		ActionRunner runner = _player?.Runner;
+		if (runner == null)
+		{
+			use.SetProgress(0f);
+			return;
+		}
+		ref readonly PlayerAction action = ref runner.Current;
+		if (action.phase != EActionPhase.Charging || action.context.primaryItem != _focusedItem)
+		{
+			use.SetProgress(0f);
+			return;
+		}
+		use.SetProgress(runner.CurrentChargeT);
 	}
 }

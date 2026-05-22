@@ -10,6 +10,12 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // player runs on press; lockpick / break can be authored as additional
     // entries for the radial UI.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
+    // When true, this chest is a player stash: interaction opens the
+    // StashScreen against Contents instead of ejecting LootItems, and the
+    // chest stays openable across visits (Active is not cleared on
+    // Complete). Authored on the stash chest scene; loot chest scenes
+    // leave this false.
+    [Export] private bool _isStash;
     // Optional perception slot. When wired, the chest stays invisible and
     // non-interactable until Discovered — pops to fully visible once the
     // player notices it. No HUD beat (HudScene on the Discoverable should
@@ -17,18 +23,6 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // are visible from spawn.
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
-    // Item the chest drops. Authored on the chest .tscn so each chest variant
-    // can drop a different item without touching the sim state. The Loot
-    // scene decides at run time whether the player auto-picks up (existing
-    // same-kind stack with room) or has to press Interact.
-    [Export] private ItemData _lootItem;
-    // Additional one-of-each loot. Drops alongside the LootCount × _lootItem
-    // stack so a chest can carry both bulk items (mushrooms, coins) and
-    // unique pickups (scrolls, key items). Authored on the .tscn rather
-    // than on the sim state — sim state still controls the LootCount stack
-    // size for _lootItem, but a chest's identity (a "scroll chest") is a
-    // scene-level decision. Leave empty for legacy single-item chests.
-    [Export] private Godot.Collections.Array<ItemData> _lootItems = new();
     // Optional ITriggerable nodes pinged when the chest finishes opening.
     // Lets a chest fire a poison-cloud deployer, an upstream
     // TriggerSource (e.g. a nearby spike trap's pad chained off the
@@ -43,6 +37,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     private bool _open;
     private ChestSimState _interactiveState;
     private World _world;
+
+    public ChestSimState SimState => _interactiveState;
+    public bool IsStash => _isStash;
 
     public override void _Ready()
     {
@@ -90,6 +87,21 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
+        if (_isStash)
+        {
+            // Stash chests don't eject loot and stay reopenable — interaction
+            // just hands the chest to the StashScreen, which mutates
+            // _interactiveState.Contents directly so changes persist across
+            // chunk eviction and save/load.
+            GameClient gc = GameClient.Current;
+            Player player = gc?.Player;
+            if (gc?.stashScreen != null && player != null)
+            {
+                gc.stashScreen.Open(player, this);
+            }
+            return;
+        }
+
         _open = true;
         _interactiveState.Active = false;
         UpdateVisuals();
@@ -99,20 +111,21 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
         float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
 
-        if (_lootItem != null)
+        // Contents are authored on whatever spawns the chest (ChestSpawnEntry,
+        // WorldGenData, future editor placements) and arrive through the sim
+        // state — the scene itself carries no loot. Each ItemCount ejects as
+        // a single stacked Loot so a "5 mushrooms" entry is one pile, not
+        // five pickups.
+        ItemCount[] lootItems = _interactiveState.LootItems;
+        if (lootItems != null)
         {
-            for (int i = 0; i < _interactiveState.LootCount; i++)
+            for (int i = 0; i < lootItems.Length; i++)
             {
-                _world.SpawnLoot(GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed), _lootItem);
-            }
-        }
-        if (_lootItems != null)
-        {
-            for (int i = 0; i < _lootItems.Count; i++)
-            {
-                ItemData item = _lootItems[i];
-                if (item == null) { continue; }
-                _world.SpawnLoot(GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed), item);
+                ItemCount entry = lootItems[i];
+                if (entry == null || entry.item == null || entry.count <= 0) { continue; }
+                ItemState stack = entry.item.CreateState();
+                stack.stackCount = entry.count;
+                _world.DropItem(stack, GlobalPosition + Vector3.Up, RandomImpulse(rng, horizontalSpeed, verticalSpeed));
             }
         }
 
@@ -149,20 +162,6 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         instance.Position = data.WorldPosition;
         instance._interactiveState = data;
         instance._world = world;
-        // Apply SimState's per-instance loot override (worldgen-authored
-        // drop list). Replaces the scene's _lootItems entirely so the
-        // override is the authoritative list — partial appending would
-        // surprise placement-driven setups whose intent is "this chest
-        // drops exactly these items, not these plus whatever the scene
-        // had."
-        if (data.LootItems != null && data.LootItems.Length > 0)
-        {
-            instance._lootItems = new Godot.Collections.Array<ItemData>();
-            for (int i = 0; i < data.LootItems.Length; i++)
-            {
-                instance._lootItems.Add(data.LootItems[i]);
-            }
-        }
         world.AddChild(instance);
 
         instance._open = !data.Active;

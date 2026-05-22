@@ -48,6 +48,11 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _jumpFx;
 	[Export] private PackedScene _landFx;
 	[Export] private PackedScene _landHardFx;
+	// Wall jump: foot fx spawns at the player's position (particle + scuff
+	// sound at the kicking foot), effort fx layers a voice grunt. Both fire
+	// from TryWallJump alongside the velocity reset and Jump one-shot anim.
+	[Export] private PackedScene _wallJumpFootFx;
+	[Export] private PackedScene _wallJumpEffortFx;
 	// High-speed water entry. Picked over the standard splash when inbound
 	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
 	[Export] private PackedScene _waterPlungeFx;
@@ -186,6 +191,13 @@ public partial class Player : CharacterBody3D
 	// Zero when grounded or when the deadline hasn't been armed yet.
 	ulong _stuckCheckDeadlineMs;
 	bool _jumpHeld;
+	// Seconds remaining in the wall-jump air-control blend window. Set to
+	// data.wallJumpAirControlTime by TryWallJump; while > 0 and airborne, the
+	// input-driven velocity rebuild lerps from current velocity toward the
+	// input target rather than snapping, preserving the kick arc. Decays each
+	// physics tick regardless of which velocity branch wins and is cleared on
+	// landing so a touch-down between wall jumps doesn't carry residual blend.
+	float _wallJumpAirControlTimer;
 	Inventory _inventory;
 
 	// Slope diagnostics published by UpdateSlopeDebug when CVars.debugSlopes
@@ -1612,14 +1624,13 @@ public partial class Player : CharacterBody3D
 					_inventory.TryEquip(item, armor.armorSlot);
 				}
 				break;
-			case WeaponData:
-				if (_inventory.GetEquipped(EInventorySlot.WeaponLeft) == null)
+			case WeaponData weapon:
+				// Handedness is exclusive — melee → WeaponLeft, ranged → WeaponRight.
+				// If the canonical slot is occupied, the weapon stays in the backpack.
+				EInventorySlot weaponSlot = weapon.CanonicalSlot;
+				if (_inventory.GetEquipped(weaponSlot) == null)
 				{
-					_inventory.TryEquip(item, EInventorySlot.WeaponLeft);
-				}
-				else if (_inventory.GetEquipped(EInventorySlot.WeaponRight) == null)
-				{
-					_inventory.TryEquip(item, EInventorySlot.WeaponRight);
+					_inventory.TryEquip(item, weaponSlot);
 				}
 				break;
 		}
@@ -2109,7 +2120,29 @@ public partial class Player : CharacterBody3D
 		}
 		else
 		{
-			Velocity = new Vector3(0, Velocity.Y, 0) + _inputMove * speed;
+			Vector3 inputVel = _inputMove * speed;
+			// Wall-jump arc preservation. While the air-control timer is alive
+			// and we're airborne, lerp from the current XZ velocity (the kick
+			// the wall jump just applied) toward the input-driven target so
+			// input authority fades in over wallJumpAirControlTime rather than
+			// snapping every tick. The timer ticks down regardless of which
+			// velocity branch is active (see below), so a knockback / dash
+			// landing mid-window doesn't extend the blend past its arc.
+			if (_wallJumpAirControlTimer > 0f && !_grounded && data.wallJumpAirControlTime > 0f)
+			{
+				float t = 1f - (_wallJumpAirControlTimer / data.wallJumpAirControlTime);
+				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
+				Vector3 blended = currentXZ.Lerp(inputVel, t);
+				Velocity = new Vector3(blended.X, Velocity.Y, blended.Z);
+			}
+			else
+			{
+				Velocity = new Vector3(0, Velocity.Y, 0) + inputVel;
+			}
+		}
+		if (_wallJumpAirControlTimer > 0f)
+		{
+			_wallJumpAirControlTimer = Mathf.Max(0f, _wallJumpAirControlTimer - dt);
 		}
 
 		// Ghost-trail emit state is a side-effect of the dash phase, not part
@@ -2259,6 +2292,7 @@ public partial class Player : CharacterBody3D
 		{
 			_jumpHeld = false;
 			_coyoteTimeEndMs = 0;
+			_wallJumpAirControlTimer = 0f;
 			Velocity = new Vector3(Velocity.X, 0, Velocity.Z);
 		}
 
@@ -2586,6 +2620,10 @@ public partial class Player : CharacterBody3D
 			{
 				Velocity = new Vector3(Velocity.X, data.swimVerticalSpeed, Velocity.Z);
 			}
+			else
+			{
+				TryWallJump();
+			}
 		}
 		else if (!Input.IsActionPressed("Jump"))
 		{
@@ -2734,6 +2772,85 @@ public partial class Player : CharacterBody3D
 	// i-frame status effect is runner-managed (applied at t=0 via an
 	// ApplyStatusEffect event, auto-expires on its own duration timer), so
 	// a wall short-circuit at t<duration leaves a small invuln tail — fine.
+	// Airborne wall-jump probe. Sweeps the player's collider
+	// wallJumpCheckDistance forward in the movement/yaw direction; on a hit
+	// whose normal is steeper than the walkable floor cutoff (cos FloorMaxAngle)
+	// and not an overhang (n.Y >= 0), the player's velocity is replaced with
+	// the wall-jump kick: vertical = wallJumpSpeedY, horizontal = (wall normal
+	// × wallJumpSpeedXZ) + the tangent component of incoming velocity. The
+	// normal-aligned kick gives a predictable peel-off independent of approach
+	// angle; preserving the full tangent keeps along-wall momentum (Mirror's
+	// Edge / Titanfall style) so wall-running into a wall jump reads as
+	// continuous rather than rebounding. Gated on Velocity.Y >
+	// -wallJumpMaxFallingSpeed so a long fall can't be saved by kicking off a
+	// passing wall. Cancels any in-flight dash so the dash velocity override
+	// doesn't clobber the kick.
+	private bool TryWallJump()
+	{
+		if (data == null || _world == null || _waterState != EWaterState.None)
+		{
+			return false;
+		}
+		if (Velocity.Y <= -data.wallJumpMaxFallingSpeed)
+		{
+			return false;
+		}
+		if (_stamina <= 0f)
+		{
+			return false;
+		}
+
+		Vector3 forward;
+		if (_inputMove.LengthSquared() > 0.0001f)
+		{
+			forward = new Vector3(_inputMove.X, 0f, _inputMove.Z).Normalized();
+		}
+		else
+		{
+			float yaw = Rotation.Y;
+			forward = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+		}
+
+		using KinematicCollision3D hit = MoveAndCollide(forward * data.wallJumpCheckDistance, testOnly: true);
+		if (hit == null)
+		{
+			return false;
+		}
+
+		Vector3 n = hit.GetNormal();
+		float floorDotMin = Mathf.Cos(FloorMaxAngle);
+		if (n.Y >= floorDotMin || n.Y < 0f)
+		{
+			return false;
+		}
+
+		// Decompose incoming horizontal velocity around the wall normal. The
+		// into-wall component (Velocity · nHoriz, negative when moving into the
+		// wall) is discarded; the tangent (along-wall) component is preserved
+		// verbatim and added to a fixed normal-aligned kick. n.Y is in
+		// [0, floorDotMin) by the gates above, so nHoriz is guaranteed non-zero.
+		Vector3 nHoriz = new Vector3(n.X, 0f, n.Z).Normalized();
+		Vector3 incomingXZ = new(Velocity.X, 0f, Velocity.Z);
+		Vector3 tangent = incomingXZ - incomingXZ.Dot(nHoriz) * nHoriz;
+		Vector3 horiz = nHoriz * data.wallJumpSpeedXZ + tangent;
+
+		_dashTimeRemaining = 0f;
+		_dashGlideRemaining = 0f;
+		_dashFreezeGravity = false;
+
+		Velocity = new Vector3(horiz.X, data.wallJumpSpeedY, horiz.Z);
+		_grounded = false;
+		_coyoteTimeEndMs = 0;
+		_jumpHeld = true;
+		_wallJumpAirControlTimer = data.wallJumpAirControlTime;
+		ConsumeStamina(data.wallJumpStaminaCost);
+
+		PlayOneShot(EAnimation.Jump);
+		SpawnWorldEffect(_wallJumpFootFx);
+		SpawnWorldEffect(_wallJumpEffortFx);
+		return true;
+	}
+
 	private void EndDash()
 	{
 		_dashTimeRemaining = 0f;

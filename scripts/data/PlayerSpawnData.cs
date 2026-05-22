@@ -6,9 +6,9 @@ public partial class PlayerSpawnData : Resource
 {
 	// Items the player tries to spawn already equipped. Each entry is added to
 	// the inventory and then we attempt to move it into the matching slot:
-	// armor → its armorSlot, weapons → WeaponLeft else WeaponRight. If the
-	// target slot is already taken (or the item isn't equippable), the item
-	// stays in the backpack.
+	// armor → its armorSlot, weapons → their CanonicalSlot (melee → WeaponLeft,
+	// ranged → WeaponRight). If the target slot is already taken (or the item
+	// isn't equippable), the item stays in the backpack.
 	[Export] public ItemCount[] equippedInventory;
 
 	// Items added to the player's inventory and pushed into consumable hotbar

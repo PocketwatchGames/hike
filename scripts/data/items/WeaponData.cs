@@ -11,6 +11,13 @@ public partial class WeaponData : ItemData
 	// `maxAmmo > 0` is just the weapon-level rollup callers use without
 	// having to walk the profile.
 	[Export] public int maxAmmo = 0;
+
+	// Single canonical equip slot for this weapon. Ranged (ammo-bearing)
+	// weapons live in WeaponRight; melee weapons in WeaponLeft. Handedness is
+	// exclusive — a melee weapon cannot be equipped in the ranged slot or
+	// vice versa. Equip / auto-equip / select-mode swap all read this so the
+	// rule lives in one place.
+	public EInventorySlot CanonicalSlot => maxAmmo > 0 ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 	// Optional drop spawned at every Hitscan impact point. When wired, each
 	// shot leaves a recoverable arrow in the world that returns 1 ammo when
 	// removed (player pickup or LootData.removeTimeMs timeout). Null = no

@@ -459,7 +459,7 @@ public partial class WorldEditor : Node3D
             {
                 ChestSpawnEntry chest = FindFirstCaveEntry<ChestSpawnEntry>(firstZone);
                 return chest?.Scene != null
-                    ? new ChestSimState(position, chest.Scene, 3)
+                    ? new ChestSimState(position, chest.Scene) { LootItems = ChestSpawnEntry.Resolve(chest.LootItems, new Random()) }
                     : null;
             }
             case "Torch":

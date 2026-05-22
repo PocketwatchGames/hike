@@ -24,12 +24,14 @@ public static class TextScrambler
     //   Grammar       — strips every non-letter/digit character from the
     //                   text (standalone punctuation tokens like " — "
     //                   drop out entirely; punctuation inside words such
-    //                   as "don't" or "1,000" collapses to "dont"/"1000")
-    //                   and then permutes the remaining word tokens as
-    //                   one block. Without Grammar the player has no
-    //                   notion of sentence boundaries, so the shuffle
-    //                   ignores them. Whitespace runs between the
-    //                   surviving word tokens stay in place so line
+    //                   as "don't" or "1,000" collapses to "dont"/"1000"),
+    //                   lowercases the surviving ASCII letters (capital-
+    //                   ization is part of the structural layer Grammar
+    //                   gates), and then permutes the remaining word
+    //                   tokens as one block. Without Grammar the player
+    //                   has no notion of sentence boundaries, so the
+    //                   shuffle ignores them. Whitespace runs between
+    //                   the surviving word tokens stay in place so line
     //                   breaks survive.
     // Null language, empty text, or missing == None returns `text` unchanged.
     public static string Scramble(string text, LanguageData language, ELanguageComponents missing)
@@ -365,13 +367,15 @@ public static class TextScrambler
     }
 
     // Removes every token whose characters are all non-letter/non-digit
-    // (standalone "—", "...", or a " , " typed with surrounding spaces)
-    // and strips any remaining non-letter/digit chars from word tokens
-    // ("don't" → "dont", "Hello," → "Hello", "1,000" → "1000"). Separators
-    // around a dropped token are merged so reassembly stays aligned
-    // (separators.Count == tokens.Count + 1) and line breaks survive.
-    // Only called when Grammar is missing — without that component the
-    // player has no notion of structural markers, so they don't see them.
+    // (standalone "—", "...", or a " , " typed with surrounding spaces),
+    // strips any remaining non-letter/digit chars from word tokens, and
+    // lowercases ASCII A-Z ("don't" → "dont", "Hello," → "hello",
+    // "1,000" → "1000"). Separators around a dropped token are merged
+    // so reassembly stays aligned (separators.Count == tokens.Count + 1)
+    // and line breaks survive. Only called when Grammar is missing —
+    // without that component the player has no notion of structural
+    // markers (punctuation, capitalization, sentence boundaries), so
+    // they don't see them.
     static void StripPunctuation(List<string> tokens, List<string> separators)
     {
         StringBuilder sb = new StringBuilder();
@@ -382,7 +386,11 @@ public static class TextScrambler
             for (int j = 0; j < tok.Length; j++)
             {
                 char c = tok[j];
-                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                if (c >= 'A' && c <= 'Z')
+                {
+                    sb.Append((char)(c - 'A' + 'a'));
+                }
+                else if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
                 {
                     sb.Append(c);
                 }
@@ -393,7 +401,7 @@ public static class TextScrambler
                 tokens.RemoveAt(i);
                 separators.RemoveAt(i);
             }
-            else if (sb.Length != tok.Length)
+            else
             {
                 tokens[i] = sb.ToString();
             }

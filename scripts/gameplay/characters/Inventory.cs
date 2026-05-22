@@ -12,8 +12,13 @@ public class Inventory
 	private readonly PlayerData _data;
 
 	// Backpack: items the player owns that are not currently in an equip or
-	// consumable slot. Capped at PlayerData.backpackCapacity.
-	private readonly List<ItemState> _backpack = new();
+	// consumable slot. Fixed-size sparse array — `_backpack[i]` is the item
+	// at grid slot i, or null if that slot is empty. The sparse layout means
+	// the player can leave gaps when reorganizing (move an item to slot 5
+	// even if slot 3 is empty), which the prior List<ItemState> couldn't
+	// express without auto-compacting. BackpackCount is the non-null count;
+	// Backpack.Count is the array length (== backpackCapacity).
+	private readonly ItemState[] _backpack;
 
 	// Equip slot pointers — null means empty. Each pointer is also present in
 	// _items via _backpack OR via _consumableSlots (for consumables) when
@@ -47,7 +52,18 @@ public class Inventory
 	}
 
 	public int BackpackCapacity => _data.backpackCapacity;
-	public int BackpackCount => _backpack.Count;
+	public int BackpackCount
+	{
+		get
+		{
+			int c = 0;
+			for (int i = 0; i < _backpack.Length; i++)
+			{
+				if (_backpack[i] != null) { c++; }
+			}
+			return c;
+		}
+	}
 	public int ConsumableSlotCount => _consumableSlots.Length;
 	public int ActiveConsumableIndex => _activeConsumableIndex;
 
@@ -55,7 +71,52 @@ public class Inventory
 	{
 		_owner = owner;
 		_data = data;
+		_backpack = new ItemState[Math.Max(0, data.backpackCapacity)];
 		_consumableSlots = new ItemState[Math.Max(0, data.consumableSlotCount)];
+	}
+
+	// Find the first null backpack slot — used by Add operations to "append"
+	// in the leftmost empty position. Returns -1 if the backpack is full.
+	private int FindFirstEmptyBackpackIndex()
+	{
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			if (_backpack[i] == null) { return i; }
+		}
+		return -1;
+	}
+
+	// Linear scan for an item by reference. Returns the backpack index or -1.
+	private int IndexOfInBackpack(ItemState item)
+	{
+		if (item == null) { return -1; }
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			if (_backpack[i] == item) { return i; }
+		}
+		return -1;
+	}
+
+	private bool BackpackContains(ItemState item) => IndexOfInBackpack(item) >= 0;
+
+	// Place `item` into the first empty slot. Returns false if every slot is
+	// occupied (caller must handle the no-room case).
+	private bool AppendToBackpack(ItemState item)
+	{
+		int idx = FindFirstEmptyBackpackIndex();
+		if (idx < 0) { return false; }
+		_backpack[idx] = item;
+		return true;
+	}
+
+	// Clear the slot holding `item` (by reference). Returns false if the
+	// item isn't in the backpack — mirrors List<T>.Remove's signature.
+	private bool RemoveFromBackpack(ItemState item)
+	{
+		int idx = IndexOfInBackpack(item);
+		if (idx < 0) { return false; }
+		_backpack[idx] = null;
+		return true;
 	}
 
 	// Add an item to the player's inventory. For stackables, fills existing
@@ -97,11 +158,9 @@ public class Inventory
 			}
 		}
 
-		// Anything left lands in the backpack as a new entry, capacity permitting.
-		if (item.stackCount > 0 && _backpack.Count < _data.backpackCapacity)
+		// Anything left lands in the first empty backpack slot.
+		if (item.stackCount > 0 && AppendToBackpack(item))
 		{
-			_backpack.Add(item);
-			int added = item.stackCount;
 			item.stackCount = initialStack;  // not actually consumed; full ref stored
 			onChanged?.Invoke();
 			return initialStack;
@@ -149,7 +208,7 @@ public class Inventory
 			}
 		}
 
-		_backpack.Remove(item);
+		RemoveFromBackpack(item);
 		onChanged?.Invoke();
 	}
 
@@ -198,8 +257,9 @@ public class Inventory
 		// "somewhere" is the backpack — capacity check. The item being
 		// equipped frees a backpack slot when it leaves the backpack, so the
 		// net swap is feasible iff prev fits given the post-swap state.
-		bool itemInBackpack = _backpack.Contains(item);
-		int postSwapBackpackCount = _backpack.Count + (itemInBackpack ? -1 : 0) + (prev != null ? 1 : 0);
+		int sourceBackpackIndex = IndexOfInBackpack(item);
+		bool itemInBackpack = sourceBackpackIndex >= 0;
+		int postSwapBackpackCount = BackpackCount + (itemInBackpack ? -1 : 0) + (prev != null ? 1 : 0);
 		if (postSwapBackpackCount > _data.backpackCapacity)
 		{
 			return false;
@@ -207,12 +267,23 @@ public class Inventory
 
 		if (itemInBackpack)
 		{
-			_backpack.Remove(item);
+			_backpack[sourceBackpackIndex] = null;
 		}
 
 		if (prev != null)
 		{
-			_backpack.Add(prev);
+			// Land the displaced item in the slot the equipped item vacated
+			// when possible so the player's grid layout stays stable across
+			// a swap. If the equipped item didn't come from the backpack,
+			// fall back to the first empty slot.
+			if (sourceBackpackIndex >= 0)
+			{
+				_backpack[sourceBackpackIndex] = prev;
+			}
+			else
+			{
+				AppendToBackpack(prev);
+			}
 		}
 
 		SetSlot(slot, item);
@@ -227,13 +298,35 @@ public class Inventory
 		{
 			return true;
 		}
-		if (_backpack.Count >= _data.backpackCapacity)
+		if (!AppendToBackpack(prev))
 		{
 			return false;
 		}
 		SetSlot(slot, null);
-		_backpack.Add(prev);
 		NotifySlot(slot);
+		return true;
+	}
+
+	// Swap items between two equip slots (e.g., WeaponLeft ↔ WeaponRight).
+	// Either side may be empty. Consumable slots are NOT supported here — use
+	// TryMoveToConsumableSlot which is index-aware. Caller is responsible for
+	// kind compatibility (matching TryEquip's convention) — armor head ↔ body
+	// is meaningless because armor pieces are tied to one armorSlot, but
+	// weapons fit either WeaponLeft or WeaponRight.
+	public bool TrySwapEquipSlots(EInventorySlot a, EInventorySlot b)
+	{
+		if (a == b) { return true; }
+		if (a == EInventorySlot.None || b == EInventorySlot.None) { return false; }
+		if (a == EInventorySlot.Consumable || b == EInventorySlot.Consumable) { return false; }
+		ItemState itemA = GetEquipped(a);
+		ItemState itemB = GetEquipped(b);
+		SetSlot(a, itemB);
+		SetSlot(b, itemA);
+		// Two slot signals + one onChanged pulse so the UI rebinds both
+		// affected panels.
+		onSlotChanged?.Invoke(a);
+		onSlotChanged?.Invoke(b);
+		onChanged?.Invoke();
 		return true;
 	}
 
@@ -289,7 +382,8 @@ public class Inventory
 		{
 			return false;
 		}
-		if (!_backpack.Contains(item))
+		int srcIdx = IndexOfInBackpack(item);
+		if (srcIdx < 0)
 		{
 			return false;
 		}
@@ -297,7 +391,7 @@ public class Inventory
 		{
 			if (_consumableSlots[i] == null)
 			{
-				_backpack.Remove(item);
+				_backpack[srcIdx] = null;
 				_consumableSlots[i] = item;
 				if (_activeConsumableIndex == -1)
 				{
@@ -308,6 +402,192 @@ public class Inventory
 			}
 		}
 		return false;
+	}
+
+	// Move a consumable into a specific hotbar slot. Item may live in the
+	// backpack OR in a different consumable slot. If the target slot is
+	// occupied, the previous occupant goes to where `item` came from (a clean
+	// swap with no backpack detour for slot ↔ slot moves; backpack ↔ slot
+	// puts the displaced item back into the backpack). Used by select-mode
+	// UIs that target specific hotbar positions.
+	public bool TryMoveToConsumableSlot(ItemState item, int targetIndex)
+	{
+		if (item == null || !(item is ConsumableState))
+		{
+			return false;
+		}
+		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
+		{
+			return false;
+		}
+		int sourceIndex = -1;
+		for (int i = 0; i < _consumableSlots.Length; i++)
+		{
+			if (_consumableSlots[i] == item)
+			{
+				sourceIndex = i;
+				break;
+			}
+		}
+		int sourceBackpackIndex = sourceIndex < 0 ? IndexOfInBackpack(item) : -1;
+		bool fromBackpack = sourceBackpackIndex >= 0;
+		if (!fromBackpack && sourceIndex < 0)
+		{
+			return false;
+		}
+		if (sourceIndex == targetIndex)
+		{
+			return true;
+		}
+		ItemState prev = _consumableSlots[targetIndex];
+		// Source-to-destination swap. Active-consumable index follows the
+		// item that was active so the hotbar selection feels stable across
+		// reorders.
+		bool itemWasActive = sourceIndex >= 0 && _activeConsumableIndex == sourceIndex;
+		bool prevWasActive = _activeConsumableIndex == targetIndex;
+		if (fromBackpack)
+		{
+			_backpack[sourceBackpackIndex] = null;
+			_consumableSlots[targetIndex] = item;
+			if (prev != null)
+			{
+				// Displaced consumable lands in the slot the moved item
+				// vacated, preserving the player's grid layout.
+				_backpack[sourceBackpackIndex] = prev;
+				if (prevWasActive && prev is ConsumableState prevCs)
+				{
+					prevCs.OnUnequipped(_owner);
+				}
+			}
+			if (_activeConsumableIndex == targetIndex && prev != null)
+			{
+				_activeConsumableIndex = -1;
+				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
+			}
+			if (_activeConsumableIndex == -1)
+			{
+				SetActiveConsumableIndex(targetIndex);
+			}
+		}
+		else
+		{
+			_consumableSlots[targetIndex] = item;
+			_consumableSlots[sourceIndex] = prev;
+			if (itemWasActive)
+			{
+				// Active follows the item that the player was wielding.
+				_activeConsumableIndex = targetIndex;
+				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
+			}
+			else if (prevWasActive)
+			{
+				_activeConsumableIndex = sourceIndex;
+				onActiveConsumableChanged?.Invoke(_activeConsumableIndex);
+			}
+		}
+		onChanged?.Invoke();
+		return true;
+	}
+
+	// Place a fresh ItemState (typically split off another stack via partial-
+	// stack move) into the consumable slot at `targetIndex`. If the slot already
+	// holds a same-kind stack, merges into it up to maxStackSize and returns
+	// the units placed; otherwise requires the slot to be empty and places the
+	// fresh stack. Returns the number of units actually placed (0 = refused).
+	public int TryAddToConsumableSlot(ItemState fresh, int targetIndex)
+	{
+		if (fresh == null || fresh.data == null || fresh.stackCount <= 0)
+		{
+			return 0;
+		}
+		if (!(fresh is ConsumableState))
+		{
+			return 0;
+		}
+		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
+		{
+			return 0;
+		}
+		ItemState existing = _consumableSlots[targetIndex];
+		if (existing == null)
+		{
+			_consumableSlots[targetIndex] = fresh;
+			if (_activeConsumableIndex == -1)
+			{
+				SetActiveConsumableIndex(targetIndex);
+			}
+			onChanged?.Invoke();
+			return fresh.stackCount;
+		}
+		if (existing.IsSameKind(fresh) && fresh.data.IsStackable)
+		{
+			int space = existing.RemainingStackSpace();
+			int moved = Math.Min(space, fresh.stackCount);
+			if (moved <= 0)
+			{
+				return 0;
+			}
+			existing.stackCount += moved;
+			onChanged?.Invoke();
+			return moved;
+		}
+		return 0;
+	}
+
+	// Swap two backpack slots. The slots may be empty (null) — moving an
+	// item from slot A to empty slot B leaves A empty and B holding the item,
+	// which is how the player reorganizes their grid. Indices must be in
+	// [0, BackpackCapacity).
+	public bool TrySwapInBackpack(int sourceIndex, int targetIndex)
+	{
+		if (sourceIndex < 0 || sourceIndex >= _backpack.Length) { return false; }
+		if (targetIndex < 0 || targetIndex >= _backpack.Length) { return false; }
+		if (sourceIndex == targetIndex) { return true; }
+		(_backpack[sourceIndex], _backpack[targetIndex]) = (_backpack[targetIndex], _backpack[sourceIndex]);
+		onChanged?.Invoke();
+		return true;
+	}
+
+	// Move `amount` units from `source` into the backpack slot at `targetIndex`.
+	// If the slot holds a same-kind stackable, merges into it; if empty, places
+	// a fresh stack of `amount` units there. Different-kind occupancy is
+	// refused. Decrements source.stackCount and removes the source from its
+	// container if it hits zero. Returns units actually placed.
+	public int TrySplitMergeInBackpack(ItemState source, int amount, int targetIndex)
+	{
+		if (source == null || source.data == null || amount <= 0) { return 0; }
+		if (targetIndex < 0 || targetIndex >= _backpack.Length) { return 0; }
+		if (!source.data.IsStackable) { return 0; }
+		ItemState target = _backpack[targetIndex];
+		int moved = 0;
+		if (target == null)
+		{
+			// Empty slot — place a fresh stack of up to `amount` units.
+			int take = Math.Min(amount, source.stackCount);
+			if (take <= 0) { return 0; }
+			ItemState fresh = source.data.CreateState();
+			fresh.stackCount = take;
+			_backpack[targetIndex] = fresh;
+			moved = take;
+		}
+		else
+		{
+			if (!target.IsSameKind(source)) { return 0; }
+			int space = target.RemainingStackSpace();
+			moved = Math.Min(space, Math.Min(amount, source.stackCount));
+			if (moved <= 0) { return 0; }
+			target.stackCount += moved;
+		}
+		source.stackCount -= moved;
+		if (source.stackCount <= 0)
+		{
+			Remove(source);
+		}
+		else
+		{
+			onChanged?.Invoke();
+		}
+		return moved;
 	}
 
 	// Move a consumable out of the hotbar back into the backpack. Mirror of
@@ -327,7 +607,8 @@ public class Inventory
 			{
 				continue;
 			}
-			if (_backpack.Count >= _data.backpackCapacity)
+			int destIdx = FindFirstEmptyBackpackIndex();
+			if (destIdx < 0)
 			{
 				return false;
 			}
@@ -336,7 +617,7 @@ public class Inventory
 				cs.OnUnequipped(_owner);
 			}
 			_consumableSlots[i] = null;
-			_backpack.Add(item);
+			_backpack[destIdx] = item;
 			if (_activeConsumableIndex == i)
 			{
 				_activeConsumableIndex = -1;
@@ -433,9 +714,9 @@ public class Inventory
 
 	public IEnumerable<ItemState> EnumerateAll()
 	{
-		foreach (ItemState s in _backpack)
+		for (int i = 0; i < _backpack.Length; i++)
 		{
-			yield return s;
+			if (_backpack[i] != null) { yield return _backpack[i]; }
 		}
 		for (int i = 0; i < _consumableSlots.Length; i++)
 		{
@@ -452,6 +733,9 @@ public class Inventory
 		if (_weaponRight != null) { yield return _weaponRight; }
 	}
 
+	// Sparse view: Backpack[i] is the item at slot i, or null if empty. Count
+	// is the array length (backpackCapacity), NOT the non-null occupancy —
+	// use BackpackCount for that.
 	public IReadOnlyList<ItemState> Backpack => _backpack;
 	public IReadOnlyList<ItemState> ConsumableSlots => _consumableSlots;
 
