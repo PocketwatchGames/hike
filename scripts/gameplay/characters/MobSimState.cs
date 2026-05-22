@@ -49,13 +49,22 @@ public class MobSimState : EntitySimState
     // the merchant screen; consumed as gifts cross their requiredLoyalty
     // threshold. Never decreases — loyalty is a one-way relationship score.
     public float Loyalty;
-    // Remaining loyalty rewards. Initialized from MobData.loyaltyGifts on
-    // construction (and seeded by WorldGen for any per-instance override).
-    // Mob.ReceiveGift removes entries as they're handed back to the player;
-    // when the list is empty the mob has nothing left to give and
-    // WillAcceptGift starts rejecting (one of the rejection cases the spec
-    // calls out). Per-instance so WorldGen can author unique NPC gifts.
+    // Remaining loyalty rewards. Seeded by WorldGen (or the world-file
+    // loader) from the worldgen-level placement entry; never sourced from
+    // MobData, since a single shared species template can't reasonably
+    // hand out the same rewards to every villager instance. Mob.ReceiveGift
+    // removes entries as they're handed back to the player; when the list
+    // is empty the mob has nothing left to give and WillAcceptGift starts
+    // rejecting (one of the rejection cases the spec calls out).
     public List<LoyaltyGift> LoyaltyGifts = new();
+    // Per-instance merchant inventory. Seeded by WorldGen from the
+    // worldgen-level placement entry so each merchant can stock different
+    // wares without forking the shared MobData. The MerchantScreen reads
+    // from this when the player opens trade. Each entry carries its own
+    // loyaltyCost / secret flags so individual items can be gated or hidden
+    // without changing the shape of the inventory list. Empty list =
+    // nothing to sell.
+    public List<MobInventoryItem> Inventory = new();
     // Running count of items the player has gifted to this mob, keyed by
     // ItemData. Enforces the per-type cap (MaxGiftsPerItemType) so a player
     // can't spam apples for unlimited loyalty. Persists across screen opens
@@ -181,16 +190,6 @@ public class MobSimState : EntitySimState
         MemoryTimeMs = 0;
         PerceptionTickAccumulator = (float)GD.RandRange(0.0, PerceptionTickInterval);
         LightSampleAccumulator = (float)GD.RandRange(0.0, LightSampleInterval);
-        if (mobData.loyaltyGifts != null)
-        {
-            foreach (LoyaltyGift gift in mobData.loyaltyGifts)
-            {
-                if (gift != null)
-                {
-                    LoyaltyGifts.Add(gift);
-                }
-            }
-        }
     }
 
     public override bool ShouldSpawn(World world)

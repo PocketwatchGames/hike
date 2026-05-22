@@ -212,8 +212,9 @@ layout_mode = 2
 [node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer" unique_id=311712742 instance=ExtResource("3_32vq5")]
 layout_mode = 2
 
-[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 instance=ExtResource("4_pl1cs")]
+[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary") instance=ExtResource("4_pl1cs")]
 layout_mode = 2
+_buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
 
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
 custom_minimum_size = Vector2(500, 0)

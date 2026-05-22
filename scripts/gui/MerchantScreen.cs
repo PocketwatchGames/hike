@@ -55,9 +55,18 @@ public partial class MerchantScreen : Control
 	// decremented in place.
 	readonly List<ItemState> _giveItems = new();
 	readonly List<ItemState> _getItems = new();
-	// Merchant inventory mirror. Stays empty until mobs have inventory; left
-	// in place so the request/remove paths work the day that lands.
+	// Snapshot of the merchant's shop side for this session. Populated at
+	// Open from _merchant.Inventory (skipping secret entries and any whose
+	// loyaltyCost the player hasn't earned). Mutated freely during the
+	// session; written back to the durable mob inventory only on a
+	// successful trade commit, so a cancel leaves the mob's actual stock
+	// untouched.
 	readonly List<ItemState> _merchantItems = new();
+	// Snapshot bookkeeping — maps each displayed ItemData back to the
+	// MobInventoryItem it came from so commit can apply the new stack
+	// counts (or drop the entry if it hit zero). Cleared with the staging
+	// lists in ClearStaging.
+	readonly System.Collections.Generic.Dictionary<ItemData, MobInventoryItem> _merchantSourceByData = new();
 
 	enum EFocusedPanel { None, PlayerInventory, MerchantInventory, Give, Get }
 	EFocusedPanel _focusedPanel = EFocusedPanel.None;
@@ -172,6 +181,7 @@ public partial class MerchantScreen : Control
 		// reads as a layering bug.
 		_player?.ClearInteractive();
 		ClearStaging();
+		PopulateMerchantSnapshot();
 		UpdateMerchantInfo();
 		ApplyModeVisibility();
 		HidePlayerInventorySecondaryHints();
@@ -789,6 +799,7 @@ public partial class MerchantScreen : Control
 		}
 		List<LoyaltyGift> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
 		ApplyAwardedGifts(awarded);
+		FinalizeMerchantInventoryAfterCommit(accepted);
 		if (awarded.Count > 0)
 		{
 			SetConversation("Thank you so much, here's a gift for you!");
@@ -861,6 +872,7 @@ public partial class MerchantScreen : Control
 		float loyaltyGained = giveValue - getValue;
 		List<LoyaltyGift> awarded = _merchant.AcceptGift(accepted, loyaltyGained, _player);
 		ApplyAwardedGifts(awarded);
+		FinalizeMerchantInventoryAfterCommit(accepted);
 		if (awarded.Count > 0)
 		{
 			SetConversation("Pleasure doing business — and please, take this as well.");
@@ -984,6 +996,138 @@ public partial class MerchantScreen : Control
 		_giveItems.Clear();
 		_getItems.Clear();
 		_merchantItems.Clear();
+		_merchantSourceByData.Clear();
+	}
+
+	// Snapshot the merchant's stock for this session. Secret entries stay
+	// hidden; everything else is displayed. Each displayed slot is a copy
+	// so the session can mutate stack counts freely; commit walks
+	// _merchantSourceByData to write the deltas back to the durable mob
+	// inventory. loyaltyCost is intentionally NOT consulted here — that
+	// field is data for other systems (pricing, dialogue gates) to read,
+	// not a display filter.
+	void PopulateMerchantSnapshot()
+	{
+		if (_merchant?.Inventory == null)
+		{
+			return;
+		}
+		foreach (MobInventoryItem entry in _merchant.Inventory)
+		{
+			if (entry == null || entry.secret) { continue; }
+			if (entry.item?.data == null || entry.item.stackCount <= 0) { continue; }
+			ItemState snapshot = entry.item.data.CreateState();
+			snapshot.stackCount = entry.item.stackCount;
+			_merchantItems.Add(snapshot);
+			_merchantSourceByData[entry.item.data] = entry;
+		}
+	}
+
+	// Standard post-commit pipeline. WriteBack applies decremented stacks to
+	// the durable mob inventory; AddSoldItemsToMerchantInventory deposits
+	// whatever the player just gifted / traded away; then we rebuild the
+	// snapshot so the slot panels show the new state (including any items
+	// the player just sold to the merchant). Used by both CommitGift and
+	// CommitTrade so the inventory rules stay symmetric across the two
+	// paths.
+	void FinalizeMerchantInventoryAfterCommit(IList<ItemState> sold)
+	{
+		WriteBackMerchantInventory();
+		AddSoldItemsToMerchantInventory(sold);
+		_merchantItems.Clear();
+		_merchantSourceByData.Clear();
+		PopulateMerchantSnapshot();
+	}
+
+	// Deposit items the player just handed over (gift or trade) into the
+	// merchant's durable inventory. Stackable items merge into the first
+	// existing non-secret entry with room (and overflow into a fresh
+	// entry); non-stackable items always land in a fresh entry. The
+	// underlying list is unbounded — the slot UI's 9-slot cap is purely a
+	// display limit. Items added here carry no loyaltyCost and are not
+	// secret.
+	void AddSoldItemsToMerchantInventory(IList<ItemState> sold)
+	{
+		if (_merchant?.Inventory == null || sold == null)
+		{
+			return;
+		}
+		foreach (ItemState taken in sold)
+		{
+			if (taken?.data == null || taken.stackCount <= 0)
+			{
+				continue;
+			}
+			int remaining = taken.stackCount;
+			if (taken.data.IsStackable)
+			{
+				foreach (MobInventoryItem entry in _merchant.Inventory)
+				{
+					if (remaining <= 0)
+					{
+						break;
+					}
+					if (entry?.item?.data != taken.data || entry.secret)
+					{
+						continue;
+					}
+					int space = entry.item.RemainingStackSpace();
+					if (space <= 0)
+					{
+						continue;
+					}
+					int moved = Mathf.Min(space, remaining);
+					entry.item.stackCount += moved;
+					remaining -= moved;
+				}
+			}
+			if (remaining > 0)
+			{
+				ItemState fresh = taken.data.CreateState();
+				fresh.stackCount = remaining;
+				_merchant.Inventory.Add(new MobInventoryItem
+				{
+					item = fresh,
+					loyaltyCost = 0f,
+					secret = false,
+				});
+			}
+		}
+	}
+
+	// Push the snapshot's current state back to the mob's durable inventory.
+	// Sums the remaining stack count for each ItemData that was displayed,
+	// updates the matching MobInventoryItem, and removes entries that
+	// reached zero. Secret entries are not in the map so they're left
+	// untouched.
+	void WriteBackMerchantInventory()
+	{
+		if (_merchant?.Inventory == null || _merchantSourceByData.Count == 0)
+		{
+			return;
+		}
+		var remaining = new System.Collections.Generic.Dictionary<ItemData, int>();
+		foreach (ItemState s in _merchantItems)
+		{
+			if (s?.data == null || s.stackCount <= 0) { continue; }
+			remaining.TryGetValue(s.data, out int prior);
+			remaining[s.data] = prior + s.stackCount;
+		}
+		var inv = _merchant.Inventory;
+		foreach (var kv in _merchantSourceByData)
+		{
+			MobInventoryItem entry = kv.Value;
+			if (entry?.item == null) { continue; }
+			remaining.TryGetValue(kv.Key, out int total);
+			if (total > 0)
+			{
+				entry.item.stackCount = total;
+			}
+			else
+			{
+				inv.Remove(entry);
+			}
+		}
 	}
 
 	// Anything still in the player's give pile on close goes back to their

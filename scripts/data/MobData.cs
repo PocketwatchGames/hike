@@ -180,13 +180,6 @@ public partial class MobData : Resource
     // (or null entries) on a mob means no drops.
     [Export] public Array<ItemCount> loot = new();
 
-    // Species-default loyalty rewards. Seeded into MobSimState.LoyaltyGifts
-    // on construction; WorldGen can mutate the per-instance list afterward
-    // for unique NPCs without touching this shared resource. Empty list
-    // means the mob has nothing to give back — Mob.WillAcceptGift will
-    // start refusing gifts immediately (nothing of value to reciprocate).
-    [Export] public Array<LoyaltyGift> loyaltyGifts = new();
-
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk
     // through, climb, or swim in. A mob with default values is a plain ground

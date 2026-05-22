@@ -578,29 +578,52 @@ public static class WorldGen
         // population pass once authored villager spawn rules exist.
         const int VillagerSpawnX = 3;
         const int VillagerSpawnZ = 0;
-        if (VillagerSpawnX >= ws.Min.X && VillagerSpawnX <= ws.Max.X
+        if (genData.NearSpawnVillagerData != null
+            && genData.NearSpawnVillagerData.MobScene != null
+            && VillagerSpawnX >= ws.Min.X && VillagerSpawnX <= ws.Max.X
             && VillagerSpawnZ >= ws.Min.Z && VillagerSpawnZ <= ws.Max.Z)
         {
-            var villagerData = GD.Load<MobData>("res://resources/data/characters/friendly_villager.tres");
-            if (villagerData != null && villagerData.MobScene != null)
+            MobData villagerData = genData.NearSpawnVillagerData;
+            int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
+            var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
+            var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
+            // The villager test fixture speaks the same language the
+            // KnowledgeStone fixtures teach, so reading the stones
+            // progressively un-scrambles the dialogue too. Set per-
+            // instance via SimState rather than on MobData so the shared
+            // friendly_villager.tres stays language-agnostic.
+            villagerSim.Language = genData.KnowledgeStoneLanguage;
+            // Branching conversation attached per-instance so the shared
+            // friendly_villager.tres stays conversation-agnostic — a
+            // future quest-specific villager can pin its own conversation
+            // without forking the MobData.
+            villagerSim.Conversation = genData.NearSpawnVillagerConversation;
+            // Loyalty rewards and merchant inventory live on the placement
+            // entry, not the species template — see WorldGenData for the
+            // rationale.
+            if (genData.NearSpawnVillagerLoyaltyGifts != null)
             {
-                int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
-                var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
-                var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
-                // The villager test fixture speaks the same language the
-                // KnowledgeStone fixtures teach, so reading the stones
-                // progressively un-scrambles the dialogue too. Set per-
-                // instance via SimState rather than on MobData so the shared
-                // friendly_villager.tres stays language-agnostic.
-                villagerSim.Language = genData.KnowledgeStoneLanguage;
-                // Branching conversation attached per-instance so the shared
-                // friendly_villager.tres stays conversation-agnostic — a
-                // future quest-specific villager can pin its own conversation
-                // without forking the MobData.
-                villagerSim.Conversation = GD.Load<ConversationData>(
-                    "res://resources/data/characters/friendly_villager_conversation.tres");
-                ws.AddEntity(villagerSim);
+                foreach (LoyaltyGift gift in genData.NearSpawnVillagerLoyaltyGifts)
+                {
+                    if (gift != null) { villagerSim.LoyaltyGifts.Add(gift); }
+                }
             }
+            if (genData.NearSpawnVillagerInventory != null)
+            {
+                foreach (MobInventoryData entry in genData.NearSpawnVillagerInventory)
+                {
+                    if (entry == null || entry.item == null) { continue; }
+                    ItemState state = entry.item.CreateState();
+                    state.stackCount = Mathf.Max(1, entry.count);
+                    villagerSim.Inventory.Add(new MobInventoryItem
+                    {
+                        item = state,
+                        loyaltyCost = entry.loyaltyCost,
+                        secret = entry.secret,
+                    });
+                }
+            }
+            ws.AddEntity(villagerSim);
         }
 
         // KnowledgeStone test fixtures placed in a row west of the default

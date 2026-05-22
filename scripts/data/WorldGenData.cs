@@ -93,4 +93,18 @@ public partial class WorldGenData : Resource
     // placement pass.
     [Export] public PackedScene NearSpawnChestScene;
     [Export] public ItemData[] NearSpawnChestItems = [];
+
+    // Single test-fixture friendly villager placed a few voxels east of the
+    // default player spawn. NearSpawnVillagerData is the species template;
+    // the rest are per-instance overrides stamped onto the spawned
+    // MobSimState so the shared friendly_villager.tres stays generic.
+    // LoyaltyGifts and Inventory are inherently per-instance (a single
+    // shared MobData would force every villager to hand out identical
+    // rewards and stock identical merchandise), so they live here on the
+    // worldgen-level placement entry rather than on MobData. Skipped if
+    // NearSpawnVillagerData is null.
+    [Export] public MobData NearSpawnVillagerData;
+    [Export] public ConversationData NearSpawnVillagerConversation;
+    [Export] public Godot.Collections.Array<LoyaltyGift> NearSpawnVillagerLoyaltyGifts = new();
+    [Export] public MobInventoryData[] NearSpawnVillagerInventory = [];
 }

@@ -21,11 +21,16 @@ public static class TextScrambler
     //                   vocabulary component.
     //   Numbers       — replaces every digit anywhere in the text with a
     //                   stable per-language letter.
-    //   Grammar       — permutes whitespace-bounded word tokens WITHIN each
-    //                   sentence (sentences are bounded by tokens ending in
-    //                   . ! ?); whitespace runs between tokens stay in
-    //                   place so line breaks survive, and tokens never
-    //                   cross a sentence boundary.
+    //   Grammar       — strips every non-letter/digit character from the
+    //                   text (standalone punctuation tokens like " — "
+    //                   drop out entirely; punctuation inside words such
+    //                   as "don't" or "1,000" collapses to "dont"/"1000")
+    //                   and then permutes the remaining word tokens as
+    //                   one block. Without Grammar the player has no
+    //                   notion of sentence boundaries, so the shuffle
+    //                   ignores them. Whitespace runs between the
+    //                   surviving word tokens stay in place so line
+    //                   breaks survive.
     // Null language, empty text, or missing == None returns `text` unchanged.
     public static string Scramble(string text, LanguageData language, ELanguageComponents missing)
     {
@@ -46,6 +51,13 @@ public static class TextScrambler
         List<string> tokens = new List<string>();
         List<string> separators = new List<string>();
         Tokenize(text, tokens, separators);
+
+        // Strip punctuation FIRST when Grammar is missing — vocab cipher
+        // and digit substitution then run on the cleaned word tokens.
+        if (doGrammar)
+        {
+            StripPunctuation(tokens, separators);
+        }
 
         for (int i = 0; i < tokens.Count; i++)
         {
@@ -70,7 +82,7 @@ public static class TextScrambler
 
         if (doGrammar && tokens.Count > 1)
         {
-            ShuffleSentences(tokens, seed ^ unchecked((int)0xDEADBEEF));
+            ShuffleAll(tokens, seed ^ unchecked((int)0xDEADBEEF));
         }
 
         return Reassemble(tokens, separators);
@@ -152,11 +164,14 @@ public static class TextScrambler
     //                   resolve under the player's learned components (the
     //                   token's vocab bucket is learned + Numbers learned if
     //                   the token contains digits).
-    //   orderPct      — 1 if Grammar is learned (or there's only one token);
-    //                   otherwise the fraction of tokens that happen to land
-    //                   at their original index after the same per-sentence
-    //                   Fisher-Yates shuffle Scramble would apply. Single-
-    //                   token sentences are always fixed points.
+    //   orderPct      — 1 if Grammar is learned (or only one word token
+    //                   survives the punctuation strip); otherwise the
+    //                   fraction of word tokens that happen to land at
+    //                   their original index after the same single
+    //                   Fisher-Yates shuffle Scramble would apply. The
+    //                   denominator and the replayed shuffle both run
+    //                   over the post-strip word list so they match
+    //                   exactly what the player sees.
     // Used as the soft gate on ConversationResponse visibility (see
     // ConversationVisibility) — a response with a stable per-key RNG roll
     // below this value renders, others stay hidden until the player learns
@@ -190,6 +205,25 @@ public static class TextScrambler
         bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
         bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
 
+        // Mirror Scramble's strip pass so translatedPct's denominator and
+        // the shuffle replay below reflect what the player actually sees.
+        // (Internal punctuation inside words doesn't need to be removed
+        // here — VocabularyBucketFor and HasDigit ignore it anyway.)
+        if (!grammarKnown)
+        {
+            for (int i = tokens.Count - 1; i >= 0; i--)
+            {
+                if (IsPunctuationOnly(tokens[i]))
+                {
+                    tokens.RemoveAt(i);
+                }
+            }
+            if (tokens.Count == 0)
+            {
+                return 1f;
+            }
+        }
+
         int translated = 0;
         for (int i = 0; i < tokens.Count; i++)
         {
@@ -212,10 +246,10 @@ public static class TextScrambler
         }
         else
         {
-            // Replay the same per-sentence shuffle Scramble would apply,
-            // tracking an index permutation. Counting fixed points across
-            // every sentence's range gives the exact fraction of words that
-            // would land at their original position.
+            // Replay the same single Fisher-Yates Scramble runs over the
+            // post-strip word tokens. Counting fixed points gives the
+            // exact fraction of words that would land at their original
+            // index.
             int shuffleSeed = StableSeed(language.displayName.ToString()) ^ unchecked((int)0xDEADBEEF);
             int[] perm = new int[tokens.Count];
             for (int i = 0; i < perm.Length; i++)
@@ -223,20 +257,10 @@ public static class TextScrambler
                 perm[i] = i;
             }
             Random rng = new Random(shuffleSeed);
-            int sStart = 0;
-            for (int i = 0; i < tokens.Count; i++)
+            for (int i = tokens.Count - 1; i > 0; i--)
             {
-                if (!EndsSentence(tokens[i]) && i != tokens.Count - 1)
-                {
-                    continue;
-                }
-                // Fisher-Yates over the sentence range [sStart, i].
-                for (int k = i; k > sStart; k--)
-                {
-                    int j = sStart + rng.Next(k - sStart + 1);
-                    (perm[k], perm[j]) = (perm[j], perm[k]);
-                }
-                sStart = i + 1;
+                int j = rng.Next(i + 1);
+                (perm[i], perm[j]) = (perm[j], perm[i]);
             }
             int fixedPoints = 0;
             for (int i = 0; i < perm.Length; i++)
@@ -325,53 +349,71 @@ public static class TextScrambler
         return sb.ToString();
     }
 
-    // Per-sentence Fisher-Yates: walks `tokens`, finding ranges bounded by
-    // tokens whose trailing punctuation (after stripping wrapping quotes /
-    // brackets) is . ! or ?, and shuffles each range in place. A single
-    // RNG threads through every sentence so the same seed always produces
-    // the same overall permutation. Single-token sentences pass through
-    // unshuffled — there's nothing to permute.
-    static void ShuffleSentences(List<string> tokens, int seed)
+    // Fisher-Yates over the entire token list — when Grammar is missing
+    // there are no sentence boundaries (terminator tokens like "." were
+    // either folded into words and stripped, or were standalone and
+    // dropped by StripPunctuation), so the whole text shuffles as one
+    // block.
+    static void ShuffleAll(List<string> tokens, int seed)
     {
         Random rng = new Random(seed);
-        int start = 0;
-        for (int i = 0; i < tokens.Count; i++)
+        for (int i = tokens.Count - 1; i > 0; i--)
         {
-            if (!EndsSentence(tokens[i]) && i != tokens.Count - 1)
-            {
-                continue;
-            }
-            for (int k = i; k > start; k--)
-            {
-                int j = start + rng.Next(k - start + 1);
-                (tokens[k], tokens[j]) = (tokens[j], tokens[k]);
-            }
-            start = i + 1;
+            int j = rng.Next(i + 1);
+            (tokens[i], tokens[j]) = (tokens[j], tokens[i]);
         }
     }
 
-    // Token ends a sentence iff its last character (after stripping trailing
-    // quotes / closing brackets) is one of the terminator marks. Permissive
-    // about wrappers so "world." and "world.'" and "world.)" all count.
-    static bool EndsSentence(string token)
+    // Removes every token whose characters are all non-letter/non-digit
+    // (standalone "—", "...", or a " , " typed with surrounding spaces)
+    // and strips any remaining non-letter/digit chars from word tokens
+    // ("don't" → "dont", "Hello," → "Hello", "1,000" → "1000"). Separators
+    // around a dropped token are merged so reassembly stays aligned
+    // (separators.Count == tokens.Count + 1) and line breaks survive.
+    // Only called when Grammar is missing — without that component the
+    // player has no notion of structural markers, so they don't see them.
+    static void StripPunctuation(List<string> tokens, List<string> separators)
     {
-        int i = token.Length - 1;
-        while (i >= 0)
+        StringBuilder sb = new StringBuilder();
+        for (int i = tokens.Count - 1; i >= 0; i--)
+        {
+            string tok = tokens[i];
+            sb.Clear();
+            for (int j = 0; j < tok.Length; j++)
+            {
+                char c = tok[j];
+                if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
+                {
+                    sb.Append(c);
+                }
+            }
+            if (sb.Length == 0)
+            {
+                separators[i + 1] = separators[i] + separators[i + 1];
+                tokens.RemoveAt(i);
+                separators.RemoveAt(i);
+            }
+            else if (sb.Length != tok.Length)
+            {
+                tokens[i] = sb.ToString();
+            }
+        }
+    }
+
+    // A whitespace-bounded token with no letters and no digits — the
+    // standalone-punctuation case ComputeComprehension drops to mirror
+    // Scramble's StripPunctuation pass.
+    static bool IsPunctuationOnly(string token)
+    {
+        for (int i = 0; i < token.Length; i++)
         {
             char c = token[i];
-            if (c == '"' || c == '\'' || c == ')' || c == ']' || c == '}')
+            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))
             {
-                i--;
-                continue;
+                return false;
             }
-            break;
         }
-        if (i < 0)
-        {
-            return false;
-        }
-        char last = token[i];
-        return last == '.' || last == '!' || last == '?';
+        return true;
     }
 
     static int[] BuildPermutation(int seed, int size)

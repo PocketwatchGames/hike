@@ -130,6 +130,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // agree on which language to scramble against.
     public LanguageData SpokenLanguage => _simState?.Language ?? mobData?.language;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
+    // Per-instance merchant stock — the MerchantScreen reads this to
+    // populate its shop side, filtering out secret entries. Null on mobs
+    // that were never seeded with stock (any non-merchant mob).
+    public List<MobInventoryItem> Inventory => _simState?.Inventory;
     public Vector3 weaponPosition => GlobalPosition;
     public Vector3 spawnPosition => _simState.SpawnPosition;
     public float spawnRotationY => _simState.SpawnRotationY;
