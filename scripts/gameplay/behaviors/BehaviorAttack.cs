@@ -1,13 +1,20 @@
+using System.Collections.Generic;
 using Godot;
 
 public partial class BehaviorAttack : BehaviorBase
 {
     private readonly AttackBehaviorData _data;
     private ulong _weaponCooldownUntilMs;
+    // Separate cooldown for the optional secondary attack so a long-cooldown
+    // utility profile (e.g. battle cry) doesn't share the primary's window.
+    private ulong _secondaryCooldownUntilMs;
     // The target this attack session is leasing an encircle slot against.
     // Tracked so we can release the slot when the target changes (different
     // perception target) or the behavior exits.
     private Node3D _slotTarget;
+    // Reused per-tick to count same-team allies in range for the secondary
+    // attack's ally-count gate. Cleared before each query.
+    private readonly List<Mob> _allyScratch = new();
 
     public BehaviorAttack(AttackBehaviorData data)
     {
@@ -71,18 +78,29 @@ public partial class BehaviorAttack : BehaviorBase
             output.yaw = Mathf.Atan2(dir2d.X, dir2d.Y);
         }
 
-        if (time >= _weaponCooldownUntilMs && dist2d < _data.maxAttackRange && targetPerception.canSee)
+        // In range — pick which attack to fire. The secondary wins when it's
+        // off cooldown AND its ally-count gate is satisfied (battle-cry style
+        // gating: don't yell if nobody's around to buff). Falls through to
+        // the primary otherwise. Both gates also require canSee + maxAttackRange
+        // so the goblin commits to combat distance regardless of which attack
+        // resolves.
+        bool inRangeAndSeen = dist2d < _data.maxAttackRange && targetPerception.canSee;
+        if (inRangeAndSeen
+            && _data.secondaryAttackProfile != null
+            && time >= _secondaryCooldownUntilMs
+            && (_data.secondaryAttackMinAllies <= 0
+                || CountAlliesInRange(me, _data.secondaryAttackAllyRange) >= _data.secondaryAttackMinAllies))
         {
-            // In range — fire. Populate the action runner request; Mob's
-            // _PhysicsProcess will TryStart the profile this same tick.
-            if (_data.actionProfile != null)
-            {
-                output.attackProfile = _data.actionProfile;
-                output.attackContext = new ActionContext
-                {
-                    target = target,
-                };
-            }
+            output.attackProfile = _data.secondaryAttackProfile;
+            output.attackContext = new ActionContext { target = target };
+            _secondaryCooldownUntilMs = time + (ulong)(_data.secondaryAttackCooldownSeconds * 1000f);
+        }
+        else if (inRangeAndSeen && time >= _weaponCooldownUntilMs && _data.actionProfile != null)
+        {
+            // In range — fire the primary. Populate the action runner request;
+            // Mob's _PhysicsProcess will TryStart the profile this same tick.
+            output.attackProfile = _data.actionProfile;
+            output.attackContext = new ActionContext { target = target };
             _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
             // Hold position at the slot for a tick after the swing — fall
             // through to the standoff path below.
@@ -147,5 +165,47 @@ public partial class BehaviorAttack : BehaviorBase
         }
         me.World?.EncircleAllocator?.ReleaseSlot(me);
         _slotTarget = null;
+    }
+
+    // Counts same-team Mobs (including `me`) within `radius` of me, via the
+    // mob spatial hash for cheap nearest-neighbor queries. Used by the
+    // secondary-attack ally gate so a battle cry only fires when it has
+    // someone to buff. radius <= 0 short-circuits to 0.
+    private int CountAlliesInRange(Mob me, float radius)
+    {
+        if (radius <= 0f || me.mobData == null)
+        {
+            return 0;
+        }
+        MobSpatialHash hash = me.World?.MobSpatialHash;
+        if (hash == null)
+        {
+            return 0;
+        }
+        _allyScratch.Clear();
+        hash.QueryRadius(me.GlobalPosition, radius, _allyScratch);
+        ETeam team = me.mobData.team;
+        int count = 0;
+        // The crier counts itself — a goblin alone still has someone to buff
+        // (itself) when minAllies = 1 is authored. Authors who don't want
+        // self-only cries should set minAllies = 2.
+        if (me.alive)
+        {
+            count++;
+        }
+        for (int i = 0; i < _allyScratch.Count; i++)
+        {
+            Mob m = _allyScratch[i];
+            if (m == null || m == me || !m.alive || m.mobData == null)
+            {
+                continue;
+            }
+            if (m.mobData.team == team)
+            {
+                count++;
+            }
+        }
+        _allyScratch.Clear();
+        return count;
     }
 }

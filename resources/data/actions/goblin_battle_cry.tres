@@ -1,0 +1,36 @@
+[gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://wy2kbhhyyymsd"]
+
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="1_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
+[ext_resource type="Resource" uid="uid://13v50as0v9jb6" path="res://resources/data/status_effects/status_goblin_battle_cry_buff.tres" id="6_buff"]
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("3_event")
+time = 0
+type = 64
+animName = 0
+
+[sub_resource type="Resource" id="Resource_apply_buff"]
+script = ExtResource("4_apply")
+statusEffect = ExtResource("6_buff")
+
+[sub_resource type="Resource" id="Resource_event_cry"]
+script = ExtResource("3_event")
+time = 400
+type = 32768
+effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_buff")])
+areaRadius = 8.0
+
+[sub_resource type="Resource" id="Resource_action_cry"]
+script = ExtResource("2_action")
+displayName = &"Battle Cry"
+activeDurationSeconds = 1.2
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_cry")])
+
+[resource]
+script = ExtResource("1_profile")
+chargedActions = Array[ExtResource("2_action")]([SubResource("Resource_action_cry")])
+locksMovement = true

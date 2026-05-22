@@ -62,6 +62,14 @@ public partial class StatusEffectData : Resource
 	// debuff).
 	[Export] public float damageMultiplier = 1f;
 
+	// Per-effect multiplier applied to outgoing healthDamage when this actor
+	// sources a hit. ResolveHit scales the constructed HitInfo by the product
+	// across all of the source actor's active effects — mirrors how
+	// damageMultiplier scales incoming. 1.0 neutral; >1 boosts (battle-cry
+	// rally), <1 weakens (sapped debuff). Stun / hitstun / knockback are not
+	// scaled — buff damage without altering the swing's CC pattern.
+	[Export] public float outgoingDamageMultiplier = 1f;
+
 	// Flat bonus added to the actor's maxStamina while this effect is active.
 	// Summed across active effects on StatusEffectController.MaxStaminaBonus
 	// and folded into Player.MaxStamina. 0 is neutral; status_hydrated.tres

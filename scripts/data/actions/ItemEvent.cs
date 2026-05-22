@@ -243,9 +243,9 @@ public partial class ItemEvent : Resource
 		{
 			nameof(meleeRange) or nameof(meleeRadius) => EItemEventType.Melee,
 			nameof(hitScanRange) => EItemEventType.Hitscan,
-			nameof(effects) => EItemEventType.ApplyStatusEffect,
+			nameof(effects) => EItemEventType.ApplyStatusEffect | EItemEventType.ApplyAreaStatusEffect,
 			nameof(animName) => EItemEventType.PlayAnim,
-			nameof(fx) => EItemEventType.OpenInteractive,
+			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
 			nameof(motionSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) => EItemEventType.ApplyMotion,
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
@@ -265,9 +265,9 @@ public partial class ItemEvent : Resource
 				or nameof(projectileGravity)
 				or nameof(impactEvent) => EItemEventType.Projectile,
 			nameof(areaEffectScene)
-				or nameof(areaRadius)
 				or nameof(areaDurationSeconds)
 				or nameof(areaTickInterval) => EItemEventType.SpawnAreaEffect,
+			nameof(areaRadius) => EItemEventType.SpawnAreaEffect | EItemEventType.ApplyAreaStatusEffect,
 			_ => 0,
 		};
 	}

@@ -58,5 +58,13 @@ public enum EItemEventType
 	// cursor (Player.AimWorldPosition) is the drop target. Falls back to
 	// ActorWorldPosition when no aim cursor is active.
 	SpawnAreaEffect = 1 << 14,
+	// One-shot pulse that applies ev.effects to every same-team Mob (including
+	// the actor itself) inside a sphere of ev.areaRadius around the actor.
+	// Pairs naturally with a battle-cry style attack: the goblin yells, every
+	// nearby goblin gets the speed / damage buff. Status-effect lifecycle is
+	// owned by the receiver (each StatusEffectData carries its own duration
+	// + fx), so this event just selects who and applies the list. ev.fx (if
+	// set) spawns once at the actor as the source-side audiovisual cue.
+	ApplyAreaStatusEffect = 1 << 15,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

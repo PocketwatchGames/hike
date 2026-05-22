@@ -536,6 +536,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasBlood(float amount) => true;
     public void DrainBlood(float amount) { }
 
+    public float OutgoingDamageMultiplier => _statusEffects?.OutgoingDamageMultiplier ?? 1f;
+
     public void PlayOneShot(EAnimation anim)
     {
         if (_animator == null || mobData == null)

@@ -239,6 +239,28 @@ public class StatusEffectController
 		}
 	}
 
+	// Product of every active effect's outgoingDamageMultiplier. ResolveHit
+	// scales the constructed HitInfo's healthDamage by this so buffs / debuffs
+	// on the attacker modulate the swing without touching the receiver-side
+	// DamageMultiplier above.
+	public float OutgoingDamageMultiplier
+	{
+		get
+		{
+			float product = 1f;
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				StatusEffectData data = _statusEffects[i]?.data;
+				if (data == null)
+				{
+					continue;
+				}
+				product *= data.outgoingDamageMultiplier;
+			}
+			return product;
+		}
+	}
+
 	// Sum of every active effect's maxStaminaBonus. Player.MaxStamina folds
 	// this in so a Hydrated player gets +50 to their cap for the duration.
 	public float MaxStaminaBonus

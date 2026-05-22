@@ -31,13 +31,27 @@ public partial class AttackBehaviorData : BehaviorData
     [Export] public float encircleDistance = -1f;
 
     // Action profile run through the mob's ActionRunner when an attack fires.
-    // Mobs aren't backed by a WeaponState, so the current weapon-side
-    // damageProfiles dict lookup doesn't apply — mob attacks will need a
-    // parallel mob-side damage lookup (not yet implemented; no mob .tres
-    // currently wires this field). Charging / queueing / multi-tier all work
-    // the same as for the player; for typical mobs author a single tier with
-    // chargeTime=0 and autoActivateAtMax=true (immediate-fire).
+    // Mobs source damage from MobData.damageProfiles (mirror of WeaponData's
+    // dict). Charging / queueing / multi-tier all work the same as for the
+    // player; for typical mobs author a single tier with chargeTime=0 and
+    // autoActivateAtMax=true (immediate-fire).
     [Export] public ItemActionProfile actionProfile;
+
+    // Optional second attack tried before the primary each tick. Use for
+    // buffs / utility actions (battle cry, summon) that the mob prefers
+    // when conditions are right; falls through to the primary when this
+    // one's gate fails. Null = no secondary.
+    [Export] public ItemActionProfile secondaryAttackProfile;
+    // Per-profile cooldown for the secondary, tracked independently from
+    // the primary's attackCooldownSeconds so a long-cooldown cry doesn't
+    // stall the goblin's claw between cries.
+    [Export] public float secondaryAttackCooldownSeconds = 8f;
+    // Minimum count of same-team Mobs (including the actor) within
+    // secondaryAttackAllyRange needed to trigger the secondary. 0 disables
+    // the ally-count gate (always-available secondary); 1+ keeps the cry
+    // from firing into an empty field. Counted via MobSpatialHash.
+    [Export] public int secondaryAttackMinAllies = 1;
+    [Export] public float secondaryAttackAllyRange = 8f;
 
     public override BehaviorBase CreateRuntime() => new BehaviorAttack(this);
 }

@@ -569,6 +569,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoApplyEffect(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.ApplyAreaStatusEffect) != 0)
+		{
+			ItemEventHandlers.DoApplyAreaStatusEffect(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.Melee) != 0)
 		{
 			ItemEventHandlers.DoMelee(_actor, ev, ref _action);

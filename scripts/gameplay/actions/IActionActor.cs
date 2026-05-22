@@ -34,4 +34,9 @@ public interface IActionActor
 	// both (no blood-mana system today).
 	bool HasBlood(float amount);
 	void DrainBlood(float amount);
+
+	// Product of every active status effect's outgoingDamageMultiplier. Used
+	// by ResolveHit to scale the constructed HitInfo's healthDamage when this
+	// actor sources a hit (battle-cry buffs, etc.). 1.0 = neutral.
+	float OutgoingDamageMultiplier { get; }
 }

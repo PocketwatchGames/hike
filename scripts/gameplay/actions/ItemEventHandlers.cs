@@ -474,6 +474,60 @@ public static class ItemEventHandlers
 		}
 	}
 
+	// Pulse-applies each entry in ev.effects to every alive same-team Mob
+	// inside an ev.areaRadius sphere around the actor (the source mob itself
+	// is included — a battle cry buffs the crier too). ev.fx fires once at
+	// the actor as the source-side audiovisual cue. Player-sourced cries are
+	// not authored today; the handler no-ops when the actor isn't a Mob
+	// rather than guess at "Player friendlies" semantics — flip it on by
+	// adding a Player.Team branch when a player buff is wanted.
+	private static readonly System.Collections.Generic.List<Mob> _areaBuffScratch = new();
+	public static void DoApplyAreaStatusEffect(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.effects == null || ev.effects.Count == 0)
+		{
+			return;
+		}
+		if (ev.fx != null)
+		{
+			SpawnOnActor(actor, ev.fx);
+		}
+		if (actor is not Mob sourceMob || sourceMob.mobData == null)
+		{
+			return;
+		}
+		float radius = ev.areaRadius;
+		if (radius <= 0f)
+		{
+			return;
+		}
+		MobSpatialHash hash = sourceMob.World?.MobSpatialHash;
+		if (hash == null)
+		{
+			return;
+		}
+		ETeam team = sourceMob.mobData.team;
+		_areaBuffScratch.Clear();
+		hash.QueryRadius(actor.ActorWorldPosition, radius, _areaBuffScratch);
+		for (int i = 0; i < _areaBuffScratch.Count; i++)
+		{
+			Mob target = _areaBuffScratch[i];
+			if (target == null || !target.alive || target.mobData == null || target.mobData.team != team)
+			{
+				continue;
+			}
+			for (int j = 0; j < ev.effects.Count; j++)
+			{
+				ItemEffect effect = ev.effects[j];
+				if (effect != null)
+				{
+					effect.Apply(target, action.context);
+				}
+			}
+		}
+		_areaBuffScratch.Clear();
+	}
+
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		ItemState item = action.context.primaryItem;
@@ -662,7 +716,17 @@ public static class ItemEventHandlers
 		// Hit direction = attacker's forward. Knockback uses this to push
 		// the target along the swing axis; senders that need a different
 		// direction (e.g. radial pop-up from a trap) build HitInfo directly.
-		return new HitInfo(template, actor.AttackerNode, actor.ActorForward);
+		HitInfo hit = new HitInfo(template, actor.AttackerNode, actor.ActorForward);
+		// Source-side buffs / debuffs scale the swing's healthDamage at fire
+		// time. Only healthDamage is scaled — stun / hitstun / knockback keep
+		// their authored CC pattern so a damage-only buff doesn't accidentally
+		// turn into a stagger-cannon.
+		float mul = actor.OutgoingDamageMultiplier;
+		if (mul != 1f)
+		{
+			hit.healthDamage *= mul;
+		}
+		return hit;
 	}
 
 	// Maximum spread cone half-angle, in radians, when the tier's spread
