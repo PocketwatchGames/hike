@@ -111,7 +111,6 @@ jumpSpeed = 12.0
 jumpHoldGravityScale = 0.5
 wallJumpSpeedXZ = 12.0
 wallJumpAirControlTime = 1.0
-wallJumpStaminaCost = 15.0
 perceptionMinimum = 0.0
 hearingRange = 15.0
 swimJumpSpeed = 16.0

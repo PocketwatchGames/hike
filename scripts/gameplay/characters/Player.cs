@@ -2795,6 +2795,10 @@ public partial class Player : CharacterBody3D
 		{
 			return false;
 		}
+		if (_wallJumpAirControlTimer > 0f)
+		{
+			return false;
+		}
 		if (_stamina <= 0f)
 		{
 			return false;
