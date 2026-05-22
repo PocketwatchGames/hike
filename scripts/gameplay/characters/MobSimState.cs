@@ -124,6 +124,16 @@ public class MobSimState : EntitySimState
     // zero on the trailing edge so the mob doesn't coast past the authored
     // distance under residual physics damping. Y component unused.
     public Vector3 KnockbackVelocity;
+    // ApplyMotion state — seeded by an ApplyMotion event firing through
+    // Mob.ApplyMotion (e.g. a goblin claw's dart). While MotionTime > 0 the
+    // body's horizontal velocity is forced to MotionVelocity each tick, the
+    // path-driven impulse block is skipped, and (if MotionFreezeGravity)
+    // gravity is suppressed. Snapped to zero on the trailing edge, same
+    // pattern as KnockbackTime. Direction is captured at the moment of the
+    // event so a later facing change doesn't curve the dart.
+    public float MotionTime;
+    public Vector3 MotionVelocity;
+    public bool MotionFreezeGravity;
     public float Armor;
     // Game-time at which armor recharge can begin. Set on every armor-
     // absorbing hit; the longer recover window is what ArmorDepleted tracks

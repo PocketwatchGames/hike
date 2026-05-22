@@ -637,18 +637,23 @@ public static class ItemEventHandlers
 	}
 
 	// Build the HitInfo a Melee/Hitscan event should apply: looks up the
-	// event's damageProfileKey on the driving weapon's damageProfiles dict.
-	// Source is the actor so receivers see the attacker. Returns a default
-	// HitInfo (no damage) if the lookup fails or there's no weapon context —
-	// caller should early-out. Conditional crit / stun behavior rides on
-	// `template.modifiers`, no separate parameter needed here. Mob attacks
-	// don't carry a WeaponState; they'll need a parallel lookup once wired.
+	// event's damageProfileKey on the driving weapon's damageProfiles dict,
+	// or on the firing mob's MobData.damageProfiles when the actor is a Mob
+	// (mob attacks have no WeaponState). Source is the actor so receivers
+	// see the attacker. Returns a default HitInfo (no damage) if the lookup
+	// fails or there's no source — caller should early-out. Conditional
+	// crit / stun behavior rides on `template.modifiers`, no separate
+	// parameter needed here.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
 		DamageData template = null;
 		if (action.context.primaryItem is WeaponState weapon)
 		{
 			template = weapon.data?.GetDamage(ev.damageProfileKey);
+		}
+		else if (actor is Mob mob)
+		{
+			template = mob.mobData?.GetDamage(ev.damageProfileKey);
 		}
 		if (template == null)
 		{
