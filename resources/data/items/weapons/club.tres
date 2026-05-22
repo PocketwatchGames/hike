@@ -1,12 +1,13 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_in4wh"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="PackedScene" uid="uid://dowapbty01c52" path="res://scenes/effects/sword_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dumwm365p4c8f" path="res://scenes/effects/sword_kill.tscn" id="7_hitkill"]
@@ -27,6 +28,10 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 chargeTime = 0.4
@@ -34,6 +39,7 @@ cooldownSeconds = 0.4
 staminaCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
+requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
@@ -53,6 +59,7 @@ script = ExtResource("4_charged")
 cooldownSeconds = 0.8
 staminaCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
+requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 chargeStartEffect = ExtResource("8_chghead")
 chargeLoopEffect = ExtResource("8_chgloop")
 chargeCancelEffect = ExtResource("8_chgtail")

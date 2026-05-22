@@ -34,4 +34,10 @@ public interface IActionActor
 	// both (no blood-mana system today).
 	bool HasBlood(float amount);
 	void DrainBlood(float amount);
+
+	// Physical-state queries read by ActorStateRequirement. Players forward
+	// to the live walk/swim state; mobs return sane defaults (grounded, dry)
+	// until mob locomotion grows the equivalent state machines.
+	bool IsGrounded { get; }
+	bool IsSwimming { get; }
 }

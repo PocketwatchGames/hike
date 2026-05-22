@@ -30,6 +30,13 @@ public partial class ItemActionProfile : Resource
 	// tier (player released too early).
 	[Export] public Array<ItemEvent> abortEvents = new();
 
+	// One-shot Fx spawned on the actor when a press is REFUSED at t=0
+	// because no tier in the current combo step can currently fire (every
+	// tier fails its requirements / costs / ammo gate). The classic case is
+	// "club swung while swimming": the press lands a small splash + thud
+	// without ever entering Charging. Null = silent refusal.
+	[Export] public PackedScene rejectEffect;
+
 	// If true and the player holds past the cumulative chargeTime of every
 	// tier on the current combo step, auto-fire the top tier (gated by its
 	// requirements when phase 4 lands). If false, the player must release

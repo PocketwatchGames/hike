@@ -265,6 +265,10 @@ region = Rect2(432, 216, 72, 72)
 atlas = ExtResource("3_eojnx")
 region = Rect2(504, 216, 72, 72)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_qmarm"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(0, 144, 72, 72)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_6aj6e"]
 atlas = ExtResource("3_eojnx")
 region = Rect2(504, 1152, 72, 72)
@@ -503,6 +507,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_qmarm")
+}],
+"loop": true,
+"name": &"skating",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_6aj6e")
 }, {
 "duration": 1.0,
@@ -678,7 +690,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(0, 72, 72, 72)
+region_rect = Rect2(216, 0, 72, 72)
 script = ExtResource("4_qgnko")
 Material = 1
 MirrorByYaw = true

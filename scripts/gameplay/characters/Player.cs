@@ -40,6 +40,9 @@ public partial class Player : CharacterBody3D
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopFx;
 	[Export] private PackedScene _tallGrassMovementLoopFx;
+	// Foot-puff loop spawned while in contact with a steep slope (sliding
+	// state). Tracks the body; stops when contact is broken or speed drops.
+	[Export] private PackedScene _slideLoopFx;
 	// One-shots for vertical motion. Jump fires the moment input takes the
 	// player off the floor. Land fires on every floor reacquisition unless
 	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
@@ -164,6 +167,34 @@ public partial class Player : CharacterBody3D
 	// node rather than racing with the trailing-audio teardown.
 	Fx _waterMovementLoop;
 	Fx _tallGrassMovementLoop;
+	Fx _slideLoop;
+	// Live "in contact with a steep slope" flag. Set in UpdateSlideState
+	// after MoveAndSlide based on slide-collision normals or a Down probe;
+	// drives the slide puff Fx and serves as the gate for skate initiation.
+	bool _sliding;
+	// True when the current contact is in the extended skate band
+	// (any surface from slideSurfaceMinNormalY up to skateContinueMaxNormalY).
+	// Superset of _sliding — includes walkable ramps that are still steep
+	// enough to keep skate momentum alive. Used by UpdateSkating to decide
+	// whether to keep skating; _sliding stays strictly steep-only for FX.
+	bool _onSkateSurface;
+	// Most recent skate-surface normal — meaningful while _onSkateSurface is
+	// true. ApplySkatingMotion projects gravity onto this normal to derive
+	// the slope-tangent acceleration each tick.
+	Vector3 _slideNormal = Vector3.Up;
+	// Skating mode flag. Lifts the runSpeed clamp, applies gravity along the
+	// slope tangent, converts move input into steering. Set in TryStartSkating
+	// when the player lands on a slide surface with momentum aligned downhill;
+	// cleared by the exit conditions in UpdateSkating.
+	bool _skating;
+	// Game-time at which slide AND ground contact were both first lost while
+	// skating. Skating tolerates a brief loss of contact (jumping ridges,
+	// voxel face transitions) and only exits once the deadline elapses.
+	// Cleared whenever contact is reacquired.
+	ulong _skateContactLostMs;
+	// Grace window after losing all surface contact while skating before
+	// skating exits. Sized to swallow single-tick face-transition gaps.
+	const ulong SkateContactGraceMs = 200;
 	// Single active anim-loop reference + the scene it was created from.
 	// Swapped wholesale on transitions instead of cross-fading.
 	Fx _animLoopFx;
@@ -258,13 +289,13 @@ public partial class Player : CharacterBody3D
 	// _dashTimeRemaining > 0, _PhysicsProcess overrides the input-driven
 	// horizontal velocity with _dashDir * _dashSpeed (terrain-scaled) and,
 	// if _dashFreezeGravity, zeros Y and skips gravity. When the timer
-	// hits zero, _dashGlideRemaining counts down a tapered carry-over so
-	// the player doesn't snap from dash speed to input speed in one tick.
-	// _dashCooldownEndMs gates re-activation.
+	// hits zero, EndDash clamps velocity in-place to a context-dependent
+	// cap (sprintSpeed on ground, swimSprintSpeed in water, uncapped in
+	// air) so the dash hands off into normal motion without a separate
+	// glide window. _dashCooldownEndMs gates re-activation.
 	Vector3 _dashDir;
 	float _dashSpeed;
 	float _dashTimeRemaining;
-	float _dashGlideRemaining;
 	bool _dashFreezeGravity;
 	ulong _dashCooldownEndMs;
 	// Status effects (poison, heal-over-time, hot, wet, ...). Multiple
@@ -335,9 +366,14 @@ public partial class Player : CharacterBody3D
 	public bool IsSneaking => _sneaking;
 	public bool IsDashing => _dashTimeRemaining > 0f;
 	public bool IsGrounded => _grounded;
+	public bool IsSliding => _sliding;
+	public bool IsSkating => _skating;
 	public bool IsSprinting => _sprinting;
 	public bool IsDead => _health <= 0f;
 	public EWaterState WaterState => _waterState;
+	// IActionActor — surfaces the swim state through a flat bool so action
+	// requirements don't take a hard dependency on EWaterState.
+	public bool IsSwimming => _waterState == EWaterState.Swimming;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
 	public IReadOnlyDictionary<LanguageData, ELanguageComponents> LearnedLanguages => _learnedLanguages;
@@ -837,6 +873,13 @@ public partial class Player : CharacterBody3D
 			// tread until the player starts moving.)
 			EAnimation swimMove = _sprinting ? EAnimation.SwimSprint : EAnimation.Swim;
 			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, EAnimation.SwimIdle);
+		}
+		else if (_skating)
+		{
+			// Skate anim wins over fall — on a steep slope _grounded is false
+			// and the airborne grace would otherwise flip the sprite to the
+			// fall pose every tick the skate ticks past FallGraceMs.
+			loopAnim = EAnimation.Skating;
 		}
 		else if (fallReady)
 		{
@@ -1382,7 +1425,6 @@ public partial class Player : CharacterBody3D
 		_pendingWeaponPressActionName = null;
 		_contextSensitiveAttackSlot = null;
 		_dashTimeRemaining = 0f;
-		_dashGlideRemaining = 0f;
 		_sprinting = false;
 		_sneaking = false;
 		_aiming = false;
@@ -1452,7 +1494,6 @@ public partial class Player : CharacterBody3D
 		_armorRechargeStartMs = 0;
 		_staminaRechargeStartMs = 0;
 		_dashTimeRemaining = 0f;
-		_dashGlideRemaining = 0f;
 		_dashCooldownEndMs = 0;
 		_hitstunTime = 0f;
 		_knockbackTime = 0f;
@@ -1890,14 +1931,14 @@ public partial class Player : CharacterBody3D
 		return _dashTimeRemaining <= 0f && !_sprinting;
 	}
 
-	// Recompute _sprinting each tick from current state. Sprint is
-	// intent-based: it engages when Dash is held past the initial dash burst
-	// with move input, regardless of stamina. Stamina gates the *speed boost*
-	// in the speed calc (sprintSpeed → moveSpeed when depleted) but the
-	// intent still arms the recharge delay via TickSprintStamina, so holding
-	// sprint while exhausted prevents refill. Clears the post-dash glide on
-	// the transition into sprint so the dash-to-sprint hand-off skips the
-	// tapered carry.
+	// Recompute _sprinting each tick from current state. Sprint engages when
+	// Dash is held past the initial dash burst with move input AND the
+	// player has stamina to spend; once stamina hits zero, sprint drops
+	// entirely (no speed boost, no anim, no continuing drain) until the
+	// stamina bar recovers enough to re-engage. Disabled while airborne on
+	// land (no "air sprint") — swimming keeps its own sprint variant since
+	// it's a continuous surface contact, not an arc; re-engages the tick
+	// after landing or after stamina returns if the button is still held.
 	private void UpdateSprintState()
 	{
 		if (data == null)
@@ -1908,15 +1949,14 @@ public partial class Player : CharacterBody3D
 		bool runnerBlocks = _runner != null
 			&& _runner.IsBusy
 			&& _runner.Current.profile != data.dashActionProfile;
+		bool surfaceAllowsSprint = _grounded || _waterState == EWaterState.Swimming;
 		bool wantsSprint = Input.IsActionPressed("Dash")
 			&& _dashTimeRemaining <= 0f
 			&& _inputMove.LengthSquared() > 0.0001f
 			&& _curInteractive == null
-			&& !runnerBlocks;
-		if (wantsSprint && !_sprinting)
-		{
-			_dashGlideRemaining = 0f;
-		}
+			&& !runnerBlocks
+			&& surfaceAllowsSprint
+			&& _stamina > 0f;
 		_sprinting = wantsSprint;
 	}
 
@@ -1948,7 +1988,6 @@ public partial class Player : CharacterBody3D
 			_runner.TryAbort();
 		}
 		_dashTimeRemaining = 0f;
-		_dashGlideRemaining = 0f;
 		_sprinting = false;
 	}
 
@@ -2031,8 +2070,7 @@ public partial class Player : CharacterBody3D
 
 		// Stamina-gated speed table:
 		//   sneaking                         → sneakSpeed
-		//   sprinting + stamina > 0          → sprintSpeed
-		//   sprinting + stamina ≤ 0          → moveSpeed   (effort with no gas left)
+		//   sprinting                        → sprintSpeed  (gated on stamina>0 in UpdateSprintState)
 		//   not sprinting + stamina ≤ 0      → tiredRunSpeed
 		//   else                             → moveSpeed
 		bool exhausted = _stamina <= 0f;
@@ -2043,7 +2081,7 @@ public partial class Player : CharacterBody3D
 		}
 		else if (_sprinting)
 		{
-			speed = exhausted ? data.moveSpeed : data.sprintSpeed;
+			speed = data.sprintSpeed;
 		}
 		else if (exhausted)
 		{
@@ -2103,20 +2141,9 @@ public partial class Player : CharacterBody3D
 				EndDash();
 			}
 		}
-		else if (_dashGlideRemaining > 0f)
+		else if (_skating)
 		{
-			// Post-dash carry: hold dashEndSpeedCap in the dash direction,
-			// tapered linearly to 0 over dashGlideTime. Input still steers
-			// rotation; the regular input-driven rebuild resumes once glide
-			// expires.
-			float t = _dashGlideRemaining / data.dashGlideTime;
-			float glideSpeed = data.dashEndSpeedCap * _terrainSpeed * statusMoveMul * t;
-			Velocity = new Vector3(_dashDir.X * glideSpeed, Velocity.Y, _dashDir.Z * glideSpeed);
-			_dashGlideRemaining -= dt;
-			if (_dashGlideRemaining < 0f)
-			{
-				_dashGlideRemaining = 0f;
-			}
+			ApplySkatingMotion(dt);
 		}
 		else
 		{
@@ -2135,9 +2162,34 @@ public partial class Player : CharacterBody3D
 				Vector3 blended = currentXZ.Lerp(inputVel, t);
 				Velocity = new Vector3(blended.X, Velocity.Y, blended.Z);
 			}
+			else if (_waterState == EWaterState.Swimming)
+			{
+				// Linear acceleration toward (input + current × drag). The
+				// target folds in the local water current so steady-state
+				// matches the previous additive model — player at rest still
+				// drifts at current × drag, with input stacked on top — but
+				// the transient takes ramp-in time so swimming reads as
+				// weighted instead of snapping. ApplyWaterPhysics no longer
+				// re-adds current; with acceleration in place the per-tick
+				// add would compound across ticks.
+				Vector3 waterCurrent = _world.WorldState.SampleWaterCurrent(GlobalPosition);
+				Vector3 target = inputVel + new Vector3(waterCurrent.X, 0f, waterCurrent.Z) * data.waterCurrentDrag;
+				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
+				Vector3 nextXZ = ApproachXZ(currentXZ, target, data.waterAcceleration * dt);
+				Velocity = new Vector3(nextXZ.X, Velocity.Y, nextXZ.Z);
+			}
 			else
 			{
-				Velocity = new Vector3(0, Velocity.Y, 0) + inputVel;
+				// Ground / air: linear approach toward input target. Same math
+				// as the water branch above minus the current term. Ground uses
+				// groundAcceleration (sharp), air uses airAcceleration (drifty
+				// so jumps preserve momentum); releasing input decelerates at
+				// the same rate, so the ground branch replaces the old instant
+				// snap-to-stop.
+				float accel = _grounded ? data.groundAcceleration : data.airAcceleration;
+				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
+				Vector3 nextXZ = ApproachXZ(currentXZ, inputVel, accel * dt);
+				Velocity = new Vector3(nextXZ.X, Velocity.Y, nextXZ.Z);
 			}
 		}
 		if (_wallJumpAirControlTimer > 0f)
@@ -2174,6 +2226,33 @@ public partial class Player : CharacterBody3D
 		{
 			float gravity = (_jumpHeld && Velocity.Y > 0) ? _world.SimData.Gravity * data.jumpHoldGravityScale : _world.SimData.Gravity;
 			Velocity += Vector3.Down * gravity * dt;
+			// Two-axis air drag. Skipped while dashing — the dash action
+			// authors its own forced velocity and drag would fight it.
+			//   airDragDown: opposes falls only. Velocity.Y > 0 (upward) is
+			//   left alone so jumps and skate-launches keep their full arc.
+			//   airDragXZ: pulls horizontal velocity toward zero, applied
+			//   alongside the input-driven ApproachXZ from above so the
+			//   steady-state under sustained input parks at the player's
+			//   intentional top speed (sprintSpeed) and excess from a dash
+			//   exit or skate launch bleeds off.
+			if (_dashTimeRemaining <= 0f)
+			{
+				if (Velocity.Y < 0f)
+				{
+					float dragY = 1f - data.airDragDown * dt;
+					if (dragY < 0f)
+					{
+						dragY = 0f;
+					}
+					Velocity = new Vector3(Velocity.X, Velocity.Y * dragY, Velocity.Z);
+				}
+				float dragXZ = 1f - data.airDragXZ * dt;
+				if (dragXZ < 0f)
+				{
+					dragXZ = 0f;
+				}
+				Velocity = new Vector3(Velocity.X * dragXZ, Velocity.Y, Velocity.Z * dragXZ);
+			}
 		}
 		else
 		{
@@ -2181,8 +2260,18 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Same CanLook gate as the _aiming suppression above — during dash or
-		// sprint, rotation falls through to move direction.
-		if (CanLook() && _inputLook != Vector3.Zero)
+		// sprint, rotation falls through to move direction. While skating,
+		// yaw follows the velocity heading (steering, not input replace) so
+		// the sprite reads as facing the direction of travel.
+		if (_skating)
+		{
+			Vector3 skateHoriz = new(Velocity.X, 0f, Velocity.Z);
+			if (skateHoriz.LengthSquared() > 0.001f)
+			{
+				Rotation = new Vector3(0, Mathf.Atan2(skateHoriz.X, skateHoriz.Z), 0);
+			}
+		}
+		else if (CanLook() && _inputLook != Vector3.Zero)
 		{
 			Rotation = new Vector3(0, Mathf.Atan2(_inputLook.X, _inputLook.Z), 0);
 		}
@@ -2305,6 +2394,14 @@ public partial class Player : CharacterBody3D
 		{
 			_coyoteTimeEndMs = _world.GameTimeMs + (ulong)(data.coyoteTime * 1000);
 		}
+
+		// Steep-slope sliding & skating. Order matters: detect slide contact
+		// from the just-completed MoveAndSlide, then evaluate skating start /
+		// exit based on (sliding, _grounded, velocity) so the Fx wiring below
+		// sees the resolved state for this tick.
+		UpdateSlideState();
+		UpdateSkating(wasOnFloor, inboundFallSpeed);
+		UpdateLoopEffect(ref _slideLoop, _slideLoopFx, (_sliding || _skating) && _waterState == EWaterState.None);
 		// Airborne → grounded transition. Speed-gate a hard-land variant so
 		// stepping off small ledges plays the soft sound; only meaningful
 		// drops produce the dust-and-thud landHard. The bottom threshold
@@ -2606,13 +2703,26 @@ public partial class Player : CharacterBody3D
 		if (Input.IsActionJustPressed("Jump"))
 		{
 			bool swimSurfaceJump = _waterState == EWaterState.Swimming && GlobalPosition.Y >= _waterSurfaceY - data.waterJumpOffset;
-			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || swimSurfaceJump)
+			// Skating routes to the ground-jump branch (preserves XZ momentum)
+			// and exits skate mode. The intent is a "skate jump" that lets the
+			// player chain ramps or launch off the bottom of a slope with their
+			// accumulated speed intact — not a wall-jump kick away from the
+			// slope normal.
+			if (_grounded || _world.GameTimeMs < _coyoteTimeEndMs || swimSurfaceJump || _skating)
 			{
 				float jumpSpeed = swimSurfaceJump ? data.swimJumpSpeed : data.jumpSpeed;
 				Velocity = new Vector3(Velocity.X, jumpSpeed, Velocity.Z);
 				_grounded = false;
 				_coyoteTimeEndMs = 0;
 				_jumpHeld = true;
+				if (_skating && CVars.debugSlopes.Value)
+				{
+					string ts = System.DateTime.Now.ToString("HH:mm:ss.fff");
+					Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
+					GD.Print($"[skate] EXIT  {ts} speed={horizVel.Length():F1}m/s (jump)");
+				}
+				_skating = false;
+				_skateContactLostMs = 0;
 				PlayOneShot(EAnimation.Jump);
 				SpawnWorldEffect(_jumpFx);
 			}
@@ -2785,6 +2895,22 @@ public partial class Player : CharacterBody3D
 	// -wallJumpMaxFallingSpeed so a long fall can't be saved by kicking off a
 	// passing wall. Cancels any in-flight dash so the dash velocity override
 	// doesn't clobber the kick.
+	// Linear approach of horizontal velocity toward a target at a fixed rate
+	// (m/s² × dt = max step per call). Used by the water / ground / air input
+	// branches to ramp velocity instead of snapping. Caller passes the XZ
+	// vectors with Y already zeroed; result still has Y=0 and is recomposed
+	// with the existing Velocity.Y by the caller.
+	private static Vector3 ApproachXZ(Vector3 currentXZ, Vector3 target, float step)
+	{
+		Vector3 toTarget = target - currentXZ;
+		float toTargetLen = toTarget.Length();
+		if (toTargetLen <= step)
+		{
+			return target;
+		}
+		return currentXZ + toTarget * (step / toTargetLen);
+	}
+
 	private bool TryWallJump()
 	{
 		if (data == null || _world == null || _waterState != EWaterState.None)
@@ -2839,7 +2965,6 @@ public partial class Player : CharacterBody3D
 		Vector3 horiz = nHoriz * data.wallJumpSpeedXZ + tangent;
 
 		_dashTimeRemaining = 0f;
-		_dashGlideRemaining = 0f;
 		_dashFreezeGravity = false;
 
 		Velocity = new Vector3(horiz.X, data.wallJumpSpeedY, horiz.Z);
@@ -2855,10 +2980,276 @@ public partial class Player : CharacterBody3D
 		return true;
 	}
 
+	// Hand off from dash into normal motion. Velocity direction is preserved
+	// — the magnitude is clamped horizontally to the ambient sprint speed
+	// (sprintSpeed on land, swimSprintSpeed in water). Airborne dashes
+	// return uncapped: air drag + gravity carry the player out of the dash
+	// over the next several ticks without an explicit glide window.
 	private void EndDash()
 	{
 		_dashTimeRemaining = 0f;
-		_dashGlideRemaining = data.dashGlideTime;
+		if (data == null)
+		{
+			return;
+		}
+		float cap;
+		if (_grounded)
+		{
+			cap = data.sprintSpeed;
+		}
+		else if (_waterState == EWaterState.Swimming)
+		{
+			cap = data.swimSprintSpeed;
+		}
+		else
+		{
+			return;
+		}
+		Vector3 horiz = new(Velocity.X, 0f, Velocity.Z);
+		float horizSpeed = horiz.Length();
+		if (horizSpeed > cap && horizSpeed > 0.001f)
+		{
+			Vector3 capped = horiz * (cap / horizSpeed);
+			Velocity = new Vector3(capped.X, Velocity.Y, capped.Z);
+		}
+	}
+
+	// Resolves the player's current slope contact in two bands:
+	//   _sliding         — strict steep band [slideSurfaceMinNormalY, cos(FloorMaxAngle))
+	//   _onSkateSurface  — extended skate band [slideSurfaceMinNormalY, skateContinueMaxNormalY)
+	// _sliding drives the puff FX and skate initiation; _onSkateSurface is the
+	// superset that keeps skate momentum alive through walkable ramp runouts.
+	// _slideNormal tracks the most-upright surface in the extended band so
+	// ApplySkatingMotion can project gravity onto it regardless of which
+	// sub-band the player is currently riding.
+	private void UpdateSlideState()
+	{
+		if (data == null || _waterState == EWaterState.Swimming)
+		{
+			_sliding = false;
+			_onSkateSurface = false;
+			return;
+		}
+
+		float floorDotMin = Mathf.Cos(FloorMaxAngle);
+		float slideMin = data.slideSurfaceMinNormalY;
+		float skateMax = data.skateContinueMaxNormalY;
+		bool foundSlide = false;
+		bool foundSkateSurf = false;
+		Vector3 bestNormal = Vector3.Up;
+		float bestY = -1f;
+
+		int count = GetSlideCollisionCount();
+		for (int i = 0; i < count; i++)
+		{
+			KinematicCollision3D col = GetSlideCollision(i);
+			Vector3 n = col.GetNormal();
+			if (n.Y < slideMin || n.Y >= skateMax)
+			{
+				continue;
+			}
+			if (n.Y > bestY)
+			{
+				bestY = n.Y;
+				bestNormal = n;
+			}
+			foundSkateSurf = true;
+			if (n.Y < floorDotMin)
+			{
+				foundSlide = true;
+			}
+		}
+
+		// Airborne with no extended-band hit this tick — probe directly below
+		// to catch surfaces we're about to land on (and to hold contact across
+		// the brief gaps between voxel-face transitions on a discontinuous
+		// slope). The probe accepts the full extended band; _sliding flips
+		// only if the probe lands inside the strict steep band.
+		if (!foundSkateSurf && !_grounded)
+		{
+			using KinematicCollision3D probe = MoveAndCollide(
+				Vector3.Down * data.stepHeight, testOnly: true);
+			if (probe != null)
+			{
+				Vector3 n = probe.GetNormal();
+				if (n.Y >= slideMin && n.Y < skateMax)
+				{
+					bestNormal = n;
+					foundSkateSurf = true;
+					if (n.Y < floorDotMin)
+					{
+						foundSlide = true;
+					}
+				}
+			}
+		}
+
+		_sliding = foundSlide;
+		_onSkateSurface = foundSkateSurf;
+		if (foundSkateSurf)
+		{
+			_slideNormal = bestNormal;
+		}
+	}
+
+	// Skating state machine. Initiates skating when the player lands on a
+	// slide surface aligned with the slope's downhill direction with enough
+	// inbound momentum; exits when the slope flattens to walkable, contact
+	// is lost beyond the grace window, or speed drops below the floor.
+	// Jump-driven exit is handled inline in the Jump input handler.
+	private void UpdateSkating(bool wasOnFloor, float inboundFallSpeed)
+	{
+		if (data == null || _world == null)
+		{
+			return;
+		}
+
+		bool wasSkating = _skating;
+		UpdateSkatingInner(wasOnFloor, inboundFallSpeed);
+		if (wasSkating != _skating && CVars.debugSlopes.Value)
+		{
+			string ts = System.DateTime.Now.ToString("HH:mm:ss.fff");
+			float angle = Mathf.RadToDeg(Mathf.Acos(Mathf.Clamp(_slideNormal.Y, -1f, 1f)));
+			Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
+			GD.Print(_skating
+				? $"[skate] ENTER {ts} slope={angle:F1}° speed={horizVel.Length():F1}m/s fall={inboundFallSpeed:F1}m/s"
+				: $"[skate] EXIT  {ts} speed={horizVel.Length():F1}m/s");
+		}
+	}
+
+	private void UpdateSkatingInner(bool wasOnFloor, float inboundFallSpeed)
+	{
+		ulong now = _world.GameTimeMs;
+		if (!_skating)
+		{
+			// Initiation requires: just landed (not walked-into a slope),
+			// current contact is in the extended skate band (anything
+			// steeper than skateContinueMaxNormalY — includes walkable
+			// ramps so a moderate slope can still launch a skate when
+			// alignment is sharp), inbound horizontal velocity meets the
+			// speed floor, the landing was an actual fall (not stepping
+			// down a small ledge), and direction aligns with the slope's
+			// projected-downhill direction.
+			if (_onSkateSurface && !wasOnFloor && inboundFallSpeed >= data.skateInitiationMinFallSpeed)
+			{
+				Vector3 downhill = Vector3.Down.Slide(_slideNormal);
+				Vector3 downhillHoriz = new(downhill.X, 0f, downhill.Z);
+				Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
+				float dhLen = downhillHoriz.Length();
+				float velLen = horizVel.Length();
+				if (dhLen > 0.01f && velLen >= data.skateInitiationMinSpeed)
+				{
+					float align = horizVel.Dot(downhillHoriz) / (velLen * dhLen);
+					if (align >= data.skateInitiationAlignDot)
+					{
+						_skating = true;
+						_skateContactLostMs = 0;
+					}
+				}
+			}
+			return;
+		}
+
+		// Exit table.
+		//  - Airborne with no slope below: run out the grace window so brief
+		//    voxel-face-transition gaps don't drop the state.
+		//  - On a steep (unwalkable) slope: never exit on speed — gravity
+		//    will rebuild momentum even if the player has stalled or reversed
+		//    direction up the slope.
+		//  - On a walkable surface (skate-band ramp OR flat ground past the
+		//    band): exit only when horizontal speed has decayed below moveSpeed.
+		//    Lets the player carry skate momentum across ramp runouts onto
+		//    flat ground until friction drains it back into normal-control
+		//    territory.
+		if (!_grounded && !_onSkateSurface)
+		{
+			if (_skateContactLostMs == 0)
+			{
+				_skateContactLostMs = now;
+			}
+			else if (now - _skateContactLostMs > SkateContactGraceMs)
+			{
+				_skating = false;
+				_skateContactLostMs = 0;
+			}
+			return;
+		}
+		_skateContactLostMs = 0;
+		if (_sliding)
+		{
+			return;
+		}
+		Vector3 horizCheck = new(Velocity.X, 0f, Velocity.Z);
+		if (horizCheck.LengthSquared() < data.moveSpeed * data.moveSpeed)
+		{
+			_skating = false;
+		}
+	}
+
+	// Skating velocity build. Steers the current XZ heading toward input
+	// (yaw-rate limited), applies brake when input opposes heading,
+	// integrates slope-tangent gravity into the horizontal component, drains
+	// friction, and caps to skateMaxSpeed. Y is left alone here — the
+	// airborne gravity branch below adds full gravity, and MoveAndSlide
+	// projects out the into-slope component each tick.
+	private void ApplySkatingMotion(float dt)
+	{
+		Vector3 horiz = new(Velocity.X, 0f, Velocity.Z);
+		float horizSpeed = horiz.Length();
+		Vector3 heading = horizSpeed > 0.001f
+			? horiz / horizSpeed
+			: new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
+
+		Vector3 inputXZ = new(_inputMove.X, 0f, _inputMove.Z);
+		float inputMag = inputXZ.Length();
+		if (inputMag > 0.001f && horizSpeed > 0.01f)
+		{
+			Vector3 inputDir = inputXZ / inputMag;
+			float currentYaw = Mathf.Atan2(heading.X, heading.Z);
+			float targetYaw = Mathf.Atan2(inputDir.X, inputDir.Z);
+			float yawDelta = Mathf.Wrap(targetYaw - currentYaw, -Mathf.Pi, Mathf.Pi);
+			float maxStep = data.skateSteerYawRate * inputMag * dt;
+			float yawStep = Mathf.Clamp(yawDelta, -maxStep, maxStep);
+			float newYaw = currentYaw + yawStep;
+			heading = new Vector3(Mathf.Sin(newYaw), 0f, Mathf.Cos(newYaw));
+
+			// Brake when input meaningfully opposes the (newly-steered) heading.
+			float align = inputDir.Dot(heading);
+			if (align < -data.skateBrakeDotThreshold)
+			{
+				horizSpeed = Mathf.Max(0f, horizSpeed - data.skateBrakeDecel * -align * dt);
+			}
+		}
+
+		// Slope-tangent gravity adds momentum along the slope's downhill
+		// projection. Adds the XZ part to the heading-scaled velocity; the
+		// perpendicular-to-heading component naturally curves the trajectory
+		// toward downhill when input is held off-axis. When the player has
+		// glided past the skate band onto effectively flat ground we use Up
+		// as the normal — the projection collapses to zero tangent gravity,
+		// so only friction drains the carried momentum.
+		Vector3 surfaceNormal = _onSkateSurface ? _slideNormal : Vector3.Up;
+		Vector3 gravityVec = Vector3.Down * _world.SimData.Gravity;
+		Vector3 gravityAlongSlope = gravityVec - gravityVec.Dot(surfaceNormal) * surfaceNormal;
+		Vector3 newHoriz = heading * horizSpeed
+			+ new Vector3(gravityAlongSlope.X, 0f, gravityAlongSlope.Z) * dt;
+
+		// Friction is applied to the magnitude after gravity injection so a
+		// shallow slope reaches a finite terminal speed.
+		float newSpeed = newHoriz.Length();
+		if (newSpeed > 0.001f)
+		{
+			float drop = Mathf.Min(newSpeed, data.skateFriction * dt);
+			newSpeed -= drop;
+			newHoriz = newHoriz.Normalized() * newSpeed;
+		}
+
+		if (newSpeed > data.skateMaxSpeed)
+		{
+			newHoriz = newHoriz * (data.skateMaxSpeed / newSpeed);
+		}
+
+		Velocity = new Vector3(newHoriz.X, Velocity.Y, newHoriz.Z);
 	}
 
 	// Publishes floor angle + unwalkable-wall hits to the static Debug* fields
@@ -3171,21 +3562,33 @@ public partial class Player : CharacterBody3D
 			Velocity += Vector3.Down * data.buoyancyAcceleration * 0.5f * dt;
 		}
 
-		// Drag to damp vertical oscillation
-		Velocity = new Vector3(Velocity.X, Velocity.Y - Velocity.Y * data.waterDrag * dt, Velocity.Z);
-
-		// Carried by the water current — add the current's velocity directly,
-		// scaled by waterCurrentDrag. The XZ component of Velocity was just
-		// overwritten by input above, so a per-second drag rate would never
-		// integrate; treat this as the steady-state push instead. drag=1
-		// means the player drifts at exactly the current's m/s when standing
-		// still, with input simply layered on top.
-		Vector3 current = _world.WorldState.SampleWaterCurrent(GlobalPosition);
+		// Drag to damp vertical oscillation and bleed off horizontal entry
+		// momentum. Y uses waterDrag (sized to kill the buoyancy bounce); XZ
+		// uses waterHorizontalDrag, applied to the velocity RELATIVE to the
+		// local water current so a stationary swimmer in a current drifts
+		// downstream rather than being dragged toward zero. The current ×
+		// waterCurrentDrag drift target matches the one the swim approach
+		// uses (see the EWaterState.Swimming branch in _PhysicsProcess), so
+		// at steady-state with no input the player parks at exactly the
+		// drift target.
+		float horizDecay = 1f - data.waterHorizontalDrag * dt;
+		if (horizDecay < 0f)
+		{
+			horizDecay = 0f;
+		}
+		Vector3 waterCurrent = _world.WorldState.SampleWaterCurrent(GlobalPosition);
+		Vector3 driftTarget = new Vector3(waterCurrent.X, 0f, waterCurrent.Z) * data.waterCurrentDrag;
+		float newX = driftTarget.X + (Velocity.X - driftTarget.X) * horizDecay;
+		float newZ = driftTarget.Z + (Velocity.Z - driftTarget.Z) * horizDecay;
 		Velocity = new Vector3(
-			Velocity.X + current.X * data.waterCurrentDrag,
-			Velocity.Y,
-			Velocity.Z + current.Z * data.waterCurrentDrag
-		);
+			newX,
+			Velocity.Y - Velocity.Y * data.waterDrag * dt,
+			newZ);
+
+		// Water current is folded into the swim-acceleration target above
+		// (see the EWaterState.Swimming branch in _PhysicsProcess) rather
+		// than re-added per tick, so input-driven inertia and current drift
+		// can't compound across frames.
 
 		// Clamp sinking speed
 		if (Velocity.Y < -data.waterSinkSpeed)

@@ -216,6 +216,17 @@ public class ActionRunner
 	{
 		ulong now = _actor.GameTimeMs;
 		int targetComboIndex = ResolveTargetComboIndex(profile, context, now);
+
+		// Refuse the press outright when no tier in the chosen combo step
+		// could ever fire under current actor / context state. Without this,
+		// a fully-gated profile (e.g. club while swimming) would silently
+		// enter Charging with null tier and only fizzle on release.
+		if (!AnyTierCouldFire(profile, context, targetComboIndex))
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, profile.rejectEffect);
+			return false;
+		}
+
 		int tier0Index = SelectTierIndex(profile, context, 0f, targetComboIndex);
 		ItemAction tier0 = tier0Index >= 0 ? profile.chargedActions[tier0Index] : null;
 
@@ -653,6 +664,33 @@ public class ActionRunner
 			return i;
 		}
 		return -1;
+	}
+
+	// Same gates as SelectTierIndex but ignoring the chargeT timing filter —
+	// answers "could ANY tier in this combo step fire if the player held long
+	// enough?" Used at press to refuse a swing whose every tier is blocked by
+	// requirements (forbidSwimming, ammo, stamina, etc.). Without this we'd
+	// silently enter Charging and only fizzle on release.
+	private bool AnyTierCouldFire(ItemActionProfile profile, in ActionContext context, int comboIndex)
+	{
+		for (int i = 0; i < profile.chargedActions.Count; i++)
+		{
+			ItemAction action = profile.chargedActions[i];
+			if (action == null) { continue; }
+			if (action.comboIndex != comboIndex) { continue; }
+			if (!RequirementsMet(action, context)) { continue; }
+			if (!_actor.HasStamina(action.staminaCost)) { continue; }
+			if (!_actor.HasBlood(action.bloodCost)) { continue; }
+			if (action.useAmmo)
+			{
+				if (context.primaryItem is not WeaponState weapon || weapon.ammo <= 0)
+				{
+					continue;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 
 	// Pick which combo step a fresh press should target. If the weapon's chain

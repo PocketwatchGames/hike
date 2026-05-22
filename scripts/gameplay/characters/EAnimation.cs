@@ -24,4 +24,5 @@ public enum EAnimation
     Sprint,
     SwimSprint,
     Hitstun,
+    Skating,
 }

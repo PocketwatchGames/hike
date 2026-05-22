@@ -31,6 +31,17 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// before this elapses unlocks pickup at rest via Settle() instead.
 	[Export] private float _pickupReadyDelaySeconds = 0.6f;
 
+	// Water physics tuning. Same shape as MobData / PlayerData — small items
+	// bob more aggressively to the surface, ride currents readily, and don't
+	// sink fast when displaced downward. Defaults chosen for typical
+	// stackable loot; per-loot overrides can be authored on derived scenes
+	// (e.g. a heavy iron ingot with low buoyancy that just sinks).
+	[Export] private float _buoyancyAcceleration = 15f;
+	[Export] private float _waterDrag = 5f;
+	[Export] private float _waterSinkSpeed = 1f;
+	[Export] private float _waterSurfaceOffset = 0.3f;
+	[Export] private float _waterCurrentDrag = 3f;
+
 	// Authored interaction list. The first entry's events should include an
 	// OpenInteractive event that triggers Complete() — that's how the runner
 	// signals "the loot has been collected." Break / Examine can be authored
@@ -49,6 +60,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// and the LootData.removeTimeMs despawn. Local to the live instance —
 	// re-enters at 0 if the chunk unloads and re-streams the loot.
 	private float _ageSeconds;
+	// Water-physics state. _swimming flips when the loot's feet voxel is
+	// water; _gravityScaleSwimActive tracks whether engine gravity has been
+	// zeroed so ApplyWaterPhysics alone controls vertical motion (mirrors
+	// Mob's pattern). _gravityScaleAuthored captures the scene-authored
+	// gravity_scale once so the value is restored verbatim on water exit.
+	private bool _swimming;
+	private float _waterSurfaceY;
+	private float _gravityScaleAuthored;
+	private bool _gravityScaleCaptured;
+	private bool _gravityScaleSwimActive;
 
 	public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
@@ -171,9 +192,119 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 			return;
 		}
 
+		// Don't settle (and freeze) while in water — buoyancy and currents
+		// need to keep acting on the body so it bobs and drifts. The
+		// _PhysicsProcess water path will handle wake-up if a settled item
+		// later gets submerged (e.g. tide rises into a stash).
+		if (_swimming)
+		{
+			return;
+		}
+
 		if (state.LinearVelocity.LengthSquared() < 0.25f && state.GetContactCount() > 0)
 		{
 			Settle();
+		}
+	}
+
+	public override void _PhysicsProcess(double delta)
+	{
+		if (_pickedUp || _removed || _world == null)
+		{
+			return;
+		}
+
+		if (!_gravityScaleCaptured)
+		{
+			_gravityScaleAuthored = GravityScale;
+			_gravityScaleCaptured = true;
+		}
+
+		UpdateWaterState();
+
+		if (_swimming)
+		{
+			if (Freeze)
+			{
+				// Wake the body so buoyancy / currents can move it. Switch
+				// off the sprite Bob animation — the rigidbody itself now
+				// owns the visible vertical motion, and a sprite-Y bob on
+				// top would compete with it.
+				Freeze = false;
+				_animationPlayer?.Play("Idle");
+			}
+			if (!_gravityScaleSwimActive)
+			{
+				GravityScale = 0f;
+				_gravityScaleSwimActive = true;
+			}
+			ApplyWaterPhysics((float)delta);
+		}
+		else if (_gravityScaleSwimActive)
+		{
+			GravityScale = _gravityScaleAuthored;
+			_gravityScaleSwimActive = false;
+		}
+	}
+
+	// Mirrors Mob.UpdateWaterState minus the swimDepthThreshold gate — small
+	// loot floats in puddles too, so any voxel of water at the body's feet
+	// counts as "swimming." _waterSurfaceY is the Y of the first non-water
+	// voxel above, used as the buoyancy target.
+	private void UpdateWaterState()
+	{
+		WorldState ws = _world.WorldState;
+		Vector3 pos = GlobalPosition;
+		int fx = Mathf.FloorToInt(pos.X);
+		int fy = Mathf.FloorToInt(pos.Y);
+		int fz = Mathf.FloorToInt(pos.Z);
+		if (ws.GetVoxelWorld(fx, fy, fz) != VoxelType.Water)
+		{
+			_swimming = false;
+			return;
+		}
+		int topY = fy;
+		while (ws.GetVoxelWorld(fx, topY + 1, fz) == VoxelType.Water)
+		{
+			topY++;
+		}
+		_swimming = true;
+		_waterSurfaceY = topY + 1;
+	}
+
+	// Mirrors Mob.ApplyWaterPhysics: depth-scaled upward buoyancy toward the
+	// surface, vertical drag damping the resulting oscillation, and an XZ
+	// impulse that drags horizontal velocity toward the local water current
+	// so the item rides the river instead of sitting still in the flow.
+	private void ApplyWaterPhysics(float dt)
+	{
+		Vector3 pos = GlobalPosition;
+		Vector3 vel = LinearVelocity;
+		Vector3 deltaVel = Vector3.Zero;
+
+		float targetY = _waterSurfaceY - _waterSurfaceOffset;
+		float depthBelowSurface = targetY - pos.Y;
+		if (depthBelowSurface > 0f)
+		{
+			deltaVel.Y += Mathf.Min(depthBelowSurface, 1f) * _buoyancyAcceleration * dt;
+		}
+		else
+		{
+			deltaVel.Y -= _buoyancyAcceleration * 0.5f * dt;
+		}
+
+		deltaVel.Y -= vel.Y * _waterDrag * dt;
+
+		Vector3 current = _world.WorldState.SampleWaterCurrent(pos);
+		deltaVel.X += (current.X - vel.X) * _waterCurrentDrag * dt;
+		deltaVel.Z += (current.Z - vel.Z) * _waterCurrentDrag * dt;
+
+		ApplyImpulse(deltaVel * Mass);
+
+		if (LinearVelocity.Y < -_waterSinkSpeed)
+		{
+			Vector3 v = LinearVelocity;
+			LinearVelocity = new Vector3(v.X, -_waterSinkSpeed, v.Z);
 		}
 	}
 

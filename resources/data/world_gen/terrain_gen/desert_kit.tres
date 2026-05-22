@@ -1,8 +1,8 @@
-[gd_resource type="Resource" script_class="TerrainKitData" format=3]
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://dsq8h2o3n55es"]
 
-[ext_resource type="Script" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://bwxw4k1f0netk" path="res://resources/data/details/detail_grass_desert.tres" id="1_kamth"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" path="res://resources/data/terrain/desert.tres" id="2_kit"]
-[ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/details/detail_grass.tres" id="3_detail"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="4_g01"]
 [ext_resource type="PackedScene" uid="uid://bkwajd5cucdsd" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="4_g02"]
 [ext_resource type="PackedScene" uid="uid://33agw00tovkt" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="4_g03"]
@@ -12,12 +12,12 @@
 [ext_resource type="PackedScene" uid="uid://b123lktisdcx8" path="res://scenes/tall_grasses/tall_grass_07.tscn" id="4_g07"]
 [ext_resource type="PackedScene" uid="uid://dn5bv5cnvgkp4" path="res://scenes/props/desert_bonepile1x1_1.tscn" id="5_t01"]
 [ext_resource type="PackedScene" uid="uid://ctowibu6ya2gj" path="res://scenes/props/desert_bonepile1x1_2.tscn" id="5_t02"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_big1.tscn" id="5_t03"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_big2.tscn" id="5_t04"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_big3.tscn" id="5_t05"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_mid1.tscn" id="5_t06"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_mid2.tscn" id="5_t07"]
-[ext_resource type="PackedScene" path="res://scenes/props/desert_rocks_mid3.tscn" id="5_t08"]
+[ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="5_t03"]
+[ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="5_t04"]
+[ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="5_t05"]
+[ext_resource type="PackedScene" uid="uid://btygekl7qcd4" path="res://scenes/props/desert_rocks_mid1.tscn" id="5_t06"]
+[ext_resource type="PackedScene" uid="uid://cxnhpgjkqrvpf" path="res://scenes/props/desert_rocks_mid2.tscn" id="5_t07"]
+[ext_resource type="PackedScene" uid="uid://bgs7cf34nrgar" path="res://scenes/props/desert_rocks_mid3.tscn" id="5_t08"]
 [ext_resource type="PackedScene" uid="uid://bllvr6nn7sf1p" path="res://scenes/props/desert_treepine_01.tscn" id="5_t09"]
 [ext_resource type="PackedScene" path="res://scenes/props/desert_treepine_02.tscn" id="5_t10"]
 [ext_resource type="PackedScene" path="res://scenes/props/desert_treepine_03.tscn" id="5_t11"]
@@ -26,7 +26,7 @@
 [resource]
 script = ExtResource("1_script")
 Terrain = ExtResource("2_kit")
-DefaultDetail = ExtResource("3_detail")
+DefaultDetail = ExtResource("1_kamth")
 DetailNoiseFrequency = 0.2
 DetailNoiseThreshold = 0.0
 ForestNoiseFrequency = 5.0

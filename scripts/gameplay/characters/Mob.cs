@@ -518,6 +518,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasBlood(float amount) => true;
     public void DrainBlood(float amount) { }
 
+    // Mob locomotion has no swim/airborne distinction yet — surface stable
+    // defaults so ActorStateRequirement evaluates cleanly on mob attacks
+    // (forbidSwimming passes, requireGrounded passes, requireAirborne fails).
+    public bool IsGrounded => true;
+    public bool IsSwimming => false;
+
     public void PlayOneShot(EAnimation anim)
     {
         if (_animator == null || mobData == null)

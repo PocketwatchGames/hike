@@ -31,8 +31,78 @@ public partial class PlayerData : Resource
 	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
+	// Linear horizontal acceleration (m/s²) toward the input target. Ground is
+	// sharp — most games snap; we ramp just enough to smooth the transition
+	// between speeds without making input feel floaty. Air is drifty so jumps
+	// preserve momentum; lower values lengthen the ramp. Same approach math as
+	// waterAcceleration, but air/ground targets are pure input (no drift term).
+	[Export] public float groundAcceleration = 50f;
+	[Export] public float airAcceleration = 12f;
+	// Airborne drag, split by axis (skipped during dash). Each is a 1/s
+	// velocity-proportional decay coefficient applied each airborne tick.
+	//
+	// airDragDown only fights *downward* motion (Velocity.Y < 0): upward
+	// jumps and launches are unaffected, but a fall's terminal speed is
+	// bounded by Gravity / airDragDown (≈ 9.8 m/s at airDragDown = 1).
+	//
+	// airDragXZ pulls horizontal velocity toward zero. It runs alongside
+	// the airborne ApproachXZ from input — both update Velocity each tick,
+	// so the steady-state under sustained input is roughly airAcceleration
+	// / airDragXZ. Keep that ratio above sprintSpeed so a player holding
+	// full input can still reach their intentional top speed; excess
+	// horizontal speed (from skate launches, dash exits) bleeds off.
+	[Export] public float airDragDown = 1f;
+	[Export] public float airDragXZ = 0.5f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
+
+	// Steep-slope sliding & skating. A slide surface is any upward-facing
+	// contact whose normal Y is in [slideSurfaceMinNormalY, cos(FloorMaxAngle)) —
+	// steeper than walkable but not a vertical wall. While in contact the
+	// player is "sliding" (puff FX, anim hook). Skating is the high-momentum
+	// mode initiated by jumping and landing aligned with the downhill direction:
+	// the runSpeed clamp is lifted, gravity accumulates along the slope tangent,
+	// input acts as steering rather than a velocity replace.
+	[Export] public float slideSurfaceMinNormalY = 0.2f;
+	// Upper-bound normal-Y for the extended skate band — defines the
+	// shallowest slope that both initiates and sustains skating. Slopes
+	// steeper than this (n.Y < skateContinueMaxNormalY, i.e. angle > acos(this))
+	// count as skate surfaces; shallower surfaces drop to normal grounded
+	// movement. Strictly greater than cos(FloorMaxAngle) so the band spans
+	// walkable ramps too. _sliding (puff FX) stays gated on the strict steep
+	// band (n.Y < cos(FloorMaxAngle)); this field only controls _skating.
+	// Default ≈ cos(30°): any slope ≥ 30° can launch a skate when alignment
+	// is sharp, and a skate carries through ramp runouts down to 30°.
+	[Export] public float skateContinueMaxNormalY = 0.866f;
+	// Initiation gates for skating. Must land (not walk-into) on a slide
+	// surface while inbound horizontal velocity is at least
+	// skateInitiationMinSpeed and within an angle of the slope's downhill
+	// direction whose cosine is at least skateInitiationAlignDot.
+	[Export] public float skateInitiationMinSpeed = 5f;
+	[Export] public float skateInitiationAlignDot = 0.5f;
+	// Minimum inbound fall speed (m/s downward) at the landing tick required
+	// to launch a skate. Walking off small ledges produces fall speeds well
+	// below this; a deliberate jump or a real drop clears it easily. Compared
+	// against -Velocity.Y captured just before MoveAndSlide.
+	[Export] public float skateInitiationMinFallSpeed = 5f;
+	// Hard cap on speed while skating — prevents runaway acceleration on
+	// long slopes. Higher than sprintSpeed so skating is the fastest ground
+	// mode by design.
+	[Export] public float skateMaxSpeed = 18f;
+	// Steering authority while skating. Per-second yaw rotation applied to
+	// the velocity heading proportional to how off-axis the input is from
+	// the current heading (0 = no steering, full input = full rate). Caps the
+	// turn rate so skating feels heavy, not arcadey.
+	[Export] public float skateSteerYawRate = 2.5f;
+	// Tangent decel applied when input opposes velocity heading
+	// (dot < -skateBrakeDotThreshold). m/s²; scales with align magnitude.
+	[Export] public float skateBrakeDecel = 12f;
+	[Export] public float skateBrakeDotThreshold = 0.5f;
+	// Friction continually decelerating skate speed regardless of input.
+	// Keeps a slope from acting as a permanent speed reservoir on the flat —
+	// when the slope ends and gravity-along-slope drops to zero, this drains
+	// momentum so the player returns to normal ground control.
+	[Export] public float skateFriction = 8f;
 
 	// Wall jump. While airborne, pressing Jump probes the capsule
 	// wallJumpCheckDistance forward in the player's movement direction (or
@@ -98,9 +168,23 @@ public partial class PlayerData : Resource
 	[Export] public float waterSinkSpeed = 2f;
 	[Export] public float buoyancyAcceleration = 15f;
 	[Export] public float waterDrag = 5f;
+	// Horizontal drag, velocity-proportional. Per tick, XZ velocity decays
+	// by `v * waterHorizontalDrag * dt` so a fast entry sheds momentum
+	// quickly while a normal-speed swim barely feels it. Steady-state swim
+	// speed under sustained input is roughly waterAcceleration /
+	// waterHorizontalDrag — make sure that ratio stays above swimSpeed or
+	// the player can't reach their swim target.
+	[Export] public float waterHorizontalDrag = 3f;
 	[Export] public float waterSurfaceOffset = 1f;
 	[Export] public float waterJumpOffset = 1.5f;
 	[Export] public float swimJumpSpeed = 8f;
+	// Linear horizontal acceleration toward the input target while swimming
+	// (m/s²). The "target" folds in waterCurrentDrag × local current so the
+	// steady-state still matches the snap behavior (player at rest drifts at
+	// current × drag; with input, drifts at input + current × drag), but
+	// reaching it now takes ramp-in time so swimming feels weighted instead
+	// of snapping. Set very high to approximate the old snap.
+	[Export] public float waterAcceleration = 12f;
 	// Fraction of the local water current's velocity added to the player's
 	// horizontal velocity each tick while swimming. Input is applied first
 	// each tick and this layers on top, so 1.0 means the player drifts at
@@ -162,13 +246,6 @@ public partial class PlayerData : Resource
 	// matches dry land; lower values give a slower swim-dash so the player
 	// can't rocket through water.
 	[Export] public float dashSwimSpeedScale = 0.5f;
-	// Post-dash glide. When _dashTimeRemaining hits zero, _dashGlideRemaining
-	// starts at dashGlideTime and counts down; while > 0 the player's
-	// horizontal velocity is held at dashEndSpeedCap in the dash direction
-	// (tapered linearly) instead of snapping to input speed. Lets the dash
-	// carry momentum without leaving the player permanently fast.
-	[Export] public float dashGlideTime = 0.15f;
-	[Export] public float dashEndSpeedCap = 7f;
 	// Wall handling during dash. After MoveAndSlide the player iterates
 	// collisions: if the dash direction is within dashWallHeadOnAngle of
 	// the wall normal (radians), the dash short-circuits (head-on bonk).
@@ -183,6 +260,10 @@ public partial class PlayerData : Resource
 	// so the player can't refill while gripping the sprint button.
 	[Export] public float sprintSpeed = 12f;
 	[Export] public float sprintStaminaDrainPerSecond = 15f;
+	// Sprint speed while swimming. Used by the dash-exit clamp when the
+	// player ends a dash in water; the moving swim anim (SwimSprint) is
+	// authored separately and selected by _sprinting alone.
+	[Export] public float swimSprintSpeed = 6f;
 
 	// Fallback speeds when stamina runs out and the player isn't actively
 	// sprinting. tiredRunSpeed is the on-foot "exhausted run" — slower than
