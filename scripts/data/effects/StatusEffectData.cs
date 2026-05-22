@@ -18,9 +18,10 @@ public partial class StatusEffectData : Resource
 	[Export] public float damagePerSecond;
 
 	// Default seconds the effect lasts once timed. 0 = situational; the
-	// gameplay system that armed the effect (weather, water trigger, etc.)
-	// owns the lifetime and arms a removal timer explicitly when one is
-	// wanted (e.g. wet effect arms 10s only after the player leaves water).
+	// gameplay system that armed the effect owns the lifetime and either
+	// removes the state directly (e.g. Wet, which lives as long as the
+	// player's wetness float stays above the disarm threshold) or arms a
+	// removal timer via StatusEffectState.ArmTimer when one is wanted.
 	[Export] public float duration;
 
 	// Cap on simultaneous instances of this effect on a single actor. When a
@@ -76,6 +77,16 @@ public partial class StatusEffectData : Resource
 	// skin chills sooner and resists overheating.
 	[Export] public float coldResistance;
 	[Export] public float heatResistance;
+
+	// Sense modifiers — same shape as ArmorData. Camouflage is additive
+	// (summed across active effects); the four multipliers scale the
+	// PlayerData base value multiplicatively and compose with armor's
+	// matching fields in Player.GetSenseStats. 1.0 / 0.0 are neutral.
+	[Export] public float camouflage;
+	[Export] public float visionMultiplier = 1f;
+	[Export] public float hearingMultiplier = 1f;
+	[Export] public float noiseMultiplier = 1f;
+	[Export] public float scentMultiplier = 1f;
 
 	// Audiovisual cues bound to the effect's lifecycle. `startFx` and `endFx`
 	// are one-shot Fx scenes spawned on the actor at apply / remove. `loopFx`

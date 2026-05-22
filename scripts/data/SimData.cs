@@ -36,6 +36,27 @@ public partial class SimData : Resource
     // can appear in the bestiary once spotted.
     [Export] public Array<MobData> Mobs = new();
 
+    // Shared interactive verbs auto-injected on any mob whose runtime
+    // SimState carries a Conversation. Authored here once so adding a new
+    // talking NPC species doesn't require copy-pasting Talk / GiveItem
+    // sub-resources into each mob's .tscn — give the mob a Conversation
+    // (via WorldGen or SimState) and these verbs surface automatically.
+    // TradeAction replaces GiveItemAction on mobs whose MobSimState.WillTrade
+    // is true; the two are mutually exclusive on any given mob.
+    [Export] public InteractiveAction TalkAction;
+    [Export] public InteractiveAction GiveItemAction;
+    [Export] public InteractiveAction TradeAction;
+
+    // Grammar's contribution to TextScrambler.ComputeComprehension. Final
+    // understanding = translatedPct × ((1 - this) + orderPct × this), so:
+    //   0   = grammar irrelevant, only word translation counts.
+    //   1   = grammar fully gates — words landing in the wrong order
+    //         multiply translation down toward zero.
+    //   0.2 = grammar contributes 20% of the final score; a player who
+    //         knows every vocab bucket but no grammar still understands
+    //         ~80% of any text, missing a soft tax for jumbled order.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float LanguageGrammarWeight = 0.2f;
+
     // Shared item-leveling thresholds. Entry i is the cumulative exp required
     // to reach level (i+1); WeaponState.AddExp / ArmorState.AddExp walk this
     // list and promote level while the running total has crossed the next

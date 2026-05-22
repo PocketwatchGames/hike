@@ -51,9 +51,9 @@ public partial class ItemInfoPanel : PanelContainer
 		Visible = true;
 	}
 
-	// Item-level stats live above the per-action panels. StatList.Ammo
-	// decides which label fits (Ammo vs Charges) and suppresses the row
-	// when the weapon has no ammo concept.
+	// Item-level stats live above the per-action panels. StatList picks
+	// the appropriate generator per item type; each generator suppresses
+	// neutral-value rows so a plain item reads as just its name + icon.
 	private void RebuildItemStats(ItemState item, bool identified)
 	{
 		ClearStats();
@@ -61,9 +61,17 @@ public partial class ItemInfoPanel : PanelContainer
 		{
 			return;
 		}
-		if (item is WeaponState weapon)
+		switch (item)
 		{
-			AddStats(StatList.Ammo(weapon));
+			case WeaponState weapon:
+				AddStats(StatList.Ammo(weapon));
+				break;
+			case ArmorState armor:
+				AddStats(StatList.ArmorStats(armor));
+				break;
+			case ConsumableState consumable:
+				AddStats(StatList.ConsumableStats(consumable));
+				break;
 		}
 	}
 

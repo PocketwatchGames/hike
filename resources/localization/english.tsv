@@ -2,3 +2,9 @@ key	                value
 villager_greeting	Hello, traveler.
 villager_dialogue_1	You don't see many strangers around here these days.
 villager_dialogue_2	Safe travels out there. Watch the treeline after dark.
+villager_resp_tell_more	Tell me more.
+villager_resp_beard	I like your beard.
+villager_resp_trade	Do you want to trade?
+villager_nothing_more	I have nothing more to say.
+villager_thanks	Thanks!
+villager_lets_do_it	Let's do it.

@@ -16,12 +16,16 @@
 [ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/friendly_villager.tres" id="10_mob_villager"]
 [ext_resource type="Resource" uid="uid://cc52pkmouqeuk" path="res://resources/audio/thunder_distant.tres" id="11_thunder_distant"]
 [ext_resource type="Resource" uid="uid://bln1dat1pqrst" path="res://resources/data/weather/lightning_storm.tres" id="12_lightning"]
+[ext_resource type="Resource" uid="uid://dvbajkb2qcbeg" path="res://resources/data/actions/talk_action.tres" id="13_talk_action"]
+[ext_resource type="Resource" uid="uid://cgc48024hwymp" path="res://resources/data/actions/give_item_action.tres" id="14_give_action"]
 
 [resource]
 script = ExtResource("1_1meao")
 Gravity = 50.0
 Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk_hi"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg_hi"), ExtResource("6_recipe_gg")])
 Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
+TalkAction = ExtResource("13_talk_action")
+GiveItemAction = ExtResource("14_give_action")
 SunMaxElevationDegrees = 65.0
 SunsetAngleDegrees = 25.0
 NightIntensityBase = 0.6

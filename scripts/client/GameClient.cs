@@ -29,9 +29,16 @@ public partial class GameClient : Node3D
 		{ EStatName.Charges, "Charges" },
 		{ EStatName.Heal, "Healing" },
 		{ EStatName.MoveSpeed, "Move Speed" },
-		{ EStatName.MaxStamina, "Max Stamina" },
+		{ EStatName.MaxStamina, "Stamina" },
 		{ EStatName.ColdResist, "Cold Resist" },
 		{ EStatName.HeatResist, "Heat Resist" },
+		{ EStatName.Health, "Health" },
+		{ EStatName.Armor, "Armor" },
+		{ EStatName.Camouflage, "Camouflage" },
+		{ EStatName.Vision, "Vision" },
+		{ EStatName.Hearing, "Hearing" },
+		{ EStatName.Noise, "Noise" },
+		{ EStatName.Scent, "Scent" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -707,6 +714,24 @@ public partial class GameClient : Node3D
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
 		UpdatePostProcess();
+
+		// Hide the per-interactive highlight outline while another fullscreen
+		// HUD (merchant, conversation, cooking, etc.) has InputSuppressed on.
+		// The InteractHUD's own options modal also sets InputSuppressed but
+		// should NOT hide the outline — exclude that case via ModalOpen.
+		// Done here per-frame rather than in ApplyHighlight / RemoveHighlight
+		// because external HUDs can open / close without the player's
+		// highlight target changing.
+		if (_highlightOverlay != null)
+		{
+			bool ownModalActive = _interactHUD != null && _interactHUD.ModalOpen;
+			bool externalHudActive = InputSuppressed && !ownModalActive;
+			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive;
+			if (_highlightOverlay.Visible != shouldShow)
+			{
+				_highlightOverlay.Visible = shouldShow;
+			}
+		}
 
 		// Service the deferred input-suppress clear AFTER ProcessInput has
 		// been gated for this frame. See InputSuppressed property docs.

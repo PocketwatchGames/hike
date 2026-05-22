@@ -31,4 +31,5 @@ activeSprite = ExtResource("6_sprite_lit")
 displayName = &"Torch"
 description = "A light in the darkness"
 maxStack = 5
+value = 10
 inventorySprite = ExtResource("5_sprite")

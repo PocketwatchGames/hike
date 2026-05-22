@@ -1,8 +1,14 @@
 [gd_scene format=3 uid="uid://br0ewj5o2768g"]
 
 [ext_resource type="Script" uid="uid://psp7ces4z54jv" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
+[ext_resource type="Texture2D" uid="uid://ui2onktg02cc" path="res://resources/atlases/bellafide_atlas.tres" id="2_ajsop"]
+[ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_pl1cs"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="3_32vq5"]
+[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="4_pl1cs"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_fvgyx"]
+[ext_resource type="PackedScene" uid="uid://d24s8gbo4c7n5" path="res://scenes/gui/drop_count_panel.tscn" id="6_32vq5"]
 
-[node name="MerchantScreen" type="Control"]
+[node name="MerchantScreen" type="Control" unique_id=1337731578 node_paths=PackedStringArray("_merchantPortrait", "_merchantNameLabel", "_merchantConversationLabel", "_merchantInventoryPanel", "_givePanel", "_getPanel", "_tradeButton", "_playerInventory", "_merchantInventorySlotPanels", "_giveSlotPanels", "_getSlotPanels", "_dropCountPanel", "_itemInfoPanelGive", "_itemInfoPanelGet")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -10,3 +16,226 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_merchant")
+_merchantPortrait = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/TextureRect")
+_merchantNameLabel = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer/NPCNameLabel")
+_merchantConversationLabel = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer/Label")
+_merchantInventoryPanel = NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2")
+_givePanel = NodePath("MarginContainer/HBoxContainer/Center/GivePanel")
+_getPanel = NodePath("MarginContainer/HBoxContainer/Center/GetPanel")
+_tradeButton = NodePath("MarginContainer/HBoxContainer/Center/Button")
+_playerInventory = NodePath("MarginContainer/HBoxContainer/Inventory")
+_merchantInventorySlotPanels = [NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel3"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel4"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel5"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel6"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel7"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel8"), NodePath("MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer/ItemSlotPanel9")]
+_giveSlotPanels = [NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel3")]
+_getSlotPanels = [NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel"), NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel2"), NodePath("MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer/ItemSlotPanel3")]
+_dropCountPanel = NodePath("MarginContainer/MarginContainer2/DropCountPanel")
+_itemInfoPanelGive = NodePath("MarginContainer/HBoxContainer/MarginContainer/ItemInfoPanel")
+_itemInfoPanelGet = NodePath("MarginContainer/HBoxContainer/MarginContainer2/ItemInfoPanel")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1234338051]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=744828462]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_constants/separation = 30
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=698736516]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=638608018 instance=ExtResource("2_pl1cs")]
+layout_mode = 2
+
+[node name="Left" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=2066187763]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Left" unique_id=1972152947]
+layout_mode = 2
+
+[node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer" unique_id=1571593874]
+layout_mode = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer" unique_id=2051244182]
+layout_mode = 2
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1836554744]
+texture_filter = 1
+custom_minimum_size = Vector2(100, 100)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
+texture = ExtResource("2_ajsop")
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer" unique_id=1272889941]
+layout_mode = 2
+theme_override_constants/margin_left = 0
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer" unique_id=2030032085]
+layout_mode = 2
+
+[node name="NPCNameLabel" type="Label" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=816469419]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Mglock"
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=446817012]
+custom_minimum_size = Vector2(145, 0)
+layout_mode = 2
+text = "I like this thing a lot"
+autowrap_mode = 2
+
+[node name="PanelContainer2" type="PanelContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer" unique_id=1115328942]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2" unique_id=2009717768]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer" unique_id=576435687]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+columns = 3
+
+[node name="ItemSlotPanel" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=982744505 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=925957295 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1642076212 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel4" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1071569680 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel5" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1775930160 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel6" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=52161742 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel7" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=727650033 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel8" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1298628383 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel9" parent="MarginContainer/HBoxContainer/Left/VBoxContainer/PanelContainer2/MarginContainer/GridContainer" unique_id=1775575881 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="Center" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1977373439]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = 20
+
+[node name="GivePanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/Center" unique_id=1272095969]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Center/GivePanel" unique_id=572027720]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer" unique_id=1669142151]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer" unique_id=1858934461]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Give"
+horizontal_alignment = 1
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer" unique_id=1207785587]
+layout_mode = 2
+columns = 3
+
+[node name="ItemSlotPanel" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=825529367 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=481453360 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Center/GivePanel/MarginContainer/VBoxContainer/GridContainer" unique_id=2095642484 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="MarginContainer/HBoxContainer/Center" unique_id=268450485]
+layout_mode = 2
+text = "TRADE"
+
+[node name="GetPanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/Center" unique_id=680285465]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/Center/GetPanel" unique_id=1366057220]
+layout_mode = 2
+theme_override_constants/margin_left = 5
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 5
+theme_override_constants/margin_bottom = 5
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer" unique_id=1637884364]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer" unique_id=2008969112]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Get"
+horizontal_alignment = 1
+
+[node name="GridContainer" type="GridContainer" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer" unique_id=2082510771]
+layout_mode = 2
+columns = 3
+
+[node name="ItemSlotPanel" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1855805165 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel2" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer" unique_id=1385832741 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="ItemSlotPanel3" parent="MarginContainer/HBoxContainer/Center/GetPanel/MarginContainer/VBoxContainer/GridContainer" unique_id=311712742 instance=ExtResource("3_32vq5")]
+layout_mode = 2
+
+[node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 instance=ExtResource("4_pl1cs")]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1591214073]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=859788769 instance=ExtResource("2_pl1cs")]
+layout_mode = 2
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=2079712473]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("5_fvgyx")]
+layout_mode = 2
+ActionName = "Equip"
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer" unique_id=112741701]
+layout_mode = 2
+theme_override_constants/margin_bottom = 100
+
+[node name="DropCountPanel" parent="MarginContainer/MarginContainer2" unique_id=256445145 instance=ExtResource("6_32vq5")]
+layout_mode = 2
+size_flags_vertical = 8

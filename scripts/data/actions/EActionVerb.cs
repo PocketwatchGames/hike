@@ -22,4 +22,15 @@ public enum EActionVerb
 	// lit campfire so the player can re-cool the station without cycling
 	// through the cooking screen.
 	Douse,
+	// Open the merchant screen in trade mode — present on every friendly
+	// NPC (any mob authored with Talk) as a second interactive verb. The
+	// trade mode shows the merchant-inventory and get-side panels so the
+	// player can trade or gift items.
+	GiveItem,
+	// Open the merchant screen in two-way trade mode — replaces GiveItem
+	// on mobs whose MobSimState.WillTrade is true. The merchant-inventory
+	// and get-side panels stay visible so the player can stage a swap; the
+	// commit button still falls back to a gift when nothing is requested
+	// from the merchant's side.
+	Trade,
 }

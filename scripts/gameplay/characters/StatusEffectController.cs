@@ -175,6 +175,28 @@ public class StatusEffectController
 		}
 	}
 
+	// Folds per-effect sense modifiers into a running tally. Camouflage is
+	// additive across stacks; vision / hearing / noise / scent are
+	// multiplicative. Player composes this with the matching armor
+	// accumulators in GetSenseStats — caller pre-seeds the multipliers to
+	// 1.0 (or whatever the armor pass left).
+	public void AccumulateSenseModifiers(ref float camouflage, ref float visionMultiplier, ref float hearingMultiplier, ref float noiseMultiplier, ref float scentMultiplier)
+	{
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null)
+			{
+				continue;
+			}
+			camouflage += data.camouflage;
+			visionMultiplier *= data.visionMultiplier;
+			hearingMultiplier *= data.hearingMultiplier;
+			noiseMultiplier *= data.noiseMultiplier;
+			scentMultiplier *= data.scentMultiplier;
+		}
+	}
+
 	// Sums the per-effect motion contributions. Both products start at 1 and
 	// multiply each active effect's value, so two stacked Cold states slow
 	// movement and animation by 0.75 * 0.75. Player and Mob call this each

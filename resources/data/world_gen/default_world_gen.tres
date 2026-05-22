@@ -15,7 +15,6 @@
 [ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signpost"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="8_stone"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="9_chest"]
-[ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="10_s_grammar"]
 [ext_resource type="Resource" uid="uid://csrlvynmra002" path="res://resources/data/items/scrolls/scroll_vyeshal_numbers.tres" id="11_s_numbers"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="12_s_kunkun"]
 
@@ -35,4 +34,4 @@ KnowledgeStoneScene = ExtResource("8_stone")
 KnowledgeStoneLanguage = ExtResource("6_gcffr")
 KnowledgeStoneText = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
 NearSpawnChestScene = ExtResource("9_chest")
-NearSpawnChestItems = [ExtResource("10_s_grammar"), ExtResource("11_s_numbers"), ExtResource("12_s_kunkun")]
+NearSpawnChestItems = [ExtResource("11_s_numbers"), ExtResource("12_s_kunkun")]

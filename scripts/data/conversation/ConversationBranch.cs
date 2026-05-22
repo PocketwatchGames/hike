@@ -25,6 +25,15 @@ public partial class ConversationBranch : Resource
     [Export] public Array<StringName> lineLocKeys = new();
 
     // Player choices shown after the last line finishes. Empty = the
-    // conversation ends after the last line.
+    // conversation ends after the last line (unless an endAction redirects
+    // the flow first).
     [Export] public Array<ConversationResponse> responses;
+
+    // Side effects fired in order the moment the typewriter finishes the
+    // last line — BEFORE the response chooser shows. An action that closes
+    // the conversation (e.g. OpenShopAction) suppresses the chooser
+    // entirely, so authoring "NPC says X, then handoff" doesn't need a
+    // dummy silent response. For branches with no responses, this is the
+    // natural place to put "end of conversation" side effects.
+    [Export] public Array<ConversationAction> endActions;
 }

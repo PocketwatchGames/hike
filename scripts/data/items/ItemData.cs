@@ -19,6 +19,11 @@ public partial class ItemData : Resource
 	// to match displayName's StringName convention.
 	[Export(PropertyHint.MultilineText)] public string description = "";
 	[Export] public int maxStack = 1;
+	// Subjective worth of one unit. Mob.CalculatePersonalValue starts from this
+	// and lets per-mob preferences scale it (a vegetarian villager values a
+	// roast at 0, etc). Drives gift-loyalty gain on the merchant screen and is
+	// the natural per-unit price knob for any future shop tier.
+	[Export] public int value = 0;
 	[Export] public Texture2D inventorySprite;
 
 	// Smaller world-pickup icon, authored at chunky-pixel resolution

@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ArmorData" format=3 uid="uid://b7fxk2m4n8rap"]
 
-[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/ArmorData.cs" id="1_armor"]
+[ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://mfqa2y8v66b7" path="res://assets/textures/items/WolfCloak.png" id="2_sprite"]
 [ext_resource type="Texture2D" uid="uid://d4butxw0b2yun" path="res://assets/textures/items/pickups/WolfCloak.png" id="3_world"]
 
@@ -10,5 +10,6 @@ maxArmor = 10.0
 coldResistance = 25.0
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
+value = 25
 inventorySprite = ExtResource("2_sprite")
 worldSprite = ExtResource("3_world")

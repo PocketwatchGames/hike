@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
-[ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/dialogue_panel.tscn" id="4_dialogue"]
+[ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
 [ext_resource type="Texture2D" uid="uid://dsjrhxf8y2pfi" path="res://assets/textures/interactives/tall_grass_01.png" id="5_gbuxp"]
 [ext_resource type="Material" uid="uid://dmnmapmatlr1a" path="res://resources/materials/minimap.tres" id="6_minimap_mat"]
@@ -147,9 +147,9 @@ fill_mode = 1
 show_percentage = false
 
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068372]
-custom_minimum_size = Vector2(250, 10)
+custom_minimum_size = Vector2(50, 15)
 layout_mode = 2
-size_flags_horizontal = 4
+size_flags_horizontal = 0
 theme_override_styles/fill = SubResource("StyleBoxFlat_2pnwd")
 max_value = 1.0
 value = 0.3

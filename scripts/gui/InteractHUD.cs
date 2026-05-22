@@ -30,6 +30,7 @@ public partial class InteractHUD : Node2D
 	IInteractive _interactive;
 	Array<InteractiveAction> _actions;
 	bool _modalOpen;
+	int _modalFocusedIndex = -1;
 
 	public IInteractive Interactive => _interactive;
 	public bool ModalOpen => _modalOpen;
@@ -112,7 +113,19 @@ public partial class InteractHUD : Node2D
 		{
 			return null;
 		}
-		int idx = (_player.CurInteractive == _interactive) ? _player.CurInteractiveActionIndex : 0;
+		int idx;
+		if (_modalOpen && _modalFocusedIndex >= 0)
+		{
+			idx = _modalFocusedIndex;
+		}
+		else if (_player.CurInteractive == _interactive)
+		{
+			idx = _player.CurInteractiveActionIndex;
+		}
+		else
+		{
+			idx = 0;
+		}
 		if (idx < 0 || idx >= _actions.Count)
 		{
 			return null;
@@ -122,8 +135,13 @@ public partial class InteractHUD : Node2D
 
 	void Update()
 	{
+		// Hide while another fullscreen HUD (merchant, conversation, cooking,
+		// etc.) has set InputSuppressed — our own options modal is the one
+		// case where we set InputSuppressed and still want to be visible.
+		GameClient gc = GameClient.Current;
+		bool externalHudActive = gc != null && gc.InputSuppressed && !_modalOpen;
 		Vector3 worldPosition = _interactive.hudPosition;
-		if (_camera.IsPositionBehind(worldPosition))
+		if (externalHudActive || _camera.IsPositionBehind(worldPosition))
 		{
 			Visible = false;
 			return;
@@ -197,6 +215,7 @@ public partial class InteractHUD : Node2D
 			return;
 		}
 		_modalOpen = true;
+		_modalFocusedIndex = -1;
 		if (_holdContainer != null)
 		{
 			_holdContainer.Visible = false;
@@ -235,9 +254,10 @@ public partial class InteractHUD : Node2D
 			Button btn = _interactOptionScene.Instantiate<Button>();
 			string label = action.displayName.ToString();
 			btn.Text = string.IsNullOrEmpty(label) ? action.verb.ToString() : label;
-			btn.Icon = action.icon;
 			int idx = i;
 			btn.Pressed += () => OnOptionSelected(idx);
+			btn.FocusEntered += () => _modalFocusedIndex = idx;
+			btn.MouseEntered += () => btn.GrabFocus();
 			_interactOptionsContainer.AddChild(btn);
 			if (firstButton == null)
 			{
@@ -265,6 +285,7 @@ public partial class InteractHUD : Node2D
 			return;
 		}
 		_modalOpen = false;
+		_modalFocusedIndex = -1;
 		if (_interactOptionsParent != null)
 		{
 			_interactOptionsParent.Visible = false;

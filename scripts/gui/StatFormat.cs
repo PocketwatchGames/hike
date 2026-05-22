@@ -42,12 +42,22 @@ public static class StatFormat
 		return pct + "%";
 	}
 
-	// Renders a positive multiplier as a percent of normal ("75%" for 0.75,
-	// "125%" for 1.25). Differs from Percent in not clamping to 100, since
-	// status-effect scalers can exceed 1 (a buff that doubles a stat).
-	public static string Scale(float multiplier)
+	// Renders a multiplier as a signed delta from neutral 1.0 ("-25%" for
+	// 0.75, "+50%" for 1.5). Reads cleaner than absolute scale on modifier
+	// rows — "this armor reduces noise by 25%" lands faster than parsing
+	// what "75%" means relative to baseline.
+	public static string ScaleDelta(float multiplier)
 	{
-		int pct = Mathf.Max(0, Mathf.RoundToInt(multiplier * 100f));
-		return pct + "%";
+		int deltaPct = Mathf.RoundToInt((multiplier - 1f) * 100f);
+		return deltaPct > 0 ? "+" + deltaPct + "%" : deltaPct + "%";
+	}
+
+	// Renders a number with an explicit '+' on positive values. Used for
+	// additive bonuses (resistance / camouflage / stamina bonus) where the
+	// direction (boost vs penalty) is the player-facing meaning.
+	public static string SignedNumber(float value)
+	{
+		string body = Number(value);
+		return value > 0f ? "+" + body : body;
 	}
 }

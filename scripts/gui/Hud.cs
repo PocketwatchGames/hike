@@ -394,6 +394,17 @@ public partial class Hud : Control
 		_armorBar.MaxValue = 1;
 		_armorBar.Visible = maxArmor > 0f;
 		_armorBar.Value = maxArmor > 0f ? _player.Armor / maxArmor : 0f;
+		// Physically shrink the bar when maxArmor < 100 so a weak piece of
+		// armor reads as a shorter bar (even when fully charged), without
+		// disturbing the 0..1 fill ratio. Caps at the health bar's width
+		// when maxArmor reaches 100 — heavier armor reads as "full HP
+		// bar's worth of protection" rather than overflowing past it.
+		if (maxArmor > 0f)
+		{
+			Vector2 size = _armorBar.CustomMinimumSize;
+			size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(maxArmor, 100f) / 100f;
+			_armorBar.CustomMinimumSize = size;
+		}
 
 		float maxStamina = _player.MaxStamina;
 		_staminaBar.MinValue = 0;

@@ -2,17 +2,26 @@ using Godot;
 using System;
 using System.Collections.Generic;
 
-// HUD panel that types out a ConversationData one branch at a time. Resolves
-// the opening branch via the conversation's entryBranches list (first valid
-// condition wins), pulls each line through Loc.Get, and scrambles untaught
-// portions via TextScrambler based on the branch's resolved language. The
-// typewriter rate is driven by CVars.dialogueTypingSpeed (characters per
-// second); ui_accept reveals-then-advances exactly as the legacy dialogue
-// panel did.
+// HUD panel that runs a ConversationData: types out a branch's lines into
+// `label`, then spawns one instance of `responseOptionScene` per visible
+// response into `responseOptionsContainer`. Picking a response fires its
+// actions, advances to its destination branch (or closes the panel if the
+// destination is empty), and starts the next branch's typewriter.
 //
-// Responses aren't rendered yet — when the last line of the entry branch
-// finishes typing the conversation closes. Wiring a response chooser is the
-// next step.
+// State machine:
+//   Hidden    — panel offscreen, no conversation
+//   Typing    — typewriter walking branch.lineLocKeys; ui_accept reveals
+//               then advances, ui_cancel closes
+//   Choosing  — response buttons visible, focus on the first one;
+//               gamepad ui_up/ui_down + ui_accept work via the buttons'
+//               native focus chain, ui_cancel still closes from this
+//               controller's _UnhandledInput
+//
+// Response visibility uses ConversationVisibility (combines authored
+// condition + per-response RNG vs. language comprehension). If a branch's
+// visible-response set is empty, the conversation ends — there's no "press
+// to dismiss" prompt because the typewriter's last ui_accept is what
+// transitioned us here.
 //
 // While open, gameClient.InputSuppressed flips on so the same press that
 // reveals / advances the line doesn't also fall through to Jump / Interact
@@ -22,6 +31,18 @@ public partial class ConversationController : Control
 {
 	[Export] public Label label;
 	[Export] public GameClient gameClient;
+	[Export] PackedScene responseOptionScene;
+	[Export] Control responseOptionsContainer;
+
+	enum EState { Hidden, Typing, Choosing }
+	EState _state = EState.Hidden;
+
+	// Stored across the active conversation so response presses can look
+	// up their destination branch and fire actions with the same context
+	// the entry was opened with.
+	ConversationData _conversation;
+	ConversationContext _ctx;
+	ConversationBranch _currentBranch;
 
 	readonly List<string> _lines = new();
 	int _lineIndex;
@@ -29,6 +50,11 @@ public partial class ConversationController : Control
 	// without dropping a glyph per frame when speed × dt < 1.
 	float _revealedChars;
 	Action _onClose;
+
+	// Live response buttons spawned into responseOptionsContainer; tracked
+	// separately so we can free them on branch transition / close without
+	// touching the Label that shares the container.
+	readonly List<Button> _responseButtons = new();
 
 	public bool IsOpen => Visible;
 
@@ -38,9 +64,8 @@ public partial class ConversationController : Control
 	}
 
 	// Open the panel on a conversation. Picks the entry branch, fires its
-	// actions, resolves + scrambles its lines, and kicks the typewriter —
-	// does nothing if no entry condition matches or the resolved branch is
-	// empty.
+	// actions, then kicks the typewriter — does nothing if no entry
+	// condition matches or the resolved branch is missing.
 	public void Show(ConversationData conversation, ConversationContext ctx, Action onClose = null)
 	{
 		if (conversation == null)
@@ -57,24 +82,28 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
-		FireActions(entry.actions, ctx);
-		ResolveAndScrambleLines(branch, ctx);
-		if (_lines.Count == 0)
-		{
-			return;
-		}
-		_lineIndex = 0;
-		_revealedChars = 0f;
+
+		_conversation = conversation;
+		_ctx = ctx;
+		// Set on our stored copy so actions / visibility checks downstream
+		// see the same controller reference an OpenShopAction would close.
+		_ctx.controller = this;
 		_onClose = onClose;
-		if (label != null)
-		{
-			label.Text = string.Empty;
-		}
 		if (gameClient != null)
 		{
 			gameClient.InputSuppressed = true;
 		}
 		Visible = true;
+
+		// Fire actions AFTER the panel is wired up so an action that wants
+		// to take over the screen (OpenShopAction etc.) can call Close()
+		// and have it actually dismiss before StartBranch runs.
+		FireActions(entry.actions, _ctx);
+		if (!Visible)
+		{
+			return;
+		}
+		StartBranch(branch);
 	}
 
 	public void Close()
@@ -84,9 +113,13 @@ public partial class ConversationController : Control
 			return;
 		}
 		Visible = false;
+		ClearResponseButtons();
 		_lines.Clear();
 		_lineIndex = 0;
 		_revealedChars = 0f;
+		_state = EState.Hidden;
+		_conversation = null;
+		_currentBranch = null;
 		if (gameClient != null)
 		{
 			gameClient.InputSuppressed = false;
@@ -96,9 +129,200 @@ public partial class ConversationController : Control
 		cb?.Invoke();
 	}
 
+	// Set up the typewriter for `branch`. If the branch has no lines, jumps
+	// straight to the response chooser (which will close the conversation
+	// if no responses are visible either).
+	void StartBranch(ConversationBranch branch)
+	{
+		_currentBranch = branch;
+		ClearResponseButtons();
+		ResolveAndScrambleLines(branch, _ctx);
+		_lineIndex = 0;
+		_revealedChars = 0f;
+		_state = EState.Typing;
+		if (label != null)
+		{
+			label.Text = string.Empty;
+		}
+		if (_lines.Count == 0)
+		{
+			ShowResponseChooser();
+		}
+	}
+
+	// Filter the current branch's responses through ConversationVisibility,
+	// spawn buttons for the survivors, and grab focus on the first so
+	// gamepad navigation lands somewhere sensible. Closes the conversation
+	// if no response is visible.
+	void ShowResponseChooser()
+	{
+		_state = EState.Choosing;
+		ClearResponseButtons();
+		if (_currentBranch == null)
+		{
+			Close();
+			return;
+		}
+		// Branch end-actions fire AFTER the typewriter and BEFORE the
+		// chooser — so OpenShopAction etc. can close the panel and take
+		// over the screen without needing a dummy silent response.
+		FireActions(_currentBranch.endActions, _ctx);
+		if (!Visible)
+		{
+			return;
+		}
+		if (_currentBranch.responses == null || responseOptionScene == null || responseOptionsContainer == null)
+		{
+			Close();
+			return;
+		}
+		LanguageData lang = _currentBranch.language ?? _ctx.speakerLanguage;
+		// Look up the language tuning once. Falls back to a sensible default
+		// if SimData is unavailable (e.g. very early bootstrap or tests).
+		float grammarWeight = _ctx.world?.SimData?.LanguageGrammarWeight ?? 0.2f;
+		// Pre-compute the branch score once; Compute mins it with each
+		// response's own score so the bottleneck axis caps visibility.
+		float branchComp = ConversationVisibility.ComputeBranchComprehension(_currentBranch, lang, _ctx.player, grammarWeight);
+		// Missing components for the branch's resolved language — drives
+		// the response-text scramble, same way ResolveAndScrambleLines
+		// drives the NPC lines.
+		ELanguageComponents missing = (_ctx.player == null || lang == null)
+			? ELanguageComponents.None
+			: ELanguageComponents.All & ~_ctx.player.GetLearnedComponents(lang);
+		bool debug = CVars.conversationDebug.Value;
+		for (int i = 0; i < _currentBranch.responses.Count; i++)
+		{
+			ConversationResponse r = _currentBranch.responses[i];
+			if (r == null)
+			{
+				continue;
+			}
+			ConversationVisibility.ResponseVisibilityResult vis =
+				ConversationVisibility.Compute(r, _ctx, lang, branchComp, grammarWeight);
+			// Condition-gated responses stay hidden even in debug — the
+			// debug toggle is for the language-comprehension gate only.
+			if (!vis.ConditionPassed)
+			{
+				continue;
+			}
+			// Roll-hidden + debug-off: skip. Otherwise spawn the button,
+			// disabling it when the roll failed so debug shows the gated
+			// options visually but unselectable.
+			if (!vis.Visible && !debug)
+			{
+				continue;
+			}
+			string debugSuffix = debug ? FormatDebugSuffix(vis) : null;
+			SpawnResponseButton(r, lang, missing, enabled: vis.Visible, debugSuffix);
+		}
+		if (_responseButtons.Count == 0)
+		{
+			Close();
+			return;
+		}
+		// CallDeferred — focus must be grabbed after the button is in the
+		// tree and laid out, otherwise GrabFocus is a silent no-op. Find
+		// the first enabled button so debug-disabled rows don't trap
+		// initial focus.
+		for (int i = 0; i < _responseButtons.Count; i++)
+		{
+			if (!_responseButtons[i].Disabled)
+			{
+				_responseButtons[i].CallDeferred(Control.MethodName.GrabFocus);
+				break;
+			}
+		}
+	}
+
+	static string FormatDebugSuffix(ConversationVisibility.ResponseVisibilityResult vis)
+	{
+		int scorePct = Mathf.RoundToInt(vis.CombinedScore * 100f);
+		int rollPct = Mathf.RoundToInt(vis.Roll * 100f);
+		return $"[{scorePct}% / {rollPct}%]";
+	}
+
+	void SpawnResponseButton(ConversationResponse response, LanguageData lang, ELanguageComponents missing, bool enabled, string debugSuffix)
+	{
+		Node instance = responseOptionScene.Instantiate();
+		if (instance is not Button btn)
+		{
+			GD.PushError($"ConversationController: responseOptionScene root must be a Button (got {instance?.GetType().Name ?? "null"})");
+			instance?.QueueFree();
+			return;
+		}
+		StringName key = response.textLocKey;
+		string label;
+		if (key == default || key == "")
+		{
+			// Silent / continue option — no localized text to scramble.
+			label = "...";
+		}
+		else
+		{
+			label = Loc.Get(key);
+			if (missing != ELanguageComponents.None)
+			{
+				label = TextScrambler.Scramble(label, lang, missing);
+			}
+		}
+		if (debugSuffix != null)
+		{
+			label += " " + debugSuffix;
+		}
+		btn.Text = label;
+		btn.Disabled = !enabled;
+		// Capture `response` in the closure so the handler knows which
+		// branch to advance to without an index lookup. Disabled buttons
+		// don't emit Pressed, so it's safe to connect unconditionally.
+		btn.Pressed += () => OnResponsePressed(response);
+		// FocusAll is the Button default, but be explicit so a custom
+		// scene with focus_mode overridden still navigates.
+		btn.FocusMode = FocusModeEnum.All;
+		responseOptionsContainer.AddChild(btn);
+		_responseButtons.Add(btn);
+	}
+
+	void OnResponsePressed(ConversationResponse response)
+	{
+		if (_state != EState.Choosing)
+		{
+			return;
+		}
+		// Fire actions FIRST so an action can close / redirect before the
+		// destination lookup runs.
+		FireActions(response.actions, _ctx);
+		if (!Visible)
+		{
+			return;
+		}
+		StringName dest = response.destination;
+		if (dest == default || dest == "")
+		{
+			Close();
+			return;
+		}
+		ConversationBranch next = FindBranch(_conversation, dest);
+		if (next == null)
+		{
+			GD.PushWarning($"ConversationController: response destination '{dest}' not found in conversation");
+			Close();
+			return;
+		}
+		StartBranch(next);
+	}
+
+	void ClearResponseButtons()
+	{
+		for (int i = 0; i < _responseButtons.Count; i++)
+		{
+			_responseButtons[i].QueueFree();
+		}
+		_responseButtons.Clear();
+	}
+
 	public override void _Process(double delta)
 	{
-		if (!Visible || label == null || _lineIndex >= _lines.Count)
+		if (_state != EState.Typing || label == null || _lineIndex >= _lines.Count)
 		{
 			return;
 		}
@@ -119,13 +343,19 @@ public partial class ConversationController : Control
 		{
 			return;
 		}
+		// Cancel works in both Typing and Choosing — Button doesn't
+		// consume ui_cancel so the event makes it here from focused
+		// response buttons too.
 		if (e.IsActionPressed("ui_cancel"))
 		{
 			GetViewport().SetInputAsHandled();
 			Close();
 			return;
 		}
-		if (!e.IsActionPressed("ui_accept"))
+		// Accept-to-advance is only the typewriter's concern. In Choosing
+		// state the focused Button's _gui_input handles ui_accept and
+		// emits Pressed, which routes through OnResponsePressed.
+		if (_state != EState.Typing || !e.IsActionPressed("ui_accept"))
 		{
 			return;
 		}
@@ -133,7 +363,7 @@ public partial class ConversationController : Control
 
 		if (_lineIndex >= _lines.Count)
 		{
-			Close();
+			ShowResponseChooser();
 			return;
 		}
 		string line = _lines[_lineIndex];
@@ -149,7 +379,7 @@ public partial class ConversationController : Control
 		_lineIndex++;
 		if (_lineIndex >= _lines.Count)
 		{
-			Close();
+			ShowResponseChooser();
 			return;
 		}
 		_revealedChars = 0f;
@@ -159,9 +389,10 @@ public partial class ConversationController : Control
 		}
 	}
 
-	// Walks entryBranches in order, returning the first entry whose condition
-	// passes (or whose condition is null). The branch lookup itself runs in
-	// Show — keeping it here would discard the entry's actions list.
+	// Walks entryBranches in order, returning the first entry whose
+	// condition passes (or whose condition is null). The branch lookup
+	// itself runs in Show — keeping it here would discard the entry's
+	// actions list.
 	static ConversationEntry SelectEntry(ConversationData conv, ConversationContext ctx)
 	{
 		if (conv.entryBranches == null)

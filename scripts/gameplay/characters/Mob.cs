@@ -12,10 +12,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
-    // Authored interaction verbs surfaced when the player walks up to this
-    // mob (Talk, Trade, etc.). First entry is the default action. Empty on
-    // mobs that aren't interactable — the InteractiveBox on the mob's .tscn
-    // shouldn't be wired in that case so the player never highlights them.
+    // Per-species authored interaction verbs (e.g. species-specific Trade,
+    // Inspect). Talk and GiveItem are NOT authored here — they auto-inject
+    // from SimData for any mob whose SimState carries a Conversation; see
+    // GetActions below. Empty on mobs that aren't interactable and don't
+    // talk — the InteractiveBox on the mob's .tscn shouldn't be wired in
+    // that case so the player never highlights them.
     [Export] private Godot.Collections.Array<InteractiveAction> _interactiveActions = new();
 
     [ExportGroup("FX")]
@@ -122,6 +124,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool stunned => _simState.Stunned;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     public MobData mobData => _simState.MobData;
+    // Per-instance language override (set by WorldGen / world files) takes
+    // precedence over MobData.language. Mirrors SpeakDialogue's resolution
+    // order so dialogue and any other UI surface (merchant screen, etc.)
+    // agree on which language to scramble against.
+    public LanguageData SpokenLanguage => _simState?.Language ?? mobData?.language;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
     public Vector3 weaponPosition => GlobalPosition;
     public Vector3 spawnPosition => _simState.SpawnPosition;
@@ -533,10 +540,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return false;
         }
-        return _interactiveActions != null && _interactiveActions.Count > 0;
+        bool hasAuthored = _interactiveActions != null && _interactiveActions.Count > 0;
+        bool hasConversation = _simState?.Conversation != null;
+        return hasAuthored || hasConversation;
     }
 
     public bool CanActorInteract(Player player) => CanInteract();
+
+    // Authored actions prepended with SimData.TalkAction + GiveItemAction
+    // for any mob carrying a Conversation. Cached so we don't allocate the
+    // merged array per HUD refresh — neither input mutates at runtime.
+    private Godot.Collections.Array<InteractiveAction> _resolvedActions;
+    private bool _resolvedActionsBuilt;
 
     public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
     {
@@ -544,16 +559,52 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return null;
         }
-        return _interactiveActions != null && _interactiveActions.Count > 0 ? _interactiveActions : null;
+        if (!_resolvedActionsBuilt)
+        {
+            _resolvedActionsBuilt = true;
+            bool hasConversation = _simState?.Conversation != null;
+            SimData sim = _world?.SimData;
+            if (hasConversation && sim != null)
+            {
+                _resolvedActions = new Godot.Collections.Array<InteractiveAction>();
+                if (sim.TalkAction != null)
+                {
+                    _resolvedActions.Add(sim.TalkAction);
+                }
+                // Trade replaces Give on merchants; the two are mutually
+                // exclusive so the player only sees one shop verb per mob.
+                InteractiveAction shopAction = _simState != null && _simState.WillTrade
+                    ? sim.TradeAction
+                    : sim.GiveItemAction;
+                if (shopAction != null)
+                {
+                    _resolvedActions.Add(shopAction);
+                }
+                if (_interactiveActions != null)
+                {
+                    foreach (InteractiveAction a in _interactiveActions)
+                    {
+                        _resolvedActions.Add(a);
+                    }
+                }
+            }
+        }
+        Godot.Collections.Array<InteractiveAction> result = _resolvedActions ?? _interactiveActions;
+        if (result == null || result.Count == 0)
+        {
+            return null;
+        }
+        return result;
     }
 
     public void Complete(int actionIndex)
     {
-        if (_interactiveActions == null || actionIndex < 0 || actionIndex >= _interactiveActions.Count)
+        Godot.Collections.Array<InteractiveAction> actions = _resolvedActions ?? _interactiveActions;
+        if (actions == null || actionIndex < 0 || actionIndex >= actions.Count)
         {
             return;
         }
-        InteractiveAction action = _interactiveActions[actionIndex];
+        InteractiveAction action = actions[actionIndex];
         if (action == null)
         {
             return;
@@ -563,10 +614,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             case EActionVerb.Talk:
                 SpeakDialogue();
                 break;
+            case EActionVerb.GiveItem:
+                OpenMerchantScreen(trade: false, onClose: null);
+                break;
+            case EActionVerb.Trade:
+                OpenMerchantScreen(trade: true, onClose: null);
+                break;
         }
     }
 
-    public void OpenMerchantScreen(Action onClose)
+    public void OpenMerchantScreen(bool trade, Action onClose)
     {
         GameClient gc = GameClient.Current;
         Player player = gc?.Player;
@@ -574,7 +631,146 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        gc.merchantScreen.Open(player, onClose);
+        gc.merchantScreen.Open(player, this, trade, onClose);
+        _simState.WillTrade |= trade;
+    }
+
+    // ---- Loyalty gifting ----
+    // The merchant screen's gift and trade modes route through these.
+    // Loyalty + remaining-gift state lives on MobSimState (so it persists
+    // with the mob across chunk unloads / saves); the per-mob preference
+    // math lives here so a species can override PerUnitValue with its own
+    // taste model (vegetarian villager, hoarder dragon) without changing
+    // the SimState shape.
+
+    // Subjective worth (to this mob) of a single unit of `item`. Defaults
+    // to the item's authored value. Override in a derived mob type if a
+    // species values certain items differently. Items whose authored
+    // value is 0 are uninteresting to the mob — CalculatePersonalValue and
+    // AcceptableUnits short-circuit them to zero.
+    public virtual int PerUnitValue(ItemData item)
+    {
+        return item != null ? item.value : 0;
+    }
+
+    // How many units of `offered` worth of `item` the mob will value right
+    // now. Items past the per-type gift cap (3) are zero-value — once the
+    // mob has already received MaxGiftsPerItemType of this kind, further
+    // units don't count, so this returns 0. For a stack that partially
+    // crosses the cap the caller is expected to split — accept this many
+    // units, leave the rest in staging.
+    public int AcceptableUnits(ItemData item, int offered)
+    {
+        if (item == null || _simState == null || offered <= 0)
+        {
+            return 0;
+        }
+        if (PerUnitValue(item) <= 0)
+        {
+            return 0;
+        }
+        _simState.GiftCounts.TryGetValue(item, out int already);
+        int room = Mathf.Max(0, MobSimState.MaxGiftsPerItemType - already);
+        return Mathf.Min(offered, room);
+    }
+
+    // Cap-aware total worth of an offering from the mob's perspective.
+    // Sum across the offered stacks of PerUnitValue * AcceptableUnits, so
+    // items past the per-type cap or with zero base value contribute
+    // nothing. Used for the give-side of a transaction (gift loyalty, the
+    // give half of a trade); the get-side of a trade should NOT route
+    // through here because the cap only tracks the mob's incoming history.
+    public virtual float CalculatePersonalValue(IEnumerable<ItemState> items)
+    {
+        if (items == null) { return 0f; }
+        float total = 0f;
+        foreach (ItemState s in items)
+        {
+            if (s == null || s.data == null) { continue; }
+            int value = PerUnitValue(s.data);
+            if (value <= 0) { continue; }
+            total += value * AcceptableUnits(s.data, s.stackCount);
+        }
+        return total;
+    }
+
+    // True if the gift would teach only language components the player
+    // already has. Item-bearing gifts are never redundant — even a known-
+    // language gift still carries a real item payload.
+    private bool IsGiftRedundant(LoyaltyGift gift, Player player)
+    {
+        if (gift == null) { return true; }
+        if (gift.item != null) { return false; }
+        if (gift.language == null || gift.languageComponents == ELanguageComponents.None) { return true; }
+        if (player == null) { return false; }
+        ELanguageComponents known = player.GetLearnedComponents(gift.language);
+        return (gift.languageComponents & ~known) == ELanguageComponents.None;
+    }
+
+    // Any non-redundant gift left in the mob's reserve. Drives the "nothing
+    // of value to give back" rejection case at the merchant screen — a mob
+    // whose only remaining gifts are language components the player already
+    // knows is functionally empty.
+    public bool HasReciprocableGift(Player player)
+    {
+        if (_simState == null) { return false; }
+        foreach (LoyaltyGift gift in _simState.LoyaltyGifts)
+        {
+            if (!IsGiftRedundant(gift, player)) { return true; }
+        }
+        return false;
+    }
+
+    // Records a successful gift offering: adds `loyaltyGained` to the
+    // running Loyalty (the caller computes this — full personal value for
+    // a one-sided gift, give-minus-get for an accepted trade), tallies the
+    // item counts toward the per-type cap (using stackCount on each entry,
+    // so the caller is expected to pre-split partial stacks down to just
+    // the accepted units), and pops every loyalty gift whose threshold the
+    // new total now crosses (skipping redundant language gifts the player
+    // already covers). Returns the list of unlocked gifts in authored
+    // order so MerchantScreen can hand them back; player-side application
+    // (inventory add, language learn, HUD announcement) is the caller's job.
+    public List<LoyaltyGift> AcceptGift(IList<ItemState> items, float loyaltyGained, Player player)
+    {
+        List<LoyaltyGift> awarded = new();
+        if (_simState == null)
+        {
+            return awarded;
+        }
+        if (loyaltyGained > 0f)
+        {
+            _simState.Loyalty += loyaltyGained;
+        }
+        if (items != null)
+        {
+            foreach (ItemState s in items)
+            {
+                if (s?.data == null) { continue; }
+                _simState.GiftCounts.TryGetValue(s.data, out int prior);
+                _simState.GiftCounts[s.data] = prior + s.stackCount;
+            }
+        }
+        for (int i = 0; i < _simState.LoyaltyGifts.Count;)
+        {
+            LoyaltyGift gift = _simState.LoyaltyGifts[i];
+            if (gift == null)
+            {
+                _simState.LoyaltyGifts.RemoveAt(i);
+                continue;
+            }
+            if (_simState.Loyalty < gift.requiredLoyalty)
+            {
+                i++;
+                continue;
+            }
+            _simState.LoyaltyGifts.RemoveAt(i);
+            if (!IsGiftRedundant(gift, player))
+            {
+                awarded.Add(gift);
+            }
+        }
+        return awarded;
     }
 
     private void SpeakDialogue()

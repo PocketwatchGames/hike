@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="InteractiveAction" format=3 uid="uid://cgc48024hwymp"]
+
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="1_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_xnxkg"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="3_lqhh1"]
+
+[sub_resource type="Resource" id="Resource_event_give"]
+script = ExtResource("2_event")
+type = 256
+
+[resource]
+script = ExtResource("1_action")
+verb = 5
+displayName = &"Give Item"
+completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_event_give")])

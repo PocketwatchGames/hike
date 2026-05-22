@@ -42,5 +42,6 @@ displayName = &"Health Potion"
 unidentifiedDisplayName = &"Unknown Potion"
 description = "Heals you right up!"
 maxStack = 5
+value = 10
 inventorySprite = ExtResource("7_5gdvb")
 worldSprite = ExtResource("8_world")

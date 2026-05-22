@@ -1,0 +1,65 @@
+[gd_scene format=3 uid="uid://blmj70p54o01u"]
+
+[ext_resource type="Script" uid="uid://dlogctrlhike1" path="res://scripts/gui/ConversationController.cs" id="1_gaewx"]
+[ext_resource type="PackedScene" uid="uid://d3ls687rbrjqa" path="res://scenes/hud/conversation_choice_button.tscn" id="2_wydpk"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dialogue"]
+content_margin_left = 20.0
+content_margin_top = 16.0
+content_margin_right = 20.0
+content_margin_bottom = 16.0
+bg_color = Color(0.05, 0.05, 0.08, 0.9)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.85, 0.78, 0.55, 1)
+corner_radius_top_left = 4
+corner_radius_top_right = 4
+corner_radius_bottom_right = 4
+corner_radius_bottom_left = 4
+
+[node name="ConversationPanel" type="Control" unique_id=657839596 node_paths=PackedStringArray("label", "responseOptionsContainer")]
+layout_mode = 3
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -300.0
+offset_top = -180.0
+offset_right = 300.0
+offset_bottom = -60.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+script = ExtResource("1_gaewx")
+label = NodePath("PanelContainer/VBoxContainer/Label")
+responseOptionScene = ExtResource("2_wydpk")
+responseOptionsContainer = NodePath("PanelContainer/VBoxContainer")
+
+[node name="PanelContainer" type="PanelContainer" parent="." unique_id=1503499284]
+custom_minimum_size = Vector2(0, 60)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -300.0
+offset_top = -27.5
+offset_right = 300.0
+offset_bottom = 27.5
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_dialogue")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PanelContainer" unique_id=385586223]
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="Label" type="Label" parent="PanelContainer/VBoxContainer" unique_id=1357652148]
+custom_minimum_size = Vector2(560, 0)
+layout_mode = 2
+autowrap_mode = 3

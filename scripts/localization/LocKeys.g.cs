@@ -5,6 +5,12 @@ public static partial class Loc
 	{
 		villager_greeting,
 		villager_dialogue_1,
-		villager_dialogue_2
+		villager_dialogue_2,
+		villager_resp_tell_more,
+		villager_resp_beard,
+		villager_resp_trade,
+		villager_nothing_more,
+		villager_thanks,
+		villager_lets_do_it
 	}
 }

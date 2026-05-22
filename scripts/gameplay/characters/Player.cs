@@ -369,6 +369,26 @@ public partial class Player : CharacterBody3D
 	public IInteractive CurInteractive => _curInteractive;
 	public int CurInteractiveActionIndex => _curInteractiveActionIndex;
 
+	// Drop any highlighted or current interactive without going through the
+	// proximity-detect path. Modal screens (merchant, etc.) that take focus
+	// while the player is still standing next to the NPC call this so the
+	// interact HUD and highlight overlay don't persist underneath the modal.
+	// ProcessInput is gated off by GameClient.InputSuppressed while the modal
+	// is open, so UpdateHighlightInteractive doesn't re-detect underneath;
+	// the next physics frame after close re-evaluates from scratch.
+	public void ClearInteractive()
+	{
+		if (_curInteractive != null)
+		{
+			SetCurInteractive(null);
+		}
+		if (_highlightInteractive != null)
+		{
+			_highlightInteractive = null;
+			onHighlightChanged?.Invoke(null);
+		}
+	}
+
 	// Hold-to-open-options state. InteractHUD reads InteractHoldProgress to
 	// fill its hold bar; it subscribes to onInteractMenuOpenRequested to pop
 	// the modal options panel and calls CloseInteractMenu when it dismisses.
@@ -1220,9 +1240,7 @@ public partial class Player : CharacterBody3D
 		// Resistances from active status effects shift the trigger thresholds.
 		// Positive coldResistance lowers the cold threshold (harder to chill);
 		// positive heatResistance raises the hot threshold (harder to overheat).
-		_statusEffects.GetThermalResistances(out float coldResist, out float heatResist);
-		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResist, ref heatResist);
-		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResist, ref heatResist);
+		GetThermalResistances(out float coldResist, out float heatResist);
 		// Wind chill. Multiplied by windTemperatureReduction (degrees F per
 		// m/s) and shifted onto BOTH thresholds — the comfort band slides
 		// upward in actual ambient, so cold triggers earlier and hot needs
@@ -1671,6 +1689,63 @@ public partial class Player : CharacterBody3D
 		{
 			coldResist += armor.data.coldResistance;
 			heatResist += armor.data.heatResistance;
+		}
+	}
+
+	// Composite cold / heat resistance from every equipped armor piece plus
+	// every active status effect. Used by the temperature path to shift the
+	// cold/hot trigger thresholds and by the inventory's player-stats panel
+	// to display the resolved total.
+	public void GetThermalResistances(out float coldResistance, out float heatResistance)
+	{
+		coldResistance = 0f;
+		heatResistance = 0f;
+		_statusEffects?.GetThermalResistances(out coldResistance, out heatResistance);
+		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResistance, ref heatResistance);
+		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResistance, ref heatResistance);
+	}
+
+	// Composite sense stats from every equipped armor piece plus every
+	// active status effect. Camouflage is an additive sum (0 = neutral);
+	// the four sense modifiers are multiplicative products (1.0 = neutral).
+	// Callers fold the multipliers into a PlayerData base value when an
+	// effective absolute is wanted; the inventory stats panel just renders
+	// them as signed deltas off neutral.
+	public void GetSenseStats(out float camouflage, out float visionMultiplier, out float hearingMultiplier, out float noiseMultiplier, out float scentMultiplier)
+	{
+		camouflage = 0f;
+		visionMultiplier = 1f;
+		hearingMultiplier = 1f;
+		noiseMultiplier = 1f;
+		scentMultiplier = 1f;
+		AccumulateArmorSenses(EInventorySlot.ArmorHead, ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
+		AccumulateArmorSenses(EInventorySlot.ArmorBody, ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
+		_statusEffects?.AccumulateSenseModifiers(ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
+	}
+
+	private void AccumulateArmorSenses(EInventorySlot slot, ref float camouflage, ref float vision, ref float hearing, ref float noise, ref float scent)
+	{
+		if (_inventory == null) { return; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
+		{
+			camouflage += armor.data.camouflage;
+			vision *= armor.data.visionMultiplier;
+			hearing *= armor.data.hearingMultiplier;
+			noise *= armor.data.noiseMultiplier;
+			scent *= armor.data.scentMultiplier;
+		}
+	}
+
+	// Composite movement multiplier from every active status effect. Doesn't
+	// include armor — armor doesn't carry a speed modifier in the current
+	// model. Cold and similar effects multiply in here.
+	public float SpeedMultiplier
+	{
+		get
+		{
+			if (_statusEffects == null) { return 1f; }
+			_statusEffects.GetMovementMultipliers(out float movement, out _);
+			return movement;
 		}
 	}
 

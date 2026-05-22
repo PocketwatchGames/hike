@@ -10,7 +10,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("1_l86d8")
 displayName = &"Wet"
-duration = 30.0
+duration = 0.0
 maxStack = 1
 coldResistance = -25.0
 heatResistance = 25.0

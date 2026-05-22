@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://d115dmvboelcp"]
 
 [ext_resource type="Script" uid="uid://ch1bcra4yc4s3" path="res://scripts/gui/InventoryScreen.cs" id="1_7a5n3"]
-[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventoryPanel.tscn" id="2_hmtof"]
+[ext_resource type="PackedScene" uid="uid://b4jsgyw5h7jda" path="res://scenes/gui/inventory_panel.tscn" id="2_hmtof"]
 [ext_resource type="PackedScene" uid="uid://dhquaxn2wsyge" path="res://scenes/gui/player_stats_panel.tscn" id="3_aue6y"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="4_j245h"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="4_wawlv"]
@@ -51,22 +51,21 @@ InputAction = "Y"
 [node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 4
 theme_override_constants/separation = 100
 
 [node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1380523122]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 0
+size_flags_vertical = 4
 
 [node name="PlayerStats" parent="MarginContainer/HBoxContainer/MarginContainer2" unique_id=1646474992 instance=ExtResource("3_aue6y")]
 layout_mode = 2
 
 [node name="Inventory" parent="MarginContainer/HBoxContainer" unique_id=518559378 node_paths=PackedStringArray("_buttonHintPrimary", "_buttonHintSecondary", "_buttonHintTertiary") instance=ExtResource("2_hmtof")]
 layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 0
+size_flags_horizontal = 4
+size_flags_vertical = 4
 _buttonHintPrimary = NodePath("../../ButtonHints/ButtonHintA")
 _buttonHintSecondary = NodePath("../../ButtonHints/ButtonHintX")
 _buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
@@ -74,8 +73,8 @@ _buttonHintTertiary = NodePath("../../ButtonHints/ButtonHintY")
 [node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=1484389953]
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 0
+size_flags_horizontal = 4
+size_flags_vertical = 4
 
 [node name="ItemInfoPanel" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=638608018 instance=ExtResource("4_j245h")]
 layout_mode = 2

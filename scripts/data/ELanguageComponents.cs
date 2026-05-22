@@ -11,7 +11,10 @@ public enum ELanguageComponents
 {
     None = 0,
     // Word order. Without it, the scrambler permutes the order of
-    // whitespace-bounded tokens in the rendered text.
+    // whitespace-bounded tokens WITHIN each sentence (sentences are
+    // bounded by tokens ending in . ! ?). Tokens never cross a sentence
+    // boundary, so a multi-sentence line stays sentence-ordered even when
+    // individual sentences are scrambled.
     Grammar = 1 << 0,
     // Numerals. Without it, every digit in the text is replaced with a
     // stable per-language letter substitution — so "12" reads as letters.

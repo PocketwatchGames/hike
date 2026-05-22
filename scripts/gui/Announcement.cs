@@ -14,6 +14,7 @@ public enum EAnnouncementType
 	Boss,
 	MobDiscovered,
 	MobLevelUp,
+	GiftReceived,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the

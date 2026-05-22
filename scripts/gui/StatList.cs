@@ -249,19 +249,176 @@ public static class StatList
 		}
 		if (!Mathf.IsEqualApprox(effect.movementMultiplier, 1f))
 		{
-			yield return (names[EStatName.MoveSpeed], StatFormat.Scale(effect.movementMultiplier));
+			yield return (names[EStatName.MoveSpeed], StatFormat.ScaleDelta(effect.movementMultiplier));
 		}
 		if (effect.maxStaminaBonus != 0f)
 		{
-			yield return (names[EStatName.MaxStamina], StatFormat.Number(effect.maxStaminaBonus));
+			yield return (names[EStatName.MaxStamina], StatFormat.SignedNumber(effect.maxStaminaBonus));
 		}
 		if (effect.coldResistance != 0f)
 		{
-			yield return (names[EStatName.ColdResist], StatFormat.Number(effect.coldResistance));
+			yield return (names[EStatName.ColdResist], StatFormat.SignedNumber(effect.coldResistance));
 		}
 		if (effect.heatResistance != 0f)
 		{
-			yield return (names[EStatName.HeatResist], StatFormat.Number(effect.heatResistance));
+			yield return (names[EStatName.HeatResist], StatFormat.SignedNumber(effect.heatResistance));
+		}
+	}
+
+	// Composite player readout for the inventory's stats panel. Core dials
+	// (Health / Armor / Stamina / Speed) always render so the player can
+	// confirm their character sheet at a glance. Sense stats render only
+	// when armor or an active status effect moves them off the PlayerData
+	// base. Resistances render only when their summed total is non-zero.
+	public static IEnumerable<(string name, string value)> PlayerStats(Player player)
+	{
+		if (player == null)
+		{
+			yield break;
+		}
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+
+		yield return (names[EStatName.Health], StatFormat.Number(player.MaxHealth));
+		yield return (names[EStatName.MaxStamina], StatFormat.Number(player.MaxStamina));
+		yield return (names[EStatName.Armor], StatFormat.Number(player.MaxArmor));
+		float speed = player.SpeedMultiplier;
+		if (!Mathf.IsEqualApprox(speed, 1f))
+		{
+			yield return (names[EStatName.MoveSpeed], StatFormat.ScaleDelta(speed));
+		}
+
+		player.GetSenseStats(out float camouflage, out float visionMultiplier, out float hearingMultiplier, out float noiseMultiplier, out float scentMultiplier);
+		if (camouflage != 0f)
+		{
+			yield return (names[EStatName.Camouflage], StatFormat.SignedNumber(camouflage));
+		}
+		// Sense modifiers render as signed deltas off neutral 1.0 — the
+		// player reads "-25%" as "I'm 25% quieter" without needing to know
+		// the authored base value. Rows are suppressed at neutral so a
+		// player with no modifier-bearing gear sees no sense rows at all.
+		if (!Mathf.IsEqualApprox(visionMultiplier, 1f))
+		{
+			yield return (names[EStatName.Vision], StatFormat.ScaleDelta(visionMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(hearingMultiplier, 1f))
+		{
+			yield return (names[EStatName.Hearing], StatFormat.ScaleDelta(hearingMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(noiseMultiplier, 1f))
+		{
+			yield return (names[EStatName.Noise], StatFormat.ScaleDelta(noiseMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(scentMultiplier, 1f))
+		{
+			yield return (names[EStatName.Scent], StatFormat.ScaleDelta(scentMultiplier));
+		}
+
+		player.GetThermalResistances(out float cold, out float heat);
+		if (cold != 0f)
+		{
+			yield return (names[EStatName.ColdResist], StatFormat.SignedNumber(cold));
+		}
+		if (heat != 0f)
+		{
+			yield return (names[EStatName.HeatResist], StatFormat.SignedNumber(heat));
+		}
+	}
+
+	// Per-armor readout: max armor capacity + every modifier the piece
+	// authors. Resistances and sense modifiers are suppressed at their
+	// neutral values (0 additive, 1 multiplicative) so a plain piece of
+	// armor reads as just "Armor: N". Vision / hearing / noise / scent are
+	// shown as percent-of-base scalars rather than effective absolute
+	// values — the player can't know the base without looking at the panel
+	// stats screen, so "Noise: 50%" reads cleaner as "this piece halves my
+	// noise" than a raw decibels number.
+	public static IEnumerable<(string name, string value)> ArmorStats(ArmorState armor)
+	{
+		ArmorData data = armor?.data;
+		if (data == null)
+		{
+			yield break;
+		}
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+		if (data.maxArmor > 0f)
+		{
+			yield return (names[EStatName.Armor], StatFormat.Number(data.maxArmor));
+		}
+		if (data.coldResistance != 0f)
+		{
+			yield return (names[EStatName.ColdResist], StatFormat.SignedNumber(data.coldResistance));
+		}
+		if (data.heatResistance != 0f)
+		{
+			yield return (names[EStatName.HeatResist], StatFormat.SignedNumber(data.heatResistance));
+		}
+		if (data.camouflage != 0f)
+		{
+			yield return (names[EStatName.Camouflage], StatFormat.SignedNumber(data.camouflage));
+		}
+		if (!Mathf.IsEqualApprox(data.visionMultiplier, 1f))
+		{
+			yield return (names[EStatName.Vision], StatFormat.ScaleDelta(data.visionMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(data.hearingMultiplier, 1f))
+		{
+			yield return (names[EStatName.Hearing], StatFormat.ScaleDelta(data.hearingMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(data.noiseMultiplier, 1f))
+		{
+			yield return (names[EStatName.Noise], StatFormat.ScaleDelta(data.noiseMultiplier));
+		}
+		if (!Mathf.IsEqualApprox(data.scentMultiplier, 1f))
+		{
+			yield return (names[EStatName.Scent], StatFormat.ScaleDelta(data.scentMultiplier));
+		}
+	}
+
+	// Per-consumable readout: walks the consumable's action profile, finds
+	// every ApplyStatusEffect event, and yields what the use will do —
+	// heals (HealEffect → "Healing: N"), inflicted status effects (one
+	// StatusEffectInfoPanel-style row per StatusEffectData with the
+	// authored duration as the value). Unknown ItemEffect subclasses are
+	// silently skipped; the panel surfaces meaningful outcomes only.
+	public static IEnumerable<(string name, string value)> ConsumableStats(ConsumableState consumable)
+	{
+		ItemActionProfile profile = consumable?.data?.actionProfile;
+		if (profile?.chargedActions == null)
+		{
+			yield break;
+		}
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+		foreach (ItemAction action in profile.chargedActions)
+		{
+			if (action?.events == null)
+			{
+				continue;
+			}
+			foreach (ItemEvent ev in action.events)
+			{
+				if (ev?.effects == null)
+				{
+					continue;
+				}
+				foreach (ItemEffect effect in ev.effects)
+				{
+					if (effect is HealEffect heal && heal.amount > 0f)
+					{
+						yield return (names[EStatName.Heal], StatFormat.Number(heal.amount));
+					}
+					else if (effect is ApplyStatusEffect apply && apply.statusEffect != null)
+					{
+						StatusEffectData sed = apply.statusEffect;
+						string effectName = sed.displayName.ToString();
+						if (string.IsNullOrEmpty(effectName))
+						{
+							effectName = sed.ResourceName;
+						}
+						string value = sed.duration > 0f ? StatFormat.Seconds(sed.duration) : string.Empty;
+						yield return (effectName, value);
+					}
+				}
+			}
 		}
 	}
 

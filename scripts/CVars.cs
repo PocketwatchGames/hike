@@ -76,6 +76,15 @@ public static class CVars
     // second press advances to the next line in the list.
     public static CVarFloat dialogueTypingSpeed = new CVarFloat("dialogue_typing_speed", 40f);
 
+    // When true, the conversation response chooser also shows roll-hidden
+    // responses as disabled buttons and appends each response's visibility
+    // diagnostic — "[score% / roll%]" — to its label. Score is
+    // min(branchComprehension, responseComprehension); the response is
+    // visible when the stable per-key roll is below the score. Condition-
+    // gated responses are still hidden in debug since they're not a
+    // language-comprehension affair.
+    public static CVarBool conversationDebug = new CVarBool("conversation_debug", false);
+
     // Fog shader debug mode (see shaders/fog_volumetric.gdshader):
     //   0 = normal fog render
     //   1 = visualize reconstructed surface world Y as grayscale

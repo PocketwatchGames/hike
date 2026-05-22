@@ -1,0 +1,4 @@
+[gd_scene format=3 uid="uid://d3ls687rbrjqa"]
+
+[node name="Button" type="Button" unique_id=1963876089]
+text = "Response A"

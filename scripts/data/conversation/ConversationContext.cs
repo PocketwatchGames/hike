@@ -15,4 +15,10 @@ public struct ConversationContext
     // (MobSimState.Language ?? MobData.language). Null when the speaker has
     // no language pinned at all (universal speech, never scrambled).
     public LanguageData speakerLanguage;
+    // The controller running this conversation. Actions that need to take
+    // over the screen (OpenShop, etc.) call controller.Close() before their
+    // side effect so the conversation panel doesn't overlay the new UI.
+    // Populated by ConversationController.Show — null when an evaluator is
+    // called outside an active conversation (e.g. preview tooling).
+    public ConversationController controller;
 }

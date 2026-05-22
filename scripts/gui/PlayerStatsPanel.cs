@@ -6,6 +6,8 @@ public partial class PlayerStatsPanel : PanelContainer
 {
 	[Export] private Label _nameLabel;
 	[Export] private Label _descriptionLabel;
+	[Export] private Control _statContainer;
+	[Export] private PackedScene _statScene;
 	[Export] private PackedScene _statusEffectInfoScene;
 	[Export] private Control _statusEffectContainer;
 
@@ -22,12 +24,19 @@ public partial class PlayerStatsPanel : PanelContainer
 	readonly Dictionary<StatusEffectData, StatusEffectInfoPanel> _panels = new();
 	readonly List<StatusEffectData> _toRemove = new();
 
+	// Per-frame stat snapshot. Built fresh into _currentStats, compared
+	// positionally to the live StatPanel children — same count + positions
+	// means in-place SetText (no instantiate / free churn), shape change
+	// means full rebuild.
+	readonly List<(string name, string value)> _currentStats = new();
+
 	public void SetPlayer(Player player)
 	{
 		_player = player;
 		if (player == null)
 		{
-			ClearPanels();
+			ClearStatusEffectPanels();
+			ClearStatPanels();
 			return;
 		}
 		Refresh();
@@ -42,7 +51,7 @@ public partial class PlayerStatsPanel : PanelContainer
 		Refresh();
 	}
 
-	void ClearPanels()
+	void ClearStatusEffectPanels()
 	{
 		foreach (var kv in _panels)
 		{
@@ -51,10 +60,80 @@ public partial class PlayerStatsPanel : PanelContainer
 		_panels.Clear();
 	}
 
+	void ClearStatPanels()
+	{
+		if (_statContainer == null)
+		{
+			return;
+		}
+		foreach (Node child in _statContainer.GetChildren())
+		{
+			if (child is StatPanel existing)
+			{
+				existing.QueueFree();
+			}
+		}
+	}
+
+	void Refresh()
+	{
+		RefreshStats();
+		RefreshStatusEffects();
+	}
+
+	// In-place update path. Equipping a piece of armor changes which stats
+	// surface (e.g., Cold Resist appears) so the StatPanel count can shift
+	// across frames — handle the structure change with a full rebuild, but
+	// the common case (same stats, ticking values) just rewrites the text.
+	void RefreshStats()
+	{
+		if (_statContainer == null || _statScene == null)
+		{
+			return;
+		}
+		_currentStats.Clear();
+		foreach (var entry in StatList.PlayerStats(_player))
+		{
+			_currentStats.Add(entry);
+		}
+
+		Godot.Collections.Array<Node> children = _statContainer.GetChildren();
+		int statChildCount = 0;
+		for (int i = 0; i < children.Count; i++)
+		{
+			if (children[i] is StatPanel)
+			{
+				statChildCount++;
+			}
+		}
+
+		if (statChildCount != _currentStats.Count)
+		{
+			ClearStatPanels();
+			for (int i = 0; i < _currentStats.Count; i++)
+			{
+				StatPanel stat = _statScene.Instantiate<StatPanel>();
+				_statContainer.AddChild(stat);
+				stat.SetText(_currentStats[i].name, _currentStats[i].value);
+			}
+			return;
+		}
+
+		int statIndex = 0;
+		for (int i = 0; i < children.Count; i++)
+		{
+			if (children[i] is StatPanel stat)
+			{
+				stat.SetText(_currentStats[statIndex].name, _currentStats[statIndex].value);
+				statIndex++;
+			}
+		}
+	}
+
 	// Mirrors Hud.UpdateStatusEffects: group player's effects by data,
 	// drop panels whose data is no longer held, instantiate panels for
 	// newly-appeared data, and refresh the HUD count + timer on the rest.
-	void Refresh()
+	void RefreshStatusEffects()
 	{
 		if (_statusEffectContainer == null || _statusEffectInfoScene == null)
 		{

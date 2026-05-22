@@ -24,4 +24,11 @@ public enum EStatName
 	MaxStamina,
 	ColdResist,
 	HeatResist,
+	Health,
+	Armor,
+	Camouflage,
+	Vision,
+	Hearing,
+	Noise,
+	Scent,
 }

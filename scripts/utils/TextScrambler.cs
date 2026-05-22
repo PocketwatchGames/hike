@@ -21,9 +21,11 @@ public static class TextScrambler
     //                   vocabulary component.
     //   Numbers       — replaces every digit anywhere in the text with a
     //                   stable per-language letter.
-    //   Grammar       — permutes whitespace-bounded word tokens; whitespace
-    //                   runs between them stay in place so line breaks
-    //                   survive.
+    //   Grammar       — permutes whitespace-bounded word tokens WITHIN each
+    //                   sentence (sentences are bounded by tokens ending in
+    //                   . ! ?); whitespace runs between tokens stay in
+    //                   place so line breaks survive, and tokens never
+    //                   cross a sentence boundary.
     // Null language, empty text, or missing == None returns `text` unchanged.
     public static string Scramble(string text, LanguageData language, ELanguageComponents missing)
     {
@@ -68,7 +70,7 @@ public static class TextScrambler
 
         if (doGrammar && tokens.Count > 1)
         {
-            ShuffleTokens(tokens, seed ^ unchecked((int)0xDEADBEEF));
+            ShuffleSentences(tokens, seed ^ unchecked((int)0xDEADBEEF));
         }
 
         return Reassemble(tokens, separators);
@@ -144,12 +146,131 @@ public static class TextScrambler
         return sb.ToString();
     }
 
+    // Player's comprehension of `text` in `language` as a value in [0, 1],
+    // averaging two axes Scramble uses:
+    //   translatedPct — fraction of tokens whose letters AND digits all
+    //                   resolve under the player's learned components (the
+    //                   token's vocab bucket is learned + Numbers learned if
+    //                   the token contains digits).
+    //   orderPct      — 1 if Grammar is learned (or there's only one token);
+    //                   otherwise the fraction of tokens that happen to land
+    //                   at their original index after the same per-sentence
+    //                   Fisher-Yates shuffle Scramble would apply. Single-
+    //                   token sentences are always fixed points.
+    // Used as the soft gate on ConversationResponse visibility (see
+    // ConversationVisibility) — a response with a stable per-key RNG roll
+    // below this value renders, others stay hidden until the player learns
+    // enough to push comprehension past their threshold.
+    //
+    // `grammarWeight` controls how much the orderPct axis contributes:
+    // final = translatedPct × ((1 - grammarWeight) + orderPct × grammarWeight).
+    // Lives on SimData.LanguageGrammarWeight so designers can retune
+    // without touching code.
+    public static float ComputeComprehension(string text, LanguageData language, ELanguageComponents learned, float grammarWeight)
+    {
+        if (string.IsNullOrEmpty(text) || language == null)
+        {
+            return 1f;
+        }
+        if ((learned & ELanguageComponents.All) == ELanguageComponents.All)
+        {
+            return 1f;
+        }
+
+        List<string> tokens = new List<string>();
+        List<string> separators = new List<string>();
+        Tokenize(text, tokens, separators);
+        if (tokens.Count == 0)
+        {
+            return 1f;
+        }
+
+        ELanguageComponents missing = ELanguageComponents.All & ~learned;
+        ELanguageComponents missingVocab = missing & (ELanguageComponents.Vocabulary1 | ELanguageComponents.Vocabulary2 | ELanguageComponents.Vocabulary3);
+        bool numbersKnown = (missing & ELanguageComponents.Numbers) == 0;
+        bool grammarKnown = (missing & ELanguageComponents.Grammar) == 0;
+
+        int translated = 0;
+        for (int i = 0; i < tokens.Count; i++)
+        {
+            string tok = tokens[i];
+            bool hasLetter = HasLetter(tok);
+            bool hasDigit = HasDigit(tok);
+            bool letterOK = !hasLetter || (missingVocab & VocabularyBucketFor(tok)) == 0;
+            bool digitOK = !hasDigit || numbersKnown;
+            if (letterOK && digitOK)
+            {
+                translated++;
+            }
+        }
+        float translatedPct = (float)translated / tokens.Count;
+
+        float orderPct;
+        if (grammarKnown || tokens.Count <= 1)
+        {
+            orderPct = 1f;
+        }
+        else
+        {
+            // Replay the same per-sentence shuffle Scramble would apply,
+            // tracking an index permutation. Counting fixed points across
+            // every sentence's range gives the exact fraction of words that
+            // would land at their original position.
+            int shuffleSeed = StableSeed(language.displayName.ToString()) ^ unchecked((int)0xDEADBEEF);
+            int[] perm = new int[tokens.Count];
+            for (int i = 0; i < perm.Length; i++)
+            {
+                perm[i] = i;
+            }
+            Random rng = new Random(shuffleSeed);
+            int sStart = 0;
+            for (int i = 0; i < tokens.Count; i++)
+            {
+                if (!EndsSentence(tokens[i]) && i != tokens.Count - 1)
+                {
+                    continue;
+                }
+                // Fisher-Yates over the sentence range [sStart, i].
+                for (int k = i; k > sStart; k--)
+                {
+                    int j = sStart + rng.Next(k - sStart + 1);
+                    (perm[k], perm[j]) = (perm[j], perm[k]);
+                }
+                sStart = i + 1;
+            }
+            int fixedPoints = 0;
+            for (int i = 0; i < perm.Length; i++)
+            {
+                if (perm[i] == i)
+                {
+                    fixedPoints++;
+                }
+            }
+            orderPct = (float)fixedPoints / tokens.Count;
+        }
+
+        return translatedPct * ((1f - grammarWeight) + orderPct * grammarWeight);
+    }
+
     static bool HasLetter(string token)
     {
         for (int i = 0; i < token.Length; i++)
         {
             char c = token[i];
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z'))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static bool HasDigit(string token)
+    {
+        for (int i = 0; i < token.Length; i++)
+        {
+            char c = token[i];
+            if (c >= '0' && c <= '9')
             {
                 return true;
             }
@@ -204,14 +325,53 @@ public static class TextScrambler
         return sb.ToString();
     }
 
-    static void ShuffleTokens(List<string> tokens, int seed)
+    // Per-sentence Fisher-Yates: walks `tokens`, finding ranges bounded by
+    // tokens whose trailing punctuation (after stripping wrapping quotes /
+    // brackets) is . ! or ?, and shuffles each range in place. A single
+    // RNG threads through every sentence so the same seed always produces
+    // the same overall permutation. Single-token sentences pass through
+    // unshuffled — there's nothing to permute.
+    static void ShuffleSentences(List<string> tokens, int seed)
     {
         Random rng = new Random(seed);
-        for (int i = tokens.Count - 1; i > 0; i--)
+        int start = 0;
+        for (int i = 0; i < tokens.Count; i++)
         {
-            int j = rng.Next(i + 1);
-            (tokens[i], tokens[j]) = (tokens[j], tokens[i]);
+            if (!EndsSentence(tokens[i]) && i != tokens.Count - 1)
+            {
+                continue;
+            }
+            for (int k = i; k > start; k--)
+            {
+                int j = start + rng.Next(k - start + 1);
+                (tokens[k], tokens[j]) = (tokens[j], tokens[k]);
+            }
+            start = i + 1;
         }
+    }
+
+    // Token ends a sentence iff its last character (after stripping trailing
+    // quotes / closing brackets) is one of the terminator marks. Permissive
+    // about wrappers so "world." and "world.'" and "world.)" all count.
+    static bool EndsSentence(string token)
+    {
+        int i = token.Length - 1;
+        while (i >= 0)
+        {
+            char c = token[i];
+            if (c == '"' || c == '\'' || c == ')' || c == ']' || c == '}')
+            {
+                i--;
+                continue;
+            }
+            break;
+        }
+        if (i < 0)
+        {
+            return false;
+        }
+        char last = token[i];
+        return last == '.' || last == '!' || last == '?';
     }
 
     static int[] BuildPermutation(int seed, int size)
@@ -232,8 +392,9 @@ public static class TextScrambler
 
     // Stable across runs and platforms (unlike string.GetHashCode, which
     // .NET randomizes per process). Keeps a given language's gibberish
-    // visually consistent across save/reload.
-    static int StableSeed(string s)
+    // visually consistent across save/reload. Also reused by
+    // ConversationVisibility to seed the per-response visibility roll.
+    public static int StableSeed(string s)
     {
         int h = 0;
         for (int i = 0; i < s.Length; i++)
