@@ -2195,6 +2195,29 @@ public partial class Player : CharacterBody3D
 		// fixed-distance shove and ignores those.
 		bool prevSkidding = _skidding;
 		_skidding = false;
+		// Wind drift target, sampled once per tick and reused by both the
+		// airborne input target (additive, so input intent stacks on wind
+		// rather than fights it) and the airborne drag block below (the
+		// drag is computed in the wind-relative frame so a hanging player
+		// in strong wind drifts toward the wind's drift target rather than
+		// zero). Mirrors the water-current pattern used by the swimming
+		// branch. Zero while grounded (feet planted) or under overhead
+		// cover (SampleWindSpeed raycasts up and returns 0 under a roof).
+		Vector3 windDrift = Vector3.Zero;
+		if (!_grounded)
+		{
+			Vector3 windDir = SkyController.Current?.ZoneState.WindDirection ?? Vector3.Zero;
+			if (windDir.LengthSquared() > 0.0001f)
+			{
+				GameClient client = GameClient.Current;
+				float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
+				if (windSpeed > 0f)
+				{
+					windDir.Y = 0f;
+					windDrift = windDir.Normalized() * (windSpeed * data.windDragXZ);
+				}
+			}
+		}
 		if (_knockbackTime > 0f)
 		{
 			Velocity = new Vector3(_knockbackVelocity.X, Velocity.Y, _knockbackVelocity.Z);
@@ -2259,7 +2282,9 @@ public partial class Player : CharacterBody3D
 				// groundAcceleration (sharp), air uses airAcceleration (drifty
 				// so jumps preserve momentum); releasing input decelerates at
 				// the same rate, so the ground branch replaces the old instant
-				// snap-to-stop.
+				// snap-to-stop. Airborne stacks windDrift onto the input target
+				// so wind nudges a hanging-in-air player without fighting their
+				// move intent — input + drift, water-current style.
 				// Grip drops while skidding — uses the skid-specific acceleration
 				// instead of groundAcceleration so a sharp direction change
 				// commits to the existing velocity vector for a beat rather than
@@ -2276,7 +2301,8 @@ public partial class Player : CharacterBody3D
 					accel = data.airAcceleration;
 				}
 				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
-				Vector3 nextXZ = ApproachXZ(currentXZ, inputVel, accel * dt);
+				Vector3 target = inputVel + windDrift;
+				Vector3 nextXZ = ApproachXZ(currentXZ, target, accel * dt);
 				Velocity = new Vector3(nextXZ.X, Velocity.Y, nextXZ.Z);
 				// Skid detection: gap between desired and actual horizontal
 				// velocity. Only meaningful when grounded (airborne intent /
@@ -2337,13 +2363,18 @@ public partial class Player : CharacterBody3D
 			Velocity += Vector3.Down * gravity * dt;
 			// Two-axis air drag. Skipped while dashing — the dash action
 			// authors its own forced velocity and drag would fight it.
-			//   airDragDown: opposes falls only. Velocity.Y > 0 (upward) is
-			//   left alone so jumps and skate-launches keep their full arc.
-			//   airDragXZ: pulls horizontal velocity toward zero, applied
-			//   alongside the input-driven ApproachXZ from above so the
-			//   steady-state under sustained input parks at the player's
-			//   intentional top speed (sprintSpeed) and excess from a dash
-			//   exit or skate launch bleeds off.
+			//   airDragDown: linear, opposes falls only. Velocity.Y > 0
+			//   (upward) is left alone so jumps and skate-launches keep
+			//   their full arc.
+			//   airDragXZ: QUADRATIC in the wind-relative frame. Per-tick
+			//   deceleration scales as airDragXZ * |v_rel|² along v_rel,
+			//   where v_rel = velocityXZ − windDrift. The quadratic profile
+			//   keeps drag near-imperceptible at sprint speeds and very
+			//   strong past them, so skate / dash-launch excess bleeds off
+			//   hard without fighting normal flight speed. The wind-frame
+			//   computation means the asymptote is windDrift, not zero —
+			//   a hanging player parks at the wind's drift target rather
+			//   than being yanked back to a standstill.
 			if (_dashTimeRemaining <= 0f)
 			{
 				if (Velocity.Y < 0f)
@@ -2355,12 +2386,19 @@ public partial class Player : CharacterBody3D
 					}
 					Velocity = new Vector3(Velocity.X, Velocity.Y * dragY, Velocity.Z);
 				}
-				float dragXZ = 1f - data.airDragXZ * dt;
-				if (dragXZ < 0f)
+				Vector3 vXZ = new(Velocity.X, 0f, Velocity.Z);
+				Vector3 vRel = vXZ - windDrift;
+				float speedRel = vRel.Length();
+				if (speedRel > 0.001f)
 				{
-					dragXZ = 0f;
+					float factor = data.airDragXZ * speedRel * dt;
+					if (factor > 1f)
+					{
+						factor = 1f;
+					}
+					vXZ -= vRel * factor;
+					Velocity = new Vector3(vXZ.X, Velocity.Y, vXZ.Z);
 				}
-				Velocity = new Vector3(Velocity.X * dragXZ, Velocity.Y, Velocity.Z * dragXZ);
 			}
 		}
 		else

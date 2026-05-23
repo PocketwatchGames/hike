@@ -49,21 +49,32 @@ public partial class PlayerData : Resource
 	// skidExitSpeed. Keep exit < enter to prevent flicker at the boundary.
 	[Export] public float skidEnterSpeed = 14f;
 	[Export] public float skidExitSpeed = 7f;
-	// Airborne drag, split by axis (skipped during dash). Each is a 1/s
-	// velocity-proportional decay coefficient applied each airborne tick.
+	// Airborne drag, split by axis (skipped during dash).
 	//
 	// airDragDown only fights *downward* motion (Velocity.Y < 0): upward
 	// jumps and launches are unaffected, but a fall's terminal speed is
 	// bounded by Gravity / airDragDown (≈ 9.8 m/s at airDragDown = 1).
+	// Linear coefficient (1/s).
 	//
-	// airDragXZ pulls horizontal velocity toward zero. It runs alongside
-	// the airborne ApproachXZ from input — both update Velocity each tick,
-	// so the steady-state under sustained input is roughly airAcceleration
-	// / airDragXZ. Keep that ratio above sprintSpeed so a player holding
-	// full input can still reach their intentional top speed; excess
-	// horizontal speed (from skate launches, dash exits) bleeds off.
+	// airDragXZ is a QUADRATIC coefficient (1/m). Per-tick horizontal
+	// deceleration scales as airDragXZ * |v_rel|² along v_rel, where
+	// v_rel = velocityXZ − wind drift. Picking a small value keeps drag
+	// imperceptible at sprint speeds and very strong past them — at
+	// k = 0.02 the decel at sprint (~11 m/s) is ~2.4 m/s² (subtle) while
+	// 2× sprint hits ~10 m/s² (firm), so skate / dash-launch excess speed
+	// bleeds off hard while sustained-input top speed is essentially
+	// untouched. Computed in the WIND-RELATIVE frame so a player at rest
+	// in strong wind drifts to the wind's drift target rather than zero
+	// (see windDragXZ).
 	[Export] public float airDragDown = 1f;
-	[Export] public float airDragXZ = 0.5f;
+	[Export] public float airDragXZ = 0.02f;
+	// Wind pickup factor in [0, 1]. Wind drift target = sampled wind ×
+	// windDragXZ; that target is added to the input vector each airborne
+	// tick (input STACKS on wind, so player intent is never fought) AND
+	// is the asymptote of airDragXZ in the wind-relative frame. So a
+	// stationary airborne player in 15 m/s wind drifts toward 15 ×
+	// windDragXZ m/s. Mirrors waterCurrentDrag for water currents.
+	[Export] public float windDragXZ = 0.3f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
 
