@@ -9,31 +9,23 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_myocs"]
 [ext_resource type="PackedScene" uid="uid://br5x8h2qkvr3m" path="res://scenes/effects/dash_start.tscn" id="7_dashfx"]
 
-[sub_resource type="Resource" id="Resource_event_motion"]
-script = ExtResource("3_event")
-type = 1024
-languageComponents = 15
-
-[sub_resource type="Resource" id="Resource_apply_invuln"]
+[sub_resource type="Resource" id="Resource_cbxbs"]
 script = ExtResource("4_apply")
 statusEffect = ExtResource("6_invuln")
+metadata/_custom_type_script = "uid://c2r668erdip1g"
 
-[sub_resource type="Resource" id="Resource_event_invuln"]
+[sub_resource type="Resource" id="Resource_event_motion"]
 script = ExtResource("3_event")
-type = 8
-effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_invuln")])
-languageComponents = 15
-
-[sub_resource type="Resource" id="Resource_event_anim"]
-script = ExtResource("3_event")
-type = 64
+type = 1096
+effects = Array[ExtResource("5_effect")]([SubResource("Resource_cbxbs")])
 animName = 15
+motionSpeed = 20.0
 languageComponents = 15
 
 [sub_resource type="Resource" id="Resource_action"]
 script = ExtResource("2_action")
 activeDurationSeconds = 0.2
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_motion"), SubResource("Resource_event_invuln"), SubResource("Resource_event_anim")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_motion")])
 canAbort = true
 chargeStartEffect = ExtResource("7_dashfx")
 

@@ -27,6 +27,7 @@ public partial class PlayerData : Resource
 		return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
 	}
 
+	[ExportGroup("Movement")]
 	[Export] public float stepHeight = 0.5f;
 	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
@@ -78,6 +79,7 @@ public partial class PlayerData : Resource
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
 
+	[ExportGroup("Sliding & Skating")]
 	// Steep-slope sliding & skating. A slide surface is any upward-facing
 	// contact whose normal Y is in [slideSurfaceMinNormalY, cos(FloorMaxAngle)) —
 	// steeper than walkable but not a vertical wall. While in contact the
@@ -126,13 +128,13 @@ public partial class PlayerData : Resource
 	// momentum so the player returns to normal ground control.
 	[Export] public float skateFriction = 8f;
 
-	// Wall jump. While airborne, pressing Jump probes the capsule
-	// wallJumpCheckDistance forward in the player's movement direction (or
-	// yaw when no input is held). If the hit surface is steeper than the
-	// walkable floor angle and not an overhang, velocity is replaced with
-	// (reflected_xz * wallJumpSpeedXZ, wallJumpSpeedY, …). Gated on
-	// Velocity.Y > -wallJumpMaxFallingSpeed so the player can't claw back a
-	// long fall.
+	[ExportGroup("Wall Jump")]
+	// While airborne, pressing Jump probes the capsule wallJumpCheckDistance
+	// forward in the player's movement direction (or yaw when no input is
+	// held). If the hit surface is steeper than the walkable floor angle and
+	// not an overhang, velocity is replaced with (reflected_xz *
+	// wallJumpSpeedXZ, wallJumpSpeedY, …). Gated on Velocity.Y >
+	// -wallJumpMaxFallingSpeed so the player can't claw back a long fall.
 	[Export] public float wallJumpSpeedY = 10f;
 	[Export] public float wallJumpSpeedXZ = 8f;
 	[Export] public float wallJumpCheckDistance = 0.5f;
@@ -148,6 +150,8 @@ public partial class PlayerData : Resource
 	// survives long enough to read as a kick rather than vanishing on the next
 	// frame. Set to 0 to restore the snap-to-input behavior.
 	[Export] public float wallJumpAirControlTime = 0.5f;
+
+	[ExportGroup("Perception")]
 	[Export] public float visionRange = 25f;
 	[Export] public float VisionRangePower = 2f;
 	[Export] public float visibilityMovementMin = 0.5f;
@@ -167,12 +171,12 @@ public partial class PlayerData : Resource
 	// hearing primes perception but can't cross the threshold alone.
 	[Export] public float hearingRange = 10f;
 	[Export] public float hearingRangePower = 0.5f;
+	[ExportGroup("Perceivability")]
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs
 	// sample this in their mob-perceives-player tick.
 	[Export] public float sneakDecibels = 1f;
 	[Export] public float runDecibels = 6f;
-
 	// Scent trail authoring. The player drops timestamped breadcrumbs that
 	// advect with wind (per-crumb, voxel-collided) and decay linearly toward
 	// zero strength. Lifetime is implicit: lifetime = strength / decayRate,
@@ -184,6 +188,7 @@ public partial class PlayerData : Resource
 	[Export] public float scentStampMoveDistance = 1f;
 	[Export] public int scentMaxCrumbs = 20;
 
+	[ExportGroup("Swimming")]
 	[Export] public float shallowWaterSpeed = 0.5f;
 	[Export] public float swimSpeed = 3.5f;
 	[Export] public float swimVerticalSpeed = 4f;
@@ -215,9 +220,11 @@ public partial class PlayerData : Resource
 	// rapids); below 1 lets a strong swimmer fight the flow.
 	[Export] public float waterCurrentDrag = 1f;
 
+	[ExportGroup("Inventory")]
 	[Export] public int backpackCapacity = 20;
 	[Export] public int consumableSlotCount = 3;
 
+	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 100f;
 
 	// Maximum angle (radians) between the mob's facing direction and the
@@ -227,10 +234,12 @@ public partial class PlayerData : Resource
 	// onto the live hit. ~45° (Pi/4) is the default.
 	[Export] public float backstabAngle = 0.785f;
 
+	[ExportGroup("Armor")]
 	[Export] public float armorRechargeDelay = 3f;
 	[Export] public float armorRechargeSpeed = 20f;
 	[Export] public float armorRecoverTime = 8f;
 
+	[ExportGroup("Blood Regen")]
 	// "Blood mana" drain regen, modeled on armor: every TryDrainBlood call
 	// pushes _bloodRegenStartMs forward by bloodRegenDelay seconds, then
 	// _drainedHealth refunds at bloodRegenSpeed HP/sec once the delay
@@ -241,6 +250,7 @@ public partial class PlayerData : Resource
 	[Export] public float bloodRegenDelay = 3f;
 	[Export] public float bloodRegenSpeed = 10f;
 
+	[ExportGroup("Stamina")]
 	// Stamina drains as the player performs effortful actions and refills on
 	// its own. After any spend, recharge is gated for `staminaRechargeDelay`
 	// seconds; once it begins, the bar refills from 0 to maxStamina over
@@ -250,8 +260,9 @@ public partial class PlayerData : Resource
 	[Export] public float staminaRechargeDelay = 1.5f;
 	[Export] public float staminaRechargeTime = 3f;
 
-	// Dash. The motion itself (speed / duration / freeze-gravity) is authored
-	// on the dashActionProfile's ApplyMotion event so weapons / mob lunges can
+	[ExportGroup("Dash")]
+	// The motion itself (speed / duration / freeze-gravity) is authored on
+	// the dashActionProfile's ApplyMotion event so weapons / mob lunges can
 	// reuse the same event shape with different tuning. The fields here are
 	// player-side gates and post-dash behavior the runner doesn't model.
 	[Export] public ItemActionProfile dashActionProfile;
@@ -275,6 +286,7 @@ public partial class PlayerData : Resource
 	// the player slides along it at full speed.
 	[Export] public float dashWallHeadOnAngle = 0.785f;
 
+	[ExportGroup("Sprint")]
 	// Sprint: continuous movement modifier engaged by holding Dash past the
 	// initial dash burst. Sprint is intent-based (any hold + move input);
 	// stamina gates the speed boost but not the intent — holding Dash with
@@ -286,7 +298,6 @@ public partial class PlayerData : Resource
 	// player ends a dash in water; the moving swim anim (SwimSprint) is
 	// authored separately and selected by _sprinting alone.
 	[Export] public float swimSprintSpeed = 6f;
-
 	// Fallback speeds when stamina runs out and the player isn't actively
 	// sprinting. tiredRunSpeed is the on-foot "exhausted run" — slower than
 	// moveSpeed; tiredSwimSpeed is the swim equivalent. Sprinting with empty
@@ -294,13 +305,13 @@ public partial class PlayerData : Resource
 	// for the effort while paying the recharge-delay cost.
 	[Export] public float tiredRunSpeed = 4.5f;
 	[Export] public float tiredSwimSpeed = 2f;
-
 	// Continuous stamina drain (per second) while swimming and trying to move.
 	// Stamina is allowed to go negative — movement is never gated on it, but
 	// each tick of swim drain re-arms the recharge delay so the bar can't
 	// refill until the player stops swimming or stops giving move input.
 	[Export] public float swimStaminaDrainPerSecond = 10f;
 
+	[ExportGroup("Mob Push")]
 	// Multiplier on the player's horizontal speed used as the *cap* on a
 	// pushed mob's resulting velocity along the push direction. 1.5 = a
 	// mob the player runs into ends up moving 1.5× the player's speed at
@@ -317,6 +328,7 @@ public partial class PlayerData : Resource
 	// slip entirely (pure forward push).
 	[Export] public float mobPushSlip = 1.0f;
 
+	[ExportGroup("Temperature")]
 	// Degrees F per second that bodyTemperature drifts toward the sampled
 	// environmental temperature. Lower = more inertia (a brief gust through
 	// a cold zone won't trigger Cold); higher = the player tracks ambient
@@ -340,6 +352,7 @@ public partial class PlayerData : Resource
 	// covered structures don't fake a draft.
 	[Export] public float windTemperatureReduction = 0.5f;
 
+	[ExportGroup("Wetness")]
 	// Player accumulates wetness in [0, 1] while exposed to rain or in
 	// water; the wet status only arms once it crosses wetnessArmThreshold,
 	// and only releases once it falls below wetnessDisarmThreshold

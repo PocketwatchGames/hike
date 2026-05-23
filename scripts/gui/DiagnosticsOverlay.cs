@@ -17,6 +17,10 @@ public partial class DiagnosticsOverlay : CanvasLayer
     // often we re-render the label string.
     private const double UpdateIntervalSeconds = 0.25;
 
+    // Width of the scroll column. Matches the RichTextLabel's CustomMinimumSize
+    // plus margin (8+8) plus space for the vertical scrollbar.
+    private const float ScrollColumnWidth = 660f;
+
     private RichTextLabel _label;
     private double _accum;
 
@@ -40,13 +44,30 @@ public partial class DiagnosticsOverlay : CanvasLayer
         // every screenshot, default off is friendlier.
         Visible = false;
 
+        // Outer ScrollContainer caps the panel height to the viewport so a
+        // long profiler table doesn't run off the bottom of the screen. It
+        // anchors top-stretches-bottom with a fixed width column on the left;
+        // when the content fits, the PanelContainer inside hugs its size and
+        // the empty area below stays invisible. MouseFilter=Pass so the wheel
+        // scrolls when hovered but events still propagate to gameplay.
+        var scroll = new ScrollContainer();
+        scroll.AnchorLeft = 0f;
+        scroll.AnchorTop = 0f;
+        scroll.AnchorRight = 0f;
+        scroll.AnchorBottom = 1f;
+        scroll.OffsetLeft = 8f;
+        scroll.OffsetTop = 8f;
+        scroll.OffsetRight = 8f + ScrollColumnWidth;
+        scroll.OffsetBottom = -8f;
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.MouseFilter = Control.MouseFilterEnum.Pass;
+        AddChild(scroll);
+
         var panel = new PanelContainer();
-        panel.AnchorLeft = 0f;
-        panel.AnchorTop = 0f;
-        panel.OffsetLeft = 8f;
-        panel.OffsetTop = 8f;
         panel.MouseFilter = Control.MouseFilterEnum.Ignore;
-        AddChild(panel);
+        panel.SizeFlagsVertical = Control.SizeFlags.ShrinkBegin;
+        scroll.AddChild(panel);
 
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left", 8);

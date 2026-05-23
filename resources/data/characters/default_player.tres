@@ -113,6 +113,7 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 19: SubResource("Resource_anim_skating")
 })
 stepHeight = 1.1
+moveSpeed = 6.5
 skidGroundAcceleration = 20.0
 skidExitSpeed = 11.0
 airDragXZ = 0.02

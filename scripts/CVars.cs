@@ -384,6 +384,14 @@ public static class CVars
     // Larger = more stable averages, slower reaction to scene changes.
     public static CVarFloat profileWindow = new CVarFloat("profile_window", 1f);
 
+    // Cutoff: sections that contribute less than this many ms per frame are
+    // hidden from the F3 overlay's profiler table. They still tick and update
+    // their custom monitors — they're just suppressed from the on-screen
+    // table so it stays short enough to scan. Only applies to the latched
+    // overlay path; `profile_dump` and the hitch logger always show every
+    // section. Set to 0 to disable the filter.
+    public static CVarFloat profileMinPerFrameMs = new CVarFloat("profile_min_per_frame_ms", 0.05f);
+
     // Hitch logger. While `hitch_log` is true, DiagnosticsOverlay watches
     // per-frame delta and, whenever a frame exceeds `hitch_threshold_ms`,
     // prints the frame time + a Profiler section snapshot to GD.Print and

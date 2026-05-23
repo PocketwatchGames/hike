@@ -319,6 +319,12 @@ public static class Profiler
         sb.Append('\n');
         sb.Append("  section                          calls   total_ms   avg_us  max_ms  per_frame_ms\n");
 
+        // Overlay path filters out sections below the cutoff so the table
+        // stays scannable. Manual dump / hitch dump path (useLatched=false)
+        // always shows everything — those are one-shot debug snapshots where
+        // missing rows would be confusing.
+        double minPerFrameMs = useLatched ? CVars.profileMinPerFrameMs.Value : 0.0;
+
         for (int i = 0; i < _sections.Count; i++)
         {
             Section s = _sections[i];
@@ -350,6 +356,10 @@ public static class Profiler
             double avg = (totalMs * 1000.0) / calls;
             double maxMs = max * tickToMs;
             double perFrame = windowSec > 0.0 ? totalMs / (windowSec * 60.0) : 0.0;
+            if (perFrame < minPerFrameMs)
+            {
+                continue;
+            }
             sb.Append("  ")
               .Append(s.Name.PadRight(32))
               .Append(calls.ToString().PadLeft(6))
