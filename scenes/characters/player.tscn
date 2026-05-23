@@ -11,6 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="7_d6tgn"]
 [ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="7_eojnx"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="8_5jukt"]
+[ext_resource type="PackedScene" uid="uid://8aexarbmcq87" path="res://scenes/effects/skating_dirt.tscn" id="9_vwwfy"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="11_footstep_grass"]
 [ext_resource type="PackedScene" uid="uid://c2fhdirtfst01" path="res://scenes/effects/footstep_dirt.tscn" id="12_5jukt"]
 [ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/effects/blood_damage.tscn" id="12_blooddmg"]
@@ -655,6 +656,11 @@ _deathFx = ExtResource("13_deathlrg")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
 _tallGrassMovementLoopFx = ExtResource("16_grassloop")
+_slideLoopFx = Dictionary[int, PackedScene]({
+0: ExtResource("9_vwwfy"),
+2: ExtResource("9_vwwfy"),
+4: ExtResource("9_vwwfy")
+})
 _jumpFx = ExtResource("17_jump")
 _landFx = ExtResource("18_land")
 _landHardFx = ExtResource("19_landhard")
@@ -690,7 +696,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(216, 0, 72, 72)
+region_rect = Rect2(504, 0, 72, 72)
 script = ExtResource("4_qgnko")
 Material = 1
 MirrorByYaw = true

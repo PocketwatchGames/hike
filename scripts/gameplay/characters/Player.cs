@@ -40,9 +40,13 @@ public partial class Player : CharacterBody3D
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopFx;
 	[Export] private PackedScene _tallGrassMovementLoopFx;
-	// Foot-puff loop spawned while in contact with a steep slope (sliding
-	// state). Tracks the body; stops when contact is broken or speed drops.
-	[Export] private PackedScene _slideLoopFx;
+	// Per-ground-type foot-puff loop spawned while sliding / skating /
+	// skidding. Tracks the body. Keys must match what GroundTypeResolver
+	// returns at the player's position; missing keys silently emit nothing
+	// for that surface (so a grass-only authoring pass still works on grass
+	// even if Stone is unwired). Re-resolved each tick — walking from grass
+	// onto stone mid-skate swaps the loop scene wholesale.
+	[Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _slideLoopFx = new();
 	// One-shots for vertical motion. Jump fires the moment input takes the
 	// player off the floor. Land fires on every floor reacquisition unless
 	// the inbound vertical speed exceeded LandHardSpeedThreshold, in which
@@ -153,6 +157,11 @@ public partial class Player : CharacterBody3D
 	// depletion / attack press / weapon Active. Set each frame in ProcessInput
 	// from current conditions — not latched.
 	bool _sprinting;
+	// Latched true when sprint ended because stamina ran out while Dash was
+	// still held. Prevents the held button from auto-re-engaging sprint the
+	// moment stamina refills — the player has to release Dash and press it
+	// again. Cleared when Dash is released.
+	bool _sprintLockout;
 	EWaterState _waterState = EWaterState.None;
 	float _waterSurfaceY;
 	int _waterOverlapCount;
@@ -168,6 +177,9 @@ public partial class Player : CharacterBody3D
 	Fx _waterMovementLoop;
 	Fx _tallGrassMovementLoop;
 	Fx _slideLoop;
+	// Tracked active slide-loop scene so per-ground-type swaps avoid
+	// recreating the Fx every tick. Same shape as _animLoopScene.
+	PackedScene _slideLoopScene;
 	// Live "in contact with a steep slope" flag. Set in UpdateSlideState
 	// after MoveAndSlide based on slide-collision normals or a Down probe;
 	// drives the slide puff Fx and serves as the gate for skate initiation.
@@ -187,6 +199,13 @@ public partial class Player : CharacterBody3D
 	// when the player lands on a slide surface with momentum aligned downhill;
 	// cleared by the exit conditions in UpdateSkating.
 	bool _skating;
+	// Grounded "skid" state — true when the gap between the input-target
+	// velocity and the actual velocity exceeds moveSpeed (player is making
+	// a sharp direction change). Drives the same puff Fx as sliding/skating.
+	// Hysteresis: enters at |gap| > moveSpeed, exits at |gap| < 0.5*moveSpeed.
+	// Set only from the grounded ApproachXZ sub-branch; cleared in every
+	// other velocity branch (dash, knockback, skating, airborne, swim).
+	bool _skidding;
 	// Game-time at which slide AND ground contact were both first lost while
 	// skating. Skating tolerates a brief loss of contact (jumping ridges,
 	// voxel face transitions) and only exits once the deadline elapses.
@@ -764,6 +783,36 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Slide-loop driver with per-ground-type scene selection. Resolves the
+	// current EGroundType each tick and swaps the active Fx wholesale when
+	// the surface type changes mid-slide (e.g. skating from grass onto
+	// stone). Missing dictionary entries silently emit nothing for that
+	// ground type so a partially-authored player.tscn still works on the
+	// surfaces it covers.
+	private void UpdateSlideLoop(bool active)
+	{
+		PackedScene target = null;
+		if (active && _world != null && _slideLoopFx != null)
+		{
+			EGroundType ground = GroundTypeResolver.Resolve(_world.WorldState, GlobalPosition);
+			_slideLoopFx.TryGetValue(ground, out target);
+		}
+		if (target == _slideLoopScene)
+		{
+			return;
+		}
+		if (_slideLoop != null)
+		{
+			_slideLoop.Stop();
+			_slideLoop = null;
+		}
+		if (target != null)
+		{
+			_slideLoop = Fx.Create(target, this, Vector3.Zero);
+		}
+		_slideLoopScene = target;
+	}
+
 	// One-shots (attack, die, jump) latch _oneShotAnim and let the
 	// LitSpriteAnimator drive itself to completion — Finished flips because
 	// these anims are authored with loop=false in player.tscn. While a one-
@@ -874,11 +923,13 @@ public partial class Player : CharacterBody3D
 			EAnimation swimMove = _sprinting ? EAnimation.SwimSprint : EAnimation.Swim;
 			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, EAnimation.SwimIdle);
 		}
-		else if (_skating)
+		else if (_skating || _skidding)
 		{
 			// Skate anim wins over fall — on a steep slope _grounded is false
 			// and the airborne grace would otherwise flip the sprite to the
-			// fall pose every tick the skate ticks past FallGraceMs.
+			// fall pose every tick the skate ticks past FallGraceMs. Also
+			// fires for grounded skids (sharp direction changes), so the
+			// player visibly slides their feet during sharp turns at speed.
 			loopAnim = EAnimation.Skating;
 		}
 		else if (fallReady)
@@ -1934,13 +1985,21 @@ public partial class Player : CharacterBody3D
 	// Recompute _sprinting each tick from current state. Sprint engages when
 	// Dash is held past the initial dash burst with move input AND the
 	// player has stamina to spend; once stamina hits zero, sprint drops
-	// entirely (no speed boost, no anim, no continuing drain) until the
-	// stamina bar recovers enough to re-engage. Disabled while airborne on
-	// land (no "air sprint") — swimming keeps its own sprint variant since
-	// it's a continuous surface contact, not an arc; re-engages the tick
-	// after landing or after stamina returns if the button is still held.
+	// entirely (no speed boost, no anim, no continuing drain). After an
+	// exhaustion drop the player must RELEASE Dash and press it again to
+	// re-engage — holding the button through a stamina refill won't
+	// re-enter sprint. The existing staminaRechargeDelay still gates when
+	// the bar starts refilling after sprint ends. Disabled while airborne
+	// on land (no "air sprint") — swimming keeps its own sprint variant
+	// since it's a continuous surface contact, not an arc.
 	private void UpdateSprintState()
 	{
+		bool oldSprinting = _sprinting;
+		bool dashHeld = Input.IsActionPressed("Dash");
+		if (!dashHeld)
+		{
+			_sprintLockout = false;
+		}
 		if (data == null)
 		{
 			_sprinting = false;
@@ -1950,14 +2009,23 @@ public partial class Player : CharacterBody3D
 			&& _runner.IsBusy
 			&& _runner.Current.profile != data.dashActionProfile;
 		bool surfaceAllowsSprint = _grounded || _waterState == EWaterState.Swimming;
-		bool wantsSprint = Input.IsActionPressed("Dash")
+		bool wantsSprint = dashHeld
 			&& _dashTimeRemaining <= 0f
 			&& _inputMove.LengthSquared() > 0.0001f
 			&& _curInteractive == null
 			&& !runnerBlocks
 			&& surfaceAllowsSprint
-			&& _stamina > 0f;
+			&& _stamina > 0f
+			&& !_sprintLockout;
 		_sprinting = wantsSprint;
+		// Latch the exhaustion lockout when sprint ends because stamina
+		// hit zero while the button was still held. Won't fire on a
+		// voluntary release (dashHeld is false there) or on a context
+		// change like an attack (stamina would still be positive).
+		if (oldSprinting && !_sprinting && _stamina <= 0f && dashHeld)
+		{
+			_sprintLockout = true;
+		}
 	}
 
 	// Mirrors TickSwimStamina. Sprint drains a flat per-second amount and
@@ -2121,6 +2189,8 @@ public partial class Player : CharacterBody3D
 		// status moveMul (Cold etc.) so dashing through a thicket isn't the
 		// same as dashing across open ground — except knockback, which is a
 		// fixed-distance shove and ignores those.
+		bool prevSkidding = _skidding;
+		_skidding = false;
 		if (_knockbackTime > 0f)
 		{
 			Velocity = new Vector3(_knockbackVelocity.X, Velocity.Y, _knockbackVelocity.Z);
@@ -2186,10 +2256,45 @@ public partial class Player : CharacterBody3D
 				// so jumps preserve momentum); releasing input decelerates at
 				// the same rate, so the ground branch replaces the old instant
 				// snap-to-stop.
-				float accel = _grounded ? data.groundAcceleration : data.airAcceleration;
+				// Grip drops while skidding — uses the skid-specific acceleration
+				// instead of groundAcceleration so a sharp direction change
+				// commits to the existing velocity vector for a beat rather than
+				// snapping. `prevSkidding` is the latch from the previous tick;
+				// using it here means the same tick that detects skid-entry
+				// already runs with the reduced accel.
+				float accel;
+				if (_grounded)
+				{
+					accel = prevSkidding ? data.skidGroundAcceleration : data.groundAcceleration;
+				}
+				else
+				{
+					accel = data.airAcceleration;
+				}
 				Vector3 currentXZ = new(Velocity.X, 0f, Velocity.Z);
 				Vector3 nextXZ = ApproachXZ(currentXZ, inputVel, accel * dt);
 				Velocity = new Vector3(nextXZ.X, Velocity.Y, nextXZ.Z);
+				// Skid detection: gap between desired and actual horizontal
+				// velocity. Only meaningful when grounded (airborne intent /
+				// actual disagreements aren't a skid — feet aren't touching
+				// anything). Hysteresis prevents puff flicker near threshold.
+				if (_grounded)
+				{
+					float gapSq = (inputVel - currentXZ).LengthSquared();
+					float enter = data.skidEnterSpeed;
+					float exit = data.skidExitSpeed;
+					_skidding = prevSkidding
+						? gapSq >= exit * exit
+						: gapSq > enter * enter;
+					if (CVars.debugSlopes.Value && prevSkidding != _skidding)
+					{
+						string ts = System.DateTime.Now.ToString("HH:mm:ss.fff");
+						float gap = Mathf.Sqrt(gapSq);
+						GD.Print(_skidding
+							? $"[skid] ENTER {ts} gap={gap:F2}m/s input={inputVel.Length():F2} actual={currentXZ.Length():F2} (thr={enter:F2})"
+							: $"[skid] EXIT  {ts} gap={gap:F2}m/s (thr={exit:F2})");
+					}
+				}
 			}
 		}
 		if (_wallJumpAirControlTimer > 0f)
@@ -2260,15 +2365,17 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Same CanLook gate as the _aiming suppression above — during dash or
-		// sprint, rotation falls through to move direction. While skating,
-		// yaw follows the velocity heading (steering, not input replace) so
-		// the sprite reads as facing the direction of travel.
-		if (_skating)
+		// sprint, rotation falls through to move direction. While skating
+		// or skidding, yaw locks to the velocity heading rather than the
+		// input direction so the sprite reads as committed to its existing
+		// trajectory — the feet are visibly sliding because the body
+		// hasn't caught up to the input yet.
+		if (_skating || _skidding)
 		{
-			Vector3 skateHoriz = new(Velocity.X, 0f, Velocity.Z);
-			if (skateHoriz.LengthSquared() > 0.001f)
+			Vector3 lockHoriz = new(Velocity.X, 0f, Velocity.Z);
+			if (lockHoriz.LengthSquared() > 0.001f)
 			{
-				Rotation = new Vector3(0, Mathf.Atan2(skateHoriz.X, skateHoriz.Z), 0);
+				Rotation = new Vector3(0, Mathf.Atan2(lockHoriz.X, lockHoriz.Z), 0);
 			}
 		}
 		else if (CanLook() && _inputLook != Vector3.Zero)
@@ -2401,7 +2508,7 @@ public partial class Player : CharacterBody3D
 		// sees the resolved state for this tick.
 		UpdateSlideState();
 		UpdateSkating(wasOnFloor, inboundFallSpeed);
-		UpdateLoopEffect(ref _slideLoop, _slideLoopFx, (_sliding || _skating) && _waterState == EWaterState.None);
+		UpdateSlideLoop((_sliding || _skating || _skidding) && _waterState == EWaterState.None);
 		// Airborne → grounded transition. Speed-gate a hard-land variant so
 		// stepping off small ledges plays the soft sound; only meaningful
 		// drops produce the dust-and-thud landHard. The bottom threshold

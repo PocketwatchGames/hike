@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://8aexarbmcq87"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_kt6lc"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_a6v0s"]
+[ext_resource type="AudioStream" uid="uid://bkikwuxig1qa7" path="res://audio/source/footsteps/skid_dirt_loop.wav" id="3_gwifa"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
+emission_shape = 1
+emission_sphere_radius = 0.05
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 2.0
+initial_velocity_max = 6.0
+gravity = Vector3(0, -10, 0)
+damping_min = 1.0
+damping_max = 2.0
+scale_min = 0.5
+scale_max = 2.0
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_dust"]
+render_priority = 0
+shader = ExtResource("2_a6v0s")
+shader_parameter/albedo = Color(0.36, 0.27, 0.17, 0.7019608)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_dust"]
+material = SubResource("ShaderMaterial_dust")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_dirt"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 3.0
+streams_count = 1
+stream_0/stream = ExtResource("3_gwifa")
+
+[node name="FootstepDirt" type="Node3D" unique_id=789921022]
+script = ExtResource("1_kt6lc")
+_loop = true
+
+[node name="Dust" type="GPUParticles3D" parent="." unique_id=1280463858]
+amount = 4
+lifetime = 0.5
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_dust")
+draw_pass_1 = SubResource("QuadMesh_dust")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=626054405]
+stream = SubResource("AudioStreamRandomizer_dirt")
+volume_db = -16.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

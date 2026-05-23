@@ -38,6 +38,17 @@ public partial class PlayerData : Resource
 	// waterAcceleration, but air/ground targets are pure input (no drift term).
 	[Export] public float groundAcceleration = 50f;
 	[Export] public float airAcceleration = 12f;
+	// Acceleration substituted for groundAcceleration while the player is
+	// in a skid (sharp direction change with |inputVel − currentXZ| over
+	// the skid-enter threshold). Lower than groundAcceleration so velocity
+	// commits to the pre-snap direction for ~0.5s instead of snapping in
+	// ~0.15s. Once the skid exits, full groundAcceleration is restored.
+	[Export] public float skidGroundAcceleration = 15f;
+	// Skid-state hysteresis thresholds on |inputVel − currentXZ| (m/s).
+	// Enters when the gap exceeds skidEnterSpeed, exits when it drops below
+	// skidExitSpeed. Keep exit < enter to prevent flicker at the boundary.
+	[Export] public float skidEnterSpeed = 14f;
+	[Export] public float skidExitSpeed = 7f;
 	// Airborne drag, split by axis (skipped during dash). Each is a 1/s
 	// velocity-proportional decay coefficient applied each airborne tick.
 	//
