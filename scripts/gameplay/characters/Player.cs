@@ -14,6 +14,10 @@ public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
 	[Export] public Area3D interactArea;
+	// World-space anchor (head height) used to project a screen-space point
+	// above the player for HUD elements that float over the character — e.g.
+	// the transient status-effect notification. Mirrors Mob.HudAnchor.
+	[Export] public Node3D HudAnchor;
 	[Export] private HurtBox _hurtBox;
 	[Export] private LitSpriteAnimator _animator;
 	[Export] private DashGhostTrail _dashGhostTrail;

@@ -10,6 +10,11 @@ public partial class Hud : Control
 	public static Hud Current { get; private set; }
 
 	[Export] public GameClient gameClient;
+	// Scene used for the persistent strip above the health bar — full
+	// StatusEffectHud with icon + stack count badge + per-instance progress bar.
+	[Export] PackedScene _statusEffectHudScene;
+	// Scene used for the transient over-the-player notification — bare icon
+	// only, no count, no progress bar. See StatusEffectIcon for the animation.
 	[Export] PackedScene _statusEffectIconScene;
 	[Export] WeaponHud _weaponLeftHud;
 	[Export] WeaponHud _weaponRightHud;
@@ -17,7 +22,13 @@ public partial class Hud : Control
 	[Export] ButtonHint _weaponLeftButtonHint;
 	[Export] ButtonHint _weaponRightButtonHint;
 	[Export] ButtonHint _consumableButtonHint;
+	// Persistent strip parent — usually an HBoxContainer above the health bar.
 	[Export] Control _statusEffectContainer;
+	// Screen-space anchor for the transient over-the-player notification.
+	// Positioned each frame from _player.HudAnchor projected to screen so the
+	// icon floats above the character's head. Children (queued
+	// StatusEffectIcons) inherit the position automatically.
+	[Export] Control _statusEffectNotificationAnchor;
 	[Export] ProgressBar _healthBar;
 	// Layered ON TOP of _healthBar with fill_mode = END_TO_BEGIN (right-to-
 	// left) and a transparent background, so the dark-red fill anchors to
@@ -61,7 +72,15 @@ public partial class Hud : Control
 	// callback is the only thing that advances the queue.
 	readonly Queue<Announcement> _announcementQueue = new();
 	bool _announcementInFlight;
-	// Transient status-effect announcement queue. Each newly-added effect data
+	// Persistent strip above the health bar — one StatusEffectHud entry per
+	// distinct StatusEffectData with a stack-count badge and the per-instance
+	// progress bar from the closest-to-expiry instance. Mirrors the original
+	// pre-notification behavior.
+	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
+	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
+	readonly Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
+	readonly List<StatusEffectData> _statusEffectsToRemove = new();
+	// Transient over-the-player notification queue. Each newly-added effect data
 	// pops a single icon that fades+shrinks in over 0.2s (3x → 1x), holds for
 	// 1s, then fades out. Subsequent additions wait until the active icon
 	// finishes so notifications don't overlap. `_seenStatusEffects` is the
@@ -430,7 +449,7 @@ public partial class Hud : Control
 		_weaponRightHud.Tick(now);
 		_consumableHud.Tick(now);
 
-		UpdateStatusEffects();
+		UpdateStatusEffects(now);
 
 		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponLeft, now));
 		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRight, now));
@@ -740,14 +759,18 @@ public partial class Hud : Control
 		mat.SetShaderParameter("reference_elevation" + suffix, s.ReferenceElevation);
 	}
 
-	// Transient announcement: every time a fresh StatusEffectData appears on
-	// the player (wasn't present last tick), enqueue one icon. A single icon
-	// shows at a time — it fades+shrinks in, holds, fades out, then the next
-	// queued data takes its place. Refreshes / re-stacks of an effect already
-	// on the player don't notify; only data-level transitions do.
-	void UpdateStatusEffects()
+	// Sync the persistent strip of status-effect icons against the player's
+	// current list. Effects with the same data stack into one entry whose count
+	// badge shows stack size; the progress bar tracks the timer of the instance
+	// closest to expiry (or hides if every instance in the stack is persistent).
+	// Also enqueues a transient over-the-player notification icon for every
+	// newly-appearing data.
+	void UpdateStatusEffects(ulong now)
 	{
+		_statusEffectCounts.Clear();
+		_statusEffectShortestRemainingMs.Clear();
 		_statusEffectsThisTick.Clear();
+
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -756,10 +779,69 @@ public partial class Hud : Control
 			{
 				continue;
 			}
+			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
+			_statusEffectCounts[s.data] = prevCount + 1;
+			if (s.IsTimed)
+			{
+				ulong remaining = s.RemainingMs(now);
+				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
+					|| remaining < prevShortest)
+				{
+					_statusEffectShortestRemainingMs[s.data] = remaining;
+				}
+			}
 			if (_statusEffectsThisTick.Add(s.data) && !_seenStatusEffects.Contains(s.data))
 			{
 				_statusEffectQueue.Enqueue(s.data);
 			}
+		}
+
+		// Drop strip entries whose data no longer appears in the player's list.
+		_statusEffectsToRemove.Clear();
+		foreach (var kv in _statusEffectHuds)
+		{
+			if (!_statusEffectCounts.ContainsKey(kv.Key))
+			{
+				kv.Value.QueueFree();
+				_statusEffectsToRemove.Add(kv.Key);
+			}
+		}
+		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
+		{
+			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
+		}
+
+		// Add / refresh strip entries for everything currently held.
+		foreach (var kv in _statusEffectCounts)
+		{
+			StatusEffectData data = kv.Key;
+			int count = kv.Value;
+			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
+			{
+				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
+				_statusEffectContainer.AddChild(hud);
+				_statusEffectHuds[data] = hud;
+			}
+			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
+			float progress = 0f;
+			if (hasTimer)
+			{
+				float totalMs = data.duration * 1000f;
+				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
+			}
+			// Continuous-state effects (currently wet; future thirst / hunger /
+			// cold / hot) can override the timer-based progress with a player-
+			// side value via Player.GetStatusEffectProgress. When non-null we
+			// also force the bar visible since these effects typically have
+			// their timer paused (the underlying state controls arm/disarm
+			// directly).
+			float? customProgress = _player.GetStatusEffectProgress(data);
+			if (customProgress.HasValue)
+			{
+				progress = customProgress.Value;
+				hasTimer = true;
+			}
+			hud.Set(data, count, progress, hasTimer);
 		}
 
 		_seenStatusEffects.Clear();
@@ -768,16 +850,42 @@ public partial class Hud : Control
 			_seenStatusEffects.Add(data);
 		}
 
+		UpdateStatusEffectNotification();
+	}
+
+	// Project the player's HudAnchor (or GlobalPosition fallback) to screen
+	// each frame so the queued icon floats above the character's head, and
+	// advance the queue: dispatch the next data when the active icon finishes,
+	// otherwise let it run its 0.2s intro / 1s hold / 0.3s outro on its own
+	// _Process. The anchor stays positioned even while empty so spawning a
+	// fresh icon doesn't pop in from (0,0).
+	void UpdateStatusEffectNotification()
+	{
+		if (_statusEffectNotificationAnchor == null)
+		{
+			return;
+		}
+		Vector3 worldPos = _player.HudAnchor != null ? _player.HudAnchor.GlobalPosition : _player.GlobalPosition;
+		bool behindCamera = gameClient.camera.IsPositionBehind(worldPos);
+		_statusEffectNotificationAnchor.Visible = !behindCamera;
+		if (!behindCamera)
+		{
+			_statusEffectNotificationAnchor.Position = GameClient.Current.ProjectToScreen(worldPos);
+		}
+
 		if (_activeStatusEffectIcon != null && _activeStatusEffectIcon.IsFinished)
 		{
 			_activeStatusEffectIcon.QueueFree();
 			_activeStatusEffectIcon = null;
 		}
-		if (_activeStatusEffectIcon == null && _statusEffectQueue.Count > 0 && _statusEffectIconScene != null && _statusEffectContainer != null)
+		if (_activeStatusEffectIcon == null && _statusEffectQueue.Count > 0 && _statusEffectIconScene != null)
 		{
 			StatusEffectData next = _statusEffectQueue.Dequeue();
 			_activeStatusEffectIcon = _statusEffectIconScene.Instantiate<StatusEffectIcon>();
-			_statusEffectContainer.AddChild(_activeStatusEffectIcon);
+			_statusEffectNotificationAnchor.AddChild(_activeStatusEffectIcon);
+			// Center the 40x40 icon on the anchor's origin (which sits at the
+			// projected world point).
+			_activeStatusEffectIcon.Position = new Vector2(-20f, -20f);
 			_activeStatusEffectIcon.Init(next, autoOutro: true);
 		}
 	}

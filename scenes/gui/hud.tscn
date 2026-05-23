@@ -2,7 +2,8 @@
 
 [ext_resource type="Script" uid="uid://bho327tgdqbxw" path="res://scripts/gui/Hud.cs" id="1_ahhtf"]
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
-[ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_ueg55"]
+[ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
+[ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
@@ -62,7 +63,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_healthBar", "_drainedHealthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -70,7 +71,8 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ahhtf")
-_statusEffectIconScene = ExtResource("2_ueg55")
+_statusEffectHudScene = ExtResource("2_ueg55")
+_statusEffectIconScene = ExtResource("2_icon")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
 _weaponRightHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
 _consumableHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
@@ -78,6 +80,7 @@ _weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContain
 _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
 _consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/ConsumableHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
+_statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
 _drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
@@ -337,6 +340,10 @@ size_flags_vertical = 0
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
+
+[node name="StatusEffectNotificationAnchor" type="Control" parent="." unique_id=1924019998]
+layout_mode = 1
+mouse_filter = 2
 
 [node name="LightningFlashOverlay" type="ColorRect" parent="." unique_id=1924019999]
 layout_mode = 1

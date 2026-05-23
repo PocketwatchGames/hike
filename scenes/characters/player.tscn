@@ -640,11 +640,12 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
+HudAnchor = NodePath("HudAnchor")
 _hurtBox = NodePath("HurtBox")
 _animator = NodePath("LitSpriteAnimator")
 _dashGhostTrail = NodePath("DashGhostTrail")
@@ -696,7 +697,7 @@ pixel_size = 0.0738
 alpha_cut = 2
 texture = ExtResource("3_eojnx")
 region_enabled = true
-region_rect = Rect2(504, 0, 72, 72)
+region_rect = Rect2(72, 72, 72, 72)
 script = ExtResource("4_qgnko")
 Material = 1
 MirrorByYaw = true
@@ -765,3 +766,6 @@ mesh = SubResource("PlaneMesh_aim_circle")
 [node name="EndKnob" type="MeshInstance3D" parent="AimingReticle" unique_id=911384672]
 extra_cull_margin = 32.0
 mesh = SubResource("SphereMesh_aim_knob")
+
+[node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)
