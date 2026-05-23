@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://x03yvw8xop30a"]
+[gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://tnrdlqgbiugo"]
 
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="1_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_action"]
