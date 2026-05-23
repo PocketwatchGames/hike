@@ -140,6 +140,25 @@ public partial class MobData : Resource
     [Export] public float hideRange = 20f;
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
+
+    // Named damage profiles fired by this mob's attack actions. Mirrors
+    // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves
+    // against this dict when the attacker is a Mob instead of a weapon-
+    // carrying Player. Convention: "primary" is the default key for the
+    // mob's main attack; multi-attack species add additional keys
+    // (e.g. "claw" / "bite"). Empty dict = no damage on Melee/Hitscan
+    // events sourced from this mob.
+    [Export] public Dictionary<StringName, DamageData> damageProfiles = new();
+
+    public DamageData GetDamage(StringName key)
+    {
+        if (damageProfiles == null)
+        {
+            return null;
+        }
+        return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
+    }
+
     [Export] public float stunThreshold = 5f;
     [Export] public float stunRechargeDelay = 6f;
     [Export] public float stunRechargeSpeed = 1f;

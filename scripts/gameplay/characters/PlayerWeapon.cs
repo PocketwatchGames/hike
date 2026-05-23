@@ -519,6 +519,7 @@ public partial class Player : CharacterBody3D, IActionActor
 	public uint AttackHurtboxMask => (uint)ECollisionLayer.HurtBox;
 	public Rid? SelfHurtBoxRid => _hurtBox?.GetRid();
 	public Node3D AttackerNode => this;
+	public float OutgoingDamageMultiplier => _statusEffects?.OutgoingDamageMultiplier ?? 1f;
 	// Positional-aim handlers (DoSpawnAreaEffect) read the live aim cursor
 	// off the reticle. Nullable in case Initialize hasn't run; callers check
 	// HasAimWorldPosition before reading AimWorldPosition.

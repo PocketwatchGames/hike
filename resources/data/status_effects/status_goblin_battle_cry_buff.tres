@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://13v50as0v9jb6"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://byl6yu4o41toi" path="res://assets/textures/status_effects/Damage Multiplier_Status.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Battle Cry"
+duration = 8.0
+maxStack = 1
+movementMultiplier = 1.3
+animationSpeedMultiplier = 1.3
+outgoingDamageMultiplier = 1.5

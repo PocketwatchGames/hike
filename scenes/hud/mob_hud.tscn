@@ -6,14 +6,17 @@
 [ext_resource type="Texture2D" uid="uid://1o1py2lkhso6" path="res://assets/textures/gui/mob_hud_perception.png" id="9_u6btk"]
 [ext_resource type="Texture2D" uid="uid://ckqpyp83mscdd" path="res://assets/textures/gui/mob_hud_discovery.png" id="10_p45vd"]
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="11_x8n20"]
+[ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="12_statushud"]
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel", "_statusEffectContainer")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
 _armorBar = NodePath("Armor")
 _perceptionBar = NodePath("Perception")
 _discoveryBar = NodePath("Discovery")
 _debugLabel = NodePath("DebugLabel")
+_statusEffectContainer = NodePath("StatusEffects")
+_statusEffectHudScene = ExtResource("12_statushud")
 
 [node name="Background" type="TextureRect" parent="." unique_id=240532080]
 anchors_preset = 15
@@ -87,3 +90,12 @@ offset_right = 80.0
 offset_bottom = -32.0
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="StatusEffects" type="HBoxContainer" parent="." unique_id=1583924713]
+offset_left = -40.0
+offset_top = 28.0
+offset_right = 40.0
+offset_bottom = 60.0
+alignment = 1
+theme_override_constants/separation = 2
+scale = Vector2(0.5, 0.5)

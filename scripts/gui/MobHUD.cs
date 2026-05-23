@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 using Godot.Collections;
 
@@ -15,6 +16,16 @@ public partial class MobHUD : Node2D
 	[Export] private TextureProgressBar _perceptionBar;
 	[Export] private TextureProgressBar _discoveryBar;
 	[Export] private Label _debugLabel;
+	[Export] private BoxContainer _statusEffectContainer;
+	[Export] private PackedScene _statusEffectHudScene;
+
+	// Same grouping pattern as Hud.UpdateStatusEffects — one HUD child per
+	// distinct StatusEffectData with a count badge on the icon. Mob status
+	// is shorter-lived than the player's so a per-tick refresh is cheap.
+	readonly System.Collections.Generic.Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
+	readonly System.Collections.Generic.Dictionary<StatusEffectData, int> _statusEffectCounts = new();
+	readonly System.Collections.Generic.Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
+	readonly List<StatusEffectData> _statusEffectsToRemove = new();
 
 	Camera3D _camera;
 	Mob _mob;
@@ -180,6 +191,76 @@ public partial class MobHUD : Node2D
 		if (_discoveryBar != null)
 		{
 			_discoveryBar.Value = _mob.discoveryProgress;
+		}
+		UpdateStatusEffects(_mob.World?.GameTimeMs ?? 0);
+	}
+
+	// Mirrors Hud.UpdateStatusEffects: group the mob's active effects by data,
+	// pick the shortest remaining timer per group for the progress bar, drop
+	// HUD entries whose data no longer appears, and refresh / instantiate the
+	// rest. No-op when no container / scene is wired.
+	void UpdateStatusEffects(ulong now)
+	{
+		if (_statusEffectContainer == null || _statusEffectHudScene == null)
+		{
+			return;
+		}
+		_statusEffectCounts.Clear();
+		_statusEffectShortestRemainingMs.Clear();
+
+		IReadOnlyList<StatusEffectState> effects = _mob.StatusEffects;
+		for (int i = 0; i < effects.Count; i++)
+		{
+			StatusEffectState s = effects[i];
+			if (s?.data == null || s.data.icon == null)
+			{
+				continue;
+			}
+			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
+			_statusEffectCounts[s.data] = prevCount + 1;
+			if (s.IsTimed)
+			{
+				ulong remaining = s.RemainingMs(now);
+				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
+					|| remaining < prevShortest)
+				{
+					_statusEffectShortestRemainingMs[s.data] = remaining;
+				}
+			}
+		}
+
+		_statusEffectsToRemove.Clear();
+		foreach (var kv in _statusEffectHuds)
+		{
+			if (!_statusEffectCounts.ContainsKey(kv.Key))
+			{
+				kv.Value.QueueFree();
+				_statusEffectsToRemove.Add(kv.Key);
+			}
+		}
+		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
+		{
+			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
+		}
+
+		foreach (var kv in _statusEffectCounts)
+		{
+			StatusEffectData data = kv.Key;
+			int count = kv.Value;
+			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
+			{
+				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
+				_statusEffectContainer.AddChild(hud);
+				_statusEffectHuds[data] = hud;
+			}
+			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
+			float progress = 0f;
+			if (hasTimer)
+			{
+				float totalMs = data.duration * 1000f;
+				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
+			}
+			hud.Set(data, count, progress, hasTimer);
 		}
 	}
 }

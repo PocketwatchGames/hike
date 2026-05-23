@@ -40,4 +40,9 @@ public interface IActionActor
 	// until mob locomotion grows the equivalent state machines.
 	bool IsGrounded { get; }
 	bool IsSwimming { get; }
+
+	// Product of every active status effect's outgoingDamageMultiplier. Used
+	// by ResolveHit to scale the constructed HitInfo's healthDamage when this
+	// actor sources a hit (battle-cry buffs, etc.). 1.0 = neutral.
+	float OutgoingDamageMultiplier { get; }
 }

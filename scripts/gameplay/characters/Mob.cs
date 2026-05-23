@@ -502,10 +502,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PlayOneShot(anim);
     }
 
-    // No-op until mob attacks author lunge motion. The interface is required
-    // by IActionActor so the runner can dispatch ApplyMotion events without
-    // type-checking the actor.
-    public void ApplyMotion(float speed, float duration, bool freezeGravity) { }
+    // Seeded from an ApplyMotion event in the mob's attack profile (e.g. a
+    // goblin claw's dart). Direction is the mob's current forward at the
+    // moment the event fires — the per-tick force in ApplyMotionPhysics
+    // holds that vector for `duration` seconds even if BehaviorAttack keeps
+    // rotating the body to track the player. Zero duration no-ops so a
+    // profile authoring a motionless event doesn't pin the body.
+    public void ApplyMotion(float speed, float duration, bool freezeGravity)
+    {
+        if (duration <= 0f || speed <= 0f)
+        {
+            return;
+        }
+        Vector3 forward = ActorForward;
+        forward.Y = 0f;
+        if (forward.LengthSquared() < 0.0001f)
+        {
+            return;
+        }
+        _simState.MotionVelocity = forward.Normalized() * speed;
+        _simState.MotionTime = duration;
+        _simState.MotionFreezeGravity = freezeGravity;
+    }
 
     // Mobs don't have a stamina pool yet; attack tiers always pass the gate
     // and the spend is a no-op. If mob stamina is ever authored, both can
@@ -523,6 +541,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // (forbidSwimming passes, requireGrounded passes, requireAirborne fails).
     public bool IsGrounded => true;
     public bool IsSwimming => false;
+
+    public float OutgoingDamageMultiplier => _statusEffects?.OutgoingDamageMultiplier ?? 1f;
 
     public void PlayOneShot(EAnimation anim)
     {
@@ -1273,8 +1293,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Knockback timer + velocity force run on alive AND dead bodies — a
         // killing blow should still send the corpse flying for the authored
         // distance. TickHitstun also decrements HitstunTime, which is a no-op
-        // for corpses (no anim to release) but harmless.
+        // for corpses (no anim to release) but harmless. TickMotion runs in
+        // the same band so an in-flight dart ends cleanly when the mob dies.
         TickHitstun((float)delta);
+        TickMotion((float)delta);
 
         if (alive)
         {
@@ -1396,9 +1418,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
             // Decide LinearDamp target without writing yet — we want one
             // gated assignment at the end rather than three branches each
-            // hitting the setter.
+            // hitting the setter. A locks-movement action (windup, recovery
+            // tail) skips the path impulse so the default damp settles the
+            // body in place; the in-between dart drives velocity through
+            // ApplyMotionPhysics regardless.
             float linearDampTarget = 8f;
-            if (!inBurrow && aiOutput.pathTarget.HasValue)
+            bool actionLocksMovement = _runner != null && _runner.LocksMovement;
+            if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue)
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
@@ -1432,7 +1458,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Knockback forces velocity directly each tick (see ApplyKnockback
             // below) — leaving any LinearDamp engaged would compete with the
             // forced velocity and could make the body sub-step under-shoot.
-            if (_simState.KnockbackTime > 0f)
+            // Same applies to ApplyMotion's per-tick velocity force.
+            if (_simState.KnockbackTime > 0f || _simState.MotionTime > 0f)
             {
                 linearDampTarget = 0f;
             }
@@ -1448,8 +1475,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // force at the surface (depth=0, buoyancy=0) and the mob sinks
             // until the depth-scaled buoyancy balances g. The player skips
             // gravity entirely while swimming; do the same here by zeroing
-            // GravityScale, then restoring 1 on exit.
-            float gravityScaleTarget = (_swimming && !inBurrow) ? 0f : 1f;
+            // GravityScale, then restoring 1 on exit. A motionFreezeGravity
+            // dart also gets gravity disabled so the lunge hangs level.
+            bool motionHang = _simState.MotionTime > 0f && _simState.MotionFreezeGravity;
+            float gravityScaleTarget = (motionHang || (_swimming && !inBurrow)) ? 0f : 1f;
             if (gravityScaleTarget != _lastGravityScale)
             {
                 GravityScale = gravityScaleTarget;
@@ -1591,7 +1620,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // velocity force in ApplyKnockback wants no decay so the corpse
             // covers exactly the authored distance over the window. Once the
             // timer expires the corpse settles into the normal low-damp coast.
-            LinearDamp = _simState.KnockbackTime > 0f ? 0f : 0.25f;
+            // ApplyMotion gets the same treatment for the same reason.
+            LinearDamp = (_simState.KnockbackTime > 0f || _simState.MotionTime > 0f) ? 0f : 0.25f;
             const float SettledAngularSpeedSq = 0.04f;
             Vector3 angVel = AngularVelocity;
             if (angVel.LengthSquared() < SettledAngularSpeedSq && angVel != Vector3.Zero)
@@ -1603,6 +1633,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Knockback velocity force runs on alive AND dead bodies — see the
         // TickHitstun lift above. Placed outside the alive/dead branch so a
         // killing blow's knockback carries the corpse for the authored time.
+        // ApplyMotionPhysics runs first so a knockback landing mid-dart wins
+        // the same tick — getting hit while lunging redirects the body.
+        ApplyMotionPhysics();
         ApplyKnockback();
 
         // Auto-freeze on settle. Living mobs additionally gate on
@@ -2099,6 +2132,45 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _impulseApplied = true;
         Vector3 v = _simState.KnockbackVelocity;
         LinearVelocity = new Vector3(v.X, LinearVelocity.Y, v.Z);
+    }
+
+    // Mirrors TickHitstun for the ApplyMotion window. Counts MotionTime down
+    // each tick; on the trailing edge snaps horizontal velocity to zero so a
+    // dart ends crisp rather than coasting past the authored distance.
+    private void TickMotion(float dt)
+    {
+        if (_simState.MotionTime <= 0f)
+        {
+            return;
+        }
+        _simState.MotionTime = Mathf.Max(0f, _simState.MotionTime - dt);
+        if (_simState.MotionTime <= 0f)
+        {
+            LinearVelocity = new Vector3(0f, LinearVelocity.Y, 0f);
+            _simState.MotionVelocity = Vector3.Zero;
+            _simState.MotionFreezeGravity = false;
+        }
+    }
+
+    // Mirrors ApplyKnockback for ApplyMotion. Forces horizontal velocity to
+    // the cached motion vector each tick during the window so the dart
+    // overrides any residual path impulse. Knockback wins ties because
+    // ApplyKnockback runs after this in _PhysicsProcess and writes the same
+    // velocity — getting hit mid-dart redirects the body.
+    private void ApplyMotionPhysics()
+    {
+        if (_simState.MotionTime <= 0f)
+        {
+            return;
+        }
+        if (Freeze)
+        {
+            Freeze = false;
+        }
+        _impulseApplied = true;
+        Vector3 v = _simState.MotionVelocity;
+        float y = _simState.MotionFreezeGravity ? 0f : LinearVelocity.Y;
+        LinearVelocity = new Vector3(v.X, y, v.Z);
     }
 
     private void TickStun(float dt)
