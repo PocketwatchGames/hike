@@ -11,8 +11,8 @@
 [ext_resource type="Script" uid="uid://dponrg4578kvd" path="res://scripts/data/behaviors/InvestigateBehaviorData.cs" id="9_investigate"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="10_has_investigation"]
 [ext_resource type="Script" uid="uid://dqaisfhv1c0sk" path="res://scripts/data/behaviors/conditions/NoInvestigationCondition.cs" id="11_no_investigation"]
-[ext_resource type="Resource" uid="uid://x03yvw8xop30a" path="res://resources/data/actions/goblin_claw.tres" id="12_claw"]
-[ext_resource type="Resource" uid="uid://wy2kbhhyyymsd" path="res://resources/data/actions/goblin_battle_cry.tres" id="13_cry"]
+[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/actions/goblin_claw.tres" id="12_claw"]
+[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/actions/goblin_battle_cry.tres" id="13_cry"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
@@ -41,14 +41,13 @@ transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idl
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
-maxAttackRange = 3.0
+maxAttackRange = 5.0
 desiredAttackRange = 3.0
 encircleDistance = 5.0
 actionProfile = ExtResource("12_claw")
 secondaryAttackProfile = ExtResource("13_cry")
 secondaryAttackCooldownSeconds = 12.0
 secondaryAttackMinAllies = 2
-secondaryAttackAllyRange = 8.0
 
 [sub_resource type="Resource" id="Resource_cond_aggro_lost"]
 script = ExtResource("7_aggro_lost")

@@ -61,10 +61,10 @@ script = ExtResource("7_animdata")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
-[sub_resource type="Resource" id="Resource_loot_meat"]
-script = ExtResource("5_lootcount")
-item = ExtResource("6_meat")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+[sub_resource type="Resource" id="Resource_id4xl"]
+script = ExtResource("7_animdata")
+name = &"battlecry"
+metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("8_damage")
@@ -72,6 +72,13 @@ healthDamage = 4.0
 hitstun = 0.3
 knockbackDistance = 1.0
 knockbackTime = 0.2
+statusEffects = null
+modifiers = null
+
+[sub_resource type="Resource" id="Resource_loot_meat"]
+script = ExtResource("5_lootcount")
+item = ExtResource("6_meat")
+metadata/_custom_type_script = "uid://mdofgaaseydt6"
 
 [resource]
 script = ExtResource("1_vvowg")
@@ -85,7 +92,8 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 7: SubResource("Resource_anim_swim"),
 8: SubResource("Resource_anim_swim_idle"),
 10: SubResource("Resource_anim_stunned"),
-18: SubResource("Resource_anim_hitstun")
+18: SubResource("Resource_anim_hitstun"),
+20: SubResource("Resource_id4xl")
 })
 displayName = &"Goblin"
 killsPerLevel = Array[int]([5, 15, 30, 60, 100])
@@ -98,12 +106,12 @@ smellRangePower = 2.0
 visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
 maxArmor = 10.0
-stunRecoverTime = 3.0
-armorRechargeDelay = 3.0
-armorRecoverTime = 3.0
 damageProfiles = Dictionary[StringName, ExtResource("8_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
+stunRecoverTime = 3.0
+armorRechargeDelay = 3.0
+armorRecoverTime = 3.0
 exp = 10
 brain = ExtResource("2_brain")
 MobScene = ExtResource("4_scene")

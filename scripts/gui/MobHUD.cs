@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using Godot;
-using Godot.Collections;
 
 public partial class MobHUD : Node2D
 {
@@ -17,15 +16,16 @@ public partial class MobHUD : Node2D
 	[Export] private TextureProgressBar _discoveryBar;
 	[Export] private Label _debugLabel;
 	[Export] private BoxContainer _statusEffectContainer;
-	[Export] private PackedScene _statusEffectHudScene;
+	[Export] private PackedScene _statusEffectIconScene;
 
-	// Same grouping pattern as Hud.UpdateStatusEffects — one HUD child per
-	// distinct StatusEffectData with a count badge on the icon. Mob status
-	// is shorter-lived than the player's so a per-tick refresh is cheap.
-	readonly System.Collections.Generic.Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
-	readonly System.Collections.Generic.Dictionary<StatusEffectData, int> _statusEffectCounts = new();
-	readonly System.Collections.Generic.Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
-	readonly List<StatusEffectData> _statusEffectsToRemove = new();
+	// One icon per active StatusEffectState — multiple stacks of the same data
+	// show as multiple icons side-by-side. New entries play the intro animation
+	// (fade + shrink from 3x to 1x) once, then sit at full opacity until the
+	// matching StatusEffectState falls off the mob, at which point Outro() is
+	// called and the icon fades out before being freed.
+	readonly Dictionary<StatusEffectState, StatusEffectIcon> _statusEffectIcons = new();
+	readonly HashSet<StatusEffectState> _statusEffectsThisTick = new();
+	readonly List<StatusEffectState> _statusEffectsToRemove = new();
 
 	Camera3D _camera;
 	Mob _mob;
@@ -55,6 +55,16 @@ public partial class MobHUD : Node2D
 		{
 			_debugLabel.Reparent(parent);
 		}
+		// Status effects sit below the bars and need to stay visible whenever
+		// the mob itself is visible — independent of the bar fade and the
+		// behind-camera/no-bar early returns that hide MobHUD. Reparent it
+		// out of MobHUD's subtree (same trick as _debugLabel) so the
+		// perception-bar Scale/Modulate cascade can't reach it; position is
+		// driven manually from the projected mob position each tick.
+		if (_statusEffectContainer != null && parent != null)
+		{
+			_statusEffectContainer.Reparent(parent);
+		}
 		_mob.TreeExiting += QueueFree;
 		_curScale = 0f;
 		_curAlpha = 0f;
@@ -65,9 +75,11 @@ public partial class MobHUD : Node2D
 
 	public override void _ExitTree()
 	{
-		// _debugLabel was reparented out of this node's subtree in Init, so
-		// it won't auto-free when MobHUD does — free it explicitly here.
+		// _debugLabel and _statusEffectContainer were reparented out of this
+		// node's subtree in Init, so they won't auto-free when MobHUD does —
+		// free them explicitly here.
 		_debugLabel?.QueueFree();
+		_statusEffectContainer?.QueueFree();
 	}
 
 	public override void _Process(double delta)
@@ -101,6 +113,24 @@ public partial class MobHUD : Node2D
 				// Center the 160-wide label horizontally on the mob and hover
 				// it 64px above so it sits clear of the perception icon.
 				_debugLabel.Position = screenPos + new Vector2(-80f, -64f);
+			}
+		}
+
+		// Status effects render independently of the perception-bar fade —
+		// they're tied to the mob being visible to the player, not to whether
+		// the perception/health bar happens to be on screen this tick. The
+		// container was reparented out of MobHUD in Init so it's not affected
+		// by the Scale/Modulate cascade or the early returns below.
+		if (_statusEffectContainer != null)
+		{
+			bool statusVisible = !behindCamera && _mob.alive && _mob.playerPerceptionState != EPlayerPerceptionState.Hidden;
+			_statusEffectContainer.Visible = statusVisible;
+			if (statusVisible)
+			{
+				// Match the original parent-relative offset (centered, 28px below
+				// the mob anchor) now that we're positioning manually.
+				_statusEffectContainer.Position = screenPos + new Vector2(-40f, 28f);
+				UpdateStatusEffects();
 			}
 		}
 
@@ -192,22 +222,19 @@ public partial class MobHUD : Node2D
 		{
 			_discoveryBar.Value = _mob.discoveryProgress;
 		}
-		UpdateStatusEffects(_mob.World?.GameTimeMs ?? 0);
 	}
 
-	// Mirrors Hud.UpdateStatusEffects: group the mob's active effects by data,
-	// pick the shortest remaining timer per group for the progress bar, drop
-	// HUD entries whose data no longer appears, and refresh / instantiate the
-	// rest. No-op when no container / scene is wired.
-	void UpdateStatusEffects(ulong now)
+	// Per-instance icon strip: one StatusEffectIcon per StatusEffectState on
+	// the mob. New states play the intro animation (fade + shrink) once; states
+	// that have fallen off the mob since last tick are handed Outro() so they
+	// fade out before being freed. The icon's own _Process drives the timing.
+	void UpdateStatusEffects()
 	{
-		if (_statusEffectContainer == null || _statusEffectHudScene == null)
+		if (_statusEffectContainer == null || _statusEffectIconScene == null)
 		{
 			return;
 		}
-		_statusEffectCounts.Clear();
-		_statusEffectShortestRemainingMs.Clear();
-
+		_statusEffectsThisTick.Clear();
 		IReadOnlyList<StatusEffectState> effects = _mob.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -216,51 +243,33 @@ public partial class MobHUD : Node2D
 			{
 				continue;
 			}
-			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
-			_statusEffectCounts[s.data] = prevCount + 1;
-			if (s.IsTimed)
+			_statusEffectsThisTick.Add(s);
+			if (!_statusEffectIcons.ContainsKey(s))
 			{
-				ulong remaining = s.RemainingMs(now);
-				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
-					|| remaining < prevShortest)
-				{
-					_statusEffectShortestRemainingMs[s.data] = remaining;
-				}
+				StatusEffectIcon icon = _statusEffectIconScene.Instantiate<StatusEffectIcon>();
+				_statusEffectContainer.AddChild(icon);
+				icon.Init(s.data, autoOutro: false);
+				_statusEffectIcons[s] = icon;
 			}
 		}
 
 		_statusEffectsToRemove.Clear();
-		foreach (var kv in _statusEffectHuds)
+		foreach (var kv in _statusEffectIcons)
 		{
-			if (!_statusEffectCounts.ContainsKey(kv.Key))
+			StatusEffectIcon icon = kv.Value;
+			if (!_statusEffectsThisTick.Contains(kv.Key))
 			{
-				kv.Value.QueueFree();
+				icon.Outro();
+			}
+			if (icon.IsFinished)
+			{
+				icon.QueueFree();
 				_statusEffectsToRemove.Add(kv.Key);
 			}
 		}
 		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
 		{
-			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
-		}
-
-		foreach (var kv in _statusEffectCounts)
-		{
-			StatusEffectData data = kv.Key;
-			int count = kv.Value;
-			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
-			{
-				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
-				_statusEffectContainer.AddChild(hud);
-				_statusEffectHuds[data] = hud;
-			}
-			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
-			float progress = 0f;
-			if (hasTimer)
-			{
-				float totalMs = data.duration * 1000f;
-				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
-			}
-			hud.Set(data, count, progress, hasTimer);
+			_statusEffectIcons.Remove(_statusEffectsToRemove[i]);
 		}
 	}
 }

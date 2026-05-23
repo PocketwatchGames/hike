@@ -25,4 +25,5 @@ public enum EAnimation
     SwimSprint,
     Hitstun,
     Skating,
+    Attack2
 }

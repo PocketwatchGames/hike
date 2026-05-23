@@ -10,7 +10,7 @@ public partial class Hud : Control
 	public static Hud Current { get; private set; }
 
 	[Export] public GameClient gameClient;
-	[Export] PackedScene _statusEffectHudScene;
+	[Export] PackedScene _statusEffectIconScene;
 	[Export] WeaponHud _weaponLeftHud;
 	[Export] WeaponHud _weaponRightHud;
 	[Export] WeaponHud _consumableHud;
@@ -61,16 +61,16 @@ public partial class Hud : Control
 	// callback is the only thing that advances the queue.
 	readonly Queue<Announcement> _announcementQueue = new();
 	bool _announcementInFlight;
-	// Active status-effect HUD nodes keyed by their data. Multiple stacked
-	// instances of the same data show as one HUD entry — count is set on the
-	// existing entry instead of spawning duplicates. Entries are added /
-	// removed each tick as the player's status-effect list changes.
-	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
-	// Reused per-frame so the per-data instance counts don't churn the GC.
-	// Cleared at the top of UpdateStatusEffects.
-	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
-	readonly Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
-	readonly List<StatusEffectData> _statusEffectsToRemove = new();
+	// Transient status-effect announcement queue. Each newly-added effect data
+	// pops a single icon that fades+shrinks in over 0.2s (3x → 1x), holds for
+	// 1s, then fades out. Subsequent additions wait until the active icon
+	// finishes so notifications don't overlap. `_seenStatusEffects` is the
+	// per-tick diff baseline — anything in the player's current list that
+	// wasn't there last tick is treated as new and enqueued.
+	readonly HashSet<StatusEffectData> _seenStatusEffects = new();
+	readonly HashSet<StatusEffectData> _statusEffectsThisTick = new();
+	readonly Queue<StatusEffectData> _statusEffectQueue = new();
+	StatusEffectIcon _activeStatusEffectIcon;
 	float _mapRotation;
 	// Lerped minimap view radius (meters), computed each frame from
 	// TextureRect size and GameClient.minimapPixelsPerMeter. Damps toward
@@ -334,6 +334,19 @@ public partial class Hud : Control
 		RefreshSlot(EInventorySlot.WeaponLeft);
 		RefreshSlot(EInventorySlot.WeaponRight);
 		RefreshSlot(EInventorySlot.Consumable);
+		// Seed the diff baseline so persistent effects already on the player
+		// at spawn (saved game restore, scripted intro state) don't all fire
+		// notifications on the first tick after spawn.
+		_seenStatusEffects.Clear();
+		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
+		for (int i = 0; i < effects.Count; i++)
+		{
+			StatusEffectData data = effects[i]?.data;
+			if (data != null && data.icon != null)
+			{
+				_seenStatusEffects.Add(data);
+			}
+		}
 	}
 
 	void OnInventorySlotChanged(EInventorySlot slot)
@@ -417,7 +430,7 @@ public partial class Hud : Control
 		_weaponRightHud.Tick(now);
 		_consumableHud.Tick(now);
 
-		UpdateStatusEffects(now);
+		UpdateStatusEffects();
 
 		_weaponLeftButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponLeft, now));
 		_weaponRightButtonHint.SetProgress(GetChargeProgress(EInventorySlot.WeaponRight, now));
@@ -727,15 +740,14 @@ public partial class Hud : Control
 		mat.SetShaderParameter("reference_elevation" + suffix, s.ReferenceElevation);
 	}
 
-	// Sync the strip of status-effect icons against the player's current list.
-	// Effects with the same data stack into one entry whose count badge shows
-	// stack size; the progress bar tracks the timer of the instance closest to
-	// expiry (or hides if every instance in the stack is persistent).
-	void UpdateStatusEffects(ulong now)
+	// Transient announcement: every time a fresh StatusEffectData appears on
+	// the player (wasn't present last tick), enqueue one icon. A single icon
+	// shows at a time — it fades+shrinks in, holds, fades out, then the next
+	// queued data takes its place. Refreshes / re-stacks of an effect already
+	// on the player don't notify; only data-level transitions do.
+	void UpdateStatusEffects()
 	{
-		_statusEffectCounts.Clear();
-		_statusEffectShortestRemainingMs.Clear();
-
+		_statusEffectsThisTick.Clear();
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -744,65 +756,29 @@ public partial class Hud : Control
 			{
 				continue;
 			}
-			_statusEffectCounts.TryGetValue(s.data, out int prevCount);
-			_statusEffectCounts[s.data] = prevCount + 1;
-			if (s.IsTimed)
+			if (_statusEffectsThisTick.Add(s.data) && !_seenStatusEffects.Contains(s.data))
 			{
-				ulong remaining = s.RemainingMs(now);
-				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
-					|| remaining < prevShortest)
-				{
-					_statusEffectShortestRemainingMs[s.data] = remaining;
-				}
+				_statusEffectQueue.Enqueue(s.data);
 			}
 		}
 
-		// Drop HUD entries whose data no longer appears in the player's list.
-		_statusEffectsToRemove.Clear();
-		foreach (var kv in _statusEffectHuds)
+		_seenStatusEffects.Clear();
+		foreach (StatusEffectData data in _statusEffectsThisTick)
 		{
-			if (!_statusEffectCounts.ContainsKey(kv.Key))
-			{
-				kv.Value.QueueFree();
-				_statusEffectsToRemove.Add(kv.Key);
-			}
-		}
-		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
-		{
-			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
+			_seenStatusEffects.Add(data);
 		}
 
-		// Add / refresh entries for everything currently held.
-		foreach (var kv in _statusEffectCounts)
+		if (_activeStatusEffectIcon != null && _activeStatusEffectIcon.IsFinished)
 		{
-			StatusEffectData data = kv.Key;
-			int count = kv.Value;
-			if (!_statusEffectHuds.TryGetValue(data, out StatusEffectHud hud))
-			{
-				hud = _statusEffectHudScene.Instantiate<StatusEffectHud>();
-				_statusEffectContainer.AddChild(hud);
-				_statusEffectHuds[data] = hud;
-			}
-			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
-			float progress = 0f;
-			if (hasTimer)
-			{
-				float totalMs = data.duration * 1000f;
-				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
-			}
-			// Continuous-state effects (currently wet; future thirst /
-			// hunger / cold / hot) can override the timer-based progress
-			// with a player-side value via Player.GetStatusEffectProgress.
-			// When non-null we also force the bar visible since these
-			// effects typically have their timer paused (the underlying
-			// state controls arm/disarm directly).
-			float? customProgress = _player.GetStatusEffectProgress(data);
-			if (customProgress.HasValue)
-			{
-				progress = customProgress.Value;
-				hasTimer = true;
-			}
-			hud.Set(data, count, progress, hasTimer);
+			_activeStatusEffectIcon.QueueFree();
+			_activeStatusEffectIcon = null;
+		}
+		if (_activeStatusEffectIcon == null && _statusEffectQueue.Count > 0 && _statusEffectIconScene != null && _statusEffectContainer != null)
+		{
+			StatusEffectData next = _statusEffectQueue.Dequeue();
+			_activeStatusEffectIcon = _statusEffectIconScene.Instantiate<StatusEffectIcon>();
+			_statusEffectContainer.AddChild(_activeStatusEffectIcon);
+			_activeStatusEffectIcon.Init(next, autoOutro: true);
 		}
 	}
 
