@@ -11,14 +11,83 @@ public partial class ChunkManager : Node3D
     // able to reveal un-spawned mobs/props.
     private const int NEARBY_RADIUS = 6;
     private const int NEARBY_RADIUS_SQ = NEARBY_RADIUS * NEARBY_RADIUS;
+    // Chunks within this distSq always load uncapped, ignoring the sphere
+    // cap. Covers the 3x3x3 box around the player (corner distSq = 3) — the
+    // chunks they could step into in a single frame. Without this guarantee
+    // the player can walk off the edge of their loaded chunk into an
+    // adjacent unloaded one and fall through the world. The cost is bounded:
+    // 26 chunks max × ~14ms ChunkMesh.Create ≈ 380ms worst-case synchronous
+    // hitch when entering fully-uncovered territory, which is acceptable
+    // for an "entering new area" stutter.
+    private const int NEAR_LOAD_RADIUS_SQ = 3;
     private const int MAX_LOAD_DISTANCE = 10;
     private const int MAX_REBUILDS_PER_FRAME = 3;
+    // Per-frame caps on chunk-mesh generation. ChunkMesh.Create costs ~14ms
+    // per chunk in MesherDC; without these caps the hitch detector was
+    // catching frames where 26+ chunks meshed synchronously (380ms spikes).
+    //   FRUSTUM: visual-only chunks past NEARBY_RADIUS. Capped at 1/frame —
+    //     anything higher pushes the frame past the 50ms hitch floor on its
+    //     own, even with no other work.
+    //   SPHERE:  collision-critical chunks within NEARBY_RADIUS. Capped at
+    //     4/frame normally. At 60fps that fills a new sphere face (~113
+    //     chunks at the boundary) in <2s, fast enough to outrun normal
+    //     movement given the 96m sphere cushion. Initial-load bypass below
+    //     handles the bigger pre-spawn fill.
+    private const int MAX_FRUSTUM_LOADS_PER_FRAME = 2;
+    private const int MAX_SPHERE_LOADS_PER_FRAME = 4;
+    // Per-frame cap on chunk unloads. QueueFree() looks cheap synchronously
+    // but each ChunkMesh holds a trimesh StaticBody3D (Jolt broadphase entry)
+    // + GPU mesh resources + child entity nodes; releasing them happens in
+    // the end-of-frame deferred-free batch, which is NOT in TimeProcess and
+    // shows up as gap_ms in the hitch detector. Crossing a chunk boundary
+    // can queue dozens of unloads at once — capping spreads that deferred
+    // batch across frames.
+    private const int MAX_UNLOADS_PER_FRAME = 4;
 
     public event Action<Vector3I> onChunkLoaded;
     public event Action<Vector3I> onChunkUnloaded;
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
+
+    // Scratch buffers reused every UpdateLoadedChunks call. The set fills with
+    // ~1100 sphere coords + frustum-visible chunks (thousands per frame); the
+    // list collects evictions. Allocating both fresh every frame was a steady
+    // contributor to gen0 GC pressure flagged by the hitch detector.
+    private readonly HashSet<Vector3I> _desiredScratch = new();
+    private readonly List<Vector3I> _toRemoveScratch = new();
+    // Distance-sorted load queue. Without sorting, HashSet iteration order is
+    // hash-based — random with respect to player position — so with a load
+    // cap of 1-2 per frame the chunk that actually loads is often a distant
+    // one while a closer (more visible) chunk waits. Sorting by distSq from
+    // the player guarantees the closest unloaded chunk loads first each
+    // frame, so visible empty space at the camera-near edge fills before
+    // far-away chunks the player can barely see.
+    private readonly List<Vector3I> _loadCandidatesScratch = new();
+
+    // Static comparison delegate used by _loadCandidatesScratch.Sort. Caches
+    // _sortRefCoord (the player's chunk) in a static field so the lambda
+    // doesn't allocate a closure each frame. Single-threaded, set just
+    // before each Sort call.
+    private static Vector3I _sortRefCoord;
+    private static readonly Comparison<Vector3I> _byDistSqFromRef = (a, b) =>
+    {
+        Vector3I ra = a - _sortRefCoord;
+        Vector3I rb = b - _sortRefCoord;
+        int da = ra.X * ra.X + ra.Y * ra.Y + ra.Z * ra.Z;
+        int db = rb.X * rb.X + rb.Y * rb.Y + rb.Z * rb.Z;
+        return da.CompareTo(db);
+    };
+
+    // Initial-load bypass for the sphere cap. Starts true so the first
+    // UpdateLoadedChunks call (driven from Initialize before the player
+    // spawns) can load all ~900 sphere chunks synchronously — game spawn
+    // already waits via IsSpawnChunkReady, so the synchronous hitch is
+    // hidden under the loading screen. Flips false once the player's
+    // current chunk is loaded; from then on sphere loads obey the cap so
+    // a player crossing a chunk boundary mid-game doesn't trigger a
+    // multi-hundred-ms surge.
+    private bool _initialLoadPending = true;
     private Vector3I _lastPlayerChunkCoord;
     private Func<Vector3> _getPlayerPosition;
     private WorldState _worldData;
@@ -306,7 +375,8 @@ public partial class ChunkManager : Node3D
 
     private void UpdateLoadedChunks()
     {
-        var desired = new HashSet<Vector3I>();
+        HashSet<Vector3I> desired = _desiredScratch;
+        desired.Clear();
 
         // Always load a sphere of chunks around the player for collision, gameplay,
         // and entity spawning. Spherical (not cubic) so the load boundary is at the
@@ -366,8 +436,15 @@ public partial class ChunkManager : Node3D
             }
         }
 
-        // Unload chunks no longer needed
-        var toRemove = new List<Vector3I>();
+        // Unload chunks no longer needed. The toRemove scan is cheap; the
+        // QueueFree loop is what queues the deferred end-of-frame work
+        // (Jolt body removal, GPU mesh release, child entity frees) that
+        // the hitch detector catches as gap_ms. Capped at
+        // MAX_UNLOADS_PER_FRAME to bound the deferred batch each frame —
+        // chunks skipped this frame are picked up next frame because
+        // _loadedChunks still contains them.
+        List<Vector3I> toRemove = _toRemoveScratch;
+        toRemove.Clear();
         foreach (Vector3I coord in _loadedChunks.Keys)
         {
             if (!desired.Contains(coord))
@@ -375,29 +452,104 @@ public partial class ChunkManager : Node3D
                 toRemove.Add(coord);
             }
         }
-        foreach (Vector3I coord in toRemove)
+        using (Profiler.Sample("ChunkManager.UnloadChunks"))
         {
-            onChunkUnloaded?.Invoke(coord);
-            _loadedChunks[coord].QueueFree();
-            _loadedChunks.Remove(coord);
+            int unloaded = 0;
+            foreach (Vector3I coord in toRemove)
+            {
+                if (unloaded >= MAX_UNLOADS_PER_FRAME)
+                {
+                    break;
+                }
+                onChunkUnloaded?.Invoke(coord);
+                _loadedChunks[coord].QueueFree();
+                _loadedChunks.Remove(coord);
+                unloaded++;
+            }
         }
 
-        // Load new chunks from world data
+        // Pass 1: load near-neighbor (3x3x3 box around player) chunks
+        // immediately, uncapped — these are where the player can step in one
+        // frame and missing them means walking off the world's edge. Also
+        // bucket the remaining unloaded chunks for distance-sorted loading
+        // in the next pass.
+        _loadCandidatesScratch.Clear();
         foreach (Vector3I coord in desired)
         {
-            if (!_loadedChunks.ContainsKey(coord))
+            if (_loadedChunks.ContainsKey(coord))
             {
-                ChunkState data = _worldData.GetChunk(coord);
-                if (data == null)
+                continue;
+            }
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+            if (distSq <= NEAR_LOAD_RADIUS_SQ)
+            {
+                LoadChunkInternal(coord);
+            }
+            else
+            {
+                _loadCandidatesScratch.Add(coord);
+            }
+        }
+
+        // Pass 2: sort candidates by distance from player. Closest first so
+        // the most-visible chunk fills before far ones the player can barely
+        // see at the edge of MAX_LOAD_DISTANCE.
+        _sortRefCoord = _lastPlayerChunkCoord;
+        _loadCandidatesScratch.Sort(_byDistSqFromRef);
+
+        // Pass 3: load up to per-frame caps in distance order. Sphere chunks
+        // (within NEARBY_RADIUS) and frustum-extension chunks (beyond it)
+        // cap independently. The initial-load bypass lets the first call —
+        // driven from Initialize before the player spawns — fill the whole
+        // sphere in one synchronous pass; spawn waits via IsSpawnChunkReady,
+        // so that hitch is hidden under the loading screen.
+        int sphereLoaded = 0;
+        int frustumLoaded = 0;
+        foreach (Vector3I coord in _loadCandidatesScratch)
+        {
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+            bool isSphereChunk = distSq <= NEARBY_RADIUS_SQ;
+            if (isSphereChunk)
+            {
+                if (!_initialLoadPending && sphereLoaded >= MAX_SPHERE_LOADS_PER_FRAME)
                 {
                     continue;
                 }
-                ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
-                AddChild(mesh);
-                _loadedChunks[coord] = mesh;
-                onChunkLoaded?.Invoke(coord);
+                sphereLoaded++;
             }
+            else
+            {
+                if (frustumLoaded >= MAX_FRUSTUM_LOADS_PER_FRAME)
+                {
+                    continue;
+                }
+                frustumLoaded++;
+            }
+            LoadChunkInternal(coord);
         }
+
+        // Flip the initial-load bypass off once the player's current chunk
+        // exists. After Initialize's one-shot pass this is true on the same
+        // call that loaded it; subsequent _Process calls obey the cap.
+        if (_initialLoadPending && _loadedChunks.ContainsKey(_lastPlayerChunkCoord))
+        {
+            _initialLoadPending = false;
+        }
+    }
+
+    private void LoadChunkInternal(Vector3I coord)
+    {
+        ChunkState data = _worldData.GetChunk(coord);
+        if (data == null)
+        {
+            return;
+        }
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
+        AddChild(mesh);
+        _loadedChunks[coord] = mesh;
+        onChunkLoaded?.Invoke(coord);
     }
 
     private void ProcessMeshRebuildQueue()

@@ -37,6 +37,14 @@ public partial class DiagnosticsOverlay : CanvasLayer
     private bool _hitchProfilePriorState;
     private bool _hitchSkipFirstFrame = true;
 
+    // Per-frame GC tracking. Sentinel -1 means "no baseline yet" — the next
+    // frame seeds it and reports a delta of zero. Re-seeded on every enable
+    // of hitch_log so a long pause before enabling doesn't surface as a fake
+    // collection on the first hitched frame.
+    private int _prevGc0 = -1;
+    private int _prevGc1 = -1;
+    private int _prevGc2 = -1;
+
     public override void _Ready()
     {
         Layer = OverlayLayer;
@@ -145,6 +153,9 @@ public partial class DiagnosticsOverlay : CanvasLayer
             CVars.profile.Value = true;
             _hitchForcedProfileOn = true;
             _hitchSkipFirstFrame = true;
+            _prevGc0 = -1;
+            _prevGc1 = -1;
+            _prevGc2 = -1;
         }
         else if (!enabled && _hitchForcedProfileOn)
         {
@@ -163,6 +174,21 @@ public partial class DiagnosticsOverlay : CanvasLayer
             return;
         }
 
+        // Sample GC counts every frame so the hitch log can report exactly
+        // how many collections fell on the hitched frame. CollectionCount is
+        // cumulative since process start; the per-frame delta is the
+        // interesting number. Has to run even on the skip-first-frame path so
+        // the baseline gets seeded.
+        int gc0 = System.GC.CollectionCount(0);
+        int gc1 = System.GC.CollectionCount(1);
+        int gc2 = System.GC.CollectionCount(2);
+        int dGc0 = _prevGc0 < 0 ? 0 : gc0 - _prevGc0;
+        int dGc1 = _prevGc1 < 0 ? 0 : gc1 - _prevGc1;
+        int dGc2 = _prevGc2 < 0 ? 0 : gc2 - _prevGc2;
+        _prevGc0 = gc0;
+        _prevGc1 = gc1;
+        _prevGc2 = gc2;
+
         // Skip the first frame after enabling — delta is the wall-clock gap
         // since the last _Process call, which may be huge if the game just
         // unpaused or hitch_log just flipped on.
@@ -178,8 +204,24 @@ public partial class DiagnosticsOverlay : CanvasLayer
             return;
         }
 
+        // Frame envelope. Sample Godot's process/physics monitors at hitch
+        // time (not via the trailing engine-monitors block, which can lag a
+        // frame). gap_ms is what's left after accounting for _Process and
+        // _PhysicsProcess on the main thread — render submission, GPU sync,
+        // vsync wait, shader compiles, and first-touch resource loads all
+        // land here. Large gap_ms with small process_ms is the smoking gun
+        // for render-side hitches that the C# profiler can't see.
+        double processMs = Godot.Performance.GetMonitor(Godot.Performance.Monitor.TimeProcess) * 1000.0;
+        double physicsMs = Godot.Performance.GetMonitor(Godot.Performance.Monitor.TimePhysicsProcess) * 1000.0;
+        double gapMs = frameMs - processMs - physicsMs;
+
         var sb = new System.Text.StringBuilder();
-        sb.Append("[HITCH] frame=").Append(frameMs.ToString("F1")).Append("ms\n");
+        sb.Append("[HITCH] frame=").Append(frameMs.ToString("F1")).Append("ms");
+        sb.Append(" process=").Append(processMs.ToString("F1"));
+        sb.Append(" physics=").Append(physicsMs.ToString("F1"));
+        sb.Append(" gap=").Append(gapMs.ToString("F1"));
+        sb.Append(" gc_this_frame=").Append(dGc0).Append('/').Append(dGc1).Append('/').Append(dGc2);
+        sb.Append('\n');
         Profiler.AppendTable(sb, useLatched: false);
         Godot.GD.Print(sb.ToString());
         Profiler.Reset();

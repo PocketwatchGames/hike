@@ -153,6 +153,24 @@ public static class Profiler
     private static readonly List<Section> _sections = new();
     private static long _windowStartTicks;
 
+    // Lightweight event counters — no Begin/End, just incremented at call
+    // sites. Use for "how many of X happened in this window" metrics like
+    // entity-spawn counts per chunk-load. Surfaced under engine monitors,
+    // latched on the same cadence as section totals. Insertion-ordered list
+    // gives a stable print order across windows.
+    private static readonly Dictionary<string, int> _counters = new();
+    private static readonly Dictionary<string, int> _latchedCounters = new();
+    private static readonly List<string> _counterNames = new();
+
+    // Window-relative GC tracking. Baseline is the GC.CollectionCount(N) value
+    // at the start of the current window; AppendEngineMonitors subtracts the
+    // baseline from the current count to get "collections in this window so
+    // far". On every window roll (LatchAndReset) and every manual Reset we
+    // re-seed the baseline so a fresh window starts at zero.
+    private static int _windowGcBaseline0;
+    private static int _windowGcBaseline1;
+    private static int _windowGcBaseline2;
+
     public static Section MakeSection(string name)
     {
         return GetOrCreate(name);
@@ -170,6 +188,23 @@ public static class Profiler
 #else
         return default;
 #endif
+    }
+
+    [Conditional("PROFILE")]
+    public static void IncrementCounter(string name, int delta = 1)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+        if (!_counters.TryGetValue(name, out int current))
+        {
+            _counters[name] = 0;
+            _latchedCounters[name] = 0;
+            _counterNames.Add(name);
+            current = 0;
+        }
+        _counters[name] = current + delta;
     }
 
     [Conditional("PROFILE")]
@@ -280,6 +315,15 @@ public static class Profiler
         // line up.
         SharedWalkabilityCache.LatchCounters();
         SharedWalkabilityCache.SweepStale();
+        for (int i = 0; i < _counterNames.Count; i++)
+        {
+            string n = _counterNames[i];
+            _latchedCounters[n] = _counters[n];
+            _counters[n] = 0;
+        }
+        _windowGcBaseline0 = System.GC.CollectionCount(0);
+        _windowGcBaseline1 = System.GC.CollectionCount(1);
+        _windowGcBaseline2 = System.GC.CollectionCount(2);
         _windowStartTicks = now;
     }
 
@@ -369,7 +413,7 @@ public static class Profiler
               .Append(' ').Append(perFrame.ToString("F3").PadLeft(13))
               .Append('\n');
         }
-        AppendEngineMonitors(sb);
+        AppendEngineMonitors(sb, useLatched);
     }
 
     // Engine monitors that explain frames the C# sections don't account for.
@@ -378,7 +422,7 @@ public static class Profiler
     // whether render submission is the cost (each shadow-casting sprite
     // counts as a separate draw); PHYSICS_3D_ACTIVE_OBJECTS / COLLISION_PAIRS
     // show whether Jolt's broadphase + narrowphase is the cost.
-    private static void AppendEngineMonitors(StringBuilder sb)
+    private static void AppendEngineMonitors(StringBuilder sb, bool useLatched)
     {
         sb.Append("  --- engine monitors (instantaneous) ---\n");
         AppendMonitor(sb, "fps", Godot.Performance.Monitor.TimeFps, "F1");
@@ -402,6 +446,24 @@ public static class Profiler
         sb.Append("  ").Append("walkability_cache_hits".PadRight(32)).Append(SharedWalkabilityCache.HitsLatched.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("walkability_cache_misses".PadRight(32)).Append(SharedWalkabilityCache.MissesLatched.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("walkability_cache_entries".PadRight(32)).Append(SharedWalkabilityCache.EntryCount.ToString().PadLeft(12)).Append('\n');
+        // GC collections in the current window. Gen0 churn that climbs into
+        // the dozens-per-window is the smoking gun for per-frame allocations
+        // in hot paths; gen2 collections are rare and expensive (correlates
+        // strongly with frame hitches when they happen).
+        int gcWin0 = System.GC.CollectionCount(0) - _windowGcBaseline0;
+        int gcWin1 = System.GC.CollectionCount(1) - _windowGcBaseline1;
+        int gcWin2 = System.GC.CollectionCount(2) - _windowGcBaseline2;
+        sb.Append("  ").Append("gc_gen0_window".PadRight(32)).Append(gcWin0.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("gc_gen1_window".PadRight(32)).Append(gcWin1.ToString().PadLeft(12)).Append('\n');
+        sb.Append("  ").Append("gc_gen2_window".PadRight(32)).Append(gcWin2.ToString().PadLeft(12)).Append('\n');
+        // Event counters. Live (post-Reset window) for the hitch dump; latched
+        // for the overlay so the on-screen value doesn't churn every frame.
+        for (int i = 0; i < _counterNames.Count; i++)
+        {
+            string n = _counterNames[i];
+            int v = useLatched ? _latchedCounters[n] : _counters[n];
+            sb.Append("  ").Append(n.PadRight(32)).Append(v.ToString().PadLeft(12)).Append('\n');
+        }
     }
 
     private static void AppendMonitor(StringBuilder sb, string label, Godot.Performance.Monitor m, string fmt, double scale = 1.0)
@@ -420,6 +482,13 @@ public static class Profiler
             s.Calls = 0;
             s.ActiveStart = 0;
         }
+        for (int i = 0; i < _counterNames.Count; i++)
+        {
+            _counters[_counterNames[i]] = 0;
+        }
+        _windowGcBaseline0 = System.GC.CollectionCount(0);
+        _windowGcBaseline1 = System.GC.CollectionCount(1);
+        _windowGcBaseline2 = System.GC.CollectionCount(2);
         _windowStartTicks = Stopwatch.GetTimestamp();
     }
 

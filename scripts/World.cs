@@ -49,6 +49,35 @@ public partial class World : Node3D
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
 
+    // Per-frame budget for entity instantiation. The hitch detector caught
+    // 26ms+ C# spikes from chunks containing 8 mobs (goblins) + their movinglight
+    // torches all instantiating on the same frame, plus another ~40ms of
+    // post-_Process gap from Jolt broadphase insertion and GpuParticles
+    // first-render setup. Spreading at 8/frame, typical chunks (5-30 entities)
+    // spawn in 1-4 frames — visually a brief pop-in of mobs/props, dramatically
+    // better than a 130ms freeze.
+    private const int MAX_ENTITIES_PER_FRAME = 8;
+
+    private readonly struct PendingSpawn
+    {
+        public readonly Vector3I ChunkCoord;
+        public readonly EntitySimState State;
+        public PendingSpawn(Vector3I chunkCoord, EntitySimState state)
+        {
+            ChunkCoord = chunkCoord;
+            State = state;
+        }
+    }
+
+    private readonly Queue<PendingSpawn> _spawnQueue = new();
+    // Per-chunk pending-entity count. Decremented as DrainSpawnQueue creates
+    // each entity; on hitting zero we fire onChunkEntitiesLoaded so the
+    // minimap (and any future consumer of "chunk's entities are fully in
+    // the tree") sees the right edge. Cleaned up when chunks unload
+    // mid-spawn — the corresponding queue entries get dropped at dequeue
+    // by the _activeEntities-presence check.
+    private readonly Dictionary<Vector3I, int> _spawningRemaining = new();
+
     // Per-cell refcount of pathfinding blockers contributed by spawned
     // entities (trees, chests, etc.). Refcounted so multiple entities sharing
     // a cell — or lifetime overlap during respawn — don't drop the block
@@ -239,6 +268,7 @@ public partial class World : Node3D
             return;
         }
 
+        DrainSpawnQueue();
         UpdateEntityLoading(_player.GlobalPosition);
     }
 
@@ -319,6 +349,10 @@ public partial class World : Node3D
 
     private void OnChunkUnloaded(Vector3I coord)
     {
+        // Drop any pending-spawn bookkeeping first so DrainSpawnQueue's
+        // _activeEntities-presence check skips any of this chunk's still-in-
+        // queue entities.
+        _spawningRemaining.Remove(coord);
         if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
         {
             return;
@@ -591,21 +625,70 @@ public partial class World : Node3D
 
     private void LoadEntitiesForChunk(Vector3I coord)
     {
+        using var _prof = Profiler.Sample("World.LoadChunkEntities");
+        // Register the chunk in _activeEntities immediately, even though
+        // entities will trickle in over the next several frames via
+        // DrainSpawnQueue. Keeps OnChunkLoaded / SyncEntitiesToDesired
+        // idempotent — second call for the same coord sees the entry and
+        // skips. Consumers that walk _activeEntities (GetEntities<T>,
+        // RemoveEntity) see entities as they appear; only difference is
+        // that onChunkEntitiesLoaded (minimap stamp) fires when the queue
+        // finishes the chunk, not at enqueue time.
         var entities = new List<Node3D>();
+        _activeEntities[coord] = entities;
         List<EntitySimState> states = _worldState.GetEntities(coord);
-        if (states != null)
+        if (states == null || states.Count == 0)
         {
-            foreach (EntitySimState state in states)
+            onChunkEntitiesLoaded?.Invoke(coord);
+            return;
+        }
+        _spawningRemaining[coord] = states.Count;
+        foreach (EntitySimState state in states)
+        {
+            _spawnQueue.Enqueue(new PendingSpawn(coord, state));
+        }
+    }
+
+    private void DrainSpawnQueue()
+    {
+        using var _prof = Profiler.Sample("World.DrainSpawnQueue");
+        int spawned = 0;
+        while (spawned < MAX_ENTITIES_PER_FRAME && _spawnQueue.Count > 0)
+        {
+            PendingSpawn pending = _spawnQueue.Dequeue();
+            // Chunk could have been unloaded between enqueue and now; drop
+            // the entity silently. _activeEntities is the single source of
+            // truth for "is this chunk still alive."
+            if (!_activeEntities.TryGetValue(pending.ChunkCoord, out List<Node3D> entities))
             {
-                Node3D entity = state.CreateEntity(this);
-                if (entity != null)
+                _spawningRemaining.Remove(pending.ChunkCoord);
+                continue;
+            }
+            Node3D entity = pending.State.CreateEntity(this);
+            if (entity != null)
+            {
+                // Per-type spawn counter — surfaces under engine monitors so
+                // a hitch dump shows e.g. "spawn.Mob 8" right at the boundary.
+                Profiler.IncrementCounter("spawn." + entity.GetType().Name);
+                RegisterEntity(entity, entities, pending.State);
+            }
+            spawned++;
+            // Decrement chunk's pending count; fire onChunkEntitiesLoaded on
+            // the last entity so the minimap stamp pass sees the full set.
+            if (_spawningRemaining.TryGetValue(pending.ChunkCoord, out int remaining))
+            {
+                remaining--;
+                if (remaining <= 0)
                 {
-                    RegisterEntity(entity, entities, state);
+                    _spawningRemaining.Remove(pending.ChunkCoord);
+                    onChunkEntitiesLoaded?.Invoke(pending.ChunkCoord);
+                }
+                else
+                {
+                    _spawningRemaining[pending.ChunkCoord] = remaining;
                 }
             }
         }
-        _activeEntities[coord] = entities;
-        onChunkEntitiesLoaded?.Invoke(coord);
     }
 
     private void RegisterEntity(Node3D entity, List<Node3D> entities, EntitySimState state = null)
@@ -724,7 +807,7 @@ public partial class World : Node3D
         return _pathBlockers.ContainsKey(new Vector3I(wx, wy, wz));
     }
 
-    private static void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)
+    private void UnloadEntitiesOutsideSet(HashSet<Vector3I> desired, Dictionary<Vector3I, List<Node3D>> loaded)
     {
         var toRemove = new List<Vector3I>();
         foreach (Vector3I coord in loaded.Keys)
@@ -741,6 +824,10 @@ public partial class World : Node3D
                 node.QueueFree();
             }
             loaded.Remove(coord);
+            // Pending-spawn bookkeeping shares the chunk-coord key; drop
+            // it so DrainSpawnQueue ignores any queue entries still
+            // pointing at this chunk.
+            _spawningRemaining.Remove(coord);
         }
     }
 
