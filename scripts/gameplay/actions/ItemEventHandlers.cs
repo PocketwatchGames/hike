@@ -45,6 +45,10 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
+				if (IsFriendlyFireBlocked(actor, hurtBox, ev.friendlyFire))
+				{
+					continue;
+				}
 				// Query first so the impact effect reflects the pre-hit state
 				// (e.g. Lethal needs to see the target's current health, not
 				// the post-damage zero). Trigger flags ride alongside so a
@@ -165,7 +169,7 @@ public static class ItemEventHandlers
 			if (collider is HurtBox hurtBox)
 			{
 				bool isSelf = selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value;
-				if (!isSelf)
+				if (!isSelf && !IsFriendlyFireBlocked(actor, hurtBox, ev.friendlyFire))
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
 					hitResult = hurtBox.QueryHitType(hit);
@@ -229,6 +233,25 @@ public static class ItemEventHandlers
 		}
 
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
+	}
+
+	// Same-team filter for direct-hit handlers. Returns true when the hit
+	// should be skipped: friendlyFire is false AND the hurtbox belongs to a
+	// mob whose team matches the attacker's. Non-mob hurtboxes (player,
+	// environmental damageables) always pass through — the check only suppresses
+	// kin-on-kin damage. Mob owner walks up the hurtbox's parent chain.
+	public static bool IsFriendlyFireBlocked(IActionActor actor, HurtBox hurtBox, bool friendlyFire)
+	{
+		if (friendlyFire || actor == null || hurtBox == null)
+		{
+			return false;
+		}
+		Mob owner = FindOwningMob(hurtBox);
+		if (owner?.mobData == null)
+		{
+			return false;
+		}
+		return owner.mobData.team == actor.ActorTeam;
 	}
 
 	// Walks up from a HurtBox's tree position looking for the owning Mob.
@@ -385,7 +408,9 @@ public static class ItemEventHandlers
 			impact,
 			gravity,
 			noCollide,
-			ev.impactEvent);
+			ev.impactEvent,
+			actor.ActorTeam,
+			ev.friendlyFire);
 	}
 
 	// Position-aware sub-dispatcher for projectile impactEvents (and any

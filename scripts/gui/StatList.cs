@@ -27,6 +27,10 @@ public static class StatList
 		{
 			yield return (names[EStatName.Pierce], StatFormat.Percent(damage.pierce));
 		}
+		if (damage.blunt > 0f)
+		{
+			yield return (names[EStatName.Blunt], StatFormat.Percent(damage.blunt));
+		}
 		if (damage.stun > 0f)
 		{
 			yield return (names[EStatName.Stun], StatFormat.Number(damage.stun));
@@ -204,6 +208,10 @@ public static class StatList
 		if ((mod.overrides & EDamageFields.Pierce) != 0 && mod.pierce > 0f)
 		{
 			yield return (names[EStatName.Pierce], StatFormat.Percent(mod.pierce));
+		}
+		if ((mod.overrides & EDamageFields.Blunt) != 0 && mod.blunt > 0f)
+		{
+			yield return (names[EStatName.Blunt], StatFormat.Percent(mod.blunt));
 		}
 		if ((mod.overrides & EDamageFields.Stun) != 0 && mod.stun > 0f)
 		{

@@ -642,18 +642,19 @@ public partial class Player : CharacterBody3D
 		_runner?.TryInterrupt();
 		_sneaking = false;
 		// Armor handling. Two-part chip: hit.stun always chips armor (when
-		// any is present), and the healthDamage portion piles on top unless
-		// the hit pierced — pierce skips the healthDamage chip but still
-		// counts as "the hit registered," so we reset the recharge timer
-		// regardless. Overflow doesn't bleed into health on the absorbed
-		// path. A hit that takes armor to zero arms the longer recover
-		// window via _armorDepleted; everything else uses the regular
-		// recharge delay. The player has no stun meter today, so hit.stun
-		// is consumed entirely by this armor chip.
+		// any is present), and the healthDamage portion (scaled by
+		// `1 + hit.blunt` for anti-armor weapons) piles on top unless the
+		// hit pierced — pierce skips the healthDamage chip but still counts
+		// as "the hit registered," so we reset the recharge timer regardless.
+		// Overflow doesn't bleed into health on the absorbed path. A hit that
+		// takes armor to zero arms the longer recover window via
+		// _armorDepleted; everything else uses the regular recharge delay.
+		// The player has no stun meter today, so hit.stun is consumed
+		// entirely by this armor chip.
 		float armorAbsorbed = 0f;
 		if (_armor > 0f && (incomingDamage > 0f || hit.stun > 0f))
 		{
-			float armorDamage = hit.stun + (hit.Pierced ? 0f : incomingDamage);
+			float armorDamage = hit.stun + (hit.Pierced ? 0f : incomingDamage * (1f + hit.blunt));
 			float armorBefore = _armor;
 			_armor = Mathf.Max(0f, _armor - armorDamage);
 			armorAbsorbed = armorBefore - _armor;

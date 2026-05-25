@@ -543,6 +543,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsSwimming => false;
 
     public float OutgoingDamageMultiplier => _statusEffects?.OutgoingDamageMultiplier ?? 1f;
+    public ETeam ActorTeam => mobData?.team ?? ETeam.Hostile;
 
     public void PlayOneShot(EAnimation anim)
     {
@@ -1884,17 +1885,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         float incoming = hit.healthDamage;
         // Armor handling. Two-part chip: hit.stun always chips armor (when
-        // any is present), and the healthDamage portion piles on top unless
-        // the hit pierced — pierce skips the healthDamage chip but still
-        // counts as "the hit registered," so we reset the recharge timer
-        // regardless. Overflow doesn't bleed into health on the absorbed
-        // path, matching the legacy fully-absorbed semantics. A hit that
-        // takes armor to zero arms the longer recover window via
-        // ArmorDepleted; everything else uses the regular recharge delay.
+        // any is present), and the healthDamage portion (scaled by
+        // `1 + hit.blunt` for anti-armor weapons) piles on top unless the
+        // hit pierced — pierce skips the healthDamage chip but still counts
+        // as "the hit registered," so we reset the recharge timer regardless.
+        // Overflow doesn't bleed into health on the absorbed path, matching
+        // the legacy fully-absorbed semantics. A hit that takes armor to zero
+        // arms the longer recover window via ArmorDepleted; everything else
+        // uses the regular recharge delay.
         float armorAbsorbed = 0f;
         if (armor > 0f && (incoming > 0f || hit.stun > 0f))
         {
-            float armorDamage = hit.stun + (hit.Pierced ? 0f : incoming);
+            float armorDamage = hit.stun + (hit.Pierced ? 0f : incoming * (1f + hit.blunt));
             float armorBefore = armor;
             armor = Mathf.Max(0f, armor - armorDamage);
             armorAbsorbed = armorBefore - armor;

@@ -75,6 +75,11 @@ public partial class Projectile : Node3D
 	// supports SpawnAreaEffect (drops areaEffectScene where the projectile
 	// landed). See ItemEventHandlers.DispatchAtPosition.
 	private ItemEvent _impactEvent;
+	// Team of the firing actor. With _friendlyFire false, a hurtbox hit that
+	// resolves to a mob on this team is added to _hurtBoxExclude and the
+	// projectile passes through instead of detonating.
+	private ETeam _attackerTeam;
+	private bool _friendlyFire;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -98,7 +103,9 @@ public partial class Projectile : Node3D
 		ProjectileImpact impact,
 		float gravity = 0f,
 		bool noCollide = false,
-		ItemEvent impactEvent = null)
+		ItemEvent impactEvent = null,
+		ETeam attackerTeam = ETeam.Hostile,
+		bool friendlyFire = false)
 	{
 		if (scene == null || parent == null)
 		{
@@ -114,6 +121,8 @@ public partial class Projectile : Node3D
 		inst._gravity = gravity;
 		inst._noCollide = noCollide;
 		inst._impactEvent = impactEvent;
+		inst._attackerTeam = attackerTeam;
+		inst._friendlyFire = friendlyFire;
 		if (excludeHurtBox.HasValue)
 		{
 			inst._hurtBoxExclude = new Godot.Collections.Array<Rid> { excludeHurtBox.Value };
@@ -205,6 +214,22 @@ public partial class Projectile : Node3D
 					var hurtResult = spaceState.IntersectRay(hurtQuery);
 					if (hurtResult.Count > 0 && hurtResult["collider"].Obj is HurtBox hurtBox)
 					{
+						// Friendly-fire skip: same-team hurtbox is added to the
+						// exclude list and the projectile keeps flying. Falls
+						// through to the env-clip / continue branches below.
+						if (!_friendlyFire)
+						{
+							Mob owner = ItemEventHandlers.FindOwningMob(hurtBox);
+							if (owner?.mobData != null && owner.mobData.team == _attackerTeam)
+							{
+								if (_hurtBoxExclude == null)
+								{
+									_hurtBoxExclude = new Godot.Collections.Array<Rid>();
+								}
+								_hurtBoxExclude.Add(hurtBox.GetRid());
+								goto AfterHurtSweep;
+							}
+						}
 						Vector3 hitPos = (Vector3)hurtResult["position"];
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized());
 						EHitResult hitResult = hurtBox.QueryHitType(hit);
@@ -216,6 +241,7 @@ public partial class Projectile : Node3D
 					}
 				}
 
+				AfterHurtSweep:
 				if (envHit.HasValue)
 				{
 					GlobalPosition = envHit.Value;
@@ -276,10 +302,13 @@ public partial class Projectile : Node3D
 	}
 
 	// Branch shared by every despawn path: pick the right impact fx for
-	// the hit type, then run the arrow-recovery logic (stick on a living
-	// mob, otherwise drop loose loot). Environment hits and end-of-range
-	// "miss"es both end up dropping the arrow at the projectile's last
-	// position so a shot into empty space still returns recoverable ammo.
+	// the hit type, then run the arrow-recovery logic. An arrow that
+	// landed on a living mob's health sticks; everything else (armor
+	// bounce, environment clip, end-of-range miss) drops loose loot at
+	// the projectile's last position so a shot into empty space — or one
+	// that glanced off armor — still returns recoverable ammo. Pierce is
+	// already folded in upstream: a pierced hit skips armor and resolves
+	// to EHitResult.Health, so it sticks like any other health hit.
 	private void ResolveImpact(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		PackedScene fx = result switch
@@ -316,7 +345,7 @@ public partial class Projectile : Node3D
 		{
 			return;
 		}
-		Mob targetMob = result != EHitResult.None ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
+		Mob targetMob = result == EHitResult.Health ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
 		if (targetMob != null && targetMob.alive)
 		{
 			targetMob.StickArrow(weapon, arrowLootData, position);

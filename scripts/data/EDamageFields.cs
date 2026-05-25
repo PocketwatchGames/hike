@@ -23,4 +23,5 @@ public enum EDamageFields
 	KnockbackTime = 1 << 4,
 	AddStatusEffects = 1 << 5,
 	Pierce = 1 << 6,
+	Blunt = 1 << 7,
 }

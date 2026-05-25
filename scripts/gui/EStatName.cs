@@ -6,6 +6,7 @@ public enum EStatName
 {
 	Damage,
 	Pierce,
+	Blunt,
 	Stun,
 	Knockback,
 	BloodCost,

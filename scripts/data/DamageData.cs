@@ -21,6 +21,13 @@ public partial class DamageData : Resource
 	// real apply in HurtBox.Hit always agree on whether this swing pierced.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 0f;
 
+	// Multiplier on the healthDamage chip dealt to the receiver's armor pool —
+	// final armor chip is `healthDamage * (1 + blunt)`, clamped to remaining
+	// armor. 0 = baseline (chip == healthDamage); 1 = doubles the chip. Has
+	// no effect on the damage that bleeds through on a pierced hit. Stun's
+	// armor chip is independent of this field.
+	[Export] public float blunt = 0f;
+
 	// Stun build-up added to the receiver's stun meter on hit. The receiver
 	// crosses into the stunned state once the accumulated meter reaches its
 	// threshold — this is the per-hit contribution, not a duration. 0 = no

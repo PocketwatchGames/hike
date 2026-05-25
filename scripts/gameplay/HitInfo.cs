@@ -26,6 +26,9 @@ public struct HitInfo
 	// Chance (0..1) that this hit bypasses the receiver's armor pool and
 	// lands directly on health. See DamageData.pierce.
 	public float pierce;
+	// Anti-armor multiplier on the healthDamage chip — receivers compute
+	// armor chip as `healthDamage * (1 + blunt)`. See DamageData.blunt.
+	public float blunt;
 	// Random sample in [0,1) drawn once at construction. Receivers compare
 	// it against the final `pierce` (after modifiers fold) via `Pierced`
 	// instead of re-rolling, so HurtBox.QueryHitType and HurtBox.Hit always
@@ -70,6 +73,7 @@ public struct HitInfo
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
 			pierce = template.pierce;
+			blunt = template.blunt;
 			statusEffects = template.statusEffects;
 			modifiers = template.modifiers;
 			dot = template.dot;
@@ -82,6 +86,7 @@ public struct HitInfo
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
 			pierce = 0f;
+			blunt = 0f;
 			statusEffects = null;
 			modifiers = null;
 			dot = false;
@@ -112,6 +117,7 @@ public struct HitInfo
 			if ((f & EDamageFields.KnockbackDistance) != 0) { knockbackDistance = mod.knockbackDistance; }
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }
 			if ((f & EDamageFields.Pierce) != 0) { pierce = mod.pierce; }
+			if ((f & EDamageFields.Blunt) != 0) { blunt = mod.blunt; }
 			if ((f & EDamageFields.AddStatusEffects) != 0 && mod.addStatusEffects != null && mod.addStatusEffects.Count > 0)
 			{
 				if (!_statusEffectsOwned)

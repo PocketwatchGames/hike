@@ -69,6 +69,7 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("8_damage")
 healthDamage = 4.0
+blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0
 knockbackTime = 0.2
