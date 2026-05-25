@@ -444,6 +444,15 @@ public static class ItemEventHandlers
 				instance.GlobalPosition = position;
 			}
 		}
+		if ((ev.type & EItemEventType.CameraShake) != 0)
+		{
+			GameCamera cam = GameCamera.Current;
+			if (cam != null)
+			{
+				Vector3 playerPos = GameClient.Current?.Player?.GlobalPosition ?? position;
+				cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, position, ev.cameraShakeRange, playerPos);
+			}
+		}
 	}
 
 	// Spawns ev.areaEffectScene at the player's aim cursor (when valid) or
@@ -526,6 +535,20 @@ public static class ItemEventHandlers
 				});
 			}
 		}
+	}
+
+	// Fires a one-shot camera-shake impulse anchored at the actor's position.
+	// Range > 0 lets the driver apply a distance falloff against the player
+	// (useful for mob-sourced hits — a far-away ogre stomp shakes less than
+	// one in your face). Range == 0 fires at full magnitude regardless of
+	// the actor's location, which is the right default for player-sourced
+	// melee/hitscan because the actor IS the camera target.
+	public static void DoCameraShake(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		GameCamera cam = GameCamera.Current;
+		if (cam == null) { return; }
+		Vector3 playerPos = GameClient.Current?.Player?.GlobalPosition ?? actor.ActorWorldPosition;
+		cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, actor.ActorWorldPosition, ev.cameraShakeRange, playerPos);
 	}
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)

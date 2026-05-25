@@ -25,17 +25,20 @@ public partial class StatusEffectInfoPanel : PanelContainer
 	// Per-frame refresh path. Only the embedded HUD's count + timer change
 	// over time — the stat row is purely authored data, so we skip the
 	// instantiate/free churn and just push the live count/progress.
-	public void RefreshHud(int count, float removalProgress, bool hasTimer)
+	// `buildupProgress` defaults to 0 so the inventory's stats screen
+	// (which doesn't currently track buildup state) compiles unchanged;
+	// callers that have a live meter pass it through to surface the bar.
+	public void RefreshHud(int count, float removalProgress, bool hasTimer, float buildupProgress = 0f)
 	{
 		if (_statusEffectHud != null && Data != null)
 		{
-			_statusEffectHud.Set(Data, count, removalProgress, hasTimer);
+			_statusEffectHud.Set(Data, count, removalProgress, hasTimer, buildupProgress);
 		}
 	}
 
 	// `count` / `removalProgress` / `hasTimer` drive the embedded
 	// StatusEffectHud — see Hud.UpdateStatusEffects for the grouping math.
-	public void SetStatusEffect(StatusEffectData effect, int count, float removalProgress, bool hasTimer)
+	public void SetStatusEffect(StatusEffectData effect, int count, float removalProgress, bool hasTimer, float buildupProgress = 0f)
 	{
 		if (effect == null)
 		{
@@ -49,7 +52,7 @@ public partial class StatusEffectInfoPanel : PanelContainer
 		}
 		if (_statusEffectHud != null)
 		{
-			_statusEffectHud.Set(effect, count, removalProgress, hasTimer);
+			_statusEffectHud.Set(effect, count, removalProgress, hasTimer, buildupProgress);
 		}
 		if (_statContainer == null || _statPanelScene == null)
 		{

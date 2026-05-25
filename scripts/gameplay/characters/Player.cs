@@ -435,6 +435,12 @@ public partial class Player : CharacterBody3D
 	public float Stamina => _stamina;
 	public float MaxStamina => (data?.maxStamina ?? 0f) + (_statusEffects?.MaxStaminaBonus ?? 0f);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
+	// Fill `dst` with a snapshot of the player's per-effect buildup meters
+	// (only entries with amount > 0). Forwards straight through to the
+	// controller — Hud uses this each frame to render the buildup bar
+	// alongside the active-effect strip without allocating.
+	public void FillStatusEffectBuildups(Dictionary<StatusEffectData, float> dst) =>
+		_statusEffects.FillBuildupSnapshot(dst);
 
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public IInteractive CurInteractive => _curInteractive;
@@ -644,15 +650,17 @@ public partial class Player : CharacterBody3D
 		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
 		// skips armor entirely (discrete `Pierced` = full bypass; continuous
 		// `armorBypassFraction` = partial), the rest is "absorbable" and
-		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow doesn't
-		// bleed into health on the absorbed portion — only the pre-resolved
-		// bypass lands. Hit still counts as "the hit registered," so we reset
-		// the recharge timer regardless.
+		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
+		// doesn't bleed into health on the absorbed portion — only the
+		// pre-resolved bypass lands. Recharge timer resets ONLY when the
+		// armor actually took a chip — a pure-pierce hit (continuous burn
+		// with pierce=1, etc.) shouldn't extend the depletion window since
+		// it never touched the armor.
 		float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
 		float armorAbsorbed = 0f;
-		if (_armor > 0f && incomingDamage > 0f)
+		if (_armor > 0f && absorbable > 0f)
 		{
 			float armorDamage = absorbable * (1f + hit.blunt);
 			float armorBefore = _armor;
@@ -1424,11 +1432,13 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative
-	// damages. Bypasses armor — poison-style ticks are designed to chip
-	// regardless of armor in most games, and routing through OnHurtBoxHit
-	// would also fire the runner-interrupt + DamageData path which doesn't
-	// fit a per-second tick.
-	private void ApplyStatusHealthDelta(float delta)
+	// damages. Pierce in [0, 1] controls the armor bypass on the damage
+	// branch — 1 (default for status effects) drops everything straight onto
+	// health, matching the historical "poison ignores armor" feel; less than
+	// 1 routes the absorbable slice through armor and chips the bar. Heals
+	// skip armor entirely. Doesn't run the OnHurtBoxHit hit pipeline —
+	// status ticks don't interrupt actions or pump per-frame impact fx.
+	private void ApplyStatusHealthDelta(float delta, float pierce)
 	{
 		if (delta == 0f || _health <= 0f)
 		{
@@ -1436,14 +1446,44 @@ public partial class Player : CharacterBody3D
 		}
 		bool wasAlive = _health > 0f;
 		float before = _health;
-		// Heal-over-time effects climb to MaxHealth the same way Heal()
-		// does — drain doesn't reduce the effective cap, and any drain
-		// the heal climbs into is forgiven to preserve the
-		// `Health + DrainedHealth <= MaxHealth` invariant.
-		_health = Mathf.Clamp(_health + delta, 0f, MaxHealth);
 		if (delta > 0f)
 		{
+			// Heal-over-time effects climb to MaxHealth the same way Heal()
+			// does — drain doesn't reduce the effective cap, and any drain
+			// the heal climbs into is forgiven to preserve the
+			// `Health + DrainedHealth <= MaxHealth` invariant.
+			_health = Mathf.Clamp(_health + delta, 0f, MaxHealth);
 			_drainedHealth = Mathf.Min(_drainedHealth, Mathf.Max(0f, MaxHealth - _health));
+		}
+		else
+		{
+			// Damage branch: split between armor chip (absorbable) and direct
+			// HP loss (bypassed) per the effect's pierce. Identical math to
+			// the OnHurtBoxHit armor block, scoped down to the fields the
+			// status path mutates.
+			float damage = -delta;
+			float p = Mathf.Clamp(pierce, 0f, 1f);
+			float bypassed = damage * p;
+			float absorbable = damage - bypassed;
+			float armorDamage = absorbable;
+			if (_armor > 0f && armorDamage > 0f)
+			{
+				_armor = Mathf.Max(0f, _armor - armorDamage);
+				ulong now = _world?.GameTimeMs ?? 0;
+				if (_armor <= 0f)
+				{
+					_armorDepleted = true;
+					_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
+					SpawnWorldEffect(_armorDepletedFx);
+				}
+				else
+				{
+					_armorDepleted = false;
+					_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
+				}
+				_armorRecharging = false;
+			}
+			_health = Mathf.Max(0f, _health - bypassed);
 		}
 		// Status-effect ticks already fire at 1Hz from StatusEffectController,
 		// so route directly through onDamage / onHeal — no DoT accumulation

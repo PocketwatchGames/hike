@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="3_shake"]
 [ext_resource type="PackedScene" uid="uid://bk7nf42rqxlpw" path="res://scenes/effects/arrows_raining_loop.tscn" id="4_loop"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_rain_of_arrows_zone"]
@@ -24,3 +25,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
 shape = SubResource("SphereShape3D_rain_of_arrows_zone")
 
 [node name="Loop" parent="." instance=ExtResource("4_loop")]
+
+[node name="Shake" type="Node3D" parent="."]
+script = ExtResource("3_shake")
+magnitude = 0.08
+range = 8.0
+metadata/_custom_type_script = "uid://dkwu7lidv1kxj"

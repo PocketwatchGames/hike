@@ -17,6 +17,16 @@ public partial class StatusEffectData : Resource
 	// average rate rather than fractional damage every physics frame.
 	[Export] public float damagePerSecond;
 
+	// Fraction of each damage tick that bypasses armor and lands directly on
+	// health, mirroring ContinuousDamageData.pierce. 1 (default) is "armor
+	// doesn't soak this" — matches the historical status-DOT behavior where
+	// poison ticks always chipped HP regardless of armor. Author less than 1
+	// to let armor absorb a slice of the burn (e.g. Burning at 0.75 means
+	// 25% of each damagePerSecond chunk chips armor while 75% goes through).
+	// Ignored for heals (positive damagePerSecond * -1 sign means the delta
+	// is a heal — armor never blocks regeneration).
+	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 1f;
+
 	// Default seconds the effect lasts once timed. 0 = situational; the
 	// gameplay system that armed the effect owns the lifetime and either
 	// removes the state directly (e.g. Wet, which lives as long as the

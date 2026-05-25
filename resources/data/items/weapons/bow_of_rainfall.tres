@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dm4tlaswv03qa"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://m4zlddidcllyf" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
@@ -19,10 +19,10 @@
 [ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 [ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="18_5rplm"]
+[ext_resource type="Script" uid="uid://5fyx50nuzpway" path="res://scripts/data/ContinuousDamageData.cs" id="18_5rplm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
-[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
+[ext_resource type="Script" uid="uid://nlh4ffpu2n4bw" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")

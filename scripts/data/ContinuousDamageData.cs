@@ -26,8 +26,12 @@ public partial class ContinuousDamageData : Resource
 
 	// Fraction of per-frame damage that bypasses armor and lands on health.
 	// Differs from DamageData.pierce (chance-based) — continuous damage
-	// spreads the bypass across time instead of rolling per hit.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 0f;
+	// spreads the bypass across time instead of rolling per hit. Default 1
+	// (skip armor entirely) because the typical continuous source is an
+	// environmental DoT (fire, acid, poison gas) that shouldn't be stopped
+	// by a worn armor plate; author less to let an armor type soak some of
+	// the burn.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 1f;
 
 	// Anti-armor multiplier on the absorbed portion of the per-frame chip.
 	// Final armor chip is `absorbable * (1 + blunt)`. Symmetric with

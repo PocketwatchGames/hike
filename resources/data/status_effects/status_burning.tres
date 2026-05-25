@@ -8,6 +8,7 @@
 script = ExtResource("1_data")
 displayName = &"Burning"
 damagePerSecond = 2.0
+pierce = 0.75
 duration = 5.0
 maxStack = 99
 startFx = ExtResource("2_startfx")

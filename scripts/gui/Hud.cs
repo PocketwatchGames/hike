@@ -81,6 +81,12 @@ public partial class Hud : Control
 	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
 	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
 	readonly Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
+	// Per-effect buildup meters in [0, 1+]. Refilled each tick from the
+	// player's controller via FillStatusEffectBuildups. Entries here drive
+	// (a) the buildup progress bar on each strip widget and (b) the
+	// strip-entry visibility when an effect has buildup but no active stack
+	// yet (e.g. partial poison from a gas cloud before the first stack lands).
+	readonly Dictionary<StatusEffectData, float> _statusEffectBuildups = new();
 	readonly List<StatusEffectData> _statusEffectsToRemove = new();
 	// Transient over-the-player notification queue. Each newly-added effect data
 	// pops a single icon that fades+shrinks in over 0.2s (3x → 1x), holds for
@@ -792,17 +798,27 @@ public partial class Hud : Control
 					_statusEffectShortestRemainingMs[s.data] = remaining;
 				}
 			}
+			// Over-head notification only fires on the active-effect edge —
+			// buildups charging below the threshold don't pop the icon, only
+			// the apply does. The diff is against last tick's *active* set
+			// (_seenStatusEffects), so a buildup-only entry in the strip
+			// doesn't poison the baseline.
 			if (_statusEffectsThisTick.Add(s.data) && !_seenStatusEffects.Contains(s.data))
 			{
 				_statusEffectQueue.Enqueue(s.data);
 			}
 		}
 
-		// Drop strip entries whose data no longer appears in the player's list.
+		// Pull per-effect buildup meters; entries are folded into the strip
+		// alongside active effects so an effect that only has buildup (no
+		// stack yet) still gets a HUD slot with its buildup bar visible.
+		_player.FillStatusEffectBuildups(_statusEffectBuildups);
+
+		// Drop strip entries whose data no longer appears in either pool.
 		_statusEffectsToRemove.Clear();
 		foreach (var kv in _statusEffectHuds)
 		{
-			if (!_statusEffectCounts.ContainsKey(kv.Key))
+			if (!_statusEffectCounts.ContainsKey(kv.Key) && !_statusEffectBuildups.ContainsKey(kv.Key))
 			{
 				kv.Value.QueueFree();
 				_statusEffectsToRemove.Add(kv.Key);
@@ -811,6 +827,24 @@ public partial class Hud : Control
 		for (int i = 0; i < _statusEffectsToRemove.Count; i++)
 		{
 			_statusEffectHuds.Remove(_statusEffectsToRemove[i]);
+		}
+
+		// Build the union of "data to display" — active effects + any data
+		// with a nonzero buildup meter. Reuse the counts dict as the union
+		// driver by inserting buildup-only entries with count 0 (count
+		// container is hidden below 2 so a 0-count entry reads as "just an
+		// icon with a buildup bar").
+		foreach (var kv in _statusEffectBuildups)
+		{
+			StatusEffectData data = kv.Key;
+			if (data == null || data.icon == null)
+			{
+				continue;
+			}
+			if (!_statusEffectCounts.ContainsKey(data))
+			{
+				_statusEffectCounts[data] = 0;
+			}
 		}
 
 		// Add / refresh strip entries for everything currently held.
@@ -843,7 +877,8 @@ public partial class Hud : Control
 				progress = customProgress.Value;
 				hasTimer = true;
 			}
-			hud.Set(data, count, progress, hasTimer);
+			_statusEffectBuildups.TryGetValue(data, out float buildup);
+			hud.Set(data, count, progress, hasTimer, buildup);
 		}
 
 		_seenStatusEffects.Clear();

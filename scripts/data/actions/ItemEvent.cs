@@ -111,6 +111,16 @@ public partial class ItemEvent : Resource
 	// it on the actor when concept.Teach returns true (newly added).
 	[Export] public TeachableConcept concept;
 
+	// CameraShake fields. Magnitude is meters of camera offset at zero
+	// distance; duration is the linear-decay window in seconds. Range > 0
+	// applies a linear distance falloff against the player at firing time
+	// (full strength at distance 0, zero past `range`). Range == 0 ignores
+	// distance and fires the raw magnitude — typical for player-sourced
+	// hits where the actor IS the camera target.
+	[Export] public float cameraShakeMagnitude = 0.15f;
+	[Export] public float cameraShakeDuration = 0.15f;
+	[Export] public float cameraShakeRange = 0f;
+
 	// When false (default), Melee / Hitscan / Projectile direct-hit handlers
 	// skip hurtboxes belonging to mobs on the attacker's own team. Authors
 	// flip this on for AoE-style weapons whose damage is intended to spill
@@ -284,6 +294,9 @@ public partial class ItemEvent : Resource
 				or nameof(areaContinuousKey)
 				or nameof(areaIntervals) => EItemEventType.SpawnAreaEffect,
 			nameof(areaRadius) => EItemEventType.SpawnAreaEffect | EItemEventType.ApplyAreaStatusEffect,
+			nameof(cameraShakeMagnitude)
+				or nameof(cameraShakeDuration)
+				or nameof(cameraShakeRange) => EItemEventType.CameraShake,
 			_ => 0,
 		};
 	}

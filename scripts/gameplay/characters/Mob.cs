@@ -1910,15 +1910,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // armor entirely (discrete `Pierced` = full bypass; continuous
         // `armorBypassFraction` = partial), the rest is "absorbable" and
         // piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
-        // doesn't bleed into health on the absorbed portion, matching the
-        // legacy fully-absorbed semantics — only the pre-resolved bypass
-        // lands on health. Hit still counts as "the hit registered," so we
-        // reset the recharge timer even on a fully-pierced swing.
+        // doesn't bleed into health on the absorbed portion — only the
+        // pre-resolved bypass lands. Recharge timer resets ONLY when armor
+        // actually took a chip — a pure-pierce hit (continuous burn at
+        // pierce=1, etc.) shouldn't extend the depletion window since it
+        // never touched the armor.
         float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
         float bypassed = incoming * bypassFraction;
         float absorbable = incoming - bypassed;
         float armorAbsorbed = 0f;
-        if (armor > 0f && incoming > 0f)
+        if (armor > 0f && absorbable > 0f)
         {
             float armorDamage = absorbable * (1f + hit.blunt);
             float armorBefore = armor;
@@ -2032,10 +2033,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
-    // Signed HP delta from a status-effect tick. Bypasses armor (per-second
-    // poison ticks aren't supposed to be soaked) and skips Damage()'s blood /
-    // hurt-VO oneshots — those would spam every tick.
-    private void ApplyStatusHealthDelta(float delta)
+    // Signed HP delta from a status-effect tick. Pierce in [0, 1] controls
+    // the armor split on the damage branch — 1 (the status-effect default)
+    // drops the chunk straight onto health; less than 1 routes the
+    // absorbable slice through armor and chips the bar. Heals skip armor
+    // entirely. Skips Damage()'s blood / hurt-VO oneshots — those would spam
+    // every tick.
+    private void ApplyStatusHealthDelta(float delta, float pierce)
     {
         if (delta == 0f || !alive)
         {
@@ -2048,7 +2052,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         else
         {
-            health = Mathf.Max(0f, health + delta);
+            float damage = -delta;
+            float p = Mathf.Clamp(pierce, 0f, 1f);
+            float bypassed = damage * p;
+            float absorbable = damage - bypassed;
+            if (armor > 0f && absorbable > 0f)
+            {
+                armor = Mathf.Max(0f, armor - absorbable);
+                ulong nowMs = _world?.GameTimeMs ?? 0;
+                if (armor <= 0f)
+                {
+                    _simState.ArmorDepleted = true;
+                    _simState.ArmorRechargeStartMs = nowMs + (ulong)(mobData.armorRecoverTime * 1000f);
+                    SpawnWorldEffect(_armorDepletedFx);
+                }
+                else
+                {
+                    _simState.ArmorDepleted = false;
+                    _simState.ArmorRechargeStartMs = nowMs + (ulong)(mobData.armorRechargeDelay * 1000f);
+                }
+                _simState.ArmorRecharging = false;
+            }
+            health = Mathf.Max(0f, health - bypassed);
             if (health <= 0f)
             {
                 Die();

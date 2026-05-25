@@ -22,13 +22,16 @@ public class StatusEffectController
 
 	readonly Node3D _actor;
 	readonly World _world;
-	readonly Action<float> _applyHealthDelta;
+	// (signed health delta, armor pierce in [0, 1]). Pierce is meaningful only
+	// for the damage path (delta < 0): it splits the chunk between armor chip
+	// and direct HP loss. Heals (delta > 0) ignore pierce.
+	readonly Action<float, float> _applyHealthDelta;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
 
-	public StatusEffectController(Node3D actor, World world, Action<float> applyHealthDelta)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta)
 	{
 		_actor = actor;
 		_world = world;
@@ -162,6 +165,29 @@ public class StatusEffectController
 			return 0f;
 		}
 		return _buildups.TryGetValue(data, out BuildupState s) ? s.amount : 0f;
+	}
+
+	// Snapshot every effect with a non-zero buildup meter into `dst`. Caller
+	// owns the dictionary so we don't allocate per frame; HUD reuses one
+	// across UpdateStatusEffects ticks. Entries with amount == 0 are skipped
+	// (a buildup can be allocated lazily by AddBuildup and then drained back
+	// to zero by decay — keeping the entry in the controller's map is
+	// harmless, but the HUD shouldn't render a zero-fill bar).
+	public void FillBuildupSnapshot(Dictionary<StatusEffectData, float> dst)
+	{
+		if (dst == null)
+		{
+			return;
+		}
+		dst.Clear();
+		foreach (var kv in _buildups)
+		{
+			if (kv.Value == null || kv.Value.amount <= 0f || kv.Key == null)
+			{
+				continue;
+			}
+			dst[kv.Key] = kv.Value.amount;
+		}
 	}
 
 	// Apply every buildup contribution in `hit` to this actor's per-effect
@@ -399,7 +425,7 @@ public class StatusEffectController
 				s.tickAccumulator -= 1f;
 				if (s.data.damagePerSecond != 0f)
 				{
-					_applyHealthDelta(-s.data.damagePerSecond);
+					_applyHealthDelta(-s.data.damagePerSecond, s.data.pierce);
 				}
 			}
 			if (s.IsTimed && now >= s.expireTimeMs)

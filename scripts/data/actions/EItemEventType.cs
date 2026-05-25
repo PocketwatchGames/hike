@@ -66,5 +66,11 @@ public enum EItemEventType
 	// + fx), so this event just selects who and applies the list. ev.fx (if
 	// set) spawns once at the actor as the source-side audiovisual cue.
 	ApplyAreaStatusEffect = 1 << 15,
+	// One-shot camera shake — magnitude + duration decaying linearly to 0.
+	// Optional distance falloff against the player when range > 0; range == 0
+	// fires the full magnitude regardless of where the event lives. Pairs
+	// with the per-frame continuous shake source (ContinuousCameraShake)
+	// attached to environmental hazards.
+	CameraShake = 1 << 16,
 	// Reserved (later): SpawnParticle, StopParticle.
 }

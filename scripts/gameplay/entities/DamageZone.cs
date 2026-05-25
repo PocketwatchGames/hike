@@ -115,8 +115,14 @@ public partial class DamageZone : Area3D
         float dt = (float)delta;
 
         // Continuous pass — one Hit per body per physics frame, with
-        // healthDamage pre-scaled by delta.
-        if (damageContinuous != null && damageContinuous.healthDamage > 0f)
+        // healthDamage pre-scaled by delta. Fires when EITHER healthDamage
+        // or a non-empty buildups list is authored — a pure-buildup cloud
+        // (poison gas: no per-frame chip, just meter accrual toward the
+        // status apply) still needs the per-frame Hit to land its
+        // buildupAmountMultiplier-scaled contributions.
+        if (damageContinuous != null
+            && (damageContinuous.healthDamage > 0f
+                || (damageContinuous.buildups != null && damageContinuous.buildups.Count > 0)))
         {
             for (int i = _hurtBoxes.Count - 1; i >= 0; i--)
             {

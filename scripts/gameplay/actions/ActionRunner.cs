@@ -632,6 +632,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoDecrementStack(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.CameraShake) != 0)
+		{
+			ItemEventHandlers.DoCameraShake(_actor, ev, ref _action);
+		}
 	}
 
 	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds, int comboIndex)

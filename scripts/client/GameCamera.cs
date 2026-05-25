@@ -2,6 +2,11 @@ using Godot;
 
 public partial class GameCamera : Camera3D
 {
+	// `new` intentionally hides Camera3D.Current (an instance bool indicating
+	// the active rendering camera) — we want the singleton-style "Current"
+	// the rest of the codebase uses (World.Current, GameClient.Current, ...).
+	public static new GameCamera Current { get; private set; }
+
 	[Export] public float pitchDegrees = -65;
 	[Export] public float distance = 80;
 	[Export] public float rotationTime = 0.5f;
@@ -56,6 +61,9 @@ public partial class GameCamera : Camera3D
 	public const uint MainSceneLayer = 1u << 0;
 	public const uint CapMaskLayer = 1u << 1;
 
+	private readonly CameraShake _shake = new();
+	public CameraShake Shake => _shake;
+
 	public float Clip => _clip;
 	public float Yaw => _yaw;
 	// True whenever the camera is clipping the world above the player —
@@ -88,6 +96,7 @@ public partial class GameCamera : Camera3D
 
 	public void Init(Node parent)
 	{
+		Current = this;
 		ApplyProjection(CVars.cameraPerspective.Value);
 
 		// Main camera only sees the main scene layer; the cap-mask geometry
@@ -223,6 +232,15 @@ public partial class GameCamera : Camera3D
 
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
 		GlobalPosition = _followPosition + GlobalTransform.Basis.Z * distance;
+
+		// Camera shake offset, applied before the chunky-pixel snap in
+		// GameClient._Process so the shake quantizes onto the snap grid
+		// rather than fighting it.
+		Vector3 shakeOffset = _shake.Tick((float)deltaTime, playerPosition, GlobalBasis);
+		if (shakeOffset != Vector3.Zero)
+		{
+			GlobalPosition += shakeOffset;
+		}
 
 		if (!ManualClipMode)
 		{
