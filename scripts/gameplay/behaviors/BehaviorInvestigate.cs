@@ -41,8 +41,12 @@ public partial class BehaviorInvestigate : BehaviorBase
         // Route through the navigator so the mob A*-paths around obstacles
         // instead of walking into walls between us and the noise. Speed is
         // set explicitly so the navigator's defaults-fallback (1f) doesn't
-        // pull us up to full sprint.
-        me.Navigator.Goto(investigation.position, arrivalDistance: investigation.range, allowFalling: true);
+        // pull us up to full sprint. Use the navigator's default arrival
+        // distance — investigation.range is the behavior's "I've inspected
+        // here" tolerance (checked below with LOS), not the navigator's
+        // stopping distance; passing it through would make the mob halt as
+        // soon as it's within range of the point and never close the gap.
+        me.Navigator.Goto(investigation.position, allowFalling: true);
         output.speed = InvestigateSpeed;
 
         Vector3 diff = investigation.position - me.GlobalPosition;

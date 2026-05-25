@@ -898,7 +898,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // small ledges or being shoved by another mob flickers the fall
             // anim for a frame.
             ulong now = _world?.GameTimeMs ?? 0;
-            bool fallingFast = vel.Y < -FallEnterSpeed;
+            bool fallingFast = vel.Y < -mobData.fallEnterSpeed;
             if (fallingFast)
             {
                 if (_airborneStartMs == 0)
@@ -910,7 +910,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _airborneStartMs = 0;
             }
-            bool fallReady = fallingFast && _airborneStartMs != 0 && now - _airborneStartMs >= FallGraceMs;
+            ulong fallGraceMs = (ulong)(mobData.fallGraceTime * 1000f);
+            bool fallReady = fallingFast && _airborneStartMs != 0 && now - _airborneStartMs >= fallGraceMs;
 
             if (IsInWater())
             {
@@ -984,9 +985,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _animLoopScene = scene;
     }
-
-    const float FallEnterSpeed = 1f;
-    const ulong FallGraceMs = 400;
 
     // Hysteresis on the move-vs-idle pick — see Player.PickMoveLoop. Mob
     // navigators apply impulses every tick, so the body sits near the
@@ -1494,8 +1492,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Vector3 currentRot = Rotation;
                 float yawDelta = Mathf.Wrap(targetYaw.Value - currentRot.Y, -Mathf.Pi, Mathf.Pi);
-                const float MaxTurnSpeed = 6f;
-                float maxStep = MaxTurnSpeed * (float)delta;
+                float maxStep = _simState.MobData.turnSpeed * (float)delta;
                 float step = Mathf.Clamp(yawDelta, -maxStep, maxStep);
                 // Skip the Rotation write when step is exactly zero — the
                 // mob is already at the target yaw and writing the same
@@ -1798,7 +1795,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 }
                 if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
                 {
-                    mob.Investigate(targetPos, 8, 30000, 3000);
+                    MobData receiverData = mob.mobData;
+                    mob.Investigate(
+                        targetPos,
+                        receiverData.yellInvestigateRange,
+                        (ulong)(receiverData.yellInvestigateCancelTime * 1000f),
+                        (ulong)(receiverData.yellInvestigatePauseTime * 1000f));
                 }
             }
         }
@@ -2300,9 +2302,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         var rng = new Random();
-        const float SPEED = 5f;
-        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        float horizontalSpeed = md.lootEjectSpeed * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = md.lootEjectSpeed * Mathf.Sin(Mathf.Pi / 4f);
         for (int i = 0; i < md.loot.Count; i++)
         {
             ItemCount entry = md.loot[i];
@@ -2370,9 +2371,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         var rng = new Random();
-        const float SPEED = 5f;
-        float horizontalSpeed = SPEED * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        float ejectSpeed = mobData.lootEjectSpeed;
+        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
         // Iterate a snapshot — DropAsLoot frees each ArrowStuck, which will
         // null out _sourceWeapon and remove the node from the tree.
         ArrowStuck[] snapshot = _stuckArrows.ToArray();

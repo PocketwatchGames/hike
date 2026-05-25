@@ -167,7 +167,29 @@ public partial class MobData : Resource
     [Export] public float armorRechargeSpeed = 1f;
     [Export] public float armorRecoverTime = 30f;
     [Export] public float yellVolume = 15;
+    // How this mob responds when it hears another mob's yell. yellVolume
+    // is yeller-side (who hears me); these three are receiver-side (how
+    // do I investigate what I heard). Range is the Euclidean tolerance
+    // around the yelled-about point at which the receiver considers itself
+    // "arrived and inspecting"; cancelTime caps how long it pursues the
+    // rumour before giving up; pauseTime is how long it lingers at the
+    // point once it arrives. Authored receiver-side so a skittish prey
+    // mob can investigate cautiously while a guard dog charges in.
+    [Export] public float yellInvestigateRange = 8f;
+    [Export] public float yellInvestigateCancelTime = 30f;
+    [Export] public float yellInvestigatePauseTime = 3f;
     [Export] public float maxSpeed = 4f;
+    // Maximum yaw rate (radians/sec) the body can rotate per physics tick.
+    // Drives the yaw lerp in Mob._PhysicsProcess — agile creatures snap to
+    // their facing target, lumbering mobs commit to a heading.
+    [Export] public float turnSpeed = 6f;
+    // Sustained-fall thresholds for the fall loop animation. Vertical speed
+    // below -fallEnterSpeed counts as "falling fast"; the fall anim only
+    // engages after the body has been falling fast for fallGraceTime
+    // seconds, so short hops over ledges or shoves from neighbours don't
+    // flicker into it.
+    [Export] public float fallEnterSpeed = 1f;
+    [Export] public float fallGraceTime = 0.4f;
     // Continuous movement noise this mob emits. Mapped from current speed:
     // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
     // Listeners (player + other mobs) check `decibels * hearingRange >
@@ -198,6 +220,12 @@ public partial class MobData : Resource
     // position with the same upward-arc impulse pattern chests use. Empty
     // (or null entries) on a mob means no drops.
     [Export] public Array<ItemCount> loot = new();
+
+    // Outward arc speed (m/s) applied to each piece of ejected loot when
+    // the mob dies — both authored drops in EjectLoot and any stuck arrows
+    // scattered with the corpse. Launched on a 45° upward arc; larger
+    // values scatter wider.
+    [Export] public float lootEjectSpeed = 5f;
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk
