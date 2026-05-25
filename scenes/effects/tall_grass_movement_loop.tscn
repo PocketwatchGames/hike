@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://btallgrloop001"]
+[gd_scene format=3 uid="uid://c1bar1nfc3m53"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/movement/un_shr_move_bushrustle_01.wav" id="2_br01"]

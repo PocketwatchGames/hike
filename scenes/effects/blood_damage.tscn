@@ -1,4 +1,4 @@
-[gd_scene format=3 uid="uid://bblooddmg00001"]
+[gd_scene format=3 uid="uid://s0t1uc6w6465"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/impact/un_gen_imp_gun_01.wav" id="2_imp01"]

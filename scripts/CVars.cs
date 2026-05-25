@@ -1027,4 +1027,82 @@ public static class CVars
         }
     });
 
+    // Subscene authoring commands. All require an active WorldEditor — they
+    // no-op (with an error log) outside editor mode. The editor maintains
+    // the corner selection; these CVars are just the console surface.
+    //
+    // Workflow:
+    //   1. Move the editor cursor (WASD + EditorUp/Down) to corner A; run
+    //      `subscene_corner` to capture it.
+    //   2. Move to corner B; run `subscene_corner` again.
+    //   3. Run `subscene_save user://cottage.hikescene` (or the _env
+    //      variant for castles/dungeons that need to override Wind/EnvTag).
+    //   4. To stamp into the same world: move the cursor, run
+    //      `subscene_stamp <path>`. The cursor position is the placement
+    //      anchor — the subscene's bbox-min lands there (anchor defaults
+    //      to (0,0,0) at save time).
+    public static CVar subsceneCorner = new CVar("subscene_corner", (cvar) =>
+    {
+        if (WorldEditor.Current == null)
+        {
+            Godot.GD.PrintErr("subscene_corner: no active editor.");
+            return;
+        }
+        WorldEditor.Current.MarkSubsceneCorner();
+    });
+
+    public static CVar subsceneCornerClear = new CVar("subscene_corner_clear", (cvar) =>
+    {
+        if (WorldEditor.Current == null)
+        {
+            Godot.GD.PrintErr("subscene_corner_clear: no active editor.");
+            return;
+        }
+        WorldEditor.Current.ClearSubsceneCorners();
+    });
+
+    public static CVarString subsceneSave = new CVarString("subscene_save", "", (cvar) =>
+    {
+        string path = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        if (WorldEditor.Current == null)
+        {
+            Godot.GD.PrintErr("subscene_save: no active editor.");
+            return;
+        }
+        WorldEditor.Current.SaveSubscene(path, includeEnv: false);
+    });
+
+    public static CVarString subsceneSaveEnv = new CVarString("subscene_save_env", "", (cvar) =>
+    {
+        string path = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        if (WorldEditor.Current == null)
+        {
+            Godot.GD.PrintErr("subscene_save_env: no active editor.");
+            return;
+        }
+        WorldEditor.Current.SaveSubscene(path, includeEnv: true);
+    });
+
+    public static CVarString subsceneStamp = new CVarString("subscene_stamp", "", (cvar) =>
+    {
+        string path = ((CVarString)cvar).Value;
+        if (string.IsNullOrEmpty(path))
+        {
+            return;
+        }
+        if (WorldEditor.Current == null)
+        {
+            Godot.GD.PrintErr("subscene_stamp: no active editor.");
+            return;
+        }
+        WorldEditor.Current.StampSubscene(path);
+    });
 }

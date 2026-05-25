@@ -106,4 +106,11 @@ public partial class WorldGenData : Resource
     [Export] public ConversationData NearSpawnVillagerConversation;
     [Export] public Godot.Collections.Array<LoyaltyGift> NearSpawnVillagerLoyaltyGifts = new();
     [Export] public MobInventoryData[] NearSpawnVillagerInventory = [];
+
+    // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
+    // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
+    // and stamps them after terrain/cave/road generation but before the
+    // sunlight bake. Y is picked from average surface elevation over the
+    // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
+    [Export] public SubscenePlacement[] Subscenes = System.Array.Empty<SubscenePlacement>();
 }

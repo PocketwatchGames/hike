@@ -704,6 +704,14 @@ public static class WorldGen
             GenerateSignposts(ws, genData, heightMap, worldSeed);
         }
 
+        // Stamp authored subscenes (voxels + entities). Loads each
+        // `.hikescene` referenced from genData.Subscenes, computes a
+        // surface-following Y anchor over its footprint, and writes
+        // voxels into the world. Must run BEFORE ComputeSunlight so the
+        // bake sees the final geometry. Env overrides land in a second
+        // pass after the wind/envtag default bake (below).
+        var stampedSubscenes = StampAuthoredSubscenes(ws, genData);
+
         // Compute sunlight after all geometry exists.
         LightEngine.ComputeSunlight(ws);
 
@@ -732,6 +740,10 @@ public static class WorldGen
         // audio) can verify that authored gust regions read correctly
         // without needing the editor.
         GenerateTestStrongWind(ws);
+
+        // Apply subscene env overrides AFTER the default bake so authored
+        // dungeon/castle ambience wins over the inferred Outdoor/Cave tag.
+        ApplySubsceneEnvOverrides(ws, stampedSubscenes);
 
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
@@ -821,6 +833,44 @@ public static class WorldGen
                     }
                 }
             }
+        }
+    }
+
+    private static List<(SubsceneState sub, Vector3 anchor)> StampAuthoredSubscenes(WorldState ws, WorldGenData genData)
+    {
+        var stamped = new List<(SubsceneState, Vector3)>();
+        if (genData.Subscenes == null || genData.Subscenes.Length == 0)
+        {
+            return stamped;
+        }
+        foreach (SubscenePlacement placement in genData.Subscenes)
+        {
+            if (placement == null || string.IsNullOrEmpty(placement.Path))
+            {
+                continue;
+            }
+            SubsceneState sub;
+            try
+            {
+                sub = SubsceneFile.Read(placement.Path);
+            }
+            catch (Exception e)
+            {
+                GD.PrintErr($"WorldGen: subscene '{placement.Path}' failed to load: {e.Message}");
+                continue;
+            }
+            Vector3 anchor = SubsceneStamper.ComputeSurfaceAnchor(ws, sub, placement.AnchorXZ);
+            SubsceneStamper.StampVoxels(ws, sub, anchor);
+            stamped.Add((sub, anchor));
+        }
+        return stamped;
+    }
+
+    private static void ApplySubsceneEnvOverrides(WorldState ws, List<(SubsceneState sub, Vector3 anchor)> stamped)
+    {
+        foreach ((SubsceneState sub, Vector3 anchor) in stamped)
+        {
+            SubsceneStamper.StampEnvOverrides(ws, sub, anchor);
         }
     }
 

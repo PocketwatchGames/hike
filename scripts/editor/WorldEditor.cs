@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 [GlobalClass]
 public partial class WorldEditor : Node3D
@@ -8,6 +9,12 @@ public partial class WorldEditor : Node3D
     [Export] public GameCamera camera;
     [Export] public EditorHud editorHud;
     [Export] public WorldGenData worldGenData;
+
+    // Live editor instance, exposed for console-driven subscene commands
+    // (subscene_corner / subscene_save / subscene_stamp). Mirrors the
+    // World.Current pattern used by world_export and friends. Cleared in
+    // _ExitTree so a CVar fired after the editor closes no-ops gracefully.
+    public static WorldEditor Current;
 
     public Action onQuitToMenu;
 
@@ -40,8 +47,16 @@ public partial class WorldEditor : Node3D
     private readonly HashSet<Vector3I> _lastPaintedBlocks = new HashSet<Vector3I>();
     private int _debugFrameCount = 0;
 
+    // Two-corner bbox selection for subscene save. Each is the floored
+    // voxel coordinate of the editor cursor at the time the corner was
+    // marked. Null until set; both required before save. Marking a third
+    // corner overwrites A and clears B.
+    private Vector3I? _subsceneCornerA;
+    private Vector3I? _subsceneCornerB;
+
     public void Init(WorldState worldState)
     {
+        Current = this;
         _worldState = worldState;
         _cursorPosition = worldState.Spawn;
         _clipY = _cursorPosition.Y + CLIP_START_OFFSET;
@@ -713,6 +728,303 @@ public partial class WorldEditor : Node3D
         {
             GD.PrintErr($"Save failed: {e.Message}");
         }
+    }
+
+    public override void _ExitTree()
+    {
+        if (Current == this)
+        {
+            Current = null;
+        }
+    }
+
+    // Mark the editor cursor's current voxel as the next subscene corner.
+    // Toggle order: empty → A; A → B; A+B → reset and start over with A.
+    public void MarkSubsceneCorner()
+    {
+        var voxel = new Vector3I(
+            Mathf.FloorToInt(_cursorPosition.X),
+            Mathf.FloorToInt(_cursorPosition.Y),
+            Mathf.FloorToInt(_cursorPosition.Z));
+        if (_subsceneCornerA == null)
+        {
+            _subsceneCornerA = voxel;
+            GD.Print($"subscene_corner: A = {voxel}");
+        }
+        else if (_subsceneCornerB == null)
+        {
+            _subsceneCornerB = voxel;
+            Vector3I min = ComponentMin(_subsceneCornerA.Value, voxel);
+            Vector3I max = ComponentMax(_subsceneCornerA.Value, voxel);
+            Vector3I size = max - min + new Vector3I(1, 1, 1);
+            GD.Print($"subscene_corner: B = {voxel}; bbox min={min} max={max} size={size}");
+        }
+        else
+        {
+            _subsceneCornerA = voxel;
+            _subsceneCornerB = null;
+            GD.Print($"subscene_corner: reset, A = {voxel}");
+        }
+    }
+
+    public void ClearSubsceneCorners()
+    {
+        _subsceneCornerA = null;
+        _subsceneCornerB = null;
+        GD.Print("subscene_corner: cleared");
+    }
+
+    // Save the bounded selection as a subscene file. All voxels inside the
+    // bbox are marked present (= they will overwrite destination voxels on
+    // stamp) — keep the selection tight if you don't want to nuke
+    // surrounding terrain. Entities whose WorldPosition falls inside the
+    // bbox are deep-cloned (via the EntitySerializer round-trip) and added
+    // with subscene-local coordinates. Anchor defaults to (0,0,0) — bbox
+    // min corner.
+    //
+    // includeEnv=true also bakes Wind/EnvTag overrides from the source
+    // chunks' subgrids — use this for castles/dungeons that need to
+    // override the destination's default-baked ambience.
+    public void SaveSubscene(string path, bool includeEnv)
+    {
+        if (_subsceneCornerA == null || _subsceneCornerB == null)
+        {
+            GD.PrintErr("subscene_save: need two corners (subscene_corner twice).");
+            return;
+        }
+
+        Vector3I min = ComponentMin(_subsceneCornerA.Value, _subsceneCornerB.Value);
+        Vector3I max = ComponentMax(_subsceneCornerA.Value, _subsceneCornerB.Value);
+        Vector3I size = max - min + new Vector3I(1, 1, 1);
+
+        var sub = new SubsceneState(size);
+        for (int dx = 0; dx < size.X; dx++)
+        {
+            for (int dy = 0; dy < size.Y; dy++)
+            {
+                for (int dz = 0; dz < size.Z; dz++)
+                {
+                    int wx = min.X + dx;
+                    int wy = min.Y + dy;
+                    int wz = min.Z + dz;
+                    sub.Voxels[dx, dy, dz] = _worldState.GetVoxelWorld(wx, wy, wz);
+                    sub.Shape[dx, dy, dz] = (byte)_worldState.GetShapeWorld(wx, wy, wz);
+                    sub.TerrainId[dx, dy, dz] = (byte)_worldState.GetTerrainIdWorld(wx, wy, wz);
+                    sub.OverlayId[dx, dy, dz] = (byte)_worldState.GetOverlayIdWorld(wx, wy, wz);
+                    sub.DetailGroup[dx, dy, dz] = (byte)_worldState.GetDetailGroupWorld(wx, wy, wz);
+                    sub.DetailStrength[dx, dy, dz] = (byte)_worldState.GetDetailStrengthWorld(wx, wy, wz);
+                    sub.PresenceMask[dx, dy, dz] = true;
+                }
+            }
+        }
+
+        if (includeEnv)
+        {
+            sub.EnsureWindFactor();
+            sub.EnsureEnvTag();
+            BakeEnvFromWorld(sub, min);
+        }
+
+        sub.Entities = CollectEntitiesInBox(min, max, size);
+        sub.Anchor = Vector3.Zero;
+
+        try
+        {
+            SubsceneFile.Write(path, sub);
+            GD.Print($"subscene_save: wrote {path} (size={size}, env={(includeEnv ? "yes" : "no")}, entities={sub.Entities.Count})");
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"subscene_save failed: {e.Message}");
+        }
+    }
+
+    // Stamp a subscene file at the editor cursor and rebuild meshes /
+    // entity loading for affected chunks so the result is visible
+    // immediately. Runtime stamping — runs StampAll, which writes both
+    // voxels and (if authored) env overrides since the default bakes
+    // ran at world creation and won't clobber anything now.
+    public void StampSubscene(string path)
+    {
+        SubsceneState sub;
+        try
+        {
+            sub = SubsceneFile.Read(path);
+        }
+        catch (Exception e)
+        {
+            GD.PrintErr($"subscene_stamp: read failed: {e.Message}");
+            return;
+        }
+
+        Vector3 anchor = _cursorPosition;
+        Vector3I worldOriginI = new Vector3I(
+            Mathf.FloorToInt(anchor.X - sub.Anchor.X),
+            Mathf.FloorToInt(anchor.Y - sub.Anchor.Y),
+            Mathf.FloorToInt(anchor.Z - sub.Anchor.Z));
+        Vector3I size = sub.Size;
+
+        // Build the changed list so UpdateLighting / RebuildNearbyChunkMeshes
+        // know which voxels to recompute around. Cheaper than enumerating
+        // every voxel: list the cells we will write (presence mask).
+        var changed = new List<Vector3I>(size.X * size.Y * size.Z);
+        for (int dx = 0; dx < size.X; dx++)
+        {
+            for (int dy = 0; dy < size.Y; dy++)
+            {
+                for (int dz = 0; dz < size.Z; dz++)
+                {
+                    if (sub.PresenceMask[dx, dy, dz])
+                    {
+                        changed.Add(new Vector3I(worldOriginI.X + dx, worldOriginI.Y + dy, worldOriginI.Z + dz));
+                    }
+                }
+            }
+        }
+
+        // Track the chunks that gained entities so we can refresh their
+        // active entity nodes after stamping.
+        var entityChunks = new HashSet<Vector3I>();
+        if (sub.Entities != null)
+        {
+            foreach (EntitySimState e in sub.Entities)
+            {
+                Vector3 worldPos = e.WorldPosition + new Vector3(
+                    anchor.X - sub.Anchor.X,
+                    anchor.Y - sub.Anchor.Y,
+                    anchor.Z - sub.Anchor.Z);
+                entityChunks.Add(World.WorldToChunkCoord(worldPos));
+            }
+        }
+
+        SubsceneStamper.StampAll(_worldState, sub, anchor);
+
+        if (changed.Count > 0)
+        {
+            _world.UpdateLighting(changed);
+            _world.RebuildNearbyChunkMeshes(anchor, changed);
+        }
+        foreach (Vector3I cc in entityChunks)
+        {
+            _world.UnloadChunkEntities(cc);
+            _world.LoadChunkEntities(cc);
+        }
+        GD.Print($"subscene_stamp: stamped {Path.GetFileName(path)} at {anchor} (voxels={changed.Count}, entityChunks={entityChunks.Count})");
+    }
+
+    private static Vector3I ComponentMin(Vector3I a, Vector3I b)
+    {
+        return new Vector3I(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Min(a.Z, b.Z));
+    }
+
+    private static Vector3I ComponentMax(Vector3I a, Vector3I b)
+    {
+        return new Vector3I(Math.Max(a.X, b.X), Math.Max(a.Y, b.Y), Math.Max(a.Z, b.Z));
+    }
+
+    private void BakeEnvFromWorld(SubsceneState sub, Vector3I worldOrigin)
+    {
+        const int S = ChunkState.ENV_VOXELS_PER_CELL;
+        Vector3I envSize = sub.EnvSize;
+        for (int lcx = 0; lcx < envSize.X; lcx++)
+        {
+            for (int lcy = 0; lcy < envSize.Y; lcy++)
+            {
+                for (int lcz = 0; lcz < envSize.Z; lcz++)
+                {
+                    // Subscene env-cell center → world voxel center → world env-cell.
+                    int vcx = worldOrigin.X + lcx * S + S / 2;
+                    int vcy = worldOrigin.Y + lcy * S + S / 2;
+                    int vcz = worldOrigin.Z + lcz * S + S / 2;
+                    int cwx = (int)Math.Floor((double)vcx / S);
+                    int cwy = (int)Math.Floor((double)vcy / S);
+                    int cwz = (int)Math.Floor((double)vcz / S);
+                    int chunkX = (int)Math.Floor((double)cwx / ChunkState.ENV_SUBGRID_SIZE);
+                    int chunkY = (int)Math.Floor((double)cwy / ChunkState.ENV_SUBGRID_SIZE);
+                    int chunkZ = (int)Math.Floor((double)cwz / ChunkState.ENV_SUBGRID_SIZE);
+                    ChunkState chunk = _worldState.GetChunk(new Vector3I(chunkX, chunkY, chunkZ));
+                    if (chunk == null)
+                    {
+                        continue;
+                    }
+                    int sx = ((cwx % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
+                    int sy = ((cwy % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
+                    int sz = ((cwz % ChunkState.ENV_SUBGRID_SIZE) + ChunkState.ENV_SUBGRID_SIZE) % ChunkState.ENV_SUBGRID_SIZE;
+                    sub.WindFactor[lcx, lcy, lcz] = chunk.WindFactor[sx, sy, sz];
+                    sub.EnvTag[lcx, lcy, lcz] = chunk.EnvTag[sx, sy, sz];
+                }
+            }
+        }
+    }
+
+    // Walk every chunk overlapping the bbox, collect EntitySimStates inside
+    // it, and return deep-cloned copies with subscene-local positions. The
+    // serializer round-trip is the cheapest deep-clone path that keeps every
+    // entity field aligned with the EntitySerializer's wire format — adding
+    // fields to an entity automatically propagates through here.
+    private List<EntitySimState> CollectEntitiesInBox(Vector3I min, Vector3I max, Vector3I size)
+    {
+        var inside = new List<EntitySimState>();
+        Vector3I cMin = new Vector3I(
+            (int)Math.Floor((double)min.X / ChunkState.SIZE),
+            (int)Math.Floor((double)min.Y / ChunkState.SIZE),
+            (int)Math.Floor((double)min.Z / ChunkState.SIZE));
+        Vector3I cMax = new Vector3I(
+            (int)Math.Floor((double)max.X / ChunkState.SIZE),
+            (int)Math.Floor((double)max.Y / ChunkState.SIZE),
+            (int)Math.Floor((double)max.Z / ChunkState.SIZE));
+        for (int cx = cMin.X; cx <= cMax.X; cx++)
+        {
+            for (int cy = cMin.Y; cy <= cMax.Y; cy++)
+            {
+                for (int cz = cMin.Z; cz <= cMax.Z; cz++)
+                {
+                    List<EntitySimState> chunkEntities = _worldState.GetEntities(new Vector3I(cx, cy, cz));
+                    if (chunkEntities == null)
+                    {
+                        continue;
+                    }
+                    foreach (EntitySimState e in chunkEntities)
+                    {
+                        Vector3 p = e.WorldPosition;
+                        if (p.X >= min.X && p.X < min.X + size.X
+                            && p.Y >= min.Y && p.Y < min.Y + size.Y
+                            && p.Z >= min.Z && p.Z < min.Z + size.Z)
+                        {
+                            inside.Add(e);
+                        }
+                    }
+                }
+            }
+        }
+
+        if (inside.Count == 0)
+        {
+            return new List<EntitySimState>();
+        }
+
+        // Deep-clone via serializer round-trip, then translate into
+        // subscene-local space. This avoids mutating editor-owned
+        // entities and keeps clone semantics aligned with disk format.
+        using var ms = new MemoryStream();
+        using (var bw = new BinaryWriter(ms, System.Text.Encoding.UTF8, leaveOpen: true))
+        {
+            EntitySerializer.WriteList(bw, inside);
+        }
+        ms.Position = 0;
+        using var br = new BinaryReader(ms, System.Text.Encoding.UTF8, leaveOpen: false);
+        List<EntitySimState> clones = EntitySerializer.ReadList(br);
+
+        Vector3 offset = new Vector3(-min.X, -min.Y, -min.Z);
+        foreach (EntitySimState clone in clones)
+        {
+            clone.WorldPosition += offset;
+            if (clone is MobSimState mob)
+            {
+                mob.SpawnPosition += offset;
+            }
+        }
+        return clones;
     }
 
     public static WorldState CreateEmptyWorld(WorldGenData genData)

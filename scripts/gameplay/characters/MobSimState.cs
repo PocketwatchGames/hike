@@ -28,8 +28,11 @@ public class MobSimState : EntitySimState
     // been pulled away (combat, wander) and to restore its original facing.
     // Captured at construction from the initial WorldPosition/RotationY, so it
     // reflects where the mob first appeared rather than where it is currently.
-    public readonly Vector3 SpawnPosition;
-    public readonly float SpawnRotationY;
+    // Subscene stamping translates SpawnPosition by the placement offset so a
+    // mob authored at subscene-local (5, 1, 3) gets its spawn anchor moved
+    // to the destination world coordinate, not left at the local one.
+    public Vector3 SpawnPosition;
+    public float SpawnRotationY;
     // Optional per-mob override for the behavior the mob starts in (and returns to
     // when a behavior returns Complete). Null means use the brain's idleBehavior.
     public StringName InitialBehavior;
