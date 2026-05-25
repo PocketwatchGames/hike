@@ -47,6 +47,12 @@ public partial class LightningStrike : Node3D
     private float _phaseTimer;
     private EPhase _phase;
     private Fx _warningFx;
+    // Low-intensity rumble registered with GameCamera.Shake during the
+    // warning window. Parented to `this` so the source's GlobalPosition
+    // tracks the wandering strike automatically — distance falloff
+    // against the player updates each frame in the shake driver.
+    // Freed on FireStrike so the rumble doesn't bleed past the crack.
+    private ContinuousCameraShake _warmupShake;
     private FastNoiseLite _wanderNoise;
     private float _wanderTime;
     // Per-instance scratch list reused each wander tick so target
@@ -109,6 +115,15 @@ public partial class LightningStrike : Node3D
         {
             _warningFx = Fx.Create(_data.warningFx, this, Vector3.Zero);
         }
+        if (_data.warmupShakeMagnitude > 0f && _data.cameraShakeFalloffMeters > 0f)
+        {
+            _warmupShake = new ContinuousCameraShake
+            {
+                magnitude = _data.warmupShakeMagnitude,
+                range = _data.cameraShakeFalloffMeters,
+            };
+            AddChild(_warmupShake);
+        }
 
         // Per-strike noise seed so two strikes that spawn on the
         // same frame wander in different directions instead of
@@ -168,6 +183,37 @@ public partial class LightningStrike : Node3D
         if (_warningFx != null && GodotObject.IsInstanceValid(_warningFx))
         {
             _warningFx.Stop();
+        }
+
+        // End the warmup rumble before the impulse kicks in — _ExitTree
+        // on the shake source unregisters it from the driver so the
+        // strike's big impulse stands alone instead of stacking on
+        // residual rumble.
+        if (_warmupShake != null && GodotObject.IsInstanceValid(_warmupShake))
+        {
+            _warmupShake.QueueFree();
+            _warmupShake = null;
+        }
+
+        // Large camera impulse at the strike point. Linear distance
+        // falloff against the player matches the warmup rumble's
+        // range, so a strike that rumbled feebly far away also kicks
+        // feebly when it cracks.
+        if (_data.strikeShakeMagnitude > 0f
+            && _data.strikeShakeDuration > 0f
+            && _data.cameraShakeFalloffMeters > 0f)
+        {
+            GameCamera cam = GameCamera.Current;
+            Player player = _world?.player;
+            if (cam != null && player != null)
+            {
+                cam.Shake.AddImpulse(
+                    _data.strikeShakeMagnitude,
+                    _data.strikeShakeDuration,
+                    GlobalPosition,
+                    _data.cameraShakeFalloffMeters,
+                    player.GlobalPosition);
+            }
         }
 
         // World lights brighten via the shared flasher — same path

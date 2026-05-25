@@ -11,6 +11,13 @@ public partial class Fx : Node3D
 	// Stop() is called and the trailing audio + particles wind down.
 	[Export] private bool _loop;
 
+	// Fires the instant Stop() is called — BEFORE the trailing-particle
+	// wind-down keeps the node alive. Used by sibling-effect nodes whose
+	// "active" semantic should match the loop's owner (e.g. ContinuousCameraShake
+	// stops rumbling immediately when the trap finishes, not when the last
+	// smoke puff fades 2 seconds later).
+	public event System.Action OnStopping;
+
 	readonly List<GpuParticles3D> _particles = new();
 	readonly List<AudioStreamPlayer3D> _audio = new();
 	bool _stopping;
@@ -191,6 +198,7 @@ public partial class Fx : Node3D
 		{
 			a.Stop();
 		}
+		OnStopping?.Invoke();
 	}
 
 	public override void _Process(double delta)

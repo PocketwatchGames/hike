@@ -704,6 +704,10 @@ public partial class Player : CharacterBody3D
 		{
 			SpawnWorldEffect(_bloodDamageFx);
 			SpawnWorldEffect(_hurtVoFx);
+			// Slight camera shake on actual health damage. Shares the !hit.dot
+			// gate with blood/VO so a continuous burn zone doesn't sustain
+			// shake every frame; range=0 since the player IS the camera target.
+			GameCamera.Current?.Shake?.AddImpulse(0.12f, 0.15f, GlobalPosition, 0f, GlobalPosition);
 		}
 
 		// Floating-number HUD feedback. Armor chip and pierced health damage
@@ -720,7 +724,9 @@ public partial class Player : CharacterBody3D
 			}
 			else
 			{
-				GameClient.Current?.onDamage?.Invoke(GlobalPosition, totalShown, EHudTextType.DamageLight);
+				GameClient client = GameClient.Current;
+				client?.onDamage?.Invoke(GlobalPosition, totalShown, EHudTextType.DamageLight);
+				client?.FlashDamage(totalShown);
 			}
 		}
 
@@ -2135,8 +2141,11 @@ public partial class Player : CharacterBody3D
 		if (dotFlush.damage)
 		{
 			// Continuous damage authors no per-frame fx; its "ouch" rides on
-			// the once-per-second HUD rollup instead.
+			// the once-per-second HUD rollup instead. Same pacing for the
+			// red damage-flash so a slow burn doesn't desaturate the screen
+			// permanently — one pulse per HUD-rolled second.
 			SpawnWorldEffect(_hurtVoFx);
+			GameClient.Current?.FlashDamage(dotFlush.damageAmount);
 		}
 		_scent?.Tick(dt);
 

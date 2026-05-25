@@ -88,6 +88,29 @@ public partial class GameClient : Node3D
 	// a Y-aligned billboard outline that misses the flat geometry by 90°.
 	[Export] public ShaderMaterial outlineFlatMaterial;
 	[Export] public ShaderMaterial postProcessMaterial;
+
+	[ExportGroup("Damage Feedback")]
+	// Red-flash intensity = (damage / maxHealth) * scale, clamped to 1.
+	// A scale of 2 means a 50% chunk drives the flash to its max; tune up
+	// to make smaller chips more visible.
+	[Export(PropertyHint.Range, "0.1,8,0.1")] public float damageFlashScale = 2f;
+	// Seconds for the flash to decay from 1 → 0. Decay is linear; tune by
+	// feel against the typical hit cadence.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float damageFlashFadeSeconds = 0.4f;
+	// Optional vignette mask. When null the shader's hint_default_white
+	// drives a uniform red overlay — assign a soft-edged radial PNG to
+	// make damage "bleed in from the screen edges".
+	[Export] public Texture2D damageFlashTexture;
+	[Export] public Color damageFlashColor = new Color(1f, 0.05f, 0.05f, 1f);
+	// Health fraction below which the low-health overlay starts to ramp.
+	// 0.333 = enters at 1/3 health; at 0 health the overlay is full
+	// strength against the per-component max below.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthThreshold = 1f / 3f;
+	// Maximum desaturation and dim at 0 health. The ramp from
+	// lowHealthThreshold → 0 health interpolates these toward 0 → max.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthMaxDesaturation = 0.85f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthMaxDim = 0.35f;
+	[ExportGroup("")]
 	// Aim-cursor saturation radius (pixels). Larger = more mouse travel
 	// before the virtual cursor reaches the edge of its disk, so the aim
 	// direction takes longer to swing. Direction-only after this — atan2
@@ -370,6 +393,13 @@ public partial class GameClient : Node3D
 	InteractHUD _interactHUD;
 	Vector2 _subpixelTexelOffset;
 
+	// Per-frame entity-spawn budget for the loading-screen-opaque window.
+	// World defaults to 8/frame for hitch-free in-game streaming; 64 burns
+	// through the inner sphere in a fraction of a second since the player
+	// can't see the frame hitches behind the overlay. Reset to the default
+	// before the fade so post-fade pop-in stays smooth.
+	const int LOADING_ENTITY_SPAWN_BURST = 64;
+
 	const float FLYCAM_SPEED = 20f;
 	const float FLYCAM_BOOST = 5f;
 	const float FLYCAM_LOOK_SENSITIVITY = 0.005f;
@@ -430,7 +460,7 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState)
+	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState, LoadingScreen loadingScreen = null)
 	{
 		_spawnPosition = playerPosition;
 		onHudText += OnHudTextRequested;
@@ -439,12 +469,22 @@ public partial class GameClient : Node3D
 		onConversation += OnConversationRequested;
 		onInit?.Invoke();
 
+		// The loading screen owned by Main is up and currently sitting on
+		// the chunk-fill phase (~60%). We keep gameplay input suppressed
+		// for the rest of the load and hand it back when the screen fades.
+		InputSuppressed = true;
+
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
 		sceneViewport.AddChild(_world);
+		// World.Initialize is the chunk-mesh sphere fill — fully synchronous
+		// today (~900 chunks). The bar can't tick during this; it stays
+		// frozen at 0.6 → 0.75 across the single hitch. Threading the
+		// chunk fill (see voxels/CLAUDE.md) would make this smooth.
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
+		loadingScreen?.SetProgress(0.75f, "Spawning...");
 
 		// Bridge sim-side discovery events to the announcement bus. The
 		// underlying SimState lives across save/load and will outlive any
@@ -486,12 +526,58 @@ public partial class GameClient : Node3D
 			SuppressAnnouncements = false;
 		}
 
+		// Burst the per-frame spawn budget while the loading overlay is
+		// opaque — the player can't see frame hitches, so we trade smooth
+		// frames for fewer of them. Reset to the in-game default right
+		// before HideWithFade so the outer-shell drain (enqueued by
+		// ExpandToFullEntityRadius) pops in at the normal rate.
+		_world.MaxEntitiesPerFrame = LOADING_ENTITY_SPAWN_BURST;
 		_world.SetPlayer(_player);
+
+		// Capture the peak entity-spawn count immediately after SetPlayer.
+		// The chunk-mesh sphere is already fully loaded above, so SetPlayer's
+		// SyncEntitiesToDesired call enqueues every entity for every chunk
+		// in the initial (reduced) radius in one synchronous pass. From this
+		// point on, PendingEntitySpawnCount only decreases until the wait
+		// loop exits.
+		int peakEntitySpawnCount = _world.PendingEntitySpawnCount;
+
+		// Hold the loading screen up until every chunk in the initial entity
+		// radius has finished draining its entity-spawn queue. Without this
+		// wait, the screen would fade to reveal an empty world and props
+		// would pop in after the camera was already active. The outer shell
+		// (between the initial and full radius) is allowed to pop in
+		// post-fade — those chunks aren't enqueued until ExpandToFullEntityRadius
+		// runs below.
+		while (!_world.AreEntitySpawnsDrained())
+		{
+			if (loadingScreen != null && peakEntitySpawnCount > 0)
+			{
+				int remaining = _world.PendingEntitySpawnCount;
+				float drained = (float)(peakEntitySpawnCount - remaining) / peakEntitySpawnCount;
+				loadingScreen.SetProgress(0.75f + drained * 0.25f);
+			}
+			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+		}
+		loadingScreen?.SetProgress(1f);
 
 		camera.Init(sceneViewport);
 		camera.SetInitialPosition(_player.GlobalPosition);
 
 		onPlayerSpawned?.Invoke(_player);
+
+		// Hand the entity drain back to the steady in-game cadence and
+		// enqueue the outer shell of chunks — those entities trickle in
+		// over the next few seconds while the player is getting oriented.
+		_world.MaxEntitiesPerFrame = World.DEFAULT_MAX_ENTITIES_PER_FRAME;
+		_world.ExpandToFullEntityRadius();
+
+		// Begin the loading screen fade. LoadingScreen owns the timer and
+		// QueueFrees itself when the fade hits 0; we drop InputSuppressed
+		// here so gameplay input picks up the instant the screen starts
+		// fading rather than waiting for it to finish.
+		loadingScreen?.HideWithFade();
+		InputSuppressed = false;
 	}
 
 	void OnSimItemIdentified(ItemData data)
@@ -970,14 +1056,67 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Red damage-flash intensity in [0, 1]. Bumped by FlashDamage on every
+	// player hit (direct + DOT rollup), decayed linearly each frame so the
+	// flash fades over damageFlashFadeSeconds.
+	float _damageFlash;
+
+	// Bumps the damage flash by the hit fraction of max health, scaled by
+	// damageFlashScale and capped at 1. Stacks with whatever is already in
+	// the buffer (max-of) so a follow-up hit during a fade doesn't shrink
+	// the flash. Called from Player.OnHurtBoxHit (direct) and from
+	// _PhysicsProcess after each DOT HUD flush.
+	public void FlashDamage(float amount)
+	{
+		if (amount <= 0f || _player == null) { return; }
+		float maxHealth = _player.MaxHealth;
+		if (maxHealth <= 0f) { return; }
+		float intensity = Mathf.Clamp(amount / maxHealth * damageFlashScale, 0f, 1f);
+		if (intensity > _damageFlash)
+		{
+			_damageFlash = intensity;
+		}
+	}
+
 	void UpdatePostProcess()
 	{
-		if (postProcessMaterial != null)
+		if (postProcessMaterial == null) { return; }
+
+		postProcessMaterial.SetShaderParameter("vignette_radius", CVars.vignetteRadius.Value);
+		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
+		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
+
+		// Decay the flash. dt comes from the engine's _Process delta — we
+		// don't have it here directly, so pull from the frame time. This
+		// runs once per visual frame (called from _Process), so
+		// GetProcessDeltaTime is the right scale.
+		float dt = (float)GetProcessDeltaTime();
+		if (_damageFlash > 0f && damageFlashFadeSeconds > 0f)
 		{
-			postProcessMaterial.SetShaderParameter("vignette_radius", CVars.vignetteRadius.Value);
-			postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
-			postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
+			_damageFlash = Mathf.Max(0f, _damageFlash - dt / damageFlashFadeSeconds);
 		}
+		postProcessMaterial.SetShaderParameter("damage_flash", _damageFlash);
+		postProcessMaterial.SetShaderParameter("damage_flash_color", damageFlashColor);
+		// SetShaderParameter accepts a null Texture2D — the shader's
+		// hint_default_white kicks in and the flash paints uniformly red.
+		postProcessMaterial.SetShaderParameter("damage_flash_tex", damageFlashTexture);
+
+		// Low-health overlay. Ramp = (threshold - healthFrac) / threshold
+		// so at threshold the ramp is 0, at 0 health the ramp is 1. Each
+		// component (desat, dim) is sent pre-scaled by its max so the
+		// shader just applies a 0..1.
+		float ramp = 0f;
+		if (_player != null && lowHealthThreshold > 0f)
+		{
+			float maxHealth = _player.MaxHealth;
+			if (maxHealth > 0f)
+			{
+				float frac = Mathf.Clamp(_player.Health / maxHealth, 0f, 1f);
+				ramp = Mathf.Clamp((lowHealthThreshold - frac) / lowHealthThreshold, 0f, 1f);
+			}
+		}
+		postProcessMaterial.SetShaderParameter("low_health_desaturation", ramp * lowHealthMaxDesaturation);
+		postProcessMaterial.SetShaderParameter("low_health_dim", ramp * lowHealthMaxDim);
 	}
 
 	public override void _PhysicsProcess(double delta)

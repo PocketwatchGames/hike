@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxwarn"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_warn_trigger"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="4_shake"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_firewarn_smoke"]
 emission_shape = 1
@@ -48,3 +49,9 @@ max_distance = 30.0
 volume_db = 0.0
 pitch_scale = 0.85
 bus = &"World3D"
+
+[node name="Shake" type="Node3D" parent="."]
+script = ExtResource("4_shake")
+magnitude = 0.03
+range = 8.0
+metadata/_custom_type_script = "uid://dkwu7lidv1kxj"

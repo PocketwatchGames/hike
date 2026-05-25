@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
 [ext_resource type="Resource" uid="uid://dwgxgxbii2arl" path="res://resources/data/status_effects/status_goblin_battle_cry_buff.tres" id="6_buff"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_p0nf2"]
+[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/effects/goblin_yell.tscn" id="7_yellfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("3_event")
@@ -22,6 +23,7 @@ script = ExtResource("3_event")
 time = 400
 type = 32768
 effects = Array[ExtResource("5_effect")]([SubResource("Resource_apply_buff")])
+fx = ExtResource("7_yellfx")
 areaRadius = 8.0
 
 [sub_resource type="Resource" id="Resource_action_cry"]

@@ -5,6 +5,9 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_gcanw"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_y08do"]
+[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/effects/goblin_attack.tscn" id="5_atkfx"]
+[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/effects/goblin_claw_hit.tscn" id="6_hitfx"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/effects/sword_hit_solid.tscn" id="7_solidfx"]
 
 [sub_resource type="Resource" id="Resource_event_windup_anim"]
 script = ExtResource("3_event")
@@ -24,12 +27,17 @@ time = 450
 type = 1
 meleeRange = 0.5
 meleeRadius = 1.5
+impactEnvironmentEffect = ExtResource("7_solidfx")
+impactHealthEffect = ExtResource("6_hitfx")
+impactArmorEffect = ExtResource("7_solidfx")
+impactLethalEffect = ExtResource("6_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_claw"]
 script = ExtResource("2_action")
 displayName = &"Claw"
 activeDurationSeconds = 1.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
+releaseEffect = ExtResource("5_atkfx")
 
 [resource]
 script = ExtResource("1_profile")

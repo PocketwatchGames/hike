@@ -104,6 +104,27 @@ public partial class LightningData : Resource
     // afterimage, not a held-on white wash.
     [Export(PropertyHint.Range, "0.01,2,0.01")] public float screenFlashFadeOutSeconds = 0.4f;
 
+    // ------- Camera shake --------
+
+    // Low-intensity rumble that runs for the entire warning window —
+    // anchored at (and tracking) the wandering strike position so the
+    // shake distance to the player updates as the strike hunts across
+    // the ground. Linear distance falloff against `cameraShakeFalloffMeters`.
+    // 0 disables the warmup rumble.
+    [Export(PropertyHint.Range, "0,1,0.005")] public float warmupShakeMagnitude = 0.05f;
+
+    // Impulse fired at the moment of strike. Decays linearly to 0 over
+    // `strikeShakeDuration`. Same distance falloff as the warmup against
+    // `cameraShakeFalloffMeters`. 0 disables the strike shake.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float strikeShakeMagnitude = 0.5f;
+
+    [Export(PropertyHint.Range, "0.05,3,0.01")] public float strikeShakeDuration = 0.6f;
+
+    // Distance (m) at which both the warmup rumble and the strike impulse
+    // decay to zero. Set independently from `screenFlashFalloffMeters` so
+    // shake reach can be tuned without affecting the white overlay.
+    [Export(PropertyHint.Range, "1,200,0.5")] public float cameraShakeFalloffMeters = 35f;
+
     // ------- Weather-driven spawn cadence (ignored by weapon callers) --------
 
     // STORM GATE: applied to AmbienceState.DestinationLightningIntensity

@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://cqcbx0hocclf4" path="res://scenes/gui/game.tscn" id="3_2vgtk"]
 [ext_resource type="PackedScene" path="res://scenes/gui/editor.tscn" id="4_tkjme"]
 [ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="5_64pts"]
+[ext_resource type="PackedScene" uid="uid://b3vn7whkptr2c" path="res://scenes/gui/loading_screen.tscn" id="6_loadscr"]
 
 [node name="gui" type="Node" unique_id=1262159102]
 script = ExtResource("1_jt21j")
@@ -12,3 +13,4 @@ MainMenuScene = ExtResource("2_toqri")
 GameScene = ExtResource("3_2vgtk")
 EditorScene = ExtResource("4_tkjme")
 DefaultWorldGenData = ExtResource("5_64pts")
+LoadingScreenScene = ExtResource("6_loadscr")

@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_lp.wav" id="2_lp"]
+[ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="3_shake"]
 
 [node name="SwordChargeLoop" type="Node3D"]
 script = ExtResource("1_oneshot")
@@ -13,3 +14,9 @@ unit_size = 6.0
 max_distance = 25.0
 volume_db = -2.0
 bus = &"World3D"
+
+[node name="Shake" type="Node3D" parent="."]
+script = ExtResource("3_shake")
+magnitude = 0.04
+range = 0.0
+metadata/_custom_type_script = "uid://dkwu7lidv1kxj"

@@ -1,0 +1,63 @@
+[gd_scene format=3 uid="uid://b3vn7whkptr2c"]
+
+[ext_resource type="Script" uid="uid://b8mxl4q3pj7ek" path="res://scripts/gui/LoadingScreen.cs" id="1_loadscr"]
+
+[node name="LoadingScreen" type="CanvasLayer" node_paths=PackedStringArray("overlay", "statusLabel", "progressBar")]
+layer = 100
+script = ExtResource("1_loadscr")
+overlay = NodePath("Root/Overlay")
+statusLabel = NodePath("Root/CenterContainer/VBoxContainer/StatusLabel")
+progressBar = NodePath("Root/CenterContainer/VBoxContainer/ProgressBar")
+
+[node name="Root" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Overlay" type="ColorRect" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 1)
+
+[node name="CenterContainer" type="CenterContainer" parent="Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Root/CenterContainer"]
+custom_minimum_size = Vector2(420, 0)
+layout_mode = 2
+theme_override_constants/separation = 24
+alignment = 1
+
+[node name="StatusLabel" type="Label" parent="Root/CenterContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_colors/font_color = Color(0.9, 0.9, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 4
+theme_override_font_sizes/font_size = 36
+text = "Loading..."
+horizontal_alignment = 1
+
+[node name="ProgressBar" type="ProgressBar" parent="Root/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(420, 18)
+layout_mode = 2
+size_flags_horizontal = 4
+max_value = 100.0
+step = 0.1
+value = 0.0
+show_percentage = false

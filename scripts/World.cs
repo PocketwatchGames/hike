@@ -20,6 +20,13 @@ public partial class World : Node3D
     // rotating the camera never reveals un-spawned entities.
     private const int ENTITY_LOAD_RADIUS = 5;
     private const int ENTITY_LOAD_RADIUS_SQ = ENTITY_LOAD_RADIUS * ENTITY_LOAD_RADIUS;
+    // Reduced radius used for the initial spawn-time fill. The loading screen is
+    // opaque so the player can't see past the inner sphere; the outer shell
+    // streams in over the next few seconds after the fade via the normal
+    // per-frame drain. Sphere counts: r=3 → ~110 chunks vs r=5 → ~520, so the
+    // loading wait drains ~5x fewer entities before handing control back.
+    private const int INITIAL_ENTITY_LOAD_RADIUS = 3;
+    private const int INITIAL_ENTITY_LOAD_RADIUS_SQ = INITIAL_ENTITY_LOAD_RADIUS * INITIAL_ENTITY_LOAD_RADIUS;
 
     public IReadOnlyDictionary<Vector3I, List<Node3D>> ActiveEntities => _activeEntities;
 
@@ -56,7 +63,15 @@ public partial class World : Node3D
     // first-render setup. Spreading at 8/frame, typical chunks (5-30 entities)
     // spawn in 1-4 frames — visually a brief pop-in of mobs/props, dramatically
     // better than a 130ms freeze.
-    private const int MAX_ENTITIES_PER_FRAME = 8;
+    public const int DEFAULT_MAX_ENTITIES_PER_FRAME = 8;
+    // Settable so the loading sequence can burst the drain rate while the
+    // overlay is opaque (no visible frame cost). Reset to default before the
+    // fade so in-game streaming keeps its hitch-free 8/frame cadence.
+    public int MaxEntitiesPerFrame { get; set; } = DEFAULT_MAX_ENTITIES_PER_FRAME;
+    // Cleared by ExpandToFullEntityRadius once the loading screen is ready to
+    // fade. While true, RebuildDesiredEntityChunks uses INITIAL_ENTITY_LOAD_RADIUS
+    // so SetPlayer's initial sync only enqueues the inner sphere.
+    private bool _useInitialEntityRadius = true;
 
     private readonly struct PendingSpawn
     {
@@ -292,14 +307,16 @@ public partial class World : Node3D
 
     private void RebuildDesiredEntityChunks(Vector3I center)
     {
+        int radius = _useInitialEntityRadius ? INITIAL_ENTITY_LOAD_RADIUS : ENTITY_LOAD_RADIUS;
+        int radiusSq = _useInitialEntityRadius ? INITIAL_ENTITY_LOAD_RADIUS_SQ : ENTITY_LOAD_RADIUS_SQ;
         _desiredEntityChunks.Clear();
-        for (int x = -ENTITY_LOAD_RADIUS; x <= ENTITY_LOAD_RADIUS; x++)
+        for (int x = -radius; x <= radius; x++)
         {
-            for (int y = -ENTITY_LOAD_RADIUS; y <= ENTITY_LOAD_RADIUS; y++)
+            for (int y = -radius; y <= radius; y++)
             {
-                for (int z = -ENTITY_LOAD_RADIUS; z <= ENTITY_LOAD_RADIUS; z++)
+                for (int z = -radius; z <= radius; z++)
                 {
-                    if (x * x + y * y + z * z > ENTITY_LOAD_RADIUS_SQ)
+                    if (x * x + y * y + z * z > radiusSq)
                     {
                         continue;
                     }
@@ -307,6 +324,26 @@ public partial class World : Node3D
                 }
             }
         }
+    }
+
+    // Switch from the initial (small) entity-load radius to the full radius
+    // and enqueue spawns for the newly-desired outer-shell chunks. Called by
+    // GameClient once the inner sphere has drained and the loading screen is
+    // about to fade — the outer shell pops in over the next few seconds via
+    // the normal DrainSpawnQueue budget.
+    public void ExpandToFullEntityRadius()
+    {
+        if (!_useInitialEntityRadius)
+        {
+            return;
+        }
+        _useInitialEntityRadius = false;
+        if (_player == null)
+        {
+            return;
+        }
+        RebuildDesiredEntityChunks(WorldToChunkCoord(_player.GlobalPosition));
+        SyncEntitiesToDesired();
     }
 
     private void SyncEntitiesToDesired()
@@ -368,6 +405,26 @@ public partial class World : Node3D
     {
         return _chunkManager.IsSpawnChunkReady(spawnPosition);
     }
+
+    // True once every entity-eligible chunk around the player has finished
+    // streaming its entities out of _spawnQueue. ChunkManager's initial-load
+    // pass fills the full mesh sphere (NEARBY_RADIUS = 6) synchronously before
+    // IsSpawnChunkReady flips, so by the time SetPlayer runs every chunk
+    // inside the active entity radius has its mesh and gets LoadEntitiesForChunk
+    // called. GameClient holds the spawn-fade opaque until this returns true so
+    // tallgrass / props / knowledge stones don't pop in over the reveal —
+    // during the initial load the active radius is INITIAL_ENTITY_LOAD_RADIUS,
+    // so this becomes true once only the inner sphere has drained; the outer
+    // shell is enqueued by ExpandToFullEntityRadius right before the fade.
+    public bool AreEntitySpawnsDrained()
+    {
+        return _spawnQueue.Count == 0 && _spawningRemaining.Count == 0;
+    }
+
+    // Drives the loading screen's entity-spawn phase progress bar. Sampled
+    // once after SetPlayer (peak) and each frame during the drain (current);
+    // (peak - current) / peak is the fraction complete.
+    public int PendingEntitySpawnCount => _spawnQueue.Count;
 
     public void UpdateLighting(List<Vector3I> changedPositions)
     {
@@ -653,7 +710,8 @@ public partial class World : Node3D
     {
         using var _prof = Profiler.Sample("World.DrainSpawnQueue");
         int spawned = 0;
-        while (spawned < MAX_ENTITIES_PER_FRAME && _spawnQueue.Count > 0)
+        int budget = MaxEntitiesPerFrame;
+        while (spawned < budget && _spawnQueue.Count > 0)
         {
             PendingSpawn pending = _spawnQueue.Dequeue();
             // Chunk could have been unloaded between enqueue and now; drop

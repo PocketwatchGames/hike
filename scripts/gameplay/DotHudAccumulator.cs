@@ -15,6 +15,12 @@ public struct DotHudFlush
 {
 	public bool damage;
 	public bool heal;
+	// Amount actually flushed this tick (matches the value pushed through
+	// GameClient.onDamage / onHeal). Lets callers fire receiver-side
+	// effects whose intensity scales with the rollup — e.g. the player's
+	// red damage-flash, which would otherwise be invisible for DoT.
+	public float damageAmount;
+	public float healAmount;
 }
 
 public class DotHudAccumulator
@@ -67,6 +73,7 @@ public class DotHudAccumulator
 			if (_damage >= 1f || (_damage > 0f && damageStale))
 			{
 				client.onDamage?.Invoke(position, _damage, EHudTextType.DamageLight);
+				flush.damageAmount = _damage;
 				_damage = 0f;
 				flush.damage = true;
 			}
@@ -74,6 +81,7 @@ public class DotHudAccumulator
 			if (_heal >= 1f || (_heal > 0f && healStale))
 			{
 				client.onHeal?.Invoke(position, _heal, EHudTextType.HealLight);
+				flush.healAmount = _heal;
 				_heal = 0f;
 				flush.heal = true;
 			}
