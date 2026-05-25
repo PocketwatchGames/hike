@@ -30,13 +30,15 @@ public partial class Hud : Control
 	// StatusEffectIcons) inherit the position automatically.
 	[Export] Control _statusEffectNotificationAnchor;
 	[Export] ProgressBar _healthBar;
-	// Layered ON TOP of _healthBar with fill_mode = END_TO_BEGIN (right-to-
-	// left) and a transparent background, so the dark-red fill anchors to
-	// the right edge of the bar — representing the HP debt pending refund.
-	// Player keeps the invariant `Health + DrainedHealth <= MaxHealth` —
-	// Heal forgives any drain it climbs into, and TickBloodDrain shrinks
-	// drain while growing health in lockstep — so the bright fill and
-	// dark overlay never visually overlap.
+	// Layered UNDERNEATH _healthBar (placed earlier in the scene tree) with
+	// a transparent background and value = (Health + DrainedHealth) / MaxHealth,
+	// so the dark-red fill spans [0, Health + DrainedHealth] and the bright
+	// health fill paints over [0, Health] on top — leaving only the
+	// [Health, Health + DrainedHealth] tail visible as an apparent extension
+	// past current HP. Player keeps the invariant
+	// `Health + DrainedHealth <= MaxHealth` — Heal forgives any drain it
+	// climbs into, and TickBloodDrain shrinks drain while growing health in
+	// lockstep — so the visible tail shrinks cleanly as drain heals back.
 	[Export] ProgressBar _drainedHealthBar;
 	[Export] ProgressBar _armorBar;
 	[Export] ProgressBar _staminaBar;
@@ -418,7 +420,7 @@ public partial class Hud : Control
 			_drainedHealthBar.MinValue = 0;
 			_drainedHealthBar.MaxValue = 1;
 			_drainedHealthBar.Visible = drained > 0f;
-			_drainedHealthBar.Value = maxHealth > 0f ? drained / maxHealth : 0f;
+			_drainedHealthBar.Value = maxHealth > 0f ? (_player.Health + drained) / maxHealth : 0f;
 		}
 
 		float maxArmor = _player.MaxArmor;

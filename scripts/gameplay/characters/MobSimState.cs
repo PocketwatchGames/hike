@@ -98,12 +98,6 @@ public class MobSimState : EntitySimState
     public bool Burrowed;
     public float MaxHealth;
     public float Health;
-    // Stun has two distinct deadlines, so each gets its own field rather than
-    // one variable doing double duty. Stunned is the explicit binary state
-    // (mirrors Armor's ArmorDepleted/ArmorRecharging pattern); StunRecoverMs
-    // is the wake-up deadline (only meaningful while Stunned); StunRechargeStartMs
-    // is the post-hit delay before the sub-threshold meter starts draining
-    // (only meaningful while !Stunned && Stun > 0). One is always 0/unused.
     // Latches true the first time the player deals damage to this mob (any
     // hit with hit.source == Player, regardless of whether armor absorbed
     // it). Decides whether the eventual death awards bestiary kill credit:
@@ -111,15 +105,11 @@ public class MobSimState : EntitySimState
     // player intervention doesn't count. Never cleared once set — staying
     // alive after a player hit doesn't revoke credit on a later death.
     public bool DamagedByPlayer;
-    public float Stun;
-    public bool Stunned;
-    public ulong StunRecoverMs;
-    public ulong StunRechargeStartMs;
     // Per-hit flinch state. HitstunTime counts down each tick while > 0 and
     // the hitstun anim is held; KnockbackTime mirrors it for the knockback
     // lockout window so receivers that suspend their own movement during
-    // knockback have a shared deadline. Independent of Stunned — a hit can
-    // hitstun without crossing the stun threshold.
+    // knockback have a shared deadline. Independent of Dizzy — a hit can
+    // hitstun without crossing the dizzy buildup threshold.
     public float HitstunTime;
     public float KnockbackTime;
     // Horizontal velocity (m/s) forced onto the body each physics tick

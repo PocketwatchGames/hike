@@ -19,8 +19,10 @@
 [ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
 [ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="18_5rplm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -46,14 +48,18 @@ releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
 
+[sub_resource type="Resource" id="Resource_areaspec_rain"]
+script = ExtResource("20_areaspec")
+damageProfileKey = &"rain_of_arrows"
+tickInterval = 0.3
+
 [sub_resource type="Resource" id="Resource_event_rain_impact"]
 script = ExtResource("3_event")
 type = 16384
-damageProfileKey = &"rain_of_arrows"
 areaEffectScene = ExtResource("19_rainaoe")
 areaRadius = 2.5
 areaDurationSeconds = 1.5
-areaTickInterval = 0.3
+areaIntervals = Array[ExtResource("20_areaspec")]([SubResource("Resource_areaspec_rain")])
 
 [sub_resource type="Resource" id="Resource_event_rain"]
 script = ExtResource("3_event")
@@ -113,7 +119,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 
 [sub_resource type="Resource" id="Resource_area_damage"]
 script = ExtResource("1_damage")
-healthDamage = 10.0
+healthDamage = 2.0
 statusEffects = null
 modifiers = null
 

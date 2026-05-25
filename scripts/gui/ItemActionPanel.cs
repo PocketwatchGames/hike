@@ -39,11 +39,10 @@ public partial class ItemActionPanel : PanelContainer
 		// AoE actions show DPS / radius / duration instead of direct damage,
 		// since they spawn an area effect rather than dealing a hit.
 		ItemEvent areaEvent = FindAreaEffectEvent(action);
-		DamageData damage;
+		DamageData damage = null;
 		if (areaEvent != null)
 		{
-			damage = weapon?.GetDamage(areaEvent.damageProfileKey);
-			AddStats(StatList.AreaEffect(areaEvent, damage));
+			AddStats(StatList.AreaEffect(areaEvent, weapon));
 			AddStats(StatList.TargetRange(action));
 		}
 		else
@@ -55,7 +54,7 @@ public partial class ItemActionPanel : PanelContainer
 		}
 		AddStats(StatList.ActionCostsAndCooldown(action));
 
-		// Conditional damage layers (Crit / Stun / Backstab) get their own
+		// Conditional damage layers (Crit / Dizzy / Backstab) get their own
 		// panels because their stats only apply when the trigger fires —
 		// they can't share the row with the unconditional base.
 		if (damage?.modifiers != null)

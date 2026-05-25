@@ -7,7 +7,7 @@ public enum EStatName
 	Damage,
 	Pierce,
 	Blunt,
-	Stun,
+	Dizzy,
 	Knockback,
 	BloodCost,
 	StaminaCost,

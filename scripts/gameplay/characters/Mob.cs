@@ -63,12 +63,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private PackedScene _armorDepletedFx;
     [Export] private PackedScene _armorRechargeStartFx;
     [Export] private PackedScene _armorRecoverStartFx;
-    // Stun fx. Begin one-shot fires on the unstunned→stunned edge (the hit
-    // that crosses stunThreshold); the loop holds while stunned and stops
-    // when TickStun recovers the mob. Die() also stops the loop because the
-    // per-frame TickStun gate is alive-only.
-    [Export] private PackedScene _stunBeginFx;
-    [Export] private PackedScene _stunLoopFx;
 
     [ExportGroup("Footsteps & Footprints")]
     // Per-ground-type one-shot effect played at the mob's feet on each
@@ -121,7 +115,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
-    public bool stunned => _simState.Stunned;
+    // True when at least one active status effect flags `incapacitates`.
+    // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
+    // the flag; future Frozen / Knocked-Down would too without touching Mob.
+    public bool incapacitated => _statusEffects?.Incapacitated ?? false;
+
+    // Composite crit-vulnerability in [0, 1] from active status effects.
+    // Folded into the crit decision against HitInfo.critRoll. Dizzy authors
+    // vulnerable=1 so a dizzied mob always crits on a triggered hit.
+    public float vulnerable => _statusEffects?.Vulnerable ?? 0f;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
     public MobData mobData => _simState.MobData;
     // Per-instance language override (set by WorldGen / world files) takes
@@ -259,7 +261,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     Fx _waterMovementLoop;
     Fx _tallGrassMovementLoop;
     Fx _burrowLoop;
-    Fx _stunLoop;
     // Single active anim-loop reference + the scene it was created from. We
     // swap wholesale on transitions instead of cross-fading — simple, and
     // the listener barely registers the gap in practice.
@@ -459,14 +460,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (burrowing || burrowed)
         {
             SetBurrowed(true);
-        }
-        // Same pattern for stun — a loaded stunned mob needs the loop fx
-        // started by hand. SetStunned would no-op because _simState.Stunned
-        // is already true; the begin one-shot is deliberately not fired
-        // since this isn't a fresh transition.
-        if (stunned)
-        {
-            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, true);
         }
     }
 
@@ -865,13 +858,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         EAnimation loopAnim;
+        EAnimation statusOverride = _statusEffects?.LoopAnimOverride ?? EAnimation.None;
         if (!alive)
         {
             loopAnim = EAnimation.Dead;
         }
-        else if (stunned)
+        else if (statusOverride != EAnimation.None)
         {
-            loopAnim = EAnimation.Stunned;
+            loopAnim = statusOverride;
         }
         else if (burrowed)
         {
@@ -935,7 +929,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         // Status retiming is gated per-anim by AnimationData — only loops
         // authored with affectedBySpeedMultiplier track statusAnimMul. Idle /
-        // fall / burrow / dead / stunned default to authored speed.
+        // fall / burrow / dead / dizzy default to authored speed.
         if (mobData.IsAnimationSpeedAffected(loopAnim))
         {
             _statusEffects.GetMovementMultipliers(out _, out float animSpeedMul);
@@ -1300,9 +1294,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (alive)
         {
             TickArmor((float)delta);
-            TickStun((float)delta);
             _statusEffects.Tick((float)delta);
-            _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition);
+            DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition);
+            if (dotFlush.damage)
+            {
+                // Continuous damage authors no per-frame fx; its "ouch" rides
+                // on the once-per-second HUD rollup instead.
+                SpawnWorldEffect(_hurtVoFx);
+            }
             UpdateWaterState();
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
             // disable Godot's default gravity application on this body so
@@ -1325,14 +1324,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 GravityScale = _gravityScaleAuthored;
                 _gravityScaleSwimActive = false;
             }
-            // Stun and per-hit hitstun both freeze intentional behavior — no
+            // Dizzy and per-hit hitstun both freeze intentional behavior — no
             // path target, no attack request, no torch / yell / burrow output.
             // Physics, status ticks, and the action runner still run so an
             // in-flight attack can wind down naturally and gravity / impulses
-            // still act on the body. Stun is the heavy-meter state; hitstun
-            // is the short flinch window between hits.
+            // still act on the body. Incapacitating effects (dizzy today)
+            // are the heavy-meter states; hitstun is the short flinch window
+            // between hits.
             AIOutput aiOutput;
-            if (stunned || _simState.HitstunTime > 0f)
+            if (incapacitated || _simState.HitstunTime > 0f)
             {
                 aiOutput = default;
             }
@@ -1697,7 +1697,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return EHitResult.None;
         }
-        // Mirror Hit()'s swap so a crit (stunned or unaware mob) is reflected
+        // Mirror Hit()'s swap so a crit (dizzy or unaware mob) is reflected
         // in the impact-effect pick (e.g. Lethal when crit damage finishes a
         // mob that the regular damage wouldn't have).
         hit = ApplyCrit(hit);
@@ -1724,7 +1724,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
 
-        // Crit: a stunned or untriggered (unaware) mob takes the attacker's
+        // Crit: a dizzy or untriggered (unaware) mob takes the attacker's
         // crit payload, not the regular one. Swap before everything so armor,
         // health, status, and the in-Damage wake-up all read the crit values
         // consistently. Backstab folds on top — it's a subset of !triggered
@@ -1765,11 +1765,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         // First-hit yell so nearby mobs converge to investigate. After
-        // Damage so a killing or stunning blow doesn't yell — stunned mobs
-        // are silent for the same reason TickAI suppresses their AIOutput.
-        // Yell() flips _simState.Yelled, mirroring the AIOutput-driven path
-        // from BehaviorAttack / BehaviorFlee.
-        if (alive && !stunned && !_simState.Yelled && hit.source is Node3D sourceNode)
+        // Damage so a killing or incapacitating blow doesn't yell — CC'd
+        // mobs are silent for the same reason TickAI suppresses their
+        // AIOutput. Yell() flips _simState.Yelled, mirroring the
+        // AIOutput-driven path from BehaviorAttack / BehaviorFlee.
+        if (alive && !incapacitated && !_simState.Yelled && hit.source is Node3D sourceNode)
         {
             Yell(sourceNode.GlobalPosition);
         }
@@ -1808,10 +1808,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.Yelled = true;
     }
 
-    // Crit-eligible state — stunned OR not yet aware of the attacker. Shared
-    // by ApplyCrit (which folds OnCrit modifiers onto the hit) and the
-    // QueryHitTriggers path that the attacker reads to pick its overlay fx.
-    private bool IsCritEligible() => stunned || !triggered;
+    // Crit decision — combines an unconditional "untriggered mob is always
+    // crit" gate (sneak attack pre-aggro) with a probabilistic vulnerable
+    // roll for triggered mobs (dizzy authors vulnerable=1, so a dizzied
+    // triggered mob always crits). Reads HitInfo.critRoll so the attacker's
+    // QueryHitTriggers prediction and the receiver's ApplyCrit agree on the
+    // outcome of this swing. Composes a hypothetical base crit chance as
+    // 1 - (1 - base) * (1 - vulnerable) — base is 1 for untriggered mobs
+    // and 0 for triggered, leaving room to introduce per-attack critChance
+    // later without changing the formula.
+    private bool IsCritEligible(HitInfo hit)
+    {
+        if (!triggered)
+        {
+            return true;
+        }
+        float v = vulnerable;
+        if (v >= 1f)
+        {
+            return true;
+        }
+        if (v <= 0f)
+        {
+            return false;
+        }
+        return hit.critRoll < v;
+    }
 
     // Backstab geometry — the attacker is the player, this mob is still
     // untriggered, and the player attacked from within PlayerData.backstabAngle
@@ -1836,12 +1858,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Receiver-side trigger prediction wired into HurtBox.GetHitTriggers —
     // the attacker reads these flags to spawn ItemAction.impactCritEffect /
     // impactBackstabEffect alongside the base impactHealth/Lethal/Armor cue.
-    // Mirrors the conditions ApplyCrit / ApplyBackstab use; OnStun isn't
-    // surfaced (depends on the post-hit stun-meter cross, not predictable).
+    // Mirrors the conditions ApplyCrit / ApplyBackstab use; OnDizzy isn't
+    // surfaced (depends on the post-hit dizzy-buildup cross, not predictable).
     public EDamageTriggerFlags QueryHitTriggers(HitInfo hit)
     {
         EDamageTriggerFlags flags = EDamageTriggerFlags.None;
-        if (IsCritEligible()) { flags |= EDamageTriggerFlags.Crit; }
+        if (IsCritEligible(hit)) { flags |= EDamageTriggerFlags.Crit; }
         if (IsBackstab(hit)) { flags |= EDamageTriggerFlags.Backstab; }
         return flags;
     }
@@ -1851,7 +1873,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // returns it so GetHitType and Hit see the same numbers.
     private HitInfo ApplyCrit(HitInfo hit)
     {
-        if (IsCritEligible())
+        if (IsCritEligible(hit))
         {
             hit.ApplyTrigger(EDamageTrigger.OnCrit);
         }
@@ -1884,19 +1906,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.DamagedByPlayer = true;
         }
         float incoming = hit.healthDamage;
-        // Armor handling. Two-part chip: hit.stun always chips armor (when
-        // any is present), and the healthDamage portion (scaled by
-        // `1 + hit.blunt` for anti-armor weapons) piles on top unless the
-        // hit pierced — pierce skips the healthDamage chip but still counts
-        // as "the hit registered," so we reset the recharge timer regardless.
-        // Overflow doesn't bleed into health on the absorbed path, matching
-        // the legacy fully-absorbed semantics. A hit that takes armor to zero
-        // arms the longer recover window via ArmorDepleted; everything else
-        // uses the regular recharge delay.
+        // Armor handling. Bypass-aware split: a portion of `incoming` skips
+        // armor entirely (discrete `Pierced` = full bypass; continuous
+        // `armorBypassFraction` = partial), the rest is "absorbable" and
+        // piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
+        // doesn't bleed into health on the absorbed portion, matching the
+        // legacy fully-absorbed semantics — only the pre-resolved bypass
+        // lands on health. Hit still counts as "the hit registered," so we
+        // reset the recharge timer even on a fully-pierced swing.
+        float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
+        float bypassed = incoming * bypassFraction;
+        float absorbable = incoming - bypassed;
         float armorAbsorbed = 0f;
-        if (armor > 0f && (incoming > 0f || hit.stun > 0f))
+        if (armor > 0f && incoming > 0f)
         {
-            float armorDamage = hit.stun + (hit.Pierced ? 0f : incoming * (1f + hit.blunt));
+            float armorDamage = absorbable * (1f + hit.blunt);
             float armorBefore = armor;
             armor = Mathf.Max(0f, armor - armorDamage);
             armorAbsorbed = armorBefore - armor;
@@ -1913,46 +1937,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRechargeDelay * 1000f);
             }
             _simState.ArmorRecharging = false;
-            if (!hit.Pierced)
-            {
-                incoming = 0f;
-            }
+            incoming = bypassed;
         }
 
-        // Any hit wakes a stunned mob (the crit swap in Hit() has already
-        // amplified the damage payload before we got here). Otherwise, stun-
-        // bearing hits accumulate into the meter and tip into Stunned when
-        // they cross stunThreshold.
-        bool stunTriggered = false;
-        if (stunned)
-        {
-            SetStunned(false);
-        }
-        else if (hit.stun > 0)
-        {
-            _simState.Stun += hit.stun;
-            if (_simState.Stun >= mobData.stunThreshold)
-            {
-                SetStunned(true);
-                stunTriggered = true;
-            }
-            else
-            {
-                _simState.StunRechargeStartMs = _world.GameTimeMs + (ulong)(mobData.stunRechargeDelay * 1000f);
-            }
-        }
+        // Any hit wakes an incapacitated mob (the crit swap in Hit() has
+        // already amplified the damage payload before we got here). Generic
+        // over every effect that flags `incapacitates` — dizzy today, future
+        // frozen / knocked-down without touching this branch. The buildup
+        // pass still runs after, so a single fat-buildup hit can wake AND
+        // re-apply on the same swing, which is consistent with the meter
+        // model.
+        _statusEffects.ClearIncapacitating();
 
-        // Hitstun + knockback: stack on top of any stun handling above so a
-        // sub-threshold stun hit still flinches and shoves. When this hit
-        // crossed the stun threshold, fold any OnStun modifiers in first so
-        // authored "extra knockback when I just stunned them" overrides
-        // apply to the read below. Direction comes from the sender via
-        // HitInfo.hitDirection — a zero direction means no knockback
-        // regardless of distance.
-        if (stunTriggered)
-        {
-            hit.ApplyTrigger(EDamageTrigger.OnStun);
-        }
+        // Buildup contributions — funnel into per-effect meters and fold any
+        // crossed-threshold effect's applyTrigger (Dizzy fires OnDizzy) back
+        // onto the hit before the hitstun/knockback reads below so authored
+        // "extra knockback on the hit that landed dizzy" overrides apply.
+        _statusEffects.ApplyHitBuildups(ref hit);
+
+        // Hitstun + knockback: stack on top of any buildup handling above so a
+        // sub-threshold buildup hit still flinches and shoves. Direction comes
+        // from the sender via HitInfo.hitDirection — a zero direction means
+        // no knockback regardless of distance.
         if (hit.hitstun > 0f)
         {
             _simState.HitstunTime = Mathf.Max(_simState.HitstunTime, hit.hitstun);
@@ -1992,7 +1998,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
             Die();
         }
-        else if (incoming > 0f)
+        // Per-hit blood / hurt VO. Suppressed for continuous DoT hits (the
+        // owning DamageZone pulses these on its own fxIntervalSeconds via
+        // OnHurtBoxFxPulse) so a smear-damage zone doesn't spawn a fresh
+        // blood spurt every physics frame.
+        else if (incoming > 0f && !hit.dot)
         {
             SpawnWorldEffect(_bloodDamageFx);
             SpawnWorldEffect(_hurtVoFx);
@@ -2177,56 +2187,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         LinearVelocity = new Vector3(v.X, y, v.Z);
     }
 
-    private void TickStun(float dt)
-    {
-        ulong now = _world?.GameTimeMs ?? 0;
-        if (stunned)
-        {
-            if (now >= _simState.StunRecoverMs)
-            {
-                SetStunned(false);
-            }
-            return;
-        }
-        if (_simState.Stun <= 0f || now < _simState.StunRechargeStartMs)
-        {
-            return;
-        }
-        _simState.Stun = Mathf.Max(0f, _simState.Stun - dt * mobData.stunRechargeSpeed);
-    }
-
-    // Single owner for stun state transitions. Damage(), TickStun(), and Die()
-    // all funnel through here so the explicit Stunned flag, the wake-up
-    // deadline, the meter reset, and the begin/loop fx stay in sync. No-op
-    // when already in the target state — Die() can call this safely on a
-    // never-stunned mob.
-    private void SetStunned(bool isStunned)
-    {
-        if (_simState.Stunned == isStunned)
-        {
-            return;
-        }
-        _simState.Stunned = isStunned;
-        if (isStunned)
-        {
-            _simState.StunRecoverMs = _world.GameTimeMs + (ulong)(mobData.stunRecoverTime * 1000f);
-            SpawnWorldEffect(_stunBeginFx);
-            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, true);
-            // The stagger that crosses the stun threshold also shakes any
-            // embedded arrows loose — same scatter pattern Die uses, just
-            // fired earlier in the chain. Die's later EjectStuckArrows
-            // call no-ops because the list is already empty.
-            EjectStuckArrows();
-        }
-        else
-        {
-            _simState.Stun = 0f;
-            _simState.StunRecoverMs = 0;
-            _simState.StunRechargeStartMs = 0;
-            UpdateLoopEffect(ref _stunLoop, _stunLoopFx, false);
-        }
-    }
-
     // Deactivate fires the LightOff fx authored on the MovingLight as the
     // natural "torch goes out" cue, then QueueFree drops the node. No-op
     // when no torch is held.
@@ -2275,11 +2235,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // so a dead mob's lit torch would otherwise leak its light deposit
         // and loop FX.
         DespawnTorch();
-        // TickStun is gated on `alive`, so a mob killed mid-stun would leave
-        // the loop running until QueueFree. Same "only runs while alive"
-        // rationale as the torch cleanup above; SetStunned no-ops when the
-        // mob wasn't stunned.
-        SetStunned(false);
+        // Drop every active status effect so any looping fx (dizzy stars,
+        // burning crackle, wet drip) stops the moment the mob dies — same
+        // "only runs while alive" rationale as the torch cleanup above.
+        // Tick is already alive-gated, but loop fx instances would otherwise
+        // persist on the corpse until QueueFree.
+        _statusEffects.Clear();
         SpawnWorldEffect(_deathFx);
         SpawnWorldEffect(_deathVoFx);
         EjectLoot();

@@ -78,7 +78,12 @@ public static class WorldFile
     //      and accumulated relationship state survive save/load. Chest
     //      entity payload appended a Contents item-list after LootItems —
     //      the live ItemState inventory used by stash-style chests.
-    public const uint VERSION = 18;
+    // v19: Mob entity payload dropped the four stun fields (Stun, Stunned,
+    //      StunRecoverMs, StunRechargeStartMs) — dizziness is now expressed
+    //      as a normal status effect fed by buildup, and status effects
+    //      aren't persisted (same as poison / wet). Mobs saved in the dizzy
+    //      state load awake; their dizzy buildup meter resets to zero.
+    public const uint VERSION = 19;
 
     public struct IndexEntry
     {

@@ -6,6 +6,17 @@ using Godot;
 // flushes one onDamage / onHeal invocation per second carrying the
 // accumulated value, then resets. Non-DoT hits go straight through
 // GameClient.onDamage / onHeal and bypass this entirely.
+//
+// Tick returns a DotHudFlush bool pair so callers (Mob, Player) can fire
+// receiver-side hit audio in sync with the flush — continuous damage has
+// no per-frame fx; the once-per-second "ouch" rides on the same heartbeat
+// as the floating number.
+public struct DotHudFlush
+{
+	public bool damage;
+	public bool heal;
+}
+
 public class DotHudAccumulator
 {
 	const ulong FlushIntervalMs = 1000;
@@ -34,17 +45,18 @@ public class DotHudAccumulator
 		}
 	}
 
-	public void Tick(ulong nowMs, Vector3 position)
+	public DotHudFlush Tick(ulong nowMs, Vector3 position)
 	{
+		DotHudFlush flush = default;
 		// Arm the flush deadline on the first tick after construction (or
 		// after a previous flush) so the first DoT chunk gets a full second
 		// to accumulate rather than emitting on the very first physics frame.
 		if (_nextFlushMs == 0)
 		{
 			_nextFlushMs = nowMs + FlushIntervalMs;
-			return;
+			return flush;
 		}
-		if (nowMs < _nextFlushMs) { return; }
+		if (nowMs < _nextFlushMs) { return flush; }
 		GameClient client = GameClient.Current;
 		if (client != null)
 		{
@@ -56,14 +68,17 @@ public class DotHudAccumulator
 			{
 				client.onDamage?.Invoke(position, _damage, EHudTextType.DamageLight);
 				_damage = 0f;
+				flush.damage = true;
 			}
 			bool healStale = nowMs - _lastHealMs >= FlushIntervalMs;
 			if (_heal >= 1f || (_heal > 0f && healStale))
 			{
 				client.onHeal?.Invoke(position, _heal, EHudTextType.HealLight);
 				_heal = 0f;
+				flush.heal = true;
 			}
 		}
 		_nextFlushMs = nowMs + FlushIntervalMs;
+		return flush;
 	}
 }

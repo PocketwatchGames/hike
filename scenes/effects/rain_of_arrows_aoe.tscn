@@ -16,8 +16,6 @@ collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
 _shape = NodePath("CollisionShape3D")
-tickInterval = 0.3
-tickOnEnter = true
 enemiesOnly = true
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 

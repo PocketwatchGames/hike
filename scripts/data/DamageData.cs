@@ -5,7 +5,7 @@ using Godot;
 // HurtBox.Hit. Same template can be referenced from a weapon, an event,
 // a trap, or a damage zone.
 //
-// Conditional variants (crit vs base, stun-amplified knockback, etc.) are
+// Conditional variants (crit vs base, dizzy-amplified knockback, etc.) are
 // expressed as entries in `modifiers` — see DamageDataModifier. Receivers
 // fold matching modifiers onto the live HitInfo via HitInfo.ApplyTrigger
 // when the corresponding condition is detected.
@@ -24,21 +24,13 @@ public partial class DamageData : Resource
 	// Multiplier on the healthDamage chip dealt to the receiver's armor pool —
 	// final armor chip is `healthDamage * (1 + blunt)`, clamped to remaining
 	// armor. 0 = baseline (chip == healthDamage); 1 = doubles the chip. Has
-	// no effect on the damage that bleeds through on a pierced hit. Stun's
-	// armor chip is independent of this field.
+	// no effect on the damage that bleeds through on a pierced hit.
 	[Export] public float blunt = 0f;
 
-	// Stun build-up added to the receiver's stun meter on hit. The receiver
-	// crosses into the stunned state once the accumulated meter reaches its
-	// threshold — this is the per-hit contribution, not a duration. 0 = no
-	// build-up. Plumbed through HitInfo for receivers that implement stun;
-	// ignored otherwise.
-	[Export] public float stun = 0f;
-
 	// Seconds of hitstun applied to the receiver — short reaction lockout
-	// that triggers the hitstun anim. 0 = no hitstun. Independent of stun:
-	// stun is a heavy state crossed via a meter; hitstun fires on every hit
-	// that authors one and is the per-hit flinch.
+	// that triggers the hitstun anim. 0 = no hitstun. Independent of dizzy:
+	// dizzy is a heavy state crossed via a buildup meter; hitstun fires on
+	// every hit that authors one and is the per-hit flinch.
 	[Export] public float hitstun = 0f;
 
 	// Magnitude of the horizontal knockback impulse, in m/s of velocity
@@ -58,8 +50,18 @@ public partial class DamageData : Resource
 	// StatusEffectState per entry, mirroring AddStatusEffect's behavior.
 	[Export] public Godot.Collections.Array<StatusEffectData> statusEffects;
 
+	// Buildup contributions added to the receiver's per-effect meters on hit.
+	// Each entry funnels `amount` into the meter for `effect`; crossing 1
+	// applies the effect (and folds any modifier authored against the effect's
+	// applyTrigger). Decay and clear-on-apply behavior live on the
+	// StatusEffectData itself, so the same buildup contribution behaves
+	// consistently across every DamageData that feeds the same effect.
+	// Replaces the legacy `stun` field — dizzy is now a normal status effect
+	// fed by buildup like any other.
+	[Export] public Godot.Collections.Array<StatusEffectBuildup> buildups;
+
 	// Conditional partial-override layers. Each modifier carries a trigger
-	// (OnCrit, OnStun, …) and a flag mask selecting which fields it touches;
+	// (OnCrit, OnDizzy, …) and a flag mask selecting which fields it touches;
 	// the receiver folds matching modifiers onto the live HitInfo at apply
 	// time. Replaces the old `critDamageData` / `knockbackDistanceOnStun`
 	// fields with a single extensible list.

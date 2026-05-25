@@ -15,7 +15,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Damage, "Damage" },
 		{ EStatName.Pierce, "Pierce" },
 		{ EStatName.Blunt, "Blunt" },
-		{ EStatName.Stun, "Stun" },
+		{ EStatName.Dizzy, "Dizzy" },
 		{ EStatName.Knockback, "Knockback" },
 		{ EStatName.BloodCost, "Blood Cost" },
 		{ EStatName.StaminaCost, "Stamina Cost" },
@@ -43,11 +43,11 @@ public partial class GameClient : Node3D
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
-	// damage panels under each weapon action ("Crit" / "Stun" / "Backstab").
+	// damage panels under each weapon action ("Crit" / "Dizzy" / "Backstab").
 	public readonly Dictionary<EDamageTrigger, string> damageTriggerLabels = new Dictionary<EDamageTrigger, string>
 	{
 		{ EDamageTrigger.OnCrit, "Crit" },
-		{ EDamageTrigger.OnStun, "Stun" },
+		{ EDamageTrigger.OnDizzy, "Dizzy" },
 		{ EDamageTrigger.OnBackstab, "Backstab" },
 	};
 

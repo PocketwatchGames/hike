@@ -150,6 +150,12 @@ public partial class MobData : Resource
     // events sourced from this mob.
     [Export] public Dictionary<StringName, DamageData> damageProfiles = new();
 
+    // Per-second damage profiles for mob-spawned area effects (a fire
+    // elemental's aura, a poison breath cloud's continuous portion).
+    // Mirrors WeaponData.continuousProfiles; AreaIntervalSpec entries on
+    // an ItemEvent still resolve against `damageProfiles`.
+    [Export] public Dictionary<StringName, ContinuousDamageData> continuousProfiles = new();
+
     public DamageData GetDamage(StringName key)
     {
         if (damageProfiles == null)
@@ -159,10 +165,15 @@ public partial class MobData : Resource
         return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
     }
 
-    [Export] public float stunThreshold = 5f;
-    [Export] public float stunRechargeDelay = 6f;
-    [Export] public float stunRechargeSpeed = 1f;
-    [Export] public float stunRecoverTime = 5f;
+    public ContinuousDamageData GetContinuousDamage(StringName key)
+    {
+        if (continuousProfiles == null)
+        {
+            return null;
+        }
+        return continuousProfiles.TryGetValue(key, out ContinuousDamageData d) ? d : null;
+    }
+
     [Export] public float armorRechargeDelay = 6f;
     [Export] public float armorRechargeSpeed = 1f;
     [Export] public float armorRecoverTime = 30f;

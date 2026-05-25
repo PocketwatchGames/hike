@@ -34,6 +34,13 @@ public partial class WeaponData : ItemData
 	// on their own data shape when implemented.
 	[Export] public Dictionary<StringName, DamageData> damageProfiles = new();
 
+	// Per-second damage profiles used by SpawnAreaEffect zones (smooth burn,
+	// magical aura). Sibling of damageProfiles so the HUD can surface them
+	// side-by-side and the inspector can pick types cleanly. AreaIntervalSpec
+	// entries on an ItemEvent still resolve against `damageProfiles`; this
+	// dict is for the per-frame continuous portion only.
+	[Export] public Dictionary<StringName, ContinuousDamageData> continuousProfiles = new();
+
 	// Convenience lookup. Returns null if the key isn't authored; callers
 	// either treat that as "no damage" (events early-out) or surface as an
 	// authoring error.
@@ -44,6 +51,15 @@ public partial class WeaponData : ItemData
 			return null;
 		}
 		return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
+	}
+
+	public ContinuousDamageData GetContinuousDamage(StringName key)
+	{
+		if (continuousProfiles == null)
+		{
+			return null;
+		}
+		return continuousProfiles.TryGetValue(key, out ContinuousDamageData d) ? d : null;
 	}
 
 	// Half-angle (in degrees) of the vertical auto-aim cone for ranged weapons.

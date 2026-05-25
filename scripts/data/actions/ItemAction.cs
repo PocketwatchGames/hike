@@ -166,7 +166,7 @@ public partial class ItemAction : Resource
 
 	// Per-tier impact one-shots layered on top of the per-event
 	// impactHealth/Armor/Lethal effects whenever the receiver flags the
-	// matching trigger condition (OnCrit when the mob was stunned or
+	// matching trigger condition (OnCrit when the mob was dizzy or
 	// untriggered, OnBackstab when the player also met PlayerData.backstabAngle
 	// from behind). Authored per-tier so a weapon's flavor (sword zing vs club
 	// thud) carries through to its crit/backstab payoff; null on a tier leaves

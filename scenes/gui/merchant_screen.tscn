@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://br0ewj5o2768g"]
 
-[ext_resource type="Script" uid="uid://c3px544rdmit" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
+[ext_resource type="Script" uid="uid://psp7ces4z54jv" path="res://scripts/gui/MerchantScreen.cs" id="1_merchant"]
 [ext_resource type="Texture2D" uid="uid://ui2onktg02cc" path="res://resources/atlases/bellafide_atlas.tres" id="2_ajsop"]
 [ext_resource type="PackedScene" uid="uid://tts1sj10xs40" path="res://scenes/gui/item_info_panel.tscn" id="2_pl1cs"]
 [ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="3_32vq5"]

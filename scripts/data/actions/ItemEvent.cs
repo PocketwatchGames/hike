@@ -134,23 +134,29 @@ public partial class ItemEvent : Resource
 	// position when no aim cursor is active). The scene is a "template" —
 	// it carries its own visual (particle loop, mesh), structural collision
 	// mask, and friendly-fire policy. The weapon-side fields below override
-	// damage, hazard radius, lifetime, and tick cadence on the spawned
-	// instance via GasCloud.Initialize so a single AoE scene can be reused
-	// across weapons with different power profiles (a "rain of arrows" vs
-	// a stronger "storm of arrows" reuse the same .tscn).
+	// damage, hazard radius, and lifetime on the spawned instance via
+	// GasCloud.Initialize so a single AoE scene can be reused across weapons
+	// with different power profiles (a "rain of arrows" vs a stronger
+	// "storm of arrows" reuse the same .tscn).
 	[Export] public PackedScene areaEffectScene;
 	// World-space radius (meters) of the hazard volume. 0 leaves the scene's
 	// authored collision shape unchanged. Currently only SphereShape3D is
 	// resized — non-spherical hazards keep their scene radius.
 	[Export] public float areaRadius = 0f;
 	// Total time the hazard lives, in seconds. 0 leaves the scene's authored
-	// lifetimeSeconds in place. Total expected damage = DPS * duration when
-	// a target stays inside the zone.
+	// lifetimeSeconds in place. Total expected damage = continuous DPS *
+	// duration + sum-of-interval-DPS * duration.
 	[Export] public float areaDurationSeconds = 0f;
-	// Seconds between damage ticks while a target is inside the zone. 0
-	// leaves the scene's authored tickInterval in place. With the resolved
-	// damage profile's healthDamage = D and tickInterval = T, DPS = D / T.
-	[Export] public float areaTickInterval = 0f;
+	// Continuous (per-frame, smooth) portion of the spawned zone's damage.
+	// Resolves against the firing entity's continuousProfiles dict
+	// (WeaponData / MobData). Empty StringName = no continuous portion.
+	[Export] public StringName areaContinuousKey = new();
+	// Interval (per-tick, discrete) portion of the spawned zone's damage.
+	// Each entry pairs a damage-profile key (looked up against the firing
+	// entity's damageProfiles) with its own tick cadence. Multiple entries
+	// stack independently — a fire+poison cloud authors one fast burn
+	// entry and one slow status-stacking entry.
+	[Export] public Array<AreaIntervalSpec> areaIntervals = new();
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
@@ -259,7 +265,7 @@ public partial class ItemEvent : Resource
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
 			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
 			nameof(concept) => EItemEventType.LearnConcept,
-			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile | EItemEventType.SpawnAreaEffect,
+			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(friendlyFire) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)
@@ -275,7 +281,8 @@ public partial class ItemEvent : Resource
 				or nameof(impactEvent) => EItemEventType.Projectile,
 			nameof(areaEffectScene)
 				or nameof(areaDurationSeconds)
-				or nameof(areaTickInterval) => EItemEventType.SpawnAreaEffect,
+				or nameof(areaContinuousKey)
+				or nameof(areaIntervals) => EItemEventType.SpawnAreaEffect,
 			nameof(areaRadius) => EItemEventType.SpawnAreaEffect | EItemEventType.ApplyAreaStatusEffect,
 			_ => 0,
 		};

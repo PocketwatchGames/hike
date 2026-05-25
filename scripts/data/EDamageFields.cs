@@ -7,7 +7,7 @@ using System;
 // Most bits replace the corresponding field on the live HitInfo. The
 // AddStatusEffects bit is the exception: it APPENDS the modifier's array
 // to the running statusEffects list rather than overwriting it, since the
-// typical authoring intent for crit/stun modifiers is "also apply bleed"
+// typical authoring intent for crit/dizzy modifiers is "also apply bleed"
 // rather than "drop the base hit's status effects".
 //
 // Wire values are stable — append new bits, never reassign existing ones,
@@ -17,7 +17,9 @@ public enum EDamageFields
 {
 	None = 0,
 	HealthDamage = 1 << 0,
-	Stun = 1 << 1,
+	// Bit 1 reserved — was Stun (now expressed via DamageData.buildups).
+	// Kept reserved per the wire-stability convention so legacy .tres files
+	// with bit 1 set deserialize safely (the bit is now ignored).
 	Hitstun = 1 << 2,
 	KnockbackDistance = 1 << 3,
 	KnockbackTime = 1 << 4,

@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://c7r0drbmx8ob5"]
 
 [ext_resource type="Script" uid="uid://bho327tgdqbxw" path="res://scripts/gui/Hud.cs" id="1_ahhtf"]
+[ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://dy8owtvikxnqf" path="res://scenes/gui/weapon_hud.tscn" id="2_qxonp"]
 [ext_resource type="PackedScene" uid="uid://bq51h8f7tlvkj" path="res://scenes/gui/status_effect_hud.tscn" id="2_ueg55"]
-[ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_icon"]
 [ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="3_ueg55"]
 [ext_resource type="PackedScene" uid="uid://blmj70p54o01u" path="res://scenes/hud/conversation_panel.tscn" id="4_dialogue"]
 [ext_resource type="PackedScene" uid="uid://dhsgpnlsc7r30" path="res://scenes/hud/hud_signpost_panel.tscn" id="4_signpost"]
@@ -13,18 +13,6 @@
 [ext_resource type="Texture2D" uid="uid://dbdfb2i05edbk" path="res://assets/textures/weather/day_cold_clear.png" id="8_6101d"]
 [ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aoesn"]
-content_margin_left = 2.0
-content_margin_top = 2.0
-content_margin_right = 2.0
-content_margin_bottom = 2.0
-bg_color = Color(1, 0, 0, 1)
-corner_radius_top_left = 6
-corner_radius_top_right = 6
-corner_radius_bottom_right = 6
-corner_radius_bottom_left = 6
-corner_detail = 6
-
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_drain"]
@@ -33,6 +21,18 @@ content_margin_top = 2.0
 content_margin_right = 2.0
 content_margin_bottom = 2.0
 bg_color = Color(0.35, 0, 0, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_aoesn"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(1, 0, 0, 1)
 corner_radius_top_left = 6
 corner_radius_top_right = 6
 corner_radius_bottom_right = 6
@@ -129,15 +129,6 @@ size_flags_vertical = 4
 [node name="MarginContainer" type="MarginContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer" unique_id=565732422]
 layout_mode = 2
 
-[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856623]
-custom_minimum_size = Vector2(250, 25)
-layout_mode = 2
-size_flags_horizontal = 4
-theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
-max_value = 1.0
-value = 0.5
-show_percentage = false
-
 [node name="DrainedHealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856624]
 custom_minimum_size = Vector2(250, 25)
 layout_mode = 2
@@ -146,7 +137,17 @@ mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_drain")
 max_value = 1.0
-fill_mode = 1
+step = 0.001
+show_percentage = false
+
+[node name="HealthBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=1068856623]
+custom_minimum_size = Vector2(250, 25)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
+max_value = 1.0
+step = 0.001
+value = 0.5
 show_percentage = false
 
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068372]
@@ -343,6 +344,7 @@ size_flags_vertical = 0
 
 [node name="StatusEffectNotificationAnchor" type="Control" parent="." unique_id=1924019998]
 layout_mode = 1
+anchors_preset = 0
 mouse_filter = 2
 
 [node name="LightningFlashOverlay" type="ColorRect" parent="." unique_id=1924019999]

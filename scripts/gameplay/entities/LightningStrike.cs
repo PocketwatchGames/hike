@@ -247,7 +247,7 @@ public partial class LightningStrike : Node3D
             // Knockback direction is straight up — a lateral push
             // would imply the strike came from a direction, which it
             // didn't. Receivers strip Y by convention, so the actual
-            // impulse ends up zero (the strike's hitstun + stun do
+            // impulse ends up zero (the strike's hitstun + dizzy buildup do
             // the work).
             var hit = new HitInfo(_data.damage, this, Vector3.Up);
             hb.Hit(hit);

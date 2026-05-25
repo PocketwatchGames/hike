@@ -279,7 +279,7 @@ public partial class Player : CharacterBody3D
 	float _maxArmor;
 	// Per-hit flinch state. _hitstunTime counts down each physics tick while
 	// > 0 and holds the hitstun anim's effect on UpdateAnimation; _knockbackTime
-	// mirrors it for the knockback lockout window. Independent of any stun
+	// mirrors it for the knockback lockout window. Independent of any dizzy
 	// meter (which the player doesn't have today) — every hit that authors
 	// hitstun flinches. _knockbackVelocity is the horizontal velocity forced
 	// onto Velocity each physics tick while _knockbackTime > 0 (distance/time
@@ -631,7 +631,7 @@ public partial class Player : CharacterBody3D
 		// nor lose sneak from a hit that did nothing.
 		float damageMultiplier = _statusEffects?.DamageMultiplier ?? 1f;
 		float incomingDamage = hit.healthDamage * damageMultiplier;
-		if (incomingDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		if (incomingDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
 			return;
 		}
@@ -641,20 +641,20 @@ public partial class Player : CharacterBody3D
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
 		_sneaking = false;
-		// Armor handling. Two-part chip: hit.stun always chips armor (when
-		// any is present), and the healthDamage portion (scaled by
-		// `1 + hit.blunt` for anti-armor weapons) piles on top unless the
-		// hit pierced — pierce skips the healthDamage chip but still counts
-		// as "the hit registered," so we reset the recharge timer regardless.
-		// Overflow doesn't bleed into health on the absorbed path. A hit that
-		// takes armor to zero arms the longer recover window via
-		// _armorDepleted; everything else uses the regular recharge delay.
-		// The player has no stun meter today, so hit.stun is consumed
-		// entirely by this armor chip.
+		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
+		// skips armor entirely (discrete `Pierced` = full bypass; continuous
+		// `armorBypassFraction` = partial), the rest is "absorbable" and
+		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow doesn't
+		// bleed into health on the absorbed portion — only the pre-resolved
+		// bypass lands. Hit still counts as "the hit registered," so we reset
+		// the recharge timer regardless.
+		float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
+		float bypassed = incomingDamage * bypassFraction;
+		float absorbable = incomingDamage - bypassed;
 		float armorAbsorbed = 0f;
-		if (_armor > 0f && (incomingDamage > 0f || hit.stun > 0f))
+		if (_armor > 0f && incomingDamage > 0f)
 		{
-			float armorDamage = hit.stun + (hit.Pierced ? 0f : incomingDamage * (1f + hit.blunt));
+			float armorDamage = absorbable * (1f + hit.blunt);
 			float armorBefore = _armor;
 			_armor = Mathf.Max(0f, _armor - armorDamage);
 			armorAbsorbed = armorBefore - _armor;
@@ -671,10 +671,7 @@ public partial class Player : CharacterBody3D
 				_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
 			}
 			_armorRecharging = false;
-			if (!hit.Pierced)
-			{
-				incomingDamage = 0f;
-			}
+			incomingDamage = bypassed;
 		}
 
 		bool wasAlive = _health > 0f;
@@ -691,7 +688,11 @@ public partial class Player : CharacterBody3D
 			}
 			PlayOneShot(EAnimation.Die);
 		}
-		else if (incomingDamage > 0f)
+		// Per-hit blood / hurt VO. Suppressed for continuous DoT hits (the
+		// owning DamageZone pulses these on its own fxIntervalSeconds via
+		// OnHurtBoxFxPulse) so a smear-damage zone doesn't spawn a fresh
+		// blood spurt every physics frame.
+		else if (incomingDamage > 0f && !hit.dot)
 		{
 			SpawnWorldEffect(_bloodDamageFx);
 			SpawnWorldEffect(_hurtVoFx);
@@ -723,13 +724,17 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
+		// Buildup contributions — funnel each entry into the receiver's per-
+		// effect meter and fold any applyTrigger from a crossed threshold back
+		// onto the hit before hitstun/knockback resolution so an OnDizzy
+		// modifier can amplify those reads on the same hit that landed dizzy.
+		_statusEffects?.ApplyHitBuildups(ref hit);
+
 		// Hitstun + knockback: latch the flinch + knockback windows so
-		// per-frame ticks can count them down. Player has no stun state today,
-		// so no OnStun modifier folds in here — the path is still wired so
-		// future player-stun work picks it up for free. Direction comes from
-		// the sender via HitInfo.hitDirection; a zero direction drops
-		// knockback entirely regardless of distance. Death overrides the
-		// hitstun anim because the Die one-shot above latches first.
+		// per-frame ticks can count them down. Direction comes from the
+		// sender via HitInfo.hitDirection; a zero direction drops knockback
+		// entirely regardless of distance. Death overrides the hitstun anim
+		// because the Die one-shot above latches first.
 		if (hit.hitstun > 0f && _health > 0f)
 		{
 			_hitstunTime = Mathf.Max(_hitstunTime, hit.hitstun);
@@ -2086,7 +2091,13 @@ public partial class Player : CharacterBody3D
 		_statusEffects.Tick(dt);
 		TickWetEffect(dt);
 		TickBodyTemperature(dt);
-		_dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
+		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
+		if (dotFlush.damage)
+		{
+			// Continuous damage authors no per-frame fx; its "ouch" rides on
+			// the once-per-second HUD rollup instead.
+			SpawnWorldEffect(_hurtVoFx);
+		}
 		_scent?.Tick(dt);
 
 		// Footstep / wake ripples on the water surface. Stride is longer

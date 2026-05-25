@@ -11,7 +11,7 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_22kvh"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="11_4nu01"]
+[ext_resource type="Script" uid="uid://5fyx50nuzpway" path="res://scripts/data/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/sprites/FlatLitSprite.cs" id="11_naflh"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="15_xray"]
@@ -52,11 +52,9 @@ radius = 1.0
 [sub_resource type="SphereShape3D" id="SphereShape3D_qk6wi"]
 radius = 1.75
 
-[sub_resource type="Resource" id="Resource_yf2vb"]
-script = ExtResource("11_4nu01")
+[sub_resource type="Resource" id="Resource_campfire_continuous"]
+script = ExtResource("11_continuous")
 healthDamage = 1.0
-statusEffects = null
-metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
 radius = 1.1
@@ -124,7 +122,7 @@ shape = SubResource("SphereShape3D_qk6wi")
 collision_layer = 0
 collision_mask = 32
 script = ExtResource("10_qk6wi")
-damage = SubResource("Resource_yf2vb")
+damageContinuous = SubResource("Resource_campfire_continuous")
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 
 [node name="CollisionShape3D2" type="CollisionShape3D" parent="DamageZone" unique_id=1443435336]

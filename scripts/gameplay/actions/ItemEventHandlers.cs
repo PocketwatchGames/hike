@@ -9,7 +9,7 @@ public static class ItemEventHandlers
 	public static void DoMelee(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
 			return;
 		}
@@ -99,7 +99,7 @@ public static class ItemEventHandlers
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
 			return;
 		}
@@ -311,7 +311,7 @@ public static class ItemEventHandlers
 			return;
 		}
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.stun <= 0f)
+		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
 			return;
 		}
@@ -430,12 +430,15 @@ public static class ItemEventHandlers
 			{
 				Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
 				// Apply weapon-side overrides BEFORE AddChild — DamageZone's
-				// _Ready builds its HitInfo from the (possibly overridden)
-				// damage field, so the override has to land first.
+				// _Ready builds its interval HitInfos from the (possibly
+				// overridden) damageIntervals, so the override has to land
+				// first.
 				if (instance is GasCloud cloud)
 				{
-					DamageData damage = sourceWeaponData?.GetDamage(ev.damageProfileKey);
-					cloud.Initialize(ev, damage);
+					ResolveAreaPayload(ev, sourceWeaponData, null,
+						out ContinuousDamageData continuous,
+						out Godot.Collections.Array<IntervalDamageEntry> intervals);
+					cloud.Initialize(ev, continuous, intervals);
 				}
 				host.AddChild(instance);
 				instance.GlobalPosition = position;
@@ -467,12 +470,62 @@ public static class ItemEventHandlers
 		Node3D instance = ev.areaEffectScene.Instantiate<Node3D>();
 		if (instance is GasCloud cloud)
 		{
-			WeaponState firingWeapon = action.context.primaryItem as WeaponState;
-			DamageData damage = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
-			cloud.Initialize(ev, damage);
+			WeaponData weaponData = (action.context.primaryItem as WeaponState)?.data;
+			MobData mobData = (actor as Mob)?.mobData;
+			ResolveAreaPayload(ev, weaponData, mobData,
+				out ContinuousDamageData continuous,
+				out Godot.Collections.Array<IntervalDamageEntry> intervals);
+			cloud.Initialize(ev, continuous, intervals);
 		}
 		parent.AddChild(instance);
 		instance.GlobalPosition = position;
+	}
+
+	// Resolves an ItemEvent's SpawnAreaEffect payload against the firing
+	// entity's continuousProfiles / damageProfiles dictionaries. Weapon-
+	// driven hits prefer the WeaponData; mob-driven hits fall back to
+	// MobData. Either may be null — keys that miss yield no profile and
+	// are silently skipped. The returned `intervals` array contains one
+	// IntervalDamageEntry per AreaIntervalSpec whose key resolved to a
+	// non-null DamageData.
+	private static void ResolveAreaPayload(
+		ItemEvent ev,
+		WeaponData weaponData,
+		MobData mobData,
+		out ContinuousDamageData continuous,
+		out Godot.Collections.Array<IntervalDamageEntry> intervals)
+	{
+		continuous = null;
+		if (!string.IsNullOrEmpty(ev.areaContinuousKey.ToString()))
+		{
+			continuous = weaponData?.GetContinuousDamage(ev.areaContinuousKey)
+				?? mobData?.GetContinuousDamage(ev.areaContinuousKey);
+		}
+		intervals = null;
+		if (ev.areaIntervals != null && ev.areaIntervals.Count > 0)
+		{
+			intervals = new Godot.Collections.Array<IntervalDamageEntry>();
+			for (int i = 0; i < ev.areaIntervals.Count; i++)
+			{
+				AreaIntervalSpec spec = ev.areaIntervals[i];
+				if (spec == null)
+				{
+					continue;
+				}
+				DamageData damage = weaponData?.GetDamage(spec.damageProfileKey)
+					?? mobData?.GetDamage(spec.damageProfileKey);
+				if (damage == null)
+				{
+					continue;
+				}
+				intervals.Add(new IntervalDamageEntry
+				{
+					damage = damage,
+					tickInterval = spec.tickInterval,
+					tickOnEnter = spec.tickOnEnter,
+				});
+			}
+		}
 	}
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -721,7 +774,7 @@ public static class ItemEventHandlers
 	// (mob attacks have no WeaponState). Source is the actor so receivers
 	// see the attacker. Returns a default HitInfo (no damage) if the lookup
 	// fails or there's no source — caller should early-out. Conditional
-	// crit / stun behavior rides on `template.modifiers`, no separate
+	// crit / dizzy behavior rides on `template.modifiers`, no separate
 	// parameter needed here.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
@@ -743,7 +796,7 @@ public static class ItemEventHandlers
 		// direction (e.g. radial pop-up from a trap) build HitInfo directly.
 		HitInfo hit = new HitInfo(template, actor.AttackerNode, actor.ActorForward);
 		// Source-side buffs / debuffs scale the swing's healthDamage at fire
-		// time. Only healthDamage is scaled — stun / hitstun / knockback keep
+		// time. Only healthDamage is scaled — buildups / hitstun / knockback keep
 		// their authored CC pattern so a damage-only buff doesn't accidentally
 		// turn into a stagger-cannon.
 		float mul = actor.OutgoingDamageMultiplier;

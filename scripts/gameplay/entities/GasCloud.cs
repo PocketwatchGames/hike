@@ -23,14 +23,18 @@ public partial class GasCloud : Node3D
     private float _ageSeconds;
 
     // Applies weapon-authored overrides from a SpawnAreaEffect ItemEvent.
-    // `damage` is pre-resolved by the caller (looked up from the firing
-    // weapon's damageProfiles via ev.damageProfileKey) since GasCloud
-    // doesn't know about WeaponState. Must be called BEFORE the cloud is
-    // added to the scene tree — both this and DamageZone.OverrideAuthoring
-    // mutate fields that the targets read in their own _Ready, so AddChild
-    // must come last. Each field is skipped when its source leaves it at the
-    // default sentinel (null / non-positive), so a partial override is fine.
-    public void Initialize(ItemEvent ev, DamageData damage)
+    // `continuous` and `intervals` are pre-resolved by the caller (looked
+    // up against the firing entity's continuousProfiles / damageProfiles)
+    // since GasCloud doesn't know about WeaponState. Must be called BEFORE
+    // the cloud is added to the scene tree — both this and
+    // DamageZone.OverrideAuthoring mutate fields that the targets read in
+    // their own _Ready, so AddChild must come last. Each field is skipped
+    // when its source leaves it at the default sentinel (null /
+    // non-positive), so a partial override is fine.
+    public void Initialize(
+        ItemEvent ev,
+        ContinuousDamageData continuous,
+        Godot.Collections.Array<IntervalDamageEntry> intervals)
     {
         if (ev == null)
         {
@@ -40,7 +44,7 @@ public partial class GasCloud : Node3D
         {
             lifetimeSeconds = ev.areaDurationSeconds;
         }
-        _dangerZone?.OverrideAuthoring(damage, ev.areaTickInterval, ev.areaRadius);
+        _dangerZone?.OverrideAuthoring(continuous, intervals, ev.areaRadius);
     }
 
     public override void _Process(double delta)

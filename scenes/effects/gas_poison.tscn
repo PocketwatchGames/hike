@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
 [ext_resource type="PackedScene" uid="uid://cakjul286ucv4" path="res://scenes/effects/gas_poison_burst.tscn" id="2_wmtne"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_dmg"]
+[ext_resource type="Script" uid="uid://3sqed3icnrn44" path="res://scripts/data/IntervalDamageEntry.cs" id="3_interval"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="4_js1uy"]
 [ext_resource type="PackedScene" uid="uid://6d2llur7apbo" path="res://scenes/effects/gas_poison_loop.tscn" id="4_loop"]
 
@@ -12,6 +13,12 @@ script = ExtResource("3_dmg")
 statusEffects = Array[Object]([ExtResource("4_js1uy")])
 modifiers = null
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
+
+[sub_resource type="Resource" id="Resource_gas_poison_interval"]
+script = ExtResource("3_interval")
+damage = SubResource("Resource_gas_poison_damage")
+tickInterval = 1.0
+tickOnEnter = true
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_gas_poison_zone"]
 radius = 1.4
@@ -25,7 +32,7 @@ _dangerZone = NodePath("DamageZone")
 collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
-damage = SubResource("Resource_gas_poison_damage")
+damageIntervals = Array[ExtResource("3_interval")]([SubResource("Resource_gas_poison_interval")])
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone" unique_id=691138528]

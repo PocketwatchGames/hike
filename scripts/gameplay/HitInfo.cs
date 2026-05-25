@@ -6,15 +6,17 @@ using Godot;
 // the fields they care about — health damage routes through armor, status
 // effects are appended to the receiver's _statusEffects, etc.
 //
-// Conditional behavior (crit when target is stunned, extra knockback on
-// stun threshold cross, etc.) is layered via ApplyTrigger: the receiver
+// Conditional behavior (crit when target is dizzy, extra knockback on the
+// hit that lands dizzy, etc.) is layered via ApplyTrigger: the receiver
 // calls it with the trigger that just became true and every matching
 // DamageDataModifier from `modifiers` folds onto the live fields here.
+// OnDizzy specifically fires when a buildup contribution for a
+// StatusEffectData with applyTrigger=OnDizzy (i.e. Dizzy) crosses its
+// threshold.
 public struct HitInfo
 {
 	public Node source;
 	public float healthDamage;
-	public float stun;
 	public float hitstun;
 	// Knockback magnitude (m/s of velocity change) and lockout window;
 	// sourced from the DamageData template. The receiver multiplies this
@@ -34,7 +36,35 @@ public struct HitInfo
 	// instead of re-rolling, so HurtBox.QueryHitType and HurtBox.Hit always
 	// agree on whether the same swing pierced.
 	public float pierceRoll;
+	// Random sample in [0,1) for the crit decision. Same pattern as pierceRoll
+	// — drawn once at construction so the attacker's QueryHitTriggers
+	// prediction and the receiver's Hit-time ApplyCrit agree on whether this
+	// swing crits even though crit is now probabilistic (driven by the
+	// receiver's `Vulnerable` score).
+	public float critRoll;
+	// Fraction of healthDamage that bypasses armor and lands directly on
+	// health, with the remainder routed through armor chip. Set by the
+	// continuous-damage path (ContinuousDamageData.pierce) — spreads
+	// armor bypass across time instead of rolling per hit. 0 = use the
+	// discrete `Pierced` path; > 0 = continuous-style split. Discrete
+	// hits leave this at 0.
+	public float armorBypassFraction;
 	public Godot.Collections.Array<StatusEffectData> statusEffects;
+	// Per-hit buildup contributions sourced from DamageData.buildups /
+	// ContinuousDamageData.buildups. Receivers fold each entry into the per-
+	// effect buildup meter; the meter, decay timing, and apply trigger live on
+	// the StatusEffectData itself. Continuous-damage hits pre-scale `amount`
+	// by delta so the rate authored on ContinuousDamageData.buildups is
+	// integrated correctly when applied as a one-frame chunk.
+	public Godot.Collections.Array<StatusEffectBuildup> buildups;
+	// Scalar applied to every buildup entry's `amount` at apply time. Discrete
+	// hits leave this at 1; the continuous-damage constructor sets it to the
+	// physics delta so a per-second buildup rate authored on
+	// ContinuousDamageData.buildups integrates correctly without forcing the
+	// receiver to learn about frame timing. The buildups array itself is a
+	// direct reference to the authored resource list (never mutated), so the
+	// multiplier is the only allocation-free way to convey scaling.
+	public float buildupAmountMultiplier;
 	// Direction the receiver should be pushed along on a non-zero knockback
 	// hit. Set by the sender at hit time — melee/hitscan use the attacker's
 	// forward, traps use whatever direction the trap implies (spike → up),
@@ -62,35 +92,81 @@ public struct HitInfo
 		this.source = source;
 		this.hitDirection = hitDirection;
 		_statusEffectsOwned = false;
-		// Roll pierce once up-front so the prediction and the apply see the
-		// same outcome even though modifiers may shift `pierce` between them.
+		// Roll pierce + crit once up-front so the prediction and the apply see
+		// the same outcome even though modifiers may shift the underlying
+		// fields between them.
 		pierceRoll = GD.Randf();
+		critRoll = GD.Randf();
+		armorBypassFraction = 0f;
 		if (template != null)
 		{
 			healthDamage = template.healthDamage;
-			stun = template.stun;
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
 			pierce = template.pierce;
 			blunt = template.blunt;
 			statusEffects = template.statusEffects;
+			buildups = template.buildups;
 			modifiers = template.modifiers;
 			dot = template.dot;
 		}
 		else
 		{
 			healthDamage = 0f;
-			stun = 0f;
 			hitstun = 0f;
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
 			pierce = 0f;
 			blunt = 0f;
 			statusEffects = null;
+			buildups = null;
 			modifiers = null;
 			dot = false;
 		}
+		buildupAmountMultiplier = 1f;
+	}
+
+	// Continuous-damage constructor. Pre-scales healthDamage by `delta` so the
+	// receiver's discrete apply path lands a one-frame chunk; sets
+	// `armorBypassFraction` from the template's fractional pierce; flags
+	// `dot = true` so the HUD rollup kicks in. Buildups pass through unscaled
+	// — `buildupAmountMultiplier` is set to `delta` so the receiver scales
+	// per-second rates correctly at apply time without mutating the authored
+	// list. No modifiers or status effects — continuous damage authors its
+	// status cadence through interval entries on the same DamageZone.
+	public HitInfo(ContinuousDamageData template, Node source, float delta, Vector3 hitDirection = default)
+	{
+		this.source = source;
+		this.hitDirection = hitDirection;
+		_statusEffectsOwned = false;
+		pierceRoll = GD.Randf();
+		critRoll = GD.Randf();
+		if (template != null)
+		{
+			healthDamage = template.healthDamage * delta;
+			blunt = template.blunt;
+			armorBypassFraction = template.pierce;
+			buildups = template.buildups;
+		}
+		else
+		{
+			healthDamage = 0f;
+			blunt = 0f;
+			armorBypassFraction = 0f;
+			buildups = null;
+		}
+		hitstun = 0f;
+		knockbackDistance = 0f;
+		knockbackTime = 0f;
+		pierce = 0f;
+		statusEffects = null;
+		modifiers = null;
+		dot = true;
+		// Per-second buildup rates on ContinuousDamageData scale by delta so a
+		// body that stays in the zone for one second accumulates `amount`
+		// units regardless of frame rate.
+		buildupAmountMultiplier = delta;
 	}
 
 	// True when the rolled chance landed inside the (possibly modifier-
@@ -100,7 +176,7 @@ public struct HitInfo
 
 	// Fold every modifier whose trigger equals `trigger` onto the live
 	// fields. Callers fire one trigger per condition crossing (OnCrit when
-	// this hit crits, OnStun when this hit crossed stunThreshold, etc.); a
+	// this hit crits, OnDizzy when this hit landed dizzy, etc.); a
 	// modifier authored for a different trigger is skipped.
 	public void ApplyTrigger(EDamageTrigger trigger)
 	{
@@ -112,7 +188,6 @@ public struct HitInfo
 			if (mod.trigger != trigger) { continue; }
 			EDamageFields f = mod.overrides;
 			if ((f & EDamageFields.HealthDamage) != 0) { healthDamage = mod.healthDamage; }
-			if ((f & EDamageFields.Stun) != 0) { stun = mod.stun; }
 			if ((f & EDamageFields.Hitstun) != 0) { hitstun = mod.hitstun; }
 			if ((f & EDamageFields.KnockbackDistance) != 0) { knockbackDistance = mod.knockbackDistance; }
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }

@@ -4,7 +4,7 @@ using Godot.Collections;
 // Conditional partial-override layer on top of a base DamageData. Authored
 // as an entry in DamageData.modifiers; the receiver folds matching entries
 // onto the live hit via HitInfo.ApplyTrigger when its trigger condition is
-// met (crit-eligible target, this hit crossed stun threshold, etc.).
+// met (crit-eligible target, this hit landed dizzy, etc.).
 //
 // `overrides` is a flag mask — only the fields whose bit is set are read.
 // The inspector hides untoggled fields via `_ValidateProperty`; storage is
@@ -34,7 +34,6 @@ public partial class DamageDataModifier : Resource
 	}
 
 	[Export] public float healthDamage;
-	[Export] public float stun;
 	[Export] public float hitstun;
 	[Export] public float knockbackDistance;
 	[Export] public float knockbackTime;
@@ -59,7 +58,6 @@ public partial class DamageDataModifier : Resource
 		return fieldName switch
 		{
 			nameof(healthDamage) => EDamageFields.HealthDamage,
-			nameof(stun) => EDamageFields.Stun,
 			nameof(hitstun) => EDamageFields.Hitstun,
 			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
 			nameof(knockbackTime) => EDamageFields.KnockbackTime,

@@ -101,13 +101,6 @@ public static class EntitySerializer
                 w.Write((byte)mob.DiscoveryState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
                 w.Write(mob.SpawnAtNight);
-                // Stun state. Persisted so a mob saved mid-stun reloads in
-                // the same state and TickStun can resume the wake-up clock
-                // without a discontinuity.
-                w.Write(mob.Stun);
-                w.Write(mob.Stunned);
-                w.Write(mob.StunRecoverMs);
-                w.Write(mob.StunRechargeStartMs);
                 WriteResource(w, mob.Language);
                 // Merchant / loyalty / conversation state — persisted so a
                 // villager's per-instance stock, accumulated loyalty, and
@@ -311,10 +304,6 @@ public static class EntitySerializer
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
                 bool spawnAtNight = r.ReadBoolean();
-                float stun = r.ReadSingle();
-                bool stunned = r.ReadBoolean();
-                ulong stunRecoverMs = r.ReadUInt64();
-                ulong stunRechargeStartMs = r.ReadUInt64();
                 var language = ReadResource<LanguageData>(r);
                 bool willTrade = r.ReadBoolean();
                 float loyalty = r.ReadSingle();
@@ -370,10 +359,6 @@ public static class EntitySerializer
                 mob.PlayerPerception = playerPerception;
                 mob.MemoryTimeMs = memoryTimeMs;
                 mob.DiscoveryState = perceptionState;
-                mob.Stun = stun;
-                mob.Stunned = stunned;
-                mob.StunRecoverMs = stunRecoverMs;
-                mob.StunRechargeStartMs = stunRechargeStartMs;
                 mob.WillTrade = willTrade;
                 mob.Loyalty = loyalty;
                 mob.Conversation = conversation;

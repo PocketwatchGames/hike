@@ -20,10 +20,10 @@
 [ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
 [ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/friendly_villager.tres" id="13_villager"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/friendly_villager_conversation.tres" id="14_v_conv"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/LoyaltyGift.cs" id="15_loyaltygift"]
+[ext_resource type="Script" uid="uid://mopl8c3ntye1i" path="res://scripts/data/LoyaltyGift.cs" id="15_loyaltygift"]
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/MobInventoryData.cs" id="17_stock"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="18_itemcount"]
+[ext_resource type="Script" uid="uid://mdofgaaseydt6" path="res://scripts/data/ItemCount.cs" id="18_itemcount"]
 
 [sub_resource type="Resource" id="Resource_chest_loot_numbers"]
 script = ExtResource("18_itemcount")

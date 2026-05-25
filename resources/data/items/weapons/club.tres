@@ -1,9 +1,12 @@
 [gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dibo02cdspray"]
 
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="1_buildup"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="1_dizzy"]
 [ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_r0ajr"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_sulc1"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_in4wh"]
@@ -18,6 +21,7 @@
 [ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/effects/sword_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/effects/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="Texture2D" uid="uid://clsxls6s8mfqk" path="res://assets/textures/items/pickups/Club.png" id="16_world"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
@@ -74,11 +78,15 @@ autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.2
 
+[sub_resource type="Resource" id="Resource_buildup_dizzy"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 0.6
+
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-overrides = 11
-healthDamage = 3.0
-stun = 10.0
+overrides = 9
+healthDamage = 5.0
 knockbackDistance = 4.0
 addStatusEffects = []
 
@@ -100,11 +108,11 @@ addStatusEffects = []
 script = ExtResource("1_damage")
 healthDamage = 3.0
 blunt = 0.5
-stun = 3.0
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 statusEffects = null
+buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy")])
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab"), SubResource("Resource_mod_stun")])
 
 [resource]

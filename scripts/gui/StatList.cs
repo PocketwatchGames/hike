@@ -10,8 +10,8 @@ using Godot;
 // which fields to suppress, what unit suffix to use, etc.
 public static class StatList
 {
-	// Direct-hit damage block: Damage / Pierce / Stun / Knockback, plus
-	// one entry per inflicted status effect.
+	// Direct-hit damage block: Damage / Pierce / Knockback, plus one entry
+	// per inflicted status effect and one per buildup contribution.
 	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage)
 	{
 		if (damage == null)
@@ -31,10 +31,6 @@ public static class StatList
 		{
 			yield return (names[EStatName.Blunt], StatFormat.Percent(damage.blunt));
 		}
-		if (damage.stun > 0f)
-		{
-			yield return (names[EStatName.Stun], StatFormat.Number(damage.stun));
-		}
 		// Knockback < 1m reads as flinch / shrug — not worth surfacing. The
 		// threshold matches the design distinction between hitstun (always
 		// applied) and "real" knockback that actually relocates the target.
@@ -46,41 +42,78 @@ public static class StatList
 		{
 			yield return entry;
 		}
+		foreach (var entry in Buildups(damage.buildups))
+		{
+			yield return entry;
+		}
 	}
 
-	// AoE block. DPS = healthDamage / tickInterval — the rate a target
-	// standing in the zone takes damage. Total expected damage for a
-	// full-duration stay = DPS * duration.
-	public static IEnumerable<(string name, string value)> AreaEffect(ItemEvent areaEvent, DamageData damage)
+	// AoE block. Sums continuous DPS + per-interval DPS (each entry's
+	// healthDamage / tickInterval) into one rolled-up Dps row, then lists
+	// per-entry status effects / buildups, then radius / duration. Continuous
+	// damage already reads as DPS in its authoring (healthDamage per
+	// second); interval damage is per-tick and gets divided.
+	public static IEnumerable<(string name, string value)> AreaEffect(ItemEvent areaEvent, WeaponData weapon)
 	{
 		if (areaEvent == null)
 		{
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
-		float tick = areaEvent.areaTickInterval;
-		if (damage != null && tick > 0f && damage.healthDamage > 0f)
+		float totalDps = 0f;
+		ContinuousDamageData continuous = weapon?.GetContinuousDamage(areaEvent.areaContinuousKey);
+		if (continuous != null && continuous.healthDamage > 0f)
+		{
+			totalDps += continuous.healthDamage;
+		}
+		if (areaEvent.areaIntervals != null)
+		{
+			for (int i = 0; i < areaEvent.areaIntervals.Count; i++)
+			{
+				AreaIntervalSpec spec = areaEvent.areaIntervals[i];
+				if (spec == null || spec.tickInterval <= 0f)
+				{
+					continue;
+				}
+				DamageData d = weapon?.GetDamage(spec.damageProfileKey);
+				if (d == null || d.healthDamage <= 0f)
+				{
+					continue;
+				}
+				totalDps += d.healthDamage / spec.tickInterval;
+			}
+		}
+		if (totalDps > 0f)
 		{
 			// Round to the nearest int — sub-decimal precision on a derived
-			// "damage per second" reads as false precision (the underlying
-			// damage is integer-valued and tick cadence is authored to one
-			// decimal place).
-			float dps = Mathf.Round(damage.healthDamage / tick);
-			yield return (names[EStatName.Dps], StatFormat.Number(dps));
+			// "damage per second" reads as false precision.
+			yield return (names[EStatName.Dps], StatFormat.Number(Mathf.Round(totalDps)));
 		}
-		else if (damage != null && damage.healthDamage > 0f)
+		// Per-interval status effects + buildups. Per-second buildup rates on
+		// the continuous source read as a meter the player can't time, so
+		// they're omitted — interval entries are the player-legible CC channel.
+		if (areaEvent.areaIntervals != null)
 		{
-			yield return (names[EStatName.Damage], StatFormat.Number(damage.healthDamage));
-		}
-		if (damage != null && damage.stun > 0f)
-		{
-			yield return (names[EStatName.Stun], StatFormat.Number(damage.stun));
-		}
-		if (damage != null)
-		{
-			foreach (var entry in StatusEffects(damage.statusEffects))
+			for (int i = 0; i < areaEvent.areaIntervals.Count; i++)
 			{
-				yield return entry;
+				AreaIntervalSpec spec = areaEvent.areaIntervals[i];
+				if (spec == null)
+				{
+					continue;
+				}
+				DamageData d = weapon?.GetDamage(spec.damageProfileKey);
+				if (d == null)
+				{
+					continue;
+				}
+				foreach (var entry in StatusEffects(d.statusEffects))
+				{
+					yield return entry;
+				}
+				foreach (var entry in Buildups(d.buildups))
+				{
+					yield return entry;
+				}
 			}
 		}
 		if (areaEvent.areaRadius > 0f)
@@ -167,6 +200,30 @@ public static class StatList
 		yield return (GameClient.Current.statNames[EStatName.TargetRange], StatFormat.Meters(action.positionalRange));
 	}
 
+	// One entry per buildup contribution — name = "<effect> Buildup",
+	// value = amount as a fraction of the 1.0 apply threshold. Null entries
+	// and zero/negative amounts are skipped.
+	public static IEnumerable<(string name, string value)> Buildups(Godot.Collections.Array<StatusEffectBuildup> buildups)
+	{
+		if (buildups == null)
+		{
+			yield break;
+		}
+		foreach (StatusEffectBuildup entry in buildups)
+		{
+			if (entry == null || entry.effect == null || entry.amount <= 0f)
+			{
+				continue;
+			}
+			string effectName = entry.effect.displayName.ToString();
+			if (string.IsNullOrEmpty(effectName))
+			{
+				effectName = entry.effect.ResourceName;
+			}
+			yield return (effectName + " Buildup", StatFormat.Number(entry.amount));
+		}
+	}
+
 	// One entry per status effect — name = effect display name, value =
 	// authored duration (or empty if 0, so the StatPanel value side hides).
 	public static IEnumerable<(string name, string value)> StatusEffects(Godot.Collections.Array<StatusEffectData> effects)
@@ -191,7 +248,7 @@ public static class StatList
 		}
 	}
 
-	// Conditional damage layer (On Crit / On Stun / On Backstab). Only the
+	// Conditional damage layer (On Crit / On Dizzy / On Backstab). Only the
 	// fields the modifier's `overrides` mask selects are emitted; the rest
 	// flow through from the base damage at runtime.
 	public static IEnumerable<(string name, string value)> DamageModifier(DamageDataModifier mod)
@@ -212,10 +269,6 @@ public static class StatList
 		if ((mod.overrides & EDamageFields.Blunt) != 0 && mod.blunt > 0f)
 		{
 			yield return (names[EStatName.Blunt], StatFormat.Percent(mod.blunt));
-		}
-		if ((mod.overrides & EDamageFields.Stun) != 0 && mod.stun > 0f)
-		{
-			yield return (names[EStatName.Stun], StatFormat.Number(mod.stun));
 		}
 		if ((mod.overrides & EDamageFields.KnockbackDistance) != 0 && mod.knockbackDistance > 1f)
 		{
