@@ -92,6 +92,11 @@ script = ExtResource("7_animdata")
 name = &"skating"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
+[sub_resource type="Resource" id="Resource_slt01"]
+script = ExtResource("7_animdata")
+name = &"hitstun"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
 [resource]
 script = ExtResource("1_mknwc")
 animations = Dictionary[int, ExtResource("7_animdata")]({
@@ -110,6 +115,7 @@ animations = Dictionary[int, ExtResource("7_animdata")]({
 15: SubResource("Resource_anim_dash"),
 16: SubResource("Resource_anim_sprint"),
 17: SubResource("Resource_anim_swim_sprint"),
+18: SubResource("Resource_slt01"),
 19: SubResource("Resource_anim_skating")
 })
 stepHeight = 1.1
@@ -126,6 +132,7 @@ wallJumpAirControlTime = 1.0
 perceptionMinimum = 0.0
 hearingRange = 15.0
 swimJumpSpeed = 16.0
+armorRechargeDelay = 5.0
 bloodRegenSpeed = 1.0
 dashActionProfile = ExtResource("6_dash")
 sprintSpeed = 11.0

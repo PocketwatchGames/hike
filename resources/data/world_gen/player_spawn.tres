@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" uid="uid://bil32l24fys4k" path="res://scripts/data/PlayerSpawnData.cs" id="1_pspawn"]
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="2_consumable_script"]
-[ext_resource type="Script" uid="uid://mdofgaaseydt6" path="res://scripts/data/ItemCount.cs" id="3_itemcount"]
-[ext_resource type="Script" uid="uid://qv7vpffufh5r5" path="res://scripts/data/teaching/ItemTeachable.cs" id="3_itemteach"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="3_itemcount"]
+[ext_resource type="Script" uid="uid://bglfc6qt5onq3" path="res://scripts/data/teaching/ItemTeachable.cs" id="3_itemteach"]
 [ext_resource type="Resource" uid="uid://dm4tlaswv03qa" path="res://resources/data/items/weapons/bow_of_rainfall.tres" id="3_jl16k"]
-[ext_resource type="Script" uid="uid://1jbrsbrtfk7cl" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
+[ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]
 [ext_resource type="Resource" uid="uid://dibo02cdspray" path="res://resources/data/items/weapons/club.tres" id="4_melee"]
 [ext_resource type="Resource" uid="uid://b6n2vvhvirjdk" path="res://resources/data/items/weapons/bow.tres" id="5_ranged"]
 [ext_resource type="Resource" uid="uid://bbbqut0x7kpan" path="res://resources/data/items/consumables/torch.tres" id="6_torch"]

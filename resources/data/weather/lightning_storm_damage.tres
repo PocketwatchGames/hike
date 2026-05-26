@@ -4,9 +4,10 @@
 
 [resource]
 script = ExtResource("1_damage")
-healthDamage = 50.0
-stun = 0.6
-hitstun = 0.5
+healthDamage = 80.0
+pierce = 0.5
+stun = 1.0
+hitstun = 1.0
 knockbackDistance = 6.0
 knockbackTime = 0.35
 statusEffects = null
