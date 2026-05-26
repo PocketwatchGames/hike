@@ -1,7 +1,15 @@
-[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+[gd_resource type="ShaderMaterial" format=3 uid="uid://b7yn6y1iuw3ht"]
 
-[ext_resource type="Shader" path="res://shaders/post_process.gdshader" id="1"]
+[ext_resource type="Shader" uid="uid://djp52vgqj7qi8" path="res://shaders/post_process.gdshader" id="1"]
 
 [resource]
-render_priority = 127
 shader = ExtResource("1")
+shader_parameter/motion_blur_strength = 0.0
+shader_parameter/motion_blur_dir = Vector2(1, 0)
+shader_parameter/vignette_radius = 0.55
+shader_parameter/vignette_softness = 0.45
+shader_parameter/vignette_strength = 0.5
+shader_parameter/damage_flash_color = Color(1, 0.05, 0.05, 1)
+shader_parameter/damage_flash = 0.0
+shader_parameter/low_health_desaturation = 0.0
+shader_parameter/low_health_dim = 0.0

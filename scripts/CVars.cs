@@ -301,6 +301,13 @@ public static class CVars
     public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
     public static CVarInt pixelScale = new CVarInt("pixel_scale", 4);
 
+    // Gates the directional motion blur in post_process.gdshader. When false,
+    // GameClient zeros motion_blur_strength every frame so the shader skips
+    // the blur loop entirely — perceptually identical to "no blur" with no
+    // GPU cost. Drives the camera rotation effect today; future fly-up
+    // overview should share the same gate.
+    public static CVarBool rotationBlur = new CVarBool("rotation_blur", true);
+
     // Heat shimmer post-process. When true, HeatField populates a 2D heat
     // texture from ambient air temperature + active WarmthZones each tick;
     // heat_shimmer.gdshader (a fullscreen quad in SceneViewport/MainCamera)

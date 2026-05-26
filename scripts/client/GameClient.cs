@@ -1078,6 +1078,15 @@ public partial class GameClient : Node3D
 		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
 		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
 
+		// Motion blur — currently driven by camera rotation only. When the
+		// fly-up overview lands, combine its strength with the camera's via
+		// max-of (whichever effect is more active wins) before pushing. The
+		// CVar gates the strength so the shader's `motion_blur_strength > 0`
+		// branch falls through and the blur loop is skipped entirely.
+		float blurStrength = CVars.rotationBlur.Value ? camera.RotationBlurStrength : 0f;
+		postProcessMaterial.SetShaderParameter("motion_blur_strength", blurStrength);
+		postProcessMaterial.SetShaderParameter("motion_blur_dir", camera.RotationBlurDir);
+
 		// Decay the flash. dt comes from the engine's _Process delta — we
 		// don't have it here directly, so pull from the frame time. This
 		// runs once per visual frame (called from _Process), so

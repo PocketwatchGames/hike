@@ -26,7 +26,7 @@
 [ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
-[ext_resource type="Material" path="res://resources/materials/post_process.tres" id="post_process_mat"]
+[ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
@@ -132,6 +132,8 @@ near = 5.0
 far = 200.0
 script = ExtResource("camera_script")
 pitchDegrees = -40.0
+rotationTime = 0.35
+rotationBlurDuration = 0.35
 followTimeNormal = 0.35
 followTimeSprinting = 1.0
 followTimeAirAscending = 0.65

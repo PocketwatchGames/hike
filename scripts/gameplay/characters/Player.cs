@@ -1256,7 +1256,7 @@ public partial class Player : CharacterBody3D
 	// WarmthZone (campfires, etc.) calls these on body enter/exit. Counter,
 	// not bool, so two campfires whose zones overlap don't release the player
 	// from one when they leave the other. Entering accelerates the wetness
-	// decay rate (PlayerData.wetnessWarmthDryRate) — a player walking up to
+	// decay (PlayerData.wetnessWarmthDrySeconds) — a player walking up to
 	// a fire dries off in seconds rather than minutes, and the wet status
 	// releases naturally once wetness falls below the disarm threshold. The
 	// zone's warmingTemperature is summed into _warmthBonus so
@@ -1286,13 +1286,16 @@ public partial class Player : CharacterBody3D
 	// Per-physics-tick wet state machine driven by an accumulating
 	// wetness float on the player (0 = bone dry, 1 = soaked). Sources:
 	// standing in water snaps wetness to 1 immediately; standing in rain
-	// while sky-exposed builds wetness at wetnessRainRate × RainIntensity
-	// per second. Dry conditions decay wetness back toward 0 at
-	// wetnessDryRate (or wetnessWarmthDryRate if the player is inside a
-	// warmth zone). The wet status only arms when wetness crosses
-	// wetnessArmThreshold and only releases when it falls below
-	// wetnessDisarmThreshold — hysteresis prevents the status flapping
-	// while wetness hovers near either boundary.
+	// while sky-exposed builds wetness at a rate of 1 /
+	// wetnessRainSoakSeconds, scaled by RainIntensity. Dry conditions
+	// decay wetness back toward 0 over wetnessDrySeconds (or
+	// wetnessWarmthDrySeconds inside a warmth zone), with wind
+	// accelerating and humidity damping the rate via
+	// dryRateWindBoostPerMps and dryRateHumidityDamping. The wet status
+	// only arms when wetness crosses wetnessArmThreshold and only
+	// releases when it falls below wetnessDisarmThreshold — hysteresis
+	// prevents the status flapping while wetness hovers near either
+	// boundary.
 	private void TickWetEffect(float dt)
 	{
 		if (_wetEffectData == null || data == null)
@@ -1320,15 +1323,23 @@ public partial class Player : CharacterBody3D
 		{
 			_wetness = 1f;
 		}
-		else if (inRain)
+		else if (inRain && data.wetnessRainSoakSeconds > 0f)
 		{
 			float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
-			_wetness = Mathf.Clamp(_wetness + data.wetnessRainRate * rainIntensity * dt, 0f, 1f);
+			_wetness = Mathf.Clamp(_wetness + (dt / data.wetnessRainSoakSeconds) * rainIntensity, 0f, 1f);
 		}
 		else
 		{
-			float dryRate = inWarmth ? data.wetnessWarmthDryRate : data.wetnessDryRate;
-			_wetness = Mathf.Clamp(_wetness - dryRate * dt, 0f, 1f);
+			float drySeconds = inWarmth ? data.wetnessWarmthDrySeconds : data.wetnessDrySeconds;
+			if (drySeconds > 0f)
+			{
+				GameClient client = GameClient.Current;
+				float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
+				float humidity = SkyController.Current?.Weather?.humidity ?? 0f;
+				float windMul = 1f + windSpeed * data.dryRateWindBoostPerMps;
+				float humidityMul = Mathf.Clamp(1f - humidity * data.dryRateHumidityDamping, 0f, 1f);
+				_wetness = Mathf.Clamp(_wetness - (dt / drySeconds) * windMul * humidityMul, 0f, 1f);
+			}
 		}
 
 		// Hysteresis: arm above wetnessArmThreshold, release below

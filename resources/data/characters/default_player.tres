@@ -170,3 +170,5 @@ sprintSpeed = 11.0
 coldTemperature = 40.0
 coldStatus = ExtResource("4_cold")
 hotStatus = ExtResource("5_hot")
+wetnessDrySeconds = 60.0
+dryRateHumidityDamping = 0.8

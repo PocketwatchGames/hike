@@ -10,6 +10,13 @@ public partial class GameCamera : Camera3D
 	[Export] public float pitchDegrees = -65;
 	[Export] public float distance = 80;
 	[Export] public float rotationTime = 0.5f;
+	// Shape of the yaw ease-out, applied as 1 - (1 - progress)^power.
+	// 1 = linear, 2 = standard ease-out, 3+ = sharper landing (less time
+	// decelerating). Tunable in the editor.
+	[Export(PropertyHint.Range, "1,8,0.25")] public float rotationCurvePower = 4f;
+	// Duration of the rotation motion-blur decay. Drives the post-process
+	// motion_blur_strength uniform from 1 → 0 after a Q/E press.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float rotationBlurDuration = 0.5f;
 	[Export] public float followTimeNormal = 0.2f;
 	[Export] public float followTimeSprinting = 0.4f;
 	[Export] public float followTimeAirAscending = 0.5f;
@@ -44,6 +51,12 @@ public partial class GameCamera : Camera3D
 	// reflection-sun alignment expectations.
 	private float _yaw = Mathf.Pi / 4f;
 	private float _destYaw = Mathf.Pi / 4f;
+	// Captured at the start of each Q/E rotation so the eased progress
+	// interpolates from a stable anchor. Mid-rotation re-presses overwrite
+	// these and restart the ease from the current intermediate yaw.
+	private float _yawStart = Mathf.Pi / 4f;
+	private float _rotationElapsed;
+	private bool _rotating;
 	private Vector3 _followPosition;
 	private bool _followInitialized;
 	private bool _clipAlways = false;
@@ -63,6 +76,16 @@ public partial class GameCamera : Camera3D
 
 	private readonly CameraShake _shake = new();
 	public CameraShake Shake => _shake;
+
+	// Motion-blur state for camera rotation. Strength is set to 1.0 on
+	// RotateLeft/Right and decays in UpdateCamera over rotationBlurDuration.
+	// GameClient.UpdatePostProcess pushes both to post_process.gdshader.
+	// Direction is screen-space: positive X when objects sweep right (camera
+	// turning left), negative X for the opposite.
+	private float _rotationBlur;
+	private Vector2 _rotationBlurDir = Vector2.Right;
+	public float RotationBlurStrength => _rotationBlur;
+	public Vector2 RotationBlurDir => _rotationBlurDir;
 
 	public float Clip => _clip;
 	public float Yaw => _yaw;
@@ -216,8 +239,18 @@ public partial class GameCamera : Camera3D
 
 	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
 	{
-		float t = 1f - Mathf.Pow(0.01f, (float)deltaTime / rotationTime);
-		_yaw = Mathf.LerpAngle(_yaw, _destYaw, t);
+		if (_rotating)
+		{
+			_rotationElapsed += (float)deltaTime;
+			float progress = Mathf.Min(1f, _rotationElapsed / Mathf.Max(0.0001f, rotationTime));
+			float eased = 1f - Mathf.Pow(1f - progress, rotationCurvePower);
+			_yaw = Mathf.LerpAngle(_yawStart, _destYaw, eased);
+			if (progress >= 1f)
+			{
+				_yaw = _destYaw;
+				_rotating = false;
+			}
+		}
 
 		if (!_followInitialized)
 		{
@@ -248,6 +281,11 @@ public partial class GameCamera : Camera3D
 		}
 
 		AdvanceClipFade((float)deltaTime);
+
+		if (_rotationBlur > 0f && rotationBlurDuration > 0f)
+		{
+			_rotationBlur = Mathf.Max(0f, _rotationBlur - (float)deltaTime / rotationBlurDuration);
+		}
 	}
 
 	// Mirrors the main camera's pose and projection into the off-screen
@@ -420,11 +458,23 @@ public partial class GameCamera : Camera3D
 	public void RotateLeft()
 	{
 		_destYaw += Mathf.DegToRad(90);
+		_yawStart = _yaw;
+		_rotationElapsed = 0f;
+		_rotating = true;
+		// Positive yaw delta = camera turns left in world → objects sweep
+		// right on screen → motion blur trails right.
+		_rotationBlur = 1f;
+		_rotationBlurDir = Vector2.Right;
 	}
 
 	public void RotateRight()
 	{
 		_destYaw -= Mathf.DegToRad(90);
+		_yawStart = _yaw;
+		_rotationElapsed = 0f;
+		_rotating = true;
+		_rotationBlur = 1f;
+		_rotationBlurDir = Vector2.Left;
 	}
 
 	public void ToggleClipAlways()

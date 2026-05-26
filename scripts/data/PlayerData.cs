@@ -369,16 +369,27 @@ public partial class PlayerData : Resource
 	// one boundary). Standing in water snaps wetness to 1 immediately —
 	// you're soaked the moment you step in.
 	//
-	// Rates are units-per-second of wetness with the input at full
-	// strength. wetnessRainRate of 0.02 means it takes ~25 seconds in
-	// full RainIntensity = 1 rain to cross the 0.5 arm threshold (and
-	// ~50 seconds to fully saturate). Drying inversely scales with
-	// temperature — a warm dry day dries faster — so wetnessDryRate is
-	// the *baseline* rate at neutral conditions; warmth zones override
-	// it via wetnessWarmthDryRate.
-	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessRainRate = 0.02f;
-	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessDryRate = 0.003f;
-	[Export(PropertyHint.Range, "0,1,0.001")] public float wetnessWarmthDryRate = 0.1f;
+	// Times are seconds to go 0→1 (soak) or 1→0 (dry) when the corresponding
+	// input is at full strength. wetnessRainSoakSeconds = 50 means it takes
+	// ~25 seconds in full RainIntensity = 1 rain to cross the 0.5 arm
+	// threshold (and ~50 seconds to fully saturate). The two dry-time
+	// fields are the *baseline* at calm, neutral-humidity conditions —
+	// wind and humidity scale the dry rate via the modifiers below.
+	// Warmth zones (campfires) swap wetnessDrySeconds for
+	// wetnessWarmthDrySeconds. Set to 0 to disable that source/sink.
+	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessRainSoakSeconds = 50f;
+	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessDrySeconds = 333.33f;
+	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessWarmthDrySeconds = 10f;
+	// Wind accelerates drying via evaporation. SampleWindSpeed already
+	// zeroes out under overhead cover, so this only contributes outdoors.
+	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples
+	// at 20 m/s.
+	[Export(PropertyHint.Range, "0,1,0.01,or_greater")] public float dryRateWindBoostPerMps = 0.1f;
+	// Humidity slows drying. Default 0.7 means dry rate at humidity = 1
+	// is 30% of baseline (≈3× the dry time); at humidity = 0 the baseline
+	// is unmodified. Clamped so dry rate can't go negative — values > 1
+	// just hold drying at zero at full humidity.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float dryRateHumidityDamping = 0.7f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessArmThreshold = 0.5f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessDisarmThreshold = 0.1f;
 }
