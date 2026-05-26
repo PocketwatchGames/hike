@@ -1,0 +1,59 @@
+[gd_resource type="Resource" script_class="SpawnGroupData" format=3 uid="uid://ndilv758jxnj"]
+
+[ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_oxdew"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="2_luy5t"]
+[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="3_uvsbk"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="4_3ofq4"]
+[ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="5_k7525"]
+[ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="6_uvsbk"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/ItemCountRange.cs" id="7_udeir"]
+[ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="8_3f36l"]
+[ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="8_3ofq4"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="9_k7525"]
+[ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="9_lvrwy"]
+[ext_resource type="Script" uid="uid://ci23e7ltpsb6o" path="res://scripts/data/spawn/SpawnGroupData.cs" id="10_x87yb"]
+
+[sub_resource type="Resource" id="Resource_campfire_entry"]
+script = ExtResource("3_uvsbk")
+Scene = ExtResource("2_luy5t")
+
+[sub_resource type="Resource" id="Resource_goblin_entry"]
+script = ExtResource("5_k7525")
+Data = ExtResource("4_3ofq4")
+InitialBehavior = null
+ClusterCountMin = 2
+ClusterCountMax = 3
+SpawnAtNight = true
+
+[sub_resource type="Resource" id="Resource_chest_loot_mushrooms"]
+script = ExtResource("7_udeir")
+item = ExtResource("6_uvsbk")
+count = 0
+countRange = 1
+metadata/_custom_type_script = "uid://gf3mc41v5gpj7"
+
+[sub_resource type="Resource" id="Resource_lh7ja"]
+script = ExtResource("7_udeir")
+item = ExtResource("8_3ofq4")
+count = 0
+countRange = 1
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="Resource_udeir"]
+script = ExtResource("7_udeir")
+item = ExtResource("9_k7525")
+count = 0
+countRange = 1
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
+[sub_resource type="Resource" id="Resource_chest_entry"]
+script = ExtResource("9_lvrwy")
+Scene = ExtResource("8_3f36l")
+LootItems = [SubResource("Resource_chest_loot_mushrooms"), SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
+SpawnAtNight = true
+
+[resource]
+script = ExtResource("10_x87yb")
+ScatterRadius = 5.0
+Entries = Array[ExtResource("1_oxdew")]([SubResource("Resource_campfire_entry"), SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
+Chance = 0.001

@@ -5,6 +5,14 @@ public partial class AttackBehaviorData : BehaviorData
 {
     // Distance at which the mob will fire its weapon (if it can see the target).
     [Export] public float maxAttackRange = 2.5f;
+    // Maximum absolute Y differential between mob and target the attack will
+    // fire at. Approach / encircle / pathfinding all keep using 2D distance,
+    // so the mob still chases up or down to reach the player; this gate just
+    // prevents committing to a swing while the player is on a plateau above
+    // (or in a pit below) outside the attack's effective vertical reach.
+    // Default 4m matches one MinimapData.PlateauHeight. Ranged variants
+    // (future bow / spit attacks) author this large to fire from any Y.
+    [Export] public float maxVerticalAttackRange = 4f;
     // Path success distance when chasing and the target is visible — the mob
     // stops closing once it reaches this range so it can swing instead of
     // slamming into the player.

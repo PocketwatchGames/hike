@@ -32,4 +32,9 @@ public enum EAnimation
     Hitstun = 18,
     Skating = 19,
     Attack2 = 20,
+    Drinking = 21,
+    Eating = 22,
+    Reading = 23,
+    Casting = 24,
+    Using = 25,
 }

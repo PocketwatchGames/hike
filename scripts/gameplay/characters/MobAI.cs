@@ -394,7 +394,7 @@ public partial class Mob
                     _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
                     _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
                 }
-                else 
+                else
                 {
                     if (LinearVelocity.LengthSquared() > 0.01f)
                     {
@@ -405,6 +405,18 @@ public partial class Mob
                         _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
                     }
                 }
+            }
+            else if (_simState.DiscoveryState == EPlayerPerceptionState.Detected
+                && _simState.PlayerPerception < mobData.detectedThreshold)
+            {
+                // Detected is a transient "noticed something" state with no
+                // memory window. PlayerPerception.Tick only does monotonic
+                // forward transitions, so once perception decays back below
+                // detectedThreshold (e.g. a kunkun burrows before being fully
+                // discovered and prominence drops to 0) we have to reset to
+                // Hidden ourselves — otherwise the MobHUD discovery bar sits
+                // on screen permanently with an empty fill.
+                _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
             }
 
         }

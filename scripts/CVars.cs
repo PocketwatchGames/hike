@@ -348,6 +348,22 @@ public static class CVars
     // speed-based visibility), C (1 - player camouflage).
     public static CVarBool debugMobPerception = new CVarBool("debug_mob_perception", false);
 
+    // When true, MobHUD adds a "Pos x,y,z" line to the debug overlay showing
+    // each mob's world-space GlobalPosition. Composes with the perception
+    // debug cvars: the label appears whenever ANY of the three debug cvars is
+    // on. Useful for diagnosing mobs that look mis-aligned vs. terrain (e.g.
+    // a mob embedded in the floor whose LOS raycast originates from inside
+    // geometry).
+    public static CVarBool debugMobPosition = new CVarBool("debug_mob_position", false);
+
+    // When true, every mob is forced into the Discovered perception state for
+    // rendering purposes — the sprite shows through walls via the existing
+    // X-ray silhouette pass. Perception sim is unchanged (mobs still aggro on
+    // their normal rules); this only bypasses the player-side visibility
+    // gate so you can see where mobs actually are during debug. Compose with
+    // debug_mob_perception to verify LOS state vs. actual visibility.
+    public static CVarBool revealMobs = new CVarBool("reveal_mobs", false);
+
     // When true, Mob._PhysicsProcess prints a diagnostic line each time the
     // torch-conditions block runs — ambientLight, useTorch, discovery state,
     // playerRemembers, and whether _torch / MobData.torch are populated. Use

@@ -89,11 +89,26 @@ public class WorldSimState
 
     // Records a discovery and fires onRecipeDiscovered. Returns true on
     // first discovery; subsequent calls for the same recipe are silent.
-    public bool DiscoverRecipe(RecipeData recipe)
+    // Pass identifyOutput=true to also identify the recipe's output item
+    // silently (no separate onItemIdentified) before the recipe banner
+    // fires — used by scrolls / NPC teaching so the recipe banner reads
+    // with the real name instead of "Unknown Food" and no redundant
+    // "Item Identified" banner follows. Returns true if either the recipe
+    // or the output was newly recorded.
+    public bool DiscoverRecipe(RecipeData recipe, bool identifyOutput = false)
     {
-        if (recipe == null || !DiscoveredRecipes.Add(recipe))
+        if (recipe == null)
         {
             return false;
+        }
+        bool identified = false;
+        if (identifyOutput && recipe.outputItem != null && !string.IsNullOrEmpty(recipe.outputItem.unidentifiedDisplayName.ToString()))
+        {
+            identified = IdentifiedItems.Add(recipe.outputItem);
+        }
+        if (!DiscoveredRecipes.Add(recipe))
+        {
+            return identified;
         }
         onRecipeDiscovered?.Invoke(recipe);
         return true;

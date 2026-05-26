@@ -29,3 +29,4 @@ displayName = &"Battle Cry"
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed"), SubResource("m_outgoing")])
 duration = 8.0
 maxStack = 1
+removesOnApply = []

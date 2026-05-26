@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://nlh4ffpu2n4bw" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_ubhrg"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
@@ -10,10 +11,17 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="8_inv"]
 [ext_resource type="Texture2D" uid="uid://cvpjwqyb4050k" path="res://assets/textures/items/pickups/BadMeat.png" id="9_world"]
+[ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/effects/eat_loop.tscn" id="10_eatfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
 type = 64
+animName = 22
+
+[sub_resource type="Resource" id="Resource_charged_hold"]
+script = ExtResource("3_charged")
+chargeTime = 1.5
+chargeLoopEffect = ExtResource("10_eatfx")
 
 [sub_resource type="Resource" id="Resource_apply_poison"]
 script = ExtResource("5_apply")
@@ -26,12 +34,11 @@ effects = Array[ExtResource("7_effect")]([SubResource("Resource_apply_poison")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
-chargeTime = 1.5
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply_decrement")])
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
-chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged_hold"), SubResource("Resource_charged")])
 chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
 locksMovement = true
 

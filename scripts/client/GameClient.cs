@@ -612,9 +612,6 @@ public partial class GameClient : Node3D
 			title = "Item Identified",
 			subtitle = name,
 			icon = data.inventorySprite,
-			showAlmanacHint = true,
-			almanacTab = AlmanacScreen.EAlmanacTab.Inventory,
-			almanacHintLabel = "View",
 		});
 	}
 
@@ -632,9 +629,6 @@ public partial class GameClient : Node3D
 			title = "Recipe Discovered",
 			subtitle = name,
 			icon = output?.inventorySprite,
-			showAlmanacHint = true,
-			almanacTab = AlmanacScreen.EAlmanacTab.Recipe,
-			almanacHintLabel = "View",
 		});
 	}
 
@@ -661,10 +655,6 @@ public partial class GameClient : Node3D
 				type = EAnnouncementType.MobLevelUp,
 				title = "Bestiary Level Up",
 				subtitle = $"{mob.displayName} Level {newLevel}",
-				showAlmanacHint = true,
-				almanacTab = AlmanacScreen.EAlmanacTab.Bestiary,
-				almanacHintLabel = "View",
-				almanacFocusMob = mob,
 			});
 		}
 	}
@@ -677,10 +667,6 @@ public partial class GameClient : Node3D
 			type = EAnnouncementType.MobDiscovered,
 			title = "Creature Discovered",
 			subtitle = mob.displayName.ToString(),
-			showAlmanacHint = true,
-			almanacTab = AlmanacScreen.EAlmanacTab.Bestiary,
-			almanacHintLabel = "View",
-			almanacFocusMob = mob,
 		});
 	}
 
@@ -719,22 +705,7 @@ public partial class GameClient : Node3D
 		return component != null ? $"{langName} {component}" : langName;
 	}
 
-	// Routes a Map / Inventory press from an announcement's almanac hint
-	// into the existing modal-open flow. Mirrors the input handling in
-	// _UnhandledInput so the gating (suppressed input, mouse capture, HUD
-	// hide) stays in one place. focusMob is only honored when tab ==
-	// Bestiary; the announcement's almanacFocusMob threads through so a
-	// discovery / level-up banner jumps to its row.
-	public void OpenAlmanac(AlmanacScreen.EAlmanacTab tab, MobData focusMob = null)
-	{
-		if (almanacScreen == null || paused || InputSuppressed)
-		{
-			return;
-		}
-		almanacScreen.Open(tab, this, focusMob: focusMob);
-	}
-
-	// Push radius and bend strength for the detail-sprite shader's player
+// Push radius and bend strength for the detail-sprite shader's player
 	// reaction. ~0.6m matches the player's foot footprint; 0.25m bend reads
 	// as grass parting around the player's legs without snapping flat.
 	private const float DETAIL_PLAYER_RADIUS = 0.6f;

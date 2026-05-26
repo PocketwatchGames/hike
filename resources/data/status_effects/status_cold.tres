@@ -29,3 +29,4 @@ maxStack = 1
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")
+removesOnApply = []

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xkz9n2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="2_buildup"]
-[ext_resource type="Resource" uid="uid://dh3yxk7q5n9p2" path="res://resources/data/status_effects/status_dizzy.tres" id="3_dizzy"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="3_dizzy"]
 
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]
 script = ExtResource("2_buildup")
@@ -16,7 +16,7 @@ healthDamage = 50.0
 hitstun = 0.5
 knockbackDistance = 6.0
 knockbackTime = 0.35
-statusEffects = null
+statusEffects = []
 buildups = Array[ExtResource("2_buildup")]([SubResource("Resource_buildup_dizzy")])
-modifiers = null
+modifiers = []
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"

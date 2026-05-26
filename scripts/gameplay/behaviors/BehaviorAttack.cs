@@ -83,8 +83,13 @@ public partial class BehaviorAttack : BehaviorBase
         // gating: don't yell if nobody's around to buff). Falls through to
         // the primary otherwise. Both gates also require canSee + maxAttackRange
         // so the goblin commits to combat distance regardless of which attack
-        // resolves.
-        bool inRangeAndSeen = dist2d < _data.maxAttackRange && targetPerception.canSee;
+        // resolves. The vertical gate is checked here (not on the tier's
+        // requirements array) so we never even commit the attackProfile when
+        // out of vertical reach — that way the cooldown isn't bumped and
+        // ActionRunner's rejectEffect doesn't fire on every tick of a target
+        // standing one plateau above.
+        bool inVerticalRange = Mathf.Abs(diff.Y) <= _data.maxVerticalAttackRange;
+        bool inRangeAndSeen = dist2d < _data.maxAttackRange && inVerticalRange && targetPerception.canSee;
         if (inRangeAndSeen
             && _data.secondaryAttackProfile != null
             && time >= _secondaryCooldownUntilMs

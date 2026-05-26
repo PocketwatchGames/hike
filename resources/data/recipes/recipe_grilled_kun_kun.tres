@@ -8,8 +8,7 @@
 [sub_resource type="Resource" id="Resource_input_meat"]
 script = ExtResource("1_input")
 item = ExtResource("2_meat")
-count = 0
-range = 3
+range = 2
 metadata/_custom_type_script = "uid://64jki9zhf4p5i"
 
 [resource]

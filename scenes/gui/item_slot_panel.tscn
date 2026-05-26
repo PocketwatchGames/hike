@@ -6,22 +6,29 @@
 [ext_resource type="Texture2D" uid="uid://clv3byf0k0up5" path="res://assets/textures/gui/item_button_hover.png" id="4_fb484"]
 [ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 
-[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay")]
+[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay")]
 custom_minimum_size = Vector2(80, 80)
 size_flags_horizontal = 4
 size_flags_vertical = 4
 script = ExtResource("1_a5bqt")
 _button = NodePath("TextureButton")
-_slotBackground = NodePath("TextureRect")
+_itemTexture = NodePath("ItemTexture")
+_slotBackground = NodePath("EmptyTexture")
 _stackLabel = NodePath("MarginContainer/PanelContainer/MarginContainer/Label")
 _stackContainer = NodePath("MarginContainer/PanelContainer")
 _ghostOverlay = NodePath("GhostOverlay")
 
-[node name="TextureRect" type="TextureRect" parent="." unique_id=1680811436]
+[node name="EmptyTexture" type="TextureRect" parent="." unique_id=1680811436]
 visible = false
 layout_mode = 2
 texture = ExtResource("2_a5bqt")
 expand_mode = 5
+stretch_mode = 5
+
+[node name="ItemTexture" type="TextureRect" parent="." unique_id=1677166803]
+layout_mode = 2
+texture = ExtResource("2_a5bqt")
+expand_mode = 1
 stretch_mode = 5
 
 [node name="TextureButton" type="TextureButton" parent="." unique_id=1069392873]

@@ -31,16 +31,9 @@ public partial class RecipeTeachable : TeachableConcept
         {
             return false;
         }
-        // DiscoverRecipe returns true on first add and fires the
-        // announcement event. Identify the output so RecipeScreen /
-        // CookingPanel show the real name rather than the "Unknown Food"
-        // placeholder — you can't say you "know the recipe for X" while
-        // X still reads as a placeholder.
-        bool gainedSomething = sim.DiscoverRecipe(recipe);
-        if (recipe.outputItem != null && sim.IdentifyItem(recipe.outputItem))
-        {
-            gainedSomething = true;
-        }
-        return gainedSomething;
+        // identifyOutput=true silently identifies the output item before
+        // the recipe banner fires, so the banner reads with the real name
+        // (no separate redundant "Item Identified" banner follows).
+        return sim.DiscoverRecipe(recipe, identifyOutput: true);
     }
 }

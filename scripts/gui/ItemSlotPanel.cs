@@ -6,6 +6,7 @@ using System;
 public partial class ItemSlotPanel : PanelContainer
 {
 	[Export] private TextureButton _button;
+	[Export] private TextureRect _itemTexture;
 	[Export] private TextureRect _slotBackground;
 	[Export] private Label _stackLabel;
 	[Export] private Control _stackContainer;
@@ -102,9 +103,9 @@ public partial class ItemSlotPanel : PanelContainer
 	public void SetItem(ItemState item)
 	{
 		Item = item;
-		if (_button != null)
+		if (_itemTexture != null)
 		{
-			_button.TextureNormal = item?.data?.inventorySprite;
+			_itemTexture.Texture = item?.data?.inventorySprite;
 		}
 		// Only toggle when there's actually a backing texture — a null
 		// BackgroundTexture leaves _slotBackground hidden permanently
@@ -143,13 +144,13 @@ public partial class ItemSlotPanel : PanelContainer
 	// Cleared by passing false (back to full opacity).
 	public void SetDimmed(bool dimmed)
 	{
-		if (_button == null)
+		if (_itemTexture == null)
 		{
 			return;
 		}
-		Color m = _button.Modulate;
+		Color m = _itemTexture.Modulate;
 		m.A = dimmed ? 0.3f : 1f;
-		_button.Modulate = m;
+		_itemTexture.Modulate = m;
 	}
 
 	public new void GrabFocus()

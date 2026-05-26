@@ -8,14 +8,13 @@
 [ext_resource type="Texture2D" uid="uid://dkkei8tebxdaw" path="res://assets/textures/gui/mob_hud_fg.png" id="11_x8n20"]
 [ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="12_statushud"]
 
-[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel", "_statusEffectContainer")]
+[node name="MobHUD" type="Node2D" unique_id=786428953 node_paths=PackedStringArray("_healthBar", "_armorBar", "_perceptionBar", "_discoveryBar", "_debugLabel")]
 script = ExtResource("1_1douw")
 _healthBar = NodePath("Health")
 _armorBar = NodePath("Armor")
 _perceptionBar = NodePath("Perception")
 _discoveryBar = NodePath("Discovery")
 _debugLabel = NodePath("DebugLabel")
-_statusEffectContainer = NodePath("")
 _statusEffectIconScene = ExtResource("12_statushud")
 
 [node name="Background" type="TextureRect" parent="." unique_id=240532080]
@@ -27,6 +26,7 @@ grow_vertical = 2
 texture = ExtResource("2_gv8b6")
 
 [node name="Health" type="TextureProgressBar" parent="." unique_id=1265537752]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -38,6 +38,7 @@ fill_mode = 3
 texture_progress = ExtResource("3_1mpnv")
 
 [node name="Armor" type="TextureProgressBar" parent="." unique_id=1179322545]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0
@@ -64,6 +65,7 @@ texture_progress = ExtResource("10_p45vd")
 tint_progress = Color(1, 1, 0, 1)
 
 [node name="Discovery" type="TextureProgressBar" parent="." unique_id=1251883728]
+visible = false
 offset_left = -24.0
 offset_top = -23.0
 offset_right = 24.0

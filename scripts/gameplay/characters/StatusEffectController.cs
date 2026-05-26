@@ -360,6 +360,35 @@ public class StatusEffectController
 		}
 	}
 
+	// Remove every active instance whose data.tags overlaps `mask`. Used by
+	// cure-style consumables (cure-poison potion clears any effect tagged
+	// Poison). Matching buildup meters are also zeroed so a partially-charged
+	// effect doesn't immediately re-apply after the cure.
+	public void RemoveByTagMask(EStat mask)
+	{
+		if (mask == EStat.None)
+		{
+			return;
+		}
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null || (data.tags & mask) == 0)
+			{
+				continue;
+			}
+			EndFx(_statusEffects[i]);
+			_statusEffects.RemoveAt(i);
+		}
+		foreach (var kv in _buildups)
+		{
+			if (kv.Key != null && (kv.Key.tags & mask) != 0 && kv.Value != null)
+			{
+				kv.Value.amount = 0f;
+			}
+		}
+	}
+
 	// Remove every active instance whose data == `data`. Used by callers that
 	// only hold the StatusEffectData reference (e.g. Mob's wake-on-hit clears
 	// Dizzy without tracking the state handle). Doesn't touch the buildup

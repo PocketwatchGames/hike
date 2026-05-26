@@ -58,7 +58,7 @@ public partial class AlmanacScreen : Control
 		// Per-open focus hint, consumed by the target sub-screen's next
 		// Rebuild. Only the Bestiary tab uses it today; other tabs can
 		// add their own typed focus params here if needed without changing
-		// the OpenAlmanac surface that callers use.
+		// the Open() surface that callers use.
 		_bestiaryScreen?.SetPendingFocus(focusMob);
 		if (_gameClient != null)
 		{

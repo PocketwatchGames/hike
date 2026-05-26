@@ -574,7 +574,8 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		if (!_grounded || _waterState == EWaterState.Swimming || _curInteractive != null)
+		if (!_grounded || _waterState == EWaterState.Swimming || _curInteractive != null
+			|| (_runner != null && _runner.LocksMovement))
 		{
 			return;
 		}
@@ -913,6 +914,26 @@ public partial class Player : CharacterBody3D
 			_airborneStartMs = _world.GameTimeMs;
 		}
 
+		// Drive the charge-anim off the runner state for movement-locked
+		// profiles (consumables, scrolls). chargeEvents PlayAnim fires
+		// PlayOneShot on press; a looping drink/eat/read clip never reports
+		// Finished, so without this override the latch would trap the player
+		// in the anim past release. Treating it as a held loop here clears
+		// the stale latch and lets the regular loop pick swap back to
+		// Idle/Run the instant Charging ends. Active phase reverts to normal
+		// loop selection so a future Active-phase PlayAnim event can take
+		// over without competing with the charge pose.
+		EAnimation? chargeAnimOverride = null;
+		if (_runner != null && _runner.IsBusy && _runner.LocksMovement
+			&& _runner.Phase == EActionPhase.Charging)
+		{
+			chargeAnimOverride = ResolveChargeAnim(_runner.Current.profile);
+			if (chargeAnimOverride.HasValue)
+			{
+				_oneShotAnim = null;
+			}
+		}
+
 		if (_oneShotAnim.HasValue)
 		{
 			EAnimation oneShot = _oneShotAnim.Value;
@@ -959,6 +980,10 @@ public partial class Player : CharacterBody3D
 		if (_health <= 0f)
 		{
 			loopAnim = EAnimation.Dead;
+		}
+		else if (chargeAnimOverride.HasValue)
+		{
+			loopAnim = chargeAnimOverride.Value;
 		}
 		else if (_curInteractive != null)
 		{
@@ -1031,6 +1056,27 @@ public partial class Player : CharacterBody3D
 			else if (loopAnim == EAnimation.SwimIdle) animLoopTarget = _swimIdleLoopFx;
 		}
 		UpdateAnimLoop(animLoopTarget);
+	}
+
+	// Pulls the held-pose anim out of an ItemActionProfile's chargeEvents.
+	// Used by UpdateAnimation to drive movement-locked actions (consumables,
+	// scrolls) as a sustained loop. Returns the first PlayAnim event's
+	// animName; null when the profile has no charge anim authored.
+	private static EAnimation? ResolveChargeAnim(ItemActionProfile profile)
+	{
+		if (profile?.chargeEvents == null)
+		{
+			return null;
+		}
+		for (int i = 0; i < profile.chargeEvents.Count; i++)
+		{
+			ItemEvent ev = profile.chargeEvents[i];
+			if (ev != null && (ev.type & EItemEventType.PlayAnim) != 0)
+			{
+				return ev.animName;
+			}
+		}
+		return null;
 	}
 
 	// Swap the active anim-loop wholesale on state change. No-op when target
@@ -1204,6 +1250,8 @@ public partial class Player : CharacterBody3D
 	public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
 
 	public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
+
+	public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
 
 	// WarmthZone (campfires, etc.) calls these on body enter/exit. Counter,
 	// not bool, so two campfires whose zones overlap don't release the player
@@ -2289,7 +2337,7 @@ public partial class Player : CharacterBody3D
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
 		// on the currently-picked loopAnim. Attack / hitstun / death anims
 		// play at authored speed regardless of status.
-		if (_curInteractive != null)
+		if (_curInteractive != null || (_runner != null && _runner.LocksMovement))
 		{
 			speed = 0;
 		}
@@ -2588,10 +2636,21 @@ public partial class Player : CharacterBody3D
 			HandleDashWallCollisions();
 		}
 
-		// Step down: snap back to the ground after moving
+		// Step down: snap back to the ground after moving. The vertical sweep
+		// distance has to cover stepHeight (matching the step-up at the start
+		// of the tick) PLUS the slope-induced floor drop across this tick's
+		// horizontal motion — on a downhill walk the floor at the new XZ has
+		// moved DOWN by horizDist * tan(slope), and a pure stepHeight sweep
+		// misses it, leaving the player floating one tick. tan(FloorMaxAngle)
+		// gives the worst-case walkable drop, so any walkable slope is caught.
+		// Was the cause of phantom landing sounds and false skate entries on
+		// 45°+ hills.
 		if (wasOnFloor && _waterState != EWaterState.Swimming)
 		{
-			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * data.stepHeight);
+			Vector3 horizDelta = GlobalPosition - posBeforeStep;
+			horizDelta.Y = 0f;
+			float maxSlopeDrop = horizDelta.Length() * Mathf.Tan(FloorMaxAngle);
+			using KinematicCollision3D stepDownResult = MoveAndCollide(Vector3.Down * (data.stepHeight + maxSlopeDrop));
 			// Match the body's own floor classifier — same threshold MoveAndSlide
 			// and IsOnFloor use, editor-tunable via FloorMaxAngle on the node.
 			float floorDotMin = Mathf.Cos(FloorMaxAngle);
@@ -2883,6 +2942,19 @@ public partial class Player : CharacterBody3D
 		// in-flight action on its own so wind-downs complete naturally.
 		if (_hitstunTime > 0f)
 		{
+			return;
+		}
+
+		// InteractCancel shares its gamepad binding with Interact, so only
+		// consume the frame when there is actually a runner-driven interactive
+		// to abort — otherwise fall through and let Interact (and the other
+		// action presses) fire on the same input event.
+		if (Input.IsActionJustPressed("InteractCancel")
+			&& _runner != null
+			&& _runner.IsBusy
+			&& _runner.Current.interactiveAction != null)
+		{
+			CancelInteract();
 			return;
 		}
 

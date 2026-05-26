@@ -1200,6 +1200,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Compute target state.
         bool aliveState = alive;
         bool discovered = _simState.DiscoveryState == EPlayerPerceptionState.Discovered && _simState.MemoryTimeMs > _world.GameTimeMs;
+        if (CVars.revealMobs.Value)
+        {
+            discovered = true;
+        }
         // Three-state visibility, driven off discovery:
         //   fully visible  → dithered to full, no silhouette
         //   silhouetted    → still dithered to full, silhouette ramps up
@@ -2098,6 +2102,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
 
     public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
+
+    public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
 
     // Signed HP delta from a status-effect tick. Pierce in [0, 1] controls
     // the armor split on the damage branch — 1 (the status-effect default)

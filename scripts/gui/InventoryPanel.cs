@@ -600,9 +600,15 @@ public partial class InventoryPanel : Control
 		ItemState item = focused ? _focused.Item : null;
 		if (InputMap.HasAction(_tertiaryAction) && onTertiaryPressed != null)
 		{
+			// The tertiary action's binding can overlap a screen-level action
+			// (e.g. AlmanacScreen's TabRight shares RB with MenuTertiary). Only
+			// consume the press when the screen has actually surfaced the verb
+			// for the focused item — otherwise the input falls through to the
+			// wrapping screen and does what the player expects there.
+			bool tertiaryAvailable = _buttonHintTertiary != null && _buttonHintTertiary.Visible;
 			if (e.IsActionPressed(_tertiaryAction))
 			{
-				if (item != null)
+				if (item != null && tertiaryAvailable)
 				{
 					_tertiaryStarted = true;
 					onTertiaryPressed.Invoke(_focused, item);

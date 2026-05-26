@@ -175,7 +175,6 @@ public partial class Hud : Control
 		gameClient.onPlayerSpawned += OnPlayerSpawned;
 		gameClient.onAnnouncement += OnAnnouncement;
 		_signpostPanel.gameClient = gameClient;
-		_announcementPanel?.Bind(gameClient);
 		if (_dialoguePanel != null)
 		{
 			_dialoguePanel.gameClient = gameClient;

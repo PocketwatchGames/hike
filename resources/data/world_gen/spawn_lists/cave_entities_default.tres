@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://c6gsht63fk45a"]
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_entry_base"]
-[ext_resource type="Script" uid="uid://rkmhe7m4qcv82" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
-[ext_resource type="Script" uid="uid://liq7jrlo3hldf" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="4_loot_entry"]
+[ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="4_loot_entry"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_11hbm"]
-[ext_resource type="Script" uid="uid://74cu9f0n0t8z8" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
+[ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="6_goblin_data"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="7_kunkun_data"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="9_chest_scene"]
@@ -18,7 +18,7 @@ script = ExtResource("2_mob_entry")
 Data = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-Chance = 0.005
+Chance = 0.001
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")

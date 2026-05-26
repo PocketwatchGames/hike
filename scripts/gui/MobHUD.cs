@@ -96,20 +96,36 @@ public partial class MobHUD : Node2D
 		// far-underground mobs that aren't participating in perception this
 		// tick). Hiding inert labels stops the world from being cluttered
 		// with rows of zeros over mobs the player has no chance of detecting.
-		bool cvarEnabled = CVars.debugPlayerPerception.Value || CVars.debugMobPerception.Value;
+		bool perceptionCvar = CVars.debugPlayerPerception.Value || CVars.debugMobPerception.Value;
+		bool positionCvar = CVars.debugMobPosition.Value;
+		bool cvarEnabled = perceptionCvar || positionCvar;
 		PerceptionDebug d = CVars.debugMobPerception.Value ? _mob.mobToPlayerDebug : _mob.playerToMobDebug;
 		bool anyActivity = d.vision > 0f || d.hearing > 0f || d.smell > 0f || d.los;
-		bool showDebug = _mob.alive && !behindCamera && cvarEnabled && anyActivity;
+		// Position rows render unconditionally when the position cvar is on
+		// so a stationary, fully-occluded mob (no V/H/S activity) still
+		// shows up — that's exactly the case we want to inspect.
+		bool showDebug = _mob.alive && !behindCamera && cvarEnabled && (positionCvar || anyActivity);
 		if (_debugLabel != null)
 		{
 			_debugLabel.Visible = showDebug;
 			if (showDebug)
 			{
-				_debugLabel.Text = string.Format(
-					"V{0:F2} H{1:F2} S{2:F2}\nL{3:F2} D{4:F2} F{5:F2} S{6:F2} C{7:F2} LOS{8}",
-					d.vision, d.hearing, d.smell,
-					d.lighting, d.distance, d.facing, d.speed, d.camouflage,
-					d.los ? "+" : "-");
+				string text = "";
+				if (perceptionCvar)
+				{
+					text = string.Format(
+						"V{0:F2} H{1:F2} S{2:F2}\nL{3:F2} D{4:F2} F{5:F2} S{6:F2} C{7:F2} LOS{8}",
+						d.vision, d.hearing, d.smell,
+						d.lighting, d.distance, d.facing, d.speed, d.camouflage,
+						d.los ? "+" : "-");
+				}
+				if (positionCvar)
+				{
+					Vector3 mobPos = _mob.GlobalPosition;
+					string posLine = string.Format("Pos {0:F2},{1:F2},{2:F2}", mobPos.X, mobPos.Y, mobPos.Z);
+					text = text.Length > 0 ? text + "\n" + posLine : posLine;
+				}
+				_debugLabel.Text = text;
 				// Center the 160-wide label horizontally on the mob and hover
 				// it 64px above so it sits clear of the perception icon.
 				_debugLabel.Position = screenPos + new Vector2(-80f, -64f);

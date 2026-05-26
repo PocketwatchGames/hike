@@ -44,18 +44,4 @@ public class Announcement
 
 	// Region context used by HudRegionBanner — only set when type=Region.
 	public RegionData region;
-
-	// Optional almanac shortcut. When showAlmanacHint is true, the panel
-	// displays a ButtonHint at the bottom; pressing the bound action opens
-	// the almanac to almanacTab. Hidden entirely when false.
-	public bool showAlmanacHint;
-	public AlmanacScreen.EAlmanacTab almanacTab;
-	public string almanacHintLabel;
-
-	// Optional mob to auto-focus when the shortcut opens the Bestiary tab.
-	// Only meaningful when almanacTab == Bestiary; ignored on other tabs.
-	// Used so a "Goblin Discovered" / "Goblin Level 2" banner jumps the
-	// user straight to the goblin row instead of the first discovered
-	// entry.
-	public MobData almanacFocusMob;
 }

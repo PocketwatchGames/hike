@@ -4,9 +4,9 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="2_ajkyq"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_3y2ux"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="4_epbtr"]
-[ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="7_hnsmu"]
-[ext_resource type="Script" uid="uid://rkmhe7m4qcv82" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
-[ext_resource type="Script" uid="uid://b8wellspawn001" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="9_well_entry"]
+[ext_resource type="Resource" uid="uid://ndilv758jxnj" path="res://resources/data/world_gen/spawn_groups/campfire_camp_desert.tres" id="5_lnvkt"]
+[ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
+[ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="9_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="10_well_scene"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
@@ -14,7 +14,7 @@ script = ExtResource("3_3y2ux")
 Data = ExtResource("2_ajkyq")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-Chance = 0.005
+Chance = 0.001
 SpawnAtNight = true
 
 [sub_resource type="Resource" id="Resource_kunkun"]
@@ -31,4 +31,4 @@ Chance = 0.0005
 
 [resource]
 script = ExtResource("8_88i6m")
-Entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), ExtResource("7_hnsmu"), SubResource("Resource_well")])
+Entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well")])

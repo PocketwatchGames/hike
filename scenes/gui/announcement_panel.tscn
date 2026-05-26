@@ -1,7 +1,6 @@
 [gd_scene format=3 uid="uid://chdk3bxannpan"]
 
 [ext_resource type="Script" path="res://scripts/gui/HudAnnouncementPanel.cs" id="1_script"]
-[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_button_hint"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_panel"]
 content_margin_left = 20.0
@@ -19,7 +18,7 @@ corner_radius_top_right = 4
 corner_radius_bottom_right = 4
 corner_radius_bottom_left = 4
 
-[node name="AnnouncementPanel" type="Control" node_paths=PackedStringArray("titleLabel", "subtitleLabel", "iconRect", "almanacHint", "sound")]
+[node name="AnnouncementPanel" type="Control" node_paths=PackedStringArray("titleLabel", "subtitleLabel", "iconRect", "sound")]
 layout_mode = 3
 anchors_preset = 10
 anchor_right = 1.0
@@ -31,7 +30,6 @@ script = ExtResource("1_script")
 titleLabel = NodePath("Frame/VBox/TitleLabel")
 subtitleLabel = NodePath("Frame/VBox/HBox/SubtitleLabel")
 iconRect = NodePath("Frame/VBox/HBox/IconRect")
-almanacHint = NodePath("Frame/VBox/AlmanacHint")
 sound = NodePath("Sound")
 
 [node name="Frame" type="PanelContainer" parent="."]
@@ -81,10 +79,5 @@ theme_override_font_sizes/font_size = 28
 text = ""
 horizontal_alignment = 1
 vertical_alignment = 1
-
-[node name="AlmanacHint" parent="Frame/VBox" instance=ExtResource("2_button_hint")]
-visible = false
-layout_mode = 2
-size_flags_horizontal = 4
 
 [node name="Sound" type="AudioStreamPlayer" parent="."]

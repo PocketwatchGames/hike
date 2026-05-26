@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_gcanw"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_qesre"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_y08do"]
 [ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/effects/goblin_attack.tscn" id="5_atkfx"]
 [ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/effects/goblin_claw_hit.tscn" id="6_hitfx"]
