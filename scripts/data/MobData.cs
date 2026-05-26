@@ -141,6 +141,14 @@ public partial class MobData : Resource
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
 
+    // Inherent stat modifiers. Composed with active StatusEffectData.
+    // modifiers when the actor queries any stat. Damage / pierce / blunt /
+    // knockback / buildup scaling all key on hit tags via this list;
+    // vulnerabilities author multiplier > 1. Kun-kun's Dizzy vulnerability
+    // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
+    // lands triple.
+    [Export] public Godot.Collections.Array<StatModifier> modifiers;
+
     // Named damage profiles fired by this mob's attack actions. Mirrors
     // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves
     // against this dict when the attacker is a Mob instead of a weapon-

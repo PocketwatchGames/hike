@@ -9,9 +9,31 @@ using Godot;
 // expressed as entries in `modifiers` — see DamageDataModifier. Receivers
 // fold matching modifiers onto the live HitInfo via HitInfo.ApplyTrigger
 // when the corresponding condition is detected.
+[Tool]
 [GlobalClass]
 public partial class DamageData : Resource
 {
+	// Type tags carried by this hit (Fire, Melee, Magical, …). Receivers
+	// fold their per-tag StatModifier entries (inherent + armor + active
+	// status effects) against this mask at multiple sites: healthDamage
+	// scale (any damage tag), pierce-chance scale (EStat.Pierce only),
+	// armor-chip scale (EStat.Blunt only), knockback magnitude (EStat.
+	// Knockback only). Default None means the hit is untyped — no modifier
+	// entry matches, so it lands at full strength. Author broadly: a basic
+	// sword swing is Damage|Melee|Blunt, a fireball is Damage|Fire|Magical|
+	// Ranged.
+	private EStat _tags;
+	[Export, CompactFlags] public EStat tags
+	{
+		get => _tags;
+		set
+		{
+			if (_tags == value) { return; }
+			_tags = value;
+			EmitChanged();
+		}
+	}
+
 	[Export] public float healthDamage = 0f;
 
 	// Chance (0..1) that the entire hit bypasses the receiver's armor pool

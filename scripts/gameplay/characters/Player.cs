@@ -433,7 +433,7 @@ public partial class Player : CharacterBody3D
 	public float Armor => _armor;
 	public float MaxArmor => _maxArmor;
 	public float Stamina => _stamina;
-	public float MaxStamina => (data?.maxStamina ?? 0f) + (_statusEffects?.MaxStaminaBonus ?? 0f);
+	public float MaxStamina => (data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
 	// Fill `dst` with a snapshot of the player's per-effect buildup meters
 	// (only entries with amount > 0). Forwards straight through to the
@@ -587,7 +587,8 @@ public partial class Player : CharacterBody3D
 		else
 		{
 			FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
-			_statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+			float fpAlphaMul = _statusEffects?.FoldStat(EStat.FootprintAlpha, 1f) ?? 1f;
+			float fpDurMul = _statusEffects?.FoldStat(EStat.FootprintDuration, 1f) ?? 1f;
 			FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: false);
 		}
 	}
@@ -596,24 +597,15 @@ public partial class Player : CharacterBody3D
 	// networked-play motivation.
 	private EHitResult GetHitType(HitInfo hit)
 	{
-		// Status-driven i-frames: any active effect with damageMultiplier=0
-		// reduces the product to 0, signaling "no hit landed." Dash i-frames
-		// are authored as an ApplyStatusEffect event on the dash profile, so
-		// the i-frame window is data-tunable independent of the dash's
-		// physical duration.
-		float damageMultiplier = _statusEffects?.DamageMultiplier ?? 1f;
-		if (damageMultiplier <= 0f)
+		// Receiver-side resistance fold. ApplyResistance scales healthDamage,
+		// pierce chance, blunt mult, and knockback magnitude in place using
+		// the diverse-site rules so the prediction below matches the actual
+		// apply in OnHurtBoxHit.
+		ApplyResistance(ref hit);
+		if (hit.healthDamage <= 0f)
 		{
 			return EHitResult.None;
 		}
-		float incoming = hit.healthDamage * damageMultiplier;
-		if (incoming <= 0f)
-		{
-			return EHitResult.None;
-		}
-		// A pierced hit skips armor entirely and lands on health. Otherwise
-		// armor (when present) absorbs the whole hit, matching the legacy
-		// fully-absorbed semantics.
 		if (_armor > 0f && !hit.Pierced)
 		{
 			return EHitResult.Armor;
@@ -622,7 +614,43 @@ public partial class Player : CharacterBody3D
 		{
 			return EHitResult.None;
 		}
-		return incoming >= _health ? EHitResult.Lethal : EHitResult.Health;
+		return hit.healthDamage >= _health ? EHitResult.Lethal : EHitResult.Health;
+	}
+
+	// Fold receiver resistances onto the live hit in place. Damage tags
+	// (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
+	// healthDamage; Pierce scales the bypass-chance roll; Blunt scales the
+	// (1 + blunt) armor-chip multiplier; Knockback scales knockbackDistance
+	// and knockbackTime. Each site only applies if the hit carries the
+	// corresponding tag — a non-Pierce hit is unaffected by Pierce-resist,
+	// etc. Modulating in place means hit.Pierced and the downstream armor /
+	// knockback formulas automatically pick up the receiver's resistances
+	// without each call site re-asking.
+	private void ApplyResistance(ref HitInfo hit)
+	{
+		if (hit.tags == EStat.None)
+		{
+			return;
+		}
+		EStat damageTags = hit.tags & StatModifierUtil.DamageScaleTags;
+		if (damageTags != EStat.None)
+		{
+			hit.healthDamage *= ComposeMaskMul(damageTags);
+		}
+		if ((hit.tags & EStat.Pierce) != 0)
+		{
+			hit.pierce *= ComposeMaskMul(EStat.Pierce);
+		}
+		if ((hit.tags & EStat.Blunt) != 0)
+		{
+			hit.blunt *= ComposeMaskMul(EStat.Blunt);
+		}
+		if ((hit.tags & EStat.Knockback) != 0)
+		{
+			float scale = ComposeMaskMul(EStat.Knockback);
+			hit.knockbackDistance *= scale;
+			hit.knockbackTime *= scale;
+		}
 	}
 
 	private void OnHurtBoxHit(HitInfo hit)
@@ -631,12 +659,14 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		// Scale by status-driven damage multipliers. A 0.0 product (dash
-		// i-frames, etc.) drops the hit before interrupt/sneak side-effects
-		// fire — a dashing player should not have their dash interrupted
-		// nor lose sneak from a hit that did nothing.
-		float damageMultiplier = _statusEffects?.DamageMultiplier ?? 1f;
-		float incomingDamage = hit.healthDamage * damageMultiplier;
+		// Fold receiver resistances into the hit (damage / pierce-chance /
+		// blunt mult / knockback magnitude) before any side effect fires.
+		// A {Damage, 0} modifier on an active dash i-frame status drops
+		// healthDamage to 0 here, and the early-return below skips interrupt
+		// / sneak side-effects so a dashing player isn't disturbed by a hit
+		// that did nothing.
+		ApplyResistance(ref hit);
+		float incomingDamage = hit.healthDamage;
 		if (incomingDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
 			return;
@@ -987,8 +1017,7 @@ public partial class Player : CharacterBody3D
 		// One-shots already returned above, so this branch only runs for loops.
 		if (data.IsAnimationSpeedAffected(loopAnim))
 		{
-			_statusEffects.GetMovementMultipliers(out _, out float animSpeedMul);
-			_animator.effectSpeedMultiplier = animSpeedMul;
+			_animator.effectSpeedMultiplier = _statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f;
 		}
 
 		// Drive the anim-audio loop off the same loopAnim. Only idle / run /
@@ -1674,7 +1703,7 @@ public partial class Player : CharacterBody3D
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_runner = new ActionRunner(this);
-		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
+		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
@@ -1841,14 +1870,61 @@ public partial class Player : CharacterBody3D
 		(_inventory.GetEquipped(EInventorySlot.ArmorBody) as ArmorState)?.AddExp(amount, thresholds);
 	}
 
-	private void AccumulateArmorResistance(EInventorySlot slot, ref float coldResist, ref float heatResist)
+	// Compose a single stat across inherent PlayerData modifiers, equipped
+	// armor modifiers, and active status-effect modifiers. Seeds with the
+	// stat's neutral identity (1 for multiplicative, 0 for additive) and
+	// folds each source. Multiplicative for most stats, additive for the
+	// four additive ones (Camouflage / MaxStamina / ColdResist / HeatResist)
+	// per StatModifierUtil.IsAdditive.
+	public float ComposeStat(EStat stat)
 	{
-		if (_inventory == null) { return; }
-		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
+		float value = StatModifierUtil.NeutralValue(stat);
+		if (data?.modifiers != null)
 		{
-			coldResist += armor.data.coldResistance;
-			heatResist += armor.data.heatResistance;
+			value = StatModifierUtil.Fold(stat, data.modifiers, value);
 		}
+		value = AccumulateArmorStat(EInventorySlot.ArmorHead, stat, value);
+		value = AccumulateArmorStat(EInventorySlot.ArmorBody, stat, value);
+		value = _statusEffects?.FoldStat(stat, value) ?? value;
+		return value;
+	}
+
+	// Multiplicative compose across all sources for a tag mask — used at
+	// hit-application sites (damage / pierce chance / blunt chip / knockback
+	// magnitude). Walks every entry whose single-bit stat overlaps the mask
+	// and multiplies. The StatusEffectController routes through this
+	// callback when scaling buildup contributions and DoT damage ticks.
+	public float ComposeMaskMul(EStat mask)
+	{
+		float product = 1f;
+		if (data?.modifiers != null)
+		{
+			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
+		}
+		product = AccumulateArmorMask(EInventorySlot.ArmorHead, mask, product);
+		product = AccumulateArmorMask(EInventorySlot.ArmorBody, mask, product);
+		product = _statusEffects?.FoldMask(mask, product) ?? product;
+		return product;
+	}
+
+	private float AccumulateArmorStat(EInventorySlot slot, EStat stat, float value)
+	{
+		if (_inventory == null) { return value; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		{
+			value = StatModifierUtil.Fold(stat, armor.data.modifiers, value);
+		}
+		return value;
+	}
+
+	private float AccumulateArmorMask(EInventorySlot slot, EStat mask, float product)
+	{
+		if (_inventory == null) { return product; }
+		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data?.modifiers != null)
+		{
+			product = StatModifierUtil.FoldMask(mask, armor.data.modifiers, product);
+		}
+		return product;
 	}
 
 	// Composite cold / heat resistance from every equipped armor piece plus
@@ -1857,11 +1933,8 @@ public partial class Player : CharacterBody3D
 	// to display the resolved total.
 	public void GetThermalResistances(out float coldResistance, out float heatResistance)
 	{
-		coldResistance = 0f;
-		heatResistance = 0f;
-		_statusEffects?.GetThermalResistances(out coldResistance, out heatResistance);
-		AccumulateArmorResistance(EInventorySlot.ArmorHead, ref coldResistance, ref heatResistance);
-		AccumulateArmorResistance(EInventorySlot.ArmorBody, ref coldResistance, ref heatResistance);
+		coldResistance = ComposeStat(EStat.ColdResist);
+		heatResistance = ComposeStat(EStat.HeatResist);
 	}
 
 	// Composite sense stats from every equipped armor piece plus every
@@ -1872,41 +1945,17 @@ public partial class Player : CharacterBody3D
 	// them as signed deltas off neutral.
 	public void GetSenseStats(out float camouflage, out float visionMultiplier, out float hearingMultiplier, out float noiseMultiplier, out float scentMultiplier)
 	{
-		camouflage = 0f;
-		visionMultiplier = 1f;
-		hearingMultiplier = 1f;
-		noiseMultiplier = 1f;
-		scentMultiplier = 1f;
-		AccumulateArmorSenses(EInventorySlot.ArmorHead, ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
-		AccumulateArmorSenses(EInventorySlot.ArmorBody, ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
-		_statusEffects?.AccumulateSenseModifiers(ref camouflage, ref visionMultiplier, ref hearingMultiplier, ref noiseMultiplier, ref scentMultiplier);
-	}
-
-	private void AccumulateArmorSenses(EInventorySlot slot, ref float camouflage, ref float vision, ref float hearing, ref float noise, ref float scent)
-	{
-		if (_inventory == null) { return; }
-		if (_inventory.GetEquipped(slot) is ArmorState armor && armor.data != null)
-		{
-			camouflage += armor.data.camouflage;
-			vision *= armor.data.visionMultiplier;
-			hearing *= armor.data.hearingMultiplier;
-			noise *= armor.data.noiseMultiplier;
-			scent *= armor.data.scentMultiplier;
-		}
+		camouflage = ComposeStat(EStat.Camouflage);
+		visionMultiplier = ComposeStat(EStat.Vision);
+		hearingMultiplier = ComposeStat(EStat.Hearing);
+		noiseMultiplier = ComposeStat(EStat.Noise);
+		scentMultiplier = ComposeStat(EStat.Scent);
 	}
 
 	// Composite movement multiplier from every active status effect. Doesn't
 	// include armor — armor doesn't carry a speed modifier in the current
 	// model. Cold and similar effects multiply in here.
-	public float SpeedMultiplier
-	{
-		get
-		{
-			if (_statusEffects == null) { return 1f; }
-			_statusEffects.GetMovementMultipliers(out float movement, out _);
-			return movement;
-		}
-	}
+	public float SpeedMultiplier => _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 
 	// Counts the per-hit flinch + knockback windows down each physics tick.
 	// The hitstun anim is latched as a one-shot in OnHurtBoxHit, so this
@@ -2234,7 +2283,7 @@ public partial class Player : CharacterBody3D
 			// until they stop trying to move.
 			speed = exhausted ? data.tiredSwimSpeed : data.swimSpeed;
 		}
-		_statusEffects.GetMovementMultipliers(out float statusMoveMul, out float _);
+		float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 		speed *= statusMoveMul;
 		// Sprite anim retiming is gated to movement-loop anims only — see
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based

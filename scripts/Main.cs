@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 
 public partial class Main : Node
@@ -94,6 +95,8 @@ public partial class Main : Node
 		// The detail palette is the deduplicated set of DefaultDetail groups
 		// carried by the kits. Two zones that share a kit cost one palette
 		// slot, not two.
+		var phaseSw = Stopwatch.StartNew();
+
 		loadingScreen.SetProgress(0.02f, "Loading assets...");
 		WorldGen.BindActivePalettes(worldGenData);
 		// ChunkMesh.SetTerrains touches RenderingServer (SetShaderParameter),
@@ -101,6 +104,9 @@ public partial class Main : Node
 		// C# and could move off-thread later if it ever gets expensive.
 		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
 		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
+		GD.Print($"[Load] Loading assets: {phaseSw.ElapsedMilliseconds}ms");
+		phaseSw.Restart();
+
 		loadingScreen.SetProgress(0.05f, "Generating world...");
 		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 
@@ -110,20 +116,84 @@ public partial class Main : Node
 		// or RenderingServer access); GD.Print / GD.PrintErr from off-thread
 		// are safe in Godot 4. Anyone adding new worldgen passes must keep
 		// the no-Node-API rule or move that pass back to the main thread.
-		WorldState worldState;
+		WorldState worldState = null;
 		string worldFilePath = CVars.worldFile.Value;
+		bool loadingFromFile = !string.IsNullOrEmpty(worldFilePath);
+
+		// Cache lookup runs only on the no-worldFile path — an explicit
+		// worldFile override bypasses cache entirely. Fingerprint covers
+		// WORLDGEN_VERSION + WorldFile.VERSION + the content of every
+		// reachable .tres / .tscn / .hikescene from worldGenData. Compute
+		// on the main thread because ResourceLoader.GetDependencies isn't
+		// documented as thread-safe.
+		string cachePath = null;
+		bool cacheHit = false;
+		if (!loadingFromFile && CVars.worldCacheEnabled.Value)
+		{
+			string fingerprint = WorldGenCache.ComputeFingerprint(worldGenData);
+			cachePath = WorldGenCache.GetCachePath(DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE, fingerprint);
+			cacheHit = WorldGenCache.Exists(cachePath);
+			GD.Print($"[Load] WorldGen cache {(cacheHit ? "HIT" : "MISS")}: {cachePath}");
+		}
+
+		if (loadingFromFile)
+		{
+			GD.Print($"[Load] Loading world from file: {worldFilePath}");
+		}
+		else if (!cacheHit)
+		{
+			string genDataPath = worldGenData?.ResourcePath;
+			GD.Print($"[Load] Generating world (WorldGenData: {(string.IsNullOrEmpty(genDataPath) ? "<null>" : genDataPath)}, seed={DEFAULT_WORLD_SEED}, size={DEFAULT_WORLD_SIZE})");
+		}
+
 		try
 		{
-			if (!string.IsNullOrEmpty(worldFilePath))
+			if (loadingFromFile)
 			{
 				worldState = await RunOffThread(() => LoadWorldFromFile(worldFilePath));
 				playerPosition = worldState.Spawn;
 			}
-			else
+			else if (cacheHit)
+			{
+				// Cache load failure (format drift, corrupted bytes, missing
+				// SimData on disk) falls through to fresh generation rather
+				// than bouncing the player to the main menu. Stale cache
+				// files are recoverable.
+				try
+				{
+					string loadPath = cachePath;
+					worldState = await RunOffThread(() => LoadWorldFromFile(loadPath));
+					playerPosition = worldState.Spawn;
+				}
+				catch (Exception e)
+				{
+					GD.PrintErr($"[Load] WorldGen cache load failed ({e.Message}) — regenerating");
+					worldState = null;
+				}
+			}
+
+			if (worldState == null)
 			{
 				WorldGenData genData = worldGenData;
 				worldState = await RunOffThread(() => WorldGen.Generate(genData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE));
 				worldState.Spawn = playerPosition;
+
+				if (cachePath != null)
+				{
+					var saveSw = Stopwatch.StartNew();
+					string savePath = cachePath;
+					WorldState toSave = worldState;
+					try
+					{
+						WorldGenCache.EnsureDir();
+						await RunOffThread(() => { WorldFile.Write(savePath, toSave); return true; });
+						GD.Print($"[Load] WorldGen cache saved: {saveSw.ElapsedMilliseconds}ms ({savePath})");
+					}
+					catch (Exception e)
+					{
+						GD.PrintErr($"[Load] WorldGen cache save failed: {e.Message}");
+					}
+				}
 			}
 		}
 		catch (Exception e)
@@ -133,6 +203,11 @@ public partial class Main : Node
 			StartMainMenu();
 			return;
 		}
+		string sourceLabel = loadingFromFile
+			? "World file loaded"
+			: (cacheHit && worldState != null ? "WorldGen cache loaded" : "Worldgen complete");
+		GD.Print($"[Load] {sourceLabel}: {phaseSw.ElapsedMilliseconds}ms");
+		phaseSw.Restart();
 
 		loadingScreen.SetProgress(0.5f, "Loading scene...");
 
@@ -175,6 +250,7 @@ public partial class Main : Node
 		var gameScene = (PackedScene)ResourceLoader.LoadThreadedGet(scenePath);
 		_currentScreen = gameScene.Instantiate<Node>();
 		AddChild(_currentScreen);
+		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
 		(_currentScreen as GameClient).Init(playerPosition, playerScene, playerSpawnData, worldState, loadingScreen);
 		(_currentScreen as GameClient).onQuitToMenu += () =>

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MinimapFoliageColors" format=3 uid="uid://cmfolcolor01"]
 
-[ext_resource type="Script" uid="uid://cmfolcolr1ak2" path="res://scripts/data/minimap/MinimapFoliageColors.cs" id="1_foliage_colors_script"]
-[ext_resource type="Script" uid="uid://cmxjuae4muavw" path="res://scripts/data/minimap/MinimapFoliageEntry.cs" id="2_foliage_entry_script"]
+[ext_resource type="Script" uid="uid://cmfolcolrz9k2" path="res://scripts/data/minimap/MinimapFoliageColors.cs" id="1_foliage_colors_script"]
+[ext_resource type="Script" uid="uid://gmnmapfolientx5" path="res://scripts/data/minimap/MinimapFoliageEntry.cs" id="2_foliage_entry_script"]
 
 [sub_resource type="Resource" id="Resource_unused"]
 script = ExtResource("2_foliage_entry_script")

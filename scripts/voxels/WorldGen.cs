@@ -5,6 +5,14 @@ using Godot;
 
 public static class WorldGen
 {
+    // Manual logic-version stamp. Bump when ANY change to this file (or any
+    // helper it calls) would alter generated output for the same inputs —
+    // tuning a default threshold, changing a noise frequency, reordering a
+    // placement pass, etc. WorldGenCache rolls this into its fingerprint so
+    // every bump invalidates all cached worlds. WorldGenData .tres edits are
+    // detected automatically by content-hashing and don't require a bump.
+    public const int WORLDGEN_VERSION = 1;
+
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
     // SKIP_ALL turns the prop pass off entirely.

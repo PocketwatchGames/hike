@@ -68,6 +68,7 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("8_damage")
+tags = 1157
 healthDamage = 8.0
 blunt = 0.5
 hitstun = 0.3

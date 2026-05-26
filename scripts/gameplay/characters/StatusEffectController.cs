@@ -26,16 +26,26 @@ public class StatusEffectController
 	// for the damage path (delta < 0): it splits the chunk between armor chip
 	// and direct HP loss. Heals (delta > 0) ignore pierce.
 	readonly Action<float, float> _applyHealthDelta;
+	// Lookup callback into the owning actor's full multiplicative composition
+	// across inherent data + equipped armor + this controller's own active
+	// effects, for a given tag mask. The controller can't sum equipment /
+	// inherent stats on its own — the actor (Player / Mob) owns that data —
+	// so we route through a callback. Used by the buildup path (effect.tags)
+	// and the DoT tick (effect.tags) so a Fire-resistant target shrugs off
+	// a Burning DoT even though the controller never sees the hit that
+	// started it.
+	readonly Func<EStat, float> _composeMaskMul;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
 
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null)
 	{
 		_actor = actor;
 		_world = world;
 		_applyHealthDelta = applyHealthDelta;
+		_composeMaskMul = composeMaskMul;
 	}
 
 	public bool Contains(StatusEffectState state) => state != null && _statusEffects.Contains(state);
@@ -209,7 +219,14 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			bool applied = AddBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier);
+			// Buildup contributions are tagged by the receiving effect, not
+			// the carrier hit — kun-kun's Dizzy vulnerability lifts any
+			// buildup feeding a Dizzy-tagged effect regardless of what hit
+			// landed it. effect.tags == None falls through to a 1x
+			// multiplier so untagged buildups behave like the pre-resistance
+			// system.
+			float resistance = _composeMaskMul?.Invoke(entry.effect.tags) ?? 1f;
+			bool applied = AddBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier * resistance);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)
 			{
 				hit.ApplyTrigger(entry.effect.applyTrigger);
@@ -425,7 +442,21 @@ public class StatusEffectController
 				s.tickAccumulator -= 1f;
 				if (s.data.damagePerSecond != 0f)
 				{
-					_applyHealthDelta(-s.data.damagePerSecond, s.data.pierce);
+					// Damage ticks (positive damagePerSecond) scale by the
+					// actor's full resistance to the effect's tags so a
+					// Fire-resistant body shrugs off a Burning burn tick.
+					// Heals (negative damagePerSecond) pass through neat —
+					// resistance is a damage-side concept; we don't want a
+					// Magical-resistant target healing slower from a Magical-
+					// tagged regen, and the explicit guard avoids a silly
+					// >1 vulnerability scaling a heal up either.
+					float dps = s.data.damagePerSecond;
+					if (dps > 0f)
+					{
+						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
+						dps *= resistance;
+					}
+					_applyHealthDelta(-dps, s.data.pierce);
 				}
 			}
 			if (s.IsTimed && now >= s.expireTimeMs)
@@ -436,13 +467,19 @@ public class StatusEffectController
 		}
 	}
 
-	// Sums the per-effect footprint contributions so the actor's footprint
-	// emitter can scale the per-ground FootprintData at spawn. Multiplicative
-	// composition: two stacked Wet states double-multiply alpha and duration.
-	public void GetFootprintMultipliers(out float alphaMultiplier, out float durationMultiplier)
+	// Fold every active effect's StatModifier entries for a single stat into
+	// the running value. Caller seeds with their inherent + equipment
+	// composition (or the stat's neutral identity for a fresh compose);
+	// the controller adds the status-effect layer. Multiplicative for most
+	// stats, additive for the four additive ones (Camouflage / MaxStamina /
+	// ColdResist / HeatResist) — the op is intrinsic to the stat and lives
+	// on StatModifierUtil.IsAdditive.
+	public float FoldStat(EStat stat, float running)
 	{
-		alphaMultiplier = 1f;
-		durationMultiplier = 1f;
+		if (stat == EStat.None)
+		{
+			return running;
+		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectData data = _statusEffects[i]?.data;
@@ -450,135 +487,34 @@ public class StatusEffectController
 			{
 				continue;
 			}
-			alphaMultiplier *= data.footprintAlphaMultiplier;
-			durationMultiplier *= data.footprintDurationMultiplier;
+			running = StatModifierUtil.Fold(stat, data.modifiers, running);
 		}
+		return running;
 	}
 
-	// Sums the per-effect resistance contributions. Player.cs uses these to
-	// shift the thermal trigger thresholds; Mob doesn't call it. Lives on the
-	// controller because the data lives on StatusEffectData and the iteration
-	// shape is identical to GetFootprintMultipliers.
-	public void GetThermalResistances(out float coldResistance, out float heatResistance)
+	// Multiplicative fold across every active effect's StatModifier entries
+	// whose single-bit stat overlaps `mask`. Used for hit-side composition
+	// (a hit tagged Damage|Fire pulls in both the Damage and Fire entries)
+	// at the various application sites — damage scale, pierce-chance scale,
+	// blunt chip scale, knockback magnitude, buildup amount. Caller seeds
+	// with their inherent + equipment product; the controller adds the
+	// status-effect layer.
+	public float FoldMask(EStat mask, float product)
 	{
-		coldResistance = 0f;
-		heatResistance = 0f;
-		for (int i = 0; i < _statusEffects.Count; i++)
+		if (mask == EStat.None)
 		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null)
-			{
-				continue;
-			}
-			coldResistance += data.coldResistance;
-			heatResistance += data.heatResistance;
-		}
-	}
-
-	// Folds per-effect sense modifiers into a running tally. Camouflage is
-	// additive across stacks; vision / hearing / noise / scent are
-	// multiplicative. Player composes this with the matching armor
-	// accumulators in GetSenseStats — caller pre-seeds the multipliers to
-	// 1.0 (or whatever the armor pass left).
-	public void AccumulateSenseModifiers(ref float camouflage, ref float visionMultiplier, ref float hearingMultiplier, ref float noiseMultiplier, ref float scentMultiplier)
-	{
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null)
-			{
-				continue;
-			}
-			camouflage += data.camouflage;
-			visionMultiplier *= data.visionMultiplier;
-			hearingMultiplier *= data.hearingMultiplier;
-			noiseMultiplier *= data.noiseMultiplier;
-			scentMultiplier *= data.scentMultiplier;
-		}
-	}
-
-	// Sums the per-effect motion contributions. Both products start at 1 and
-	// multiply each active effect's value, so two stacked Cold states slow
-	// movement and animation by 0.75 * 0.75. Player and Mob call this each
-	// physics tick to scale move speed and the sprite animator's playback.
-	public void GetMovementMultipliers(out float movementMultiplier, out float animationSpeedMultiplier)
-	{
-		movementMultiplier = 1f;
-		animationSpeedMultiplier = 1f;
-		for (int i = 0; i < _statusEffects.Count; i++)
-		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null)
-			{
-				continue;
-			}
-			movementMultiplier *= data.movementMultiplier;
-			animationSpeedMultiplier *= data.animationSpeedMultiplier;
-		}
-	}
-
-	// Product of every active effect's damageMultiplier. Player.OnHurtBoxHit
-	// scales incoming healthDamage by this; an authored 0.0 multiplier on a
-	// dash i-frame status reduces the product to 0, which the damage path
-	// treats as "no hit landed" so impact effects and interrupts are skipped.
-	public float DamageMultiplier
-	{
-		get
-		{
-			float product = 1f;
-			for (int i = 0; i < _statusEffects.Count; i++)
-			{
-				StatusEffectData data = _statusEffects[i]?.data;
-				if (data == null)
-				{
-					continue;
-				}
-				product *= data.damageMultiplier;
-			}
 			return product;
 		}
-	}
-
-	// Product of every active effect's outgoingDamageMultiplier. ResolveHit
-	// scales the constructed HitInfo's healthDamage by this so buffs / debuffs
-	// on the attacker modulate the swing without touching the receiver-side
-	// DamageMultiplier above.
-	public float OutgoingDamageMultiplier
-	{
-		get
+		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			float product = 1f;
-			for (int i = 0; i < _statusEffects.Count; i++)
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null)
 			{
-				StatusEffectData data = _statusEffects[i]?.data;
-				if (data == null)
-				{
-					continue;
-				}
-				product *= data.outgoingDamageMultiplier;
+				continue;
 			}
-			return product;
+			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
 		}
-	}
-
-	// Sum of every active effect's maxStaminaBonus. Player.MaxStamina folds
-	// this in so a Hydrated player gets +50 to their cap for the duration.
-	public float MaxStaminaBonus
-	{
-		get
-		{
-			float sum = 0f;
-			for (int i = 0; i < _statusEffects.Count; i++)
-			{
-				StatusEffectData data = _statusEffects[i]?.data;
-				if (data == null)
-				{
-					continue;
-				}
-				sum += data.maxStaminaBonus;
-			}
-			return sum;
-		}
+		return product;
 	}
 
 	// Stop the loop fx and spawn the one-shot end cue. Called from both the

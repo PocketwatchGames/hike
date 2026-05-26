@@ -200,7 +200,7 @@ public static class StatList
 		yield return (GameClient.Current.statNames[EStatName.TargetRange], StatFormat.Meters(action.positionalRange));
 	}
 
-	// One entry per buildup contribution — name = "<effect> Buildup",
+	// One entry per buildup contribution — name = "<effect>",
 	// value = amount as a fraction of the 1.0 apply threshold. Null entries
 	// and zero/negative amounts are skipped.
 	public static IEnumerable<(string name, string value)> Buildups(Godot.Collections.Array<StatusEffectBuildup> buildups)
@@ -220,7 +220,7 @@ public static class StatList
 			{
 				effectName = entry.effect.ResourceName;
 			}
-			yield return (effectName + " Buildup", StatFormat.Number(entry.amount));
+			yield return (effectName, StatFormat.Number(entry.amount));
 		}
 	}
 
@@ -284,8 +284,10 @@ public static class StatList
 	}
 
 	// Full readout for one StatusEffectData — the dials it actually moves.
-	// Fields at their neutral values (multiplier == 1, bonus == 0) are
-	// suppressed so each effect surfaces only its meaningful stats.
+	// Lifecycle / payload fields (duration, dps) render with bespoke
+	// formatting; everything else (move speed, sense modifiers, temperature
+	// thresholds, type-tag damage scales) lives on `modifiers` and folds
+	// through the generalized renderer below.
 	public static IEnumerable<(string name, string value)> StatusEffectInfo(StatusEffectData effect)
 	{
 		if (effect == null)
@@ -308,21 +310,86 @@ public static class StatList
 			// label rather than a "Damage: -3".
 			yield return (names[EStatName.Heal], StatFormat.Number(-effect.damagePerSecond));
 		}
-		if (!Mathf.IsEqualApprox(effect.movementMultiplier, 1f))
+		foreach (var entry in Modifiers(effect.modifiers))
 		{
-			yield return (names[EStatName.MoveSpeed], StatFormat.ScaleDelta(effect.movementMultiplier));
+			yield return entry;
 		}
-		if (effect.maxStaminaBonus != 0f)
+	}
+
+	// Map an EStat (modifier-target / hit-tag value) onto the matching UI
+	// label key. Values that don't have a UI label return EStatName.Damage
+	// as a fallback — currently every EStat value has a mirrored EStatName
+	// since EStatName was extended in lockstep, so the fallback is dead
+	// code, but the explicit default keeps the switch exhaustive-safe
+	// against future EStat additions before their labels land.
+	private static EStatName ToStatName(EStat stat)
+	{
+		return stat switch
 		{
-			yield return (names[EStatName.MaxStamina], StatFormat.SignedNumber(effect.maxStaminaBonus));
+			EStat.Damage => EStatName.Damage,
+			EStat.Fire => EStatName.Fire,
+			EStat.Blunt => EStatName.Blunt,
+			EStat.Dizzy => EStatName.Dizzy,
+			EStat.Pierce => EStatName.Pierce,
+			EStat.Electrical => EStatName.Electrical,
+			EStat.Ranged => EStatName.Ranged,
+			EStat.Melee => EStatName.Melee,
+			EStat.Poison => EStatName.Poison,
+			EStat.Magical => EStatName.Magical,
+			EStat.Knockback => EStatName.Knockback,
+			EStat.OutgoingDamage => EStatName.OutgoingDamage,
+			EStat.MoveSpeed => EStatName.MoveSpeed,
+			EStat.AnimSpeed => EStatName.AnimSpeed,
+			EStat.Vision => EStatName.Vision,
+			EStat.Hearing => EStatName.Hearing,
+			EStat.Noise => EStatName.Noise,
+			EStat.Scent => EStatName.Scent,
+			EStat.FootprintAlpha => EStatName.FootprintAlpha,
+			EStat.FootprintDuration => EStatName.FootprintDuration,
+			EStat.Camouflage => EStatName.Camouflage,
+			EStat.MaxStamina => EStatName.MaxStamina,
+			EStat.ColdResist => EStatName.ColdResist,
+			EStat.HeatResist => EStatName.HeatResist,
+			_ => EStatName.Damage,
+		};
+	}
+
+	// Walk a StatModifier list and yield (label, formatted-value) tuples for
+	// every entry off its stat's neutral identity. Multiplicative stats
+	// render as scale deltas (e.g. "MoveSpeed: -25%"); additive stats render
+	// as signed offsets (e.g. "Camouflage: +5"). Used by StatusEffectInfo
+	// and ArmorStats so both shapes get a uniform readout.
+	public static IEnumerable<(string name, string value)> Modifiers(Godot.Collections.Array<StatModifier> modifiers)
+	{
+		if (modifiers == null)
+		{
+			yield break;
 		}
-		if (effect.coldResistance != 0f)
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+		for (int i = 0; i < modifiers.Count; i++)
 		{
-			yield return (names[EStatName.ColdResist], StatFormat.SignedNumber(effect.coldResistance));
-		}
-		if (effect.heatResistance != 0f)
-		{
-			yield return (names[EStatName.HeatResist], StatFormat.SignedNumber(effect.heatResistance));
+			StatModifier m = modifiers[i];
+			if (m == null || m.stat == EStat.None)
+			{
+				continue;
+			}
+			bool additive = StatModifierUtil.IsAdditive(m.stat);
+			if (additive)
+			{
+				if (m.value == 0f)
+				{
+					continue;
+				}
+				yield return (names[ToStatName(m.stat)], StatFormat.SignedNumber(m.value));
+			}
+			else
+			{
+				if (Mathf.IsEqualApprox(m.value, 1f))
+				{
+					continue;
+				}
+				yield return (names[ToStatName(m.stat)], StatFormat.ScaleDelta(m.value));
+			}
 		}
 	}
 
@@ -405,33 +472,9 @@ public static class StatList
 		{
 			yield return (names[EStatName.Armor], StatFormat.Number(data.maxArmor));
 		}
-		if (data.coldResistance != 0f)
+		foreach (var entry in Modifiers(data.modifiers))
 		{
-			yield return (names[EStatName.ColdResist], StatFormat.SignedNumber(data.coldResistance));
-		}
-		if (data.heatResistance != 0f)
-		{
-			yield return (names[EStatName.HeatResist], StatFormat.SignedNumber(data.heatResistance));
-		}
-		if (data.camouflage != 0f)
-		{
-			yield return (names[EStatName.Camouflage], StatFormat.SignedNumber(data.camouflage));
-		}
-		if (!Mathf.IsEqualApprox(data.visionMultiplier, 1f))
-		{
-			yield return (names[EStatName.Vision], StatFormat.ScaleDelta(data.visionMultiplier));
-		}
-		if (!Mathf.IsEqualApprox(data.hearingMultiplier, 1f))
-		{
-			yield return (names[EStatName.Hearing], StatFormat.ScaleDelta(data.hearingMultiplier));
-		}
-		if (!Mathf.IsEqualApprox(data.noiseMultiplier, 1f))
-		{
-			yield return (names[EStatName.Noise], StatFormat.ScaleDelta(data.noiseMultiplier));
-		}
-		if (!Mathf.IsEqualApprox(data.scentMultiplier, 1f))
-		{
-			yield return (names[EStatName.Scent], StatFormat.ScaleDelta(data.scentMultiplier));
+			yield return entry;
 		}
 	}
 

@@ -53,6 +53,16 @@ public static class CVars
     // Combine with bitwise OR; e.g. 3 = details + props. Default 0 = no skip.
     public static CVarInt worldgenSkip = new CVarInt("worldgen_skip", 0);
 
+    // When true, WorldGen.Generate output is cached to user://worldgen_cache
+    // and reused on subsequent boots with the same WorldGenData fingerprint.
+    // Invalidation is automatic on .tres edits and WORLDGEN_VERSION bumps;
+    // see WorldGenCache.cs. Disable to force fresh generation each run.
+    public static CVarBool worldCacheEnabled = new CVarBool("world_cache_enabled", true);
+    // Wipe user://worldgen_cache. Use after editing files the fingerprint
+    // doesn't cover (.cs helpers WorldGen calls into, .hikescene internals)
+    // when you want to confirm a fresh regeneration.
+    public static CVar worldCacheClear = new CVar("world_cache_clear", (cvar) => WorldGenCache.Clear());
+
     // Detaches the game camera from the player and lets WASD + right-mouse-look
     // fly it freely. Disables pixel snapping while active so mouse-look is smooth.
     public static CVarBool debugFlyCam = new CVarBool("debug_flycam", false);

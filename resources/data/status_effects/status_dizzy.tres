@@ -1,22 +1,38 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dh3yxk7q5oap2"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://c36hk3qn18tba" path="res://assets/textures/status_effects/Sanity2.png" id="1_yp3he"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/dizzy_begin.tscn" id="2_startfx"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/dizzy_loop.tscn" id="3_loopfx"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_movespeed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_animspeed"]
+script = ExtResource("m_script")
+stat = 8192
+value = 0.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("1_yp3he")
 displayName = &"Dizzy"
+tags = 8
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
 duration = 5.0
 maxStack = 1
-movementMultiplier = 0.0
-animationSpeedMultiplier = 0.0
 startFx = ExtResource("2_startfx")
 loopFx = ExtResource("3_loopfx")
 buildupRemovalDelay = 6.0
 buildupRemovalSpeed = 1.0
 clearBuildupOnApply = true
 applyTrigger = 1
+removesOnApply = null
 loopAnimOverride = 10
 incapacitates = true
 vulnerable = 1.0

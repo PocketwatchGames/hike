@@ -7,6 +7,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("1_asibn")
 displayName = &"Poisoned"
+tags = 257
 damagePerSecond = 1.0
 pierce = 1.0
 duration = 20.0

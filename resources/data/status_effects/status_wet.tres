@@ -6,15 +6,27 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/status_wet_end.tscn" id="4_endfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_wet_loop.tscn" id="5_loopfx"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="6_burning"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_cold"]
+script = ExtResource("m_script")
+stat = 4194304
+value = -25.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_heat"]
+script = ExtResource("m_script")
+stat = 8388608
+value = 25.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("1_l86d8")
 displayName = &"Wet"
+modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("m_heat")])
 duration = 0.0
 maxStack = 1
-coldResistance = -25.0
-heatResistance = 25.0
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")

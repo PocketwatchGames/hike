@@ -16,6 +16,11 @@ using Godot;
 public struct HitInfo
 {
 	public Node source;
+	// Type tags carried from the source template (DamageData.tags /
+	// ContinuousDamageData.tags). Receivers fold their per-tag StatModifier
+	// entries against this mask at multiple gameplay sites — damage scale,
+	// pierce-chance, armor chip, knockback magnitude — when applying.
+	public EStat tags;
 	public float healthDamage;
 	public float hitstun;
 	// Knockback magnitude (m/s of velocity change) and lockout window;
@@ -100,6 +105,7 @@ public struct HitInfo
 		armorBypassFraction = 0f;
 		if (template != null)
 		{
+			tags = template.tags;
 			healthDamage = template.healthDamage;
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
@@ -113,6 +119,7 @@ public struct HitInfo
 		}
 		else
 		{
+			tags = EStat.None;
 			healthDamage = 0f;
 			hitstun = 0f;
 			knockbackDistance = 0f;
@@ -144,6 +151,7 @@ public struct HitInfo
 		critRoll = GD.Randf();
 		if (template != null)
 		{
+			tags = template.tags;
 			healthDamage = template.healthDamage * delta;
 			blunt = template.blunt;
 			armorBypassFraction = template.pierce;
@@ -151,6 +159,7 @@ public struct HitInfo
 		}
 		else
 		{
+			tags = EStat.None;
 			healthDamage = 0f;
 			blunt = 0f;
 			armorBypassFraction = 0f;

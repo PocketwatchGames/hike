@@ -65,6 +65,10 @@ public partial class ItemActionPanel : PanelContainer
 				{
 					continue;
 				}
+				if (mod.trigger == EDamageTrigger.OnDizzy)
+				{
+					continue;
+				}
 				BuildModifierContext(mod);
 			}
 		}

@@ -5,15 +5,27 @@
 [ext_resource type="PackedScene" path="res://scenes/effects/status_cold_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_cold_end.tscn" id="4_endfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_cold_loop.tscn" id="5_loopfx"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_movespeed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.75
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_animspeed"]
+script = ExtResource("m_script")
+stat = 8192
+value = 0.75
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Cold"
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
 duration = 5.0
 maxStack = 1
-movementMultiplier = 0.75
-animationSpeedMultiplier = 0.75
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")
 loopFx = ExtResource("5_loopfx")

@@ -1,13 +1,12 @@
 [gd_resource type="Resource" script_class="ArrowLootData" format=3 uid="uid://cuxcddhgxlojw"]
 
 [ext_resource type="Script" uid="uid://thkln2f8w7t7" path="res://scripts/data/items/ArrowLootData.cs" id="1_arrow_data"]
-[ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="2_inv"]
-[ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="3_world"]
+[ext_resource type="Texture2D" uid="uid://sdpdfdbbomg6" path="res://assets/textures/items/Arrow.png" id="1_mw5lv"]
+[ext_resource type="Texture2D" uid="uid://5otedprhm15o" path="res://assets/textures/items/pickups/Arrow.png" id="3_gfrfj"]
 
 [resource]
 script = ExtResource("1_arrow_data")
-displayName = &"Arrow"
-maxStack = 1
-inventorySprite = ExtResource("2_inv")
-worldSprite = ExtResource("3_world")
 removeTimeMs = 30000
+displayName = &"Arrow"
+inventorySprite = ExtResource("1_mw5lv")
+worldSprite = ExtResource("3_gfrfj")

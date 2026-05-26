@@ -17,9 +17,27 @@ using Godot;
 // the per-frame damage that bypasses armor (HitInfo.armorBypassFraction),
 // not a chance to bypass entirely. 0 = always absorbed by armor; 1 = always
 // straight to health; 0.3 = 30% bleeds through, 70% chips armor.
+[Tool]
 [GlobalClass]
 public partial class ContinuousDamageData : Resource
 {
+	// Type tags carried by this continuous hit (Fire, Poison, Magical, …).
+	// Same role as DamageData.tags — receivers fold their StatModifier
+	// entries against this mask to scale per-frame health damage. Default
+	// None = untyped, full damage. A fire pillar would be Damage|Fire, a
+	// poison gas cloud Damage|Poison, etc.
+	private EStat _tags;
+	[Export, CompactFlags] public EStat tags
+	{
+		get => _tags;
+		set
+		{
+			if (_tags == value) { return; }
+			_tags = value;
+			EmitChanged();
+		}
+	}
+
 	// Damage per second applied to anything inside the zone. Scaled by
 	// physics delta when the zone fires its per-frame tick.
 	[Export] public float healthDamage = 0f;

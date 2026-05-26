@@ -1,15 +1,50 @@
 using Godot;
 
 // Authored data for a status effect held by a Player or Mob — icon, display
-// name, and the per-tick stats the runtime applies while the effect is active.
-// Designed to grow with additional stat fields (move-speed multiplier,
-// perception multiplier, ...) by appending new [Export]s; existing .tres files
-// keep loading because additions default to neutral values.
+// name, lifecycle, fx, and a list of StatModifier entries the runtime
+// composes into the actor's stat values while the effect is active.
+//
+// Most "this effect changes a stat" tunables now live as StatModifier entries
+// on `modifiers` (move speed, damage scale, sense modifiers, temperature
+// thresholds, etc.) — composed multiplicatively or additively per stat by
+// the receiver. Lifecycle / identity / payload fields stay top-level
+// because they don't fit the modifier shape.
+[Tool]
 [GlobalClass]
 public partial class StatusEffectData : Resource
 {
 	[Export] public Texture2D icon;
 	[Export] public StringName displayName;
+
+	// Type tags this effect carries. Used by the resistance / modifier system
+	// in two places: (1) buildup contributions feeding this effect scale by
+	// the receiver's matching StatModifier entries — kun-kun's Dizzy
+	// vulnerability lives there; (2) the per-second damagePerSecond DoT tick
+	// scales by the same lookup so a Burning effect's burn tick respects a
+	// Fire-resistant target. Default None = no tag-based scaling. Set Dizzy
+	// on the dizzy effect, Fire|Damage on Burning, Poison|Damage on Poisoned.
+	private EStat _tags;
+	[Export, CompactFlags] public EStat tags
+	{
+		get => _tags;
+		set
+		{
+			if (_tags == value) { return; }
+			_tags = value;
+			EmitChanged();
+		}
+	}
+
+	// Stat modifications granted to the actor while this effect is active.
+	// Composed multiplicatively (or additively, per StatModifierUtil.
+	// IsAdditive) with inherent and equipment modifiers when the actor's
+	// composed value for any stat is queried. Authoring examples:
+	//   { Damage,         0.0  } — dash i-frames (full damage immunity)
+	//   { MoveSpeed,      0.75 } — Cold slows movement
+	//   { ColdResist,    -25   } — Wet lowers cold threshold (additive)
+	//   { Camouflage,    +5    } — armor / cloak bonus (additive)
+	//   { Dizzy,          0.3  } — Dizzy buildup resistance (multiplicative)
+	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 
 	// Per-second HP delta. Positive damages (poison), negative heals
 	// (regeneration). Applied in 1-second chunks via the state's tick
@@ -41,70 +76,6 @@ public partial class StatusEffectData : Resource
 	// authored 1 on consumable/situational effects (Well Fed, Hydrated, Wet,
 	// Hot, Cold) so re-eating / re-drinking just extends the timer.
 	[Export] public int maxStack = 99;
-
-	// Per-footprint visual modulators. The actor's footprint emitter sums
-	// these across all active StatusEffectStates and multiplies into the
-	// per-ground FootprintData baseAlpha / durationSeconds at spawn time.
-	// Defaults are 1 so existing effects don't change footprint behavior;
-	// the Wet effect .tres bumps both above 1 so a wet actor leaves more
-	// visible, longer-lasting prints.
-	[Export] public float footprintAlphaMultiplier = 1f;
-	[Export] public float footprintDurationMultiplier = 1f;
-
-	// Per-tick motion modulators. The actor's movement update sums these
-	// multiplicatively across every active StatusEffectState and applies the
-	// product to its move speed (and to the sprite animator's playback rate
-	// via LitSpriteAnimator.effectSpeedMultiplier) so movement and footwork
-	// stay in lockstep. Defaults are 1 so existing effects don't change
-	// motion; the Cold effect drops both to 0.75 to make a chilled actor
-	// trudge with matching slowed animation. The two fields are independent
-	// so authors can desync them on purpose (e.g. a "drunk" effect could
-	// slow animation more than movement).
-	[Export] public float movementMultiplier = 1f;
-	[Export] public float animationSpeedMultiplier = 1f;
-
-	// Per-effect multiplier applied to incoming healthDamage on the actor's
-	// HurtBox hit. Multiplicative across active effects — StatusEffectController.
-	// DamageMultiplier reads the product; Player.OnHurtBoxHit scales incoming
-	// healthDamage by it and Player.GetHitType returns None when the product
-	// is zero. 1.0 is neutral; 0.0 is full invulnerability (dash i-frames);
-	// 0.5 is a damage-reduction buff; values >1 amplify damage (glass-cannon
-	// debuff).
-	[Export] public float damageMultiplier = 1f;
-
-	// Per-effect multiplier applied to outgoing healthDamage when this actor
-	// sources a hit. ResolveHit scales the constructed HitInfo by the product
-	// across all of the source actor's active effects — mirrors how
-	// damageMultiplier scales incoming. 1.0 neutral; >1 boosts (battle-cry
-	// rally), <1 weakens (sapped debuff). Buildups / hitstun / knockback are
-	// not scaled — buff damage without altering the swing's CC pattern.
-	[Export] public float outgoingDamageMultiplier = 1f;
-
-	// Flat bonus added to the actor's maxStamina while this effect is active.
-	// Summed across active effects on StatusEffectController.MaxStaminaBonus
-	// and folded into Player.MaxStamina. 0 is neutral; status_hydrated.tres
-	// authors +50 so drinking from a well raises the cap for the duration.
-	[Export] public float maxStaminaBonus;
-
-	// Per-effect shifts to the player's hot / cold trigger thresholds in
-	// degrees F. Player.cs sums these across every active StatusEffectState
-	// and applies them as: effective coldThreshold = base - sumColdResistance,
-	// effective hotThreshold = base + sumHeatResistance. Positive resistance
-	// shrinks the reachable danger band (harder to trigger); negative
-	// resistance widens it (easier). Wet authors -25 cold / +25 heat — soaked
-	// skin chills sooner and resists overheating.
-	[Export] public float coldResistance;
-	[Export] public float heatResistance;
-
-	// Sense modifiers — same shape as ArmorData. Camouflage is additive
-	// (summed across active effects); the four multipliers scale the
-	// PlayerData base value multiplicatively and compose with armor's
-	// matching fields in Player.GetSenseStats. 1.0 / 0.0 are neutral.
-	[Export] public float camouflage;
-	[Export] public float visionMultiplier = 1f;
-	[Export] public float hearingMultiplier = 1f;
-	[Export] public float noiseMultiplier = 1f;
-	[Export] public float scentMultiplier = 1f;
 
 	// Audiovisual cues bound to the effect's lifecycle. `startFx` and `endFx`
 	// are one-shot Fx scenes spawned on the actor at apply / remove. `loopFx`
@@ -168,8 +139,9 @@ public partial class StatusEffectData : Resource
 	// Composes across active effects as 1 - product(1 - v_i), i.e. multiple
 	// vulnerabilities chain as independent probabilities — the actor's total
 	// vulnerable is the chance "at least one effect makes the hit a crit."
-	// 0 (default) is neutral; 1 pins vulnerable at 1 regardless of other
-	// effects. Dizzy authors 1.0 so a dizzied mob is always crit on triggered
-	// hits.
+	// Kept as a top-level field because the probabilistic-union math doesn't
+	// fit the multiplicative / additive StatModifier shape. 0 (default) is
+	// neutral; 1 pins vulnerable at 1 regardless of other effects. Dizzy
+	// authors 1.0 so a dizzied mob is always crit on triggered hits.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vulnerable = 0f;
 }

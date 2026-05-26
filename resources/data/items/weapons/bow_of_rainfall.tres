@@ -110,6 +110,7 @@ addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
+tags = 593
 healthDamage = 3.0
 hitstun = 0.25
 knockbackDistance = 0.5
@@ -119,6 +120,7 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 
 [sub_resource type="Resource" id="Resource_area_damage"]
 script = ExtResource("1_damage")
+tags = 593
 healthDamage = 2.0
 statusEffects = null
 modifiers = null

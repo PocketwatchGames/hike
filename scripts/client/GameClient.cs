@@ -1,6 +1,7 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 public partial class GameClient : Node3D
@@ -40,6 +41,16 @@ public partial class GameClient : Node3D
 		{ EStatName.Hearing, "Hearing" },
 		{ EStatName.Noise, "Noise" },
 		{ EStatName.Scent, "Scent" },
+		{ EStatName.Fire, "Fire" },
+		{ EStatName.Magical, "Magical" },
+		{ EStatName.Poison, "Poison" },
+		{ EStatName.Electrical, "Electrical" },
+		{ EStatName.Ranged, "Ranged" },
+		{ EStatName.Melee, "Melee" },
+		{ EStatName.OutgoingDamage, "Outgoing Damage" },
+		{ EStatName.AnimSpeed, "Animation Speed" },
+		{ EStatName.FootprintAlpha, "Footprint Alpha" },
+		{ EStatName.FootprintDuration, "Footprint Duration" },
 	};
 
 	// Damage modifier trigger labels. Used as the header of the conditional
@@ -474,6 +485,7 @@ public partial class GameClient : Node3D
 		// for the rest of the load and hand it back when the screen fades.
 		InputSuppressed = true;
 
+		var phaseSw = Stopwatch.StartNew();
 		_world = new World();
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
@@ -484,6 +496,8 @@ public partial class GameClient : Node3D
 		// frozen at 0.6 → 0.75 across the single hitch. Threading the
 		// chunk fill (see voxels/CLAUDE.md) would make this smooth.
 		_world.Initialize(worldState, playerPosition, camera, fogMaterial, () => _player?.GlobalPosition ?? playerPosition);
+		GD.Print($"[Load] Building world (chunk-mesh fill): {phaseSw.ElapsedMilliseconds}ms");
+		phaseSw.Restart();
 		loadingScreen?.SetProgress(0.75f, "Spawning...");
 
 		// Bridge sim-side discovery events to the announcement bus. The
@@ -504,6 +518,8 @@ public partial class GameClient : Node3D
 		{
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
+		GD.Print($"[Load] Spawn-ready wait: {phaseSw.ElapsedMilliseconds}ms");
+		phaseSw.Restart();
 
 		_player = playerScene.Instantiate<Player>();
 		_player.onHighlightChanged += OnPlayerHighlightChanged;
@@ -559,6 +575,7 @@ public partial class GameClient : Node3D
 			}
 			await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 		}
+		GD.Print($"[Load] Spawning ({peakEntitySpawnCount} entities, inner radius): {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen?.SetProgress(1f);
 
 		camera.Init(sceneViewport);
@@ -576,6 +593,10 @@ public partial class GameClient : Node3D
 		// QueueFrees itself when the fade hits 0; we drop InputSuppressed
 		// here so gameplay input picks up the instant the screen starts
 		// fading rather than waiting for it to finish.
+		if (loadingScreen?.LoadStopwatch != null)
+		{
+			GD.Print($"[Load] Total (to fade start): {loadingScreen.LoadStopwatch.ElapsedMilliseconds}ms");
+		}
 		loadingScreen?.HideWithFade();
 		InputSuppressed = false;
 	}

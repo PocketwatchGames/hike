@@ -4,13 +4,20 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_hydrated_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_hydrated_end.tscn" id="4_endfx"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_stamina"]
+script = ExtResource("m_script")
+stat = 2097152
+value = 50.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("1_bf5kg")
 displayName = &"Hydrated"
+modifiers = Array[ExtResource("m_script")]([SubResource("m_stamina")])
 duration = 300.0
 maxStack = 1
-maxStaminaBonus = 50.0
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")

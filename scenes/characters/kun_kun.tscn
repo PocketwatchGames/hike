@@ -264,6 +264,14 @@ animations = [{
 }, {
 "frames": [{
 "duration": 1.0,
+"texture": SubResource("AtlasTexture_u5xnt")
+}],
+"loop": true,
+"name": &"dizzy",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
 "texture": SubResource("AtlasTexture_ea2u0")
 }, {
 "duration": 1.0,
@@ -349,14 +357,6 @@ animations = [{
 }],
 "loop": true,
 "name": &"run",
-"speed": 5.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_u5xnt")
-}],
-"loop": true,
-"name": &"dizzy",
 "speed": 5.0
 }, {
 "frames": [{
@@ -449,7 +449,7 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("5_mouse")
 region_enabled = true
-region_rect = Rect2(54, 0, 18, 18)
+region_rect = Rect2(0, 0, 18, 18)
 script = ExtResource("6_litsprite")
 Material = 1
 MirrorByYaw = true

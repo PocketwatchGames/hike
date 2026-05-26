@@ -227,6 +227,15 @@ public partial class PlayerData : Resource
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 100f;
 
+	// Inherent stat modifiers. Composed with equipped ArmorData.modifiers
+	// and active StatusEffectData.modifiers when the actor queries any
+	// stat (incoming-damage scale by tag, pierce / blunt / knockback
+	// magnitudes by tag, move speed, sense multipliers, temperature
+	// thresholds, etc.). 1.0 (or no entry) is neutral for multiplicative
+	// stats; 0 is neutral for additive stats. Vulnerabilities author
+	// multiplier > 1.
+	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+
 	// Maximum angle (radians) between the mob's facing direction and the
 	// player→mob vector at hit time for the attack to count as a backstab.
 	// A backstab requires the mob to be untriggered (still unaware of the

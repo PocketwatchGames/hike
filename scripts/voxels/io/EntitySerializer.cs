@@ -22,6 +22,7 @@ public static class EntitySerializer
         Loot = 10,
         Forge = 11,
         KnowledgeStone = 12,
+        Well = 13,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -233,6 +234,12 @@ public static class EntitySerializer
                 WriteVec3(w, fire.WorldPosition);
                 WriteScene(w, fire.Scene);
                 w.Write(fire.PhaseOffsetSeconds);
+                break;
+
+            case WellSimState well:
+                w.Write((byte)Tag.Well);
+                WriteVec3(w, well.WorldPosition);
+                WriteScene(w, well.Scene);
                 break;
 
             case BerryTreeSimState berry:
@@ -472,6 +479,12 @@ public static class EntitySerializer
                 var fire = new FireTrapSimState(pos, scene);
                 fire.PhaseOffsetSeconds = phaseOffset;
                 return fire;
+            }
+            case Tag.Well:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                return new WellSimState(pos, scene);
             }
             case Tag.BerryTree:
             {

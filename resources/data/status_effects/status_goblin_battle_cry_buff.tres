@@ -2,13 +2,30 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://byl6yu4o41toi" path="res://assets/textures/status_effects/Damage Multiplier_Status.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_movespeed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 1.3
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_animspeed"]
+script = ExtResource("m_script")
+stat = 8192
+value = 1.3
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_outgoing"]
+script = ExtResource("m_script")
+stat = 2048
+value = 1.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("2_icon")
 displayName = &"Battle Cry"
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed"), SubResource("m_outgoing")])
 duration = 8.0
 maxStack = 1
-movementMultiplier = 1.3
-animationSpeedMultiplier = 1.3
-outgoingDamageMultiplier = 1.5

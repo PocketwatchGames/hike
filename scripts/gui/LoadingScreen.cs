@@ -1,4 +1,5 @@
 using Godot;
+using System.Diagnostics;
 
 // Full-screen loading overlay for the new-game / load-game sequence.
 // Lives at the Main level (not inside game.tscn) so it can show before
@@ -27,6 +28,10 @@ public partial class LoadingScreen : CanvasLayer
 		FadingOut,
 	}
 
+	// Started in Show() so the per-phase timing prints in Main.StartGame and
+	// GameClient.Init can share a single wall-clock for the [Load] Total line.
+	public Stopwatch LoadStopwatch { get; private set; }
+
 	EState _state = EState.Hidden;
 	float _darkness = 1f;
 	bool _audioBaselineCaptured;
@@ -45,6 +50,7 @@ public partial class LoadingScreen : CanvasLayer
 		_state = EState.Visible;
 		_darkness = 1f;
 		Visible = true;
+		LoadStopwatch = Stopwatch.StartNew();
 		SetStatus(status);
 		SetProgress(0f);
 		CaptureAudioBaseline();

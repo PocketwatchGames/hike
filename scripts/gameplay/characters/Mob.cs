@@ -419,7 +419,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             FootstepEmitter.Emit(_world, pos, ground, _footstepEffects);
         }
-        _statusEffects.GetFootprintMultipliers(out float fpAlphaMul, out float fpDurMul);
+        float fpAlphaMul = _statusEffects?.FoldStat(EStat.FootprintAlpha, 1f) ?? 1f;
+        float fpDurMul = _statusEffects?.FoldStat(EStat.FootprintDuration, 1f) ?? 1f;
         bool perceivedAtEmit = _simState.PlayerPerception > 0f || _simState.MemoryTimeMs > _world.GameTimeMs;
         FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: !perceivedAtEmit);
     }
@@ -450,7 +451,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta);
+        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
         InitBehaviors();
         world.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
@@ -535,7 +536,67 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsGrounded => true;
     public bool IsSwimming => false;
 
-    public float OutgoingDamageMultiplier => _statusEffects?.OutgoingDamageMultiplier ?? 1f;
+    public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
+
+    // Compose a single stat across inherent MobData modifiers and active
+    // status-effect modifiers. Mobs don't currently equip armor, so the
+    // shape is one source list (MobData) + the controller's contribution.
+    public float ComposeStat(EStat stat)
+    {
+        float value = StatModifierUtil.NeutralValue(stat);
+        if (mobData?.modifiers != null)
+        {
+            value = StatModifierUtil.Fold(stat, mobData.modifiers, value);
+        }
+        value = _statusEffects?.FoldStat(stat, value) ?? value;
+        return value;
+    }
+
+    // Multiplicative compose across all sources for a tag mask. Used at hit
+    // application sites and routed through to the StatusEffectController as
+    // the buildup / DoT resistance callback.
+    public float ComposeMaskMul(EStat mask)
+    {
+        float product = 1f;
+        if (mobData?.modifiers != null)
+        {
+            product = StatModifierUtil.FoldMask(mask, mobData.modifiers, product);
+        }
+        product = _statusEffects?.FoldMask(mask, product) ?? product;
+        return product;
+    }
+
+    // Fold receiver resistances onto the live hit in place. Damage tags
+    // (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
+    // healthDamage; Pierce scales bypass-chance; Blunt scales the armor-chip
+    // multiplier; Knockback scales knockback distance and time. Mirrors the
+    // Player-side ApplyResistance shape.
+    private void ApplyResistance(ref HitInfo hit)
+    {
+        if (hit.tags == EStat.None)
+        {
+            return;
+        }
+        EStat damageTags = hit.tags & StatModifierUtil.DamageScaleTags;
+        if (damageTags != EStat.None)
+        {
+            hit.healthDamage *= ComposeMaskMul(damageTags);
+        }
+        if ((hit.tags & EStat.Pierce) != 0)
+        {
+            hit.pierce *= ComposeMaskMul(EStat.Pierce);
+        }
+        if ((hit.tags & EStat.Blunt) != 0)
+        {
+            hit.blunt *= ComposeMaskMul(EStat.Blunt);
+        }
+        if ((hit.tags & EStat.Knockback) != 0)
+        {
+            float scale = ComposeMaskMul(EStat.Knockback);
+            hit.knockbackDistance *= scale;
+            hit.knockbackTime *= scale;
+        }
+    }
     public ETeam ActorTeam => mobData?.team ?? ETeam.Hostile;
 
     public void PlayOneShot(EAnimation anim)
@@ -932,8 +993,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // fall / burrow / dead / dizzy default to authored speed.
         if (mobData.IsAnimationSpeedAffected(loopAnim))
         {
-            _statusEffects.GetMovementMultipliers(out _, out float animSpeedMul);
-            _animator.effectSpeedMultiplier = animSpeedMul;
+            _animator.effectSpeedMultiplier = _statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f;
         }
 
         // Drive the anim-audio loop off the same loopAnim. Burrowing mobs
@@ -1399,7 +1459,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Otherwise, if we're walking toward a path target, face that direction.
             float? targetYaw = aiOutput.yaw;
 
-            _statusEffects.GetMovementMultipliers(out float statusMoveMul, out float _);
+            float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
             // Sprite anim retiming is gated to movement-loop anims only — see
             // UpdateAnimation, which writes effectSpeedMultiplier per-frame
             // based on the currently-picked loopAnim. Attack / hitstun / die
@@ -1702,6 +1762,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // mob that the regular damage wouldn't have).
         hit = ApplyCrit(hit);
         hit = ApplyBackstab(hit);
+        ApplyResistance(ref hit);
         float incoming = hit.healthDamage;
         if (incoming <= 0f)
         {
@@ -1905,6 +1966,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _simState.DamagedByPlayer = true;
         }
+        // Receiver-side resistance fold. Modulates healthDamage / pierce /
+        // blunt / knockback in place so all downstream uses (hit.Pierced,
+        // armor chip mult, knockback impulse) see the resistance-scaled
+        // values without needing per-site composition.
+        ApplyResistance(ref hit);
         float incoming = hit.healthDamage;
         // Armor handling. Bypass-aware split: a portion of `incoming` skips
         // armor entirely (discrete `Pierced` = full bypass; continuous
