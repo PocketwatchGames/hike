@@ -50,12 +50,12 @@ metadata/_custom_type_script = "uid://mdofgaaseydt6"
 [sub_resource type="Resource" id="Resource_jl16k"]
 script = ExtResource("3_itemcount")
 item = ExtResource("13_h1t84")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+metadata/_custom_type_script = "uid://mdofgaaseydt6"
 
 [sub_resource type="Resource" id="Resource_ntk62"]
 script = ExtResource("3_itemcount")
 item = ExtResource("5_ranged")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+metadata/_custom_type_script = "uid://mdofgaaseydt6"
 
 [resource]
 script = ExtResource("1_pspawn")

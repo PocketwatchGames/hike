@@ -286,6 +286,10 @@ region = Rect2(216, 144, 72, 72)
 atlas = ExtResource("3_eojnx")
 region = Rect2(360, 360, 72, 72)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_hitstun"]
+atlas = ExtResource("3_eojnx")
+region = Rect2(0, 144, 72, 72)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_6eyoc"]
 atlas = ExtResource("3_eojnx")
 region = Rect2(0, 0, 72, 72)
@@ -706,6 +710,14 @@ animations = [{
 "loop": true,
 "name": &"fall",
 "speed": 10.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_hitstun")
+}],
+"loop": true,
+"name": &"hitstun",
+"speed": 5.0
 }, {
 "frames": [{
 "duration": 1.0,
