@@ -14,6 +14,18 @@ public partial class CampfireSpawnEntry : SpawnEntryData
 {
     [Export] public PackedScene Scene;
 
+    // Radius (meters) around the campfire where worldgen-painted detail
+    // sprites (small grasses, pebbles — see DetailEntry / ChunkDetailScatter)
+    // are erased so the authored campfire scene's logs / stones / embers
+    // don't share a footprint with scattered foliage. StampDetailScatter
+    // runs before the surface-entity pass in WorldGen.Generate, so the
+    // clear can fire inline from this Spawn — no post-pass needed.
+    [Export] public float DetailSuppressionRadius = 2f;
+
+    // Campfires sit visually awkwardly on cliff edges and ramp adjacencies
+    // (the bowl tilts, surrounding fuel/rocks intersect the step face).
+    public override bool RequireFlatTerrain => true;
+
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
         if (Scene == null)
@@ -24,5 +36,6 @@ public partial class CampfireSpawnEntry : SpawnEntryData
         campfire.AutoLightAtNight = true;
         campfire.Active = false;
         ws.AddEntity(campfire);
+        ws.ClearDetailVoxelsWithin(position, DetailSuppressionRadius);
     }
 }

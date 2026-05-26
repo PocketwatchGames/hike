@@ -1618,6 +1618,43 @@ public static class WorldGen
         return h == heightMap.GetPlateau(wx, wz) && h >= WATER_LEVEL;
     }
 
+    // True iff (wx, wz) sits on an obvious flat patch — the column itself
+    // is flat-dry-grass AND all 8 neighbors share the same Height. Rejects
+    // both step-edge columns (neighbor lower = cliff drop) and ramp-adjacent
+    // columns (neighbor higher = ramp climb). Used by spawn entries that
+    // opt in via RequireFlatTerrain (mobs, campfires) where physics or
+    // visuals can't tolerate a sloped step face under the spawn anchor.
+    private static bool IsFlatTerrainAt(int wx, int wz, HeightMap heightMap)
+    {
+        if (!IsFlatDryGrassAt(wx, wz, heightMap))
+        {
+            return false;
+        }
+        int h = heightMap.GetHeight(wx, wz);
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dz = -1; dz <= 1; dz++)
+            {
+                if (dx == 0 && dz == 0)
+                {
+                    continue;
+                }
+                int nx = wx + dx;
+                int nz = wz + dz;
+                if (nx < heightMap.WorldMinX || nx > heightMap.WorldMaxX
+                    || nz < heightMap.WorldMinZ || nz > heightMap.WorldMaxZ)
+                {
+                    return false;
+                }
+                if (heightMap.GetHeight(nx, nz) != h)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     // Plateau-step tunnels: the top TunnelLayerHeight voxels of every plateau
     // step (the band immediately under each plateau ceiling) are tunnel
     // candidates, gated by 3D tunnel noise. This produces tiered tunnel
@@ -3033,9 +3070,9 @@ public static class WorldGen
         }
 
         // Surface pass: per grass column, pick the kernel-weighted zone,
-        // iterate its SurfaceEntities and roll each entry's Chance. Each
-        // entry's Spawn() handles its own EntitySimState construction; the
-        // loop only needs to know how to gate by skip flag and dispatch.
+        // iterate its SurfaceEntities and roll each entry's area chance.
+        // Each entry's Spawn() handles its own EntitySimState construction;
+        // the loop only needs to know how to gate by skip flag and dispatch.
         // Composite entries (SpawnGroupData) read the SpawnContext to do
         // their own rejection-sampled scatter — no per-subclass special-
         // casing here.
@@ -3043,6 +3080,7 @@ public static class WorldGen
         {
             SurfaceYAt = SurfaceYAt,
             IsValidColumn = IsGrassyAt,
+            IsFlatColumn = (wx, wz) => IsFlatTerrainAt(wx, wz, heightMap),
         };
         if (!skipMobs || !skipInteractives)
         {
@@ -3072,8 +3110,8 @@ public static class WorldGen
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
-                        if (rng.NextDouble() >= entry.Chance) { continue; }
-                        entry.Spawn(ws, pos, rng, surfaceContext);
+                        if (!entry.RollAreaChance(rng)) { continue; }
+                        entry.TrySpawn(ws, pos, rng, surfaceContext);
                     }
                 }
             }
@@ -3141,8 +3179,8 @@ public static class WorldGen
                         if (entry == null) { continue; }
                         bool isMob = entry is MobSpawnEntry;
                         if (isMob ? skipMobs : skipInteractives) { continue; }
-                        if (rng.NextDouble() >= entry.Chance) { continue; }
-                        entry.Spawn(ws, pos, rng, null);
+                        if (!entry.RollAreaChance(rng)) { continue; }
+                        entry.TrySpawn(ws, pos, rng, null);
                     }
                 }
             }

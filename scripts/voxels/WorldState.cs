@@ -779,6 +779,79 @@ public class WorldState
         return false;
     }
 
+    // Zero out the DetailGroup / DetailStrength painting on every voxel
+    // whose scattered sprite would sit within `radius` of `position`.
+    // Detail sprites visually sit one voxel above their painted voxel
+    // (ChunkDetailScatter anchors at vy + 1), so the distance test
+    // compares against (vx + 0.5, vy + 1, vz + 0.5). Detail stamping
+    // happens in WorldGen.Generate before any surface entity spawns
+    // (StampDetailScatter runs before the per-chunk GenerateProps loop),
+    // so callers from a spawn-entry Spawn method see the full painted
+    // field and can erase it inline.
+    public void ClearDetailVoxelsWithin(Vector3 position, float radius)
+    {
+        if (radius <= 0f)
+        {
+            return;
+        }
+        int rCeil = Mathf.CeilToInt(radius);
+        int cx = Mathf.FloorToInt(position.X);
+        int cy = Mathf.FloorToInt(position.Y);
+        int cz = Mathf.FloorToInt(position.Z);
+        float r2 = radius * radius;
+        for (int vx = cx - rCeil; vx <= cx + rCeil; vx++)
+        {
+            for (int vy = cy - rCeil; vy <= cy + rCeil; vy++)
+            {
+                for (int vz = cz - rCeil; vz <= cz + rCeil; vz++)
+                {
+                    var spritePos = new Vector3(vx + 0.5f, vy + 1f, vz + 0.5f);
+                    if (spritePos.DistanceSquaredTo(position) > r2)
+                    {
+                        continue;
+                    }
+                    SetDetailGroupWorld(vx, vy, vz, 0);
+                    SetDetailStrengthWorld(vx, vy, vz, 0);
+                }
+            }
+        }
+    }
+
+    // True if any existing entity sits within `radius` of `position`. Walks
+    // the 3x3x3 chunk neighborhood around `position` so candidates near a
+    // chunk boundary still see entities just across the seam.
+    public bool HasEntityWithinRadius(Vector3 position, float radius)
+    {
+        if (radius <= 0f)
+        {
+            return false;
+        }
+        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        float r2 = radius * radius;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    var coord = new Vector3I(centerCoord.X + dx, centerCoord.Y + dy, centerCoord.Z + dz);
+                    if (!_entities.TryGetValue(coord, out List<EntitySimState> list))
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        if (list[i].WorldPosition.DistanceSquaredTo(position) < r2)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public void OnVoxelsChanged(List<Vector3I> changedPositions)
     {
         LightEngine.OnVoxelsChanged(this, changedPositions);

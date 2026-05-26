@@ -16,7 +16,7 @@ script = ExtResource("2_mob_entry")
 Data = ExtResource("5_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-Chance = 0.005
+SquareMetersPerSpawn = 200.0
 SpawnAtNight = true
 
 [sub_resource type="Resource" id="Resource_kunkun"]
@@ -24,17 +24,17 @@ script = ExtResource("2_mob_entry")
 Data = ExtResource("6_kunkun_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.33
-Chance = 0.005
+SquareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("3_loot_entry")
 Item = ExtResource("9_loot_data")
-Chance = 0.005
+SquareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("10_well_entry")
 Scene = ExtResource("11_well_scene")
-Chance = 0.0005
+SquareMetersPerSpawn = 2000.0
 
 [resource]
 script = ExtResource("1_list")

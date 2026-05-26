@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4glsf0vs"]
 
-[ext_resource type="Script" uid="uid://b3rgnd05hike01" path="res://scripts/data/ZoneGenData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/ZoneGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://d2gggtn6xkc7c" path="res://resources/data/zones/mountain.tres" id="2_region"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_limestone_kit.tres" id="4_kit_cave"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]

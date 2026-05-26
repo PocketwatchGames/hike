@@ -8,8 +8,9 @@ using Godot.Collections;
 // so common cave/loot/chest content is authored once and reused.
 //
 // Differs from SpawnGroupData (cluster-around-anchor) in that the WorldGen
-// loop scans candidate columns / cave cells, rolls each entry's Chance
-// once per candidate, and calls Spawn on hit (one Spawn per scan hit).
+// loop scans candidate columns / cave cells, rolls each entry's
+// SquareMetersPerSpawn area chance once per candidate, and calls Spawn on
+// hit (one Spawn per scan hit).
 // Subclasses that need their own count parameter (chest loot count, berry
 // tree berry count) declare a purpose-named field and roll inside Spawn.
 [GlobalClass]

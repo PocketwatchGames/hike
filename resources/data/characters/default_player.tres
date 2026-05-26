@@ -87,14 +87,14 @@ name = &"swim_sprint"
 affectedBySpeedMultiplier = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
-[sub_resource type="Resource" id="Resource_anim_skating"]
-script = ExtResource("7_animdata")
-name = &"skating"
-metadata/_custom_type_script = "uid://jqeoac08u010"
-
 [sub_resource type="Resource" id="Resource_anim_hitstun"]
 script = ExtResource("7_animdata")
 name = &"hitstun"
+metadata/_custom_type_script = "uid://jqeoac08u010"
+
+[sub_resource type="Resource" id="Resource_anim_skating"]
+script = ExtResource("7_animdata")
+name = &"skating"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_slt01"]
@@ -162,6 +162,7 @@ wallJumpAirControlTime = 1.0
 perceptionMinimum = 0.0
 hearingRange = 15.0
 swimJumpSpeed = 16.0
+modifiers = null
 armorRechargeDelay = 5.0
 bloodRegenSpeed = 1.0
 dashActionProfile = ExtResource("6_dash")

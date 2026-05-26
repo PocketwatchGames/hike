@@ -14,20 +14,21 @@ script = ExtResource("3_3y2ux")
 Data = ExtResource("2_ajkyq")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-Chance = 0.001
+SquareMetersPerSpawn = 1000.0
 SpawnAtNight = true
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("3_3y2ux")
 Data = ExtResource("4_epbtr")
 InitialBehavior = &"Wander"
-InitialBehaviorChance = 0.33
-Chance = 0.005
+InitialBehaviorChance = 0.8
+SquareMetersPerSpawn = 200.0
+SpawnAtNight = true
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("9_well_entry")
 Scene = ExtResource("10_well_scene")
-Chance = 0.0005
+SquareMetersPerSpawn = 2000.0
 
 [resource]
 script = ExtResource("8_88i6m")

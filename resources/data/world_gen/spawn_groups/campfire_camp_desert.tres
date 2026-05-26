@@ -56,4 +56,4 @@ SpawnAtNight = true
 script = ExtResource("10_x87yb")
 ScatterRadius = 5.0
 Entries = Array[ExtResource("1_oxdew")]([SubResource("Resource_campfire_entry"), SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
-Chance = 0.001
+SquareMetersPerSpawn = 1000.0

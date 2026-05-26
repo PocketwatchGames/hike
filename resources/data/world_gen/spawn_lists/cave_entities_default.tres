@@ -18,30 +18,30 @@ script = ExtResource("2_mob_entry")
 Data = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-Chance = 0.001
+SquareMetersPerSpawn = 1000.0
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")
 Data = ExtResource("7_kunkun_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.33
-Chance = 0.005
+SquareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("4_loot_entry")
 Item = ExtResource("5_11hbm")
-Chance = 0.005
+SquareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_chest"]
 script = ExtResource("3_chest_entry")
 Scene = ExtResource("9_chest_scene")
 AltScene = ExtResource("10_poison_scene")
-Chance = 0.002
+SquareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_torch"]
 script = ExtResource("5_torch_entry")
 Scene = ExtResource("11_torch_scene")
-Chance = 0.0025
+SquareMetersPerSpawn = 400.0
 
 [resource]
 script = ExtResource("1_list")

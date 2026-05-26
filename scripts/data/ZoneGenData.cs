@@ -35,7 +35,8 @@ using Godot;
 // polymorphic array of SpawnEntryData subclasses (MobSpawnEntry,
 // LootSpawnEntry, ChestSpawnEntry, FireTrapSpawnEntry, BerryTreeSpawnEntry,
 // CampfireSpawnEntry, TorchSpawnEntry). WorldGen scans the matching list
-// per candidate cell, rolls each entry's Chance, and calls its Spawn().
+// per candidate cell, rolls each entry's SquareMetersPerSpawn area chance,
+// and calls its Spawn().
 [GlobalClass]
 public partial class ZoneGenData : Resource
 {

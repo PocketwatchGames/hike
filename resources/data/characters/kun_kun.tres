@@ -4,7 +4,7 @@
 [ext_resource type="Resource" uid="uid://syb6453ftgs8" path="res://resources/data/characters/kun_kun_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="4_l8bhi"]
-[ext_resource type="Script" uid="uid://mdofgaaseydt6" path="res://scripts/data/ItemCount.cs" id="4_lootcount"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="4_lootcount"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="5_meat"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="5_pwfhx"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]

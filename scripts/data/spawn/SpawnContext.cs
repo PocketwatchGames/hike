@@ -27,13 +27,21 @@ public sealed class SpawnContext
     // use shore-band or seabed predicates).
     public Func<int, int, bool> IsValidColumn;
 
-    // Pick a position within `radius` of `anchor` whose column passes
-    // IsValidColumn, resolving Y to the ground top (SurfaceYAt + 1 — top
-    // face of the surface voxel). Matches the unified anchor convention
-    // both WorldGen passes use. Returns false if all attempts were
-    // rejected — caller skips the spawn instance.
-    public bool TryPickInRadius(Vector3 anchor, float radius, Random rng,
-        int attempts, out Vector3 result)
+    // Returns true if the column at (wx, wz) sits on a flat patch — the
+    // column AND all 8 surrounding columns share the same surface height.
+    // Surface pass populates this from the heightmap; cave-pocket pass
+    // leaves it null (no slope concept inside caves). Consulted only when
+    // an entry sets RequireFlatTerrain.
+    public Func<int, int, bool> IsFlatColumn;
+
+    // Pick a position within `radius` of `anchor` that satisfies all the
+    // entry's placement gates: column validity (IsValidColumn), flat
+    // terrain if required (IsFlatColumn + entry.RequireFlatTerrain), and
+    // no existing entity within entry.MinSpacing. Y resolves to the
+    // ground top (SurfaceYAt + 1 — top face of the surface voxel). Returns
+    // false if every attempt was rejected; caller skips the instance.
+    public bool TryPickInRadius(SpawnEntryData entry, WorldState ws, Vector3 anchor,
+        float radius, Random rng, int attempts, out Vector3 result)
     {
         if (radius <= 0f || SurfaceYAt == null || IsValidColumn == null)
         {
@@ -50,8 +58,17 @@ public sealed class SpawnContext
             {
                 continue;
             }
+            if (entry.RequireFlatTerrain && IsFlatColumn != null && !IsFlatColumn(wx, wz))
+            {
+                continue;
+            }
             int sy = SurfaceYAt(wx, wz);
-            result = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
+            var candidate = new Vector3(wx + 0.5f, sy + 1f, wz + 0.5f);
+            if (entry.MinSpacing > 0f && ws.HasEntityWithinRadius(candidate, entry.MinSpacing))
+            {
+                continue;
+            }
+            result = candidate;
             return true;
         }
         result = anchor;
