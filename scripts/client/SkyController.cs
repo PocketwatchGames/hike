@@ -511,6 +511,15 @@ public partial class SkyController : Node3D
     // unaffected.
     public float FogVisibilityScale { get; set; } = 1f;
 
+    // Per-frame override on cloudAltitude. Bird's-eye driver lerps this so
+    // clouds end up 75% of the way between the player and the apex camera,
+    // making the camera visibly transit through the layer. Null restores
+    // the authored cloudAltitude (the default behavior). Read through
+    // EffectiveCloudAltitude so the overhead-plane mesh in GameClient and
+    // the `cloud_altitude` shader global stay in lockstep.
+    public float? CloudAltitudeOverride { get; set; }
+    public float EffectiveCloudAltitude => CloudAltitudeOverride ?? cloudAltitude;
+
     [ExportGroup("Sunbeams")]
     [ExportSubgroup("Dust Band")]
     [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 16.0f;
@@ -1392,7 +1401,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", _palette.CloudThreshold);
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", _palette.CloudSharpness);
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
-        RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
+        RenderingServer.GlobalShaderParameterSet("cloud_altitude", EffectiveCloudAltitude);
         // Cloud-shadow attenuation. Multiplicatively blanked by an
         // active lightning flash so the flash energy boost above reaches
         // the ground even where a cloud was darkening it — the

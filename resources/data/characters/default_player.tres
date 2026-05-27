@@ -172,3 +172,4 @@ coldStatus = ExtResource("4_cold")
 hotStatus = ExtResource("5_hot")
 wetnessDrySeconds = 60.0
 dryRateHumidityDamping = 0.8
+wetnessArmorCascadeRate = 0.1

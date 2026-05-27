@@ -2,10 +2,16 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 public static class SaveGame
 {
-	private const int SAVE_VERSION = 1;
+	// Bump when the binary format changes shape. Old saves below this version
+	// are rejected outright by Load — the format isn't yet user-facing so
+	// we don't keep back-compat readers.
+	//   v1: header only.
+	//   v2: + player status-effect buildup section.
+	private const int SAVE_VERSION = 2;
 
 	public static void Save(string filePath)
 	{
@@ -14,6 +20,17 @@ public static class SaveGame
 
 		// --- Header ---
 		w.Write(SAVE_VERSION);
+
+		// --- Player status-effect buildups (v2+) ---
+		// Active StatusEffectState instances (per-stack timers, fx) aren't
+		// included — the buildup meter is the only piece serialized today.
+		// Item-side controllers (per-armor wetness) likewise wait for an
+		// inventory section to land.
+		Player player = World.Current?.player;
+		var playerBuildups = player != null
+			? player.EnumerateStatusBuildupsForSave().ToList()
+			: new List<(StatusEffectData data, float amount)>();
+		WriteBuildupSection(w, playerBuildups);
 	}
 
 	public static void Load(string filePath)
@@ -27,6 +44,53 @@ public static class SaveGame
 		{
 			throw new InvalidDataException($"Unsupported save version: {version}");
 		}
+
+		// --- Player status-effect buildups (v2+) ---
+		if (version >= 2)
+		{
+			var playerBuildups = ReadBuildupSection(r);
+			World.Current?.player?.RestoreStatusBuildups(playerBuildups);
+		}
+	}
+
+	// Writes (count, [path, amount]*) for the given buildup snapshot.
+	// `path`-keyed rather than via the resource-lookup table because per-
+	// actor buildup counts are tiny (<<256) and effect-data refs aren't
+	// repeated across the section — the table would be longer than the data.
+	private static void WriteBuildupSection(BinaryWriter w, List<(StatusEffectData data, float amount)> entries)
+	{
+		int valid = 0;
+		for (int i = 0; i < entries.Count; i++)
+		{
+			if (entries[i].data != null) { valid++; }
+		}
+		w.Write((byte)valid);
+		for (int i = 0; i < entries.Count; i++)
+		{
+			var (data, amount) = entries[i];
+			if (data == null) { continue; }
+			w.Write(data.ResourcePath);
+			w.Write(amount);
+		}
+	}
+
+	// Reads the inverse of WriteBuildupSection. Resources that fail to load
+	// (renamed / removed .tres between save sessions) are silently skipped —
+	// the rest of the section still parses so a missing single effect
+	// doesn't poison the whole load.
+	private static List<(StatusEffectData data, float amount)> ReadBuildupSection(BinaryReader r)
+	{
+		int count = r.ReadByte();
+		var entries = new List<(StatusEffectData data, float amount)>(count);
+		for (int i = 0; i < count; i++)
+		{
+			string path = r.ReadString();
+			float amount = r.ReadSingle();
+			StatusEffectData data = GD.Load<StatusEffectData>(path);
+			if (data == null) { continue; }
+			entries.Add((data, amount));
+		}
+		return entries;
 	}
 
 	// --- Helpers ---

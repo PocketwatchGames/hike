@@ -308,6 +308,15 @@ public static class CVars
     // overview should share the same gate.
     public static CVarBool rotationBlur = new CVarBool("rotation_blur", true);
 
+    // Gates the bird's-eye volumetric cloud quad. When false, the cloud
+    // mesh stays hidden during the overlook regardless of bird's-eye
+    // state — useful on low-spec machines, for screenshotting without
+    // clouds in the frame, or when iterating on terrain layout from
+    // above without the fog obscuring the view. The bird's-eye state
+    // machine and camera lift are unaffected; only the visible cloud
+    // layer is suppressed.
+    public static CVarBool clouds = new CVarBool("clouds", true);
+
     // Heat shimmer post-process. When true, HeatField populates a 2D heat
     // texture from ambient air temperature + active WarmthZones each tick;
     // heat_shimmer.gdshader (a fullscreen quad in SceneViewport/MainCamera)

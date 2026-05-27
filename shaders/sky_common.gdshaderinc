@@ -150,17 +150,35 @@ float sample_sky_cloud_mask_at_xz(vec2 cloud_sample_xz) {
 // y=cloud_altitude so each sky pixel sees its own slice of cloud along the
 // view ray. The max() on dir.y prevents the intersection from running to
 // infinity at grazing angles.
+//
+// When the camera is at or above the cloud layer (origin.y >= cloud_altitude),
+// the dome short-circuits to gradient-only — looking up from above clouds
+// should show clear sky, not a negative-t_plane misprojection. Clouds in
+// that case are drawn geometrically by clouds_overhead.gdshader on a plane
+// at cloud_altitude beneath the camera.
 vec3 sample_sky_clouds(vec3 origin, vec3 dir, float t, vec3 pre_cloud_add)
 {
 	dir = normalize(dir);
+	if (origin.y >= cloud_altitude)
+	{
+		float up = clamp(dir.y, 0.0, 1.0);
+		vec3 base = mix(horizon_color, zenith_color, pow(up, 0.6));
+		return base + pre_cloud_add;
+	}
 	float t_plane = (cloud_altitude - origin.y) / max(dir.y, 0.05);
 	vec2 cloud_sample_xz = origin.xz + dir.xz * t_plane;
 	return sample_sky_clouds_at_xz(dir, cloud_sample_xz, pre_cloud_add, 0.75);
 }
 
 // Sky dome wrapper for cloud mask — projects like sample_sky_clouds above.
+// Returns 0 (no occlusion) when the camera is above the cloud layer so sun /
+// moon / star sprites in the upward dome don't get masked by phantom clouds.
 float sample_sky_cloud_mask(vec3 origin, vec3 dir) {
 	dir = normalize(dir);
+	if (origin.y >= cloud_altitude)
+	{
+		return 0.0;
+	}
 	float t_plane = (cloud_altitude - origin.y) / max(dir.y, 0.05);
 	vec2 cloud_sample_xz = origin.xz + dir.xz * t_plane;
 	return sample_sky_cloud_mask_at_xz(cloud_sample_xz);

@@ -11,10 +11,16 @@ stat = 4194304
 value = 25.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="Resource_25iwx"]
+script = ExtResource("m_script")
+stat = 16777216
+value = 0.2
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("1_armor")
 maxArmor = 10.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_cold")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_25iwx")])
 displayName = &"Fur Coat"
 description = "Polar bears stay warm in the winter!"
 value = 25

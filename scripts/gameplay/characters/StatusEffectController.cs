@@ -427,6 +427,70 @@ public class StatusEffectController
 		Fx.Create(data.startFx, _world, _actor.GlobalPosition);
 	}
 
+	// Snapshot every nonzero buildup meter for save serialization. Returns
+	// (data, amount) pairs only — decayStartMs deliberately isn't surfaced
+	// because it's a game-time stamp that's meaningless across a save/load
+	// boundary (loaded saves should get a fresh decay window, not inherit a
+	// wall-clock from the prior session). Active StatusEffectState instances
+	// (the per-stack list with expiry timers, fx, etc.) are NOT covered —
+	// that's separate state with its own save/restore concerns.
+	public IEnumerable<(StatusEffectData data, float amount)> EnumerateBuildupsForSave()
+	{
+		foreach (var kv in _buildups)
+		{
+			if (kv.Key == null || kv.Value == null || kv.Value.amount <= 0f)
+			{
+				continue;
+			}
+			yield return (kv.Key, kv.Value.amount);
+		}
+	}
+
+	// Bulk restore from save. Clears any existing buildups + active states
+	// first (the assumption is a freshly-constructed actor), then seeds each
+	// loaded meter and re-arms any ContinuousArm effect whose meter is at
+	// or above its arm threshold so the controller and the actor's derived
+	// state (modifier folds, HUD strip) agree on lifecycle. decayStartMs is
+	// reset to "now + delay" so ThresholdCross decay starts fresh from load
+	// time rather than inheriting a stale stamp.
+	public void RestoreBuildups(IReadOnlyList<(StatusEffectData data, float amount)> entries)
+	{
+		Clear();
+		if (entries == null)
+		{
+			return;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		for (int i = 0; i < entries.Count; i++)
+		{
+			var (data, amount) = entries[i];
+			if (data == null || amount <= 0f)
+			{
+				continue;
+			}
+			var state = new BuildupState
+			{
+				amount = amount,
+				decayStartMs = now + (ulong)(data.buildupRemovalDelay * 1000f),
+			};
+			_buildups[data] = state;
+		}
+		foreach (var kv in _buildups)
+		{
+			StatusEffectData data = kv.Key;
+			if (data == null || data.buildupBehavior != EBuildupBehavior.ContinuousArm)
+			{
+				continue;
+			}
+			BuildupState state = kv.Value;
+			if (state.amount >= data.armThreshold)
+			{
+				state.armedInstance = Add(data);
+				state.armedInstance?.PauseTimer();
+			}
+		}
+	}
+
 	public void Remove(StatusEffectState state)
 	{
 		if (state == null)

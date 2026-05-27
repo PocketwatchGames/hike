@@ -387,6 +387,12 @@ public partial class GameClient : Node3D
 	Vector3 _spawnPosition;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
+	// Flat plane mesh that renders clouds from above when the camera clears
+	// the cloud layer. Hosted under sceneViewport (not SkyController, which
+	// is outside the SubViewport that owns the main camera) and follows the
+	// camera XZ at world y=SkyController.EffectiveCloudAltitude each frame.
+	MeshInstance3D _cloudOverheadPlane;
+	ShaderMaterial _cloudOverheadMaterial;
 	InteractHUD _interactHUD;
 	Vector2 _subpixelTexelOffset;
 
@@ -466,6 +472,30 @@ public partial class GameClient : Node3D
 		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
 		_highlightOverlay.Visible = false;
 		sceneViewport.AddChild(_highlightOverlay);
+
+		// 2D screen-space cloud quad — fullscreen NDC pass that samples two
+		// noise reads per pixel (base offset + coverage) to render a cloud
+		// layer bounded to [50%, 75%] of player→camera height. Same shape
+		// as the in-scene FogQuad: a QuadMesh at 2×2, parented to the camera
+		// at local (0,0,-6) so the mesh follows the camera and stays inside
+		// the frustum. The shader emits POSITION = (VERTEX.xy * 2, 1, 1) so
+		// the world transform doesn't matter for fragment placement — only
+		// for AABB-based culling. Cost is bounded to the overlook scene by
+		// the Visible gate.
+		var cloudShader = GD.Load<Shader>("res://shaders/clouds_overhead.gdshader");
+		_cloudOverheadMaterial = new ShaderMaterial();
+		_cloudOverheadMaterial.Shader = cloudShader;
+		var cloudQuadMesh = new QuadMesh();
+		cloudQuadMesh.Size = new Vector2(2f, 2f);
+		_cloudOverheadPlane = new MeshInstance3D();
+		_cloudOverheadPlane.Name = "CloudQuad";
+		_cloudOverheadPlane.Mesh = cloudQuadMesh;
+		_cloudOverheadPlane.MaterialOverride = _cloudOverheadMaterial;
+		_cloudOverheadPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+		_cloudOverheadPlane.ExtraCullMargin = 16384f;
+		_cloudOverheadPlane.Visible = false;
+		camera.AddChild(_cloudOverheadPlane);
+		_cloudOverheadPlane.Position = new Vector3(0f, 0f, -6f);
 
 		// Start every input-consuming modal hidden regardless of how the
 		// authored .tscn left them, and clear InputSuppressed so the player
@@ -1007,6 +1037,13 @@ public partial class GameClient : Node3D
 			// if they want it back.
 			camera.ClipAlways = false;
 			camera.SetClip(float.PositiveInfinity, _player.GlobalPosition);
+			// Cloud quad renders only while the overview is active AND the
+			// `clouds` CVar is enabled. UpdateBirdsEyeCamera re-checks the
+			// CVar every frame so toggling it mid-overlook updates live.
+			if (_cloudOverheadPlane != null)
+			{
+				_cloudOverheadPlane.Visible = CVars.clouds.Value;
+			}
 		}
 		else
 		{
@@ -1044,6 +1081,14 @@ public partial class GameClient : Node3D
 		// skipped while bird's-eye owns the pose.
 		camera.TickRotation(dt);
 		camera.AdvanceClipFade(dt);
+
+		// Re-sync the cloud quad's visibility against the `clouds` CVar each
+		// frame so toggling it mid-overlook updates without waiting for the
+		// next FlyUp/Down.
+		if (_cloudOverheadPlane != null)
+		{
+			_cloudOverheadPlane.Visible = CVars.clouds.Value;
+		}
 
 		float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
 		float t;
@@ -1097,6 +1142,38 @@ public partial class GameClient : Node3D
 			SkyController.Current.FogVisibilityScale = Mathf.Lerp(1f, birdsEyeFogVisibilityScale, eased);
 		}
 
+		// Push the cloud band's world-Y bounds to the 2D cloud shader.
+		//
+		// Apex band position (eased=1): [50%, 75%] of player→camera height.
+		//
+		// Start band position (eased=0): the entire band sits ABOVE the
+		// camera's ortho frustum, so no ray crosses it and alpha=0. As
+		// `eased` rises 0→1 we slide the band downward through the
+		// (stationary) camera, which the shader's path-length integration
+		// reads as the camera "rising through" the cloud — same fade-in
+		// visual without actually lifting the camera node.
+		if (_cloudOverheadMaterial != null)
+		{
+			float playerY = _player.GlobalPosition.Y;
+			float apexCameraY = playerY + lifted.Y;
+			float deltaY = apexCameraY - playerY;
+			float thickness = 0.25f * deltaY;
+			// Camera Y at eased=t — typically constant when birdsEyeAltitude=0.
+			float currentCameraY = playerY + baseOffset.Lerp(lifted, eased).Y;
+			// Ortho's world-Y extent above the optical axis (= half ortho
+			// Size projected onto world-up via Basis.Y.Y). Plus a small
+			// padding so the band is unambiguously above ALL view rays.
+			float orthoBufferY = camera.Size * 0.5f * Mathf.Abs(camera.GlobalTransform.Basis.Y.Y) + 5f;
+			float startBottom = currentCameraY + orthoBufferY;
+			float startTop = startBottom + thickness;
+			float targetBottom = playerY + 0.5f * deltaY;
+			float targetTop = playerY + 0.75f * deltaY;
+			float bandBottom = Mathf.Lerp(startBottom, targetBottom, eased);
+			float bandTop = Mathf.Lerp(startTop, targetTop, eased);
+			_cloudOverheadMaterial.SetShaderParameter("band_bottom_altitude", bandBottom);
+			_cloudOverheadMaterial.SetShaderParameter("band_top_altitude", bandTop);
+		}
+
 		// Motion blur fires only during FlyUp — peaks at mid-flight via sin(πt)
 		// so it builds with acceleration and is gone by the time the camera
 		// settles at the apex. Steady and FlyDown render clean.
@@ -1111,11 +1188,16 @@ public partial class GameClient : Node3D
 			if (SkyController.Current != null)
 			{
 				SkyController.Current.FogVisibilityScale = 1f;
+				SkyController.Current.CloudAltitudeOverride = null;
 			}
 			// Re-seat the follow position so the normal camera path picks up
 			// from the player on the next frame rather than lerping from the
 			// stale (lifted) follow target.
 			camera.SetInitialPosition(_player.GlobalPosition);
+			if (_cloudOverheadPlane != null)
+			{
+				_cloudOverheadPlane.Visible = false;
+			}
 			_player.OnBirdsEyeReturnComplete();
 		}
 	}

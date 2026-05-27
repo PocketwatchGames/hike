@@ -475,6 +475,18 @@ public partial class Player : CharacterBody3D
 	public float Stamina => _stamina;
 	public float MaxStamina => (data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
+
+	// Save/load passthroughs for the per-effect buildup meters — the only
+	// status-effect state currently serialized. Active StatusEffectState
+	// instances (per-stack expiry, etc.) aren't covered here; that's a
+	// separate concern with its own format. Item-side controllers (per-armor
+	// wetness, etc.) likewise need inventory serialization to plug in.
+	public IEnumerable<(StatusEffectData data, float amount)> EnumerateStatusBuildupsForSave() =>
+		_statusEffects.EnumerateBuildupsForSave();
+
+	public void RestoreStatusBuildups(IReadOnlyList<(StatusEffectData data, float amount)> entries) =>
+		_statusEffects.RestoreBuildups(entries);
+
 	// Fill `dst` with a snapshot of the player's per-effect buildup meters
 	// (only entries with amount > 0). Forwards straight through to the
 	// controller — Hud uses this each frame to render the buildup bar

@@ -11,10 +11,16 @@ stat = 4194304
 value = 10.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="Resource_bvjtb"]
+script = ExtResource("m_script")
+stat = 16777216
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("2_bvjtb")
 maxArmor = 20.0
-modifiers = Array[ExtResource("m_script")]([SubResource("m_cold")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("Resource_bvjtb")])
 displayName = &"Leather Armor"
 description = "Protects against nicks and scratches."
 value = 25
