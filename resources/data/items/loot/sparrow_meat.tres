@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="LootData" format=3 uid="uid://uq5vwg0wvv0"]
+
+[ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="1_aic71"]
+[ext_resource type="Script" uid="uid://bmf1oavb2wilx" path="res://scripts/data/items/LootData.cs" id="2_4siyi"]
+[ext_resource type="Texture2D" uid="uid://cnnndibcs4p5j" path="res://assets/textures/items/pickups/GoodMeat.png" id="3_uivnx"]
+
+[resource]
+script = ExtResource("2_4siyi")
+removeTimeMs = 60000
+displayName = &"Sparrow Meat"
+maxStack = 99
+value = 1
+inventorySprite = ExtResource("1_aic71")
+worldSprite = ExtResource("3_uivnx")

@@ -25,7 +25,7 @@
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="22_brwcmp"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="23_brwemg"]
 [ext_resource type="PackedScene" uid="uid://dextdjcpcdj8k" path="res://scenes/effects/kunkun_death_vo.tscn" id="24_deathvo"]
-[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="27_ftsetframes"]
+[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="27_ftsetframes"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("27_ftsetframes")
@@ -64,6 +64,22 @@ region = Rect2(18, 126, 18, 18)
 atlas = ExtResource("5_mouse")
 region = Rect2(36, 126, 18, 18)
 
+[sub_resource type="AtlasTexture" id="AtlasTexture_u5xnt"]
+atlas = ExtResource("5_mouse")
+region = Rect2(54, 144, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_28w8b"]
+atlas = ExtResource("5_mouse")
+region = Rect2(0, 144, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xlmd8"]
+atlas = ExtResource("5_mouse")
+region = Rect2(18, 144, 18, 18)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_2e3uu"]
+atlas = ExtResource("5_mouse")
+region = Rect2(36, 144, 18, 18)
+
 [sub_resource type="AtlasTexture" id="AtlasTexture_6ub8k"]
 atlas = ExtResource("5_mouse")
 region = Rect2(54, 126, 18, 18)
@@ -85,22 +101,6 @@ atlas = ExtResource("5_mouse")
 region = Rect2(18, 144, 18, 18)
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_l46ow"]
-atlas = ExtResource("5_mouse")
-region = Rect2(36, 144, 18, 18)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_u5xnt"]
-atlas = ExtResource("5_mouse")
-region = Rect2(54, 144, 18, 18)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_28w8b"]
-atlas = ExtResource("5_mouse")
-region = Rect2(0, 144, 18, 18)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_xlmd8"]
-atlas = ExtResource("5_mouse")
-region = Rect2(18, 144, 18, 18)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_2e3uu"]
 atlas = ExtResource("5_mouse")
 region = Rect2(36, 144, 18, 18)
 
@@ -217,28 +217,10 @@ animations = [{
 }, {
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_86u1t")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_6ub8k")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_eh5m2")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_yjogm")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_i8l33")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_gbx52")
-}, {
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_l46ow")
 }],
 "loop": true,
 "name": &"burrowing",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -306,7 +288,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"fall",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -357,7 +339,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"run",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -383,7 +365,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"swim",
-"speed": 5.0
+"speed": 10.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -449,7 +431,7 @@ pixel_size = 0.0738
 alpha_cut = 1
 texture = ExtResource("5_mouse")
 region_enabled = true
-region_rect = Rect2(0, 0, 18, 18)
+region_rect = Rect2(54, 0, 18, 18)
 script = ExtResource("6_litsprite")
 Material = 1
 MirrorByYaw = true

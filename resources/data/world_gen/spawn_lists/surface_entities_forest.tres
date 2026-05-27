@@ -10,6 +10,7 @@
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="9_campfire_group"]
 [ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="11_berry_scene"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="12_loot_data"]
+[ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow.tres" id="12_u4h7o"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="13_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="14_well_scene"]
 
@@ -45,6 +46,14 @@ script = ExtResource("13_well_entry")
 Scene = ExtResource("14_well_scene")
 SquareMetersPerSpawn = 2000.0
 
+[sub_resource type="Resource" id="Resource_638lp"]
+script = ExtResource("2_mob_entry")
+Data = ExtResource("12_u4h7o")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.5
+SquareMetersPerSpawn = 100.0
+metadata/_custom_type_script = "uid://dhkkrl6qof485"
+
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well")])
+Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp")])
