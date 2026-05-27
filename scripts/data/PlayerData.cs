@@ -363,20 +363,22 @@ public partial class PlayerData : Resource
 
 	[ExportGroup("Wetness")]
 	// Player accumulates wetness in [0, 1] while exposed to rain or in
-	// water; the wet status only arms once it crosses wetnessArmThreshold,
-	// and only releases once it falls below wetnessDisarmThreshold
-	// (hysteresis prevents the status flapping when wetness hovers near
-	// one boundary). Standing in water snaps wetness to 1 immediately —
-	// you're soaked the moment you step in.
+	// water; storage and arm / disarm hysteresis live on the Wet
+	// StatusEffectData (EBuildupBehavior.ContinuousArm). Standing in water
+	// snaps the meter to 1 immediately — you're soaked the moment you step
+	// in.
 	//
-	// Times are seconds to go 0→1 (soak) or 1→0 (dry) when the corresponding
-	// input is at full strength. wetnessRainSoakSeconds = 50 means it takes
-	// ~25 seconds in full RainIntensity = 1 rain to cross the 0.5 arm
-	// threshold (and ~50 seconds to fully saturate). The two dry-time
-	// fields are the *baseline* at calm, neutral-humidity conditions —
-	// wind and humidity scale the dry rate via the modifiers below.
-	// Warmth zones (campfires) swap wetnessDrySeconds for
-	// wetnessWarmthDrySeconds. Set to 0 to disable that source/sink.
+	// Times here are seconds to go 0→1 (soak) or 1→0 (dry) when the
+	// corresponding input is at full strength. wetnessRainSoakSeconds = 50
+	// means ~25 seconds in full RainIntensity = 1 rain to cross a 0.5
+	// meter mark (and ~50 seconds to fully saturate). wetnessDrySeconds is
+	// the *baseline* dry time at calm, neutral-humidity conditions — wind
+	// and humidity scale the dry rate via the modifiers below.
+	// wetnessWarmthDrySeconds is the campfire dry time, deliberately
+	// unaffected by weather (radiant heat, not evaporation) and used as a
+	// FLOOR on the effective rate inside a warmth zone — so a stiff
+	// outdoor wind can still beat a fire but a humid still day never
+	// drops you below it. Set to 0 to disable that source/sink.
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessRainSoakSeconds = 50f;
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessDrySeconds = 333.33f;
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessWarmthDrySeconds = 10f;
@@ -390,6 +392,23 @@ public partial class PlayerData : Resource
 	// is unmodified. Clamped so dry rate can't go negative — values > 1
 	// just hold drying at zero at full humidity.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float dryRateHumidityDamping = 0.7f;
-	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessArmThreshold = 0.5f;
-	[Export(PropertyHint.Range, "0,1,0.01")] public float wetnessDisarmThreshold = 0.1f;
+	// Air temperature relative to dryRateReferenceTempF scales the dry
+	// rate linearly via dryRateTempBoostPerF (degrees F). With the
+	// defaults (70°F reference, 2%/F), a 90°F afternoon dries you 40%
+	// faster and freezing ambient (32°F) drops you to ~24% of baseline.
+	// The multiplier is clamped at 0 so very cold air just stops drying
+	// instead of going negative — useful when ambient drops below
+	// ~20°F (rate would otherwise turn negative and grow wetness).
+	[Export] public float dryRateReferenceTempF = 70f;
+	[Export(PropertyHint.Range, "0,0.1,0.001,or_greater")] public float dryRateTempBoostPerF = 0.02f;
+	// Per-second wetness contribution that flows from a fully-saturated piece
+	// of equipped armor into the player's wetness meter (cascade armor → skin
+	// through contact). Scaled linearly by each armor's current wetness — a
+	// half-wet shirt contributes half this rate. Cascade is one-way today
+	// (player → armor isn't modeled), so a soaked player wearing dry clothes
+	// doesn't slowly wet them out, though that's a natural follow-up. Default
+	// 0.02 gives roughly 50 seconds of full-wet armor contact to fully soak a
+	// dry player from cascade alone, before factoring in the player's own
+	// drying — in practice the steady-state is well below 1.
+	[Export(PropertyHint.Range, "0,1,0.001,or_greater")] public float wetnessArmorCascadeRate = 0.02f;
 }

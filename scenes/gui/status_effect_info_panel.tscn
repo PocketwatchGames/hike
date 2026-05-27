@@ -16,16 +16,17 @@ corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 corner_detail = 5
 
-[node name="StatusEffectInfoPanel" type="PanelContainer" unique_id=626564021 node_paths=PackedStringArray("_nameLabel", "_statusEffectHud", "_statContainer")]
+[node name="StatusEffectInfoPanel" type="PanelContainer" unique_id=626564021 node_paths=PackedStringArray("_nameLabel", "_statusEffectHud", "_statContainer", "_descriptionLabel")]
 offset_right = 97.0
 offset_bottom = 46.0
 size_flags_horizontal = 3
 size_flags_vertical = 0
 script = ExtResource("1_5j7ly")
-_nameLabel = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/Label")
+_nameLabel = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/NameLabel")
 _statusEffectHud = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/StatusEffectHud")
 _statPanelScene = ExtResource("2_cejcy")
 _statContainer = NodePath("MarginContainer/HFlowContainer")
+_descriptionLabel = NodePath("MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer/DescriptionLabel")
 metadata/_custom_type_script = "uid://ciwyx38tkut18"
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=2134354237]
@@ -56,7 +57,17 @@ layout_mode = 2
 [node name="StatusEffectHud" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer" unique_id=904480190 instance=ExtResource("2_je4xg")]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer" unique_id=1137402894]
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer" unique_id=1492560984]
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_constants/separation = -5
+
+[node name="NameLabel" type="Label" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer" unique_id=1137402894]
 layout_mode = 2
 text = "Name"
 vertical_alignment = 1
+
+[node name="DescriptionLabel" type="Label" parent="MarginContainer/HFlowContainer/PanelContainer/MarginContainer/HBoxContainer/VBoxContainer" unique_id=437531246]
+visible = false
+layout_mode = 2
+theme_override_font_sizes/font_size = 14

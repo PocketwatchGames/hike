@@ -37,6 +37,26 @@ public partial class StatusEffectIcon : TextureRect
 		Modulate = new Color(1f, 1f, 1f, 0f);
 		Scale = new Vector2(IntroScaleStart, IntroScaleStart);
 		PivotOffset = Size * 0.5f;
+		SetProcess(true);
+	}
+
+	// Persistent-display path for inventory slots — no intro / hold / outro
+	// animation, just the icon at full opacity. Disables _Process so a strip
+	// of static icons doesn't pay the per-frame animation cost. Distinct from
+	// Init() because the slot grid rebuilds icons on every SetItem; running
+	// the intro pop each time would be visually wrong and CPU-wasteful.
+	public void InitStatic(StatusEffectData data)
+	{
+		Data = data;
+		Texture = data?.icon;
+		_autoOutro = false;
+		_outroRequested = false;
+		_time = 0f;
+		_outroTime = 0f;
+		IsFinished = true;
+		Modulate = Colors.White;
+		Scale = Vector2.One;
+		SetProcess(false);
 	}
 
 	public void Outro()

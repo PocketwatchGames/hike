@@ -877,6 +877,20 @@ public partial class Hud : Control
 				hasTimer = true;
 			}
 			_statusEffectBuildups.TryGetValue(data, out float buildup);
+			// ContinuousArm effects swap which bar they use based on whether
+			// the controller has armed the status. Pre-arm: the buildup bar
+			// fills as the meter rises toward armThreshold (matches
+			// ThresholdCross effects). Post-arm: the standard progress bar
+			// takes over showing the meter as the effect's intensity (0..1)
+			// and the buildup bar hides — same visual transition the player
+			// sees when a ThresholdCross effect's buildup crosses and becomes
+			// an active state with a duration bar.
+			if (data.buildupBehavior == EBuildupBehavior.ContinuousArm && count > 0)
+			{
+				progress = buildup;
+				hasTimer = true;
+				buildup = 0f;
+			}
 			hud.Set(data, count, progress, hasTimer, buildup);
 		}
 

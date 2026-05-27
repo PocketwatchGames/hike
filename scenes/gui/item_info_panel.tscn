@@ -4,8 +4,9 @@
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_08k4j"]
 [ext_resource type="PackedScene" uid="uid://dhdl6e3d0bqna" path="res://scenes/gui/item_action_panel.tscn" id="2_p0emx"]
 [ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="3_iaocb"]
+[ext_resource type="PackedScene" uid="uid://cbnyp5wql6yh5" path="res://scenes/gui/status_effect_info_panel.tscn" id="4_t78nj"]
 
-[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelProgress", "_levelLabel", "_actionPanelContainer", "_statContainer")]
+[node name="ItemInfoPanel" type="PanelContainer" unique_id=638608018 node_paths=PackedStringArray("_nameLabel", "_descriptionLabel", "_icon", "_levelProgress", "_levelLabel", "_actionPanelContainer", "_statContainer", "_statusContainer")]
 custom_minimum_size = Vector2(500, 0)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -19,6 +20,8 @@ _actionPanel = ExtResource("2_p0emx")
 _actionPanelContainer = NodePath("MarginContainer/VBoxContainer")
 _statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
 _statScene = ExtResource("3_iaocb")
+_statusContainer = NodePath("MarginContainer/VBoxContainer/StatusEffectContainer")
+_statusScene = ExtResource("4_t78nj")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=281920321]
 layout_mode = 2
@@ -72,6 +75,9 @@ text = "Level 1"
 [node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1205557154]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
+
+[node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=237535431]
+layout_mode = 2
 
 [node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=405509744]
 layout_mode = 2

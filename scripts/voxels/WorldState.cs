@@ -382,6 +382,31 @@ public class WorldState
         LightChunkDirty.Add(cc);
     }
 
+    // Sky exposure at `worldPos`, normalized to [0, 1] where 1.0 is direct
+    // overhead sky (unattenuated BFS) and 0 means no sunlight reaches the
+    // voxel. Single source of truth for the "is this point in the open?"
+    // probe used by rain, air-temperature sun masking, and verb gating like
+    // NoCeilingRequirement.
+    public float GetSkyLight01(Godot.Vector3 worldPos)
+    {
+        int wx = Mathf.FloorToInt(worldPos.X);
+        int wy = Mathf.FloorToInt(worldPos.Y);
+        int wz = Mathf.FloorToInt(worldPos.Z);
+        int sun = GetSunlightWorld(wx, wy, wz);
+        return Mathf.Clamp((float)sun / LightEngine.MAX_LIGHT, 0f, 1f);
+    }
+
+    // True when `worldPos` is exposed to sky at or above `minSkyLight01`.
+    // Default 1.0 is strict open-sky (unattenuated overhead); callers that
+    // want the permissive "any sunlight reaches this voxel" semantic should
+    // sample GetSkyLight01 directly and compare against 0 — the strict
+    // overload here is intentional so common usage doesn't accept
+    // diffuse-edge spots inside a cave entrance.
+    public bool IsOutside(Godot.Vector3 worldPos, float minSkyLight01 = 1f)
+    {
+        return GetSkyLight01(worldPos) >= minSkyLight01;
+    }
+
     public void GetBlockLightWorld(int wx, int wy, int wz, out int r, out int g, out int b)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);

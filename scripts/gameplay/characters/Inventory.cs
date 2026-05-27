@@ -351,6 +351,15 @@ public class Inventory
 		}
 		else
 		{
+			// Dropping is an explicit "set it down" — extinguish any carried-
+			// active state (e.g. a lit torch) before Remove() fires onChanged.
+			// That way the dropped Loot lands on the ground unlit, the player's
+			// carried light reconciles to off if this was their only lit torch,
+			// and picking the pile up later doesn't auto-light it again.
+			if (item is ConsumableState cs)
+			{
+				cs.isActive = false;
+			}
 			Remove(item);
 			dropped = item;
 		}
@@ -731,6 +740,29 @@ public class Inventory
 		// backpack list, so enumerate them here too.
 		if (_weaponLeft != null) { yield return _weaponLeft; }
 		if (_weaponRight != null) { yield return _weaponRight; }
+	}
+
+	// Enumerate equipped armor as ArmorState (skips null slots). Used by
+	// Player.TickWetEffect for the cascade contribution — only worn armor
+	// transmits wetness back into the wearer's meter.
+	public System.Collections.Generic.IEnumerable<ArmorState> EnumerateEquippedArmor()
+	{
+		if (_armorHead is ArmorState head) { yield return head; }
+		if (_armorBody is ArmorState body) { yield return body; }
+	}
+
+	// Enumerate every owned armor — equipped slots plus any ArmorState held
+	// in the backpack — so wetness ticking (and any future per-item upkeep)
+	// applies whether the player is wearing the piece or stuffing it in the
+	// pack. A wet shirt rolled up in the backpack still dries.
+	public System.Collections.Generic.IEnumerable<ArmorState> EnumerateAllArmor()
+	{
+		if (_armorHead is ArmorState head) { yield return head; }
+		if (_armorBody is ArmorState body) { yield return body; }
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			if (_backpack[i] is ArmorState packed) { yield return packed; }
+		}
 	}
 
 	// Sparse view: Backpack[i] is the item at slot i, or null if empty. Count

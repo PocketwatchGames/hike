@@ -677,8 +677,7 @@ public static class ItemEventHandlers
 			return;
 		}
 		consumable.isActive = !consumable.isActive;
-		PackedScene scene = (consumable.data as TorchData)?.movingLightScene;
-		player.SetMovingLightActive(consumable.isActive, scene);
+		player.RefreshCarriedLight();
 	}
 
 	public static void DoOpenInteractive(IActionActor actor, ItemEvent ev, ref PlayerAction action)

@@ -237,11 +237,15 @@ public partial class GameCamera : Camera3D
 		GlobalPosition = playerPosition + GlobalTransform.Basis.Z * distance;
 	}
 
-	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
+	// Advances the in-progress Q/E yaw tween and decays rotation motion blur.
+	// Split out of UpdateCamera so the bird's-eye driver (which manages
+	// position/clip itself) can still keep yaw rotation responsive without
+	// also pulling in the follow/clip work it doesn't want.
+	public void TickRotation(float deltaTime)
 	{
 		if (_rotating)
 		{
-			_rotationElapsed += (float)deltaTime;
+			_rotationElapsed += deltaTime;
 			float progress = Mathf.Min(1f, _rotationElapsed / Mathf.Max(0.0001f, rotationTime));
 			float eased = 1f - Mathf.Pow(1f - progress, rotationCurvePower);
 			_yaw = Mathf.LerpAngle(_yawStart, _destYaw, eased);
@@ -251,6 +255,16 @@ public partial class GameCamera : Camera3D
 				_rotating = false;
 			}
 		}
+
+		if (_rotationBlur > 0f && rotationBlurDuration > 0f)
+		{
+			_rotationBlur = Mathf.Max(0f, _rotationBlur - deltaTime / rotationBlurDuration);
+		}
+	}
+
+	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
+	{
+		TickRotation((float)deltaTime);
 
 		if (!_followInitialized)
 		{
@@ -281,11 +295,6 @@ public partial class GameCamera : Camera3D
 		}
 
 		AdvanceClipFade((float)deltaTime);
-
-		if (_rotationBlur > 0f && rotationBlurDuration > 0f)
-		{
-			_rotationBlur = Mathf.Max(0f, _rotationBlur - (float)deltaTime / rotationBlurDuration);
-		}
 	}
 
 	// Mirrors the main camera's pose and projection into the off-screen
@@ -403,7 +412,11 @@ public partial class GameCamera : Camera3D
 		PushClipGlobals();
 	}
 
-	private void AdvanceClipFade(float deltaTime)
+	// Public so the bird's-eye driver (which skips UpdateCamera) can still
+	// advance an in-progress clip fade. Without this, SetClip targets enqueue
+	// but the blend uniform stays pinned, leaving the previous cutaway plane
+	// visible for the whole overlook.
+	public void AdvanceClipFade(float deltaTime)
 	{
 		if (_clipBlend >= 1f)
 		{
@@ -480,6 +493,16 @@ public partial class GameCamera : Camera3D
 	public void ToggleClipAlways()
 	{
 		_clipAlways = !_clipAlways;
+	}
+
+	// Exposed so GameClient can clear the user-toggled cutaway when entering
+	// bird's-eye — the overlook is meant to read open-sky regardless of the
+	// indoor toggle state, and we don't want the cutaway to snap back when
+	// FlyDown ends if the user had it on at fly-up time.
+	public bool ClipAlways
+	{
+		get => _clipAlways;
+		set => _clipAlways = value;
 	}
 
 	public void SetClip(float clipY, Vector3 centerPos)

@@ -57,4 +57,5 @@ public enum EStat
 	MaxStamina = 1 << 21,        // additive (flat stamina bonus)
 	ColdResist = 1 << 22,        // additive (temperature threshold shift)
 	HeatResist = 1 << 23,        // additive (temperature threshold shift)
+	WetnessDryRate = 1 << 24,    // multiplicative (drying speed; <1 slows, >1 accelerates)
 }

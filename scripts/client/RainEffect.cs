@@ -296,15 +296,11 @@ public partial class RainEffect : Node3D
         // mask only propagates within the world's Y bounds; the anchor can
         // easily sit above the top of the world (returning 0) even when the
         // player is in open sky.
-        bool outdoors = false;
-        if (worldReady)
-        {
-            Vector3 pp = world.player.GlobalPosition;
-            int psX = Mathf.FloorToInt(pp.X);
-            int psY = Mathf.FloorToInt(pp.Y);
-            int psZ = Mathf.FloorToInt(pp.Z);
-            outdoors = ws.GetSunlightWorld(psX, psY, psZ) > 0;
-        }
+        // Permissive "any sunlight reaches the player's voxel" probe — a porch
+        // step or doorway still counts as outdoors here so splash budget keeps
+        // ticking; strict open-sky verbs (bird's-eye, etc.) use IsOutside with
+        // its strict default instead.
+        bool outdoors = worldReady && ws.GetSkyLight01(world.player.GlobalPosition) > 0f;
 
         // Falling rain emits everywhere; the shader on its draw pass clips
         // per-fragment against the voxel sun mask + camera_clip, so drops under

@@ -14,6 +14,12 @@ public partial class ItemSlotPanel : PanelContainer
 	// MerchantScreen). Shows a preview of the item that would land here on
 	// commit. Authored hidden in the scene; null safely no-ops in SetGhost.
 	[Export] private TextureRect _ghostOverlay;
+	[Export] private Control _statusContainer;
+	// Scene instantiated per armed effect on the item — typically
+	// scenes/gui/status_effect_icon.tscn (or a sized-down variant for the
+	// slot grid). Root must be a StatusEffectIcon; we drive it via
+	// InitStatic so the persistent slot display skips the intro animation.
+	[Export] private PackedScene _statusIconScene;
 
 	// Per-instance empty-slot sprite (head silhouette, body silhouette, etc.).
 	// Wrapped in a property setter so inspector edits apply to _slotBackground
@@ -122,6 +128,40 @@ public partial class ItemSlotPanel : PanelContainer
 			{
 				_stackLabel.Text = item.stackCount.ToString();
 			}
+		}
+		RebuildStatusIcons(item);
+	}
+
+	// Refresh `_statusContainer` to one StatusEffectIcon per *armed* effect
+	// on `item`. Buildup-only meters (e.g. a not-yet-soaked piece of armor
+	// charging up in light rain) are intentionally skipped here — the slot
+	// view is "what's actively affecting this item right now" and pre-arm
+	// progress bars belong on the detailed info panel, not the grid.
+	private void RebuildStatusIcons(ItemState item)
+	{
+		if (_statusContainer == null || _statusIconScene == null)
+		{
+			return;
+		}
+		foreach (Node child in _statusContainer.GetChildren())
+		{
+			child.QueueFree();
+		}
+		if (item == null)
+		{
+			return;
+		}
+		var effects = item.statusEffects.StatusEffects;
+		for (int i = 0; i < effects.Count; i++)
+		{
+			StatusEffectData data = effects[i]?.data;
+			if (data?.icon == null)
+			{
+				continue;
+			}
+			StatusEffectIcon icon = _statusIconScene.Instantiate<StatusEffectIcon>();
+			_statusContainer.AddChild(icon);
+			icon.InitStatic(data);
 		}
 	}
 

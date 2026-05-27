@@ -28,6 +28,15 @@ public partial class Player : CharacterBody3D
 	// TickWetEffect arms / pauses the timer so the 30s dry-out only counts
 	// while the player is actually drying.
 	[Export] private StatusEffectData _wetEffectData;
+	// Item-side wet status used for equipped armor's per-piece meter. Has the
+	// same icon / arm-disarm shape as `_wetEffectData` but NO modifier list —
+	// cold/heat threshold shifts are an actor-side concern and only the
+	// player's Wet effect carries them. The cascade in TickWetEffect reads
+	// each equipped armor's wet-clothes buildup and contributes that into
+	// the player's Wet meter, which is what actually arms the modifier-
+	// bearing effect on the wearer. Falls back to `_wetEffectData` if left
+	// null in the .tscn so the system still works without authoring.
+	[Export] private StatusEffectData _wetClothesEffectData;
 
 	[ExportGroup("FX")]
 	// One-shot blood splatter spawned at the player's position on a non-lethal
@@ -129,6 +138,41 @@ public partial class Player : CharacterBody3D
 	// in OnHurtBoxHit / ApplyStatusHealthDelta, since those are the only
 	// places that drop _health.
 	public Action<Player> onDied;
+
+	// Fired when bird's-eye view begins (true) or the return animation begins
+	// (false). GameClient subscribes to drive the camera fly-up/down and the
+	// post-process motion blur. Movement stays locked from the begin firing
+	// until GameClient calls OnBirdsEyeReturnComplete() once the camera has
+	// landed back on the player.
+	public Action<bool> onBirdsEye;
+	bool _birdsEye;
+	public bool IsBirdsEye => _birdsEye;
+
+	public void BeginBirdsEye()
+	{
+		if (_birdsEye)
+		{
+			return;
+		}
+		_birdsEye = true;
+		onBirdsEye?.Invoke(true);
+	}
+
+	// Asks GameClient to begin the fly-down. The movement lock is held until
+	// OnBirdsEyeReturnComplete fires from the camera driver.
+	public void RequestEndBirdsEye()
+	{
+		if (!_birdsEye)
+		{
+			return;
+		}
+		onBirdsEye?.Invoke(false);
+	}
+
+	public void OnBirdsEyeReturnComplete()
+	{
+		_birdsEye = false;
+	}
 
 	World _world;
 	IInteractive _curInteractive;
@@ -328,17 +372,11 @@ public partial class Player : CharacterBody3D
 	StatusEffectController _statusEffects;
 	// Live handle to the player's wet effect (null when dry). Reused across
 	// re-wettings so the HUD shows a single Wet stack rather than rolling a
-	// fresh icon every time the player enters/leaves rain.
-	StatusEffectState _wetState;
-	// Player's accumulated wetness in [0, 1]. Integrates the rain-exposure
-	// signal each tick (gated by sky exposure) and decays back to 0 in dry
-	// conditions. The wet status arms only when wetness crosses the arm
-	// threshold and disarms when it falls below the disarm threshold,
-	// giving rain a build-up window before the gameplay effect fires and
-	// a drying period after rain stops. Standing in water snaps to 1
-	// immediately.
-	float _wetness;
-	public float Wetness => _wetness;
+	// fresh icon every time the player enters/leaves rain. Wetness storage
+	// lives on the StatusEffectController's buildup meter for _wetEffectData
+	// (the Wet effect is authored as EBuildupBehavior.ContinuousArm) — the
+	// controller arms / releases the effect via armThreshold / disarmThreshold
+	// hysteresis whenever the meter is updated.
 	// Count of overlapping active warmth zones (campfires). > 0 suppresses
 	// wet entirely and clears any in-flight wet timer. Counter (not bool) so
 	// two adjacent campfires don't release the player from one's overlap
@@ -353,8 +391,10 @@ public partial class Player : CharacterBody3D
 	// so a brief gust through a cold patch doesn't trigger Cold.
 	float _bodyTemperature = 70f;
 	// Live handles to the cold / hot statuses (null when not afflicted).
-	// Same pattern as _wetState — we keep the reference so the safe-band
-	// timer arms / pauses on the EXISTING state instead of stacking icons.
+	// We keep the reference so the safe-band timer arms / pauses on the
+	// EXISTING state instead of stacking icons. (Wet uses the controller's
+	// ContinuousArm buildup meter for the same effect — no Player-side
+	// handle needed.)
 	StatusEffectState _coldState;
 	StatusEffectState _hotState;
 	// Rolls up HitInfo.dot per-frame damage / heal into one onDamage /
@@ -575,7 +615,7 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		if (!_grounded || _waterState == EWaterState.Swimming || _curInteractive != null
-			|| (_runner != null && _runner.LocksMovement))
+			|| (_runner != null && _runner.LocksMovement) || _birdsEye)
 		{
 			return;
 		}
@@ -677,6 +717,14 @@ public partial class Player : CharacterBody3D
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
 		_runner?.TryInterrupt();
+		// Discrete hits (anything that isn't a per-frame DoT tick) snap the
+		// player out of bird's-eye view. Continuous burn / poison zones keep
+		// the overlook intact so a moment of bad air doesn't repeatedly cancel
+		// the fly-back-down.
+		if (_birdsEye && !hit.dot)
+		{
+			RequestEndBirdsEye();
+		}
 		_sneaking = false;
 		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
 		// skips armor entirely (discrete `Pierced` = full bypass; continuous
@@ -1283,19 +1331,27 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Per-physics-tick wet state machine driven by an accumulating
-	// wetness float on the player (0 = bone dry, 1 = soaked). Sources:
-	// standing in water snaps wetness to 1 immediately; standing in rain
-	// while sky-exposed builds wetness at a rate of 1 /
-	// wetnessRainSoakSeconds, scaled by RainIntensity. Dry conditions
-	// decay wetness back toward 0 over wetnessDrySeconds (or
-	// wetnessWarmthDrySeconds inside a warmth zone), with wind
-	// accelerating and humidity damping the rate via
-	// dryRateWindBoostPerMps and dryRateHumidityDamping. The wet status
-	// only arms when wetness crosses wetnessArmThreshold and only
-	// releases when it falls below wetnessDisarmThreshold — hysteresis
-	// prevents the status flapping while wetness hovers near either
-	// boundary.
+	// Per-physics-tick wet driver. Routes environmental wetness signals into
+	// the player's Wet buildup meter (the controller arms / disarms via
+	// armThreshold / disarmThreshold), AND ticks the same signals through
+	// each equipped armor's own wetness meter (ArmorState.wetness). Equipped
+	// armor wetness cascades back into the player meter each tick at
+	// PlayerData.wetnessArmorCascadeRate scaled by the armor's current
+	// wetness — so a wet shirt keeps soaking the wearer.
+	//
+	// Sources, in priority order:
+	//   • In water     — every meter (player + each equipped armor) snaps
+	//                    to 1 the moment the player enters water.
+	//   • In rain (sky-exposed, not in a warmth zone) — every meter
+	//                    accumulates at 1 / wetnessRainSoakSeconds scaled
+	//                    by RainIntensity.
+	//   • Otherwise    — every meter drains at its OWN rate. The player's
+	//                    drains at baseDryRate × ComposeStat(WetnessDryRate)
+	//                    so equipped wet wool slows it; each armor drains
+	//                    at baseDryRate × its own WetnessDryRate modifier.
+	//                    Inside a warmth zone (campfires) the warmthRate
+	//                    acts as a FLOOR — humid still days can never slow
+	//                    drying below it, but a hot wind outdoors still can.
 	private void TickWetEffect(float dt)
 	{
 		if (_wetEffectData == null || data == null)
@@ -1303,70 +1359,107 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
-		// Drop our handle if TickStatusEffects already pruned the expired effect.
-		if (_wetState != null && !_statusEffects.Contains(_wetState))
-		{
-			_wetState = null;
-		}
-
 		// Source classification — water beats rain beats nothing. Warmth
-		// zones (campfires) suppress rain accumulation entirely so the
-		// player dries off at the fire even when it's raining around
-		// them; the fast warmthDryRate then takes them down regardless
-		// of overhead conditions. Water still wins over warmth — if you
-		// step into a stream at a campfire, you're soaked.
+		// zones suppress rain accumulation entirely so the player dries off
+		// at the fire even when it's raining around them; the fast warmth
+		// dry rate then takes everyone down regardless of overhead
+		// conditions. Water still wins over warmth — step into a stream
+		// at a campfire and you're soaked.
 		bool inWater = _waterState != EWaterState.None;
 		bool inWarmth = _warmthZoneCount > 0;
 		bool inRain = !inWater && !inWarmth && IsInRain();
 
-		if (inWater)
-		{
-			_wetness = 1f;
-		}
-		else if (inRain && data.wetnessRainSoakSeconds > 0f)
+		float rainAccum = 0f;
+		if (inRain && data.wetnessRainSoakSeconds > 0f)
 		{
 			float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
-			_wetness = Mathf.Clamp(_wetness + (dt / data.wetnessRainSoakSeconds) * rainIntensity, 0f, 1f);
+			rainAccum = (dt / data.wetnessRainSoakSeconds) * rainIntensity;
 		}
-		else
+
+		// Environmental drying scalar — shared across player and armor.
+		// Each consumer scales its own WetnessDryRate modifier onto this
+		// neutral rate. Skipped during water / rain (you're not drying when
+		// being soaked).
+		float baseDryRate = 0f;
+		float warmthRate = 0f;
+		if (!inWater && !inRain)
 		{
-			float drySeconds = inWarmth ? data.wetnessWarmthDrySeconds : data.wetnessDrySeconds;
-			if (drySeconds > 0f)
+			GameClient client = GameClient.Current;
+			float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
+			float airTemp = client != null ? client.SampleAirTemperature(GlobalPosition) : data.dryRateReferenceTempF;
+			float humidity = SkyController.Current?.Weather?.humidity ?? 0f;
+			float windMul = 1f + windSpeed * data.dryRateWindBoostPerMps;
+			float humidityMul = Mathf.Clamp(1f - humidity * data.dryRateHumidityDamping, 0f, 1f);
+			float tempMul = Mathf.Max(0f, 1f + (airTemp - data.dryRateReferenceTempF) * data.dryRateTempBoostPerF);
+			float envFactor = windMul * humidityMul * tempMul;
+			baseDryRate = data.wetnessDrySeconds > 0f ? envFactor / data.wetnessDrySeconds : 0f;
+			warmthRate = inWarmth && data.wetnessWarmthDrySeconds > 0f ? 1f / data.wetnessWarmthDrySeconds : 0f;
+		}
+
+		// Item-side wetness uses the modifier-less wet-clothes status so the
+		// per-armor meter never accidentally double-applies cold/heat shifts
+		// (those live on _wetEffectData and only fold once, on the player
+		// when their own meter arms). Falls back to _wetEffectData if no
+		// clothes-side resource is wired.
+		StatusEffectData armorEffect = _wetClothesEffectData ?? _wetEffectData;
+
+		// Tick every owned armor's own buildup first — equipped pieces AND
+		// anything in the backpack — so wet wool stuffed in the pack still
+		// dries on the same clock as worn wool. Done before the player
+		// delta so the cascade contribution below reads the freshest
+		// post-rain / post-dry armor wetness.
+		if (_inventory != null)
+		{
+			foreach (ArmorState armor in _inventory.EnumerateAllArmor())
 			{
-				GameClient client = GameClient.Current;
-				float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
-				float humidity = SkyController.Current?.Weather?.humidity ?? 0f;
-				float windMul = 1f + windSpeed * data.dryRateWindBoostPerMps;
-				float humidityMul = Mathf.Clamp(1f - humidity * data.dryRateHumidityDamping, 0f, 1f);
-				_wetness = Mathf.Clamp(_wetness - (dt / drySeconds) * windMul * humidityMul, 0f, 1f);
+				if (armor?.data == null) { continue; }
+				float armorDelta;
+				if (inWater)
+				{
+					armorDelta = 1f - armor.statusEffects.GetBuildup(armorEffect);
+				}
+				else
+				{
+					float armorDryMul = armor.data.modifiers != null
+						? StatModifierUtil.Fold(EStat.WetnessDryRate, armor.data.modifiers, 1f)
+						: 1f;
+					float armorDryRate = Mathf.Max(baseDryRate * armorDryMul, warmthRate);
+					armorDelta = rainAccum - armorDryRate * dt;
+				}
+				if (armorDelta != 0f)
+				{
+					armor.statusEffects.AddBuildup(armorEffect, armorDelta);
+				}
 			}
 		}
 
-		// Hysteresis: arm above wetnessArmThreshold, release below
-		// wetnessDisarmThreshold. Between the two, the status holds its
-		// current state — prevents single-frame flapping when wetness
-		// brushes the arm boundary on a low-intensity drizzle.
-		if (_wetState == null)
+		// Player meter delta. Cascade from EQUIPPED armor feeds in regardless
+		// of in-water (water already pins the player to 1; cascade then is a
+		// no-op via clamp) so the path is uniform. Armor in the backpack
+		// doesn't cascade — it's not in contact with the wearer's skin.
+		float playerDelta;
+		if (inWater)
 		{
-			if (_wetness >= data.wetnessArmThreshold)
-			{
-				_wetState = AddStatusEffect(_wetEffectData);
-				_wetState?.PauseTimer();
-			}
+			playerDelta = 1f - _statusEffects.GetBuildup(_wetEffectData);
 		}
 		else
 		{
-			if (_wetness <= data.wetnessDisarmThreshold)
+			float playerDryMul = ComposeStat(EStat.WetnessDryRate);
+			float playerDryRate = Mathf.Max(baseDryRate * playerDryMul, warmthRate);
+			playerDelta = rainAccum - playerDryRate * dt;
+			if (_inventory != null && data.wetnessArmorCascadeRate > 0f)
 			{
-				RemoveStatusEffect(_wetState);
-				_wetState = null;
+				foreach (ArmorState armor in _inventory.EnumerateEquippedArmor())
+				{
+					if (armor == null) { continue; }
+					playerDelta += armor.statusEffects.GetBuildup(armorEffect) * data.wetnessArmorCascadeRate * dt;
+				}
 			}
-			else
-			{
-				// Status persists; timer stays paused so it doesn't auto-
-				// expire on us — wetness decay is what releases the status.
-				_wetState.PauseTimer();
-			}
+		}
+
+		if (playerDelta != 0f)
+		{
+			_statusEffects.AddBuildup(_wetEffectData, playerDelta);
 		}
 	}
 
@@ -1376,22 +1469,14 @@ public partial class Player : CharacterBody3D
 	// Returns null for effects that don't have a custom mapping (the HUD
 	// falls back to its timer-based progress).
 	//
-	// Mapping for wet: the bar's floor (0) is wetnessDisarmThreshold —
-	// the wetness at which the status auto-clears — so the bar empties
-	// as the player approaches drying off. The ceiling (1) is full
-	// saturation. Rain-armed status enters the bar partway up
-	// ((armThreshold - disarm) / (1 - disarm) ≈ 44% at defaults), swim-
-	// armed status enters at full. Future thirst / hunger / cold / hot
-	// status effects can hook into the same method.
+	// Currently returns null for everything — Wet was the only consumer and
+	// its meter is now visualized via the controller's buildup bar (same
+	// shape every other ContinuousArm / ThresholdCross effect uses). Kept
+	// as a hook for future effects that need a custom non-timer mapping
+	// distinct from their buildup meter (e.g. a hunger / thirst bar).
 	public float? GetStatusEffectProgress(StatusEffectData effectData)
 	{
-		if (effectData == null || data == null) { return null; }
-		if (effectData == _wetEffectData)
-		{
-			float disarm = data.wetnessDisarmThreshold;
-			float denom = Mathf.Max(1f - disarm, 1e-4f);
-			return Mathf.Clamp((_wetness - disarm) / denom, 0f, 1f);
-		}
+		_ = effectData;
 		return null;
 	}
 
@@ -1669,10 +1754,8 @@ public partial class Player : CharacterBody3D
 	public void Respawn(Vector3 position)
 	{
 		_statusEffects?.Clear();
-		_wetState = null;
 		_coldState = null;
 		_hotState = null;
-		_wetness = 0f;
 		_drainedHealth = 0f;
 		_bloodRegenStartMs = 0;
 		GameClient client = GameClient.Current;
@@ -1714,32 +1797,39 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Phase 4 ToggleMovingLight handler hook. Spawns/despawns a MovingLight
-	// attached to the player. The player must be inside the scene tree by
-	// this point (Initialize has run); attach the light as a child so it
-	// follows the player's transform. The scene comes from the activating
-	// torch's TorchData — different torches can carry different lights.
-	public void SetMovingLightActive(bool active, PackedScene scene = null)
+	// Reconciles the player-carried MovingLight against the current inventory:
+	// if any carried consumable has isActive == true and a TorchData backing,
+	// a MovingLight from that torch's scene is attached as a child of the
+	// player (so it follows the transform); otherwise any existing light is
+	// torn down. The torch can live in the active hotbar slot OR any other
+	// inventory slot — a lit torch in the backpack still lights the area
+	// around the player. Called from the ToggleMovingLight event handler and
+	// any time the inventory changes (pickup, drop, slot rearrange).
+	public void RefreshCarriedLight()
 	{
-		if (active)
+		PackedScene desiredScene = null;
+		if (_inventory != null)
 		{
-			if (_movingLight != null)
+			foreach (ItemState item in _inventory.EnumerateAll())
 			{
-				return;
+				if (item is ConsumableState cs && cs.isActive && cs.data is TorchData torchData)
+				{
+					desiredScene = torchData.movingLightScene;
+					break;
+				}
 			}
-			if (scene == null)
-			{
-				return;
-			}
-			_movingLight = scene.Instantiate<MovingLight>();
-			AddChild(_movingLight);
 		}
-		else
+
+		if (desiredScene != null)
 		{
 			if (_movingLight == null)
 			{
-				return;
+				_movingLight = desiredScene.Instantiate<MovingLight>();
+				AddChild(_movingLight);
 			}
+		}
+		else if (_movingLight != null)
+		{
 			_movingLight.Deactivate();
 			_movingLight.QueueFree();
 			_movingLight = null;
@@ -1761,6 +1851,7 @@ public partial class Player : CharacterBody3D
 		_stuckCheckDeadlineMs = 0;
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
+		_inventory.onChanged += RefreshCarriedLight;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
@@ -2348,7 +2439,7 @@ public partial class Player : CharacterBody3D
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
 		// on the currently-picked loopAnim. Attack / hitstun / death anims
 		// play at authored speed regardless of status.
-		if (_curInteractive != null || (_runner != null && _runner.LocksMovement))
+		if (_curInteractive != null || (_runner != null && _runner.LocksMovement) || _birdsEye)
 		{
 			speed = 0;
 		}
@@ -2943,6 +3034,20 @@ public partial class Player : CharacterBody3D
 		else if (!Input.IsActionPressed("Aim"))
 		{
 			_inputLook = Vector3.Zero;
+		}
+
+		// Bird's-eye lock drops every action press for the duration of the
+		// overview shot. Movement velocity is already gated by the
+		// _runner.LocksMovement check farther down, but we still need to drop
+		// jump / dash / weapon presses so a held button while the camera is
+		// up can't punch through the lock. ui_cancel is handled by GameClient
+		// since it shares ESC with TogglePause and needs to consume the input
+		// before TogglePause sees it.
+		if (_birdsEye)
+		{
+			_inputMove = Vector3.Zero;
+			_inputLook = Vector3.Zero;
+			return;
 		}
 
 		// Hitstun rejects every action press for the duration of the flinch.

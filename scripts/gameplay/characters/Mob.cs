@@ -325,7 +325,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // Active torch carrier light, instantiated from MobData.torch when the
     // latest AIOutput requests useTorch and the player remembers this mob.
-    // Same instantiate / QueueFree pattern as Player.SetMovingLightActive —
+    // Same instantiate / QueueFree pattern as Player.RefreshCarriedLight —
     // the FX scenes (LightOn / LightOff / Loop) live on the carrier scene
     // itself, so the mob just owns presence/lifetime, not styling.
     private MovingLight _torch;

@@ -176,11 +176,13 @@ public partial class GameClient : Node3D
 	// this fraction falls linearly to 0 at the disk edge.
 	[Export(PropertyHint.Range, "0,1,0.05")] public float heatShimmerDiskInnerFraction = 0.5f;
 
-	// Sample wind speed in m/s at `worldPos`. Returns 0 when an upward
-	// raycast hits environment geometry — a stand-in for "the player is in
-	// a cave or under a roof", where the open-sky wind from the weather
-	// system shouldn't reach them. Same shape as SampleAirTemperature so
-	// callers can ignore wind whenever they ignore weather.
+	// Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
+	// BFS reports no skylight at all — a stand-in for "the player is in a
+	// cave or under a roof", where the open-sky wind from the weather
+	// system shouldn't reach them. Permissive: BFS spreads sideways from
+	// open columns, so a cave mouth or doorway still seeps wind. Same
+	// shape as SampleAirTemperature so callers can ignore wind whenever
+	// they ignore weather.
 	public float SampleWindSpeed(Vector3 worldPos)
 	{
 		SkyController sky = SkyController.Current;
@@ -188,22 +190,10 @@ public partial class GameClient : Node3D
 		float wind = sky.Weather.windSpeed;
 		if (wind <= 0f) { return 0f; }
 
-		World3D world3D = GetWorld3D();
-		if (world3D != null)
+		WorldState ws = World.Current?.WorldState;
+		if (ws != null && ws.GetSkyLight01(worldPos) <= 0f)
 		{
-			Vector3 from = worldPos + Vector3.Up * 0.1f;
-			Vector3 to = from + Vector3.Up * 200f;
-			using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
-			query.CollideWithBodies = true;
-			query.CollideWithAreas = false;
-			if (_player != null)
-			{
-				query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
-			}
-			if (world3D.DirectSpaceState.IntersectRay(query).Count > 0)
-			{
-				return 0f;
-			}
+			return 0f;
 		}
 		return wind;
 	}
@@ -262,11 +252,7 @@ public partial class GameClient : Node3D
 		WorldState ws = World.Current?.WorldState;
 		if (ws != null)
 		{
-			int px = Mathf.FloorToInt(worldPos.X);
-			int py = Mathf.FloorToInt(worldPos.Y);
-			int pz = Mathf.FloorToInt(worldPos.Z);
-			int sunBfs = ws.GetSunlightWorld(px, py, pz);
-			s.sunMask = Mathf.Clamp((float)sunBfs / LightEngine.MAX_LIGHT, 0f, 1f);
+			s.sunMask = ws.GetSkyLight01(worldPos);
 		}
 		return s;
 	}
@@ -418,6 +404,44 @@ public partial class GameClient : Node3D
 	float _flyPitch;
 	bool _flyInitialized;
 
+	// Bird's-eye view driver. The player fires onBirdsEye(true/false); we run
+	// a three-phase state machine (FlyUp → Steady → FlyDown) that lifts the
+	// camera off the player and zooms the orthographic Size out, then reverses
+	// on cancel. Motion blur is driven only during FlyUp — the shader uniform
+	// is combined max-of with the camera's rotation blur in UpdatePostProcess.
+	// Movement-lock release waits for Player.OnBirdsEyeReturnComplete, called
+	// from this driver when FlyDown lands back at base.
+	[ExportGroup("Bird's Eye")]
+	// Vertical lift (world meters) added to the camera's normal offset at the
+	// top of the FlyUp. Orthographic projection so altitude doesn't change
+	// scale on its own — paired with the size multiplier below for the zoom.
+	[Export(PropertyHint.Range, "0,400,1,or_greater")] public float birdsEyeAltitude = 80f;
+	// Multiplier on the camera's base orthographic Size at the apex. 4× takes
+	// the default ~10m vertical extent out to ~40m so a sizable chunk of the
+	// surrounding chunks is on-screen. This is the "zoom out" knob; combined
+	// with birdsEyeAltitude it controls how big the overview reads.
+	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeSizeMultiplier = 4f;
+	// Wall-clock seconds for either transition (fly-up and fly-down match).
+	[Export(PropertyHint.Range, "0.25,5,0.05")] public float birdsEyeTransitionSeconds = 1.5f;
+	// Peak motion-blur strength during FlyUp. 1 = max (heavy smear), 0 = no
+	// blur. Tapers to 0 at the apex via sin(πt) regardless of peak.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float birdsEyeMotionBlurPeak = 1f;
+	// Fog visibility multiplier at the apex. Stretches fog_max_distance and
+	// thins both fog densities by 1/scale so the overview isn't smothered
+	// by ground-level fog. Lerps from 1 (ground) to this at full lift via
+	// SkyController.FogVisibilityScale.
+	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeFogVisibilityScale = 4f;
+
+	enum EBirdsEyePhase { None, FlyUp, Steady, FlyDown }
+	EBirdsEyePhase _birdsEyePhase = EBirdsEyePhase.None;
+	float _birdsEyeElapsed;
+	float _birdsEyeBaseSize;
+	float _birdsEyeBlur;
+	// Screen-space motion-blur direction during fly-up. The camera rises in
+	// world; objects sweep downward on screen (Godot SCREEN_UV has Y=0 at top),
+	// so the blur trails toward +Y. Same convention as the camera's RotateLeft.
+	static readonly Vector2 BIRDS_EYE_BLUR_DIR = new Vector2(0f, 1f);
+
 	public int PixelScale => Math.Max(1, CVars.pixelScale.Value);
 
 	public Vector2 ProjectToScreen(Vector3 worldPos)
@@ -526,6 +550,7 @@ public partial class GameClient : Node3D
 		_player.onInteractChanged += OnPlayerInteractChanged;
 		_player.onLanguageLearned += OnPlayerLanguageLearned;
 		_player.onDied += OnPlayerDiedInternal;
+		_player.onBirdsEye += OnPlayerBirdsEye;
 		sceneViewport.AddChild(_player);
 		// Suppress announcements during spawn-time knowledge application so
 		// the starting health potion, known recipes, etc. don't pop banners
@@ -756,7 +781,23 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("player_radius", DETAIL_PLAYER_RADIUS);
 		RenderingServer.GlobalShaderParameterSet("player_strength", DETAIL_PLAYER_STRENGTH);
 
-		if (CVars.debugFlyCam.Value)
+		if (_birdsEyePhase != EBirdsEyePhase.None)
+		{
+			UpdateBirdsEyeCamera(deltaTime);
+			SnapCameraAndUpdateUpscale();
+			// Sprites are sized off `sprite_chunky` (world meters per inner-viewport
+			// texel) — SnapCameraAndUpdateUpscale ties it to the live ortho Size so
+			// the pixel-art look stays "1 source pixel = N screen pixels". During
+			// the fly-up we WANT sprites to shrink with the zoom, so re-anchor the
+			// uniform to the pre-zoom Size. Snap math has already run against the
+			// live (inflated) chunky, so the camera's grid stays consistent; only
+			// the sprite scaler is reverted. Sub-pixel sprite rendering during the
+			// overview is the explicit tradeoff for a view that actually reads as
+			// zoomed out.
+			ApplyBirdsEyeSpriteChunky();
+			CullProps(camera.Clip);
+		}
+		else if (CVars.debugFlyCam.Value)
 		{
 			UpdateFlyCamera(deltaTime);
 			CullProps(float.PositiveInfinity);
@@ -947,6 +988,153 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	void OnPlayerBirdsEye(bool active)
+	{
+		if (active)
+		{
+			// Capture the resting ortho Size so the fly-up zoom and the fly-down
+			// snap-back both lerp against the same anchor — CVar tweaks to the
+			// base size during the overlook don't strand the camera zoomed in.
+			_birdsEyeBaseSize = camera.Size;
+			_birdsEyePhase = EBirdsEyePhase.FlyUp;
+			_birdsEyeElapsed = 0f;
+			camera.ManualClipMode = true;
+			// Force the indoor cutaway off so the camera can see the world from
+			// above even if the player started under a roof. SetClip routes
+			// through the existing fade so the ceiling cap dissolves smoothly.
+			// ClipAlways=false drops the user-toggled cutaway too, and stays
+			// false after FlyDown so the player has to re-enable it manually
+			// if they want it back.
+			camera.ClipAlways = false;
+			camera.SetClip(float.PositiveInfinity, _player.GlobalPosition);
+		}
+		else
+		{
+			if (_birdsEyePhase == EBirdsEyePhase.None)
+			{
+				return;
+			}
+			// Cancelling mid-FlyUp: seed _birdsEyeElapsed so FlyDown picks up at
+			// the current fraction instead of snapping to full lift first. From
+			// Steady (t=1) this lands on elapsed=0 naturally.
+			float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
+			float currentT = _birdsEyePhase == EBirdsEyePhase.FlyUp
+				? Mathf.Clamp(_birdsEyeElapsed / duration, 0f, 1f)
+				: 1f;
+			_birdsEyePhase = EBirdsEyePhase.FlyDown;
+			_birdsEyeElapsed = (1f - currentT) * duration;
+		}
+	}
+
+	// Per-frame camera drive while bird's-eye view is active. Owns position
+	// (lifted along world-up off the player), ortho Size (zoom), and the
+	// motion-blur uniform consumed by UpdatePostProcess. End-of-FlyDown signals
+	// Player.OnBirdsEyeReturnComplete to drop the movement lock and restores
+	// the normal follow-position so the next frame's standard camera path
+	// resumes seamlessly.
+	void UpdateBirdsEyeCamera(double deltaTime)
+	{
+		float dt = (float)deltaTime;
+		_birdsEyeElapsed += dt;
+
+		// Tick the Q/E rotation tween, rotation-blur decay, and clip-plane
+		// fade every frame so CameraLeft / CameraRight stay responsive AND
+		// the ceiling-cutaway dissolve runs to completion during the overlook.
+		// The camera's own UpdateCamera (which normally runs these) is
+		// skipped while bird's-eye owns the pose.
+		camera.TickRotation(dt);
+		camera.AdvanceClipFade(dt);
+
+		float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
+		float t;
+		bool finished = false;
+		if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
+		{
+			t = Mathf.Min(1f, _birdsEyeElapsed / duration);
+			if (t >= 1f)
+			{
+				_birdsEyePhase = EBirdsEyePhase.Steady;
+			}
+		}
+		else if (_birdsEyePhase == EBirdsEyePhase.FlyDown)
+		{
+			t = 1f - Mathf.Min(1f, _birdsEyeElapsed / duration);
+			if (t <= 0f)
+			{
+				finished = true;
+			}
+		}
+		else
+		{
+			t = 1f;
+		}
+
+		// Smoothstep ease for the position + zoom — softens both endpoints so
+		// the camera doesn't kick on departure / land hard on arrival.
+		float eased = t * t * (3f - 2f * t);
+
+		// Camera pose. Read live camera.Yaw (TickRotation just updated it) so
+		// CameraLeft / CameraRight rotate the overview, and lift straight up
+		// along world-Y by the eased altitude. Horizontal tracking stays glued
+		// to the player so a knockback (which bypasses the movement lock)
+		// doesn't strand the view.
+		float pitch = Mathf.DegToRad(camera.pitchDegrees);
+		camera.GlobalRotation = new Vector3(pitch, camera.Yaw, 0f);
+		Vector3 baseOffset = camera.GlobalTransform.Basis.Z * camera.distance;
+		Vector3 lifted = baseOffset + Vector3.Up * birdsEyeAltitude;
+		camera.GlobalPosition = _player.GlobalPosition + baseOffset.Lerp(lifted, eased);
+
+		camera.Size = Mathf.Lerp(_birdsEyeBaseSize, _birdsEyeBaseSize * birdsEyeSizeMultiplier, eased);
+
+		// Push fog visibility along the same eased curve so the overview clears
+		// in step with the lift. SkyController reads this every frame; on
+		// FlyDown completion we reset it to 1.0 below so ground-level fog
+		// resumes its normal range. Null-safe: SkyController is created during
+		// scene init and outlives GameClient, but the static singleton may
+		// briefly be unset during teardown.
+		if (SkyController.Current != null)
+		{
+			SkyController.Current.FogVisibilityScale = Mathf.Lerp(1f, birdsEyeFogVisibilityScale, eased);
+		}
+
+		// Motion blur fires only during FlyUp — peaks at mid-flight via sin(πt)
+		// so it builds with acceleration and is gone by the time the camera
+		// settles at the apex. Steady and FlyDown render clean.
+		_birdsEyeBlur = _birdsEyePhase == EBirdsEyePhase.FlyUp ? Mathf.Sin(t * Mathf.Pi) * birdsEyeMotionBlurPeak : 0f;
+
+		if (finished)
+		{
+			_birdsEyePhase = EBirdsEyePhase.None;
+			_birdsEyeBlur = 0f;
+			camera.Size = _birdsEyeBaseSize;
+			camera.ManualClipMode = false;
+			if (SkyController.Current != null)
+			{
+				SkyController.Current.FogVisibilityScale = 1f;
+			}
+			// Re-seat the follow position so the normal camera path picks up
+			// from the player on the next frame rather than lerping from the
+			// stale (lifted) follow target.
+			camera.SetInitialPosition(_player.GlobalPosition);
+			_player.OnBirdsEyeReturnComplete();
+		}
+	}
+
+	// Pushes `sprite_chunky` to the pre-zoom base value so sprite-billboard
+	// world size doesn't track the inflated bird's-eye ortho Size. Must run
+	// AFTER SnapCameraAndUpdateUpscale (which sets the live-Size value); the
+	// _Process bird's-eye branch calls it in that order. Skipped (no-op) when
+	// the viewport isn't yet wired so the first-frame init path is safe.
+	void ApplyBirdsEyeSpriteChunky()
+	{
+		if (sceneViewport == null)
+		{
+			return;
+		}
+		float baseChunky = _birdsEyeBaseSize / Mathf.Max(1, sceneViewport.Size.Y);
+		RenderingServer.GlobalShaderParameterSet("sprite_chunky", baseChunky);
+	}
+
 	void UpdateViewportSize()
 	{
 		if (sceneViewport == null)
@@ -1078,14 +1266,17 @@ public partial class GameClient : Node3D
 		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
 		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
 
-		// Motion blur — currently driven by camera rotation only. When the
-		// fly-up overview lands, combine its strength with the camera's via
-		// max-of (whichever effect is more active wins) before pushing. The
-		// CVar gates the strength so the shader's `motion_blur_strength > 0`
-		// branch falls through and the blur loop is skipped entirely.
-		float blurStrength = CVars.rotationBlur.Value ? camera.RotationBlurStrength : 0f;
+		// Motion blur — combined max-of between the camera's rotation blur
+		// (decays over rotationBlurDuration after a Q/E press) and the
+		// bird's-eye fly-up blur. The CVar gates only the rotation source so
+		// the bird's-eye effect runs even when rotation blur is disabled.
+		// When `motion_blur_strength` is 0 the shader skips the blur loop, so
+		// idle frames pay nothing.
+		float rotBlur = CVars.rotationBlur.Value ? camera.RotationBlurStrength : 0f;
+		float blurStrength = Mathf.Max(rotBlur, _birdsEyeBlur);
+		Vector2 blurDir = _birdsEyeBlur > rotBlur ? BIRDS_EYE_BLUR_DIR : camera.RotationBlurDir;
 		postProcessMaterial.SetShaderParameter("motion_blur_strength", blurStrength);
-		postProcessMaterial.SetShaderParameter("motion_blur_dir", camera.RotationBlurDir);
+		postProcessMaterial.SetShaderParameter("motion_blur_dir", blurDir);
 
 		// Decay the flash. dt comes from the engine's _Process delta — we
 		// don't have it here directly, so pull from the frame time. This
@@ -1180,6 +1371,16 @@ public partial class GameClient : Node3D
 	public override void _UnhandledInput(InputEvent e)
 	{
 		base._UnhandledInput(e);
+
+		// Bird's-eye cancel runs before TogglePause because both actions are
+		// bound to Escape — when the overlook is active the press should drop
+		// the overview, not open the pause menu.
+		if (_player != null && _player.IsBirdsEye && e.IsActionPressed("ui_cancel"))
+		{
+			_player.RequestEndBirdsEye();
+			GetViewport().SetInputAsHandled();
+			return;
+		}
 
 		if (e.IsActionPressed("TogglePause"))
 		{

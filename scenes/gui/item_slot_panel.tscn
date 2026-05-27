@@ -2,11 +2,12 @@
 
 [ext_resource type="Script" uid="uid://dwvo544owdw66" path="res://scripts/gui/ItemSlotPanel.cs" id="1_a5bqt"]
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="2_a5bqt"]
+[ext_resource type="PackedScene" uid="uid://c2k7s5njp8wfh" path="res://scenes/gui/status_effect_icon.tscn" id="2_fb484"]
 [ext_resource type="Texture2D" uid="uid://ci5kswtk3206n" path="res://assets/textures/gui/item_button_pressed.png" id="3_wxcd7"]
 [ext_resource type="Texture2D" uid="uid://clv3byf0k0up5" path="res://assets/textures/gui/item_button_hover.png" id="4_fb484"]
 [ext_resource type="Texture2D" uid="uid://c6brfyavs14am" path="res://assets/textures/gui/item_button_focused.png" id="5_w7sa8"]
 
-[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay")]
+[node name="ItemSlotPanel" type="PanelContainer" unique_id=982744505 node_paths=PackedStringArray("_button", "_itemTexture", "_slotBackground", "_stackLabel", "_stackContainer", "_ghostOverlay", "_statusContainer")]
 custom_minimum_size = Vector2(80, 80)
 size_flags_horizontal = 4
 size_flags_vertical = 4
@@ -17,6 +18,8 @@ _slotBackground = NodePath("EmptyTexture")
 _stackLabel = NodePath("MarginContainer/PanelContainer/MarginContainer/Label")
 _stackContainer = NodePath("MarginContainer/PanelContainer")
 _ghostOverlay = NodePath("GhostOverlay")
+_statusContainer = NodePath("MarginContainer/StatusContainer")
+_statusIconScene = ExtResource("2_fb484")
 
 [node name="EmptyTexture" type="TextureRect" parent="." unique_id=1680811436]
 visible = false
@@ -53,6 +56,11 @@ theme_override_constants/margin_left = 3
 theme_override_constants/margin_top = 3
 theme_override_constants/margin_right = 3
 theme_override_constants/margin_bottom = 3
+
+[node name="StatusContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1247951767]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 0
 
 [node name="PanelContainer" type="PanelContainer" parent="MarginContainer" unique_id=1749277760]
 custom_minimum_size = Vector2(25, 0)

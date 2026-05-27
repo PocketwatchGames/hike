@@ -30,6 +30,7 @@
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
+[ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
 [ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
 [ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
 
@@ -1039,6 +1040,7 @@ _dashGhostTrail = NodePath("DashGhostTrail")
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _wetEffectData = ExtResource("26_statuswet")
+_wetClothesEffectData = ExtResource("26_statuswetclothes")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathlrg")
 _waterEnterSplashFx = ExtResource("14_watenter")

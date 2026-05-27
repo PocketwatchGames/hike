@@ -20,6 +20,8 @@
 [ext_resource type="Texture2D" uid="uid://bplefhrwcau14" path="res://assets/textures/interactions/cook.png" id="18_cook"]
 [ext_resource type="Texture2D" uid="uid://bagjs7ylxtu6r" path="res://assets/textures/interactions/douse.png" id="19_douse"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="20_light"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
+[ext_resource type="Script" uid="uid://b5h7q3xkz9n2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -52,9 +54,15 @@ radius = 1.0
 [sub_resource type="SphereShape3D" id="SphereShape3D_qk6wi"]
 radius = 1.75
 
+[sub_resource type="Resource" id="Resource_campfire_burning_buildup"]
+script = ExtResource("22_buildup")
+effect = ExtResource("21_burning")
+amount = 0.4
+
 [sub_resource type="Resource" id="Resource_campfire_continuous"]
 script = ExtResource("11_continuous")
 healthDamage = 1.0
+buildups = Array[ExtResource("22_buildup")]([SubResource("Resource_campfire_burning_buildup")])
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
 radius = 1.1

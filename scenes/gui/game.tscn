@@ -95,6 +95,9 @@ postProcessMaterial = ExtResource("post_process_mat")
 minimapFoliageColors = ExtResource("minimap_foliage_colors")
 minimapRevealMultiplier = 2.0
 minimapRevealInnerFraction = 0.95
+birdsEyeAltitude = 0.0
+birdsEyeSizeMultiplier = 2.0
+birdsEyeTransitionSeconds = 1.0
 
 [node name="OuterEnv" type="WorldEnvironment" parent="." unique_id=1077832549]
 environment = SubResource("Environment_bloom")

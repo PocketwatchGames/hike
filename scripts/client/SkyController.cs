@@ -501,6 +501,16 @@ public partial class SkyController : Node3D
     [Export] public float fogMaxDistance = 100.0f;
     [Export(PropertyHint.Range, "1,64,1")] public int fogSteps = 48;
 
+    // External "see-farther" multiplier. The bird's-eye driver lerps this up
+    // during the fly-up so the overview isn't choked by ground-level fog
+    // density — fog_max_distance scales linearly with the multiplier, and
+    // both fog density uniforms scale by 1/multiplier so the per-meter
+    // opacity drops in step. 1.0 = unchanged (default in-game state).
+    // Set by GameClient.UpdateBirdsEyeCamera; restored to 1.0 on FlyDown
+    // completion. Anything else (SkyController palette swaps, weather) is
+    // unaffected.
+    public float FogVisibilityScale { get; set; } = 1f;
+
     [ExportGroup("Sunbeams")]
     [ExportSubgroup("Dust Band")]
     [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 16.0f;
@@ -1669,10 +1679,15 @@ public partial class SkyController : Node3D
         // --- Fog material uniforms ---------------------------------------
         if (fogMaterial != null)
         {
+            // FogVisibilityScale > 1 stretches the raymarch range and thins
+            // density to match — used by the bird's-eye overlook to keep the
+            // overview readable. 1.0 (default) leaves the palette untouched.
+            float visScale = Mathf.Max(0.01f, FogVisibilityScale);
+            float invVisScale = 1f / visScale;
             fogMaterial.SetShaderParameter("fog_color", ColorToVec3(_palette.FogTint));
-            fogMaterial.SetShaderParameter("fog_density", _palette.FogDensity);
-            fogMaterial.SetShaderParameter("ambient_fog_density", _palette.AmbientFogDensity);
-            fogMaterial.SetShaderParameter("fog_max_distance", fogMaxDistance);
+            fogMaterial.SetShaderParameter("fog_density", _palette.FogDensity * invVisScale);
+            fogMaterial.SetShaderParameter("ambient_fog_density", _palette.AmbientFogDensity * invVisScale);
+            fogMaterial.SetShaderParameter("fog_max_distance", fogMaxDistance * visScale);
             fogMaterial.SetShaderParameter("fog_steps", effFogSteps);
             fogMaterial.SetShaderParameter("dust_density", _palette.DustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);

@@ -2,19 +2,25 @@
 
 [ext_resource type="Texture2D" uid="uid://q5swbro44uym" path="res://assets/textures/items/GemRed.png" id="1_htrch"]
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_uimfn"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_mx3ic"]
 [ext_resource type="Texture2D" uid="uid://bkh21dqo7345r" path="res://assets/textures/items/pickups/GemRed.png" id="3_5wumv"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="4_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="5_charged"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_ypscn"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
-[ext_resource type="Script" uid="uid://drubyteleport01a" path="res://scripts/data/effects/TeleportToSpawnEffect.cs" id="8_teleport"]
-[ext_resource type="PackedScene" uid="uid://c4st1lkp9m3rx" path="res://scenes/effects/cast_loop.tscn" id="9_castfx"]
+[ext_resource type="Script" uid="uid://xuxmdsbhvxsi" path="res://scripts/data/effects/TeleportToSpawnEffect.cs" id="8_teleport"]
+[ext_resource type="PackedScene" uid="uid://c4st1lkqam3rx" path="res://scenes/effects/cast_loop.tscn" id="9_castfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("6_event")
 type = 64
 animName = 24
+
+[sub_resource type="Resource" id="Resource_charged_hold"]
+script = ExtResource("5_charged")
+chargeTime = 2.0
+chargeLoopEffect = ExtResource("9_castfx")
 
 [sub_resource type="Resource" id="Resource_teleport"]
 script = ExtResource("8_teleport")
@@ -23,11 +29,6 @@ script = ExtResource("8_teleport")
 script = ExtResource("6_event")
 type = 8
 effects = Array[ExtResource("7_effect")]([SubResource("Resource_teleport")])
-
-[sub_resource type="Resource" id="Resource_charged_hold"]
-script = ExtResource("5_charged")
-chargeTime = 2.0
-chargeLoopEffect = ExtResource("9_castfx")
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("5_charged")
@@ -43,7 +44,7 @@ locksMovement = true
 script = ExtResource("1_uimfn")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Ruby Slippers"
-unidentifiedDisplayName = &"Strange Slippers"
+unidentifiedDisplayName = &"Unknown Trinket"
 description = "Click your heels three times and you'll be home before you know it."
 inventorySprite = ExtResource("1_htrch")
 worldSprite = ExtResource("3_5wumv")

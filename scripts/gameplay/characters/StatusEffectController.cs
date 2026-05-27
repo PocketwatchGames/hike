@@ -14,10 +14,17 @@ public class StatusEffectController
 	// damage sources feeding the same effect (a poison sword + a poison cloud)
 	// share one pool on the receiver. Allocated lazily — entries appear when
 	// the first contribution lands.
+	//
+	// `armedInstance` is used only by ContinuousArm effects (Wet) — the meter
+	// IS the effect intensity, so the controller holds onto the live state
+	// it armed so it can release it when the meter falls below disarmThreshold.
+	// Null for ThresholdCross effects, which produce discrete stacked instances
+	// instead of a single meter-driven one.
 	private class BuildupState
 	{
 		public float amount;
 		public ulong decayStartMs;
+		public StatusEffectState armedInstance;
 	}
 
 	readonly Node3D _actor;
@@ -40,6 +47,11 @@ public class StatusEffectController
 
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
 
+	// `actor` and `applyHealthDelta` may be null for item-owned controllers
+	// (ArmorState.statusEffects etc.) — items have no world position to spawn
+	// fx at and no health to chip away. `world` may also be null; the meter
+	// machinery falls back to a zero game-time which is fine for ContinuousArm
+	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
 	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null)
 	{
 		_actor = actor;
@@ -133,6 +145,7 @@ public class StatusEffectController
 			if (_buildups.TryGetValue(data, out BuildupState bs))
 			{
 				bs.amount = 0f;
+				bs.armedInstance = null;
 			}
 		}
 	}
@@ -234,16 +247,31 @@ public class StatusEffectController
 		}
 	}
 
-	// Add a buildup contribution and apply the effect if the meter crossed the
-	// threshold. Returns true when at least one apply fired this call — the
-	// caller (HurtBox hit path) uses that to fire the effect's applyTrigger so
-	// modifier folds (OnDizzy extra knockback, etc.) land on the same hit. A
-	// single fat contribution can cross multiple times: the loop reapplies
-	// until the meter is under 1 (or clearBuildupOnApply zeros it on the
-	// first cross).
+	// Add a signed contribution to `data`'s buildup meter and run the per-
+	// behavior arming check. Returns true when this call armed (or re-armed)
+	// a fresh instance — the caller (HurtBox hit path) uses that to fire the
+	// effect's applyTrigger so modifier folds (OnDizzy extra knockback, etc.)
+	// land on the same hit.
+	//
+	// ThresholdCross — only positive contributions are accepted (auto-decay
+	// in Tick handles drainage). A single fat contribution can cross 1.0
+	// multiple times: the loop reapplies until the meter is under 1 (or
+	// clearBuildupOnApply zeros it on the first cross).
+	//
+	// ContinuousArm — both signs are accepted; external code drives the meter
+	// (rain adds, drying subtracts). Meter is clamped to [0, 1]. The effect
+	// arms when the meter rises through armThreshold and releases when it
+	// falls through disarmThreshold (hysteresis prevents flapping). The armed
+	// instance's duration timer is held paused so the meter, not a countdown,
+	// owns lifecycle.
 	public bool AddBuildup(StatusEffectData data, float amount)
 	{
-		if (data == null || amount <= 0f)
+		if (data == null || amount == 0f)
+		{
+			return false;
+		}
+		bool isContinuous = data.buildupBehavior == EBuildupBehavior.ContinuousArm;
+		if (!isContinuous && amount <= 0f)
 		{
 			return false;
 		}
@@ -254,6 +282,12 @@ public class StatusEffectController
 		}
 		state.amount += amount;
 		ulong now = _world?.GameTimeMs ?? 0;
+		if (isContinuous)
+		{
+			if (state.amount < 0f) { state.amount = 0f; }
+			else if (state.amount > 1f) { state.amount = 1f; }
+			return UpdateContinuousArm(data, state, now);
+		}
 		state.decayStartMs = now + (ulong)(data.buildupRemovalDelay * 1000f);
 		bool applied = false;
 		while (state.amount >= 1f)
@@ -269,6 +303,42 @@ public class StatusEffectController
 		}
 		return applied;
 	}
+
+	// ContinuousArm hysteresis: arm when the meter rises through armThreshold,
+	// release when it falls through disarmThreshold. The armed instance's
+	// duration timer is paused immediately so the meter (not a countdown)
+	// controls lifecycle — a stray non-zero `data.duration` from authoring
+	// won't auto-expire on us. Returns true on the arm transition; release
+	// returns false (only fresh arms are meaningful to ApplyHitBuildups, and
+	// ContinuousArm effects don't carry an applyTrigger in any case).
+	private bool UpdateContinuousArm(StatusEffectData data, BuildupState state, ulong now)
+	{
+		if (state.armedInstance != null && !_statusEffects.Contains(state.armedInstance))
+		{
+			state.armedInstance = null;
+		}
+		if (state.armedInstance == null)
+		{
+			if (state.amount >= data.armThreshold)
+			{
+				state.armedInstance = Add(data);
+				state.armedInstance?.PauseTimer();
+				return true;
+			}
+			return false;
+		}
+		if (state.amount <= data.disarmThreshold)
+		{
+			Remove(state.armedInstance);
+			state.armedInstance = null;
+		}
+		else
+		{
+			state.armedInstance.PauseTimer();
+		}
+		return false;
+	}
+
 
 	public StatusEffectState Add(StatusEffectData data)
 	{
@@ -302,6 +372,7 @@ public class StatusEffectController
 				if (_buildups.TryGetValue(removed, out BuildupState bs))
 				{
 					bs.amount = 0f;
+					bs.armedInstance = null;
 				}
 			}
 		}
@@ -328,24 +399,32 @@ public class StatusEffectController
 			if (count >= data.maxStack && oldest != null)
 			{
 				oldest.ArmTimer(now);
-				if (data.startFx != null && _world != null)
-				{
-					Fx.Create(data.startFx, _world, _actor.GlobalPosition);
-				}
+				SpawnStartFx(data);
 				return oldest;
 			}
 		}
 		var state = new StatusEffectState(data, now);
 		_statusEffects.Add(state);
-		if (data.startFx != null && _world != null)
-		{
-			Fx.Create(data.startFx, _world, _actor.GlobalPosition);
-		}
-		if (data.loopFx != null)
+		SpawnStartFx(data);
+		if (data.loopFx != null && _actor != null)
 		{
 			state.loopInstance = Fx.Create(data.loopFx, _actor, Vector3.Zero);
 		}
 		return state;
+	}
+
+	// Fx spawning is conditional on having a world + an actor with a world
+	// position. Item-side controllers (the ones held by ArmorState etc.) pass
+	// null actor + null world, so wet armor in the backpack doesn't try to
+	// spawn the splash effect — the player's own status effect, armed via
+	// the cascade contribution, is what surfaces the audiovisual cue.
+	private void SpawnStartFx(StatusEffectData data)
+	{
+		if (data.startFx == null || _world == null || _actor == null)
+		{
+			return;
+		}
+		Fx.Create(data.startFx, _world, _actor.GlobalPosition);
 	}
 
 	public void Remove(StatusEffectState state)
@@ -357,6 +436,14 @@ public class StatusEffectController
 		if (_statusEffects.Remove(state))
 		{
 			EndFx(state);
+		}
+		// Drop the armed-instance handle if a ContinuousArm caller (or any
+		// external code holding a state ref) removed our armed copy out from
+		// under us — without this the meter would believe the effect is
+		// still armed and skip the re-arm branch.
+		if (state.data != null && _buildups.TryGetValue(state.data, out BuildupState bs) && bs.armedInstance == state)
+		{
+			bs.armedInstance = null;
 		}
 	}
 
@@ -385,6 +472,7 @@ public class StatusEffectController
 			if (kv.Key != null && (kv.Key.tags & mask) != 0 && kv.Value != null)
 			{
 				kv.Value.amount = 0f;
+				kv.Value.armedInstance = null;
 			}
 		}
 	}
@@ -406,6 +494,10 @@ public class StatusEffectController
 				EndFx(_statusEffects[i]);
 				_statusEffects.RemoveAt(i);
 			}
+		}
+		if (_buildups.TryGetValue(data, out BuildupState bs))
+		{
+			bs.armedInstance = null;
 		}
 	}
 
@@ -445,6 +537,13 @@ public class StatusEffectController
 				{
 					continue;
 				}
+				// ContinuousArm meters are externally driven (signed AddBuildup
+				// deltas from rain / drying / cascade); no automatic decay
+				// path. Drainage IS the caller calling AddBuildup(-rate * dt).
+				if (kv.Key?.buildupBehavior == EBuildupBehavior.ContinuousArm)
+				{
+					continue;
+				}
 				float speed = kv.Key?.buildupRemovalSpeed ?? 0f;
 				if (speed <= 0f)
 				{
@@ -469,7 +568,7 @@ public class StatusEffectController
 			while (s.tickAccumulator >= 1f)
 			{
 				s.tickAccumulator -= 1f;
-				if (s.data.damagePerSecond != 0f)
+				if (s.data.damagePerSecond != 0f && _applyHealthDelta != null)
 				{
 					// Damage ticks (positive damagePerSecond) scale by the
 					// actor's full resistance to the effect's tags so a
@@ -478,7 +577,9 @@ public class StatusEffectController
 					// resistance is a damage-side concept; we don't want a
 					// Magical-resistant target healing slower from a Magical-
 					// tagged regen, and the explicit guard avoids a silly
-					// >1 vulnerability scaling a heal up either.
+					// >1 vulnerability scaling a heal up either. Item-side
+					// controllers pass null _applyHealthDelta — items don't
+					// take damage from their own status effects.
 					float dps = s.data.damagePerSecond;
 					if (dps > 0f)
 					{
@@ -556,7 +657,7 @@ public class StatusEffectController
 			state.loopInstance.Stop();
 		}
 		state.loopInstance = null;
-		if (state.data?.endFx != null && _world != null)
+		if (state.data?.endFx != null && _world != null && _actor != null)
 		{
 			Fx.Create(state.data.endFx, _world, _actor.GlobalPosition);
 		}

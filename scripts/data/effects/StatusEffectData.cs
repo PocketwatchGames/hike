@@ -1,4 +1,28 @@
 using Godot;
+using Godot.Collections;
+
+// How an effect's buildup meter relates to its applied state. Selects which
+// branch StatusEffectController takes when a contribution lands and gates
+// which authoring fields the editor surfaces (see _ValidateProperty).
+//
+//   ThresholdCross  — classic Dark-Souls-style: the meter fills, crosses 1.0,
+//                     applies a discrete instance, then auto-decays after a
+//                     quiet period. Used for damage-buildup effects (Dizzy,
+//                     Poison-from-hits, future Frozen-from-cold-hits).
+//
+//   ContinuousArm   — the meter IS the effect intensity in [0, 1]. Arms an
+//                     instance when the meter rises above armThreshold,
+//                     releases when it falls below disarmThreshold (hysteresis
+//                     prevents flapping). The armed instance's duration timer
+//                     stays paused — the meter, not a countdown, controls
+//                     lifecycle. External code drives the meter via signed
+//                     AddBuildup deltas (no auto-decay). Used for Wet, where
+//                     rain / water / drying are the source signals.
+public enum EBuildupBehavior
+{
+	ThresholdCross = 0,
+	ContinuousArm = 1,
+}
 
 // Authored data for a status effect held by a Player or Mob — icon, display
 // name, lifecycle, fx, and a list of StatModifier entries the runtime
@@ -15,6 +39,11 @@ public partial class StatusEffectData : Resource
 {
 	[Export] public Texture2D icon;
 	[Export] public StringName displayName;
+	// Inspector multiline flavor text. Shown on per-target detail panels
+	// (ItemInfoPanel's status section, future actor inspectors) under the
+	// effect's name. Plain string — keep it short ("Wet. Slows drying.
+	// Lowers cold tolerance.") so it fits next to the progress bar.
+	[Export(PropertyHint.MultilineText)] public string description = "";
 
 	// Type tags this effect carries. Used by the resistance / modifier system
 	// in two places: (1) buildup contributions feeding this effect scale by
@@ -85,13 +114,15 @@ public partial class StatusEffectData : Resource
 	[Export] public PackedScene endFx;
 	[Export] public PackedScene loopFx;
 
-	// --- Buildup (Dark Souls-style pre-apply meter) ---
+	// --- Buildup meter ---
 	// Damage data carries StatusEffectBuildup entries; each contribution
-	// accumulates into the receiver's meter for this effect. When the meter
-	// crosses 1, the controller applies the effect once and (per
-	// clearBuildupOnApply) either zeros the meter or subtracts 1 so the next
-	// stack can begin to fill.
-	//
+	// accumulates into the receiver's meter for this effect. How the meter
+	// translates into the applied state is selected by `buildupBehavior`.
+	// See EBuildupBehavior for the two branches; the editor hides whichever
+	// tunables don't apply to the selected behavior.
+	[Export] public EBuildupBehavior buildupBehavior = EBuildupBehavior.ThresholdCross;
+
+	// --- ThresholdCross tunables ---
 	// Seconds after the last buildup contribution before decay starts. Fresh
 	// hits keep extending this window — only a quiet period drains the meter.
 	[Export] public float buildupRemovalDelay = 0f;
@@ -107,6 +138,19 @@ public partial class StatusEffectData : Resource
 	// knockback when this hit lands the dizzy, etc.) without the receiver
 	// having to know about specific effects. Default None = no trigger fires.
 	[Export] public EDamageTrigger applyTrigger = EDamageTrigger.None;
+
+	// --- ContinuousArm tunables ---
+	// Meter value at or above which an instance is armed (the effect starts).
+	// Hysteresis with disarmThreshold prevents flapping when the meter brushes
+	// the boundary on a low-intensity signal (drizzle). The HUD progress bar
+	// fills from disarmThreshold (empty) to 1.0 (full) — set armThreshold low
+	// (or to disarmThreshold) to make the icon appear as soon as any meaningful
+	// signal lands.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armThreshold = 0.5f;
+	// Meter value at or below which the armed instance is released. Must be
+	// strictly less than armThreshold for the hysteresis to do anything; a
+	// gap of ~5–10% of the [0, 1] range is usually enough.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float disarmThreshold = 0.1f;
 
 	// --- Mutual exclusion ---
 	// Status effects to remove from the actor at the moment this effect is
@@ -144,4 +188,29 @@ public partial class StatusEffectData : Resource
 	// neutral; 1 pins vulnerable at 1 regardless of other effects. Dizzy
 	// authors 1.0 so a dizzied mob is always crit on triggered hits.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vulnerable = 0f;
+
+	// Hide buildup tunables whose owning behavior isn't selected, and hide
+	// `duration` for ContinuousArm (the meter, not a timer, controls
+	// lifecycle). Storage is preserved while hidden, so flipping the behavior
+	// back doesn't lose previously-authored values. `[Tool]` is required for
+	// this to fire in the editor.
+	public override void _ValidateProperty(Dictionary property)
+	{
+		string name = property["name"].AsString();
+		bool isContinuous = buildupBehavior == EBuildupBehavior.ContinuousArm;
+		bool hide = name switch
+		{
+			nameof(buildupRemovalDelay) => isContinuous,
+			nameof(buildupRemovalSpeed) => isContinuous,
+			nameof(clearBuildupOnApply) => isContinuous,
+			nameof(applyTrigger) => isContinuous,
+			nameof(duration) => isContinuous,
+			nameof(armThreshold) => !isContinuous,
+			nameof(disarmThreshold) => !isContinuous,
+			_ => false,
+		};
+		if (!hide) { return; }
+		PropertyUsageFlags usage = property["usage"].As<PropertyUsageFlags>() & ~PropertyUsageFlags.Editor;
+		property["usage"] = (int)usage;
+	}
 }

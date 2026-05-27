@@ -16,6 +16,8 @@ public partial class ItemInfoPanel : PanelContainer
 	[Export] private Control _actionPanelContainer;
 	[Export] private Control _statContainer;
 	[Export] private PackedScene _statScene;
+	[Export] private Control _statusContainer;
+	[Export] private PackedScene _statusScene;
 
 	public void SetItem(ItemState item)
 	{
@@ -47,8 +49,73 @@ public partial class ItemInfoPanel : PanelContainer
 		}
 		UpdateLevelDisplay(item);
 		RebuildItemStats(item, identified);
+		RebuildStatusEffects(item);
 		RebuildActionPanels(item, identified);
 		Visible = true;
+	}
+
+	// One StatusEffectInfoPanel per armed effect on the item. Reuses the
+	// same panel PlayerStatsPanel uses for the player's status readout —
+	// icon + name + bars (via embedded StatusEffectHud) + per-stat rows.
+	// Buildup-only meters are skipped here, matching the slot view's policy:
+	// this section shows what's *actually* affecting the item, not pre-arm
+	// progress still climbing toward its threshold. Hidden / no-op if the
+	// container or scene field isn't wired in the authoring .tscn.
+	private void RebuildStatusEffects(ItemState item)
+	{
+		if (_statusContainer == null)
+		{
+			return;
+		}
+		foreach (Node child in _statusContainer.GetChildren())
+		{
+			if (child is StatusEffectInfoPanel existing)
+			{
+				existing.QueueFree();
+			}
+		}
+		if (item == null || _statusScene == null)
+		{
+			return;
+		}
+		var effects = item.statusEffects.StatusEffects;
+		for (int i = 0; i < effects.Count; i++)
+		{
+			StatusEffectState state = effects[i];
+			StatusEffectData data = state?.data;
+			if (data == null)
+			{
+				continue;
+			}
+			StatusEffectInfoPanel panel = _statusScene.Instantiate<StatusEffectInfoPanel>();
+			_statusContainer.AddChild(panel);
+			// ContinuousArm effects (wet) — the meter IS the progress; bar
+			// fills 0..1 with the intensity. ThresholdCross effects on items
+			// (future timed enchants) — feed the remaining-time fraction.
+			float progress;
+			bool hasTimer;
+			float buildup;
+			if (data.buildupBehavior == EBuildupBehavior.ContinuousArm)
+			{
+				progress = Mathf.Clamp(item.statusEffects.GetBuildup(data), 0f, 1f);
+				hasTimer = true;
+				buildup = 0f;
+			}
+			else if (state.IsTimed && data.duration > 0f)
+			{
+				ulong now = World.Current?.GameTimeMs ?? 0;
+				progress = Mathf.Clamp(state.RemainingMs(now) / (data.duration * 1000f), 0f, 1f);
+				hasTimer = true;
+				buildup = 0f;
+			}
+			else
+			{
+				progress = 0f;
+				hasTimer = false;
+				buildup = 0f;
+			}
+			panel.SetStatusEffect(data, 1, progress, hasTimer, buildup);
+		}
 	}
 
 	// Item-level stats live above the per-action panels. StatList picks

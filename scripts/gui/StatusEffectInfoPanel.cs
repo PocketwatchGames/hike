@@ -11,6 +11,11 @@ public partial class StatusEffectInfoPanel : PanelContainer
 	[Export] private StatusEffectHud _statusEffectHud;
 	[Export] private PackedScene _statPanelScene;
 	[Export] private Control _statContainer;
+	// Optional multiline description label. Populated from
+	// StatusEffectData.description when wired in the scene; left null in
+	// scenes that just want the icon + stat rows. Hidden when the effect
+	// has no authored description so empty entries don't leave a gap.
+	[Export] private Label _descriptionLabel;
 
 	// Convenience overload for static contexts that don't have live state
 	// (almanac entries, tooltips). Treats the effect as a single instance
@@ -53,6 +58,12 @@ public partial class StatusEffectInfoPanel : PanelContainer
 		if (_statusEffectHud != null)
 		{
 			_statusEffectHud.Set(effect, count, removalProgress, hasTimer, buildupProgress);
+		}
+		if (_descriptionLabel != null)
+		{
+			string desc = effect.description ?? string.Empty;
+			_descriptionLabel.Text = desc;
+			_descriptionLabel.Visible = desc.Length > 0;
 		}
 		if (_statContainer == null || _statPanelScene == null)
 		{
