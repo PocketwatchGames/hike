@@ -69,7 +69,7 @@ public static class EntitySerializer
                 WriteScene(w, prop.Scene);
                 w.Write((byte)prop.Type);
                 // Legacy "PickedUp" byte in the Tag.Prop payload. Tree and
-                // TallGrass never pick up; write false to keep the wire shape
+                // Foliage never pick up; write false to keep the wire shape
                 // unchanged so existing .hike files keep loading.
                 w.Write(false);
                 break;
@@ -101,7 +101,7 @@ public static class EntitySerializer
                 w.Write(mob.MemoryTimeMs);
                 w.Write((byte)mob.DiscoveryState);
                 w.Write(mob.InitialBehavior != null ? mob.InitialBehavior.ToString() : "");
-                w.Write(mob.SpawnAtNight);
+                w.Write((byte)mob.SpawnConditions);
                 WriteResource(w, mob.Language);
                 // Merchant / loyalty / conversation state — persisted so a
                 // villager's per-instance stock, accumulated loyalty, and
@@ -169,7 +169,7 @@ public static class EntitySerializer
                 WriteVec3(w, chest.WorldPosition);
                 WriteScene(w, chest.Scene);
                 w.Write(chest.Active);
-                w.Write(chest.SpawnAtNight);
+                w.Write((byte)chest.SpawnConditions);
                 int chestLootCount = chest.LootItems?.Length ?? 0;
                 w.Write(chestLootCount);
                 for (int i = 0; i < chestLootCount; i++)
@@ -269,7 +269,7 @@ public static class EntitySerializer
                 // Legacy migration: pre-split PropSimState covered loot too.
                 // Old world files with the retired AutoLoot/Loot PropType
                 // bytes are upgraded to LootSimState on read; new code only
-                // ever writes Tree/TallGrass under Tag.Prop. Data is null —
+                // ever writes Tree/Foliage under Tag.Prop. Data is null —
                 // Loot's runtime pickup probe handles the null-Data path the
                 // same way it handled the legacy AutoLoot case (no item to
                 // deposit, just despawn).
@@ -310,7 +310,7 @@ public static class EntitySerializer
                 ulong memoryTimeMs = r.ReadUInt64();
                 var perceptionState = (EPlayerPerceptionState)r.ReadByte();
                 string initialBehavior = r.ReadString();
-                bool spawnAtNight = r.ReadBoolean();
+                var spawnConditions = (ESpawnConditions)r.ReadByte();
                 var language = ReadResource<LanguageData>(r);
                 bool willTrade = r.ReadBoolean();
                 float loyalty = r.ReadSingle();
@@ -353,7 +353,7 @@ public static class EntitySerializer
                 {
                     mob.InitialBehavior = initialBehavior;
                 }
-                mob.SpawnAtNight = spawnAtNight;
+                mob.SpawnConditions = spawnConditions;
                 mob.Alive = alive;
                 mob.Burrowed = burrowed;
                 mob.Burrowing = burrowing;
@@ -411,7 +411,7 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 bool active = r.ReadBoolean();
-                bool spawnAtNight = r.ReadBoolean();
+                var spawnConditions = (ESpawnConditions)r.ReadByte();
                 int n = r.ReadInt32();
                 ItemCount[] lootItems = n > 0 ? new ItemCount[n] : null;
                 for (int i = 0; i < n; i++)
@@ -423,7 +423,7 @@ public static class EntitySerializer
                 var chest = new ChestSimState(pos, scene)
                 {
                     Active = active,
-                    SpawnAtNight = spawnAtNight,
+                    SpawnConditions = spawnConditions,
                     LootItems = lootItems,
                 };
                 List<ItemState> contents = ReadItemList(r);

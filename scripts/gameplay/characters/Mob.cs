@@ -33,7 +33,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // so they track the body; held alive while in the matching state and
     // Stop()'d when leaving.
     [Export] private PackedScene _waterMovementLoopFx;
-    [Export] private PackedScene _tallGrassMovementLoopFx;
+    [Export] private PackedScene _foliageMovementLoopFx;
     // Fired the moment AIOutput.yell goes true — once per alert acquisition,
     // not per tick (the yell broadcast block below already runs once per
     // transition because nothing else flips _simState.Yelled back).
@@ -125,6 +125,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // vulnerable=1 so a dizzied mob always crits on a triggered hit.
     public float vulnerable => _statusEffects?.Vulnerable ?? 0f;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
+    // Circumstances this mob required to spawn (see ESpawnConditions). Read by
+    // World.CleanupOffConditionMobs to despawn a mob whose conditions have
+    // lapsed once the player is far and unaware. None = unconditional, never
+    // cleaned up on this account.
+    public ESpawnConditions spawnConditions => _simState.SpawnConditions;
     public MobData mobData => _simState.MobData;
     // Per-instance language override (set by WorldGen / world files) takes
     // precedence over MobData.language. Mirrors SpeakDialogue's resolution
@@ -217,6 +222,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     World _world;
     public World World => _world;
 
+    // Mobs are interactive (talk/trade) but not porous props — their collider
+    // lives on the Mob layer and is managed dynamically (flight, burrow, death),
+    // so the spawn-time porous remap must skip them.
+    public bool Porous => false;
+
     // Navigation controller — owns this mob's pathfinding/steering intent.
     // Behaviors call _navigator.Goto/Wander/Stop; the navigator writes
     // output.pathTarget at the bottom of TickAI. Lazily created the first
@@ -246,7 +256,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // frame above the mob.
     readonly DotHudAccumulator _dotHud = new();
 
-    readonly List<TallGrass> _tallGrassCollisions = new();
+    readonly List<Foliage> _foliageCollisions = new();
     float _terrainSpeed = 1f;
 
     // Arrows currently stuck in this mob. Populated by StickArrow when the
@@ -259,7 +269,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // when the matching state isn't held; created on activation, Stop()'d
     // and dropped on deactivation.
     Fx _waterMovementLoop;
-    Fx _tallGrassMovementLoop;
+    Fx _foliageMovementLoop;
     Fx _burrowLoop;
     // Single active anim-loop reference + the scene it was created from. We
     // swap wholesale on transitions instead of cross-fading — simple, and
@@ -280,6 +290,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // run from the simpler voxel-at-feet check.
     bool _swimming;
     float _waterSurfaceY;
+    // The perch this flying mob is resting on (or inbound to and has claimed),
+    // or null when grounded / free-flying. Set by the flight behaviors via
+    // SettleOnPerch / LeavePerch.
+    private Perch _claimedPerch;
+    public Perch ClaimedPerch => _claimedPerch;
+    // True while resting on a perch — drives the per-frame re-snap to the
+    // perch's (camera-dependent) visual landing point in _Process.
+    private bool _perched;
+    // True while the flier's movement collision is suppressed for flight (mask
+    // zeroed). Edge-tracked so we only touch the mask on takeoff / landing.
+    private bool _flightCollisionDisabled;
+    // Reused scratch buffer for the yell broadcast's spatial-hash query so a
+    // periodic alarm doesn't allocate a list every call.
+    private readonly List<Mob> _yellReceivers = new();
     // Current fade values, stepped toward their target every _Process tick.
     // Start at 0 so a freshly-spawned mob dithers IN rather than popping on
     // its first frame; if it's already within visible time the target snaps
@@ -357,7 +381,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // is kept because the player's CollisionMask no longer carries
         // Mob; keeping it here is harmless and leaves a single audit
         // point if we ever want one-way physical interaction.
-        CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
+        CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
         AxisLockAngularY = true;
 
         if (_hurtBox != null)
@@ -969,7 +993,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             ulong fallGraceMs = (ulong)(mobData.fallGraceTime * 1000f);
             bool fallReady = fallingFast && _airborneStartMs != 0 && now - _airborneStartMs >= fallGraceMs;
 
-            if (IsInWater())
+            if (_simState.Airborne)
+            {
+                // Flight is travel-only, so airborne always means flapping —
+                // there's no in-air idle. Falls through to Fly regardless of
+                // horizontal speed.
+                loopAnim = EAnimation.Fly;
+            }
+            else if (IsInWater())
             {
                 loopAnim = PickMoveLoop(horizSpeedSq, intentMoving, EAnimation.Swim, EAnimation.SwimIdle);
             }
@@ -1174,6 +1205,197 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Flight locomotion for canFly mobs while airborne (gravity is disabled by
+    // the caller). Drives all three axes via a single impulse toward a desired
+    // velocity: horizontal steering toward the path target, a vertical spring
+    // onto the hover altitude, and a wind bias from the baked air-current field.
+    private void ApplyFlightPhysics(float delta, in AIOutput aiOutput, float statusMoveMul, ref float? targetYaw)
+    {
+        MobData md = _simState.MobData;
+        Vector3 pos = GlobalPosition;
+        Vector3 currentVel = LinearVelocity;
+
+        // Horizontal steering toward the path target (XZ only).
+        Vector3 desiredHoriz = Vector3.Zero;
+        if (aiOutput.pathTarget.HasValue)
+        {
+            Vector3 toTarget = aiOutput.pathTarget.Value - pos;
+            toTarget.Y = 0f;
+            float dist = toTarget.Length();
+            float arrivalDist = Mathf.Max(aiOutput.pathSuccessDistance, 0.1f);
+            if (dist > 0.01f)
+            {
+                Vector3 dir = toTarget / dist;
+                float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
+                desiredHoriz = dir * md.flySpeed * aiOutput.speed * speedScale * statusMoveMul;
+                if (!targetYaw.HasValue && dist > arrivalDist)
+                {
+                    targetYaw = Mathf.Atan2(dir.X, dir.Z);
+                }
+            }
+        }
+
+        // Wind: blend the local baked air current into the desired horizontal
+        // velocity so birds get carried / fight headwinds (windInfluence tunes
+        // how strongly per species).
+        Vector3 wind = _world?.WorldState?.GetWindVelocityWorld(
+            Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) ?? Vector3.Zero;
+        desiredHoriz += new Vector3(wind.X, 0f, wind.Z) * md.windInfluence;
+
+        // Vertical: spring toward the look-ahead/ceiling-aware target altitude.
+        float hoverH = aiOutput.flyAltitude ?? md.hoverHeight;
+        float targetY = ComputeFlightAltitude(pos, currentVel, hoverH);
+        float desiredVy = Mathf.Clamp((targetY - pos.Y) * md.hoverStiffness, -md.verticalSpeed, md.verticalSpeed);
+
+        Vector3 desiredVel = new Vector3(desiredHoriz.X, desiredVy, desiredHoriz.Z);
+        ApplyImpulse((desiredVel - currentVel) * Mass);
+    }
+
+    // Target flight altitude (world Y) for a bird at `pos` heading along `vel`:
+    // the higher of the surface directly below and a look-ahead sample, plus
+    // hoverHeight, capped just below any ceiling overhead and floored just
+    // above the surface so the bird neither clips terrain nor dives into it.
+    private float ComputeFlightAltitude(Vector3 pos, Vector3 vel, float hoverHeight)
+    {
+        WorldState ws = _world?.WorldState;
+        if (ws == null)
+        {
+            return pos.Y;
+        }
+        int wx = Mathf.FloorToInt(pos.X);
+        int wy = Mathf.FloorToInt(pos.Y);
+        int wz = Mathf.FloorToInt(pos.Z);
+
+        // Highest surface across our own column and several successive samples
+        // along the flight heading. Two things keep the bird off cliff faces:
+        // (1) multiple samples (not just one) so a cliff edge can't slip
+        // between them, and (2) each column is scanned from well ABOVE the bird
+        // downward, so terrain taller than the bird's current altitude is found
+        // — scanning only downward from the bird missed rising cliffs entirely
+        // and let it push into the wall.
+        // Swimmers may land on (and hover over) water, so its surface counts as
+        // ground; non-swimmers see through it to the bed below.
+        bool waterIsSurface = _simState.MobData.canSwim;
+        int surfHere = SurfaceTopAt(ws, wx, wz, wy, waterIsSurface);
+        int surfMax = surfHere;
+        Vector2 heading = new Vector2(vel.X, vel.Z);
+        if (heading.LengthSquared() > 0.04f)
+        {
+            heading = heading.Normalized();
+            for (int i = 1; i <= FlightLookAheadSamples; i++)
+            {
+                float d = _simState.MobData.flightLookAhead * i / FlightLookAheadSamples;
+                int ax = Mathf.FloorToInt(pos.X + heading.X * d);
+                int az = Mathf.FloorToInt(pos.Z + heading.Y * d);
+                surfMax = Mathf.Max(surfMax, SurfaceTopAt(ws, ax, az, wy, waterIsSurface));
+            }
+        }
+
+        float target = surfMax + hoverHeight;
+        int ceiling = CeilingYAbove(ws, wx, wy + 1, wz);
+        if (ceiling != int.MaxValue)
+        {
+            target = Mathf.Min(target, ceiling - 1f);
+        }
+        return Mathf.Max(target, surfHere + 1f);
+    }
+
+    // Number of look-ahead columns sampled along the flight heading (in
+    // addition to the bird's own column), spread evenly out to flightLookAhead.
+    private const int FlightLookAheadSamples = 4;
+    // How far above / below the bird a surface scan looks. Starting above the
+    // bird is what lets a rising cliff (terrain taller than the bird) register
+    // so the bird climbs over it instead of into it.
+    private const int FlightSurfaceLookUp = 32;
+    private const int FlightSurfaceLookDown = 64;
+
+    // Highest landable voxel's top face in column (wx, wz), scanning from
+    // FlightSurfaceLookUp above centerY downward. Solid is always landable;
+    // Water counts only when includeWater (the flier can swim), so swimmers
+    // hover over and land on the water surface while others see the bed below.
+    // Returns the lower bound if the column has nothing landable (open chasm /
+    // unloaded), which simply doesn't raise the altitude target.
+    private static int SurfaceTopAt(WorldState ws, int wx, int wz, int centerY, bool includeWater)
+    {
+        int startY = centerY + FlightSurfaceLookUp;
+        int minY = centerY - FlightSurfaceLookDown;
+        for (int y = startY; y > minY; y--)
+        {
+            VoxelType v = ws.GetVoxelWorld(wx, y, wz);
+            if (VoxelTypeInfo.IsSolid(v) || (includeWater && v == VoxelType.Water))
+            {
+                return y + 1;
+            }
+        }
+        return minY;
+    }
+
+    // Scan upward from startY for the first solid voxel; return the Y of its
+    // bottom face, or int.MaxValue if none within MaxScan (open sky).
+    private static int CeilingYAbove(WorldState ws, int wx, int startY, int wz)
+    {
+        const int MaxScan = 16;
+        for (int y = startY; y < startY + MaxScan; y++)
+        {
+            if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, y, wz)))
+            {
+                return y;
+            }
+        }
+        return int.MaxValue;
+    }
+
+    // Land a flying mob on `perch`: claim it, freeze the body so it rests there
+    // without falling (perches sit on billboard branches / posts with no
+    // collider), and start tracking the perch's painted landing point. Because
+    // that point moves with the camera (billboard) and the sprite's mirror, the
+    // bird re-snaps to it every frame in _Process via UpdatePerchedTransform —
+    // a one-time snap would drift off the branch as the view rotates.
+    public void SettleOnPerch(Perch perch)
+    {
+        if (perch == null)
+        {
+            return;
+        }
+        _claimedPerch = perch;
+        perch.TryClaim(this);
+        _perched = true;
+        LinearVelocity = Vector3.Zero;
+        Freeze = true;
+        UpdatePerchedTransform();
+    }
+
+    // Take off / abandon the current perch: stop tracking, unfreeze the body,
+    // and release the claim. Safe to call when not perched. Called on flight
+    // takeoff and on any teardown so the perch frees up for another bird.
+    public void LeavePerch()
+    {
+        _perched = false;
+        if (Freeze)
+        {
+            Freeze = false;
+        }
+        if (_claimedPerch != null)
+        {
+            _claimedPerch.Release(this);
+            _claimedPerch = null;
+        }
+    }
+
+    // Re-place a perched bird on its perch's current visual landing point.
+    // Position only — facing is driven by BehaviorPerch through AIOutput.yaw.
+    // Called every render frame while perched so the bird stays glued to the
+    // painted branch as the camera orbits / the sprite mirror flips.
+    private void UpdatePerchedTransform()
+    {
+        if (!_perched || _claimedPerch == null || !IsInstanceValid(_claimedPerch))
+        {
+            return;
+        }
+        Camera3D cam = GetViewport()?.GetCamera3D();
+        GlobalPosition = _claimedPerch.ResolveLandingPosition(cam);
+    }
+
     // Writes the node's current transform back into the persistent sim state so
     // that when this Mob is freed (chunk unload, save), the saved position is
     // current rather than the original spawn position.
@@ -1195,6 +1417,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_mesh == null)
         {
             return;
+        }
+
+        // Keep a perched bird glued to its perch's painted landing point, which
+        // moves with the camera (billboard) and the prop sprite's mirror. Done
+        // in _Process (after the camera updates) so it tracks view rotation.
+        if (_perched)
+        {
+            UpdatePerchedTransform();
         }
 
         // Compute target state.
@@ -1294,7 +1524,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Freeze = false;
                 CollisionLayer = (uint)ECollisionLayer.Mob;
-                CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
+                CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
             }
             else
             {
@@ -1487,7 +1717,39 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // ApplyMotionPhysics regardless.
             float linearDampTarget = 8f;
             bool actionLocksMovement = _runner != null && _runner.LocksMovement;
-            if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue)
+            // Flying mobs run a dedicated 3-axis steering+hover+wind pass while
+            // the behavior layer wants them airborne; ground locomotion below is
+            // skipped for them. Drive the sim-state flag so animation and the
+            // gravity/damp decisions agree we're aloft.
+            bool flying = _simState.MobData.canFly && aiOutput.airborne && !inBurrow && !actionLocksMovement;
+            _simState.Airborne = flying;
+            // Fliers pass through world geometry while airborne — hover physics
+            // owns altitude, so colliding only snags them on cliffs/props and
+            // blocks perch approaches. Drop the movement body's mask to nothing
+            // on the airborne edge and restore it on landing (mirrors the burrow
+            // layer swap). Gated on `alive` so Die()/burrow keep ownership of the
+            // mask in their own states.
+            if (_simState.MobData.canFly && alive)
+            {
+                if (flying && !_flightCollisionDisabled)
+                {
+                    CollisionMask = 0;
+                    _flightCollisionDisabled = true;
+                }
+                else if (!flying && _flightCollisionDisabled)
+                {
+                    CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+                    _flightCollisionDisabled = false;
+                }
+            }
+            if (flying)
+            {
+                // Flight owns its own drag (impulse toward desired velocity);
+                // engine LinearDamp would fight it, so pin to zero.
+                linearDampTarget = 0f;
+                ApplyFlightPhysics((float)delta, in aiOutput, statusMoveMul, ref targetYaw);
+            }
+            else if (!inBurrow && !actionLocksMovement && aiOutput.pathTarget.HasValue)
             {
                 Vector3 toTarget = aiOutput.pathTarget.Value - GlobalPosition;
                 toTarget.Y = 0f;
@@ -1541,7 +1803,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // GravityScale, then restoring 1 on exit. A motionFreezeGravity
             // dart also gets gravity disabled so the lunge hangs level.
             bool motionHang = _simState.MotionTime > 0f && _simState.MotionFreezeGravity;
-            float gravityScaleTarget = (motionHang || (_swimming && !inBurrow)) ? 0f : 1f;
+            float gravityScaleTarget = (motionHang || flying || (_swimming && !inBurrow)) ? 0f : 1f;
             if (gravityScaleTarget != _lastGravityScale)
             {
                 GravityScale = gravityScaleTarget;
@@ -1850,24 +2112,26 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
         _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
         _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
-        float yellVolumeSq = _simState.MobData.yellVolume * _simState.MobData.yellVolume;
         using (Profiler.Sample("Mob.YellBroadcast"))
         {
-            foreach (Mob mob in _world.GetEntities<Mob>())
+            // Only the mobs in nearby cells, not every mob in the world.
+            _yellReceivers.Clear();
+            _world.MobSpatialHash.QueryRadius(GlobalPosition, _simState.MobData.yellVolume, _yellReceivers, exclude: this);
+            ETeam yellerTeam = _simState.MobData.team;
+            foreach (Mob mob in _yellReceivers)
             {
-                if (mob == this)
-                {
-                    continue;
-                }
-                if (GlobalPosition.DistanceSquaredTo(mob.GlobalPosition) < yellVolumeSq)
-                {
-                    MobData receiverData = mob.mobData;
-                    mob.Investigate(
-                        targetPos,
-                        receiverData.yellInvestigateRange,
-                        (ulong)(receiverData.yellInvestigateCancelTime * 1000f),
-                        (ulong)(receiverData.yellInvestigatePauseTime * 1000f));
-                }
+                MobData receiverData = mob.mobData;
+                // Allies investigate the alarm (walk over); everyone else only
+                // glances toward it. Whether an ally actually investigates vs
+                // looks is still up to its brain (does it wire an investigate
+                // behavior) — see HasActionableInvestigationCondition.
+                bool lookOnly = receiverData.team != yellerTeam;
+                mob.Investigate(
+                    targetPos,
+                    receiverData.yellInvestigateRange,
+                    (ulong)(receiverData.yellInvestigateCancelTime * 1000f),
+                    (ulong)(receiverData.yellInvestigatePauseTime * 1000f),
+                    lookOnly);
             }
         }
         _simState.Yelled = true;
@@ -2318,7 +2582,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // so future corpse-targeting tools can pick the hurtbox shape
         // without also catching the movement-collision volume.
         CollisionLayer = (uint)ECollisionLayer.Dead;
-        CollisionMask = (uint)ECollisionLayer.Environment;
+        CollisionMask = (uint)ECollisionLayer.Solid;
         if (_hurtBox != null)
         {
             _hurtBox.CollisionLayer = (uint)ECollisionLayer.DeadHurtBox;
@@ -2498,7 +2762,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // Player bit. Environment stays so the body still rests on
             // the ground.
             CollisionLayer = (uint)ECollisionLayer.Burrowed;
-            CollisionMask = (uint)ECollisionLayer.Environment;
+            CollisionMask = (uint)ECollisionLayer.Solid;
             // Hurtbox moves to its own BurrowedHurtBox layer so attack
             // raycasts (which mask ECollisionLayer.HurtBox) no longer hit
             // it. Keeping it separate from the body's Burrowed movement
@@ -2518,7 +2782,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // _PhysicsProcess keeps it pinned if the mob has no movement
             // intent. Explicitly unfreezing here would race with that.
             CollisionLayer = (uint)ECollisionLayer.Mob;
-            CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Player | ECollisionLayer.Mob);
+            CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
             if (_hurtBox != null)
             {
                 _hurtBox.CollisionLayer = (uint)ECollisionLayer.HurtBox;
@@ -2559,9 +2823,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private void UpdateTerrainSpeed()
     {
         _terrainSpeed = 1f;
-        foreach (TallGrass grass in _tallGrassCollisions)
+        foreach (Foliage foliage in _foliageCollisions)
         {
-            _terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
+            _terrainSpeed = Mathf.Min(_terrainSpeed, foliage.speed);
         }
     }
 
@@ -2636,19 +2900,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             && !_navigator.HasArrived;
         bool moving = alive && (intentMoving || horizSpeedSq > _movingMinSpeedSq);
         bool waterLoopActive = moving && inWater;
-        bool tallGrassLoopActive = moving && !inWater && _tallGrassCollisions.Count > 0;
+        bool foliageLoopActive = moving && !inWater && _foliageCollisions.Count > 0;
         UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, waterLoopActive);
-        UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopFx, tallGrassLoopActive);
+        UpdateLoopEffect(ref _foliageMovementLoop, _foliageMovementLoopFx, foliageLoopActive);
     }
 
-    public void AddTerrainModifier(TallGrass tallGrass)
+    public void AddTerrainModifier(Foliage foliage)
     {
-        _tallGrassCollisions.Add(tallGrass);
+        _foliageCollisions.Add(foliage);
     }
 
-    public void RemoveTerrainModifier(TallGrass tallGrass)
+    public void RemoveTerrainModifier(Foliage foliage)
     {
-        _tallGrassCollisions.Remove(tallGrass);
+        _foliageCollisions.Remove(foliage);
     }
 
     // Render the navigator's active path as line segments via DebugDraw.

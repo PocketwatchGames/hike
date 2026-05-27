@@ -30,6 +30,9 @@
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
+[ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/effects/wind_foam.tscn" id="wind_foam_scene"]
+[ext_resource type="Script" uid="uid://cd6m5lgxxf0tx" path="res://scripts/gameplay/WindParticleManager.cs" id="wind_particle_manager_script"]
+[ext_resource type="PackedScene" uid="uid://bwsand0j1k2l3" path="res://scenes/effects/wind_sand.tscn" id="wind_sand_scene"]
 
 [sub_resource type="Environment" id="Environment_bloom"]
 background_mode = 3
@@ -209,6 +212,15 @@ current = true
 size = 80.0
 near = 0.1
 far = 200.0
+
+[node name="WindParticleManager" type="Node3D" parent="SceneViewport" unique_id=1136216464]
+script = ExtResource("wind_particle_manager_script")
+SandEmitterScene = ExtResource("wind_sand_scene")
+FoamEmitterScene = ExtResource("wind_foam_scene")
+WindThreshold = 2.0
+FoamWindThreshold = 12.0
+BurstsPerSecondMin = 0.25
+BurstsPerSecondMax = 3.0
 
 [node name="SkyController" type="Node3D" parent="." unique_id=1861679395 node_paths=PackedStringArray("sunLight", "moonLight")]
 script = ExtResource("sky_controller_script")

@@ -45,6 +45,17 @@ cp -r <main-repo>/.godot/imported/ <worktree>/.godot/imported/
 cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 ```
 
+## External Asset Library
+
+Source textures, models, animations, and some sounds for new assets are pulled from an external Unity asset library at `C:\Users\andy\source\AssetDump\Assets` (outside this repo, not committed). A large bank of stock sound effects lives under `C:\Users\andy\source\AssetDump\Assets\Universal Sound FX`.
+
+This is a **browse/source location only** — scan and read it in place when implementing a new asset; do not copy the whole library into the project. Godot imports everything under the project root, so a bulk copy (even gitignored) would generate `.import`/`.godot/imported/` churn for hundreds of unused files.
+
+Workflow when adding an asset:
+1. Search/preview the library for what's needed (textures `.png`/`.tga`/`.psd`/`.webp`, models `.fbx`/`.gltf`, audio `.wav`/`.ogg`). Ignore Unity-only files — `.meta`, `.prefab`, `.mat`, `.asset`, `.unity` are useless to Godot.
+2. Copy only the chosen source file(s) into the appropriate `res://` subfolder (`assets/textures/...`, `scenes/props/`, etc.). These are **committed**, not gitignored — the game and teammates need them.
+3. Wire them up following this repo's conventions (`.import` sidecars, `.tscn`/`.tres`, and the Godot UID Invariants below).
+
 ## Architecture
 
 ### Entry Point (`scripts/Main.cs`)

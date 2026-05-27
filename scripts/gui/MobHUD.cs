@@ -160,8 +160,21 @@ public partial class MobHUD : Node2D
 		if (!stateHidden)
 		{
 			_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
-			_perceptionBar.Visible = _mob.mobData.team == ETeam.Hostile && _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
-			_healthBar.Visible = _mob.mobData.team == ETeam.Hostile && !_discoveryBar.Visible && _mob.triggered && !_mob.burrowed && (_mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor);
+			// Hostiles and prey both surface the stealth (perception) and health
+			// bars — you stalk both. Other teams (friendly, neutral) show neither.
+			bool combatOrPrey = _mob.mobData.team == ETeam.Hostile || _mob.mobData.team == ETeam.Prey;
+			_perceptionBar.Visible = combatOrPrey && _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
+			// Health bar shows only when injured. Hostiles reveal it once engaged
+			// (triggered); prey reveal it whenever wounded, so you can track a
+			// hurt animal you're hunting. Other teams don't show one.
+			bool injured = _mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor;
+			bool healthEligible = _mob.mobData.team switch
+			{
+				ETeam.Hostile => _mob.triggered,
+				ETeam.Prey => true,
+				_ => false,
+			};
+			_healthBar.Visible = healthEligible && !_discoveryBar.Visible && !_mob.burrowed && injured;
 			_armorBar.Visible = _healthBar.Visible && _mob.armor > 0;
 		}
 		else

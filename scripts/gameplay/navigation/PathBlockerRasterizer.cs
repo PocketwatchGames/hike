@@ -36,10 +36,12 @@ public static class PathBlockerRasterizer
 
     private static void CollectFromNode(Node node, int floorY, List<Vector3I> outCells)
     {
-        // Only environment-layer bodies count as path blockers — hurtboxes
+        // Only solid-world bodies count as path blockers — terrain/walls
+        // (Environment) and porous props (Porous, e.g. tree trunks). Hurtboxes
         // (layer 32) and interactive areas (layer 4) sit on the same entity
-        // but mustn't inflate the walkable grid.
-        if (node is CollisionObject3D body && (body.CollisionLayer & (uint)ECollisionLayer.Environment) != 0)
+        // but mustn't inflate the walkable grid. Porous props still block
+        // ground movement, so they belong here even though smell/sight pass.
+        if (node is CollisionObject3D body && (body.CollisionLayer & (uint)ECollisionLayer.Solid) != 0)
         {
             foreach (Node child in body.GetChildren())
             {

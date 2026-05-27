@@ -124,7 +124,7 @@ public partial class WeatherLightningSpawner : Node
         Vector3 from = query2d + new Vector3(0f, GROUND_RAY_HEIGHT_OFFSET, 0f);
         Vector3 to = query2d + new Vector3(0f, -GROUND_RAY_DEPTH_OFFSET, 0f);
         using var query = PhysicsRayQueryParameters3D.Create(from, to);
-        query.CollisionMask = (uint)ECollisionLayer.Environment;
+        query.CollisionMask = (uint)ECollisionLayer.Solid;
         query.CollideWithBodies = true;
         query.CollideWithAreas = false;
         var result = world3D.DirectSpaceState.IntersectRay(query);

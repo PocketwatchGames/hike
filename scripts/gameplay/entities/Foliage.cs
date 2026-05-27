@@ -1,7 +1,7 @@
 using Godot;
 
 [GlobalClass]
-public partial class TallGrass : Area3D, IWorldEntity
+public partial class Foliage : Area3D, IWorldEntity
 {
 	[Export] public float speed = 0.5f;
 	[Export] public float camouflage = 0.1f;
@@ -54,9 +54,9 @@ public partial class TallGrass : Area3D, IWorldEntity
 		}
 	}
 
-	public static TallGrass Create(World world, PropSimState data)
+	public static Foliage Create(World world, PropSimState data)
 	{
-		var instance = data.Scene.Instantiate<TallGrass>();
+		var instance = data.Scene.Instantiate<Foliage>();
 		instance.Position = data.WorldPosition;
 		world.AddChild(instance);
 		return instance;

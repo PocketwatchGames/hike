@@ -15,7 +15,7 @@ public class PropSimState : EntitySimState
     {
         return Type switch
         {
-            PropType.TallGrass => TallGrass.Create(world, this),
+            PropType.Foliage => Foliage.Create(world, this),
             _ => PropInstance.Create(world, this),
         };
     }

@@ -16,10 +16,10 @@ using Godot;
 //     Subclasses that need their own count parameter (chest loot count,
 //     berry count) declare a purpose-named field and roll inside Spawn.
 //
-// SpawnAtNight is honored by mob and chest sim states — their nodes only
-// MATERIALIZE after dark. Once spawned they persist through daytime until
-// their chunk evicts; SpawnAtNight is a one-way spawn gate, not a presence
-// gate. Subclasses that don't use a night-spawn concept (loot, fire trap,
+// spawnConditions is honored by mob and chest sim states — their nodes only
+// MATERIALIZE while the required circumstances hold. Once spawned they persist
+// until their chunk evicts; spawnConditions is a one-way spawn gate, not a
+// presence gate. Subclasses that don't use spawn gating (loot, fire trap,
 // berry tree, plain torch) simply ignore it.
 [GlobalClass]
 public partial class SpawnEntryData : Resource
@@ -36,10 +36,12 @@ public partial class SpawnEntryData : Resource
     // RollCount rather than an independent area roll.
     [Export(PropertyHint.Range, "0,5000,1,or_greater")] public float SquareMetersPerSpawn;
 
-    // Mob and chest sim states honour this by deferring node spawn until
-    // their chunk activates after dark; the resulting entity then persists
-    // across the day/night cycle. Other sim states ignore it.
-    [Export] public bool SpawnAtNight;
+    // Required circumstances for this entry's node to materialize. Mob and
+    // chest sim states honour these by deferring node spawn until their chunk
+    // activates while the conditions hold (e.g. Night, or Day | Clear); the
+    // resulting entity then persists across changing conditions. Other sim
+    // states ignore it. None = spawn unconditionally.
+    [Export, CompactFlags] public ESpawnConditions spawnConditions;
 
     // Reject this entry's spawn position if any existing entity sits within
     // this radius. Prevents campfires inside trees, mobs inside chests, etc.

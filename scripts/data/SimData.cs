@@ -665,6 +665,13 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float DustRainSuppression = 0.95f;
 
     [ExportSubgroup("Rain")]
+    // Blended rainAmount (0..1) at or above which weather counts as "heavy
+    // rain" for spawn gating: mobs/chests flagged ESpawnConditions.NotHeavyRain
+    // refuse to spawn once rain reaches this. Distinct from the lighter Clear
+    // gate (any meaningful rain) — heavy rain only suppresses spawns in a real
+    // downpour. See World.SpawnConditionsMet.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HeavyRainSpawnThreshold = 0.6f;
+
     // rainWeight at cloudCover=0 (scattered thin cloud). Light drizzle.
     // Multiplies rain fall velocity, drop alpha, streak length linearly,
     // and inversely scales wind tilt (lighter drops blow more).
@@ -679,6 +686,24 @@ public partial class SimData : Resource
     // rainAmount=0.3 emits fewer drops than a linear mapping would
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
+
+    [ExportGroup("Spawn Cleanup")]
+    // Mirror of the spawn gate: a loaded mob whose ESpawnConditions no longer
+    // hold (a night goblin caught at dawn, a clear-day sparrow once it starts
+    // raining) is despawned back to its persistent sim state — but only once
+    // it's far enough away, the player has lost track of it, and it isn't
+    // hunting the player. Cleared mobs respawn naturally when their conditions
+    // come back and their chunk is active. See World.CleanupOffConditionMobs.
+    //
+    // Distance (m) from the player beyond which an off-condition mob becomes
+    // eligible for cleanup. Must comfortably exceed view distance so the
+    // despawn never pops on-screen — the "player has lost track" gate already
+    // means it's invisible, this is belt-and-suspenders against edge cases.
+    [Export(PropertyHint.Range, "10,200,1")] public float SpawnCleanupDistance = 50f;
+    // Seconds between cleanup sweeps. The sweep walks every loaded mob, so it
+    // runs on an interval rather than per-frame; a couple of seconds is plenty
+    // since spawn conditions (time of day, weather) change slowly.
+    [Export(PropertyHint.Range, "0.5,30,0.5")] public float SpawnCleanupIntervalSeconds = 2f;
 
     [ExportGroup("Footprints")]
     // Two shared scenes — one always-visible (player prints, and mob prints
@@ -731,4 +756,63 @@ public partial class SimData : Resource
     // ThunderScheduler audio above (distant rumble atmosphere) — this
     // is the gameplay hazard.
     [Export] public LightningData weatherLightning;
+
+    [ExportGroup("Perception Environment")]
+    // World-wide weather modifiers on the perception senses, applied
+    // identically to both perception paths (player→mob and mob→player) by
+    // PlayerPerception's environmental helpers — wind, fog, and rain are
+    // physics that shape a sense the same way regardless of who is
+    // perceiving. All sampled at the perceiver's position (vision samples
+    // fog at the target it mirrors the light-at-target convention).
+
+    // Wind speed (m/s) at which the wind-driven perception effects (hearing
+    // suppression, smell disruption, smell directionality) reach full
+    // strength. Below this they scale linearly from 0 at dead calm. Tuned to
+    // the same "strong but not extreme" band as the weather-advection and
+    // water-ripple references.
+    [Export(PropertyHint.Range, "1,30,0.1")] public float PerceptionWindReference = 12f;
+
+    // Fraction of hearing (audible) range removed at PerceptionWindReference.
+    // Turbulent air scatters sound, so a gale partially masks footsteps for
+    // both the player and listening mobs. 0.5 = halved audible radius in a
+    // strong wind.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float HearingWindSuppression = 0.5f;
+
+    // Added fraction of hearing range at full fog. Still, damp foggy air
+    // carries sound farther, so fog is a (small) boon to hearing — and a
+    // counterweight to the vision loss fog also imposes. 0.3 = +30% audible
+    // radius in thick fog.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float FogHearingBoost = 0.3f;
+
+    // Fraction of vision range removed at full fog. Fog scatters light and is
+    // the dominant weather reducer of sight. 0.6 = vision cut to 40% of its
+    // clear-air reach in the thickest fog.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float FogVisionReduction = 0.6f;
+
+    // Fraction of vision range removed at full rain. Rain is a slight extra
+    // haze on top of any fog it brings — kept small so a downpour alone
+    // doesn't blind anyone. 0.15 = -15% sight in heavy rain.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float RainVisionReduction = 0.15f;
+
+    // Added fraction of smell range at full fog. Humid foggy air holds scent,
+    // widening the radius a mob can pick up the player's trail. 0.5 = +50%
+    // smell reach in thick fog.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float FogSmellBoost = 0.5f;
+
+    // Smell potential multiplier ADDED when a scent source is fully downwind
+    // of the smeller (wind blows from the source toward the nose). Scaled by
+    // wind strength, so calm air carries no directional bias. 1.0 = a strong
+    // downwind doubles the perceived scent.
+    [Export(PropertyHint.Range, "0,3,0.01")] public float SmellDownwindBoost = 1.0f;
+
+    // Fraction of smell potential removed when a source is fully upwind
+    // (wind blows the scent away from the nose). Scaled by wind strength.
+    // 0.7 = a strong upwind drops the scent to 30% of its still-air value.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float SmellUpwindReduction = 0.7f;
+
+    // Fraction of smell range removed at PerceptionWindReference, regardless
+    // of direction. High wind scatters and dilutes scent overall — a
+    // counterweight to the downwind boost so a gale isn't a pure smelling
+    // advantage. 0.4 = -40% smell reach in a strong wind.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float SmellWindDisruption = 0.4f;
 }

@@ -1,118 +1,65 @@
 [gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://fvs72bqjuve5"]
 
-[ext_resource type="Script" uid="uid://6xs48do3vkin" path="res://scripts/data/behaviors/IdleBehaviorData.cs" id="1_ajesw"]
-[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_o8xky"]
-[ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="3_k3x0b"]
-[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/BehaviorNodeTransition.cs" id="4_h1x8l"]
-[ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="5_mgrqo"]
-[ext_resource type="Script" uid="uid://drpm3lmw62rmu" path="res://scripts/data/behaviors/FleeBehaviorData.cs" id="6_bdhd6"]
-[ext_resource type="Script" uid="uid://uwvia1l0j0cx" path="res://scripts/data/behaviors/conditions/CanBurrowAndOutOfRangeCondition.cs" id="7_n4ajl"]
-[ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="8_xnjpt"]
-[ext_resource type="Script" uid="uid://b34r1kblkugu0" path="res://scripts/data/behaviors/BurrowBehaviorData.cs" id="9_4qe7d"]
-[ext_resource type="Script" uid="uid://dnl0n28wsm88g" path="res://scripts/data/behaviors/WanderBehaviorData.cs" id="10_7uh61"]
-[ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="11_1j3gf"]
-[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="12_l60xk"]
+[ext_resource type="Script" uid="uid://bftakwiwgw6ef" path="res://scripts/data/behaviors/PerchBehaviorData.cs" id="1_perch"]
+[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://d3thrtwd1n5kq" path="res://scripts/data/behaviors/conditions/ThreatWithinDistanceCondition.cs" id="3_threat"]
+[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/BehaviorNodeTransition.cs" id="4_trans"]
+[ext_resource type="Script" uid="uid://ujsevbhnpl0k" path="res://scripts/data/behaviors/FlyFleeBehaviorData.cs" id="5_flyflee"]
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="6_brain"]
+[ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="7_lookat"]
+[ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="8_hasinv"]
 
-[sub_resource type="Resource" id="Resource_idle"]
-script = ExtResource("1_ajesw")
+[sub_resource type="Resource" id="Resource_perch"]
+script = ExtResource("1_perch")
 
-[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
-script = ExtResource("3_k3x0b")
+[sub_resource type="Resource" id="Resource_cond_threat"]
+script = ExtResource("3_threat")
+distance = 10.0
 
-[sub_resource type="Resource" id="Resource_idle_to_flee"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_aggro_acquired")
-destination = &"Flee"
+[sub_resource type="Resource" id="Resource_cond_hasinv"]
+script = ExtResource("8_hasinv")
 
-[sub_resource type="Resource" id="Resource_cond_has_investigation"]
-script = ExtResource("5_mgrqo")
+[sub_resource type="Resource" id="Resource_perch_to_flee"]
+script = ExtResource("4_trans")
+condition = SubResource("Resource_cond_threat")
+destination = &"FlyFlee"
 
-[sub_resource type="Resource" id="Resource_idle_to_lookat"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_has_investigation")
+[sub_resource type="Resource" id="Resource_perch_to_lookat"]
+script = ExtResource("4_trans")
+condition = SubResource("Resource_cond_hasinv")
 destination = &"LookAt"
 
-[sub_resource type="Resource" id="Resource_idle_node"]
-script = ExtResource("2_o8xky")
-name = &"Idle"
-data = SubResource("Resource_idle")
-transitions = [SubResource("Resource_idle_to_flee"), SubResource("Resource_idle_to_lookat")]
+[sub_resource type="Resource" id="Resource_perch_node"]
+script = ExtResource("2_node")
+name = &"Perch"
+data = SubResource("Resource_perch")
+transitions = [SubResource("Resource_perch_to_flee"), SubResource("Resource_perch_to_lookat")]
 
-[sub_resource type="Resource" id="Resource_flee"]
-script = ExtResource("6_bdhd6")
-fleeRange = 12.0
+[sub_resource type="Resource" id="Resource_flyflee"]
+script = ExtResource("5_flyflee")
 
-[sub_resource type="Resource" id="Resource_cond_burrow"]
-script = ExtResource("7_n4ajl")
-
-[sub_resource type="Resource" id="Resource_flee_to_burrow"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_burrow")
-destination = &"Burrow"
-
-[sub_resource type="Resource" id="Resource_cond_aggro_lost"]
-script = ExtResource("8_xnjpt")
-
-[sub_resource type="Resource" id="Resource_flee_to_idle"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_aggro_lost")
-destination = &"Idle"
-
-[sub_resource type="Resource" id="Resource_flee_node"]
-script = ExtResource("2_o8xky")
-name = &"Flee"
-data = SubResource("Resource_flee")
-transitions = [SubResource("Resource_flee_to_burrow"), SubResource("Resource_flee_to_idle")]
-
-[sub_resource type="Resource" id="Resource_burrow"]
-script = ExtResource("9_4qe7d")
-
-[sub_resource type="Resource" id="Resource_burrow_to_idle"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_aggro_lost")
-destination = &"Idle"
-
-[sub_resource type="Resource" id="Resource_burrow_node"]
-script = ExtResource("2_o8xky")
-name = &"Burrow"
-data = SubResource("Resource_burrow")
-transitions = [SubResource("Resource_burrow_to_idle")]
-
-[sub_resource type="Resource" id="Resource_wander"]
-script = ExtResource("10_7uh61")
-
-[sub_resource type="Resource" id="Resource_wander_to_flee"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_aggro_acquired")
-destination = &"Flee"
-
-[sub_resource type="Resource" id="Resource_wander_to_lookat"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_has_investigation")
-destination = &"LookAt"
-
-[sub_resource type="Resource" id="Resource_wander_node"]
-script = ExtResource("2_o8xky")
-name = &"Wander"
-data = SubResource("Resource_wander")
-transitions = [SubResource("Resource_wander_to_flee"), SubResource("Resource_wander_to_lookat")]
+[sub_resource type="Resource" id="Resource_flyflee_node"]
+script = ExtResource("2_node")
+name = &"FlyFlee"
+data = SubResource("Resource_flyflee")
+transitions = []
 
 [sub_resource type="Resource" id="Resource_lookat"]
-script = ExtResource("11_1j3gf")
+script = ExtResource("7_lookat")
 
 [sub_resource type="Resource" id="Resource_lookat_to_flee"]
-script = ExtResource("4_h1x8l")
-condition = SubResource("Resource_cond_aggro_acquired")
-destination = &"Flee"
+script = ExtResource("4_trans")
+condition = SubResource("Resource_cond_threat")
+destination = &"FlyFlee"
 
 [sub_resource type="Resource" id="Resource_lookat_node"]
-script = ExtResource("2_o8xky")
+script = ExtResource("2_node")
 name = &"LookAt"
 data = SubResource("Resource_lookat")
 transitions = [SubResource("Resource_lookat_to_flee")]
 
 [resource]
-script = ExtResource("12_l60xk")
-idleBehavior = &"Idle"
-behaviors = [SubResource("Resource_idle_node"), SubResource("Resource_flee_node"), SubResource("Resource_burrow_node"), SubResource("Resource_wander_node"), SubResource("Resource_lookat_node")]
+script = ExtResource("6_brain")
+idleBehavior = &"Perch"
+behaviors = [SubResource("Resource_perch_node"), SubResource("Resource_flyflee_node"), SubResource("Resource_lookat_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

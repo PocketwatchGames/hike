@@ -73,12 +73,12 @@ public class MobSimState : EntitySimState
     // can't spam apples for unlimited loyalty. Persists across screen opens
     // — the cap is a property of the relationship, not the session.
     public Dictionary<ItemData, int> GiftCounts = new();
-    // When true, the mob's node is only created if the chunk activates during
-    // nighttime. Authored at worldgen for surface goblins so they only show up
-    // after dark. The MobSimState persists in WorldState either way; if the
-    // chunk loads in daylight no node spawns until the chunk is unloaded and
-    // reactivated after sunset.
-    public bool SpawnAtNight;
+    // Required circumstances for this mob's node to be created (see
+    // ESpawnConditions). Authored at worldgen — e.g. Night for surface
+    // goblins, Day | Clear for sparrows. The MobSimState persists in
+    // WorldState either way; if the chunk loads while the conditions don't
+    // hold no node spawns until the chunk reactivates while they do.
+    public ESpawnConditions SpawnConditions;
     // Whether this mob is a merchant who accepts two-way trades. False (the
     // default) surfaces the GiveItem verb on Mob and opens the merchant
     // screen in gift-only mode (get panel hidden). True swaps the verb to
@@ -96,6 +96,11 @@ public class MobSimState : EntitySimState
     public bool Burrowing;
     public ulong BurrowTimeMs;
     public bool Burrowed;
+    // Flying mobs only: true while the mob is in the air (gravity off, flight
+    // physics active). Driven each tick from AIOutput.airborne so the animation
+    // and physics layers agree on whether the mob is aloft. Transient — not
+    // serialized; a mob saved mid-flight loads grounded and takes off again.
+    public bool Airborne;
     public float MaxHealth;
     public float Health;
     // Latches true the first time the player deals damage to this mob (any
@@ -201,7 +206,7 @@ public class MobSimState : EntitySimState
         {
             return false;
         }
-        if (SpawnAtNight && !WorldState.IsNight(world.WorldState.TimeOfDay01))
+        if (!world.SpawnConditionsMet(SpawnConditions))
         {
             return false;
         }

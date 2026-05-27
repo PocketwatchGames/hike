@@ -108,6 +108,7 @@ burrowTime = 0.5
 hideRange = 8.0
 modifiers = Array[ExtResource("7_statmod")]([SubResource("Resource_dizzy_vuln")])
 maxSpeed = 8.0
+team = 4
 exp = 1
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")

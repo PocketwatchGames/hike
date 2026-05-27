@@ -690,7 +690,7 @@ public partial class AimingReticle : Node3D
 		{
 			bodyExclude.Add(_player.GetRid());
 		}
-		using var envQuery = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+		using var envQuery = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
 		envQuery.CollideWithBodies = true;
 		envQuery.CollideWithAreas = false;
 		envQuery.Exclude = bodyExclude;
@@ -756,7 +756,7 @@ public partial class AimingReticle : Node3D
 		// lake instead of punching through to the lake floor. Water lives on
 		// an Area3D (WaterTrigger), so CollideWithAreas must be on; the layer
 		// mask filters out other Area3Ds (interactives, hurtboxes).
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)(ECollisionLayer.Environment | ECollisionLayer.Water));
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)(ECollisionLayer.Solid | ECollisionLayer.Water));
 		query.CollideWithBodies = true;
 		query.CollideWithAreas = true;
 		var result = world3D.DirectSpaceState.IntersectRay(query);

@@ -9,10 +9,10 @@ public enum ECollisionLayer
     // "Parked" layer for bodies/areas that exist physically but are not
     // queried by any gameplay raycast/mask. Today: Loot's RigidBody (so it
     // falls and rests against Environment without being caught by combat
-    // hurt-rays or LOS checks) and TallGrass's Area3D (rustle-on-overlap
+    // hurt-rays or LOS checks) and Foliage's Area3D (rustle-on-overlap
     // trigger that detects via runtime mask, not via layer queries).
-    // Trees, despite being "props," live on Environment because they
-    // should block LOS and stop arrows. Rename from Prop in 2026-05.
+    // Props (trees, etc.) live on Porous, not here — see that layer. Rename
+    // from Prop in 2026-05.
     Passive = 8,
     Mob = 16,
     HurtBox = 32,
@@ -38,4 +38,16 @@ public enum ECollisionLayer
     // volume. Default attack masks use HurtBox only, so anything on this
     // layer is naturally hidden from regular weapons until a tool opts in.
     DeadHurtBox = 1024,
+    // Porous props (trees and most prop colliders). Distinct from Environment
+    // so a prop blocks movement and grounded line-of-sight (queries mask Solid)
+    // while letting smell, sound, perched vision, and flight pass straight
+    // through (those mask Environment alone). PropInstance.Porous remaps a
+    // prop's default-layer-1 colliders here at spawn. Terrain/walls stay on
+    // Environment so they stay solid to everything.
+    Porous = 2048,
+    // Convenience combo: "solid to the world" — terrain/walls plus porous
+    // props. Movement bodies and most world raycasts (vision, arrows, aim,
+    // pathing, rain, lightning) mask this so props still block them; the few
+    // queries that should see / smell / fly through props mask Environment alone.
+    Solid = Environment | Porous,
 }

@@ -3064,7 +3064,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    ws.AddEntity(new PropSimState(PropType.TallGrass, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
+                    ws.AddEntity(new PropSimState(PropType.Foliage, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
                 }
             }
         }

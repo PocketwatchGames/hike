@@ -149,6 +149,18 @@ public static class CVars
         WeatherSimulation.ForceLightningOverride = v > 0f ? (float?)v : null;
     });
 
+    // Debug: force the wind speed (m/s) that WindParticleManager gates on,
+    // overriding the simulated weather wind (which WeatherSimulation.Apply
+    // rewrites every frame, so the console can't otherwise hold a value).
+    // < 0 = off (use real weather). Set e.g. `wind_force 20` to make leaves /
+    // sand / foam emit regardless of the current calm; `wind_force -1` to clear.
+    public static CVarFloat windForce = new CVarFloat("wind_force", -1f);
+
+    // Debug: when true, WindParticleManager prints a once-per-second status
+    // line (wind, rain, gate state, leased emitter count) so you can see
+    // whether the system is activating and why not.
+    public static CVarBool windParticleDebug = new CVarBool("wind_particle_debug", false);
+
     // Debug: spawn a single damaging lightning strike at a random
     // position in the weather-lightning spawn annulus around the
     // player. Bypasses the spawner's cadence and intensity floor so
@@ -175,7 +187,7 @@ public static class CVars
         Godot.Vector3 from = query2d + new Godot.Vector3(0f, 80f, 0f);
         Godot.Vector3 to = query2d + new Godot.Vector3(0f, -80f, 0f);
         using var rayQuery = Godot.PhysicsRayQueryParameters3D.Create(from, to);
-        rayQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+        rayQuery.CollisionMask = (uint)ECollisionLayer.Solid;
         var result = world.GetWorld3D().DirectSpaceState.IntersectRay(rayQuery);
         Godot.Vector3 strikePos = result.Count > 0 ? (Godot.Vector3)result["position"] : query2d;
         LightningStrike.Create(world, strikePos, data);

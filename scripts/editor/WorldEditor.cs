@@ -464,7 +464,7 @@ public partial class WorldEditor : Node3D
             case "Tree":
                 return treeScenes.Length > 0 ? new PropSimState(PropType.Tree, position, treeScenes[(int)(GD.Randi() % treeScenes.Length)]) : null;
             case "TallGrass":
-                return tallGrassScenes.Length > 0 ? new PropSimState(PropType.TallGrass, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
+                return tallGrassScenes.Length > 0 ? new PropSimState(PropType.Foliage, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
             case "Loot":
             {
                 LootSpawnEntry loot = FindFirstSurfaceEntry<LootSpawnEntry>(firstZone);
@@ -664,7 +664,7 @@ public partial class WorldEditor : Node3D
 
         var spaceState = GetWorld3D().DirectSpaceState;
         using var query = PhysicsRayQueryParameters3D.Create(rayOrigin, rayEnd);
-        query.CollisionMask = (uint)(ECollisionLayer.Environment | ECollisionLayer.Water);
+        query.CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Water);
         return spaceState.IntersectRay(query);
     }
 

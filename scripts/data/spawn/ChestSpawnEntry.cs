@@ -27,7 +27,7 @@ public partial class ChestSpawnEntry : SpawnEntryData
         var chest = new ChestSimState(position, chestScene)
         {
             LootItems = Resolve(LootItems, rng),
-            SpawnAtNight = SpawnAtNight,
+            SpawnConditions = spawnConditions,
         };
         ws.AddEntity(chest);
     }

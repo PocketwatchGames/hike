@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://by9w4dirtcl2h7"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://do6bg3xof6umu" path="res://assets/textures/status_effects/Malaise_Status.png" id="2_icon"]
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Dirty"
+description = "This garment is grimy from long wear. Get it wet to wash it clean."
+modifiers = []
+maxStack = 1
+buildupBehavior = 1
+removesOnApply = []

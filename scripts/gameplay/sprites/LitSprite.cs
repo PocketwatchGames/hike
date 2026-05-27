@@ -57,7 +57,7 @@ public partial class LitSprite : SpriteBase
     // (1) — maps directly to the sprite_lit shader's align_to_terrain uniform.
     // TerrainNormal is the surface normal the shader rolls toward when
     // AlignToTerrain > 0 (world-space). Owners that want terrain alignment
-    // are responsible for sourcing a real normal — e.g. TallGrass raycasts
+    // are responsible for sourcing a real normal — e.g. Foliage raycasts
     // down at spawn — otherwise the default (world-up) keeps the sprite
     // upright regardless of AlignToTerrain.
     public float AlignToTerrain

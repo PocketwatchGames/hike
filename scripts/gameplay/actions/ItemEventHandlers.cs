@@ -74,7 +74,7 @@ public static class ItemEventHandlers
 			{
 				Shape = sphere,
 				Transform = new Transform3D(Basis.Identity, damagePos),
-				CollisionMask = (uint)ECollisionLayer.Environment,
+				CollisionMask = (uint)ECollisionLayer.Solid,
 				CollideWithAreas = false,
 				CollideWithBodies = true,
 			};
@@ -136,7 +136,7 @@ public static class ItemEventHandlers
 
 		// Clip against environment.
 		using var envQuery = PhysicsRayQueryParameters3D.Create(origin, rayEnd);
-		envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+		envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
 		envQuery.CollideWithAreas = false;
 		envQuery.CollideWithBodies = true;
 		envQuery.Exclude = bodyExclude;

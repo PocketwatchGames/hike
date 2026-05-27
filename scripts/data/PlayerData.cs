@@ -411,4 +411,15 @@ public partial class PlayerData : Resource
 	// dry player from cascade alone, before factoring in the player's own
 	// drying — in practice the steady-state is well below 1.
 	[Export(PropertyHint.Range, "0,1,0.001,or_greater")] public float wetnessArmorCascadeRate = 0.02f;
+
+	[ExportGroup("Dirtiness")]
+	// Game-days of continuous WEAR for a piece of armor's grime meter to fill
+	// 0→1 and read as "dirty". A worn dirty piece arms the player's Dirty
+	// status effect, whose Scent modifier makes the player easier for mobs to
+	// smell. One game day is SimData.DayLengthSeconds real seconds at
+	// time_scale 1, and grime accrues on that same clock (CVars.timeScale
+	// aware), so fast-forwarding the day/night cycle dirties armor faster too.
+	// There is no passive decay — only getting the piece wet (rain or water)
+	// scrubs it clean, and it need not be worn to be washed.
+	[Export(PropertyHint.Range, "0.1,30,0.1,or_greater")] public float dirtyDaysToFull = 3f;
 }

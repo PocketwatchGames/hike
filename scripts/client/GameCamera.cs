@@ -344,7 +344,7 @@ public partial class GameCamera : Camera3D
 
 		var spaceState = GetWorld3D().DirectSpaceState;
 		using var query = PhysicsRayQueryParameters3D.Create(rayFrom, rayTo);
-		query.CollisionMask = (uint)ECollisionLayer.Environment;
+		query.CollisionMask = (uint)ECollisionLayer.Solid;
 		var result = spaceState.IntersectRay(query);
 
 		float eyeY = playerPos.Y + EYE_HEIGHT;

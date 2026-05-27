@@ -68,6 +68,12 @@ public partial class MobData : Resource
     [Export] public float VisionRange = 15f;
     [Export] public float VisionDotPower = 0.5f;
     [Export] public float VisionRangePower = 0.5f;
+    // Lookout bonus while perched (flying mobs): VisionRange is scaled by this,
+    // and the facing cone is dropped (vision goes omnidirectional) to model a
+    // bird watching all around from an elevated vantage. 1 = no bonus. The
+    // perched bird also ignores its own perch prop's collider for LOS so the
+    // trunk it sits in doesn't blind it. Ignored by non-perching mobs.
+    [Export] public float perchedVisionRangeMultiplier = 1.5f;
     [Export] public float PerceptionIncreaseSpeed = 0.5f;
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
@@ -106,6 +112,12 @@ public partial class MobData : Resource
     // Free scalar on the player's perception distance — large mobs pass
     // >1 to be spotted from farther; small / sneaky mobs <1.
     [Export] public float prominence = 1f;
+    // Extra prominence multipliers while airborne / perched (flying mobs only).
+    // A bird in flight reads against open sky and catches the eye, so it's the
+    // most conspicuous; a perched bird up on a branch is still easier to spot
+    // than the same critter hidden at ground level. 1 = no bonus.
+    [Export] public float flyingProminenceMultiplier = 2f;
+    [Export] public float perchedProminenceMultiplier = 1.5f;
     // Per-mob thresholds for player-perceives-mob state transitions. Same
     // semantics as Discoverable: set detectedThreshold == discoveredThreshold
     // for a mob that should pop straight from Hidden to Discovered with no
@@ -294,8 +306,29 @@ public partial class MobData : Resource
 
     // For fliers: preferred altitude above the terrain surface in voxels.
     // Steering layer pulls the mob toward this height when no goal demands
-    // otherwise.
+    // otherwise. A behavior may override per-trip via AIOutput.flyAltitude
+    // (future low/medium/high cruise tiers).
     [Export] public float hoverHeight = 4f;
+
+    // ---- Flight profile (canFly only) ----
+    // Horizontal cruise speed while airborne, m/s. Replaces maxSpeed for the
+    // flight steering cap — birds travel faster than they hop on the ground.
+    [Export] public float flySpeed = 9f;
+    // Max climb/descent rate while seeking the target altitude, m/s. Caps the
+    // vertical hover correction so a bird eases onto its cruise height rather
+    // than snapping to it.
+    [Export] public float verticalSpeed = 5f;
+    // Altitude spring stiffness (per second). Higher = the bird corrects to its
+    // target height more aggressively; lower = lazier, more floaty bobbing.
+    [Export] public float hoverStiffness = 3f;
+    // How strongly baked air currents displace flight, as a fraction of the
+    // local wind velocity blended into the bird's desired velocity. 0 = wind
+    // ignored, 1 = fully carried by the wind, >1 = exaggerated (kite-like).
+    [Export(PropertyHint.Range, "0,2,0.05")] public float windInfluence = 0.5f;
+    // Voxels of terrain look-ahead along the flight direction: the target
+    // altitude is lifted to clear the highest surface within this distance so
+    // the bird rises over hills ahead instead of skimming into them.
+    [Export] public float flightLookAhead = 6f;
 
     // Mob's half-width for clearance checks. Used to validate that a path
     // cell has enough horizontal room and to size the separation kernel.

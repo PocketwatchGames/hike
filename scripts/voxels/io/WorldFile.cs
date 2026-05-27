@@ -83,7 +83,10 @@ public static class WorldFile
     //      as a normal status effect fed by buildup, and status effects
     //      aren't persisted (same as poison / wet). Mobs saved in the dizzy
     //      state load awake; their dizzy buildup meter resets to zero.
-    public const uint VERSION = 19;
+    // v20: Mob and Chest entity payloads replaced the SpawnAtNight bool with a
+    //      1-byte ESpawnConditions bitmask (Day/Night/Clear), so spawns can be
+    //      gated on time-of-day AND weather (e.g. sparrows spawn Day | Clear).
+    public const uint VERSION = 20;
 
     public struct IndexEntry
     {

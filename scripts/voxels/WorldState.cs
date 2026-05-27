@@ -261,6 +261,24 @@ public class WorldState
         return chunk.Voxels[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
     }
 
+    // Baked wind velocity (world m/s) at a world voxel, decoded from the
+    // owning chunk's coarse wind subgrid and scaled to world units. Returns
+    // Vector3.Zero when that chunk isn't resident. Used by flying mobs so
+    // spatially-varying air currents (mountain passes, sheltered hollows)
+    // push them around — the same field that drives sprite sway and water.
+    public Vector3 GetWindVelocityWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return Vector3.Zero;
+        }
+        int sx = Mod(wx, ChunkState.SIZE) / ChunkState.ENV_VOXELS_PER_CELL;
+        int sy = Mod(wy, ChunkState.SIZE) / ChunkState.ENV_VOXELS_PER_CELL;
+        int sz = Mod(wz, ChunkState.SIZE) / ChunkState.ENV_VOXELS_PER_CELL;
+        return chunk.GetWindVelocity(sx, sy, sz) * WindGen.WIND_VELOCITY_SCALE;
+    }
+
     public VoxelTypeInfo.SharpAxes GetShapeWorld(int wx, int wy, int wz)
     {
         Vector3I cc = WorldToChunkCoord(wx, wy, wz);

@@ -31,6 +31,8 @@
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 [ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
+[ext_resource type="Resource" uid="uid://cy6r2dirtk8m3q" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
+[ext_resource type="Resource" uid="uid://by9w4dirtcl2h7" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
 [ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
 [ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
 
@@ -1041,11 +1043,13 @@ _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
+_dirtyEffectData = ExtResource("27_statusdirty")
+_dirtyClothesEffectData = ExtResource("28_statusdirtyclothes")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathlrg")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
-_tallGrassMovementLoopFx = ExtResource("16_grassloop")
+_foliageMovementLoopFx = ExtResource("16_grassloop")
 _slideLoopFx = Dictionary[int, PackedScene]({
 0: ExtResource("9_vwwfy"),
 2: ExtResource("9_vwwfy"),

@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_node"]
 [ext_resource type="Script" uid="uid://6xs48do3vkin" path="res://scripts/data/behaviors/IdleBehaviorData.cs" id="3_idle"]
 [ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/BehaviorNodeTransition.cs" id="4_transition"]
-[ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="5_aggro_acquired"]
+[ext_resource type="Script" uid="uid://d3thrtwd1n5kq" path="res://scripts/data/behaviors/conditions/ThreatWithinDistanceCondition.cs" id="5_threat"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="6_aggro_lost"]
 [ext_resource type="Script" uid="uid://drpm3lmw62rmu" path="res://scripts/data/behaviors/FleeBehaviorData.cs" id="7_flee"]
 [ext_resource type="Script" uid="uid://b34r1kblkugu0" path="res://scripts/data/behaviors/BurrowBehaviorData.cs" id="8_burrow"]
@@ -16,12 +16,13 @@
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
 
-[sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
-script = ExtResource("5_aggro_acquired")
+[sub_resource type="Resource" id="Resource_cond_flee_threat"]
+script = ExtResource("5_threat")
+distance = 12.0
 
 [sub_resource type="Resource" id="Resource_idle_to_flee"]
 script = ExtResource("4_transition")
-condition = SubResource("Resource_cond_aggro_acquired")
+condition = SubResource("Resource_cond_flee_threat")
 destination = &"Flee"
 
 [sub_resource type="Resource" id="Resource_cond_has_investigation"]
@@ -83,7 +84,7 @@ script = ExtResource("10_wander")
 
 [sub_resource type="Resource" id="Resource_wander_to_flee"]
 script = ExtResource("4_transition")
-condition = SubResource("Resource_cond_aggro_acquired")
+condition = SubResource("Resource_cond_flee_threat")
 destination = &"Flee"
 
 [sub_resource type="Resource" id="Resource_wander_to_lookat"]
@@ -102,7 +103,7 @@ script = ExtResource("11_lookat")
 
 [sub_resource type="Resource" id="Resource_lookat_to_flee"]
 script = ExtResource("4_transition")
-condition = SubResource("Resource_cond_aggro_acquired")
+condition = SubResource("Resource_cond_flee_threat")
 destination = &"Flee"
 
 [sub_resource type="Resource" id="Resource_lookat_node"]

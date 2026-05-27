@@ -23,7 +23,7 @@ Data = ExtResource("4_3ofq4")
 InitialBehavior = null
 ClusterCountMin = 2
 ClusterCountMax = 3
-SpawnAtNight = true
+spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_chest_loot_mushrooms"]
 script = ExtResource("7_udeir")
@@ -50,7 +50,7 @@ metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 script = ExtResource("9_lvrwy")
 Scene = ExtResource("8_3f36l")
 LootItems = [SubResource("Resource_chest_loot_mushrooms"), SubResource("Resource_lh7ja"), SubResource("Resource_udeir")]
-SpawnAtNight = true
+spawnConditions = 2
 
 [resource]
 script = ExtResource("10_x87yb")

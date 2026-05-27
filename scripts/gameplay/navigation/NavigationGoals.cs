@@ -158,7 +158,7 @@ public static class NavigationGoals
     {
         Vector3 a = from + new Vector3(0f, StandoffEyeHeight, 0f);
         Vector3 b = to + new Vector3(0f, StandoffEyeHeight, 0f);
-        using var query = PhysicsRayQueryParameters3D.Create(a, b, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(a, b, (uint)ECollisionLayer.Solid);
         query.CollideWithAreas = false;
         query.CollideWithBodies = true;
         var result = world.GetWorld3D().DirectSpaceState.IntersectRay(query);

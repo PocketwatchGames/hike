@@ -17,6 +17,15 @@ public struct AIOutput
     public float pathSuccessDistance;
     public bool inCombat;
     public bool burrow;
+    // Flying mobs (MobData.canFly) only: when true, the mob is airborne this
+    // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
+    // wind + steering) instead of ground locomotion. Flight is travel-only:
+    // behaviors set this while moving between points and clear it to land, so
+    // a bird is never left hovering in place by the behavior layer. flyAltitude
+    // (when set) overrides MobData.hoverHeight as the target height above
+    // terrain, so future low/medium/high cruise tiers just vary this value.
+    public bool airborne;
+    public float? flyAltitude;
     public bool useTorch;
     // True when TickAI early-returned because the mob is AI-suspended
     // (BehaviorIdle latches a 100ms suspend window once it's standing at
@@ -78,6 +87,11 @@ public struct InvestigateState
     public float range;
     public ulong cancelTime;
     public ulong pauseTime;
+    // True when this stimulus should only make the receiver glance toward the
+    // source (BehaviorLookAt), not walk over and inspect it (BehaviorInvestigate).
+    // Set by a yell when the receiver isn't an ally of the yeller — cross-team
+    // alarms draw a look, ally alarms draw a full investigation.
+    public bool lookOnly;
 }
 
 // Per-mob per-frame breakdown of the perception math, captured for the
@@ -317,15 +331,26 @@ public partial class Mob
                 ? Mathf.Clamp(Mathf.Pow(LinearVelocity.Length() / mobData.maxVisibilitySpeed, mobData.visibilityMovementPower), mobData.visibilityMovementMin, 1f)
                 : 1f;
             float camouflage = 0f;
-            foreach (TallGrass grass in _tallGrassCollisions)
+            foreach (Foliage foliage in _foliageCollisions)
             {
-                camouflage = Mathf.Max(camouflage, grass.camouflage);
+                camouflage = Mathf.Max(camouflage, foliage.camouflage);
             }
             // Fold the transient mob-side visibility (movement / camouflage)
             // into prominence at the call site. Discoverables don't have a
             // transient term, so PerceptionInputs only carries one scalar
             // and mob composes its per-frame modulation into it here.
             float effectiveProminence = mobData.prominence * speedFactor * Mathf.Max(0f, 1f - camouflage);
+            // Airborne / perched mobs read against the sky / from up on a branch
+            // and are easier to spot — flying most of all. Mutually exclusive
+            // states, so pick one multiplier.
+            if (_simState.Airborne)
+            {
+                effectiveProminence *= mobData.flyingProminenceMultiplier;
+            }
+            else if (_perched)
+            {
+                effectiveProminence *= mobData.perchedProminenceMultiplier;
+            }
 
             // Mob's own movement noise — sampled here so PlayerPerception
             // can add a hearing contribution. Sneak threshold is half max
@@ -354,6 +379,10 @@ public partial class Mob
                 lightSampleHeight = 1f,
                 losRayHeight = 1.5f,
                 decibels = mobDecibels,
+                // A flying or perched mob is on/among foliage — don't let porous
+                // props occlude the player's view of it (it'd vanish into the
+                // tree it's sitting in). Grounded mobs stay occluded by trees.
+                seeThroughPorous = _simState.Airborne || _perched,
             };
 
             // Marshal the two split fields on MobSimState into the helper's
@@ -427,7 +456,17 @@ public partial class Mob
             ref PerceptionState target = ref _simState.PerceptionTargets[0];
             target.target = _world.player;
 
-            float visibilityDistance = mobData.VisionRange * Mathf.Pow(Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
+            // Perched fliers are an elevated lookout: vision goes omnidirectional
+            // (drop the facing cone) and reaches farther (perchedVisionRangeMultiplier).
+            bool perched = _perched;
+            float facingFactor = perched
+                ? 1f
+                : Mathf.Pow(Mathf.Max(0, toPlayer.Normalized().Dot(GlobalTransform.Basis.Z)), mobData.VisionDotPower);
+            float visionRange = perched ? mobData.VisionRange * mobData.perchedVisionRangeMultiplier : mobData.VisionRange;
+            // Fog/rain shorten the mob's sight of the player; sampled at the
+            // player (the target here).
+            float visibilityDistance = visionRange * facingFactor
+                * PlayerPerception.VisionRangeMultiplier(_world, _world.player.GlobalPosition);
             if (!target.triggered)
             {
                 visibilityDistance *= _world.player.visibility;
@@ -440,10 +479,15 @@ public partial class Mob
                 float eyeHeight = 1.5f;
                 Vector3 rayStart = GlobalPosition + new Vector3(0f, eyeHeight, 0f);
                 Vector3 rayEnd = _world.player.GlobalPosition + new Vector3(0f, eyeHeight, 0f);
+                // Grounded vision is blocked by props (Solid); perched vision
+                // sees over/through foliage (Environment only) — the elevated
+                // lookout vantage, and what keeps the bird's own perch tree from
+                // blinding it without any per-prop exclusion.
+                uint visionMask = perched ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
                 Godot.Collections.Dictionary result;
                 using (Profiler.Sample("Mob.PerceptionRays"))
                 {
-                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                    using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, visionMask);
                     query.CollideWithAreas = false;
                     query.CollideWithBodies = true;
                     result = GetWorld3D().DirectSpaceState.IntersectRay(query);
@@ -470,7 +514,9 @@ public partial class Mob
             float playerDecibels = _world.player.CurrentDecibels;
             if (playerDecibels > 0f && mobData.hearingRange > 0f)
             {
-                float maxAudibleDistance = playerDecibels * mobData.hearingRange;
+                // Wind masks sound, fog carries it — sampled at the mob (listener).
+                float maxAudibleDistance = playerDecibels * mobData.hearingRange
+                    * PlayerPerception.HearingRangeMultiplier(_world, GlobalPosition);
                 if (distanceSqToPlayer < maxAudibleDistance * maxAudibleDistance)
                 {
                     hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distanceSqToPlayer) / maxAudibleDistance, mobData.hearingRangePower);
@@ -479,9 +525,11 @@ public partial class Mob
 
             // Smell contribution. Walks the player's breadcrumb list; each
             // crumb in range contributes `strength * falloff(distance)`. Wind
-            // already shaped crumb positions during advection (and voxel-
-            // collided their drift), so direction is implicit in the crumb
-            // layout. LOS raycast from the mob's nose to each candidate
+            // shapes smell two ways: it drifts crumb positions during advection
+            // (handled in ScentEmitter), AND it biases each crumb's perceived
+            // strength here — downwind sources smell stronger, upwind weaker,
+            // with high wind scattering the scent and widening fog holding it
+            // (SmellRangeMultiplier). LOS raycast from the mob's nose to each candidate
             // prevents smelling through walls — without it a stationary
             // crumb on the far side of a thin wall would leak through.
             // Greedy gate: skip the raycast for any crumb whose potential
@@ -492,9 +540,25 @@ public partial class Mob
             ScentEmitter scent = _world.player.Scent;
             if (mobData.SmellStrength > 0f && mobData.smellRange > 0f && scent != null)
             {
-                float smellRange = mobData.smellRange;
-                float smellRangeSq = smellRange * smellRange;
                 Vector3 nose = GlobalPosition + new Vector3(0f, 1.5f, 0f);
+                // Fog widens the scent radius, high wind scatters it (both
+                // direction-independent). The downwind/upwind bias is applied
+                // per crumb below.
+                float smellRange = mobData.smellRange * PlayerPerception.SmellRangeMultiplier(_world, nose);
+                float smellRangeSq = smellRange * smellRange;
+                // Precompute the wind once for the per-crumb directional term
+                // (wind is global, so a sample per crumb would be wasteful).
+                // smellWindBias scales the dot-product deviation: 0 in dead
+                // calm (no directionality), up to 1 at PerceptionWindReference.
+                SimData sim = _world.SimData;
+                float smellWindBias = sim != null ? PlayerPerception.WindFraction(_world, nose) : 0f;
+                Vector3 windDir3 = _world.WorldState.WindDirection;
+                Vector2 windDir = new Vector2(windDir3.X, windDir3.Z);
+                bool hasWind = smellWindBias > 0f && windDir.LengthSquared() > 0.000001f;
+                if (hasWind)
+                {
+                    windDir = windDir.Normalized();
+                }
                 System.Collections.Generic.IReadOnlyList<ScentEmitter.Breadcrumb> crumbs = scent.Crumbs;
                 for (int ci = 0; ci < crumbs.Count; ci++)
                 {
@@ -506,6 +570,20 @@ public partial class Mob
                     }
                     float dist = Mathf.Sqrt(distSq);
                     float potential = c.strength * Mathf.Pow(1f - dist / smellRange, mobData.smellRangePower);
+                    // Downwind sources (wind blows crumb→nose) smell stronger;
+                    // upwind ones weaker. Alignment is the dot of the unit
+                    // crumb→nose vector with the wind, scaled by wind strength.
+                    if (hasWind)
+                    {
+                        Vector3 toNose3 = nose - c.pos;
+                        Vector2 toNose = new Vector2(toNose3.X, toNose3.Z);
+                        if (toNose.LengthSquared() > 0.000001f)
+                        {
+                            float alignment = toNose.Normalized().Dot(windDir);
+                            float coeff = alignment >= 0f ? sim.SmellDownwindBoost : sim.SmellUpwindReduction;
+                            potential *= Mathf.Max(0f, 1f + coeff * alignment * smellWindBias);
+                        }
+                    }
                     if (potential <= smellDelta)
                     {
                         continue;
@@ -514,6 +592,8 @@ public partial class Mob
                     Godot.Collections.Dictionary smellHit;
                     using (Profiler.Sample("Mob.PerceptionRays"))
                     {
+                        // Smell masks Environment only, so scent drifts through
+                        // porous props (trees) and is blocked just by terrain/walls.
                         using var query = PhysicsRayQueryParameters3D.Create(nose, crumbTarget, (uint)ECollisionLayer.Environment);
                         query.CollideWithAreas = false;
                         query.CollideWithBodies = true;
@@ -608,7 +688,7 @@ public partial class Mob
         _simState.AmbientLight = sunExposure * skyBrightness;
     }
 
-    public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs)
+    public void Investigate(Vector3 position, float range, ulong cancelTimeMs, ulong pauseTimeMs, bool lookOnly = false)
     {
         investigation = new InvestigateState
         {
@@ -616,6 +696,7 @@ public partial class Mob
             range = range,
             cancelTime = _world.GameTimeMs + cancelTimeMs,
             pauseTime = pauseTimeMs,
+            lookOnly = lookOnly,
         };
     }
 }

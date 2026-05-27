@@ -50,7 +50,7 @@ public partial class MobSpawnEntry : SpawnEntryData
             (float)(rng.NextDouble() * Mathf.Pi * 2f),
             Data.MobScene,
             Data);
-        state.SpawnAtNight = SpawnAtNight;
+        state.SpawnConditions = spawnConditions;
         if (InitialBehavior != null && (string)InitialBehavior != ""
             && rng.NextDouble() < InitialBehaviorChance)
         {

@@ -438,7 +438,7 @@ public partial class Player : CharacterBody3D, IActionActor
 			// a mob behind a wall. Cheaper than the old two-pass clip because
 			// we already have the exact target point; if the env ray hits
 			// before reaching AimCenter, the mob is occluded.
-			using var envQuery = PhysicsRayQueryParameters3D.Create(origin, center, (uint)ECollisionLayer.Environment);
+			using var envQuery = PhysicsRayQueryParameters3D.Create(origin, center, (uint)ECollisionLayer.Solid);
 			envQuery.CollideWithBodies = true;
 			envQuery.CollideWithAreas = false;
 			envQuery.Exclude = selfBodyExclude;

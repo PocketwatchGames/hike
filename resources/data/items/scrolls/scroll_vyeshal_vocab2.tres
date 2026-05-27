@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://754cme8yka3wk" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
 [ext_resource type="Script" uid="uid://5rhnpp2tplumf" path="res://scripts/data/teaching/LanguageTeachable.cs" id="2_language_teachable"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="3_vyeshal"]
-[ext_resource type="Texture2D" uid="uid://dbxgm1drqr4q2" path="res://assets/textures/items/GemBlack.png" id="4_36plx"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_36plx"]
 [ext_resource type="Resource" uid="uid://bql4dlf6cycp7" path="res://resources/data/items/scrolls/scroll_action_profile.tres" id="4_profile"]
-[ext_resource type="Texture2D" uid="uid://dpe13uep7n1tv" path="res://assets/textures/items/pickups/GemBlack.png" id="6_q7qm6"]
+[ext_resource type="Texture2D" uid="uid://dbfuf48053yrc" path="res://assets/textures/items/pickups/Scroll.png" id="6_q7qm6"]
 
 [sub_resource type="Resource" id="Resource_concept_vocab2"]
 script = ExtResource("2_language_teachable")

@@ -38,6 +38,18 @@ public partial class Player : CharacterBody3D
 	// null in the .tscn so the system still works without authoring.
 	[Export] private StatusEffectData _wetClothesEffectData;
 
+	// Status effect armed while the player wears a fully-grimy piece of armor.
+	// Carries the Scent modifier (and the HUD icon) — TickDirtyEffect drives
+	// its ContinuousArm meter to track the dirtiest worn piece, so the smell
+	// penalty turns on once a garment is dirty and off when it's washed clean.
+	[Export] private StatusEffectData _dirtyEffectData;
+	// Item-side grime status used for each armor piece's per-piece meter. Has
+	// the same arm/disarm shape as `_dirtyEffectData` but NO modifier list —
+	// the Scent penalty is an actor-side concern that folds once, on the
+	// player, when their meter arms (mirrors the wet-clothes split). Falls back
+	// to `_dirtyEffectData` if left null in the .tscn.
+	[Export] private StatusEffectData _dirtyClothesEffectData;
+
 	[ExportGroup("FX")]
 	// One-shot blood splatter spawned at the player's position on a non-lethal
 	// damage hit. Spawned in world space so the puff stays put as the player
@@ -52,7 +64,7 @@ public partial class Player : CharacterBody3D
 	// so they follow the body; held alive while in the matching state and
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopFx;
-	[Export] private PackedScene _tallGrassMovementLoopFx;
+	[Export] private PackedScene _foliageMovementLoopFx;
 	// Per-ground-type foot-puff loop spawned while sliding / skating /
 	// skidding. Tracks the body. Keys must match what GroundTypeResolver
 	// returns at the player's position; missing keys silently emit nothing
@@ -194,7 +206,7 @@ public partial class Player : CharacterBody3D
 	EInventorySlot? _pendingWeaponPressSlot;
 	string _pendingWeaponPressActionName;
 	readonly List<IInteractive> _interactiveCollisions = new();
-	readonly List<TallGrass> _tallGrassCollisions = new();
+	readonly List<Foliage> _foliageCollisions = new();
 	float _terrainSpeed = 1f;
 	bool _grounded;
 	bool _aiming;
@@ -223,7 +235,7 @@ public partial class Player : CharacterBody3D
 	// drop the reference at Stop() so the next activation creates a fresh
 	// node rather than racing with the trailing-audio teardown.
 	Fx _waterMovementLoop;
-	Fx _tallGrassMovementLoop;
+	Fx _foliageMovementLoop;
 	Fx _slideLoop;
 	// Tracked active slide-loop scene so per-ground-type swaps avoid
 	// recreating the Fx every tick. Same shape as _animLoopScene.
@@ -585,7 +597,7 @@ public partial class Player : CharacterBody3D
 		// must never slow or deflect the player. The reaction (mob lurches
 		// out of the way) is applied in PushTouchedMobs via an overlap
 		// query against MobSpatialHash, not through MoveAndSlide contacts.
-		CollisionMask = (uint)ECollisionLayer.Environment;
+		CollisionMask = (uint)ECollisionLayer.Solid;
 
 		// Setting current=true in the .tscn is unreliable when a Camera3D
 		// is also in the tree — Godot picks the camera as listener. Force
@@ -1475,6 +1487,77 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Per-physics-tick dirty driver. Mirrors TickWetEffect's per-armor model:
+	// each WORN piece of armor slowly accumulates grime (over
+	// PlayerData.dirtyDaysToFull game-days of wear), and the player-side Dirty
+	// effect — which carries the Scent penalty and the HUD icon — tracks the
+	// dirtiest worn piece via its own ContinuousArm meter.
+	//
+	// Washing: while a piece's wet meter is armed its grime is pinned to zero.
+	// Because the wet driver soaks EVERY owned piece (worn or packed), getting
+	// the player wet cleans their whole wardrobe — a garment needn't be worn
+	// to be washed. There is no passive decay; grime only resets by washing.
+	private void TickDirtyEffect(float dt)
+	{
+		if (_dirtyEffectData == null || _inventory == null || data == null)
+		{
+			return;
+		}
+
+		// Item-side meters key off the modifier-less clothes status (fallback
+		// to the player effect if unwired) so an armor piece never arms a
+		// Scent-bearing instance of its own — the penalty folds once, on the
+		// player, when their meter arms.
+		StatusEffectData dirtyClothes = _dirtyClothesEffectData ?? _dirtyEffectData;
+		StatusEffectData wetClothes = _wetClothesEffectData ?? _wetEffectData;
+
+		// Grime accrues in GAME-time: dirtyDaysToFull day/night cycles of wear
+		// fill the 0→1 meter. One game day is DayLengthSeconds real seconds at
+		// time_scale 1, so the per-real-second rate tracks the same clock (and
+		// CVar) that advances the sky.
+		float dayLength = _world?.WorldState?.SimData?.DayLengthSeconds ?? 600f;
+		float daysToFull = Mathf.Max(data.dirtyDaysToFull, 0.0001f);
+		float dirtyDelta = dayLength > 0f ? dt * CVars.timeScale.Value / (daysToFull * dayLength) : 0f;
+
+		foreach (ArmorState armor in _inventory.EnumerateAllArmor())
+		{
+			if (armor?.data == null) { continue; }
+			// Wet wins: a soaked piece is being washed, so pin its grime to
+			// zero (a fat negative contribution clamps to 0). Applies to packed
+			// pieces too, so a swim or a downpour launders everything you own.
+			if (wetClothes != null && armor.statusEffects.HasActive(wetClothes))
+			{
+				if (armor.statusEffects.GetBuildup(dirtyClothes) > 0f)
+				{
+					armor.statusEffects.AddBuildup(dirtyClothes, -1f);
+				}
+				continue;
+			}
+			// Only WORN pieces pick up grime; a packed piece holds its current
+			// dirtiness until it's worn again.
+			if (dirtyDelta > 0f && _inventory.IsEquipped(armor))
+			{
+				armor.statusEffects.AddBuildup(dirtyClothes, dirtyDelta);
+			}
+		}
+
+		// Drive the player-side meter to the dirtiest worn piece. Its
+		// ContinuousArm thresholds switch the Scent penalty + HUD icon on once
+		// a worn piece is fully grimy and off when it's washed back below the
+		// disarm threshold.
+		float maxWornDirty = 0f;
+		foreach (ArmorState armor in _inventory.EnumerateEquippedArmor())
+		{
+			if (armor == null) { continue; }
+			maxWornDirty = Mathf.Max(maxWornDirty, armor.statusEffects.GetBuildup(dirtyClothes));
+		}
+		float playerDirtyDelta = maxWornDirty - _statusEffects.GetBuildup(_dirtyEffectData);
+		if (playerDirtyDelta != 0f)
+		{
+			_statusEffects.AddBuildup(_dirtyEffectData, playerDirtyDelta);
+		}
+	}
+
 	// Surface a continuous 0..1 progress value the HUD's status-effect
 	// strip can render as a fill bar, for status effects whose intensity
 	// is driven by a continuous player-side state rather than a timer.
@@ -1614,7 +1697,7 @@ public partial class Player : CharacterBody3D
 		}
 		Vector3 from = GlobalPosition + Vector3.Up * 1.5f;
 		Vector3 to = from + Vector3.Up * 200f;
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
 		query.CollideWithBodies = true;
 		query.CollideWithAreas = false;
 		query.Exclude = new Godot.Collections.Array<Rid> { GetRid() };
@@ -2347,6 +2430,7 @@ public partial class Player : CharacterBody3D
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
 		TickWetEffect(dt);
+		TickDirtyEffect(dt);
 		TickBodyTemperature(dt);
 		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
 		if (dotFlush.damage)
@@ -2357,6 +2441,16 @@ public partial class Player : CharacterBody3D
 			// permanently — one pulse per HUD-rolled second.
 			SpawnWorldEffect(_hurtVoFx);
 			GameClient.Current?.FlashDamage(dotFlush.damageAmount);
+		}
+		// Recompose emitted scent strength each tick so equipment / status
+		// modifiers actually change the trail mobs read — a Dirty garment
+		// cranks it up (EStat.Scent > 1), a future scent-masking cloak would
+		// cut it. Strength feeds both per-crumb potency and crumb lifetime
+		// (lifetime = strength / decayRate), so dirtier reads farther and
+		// lingers longer. Without this the Scent stat only fed the stats panel.
+		if (_scent != null)
+		{
+			_scent.Strength = data.scentStrength * ComposeStat(EStat.Scent);
 		}
 		_scent?.Tick(dt);
 
@@ -2387,9 +2481,9 @@ public partial class Player : CharacterBody3D
 		bool waterLoopActive = moving && _waterState == EWaterState.Swimming;
 		// Tall-grass and water are mutually exclusive — when wading, the
 		// shallow footsteps win so we don't double up on rustle + slosh.
-		bool tallGrassLoopActive = moving && _tallGrassCollisions.Count > 0 && _waterState == EWaterState.None;
+		bool foliageLoopActive = moving && _foliageCollisions.Count > 0 && _waterState == EWaterState.None;
 		UpdateLoopEffect(ref _waterMovementLoop, _waterMovementLoopFx, waterLoopActive);
-		UpdateLoopEffect(ref _tallGrassMovementLoop, _tallGrassMovementLoopFx, tallGrassLoopActive);
+		UpdateLoopEffect(ref _foliageMovementLoop, _foliageMovementLoopFx, foliageLoopActive);
 
 		// Dash and sprint suppress aim — the player commits to the movement
 		// burst, so look-rotation and the gamepad-stick aim fallback both
@@ -3320,9 +3414,9 @@ public partial class Player : CharacterBody3D
 	private void UpdateTerrainSpeed()
 	{
 		_terrainSpeed = 1f;
-		foreach (TallGrass grass in _tallGrassCollisions)
+		foreach (Foliage foliage in _foliageCollisions)
 		{
-			_terrainSpeed = Mathf.Min(_terrainSpeed, grass.speed);
+			_terrainSpeed = Mathf.Min(_terrainSpeed, foliage.speed);
 		}
 	}
 
@@ -3910,9 +4004,9 @@ public partial class Player : CharacterBody3D
 		float speedFactor = data.moveSpeed > 0f ? Mathf.Clamp(Mathf.Pow(Velocity.Length() / data.moveSpeed, data.visibilityMovementPower), data.visibilityMovementMin, 1f) : 1f;
 
 		float camouflage = 0f;
-		foreach (TallGrass grass in _tallGrassCollisions)
+		foreach (Foliage foliage in _foliageCollisions)
 		{
-			camouflage = Mathf.Max(camouflage, grass.camouflage);
+			camouflage = Mathf.Max(camouflage, foliage.camouflage);
 		}
 
 		visibility = Mathf.Clamp(lightFactor * speedFactor * (1.0f - camouflage), 0f, 1f);
@@ -3925,14 +4019,14 @@ public partial class Player : CharacterBody3D
 		CurrentDecibels = PlayerPerception.ComputeMovementDecibels(horizVel.Length(), data.sneakSpeed, data.moveSpeed, data.sneakDecibels, data.runDecibels);
 	}
 
-	public void AddTerrainModifier(TallGrass tallGrass)
+	public void AddTerrainModifier(Foliage foliage)
 	{
-		_tallGrassCollisions.Add(tallGrass);
+		_foliageCollisions.Add(foliage);
 	}
 
-	public void RemoveTerrainModifier(TallGrass tallGrass)
+	public void RemoveTerrainModifier(Foliage foliage)
 	{
-		_tallGrassCollisions.Remove(tallGrass);
+		_foliageCollisions.Remove(foliage);
 	}
 
 	public void WaterAreaEntered()

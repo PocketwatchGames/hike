@@ -38,7 +38,7 @@ public partial class MultimeshPropSprite : Sprite3D
     // Blend between upright billboarding (0) and terrain-aligned
     // billboarding (1). Same uniform sprite_lit / detail_sprite use.
     // When > 0, _Ready raycasts down to sample the terrain normal under
-    // the sprite (mirrors TallGrass.SampleTerrainNormal).
+    // the sprite (mirrors Foliage.SampleTerrainNormal).
     [Export(PropertyHint.Range, "0,1,0.01")] public float AlignToTerrain { get; set; }
 
     // Push the rendered sprite toward the camera by this many meters along
@@ -402,7 +402,7 @@ public partial class MultimeshPropSprite : Sprite3D
         spriteSize = new Vector2I(1, 1);
     }
 
-    // Short downward raycast — same shape TallGrass uses — so the sprite
+    // Short downward raycast — same shape Foliage uses — so the sprite
     // leans with the actual visible slope (which the DC mesher may
     // interpolate slightly off the voxel grid). Falls back to world-up if
     // the ray misses (sprite floating over a carved hole, physics not yet

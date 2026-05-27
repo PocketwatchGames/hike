@@ -457,7 +457,7 @@ public partial class AmbienceController : Node3D
         {
             Vector3 dir = EnclosureRayDirs[i].Normalized();
             Vector3 to = from + dir * ENCLOSURE_RAY_RANGE;
-            using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+            using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
             var hit = space.IntersectRay(query);
             if (hit.Count == 0) { continue; }
 

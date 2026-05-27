@@ -350,7 +350,7 @@ public partial class RainEffect : Node3D
         Vector3 to = from + new Vector3(0f, -SplashRayMaxDistance, 0f);
 
         var spaceState = GetWorld3D().DirectSpaceState;
-        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
         var hit = spaceState.IntersectRay(query);
         if (hit.Count == 0) { return; }
 

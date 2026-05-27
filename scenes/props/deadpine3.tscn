@@ -1,23 +1,24 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://byb58hpvypipd"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
+[ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="4_04qmn"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
 height = 3.0996
 radius = 0.4059
 
-[node name="PropInstance" type="Node3D"]
+[node name="PropInstance" type="Node3D" unique_id=1070283670]
 script = ExtResource("1_prop")
 
-[node name="Body" type="StaticBody3D" parent="."]
+[node name="Body" type="StaticBody3D" parent="." unique_id=639714299]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=842745398]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5498, 0)
 shape = SubResource("CylinderShape3D_body")
 
-[node name="Sprite" type="Sprite3D" parent="."]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=349626005]
 centered = false
 offset = Vector2(-6.5, 0)
 pixel_size = 0.0738
@@ -25,6 +26,9 @@ texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(687, 157, 12, 42)
 script = ExtResource("3_mmprop")
-MinimapFoliageId = 3
 ForwardOffset = 0.4059
+MinimapFoliageId = 3
 
+[node name="Perch" type="Node3D" parent="Sprite" unique_id=498966636]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28661263, 2.9349313, 0)
+script = ExtResource("4_04qmn")

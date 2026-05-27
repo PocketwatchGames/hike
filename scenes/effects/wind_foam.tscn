@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://bwfoam4m5n6o7"]
+
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_pl"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="1_tcbp2"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_foam"]
+emission_shape = 3
+emission_box_extents = Vector3(1.2, 0.05, 1.2)
+direction = Vector3(0, 1, 0)
+spread = 25.0
+initial_velocity_max = 2.0
+gravity = Vector3(0, -2, 0)
+damping_min = 0.4
+damping_max = 1.2
+color_ramp = ExtResource("1_tcbp2")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_foam"]
+render_priority = 0
+shader = ExtResource("1_pl")
+shader_parameter/albedo = Color(0.6384, 0.71136, 0.76, 0.19607843)
+shader_parameter/emission = Color(0, 0, 0, 0)
+
+[sub_resource type="QuadMesh" id="QuadMesh_foam"]
+material = SubResource("ShaderMaterial_foam")
+size = Vector2(0.0738, 0.0738)
+
+[node name="WindFoam" type="GPUParticles3D" unique_id=404621815]
+extra_cull_margin = 16.0
+emitting = false
+amount = 12
+lifetime = 2.0
+one_shot = true
+explosiveness = 0.25
+randomness = 0.6
+visibility_aabb = AABB(-6, -3, -6, 12, 8, 12)
+process_material = SubResource("ParticleProcessMaterial_foam")
+draw_pass_1 = SubResource("QuadMesh_foam")

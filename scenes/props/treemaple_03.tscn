@@ -1,23 +1,26 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://b2vd51be3ejsx"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
+[ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="4_w2ssy"]
+[ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="wind_src"]
+[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="wind_leaf"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_body"]
 height = 8.3394
 radius = 1.2177
 
-[node name="PropInstance" type="Node3D"]
+[node name="PropInstance" type="Node3D" unique_id=2033404041]
 script = ExtResource("1_prop")
 
-[node name="Body" type="StaticBody3D" parent="."]
+[node name="Body" type="StaticBody3D" parent="." unique_id=590077579]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Body"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=232583308]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.1697, 0)
 shape = SubResource("CylinderShape3D_body")
 
-[node name="Sprite" type="Sprite3D" parent="."]
+[node name="Sprite" type="Sprite3D" parent="." unique_id=2015135355]
 centered = false
 offset = Vector2(-25.5, 0)
 pixel_size = 0.0738
@@ -25,6 +28,14 @@ texture = ExtResource("2_decor")
 region_enabled = true
 region_rect = Rect2(326, 270, 49, 113)
 script = ExtResource("3_mmprop")
-MinimapFoliageId = 3
 ForwardOffset = 1.2177
+MinimapFoliageId = 3
 
+[node name="Perch" type="Node3D" parent="Sprite" unique_id=254713]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.58292234, 8.169844, 0)
+script = ExtResource("4_w2ssy")
+
+[node name="WindEmitterSource" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 0)
+script = ExtResource("wind_src")
+EmitterScene = ExtResource("wind_leaf")

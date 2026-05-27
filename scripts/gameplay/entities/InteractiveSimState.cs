@@ -111,10 +111,11 @@ public class ForgeJob
 public class ChestSimState : EntitySimState
 {
     public bool Active = true;
-    // When true, the chest's node is only created if the chunk activates during
-    // nighttime. Authored at worldgen for chests anchored to night-only
-    // encounters (e.g. campfire encampments). Mirrors MobSimState.SpawnAtNight.
-    public bool SpawnAtNight;
+    // Required circumstances for this chest's node to be created (see
+    // ESpawnConditions). Authored at worldgen for chests anchored to gated
+    // encounters (e.g. Night for campfire encampments). Mirrors
+    // MobSimState.SpawnConditions.
+    public ESpawnConditions SpawnConditions;
     // Contents the chest ejects on open. Authored on whatever places the
     // chest (ChestSpawnEntry for procedural spawns, WorldGenData for test
     // fixtures, future editor placements) — the chest scene itself carries
@@ -147,7 +148,7 @@ public class ChestSimState : EntitySimState
 
     public override bool ShouldSpawn(World world)
     {
-        if (SpawnAtNight && !WorldState.IsNight(world.WorldState.TimeOfDay01))
+        if (!world.SpawnConditionsMet(SpawnConditions))
         {
             return false;
         }

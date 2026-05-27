@@ -37,4 +37,5 @@ public enum EAnimation
     Reading = 23,
     Casting = 24,
     Using = 25,
+    Fly = 26,
 }

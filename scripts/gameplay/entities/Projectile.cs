@@ -184,7 +184,7 @@ public partial class Projectile : Node3D
 				Vector3? envHit = null;
 				using (var envQuery = PhysicsRayQueryParameters3D.Create(prev, next))
 				{
-					envQuery.CollisionMask = (uint)ECollisionLayer.Environment;
+					envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
 					envQuery.CollideWithBodies = true;
 					envQuery.CollideWithAreas = false;
 					if (_bodyExclude != null)

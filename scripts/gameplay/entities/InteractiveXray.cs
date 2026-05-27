@@ -177,7 +177,7 @@ public partial class InteractiveXray : Node3D
 
         Vector3 rayStart = origin + new Vector3(0f, losRayHeight, 0f);
         Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
-        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Solid);
         query.CollideWithAreas = false;
         query.CollideWithBodies = true;
         Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);

@@ -46,12 +46,60 @@ public partial class World : Node3D
     private readonly MobSpatialHash _mobSpatialHash = new();
     public MobSpatialHash MobSpatialHash => _mobSpatialHash;
 
+    // Registry of perch markers (landing spots on props/interactives). Perch
+    // nodes self-register on tree-enter and unregister on tree-exit, so this
+    // tracks exactly the perches in currently-loaded chunks. Flying mobs query
+    // it to pick a place to land when fleeing.
+    private readonly PerchRegistry _perches = new();
+    public PerchRegistry Perches => _perches;
+
     // Coordinator for "where should each mob stand around the player /
     // other targets" — hands out angular standoff slots so a swarm fans
     // out instead of stacking. Slots are leased per-mob and survive
     // across repaths; explicit Release on aggro-loss / death.
     private readonly EncircleSlotAllocator _encircleAllocator = new();
     public EncircleSlotAllocator EncircleAllocator => _encircleAllocator;
+
+    // Rain intensity (blended WeatherData.rainAmount, 0..1) at or above which
+    // ESpawnConditions.Clear entries refuse to spawn. Sampled from the live
+    // player-blended weather; since spawn gating only runs at chunk activation
+    // (which streams around the player), this is the right gameplay read.
+    public const float RainSpawnThreshold = 0.2f;
+
+    // Current rain intensity from the live blended weather, or 0 when no
+    // SkyController is up (editor / headless). Used by the spawn gate.
+    public float CurrentRainAmount()
+    {
+        return SkyController.Current?.Weather?.rainAmount ?? 0f;
+    }
+
+    // True iff every circumstance required by `conditions` currently holds, so
+    // a gated mob/chest may materialize. None always passes. See ESpawnConditions.
+    public bool SpawnConditionsMet(ESpawnConditions conditions)
+    {
+        if (conditions == ESpawnConditions.None)
+        {
+            return true;
+        }
+        bool night = WorldState.IsNight(_worldState.TimeOfDay01);
+        if (conditions.HasFlag(ESpawnConditions.Day) && night)
+        {
+            return false;
+        }
+        if (conditions.HasFlag(ESpawnConditions.Night) && !night)
+        {
+            return false;
+        }
+        if (conditions.HasFlag(ESpawnConditions.Clear) && CurrentRainAmount() >= RainSpawnThreshold)
+        {
+            return false;
+        }
+        if (conditions.HasFlag(ESpawnConditions.NotHeavyRain) && CurrentRainAmount() >= SimData.HeavyRainSpawnThreshold)
+        {
+            return false;
+        }
+        return true;
+    }
 
     private readonly Dictionary<Vector3I, List<Node3D>> _activeEntities = new();
     private readonly HashSet<Vector3I> _desiredEntityChunks = new();
@@ -107,6 +155,12 @@ public partial class World : Node3D
     // does not despawn anything; existing night mobs ride out daytime
     // until their chunk evicts.
     private bool _wasNight;
+    // Time since the last off-condition mob cleanup sweep (see Tick /
+    // CleanupOffConditionMobs). Throttles the per-mob walk to once per
+    // SimData.SpawnCleanupIntervalSeconds.
+    private float _spawnCleanupAccumulator;
+    // Reused scratch list so the cleanup sweep doesn't allocate each interval.
+    private readonly List<Mob> _cleanupScratch = new();
     private WorldState _worldState;
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
@@ -271,6 +325,18 @@ public partial class World : Node3D
         {
             _wasNight = isNight;
             RefreshTimeOfDayEntities();
+        }
+
+        // Complement to RefreshTimeOfDayEntities: periodically despawn loaded
+        // mobs whose spawn conditions have lapsed. Runs on an interval (not the
+        // night edge) because weather-gated conditions (Clear / NotHeavyRain)
+        // drift continuously, not just at dawn/dusk.
+        float cleanupInterval = _worldState.SimData?.SpawnCleanupIntervalSeconds ?? 2f;
+        _spawnCleanupAccumulator += (float)delta;
+        if (_spawnCleanupAccumulator >= cleanupInterval)
+        {
+            _spawnCleanupAccumulator = 0f;
+            CleanupOffConditionMobs();
         }
 
         _heatField?.Tick();
@@ -483,7 +549,7 @@ public partial class World : Node3D
         Vector3 toSun = -_worldState.ShadowLightDirection;
         Vector3 from = pos + toSun * SUN_RAY_ORIGIN_OFFSET;
         Vector3 to = from + toSun * SUN_RAY_DISTANCE;
-        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Environment);
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
         var result = GetWorld3D().DirectSpaceState.IntersectRay(query);
         return result.Count == 0;
     }
@@ -755,6 +821,14 @@ public partial class World : Node3D
         {
             worldEntity.OnSpawned(this);
         }
+        // Porous props / interactives: move their default-layer colliders onto
+        // Porous so smell, sound, perched vision, and flight pass through while
+        // movement and grounded sight still block. One shared concept (IPorous)
+        // and one application site for props and interactives alike.
+        if (entity is IPorous porous && porous.Porous)
+        {
+            PorousColliders.Apply(entity);
+        }
         if (state != null)
         {
             state.RuntimeNode = entity;
@@ -801,14 +875,81 @@ public partial class World : Node3D
         entities.Add(entity);
     }
 
+    // Despawns loaded mobs whose ESpawnConditions no longer hold (a night
+    // goblin caught past dawn, a clear-day sparrow once rain starts), but only
+    // when the encounter is "cold": the mob is far from the player, the player
+    // has lost track of it (DiscoveryState back to Hidden), and the mob isn't
+    // aware of / hunting the player. This is a presence gate that complements
+    // the spawn gate — a goblin caught out at dawn keeps hunting as long as it
+    // can see the player or the player can see it, and only quietly vanishes
+    // once everyone has disengaged and walked away. The MobSimState persists in
+    // WorldState, so the mob respawns naturally when its conditions return and
+    // its chunk is active (same path as RefreshTimeOfDayEntities). Despawn is
+    // identical to a chunk eviction: QueueFree → TreeExiting syncs the node
+    // back to its sim state. Called from Tick on an interval.
+    private void CleanupOffConditionMobs()
+    {
+        if (_player == null)
+        {
+            return;
+        }
+        using var _prof = Profiler.Sample("World.CleanupOffConditionMobs");
+        float distance = _worldState.SimData?.SpawnCleanupDistance ?? 50f;
+        float distanceSq = distance * distance;
+        Vector3 playerPos = _player.GlobalPosition;
+
+        // Collect first, mutate after — RemoveEntity edits the lists that
+        // GetEntities<Mob> walks.
+        _cleanupScratch.Clear();
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            // Unconditional spawns and corpses are never cleaned up on this
+            // account; corpses have their own lifecycle (loot, chunk eviction).
+            if (!mob.alive || mob.spawnConditions == ESpawnConditions.None)
+            {
+                continue;
+            }
+            // Conditions still hold — the mob legitimately belongs here.
+            if (SpawnConditionsMet(mob.spawnConditions))
+            {
+                continue;
+            }
+            // Player still knows about it (Discovered with live memory, or
+            // mid-Detected) — let memory lapse before we touch it.
+            if (mob.playerPerceptionState != EPlayerPerceptionState.Hidden)
+            {
+                continue;
+            }
+            // Mob is aware of the player (alerted or investigating) — a goblin
+            // mid-hunt doesn't blink out at dawn.
+            if (mob.triggered || mob.investigation != null)
+            {
+                continue;
+            }
+            // Close enough that despawning could be seen.
+            if ((mob.GlobalPosition - playerPos).LengthSquared() < distanceSq)
+            {
+                continue;
+            }
+            _cleanupScratch.Add(mob);
+        }
+
+        for (int i = 0; i < _cleanupScratch.Count; i++)
+        {
+            Mob mob = _cleanupScratch[i];
+            RemoveEntity(mob);
+            mob.QueueFree();
+        }
+        _cleanupScratch.Clear();
+    }
+
     // Walks active chunks and spawns any night-only entities whose chunk is
-    // active when night begins. The reverse direction is intentionally NOT
-    // handled here: once a SpawnAtNight mob/chest has materialized it stays
-    // alive until its chunk evicts (or it dies / is consumed), even if the
-    // sun comes up. SpawnAtNight is purely a spawn gate, not a presence gate
-    // — a goblin caught out at dawn keeps hunting until the player walks
-    // away. Non-night entities override ShouldSpawn => true unconditionally
-    // and are unaffected. Called from Tick on day↔night transitions.
+    // active when night begins. The reverse direction — despawning entities
+    // whose conditions lapsed — is handled separately by CleanupOffConditionMobs,
+    // which removes a SpawnAtNight mob only once the player is far and unaware;
+    // a goblin caught out at dawn keeps hunting until then. Non-night entities
+    // override ShouldSpawn => true unconditionally and are unaffected. Called
+    // from Tick on day↔night transitions.
     private void RefreshTimeOfDayEntities()
     {
         foreach (var pair in _activeEntities)

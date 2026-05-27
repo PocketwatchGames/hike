@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://d0kbigg6xw7pf"]
 
 [ext_resource type="Script" uid="uid://c4uhw2jno8omi" path="res://scripts/gameplay/entities/PropInstance.cs" id="1_prop"]
+[ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="2_1op6o"]
 [ext_resource type="Texture2D" uid="uid://bmexg1iyjueyk" path="res://assets/textures/props/decor_desert.png" id="2_decor"]
 [ext_resource type="Script" uid="uid://7fmr4y8a6cto" path="res://scripts/voxels/props/MultimeshPropSprite.cs" id="3_mmprop"]
 
@@ -25,3 +26,7 @@ region_enabled = true
 region_rect = Rect2(0, 49, 66, 78)
 script = ExtResource("3_mmprop")
 ForwardOffset = 2.4354
+
+[node name="Perch" type="Node3D" parent="Sprite" unique_id=452807125]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.21133685, 4.22796, 0)
+script = ExtResource("2_1op6o")

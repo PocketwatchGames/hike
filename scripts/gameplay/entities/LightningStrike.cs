@@ -430,7 +430,7 @@ public partial class LightningStrike : Node3D
         Vector3 from = new Vector3(query2d.X, query2d.Y + GROUND_RAY_HEIGHT_OFFSET, query2d.Z);
         Vector3 to = new Vector3(query2d.X, query2d.Y - GROUND_RAY_DEPTH_OFFSET, query2d.Z);
         using var query = PhysicsRayQueryParameters3D.Create(from, to);
-        query.CollisionMask = (uint)ECollisionLayer.Environment;
+        query.CollisionMask = (uint)ECollisionLayer.Solid;
         query.CollideWithBodies = true;
         query.CollideWithAreas = false;
         var result = world3D.DirectSpaceState.IntersectRay(query);

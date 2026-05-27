@@ -43,6 +43,16 @@ public partial class BehaviorLookAt : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.Complete);
         }
 
+        // Turn-to-look gates on line of sight: you only crane toward an alarm
+        // you can actually see (unlike Investigate, which walks toward a noise
+        // even behind cover). No sightline to the source → drop it and return
+        // to default rather than staring at a wall.
+        if (!HasLineOfSight(me, me.investigation.Value.position))
+        {
+            output.resetInvestigation = true;
+            return new BehaviorOutput(EBehaviorResult.Complete);
+        }
+
         // Read the position fresh each tick so a follow-up yell that
         // overwrites investigation re-aims us at the new source.
         Vector3 diff = me.investigation.Value.position - me.GlobalPosition;
@@ -53,5 +63,19 @@ public partial class BehaviorLookAt : BehaviorBase
         }
 
         return new BehaviorOutput(EBehaviorResult.Running);
+    }
+
+    // Eye-height environment+prop raycast to the look position — mirrors the
+    // sightline checks in UpdatePerception / BehaviorInvestigate (Solid mask,
+    // so props block a grounded mob's view).
+    private const float EyeHeight = 1.5f;
+    private static bool HasLineOfSight(Mob me, Vector3 target)
+    {
+        Vector3 rayStart = me.GlobalPosition + new Vector3(0f, EyeHeight, 0f);
+        Vector3 rayEnd = target + new Vector3(0f, EyeHeight, 0f);
+        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Solid);
+        query.CollideWithAreas = false;
+        query.CollideWithBodies = true;
+        return me.GetWorld3D().DirectSpaceState.IntersectRay(query).Count == 0;
     }
 }

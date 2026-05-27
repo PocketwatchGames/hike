@@ -51,6 +51,12 @@ public struct PerceptionInputs
     // hundreds of footprints from multiple mobs would otherwise raycast every
     // perception tick.
     public bool skipLineOfSight;
+    // When true, the LOS raycast ignores porous props (trees, foliage) and is
+    // blocked only by solid terrain/walls. Set for flying / perched mobs so a
+    // bird sitting in or flying through a canopy stays visible to the player
+    // instead of being hidden by the very foliage it's on. Grounded targets
+    // leave this false so a deer behind a tree is properly occluded.
+    public bool seeThroughPorous;
     // Current sound output of the target in decibels. 0 = silent (no hearing
     // contribution). Mobs feed in their speed-mapped movement noise; static
     // discoverables leave this at 0.
@@ -129,7 +135,8 @@ public static class PlayerPerception
             float lightAtTarget = world.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
             debug.lighting = lightFactor;
-            float visibilityDistance = maxVisibilityDistance * lightFactor;
+            // Fog/rain shorten sight; sampled at the player (the perceiver here).
+            float visibilityDistance = maxVisibilityDistance * lightFactor * VisionRangeMultiplier(world, player.GlobalPosition);
             if (visibilityDistance > 0f)
             {
                 visionDelta = Mathf.Pow(
@@ -141,7 +148,8 @@ public static class PlayerPerception
                     {
                         Vector3 rayStart = targetPos + new Vector3(0f, inputs.losRayHeight, 0f);
                         Vector3 rayEnd = player.GlobalPosition + new Vector3(0f, PlayerEyeHeight, 0f);
-                        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, (uint)ECollisionLayer.Environment);
+                        uint losMask = inputs.seeThroughPorous ? (uint)ECollisionLayer.Environment : (uint)ECollisionLayer.Solid;
+                        using var query = PhysicsRayQueryParameters3D.Create(rayStart, rayEnd, losMask);
                         query.CollideWithAreas = false;
                         query.CollideWithBodies = true;
                         Godot.Collections.Dictionary rayResult = player.GetWorld3D().DirectSpaceState.IntersectRay(query);
@@ -166,7 +174,9 @@ public static class PlayerPerception
         float hearingDelta = 0f;
         if (inputs.decibels > 0f && pd.hearingRange > 0f)
         {
-            float maxAudibleDistance = inputs.decibels * pd.hearingRange;
+            // Wind masks sound, fog carries it — sampled at the listener (player).
+            float maxAudibleDistance = inputs.decibels * pd.hearingRange
+                * HearingRangeMultiplier(world, player.GlobalPosition);
             if (distSq < maxAudibleDistance * maxAudibleDistance)
             {
                 hearingDelta = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, pd.hearingRangePower);
@@ -245,6 +255,91 @@ public static class PlayerPerception
             return Mathf.Lerp(sneakDecibels, runDecibels, t);
         }
         return sneakDecibels * (speed / Mathf.Max(0.001f, sneakSpeed));
+    }
+
+    // ===== Environmental sense modifiers =====
+    // Wind, fog, and rain shape every sense the same way regardless of who is
+    // perceiving, so both perception paths (this Tick for player→mob, and
+    // MobAI.UpdatePerception for mob→player) route through these helpers.
+    // Each returns a multiplier on a sense's range (~1 in calm, clear air).
+
+    // Normalized wind strength [0,1] at a world position: SampleWindSpeed
+    // (which already zeroes out underground / under cover) over the authored
+    // PerceptionWindReference, clamped. Public so MobAI can sample it once
+    // for the per-crumb smell directionality instead of per crumb.
+    public static float WindFraction(World world, Vector3 pos)
+    {
+        SimData sim = world?.SimData;
+        if (sim == null)
+        {
+            return 0f;
+        }
+        GameClient gc = GameClient.Current;
+        float windSpeed = gc != null ? gc.SampleWindSpeed(pos) : 0f;
+        if (windSpeed <= 0f)
+        {
+            return 0f;
+        }
+        return Mathf.Clamp(windSpeed / Mathf.Max(0.001f, sim.PerceptionWindReference), 0f, 1f);
+    }
+
+    // Normalized fog density [0,1] at a world position. Single-voxel sample
+    // (same as AmbienceController) — fog is regionally smooth, so trilinear
+    // filtering would buy nothing here.
+    private static float FogFraction(World world, Vector3 pos)
+    {
+        WorldState ws = world?.WorldState;
+        if (ws == null)
+        {
+            return 0f;
+        }
+        return ws.GetFogWorld(Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) / 255f;
+    }
+
+    // Vision-range multiplier at `samplePos`: fog (dominant) and rain both add
+    // haze that shortens sight. Both perception paths sample the fog at the
+    // PLAYER's position — fog around the player is what reads on screen, and
+    // the player is the perceiver (player→mob) or the target (mob→player) in
+    // each case. Rain is the global blended amount.
+    public static float VisionRangeMultiplier(World world, Vector3 samplePos)
+    {
+        SimData sim = world?.SimData;
+        if (sim == null)
+        {
+            return 1f;
+        }
+        float fog = FogFraction(world, samplePos);
+        float rain = world.CurrentRainAmount();
+        return Mathf.Max(0f, (1f - sim.FogVisionReduction * fog) * (1f - sim.RainVisionReduction * rain));
+    }
+
+    // Hearing-range multiplier at the listener: wind masks sound (turbulent
+    // air scatters it) while still, damp fog carries it farther.
+    public static float HearingRangeMultiplier(World world, Vector3 listenerPos)
+    {
+        SimData sim = world?.SimData;
+        if (sim == null)
+        {
+            return 1f;
+        }
+        float wind = WindFraction(world, listenerPos);
+        float fog = FogFraction(world, listenerPos);
+        return Mathf.Max(0f, (1f - sim.HearingWindSuppression * wind) * (1f + sim.FogHearingBoost * fog));
+    }
+
+    // Non-directional smell-range multiplier at the nose: humid fog holds
+    // scent (widens reach) while high wind scatters it (shrinks reach). The
+    // downwind/upwind directional term is per-source and applied by MobAI.
+    public static float SmellRangeMultiplier(World world, Vector3 nosePos)
+    {
+        SimData sim = world?.SimData;
+        if (sim == null)
+        {
+            return 1f;
+        }
+        float wind = WindFraction(world, nosePos);
+        float fog = FogFraction(world, nosePos);
+        return Mathf.Max(0f, (1f - sim.SmellWindDisruption * wind) * (1f + sim.FogSmellBoost * fog));
     }
 
     // Force-promote a target to Discovered. Used when a trap triggers — the
