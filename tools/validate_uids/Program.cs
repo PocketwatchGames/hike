@@ -35,7 +35,7 @@ class Program
 		}
 
 		Console.WriteLine($"Repo root: {repoRoot}");
-		Console.WriteLine($"Mode: {(fix ? "validate + auto-fix missing .cs.uid sidecars + rewrite mismatched ext_resource uids" : "validate only")}");
+		Console.WriteLine($"Mode: {(fix ? "validate + auto-fix missing .cs.uid sidecars + reconcile uid mismatches by reference-majority" : "validate only")}");
 		Console.WriteLine();
 
 		var issues = new List<string>();
@@ -203,6 +203,8 @@ class Program
 		}
 	}
 
+	readonly record struct SceneRef(string SceneFile, int LineIndex, string TargetAbs, string Uid);
+
 	static void ValidateSceneReferences(string repoRoot, Dictionary<string, string> uidByPath, List<string> issues, bool fix)
 	{
 		var uidLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -211,6 +213,9 @@ class Program
 			uidLookup[kv.Value] = kv.Key;
 		}
 
+		// Phase A: collect every ext_resource reference to a sidecar-owned target,
+		// plus immediate structural issues (missing paths, uid-points-elsewhere).
+		var refs = new List<SceneRef>();
 		foreach (string root in EnumerateRoots(repoRoot, SceneScanRoots))
 		{
 			foreach (string sceneFile in Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories))
@@ -235,29 +240,140 @@ class Program
 					continue;
 				}
 
-				ValidateSceneFile(repoRoot, sceneFile, uidByPath, uidLookup, issues, fix);
+				CollectSceneRefs(repoRoot, sceneFile, uidByPath, uidLookup, refs, issues);
 			}
+		}
+
+		// Phase B: group references by target and decide the genuine uid by
+		// reference-MAJORITY — the value Godot actually wrote across the most
+		// scenes/resources. The sidecar gets NO vote: a .cs.uid / .gdshader.uid
+		// sidecar is the artifact most often corrupted by headless edits (a bad
+		// agent fabricating a uid), so it can't be trusted as the source of
+		// truth. We only auto-resolve a STRICT majority; any tie is reported and
+		// left for a human, so --fix can never spread a wrong uid the way a
+		// "sidecar always wins" rule does.
+		var byTarget = new Dictionary<string, List<SceneRef>>(StringComparer.OrdinalIgnoreCase);
+		foreach (SceneRef r in refs)
+		{
+			if (!byTarget.TryGetValue(r.TargetAbs, out var list))
+			{
+				list = new List<SceneRef>();
+				byTarget[r.TargetAbs] = list;
+			}
+
+			list.Add(r);
+		}
+
+		// sceneFile -> (lineIndex -> (oldUid, newUid)) edits batched per file.
+		var edits = new Dictionary<string, Dictionary<int, (string Old, string New)>>(StringComparer.OrdinalIgnoreCase);
+
+		foreach (var kv in byTarget)
+		{
+			string targetAbs = kv.Key;
+			List<SceneRef> targetRefs = kv.Value;
+			uidByPath.TryGetValue(targetAbs, out string? sidecarUid);
+
+			var votes = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+			foreach (SceneRef r in targetRefs)
+			{
+				votes.TryGetValue(r.Uid, out int c);
+				votes[r.Uid] = c + 1;
+			}
+
+			// Fully consistent: all references agree and the sidecar matches.
+			if (votes.Count == 1)
+			{
+				string only = FirstKey(votes);
+				if (sidecarUid == null || string.Equals(sidecarUid, only, StringComparison.OrdinalIgnoreCase))
+				{
+					continue;
+				}
+			}
+
+			// Strict-majority winner among references.
+			string genuine = "";
+			int top = -1;
+			bool tie = false;
+			foreach (var v in votes)
+			{
+				if (v.Value > top)
+				{
+					top = v.Value;
+					genuine = v.Key;
+					tie = false;
+				}
+				else if (v.Value == top)
+				{
+					tie = true;
+				}
+			}
+
+			string targetRel = Relative(repoRoot, targetAbs);
+			if (tie)
+			{
+				string breakdown = VoteBreakdown(votes);
+				string sidePart = sidecarUid != null ? $", sidecar {sidecarUid}" : string.Empty;
+				issues.Add($"{targetRel}: ambiguous uid — reference vote tied [{breakdown}]{sidePart} (resolve manually, even with --fix)");
+				continue;
+			}
+
+			// Reconcile the sidecar to the genuine uid.
+			if (sidecarUid != null && !string.Equals(sidecarUid, genuine, StringComparison.OrdinalIgnoreCase))
+			{
+				if (fix)
+				{
+					File.WriteAllText(targetAbs + ".uid", genuine + Environment.NewLine);
+					uidByPath[targetAbs] = genuine;
+					Console.WriteLine($"  fixed: {targetRel}.uid {sidecarUid} -> {genuine} (matches {top} reference(s))");
+				}
+				else
+				{
+					issues.Add($"{targetRel}.uid: sidecar {sidecarUid} is an outlier; {top} reference(s) use {genuine}");
+				}
+			}
+
+			// Reconcile minority references to the genuine uid.
+			foreach (SceneRef r in targetRefs)
+			{
+				if (string.Equals(r.Uid, genuine, StringComparison.OrdinalIgnoreCase))
+				{
+					continue;
+				}
+
+				if (fix)
+				{
+					if (!edits.TryGetValue(r.SceneFile, out var lineMap))
+					{
+						lineMap = new Dictionary<int, (string, string)>();
+						edits[r.SceneFile] = lineMap;
+					}
+
+					lineMap[r.LineIndex] = (r.Uid, genuine);
+				}
+				else
+				{
+					issues.Add($"{Relative(repoRoot, r.SceneFile)}:{r.LineIndex + 1}: uid {r.Uid} does not match genuine {genuine} for {targetRel}");
+				}
+			}
+		}
+
+		// Phase C: apply batched edits per scene file.
+		foreach (var kv in edits)
+		{
+			ApplyUidEdits(repoRoot, kv.Key, kv.Value);
 		}
 	}
 
-	static void ValidateSceneFile(
+	static void CollectSceneRefs(
 		string repoRoot,
 		string sceneFile,
 		Dictionary<string, string> uidByPath,
 		Dictionary<string, string> uidLookup,
-		List<string> issues,
-		bool fix)
+		List<SceneRef> refs,
+		List<string> issues)
 	{
-		string originalText = File.ReadAllText(sceneFile);
-		string newline = originalText.Contains("\r\n") ? "\r\n" : "\n";
-		bool trailingNewline = originalText.EndsWith(newline);
-		string[] lines = originalText.Split(new[] { newline }, StringSplitOptions.None);
-		if (trailingNewline && lines.Length > 0 && lines[lines.Length - 1].Length == 0)
-		{
-			Array.Resize(ref lines, lines.Length - 1);
-		}
+		string[] lines = File.ReadAllLines(sceneFile);
 		string sceneRel = Relative(repoRoot, sceneFile);
-		bool dirty = false;
 
 		for (int i = 0; i < lines.Length; i++)
 		{
@@ -283,12 +399,7 @@ class Program
 				}
 			}
 
-			if (path == null)
-			{
-				continue;
-			}
-
-			if (!path.StartsWith("res://"))
+			if (path == null || !path.StartsWith("res://"))
 			{
 				continue;
 			}
@@ -307,38 +418,61 @@ class Program
 				continue;
 			}
 
-			if (uidByPath.TryGetValue(targetAbs, out string? expected))
+			if (uidByPath.ContainsKey(targetAbs))
 			{
-				if (!string.Equals(expected, uid, StringComparison.OrdinalIgnoreCase))
-				{
-					if (fix)
-					{
-						lines[i] = lines[i].Replace($"uid=\"{uid}\"", $"uid=\"{expected}\"");
-						dirty = true;
-						Console.WriteLine($"  fixed: {sceneRel}:{i + 1} uid {uid} -> {expected} ({Relative(repoRoot, targetAbs)})");
-					}
-					else
-					{
-						issues.Add(
-							$"{sceneRel}:{i + 1}: uid {uid} does not match {Relative(repoRoot, targetAbs)}.uid ({expected})");
-					}
-				}
+				refs.Add(new SceneRef(sceneFile, i, targetAbs, uid));
 			}
-			else
+			else if (uidLookup.TryGetValue(uid, out string? owner))
 			{
-				if (uidLookup.TryGetValue(uid, out string? owner))
-				{
-					issues.Add(
-						$"{sceneRel}:{i + 1}: uid {uid} belongs to {Relative(repoRoot, owner)} but reference points to {path}");
-				}
+				issues.Add($"{sceneRel}:{i + 1}: uid {uid} belongs to {Relative(repoRoot, owner)} but reference points to {path}");
 			}
+		}
+	}
+
+	static void ApplyUidEdits(string repoRoot, string sceneFile, Dictionary<int, (string Old, string New)> lineEdits)
+	{
+		string originalText = File.ReadAllText(sceneFile);
+		string newline = originalText.Contains("\r\n") ? "\r\n" : "\n";
+		bool trailingNewline = originalText.EndsWith(newline);
+		string[] lines = originalText.Split(new[] { newline }, StringSplitOptions.None);
+		if (trailingNewline && lines.Length > 0 && lines[lines.Length - 1].Length == 0)
+		{
+			Array.Resize(ref lines, lines.Length - 1);
 		}
 
-		if (dirty)
+		string sceneRel = Relative(repoRoot, sceneFile);
+		foreach (var kv in lineEdits)
 		{
-			string output = string.Join(newline, lines) + (trailingNewline ? newline : string.Empty);
-			File.WriteAllText(sceneFile, output);
+			int i = kv.Key;
+			(string oldUid, string newUid) = kv.Value;
+			lines[i] = lines[i].Replace($"uid=\"{oldUid}\"", $"uid=\"{newUid}\"");
+			Console.WriteLine($"  fixed: {sceneRel}:{i + 1} uid {oldUid} -> {newUid}");
 		}
+
+		string output = string.Join(newline, lines) + (trailingNewline ? newline : string.Empty);
+		File.WriteAllText(sceneFile, output);
+	}
+
+	static string FirstKey(Dictionary<string, int> votes)
+	{
+		foreach (var kv in votes)
+		{
+			return kv.Key;
+		}
+
+		return string.Empty;
+	}
+
+	static string VoteBreakdown(Dictionary<string, int> votes)
+	{
+		var parts = new List<string>();
+		foreach (var kv in votes)
+		{
+			parts.Add($"{kv.Key}×{kv.Value}");
+		}
+
+		parts.Sort(StringComparer.Ordinal);
+		return string.Join(", ", parts);
 	}
 
 	static IEnumerable<string> EnumerateRoots(string repoRoot, string[] subdirs)

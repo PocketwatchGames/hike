@@ -6,7 +6,7 @@
 [ext_resource type="AudioStream" uid="uid://bssjgj0glbqqp" path="res://audio/source/interactives/sfx_loot_pickup_03.wav" id="2_p03"]
 [ext_resource type="AudioStream" uid="uid://dx4g2snd8mteu" path="res://audio/source/interactives/sfx_loot_pickup_04.wav" id="2_p04"]
 [ext_resource type="AudioStream" uid="uid://cgpty22kyt2iu" path="res://audio/source/interactives/sfx_loot_pickup_05.wav" id="2_p05"]
-[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootpickup"]
 emission_shape = 1

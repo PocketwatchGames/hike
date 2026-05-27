@@ -40,19 +40,19 @@
 script = ExtResource("28_ftsetframes")
 anim = &"run"
 frames = Array[int]([4, 9])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="Resource" id="Resource_footsteps_sprint"]
 script = ExtResource("28_ftsetframes")
 anim = &"sprint"
 frames = Array[int]([4, 9])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="Resource" id="Resource_footsteps_sneak"]
 script = ExtResource("28_ftsetframes")
 anim = &"sneak"
 frames = Array[int]([4])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25

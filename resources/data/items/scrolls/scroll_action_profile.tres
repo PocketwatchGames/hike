@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://bql4dlf6cycp7"]
 
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="1_profile"]
-[ext_resource type="Script" uid="uid://nlh4ffpu2n4bw" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_7vgos"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_7vgos"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_charged"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_sn2wd"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]

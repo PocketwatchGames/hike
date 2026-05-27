@@ -23,13 +23,13 @@
 [ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
 [ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
-[ext_resource type="Script" uid="uid://y6ayxpkg741cwdag" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
+[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("25_ftsetframes")
 anim = &"run"
 frames = Array[int]([3, 6])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
 height = 1.5

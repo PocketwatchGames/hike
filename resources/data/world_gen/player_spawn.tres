@@ -19,44 +19,44 @@
 [sub_resource type="Resource" id="Resource_club"]
 script = ExtResource("3_itemcount")
 item = ExtResource("4_melee")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_bow"]
 script = ExtResource("3_itemcount")
 item = ExtResource("3_jl16k")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_furcoat"]
 script = ExtResource("3_itemcount")
 item = ExtResource("8_fur_coat")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_know_potion"]
 script = ExtResource("3_itemteach")
 item = ExtResource("7_potion")
-metadata/_custom_type_script = "uid://qv7vpffufh5r5"
+metadata/_custom_type_script = "uid://bglfc6qt5onq3"
 
 [sub_resource type="Resource" id="Resource_berry"]
 script = ExtResource("3_itemcount")
 item = ExtResource("9_6gyic")
 count = 5
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_mushroom"]
 script = ExtResource("3_itemcount")
 item = ExtResource("10_tbb4l")
 count = 99
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_jl16k"]
 script = ExtResource("3_itemcount")
 item = ExtResource("13_h1t84")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_ntk62"]
 script = ExtResource("3_itemcount")
 item = ExtResource("5_ranged")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("1_pspawn")

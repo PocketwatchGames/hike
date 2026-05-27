@@ -30,7 +30,7 @@ script = ExtResource("7_udeir")
 item = ExtResource("6_uvsbk")
 count = 0
 countRange = 1
-metadata/_custom_type_script = "uid://gf3mc41v5gpj7"
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
 
 [sub_resource type="Resource" id="Resource_lh7ja"]
 script = ExtResource("7_udeir")

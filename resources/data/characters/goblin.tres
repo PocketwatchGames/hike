@@ -82,7 +82,7 @@ modifiers = []
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("5_lootcount")
 item = ExtResource("6_meat")
-metadata/_custom_type_script = "uid://mdofgaaseydt6"
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("1_vvowg")

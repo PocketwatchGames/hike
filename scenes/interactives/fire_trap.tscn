@@ -4,7 +4,7 @@
 [ext_resource type="Script" uid="uid://2bkfuxbvq0v" path="res://scripts/data/FireTrapData.cs" id="2_firetrapdata"]
 [ext_resource type="Script" uid="uid://b5h7q3xkz9n2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="3_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="3_burning"]
-[ext_resource type="Script" uid="uid://5fyx50nuzpway" path="res://scripts/data/ContinuousDamageData.cs" id="3_continuous"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="3_continuous"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="4_damagezone"]
 [ext_resource type="PackedScene" path="res://scenes/effects/fire_column_warning.tscn" id="5_warning"]

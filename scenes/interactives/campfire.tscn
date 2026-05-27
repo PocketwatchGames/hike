@@ -11,7 +11,7 @@
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
 [ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_22kvh"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
-[ext_resource type="Script" uid="uid://5fyx50nuzpway" path="res://scripts/data/ContinuousDamageData.cs" id="11_continuous"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/sprites/FlatLitSprite.cs" id="11_naflh"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="15_xray"]

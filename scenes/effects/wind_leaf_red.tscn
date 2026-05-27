@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://bwlfred7g8iai"]
 
 [ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="1_0yjbd"]
-[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_pl"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_pl"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_leaf"]
 emission_shape = 3

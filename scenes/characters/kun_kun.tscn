@@ -31,7 +31,7 @@
 script = ExtResource("27_ftsetframes")
 anim = &"run"
 frames = Array[int]([3, 6])
-metadata/_custom_type_script = "uid://y6ayxpkg741cwdag"
+metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35
