@@ -611,7 +611,12 @@ public partial class Mob
             float smellContribution = smellDelta * mobData.SmellStrength;
             float perceptionDelta = visionContribution + hearingContribution + smellContribution;
 
-            if (CVars.invisible.Value)
+            // A hidden player (perched in a climbable tree) is unperceivable —
+            // same treatment as the invisible cheat and the symmetric burrowed-
+            // mob case: zero the delta so any standing perception decays and
+            // triggered resets, and drop line-of-sight so a triggered mob can't
+            // hold the alert through the concealment.
+            if (CVars.invisible.Value || _world.player.IsHidden)
             {
                 perceptionDelta = 0f;
                 canSee = false;

@@ -17,7 +17,7 @@ using Godot;
 // uniforms until their next setter call.
 [Tool]
 [GlobalClass]
-public partial class LitSpriteAnimator : Node
+public partial class LitSpriteAnimator : Node, IActorAnimator
 {
     [Export] public SpriteBase target;
     [Export] public SpriteFrames frames;
@@ -28,7 +28,7 @@ public partial class LitSpriteAnimator : Node
     // Actors drive this from their StatusEffectController so slow / haste
     // effects retime the sprite without clobbering the per-animator base
     // tuning. Not [Export] — owners reset it from their motion update.
-    public float effectSpeedMultiplier = 1f;
+    public float effectSpeedMultiplier { get; set; } = 1f;
 
     public StringName CurrentAnimation { get; private set; }
     public bool Finished { get; private set; }

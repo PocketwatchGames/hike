@@ -281,6 +281,29 @@ public class WellSimState : EntitySimState
     }
 }
 
+// A tree the player can climb to perch in the canopy. Climbing hides the
+// player from mobs and lifts the camera into bird's-eye (see Player.
+// EnterClimbableTree). No persistent per-instance state — the tree is always
+// climbable and the "am I up there" state lives on the Player, not the tree
+// (so it survives the tree's chunk streaming out underneath the player).
+public class ClimbableTreeSimState : EntitySimState
+{
+    public ClimbableTreeSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return ClimbableTree.Create(world, this);
+    }
+
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
+}
+
 public class FireTrapSimState : EntitySimState
 {
     // Random per-instance offset (seconds) added to the trap's first Idle

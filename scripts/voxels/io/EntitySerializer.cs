@@ -23,6 +23,7 @@ public static class EntitySerializer
         Forge = 11,
         KnowledgeStone = 12,
         Well = 13,
+        ClimbableTree = 14,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -248,6 +249,12 @@ public static class EntitySerializer
                 WriteScene(w, berry.Scene);
                 w.Write(berry.BerryCount);
                 w.Write(berry.Picked);
+                break;
+
+            case ClimbableTreeSimState climbTree:
+                w.Write((byte)Tag.ClimbableTree);
+                WriteVec3(w, climbTree.WorldPosition);
+                WriteScene(w, climbTree.Scene);
                 break;
 
             default:
@@ -495,6 +502,12 @@ public static class EntitySerializer
                 var berry = new BerryTreeSimState(pos, scene, berryCount);
                 berry.Picked = picked;
                 return berry;
+            }
+            case Tag.ClimbableTree:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                return new ClimbableTreeSimState(pos, scene);
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

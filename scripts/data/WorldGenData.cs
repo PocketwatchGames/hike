@@ -93,6 +93,13 @@ public partial class WorldGenData : Resource
     [Export] public PackedScene NearSpawnStashScene;
     [Export] public ItemCount[] NearSpawnStashItems = [];
 
+    // Single test-fixture climbable tree placed near the default player spawn
+    // by WorldGen. Climbing it lifts the player into the bird's-eye overlook
+    // and conceals them from mobs (see ClimbableTree / Player.
+    // EnterClimbableTree). Skipped if null. Temporary scaffolding alongside
+    // NearSpawnStashScene — the editor's placement pass replaces it.
+    [Export] public PackedScene NearSpawnClimbableTreeScene;
+
     // Single test-fixture friendly villager placed a few voxels east of the
     // default player spawn. NearSpawnVillagerData is the species template;
     // the rest are per-instance overrides stamped onto the spawned

@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://cs5o5c0rouhsv" path="res://scripts/gameplay/characters/Player.cs" id="1_kqtwu"]
 [ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/characters/default_player.tres" id="2_6eyoc"]
 [ext_resource type="Texture2D" uid="uid://6bs4juspneq5" path="res://assets/textures/characters/commander_commoners.png" id="3_eojnx"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_qgnko"]
 [ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="4_xrqxk"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_7vyk4"]
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="5_g66nw"]
@@ -19,6 +18,7 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://el7ngc3sj7g" path="res://scenes/effects/dash_speed_lines.tscn" id="33_dashlines"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="16_vwwfy"]
 [ext_resource type="PackedScene" uid="uid://cdg2icyjpksr5" path="res://scenes/effects/jump.tscn" id="17_jump"]
 [ext_resource type="PackedScene" uid="uid://dy7mfnxiw5boy" path="res://scenes/effects/land.tscn" id="18_land"]
@@ -31,10 +31,14 @@
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 [ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
-[ext_resource type="Resource" uid="uid://cy6r2dirtk8m3q" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
-[ext_resource type="Resource" uid="uid://by9w4dirtcl2h7" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
 [ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
+[ext_resource type="Resource" uid="uid://fy565pr1emwe" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
 [ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
+[ext_resource type="Resource" uid="uid://bbs2iny1ukw4q" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
+[ext_resource type="PackedScene" uid="uid://csy3th7vpbb8f" path="res://assets/models/characters/polyperfect/man_casual_Rig.fbx" id="29_rigscene"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polyperfect/player_anims.res" id="30_animlib"]
+[ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="31_modelmat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="32_modelanim"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("28_ftsetframes")
@@ -1030,14 +1034,15 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_animator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_spriteAnimator", "_modelAnimator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
 interactArea = NodePath("Area3D")
 HudAnchor = NodePath("HudAnchor")
 _hurtBox = NodePath("HurtBox")
-_animator = NodePath("LitSpriteAnimator")
+_spriteAnimator = NodePath("LitSpriteAnimator")
+_modelAnimator = NodePath("ModelAnimator")
 _dashGhostTrail = NodePath("DashGhostTrail")
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
@@ -1050,6 +1055,7 @@ _deathFx = ExtResource("13_deathlrg")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
 _foliageMovementLoopFx = ExtResource("16_grassloop")
+_dashSpeedLinesFx = ExtResource("33_dashlines")
 _slideLoopFx = Dictionary[int, PackedScene]({
 0: ExtResource("9_vwwfy"),
 2: ExtResource("9_vwwfy"),
@@ -1082,21 +1088,6 @@ _footprintSize = Vector2(0.4, 0.6)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 current = true
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=1610472919]
-cast_shadow = 0
-centered = false
-offset = Vector2(-36, 0)
-pixel_size = 0.0738
-alpha_cut = 2
-texture = ExtResource("3_eojnx")
-region_enabled = true
-region_rect = Rect2(0, 0, 72, 72)
-script = ExtResource("4_qgnko")
-Material = 1
-MirrorByYaw = true
-ForwardOffset = 0.25
-Xray = true
-
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
@@ -1119,13 +1110,27 @@ shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="LitSpriteAnimator" type="Node" parent="." unique_id=222000655 node_paths=PackedStringArray("target")]
 script = ExtResource("7_eojnx")
-target = NodePath("../Sprite")
+target = NodePath("")
 frames = SubResource("SpriteFrames_rpnd8")
 defaultAnimation = &"idle"
 
+[node name="PlayerModel" type="Node3D" parent="." unique_id=230130306]
+transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
+
+[node name="man_casual_Rig" parent="PlayerModel" unique_id=1302658095 instance=ExtResource("29_rigscene")]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="PlayerModel/man_casual_Rig" unique_id=1813657695]
+libraries/ = ExtResource("30_animlib")
+
+[node name="ModelAnimator" type="Node" parent="." unique_id=1349314066 node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("32_modelanim")
+player = NodePath("../PlayerModel/man_casual_Rig/AnimationPlayer")
+visual = NodePath("../PlayerModel")
+modelMaterial = ExtResource("31_modelmat")
+
 [node name="DashGhostTrail" type="Node3D" parent="." unique_id=567420860 node_paths=PackedStringArray("_source")]
 script = ExtResource("27_dashghost")
-_source = NodePath("../Sprite")
+_source = NodePath("")
 
 [node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob")]
 script = ExtResource("24_aimreticle_script")

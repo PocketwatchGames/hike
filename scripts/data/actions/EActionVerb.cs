@@ -33,4 +33,8 @@ public enum EActionVerb
 	// commit button still falls back to a gift when nothing is requested
 	// from the merchant's side.
 	Trade,
+	// Climb a ClimbableTree — the interactive's Complete lifts the player into
+	// the bird's-eye overlook, hides the sprite, and conceals them from mobs
+	// until they take damage or end the overlook.
+	Climb,
 }

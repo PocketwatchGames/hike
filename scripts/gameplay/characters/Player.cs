@@ -19,7 +19,17 @@ public partial class Player : CharacterBody3D
 	// the transient status-effect notification. Mirrors Mob.HudAnchor.
 	[Export] public Node3D HudAnchor;
 	[Export] private HurtBox _hurtBox;
-	[Export] private LitSpriteAnimator _animator;
+	// The player's visual + its animation driver. Either may be wired in
+	// player.tscn; _Ready prefers the 3D model (_modelAnimator) when present
+	// and otherwise uses the billboard sprite (_spriteAnimator). The chosen one
+	// is bound to _animator (IActorAnimator) and made visible; the rest of the
+	// class drives animation through _animator without caring which it is.
+	[Export] private LitSpriteAnimator _spriteAnimator;
+	[Export] private ModelAnimator _modelAnimator;
+	private IActorAnimator _animator;
+	// The visual root of whichever animator is live — toggled by
+	// SetModelVisible for hide / birds-eye. Sprite node or model subtree root.
+	private Node3D _activeVisual;
 	[Export] private DashGhostTrail _dashGhostTrail;
 	[Export] private AudioListener3D _audioListener;
 	[Export] private AimingReticle _aimingReticle;
@@ -65,6 +75,11 @@ public partial class Player : CharacterBody3D
 	// stopped when leaving so the trailing audio + particles wind down cleanly.
 	[Export] private PackedScene _waterMovementLoopFx;
 	[Export] private PackedScene _foliageMovementLoopFx;
+	// Speed-line streak loop spawned during a dash burst (held alive while
+	// _dashTimeRemaining > 0). The 3D-model player's analogue of the sprite
+	// DashGhostTrail afterimage — a trailing particle effect rather than frame
+	// snapshots. Parented to the body so it tracks/rotates with the dash.
+	[Export] private PackedScene _dashSpeedLinesFx;
 	// Per-ground-type foot-puff loop spawned while sliding / skating /
 	// skidding. Tracks the body. Keys must match what GroundTypeResolver
 	// returns at the player's position; missing keys silently emit nothing
@@ -160,6 +175,15 @@ public partial class Player : CharacterBody3D
 	bool _birdsEye;
 	public bool IsBirdsEye => _birdsEye;
 
+	// Mirrors the mob's `burrowed` flag, but for the player: while true the
+	// player is unperceivable. MobAI's mob-perceives-player tick zeroes every
+	// sense contribution when this is set, so any standing aggro decays and the
+	// triggered alert resets — exactly how a burrowed mob drops off the
+	// player's own perception. Set true while perched in a [[ClimbableTree]];
+	// the climb also hides the sprite and lifts the camera into bird's-eye.
+	bool _hidden;
+	public bool IsHidden => _hidden;
+
 	public void BeginBirdsEye()
 	{
 		if (_birdsEye)
@@ -184,6 +208,44 @@ public partial class Player : CharacterBody3D
 	public void OnBirdsEyeReturnComplete()
 	{
 		_birdsEye = false;
+		// A tree climb rides the bird's-eye lifecycle: the camera landing back
+		// on the player is also when the player drops out of the canopy, so
+		// restore the model and clear concealment here. Exit can be triggered
+		// by ESC or by taking damage (see OnHurtBoxHit) — both route through
+		// the fly-down, so this single restore covers every path.
+		if (_hidden)
+		{
+			_hidden = false;
+			SetModelVisible(true);
+		}
+	}
+
+	// Entered from ClimbableTree.Complete. Conceals the player (hidden from
+	// mobs + sprite hidden) and lifts into the bird's-eye overlook. The matching
+	// restore lives in OnBirdsEyeReturnComplete, driven by the bird's-eye
+	// fly-down — there is no explicit "descend" call, the player leaves the tree
+	// by ending bird's-eye (ESC) or by taking damage.
+	public void EnterClimbableTree()
+	{
+		if (_hidden || _birdsEye)
+		{
+			return;
+		}
+		_hidden = true;
+		SetModelVisible(false);
+		BeginBirdsEye();
+	}
+
+	// Toggles the player's active visual (sprite or 3D model, whichever was
+	// selected in _Ready). For the sprite, LitSpriteAnimator watches the
+	// target's VisibilityChanged and stops processing while hidden, so a
+	// concealed player costs nothing to animate.
+	void SetModelVisible(bool visible)
+	{
+		if (_activeVisual != null)
+		{
+			_activeVisual.Visible = visible;
+		}
 	}
 
 	World _world;
@@ -237,6 +299,7 @@ public partial class Player : CharacterBody3D
 	Fx _waterMovementLoop;
 	Fx _foliageMovementLoop;
 	Fx _slideLoop;
+	Fx _dashLoop;
 	// Tracked active slide-loop scene so per-ground-type swaps avoid
 	// recreating the Fx every tick. Same shape as _animLoopScene.
 	PackedScene _slideLoopScene;
@@ -614,6 +677,20 @@ public partial class Player : CharacterBody3D
 			_hurtBox.GetHitType = GetHitType;
 		}
 
+		// Pick the live visual + animator: prefer the 3D skinned model when it's
+		// wired, otherwise fall back to the billboard sprite. Code owns BOTH
+		// visuals' visibility (model shown via SetActive, sprite shown iff the
+		// model isn't used) so whichever nodes exist in player.tscn, exactly one
+		// visual renders and it can never end up invisible.
+		bool use3d = _modelAnimator != null;
+		_modelAnimator?.SetActive(use3d);
+		_animator = use3d ? _modelAnimator : _spriteAnimator;
+		_activeVisual = use3d ? _modelAnimator.visual : _spriteAnimator?.target;
+		if (_spriteAnimator?.target != null)
+		{
+			_spriteAnimator.target.Visible = !use3d;
+		}
+
 		if (_animator != null)
 		{
 			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
@@ -744,8 +821,10 @@ public partial class Player : CharacterBody3D
 		// Discrete hits (anything that isn't a per-frame DoT tick) snap the
 		// player out of bird's-eye view. Continuous burn / poison zones keep
 		// the overlook intact so a moment of bad air doesn't repeatedly cancel
-		// the fly-back-down.
-		if (_birdsEye && !hit.dot)
+		// the fly-back-down — UNLESS the player is hidden up a climbable tree,
+		// where taking damage from any source (DoT included) is the cue to
+		// leave the tree.
+		if (_birdsEye && (!hit.dot || _hidden))
 		{
 			RequestEndBirdsEye();
 		}
@@ -2707,6 +2786,8 @@ public partial class Player : CharacterBody3D
 		{
 			_dashGhostTrail.EmitEnabled = _dashTimeRemaining > 0f;
 		}
+		// Speed-line streaks during the dash (the model player's trail effect).
+		UpdateLoopEffect(ref _dashLoop, _dashSpeedLinesFx, _dashTimeRemaining > 0f);
 
 		// Vertical: airborne dry-land dash with freezeGravity zeros Y and
 		// suppresses gravity for the dash hang. Grounded dash falls through to
@@ -3168,16 +3249,24 @@ public partial class Player : CharacterBody3D
 		}
 
 		// InteractCancel shares its gamepad binding with Interact, so only
-		// consume the frame when there is actually a runner-driven interactive
-		// to abort — otherwise fall through and let Interact (and the other
-		// action presses) fire on the same input event.
-		if (Input.IsActionJustPressed("InteractCancel")
-			&& _runner != null
-			&& _runner.IsBusy
-			&& _runner.Current.interactiveAction != null)
+		// consume the frame when there is actually something for it to abort:
+		// a runner-driven interactive, or a weapon mid-charge. Otherwise fall
+		// through and let Interact (and the other action presses) fire on the
+		// same input event.
+		if (Input.IsActionJustPressed("InteractCancel") && _runner != null && _runner.IsBusy)
 		{
-			CancelInteract();
-			return;
+			if (_runner.Current.interactiveAction != null)
+			{
+				CancelInteract();
+				return;
+			}
+			// Charging always aborts via TryAbort — bail out of a charged
+			// weapon without releasing it into a swing/shot.
+			if (_runner.Phase == EActionPhase.Charging)
+			{
+				_runner.TryAbort();
+				return;
+			}
 		}
 
 		// Handle interact input. Multi-action interactives split tap vs hold:
@@ -3234,14 +3323,7 @@ public partial class Player : CharacterBody3D
 		// wanted to bail out of the attack, not also flip into sneak.
 		if (Input.IsActionJustPressed("Sneak"))
 		{
-			if (_runner != null && _runner.IsBusy && _runner.TryAbort())
-			{
-				// abort consumed the press
-			}
-			else
-			{
-				_sneaking = !_sneaking;
-			}
+			_sneaking = !_sneaking;
 		}
 
 		if (Input.IsActionJustPressed("UseItem"))

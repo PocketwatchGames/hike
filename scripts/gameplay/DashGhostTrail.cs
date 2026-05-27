@@ -50,9 +50,11 @@ public partial class DashGhostTrail : Node3D
 	private void EnsurePool()
 	{
 		if (_poolBuilt) { return; }
+		// No source sprite (e.g. a 3D-model player with no LitSprite) — the
+		// afterimage trail is a sprite-only effect, so silently stay disabled
+		// rather than erroring. _Process guards on the null pool.
 		if (_source == null)
 		{
-			GD.PushError($"DashGhostTrail '{Name}' has no source LitSprite assigned.");
 			return;
 		}
 		_ghosts = new Sprite3D[_maxGhosts];

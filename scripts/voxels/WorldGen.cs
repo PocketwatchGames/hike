@@ -707,6 +707,20 @@ public static class WorldGen
             ws.AddEntity(stashSim);
         }
 
+        // Near-spawn test climbable tree, a few voxels south of the stash.
+        // Climbing lifts the player into the bird's-eye overlook and conceals
+        // them from mobs (ClimbableTree / Player.EnterClimbableTree).
+        const int NearSpawnClimbTreeX = 2;
+        const int NearSpawnClimbTreeZ = 3;
+        if (genData.NearSpawnClimbableTreeScene != null
+            && NearSpawnClimbTreeX >= stoneWorldMinX && NearSpawnClimbTreeX <= stoneWorldMaxX
+            && NearSpawnClimbTreeZ >= stoneWorldMinZ && NearSpawnClimbTreeZ <= stoneWorldMaxZ)
+        {
+            int ty = heightMap.GetHeight(NearSpawnClimbTreeX, NearSpawnClimbTreeZ);
+            var pos = new Vector3(NearSpawnClimbTreeX + 0.5f, ty + 1f, NearSpawnClimbTreeZ + 0.5f);
+            ws.AddEntity(new ClimbableTreeSimState(pos, genData.NearSpawnClimbableTreeScene));
+        }
+
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
             GenerateSignposts(ws, genData, heightMap, worldSeed);

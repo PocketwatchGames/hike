@@ -29,7 +29,7 @@ public partial class WorldEditor : Node3D
 
     private static readonly string[] EntityNames =
     {
-        "PlayerSpawn", "Tree", "TallGrass", "Loot", "Chest", "Torch", "Door", "SpikeTrap", "Goblin", "KunKun",
+        "PlayerSpawn", "Tree", "TallGrass", "Loot", "Chest", "Torch", "Door", "SpikeTrap", "Goblin", "KunKun", "ClimbableTree",
     };
 
     private World _world;
@@ -484,6 +484,10 @@ public partial class WorldEditor : Node3D
             }
             case "Door":
                 return new DoorSimState(position, 0f, worldGenData.DoorScene);
+            case "ClimbableTree":
+                return worldGenData.NearSpawnClimbableTreeScene != null
+                    ? new ClimbableTreeSimState(position, worldGenData.NearSpawnClimbableTreeScene)
+                    : null;
             case "SpikeTrap":
                 return worldGenData.SpikeTrapScene != null
                     ? new TrapSimState(position, worldGenData.SpikeTrapScene)

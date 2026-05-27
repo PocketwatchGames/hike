@@ -1,0 +1,39 @@
+[gd_scene format=3 uid="uid://el7ngc3sj7g"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_lit"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_streak"]
+emission_shape = 1
+emission_sphere_radius = 0.35
+direction = Vector3(0, 0, -1)
+spread = 18.0
+initial_velocity_min = 4.0
+initial_velocity_max = 8.0
+gravity = Vector3(0, 0, 0)
+damping_min = 3.0
+damping_max = 6.0
+scale_min = 0.6
+scale_max = 1.4
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_streak"]
+render_priority = 0
+shader = ExtResource("2_lit")
+shader_parameter/albedo = Color(0.8, 0.9, 1.0, 0.55)
+shader_parameter/emission = Color(0.18, 0.26, 0.36, 0.35)
+
+[sub_resource type="QuadMesh" id="QuadMesh_streak"]
+material = SubResource("ShaderMaterial_streak")
+size = Vector2(0.07, 0.45)
+
+[node name="DashSpeedLines" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Streaks" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+amount = 14
+lifetime = 0.28
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_streak")
+draw_pass_1 = SubResource("QuadMesh_streak")

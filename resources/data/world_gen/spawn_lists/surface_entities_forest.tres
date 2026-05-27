@@ -13,6 +13,8 @@
 [ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow.tres" id="12_u4h7o"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="13_well_entry"]
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="14_well_scene"]
+[ext_resource type="Script" uid="uid://b4nclmbspwn2x" path="res://scripts/data/spawn/ClimbableTreeSpawnEntry.cs" id="15_climb_entry"]
+[ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="16_climb_scene"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
@@ -46,6 +48,11 @@ script = ExtResource("13_well_entry")
 Scene = ExtResource("14_well_scene")
 SquareMetersPerSpawn = 2000.0
 
+[sub_resource type="Resource" id="Resource_climbtree"]
+script = ExtResource("15_climb_entry")
+Scene = ExtResource("16_climb_scene")
+SquareMetersPerSpawn = 250.0
+
 [sub_resource type="Resource" id="Resource_638lp"]
 script = ExtResource("2_mob_entry")
 Data = ExtResource("12_u4h7o")
@@ -56,4 +63,4 @@ metadata/_custom_type_script = "uid://dhkkrl6qof485"
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp")])
+Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree")])
