@@ -48,6 +48,12 @@ public partial class Main : Node
 		}
 
 		StartMainMenu();
+
+		// TEMP DEBUG AUTOSTART — remove.
+		GetTree().CreateTimer(0.5).Timeout += () =>
+		{
+			(_currentScreen as GuiMainMenu)?.NewGameStandard();
+		};
 	}
 
 	async void NewGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
