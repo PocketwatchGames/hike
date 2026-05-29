@@ -176,6 +176,76 @@ public partial class GameClient : Node3D
 	// this fraction falls linearly to 0 at the disk edge.
 	[Export(PropertyHint.Range, "0,1,0.05")] public float heatShimmerDiskInnerFraction = 0.5f;
 
+	[ExportGroup("Foliage Player Fade")]
+	// Cutaway tube radius around the camera→player capsule axis. The
+	// effective radius pushed to the shader lerps between 0 (no cutaway)
+	// and this value based on whether the CPU probe
+	// (World.IsFadeVolumeOccluded) finds any fade-eligible cluster on the
+	// camera→player line. So the effect is fully off in open terrain — no
+	// invisible always-on fade tube nipping at nearby foliage — and ramps
+	// to this size when the player walks behind canopy. Same value gates
+	// the probe's sensitivity (a cluster needs to fall within
+	// `clusterRadius + this` of the segment to count as occluding), so
+	// the cutaway only activates when something it would actually hide
+	// is in range.
+	[Export(PropertyHint.Range, "0.2,10,0.05")] public float foliagePlayerFadeRadius = 1.8f;
+	// Meters of soft-edge dither ramp at the radius boundary. Smaller = the
+	// fade reads as a hard alpha-cut; larger = a lazy gradient. The shader
+	// also perturbs the boundary with world-space sin noise (~±0.6m
+	// amplitude) so it reads as irregular before the soft edge applies.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float foliagePlayerFadeSoftEdge = 0.5f;
+	// Anisotropic ellipse aspect — multipliers on the cutaway radius along
+	// world horizontal (XZ) and world vertical (Y). Default (1.6, 1.2)
+	// reads as ~16:9 framing (slightly wider than tall) with a vertical
+	// bump that gives jumping players headroom to clear cover before the
+	// boundary cuts back to baseline. 1:1:1 = isotropic tube (the
+	// pre-anisotropic shape).
+	[Export(PropertyHint.Range, "0.25,4,0.05")] public float foliagePlayerFadeAspectHorizontal = 1.6f;
+	[Export(PropertyHint.Range, "0.25,4,0.05")] public float foliagePlayerFadeAspectVertical = 1.2f;
+	// Vertical offsets from the player root (CharacterBody3D origin sits
+	// at the feet plane) defining the capsule endpoints the fade tests
+	// against. Feet offset lifts off ground so a bush at the player's toes
+	// doesn't punch a fade hole; head offset bounds the canopy band that
+	// actually obscures the silhouette.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float foliagePlayerFeetOffsetY = 0.2f;
+	[Export(PropertyHint.Range, "0.5,3,0.05")] public float foliagePlayerHeadOffsetY = 1.7f;
+	// Squared-fade lerp time constants. Rise is the fade-IN to the active
+	// (expanded) radius — kept brisk so cover opens up promptly when the
+	// player rounds a tree. Fall is the fade-OUT toward the held minimum
+	// when the player is no longer tightly obscured but cover is still
+	// nearby — longer so a brief loss-of-occlusion (walking a single step
+	// out) doesn't snap the cutaway shut and re-open a moment later.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float foliagePlayerFadeActivationRiseSeconds = 0.15f;
+	[Export(PropertyHint.Range, "0.05,4,0.05")] public float foliagePlayerFadeActivationFallSeconds = 0.5f;
+	// Activation amount (0..1) held while the player is NOT tightly
+	// obscured but the wider probe still finds fading foliage nearby. Acts
+	// as a pre-armed minimum cutaway — small enough to be visually
+	// invisible (~0.1 × full radius), big enough that the rise toward full
+	// is instantaneous when the player re-enters cover. When the wider
+	// probe also fails, activation lerps gracefully toward 0.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float foliagePlayerFadeMinimumAmount = 0.12f;
+	// Multiplier on the tight probe radius for the WIDE probe. Wide
+	// detection range = tight × this. Default 2.0 — a tree ~5–6m off the
+	// segment still registers as "nearby cover" without burning probe cost
+	// on the next chunk over. Set 1.0 to disable the hold-at-minimum
+	// behavior entirely (cutaway snaps off the moment tight clears).
+	[Export(PropertyHint.Range, "1,4,0.1")] public float foliagePlayerFadeWideProbeMultiplier = 2.0f;
+	// Density scaling — when Tight, the activation target lerps from
+	// `foliagePlayerFadeCountScaleMin` (single isolated tree) up to 1.0
+	// (`foliagePlayerFadeCountScaleSaturate`+ trees nearby in the WIDER
+	// probe area). One tree behind the player in a clearing only nibbles
+	// a small cutaway; standing inside a thicket opens the full authored
+	// radius. Counted in the wide-probe radius (not just trees directly
+	// between camera and player) since dense forest around a tight
+	// occluder still benefits from a wider see-through.
+	[Export(PropertyHint.Range, "0.05,1,0.05")] public float foliagePlayerFadeCountScaleMin = 0.35f;
+	[Export(PropertyHint.Range, "1,16,1")] public int foliagePlayerFadeCountScaleSaturate = 5;
+	// World-space scan range for the IsFadeVolumeOccluded probe — measured
+	// from the camera→player midpoint. Just needs to comfortably exceed the
+	// camera-to-player distance so any cluster on that line is checked; 8m
+	// gives the iso rig headroom without trawling distant entities.
+	[Export(PropertyHint.Range, "2,32,0.5")] public float foliagePlayerFadeProbeRange = 8f;
+
 	// Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
 	// BFS reports no skylight at all — a stand-in for "the player is in a
 	// cave or under a roof", where the open-sky wind from the weather
@@ -770,8 +840,93 @@ public partial class GameClient : Node3D
 	private const float DETAIL_PLAYER_RADIUS = 0.6f;
 	private const float DETAIL_PLAYER_STRENGTH = 0.25f;
 
+	// Per-frame smoothing state for the foliage cutaway radius. 0 = at base
+	// radius, 1 = at active (expanded) radius. Lerped toward 1 when the
+	// World probe finds the player occluded, toward 0 otherwise. Held
+	// outside the Push method so its state carries across frames.
+	private float _foliageFadeActivationAmount;
+
+	private void PushFoliageOcclusionGlobals(double deltaSeconds)
+	{
+		if (_player == null || camera == null)
+		{
+			return;
+		}
+		Vector3 cameraWorld = camera.GlobalPosition;
+		Vector3 playerPos = _player.GlobalPosition;
+		Vector3 feet = playerPos + new Vector3(0f, foliagePlayerFeetOffsetY, 0f);
+		Vector3 head = playerPos + new Vector3(0f, foliagePlayerHeadOffsetY, 0f);
+
+		// Probe gates on the AUTHORED (full) radius, inflated by the larger
+		// aspect axis so the sphere fully encloses the oblong ellipse. The
+		// shader's per-pixel test still draws the actual ellipse boundary,
+		// so over-eager probe activation in the ellipse's narrow corners is
+		// harmless — at worst the cutaway expands without there being
+		// anything visible to fade, which costs nothing visually.
+		float tightProbeRadius = foliagePlayerFadeRadius * Mathf.Max(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical);
+		float wideProbeRadius = tightProbeRadius * foliagePlayerFadeWideProbeMultiplier;
+		World world = World.Current;
+		int nearbyPropCount = 0;
+		World.FadeProbeResult probeResult = world != null
+			? world.ProbeFadeVolume(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
+			: World.FadeProbeResult.None;
+
+		// Three-state target — always lerped, never snapped. A hard snap to
+		// 0 on the None transition leaves a single frame where foliage was
+		// being dithered at high activation and then suddenly isn't,
+		// reading as a pop-edge along whatever cards the cutaway was
+		// cutting through. Letting the fall lerp run smoothly from the
+		// live activation down to 0 keeps the transition graceful even
+		// when the player walks straight out of dense cover.
+		//   Tight → density-scaled (min..1) — one isolated tree gets a
+		//           small cutaway, a thicket opens the full radius.
+		//   Wide  → minimum (held while still inside the forest neighborhood).
+		//   None  → 0     (no nearby cover — drift to off).
+		float target;
+		if (probeResult == World.FadeProbeResult.Tight)
+		{
+			// Saturation point of 1 means a single nearby tree already hits
+			// full radius — guard so the divide can't go negative.
+			int saturate = Mathf.Max(foliagePlayerFadeCountScaleSaturate, 1);
+			float countNorm = Mathf.Clamp((nearbyPropCount - 1) / (float)Mathf.Max(saturate - 1, 1), 0f, 1f);
+			target = Mathf.Lerp(foliagePlayerFadeCountScaleMin, 1f, countNorm);
+		}
+		else if (probeResult == World.FadeProbeResult.Wide)
+		{
+			target = foliagePlayerFadeMinimumAmount;
+		}
+		else
+		{
+			target = 0f;
+		}
+		float timeConstant = target > _foliageFadeActivationAmount
+			? foliagePlayerFadeActivationRiseSeconds
+			: foliagePlayerFadeActivationFallSeconds;
+		float blend = 1f - Mathf.Exp(-(float)deltaSeconds / Mathf.Max(timeConstant, 1e-3f));
+		_foliageFadeActivationAmount = Mathf.Lerp(_foliageFadeActivationAmount, target, blend);
+
+		// Inactive endpoint is literal zero — the shader short-circuits the
+		// whole capsule + noise test when foliage_player_fade_radius drops
+		// below its threshold, so the effect is genuinely off (not just
+		// "narrow") while the player is in open terrain.
+		float effectiveRadius = foliagePlayerFadeRadius * _foliageFadeActivationAmount;
+
+		RenderingServer.GlobalShaderParameterSet("foliage_camera_world", cameraWorld);
+		RenderingServer.GlobalShaderParameterSet("foliage_player_feet_world", feet);
+		RenderingServer.GlobalShaderParameterSet("foliage_player_head_world", head);
+		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_radius", effectiveRadius);
+		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_soft_edge", foliagePlayerFadeSoftEdge);
+		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_aspect", new Vector2(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical));
+	}
+
 	public override void _Process(double deltaTime)
 	{
+		// Push the foliage player-occlusion fade globals before the pause /
+		// console gates — even while paused the camera or player anchors
+		// can still drift (mid-pause shake, debug-cam fly), and a stale fade
+		// volume would visibly punch the wrong hole in the canopy.
+		PushFoliageOcclusionGlobals(deltaTime);
+
 		if (_player == null || ConsoleUI.IsOpen || paused)
 		{
 			return;

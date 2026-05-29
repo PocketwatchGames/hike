@@ -6,15 +6,17 @@ using Godot;
 // position relative to the prop's root Node3D (composed up through any
 // intermediate transforms like a FoliageMultiMesh's offset); Radii is the
 // ellipsoid's authored half-extents in the same local frame. CastsSunShadow
-// mirrors FoliageCluster.CastsSunShadow — captured here so the per-cluster
-// flag survives caching. FoliageStamper transforms each occluder by the
-// prop's world position + Y rotation, then rasterizes only those whose
-// CastsSunShadow is true into WorldState.AddCanopyAttenuationWorld.
+// and FadesWhenOccludingPlayer mirror the matching FoliageCluster fields —
+// captured here so the per-cluster flags survive caching, letting CPU
+// probes (FoliageStamper for canopy attenuation, World.IsFadeVolumeOccluded
+// for the player-occlusion cutaway expansion) iterate prop occluders
+// without re-walking live scene nodes per frame.
 public struct FoliageOccluder
 {
     public Vector3 CenterLocal;
     public Vector3 Radii;
     public bool CastsSunShadow;
+    public bool FadesWhenOccludingPlayer;
 }
 
 // Lazy per-scene cache of FoliageOccluder lists. Instantiates each tree
@@ -80,6 +82,7 @@ public static class FoliageOccluderCache
                 CenterLocal = xform.Origin,
                 Radii = cluster.EllipsoidRadii,
                 CastsSunShadow = cluster.CastsSunShadow,
+                FadesWhenOccludingPlayer = cluster.FadesWhenOccludingPlayer,
             });
         }
         int childCount = node.GetChildCount();

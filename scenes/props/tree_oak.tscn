@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="9_windleaf"]
 [ext_resource type="Material" uid="uid://cmtbbo1hrg1ii" path="res://resources/materials/tree_bark_oak.tres" id="10_bark"]
 [ext_resource type="CylinderMesh" uid="uid://dalq4vg4ckt2r" path="res://assets/models/trees/branch_cylinder.tres" id="11_branch"]
+[ext_resource type="Material" uid="uid://bn7m4krapwx2c" path="res://resources/materials/tree_twigs.tres" id="12_twigs"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]
 height = 6.0
@@ -74,12 +75,16 @@ LeafTintA = Color(0.17225, 0.3, 0.081, 1)
 LeafTintB = Color(0.67, 0.60969996, 0.4288, 1)
 BranchMesh = ExtResource("11_branch")
 BranchMaterial = ExtResource("10_bark")
+TwigsMesh = ExtResource("4_quad")
+TwigsMaterial = ExtResource("12_twigs")
+TwigsSize = 2.0
 
 [node name="Cluster1" type="Node3D" parent="Trunk/Foliage" unique_id=1498616389]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 7.5303426, -0.5)
 script = ExtResource("3_cluster")
 EllipsoidRadii = Vector3(2, 1.5, 2)
 CastsSunShadow = true
+FadesWhenOccludingPlayer = true
 CardCount = 50
 CardSizeMin = 1.5
 CardSizeMax = 3.0
@@ -91,6 +96,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 7.582717, 1)
 script = ExtResource("3_cluster")
 EllipsoidRadii = Vector3(2, 0.75, 2)
 CastsSunShadow = true
+FadesWhenOccludingPlayer = true
 CardCount = 35
 CardSizeMin = 1.5
 CardSizeMax = 3.0
@@ -101,6 +107,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 8, 0)
 script = ExtResource("3_cluster")
 EllipsoidRadii = Vector3(1, 0.5, 1)
 CastsSunShadow = true
+FadesWhenOccludingPlayer = true
 CardCount = 20
 CardSizeMax = 2.0
 RollJitter = 0.25
@@ -111,6 +118,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5, 6.678219, 1)
 script = ExtResource("3_cluster")
 EllipsoidRadii = Vector3(1, 0.5, 1)
 CastsSunShadow = true
+FadesWhenOccludingPlayer = true
 CardCount = 20
 CardSizeMax = 2.0
 RollJitter = 0.25

@@ -59,6 +59,16 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
     // trunk clean — no twig-like branches sprouting from ground level.
     [Export] public float BranchMinPropLocalY = 3.0f;
 
+    // Optional twigs card spawned at each branch tip — a quad authored with
+    // a twigs/stems texture that visually bridges the cylinder branch and
+    // the leaf cluster. The quad's Y axis is aligned with the branch
+    // direction so the quad's bottom sits at the branch end and the twigs
+    // extend into the cluster. Per-branch random roll keeps neighbouring
+    // tips from all facing the same way. Set TwigsMesh = null to disable.
+    [Export] public Mesh TwigsMesh;
+    [Export] public Material TwigsMaterial;
+    [Export] public float TwigsSize = 1.0f;
+
     [ExportToolButton("Rebuild")]
     public Callable RebuildButton => Callable.From(Rebuild);
 
@@ -142,7 +152,15 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
             RandomNumberGenerator tintRng = new RandomNumberGenerator();
             tintRng.Seed = unchecked((ulong)(cluster.PlacementSeed * 7919 + clusterIdx * 104729 + 0xABCDEF));
             float clusterMix = tintRng.Randf();
-            Color clusterInstanceColor = new Color(clusterMix, 1f, 1f, 1f);
+            // COLOR.r = cluster tint mix; COLOR.g = static player-occlusion
+            // fade-eligibility flag (1 = participates, 0 = never fades).
+            // The actual fade is computed per-pixel in the shader from
+            // foliage_player_* globals, so this only gates IN vs OUT of
+            // the fade system per cluster — matching the per-cluster
+            // FadesWhenOccludingPlayer authoring toggle. Tall grass /
+            // ground bushes leave it OFF and never dither.
+            float fadeEligible = cluster.FadesWhenOccludingPlayer ? 1f : 0f;
+            Color clusterInstanceColor = new Color(clusterMix, fadeEligible, 1f, 1f);
 
             // Cluster's transform within this MMI's local space — gets
             // composed onto each card so the cluster acts as a sub-origin.
@@ -276,6 +294,29 @@ public partial class FoliageMultiMesh : MultiMeshInstance3D
                 branch.MaterialOverride = BranchMaterial;
             }
             container.AddChild(branch);
+
+            if (TwigsMesh != null)
+            {
+                // Roll the twigs quad randomly around the branch axis so
+                // adjacent branch tips don't all face the same direction.
+                // Seed from the cluster's local position so the choice is
+                // stable across rebuilds.
+                int twigSeed = unchecked((int)(targetMmi.X * 73856093f) ^ (int)(targetMmi.Y * 19349663f) ^ (int)(targetMmi.Z * 83492791f));
+                RandomNumberGenerator twigRng = new RandomNumberGenerator { Seed = unchecked((ulong)twigSeed) };
+                float roll = twigRng.Randf() * Mathf.Tau;
+                Basis twigsBasis = basis.Rotated(dir, roll).Scaled(new Vector3(TwigsSize, TwigsSize, TwigsSize));
+                Transform3D twigsXform = new Transform3D(twigsBasis, targetMmi);
+                MeshInstance3D twigs = new MeshInstance3D
+                {
+                    Mesh = TwigsMesh,
+                    Transform = twigsXform,
+                };
+                if (TwigsMaterial != null)
+                {
+                    twigs.MaterialOverride = TwigsMaterial;
+                }
+                container.AddChild(twigs);
+            }
         }
     }
 

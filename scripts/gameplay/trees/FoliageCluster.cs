@@ -27,6 +27,17 @@ public partial class FoliageCluster : Node3D
     // canopies are tall enough to actually shelter the player.
     [Export] public bool CastsSunShadow;
 
+    // When true, FoliageMultiMesh drives a Bayer-dither fade-out on this
+    // cluster's cards while it sits between the camera and the player —
+    // so a tree's canopy doesn't fully obscure the character. Cluster-
+    // granular (not pixel-perfect) — the whole cluster fades together,
+    // which matches the chunky pixel-art read and lines up with how
+    // foliage is authored as discrete blobs. Defaults OFF so ground
+    // foliage (tall grass, low bushes) doesn't flicker as the player
+    // walks past — turn on per-cluster for canopies tall enough that
+    // their cards genuinely cross between camera and head.
+    [Export] public bool FadesWhenOccludingPlayer;
+
     [Export] public int CardCount = 30;
     [Export] public float CardSizeMin = 1.0f;
     [Export] public float CardSizeMax = 1.5f;

@@ -9,6 +9,10 @@ public partial class GameCamera : Camera3D
 
 	[Export] public float pitchDegrees = -65;
 	[Export] public float distance = 80;
+	// Y offset above the player root (which sits at the feet plane) used as
+	// the camera's framing target. ~1m centers the body in frame instead of
+	// pinning the screen center on the player's feet.
+	[Export(PropertyHint.Range, "0,3,0.05")] public float followHeightOffset = 1f;
 	[Export] public float rotationTime = 0.5f;
 	// Shape of the yaw ease-out, applied as 1 - (1 - progress)^power.
 	// 1 = linear, 2 = standard ease-out, 3+ = sharper landing (less time
@@ -232,9 +236,10 @@ public partial class GameCamera : Camera3D
 
 	public void SetInitialPosition(Vector3 playerPosition)
 	{
-		_followPosition = playerPosition;
+		Vector3 target = playerPosition + new Vector3(0f, followHeightOffset, 0f);
+		_followPosition = target;
 		_followInitialized = true;
-		GlobalPosition = playerPosition + GlobalTransform.Basis.Z * distance;
+		GlobalPosition = target + GlobalTransform.Basis.Z * distance;
 	}
 
 	// Advances the in-progress Q/E yaw tween and decays rotation motion blur.
@@ -266,15 +271,16 @@ public partial class GameCamera : Camera3D
 	{
 		TickRotation((float)deltaTime);
 
+		Vector3 target = playerPosition + new Vector3(0f, followHeightOffset, 0f);
 		if (!_followInitialized)
 		{
-			_followPosition = playerPosition;
+			_followPosition = target;
 			_followInitialized = true;
 		}
 		else
 		{
 			float followT = 1f - Mathf.Pow(0.01f, (float)deltaTime / Mathf.Max(0.0001f, followTime));
-			_followPosition = _followPosition.Lerp(playerPosition, followT);
+			_followPosition = _followPosition.Lerp(target, followT);
 		}
 
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);

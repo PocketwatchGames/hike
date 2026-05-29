@@ -48,6 +48,15 @@ render_mode ambient_light_disabled, depth_draw_opaque, cull_disabled;
 uniform sampler2D albedo_tex : source_color, filter_linear;
 uniform float alpha_cutoff : hint_range(0.0, 1.0) = 0.5;
 
+// Per-cluster player-occlusion fade-eligibility flag. FoliageMultiMesh
+// writes COLOR.g = 1.0 for cards whose cluster opted in via
+// FoliageCluster.FadesWhenOccludingPlayer, and 0.0 otherwise. Read as
+// COLOR.g (.r still carries the cluster tint mix). Static after build —
+// fade itself is computed per-pixel below from world position vs the
+// camera→player-capsule volume, so overlapping cards from different
+// clusters / different trees naturally agree on the same discard mask.
+varying float v_fade_eligible;
+
 // Wrap-lambert blend amount. Higher = more darkening on the shadow side of
 // a blob (more value contrast). Default 0.75 is stronger than model_lit's
 // 0.55 because pixel-art foliage reads better with crisp top-vs-underside
@@ -165,6 +174,27 @@ global uniform vec3 wind_dir;
 global uniform float wind_amplitude;
 global uniform float wind_phase;
 
+// Player-occlusion fade volume — set per-frame by World from the live
+// camera + player positions. The volume is the triangle (camera, feet,
+// head) thickened by foliage_player_fade_radius; any foliage pixel
+// within that distance of the triangle interior fades out via Bayer
+// dither in fragment(). Per-pixel test means overlapping cluster cards
+// agree on the same discard mask regardless of how many trees stack
+// between camera and player. soft_edge is the meters-of-soft-ramp at
+// the boundary so the fade reads as a gradient, not a hard cut.
+global uniform vec3 foliage_camera_world;
+global uniform vec3 foliage_player_feet_world;
+global uniform vec3 foliage_player_head_world;
+global uniform float foliage_player_fade_radius;
+global uniform float foliage_player_fade_soft_edge;
+// Anisotropic aspect on the cutaway ellipse. .x scales the world-horizontal
+// (XZ) component of the offset-from-segment, .y scales the world-vertical
+// (Y) component. Default (1.6, 1.2) reads as roughly 16:9 framing —
+// slightly wider than tall — with a vertical bump that gives the player
+// enough headroom to clear cover while jumping without the boundary
+// snapping back to circular on every hop. Pure isotropy = (1, 1).
+global uniform vec2 foliage_player_fade_aspect;
+
 // Block-light shadow projector — see shaders/block_light_shadow.gdshaderinc.
 // Multiplies block_lit so a sprite/tree silhouette above this fragment
 // dims the torch/lamp contribution here. Sampling at world_pos (per
@@ -281,9 +311,105 @@ void vertex() {
 	float card_offset = (card_hash - 0.5) * per_card_tint_variation;
 	float final_mix = clamp(0.5 + tree_offset + cluster_offset + card_offset, 0.0, 1.0);
 	v_card_tint = mix(leaf_tint_a, leaf_tint_b, final_mix);
+
+	// Per-cluster fade-eligibility bit (1.0 = participates in the
+	// player-occlusion fade, 0.0 = never fades — e.g. tall grass, low
+	// decorative bushes). FoliageMultiMesh stamps it once at build time
+	// into COLOR.g; flat across each card so the vertex-to-fragment
+	// interpolation is a no-op.
+	v_fade_eligible = COLOR.g;
 }
 
 void fragment() {
+	// Player-occlusion fade — gated by the per-cluster eligibility bit
+	// (tall grass / decorative ground foliage opts out). Geometry: project
+	// world_pos onto the player capsule axis (feet→head), then test
+	// distance from world_pos to the segment (camera → that axis point).
+	// Per-pixel evaluation means stacked / overlapping cluster cards from
+	// different trees all derive the same dither mask at any given world
+	// position — no fill-in artifacts from per-cluster visibility
+	// mismatches. Casting against the full feet→head segment instead of a
+	// single anchor catches canopies that block the head while leaves
+	// brush past the feet, and vice versa.
+	// Fast out when the effect is essentially off (radius lerped to near
+	// zero — see GameClient's PushFoliageOcclusionGlobals): no geometry
+	// math, no noise, no Bayer compare. This is the common case while the
+	// player is in open terrain or behind opt-out foliage.
+	if (v_fade_eligible > 0.5 && foliage_player_fade_radius > 0.01) {
+		// NOTE: this block intentionally has NO horizontal half-space test
+		// against the player plane. The CPU probe (World.ProbeFadeVolume)
+		// already gates ACTIVATION on a "camera-side of player" test, so
+		// trees behind the player never trigger the cutaway to grow. But
+		// once the cutaway IS open, we let it trim ANY foliage in the
+		// volume, including behind the player — that's what gives the
+		// effect its screen-space feel rather than a hard plane-edged
+		// scoop. The shader's job here is purely "given this volume,
+		// dither anything inside it".
+		vec3 player_axis = foliage_player_head_world - foliage_player_feet_world;
+		float axis_len_sq = max(dot(player_axis, player_axis), 1e-4);
+		float t_axis = clamp(dot(world_pos - foliage_player_feet_world, player_axis) / axis_len_sq, 0.0, 1.0);
+		vec3 player_axis_pt = foliage_player_feet_world + player_axis * t_axis;
+
+		vec3 seg_dir = player_axis_pt - foliage_camera_world;
+		float seg_len_sq = max(dot(seg_dir, seg_dir), 1e-4);
+		float t_seg = clamp(dot(world_pos - foliage_camera_world, seg_dir) / seg_len_sq, 0.0, 1.0);
+		vec3 closest = foliage_camera_world + seg_dir * t_seg;
+
+		// Anisotropic distance — decompose the offset from the closest
+		// point into a world-horizontal radial component (XZ plane) and a
+		// world-vertical component (Y), scale each by the inverse aspect,
+		// then recombine. This yields an oblong cutaway shape that maps
+		// roughly to the camera framing (16:9-ish, slightly wider than
+		// tall) with extra Y headroom for jumping. Using world Y for the
+		// vertical axis instead of the camera's perpendicular plane keeps
+		// the jump-clearance behavior intuitive: a jumping player overshoots
+		// the head anchor in world Y, which is exactly the axis the bump
+		// expands.
+		vec3 perp = world_pos - closest;
+		float horiz = length(perp.xz);
+		float vert = abs(perp.y);
+		vec2 aspect = max(foliage_player_fade_aspect, vec2(1e-3));
+		float dist = length(vec2(horiz / aspect.x, vert / aspect.y));
+
+		// World-space noise on the boundary so the cutaway reads as an
+		// organic irregular shape, not a clean ellipse. Three layered sin
+		// products with relatively-prime frequencies — stable per world
+		// position so the irregularity is anchored to the WORLD (a notch in
+		// the boundary sits over the same patch of leaves frame to frame,
+		// instead of crawling with the camera). As the player walks the
+		// visible portion of the cutaway sweeps through the noise field,
+		// giving the boundary motion. Added directly to the (already
+		// aspect-scaled) distance so the wobble is uniform around the
+		// ellipse rather than stretched along the wider axis.
+		float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.3
+		        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.2
+		        + sin(world_pos.x * 2.1 + world_pos.y * 1.1 + world_pos.z * 0.4) * 0.15;
+		float perturbed_dist = dist + n;
+
+		float r = foliage_player_fade_radius;
+		float soft = max(foliage_player_fade_soft_edge, 1e-3);
+		float visibility = clamp((perturbed_dist - r) / soft, 0.0, 1.0);
+
+		// 4x4 screen-space Bayer — coarse pattern matches the chunky
+		// pixel-art read. The threshold compare uses visibility (1 = keep,
+		// 0 = always discard), so foliage smoothly stipples in as the
+		// player moves toward and through the fade volume.
+		if (visibility < 0.999) {
+			const float bayer4[16] = float[](
+				 0.0/16.0,  8.0/16.0,  2.0/16.0, 10.0/16.0,
+				12.0/16.0,  4.0/16.0, 14.0/16.0,  6.0/16.0,
+				 3.0/16.0, 11.0/16.0,  1.0/16.0,  9.0/16.0,
+				15.0/16.0,  7.0/16.0, 13.0/16.0,  5.0/16.0
+			);
+			ivec2 ip = ivec2(FRAGCOORD.xy);
+			int bx = ip.x & 3;
+			int by = ip.y & 3;
+			if (visibility <= bayer4[by * 4 + bx]) {
+				discard;
+			}
+		}
+	}
+
 	vec4 tex = texture(albedo_tex, UV);
 	if (tex.a < alpha_cutoff) {
 		discard;

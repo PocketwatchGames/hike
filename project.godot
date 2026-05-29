@@ -353,6 +353,30 @@ block_light_shadow_enabled={
 "type": "bool",
 "value": true
 }
+foliage_camera_world={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+foliage_player_feet_world={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+foliage_player_head_world={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+foliage_player_fade_radius={
+"type": "float",
+"value": 0.8
+}
+foliage_player_fade_soft_edge={
+"type": "float",
+"value": 0.5
+}
+foliage_player_fade_aspect={
+"type": "vec2",
+"value": Vector2(1.6, 1.2)
+}
 light_falloff_exp={
 "type": "float",
 "value": 2.0
