@@ -19,6 +19,7 @@ public partial class PropInstance : Node3D, IWorldEntity, IPorous
     {
         var instance = data.Scene.Instantiate<PropInstance>();
         instance.Position = data.WorldPosition;
+        instance.Rotation = new Vector3(0f, data.RotationY, 0f);
         world.AddChild(instance);
         return instance;
     }

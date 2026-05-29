@@ -127,6 +127,16 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // tree_lit.gdshader per-feature gates. Declared in project.godot's
+        // [shader_globals] so the editor's script editor can compile the
+        // shader on its own; seeded here with the current CVar value so a
+        // cvars.txt override at startup is honored before the first tree
+        // material compiles. Subsequent live edits push via the OnChanged
+        // callbacks in CVars.cs.
+        ShaderGlobals.Register("tree_wind_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeWind.Value);
+        ShaderGlobals.Register("tree_sphere_normal_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSphereNormal.Value);
+        ShaderGlobals.Register("tree_detail_noise_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeDetailNoise.Value);
+        ShaderGlobals.Register("tree_silhouette_breakup_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSilhouetteBreakup.Value);
         // Ceiling-cap pipeline debug mode (CVars.clipDebug). Seeded here so
         // every shader that reads it (clip_cap, water_clip_cap, voxel_water,
         // voxel_water_backface) compiles cleanly before the first frame.

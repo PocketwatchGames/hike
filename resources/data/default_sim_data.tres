@@ -3,14 +3,14 @@
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/SimData.cs" id="1_1meao"]
 [ext_resource type="PackedScene" uid="uid://bvhhmrxjrbjb8" path="res://scenes/effects/footprint_discoverable.tscn" id="1_atie7"]
 [ext_resource type="PackedScene" uid="uid://bq3flcvyjqp3f" path="res://scenes/effects/footprint_visible.tscn" id="2_7ttre"]
-[ext_resource type="Script" uid="uid://rmq2wdsc9r3qk" path="res://scripts/data/RecipeData.cs" id="3_recipe_script"]
+[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
 [ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
 [ext_resource type="Resource" uid="uid://cak7m4n2p8qrx" path="res://resources/data/recipes/recipe_succulent_grilled_kun_kun.tres" id="5_recipe_gkk_hi"]
+[ext_resource type="Resource" uid="uid://c5j8tk2pnawhx" path="res://resources/data/recipes/recipe_cure_poison_potion.tres" id="6_recipe_cure"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
 [ext_resource type="Resource" uid="uid://c8743nsy2v56" path="res://resources/data/recipes/recipe_succulent_grilled_goblin.tres" id="6_recipe_gg_hi"]
-[ext_resource type="Resource" uid="uid://c5j8tk2pm9whx" path="res://resources/data/recipes/recipe_cure_poison_potion.tres" id="6_recipe_cure"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="7_mob_script"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="8_mob_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="9_mob_kun_kun"]
@@ -33,6 +33,7 @@ NightIntensityBase = 0.6
 MobTorchLightThreshold = 0.8
 MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
+CanopyDensity = 0.35
 FootprintVisible = ExtResource("2_7ttre")
 FootprintDiscoverable = ExtResource("1_atie7")
 thunderScheduler = ExtResource("11_thunder_distant")

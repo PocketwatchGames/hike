@@ -64,6 +64,11 @@ public static class LightEngine
     public const int FOG_SUN_FALLOFF_255 = 4;
     private const float FOG_BLOCK_ABSORPTION_255 = 0.04f;
 
+    // The canopy attenuation strength constants live on SimData
+    // (CanopySunFalloffPeak, CanopyBlockAbsorptionPeak) — read off
+    // world.SimData inside the methods that use them, with the per-call
+    // precompute hoisted out of the inner loop.
+
     private static readonly Vector3I[] Neighbors =
     {
         new(1, 0, 0), new(-1, 0, 0),
@@ -73,6 +78,13 @@ public static class LightEngine
 
     public static void ComputeSunlight(WorldState world)
     {
+        // Reset first — the column scan breaks when sunLevel reaches zero,
+        // so voxels below the break aren't overwritten. Without a reset,
+        // a re-propagation that adds new attenuation (e.g. canopy stamped
+        // after the first pass) would leave stale-bright sunlight at the
+        // bottom of darkened columns.
+        world.ClearSunlightAll();
+
         int minWx = world.Min.X * ChunkState.SIZE;
         int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
         int minWy = world.Min.Y * ChunkState.SIZE;
@@ -81,6 +93,7 @@ public static class LightEngine
         int maxWz = (world.Max.Z + 1) * ChunkState.SIZE;
 
         var queue = new Queue<(int x, int y, int z)>();
+        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
 
         for (int wx = minWx; wx < maxWx; wx++)
         {
@@ -96,6 +109,7 @@ public static class LightEngine
                     }
                     sunLevel -= VoxelTypeInfo.LightAttenuation(v);
                     sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255;
+                    sunLevel -= (world.GetCanopyAttenuationWorld(wx, wy, wz) * canopySunFalloffPeak) / 255;
                     if (sunLevel <= 0)
                     {
                         break;
@@ -224,9 +238,11 @@ public static class LightEngine
         // Sample world opacity + fog absorption once into flat arrays. Avoids
         // repeated VoxelType / fog lookups inside the iteration loop, which
         // otherwise dominate the relaxation cost. fogAbsorb is the extra
-        // per-iteration absorption due to fog density at each voxel.
+        // per-iteration absorption from fog density AND foliage-canopy density
+        // at each voxel — both attenuate block light symmetrically.
         var open = new bool[total];
         var fogAbsorb = new float[total];
+        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -237,7 +253,9 @@ public static class LightEngine
                     int wx = ox + lx, wy = oy + ly, wz = oz + lz;
                     VoxelType v = world.GetVoxelWorld(wx, wy, wz);
                     open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
+                    fogAbsorb[rowBase + lx] =
+                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
+                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
                 }
             }
         }
@@ -361,6 +379,7 @@ public static class LightEngine
 
         var open = new bool[total];
         var fogAbsorb = new float[total];
+        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -371,7 +390,9 @@ public static class LightEngine
                     int wx = ox + lx, wy = oy + ly, wz = oz + lz;
                     VoxelType v = world.GetVoxelWorld(wx, wy, wz);
                     open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
+                    fogAbsorb[rowBase + lx] =
+                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
+                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
                 }
             }
         }
@@ -422,6 +443,7 @@ public static class LightEngine
                 }
             }
         }
+
 
         // Build sparse index list: any voxel that's non-zero in any corner.
         var nonZero = new List<int>(total / 4);
@@ -498,6 +520,7 @@ public static class LightEngine
 
         var open = new bool[total];
         var fogAbsorb = new float[total];
+        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -508,7 +531,9 @@ public static class LightEngine
                     int wx = ox + lx, wy = oy + ly, wz = oz + lz;
                     VoxelType v = world.GetVoxelWorld(wx, wy, wz);
                     open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] = world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f);
+                    fogAbsorb[rowBase + lx] =
+                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
+                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
                 }
             }
         }
@@ -722,6 +747,7 @@ public static class LightEngine
 
     private static void SpreadSunlight(WorldState world, Queue<(int x, int y, int z)> queue)
     {
+        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
         while (queue.Count > 0)
         {
             var (x, y, z) = queue.Dequeue();
@@ -739,7 +765,8 @@ public static class LightEngine
                 if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v)) { continue; }
 
                 int fogFalloff = (world.GetFogWorld(nx, ny, nz) * FOG_SUN_FALLOFF_255) / 255;
-                int newLevel = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff;
+                int canopyFalloff = (world.GetCanopyAttenuationWorld(nx, ny, nz) * canopySunFalloffPeak) / 255;
+                int newLevel = currentLevel - FALLOFF_PER_VOXEL - VoxelTypeInfo.LightAttenuation(v) - fogFalloff - canopyFalloff;
                 if (newLevel <= 0) { continue; }
 
                 if (newLevel > world.GetSunlightWorld(nx, ny, nz))

@@ -687,6 +687,43 @@ public partial class SimData : Resource
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
 
+    [ExportGroup("Foliage Canopy Shadow")]
+    // FoliageStamper rasterizes every CastsSunShadow cluster's ellipsoid
+    // plus a downward shadow column into WorldState.CanopyAttenuation;
+    // LightEngine reads that field as extra sun + block-light falloff during
+    // propagation. The four knobs below shape how much a tree shelters.
+
+    // Per-cluster density (0..1) deposited into the canopy field. Stored as
+    // a byte 0..255 and saturating-added across overlapping clusters, so a
+    // lone tree contributes this fraction while two stacked clusters land
+    // near saturation. 0.4 puts a single tree at "dappled" coverage (~half
+    // sun under the shadow column) and a 2+ cluster overlap at the dense-
+    // forest "proper shelter" reading.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float CanopyDensity = 0.4f;
+
+    // Minimum voxels of constant-density shadow stamped directly below
+    // each cluster's ellipsoid. The actual column extends down to whichever
+    // is LOWER: this fixed depth, or one voxel below the prop's base — the
+    // base anchor keeps shadow columns reaching the ground under tall-trunk
+    // trees (birch at ~10m foliage) without authoring per-species depths.
+    // Without the column at all, lateral BFS spread from un-canopied
+    // neighbor columns refills the player's voxel with near-full sun.
+    [Export(PropertyHint.Range, "0,32,1")] public int CanopyShadowDepthVoxels = 6;
+
+    // Sun-channel falloff per propagation step when a voxel's canopy
+    // density is saturated (255). With LightEngine.MAX_LIGHT=60, 18 means a
+    // saturated voxel removes ~30% of max sun per step; combined with the
+    // built-in 4-per-step distance falloff, that's enough to drop the
+    // under-tree reading below the rain shader's 0.7-of-MAX_LIGHT threshold
+    // and trigger rain shelter. Scales linearly with density at the voxel.
+    [Export(PropertyHint.Range, "0,60,1")] public int CanopySunFalloffPeak = 18;
+
+    // Block-light absorption added per diffusion iteration at saturated
+    // canopy density. Matches the fog block-light coefficient so a torch
+    // under a canopy dims gently rather than getting killed entirely.
+    // Scales linearly with the canopy density at each voxel.
+    [Export(PropertyHint.Range, "0,0.5,0.001")] public float CanopyBlockAbsorptionPeak = 0.04f;
+
     [ExportGroup("Spawn Cleanup")]
     // Mirror of the spawn gate: a loaded mob whose ESpawnConditions no longer
     // hold (a night goblin caught at dawn, a clear-day sparrow once it starts

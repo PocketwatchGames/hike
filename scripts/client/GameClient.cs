@@ -379,6 +379,10 @@ public partial class GameClient : Node3D
 
 	Player _player;
 	World _world;
+	// Accumulator for the once-per-second sun + canopy print gated by
+	// CVars.debugSkyLight. Frame-rate independent; counts deltaTime in
+	// _Process and snaps the line whenever it crosses one second.
+	double _debugSkyLightAccum;
 	// Where the player was first placed — reused for respawn so the camera
 	// snap and player teleport always land at the same authored / world-file
 	// spawn point. WorldState.Spawn is the same value today, but holding
@@ -774,6 +778,7 @@ public partial class GameClient : Node3D
 		}
 		_world.Tick(deltaTime);
 		UpdateRegion(deltaTime);
+		UpdateDebugSkyLight(deltaTime);
 
 		if (!InputSuppressed)
 		{
@@ -969,6 +974,50 @@ public partial class GameClient : Node3D
 				region = CurrentRegion,
 			});
 		}
+	}
+
+	// Once-per-second console line summarizing the LightMap reading at the
+	// player's voxel. Toggled by the debug_sky_light CVar; off by default.
+	// Used to verify foliage canopy shadowing: with the CVar on, walk into
+	// and out of a tree's footprint and watch sun01 drop below 0.7 (the
+	// rain shader's threshold for hiding drops) and canopy go above 0.
+	void UpdateDebugSkyLight(double deltaTime)
+	{
+		if (!CVars.debugSkyLight.Value)
+		{
+			_debugSkyLightAccum = 0;
+			return;
+		}
+		_debugSkyLightAccum += deltaTime;
+		if (_debugSkyLightAccum < 1.0)
+		{
+			return;
+		}
+		_debugSkyLightAccum = 0;
+
+		WorldState ws = _world?.WorldState;
+		if (ws == null || _player == null) { return; }
+		Vector3 pos = _player.GlobalPosition;
+		int wx = Mathf.FloorToInt(pos.X);
+		int wy = Mathf.FloorToInt(pos.Y);
+		int wz = Mathf.FloorToInt(pos.Z);
+		int sun = ws.GetSunlightWorld(wx, wy, wz);
+		float sun01 = ws.GetSkyLight01(pos);
+		int canopy = ws.GetCanopyAttenuationWorld(wx, wy, wz);
+		GD.Print($"[SkyLight] voxel=({wx},{wy},{wz}) sun={sun}/{LightEngine.MAX_LIGHT} sky01={sun01:F2} canopy={canopy}/255");
+		// Walk the column upward from the player and dump (Y, sun, canopy)
+		// so we can see whether canopy density is present at the cluster
+		// altitude and whether ComputeSunlight attenuated through it.
+		var col = new System.Text.StringBuilder();
+		col.Append("[SkyLight column up]");
+		for (int dy = 0; dy <= 14; dy++)
+		{
+			int yy = wy + dy;
+			int s = ws.GetSunlightWorld(wx, yy, wz);
+			int c = ws.GetCanopyAttenuationWorld(wx, yy, wz);
+			col.Append($" y{yy}:s={s},c={c}");
+		}
+		GD.Print(col.ToString());
 	}
 
 	static RegionData SampleRegion(Vector3 playerPos, WorldState ws)

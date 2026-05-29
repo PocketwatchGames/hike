@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://gugbpaalsp7f"]
+
+[ext_resource type="Shader" uid="uid://fke8klr1sk21" path="res://shaders/tree_cards_lit.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/alpha_cutoff = 0.5
+shader_parameter/form_strength = 0.50000002375
+shader_parameter/sphere_normal_strength = 0.50000002375
+shader_parameter/card_dome_strength = 1.0
+shader_parameter/leaf_tint_a = Color(0.78, 1, 0.62, 1)
+shader_parameter/leaf_tint_b = Color(1.05, 1, 0.45, 1)
+shader_parameter/per_tree_tint_variation = 0.6000000285
+shader_parameter/per_cluster_tint_variation = 0.250000011875
+shader_parameter/per_card_tint_variation = 0.150000007125
+shader_parameter/tree_origin = Vector3(0, 0, 0)
+shader_parameter/sway_amplitude = 0.08
+shader_parameter/sway_frequency = 1.0

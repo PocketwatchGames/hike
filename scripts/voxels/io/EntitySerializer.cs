@@ -73,6 +73,7 @@ public static class EntitySerializer
                 // Foliage never pick up; write false to keep the wire shape
                 // unchanged so existing .hike files keep loading.
                 w.Write(false);
+                w.Write(prop.RotationY);
                 break;
 
             case LootSimState loot:
@@ -273,6 +274,7 @@ public static class EntitySerializer
                 PackedScene scene = ReadScene(r);
                 byte typeByte = r.ReadByte();
                 bool pickedUp = r.ReadBoolean();
+                float rotationY = r.ReadSingle();
                 // Legacy migration: pre-split PropSimState covered loot too.
                 // Old world files with the retired AutoLoot/Loot PropType
                 // bytes are upgraded to LootSimState on read; new code only
@@ -286,7 +288,7 @@ public static class EntitySerializer
                     loot.PickedUp = pickedUp;
                     return loot;
                 }
-                return new PropSimState((PropType)typeByte, pos, scene);
+                return new PropSimState((PropType)typeByte, pos, scene) { RotationY = rotationY };
             }
             case Tag.Loot:
             {

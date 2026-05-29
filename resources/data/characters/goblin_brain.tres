@@ -22,21 +22,21 @@ script = ExtResource("3_idle")
 [sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
 script = ExtResource("6_aggro_acquired")
 
-[sub_resource type="Resource" id="Resource_cond_actionable"]
-script = ExtResource("14_actionable")
-
-[sub_resource type="Resource" id="Resource_cond_has_investigation"]
-script = ExtResource("10_has_investigation")
-
 [sub_resource type="Resource" id="Resource_idle_to_attack"]
 script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_aggro_acquired")
 destination = &"Attack"
 
+[sub_resource type="Resource" id="Resource_cond_actionable"]
+script = ExtResource("14_actionable")
+
 [sub_resource type="Resource" id="Resource_idle_to_investigate"]
 script = ExtResource("4_transition")
 condition = SubResource("Resource_cond_actionable")
 destination = &"Investigate"
+
+[sub_resource type="Resource" id="Resource_cond_has_investigation"]
+script = ExtResource("10_has_investigation")
 
 [sub_resource type="Resource" id="Resource_idle_to_lookat"]
 script = ExtResource("4_transition")

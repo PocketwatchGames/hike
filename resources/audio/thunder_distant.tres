@@ -9,7 +9,7 @@
 [ext_resource type="AudioStream" uid="uid://ckal4cwysi177" path="res://audio/source/ambience/thunder/amb_base_thunder_far_07.wav" id="far_07"]
 [ext_resource type="AudioStream" uid="uid://gsqlb8j2g4xn" path="res://audio/source/ambience/thunder/amb_base_thunder_far_08.wav" id="far_08"]
 [ext_resource type="AudioStream" uid="uid://b3uvnoahre1pe" path="res://audio/source/ambience/thunder/amb_base_thunder_far_09.wav" id="far_09"]
-[ext_resource type="Script" uid="uid://b3thunderdata9q1k" path="res://scripts/data/ThunderSchedulerData.cs" id="script_thunder_data"]
+[ext_resource type="Script" uid="uid://crcpre08rib1g" path="res://scripts/data/ThunderSchedulerData.cs" id="script_thunder_data"]
 
 [sub_resource type="Curve" id="Curve_thunder_interval"]
 _data = [Vector2(0, 30), 0.0, 0.0, 0, 0, Vector2(0.2, 18), 0.0, 0.0, 0, 0, Vector2(0.5, 8), 0.0, 0.0, 0, 0, Vector2(0.8, 3.5), 0.0, 0.0, 0, 0, Vector2(1, 2), 0.0, 0.0, 0, 0]

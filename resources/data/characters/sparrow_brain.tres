@@ -14,15 +14,14 @@ script = ExtResource("1_perch")
 
 [sub_resource type="Resource" id="Resource_cond_threat"]
 script = ExtResource("3_threat")
-distance = 10.0
-
-[sub_resource type="Resource" id="Resource_cond_hasinv"]
-script = ExtResource("8_hasinv")
 
 [sub_resource type="Resource" id="Resource_perch_to_flee"]
 script = ExtResource("4_trans")
 condition = SubResource("Resource_cond_threat")
 destination = &"FlyFlee"
+
+[sub_resource type="Resource" id="Resource_cond_hasinv"]
+script = ExtResource("8_hasinv")
 
 [sub_resource type="Resource" id="Resource_perch_to_lookat"]
 script = ExtResource("4_trans")

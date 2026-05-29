@@ -187,6 +187,16 @@ public class WorldState
     // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
     public readonly HashSet<Vector3I> FogChunkDirty = new();
 
+    // Per-chunk sun-attenuation field from foliage clusters. Sparse — only
+    // chunks containing or shadowed by tree canopies allocate a 16³ byte
+    // array. Per voxel: 0 = no foliage attenuation, 255 = saturated. Read
+    // by LightEngine's sunlight passes as an extra falloff term (analogous
+    // to the per-voxel fog falloff). Populated by FoliageStamper at world
+    // creation (WorldGen + post-disk-load). NOT serialized — its effect is
+    // baked into the persisted Sunlight bytes; the canopy field is rebuilt
+    // on world load so OnVoxelsChanged re-propagation still sees foliage.
+    public readonly Dictionary<Vector3I, byte[,,]> CanopyAttenuation = new();
+
     // Same pattern for WaterCurrentMap. Populated by anything that mutates
     // water-current vectors at runtime; ChunkManager drains it each frame
     // to push only touched chunks back to the GPU.
@@ -400,6 +410,20 @@ public class WorldState
         LightChunkDirty.Add(cc);
     }
 
+    // Zero every resident chunk's Sunlight bytes so a fresh ComputeSunlight
+    // pass starts from a known baseline. Required because the column scan
+    // breaks when sunLevel reaches zero — without a reset, voxels below the
+    // break keep whatever a previous propagation pass set them to. Marks
+    // every chunk dirty so the GPU upload reflects the fresh propagation.
+    public void ClearSunlightAll()
+    {
+        foreach (var kvp in _chunks)
+        {
+            Array.Clear(kvp.Value.Sunlight, 0, kvp.Value.Sunlight.Length);
+            LightChunkDirty.Add(kvp.Key);
+        }
+    }
+
     // Sky exposure at `worldPos`, normalized to [0, 1] where 1.0 is direct
     // overhead sky (unattenuated BFS) and 0 means no sunlight reaches the
     // voxel. Single source of truth for the "is this point in the open?"
@@ -481,6 +505,45 @@ public class WorldState
         }
         chunk.SetFog(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), density);
         FogChunkDirty.Add(cc);
+    }
+
+    // Foliage canopy sun-attenuation at a world voxel, byte 0-255. Returns
+    // 0 (no attenuation) for chunks outside the resident set or with no
+    // canopy data yet — same streaming-correct default as fog.
+    public int GetCanopyAttenuationWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!CanopyAttenuation.TryGetValue(cc, out byte[,,] arr))
+        {
+            return 0;
+        }
+        return arr[Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE)];
+    }
+
+    // Saturating add — multiple overlapping foliage clusters stack but
+    // can never exceed 255. Allocates the chunk's canopy array on demand,
+    // but only if the chunk is resident and `amount` is positive.
+    public void AddCanopyAttenuationWorld(int wx, int wy, int wz, int amount)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.ContainsKey(cc))
+        {
+            return;
+        }
+        if (!CanopyAttenuation.TryGetValue(cc, out byte[,,] arr))
+        {
+            arr = new byte[ChunkState.SIZE, ChunkState.SIZE, ChunkState.SIZE];
+            CanopyAttenuation[cc] = arr;
+        }
+        int lx = Mod(wx, ChunkState.SIZE);
+        int ly = Mod(wy, ChunkState.SIZE);
+        int lz = Mod(wz, ChunkState.SIZE);
+        int sum = arr[lx, ly, lz] + amount;
+        arr[lx, ly, lz] = (byte)(sum > 255 ? 255 : sum);
     }
 
     public void SetVoxelWorld(int wx, int wy, int wz, VoxelType type)

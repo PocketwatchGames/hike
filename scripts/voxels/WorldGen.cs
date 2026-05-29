@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 1;
+    public const int WORLDGEN_VERSION = 3;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -3004,7 +3004,10 @@ public static class WorldGen
             // into the visible ground.
             ws.AddEntity(new PropSimState(PropType.Tree,
                 new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f),
-                scene));
+                scene)
+            {
+                RotationY = (float)rng.NextDouble() * Mathf.Tau,
+            });
             treedCells.Add((localX, localZ));
             return true;
         }
@@ -3078,7 +3081,15 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    ws.AddEntity(new PropSimState(PropType.Foliage, new Vector3(wx + 0.5f, sy + 1.5f, wz + 0.5f), grassScene));
+                    const float grassJitter = 0.2f;
+                    float jitterX = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
+                    float jitterZ = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
+                    ws.AddEntity(new PropSimState(PropType.Foliage,
+                        new Vector3(wx + 0.5f + jitterX, sy + 1.5f, wz + 0.5f + jitterZ),
+                        grassScene)
+                    {
+                        RotationY = (float)rng.NextDouble() * Mathf.Tau,
+                    });
                 }
             }
         }

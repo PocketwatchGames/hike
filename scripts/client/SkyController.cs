@@ -464,6 +464,15 @@ public partial class SkyController : Node3D
     // shader or per-weather amplitude knobs.
     [Export(PropertyHint.Range, "0,0.05,0.0001")] public float windToSwayMeters = 0.013f;
 
+    // Extra Hz of rustle frequency per m/s of GustedWindSpeed, added on top of
+    // the per-weather palette.WindFrequency base when integrating windPhase.
+    // The palette controls the "weather mood" frequency (calm vs overcast);
+    // this knob makes live gusts also visibly speed up the rustle so a sudden
+    // wind ramp reads as stormier, not just bigger. Applied to grass + tree
+    // shaders alike via the shared wind_phase global. Default 0.1 gives
+    // roughly +1 Hz at a 10 m/s gust — noticeable without becoming jittery.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float windFrequencyPerMps = 0.1f;
+
     [ExportGroup("Clouds")]
     // Cloud spatial tiling (authored). Separate from the weather-driven
     // cloudThreshold / cloudSharpness (which come from the palette) —
@@ -637,7 +646,11 @@ public partial class SkyController : Node3D
     private int _dynamicRippleCount;
     private Image _rippleImage;
     private ImageTexture _rippleTexture;
-    // Grass-sway sin phase (integrates palette.WindFrequency per frame).
+    // Grass / tree rustle sin phase. Integrates
+    //     (palette.WindFrequency + GustedWindSpeed * windFrequencyPerMps) * dt
+    // per frame so the rustle rate tracks both weather mood (palette base)
+    // AND live gust speed. Pre-integration avoids the phase-jump artifact
+    // you'd get from multiplying TIME by a varying frequency in the shader.
     public float windPhase;
     // Gust-wave phase in radians (integrates palette.GustFrequency * 2π
     // per frame). Drives the amplitude-multiplier wave in Apply().
@@ -1063,7 +1076,7 @@ public partial class SkyController : Node3D
             // Wave displacement phase. Steady wind only (gusts shouldn't
             // visibly stutter the wave temporal frequency).
             wavePhase += steadySpeed * waveSpeedPerMps * dt;
-            windPhase += _palette.WindFrequency * dt;
+            windPhase += (_palette.WindFrequency + GustedWindSpeed * windFrequencyPerMps) * dt;
             gustPhase += _palette.GustFrequency * Mathf.Tau * dt;
 
             dustNoiseOffsetA += dustNoiseScroll * dt;

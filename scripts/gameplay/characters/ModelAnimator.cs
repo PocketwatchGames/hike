@@ -9,11 +9,12 @@ using Godot;
 //
 // Beyond playing clips it adds two stylization passes that make the 3D model
 // read like the game's pixel-art sprites:
-//   - Stepped sampling: the skeleton pose is sampled at a fixed low rate
-//     (quantizeFps, default 12) instead of the 60 Hz frame rate, for a
-//     stop-motion / hand-animated cadence. Done by freezing the
-//     AnimationPlayer (SpeedScale 0) and driving a manual clock, seeking to
-//     the quantized time each frame.
+//   - Stepped sampling: the skeleton pose only changes at a fixed low rate
+//     (quantizeFps, default 12) instead of the render frame rate, for a
+//     stop-motion / hand-animated cadence. The AnimationPlayer is paused and
+//     driven manually with Advance() in discrete 1/quantizeFps steps, so
+//     Godot still owns looping (a manual Seek backward across the loop seam
+//     caused a one-frame bind-pose flash; Advance wraps cleanly).
 //   - Faceting: the visual's yaw is snapped to N directions (default 8)
 //     measured relative to the camera, mimicking 8-directional sprite art.
 //     Only the VISUAL is faceted — the Player body keeps its smooth yaw for
@@ -31,10 +32,9 @@ public partial class ModelAnimator : Node, IActorAnimator
     // Player._footstepFrames. Matched to the sprite clips' authored ~10fps so
     // footfall frame indices land at similar relative times. Approximate.
     [Export] public float frameFps = 10f;
-    // Pose sampling rate (stop-motion look). The skeleton is only sampled at
-    // this many discrete times per second; the clip's real time advances
-    // continuously underneath but the visible pose snaps. <= 0 disables the
-    // effect and plays back smoothly via the AnimationPlayer's own advance.
+    // Pose sampling rate (stop-motion look). The skeleton is only re-posed this
+    // many times per second. <= 0 disables the effect and plays back smoothly
+    // via the AnimationPlayer's own advance.
     [Export] public float quantizeFps = 12f;
     // Number of yaw facings the visual snaps to, measured relative to the
     // camera (8 = 45 degrees apart, like 8-directional sprite art). <= 1
@@ -46,6 +46,11 @@ public partial class ModelAnimator : Node, IActorAnimator
     // already-authored material in code (not creating one) is simpler and robust
     // to the imported mesh layout. Null leaves the imported materials in place.
     [Export] public ShaderMaterial modelMaterial;
+    // Names of MeshInstance3D nodes under `visual` to hide at startup. Imported
+    // character FBX often bundle alternate cosmetics (extra hairstyles, the
+    // naked body underneath an outfit, optional helmets) that all render at
+    // once unless culled. List the redundant ones here per scene.
+    [Export] public string[] hiddenMeshNames = Array.Empty<string>();
 
     public float effectSpeedMultiplier { get; set; } = 1f;
     public StringName CurrentAnimation { get; private set; }
@@ -54,11 +59,8 @@ public partial class ModelAnimator : Node, IActorAnimator
 
     private int _lastFrame = -1;
     private bool _active;
-    // Manual playback clock (seconds into the current clip) for stepped
-    // sampling, plus the current clip's cached length / loop flag.
-    private double _clock;
-    private double _curLength;
-    private bool _curLooping;
+    // Accumulated real time waiting to be spent in discrete quantized steps.
+    private double _stepAccum;
     // Cached refs for the facing pass: the camera (refreshed lazily) and the
     // body node the visual hangs under (its yaw is the "true" facing).
     private Camera3D _cachedCamera;
@@ -69,16 +71,14 @@ public partial class ModelAnimator : Node, IActorAnimator
         if (player != null)
         {
             player.AnimationFinished += OnAnimationFinished;
-            player.AnimationFinished += (a) => GD.Print($"[DBG] anim_finished '{a}' clock={_clock:F3}");
-            player.Connect("animation_changed", Callable.From((StringName o, StringName n) => GD.Print($"[DBG] anim_changed {o}->{n}")));
-            if (player.HasSignal("animation_looped"))
-            {
-                player.Connect("animation_looped", Callable.From(() => GD.Print($"[DBG] anim_looped clock={_clock:F3} cur={CurrentAnimation}")));
-            }
         }
         if (modelMaterial != null && visual != null)
         {
             ApplyMaterial(visual);
+        }
+        if (hiddenMeshNames.Length > 0 && visual != null)
+        {
+            HideMeshes(visual);
         }
         _body = visual?.GetParent() as Node3D;
         // Default inactive until Player decides which visual is live.
@@ -97,6 +97,21 @@ public partial class ModelAnimator : Node, IActorAnimator
         foreach (Node child in node.GetChildren())
         {
             ApplyMaterial(child);
+        }
+    }
+
+    // Cull MeshInstance3D nodes named in `hiddenMeshNames` so bundled-but-
+    // unwanted cosmetics (alternate hair, naked body under outfit, etc.) don't
+    // all render on top of each other.
+    private void HideMeshes(Node node)
+    {
+        if (node is MeshInstance3D mesh && Array.IndexOf(hiddenMeshNames, mesh.Name.ToString()) >= 0)
+        {
+            mesh.Visible = false;
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            HideMeshes(child);
         }
     }
 
@@ -133,17 +148,19 @@ public partial class ModelAnimator : Node, IActorAnimator
             GD.PushError($"ModelAnimator '{Name}': unknown animation '{name}'");
             return;
         }
-        GD.Print($"[DBG] Play '{name}' (was '{CurrentAnimation}' finished={Finished})");
         CurrentAnimation = name;
         Finished = false;
         _lastFrame = 0;
-        _clock = 0.0;
-        Animation anim = player.GetAnimation(name);
-        _curLength = anim != null ? anim.Length : 0.0;
-        _curLooping = anim != null && anim.LoopMode != Animation.LoopModeEnum.None;
+        _stepAccum = 0.0;
         // Stepped mode hard-cuts (no cross-fade) to keep the stop-motion read;
         // smooth mode uses a short blend so state changes don't pop.
         player.Play(name, customBlend: quantizeFps > 0f ? 0.0 : 0.12);
+        if (quantizeFps > 0f)
+        {
+            // Pause auto-advance — _Process drives the position in discrete
+            // steps via Advance(); Godot still handles loop wrap inside Advance.
+            player.Pause();
+        }
         OnFrameAdvanced?.Invoke(CurrentAnimation, 0);
     }
 
@@ -156,46 +173,29 @@ public partial class ModelAnimator : Node, IActorAnimator
             return;
         }
 
-        double pos;
         if (quantizeFps > 0f)
         {
-            // Stepped: freeze the AnimationPlayer and drive a manual clock,
-            // seeking to the quantized time so the pose only changes at
-            // quantizeFps boundaries.
-            player.SpeedScale = 0f;
-            if (!Finished)
+            // Stepped: the player is paused; spend accumulated time in fixed
+            // 1/quantizeFps chunks so the pose only changes at those instants.
+            // Advance() handles looping/finish natively (no backward seek).
+            _stepAccum += delta * speed * effectSpeedMultiplier;
+            double step = 1.0 / quantizeFps;
+            while (!Finished && _stepAccum >= step)
             {
-                _clock += delta * speed * effectSpeedMultiplier;
-                if (_curLength > 0.0 && _clock >= _curLength)
-                {
-                    if (_curLooping)
-                    {
-                        _clock %= _curLength;
-                    }
-                    else
-                    {
-                        _clock = _curLength;
-                        Finished = true;
-                    }
-                }
-                double quantized = Math.Floor(_clock * quantizeFps) / quantizeFps;
-                player.Seek(quantized, true);
+                player.Advance(step);
+                _stepAccum -= step;
             }
-            pos = _clock;
         }
         else
         {
-            // Smooth: let the AnimationPlayer advance itself; Finished comes
-            // from the animation_finished signal.
+            // Smooth: let the AnimationPlayer advance itself.
             player.SpeedScale = speed * effectSpeedMultiplier;
-            if (Finished)
-            {
-                return;
-            }
-            pos = player.CurrentAnimationPosition;
         }
 
-        EmitFrameEvents(pos);
+        if (!Finished)
+        {
+            EmitFrameEvents(player.CurrentAnimationPosition);
+        }
     }
 
     // Synthesize OnFrameAdvanced "frame" crossings from a continuous position so

@@ -5,6 +5,11 @@ public class PropSimState : EntitySimState
 {
     public readonly PropType Type;
 
+    // Y-axis spawn rotation (radians). Trees and tall grass randomize this in
+    // WorldGen so a meadow or forest doesn't read as a grid of identical
+    // sprites/models all facing the same way.
+    public float RotationY;
+
     public PropSimState(PropType type, Vector3 worldPosition, PackedScene scene)
         : base(worldPosition, scene)
     {

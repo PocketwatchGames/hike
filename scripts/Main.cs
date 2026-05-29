@@ -48,12 +48,6 @@ public partial class Main : Node
 		}
 
 		StartMainMenu();
-
-		// TEMP DEBUG AUTOSTART — remove.
-		GetTree().CreateTimer(0.5).Timeout += () =>
-		{
-			(_currentScreen as GuiMainMenu)?.NewGameStandard();
-		};
 	}
 
 	async void NewGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
@@ -184,6 +178,15 @@ public partial class Main : Node
 				worldState = await RunOffThread(() => WorldGen.Generate(genData, DEFAULT_WORLD_SEED, DEFAULT_WORLD_SIZE));
 				worldState.Spawn = playerPosition;
 
+				// Foliage occluder stamping uses PackedScene.Instantiate to
+				// snapshot each tree scene's FoliageCluster transforms — a
+				// Node API call that can't run on the worldgen worker thread.
+				// Stamp on the main thread, then re-run ComputeSunlight so
+				// the canopy shadows are baked into the persisted sun field
+				// before the world hits the cache.
+				FoliageStamper.Stamp(worldState);
+				LightEngine.ComputeSunlight(worldState);
+
 				if (cachePath != null)
 				{
 					var saveSw = Stopwatch.StartNew();
@@ -200,6 +203,20 @@ public partial class Main : Node
 						GD.PrintErr($"[Load] WorldGen cache save failed: {e.Message}");
 					}
 				}
+			}
+			else
+			{
+				// Disk-loaded paths (worldFile or worldgen cache) come back
+				// with sunlight already baked, but the baked bytes are only
+				// as good as the FoliageStamper / LightEngine logic at the
+				// time of the save. Re-stamp canopy and re-propagate so any
+				// changes to the lighting pipeline reach previously-cached
+				// worlds without needing a WORLDGEN_VERSION bump. Cost is
+				// one ComputeSunlight pass on load (~sub-second at current
+				// world sizes); the canopy field also needs to be live so
+				// later voxel-edit re-propagation keeps foliage shadowing.
+				FoliageStamper.Stamp(worldState);
+				LightEngine.ComputeSunlight(worldState);
 			}
 		}
 		catch (Exception e)

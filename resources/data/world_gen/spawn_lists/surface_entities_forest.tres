@@ -48,11 +48,6 @@ script = ExtResource("13_well_entry")
 Scene = ExtResource("14_well_scene")
 SquareMetersPerSpawn = 2000.0
 
-[sub_resource type="Resource" id="Resource_climbtree"]
-script = ExtResource("15_climb_entry")
-Scene = ExtResource("16_climb_scene")
-SquareMetersPerSpawn = 250.0
-
 [sub_resource type="Resource" id="Resource_638lp"]
 script = ExtResource("2_mob_entry")
 Data = ExtResource("12_u4h7o")
@@ -60,6 +55,11 @@ InitialBehavior = null
 SquareMetersPerSpawn = 100.0
 spawnConditions = 9
 metadata/_custom_type_script = "uid://dhkkrl6qof485"
+
+[sub_resource type="Resource" id="Resource_climbtree"]
+script = ExtResource("15_climb_entry")
+Scene = ExtResource("16_climb_scene")
+SquareMetersPerSpawn = 250.0
 
 [resource]
 script = ExtResource("1_list")

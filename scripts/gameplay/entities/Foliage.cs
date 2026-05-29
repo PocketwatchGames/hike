@@ -58,6 +58,7 @@ public partial class Foliage : Area3D, IWorldEntity
 	{
 		var instance = data.Scene.Instantiate<Foliage>();
 		instance.Position = data.WorldPosition;
+		instance.Rotation = new Vector3(0f, data.RotationY, 0f);
 		world.AddChild(instance);
 		return instance;
 	}

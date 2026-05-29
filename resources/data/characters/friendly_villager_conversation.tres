@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="ConversationData" format=3 uid="uid://puiica1tfi3y"]
 
 [ext_resource type="Script" uid="uid://cr2wgt6ot73qr" path="res://scripts/data/conversation/ConversationData.cs" id="1_conv"]
-[ext_resource type="Script" uid="uid://8cc1xf259nmkr" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
-[ext_resource type="Script" uid="uid://0rr6amgnggpp9" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
-[ext_resource type="Script" uid="uid://mkzisjn82pb67" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_response"]
-[ext_resource type="Script" uid="uid://g4isnktbxv9wh" path="res://scripts/data/conversation/actions/OpenShopAction.cs" id="5_openshop"]
-[ext_resource type="Script" uid="uid://3jwvvnxtslt36" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="6_respgroup"]
+[ext_resource type="Script" uid="uid://ce227yp5q1min" path="res://scripts/data/conversation/ConversationBranch.cs" id="2_branch"]
+[ext_resource type="Script" uid="uid://clcxqaw418g6o" path="res://scripts/data/conversation/ConversationEntry.cs" id="3_entry"]
+[ext_resource type="Script" uid="uid://yrv1dwid3oww" path="res://scripts/data/conversation/ConversationResponse.cs" id="4_response"]
+[ext_resource type="Script" uid="uid://c83w2iv2epe5p" path="res://scripts/data/conversation/actions/OpenShopAction.cs" id="5_openshop"]
+[ext_resource type="Script" uid="uid://bh2srai2t6pst" path="res://scripts/data/conversation/ConversationResponseGroup.cs" id="6_respgroup"]
 
 [sub_resource type="Resource" id="Branch_greeting"]
 script = ExtResource("2_branch")

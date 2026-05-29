@@ -532,6 +532,10 @@ public partial class Minimap : Node3D
         {
             _textures.StampFoliagePoint(sprite.GlobalPosition, sprite.MinimapFoliageId, _foliageColors);
         }
+        else if (node is MinimapFoliageStamp stamp && stamp.MinimapFoliageId != 0)
+        {
+            _textures.StampFoliagePoint(stamp.GlobalPosition, stamp.MinimapFoliageId, _foliageColors);
+        }
         foreach (Node child in node.GetChildren())
         {
             StampPropsRecursive(child);

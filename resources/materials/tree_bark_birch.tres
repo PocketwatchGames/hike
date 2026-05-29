@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://b82h0vtdtdjii"]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://cxt8gqo3tdpwi" path="res://assets/models/trees/bark_birch.png" id="2_bark"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_bark")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(1.0, 1.0, 0.98, 1)

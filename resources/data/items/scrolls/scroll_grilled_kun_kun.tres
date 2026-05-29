@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ScrollData" format=3 uid="uid://csrlgrkkra006"]
 
-[ext_resource type="Script" uid="uid://754cme8yka3wk" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
-[ext_resource type="Script" uid="uid://ca8oyj6ahzhdq" path="res://scripts/data/teaching/RecipeTeachable.cs" id="2_recipe_teachable"]
+[ext_resource type="Script" uid="uid://b8udvxvx1n3ug" path="res://scripts/data/items/ScrollData.cs" id="1_scroll"]
+[ext_resource type="Script" uid="uid://ca8oyj6ah0hdq" path="res://scripts/data/teaching/RecipeTeachable.cs" id="2_recipe_teachable"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="3_recipe"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="4_3fjb6"]
 [ext_resource type="Resource" uid="uid://bql4dlf6cycp7" path="res://resources/data/items/scrolls/scroll_action_profile.tres" id="4_profile"]

@@ -6,7 +6,7 @@
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="5_kit_underwater"]
 [ext_resource type="Resource" uid="uid://crwit5kc7vxce" path="res://resources/data/world_gen/spawn_lists/surface_entities_mountain.tres" id="5_ycgd3"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_w82ce"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="11_w82ce"]
+[ext_resource type="Resource" uid="uid://2fxll1oeroha" path="res://resources/data/world_gen/terrain_gen/mountain_kit.tres" id="11_w82ce"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="13_cave"]
 
 [resource]

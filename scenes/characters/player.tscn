@@ -35,8 +35,8 @@
 [ext_resource type="Resource" uid="uid://fy565pr1emwe" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
 [ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
 [ext_resource type="Resource" uid="uid://bbs2iny1ukw4q" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
-[ext_resource type="PackedScene" uid="uid://csy3th7vpbb8f" path="res://assets/models/characters/polyperfect/man_casual_Rig.fbx" id="29_rigscene"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polyperfect/player_anims.res" id="30_animlib"]
+[ext_resource type="PackedScene" uid="uid://qficleeo56im" path="res://assets/models/characters/polysplit/F_Swordsman.fbx" id="29_rigscene"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/swordsman_anims.res" id="30_animlib"]
 [ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="31_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="32_modelanim"]
 
@@ -1117,16 +1117,17 @@ defaultAnimation = &"idle"
 [node name="PlayerModel" type="Node3D" parent="." unique_id=230130306]
 transform = Transform3D(1.2, 0, 0, 0, 1.2, 0, 0, 0, 1.2, 0, 0, 0)
 
-[node name="man_casual_Rig" parent="PlayerModel" unique_id=1302658095 instance=ExtResource("29_rigscene")]
+[node name="F_Swordsman" parent="PlayerModel" unique_id=1302658095 instance=ExtResource("29_rigscene")]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="PlayerModel/man_casual_Rig" unique_id=1813657695]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="PlayerModel/F_Swordsman" unique_id=1813657695]
 libraries/ = ExtResource("30_animlib")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=1349314066 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("32_modelanim")
-player = NodePath("../PlayerModel/man_casual_Rig/AnimationPlayer")
+player = NodePath("../PlayerModel/F_Swordsman/AnimationPlayer")
 visual = NodePath("../PlayerModel")
 modelMaterial = ExtResource("31_modelmat")
+hiddenMeshNames = PackedStringArray("F_TopBody", "F_BottomBody", "F_hair_2", "F_hair_3", "F_hair_4", "F_hair_5", "F_hair_6", "F_hair_7", "F_hair_8", "F_hair_9", "F_hair_10", "F_hair_11", "F_hair_12", "F_hair_13", "F_hair_14")
 
 [node name="DashGhostTrail" type="Node3D" parent="." unique_id=567420860 node_paths=PackedStringArray("_source")]
 script = ExtResource("27_dashghost")

@@ -86,7 +86,10 @@ public static class WorldFile
     // v20: Mob and Chest entity payloads replaced the SpawnAtNight bool with a
     //      1-byte ESpawnConditions bitmask (Day/Night/Clear), so spawns can be
     //      gated on time-of-day AND weather (e.g. sparrows spawn Day | Clear).
-    public const uint VERSION = 20;
+    // v21: Prop entity payload appended a RotationY float (after the legacy
+    //      PickedUp byte) so WorldGen's per-tree random Y rotation round-trips
+    //      through .hike export/import instead of collapsing back to 0 on load.
+    public const uint VERSION = 21;
 
     public struct IndexEntry
     {

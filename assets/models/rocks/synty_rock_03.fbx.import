@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://csy3th7vpbb8f"
-path="res://.godot/imported/man_casual_Rig.fbx-029a542de3c88053a974ad13d8fbd9f7.scn"
+uid="uid://c6jegkb12b0ci"
+path="res://.godot/imported/synty_rock_03.fbx-83d51e95207fda3d849123b987b8adc7.scn"
 
 [deps]
 
-source_file="res://assets/models/characters/polyperfect/man_casual_Rig.fbx"
-dest_files=["res://.godot/imported/man_casual_Rig.fbx-029a542de3c88053a974ad13d8fbd9f7.scn"]
+source_file="res://assets/models/rocks/synty_rock_03.fbx"
+dest_files=["res://.godot/imported/synty_rock_03.fbx-83d51e95207fda3d849123b987b8adc7.scn"]
 
 [params]
 
@@ -37,7 +37,15 @@ import_script/path=""
 materials/extract=0
 materials/extract_format=0
 materials/extract_path=""
-_subresources={}
+_subresources={
+"materials": {
+"Polygon_Generic_01A": {
+"use_external/enabled": true,
+"use_external/fallback_path": "res://assets/models/rocks/rock_lit.tres",
+"use_external/path": "uid://ndfmamh6tlcx"
+}
+}
+}
 fbx/importer=0
 fbx/allow_geometry_helper_nodes=false
 fbx/embedded_image_handling=1

@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://g7xvckwrxrcr"
-path.s3tc="res://.godot/imported/color-atlas-new2.png-efff8d08f54f738d80b1ed6deee47f79.s3tc.ctex"
+uid="uid://v71q05qoy3bi"
+path.s3tc="res://.godot/imported/medievalTexture_bodyColor1.png-0da1c238dffd370f570f8741a1bff0d5.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/models/characters/polyperfect/color-atlas-new2.png"
-dest_files=["res://.godot/imported/color-atlas-new2.png-efff8d08f54f738d80b1ed6deee47f79.s3tc.ctex"]
+source_file="res://assets/models/characters/polysplit/medievalTexture_bodyColor1.png"
+dest_files=["res://.godot/imported/medievalTexture_bodyColor1.png-0da1c238dffd370f570f8741a1bff0d5.s3tc.ctex"]
 
 [params]
 

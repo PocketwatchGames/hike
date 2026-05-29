@@ -74,6 +74,14 @@ public static class CVars
     // contact doesn't spam per-tick.
     public static CVarBool debugSlopes = new CVarBool("debug_slopes", false);
 
+    // Once-per-second console print of the sun + canopy reading at the
+    // player's voxel — useful to verify foliage shadowing (a tree's
+    // FoliageCluster with CastsSunShadow stamps into CanopyAttenuation;
+    // stepping under the canopy should drop sky01 below 0.7 so rain is
+    // sheltered). Prints player voxel, sunlight (raw + sky01), and the
+    // canopy density byte at that voxel.
+    public static CVarBool debugSkyLight = new CVarBool("debug_sky_light", false);
+
     // Mouse aim sensitivity. Multiplies raw mouseMotion.Relative before
     // accumulating into the aim cursor (clamped to a fixed pixel radius in
     // GameClient). Higher = more cursor travel per pixel of mouse motion =
@@ -883,6 +891,45 @@ public static class CVars
     public static CVarFloat lightFalloffExp = new CVarFloat("light_falloff_exp", 2f, (cvar) =>
     {
         Godot.RenderingServer.GlobalShaderParameterSet("light_falloff_exp", ((CVarFloat)cvar).Value);
+    });
+
+    // Three independent gates for the tree_lit shader (the maple/canopy tree
+    // material). Each is a 0..1 strength; 0 disables that pass entirely, 1 is
+    // the authored intent, partial values blend in for A/B comparison. The
+    // shader gates each pass on its own strength so the three combine without
+    // any compile-time switches — toggling any of them at runtime is a single
+    // RenderingServer push and a uniform branch in the shader.
+    //
+    // tree_wind 0 → canopy verts stop swaying in the vertex shader (still
+    // displaced by zero, which is free; the work that's gone is the sin/cos
+    // pair and the mask multiply).
+    public static CVarFloat treeWind = new CVarFloat("tree_wind", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("tree_wind_strength", ((CVarFloat)cvar).Value);
+    });
+    // tree_sphere_normal 0 → canopy shading uses the real (faceted) mesh
+    // normal instead of a radial-from-canopy-center fake. The crown reads as
+    // a low-poly polyhedron rather than a soft blob.
+    public static CVarFloat treeSphereNormal = new CVarFloat("tree_sphere_normal", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("tree_sphere_normal_strength", ((CVarFloat)cvar).Value);
+    });
+    // tree_detail_noise 0 → canopy albedo isn't modulated by the per-pixel
+    // 3D value-noise; surfaces revert to the flat atlas color.
+    public static CVarFloat treeDetailNoise = new CVarFloat("tree_detail_noise", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("tree_detail_noise_strength", ((CVarFloat)cvar).Value);
+    });
+    // tree_silhouette_breakup 0 → no canopy pixels are discarded; the
+    // polygonal silhouette is solid. 1 → the authored amount
+    // (silhouette_breakup_amount in tree_lit.gdshader, default 0.12) is
+    // applied, punching ~12% of canopy pixels out along the noise's dark
+    // spots. Slides up past 1 (engine doesn't clamp) for progressive
+    // seasonal leaf loss — at high values the canopy thins to almost
+    // nothing.
+    public static CVarFloat treeSilhouetteBreakup = new CVarFloat("tree_silhouette_breakup", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("tree_silhouette_breakup_strength", ((CVarFloat)cvar).Value);
     });
 
     // RGB tint applied to the sun visibility mask. Day/night will drive this:

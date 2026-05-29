@@ -48,6 +48,13 @@ global uniform float cloud_altitude;
 // look while giving the mesh enough shading to read as 3D.
 uniform float form_strength : hint_range(0.0, 1.0) = 0.55;
 
+// Per-material multiplicative tint applied to the sampled albedo BEFORE the
+// lighting math. Default (1,1,1) leaves the texture untouched (back-compatible
+// for character materials). Used by rock_lit.tres to brighten/warm the Synty
+// rock palette (which UV-samples a flat mid-grey region) into a stone tone
+// that reads at desert biome ambient without changing the source atlas.
+uniform vec3 color_tint : source_color = vec3(1.0, 1.0, 1.0);
+
 varying vec3 world_pos;
 varying vec3 world_normal;
 
@@ -60,7 +67,7 @@ void vertex() {
 
 void fragment() {
 	vec4 tex = texture(albedo_tex, UV);
-	vec3 base = tex.rgb;
+	vec3 base = tex.rgb * color_tint;
 
 	// Editor-preview fallback: light globals aren't registered until the game
 	// starts, so a standalone .tres / editor preview gets vec3(0) for
