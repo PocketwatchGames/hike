@@ -12,6 +12,9 @@ render_mode depth_draw_opaque, cull_back, ambient_light_disabled, specular_disab
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_delay;
 #include "res://shaders/clip_dither.gdshaderinc"
 global uniform int clip_debug_mode;
 global uniform vec3 debug_solid; // (0,0,0) = disabled, otherwise forces ALBEDO.
@@ -573,7 +576,7 @@ void fragment() {
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
 		wet_spec = 0.0;
 	}
-	if (clip_dither_should_discard(world_vertex.y, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard(world_vertex, FRAGCOORD.xy)) {
 		discard;
 	}
 	// Mode 13: paint terrain via EMISSION (bypasses lighting) so it shows

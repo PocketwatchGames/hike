@@ -137,6 +137,9 @@ global uniform float cloud_altitude;
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_delay;
 #include "res://shaders/clip_dither.gdshaderinc"
 // Debug toggles — shared with voxel_clip so terrain and sprites behave
 // identically under each flag and you can isolate shading divergences.
@@ -334,7 +337,7 @@ void vertex() {
 }
 
 void fragment() {
-	if (clip_dither_should_discard(world_origin.y, FRAGCOORD.xy)) {
+	if (clip_dither_should_discard(world_origin, FRAGCOORD.xy)) {
 		discard;
 	}
 

@@ -26,7 +26,7 @@ public partial class GameCamera : Camera3D
 	[Export] public float followTimeAirAscending = 0.5f;
 	[Export] public float followTimeDashing = 1f;
 
-	private const float CLIP_EPSILON = 0.1f;
+	private const float CLIP_EPSILON = 0.5f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
 	// Player eye offset above the foot position. Other systems (minimap
 	// elevation reference, etc.) read this so the height the camera treats
@@ -36,7 +36,11 @@ public partial class GameCamera : Camera3D
 	// Duration of the dithered fade between cutaway elevations. While
 	// blending, ceiling-discard shaders stipple the transition band via
 	// camera_clip_prev / camera_clip_blend (see clip_dither.gdshaderinc).
-	private const float CLIP_FADE_TIME = 0.1f;
+	// Long enough that the iris-style growth from the player center is
+	// visible — at 0.1s the spatial spread is mathematically there but
+	// happens too fast to perceive as a sweep. 0.4–0.6s reads as an
+	// actual opening iris.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipFadeTime = 0.4f;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
@@ -415,6 +419,14 @@ public partial class GameCamera : Camera3D
 		_clipBlend = 0f;
 		_pendingClip = float.NaN;
 		ApplyClipPlanes(centerPos);
+		// Capture the growth center for the iris-style cutaway dither
+		// (see clip_dither.gdshaderinc) at the moment the transition is
+		// triggered, NOT live per-frame. This locks the disk's origin to
+		// where the player stood when they walked under/out of the
+		// ceiling, so the iris stays anchored even if they keep moving
+		// during the 100ms blend — visually stabler than a tracking
+		// center that drags the disk around.
+		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", centerPos);
 		PushClipGlobals();
 	}
 
@@ -428,7 +440,7 @@ public partial class GameCamera : Camera3D
 		{
 			return;
 		}
-		_clipBlend = Mathf.Min(1f, _clipBlend + deltaTime / CLIP_FADE_TIME);
+		_clipBlend = Mathf.Min(1f, _clipBlend + deltaTime / Mathf.Max(clipFadeTime, 1e-3f));
 		if (_clipBlend >= 1f)
 		{
 			_clipPrev = _clip;

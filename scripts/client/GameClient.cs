@@ -240,6 +240,25 @@ public partial class GameClient : Node3D
 	// occluder still benefits from a wider see-through.
 	[Export(PropertyHint.Range, "0.05,1,0.05")] public float foliagePlayerFadeCountScaleMin = 0.35f;
 	[Export(PropertyHint.Range, "1,16,1")] public int foliagePlayerFadeCountScaleSaturate = 5;
+
+	[ExportGroup("Camera Clip Growth")]
+	// World-space radius at which the player-centered ceiling-cutaway disk
+	// reaches its full extent (i.e. blend=1 fully covers the band out to
+	// this distance). Sized so the disk comfortably exceeds the screen
+	// radius from the player at the default iso camera distance — anything
+	// past it falls in the "phase > 1" tail and is fully clipped from the
+	// first frame of the blend regardless of where the player is. 24m is
+	// generous for the iso framing; bump up if cutaways read as "still
+	// growing" when the blend finishes.
+	[Export(PropertyHint.Range, "4,64,1")] public float cameraClipGrowthMaxRadius = 24f;
+	// How aggressively the transition front lags behind the player's disk.
+	// 0 = uniform-in-time fade (the whole band crosses together — original
+	// behavior). 1 = strict outward sweep — the player-centered side
+	// finishes at blend=0.5 and the far edge finishes at blend=1. Higher
+	// values concentrate the visible transition into a thinner ring of
+	// dithering at any instant, reading as a more obvious "iris opening"
+	// effect.
+	[Export(PropertyHint.Range, "0,3,0.05")] public float cameraClipGrowthDelay = 1.0f;
 	// World-space scan range for the IsFadeVolumeOccluded probe — measured
 	// from the camera→player midpoint. Just needs to comfortably exceed the
 	// camera-to-player distance so any cluster on that line is checked; 8m
@@ -917,6 +936,16 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_radius", effectiveRadius);
 		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_soft_edge", foliagePlayerFadeSoftEdge);
 		RenderingServer.GlobalShaderParameterSet("foliage_player_fade_aspect", new Vector2(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical));
+
+		// Camera-clip growth disk — pinned to the live player position so
+		// the iris of the ceiling cutaway tracks them through the
+		// transition. clip_dither.gdshaderinc reads these to delay each
+		// band pixel's transition by distance to the player, then noises
+		// the boundary with the same sin signature the foliage cutaway
+		// uses.
+		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", playerPos);
+		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_max_radius", cameraClipGrowthMaxRadius);
+		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_delay", cameraClipGrowthDelay);
 	}
 
 	public override void _Process(double deltaTime)

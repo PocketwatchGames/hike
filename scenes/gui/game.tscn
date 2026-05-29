@@ -148,6 +148,7 @@ followTimeNormal = 0.35
 followTimeSprinting = 1.0
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
+clipFadeTime = 0.25
 
 [node name="FogQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201793]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)
@@ -264,8 +265,7 @@ foamScale = 10.0
 foamStrength = 0.65
 foamThreshold = 0.55
 foamSharpness = 0.55
-windToSwayMeters = 0.025
-windFrequencyPerMps = 0.2
+windToSwayMeters = 0.01
 cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("fog_volumetric_mat")

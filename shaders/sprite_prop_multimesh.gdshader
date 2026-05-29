@@ -73,6 +73,9 @@ global uniform bool debug_white_albedo;
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_delay;
 #include "res://shaders/clip_dither.gdshaderinc"
 global uniform float sprite_stretch;
 
@@ -196,7 +199,7 @@ void vertex() {
 }
 
 void fragment() {
-    if (clip_dither_should_discard(world_origin.y, FRAGCOORD.xy)) {
+    if (clip_dither_should_discard(world_origin, FRAGCOORD.xy)) {
         discard;
     }
 

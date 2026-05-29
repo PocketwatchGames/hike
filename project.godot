@@ -281,6 +281,18 @@ camera_clip_blend={
 "type": "float",
 "value": 1.0
 }
+camera_clip_growth_center={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+camera_clip_growth_max_radius={
+"type": "float",
+"value": 24.0
+}
+camera_clip_growth_delay={
+"type": "float",
+"value": 1.0
+}
 debug_solid={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
