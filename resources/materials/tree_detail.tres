@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bk8wn4p2rtd6c"]
+
+[ext_resource type="Shader" uid="uid://dq3x7m2ktn9wf" path="res://shaders/tree_detail.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/alpha_cutoff = 0.5
+shader_parameter/subpixel_aa = true
+shader_parameter/depth_bias = 0.12
+shader_parameter/leaf_tint_a = Color(1, 1, 1, 1)
+shader_parameter/leaf_tint_b = Color(1, 1, 1, 1)
+shader_parameter/per_tree_tint_variation = 0.0
+shader_parameter/per_cluster_tint_variation = 0.0
+shader_parameter/per_card_tint_variation = 0.1
+shader_parameter/tree_origin = Vector3(0, 0, 0)
+shader_parameter/sway_amplitude = 0.04
+shader_parameter/wind_bend_strength = 1.0
+shader_parameter/canopy_height = 4.0

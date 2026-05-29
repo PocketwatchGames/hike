@@ -1470,13 +1470,17 @@ public partial class Player : CharacterBody3D
 		// at a campfire and you're soaked.
 		bool inWater = _waterState != EWaterState.None;
 		bool inWarmth = _warmthZoneCount > 0;
-		bool inRain = !inWater && !inWarmth && IsInRain();
+		// Rain exposure in [0, 1]: 0 when sheltered (solid roof overhead or
+		// dense enough canopy), up to 1 in fully open sky. A partial canopy
+		// gives partial shelter, so rain soak scales by it.
+		float rainExposure = (!inWater && !inWarmth) ? RainExposure01() : 0f;
+		bool inRain = rainExposure > 0f;
 
 		float rainAccum = 0f;
 		if (inRain && data.wetnessRainSoakSeconds > 0f)
 		{
 			float rainIntensity = Mathf.Clamp(SkyController.Current?.Palette.RainIntensity ?? 0f, 0f, 1f);
-			rainAccum = (dt / data.wetnessRainSoakSeconds) * rainIntensity;
+			rainAccum = (dt / data.wetnessRainSoakSeconds) * rainIntensity * rainExposure;
 		}
 
 		// Environmental drying scalar — shared across player and armor.
@@ -1654,9 +1658,25 @@ public partial class Player : CharacterBody3D
 		return null;
 	}
 
-	// Are we outdoors with rain falling? Replaces the old IsInWetConditions
-	// for the wet-status path — water-state is handled separately so the
-	// caller can snap wetness to 1 directly.
+	// How exposed to falling rain are we, in [0, 1]? 0 = sheltered (no
+	// perceptible rain, a solid roof overhead, or dense enough tree canopy);
+	// 1 = fully open sky. The wet-status path scales rain soak by this, so a
+	// thin canopy soaks you slowly and a thick one keeps you dry. Water-state
+	// is handled separately by the caller (it snaps wetness to 1 directly).
+	//
+	// Single signal: WorldState.GetSkyExposure01, the non-leaky VERTICAL sky
+	// reach baked into the SkyExposure field. It already folds in solid cover
+	// (a roof/overhang/cave ceiling extinguishes the column) AND tree canopy
+	// density (canopy attenuates the column proportionally), so one value
+	// covers both shelter sources. No physics raycast: the field is immune to
+	// the horizontal light leak that would otherwise wet a player standing
+	// under solid rock at a cave mouth, and it stays correct underground where
+	// the ceiling lives in the chunk above.
+	//
+	// Mapping: fully dry at/below rainShelterSkyThreshold (a mid-range cover
+	// level), ramping linearly to full soak at open sky. So a thin canopy
+	// (high exposure) soaks you slowly and a moderate canopy (exposure below
+	// the threshold) keeps you dry.
 	//
 	// Gated on a perceptible-rain floor instead of strict `> 0`. The
 	// simRain → palette.RainIntensity formula is `pow(simRain, 1.25)`, and
@@ -1666,14 +1686,30 @@ public partial class Player : CharacterBody3D
 	// so wetness never drains. RainPerceptibleFloor filters the noise.
 	private const float RainPerceptibleFloor = 0.01f;
 
-	private bool IsInRain()
+	// Height above the player's origin to sample sky exposure — chest level, so
+	// the probe lands in the air voxel the player occupies rather than the
+	// solid ground voxel under their feet (which would always read sheltered).
+	private const float SkyExposureProbeHeight = 1.0f;
+
+	private float RainExposure01()
 	{
 		SkyController sky = SkyController.Current;
 		if (sky == null || sky.Palette.RainIntensity < RainPerceptibleFloor)
 		{
-			return false;
+			return 0f;
 		}
-		return IsSkyExposed();
+		WorldState ws = World.Current?.WorldState;
+		if (ws == null)
+		{
+			return 0f;
+		}
+		float sky01 = ws.GetSkyExposure01(GlobalPosition + Vector3.Up * SkyExposureProbeHeight);
+		float threshold = data.rainShelterSkyThreshold;
+		if (threshold >= 1f)
+		{
+			return sky01 >= 1f ? 1f : 0f;
+		}
+		return Mathf.Clamp((sky01 - threshold) / (1f - threshold), 0f, 1f);
 	}
 
 	// Slides _bodyTemperature toward the sampled environment + warmth bonus,
@@ -1759,29 +1795,6 @@ public partial class Player : CharacterBody3D
 		{
 			state.ArmTimer(_world?.GameTimeMs ?? 0);
 		}
-	}
-
-	// Single upward raycast against environment voxels. A clear shot to the
-	// arbitrary high cap means the player has open sky overhead — anything in
-	// the way (cave roof, balcony, tree canopy that registers as collidable)
-	// counts as shelter. Cheap enough to run every physics tick (one ray);
-	// the per-tick gating in IsInRain skips it whenever it's not raining or
-	// the player is already in water.
-	private bool IsSkyExposed()
-	{
-		World3D world3D = GetWorld3D();
-		if (world3D == null)
-		{
-			return false;
-		}
-		Vector3 from = GlobalPosition + Vector3.Up * 1.5f;
-		Vector3 to = from + Vector3.Up * 200f;
-		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
-		query.CollideWithBodies = true;
-		query.CollideWithAreas = false;
-		query.Exclude = new Godot.Collections.Array<Rid> { GetRid() };
-		var result = world3D.DirectSpaceState.IntersectRay(query);
-		return result.Count == 0;
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative

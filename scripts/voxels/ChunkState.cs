@@ -94,6 +94,18 @@ public class ChunkState
     // in the shader via the sun_color uniform — the storage is just a mask.
     public readonly byte[,,] Sunlight;
 
+    // Sky exposure: byte 0..LightEngine.MAX_LIGHT. The PURELY VERTICAL sky
+    // reach — the value the sunlight column scan computes on its way down
+    // (open sky overhead, attenuated by overhead voxels, fog, and canopy)
+    // BEFORE the horizontal BFS spread runs. Unlike Sunlight (= max(column,
+    // BFS spread)), this never leaks sideways, so it answers "is there cover
+    // straight up, and how much" without the cave-mouth bleed the spread
+    // introduces. Gameplay "am I sheltered from rain / open to sky" probes
+    // read this; the BFS Sunlight stays the lighting signal. Not serialized —
+    // recomputed by ComputeSunlight on load alongside Sunlight (see
+    // ChunkSerializer's note on BlockLight).
+    public readonly byte[,,] SkyExposure;
+
     // Block light: per-color-channel additive sums of post-pow contributions
     // from registered LightSources. "Post-pow" means each light's BFS stores
     // pow(level/MAX_LIGHT, exp) * 255 * color.channel at deposit time, so the
@@ -160,6 +172,7 @@ public class ChunkState
         DetailGroup = new byte[SIZE, SIZE, SIZE];
         DetailStrength = new byte[SIZE, SIZE, SIZE];
         Sunlight = new byte[SIZE, SIZE, SIZE];
+        SkyExposure = new byte[SIZE, SIZE, SIZE];
         BlockLightR = new ushort[SIZE, SIZE, SIZE];
         BlockLightG = new ushort[SIZE, SIZE, SIZE];
         BlockLightB = new ushort[SIZE, SIZE, SIZE];
@@ -376,6 +389,20 @@ public class ChunkState
     public void SetSunlight(int x, int y, int z, int level)
     {
         Sunlight[x, y, z] = (byte)level;
+    }
+
+    public int GetSkyExposure(int x, int y, int z)
+    {
+        if (x < 0 || x >= SIZE || y < 0 || y >= SIZE || z < 0 || z >= SIZE)
+        {
+            return 0;
+        }
+        return SkyExposure[x, y, z];
+    }
+
+    public void SetSkyExposure(int x, int y, int z, int level)
+    {
+        SkyExposure[x, y, z] = (byte)level;
     }
 
     public void GetBlockLight(int x, int y, int z, out int r, out int g, out int b)

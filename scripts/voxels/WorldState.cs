@@ -187,6 +187,12 @@ public class WorldState
     // mutates fog at runtime (e.g. a weather CVar or future fog emitter).
     public readonly HashSet<Vector3I> FogChunkDirty = new();
 
+    // Same pattern for the SkyExposureMap GPU texture. Populated automatically
+    // by SetSkyExposureWorld — the initial ComputeSunlight floods it (drained
+    // harmlessly on the first frame after the map's constructor encodes every
+    // chunk), and runtime voxel edits re-mark only the recomputed columns.
+    public readonly HashSet<Vector3I> SkyExposureChunkDirty = new();
+
     // Per-chunk sun-attenuation field from foliage clusters. Sparse — only
     // chunks containing or shadowed by tree canopies allocate a 16³ byte
     // array. Per voxel: 0 = no foliage attenuation, 255 = saturated. Read
@@ -424,11 +430,46 @@ public class WorldState
         }
     }
 
-    // Sky exposure at `worldPos`, normalized to [0, 1] where 1.0 is direct
-    // overhead sky (unattenuated BFS) and 0 means no sunlight reaches the
-    // voxel. Single source of truth for the "is this point in the open?"
-    // probe used by rain, air-temperature sun masking, and verb gating like
-    // NoCeilingRequirement.
+    // Same baseline reset for the vertical SkyExposure field. The column scan
+    // only writes voxels above the first occluder, so everything below an
+    // opaque break must start at 0 (= fully sheltered) for the field to read
+    // correctly. Called by ComputeSunlight before its column pass.
+    public void ClearSkyExposureAll()
+    {
+        foreach (var kvp in _chunks)
+        {
+            Array.Clear(kvp.Value.SkyExposure, 0, kvp.Value.SkyExposure.Length);
+        }
+    }
+
+    public int GetSkyExposureWorld(int wx, int wy, int wz)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return 0;
+        }
+        return chunk.GetSkyExposure(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE));
+    }
+
+    public void SetSkyExposureWorld(int wx, int wy, int wz, int level)
+    {
+        Vector3I cc = WorldToChunkCoord(wx, wy, wz);
+        if (!_chunks.TryGetValue(cc, out ChunkState chunk))
+        {
+            return;
+        }
+        chunk.SetSkyExposure(Mod(wx, ChunkState.SIZE), Mod(wy, ChunkState.SIZE), Mod(wz, ChunkState.SIZE), level);
+        SkyExposureChunkDirty.Add(cc);
+    }
+
+    // BFS sky-light at `worldPos`, normalized to [0, 1]. This is the LIGHTING
+    // signal — max(vertical column, horizontal BFS spread) — so it leaks
+    // sideways (light bends into a cave mouth). Correct for "how lit is this
+    // point" (sun masking, sprite lighting, rain-drop shading) but WRONG for
+    // "is there cover overhead", because the leak reads bright one ledge into
+    // shelter. Cover/shelter probes (rain wetness, NoCeilingRequirement, rain
+    // splash spawning) must use GetSkyExposure01 instead.
     public float GetSkyLight01(Godot.Vector3 worldPos)
     {
         int wx = Mathf.FloorToInt(worldPos.X);
@@ -438,15 +479,32 @@ public class WorldState
         return Mathf.Clamp((float)sun / LightEngine.MAX_LIGHT, 0f, 1f);
     }
 
-    // True when `worldPos` is exposed to sky at or above `minSkyLight01`.
-    // Default 1.0 is strict open-sky (unattenuated overhead); callers that
-    // want the permissive "any sunlight reaches this voxel" semantic should
-    // sample GetSkyLight01 directly and compare against 0 — the strict
-    // overload here is intentional so common usage doesn't accept
-    // diffuse-edge spots inside a cave entrance.
-    public bool IsOutside(Godot.Vector3 worldPos, float minSkyLight01 = 1f)
+    // Vertical sky exposure at `worldPos`, normalized to [0, 1] where 1.0 is
+    // open sky straight up and 0 means fully covered (solid ceiling, or canopy
+    // dense enough to extinguish the column). Reads the non-leaky SkyExposure
+    // field — the sunlight column scan's pre-spread value — so it answers "is
+    // there cover overhead, and how much" WITHOUT the horizontal bleed of
+    // GetSkyLight01. Single source of truth for cover/shelter gameplay: rain
+    // wetness, rain-splash spawning, and verb gating like NoCeilingRequirement.
+    // Cross-chunk-correct (the column scan descends through chunk boundaries)
+    // and baked, so a ceiling in the chunk above still shelters the point.
+    public float GetSkyExposure01(Godot.Vector3 worldPos)
     {
-        return GetSkyLight01(worldPos) >= minSkyLight01;
+        int wx = Mathf.FloorToInt(worldPos.X);
+        int wy = Mathf.FloorToInt(worldPos.Y);
+        int wz = Mathf.FloorToInt(worldPos.Z);
+        int sky = GetSkyExposureWorld(wx, wy, wz);
+        return Mathf.Clamp((float)sky / LightEngine.MAX_LIGHT, 0f, 1f);
+    }
+
+    // True when `worldPos` is exposed to sky at or above `minSkyExposure01`,
+    // using the non-leaky vertical SkyExposure field. Default 1.0 is strict
+    // open-sky (nothing overhead); lower values accept partial canopy. This
+    // replaces the old GetSkyLight01-based check for cover gating so a cave
+    // mouth's horizontal light leak no longer reads as "outside".
+    public bool IsOutside(Godot.Vector3 worldPos, float minSkyExposure01 = 1f)
+    {
+        return GetSkyExposure01(worldPos) >= minSkyExposure01;
     }
 
     public void GetBlockLightWorld(int wx, int wy, int wz, out int r, out int g, out int b)

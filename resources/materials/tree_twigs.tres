@@ -1,10 +1,15 @@
-[gd_resource type="StandardMaterial3D" format=3 uid="uid://bn7m4krapwx2c"]
+[gd_resource type="ShaderMaterial" load_steps=2 format=3 uid="uid://bn7m4krapwx2c"]
 
-[ext_resource type="Texture2D" uid="uid://w04w7ebvfol2" path="res://assets/models/trees/twigs_branches.tga" id="1_tex"]
+[ext_resource type="Shader" uid="uid://cqr8tvp7n2k4w" path="res://shaders/tree_twigs.gdshader" id="1_shader"]
 
 [resource]
-transparency = 2
-cull_mode = 2
-albedo_texture = ExtResource("1_tex")
-texture_filter = 1
-alpha_scissor_threshold = 0.5
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/alpha_cutoff = 0.5
+shader_parameter/tint = Color(1, 1, 1, 1)
+shader_parameter/sway_amplitude = 0.1
+shader_parameter/wind_bend_strength = 0.35
+shader_parameter/form_strength = 0.5
+shader_parameter/tree_origin = Vector3(0, 0, 0)
+shader_parameter/per_tree_tint_variation = 0.25
+shader_parameter/canopy_height = 4.0

@@ -247,18 +247,25 @@ public partial class GameClient : Node3D
 	// this distance). Sized so the disk comfortably exceeds the screen
 	// radius from the player at the default iso camera distance — anything
 	// past it falls in the "phase > 1" tail and is fully clipped from the
-	// first frame of the blend regardless of where the player is. 24m is
-	// generous for the iso framing; bump up if cutaways read as "still
-	// growing" when the blend finishes.
-	[Export(PropertyHint.Range, "4,64,1")] public float cameraClipGrowthMaxRadius = 24f;
-	// How aggressively the transition front lags behind the player's disk.
-	// 0 = uniform-in-time fade (the whole band crosses together — original
-	// behavior). 1 = strict outward sweep — the player-centered side
-	// finishes at blend=0.5 and the far edge finishes at blend=1. Higher
-	// values concentrate the visible transition into a thinner ring of
-	// dithering at any instant, reading as a more obvious "iris opening"
-	// effect.
-	[Export(PropertyHint.Range, "0,3,0.05")] public float cameraClipGrowthDelay = 1.0f;
+	// first frame of the blend regardless of where the player is. 32m
+	// keeps the iris sweep mostly on-screen for the iso framing — bigger
+	// values move the deceleration of the ease curve further off-screen
+	// (so distant pixels finish dithering before the slow finish kicks
+	// in); smaller values bring more of the visible sweep into the
+	// decel phase. Pixels past the radius are clamped to the boundary
+	// in the shader, so corner pixels don't pop at completion regardless.
+	[Export(PropertyHint.Range, "4,64,1")] public float cameraClipGrowthMaxRadius = 32f;
+	// Thickness of the dithering ring at the iris's leading edge,
+	// expressed as a fraction of `cameraClipGrowthMaxRadius`. Default 0.2
+	// reads as about 1/8 of the screen on the standard iso framing. The
+	// ring sweeps from -softness through 1+softness as blend goes 0→1,
+	// so at blend=0 the very edge of the disk is just touching the
+	// player's pixel, and at blend=1 the ring has fully passed the
+	// max_radius extent. Smaller values = sharper edge (closer to a
+	// circular cookie cutter); larger values = wider gradient at any
+	// instant. World-space sin noise still wobbles the edge so even a
+	// very thin softness reads as irregular.
+	[Export(PropertyHint.Range, "0.02,1,0.01")] public float cameraClipGrowthEdgeSoftness = 0.2f;
 	// World-space scan range for the IsFadeVolumeOccluded probe — measured
 	// from the camera→player midpoint. Just needs to comfortably exceed the
 	// camera-to-player distance so any cluster on that line is checked; 8m
@@ -515,6 +522,11 @@ public partial class GameClient : Node3D
 	// top of the FlyUp. Orthographic projection so altitude doesn't change
 	// scale on its own — paired with the size multiplier below for the zoom.
 	[Export(PropertyHint.Range, "0,400,1,or_greater")] public float birdsEyeAltitude = 80f;
+	// Degrees to steepen (lower) the camera pitch at the apex, eased in
+	// alongside the lift and zoom. The camera's resting pitchDegrees is
+	// negative (looking down), so we subtract this to tilt further toward
+	// straight-down for the overview. Reverses on FlyDown.
+	[Export(PropertyHint.Range, "0,45,1,or_greater")] public float birdsEyePitchDelta = 15f;
 	// Multiplier on the camera's base orthographic Size at the apex. 4× takes
 	// the default ~10m vertical extent out to ~40m so a sizable chunk of the
 	// surrounding chunks is on-screen. This is the "zoom out" knob; combined
@@ -884,45 +896,77 @@ public partial class GameClient : Node3D
 		// anything visible to fade, which costs nothing visually.
 		float tightProbeRadius = foliagePlayerFadeRadius * Mathf.Max(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical);
 		float wideProbeRadius = tightProbeRadius * foliagePlayerFadeWideProbeMultiplier;
-		World world = World.Current;
-		int nearbyPropCount = 0;
-		World.FadeProbeResult probeResult = world != null
-			? world.ProbeFadeVolume(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
-			: World.FadeProbeResult.None;
 
-		// Three-state target — always lerped, never snapped. A hard snap to
-		// 0 on the None transition leaves a single frame where foliage was
-		// being dithered at high activation and then suddenly isn't,
-		// reading as a pop-edge along whatever cards the cutaway was
-		// cutting through. Letting the fall lerp run smoothly from the
-		// live activation down to 0 keeps the transition graceful even
-		// when the player walks straight out of dense cover.
-		//   Tight → density-scaled (min..1) — one isolated tree gets a
-		//           small cutaway, a thicket opens the full radius.
-		//   Wide  → minimum (held while still inside the forest neighborhood).
-		//   None  → 0     (no nearby cover — drift to off).
-		float target;
-		if (probeResult == World.FadeProbeResult.Tight)
+		if (_birdsEyePhase == EBirdsEyePhase.FlyUp || _birdsEyePhase == EBirdsEyePhase.Steady)
 		{
-			// Saturation point of 1 means a single nearby tree already hits
-			// full radius — guard so the divide can't go negative.
-			int saturate = Mathf.Max(foliagePlayerFadeCountScaleSaturate, 1);
-			float countNorm = Mathf.Clamp((nearbyPropCount - 1) / (float)Mathf.Max(saturate - 1, 1), 0f, 1f);
-			target = Mathf.Lerp(foliagePlayerFadeCountScaleMin, 1f, countNorm);
-		}
-		else if (probeResult == World.FadeProbeResult.Wide)
-		{
-			target = foliagePlayerFadeMinimumAmount;
+			// Entering the bird's-eye overlook (started by BirdsEyeEffect): the
+			// camera lifts overhead, so the iso-angle camera→player fade tube
+			// must close. Skip the probe and clamp the live activation down to
+			// a ceiling that tracks the FlyUp vertical lift — (1-t)² while
+			// rising (i.e. 1 minus the lift's own eased curve), 0 at the apex —
+			// so the dithered iris contracts in lockstep with the lift and is
+			// fully gone exactly when the lift completes. min() means it only
+			// ever shrinks here, never re-widens mid-contraction.
+			float ceiling;
+			if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
+			{
+				float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
+				float t = Mathf.Min(1f, _birdsEyeElapsed / duration);
+				ceiling = (1f - t) * (1f - t);
+			}
+			else
+			{
+				ceiling = 0f;
+			}
+			_foliageFadeActivationAmount = Mathf.Min(_foliageFadeActivationAmount, ceiling);
 		}
 		else
 		{
-			target = 0f;
+			// Normal play — and the FlyDown return, which falls here the instant
+			// the player cancels the overlook so the iris re-arms (widens back)
+			// from the live probe as the camera descends rather than waiting for
+			// it to land.
+			//
+			// Three-state target — always lerped, never snapped. A hard snap to
+			// 0 on the None transition leaves a single frame where foliage was
+			// being dithered at high activation and then suddenly isn't,
+			// reading as a pop-edge along whatever cards the cutaway was
+			// cutting through. Letting the fall lerp run smoothly from the
+			// live activation down to 0 keeps the transition graceful even
+			// when the player walks straight out of dense cover.
+			//   Tight → density-scaled (min..1) — one isolated tree gets a
+			//           small cutaway, a thicket opens the full radius.
+			//   Wide  → minimum (held while still inside the forest neighborhood).
+			//   None  → 0     (no nearby cover — drift to off).
+			World world = World.Current;
+			int nearbyPropCount = 0;
+			World.FadeProbeResult probeResult = world != null
+				? world.ProbeFadeVolume(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
+				: World.FadeProbeResult.None;
+
+			float target;
+			if (probeResult == World.FadeProbeResult.Tight)
+			{
+				// Saturation point of 1 means a single nearby tree already hits
+				// full radius — guard so the divide can't go negative.
+				int saturate = Mathf.Max(foliagePlayerFadeCountScaleSaturate, 1);
+				float countNorm = Mathf.Clamp((nearbyPropCount - 1) / (float)Mathf.Max(saturate - 1, 1), 0f, 1f);
+				target = Mathf.Lerp(foliagePlayerFadeCountScaleMin, 1f, countNorm);
+			}
+			else if (probeResult == World.FadeProbeResult.Wide)
+			{
+				target = foliagePlayerFadeMinimumAmount;
+			}
+			else
+			{
+				target = 0f;
+			}
+			float timeConstant = target > _foliageFadeActivationAmount
+				? foliagePlayerFadeActivationRiseSeconds
+				: foliagePlayerFadeActivationFallSeconds;
+			float blend = 1f - Mathf.Exp(-(float)deltaSeconds / Mathf.Max(timeConstant, 1e-3f));
+			_foliageFadeActivationAmount = Mathf.Lerp(_foliageFadeActivationAmount, target, blend);
 		}
-		float timeConstant = target > _foliageFadeActivationAmount
-			? foliagePlayerFadeActivationRiseSeconds
-			: foliagePlayerFadeActivationFallSeconds;
-		float blend = 1f - Mathf.Exp(-(float)deltaSeconds / Mathf.Max(timeConstant, 1e-3f));
-		_foliageFadeActivationAmount = Mathf.Lerp(_foliageFadeActivationAmount, target, blend);
 
 		// Inactive endpoint is literal zero — the shader short-circuits the
 		// whole capsule + noise test when foliage_player_fade_radius drops
@@ -945,7 +989,7 @@ public partial class GameClient : Node3D
 		// uses.
 		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", playerPos);
 		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_max_radius", cameraClipGrowthMaxRadius);
-		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_delay", cameraClipGrowthDelay);
+		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_edge_softness", cameraClipGrowthEdgeSoftness);
 	}
 
 	public override void _Process(double deltaTime)
@@ -1285,14 +1329,23 @@ public partial class GameClient : Node3D
 				return;
 			}
 			// Cancelling mid-FlyUp: seed _birdsEyeElapsed so FlyDown picks up at
-			// the current fraction instead of snapping to full lift first. From
-			// Steady (t=1) this lands on elapsed=0 naturally.
+			// the current eased height instead of snapping. FlyUp eases toward
+			// the apex as 1-(1-t)^2; FlyDown eases toward the ground as t^2 (t
+			// runs 1→0). Solve t^2 = easedNow for the FlyDown start fraction so
+			// the height is continuous. From Steady (easedNow=1) this lands on
+			// elapsed=0 naturally.
 			float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
-			float currentT = _birdsEyePhase == EBirdsEyePhase.FlyUp
-				? Mathf.Clamp(_birdsEyeElapsed / duration, 0f, 1f)
-				: 1f;
+			float easedNow = 1f;
+			if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
+			{
+				float currentT = Mathf.Clamp(_birdsEyeElapsed / duration, 0f, 1f);
+				easedNow = 1f - (1f - currentT) * (1f - currentT);
+			}
+			// FlyDown's per-frame t = 1 - elapsed/duration, so to start at
+			// t = sqrt(easedNow) we seed elapsed = (1 - sqrt(easedNow))·duration.
+			float startT = Mathf.Sqrt(easedNow);
 			_birdsEyePhase = EBirdsEyePhase.FlyDown;
-			_birdsEyeElapsed = (1f - currentT) * duration;
+			_birdsEyeElapsed = (1f - startT) * duration;
 		}
 	}
 
@@ -1347,20 +1400,33 @@ public partial class GameClient : Node3D
 			t = 1f;
 		}
 
-		// Smoothstep ease for the position + zoom — softens both endpoints so
-		// the camera doesn't kick on departure / land hard on arrival.
-		float eased = t * t * (3f - 2f * t);
+		// Ease-out in BOTH directions: the camera leaves fast and decelerates
+		// into its destination — the apex on fly-up, the ground on fly-down.
+		// A single curve of t would ease-out one way and ease-in the other
+		// (t descends 1→0 on FlyDown), so the curve is picked per phase.
+		// FlyDown's start elapsed is seeded in OnPlayerBirdsEye to keep the
+		// eased height continuous across a mid-fly-up cancel.
+		float eased = _birdsEyePhase == EBirdsEyePhase.FlyDown
+			? t * t                       // ease-out toward the ground (t: 1→0)
+			: 1f - (1f - t) * (1f - t);   // ease-out toward the apex  (t: 0→1)
 
 		// Camera pose. Read live camera.Yaw (TickRotation just updated it) so
-		// CameraLeft / CameraRight rotate the overview, and lift straight up
-		// along world-Y by the eased altitude. Horizontal tracking stays glued
-		// to the player so a knockback (which bypasses the movement lock)
+		// CameraLeft / CameraRight rotate the overview, lift straight up along
+		// world-Y by the eased altitude, and steepen the pitch by the eased
+		// delta so the overview looks further down. Horizontal tracking stays
+		// glued to the player so a knockback (which bypasses the movement lock)
 		// doesn't strand the view.
-		float pitch = Mathf.DegToRad(camera.pitchDegrees);
+		float pitchDeg = Mathf.Lerp(camera.pitchDegrees, camera.pitchDegrees - birdsEyePitchDelta, eased);
+		float pitch = Mathf.DegToRad(pitchDeg);
 		camera.GlobalRotation = new Vector3(pitch, camera.Yaw, 0f);
 		Vector3 baseOffset = camera.GlobalTransform.Basis.Z * camera.distance;
 		Vector3 lifted = baseOffset + Vector3.Up * birdsEyeAltitude;
-		camera.GlobalPosition = _player.GlobalPosition + baseOffset.Lerp(lifted, eased);
+		// Anchor on the SAME framing target the normal follow uses, not the raw
+		// player feet — otherwise the eased=0 endpoint sits ~followHeightOffset
+		// below where the standard camera path resumes, popping the view on the
+		// FlyDown handoff.
+		Vector3 followTarget = camera.GetFollowTarget(_player.GlobalPosition);
+		camera.GlobalPosition = followTarget + baseOffset.Lerp(lifted, eased);
 
 		camera.Size = Mathf.Lerp(_birdsEyeBaseSize, _birdsEyeBaseSize * birdsEyeSizeMultiplier, eased);
 

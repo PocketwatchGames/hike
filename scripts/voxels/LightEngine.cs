@@ -84,6 +84,9 @@ public static class LightEngine
         // after the first pass) would leave stale-bright sunlight at the
         // bottom of darkened columns.
         world.ClearSunlightAll();
+        // SkyExposure is captured from this same column scan (below) and never
+        // touched by the BFS spread, so it needs the same baseline reset.
+        world.ClearSkyExposureAll();
 
         int minWx = world.Min.X * ChunkState.SIZE;
         int maxWx = (world.Max.X + 1) * ChunkState.SIZE;
@@ -115,6 +118,9 @@ public static class LightEngine
                         break;
                     }
                     world.SetSunlightWorld(wx, wy, wz, sunLevel);
+                    // Capture the vertical column value BEFORE the BFS spread
+                    // can raise it — this is the non-leaky sky-exposure field.
+                    world.SetSkyExposureWorld(wx, wy, wz, sunLevel);
                     queue.Enqueue((wx, wy, wz));
                 }
             }
@@ -156,6 +162,7 @@ public static class LightEngine
     public static void OnVoxelsChanged(WorldState world, List<Vector3I> changedPositions)
     {
         UpdateSunlightAt(world, changedPositions);
+        RecomputeSkyExposureColumns(world, changedPositions);
 
         // Use stored EffectiveBounds for a fast AABB test instead of
         // iterating footprints or computing manhattan distance.
@@ -774,6 +781,58 @@ public static class LightEngine
                     world.SetSunlightWorld(nx, ny, nz, newLevel);
                     queue.Enqueue((nx, ny, nz));
                 }
+            }
+        }
+    }
+
+    // Recompute the vertical SkyExposure column for every distinct XZ touched
+    // by the changed voxels. SkyExposure is a pure top-down property — a voxel
+    // change only affects its own (x, z) column — so rescanning each affected
+    // column from the world top is both correct and cheap (one column per
+    // distinct XZ, not a flood fill). This mirrors the column scan in
+    // ComputeSunlight and MUST stay in sync with it (same attenuation terms).
+    private static void RecomputeSkyExposureColumns(WorldState world, List<Vector3I> changedPositions)
+    {
+        int canopySunFalloffPeak = world.SimData.CanopySunFalloffPeak;
+        int topWy = (world.Max.Y + 1) * ChunkState.SIZE - 1;
+        int minWy = world.Min.Y * ChunkState.SIZE;
+
+        var columns = new HashSet<(int x, int z)>();
+        foreach (Vector3I pos in changedPositions)
+        {
+            columns.Add((pos.X, pos.Z));
+        }
+
+        foreach (var (wx, wz) in columns)
+        {
+            int sunLevel = MAX_LIGHT;
+            bool blocked = false;
+            for (int wy = topWy; wy >= minWy; wy--)
+            {
+                if (blocked)
+                {
+                    world.SetSkyExposureWorld(wx, wy, wz, 0);
+                    continue;
+                }
+                VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+                if (v != VoxelType.Air && !VoxelTypeInfo.IsTransparent(v))
+                {
+                    // Opaque ceiling: this voxel and everything below it are
+                    // sheltered from the sky.
+                    blocked = true;
+                    world.SetSkyExposureWorld(wx, wy, wz, 0);
+                    continue;
+                }
+                sunLevel -= VoxelTypeInfo.LightAttenuation(v);
+                sunLevel -= (world.GetFogWorld(wx, wy, wz) * FOG_SUN_FALLOFF_255) / 255;
+                sunLevel -= (world.GetCanopyAttenuationWorld(wx, wy, wz) * canopySunFalloffPeak) / 255;
+                if (sunLevel <= 0)
+                {
+                    blocked = true;
+                    world.SetSkyExposureWorld(wx, wy, wz, 0);
+                    continue;
+                }
+                world.SetSkyExposureWorld(wx, wy, wz, sunLevel);
             }
         }
     }

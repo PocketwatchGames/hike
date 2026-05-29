@@ -106,6 +106,15 @@ public partial class RainEffect : Node3D
     // never physically what we want. 0.05 keeps a small margin against nearly-
     // vertical slopes where the reflection reads as degenerate sideways spray.
     private const float SplashNormalUpThreshold = 0.05f;
+    // Small upward nudge so the impact sky-exposure probe samples the air voxel
+    // above the hit surface, not the solid voxel the ray landed on.
+    private const float SplashExposureProbeUp = 0.5f;
+
+    // Sky-exposure threshold a splash impact must clear to spawn — read from the
+    // drop material's own `sky_exposure_threshold` so splashes use the EXACT
+    // same gate as the falling drops: wherever a drop renders, a splash is
+    // allowed. Fallback matches the shader default if the param can't be read.
+    private float _dropSkyExposureThreshold = 0.5f;
 
     private float _intensity;
     private float _splashBudget;
@@ -196,6 +205,12 @@ public partial class RainEffect : Node3D
             dropMesh.Material = DropMatRuntime;
             BaseDropAlbedo = (Color)DropMatRuntime.GetShaderParameter("albedo");
             BaseStreakLengthPx = (float)DropMatRuntime.GetShaderParameter("streak_length_px");
+            // Reuse the drops' own cover threshold for splash gating so the two
+            // can never disagree — a splash is allowed exactly where a drop falls.
+            if (DropMatRuntime.GetShaderParameter("sky_exposure_threshold").VariantType != Variant.Type.Nil)
+            {
+                _dropSkyExposureThreshold = (float)DropMatRuntime.GetShaderParameter("sky_exposure_threshold");
+            }
         }
 
         // Splash material follows the same pattern — only its albedo.a gets
@@ -292,20 +307,11 @@ public partial class RainEffect : Node3D
         // stays world-axis-aligned.
         GlobalRotation = Vector3.Zero;
 
-        // Outdoors gate: sample sunlight at the PLAYER's voxel. The voxel sun
-        // mask only propagates within the world's Y bounds; the anchor can
-        // easily sit above the top of the world (returning 0) even when the
-        // player is in open sky.
-        // Permissive "any sunlight reaches the player's voxel" probe — a porch
-        // step or doorway still counts as outdoors here so splash budget keeps
-        // ticking; strict open-sky verbs (bird's-eye, etc.) use IsOutside with
-        // its strict default instead.
-        bool outdoors = worldReady && ws.GetSkyLight01(world.player.GlobalPosition) > 0f;
-
         // Falling rain emits everywhere; the shader on its draw pass clips
-        // per-fragment against the voxel sun mask + camera_clip, so drops under
-        // roofs and inside the cutaway zone simply don't render. This preserves
-        // rain visible through doorways/windows while the player is indoors.
+        // per-fragment against the sky-exposure field + camera_clip, so drops
+        // under roofs / canopy and inside the cutaway zone simply don't render.
+        // This preserves rain visible through doorways/windows while the player
+        // is indoors.
         if (fallingParticles != null)
         {
             fallingParticles.AmountRatio = _intensity;
@@ -317,7 +323,12 @@ public partial class RainEffect : Node3D
         // particles keep their velocity, newly-spawned ones use the new angle.
         UpdateWindDrivenRainDirection();
 
-        if (outdoors && _intensity > 0f && splashParticles != null)
+        // Splash spawning is gated only on "is it raining" — NOT on the player's
+        // own cover. Each candidate is sky-exposure-tested at its own impact
+        // point inside TrySpawnSplash, so splashes keep landing on rained-on
+        // ground (e.g. visible through a doorway) while the player stands inside,
+        // and never land on covered floor even when the player is outdoors.
+        if (worldReady && _intensity > 0f && splashParticles != null)
         {
             _splashBudget += _intensity * splashesPerSecond * dt;
             int spawnsThisFrame = 0;
@@ -327,7 +338,7 @@ public partial class RainEffect : Node3D
             {
                 _splashBudget -= 1f;
                 spawnsThisFrame++;
-                TrySpawnSplash(playerPos);
+                TrySpawnSplash(ws, playerPos);
             }
 
             if (_splashBudget > maxSplashesPerFrame)
@@ -337,7 +348,7 @@ public partial class RainEffect : Node3D
         }
     }
 
-    private void TrySpawnSplash(Vector3 playerPos)
+    private void TrySpawnSplash(WorldState ws, Vector3 playerPos)
     {
         // Uniform-disc sample via sqrt of r so density is flat across the disc.
         float r = splashRadius * Mathf.Sqrt(_rng.Randf());
@@ -358,6 +369,16 @@ public partial class RainEffect : Node3D
         if (normal.Y < SplashNormalUpThreshold) { return; }
 
         Vector3 point = (Vector3)hit["position"];
+
+        // Splash only where a drop would actually fall — same sky-exposure gate
+        // the falling drops use (threshold sourced from their material), tested
+        // at THIS impact point. So it's purely "is there rain here", independent
+        // of player cover: outdoor ground keeps splashing while the player is
+        // inside, and covered floor never splashes even when they're outside.
+        // Probe a touch above the surface to sample the air voxel, not the solid.
+        float impactExposure = ws.GetSkyExposure01(point + Vector3.Up * SplashExposureProbeUp);
+        if (impactExposure < _dropSkyExposureThreshold) { return; }
+
         Transform3D xform = Transform3D.Identity;
         xform.Origin = point;
 

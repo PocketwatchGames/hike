@@ -102,7 +102,8 @@ foliagePlayerFadeRadius = 8.0
 foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
-birdsEyeAltitude = 0.0
+birdsEyeAltitude = 10.0
+birdsEyePitchDelta = 10.0
 birdsEyeSizeMultiplier = 2.0
 birdsEyeTransitionSeconds = 1.0
 
@@ -148,7 +149,7 @@ followTimeNormal = 0.35
 followTimeSprinting = 1.0
 followTimeAirAscending = 0.65
 followTimeDashing = 1.5
-clipFadeTime = 0.25
+clipTargetStabilityFrames = 6
 
 [node name="FogQuad" type="MeshInstance3D" parent="SceneViewport/MainCamera" unique_id=1706201793]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -6)

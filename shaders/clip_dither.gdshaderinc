@@ -18,7 +18,7 @@
 //   global uniform float camera_clip_blend;
 //   global uniform vec3  camera_clip_growth_center;
 //   global uniform float camera_clip_growth_max_radius;
-//   global uniform float camera_clip_growth_delay;
+//   global uniform float camera_clip_growth_edge_softness;
 //
 // 8x8 Bayer over a 4x4 — wider repeat tile reads as noise rather than a
 // visible grid at the brief fade durations the cutaway uses, while still
@@ -56,13 +56,13 @@ bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
 	{
 		return false;
 	}
-	// In the transition band — compute a player-centered growth phase
-	// that delays the per-pixel transition by horizontal distance from
-	// the growth center (set to player position by GameClient). Sin-noise
-	// on the phase gives an irregular advancing boundary, the same
-	// signature the foliage cutaway uses so the two effects read as one
-	// system. Stable in world space — the noise notches stay parked over
-	// the same patches of geometry frame to frame; the advancing front
+	// In the transition band — compute a player-centered phase that
+	// normalizes the horizontal distance from the growth center (player
+	// position) by max_radius. World-stable sin-noise wobbles the phase
+	// before the ring test, giving the iris an irregular advancing edge
+	// in the same signature the foliage cutaway uses, so the two effects
+	// read as one system. The noise is parked in world space — notches
+	// stay over the same patches of geometry frame to frame; the ring
 	// sweeps through them as blend rises.
 	vec2 to_center = world_pos.xz - camera_clip_growth_center.xz;
 	float dist = length(to_center);
@@ -70,16 +70,45 @@ bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
 	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.06
 	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
 	        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
+	// Clamp BEFORE the direction flip so the safety applies in both
+	// directions. Pixels beyond max_radius (phase > 1) are forced to
+	// phase = 1 — they sweep with the iris ring's boundary instead of
+	// being "orphaned" outside it. Without this, leading_phase only
+	// reaches 1 + softness at blend = 1, so a pixel at phase 1.1 lands
+	// at local_blend ≈ 0.75 — still 25% visible — and then snaps to
+	// discard via the early-out the instant _clipPrev catches up to
+	// _clip. With the clamp those distant pixels reach local_blend = 1
+	// (fully off) at the same blend as a pixel right at the max_radius
+	// boundary. The trade-off: a small ring of distant pixels transitions
+	// together rather than as a smooth gradient — invisible at typical
+	// max_radius values since they're past the visible screen anyway.
 	phase = clamp(phase + n, 0.0, 1.0);
 
-	// Stretched blend: delay = 0 collapses back to uniform fade
-	// (local_blend = blend); delay = 1 means the center finishes at
-	// blend=0.5 and the far edge finishes at blend=1. Higher values
-	// concentrate the transition front into a thinner ring at any
-	// instant — the disk visibly sweeps outward instead of soft-fading
-	// everywhere at once.
-	float delay = camera_clip_growth_delay;
-	float local_blend = clamp(camera_clip_blend * (1.0 + delay) - phase * delay, 0.0, 1.0);
+	// Direction-flip when the cutaway is SHRINKING (clip rising = player
+	// walking out of cover). Cutting case (clip dropping): close-to-
+	// player pixels transition first so the cutaway hole OPENS from the
+	// center outward. Revealing case (clip rising): reverse phase so
+	// far-from-player pixels transition first and the hole CLOSES toward
+	// the center — the player-centered patch is the last to reappear.
+	// Detected purely from camera_clip vs camera_clip_prev so a mid-fade
+	// reversal (GameCamera.RequestClip swaps prev/new + flips blend) gets
+	// the new direction for free, with no visual pop at the swap instant.
+	if (camera_clip > camera_clip_prev) {
+		phase = 1.0 - phase;
+	}
+
+	// Iris ring: a THIN expanding band at the leading edge instead of a
+	// gradient across the whole disk. `leading_phase` rises with blend
+	// from just-before-0 to just-past-1 (offset by softness so the ring
+	// fully covers phase=0 at blend=0 and phase=1 at blend=1). Pixels
+	// well inside the leading edge are fully transitioned (local_blend=
+	// 1, the dither floor is fully on), pixels well outside are fully
+	// untouched (local_blend=0), and only pixels within ±softness of the
+	// edge dither. Result: a clear ring sweeps outward, leaving solidly-
+	// transitioned area behind and solidly-untouched area ahead.
+	float softness = max(camera_clip_growth_edge_softness, 1e-3);
+	float leading_phase = -softness + camera_clip_blend * (1.0 + 2.0 * softness);
+	float local_blend = clamp(0.5 - (phase - leading_phase) / (2.0 * softness), 0.0, 1.0);
 
 	// In the transition band: visibility goes from 1 -> 0 (fading out)
 	// when the fragment is above the new clip but was below the prev,
@@ -93,5 +122,13 @@ bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
 	// hash) and stable per-pixel so the noise isn't temporally noisy.
 	float threshold = CLIP_DITHER_BAYER_8[by * 8 + bx];
 	threshold += (clip_dither_hash(ip) - 0.5) * (1.0 / 64.0);
+	// Floor at 0 — the Bayer table's lowest cell is exactly 0, and hash
+	// subtraction would otherwise drop the threshold negative there. At
+	// visibility = 0 (end of a fade-out) the test `0 <= negative` is
+	// FALSE, so those pixels skip the discard for the whole band-logic
+	// phase and only disappear when the post-fade `above_prev &&
+	// above_new` early-out takes over — producing the sparse stuck
+	// pixels that pop off at transition completion.
+	threshold = max(threshold, 0.0);
 	return clip_visibility <= threshold;
 }

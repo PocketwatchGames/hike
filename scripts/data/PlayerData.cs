@@ -382,6 +382,15 @@ public partial class PlayerData : Resource
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessRainSoakSeconds = 50f;
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessDrySeconds = 333.33f;
 	[Export(PropertyHint.Range, "0,600,1,or_greater")] public float wetnessWarmthDrySeconds = 10f;
+	// Rain shelter threshold against vertical sky exposure (WorldState
+	// .GetSkyExposure01, in [0,1]: 1 = open sky, 0 = fully covered by a roof /
+	// overhang / cave ceiling / dense canopy). At or below this exposure the
+	// player is fully dry; soak ramps linearly to full at open sky. Mid-range
+	// default: a thin canopy (high exposure) soaks you slowly while a moderate
+	// canopy or any solid cover (exposure below the threshold) keeps you dry.
+	// SkyExposure is the non-leaky vertical field, so a cave mouth's sideways
+	// light leak never registers as rain exposure.
+	[Export(PropertyHint.Range, "0.01,1,0.01")] public float rainShelterSkyThreshold = 0.5f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

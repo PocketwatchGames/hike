@@ -289,9 +289,9 @@ camera_clip_growth_max_radius={
 "type": "float",
 "value": 24.0
 }
-camera_clip_growth_delay={
+camera_clip_growth_edge_softness={
 "type": "float",
-"value": 1.0
+"value": 0.2
 }
 debug_solid={
 "type": "vec3",
@@ -698,6 +698,18 @@ light_map_origin={
 "value": Vector3(0, 0, 0)
 }
 light_map_inv_size={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+sky_exposure_map={
+"type": "sampler3D",
+"value": "res://assets/textures/sky_exposure_map_placeholder.tres"
+}
+sky_exposure_map_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+sky_exposure_map_inv_size={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
 }

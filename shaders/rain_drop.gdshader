@@ -21,8 +21,10 @@ render_mode blend_mix, unshaded, depth_draw_opaque, cull_disabled, skip_vertex_t
 //   - Per-fragment clip against camera_clip using a per-particle impact-Y
 //     (walked in vertex via the voxel sun mask). Rain over a cut-away roof
 //     vanishes; rain over open ground keeps rendering.
-//   - Per-fragment clip against the voxel sun mask so drops under roofs /
-//     overhangs / caves simply don't render.
+//   - Per-fragment clip against the non-leaky vertical sky-exposure field so
+//     drops under roofs / overhangs / caves / dense canopy don't render, and
+//     the visible rain edge matches where the player actually gets wet (the
+//     BFS sun mask was leaking drops sideways into cave mouths).
 //   - Cheap lighting: sun_color * (ambient + mask * (1-ambient)) * intensity.
 //     Tracks time of day through SkyController's effective-light globals.
 //   - Asymmetric trail fade: leading edge (head) opaque with AA, linear
@@ -42,19 +44,29 @@ global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
+// Non-leaky vertical sky-exposure field (same UVW convention as light_map).
+// Used to clip drops at the true overhead-cover line instead of the BFS sun
+// mask, which bleeds sideways into cave mouths. See ChunkState.SkyExposure.
+global uniform sampler3D sky_exposure_map : filter_linear;
+global uniform vec3 sky_exposure_map_origin;
+global uniform vec3 sky_exposure_map_inv_size;
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
 global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
-global uniform float camera_clip_growth_delay;
+global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
 global uniform vec3 sun_color;
 global uniform float sun_intensity;
 global uniform float sun_ambient;
 
 uniform vec4 albedo : source_color = vec4(0.72, 0.78, 0.88, 0.45);
-uniform float sun_mask_threshold : hint_range(0.0, 1.0) = 0.7;
+// Drops only render where vertical sky exposure clears this — i.e. where the
+// player would actually get rained on. Mid-range to match the wetness shelter
+// threshold so the visible rain edge tracks the dry/wet line under canopy and
+// at cave mouths. Distinct from sun_mask_threshold (which now only shades).
+uniform float sky_exposure_threshold : hint_range(0.0, 1.0) = 0.5;
 // Streak dimensions in SubViewport pixels. The rasterization envelope is
 // inflated by 1 pixel on each axis beyond these so analytical coverage AA
 // can fade smoothly past the edge; the visual "solid core" is still this size.
@@ -149,11 +161,19 @@ void fragment() {
 
     float sun_mask = 1.0;
     if (globals_ready) {
-        vec3 uvw = (world_pos - light_map_origin) * light_map_inv_size;
-        sun_mask = pow(texture(light_map, uvw).r, light_falloff_exp);
-        if (sun_mask < sun_mask_threshold) {
+        // Cover clip: discard drops that aren't under enough open sky, using
+        // the non-leaky vertical sky-exposure field. This is what stops rain
+        // from rendering inside a cave mouth (where the BFS sun mask leaks
+        // bright) and makes the visible rain edge match the dry/wet line.
+        vec3 se_uvw = (world_pos - sky_exposure_map_origin) * sky_exposure_map_inv_size;
+        float sky_exposure = texture(sky_exposure_map, se_uvw).r;
+        if (sky_exposure < sky_exposure_threshold) {
             discard;
         }
+        // Shading still tracks actual light (BFS sun mask), so drops dim
+        // correctly under dusk / partial shade without affecting the clip.
+        vec3 uvw = (world_pos - light_map_origin) * light_map_inv_size;
+        sun_mask = pow(texture(light_map, uvw).r, light_falloff_exp);
     }
 
     // Pixel's offset from the quad center, projected onto the streak's

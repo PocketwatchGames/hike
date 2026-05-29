@@ -92,6 +92,7 @@ public partial class ChunkManager : Node3D
     private Func<Vector3> _getPlayerPosition;
     private WorldState _worldData;
     private LightMap _lightMap;
+    private SkyExposureMap _skyExposureMap;
     private FogMap _fogMap;
     private WindMap _windMap;
     private GpuParticlesAttractorVectorField3D _windAttractor;
@@ -103,6 +104,7 @@ public partial class ChunkManager : Node3D
     {
         _worldData = worldData;
         _lightMap = new LightMap(worldData);
+        _skyExposureMap = new SkyExposureMap(worldData);
         _fogMap = new FogMap(worldData);
         _windMap = new WindMap(worldData);
         _waterCurrentMap = new WaterCurrentMap(worldData);
@@ -127,6 +129,13 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // SkyExposureMap — same origin/inv_size UVW convention as light_map.
+        // Declared in project.godot with a PlaceholderTexture3D so the editor
+        // can compile the rain shader that reads it; the real ImageTexture3D
+        // is swapped in here at runtime.
+        ShaderGlobals.Register("sky_exposure_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _skyExposureMap.Texture);
+        ShaderGlobals.Register("sky_exposure_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _skyExposureMap.Origin);
+        ShaderGlobals.Register("sky_exposure_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _skyExposureMap.Size);
         // tree_lit.gdshader per-feature gates. Declared in project.godot's
         // [shader_globals] so the editor's script editor can compile the
         // shader on its own; seeded here with the current CVar value so a
@@ -261,6 +270,12 @@ public partial class ChunkManager : Node3D
             _lightMap.Flush(_worldData, _loadedChunks.Keys);
         }
 
+        using (Profiler.Sample("ChunkManager.SkyExposureFlush"))
+        {
+            DrainSkyExposureChunkDirty();
+            _skyExposureMap.Flush(_worldData, _loadedChunks.Keys);
+        }
+
         using (Profiler.Sample("ChunkManager.FogFlush"))
         {
             DrainFogChunkDirty();
@@ -337,6 +352,16 @@ public partial class ChunkManager : Node3D
             _lightMap.MarkChunkDirty(coord);
         }
         _worldData.LightChunkDirty.Clear();
+    }
+
+    private void DrainSkyExposureChunkDirty()
+    {
+        if (_worldData.SkyExposureChunkDirty.Count == 0) { return; }
+        foreach (Vector3I coord in _worldData.SkyExposureChunkDirty)
+        {
+            _skyExposureMap.MarkChunkDirty(coord);
+        }
+        _worldData.SkyExposureChunkDirty.Clear();
     }
 
     private void DrainFogChunkDirty()

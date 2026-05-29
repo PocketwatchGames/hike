@@ -33,26 +33,45 @@ public partial class GameCamera : Camera3D
 	// as "looking from" stays consistent across features.
 	public const float EYE_HEIGHT = 2f;
 	private const float PLATEAU_STEP = 4f;
-	// Duration of the dithered fade between cutaway elevations. While
-	// blending, ceiling-discard shaders stipple the transition band via
-	// camera_clip_prev / camera_clip_blend (see clip_dither.gdshaderinc).
-	// Long enough that the iris-style growth from the player center is
-	// visible — at 0.1s the spatial spread is mathematically there but
-	// happens too fast to perceive as a sweep. 0.4–0.6s reads as an
-	// actual opening iris.
-	[Export(PropertyHint.Range, "0.05,2,0.05")] public float clipFadeTime = 0.4f;
+	// Asymmetric clip-fade durations. Going DOWN (cutaway opening / iris
+	// growing) is slower and uses a stronger ease-out so the player gets
+	// a moment to absorb the reveal of indoor space; going UP (iris
+	// closing back to open canopy) is twice as fast with a lighter ease
+	// — nothing meaningful to study on the reveal side, just a gentle
+	// settle at the end. Both curves end with deceleration so the
+	// leading edge "lands" gracefully rather than slamming to its final
+	// position.
+	[Export(PropertyHint.Range, "0.1,3,0.05")] public float clipFadeDownSeconds = 1.5f;
+	[Export(PropertyHint.Range, "0.05,3,0.05")] public float clipFadeUpSeconds = 0.75f;
+	// Number of consecutive frames a new raycast target must match before
+	// UpdateClip routes it to RequestClip. Drops single-frame transient
+	// hits — overhead tree canopies brushing the camera ray, door-frame
+	// tops the player passes under, etc. — that would otherwise cause
+	// mid-iris band shifts and pop the band-edge pixels. Three frames
+	// at 60Hz is ~50ms; too small to feel laggy for genuine ceiling
+	// changes, large enough to absorb a single-frame raycast blip.
+	[Export(PropertyHint.Range, "1,12,1")] public int clipTargetStabilityFrames = 3;
 
 	private float _pitchRadians => Mathf.DegToRad(pitchDegrees);
 	private float _clip = float.PositiveInfinity;
 	// Source Y for the in-progress fade. While `_clipBlend` < 1, shaders
 	// blend between this and `_clip`. Equal to `_clip` when idle.
 	private float _clipPrev = float.PositiveInfinity;
+	// Most recent raycast target + how many consecutive frames it's
+	// matched. Drives the stability filter in UpdateClip — a new target
+	// has to repeat for `clipTargetStabilityFrames` before it's committed
+	// to RequestClip, so single-frame raycast blips don't trigger band
+	// shifts mid-iris.
+	private float _candidateTarget = float.PositiveInfinity;
+	private int _candidateTargetFrames;
+	// _clipBlend is the EASED value that gets pushed to the shader as
+	// camera_clip_blend (iris position 0..1). _clipFadeT is the raw
+	// linear 0..1 progress that AdvanceClipFade ticks each frame; the
+	// ease curve maps t → blend. Two values because reversal needs to
+	// invert visible state via blend, then back-solve t for the new
+	// direction's curve so per-frame advance continues smoothly.
 	private float _clipBlend = 1f;
-	// At most one transition can be queued behind the current fade. A
-	// second incoming change while a fade is running overwrites it; the
-	// queued target is consumed when blend reaches 1. NaN sentinel = none.
-	private float _pendingClip = float.NaN;
-	private Vector3 _pendingCenter;
+	private float _clipFadeT = 1f;
 	// Yaw is stored in RADIANS (consistent with Q/E rotations that use
 	// DegToRad(90)). Initial value = 45° → DegToRad(45). Previously was
 	// raw `45` which normalized to ~58.3° via 45 mod 2π, throwing off
@@ -238,9 +257,19 @@ public partial class GameCamera : Camera3D
 		}
 	}
 
+	// The world-space framing anchor for a given player position: the point
+	// the camera centers on, lifted by followHeightOffset so the body (not the
+	// feet) sits in frame. Single source of truth shared by the normal follow
+	// (SetInitialPosition / UpdateCamera) and the bird's-eye driver so the two
+	// paths stay aligned and hand off without a pop.
+	public Vector3 GetFollowTarget(Vector3 playerPosition)
+	{
+		return playerPosition + new Vector3(0f, followHeightOffset, 0f);
+	}
+
 	public void SetInitialPosition(Vector3 playerPosition)
 	{
-		Vector3 target = playerPosition + new Vector3(0f, followHeightOffset, 0f);
+		Vector3 target = GetFollowTarget(playerPosition);
 		_followPosition = target;
 		_followInitialized = true;
 		GlobalPosition = target + GlobalTransform.Basis.Z * distance;
@@ -275,7 +304,7 @@ public partial class GameCamera : Camera3D
 	{
 		TickRotation((float)deltaTime);
 
-		Vector3 target = playerPosition + new Vector3(0f, followHeightOffset, 0f);
+		Vector3 target = GetFollowTarget(playerPosition);
 		if (!_followInitialized)
 		{
 			_followPosition = target;
@@ -376,40 +405,110 @@ public partial class GameCamera : Camera3D
 			targetClip = float.PositiveInfinity;
 		}
 
-		RequestClip(targetClip, playerPos);
-	}
-
-	// Routes a target clip Y through the fade state. If we're idle, kicks
-	// off a fresh 0.1s blend from current → target. If a fade is already
-	// running, stashes the target as the single pending slot (overwriting
-	// any earlier pending) and consumes it once the current fade lands.
-	private void RequestClip(float targetClip, Vector3 centerPos)
-	{
-		bool fading = _clipBlend < 1f;
-		if (!fading)
+		// Stability filter — a new candidate has to match for
+		// clipTargetStabilityFrames consecutive frames before it lands
+		// in RequestClip. Targets that match what we last committed
+		// (_clip or _clipPrev) bypass the wait because they're either a
+		// no-op or a reversal, both of which already handle continuity
+		// cleanly. Approximate equality (within CLIP_EPSILON) treats
+		// floating-point jitter from the raycast as the "same" target.
+		bool matchesCommitted = NearlyEqualClip(targetClip, _clip) || NearlyEqualClip(targetClip, _clipPrev);
+		if (matchesCommitted)
 		{
-			if (targetClip != _clip)
-			{
-				StartClipFade(targetClip, centerPos);
-			}
-			else
-			{
-				ApplyClipPlanes(centerPos);
-			}
+			_candidateTarget = targetClip;
+			_candidateTargetFrames = clipTargetStabilityFrames;
+			RequestClip(targetClip, playerPos);
+			return;
+		}
+
+		if (NearlyEqualClip(targetClip, _candidateTarget))
+		{
+			_candidateTargetFrames++;
 		}
 		else
 		{
-			if (targetClip == _clip)
-			{
-				_pendingClip = float.NaN;
-			}
-			else
-			{
-				_pendingClip = targetClip;
-				_pendingCenter = centerPos;
-			}
-			ApplyClipPlanes(centerPos);
+			_candidateTarget = targetClip;
+			_candidateTargetFrames = 1;
 		}
+
+		if (_candidateTargetFrames >= clipTargetStabilityFrames)
+		{
+			RequestClip(targetClip, playerPos);
+		}
+	}
+
+	// Approximate equality for clip Y comparisons. Both infinite ⇒ equal;
+	// one infinite ⇒ not equal; finite ⇒ within CLIP_EPSILON. Used by the
+	// stability filter so floating-point raycast jitter doesn't reset the
+	// frame counter.
+	private static bool NearlyEqualClip(float a, float b)
+	{
+		bool aInf = float.IsInfinity(a);
+		bool bInf = float.IsInfinity(b);
+		if (aInf || bInf)
+		{
+			return aInf && bInf;
+		}
+		return Mathf.Abs(a - b) < CLIP_EPSILON;
+	}
+
+	// Routes a target clip Y through the fade state. Three branches:
+	//   1. Already heading there (targetClip == _clip): no-op, just
+	//      update the cap-plane center context.
+	//   2. Mid-fade and target == _clipPrev: the player turned around
+	//      before the current transition finished. Swap _clip/_clipPrev
+	//      and flip _clipBlend so the visible dither state stays
+	//      mathematically continuous — combined with the shader's phase-
+	//      flip on direction reversal, there's no pop. Cheap and matches
+	//      "walk in, walk out" intuition.
+	//   3. Any other change: idle starts a fresh fade; mid-fade just
+	//      updates _clip without touching blend or fadeT. The iris
+	//      always runs its full authored duration to completion. The
+	//      band shape it operates on can move during the animation —
+	//      pixels at the band edge can pop when the edge sweeps past
+	//      their Y, but the iris itself never aborts or restarts.
+	private void RequestClip(float targetClip, Vector3 centerPos)
+	{
+		if (targetClip == _clip)
+		{
+			ApplyClipPlanes(centerPos);
+			return;
+		}
+
+		bool fading = _clipFadeT < 1f;
+		if (fading && targetClip == _clipPrev)
+		{
+			// Swap endpoints, invert the visible iris position, then
+			// back-solve the linear t against the NEW direction's ease
+			// curve so subsequent AdvanceClipFade ticks continue smoothly.
+			// Without the inverse, _clipFadeT would still be reading off
+			// the old (cutting) curve while the easing now applied is the
+			// new (revealing) curve — speed would jump and the iris
+			// position would skip forward.
+			(_clip, _clipPrev) = (_clipPrev, _clip);
+			_clipBlend = 1f - _clipBlend;
+			bool revealing = _clip > _clipPrev;
+			_clipFadeT = EaseClipBlendInverse(_clipBlend, revealing);
+			ApplyClipPlanes(centerPos);
+			RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", centerPos);
+			PushClipGlobals();
+			return;
+		}
+
+		if (fading)
+		{
+			// Mid-fade retarget that isn't a reversal: keep advancing
+			// the current iris animation, just shift the destination.
+			// Whatever pixel pops occur at the band-edge sweep are the
+			// price; the iris must complete its full authored sweep.
+			_clip = targetClip;
+			ApplyClipPlanes(centerPos);
+			RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", centerPos);
+			PushClipGlobals();
+			return;
+		}
+
+		StartClipFade(targetClip, centerPos);
 	}
 
 	private void StartClipFade(float targetClip, Vector3 centerPos)
@@ -417,41 +516,69 @@ public partial class GameCamera : Camera3D
 		_clipPrev = _clip;
 		_clip = targetClip;
 		_clipBlend = 0f;
-		_pendingClip = float.NaN;
+		_clipFadeT = 0f;
 		ApplyClipPlanes(centerPos);
 		// Capture the growth center for the iris-style cutaway dither
 		// (see clip_dither.gdshaderinc) at the moment the transition is
-		// triggered, NOT live per-frame. This locks the disk's origin to
-		// where the player stood when they walked under/out of the
-		// ceiling, so the iris stays anchored even if they keep moving
-		// during the 100ms blend — visually stabler than a tracking
-		// center that drags the disk around.
+		// triggered. The disk is anchored to where the player stood when
+		// they crossed the boundary; small drift during the fade keeps
+		// the iris stable. Reversal / mid-fade retarget paths in
+		// RequestClip also push this so the center always tracks the
+		// latest interaction.
 		RenderingServer.GlobalShaderParameterSet("camera_clip_growth_center", centerPos);
 		PushClipGlobals();
 	}
 
 	// Public so the bird's-eye driver (which skips UpdateCamera) can still
-	// advance an in-progress clip fade. Without this, SetClip targets enqueue
-	// but the blend uniform stays pinned, leaving the previous cutaway plane
-	// visible for the whole overlook.
+	// advance an in-progress clip fade. Without this, SetClip targets sit
+	// at their current blend and never land.
 	public void AdvanceClipFade(float deltaTime)
 	{
-		if (_clipBlend >= 1f)
+		if (_clipFadeT >= 1f)
 		{
 			return;
 		}
-		_clipBlend = Mathf.Min(1f, _clipBlend + deltaTime / Mathf.Max(clipFadeTime, 1e-3f));
-		if (_clipBlend >= 1f)
+		bool revealing = _clip > _clipPrev;
+		float duration = revealing ? clipFadeUpSeconds : clipFadeDownSeconds;
+		_clipFadeT = Mathf.Min(1f, _clipFadeT + deltaTime / Mathf.Max(duration, 1e-3f));
+		_clipBlend = EaseClipBlend(_clipFadeT, revealing);
+		if (_clipFadeT >= 1f)
 		{
 			_clipPrev = _clip;
-			if (!float.IsNaN(_pendingClip) && _pendingClip != _clip)
-			{
-				StartClipFade(_pendingClip, _pendingCenter);
-				return;
-			}
-			_pendingClip = float.NaN;
+			_clipBlend = 1f;
 		}
 		PushClipGlobals();
+	}
+
+	// Ease-out curves applied to the linear t-progress before the value
+	// gets pushed to camera_clip_blend. Revealing (up) is a gentler
+	// quadratic — slows just at the end. Cutting (down) is a stronger
+	// cubic — starts fast, slows considerably toward completion. Both
+	// satisfy ease(0)=0 and ease(1)=1, so the iris always sweeps the
+	// full phase range over its authored duration.
+	private static float EaseClipBlend(float t, bool revealing)
+	{
+		float invT = 1f - t;
+		if (revealing)
+		{
+			return 1f - invT * invT;
+		}
+		return 1f - invT * invT * invT;
+	}
+
+	// Inverse of EaseClipBlend — given a visible iris position v in
+	// [0,1], returns the linear t that produced it under the given
+	// direction's curve. Used by the reversal path so a mid-fade direction
+	// swap can preserve the visible iris position (set _clipBlend = 1-v)
+	// while continuing to advance at the new direction's rate.
+	private static float EaseClipBlendInverse(float v, bool revealing)
+	{
+		float invV = Mathf.Max(1f - v, 0f);
+		if (revealing)
+		{
+			return 1f - Mathf.Sqrt(invV);
+		}
+		return 1f - Mathf.Pow(invV, 1f / 3f);
 	}
 
 	private void ApplyClipPlanes(Vector3 centerPos)
@@ -465,12 +592,24 @@ public partial class GameCamera : Camera3D
 		{
 			return;
 		}
-		if (_clip < float.PositiveInfinity)
+		// Anchor the cap to MIN(_clip, _clipPrev) so it covers whichever
+		// Y the dither is still cutting against during a transition. The
+		// "walk out from cover" case is the one that hurts without this:
+		// _clip jumps to infinity at trigger time, but the iris ring is
+		// still revealing pixels at the OLD lower clip for the full
+		// blend window. With the cap pinned to the higher new _clip
+		// (i.e. hidden), those still-cut pixels show through to the
+		// inside of walls. Holding at the lower of the two keeps the
+		// cap below the dither band until the blend completes — at
+		// which point AdvanceClipFade sets _clipPrev = _clip and the
+		// next-frame re-apply naturally hides the cap.
+		float effectiveClip = Mathf.Min(_clip, _clipPrev);
+		if (effectiveClip < float.PositiveInfinity)
 		{
 			_clipCapPlane.Visible = CVars.ceilingCap.Value;
-			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_clipCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - CAP_PLANE_Y_BIAS, centerPos.Z);
 			_waterCapPlane.Visible = true;
-			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, _clip - CAP_PLANE_Y_BIAS, centerPos.Z);
+			_waterCapPlane.GlobalPosition = new Vector3(centerPos.X, effectiveClip - CAP_PLANE_Y_BIAS, centerPos.Z);
 		}
 		else
 		{

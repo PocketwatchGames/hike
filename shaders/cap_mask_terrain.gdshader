@@ -11,7 +11,7 @@ global uniform float camera_clip_prev;
 global uniform float camera_clip_blend;
 global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
-global uniform float camera_clip_growth_delay;
+global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
 
 varying vec3 world_vertex;
