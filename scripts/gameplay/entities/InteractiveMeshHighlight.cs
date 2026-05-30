@@ -1,22 +1,25 @@
 using System.Collections.Generic;
 using Godot;
 
-// The 3D-mesh counterpart of the sprite selection outline. Toggles the
-// inverted-hull outline (mesh_outline.gdshader) on a set of MeshInstance3Ds so a
-// SOLID interactive (statue, sign, chest, the climbable tree's ladder rungs)
-// highlights the same way sprite interactives do when targeted — but on real
-// geometry instead of a billboard overlay.
+// The 3D-mesh counterpart of the sprite selection outline. When a SOLID
+// interactive (statue, sign, chest, the climbable tree's ladder rungs) is the
+// player's highlight target, its meshes are temporarily added to the
+// OutlineMaskLayer so GameCamera's off-screen mask camera renders their
+// silhouette; GameCamera's fullscreen composite quad then paints a crisp
+// constant-width ring around exactly those screen pixels — the same look as the
+// sprite outline, and (unlike an inverted-hull outline) correct on concave
+// models.
 //
-// Outline only: there is NO through-cover X-ray on mesh interactives. The outline
-// is driven entirely by GameClient.ApplyHighlight/RemoveHighlight via SetSelected
+// Driven entirely by GameClient.ApplyHighlight/RemoveHighlight via SetSelected
 // when this interactive is the player's current highlight target — exactly when
-// the sprite outline overlay would appear. No per-frame probe, no proximity logic.
+// the sprite outline overlay would appear. No per-frame probe, no proximity
+// logic, no per-mesh material (the meshes keep their normal lit material; only
+// their visual layer bit is toggled).
 //
 // Wiring: drop one as a direct child of the interactive root. Point `_meshes` at
 // the meshes that should highlight, and/or set `_collectFrom` to a node whose
 // MeshInstance3D descendants are gathered (used for instanced-FBX models and the
-// ladder's authored rung nodes). The push targets a per-instance shader uniform,
-// so the materials stay shared and batchable.
+// ladder's authored rung nodes).
 [GlobalClass]
 public partial class InteractiveMeshHighlight : Node3D
 {
@@ -73,8 +76,9 @@ public partial class InteractiveMeshHighlight : Node3D
         }
     }
 
-    // Toggle the inverted-hull outline. Called by GameClient when this
-    // interactive becomes / stops being the player's highlight target.
+    // Add / remove the OutlineMaskLayer bit on every target mesh and activate
+    // the composite quad. Called by GameClient when this interactive becomes /
+    // stops being the player's highlight target.
     public void SetSelected(bool selected)
     {
         if (_selected == selected)
@@ -89,17 +93,21 @@ public partial class InteractiveMeshHighlight : Node3D
             _collected = false;
             EnsureCollected();
         }
-        float v = selected ? 1f : 0f;
         foreach (MeshInstance3D m in _targets)
         {
-            if (m != null)
+            if (m == null)
             {
-                Rid rid = m.GetInstance();
-                if (rid.IsValid)
-                {
-                    RenderingServer.InstanceGeometrySetShaderParameter(rid, "selected", v);
-                }
+                continue;
+            }
+            if (selected)
+            {
+                m.Layers |= GameCamera.OutlineMaskLayer;
+            }
+            else
+            {
+                m.Layers &= ~GameCamera.OutlineMaskLayer;
             }
         }
+        GameCamera.Current?.SetOutlineActive(selected);
     }
 }

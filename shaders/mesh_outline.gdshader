@@ -1,58 +1,69 @@
 shader_type spatial;
-// Selection outline for SOLID 3D interactives — the mesh analog of the sprite
-// targeting outline (highlight_outline.gdshader). Wired as the next_pass on a
-// 3D interactive's material (statue / sign / chest / ladder rungs). Inverted-
-// hull outline: render BACK faces (cull_front) pushed outward along the normal,
-// flooded with `outline_color`. The expanded shell is hidden behind the mesh's
-// own front faces except at the silhouette rim, where it reads as the outline.
+// Screen-space selection outline for SOLID 3D interactives (statue, sign, chest,
+// ladder). The mesh analog of the sprite targeting outline — and the correct
+// technique for concave models, where an inverted-hull outline fails (it traces
+// every interior crease, not just the silhouette).
 //
-// SCREEN-CONSTANT WIDTH: the normal push is scaled by the vertex's view-space
-// distance, so the rim is a roughly constant PIXEL thickness whether it wraps a
-// 0.07m ladder rung or a 3m statue. A fixed world-space width was invisible
-// (sub-pixel) on the small rungs while fine on the statue — distance scaling
-// fixes both at once. `outline_width` is therefore an angular value (≈ screen
-// fraction), not meters; tune it for pixels, not centimeters.
-//
-// `selected` is the per-instance gate driven by GameClient when this interactive
-// is the player's current highlight target (mirrors how the sprite outline only
-// shows on the selected interactive). At 0 the hull collapses AND the fragment
-// discards, so non-selected interactives pay nothing.
-//
-// depth_draw_never: the shell still depth-TESTs so its interior hides behind the
-// model's front faces and only the silhouette rim shows — but it doesn't write
-// depth (it's a UI affordance, nothing should occlude against it).
-render_mode unshaded, cull_front, ambient_light_disabled, depth_draw_never;
+// How it works: GameCamera renders the currently-selected interactive's meshes
+// into an off-screen "outline mask" SubViewport (camera synced to the main
+// camera, culls to OutlineLayer only). The mask is alpha-coverage — geometry
+// writes alpha 1, empty stays alpha 0 — so it's independent of the model's
+// albedo (a black-textured fold doesn't punch a hole). This fullscreen quad
+// (authored under MainCamera like FogQuad) then samples that mask: a pixel that
+// is OUTSIDE the silhouette but within `outline_width` texels of an INSIDE
+// pixel becomes the outline color. That paints a constant-width ring hugging
+// exactly the model's screen silhouette, matching the sprite outline.
+render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_disabled, skip_vertex_transform, fog_disabled;
 
+// Outline mask: alpha = silhouette coverage of the selected meshes. Set per
+// frame from GameCamera (the mask SubViewport's texture). filter_nearest +
+// inner-resolution mask keeps the ring chunky, matching the pixel-art look.
+uniform sampler2D outline_mask_tex : filter_nearest;
 uniform vec4 outline_color : source_color = vec4(1.0, 1.0, 0.8, 1.0);
-// Screen-constant outline thickness. World push at a vertex = outline_width *
-// view_distance, so apparent PIXEL width stays fixed regardless of how far the
-// camera is or how small the mesh is — a 0.07m ladder rung and a 3m statue get
-// the same rim. This is the fix for the "outline is sub-pixel on the rungs" bug:
-// a fixed world-space width (the old 0.03m) was ~half a pixel at this game's far,
-// near-orthographic camera (~80m, 14° FOV). `outline_width` is an angular value
-// (≈ screen fraction × 4), NOT meters — tune for pixels. ~0.0025 ≈ 2 chunky px.
-uniform float outline_width : hint_range(0.0, 0.02) = 0.0025;
-// Per-instance selection gate. 0 = no outline (collapsed hull + discard);
-// GameClient sets 1 on the active highlight target.
-instance uniform float selected : hint_range(0.0, 1.0) = 0.0;
+// Ring thickness in mask texels (mask is at inner viewport resolution, so this
+// is chunky pixels — 1 matches the sprite outline's 1-px ring).
+uniform int outline_width = 1;
+
+varying vec2 screen_uv;
 
 void vertex() {
-	// View-space distance of this vertex from the camera (positive = in front).
-	// Scaling the push by it keeps the rim a constant pixel width under the
-	// perspective camera. Divide by model scale because VERTEX is model-space, so
-	// a 0.5-scaled prop pushes the same screen amount as an unscaled one.
-	float view_dist = -(VIEW_MATRIX * MODEL_MATRIX * vec4(VERTEX, 1.0)).z;
-	float model_scale = length(MODEL_MATRIX[0].xyz);
-	float push = outline_width * max(view_dist, 0.0) / max(model_scale, 1e-4);
-	VERTEX += normalize(NORMAL) * push * selected;
+	// Fullscreen NDC quad (same technique as fog_volumetric's FogQuad): a
+	// QuadMesh(2,2) has VERTEX.xy in [-1,1]; emit straight to clip space at the
+	// far plane (z=1, w=1, no perspective divide) so it covers the whole screen.
+	POSITION = vec4(VERTEX.xy, 1.0, 1.0);
+	screen_uv = VERTEX.xy * 0.5 + 0.5;
 }
 
 void fragment() {
-	if (selected <= 0.001) {
+	vec2 texel = 1.0 / vec2(textureSize(outline_mask_tex, 0));
+	// No V flip: the composite quad and the mask are both rendered by 3D cameras
+	// of identical orientation into SubViewports, so screen_uv maps straight onto
+	// the mask. (The upscale shader's flip is for inner→outer-camera sampling, a
+	// different context — don't copy it here.)
+	vec2 uv = screen_uv;
+
+	float center = texture(outline_mask_tex, uv).a;
+	// Inside the silhouette: let the model show through (no ring over the body).
+	if (center >= 0.5) {
 		discard;
 	}
-	// Flat bright outline color via ALBEDO (matches the sprite outline; EMISSION
-	// did not render in this unshaded path and came out black).
+
+	// Outside: ring iff any neighbor within outline_width texels is inside.
+	bool near_inside = false;
+	int r = outline_width;
+	for (int y = -r; y <= r; y++) {
+		for (int x = -r; x <= r; x++) {
+			if (x == 0 && y == 0) { continue; }
+			vec2 o = vec2(float(x), float(y)) * texel;
+			if (texture(outline_mask_tex, uv + o).a >= 0.5) {
+				near_inside = true;
+			}
+		}
+	}
+	if (!near_inside) {
+		discard;
+	}
+
 	ALBEDO = outline_color.rgb;
-	EMISSION = vec3(0.0);
+	ALPHA = outline_color.a;
 }

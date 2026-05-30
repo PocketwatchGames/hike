@@ -2,11 +2,9 @@
 
 [ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
 [ext_resource type="Texture2D" uid="uid://b4yms7ccsskb6" path="res://assets/models/statue/T_StoneStatue_Big_A_AlbedoTransparency.tga" id="2_tex"]
-[ext_resource type="Material" path="res://resources/materials/mesh_outline.tres" id="3_outline"]
 
 [resource]
 render_priority = 0
-next_pass = ExtResource("3_outline")
 shader = ExtResource("1_shader")
 shader_parameter/albedo_tex = ExtResource("2_tex")
 shader_parameter/form_strength = 0.55

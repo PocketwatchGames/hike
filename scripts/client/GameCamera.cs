@@ -91,6 +91,13 @@ public partial class GameCamera : Camera3D
 	private MeshInstance3D _waterCapPlane;
 	private SubViewport _capMaskViewport;
 	private Camera3D _capMaskCamera;
+	// Selection-outline plumbing (mirrors the cap-mask: off-screen mask
+	// SubViewport + camera synced to this one, plus a fullscreen composite quad
+	// parented under the main camera that draws the ring from the mask). Only
+	// active while an interactive is highlighted; the quad hides otherwise.
+	private SubViewport _outlineMaskViewport;
+	private Camera3D _outlineMaskCamera;
+	private MeshInstance3D _outlineQuad;
 	private CanvasLayer _capMaskDebugLayer;
 	private TextureRect _capMaskDebugRect;
 	// Visibility layers — main scene meshes default to bit 0 (layers = 1),
@@ -100,6 +107,15 @@ public partial class GameCamera : Camera3D
 	// is bit 1 ONLY so it sees nothing else.
 	public const uint MainSceneLayer = 1u << 0;
 	public const uint CapMaskLayer = 1u << 1;
+	// Selection-outline mask layer (bit 4, layer 5). A highlighted interactive's
+	// meshes are temporarily ADDED to this layer (in addition to MainSceneLayer)
+	// by InteractiveMeshHighlight; the outline mask camera culls to this layer
+	// only, so the mask SubViewport sees just the selected model's silhouette.
+	// The main camera's cull_mask already includes bit 4 (it excludes only the
+	// shadow-proxy bit 3), which is harmless — the meshes are on MainSceneLayer
+	// too and render once; the extra bit just also makes them visible to the
+	// mask camera. Bit 3 is BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK.
+	public const uint OutlineMaskLayer = 1u << 4;
 
 	private readonly CameraShake _shake = new();
 	public CameraShake Shake => _shake;
@@ -207,6 +223,57 @@ public partial class GameCamera : Camera3D
 		_capMaskDebugRect.StretchMode = TextureRect.StretchModeEnum.Scale;
 		_capMaskDebugRect.Visible = false;
 		_capMaskDebugLayer.AddChild(_capMaskDebugRect);
+
+		// --- Selection outline mask -------------------------------------
+		// Off-screen viewport that renders ONLY the currently-selected
+		// interactive's meshes (they get temporarily added to OutlineMaskLayer)
+		// as an alpha-coverage silhouette. TransparentBg + an alpha-writing
+		// camera env means coverage is independent of the model's albedo — a
+		// dark-textured fold still reads as "inside," so the outline traces the
+		// true screen silhouette. Shares World3D so no scene mirroring needed.
+		_outlineMaskViewport = new SubViewport();
+		_outlineMaskViewport.OwnWorld3D = false;
+		_outlineMaskViewport.HandleInputLocally = false;
+		_outlineMaskViewport.RenderTargetUpdateMode = SubViewport.UpdateMode.Always;
+		_outlineMaskViewport.RenderTargetClearMode = SubViewport.ClearMode.Always;
+		_outlineMaskViewport.TransparentBg = true;
+		_outlineMaskViewport.Disable3D = false;
+		_outlineMaskViewport.Msaa3D = Viewport.Msaa.Disabled;
+		_outlineMaskViewport.Size = new Vector2I(2, 2);
+		parent.AddChild(_outlineMaskViewport);
+
+		_outlineMaskCamera = new Camera3D();
+		_outlineMaskCamera.CullMask = OutlineMaskLayer;
+		_outlineMaskCamera.Current = true;
+		var outlineEnv = new Environment();
+		outlineEnv.BackgroundMode = Environment.BGMode.Color;
+		outlineEnv.BackgroundColor = new Color(0, 0, 0, 0);
+		outlineEnv.AmbientLightSource = Environment.AmbientSource.Disabled;
+		outlineEnv.ReflectedLightSource = Environment.ReflectionSource.Disabled;
+		outlineEnv.TonemapMode = Environment.ToneMapper.Linear;
+		_outlineMaskCamera.Environment = outlineEnv;
+		_outlineMaskViewport.AddChild(_outlineMaskCamera);
+
+		// Fullscreen composite quad: samples the mask and paints the ring.
+		// Parented under this (the main camera) like FogQuad so it always frames
+		// the screen; on MainSceneLayer so only the main camera draws it. High
+		// render priority so the ring sits over the world (and the cap planes).
+		var outlineShader = GD.Load<Shader>("res://shaders/mesh_outline.gdshader");
+		var outlineMaterial = new ShaderMaterial();
+		outlineMaterial.Shader = outlineShader;
+		outlineMaterial.RenderPriority = 8;
+		outlineMaterial.SetShaderParameter("outline_mask_tex", _outlineMaskViewport.GetTexture());
+		var outlineQuadMesh = new QuadMesh();
+		outlineQuadMesh.Size = new Vector2(2, 2);
+		_outlineQuad = new MeshInstance3D();
+		_outlineQuad.Mesh = outlineQuadMesh;
+		_outlineQuad.MaterialOverride = outlineMaterial;
+		_outlineQuad.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
+		_outlineQuad.ExtraCullMargin = 16384f;
+		_outlineQuad.Layers = MainSceneLayer;
+		_outlineQuad.Position = new Vector3(0, 0, -2);
+		_outlineQuad.Visible = false;
+		AddChild(_outlineQuad);
 
 		var capShader = GD.Load<Shader>("res://shaders/clip_cap.gdshader");
 		var capMaterial = new ShaderMaterial();
@@ -372,6 +439,43 @@ public partial class GameCamera : Camera3D
 		if (_capMaskViewport.Size != targetSize)
 		{
 			_capMaskViewport.Size = targetSize;
+		}
+
+		// Keep the outline mask camera locked to the main camera so the mask
+		// silhouette registers 1:1 with the visible model, and its viewport at
+		// the inner (pre-upscale) size so the composite quad's SCREEN_UV maps
+		// straight onto the mask texels.
+		if (_outlineMaskCamera != null && _outlineMaskViewport != null)
+		{
+			_outlineMaskCamera.GlobalTransform = GlobalTransform;
+			if (Projection == ProjectionType.Perspective)
+			{
+				_outlineMaskCamera.Projection = ProjectionType.Perspective;
+				_outlineMaskCamera.Fov = Fov;
+			}
+			else
+			{
+				_outlineMaskCamera.Projection = ProjectionType.Orthogonal;
+				_outlineMaskCamera.Size = Size;
+			}
+			_outlineMaskCamera.Near = Near;
+			_outlineMaskCamera.Far = Far;
+			if (_outlineMaskViewport.Size != targetSize)
+			{
+				_outlineMaskViewport.Size = targetSize;
+			}
+		}
+	}
+
+	// Show / hide the fullscreen outline composite quad. Called by
+	// InteractiveMeshHighlight when an interactive becomes / stops being the
+	// player's highlight target. When hidden the fullscreen pass is skipped
+	// entirely (the mask viewport still renders, but it's empty and cheap).
+	public void SetOutlineActive(bool active)
+	{
+		if (_outlineQuad != null)
+		{
+			_outlineQuad.Visible = active;
 		}
 	}
 
