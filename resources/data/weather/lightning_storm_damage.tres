@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="DamageData" format=3 uid="uid://bln1dmg1klmno"]
 
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
-[ext_resource type="Script" uid="uid://b5h7q3xkz9n2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="2_buildup"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="2_buildup"]
 [ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="3_dizzy"]
 
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]

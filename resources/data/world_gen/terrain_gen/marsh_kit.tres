@@ -9,18 +9,16 @@
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/tall_grasses/tall_grass_04.tscn" id="4_g04"]
 [ext_resource type="PackedScene" path="res://scenes/props/stump1.tscn" id="5_t01"]
 [ext_resource type="PackedScene" path="res://scenes/props/stump2.tscn" id="5_t02"]
-[ext_resource type="PackedScene" uid="uid://uuijij4t663a" path="res://scenes/props/marsh_treea1.tscn" id="5_t03"]
-[ext_resource type="PackedScene" uid="uid://cvsgdpd0qq7pn" path="res://scenes/props/marsh_treea2.tscn" id="5_t04"]
-[ext_resource type="PackedScene" uid="uid://c0bksij7lb76h" path="res://scenes/props/marsh_treea3.tscn" id="5_t05"]
-[ext_resource type="PackedScene" uid="uid://g70u4vewyomu" path="res://scenes/props/marsh_treeb1.tscn" id="5_t06"]
-[ext_resource type="PackedScene" uid="uid://cqwoawaa6y2wx" path="res://scenes/props/marsh_treeb2.tscn" id="5_t07"]
-[ext_resource type="PackedScene" uid="uid://ct82ku106pl0q" path="res://scenes/props/marsh_treeb3.tscn" id="5_t08"]
-[ext_resource type="PackedScene" uid="uid://dma1nafupfu4i" path="res://scenes/props/marsh_treeb4.tscn" id="5_t09"]
-[ext_resource type="PackedScene" uid="uid://cqyl4c7hy6gu3" path="res://scenes/props/marsh_treeb5.tscn" id="5_t10"]
+[ext_resource type="PackedScene" uid="uid://bj7f8dy86dj1q" path="res://scenes/props/tree_willow.tscn" id="9_veml7"]
+[ext_resource type="PackedScene" uid="uid://ble6ry6xb2qgc" path="res://scenes/props/tree_willow_dead.tscn" id="10_c0fex"]
+[ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="11_eh5vr"]
+[ext_resource type="PackedScene" uid="uid://be5y8ig1a43n0" path="res://scenes/props/tree_willow_dead_small.tscn" id="11_tpi02"]
+[ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="12_vum8l"]
+[ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="13_c0fex"]
 
 [resource]
 script = ExtResource("1_script")
 Terrain = ExtResource("2_kit")
 DefaultDetail = ExtResource("3_detail")
-TreeScenes = [ExtResource("5_t01"), ExtResource("5_t02"), ExtResource("5_t03"), ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("5_t06"), ExtResource("5_t07"), ExtResource("5_t08"), ExtResource("5_t09"), ExtResource("5_t10")]
+TreeScenes = [ExtResource("5_t01"), ExtResource("5_t02"), ExtResource("9_veml7"), ExtResource("10_c0fex"), ExtResource("11_tpi02"), ExtResource("11_tpi02"), ExtResource("12_vum8l"), ExtResource("12_vum8l"), ExtResource("13_c0fex"), ExtResource("11_eh5vr")]
 TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]

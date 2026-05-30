@@ -1,68 +1,69 @@
 [gd_scene format=3 uid="uid://ck5nlyf58chsy"]
 
 [ext_resource type="Script" uid="uid://00f5fp6egt2" path="res://scripts/gameplay/entities/KnowledgeStone.cs" id="1_knowledgestone"]
-[ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="2_atlas"]
-[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
+[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="2_interactivebox"]
+[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_wjlsr"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_wxwuj"]
-[ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_wxwuj"]
+[ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
+[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/effects/learn_language.tscn" id="6_learnfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_45v1k"]
-[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="8_action"]
-[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="9_event"]
-[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/effects/learn_language.tscn" id="12_learnfx"]
+[ext_resource type="Script" uid="uid://b8meshautcolld" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="7_autocoll"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
+[ext_resource type="PackedScene" uid="uid://b5j7jn0ipqi5g" path="res://assets/models/statue/SM_Stone_Statue_Big_A.fbx" id="9_statuebig"]
+[ext_resource type="PackedScene" uid="uid://bjficgdci3xwn" path="res://assets/models/statue/SM_Stone_Statue_Base_A.fbx" id="10_statuebase"]
 
 [sub_resource type="Resource" id="Resource_ks_event_open"]
-script = ExtResource("9_event")
+script = ExtResource("4_event")
 type = 256
 
 [sub_resource type="Resource" id="Resource_ks_action_read"]
-script = ExtResource("8_action")
+script = ExtResource("3_action")
 displayName = &"Read"
-icon = ExtResource("5_wxwuj")
-completionEvents = Array[ExtResource("9_event")]([SubResource("Resource_ks_event_open")])
+icon = ExtResource("5_look")
+completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_ks_event_open")])
 durationSeconds = 3.0
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_ks_block"]
-size = Vector3(2, 4, 2)
-
 [sub_resource type="BoxShape3D" id="BoxShape3D_ks_interact"]
-size = Vector3(2, 4, 2)
+size = Vector3(2, 4.5, 2)
 
-[node name="KnowledgeStone" type="Node3D" unique_id=630626371 node_paths=PackedStringArray("_hudNode")]
+[node name="KnowledgeStone" type="Node3D" unique_id=1495357093 node_paths=PackedStringArray("_hudNode")]
 script = ExtResource("1_knowledgestone")
 _hudNode = NodePath("HUDNode")
-_actions = Array[ExtResource("8_action")]([SubResource("Resource_ks_action_read")])
+_actions = Array[ExtResource("3_action")]([SubResource("Resource_ks_action_read")])
 _text = "Worn glyphs spiral around the stone, just barely legible."
-_firstLearnEffect = ExtResource("12_learnfx")
+_firstLearnEffect = ExtResource("6_learnfx")
 
-[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=1745360662]
+[node name="BaseModel" type="Node3D" parent="." unique_id=587131948]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.85, 0)
+script = ExtResource("7_autocoll")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1347426430]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
-shape = SubResource("BoxShape3D_ks_block")
+[node name="SM_Stone_Statue_Base_A" parent="BaseModel" unique_id=1205802489 instance=ExtResource("10_statuebase")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1309525, 0)
 
-[node name="InteractiveBox" type="Area3D" parent="." unique_id=1493033016 node_paths=PackedStringArray("_interactiveNode")]
+[node name="StatueModel" type="Node3D" parent="." unique_id=208865753]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
+script = ExtResource("7_autocoll")
+
+[node name="SM_Stone_Statue_Big_A" parent="StatueModel" unique_id=1887680722 instance=ExtResource("9_statuebig")]
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
+
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=1142806717 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
-script = ExtResource("3_interactivebox")
+script = ExtResource("2_interactivebox")
 _interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1995500732]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=822438635]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, 0)
 shape = SubResource("BoxShape3D_ks_interact")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=908062916]
-cast_shadow = 0
-centered = false
-offset = Vector2(-12, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("2_atlas")
-region_enabled = true
-region_rect = Rect2(4, 329, 24, 56)
-script = ExtResource("4_litsprite")
-ForwardOffset = 0.5
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=724549262 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("8_meshhl")
+plateauHeight = 5.0
+_collectFrom = NodePath("../StatueModel")
 
-[node name="HUDNode" type="Node3D" parent="." unique_id=725243340]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.55, 0)
+[node name="HUDNode" type="Node3D" parent="." unique_id=1996100106]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)

@@ -1110,7 +1110,12 @@ public partial class GameClient : Node3D
 		{
 			bool ownModalActive = _interactHUD != null && _interactHUD.ModalOpen;
 			bool externalHudActive = InputSuppressed && !ownModalActive;
-			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive;
+			// Only show the SPRITE overlay for sprite interactives. Mesh
+			// interactives (statue/sign/chest/ladder) drive their own inverted-hull
+			// outline via _meshHighlight; without this gate the overlay is forced
+			// visible here still carrying the PREVIOUS sprite target's texture and
+			// transform — the "stale villager highlight in a weird place" ghost.
+			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive && _meshHighlight == null;
 			if (_highlightOverlay.Visible != shouldShow)
 			{
 				_highlightOverlay.Visible = shouldShow;
@@ -1854,11 +1859,21 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	// Mesh-based highlight target for solid 3D interactives that have no
+	// Sprite3D (statue, sign, chest, ladder). Driven instead of the sprite
+	// outline overlay; cleared in RemoveHighlight.
+	InteractiveMeshHighlight _meshHighlight;
+
 	void ApplyHighlight(Node3D node)
 	{
 		Sprite3D source = FindChildSprite(node);
 		if (source == null || !source.Visible)
 		{
+			// No sprite to outline — fall back to the 3D mesh highlight path for
+			// solid interactives, toggling their inverted-hull outline via the
+			// per-instance `selected` uniform (mirrors the sprite outline gate).
+			_meshHighlight = FindMeshHighlight(node);
+			_meshHighlight?.SetSelected(true);
 			return;
 		}
 
@@ -1912,8 +1927,33 @@ public partial class GameClient : Node3D
 
 	void RemoveHighlight()
 	{
+		if (_meshHighlight != null)
+		{
+			_meshHighlight.SetSelected(false);
+			_meshHighlight = null;
+		}
 		_highlightOverlay.Visible = false;
 		_highlightOverlay.Reparent(sceneViewport, false);
+	}
+
+	// Depth-first scan for the first InteractiveMeshHighlight under `node` — the
+	// 3D-mesh analog of FindChildSprite. Lets solid interactives route the
+	// selection outline to their highlight meshes.
+	static InteractiveMeshHighlight FindMeshHighlight(Node node)
+	{
+		foreach (Node child in node.GetChildren())
+		{
+			if (child is InteractiveMeshHighlight mh)
+			{
+				return mh;
+			}
+			InteractiveMeshHighlight nested = FindMeshHighlight(child);
+			if (nested != null)
+			{
+				return nested;
+			}
+		}
+		return null;
 	}
 
 	// Depth-first scan for the first visible Sprite3D under `node`. Most

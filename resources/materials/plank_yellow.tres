@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bscpx8s0pp5yo"]
+
+[ext_resource type="Shader" path="res://shaders/flat_lit.gdshader" id="1_shader"]
+[ext_resource type="Material" path="res://resources/materials/mesh_outline.tres" id="2_outline"]
+
+[resource]
+render_priority = 0
+next_pass = ExtResource("2_outline")
+shader = ExtResource("1_shader")
+shader_parameter/color = Color(0.95, 0.74, 0.12, 1)
+shader_parameter/form_strength = 0.55

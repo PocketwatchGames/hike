@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" load_steps=3 format=3]
+
+[ext_resource type="Shader" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" path="res://assets/models/statue/T_StoneStatue_Big_A_AlbedoTransparency.tga" id="2_tex"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_tex")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(1, 1, 1, 1)

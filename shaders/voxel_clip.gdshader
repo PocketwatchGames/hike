@@ -64,6 +64,19 @@ global uniform float wet_spec_strength;
 // darkening, 0.0 = solid black. Lower values give wet surfaces stronger
 // contrast against the highlight at the cost of looking very saturated.
 global uniform float wet_albedo_floor;
+// Strength of the Fresnel SKY reflection that makes wet ground read as a
+// partial mirror — the primary wet cue. 0 = old look (darken + sun glint
+// only), ~1 = strong grazing-angle sky sheen on flat wet ground.
+global uniform float wet_reflect_strength;
+// Schlick base reflectance for the wet Fresnel — the head-on reflectivity
+// floor. Small (~0.02–0.08); the grazing-angle term supplies most of the
+// sheen, this just keeps a faint reflection when looking straight down.
+global uniform float wet_fresnel_base;
+// Sky gradient endpoints (also fed by SkyController to the sky shader) —
+// reused here to tint the wet Fresnel reflection so the sheen matches the
+// current time-of-day sky rather than a fixed color.
+global uniform vec3 horizon_color;
+global uniform vec3 zenith_color;
 
 // Cloud occlusion parameters shared with the sky + fog + sprite + water
 // shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
@@ -458,7 +471,9 @@ void fragment() {
 	float macro_yz = texture(detail_noise, world_vertex.zy * detail_noise_freq).r;
 	float macro = macro_xy * blend.z + macro_xz * blend.y + macro_yz * blend.x;
 	float overlay = mix(1.0 - detail_noise_strength, 1.0 + detail_noise_strength, macro);
-	tex_color.rgb *= overlay;
+	// NOTE: applied below, after wet_factor is known. Wetness flattens this
+	// macro contrast toward 1.0 — water fills the surface and evens out the
+	// dry-texture noise instead of letting the darkened albedo amplify it.
 
 	// Sample lightmap per-pixel so it interpolates smoothly across the face.
 	// Push 0.5 along the outward normal so the sample lands in the adjacent
@@ -469,21 +484,37 @@ void fragment() {
 	vec4 lm = texture(light_map, uvw);
 	float sun_mask = pow(lm.r, light_falloff_exp);
 	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
-	// (positive Y normal) surfaces wet out. Vertical cliffs shed water,
-	// caves/overhangs never see rain. Slope exponent 3 gives a smooth
-	// falloff — fully flat reads as fully wet, ~45° slopes still get a
-	// subtle sheen, vertical faces are clean.
-	float wet_slope = pow(max(shaded_normal.y, 0.0), 3.0);
+	// surfaces wet out. Vertical cliffs shed water, caves/overhangs never
+	// see rain. Slope exponent 3 gives a smooth falloff — fully flat reads
+	// as fully wet, ~45° slopes still get a subtle sheen, vertical faces
+	// are clean. Read the SMOOTH geometric normal (not the detail-perturbed
+	// shaded_normal): the wet sheen must be coherent across a face, not
+	// flicker on the normal-map noise. Driving the old specular through the
+	// perturbed normal is exactly what made wet ground read as "crunchier
+	// texture" instead of wet.
+	float wet_slope = pow(max(smooth_n.y, 0.0), 3.0);
 	float wet_factor = wetness_level * sun_mask * wet_slope;
-	// Half-vector specular for the sun. Exponent 16 gives a broader, more
-	// readable highlight at distance (vs the tighter 64 used previously);
-	// combined with the high amplitude in light() the glint reads even on
-	// distant ground. Passed via wet_spec varying so light() can fold the
-	// directional shadow atlas + cloud shadow into it.
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - world_vertex);
+	// Tight sun glint off the smooth normal. Exponent 40 (vs the old 16)
+	// makes a compact glossy hotspot that reads as a wet specular rather
+	// than a broad brightening. Folded through the shadow/cloud gate in
+	// light() via the wet_spec varying.
 	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
-	float wet_ndoth = max(dot(shaded_normal, wet_h), 0.0);
-	wet_spec = pow(wet_ndoth, 16.0) * wet_factor;
+	float wet_ndoth = max(dot(smooth_n, wet_h), 0.0);
+	wet_spec = pow(wet_ndoth, 40.0) * wet_factor;
+	// Fresnel SKY reflection — the primary wet cue. Wet ground becomes a
+	// partial mirror: at grazing view angles it reflects the sky dome.
+	// Reflect the view about the smooth normal and sample the same
+	// horizon→zenith gradient the sky shader uses, so the sheen tints with
+	// the current sky. Schlick Fresnel with a small base reflectance; gated
+	// by wet_factor so it only shows on wet, sky-exposed, upward faces.
+	// Added to EMISSION below (a reflection, not a diffuse term, so it is
+	// NOT multiplied by albedo) and cloud-dimmed (clouds occlude the sky).
+	float wet_fresnel = wet_fresnel_base + (1.0 - wet_fresnel_base) * pow(1.0 - max(dot(wet_view, smooth_n), 0.0), 5.0);
+	vec3 wet_refl_dir = reflect(-wet_view, smooth_n);
+	float wet_sky_t = clamp(wet_refl_dir.y * 0.5 + 0.5, 0.0, 1.0);
+	vec3 wet_sky = mix(horizon_color, zenith_color, wet_sky_t);
+	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * wet_factor);
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
 	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
@@ -523,6 +554,10 @@ void fragment() {
 		tex_color.rgb = vec3(0.0);
 	}
 
+	// Macro noise overlay (deferred from above), flattened toward 1.0 as the
+	// surface wets — water fills the pores and evens out the dry-texture
+	// contrast instead of the darkened albedo making it crunchier.
+	tex_color.rgb *= mix(overlay, 1.0, wet_factor);
 	// Wet surfaces look darker as well as shinier — same gate as wet_spec.
 	// Floor tuned via SkyController's wet_albedo_floor (lower = more
 	// darkening at full wet, more contrast with the highlight).
@@ -542,7 +577,11 @@ void fragment() {
 	// into block_lit before it lands in EMISSION, so no light()-stage
 	// machinery is needed here.
 	ALBEDO = base * sun_lit * (1.0 - sun_ambient);
-	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	// wet_reflect is the mirrored sky (specular), layered on top of the
+	// diffuse composite rather than multiplied by albedo — so even dark wet
+	// ground shows the bright sky sheen ("wet asphalt" look). Cloud-dimmed
+	// since clouds occlude the sky being reflected.
+	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) + wet_reflect * cloud_dim;
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);
@@ -571,7 +610,7 @@ void fragment() {
 		//   blue   = perfect glint angle, but dry or in shade
 		//   white  = all three high → the spec actually pops here
 		// Zero wet_spec afterwards so light() doesn't add on top.
-		float wet_geom = pow(max(dot(shaded_normal, wet_h), 0.0), 16.0);
+		float wet_geom = pow(max(dot(smooth_n, wet_h), 0.0), 40.0);
 		ALBEDO = vec3(0.0);
 		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
 		wet_spec = 0.0;

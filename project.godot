@@ -421,6 +421,14 @@ wet_albedo_floor={
 "type": "float",
 "value": 0.15
 }
+wet_reflect_strength={
+"type": "float",
+"value": 1.0
+}
+wet_fresnel_base={
+"type": "float",
+"value": 0.04
+}
 sun_intensity={
 "type": "float",
 "value": 0.85

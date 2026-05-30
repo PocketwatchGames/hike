@@ -1,112 +1,69 @@
-[gd_scene format=3 uid="uid://m4nx2p7vq8r5j"]
+[gd_scene load_steps=17 format=3 uid="uid://m4nx2p7vq8r5j"]
 
-[ext_resource type="Script" uid="uid://c4jo1tbqt38rt" path="res://scripts/gameplay/entities/Chest.cs" id="1_chest"]
-[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
-[ext_resource type="Texture2D" uid="uid://dwx50d7046dqk" path="res://assets/textures/Pixel Crawler - Free Pack/Environment/Props/Static/Furniture.png" id="3_17q7g"]
-[ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
-[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_8mn7t"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="4_litsprite"]
-[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_iwux0"]
-[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="8_chestopen"]
-[ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="9_action"]
-[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="10_event"]
-[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="15_i4oq8"]
-[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="16_xray"]
-[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="17_anim"]
-[ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="19_open"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/Chest.cs" id="1_chest"]
+[ext_resource type="Script" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_ibox"]
+[ext_resource type="Script" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
+[ext_resource type="Script" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
+[ext_resource type="Texture2D" path="res://assets/textures/interactions/open.png" id="6_open"]
+[ext_resource type="PackedScene" path="res://scenes/effects/chest_open.tscn" id="7_chestopen"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/Discoverable.cs" id="8_disc"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="9_autocoll"]
+[ext_resource type="Script" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
+[ext_resource type="PackedScene" path="res://assets/models/chest/Treasure_Chest_Base_01.fbx" id="11_body"]
+[ext_resource type="PackedScene" path="res://assets/models/chest/Treasure_Chest_lid_01.fbx" id="12_lid"]
 
-[sub_resource type="Resource" id="Resource_chest_event_open"]
-script = ExtResource("10_event")
+[sub_resource type="Resource" id="Resource_stash_event_open"]
+script = ExtResource("5_event")
 type = 256
-fx = ExtResource("8_chestopen")
+fx = ExtResource("7_chestopen")
 
-[sub_resource type="Resource" id="Resource_chest_action_open"]
-script = ExtResource("9_action")
+[sub_resource type="Resource" id="Resource_stash_action_open"]
+script = ExtResource("4_action")
 displayName = &"Open"
-icon = ExtResource("19_open")
-completionEvents = Array[ExtResource("10_event")]([SubResource("Resource_chest_event_open")])
+icon = ExtResource("6_open")
+completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_stash_event_open")])
 durationSeconds = 3.0
 locksMovement = true
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(1, 2, 1)
-
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(1, 2, 1)
+size = Vector3(1.2, 1.5, 1.2)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_chest_closed"]
-atlas = ExtResource("3_17q7g")
-region = Rect2(752, 165, 16, 27)
+[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
+size = Vector3(0.8, 0.7, 0.6)
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_chest_open"]
-atlas = ExtResource("3_17q7g")
-region = Rect2(736, 165, 16, 27)
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_chest"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_chest_closed")
-}],
-"loop": true,
-"name": &"closed",
-"speed": 1.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_chest_open")
-}],
-"loop": true,
-"name": &"open",
-"speed": 1.0
-}]
-
-[node name="Chest" type="Node3D" node_paths=PackedStringArray("_animator", "_hurtBox", "_discoverable", "_hudNode")]
+[node name="Chest" type="Node3D" node_paths=PackedStringArray("_hurtBox", "_discoverable", "_hudNode", "_lidHinge")]
 script = ExtResource("1_chest")
-_animator = NodePath("LitSpriteAnimator")
 _hurtBox = NodePath("HurtBox")
-_actions = Array[ExtResource("9_action")]([SubResource("Resource_chest_action_open")])
+_actions = Array[ExtResource("4_action")]([SubResource("Resource_stash_action_open")])
 _isStash = true
 _discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
+_lidHinge = NodePath("ChestVisual/LidHinge")
 
-[node name="BlockCollider" type="StaticBody3D" parent="."]
+[node name="ChestVisual" type="Node3D" parent="."]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_block")
+[node name="Body" type="Node3D" parent="ChestVisual"]
+script = ExtResource("9_autocoll")
+
+[node name="Treasure_Chest_Base_01" parent="ChestVisual/Body" instance=ExtResource("11_body")]
+
+[node name="LidHinge" type="Node3D" parent="ChestVisual"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.42, 0.26)
+
+[node name="Treasure_Chest_lid_01" parent="ChestVisual/LidHinge" instance=ExtResource("12_lid")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.42, -0.26)
 
 [node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
-script = ExtResource("3_interactivebox")
+script = ExtResource("3_ibox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_interact")
-
-[node name="Sprite" type="Sprite3D" parent="."]
-cast_shadow = 0
-centered = false
-offset = Vector2(-8, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("3_17q7g")
-region_enabled = true
-region_rect = Rect2(752, 165, 16, 27)
-script = ExtResource("4_litsprite")
-Material = 1
-ForwardOffset = 0.5
-Xray = true
-
-[node name="LitSpriteAnimator" type="Node" parent="." node_paths=PackedStringArray("target")]
-script = ExtResource("17_anim")
-target = NodePath("../Sprite")
-frames = SubResource("SpriteFrames_chest")
-defaultAnimation = &"closed"
-metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="HurtBox" type="Area3D" parent="."]
 collision_layer = 32
@@ -114,20 +71,17 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_block")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+shape = SubResource("BoxShape3D_hurt")
+
+[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_interactBox")]
+script = ExtResource("8_disc")
+discoveredThreshold = 0.1
+_interactBox = NodePath("../InteractiveBox")
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("10_meshhl")
+_collectFrom = NodePath("../ChestVisual")
 
 [node name="HUDNode" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
-
-[node name="Discoverable" type="Node3D" parent="." node_paths=PackedStringArray("_fadeSprites", "_interactBox")]
-script = ExtResource("15_i4oq8")
-discoveredThreshold = 0.1
-_fadeSprites = [NodePath("../Sprite")]
-_interactBox = NodePath("../InteractiveBox")
-metadata/_custom_type_script = "uid://ccogud7ied6xv"
-
-[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_sprites", "_discoverable")]
-script = ExtResource("16_xray")
-_sprites = [NodePath("../Sprite")]
-_discoverable = NodePath("../Discoverable")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)

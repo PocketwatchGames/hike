@@ -598,6 +598,13 @@ public partial class SkyController : Node3D
     // black. Lower values give the highlight more contrast against the
     // wet material at the cost of a more saturated dark base.
     [Export(PropertyHint.Range, "0,1,0.01")] public float wetAlbedoFloor = 0.15f;
+    // Strength of the Fresnel sky reflection that makes wet ground look like
+    // a partial mirror — the primary wet cue. 0 = old look (darken + sun
+    // glint only); ~1 = strong grazing-angle sky sheen on flat wet ground.
+    [Export(PropertyHint.Range, "0,4,0.05")] public float wetReflectStrength = 1.0f;
+    // Schlick base reflectance for the wet Fresnel — head-on reflectivity
+    // floor. Small; the grazing-angle term supplies most of the sheen.
+    [Export(PropertyHint.Range, "0,0.3,0.005")] public float wetFresnelBase = 0.04f;
 
     // Accumulated cloud / ripple scroll offsets — integrated per frame from
     // `wind direction * speed`. These are the shader inputs (replacing the
@@ -926,6 +933,8 @@ public partial class SkyController : Node3D
             ShaderGlobals.Register("wetness_level", RenderingServer.GlobalShaderParameterType.Float, 0f);
             ShaderGlobals.Register("wet_spec_strength", RenderingServer.GlobalShaderParameterType.Float, wetSpecStrength);
             ShaderGlobals.Register("wet_albedo_floor", RenderingServer.GlobalShaderParameterType.Float, wetAlbedoFloor);
+            ShaderGlobals.Register("wet_reflect_strength", RenderingServer.GlobalShaderParameterType.Float, wetReflectStrength);
+            ShaderGlobals.Register("wet_fresnel_base", RenderingServer.GlobalShaderParameterType.Float, wetFresnelBase);
 
             // Working copies for the zone blend output. Re-populated in
             // _Process each frame — these exist so ZoneBlend can write
@@ -1426,6 +1435,8 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("wetness_level", World.Current?.WorldState?.WetnessLevel ?? 0f);
         RenderingServer.GlobalShaderParameterSet("wet_spec_strength", wetSpecStrength);
         RenderingServer.GlobalShaderParameterSet("wet_albedo_floor", wetAlbedoFloor);
+        RenderingServer.GlobalShaderParameterSet("wet_reflect_strength", wetReflectStrength);
+        RenderingServer.GlobalShaderParameterSet("wet_fresnel_base", wetFresnelBase);
 
         // --- Water -------------------------------------------------------
         // Muddiness comes from ZoneData.WaterColor.a (via palette). It drives:

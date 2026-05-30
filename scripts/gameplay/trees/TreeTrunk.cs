@@ -104,6 +104,15 @@ public partial class TreeTrunk : MeshInstance3D
     // of TrunkHeight (never below TrunkHeight). 0.2 = up to +20% taller.
     [Export(PropertyHint.Range, "0,1,0.01")] public float HeightVariation = 0.2f;
 
+    // When true, the per-instance world-position hash that drives the branch
+    // structure is replaced by a fixed seed, so EVERY spawn of this scene grows
+    // byte-identical branch geometry instead of a different tree per location.
+    // Pair with HeightVariation = 0 for a fully size-and-shape "locked" tree
+    // (the climbable tree, which must read the same everywhere). Defaults off so
+    // normal forest trees keep their per-location variation. (Leaf/twig tint is
+    // still position-hashed in the foliage shaders; only the geometry is pinned.)
+    [Export] public bool LockSeed = false;
+
     // -- Gnarl / irregularity ---------------------------------------------
 
     // Straightness damper for the zigzag: 1 = straight runs (no zigzag), lower
@@ -163,8 +172,12 @@ public partial class TreeTrunk : MeshInstance3D
         // Per-instance variation seeded from world position: a stand varies but
         // each tree is stable across reloads. In the editor the tree sits at the
         // origin so the hash is deterministic and the preview never drifts.
-        float heightHash = Hash13(treeOrigin);
-        float baseSeed = Hash13(treeOrigin + new Vector3(31.4f, 2.7f, 11.9f)) * 100f;
+        // LockSeed pins this hash to a fixed point so a "locked" tree grows the
+        // same geometry at every spawn (world-Y math below still uses the real
+        // treeOrigin — only the variation seed is pinned).
+        Vector3 seedOrigin = LockSeed ? Vector3.Zero : treeOrigin;
+        float heightHash = Hash13(seedOrigin);
+        float baseSeed = Hash13(seedOrigin + new Vector3(31.4f, 2.7f, 11.9f)) * 100f;
 
         // Height variation is runtime-only so the editor canopy (NOT stretched in
         // the editor) stays consistent with the previewed skeleton. Variation only

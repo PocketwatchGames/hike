@@ -23,6 +23,12 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // are visible from spawn.
     [Export] private Discoverable _discoverable;
     [Export] private Node3D _hudNode;
+    // 3D chest lid hinge: a Node3D pivot placed at the lid's back-bottom edge
+    // with the lid mesh parented under it. When set, the lid tweens open on
+    // Complete instead of swapping a sprite frame. Null on the old sprite chest.
+    [Export] private Node3D _lidHinge;
+    [Export] private float _lidOpenAngleDeg = 100f;
+    [Export] private float _lidOpenSeconds = 0.4f;
     // Optional ITriggerable nodes pinged when the chest finishes opening.
     // Lets a chest fire a poison-cloud deployer, an upstream
     // TriggerSource (e.g. a nearby spike trap's pad chained off the
@@ -76,13 +82,29 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         return _actions != null && _actions.Count > 0 ? _actions : null;
     }
 
-    private void UpdateVisuals()
+    private void UpdateVisuals(bool animateLid)
     {
         // Open/closed is the only state this method gates — perception
         // visibility (Hidden vs Discovered) is now driven by the
         // Discoverable's dither fade pushed into the sprite's Visibility
-        // uniform.
-        _animator.Play(_open ? AnimOpen : AnimClosed);
+        // uniform. _animator is null on the 3D (model) chest, which swings the
+        // lid hinge below instead of swapping sprite frames.
+        _animator?.Play(_open ? AnimOpen : AnimClosed);
+        if (_lidHinge != null)
+        {
+            float target = _open ? Mathf.DegToRad(_lidOpenAngleDeg) : 0f;
+            if (animateLid)
+            {
+                CreateTween().TweenProperty(_lidHinge, "rotation:x", target, _lidOpenSeconds)
+                    .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+            }
+            else
+            {
+                Vector3 r = _lidHinge.Rotation;
+                r.X = target;
+                _lidHinge.Rotation = r;
+            }
+        }
     }
 
     public void Complete(int actionIndex)
@@ -104,7 +126,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
         _open = true;
         _interactiveState.Active = false;
-        UpdateVisuals();
+        UpdateVisuals(true);
 
         var rng = new Random();
         const float SPEED = 5f;
@@ -165,7 +187,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
         world.AddChild(instance);
 
         instance._open = !data.Active;
-        instance.UpdateVisuals();
+        instance.UpdateVisuals(false);
 
         return instance;
     }
