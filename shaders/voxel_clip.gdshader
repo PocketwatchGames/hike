@@ -156,6 +156,31 @@ uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
 uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
 uniform float detail_normal_strength = 0.35;
 
+// Ambient-occlusion bake strength. AO is baked per-vertex into COLOR.a by the
+// DC mesher (0 = open, 1 = fully sheltered) and applied here as a multiplicative
+// darken on the diffuse lighting (direct sun + ambient sky-bounce + block
+// light), leaving the wet specular / sky reflection untouched. 0 = AO off.
+// This is OCCLUSION/shelter darkening; the separate concavity bake (CUSTOM2.w)
+// drives wetness, not shading.
+uniform float ao_strength : hint_range(0.0, 1.0) = 1.0;
+
+// Concavity-driven wetness/pooling. Concavity is baked per-vertex into CUSTOM2.w
+// by the DC mesher (signed voxels; positive = a dip/bowl, negative = a bump).
+// Together with surface flatness it modulates the gameplay wetness_level: a
+// concave + flat + sky-exposed spot collects MORE of the current surface
+// moisture (wets first, dries last), while bumps and steep faces shed. It is a
+// multiplier on wetness_level, not a constant — when the surface is dry, dips
+// are dry too.
+//   concavity_wetness_strength: 0 = off, 1 = authored, >1 exaggerates.
+//   concavity_threshold: dip depth (voxels) at which pooling is full. Smaller =
+//     even shallow dips pool; larger = only deep bowls.
+uniform float concavity_wetness_strength : hint_range(0.0, 4.0) = 1.0;
+uniform float concavity_threshold : hint_range(0.001, 1.0) = 0.15;
+// Debug: paint the baked concavity directly via EMISSION. Red = concave dip
+// (pools water), blue = convex bump/ridge, black ≈ flat. Scaled up so the
+// sub-voxel magnitudes are visible. Verification aid — see CVars.debugConcavity.
+uniform bool debug_concavity = false;
+
 // Per-terrain palette uploaded by ChunkMesh.SetTerrains at world start.
 //   terrain_tiles[i] = (flat, wall, _, _) tile_array layer indices. .zw are
 //                   reserved (overlay is no longer a terrain property — it
@@ -205,6 +230,12 @@ varying vec3 world_normal;
 varying flat vec3 tile_ids;
 // Per-vertex blend-noise amplitude, interpolated to fragments.
 varying float blend_amp;
+// Per-vertex baked ambient occlusion (COLOR.a). 0 = open, 1 = sheltered.
+// Interpolated to fragments; applied as a multiplicative diffuse darken.
+varying float ao;
+// Per-vertex baked concavity (CUSTOM2.w). Signed voxels: + = dip/bowl,
+// - = bump/ridge. Interpolated to fragments; drives the wetness pooling term.
+varying float concavity;
 // Per-vertex sharpness in [0,1]. 0 = use interpolated smooth NORMAL,
 // 1 = use dFdx/dFdy-derived face normal (hard flat-shaded crease). Authored
 // per-cell by the DC mesher: 1 for authored-sharp materials (Stone/Wood),
@@ -240,9 +271,11 @@ void vertex() {
 	world_normal = NORMAL;
 	tile_ids = CUSTOM0.xyz;
 	blend_amp = CUSTOM0.w;
+	ao = COLOR.a;
 	sharpness = CUSTOM1.x;
 	terrain_ids = CUSTOM1.yzw;
 	overlay_ids = CUSTOM2.xyz;
+	concavity = CUSTOM2.w;
 }
 
 // Hash-based 3D value noise. Good enough for breaking up tile-edge seams; we
@@ -493,7 +526,25 @@ void fragment() {
 	// perturbed normal is exactly what made wet ground read as "crunchier
 	// texture" instead of wet.
 	float wet_slope = pow(max(smooth_n.y, 0.0), 3.0);
-	float wet_factor = wetness_level * sun_mask * wet_slope;
+	// Concavity pooling, driven by the gameplay surface wetness. wetness_level
+	// is WorldState.WetnessLevel — the weather-derived [0,1] dampness that wets
+	// up in rain/fog and dries on a half-life curve (SkyController.UpdateWetness).
+	// Concavity doesn't add water out of nowhere; it makes concave + flat spots
+	// COLLECT more of whatever moisture is currently present, so dips wet up
+	// first and stay damp longest, while bumps and steep faces shed. When the
+	// surface is bone dry (wetness_level = 0) even dips read dry.
+	// HOOK: displacement_wetness is reserved for the not-yet-implemented detail
+	// displacement (height) map — it will fold per-texel micro-pits into the
+	// pooling later (a multiply in [0,1]). Keep it 1.0 until that map exists.
+	float displacement_wetness = 1.0;
+	// Local wetness boost in concave spots: ramps 0→1 with dip depth, scaled by
+	// strength. Multiplies the global wetness so pooling is always proportional
+	// to the real surface wetness, never a constant.
+	float pool_boost = smoothstep(0.0, concavity_threshold, concavity) * displacement_wetness * concavity_wetness_strength;
+	float local_wetness = clamp(wetness_level * (1.0 + pool_boost), 0.0, 1.0);
+	// concavity_wetness_strength = 0 → pool_boost = 0 → local_wetness =
+	// wetness_level, collapsing this back to the original weather-only term.
+	float wet_factor = sun_mask * wet_slope * local_wetness;
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - world_vertex);
 	// Tight sun glint off the smooth normal. Exponent 40 (vs the old 16)
 	// makes a compact glossy hotspot that reads as a wet specular rather
@@ -565,6 +616,12 @@ void fragment() {
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
 
+	// Baked AO: multiplicative shelter/contact darkening on the diffuse
+	// lighting only. ao=0 (open) leaves lighting untouched; ao=1 (buried)
+	// scales the diffuse down by ao_strength. The wet sky reflection
+	// (wet_reflect, a specular term) is intentionally NOT occluded here.
+	float ao_factor = 1.0 - ao * ao_strength;
+
 	// Split the lighting across ALBEDO and EMISSION so light() can shadow
 	// just the direct portion of the sun via ATTENUATION. The BFS sun mask
 	// is treated as part-direct, part-ambient-skylight (see sun_ambient):
@@ -576,16 +633,26 @@ void fragment() {
 	// `block_light_shadow_factor(world_vertex)` above — the dim is baked
 	// into block_lit before it lands in EMISSION, so no light()-stage
 	// machinery is needed here.
-	ALBEDO = base * sun_lit * (1.0 - sun_ambient);
+	ALBEDO = base * sun_lit * (1.0 - sun_ambient) * ao_factor;
 	// wet_reflect is the mirrored sky (specular), layered on top of the
 	// diffuse composite rather than multiplied by albedo — so even dark wet
-	// ground shows the bright sky sheen ("wet asphalt" look). Cloud-dimmed
-	// since clouds occlude the sky being reflected.
-	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) + wet_reflect * cloud_dim;
+	// ground shows the bright sky sheen ("wet asphalt" look). Gated by
+	// sky-occlusion: cloud_dim (clouds occlude the sky being reflected) AND
+	// ao_factor (baked vertex AO — a vertex sheltered under canopy or against a
+	// vertical face sees less sky, so it reflects less of it). ao_factor also
+	// darkens the diffuse above.
+	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor + wet_reflect * cloud_dim * ao_factor;
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);
 		EMISSION = debug_solid;
+		wet_spec = 0.0;
+	}
+	if (debug_concavity) {
+		// Red = concave dip (positive), blue = convex bump (negative), black ≈
+		// flat. ×4 so sub-voxel concavity magnitudes are visible.
+		ALBEDO = vec3(0.0);
+		EMISSION = vec3(max(concavity, 0.0), 0.0, max(-concavity, 0.0)) * 4.0;
 		wet_spec = 0.0;
 	}
 	if (debug_normals) {

@@ -598,6 +598,43 @@ public static class CVars
         ChunkMesherDC.EmitZ = ((CVarBool)cvar).Value;
     });
 
+    // Baked ambient-occlusion darkening strength on terrain. AO is baked
+    // per-vertex into COLOR.a by the DC mesher (sheltered/contact areas);
+    // this scales how hard it darkens the diffuse. 0 = off (reproduces the
+    // pre-AO look), 1 = authored, >1 exaggerates so you can confirm the bake
+    // is landing where you expect. No regen needed — it's a live shader push.
+    public static CVarFloat aoStrength = new CVarFloat("ao_strength", 1f, (cvar) =>
+    {
+        ChunkMesh.SetAoStrength(((CVarFloat)cvar).Value);
+    });
+
+    // Concavity-driven wetness pooling on terrain. Concavity is baked per-vertex
+    // into CUSTOM2.w by the DC mesher (+ = dip, - = bump); dips on near-flat,
+    // sky-exposed ground collect MORE of the current surface wetness
+    // (WorldState.WetnessLevel) — wetting first and drying last — while bumps and
+    // steep faces shed. It scales the real wetness, so dips are dry when the
+    // surface is dry. Live shader pushes — no regen needed.
+    //   concavity_wetness  = pooling strength. 0 = off (weather-only wetness,
+    //                        pre-feature look), 1 = authored, >1 exaggerates.
+    //   concavity_threshold = dip depth (voxels) for full pooling. Lower = even
+    //                         shallow dips pool; higher = only deep bowls.
+    public static CVarFloat concavityWetness = new CVarFloat("concavity_wetness", 1f, (cvar) =>
+    {
+        ChunkMesh.SetConcavityWetness(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat concavityThreshold = new CVarFloat("concavity_threshold", 0.15f, (cvar) =>
+    {
+        ChunkMesh.SetConcavityThreshold(((CVarFloat)cvar).Value);
+    });
+
+    // Debug: paint baked concavity directly on terrain — red = dip, blue =
+    // bump, black ≈ flat. Use to confirm the concavity bake lands in bowls /
+    // valley floors before judging the (subtler) wetness pooling.
+    public static CVarBool debugConcavity = new CVarBool("debug_concavity", false, (cvar) =>
+    {
+        ChunkMesh.SetDebugConcavity(((CVarBool)cvar).Value);
+    });
+
     // Forces the terrain shader to ignore texture+lighting and output a solid
     // color. Set to "1 0 1" (magenta) to test whether triangles exist at all.
     // Empty string or zero values = disabled.

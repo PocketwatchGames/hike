@@ -48,6 +48,113 @@ public static class ChunkMesherDC
 
     public static bool DebugLog = false;
 
+    // --- Ambient occlusion bake -------------------------------------------
+    // Hemisphere occlusion sampled at mesh-gen time and packed into COLOR.a
+    // (0 = open/unoccluded, 1 = fully sheltered). Directions span the full
+    // sphere; per vertex we use only those in the outward-normal hemisphere
+    // (cosine-weighted), so a flat open surface reads ~0 occlusion while inside
+    // corners / crevices read high. Sampling the local binary `density` corner
+    // field (not getVoxel) keeps the bake cheap and local; clamping at the ±2
+    // apron can only nudge the outermost apron row, and AO is low-frequency, so
+    // any boundary difference is sub-perceptual. Distinct from concavity — AO is
+    // OCCLUSION (how much geometry blocks the hemisphere), not local shape.
+    private const int AO_STEPS = 2;            // sample distances: 1, 2 voxels
+    private const float AO_MIN_FACING = 0.1f;  // skip near-tangent directions
+    private static readonly Vector3[] AoDirs = BuildAoDirs();
+
+    private static Vector3[] BuildAoDirs()
+    {
+        const float s = 0.57735026f; // 1/sqrt(3)
+        return new Vector3[]
+        {
+            new Vector3( 1, 0, 0), new Vector3(-1, 0, 0),
+            new Vector3( 0, 1, 0), new Vector3( 0,-1, 0),
+            new Vector3( 0, 0, 1), new Vector3( 0, 0,-1),
+            new Vector3( s, s, s), new Vector3(-s, s, s),
+            new Vector3( s,-s, s), new Vector3(-s,-s, s),
+            new Vector3( s, s,-s), new Vector3(-s, s,-s),
+            new Vector3( s,-s,-s), new Vector3(-s,-s,-s),
+        };
+    }
+
+    // Fraction of the outward hemisphere blocked by nearby solid, in [0,1].
+    // Each qualifying direction marches out up to AO_STEPS voxels and stops at
+    // the first solid corner; nearer hits occlude more. Cosine-weighted by
+    // facing so grazing directions contribute less.
+    private static float ComputeAo(sbyte[,,] density, Vector3 p, Vector3 n)
+    {
+        float occ = 0f;
+        float totalW = 0f;
+        for (int i = 0; i < AoDirs.Length; i++)
+        {
+            Vector3 d = AoDirs[i];
+            float nd = d.Dot(n);
+            if (nd < AO_MIN_FACING)
+            {
+                continue;
+            }
+            totalW += nd;
+            for (int step = 1; step <= AO_STEPS; step++)
+            {
+                if (SampleSolid(density, p + d * step))
+                {
+                    occ += nd * (1f - (float)(step - 1) / AO_STEPS);
+                    break;
+                }
+            }
+        }
+        return totalW > 1e-5f ? Mathf.Clamp(occ / totalW, 0f, 1f) : 0f;
+    }
+
+    private static bool SampleSolid(sbyte[,,] density, Vector3 sp)
+    {
+        int cx = Math.Clamp(Mathf.RoundToInt(sp.X), CORNER_LO, CORNER_HI);
+        int cy = Math.Clamp(Mathf.RoundToInt(sp.Y), CORNER_LO, CORNER_HI);
+        int cz = Math.Clamp(Mathf.RoundToInt(sp.Z), CORNER_LO, CORNER_HI);
+        return density[CornerIdx(cx), CornerIdx(cy), CornerIdx(cz)] < 0;
+    }
+
+    // --- Concavity bake ----------------------------------------------------
+    private static readonly (int dx, int dy, int dz)[] FaceNeighbors =
+    {
+        (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1),
+    };
+
+    // Signed local curvature at the cell's vertex: how far the vertex sits below
+    // the centroid of its existing face-neighbour vertices, measured along the
+    // outward normal. Units are voxels (a dip of ~0.3 voxels reads ~+0.3).
+    // Positive = concave dip; negative = convex bump; ~0 = flat. Boundary cells
+    // with missing neighbours average over fewer samples — acceptable for a
+    // low-frequency wetness term (any tiny seam is imperceptible vs lighting).
+    private static float ComputeConcavity(bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int x, int y, int z)
+    {
+        Vector3 selfPos = cellVert[CellIdx(x), CellIdx(y), CellIdx(z)] + new Vector3(x, y, z);
+        Vector3 normal = cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)];
+        Vector3 centroid = Vector3.Zero;
+        int count = 0;
+        for (int i = 0; i < FaceNeighbors.Length; i++)
+        {
+            var (dx, dy, dz) = FaceNeighbors[i];
+            int nx = x + dx, ny = y + dy, nz = z + dz;
+            if (nx < CELL_LO || nx > CELL_HI || ny < CELL_LO || ny > CELL_HI || nz < CELL_LO || nz > CELL_HI)
+            {
+                continue;
+            }
+            if (!cellHas[CellIdx(nx), CellIdx(ny), CellIdx(nz)])
+            {
+                continue;
+            }
+            centroid += cellVert[CellIdx(nx), CellIdx(ny), CellIdx(nz)] + new Vector3(nx, ny, nz);
+            count++;
+        }
+        if (count == 0)
+        {
+            return 0f;
+        }
+        centroid /= count;
+        return (centroid - selfPos).Dot(normal);
+    }
+
     // Per-axis emission gates for debugging winding. Disable an axis to see
     // whether the remaining geometry still contains a given artifact.
     public static bool EmitX = true;
@@ -151,6 +258,11 @@ public static class ChunkMesherDC
         // chunk's triangles at boundary vertices and disagree with the neighbour
         // chunk's average, producing a visible slope-pick seam at chunk edges.
         var cellNormal = new Vector3[CELL_DIM, CELL_DIM, CELL_DIM];
+        // Per-vertex ambient occlusion in [0,1]: 0 = open, 1 = fully sheltered.
+        // Baked from a low-sample hemisphere check against the local solidity
+        // field (ComputeAo); packed into COLOR.a and applied as a multiplicative
+        // diffuse darken in voxel_clip.gdshader.
+        var cellAo = new float[CELL_DIM, CELL_DIM, CELL_DIM];
 
         for (int x = CELL_LO; x <= CELL_HI; x++)
         {
@@ -287,7 +399,41 @@ public static class ChunkMesherDC
                     Vector3 normal = new Vector3(gx, gy, gz);
                     float nLen = normal.Length();
                     cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)] = nLen > 1e-5f ? normal / nLen : Vector3.Up;
+
+                    // AO bake: hemisphere occlusion at the vertex, oriented by
+                    // the cell normal we just computed. Vertex sits at the cell
+                    // origin plus its fractional offset, in the same world-corner
+                    // space the `density` array is indexed in.
+                    Vector3 aoPos = new Vector3(x + vx, y + vy, z + vz);
+                    cellAo[CellIdx(x), CellIdx(y), CellIdx(z)] = ComputeAo(density, aoPos, cellNormal[CellIdx(x), CellIdx(y), CellIdx(z)]);
                     activeCells++;
+                }
+            }
+        }
+
+        // --- Concavity bake ------------------------------------------------
+        // Local SHAPE/curvature per vertex: compare each cell vertex to the
+        // centroid of its face-neighbour vertices, projected onto the outward
+        // normal. Positive = the vertex sits below its neighbours along the
+        // normal = a dip/bowl (water pools); negative = a bump/ridge. This is a
+        // DISTINCT signal from AO — a vertex can be unoccluded yet concave (a
+        // shallow open bowl) or occluded yet flat (flush against a wall). Stored
+        // in CUSTOM2.w and consumed by the wetness term in voxel_clip.gdshader.
+        // Second pass because it reads neighbour cells' finished vertices; reuses
+        // already-computed cellVert/cellNormal, so no extra field sampling.
+        var cellConcavity = new float[CELL_DIM, CELL_DIM, CELL_DIM];
+        for (int x = CELL_LO; x <= CELL_HI; x++)
+        {
+            for (int y = CELL_LO; y <= CELL_HI; y++)
+            {
+                for (int z = CELL_LO; z <= CELL_HI; z++)
+                {
+                    if (!cellHas[CellIdx(x), CellIdx(y), CellIdx(z)])
+                    {
+                        continue;
+                    }
+                    cellConcavity[CellIdx(x), CellIdx(y), CellIdx(z)] =
+                        ComputeConcavity(cellHas, cellVert, cellNormal, x, y, z);
                 }
             }
         }
@@ -311,7 +457,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx, cy - 1, cz - 1,
                                 cx, cy,     cz - 1,
@@ -335,7 +481,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy, cz - 1,
                                 cx - 1, cy, cz,
@@ -356,7 +502,7 @@ public static class ChunkMesherDC
                             s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                             EmitQuad(
                                 st,
-                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                                cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                                 chunkWorldX, chunkWorldY, chunkWorldZ,
                                 cx - 1, cy - 1, cz,
                                 cx,     cy - 1, cz,
@@ -391,7 +537,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -420,7 +566,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -449,7 +595,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -482,7 +628,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'X'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx, cy - 1, cz - 1,
                             cx, cy,     cz - 1,
@@ -511,7 +657,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Y'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy, cz - 1,
                             cx - 1, cy, cz,
@@ -540,7 +686,7 @@ public static class ChunkMesherDC
                         s_axisTag = 'Z'; s_edgeCx = cx; s_edgeCy = cy; s_edgeCz = cz; s_edgeA = a; s_edgeB = b;
                         EmitQuad(
                             st,
-                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness,
+                            cellHas, cellVert, cellNormal, cellTile, cellTerrain, cellOverlay, cellAmp, cellSharpness, cellAo, cellConcavity,
                             chunkWorldX, chunkWorldY, chunkWorldZ,
                             cx - 1, cy - 1, cz,
                             cx,     cy - 1, cz,
@@ -568,7 +714,7 @@ public static class ChunkMesherDC
 
     private static void EmitQuad(
         SurfaceTool st,
-        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness,
+        bool[,,] cellHas, Vector3[,,] cellVert, Vector3[,,] cellNormal, int[,,] cellTile, int[,,] cellTerrain, int[,,] cellOverlay, float[,,] cellAmp, float[,,] cellSharpness, float[,,] cellAo, float[,,] cellConcavity,
         int cwX, int cwY, int cwZ,
         int x0, int y0, int z0,
         int x1, int y1, int z1,
@@ -622,6 +768,16 @@ public static class ChunkMesherDC
         float s2 = cellSharpness[i2x, i2y, i2z];
         float s3 = cellSharpness[i3x, i3y, i3z];
 
+        float ao0 = cellAo[i0x, i0y, i0z];
+        float ao1 = cellAo[i1x, i1y, i1z];
+        float ao2 = cellAo[i2x, i2y, i2z];
+        float ao3 = cellAo[i3x, i3y, i3z];
+
+        float con0 = cellConcavity[i0x, i0y, i0z];
+        float con1 = cellConcavity[i1x, i1y, i1z];
+        float con2 = cellConcavity[i2x, i2y, i2z];
+        float con3 = cellConcavity[i3x, i3y, i3z];
+
         Vector3 n0 = cellNormal[i0x, i0y, i0z];
         Vector3 n1 = cellNormal[i1x, i1y, i1z];
         Vector3 n2 = cellNormal[i2x, i2y, i2z];
@@ -629,13 +785,13 @@ public static class ChunkMesherDC
 
         if (flip)
         {
-            AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1);
-            AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2);
+            AddTri(st, v0, v2, v1, n0, n2, n1, t0, t2, t1, k0, k2, k1, o0, o2, o1, a0, a2, a1, s0, s2, s1, ao0, ao2, ao1, con0, con2, con1);
+            AddTri(st, v0, v3, v2, n0, n3, n2, t0, t3, t2, k0, k3, k2, o0, o3, o2, a0, a3, a2, s0, s3, s2, ao0, ao3, ao2, con0, con3, con2);
         }
         else
         {
-            AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2);
-            AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3);
+            AddTri(st, v0, v1, v2, n0, n1, n2, t0, t1, t2, k0, k1, k2, o0, o1, o2, a0, a1, a2, s0, s1, s2, ao0, ao1, ao2, con0, con1, con2);
+            AddTri(st, v0, v2, v3, n0, n2, n3, t0, t2, t3, k0, k2, k3, o0, o2, o3, a0, a2, a3, s0, s2, s3, ao0, ao2, ao3, con0, con2, con3);
         }
 
         if (DebugLog)
@@ -670,11 +826,16 @@ public static class ChunkMesherDC
     //    dFdx/dFdy face normal by this value, so hard-material cells read as
     //    flat-shaded and soft terrain stays smooth. .yzw are the triangle's
     //    three corner kit ids — constant across the tri, same pattern as tiles.
-    //  - CUSTOM2 = (overlay_a, overlay_b, overlay_c, _unused). Per-corner
-    //    authored overlay ids; the shader picks the same corner the tile/kit
-    //    pick chose so overlay boundaries inherit the organic edge jitter.
+    //  - CUSTOM2 = (overlay_a, overlay_b, overlay_c, concavity). xyz are the
+    //    per-corner authored overlay ids; the shader picks the same corner the
+    //    tile/kit pick chose so overlay boundaries inherit the organic edge
+    //    jitter. .w is per-vertex baked concavity (signed voxels; + = dip), read
+    //    by the wetness term. Unlike xyz it is genuinely per-vertex, not a flat
+    //    triangle constant, so each vertex carries its own overlay color.
     //  - COLOR.rgb = bary indicator (1,0,0)/(0,1,0)/(0,0,1). Linearly interpolated
     //    by the rasterizer so fragment.COLOR.rgb is the barycentric weight vector.
+    //  - COLOR.a = baked ambient occlusion (0 = open, 1 = sheltered). Independent
+    //    of the bary pick; read in voxel_clip.gdshader for the diffuse darken.
     private static void AddTri(SurfaceTool st,
         Vector3 a, Vector3 b, Vector3 c,
         Vector3 na, Vector3 nb, Vector3 nc,
@@ -682,7 +843,9 @@ public static class ChunkMesherDC
         int ka, int kb, int kc,
         int oa, int ob, int oc,
         float ampA, float ampB, float ampC,
-        float sharpA, float sharpB, float sharpC)
+        float sharpA, float sharpB, float sharpC,
+        float aoA, float aoB, float aoC,
+        float conA, float conB, float conC)
     {
         Color custA = new Color(ta, tb, tc, ampA);
         Color custB = new Color(ta, tb, tc, ampB);
@@ -690,10 +853,14 @@ public static class ChunkMesherDC
         Color sharpCustA = new Color(sharpA, ka, kb, kc);
         Color sharpCustB = new Color(sharpB, ka, kb, kc);
         Color sharpCustC = new Color(sharpC, ka, kb, kc);
-        Color overlayCust = new Color(oa, ob, oc, 0f);
-        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, 1f)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCust); st.AddVertex(a);
-        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, 1f)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCust); st.AddVertex(b);
-        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, 1f)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCust); st.AddVertex(c);
+        // overlay ids xyz are constant across the tri; concavity (.w) is
+        // per-vertex, so each corner gets its own CUSTOM2.
+        Color overlayCustA = new Color(oa, ob, oc, conA);
+        Color overlayCustB = new Color(oa, ob, oc, conB);
+        Color overlayCustC = new Color(oa, ob, oc, conC);
+        st.SetNormal(na); st.SetColor(new Color(1f, 0f, 0f, aoA)); st.SetCustom(0, custA); st.SetCustom(1, sharpCustA); st.SetCustom(2, overlayCustA); st.AddVertex(a);
+        st.SetNormal(nb); st.SetColor(new Color(0f, 1f, 0f, aoB)); st.SetCustom(0, custB); st.SetCustom(1, sharpCustB); st.SetCustom(2, overlayCustB); st.AddVertex(b);
+        st.SetNormal(nc); st.SetColor(new Color(0f, 0f, 1f, aoC)); st.SetCustom(0, custC); st.SetCustom(1, sharpCustC); st.SetCustom(2, overlayCustC); st.AddVertex(c);
     }
 
     // Pick a tile + blend-noise amplitude for the cell. Extended cells (x, y,

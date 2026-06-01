@@ -39,6 +39,54 @@ public partial class ChunkMesh : Node3D
     private static ShaderMaterial MaskBackfaceMaterial;
     private static bool _materialsInitialized;
 
+    // Baked-AO darkening strength pushed to the terrain shader's `ao_strength`
+    // uniform (0 = AO off, 1 = authored, >1 exaggerates for verification).
+    // Cached so a CVar set before the material exists still takes effect once
+    // EnsureMaterialsInitialized runs. See CVars.aoStrength.
+    private static float _aoStrength = 1f;
+
+    public static void SetAoStrength(float value)
+    {
+        _aoStrength = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("ao_strength", value);
+        }
+    }
+
+    // Concavity-driven wetness pooling (CUSTOM2.w bake). Cached like _aoStrength
+    // so CVar sets before the material exists still apply. See CVars.
+    private static float _concavityWetness = 1f;
+    private static float _concavityThreshold = 0.15f;
+    private static bool _debugConcavity = false;
+
+    public static void SetConcavityWetness(float value)
+    {
+        _concavityWetness = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("concavity_wetness_strength", value);
+        }
+    }
+
+    public static void SetConcavityThreshold(float value)
+    {
+        _concavityThreshold = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("concavity_threshold", value);
+        }
+    }
+
+    public static void SetDebugConcavity(bool value)
+    {
+        _debugConcavity = value;
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter("debug_concavity", value);
+        }
+    }
+
     private static void EnsureMaterialsInitialized()
     {
         if (_materialsInitialized)
@@ -55,6 +103,12 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.Shader = shader;
         var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
         SharedMaterial.SetShaderParameter("tile_array", tileArray);
+        // Seed AO darkening strength (honors any CVar set before this ran).
+        SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
+        // Seed concavity wetness/pooling params (likewise honor pre-init CVars).
+        SharedMaterial.SetShaderParameter("concavity_wetness_strength", _concavityWetness);
+        SharedMaterial.SetShaderParameter("concavity_threshold", _concavityThreshold);
+        SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
 
         // Macro detail overlay + glancing-angle ground normal. Both are
         // low-cost noise textures; the shader defaults for freq/strength live
