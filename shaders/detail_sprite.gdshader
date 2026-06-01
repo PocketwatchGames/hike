@@ -169,6 +169,14 @@ global uniform float player_strength;
 // from the [Export] WindStrength field on the entry resource.
 uniform float wind_strength : hint_range(0.0, 1.0) = 1.0;
 
+// Per-entry response to surface wetness. Multiplies the wet_factor that both
+// the wet darken and the wet sheen derive from, so one knob scales the whole
+// wet look for this sprite type. 1.0 = wets out alongside the terrain (grass,
+// leaves — default); 0.0 = ignores wetness entirely (dry twigs, bones,
+// pebbles). Stamped into the material by DetailEntry.GetMaterial from the
+// [Export] WetStrength field on the entry resource.
+uniform float wet_strength : hint_range(0.0, 1.0) = 1.0;
+
 varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
@@ -376,7 +384,10 @@ void fragment() {
 	// steep faces stay drier. Same curve and exponents as voxel_clip so wet
 	// grass and wet terrain behave consistently.
 	float wet_slope = pow(max(world_normal.y, 0.0), 3.0);
-	float wet_factor = wetness_level * sun_mask * wet_slope;
+	// Per-entry wet_strength folds in here so it scales both the darken and the
+	// sheen (both read wet_factor). The debug_wet_spec view below intentionally
+	// shows the un-weighted gate so it still reads the shared terrain wetness.
+	float wet_factor = wetness_level * sun_mask * wet_slope * wet_strength;
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - frag_world_pos);
 	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
 	float wet_ndoth = max(dot(world_normal, wet_h), 0.0);

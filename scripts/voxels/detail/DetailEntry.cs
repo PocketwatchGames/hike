@@ -52,6 +52,17 @@ public partial class DetailEntry : Resource
     // material's `wind_strength` parameter by GetMaterial().
     [Export(PropertyHint.Range, "0,1,0.01")] public float WindStrength = 1.0f;
 
+    // Per-entry response to surface wetness. Scales BOTH the wet darken and
+    // the wet sheen proportionally (it multiplies the shader's wet_factor, the
+    // shared term both effects derive from). 1.0 = wets out fully alongside the
+    // terrain (grass, leafy plants — default); 0.0 = stays dry-looking under
+    // any rain (dead twigs, bones, cave pebbles). Values in between let a moss
+    // or a waxy leaf wet out more or less than the ground beneath it. Stamped
+    // into the cloned shader material's `wet_strength` parameter by
+    // GetMaterial(); the global wetness level/floor/spec tunables still gate
+    // the overall look, this is just the per-entry weight on top.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float WetStrength = 1.0f;
+
     // Lazily-built ShaderMaterial cache. Built once per DetailEntry instance
     // (Godot caches loaded resources, so the same entry shared across many
     // chunks reuses the same material — one shader compile, one GPU upload).
@@ -78,6 +89,7 @@ public partial class DetailEntry : Resource
             mat.SetShaderParameter("uv_region", spriteRegion);
         }
         mat.SetShaderParameter("wind_strength", WindStrength);
+        mat.SetShaderParameter("wet_strength", WetStrength);
         _materialCache = mat;
         return mat;
     }

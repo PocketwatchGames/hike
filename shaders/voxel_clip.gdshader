@@ -78,6 +78,14 @@ global uniform float wet_fresnel_base;
 global uniform vec3 horizon_color;
 global uniform vec3 zenith_color;
 
+// Zone/weather water look, shared with the water shader (set by SkyController).
+// Pooled standing water on terrain reuses these so puddles match real water:
+//   water_deep_tint — the zone water body color (murky pools take this on).
+//   water_muddiness — 0 = clear (mirrors the sky), 1 = murky (shows body color,
+//                     little reflection). Driven by zone palette + weather.
+global uniform vec3 water_deep_tint : source_color;
+global uniform float water_muddiness;
+
 // Cloud occlusion parameters shared with the sky + fog + sprite + water
 // shaders (registered by SkyController). cloud_shadow.gdshaderinc uses
 // these to project cloud shadows along the sun direction.
@@ -633,7 +641,13 @@ void fragment() {
 	// surface is flat (wet_slope), it's wet (local_wetness) and non-porous, water
 	// STANDS — a puddle. Plugs the concavity bake into a distinct water look.
 	float pool_depth = smoothstep(concavity_threshold, concavity_threshold * 2.5, concavity);
-	float pool_mask = clamp(pool_depth * wet_slope * local_wetness * mix(0.4, 1.0, reflectivity) * wet_pool_strength, 0.0, 1.0);
+	// Sky occlusion: pools are rain-fed, so they only form / mirror the sky
+	// where the sky actually reaches — sun_mask is the BFS sky-exposure, so
+	// caves and overhangs read ~0 and stay dry (no sky mirror in a cave).
+	float pool_mask = clamp(pool_depth * wet_slope * local_wetness * sun_mask * mix(0.4, 1.0, reflectivity) * wet_pool_strength, 0.0, 1.0);
+	// Water clarity from the zone/weather muddiness: clear pools mirror the sky
+	// strongly; murky pools mostly show their (zone-tinted) body color.
+	float water_clarity = 1.0 - clamp(water_muddiness, 0.0, 1.0);
 	// Waterline: a thin brighter sky-tinted rim at the pool edge (band on pool_mask).
 	float waterline = smoothstep(0.02, 0.18, pool_mask) * (1.0 - smoothstep(0.18, 0.4, pool_mask)) * saturation;
 
@@ -663,7 +677,11 @@ void fragment() {
 	vec3 wet_refl_dir = reflect(-wet_view, wet_n);
 	float wet_sky_t = clamp(wet_refl_dir.y * 0.5 + 0.5, 0.0, 1.0);
 	vec3 wet_sky = mix(horizon_color, zenith_color, wet_sky_t);
-	float reflect_amount = max(saturation * smoothness * mix(reflectivity, 1.0, pool_mask), pool_mask);
+	// Pool reflection floor scales with clarity (clear mirrors, murk doesn't).
+	// Clouds (cloud_dim) and canopy/shelter sky-occlusion (ao_factor) are applied
+	// where wet_reflect lands in EMISSION; sun_mask already gated pool_mask above.
+	float pool_reflect = pool_mask * mix(0.15, 1.0, water_clarity);
+	float reflect_amount = max(saturation * smoothness * mix(reflectivity, 1.0, pool_mask), pool_reflect);
 	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * reflect_amount);
 	wet_reflect += wet_sky * (waterline * wet_reflect_strength * 0.5);
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
@@ -714,6 +732,10 @@ void fragment() {
 	float wet_luma = dot(tex_color.rgb, vec3(0.299, 0.587, 0.114));
 	tex_color.rgb = mix(tex_color.rgb, mix(vec3(wet_luma), tex_color.rgb, 1.0 + wet_chroma), wet_dark);
 	tex_color.rgb *= mix(1.0, wet_albedo_floor, wet_dark);
+	// Pooled water body: murky pools take on the zone water color; clear pools
+	// keep the darkened ground (the sky reflection — clarity/cloud/AO gated — is
+	// layered over this in EMISSION).
+	tex_color.rgb = mix(tex_color.rgb, water_deep_tint, pool_mask * water_muddiness);
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
 
