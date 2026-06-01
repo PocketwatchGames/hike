@@ -608,6 +608,17 @@ public static class CVars
         ChunkMesh.SetAoStrength(((CVarFloat)cvar).Value);
     });
 
+    // Contact/directional ambient-occlusion strength on 3D model props (tree
+    // trunks, rocks, stumps, chests, statues — everything using model_lit).
+    // These imported/baked meshes have no per-vertex AO bake like the terrain,
+    // so model_lit reconstructs it in-shader from the model's base height and
+    // downward-facing normals. 0 = off (pre-AO look), 1 = authored, >1
+    // exaggerates so you can confirm where it lands. Live shader push, no regen.
+    public static CVarFloat modelAo = new CVarFloat("model_ao", 1f, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("model_ao_strength", ((CVarFloat)cvar).Value);
+    });
+
     // Concavity-driven wetness pooling on terrain. Concavity is baked per-vertex
     // into CUSTOM2.w by the DC mesher (+ = dip, - = bump); dips on near-flat,
     // sky-exposed ground collect MORE of the current surface wetness

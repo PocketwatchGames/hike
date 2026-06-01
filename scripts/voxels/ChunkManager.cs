@@ -146,6 +146,10 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("tree_sphere_normal_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSphereNormal.Value);
         ShaderGlobals.Register("tree_detail_noise_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeDetailNoise.Value);
         ShaderGlobals.Register("tree_silhouette_breakup_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.treeSilhouetteBreakup.Value);
+        // Contact/directional AO darkening strength for 3D model props (trunks,
+        // rocks, chests, statues) — consumed by model_lit.gdshader. Global so a
+        // single CVar drives every model_lit material at once.
+        ShaderGlobals.Register("model_ao_strength", RenderingServer.GlobalShaderParameterType.Float, CVars.modelAo.Value);
         // Ceiling-cap pipeline debug mode (CVars.clipDebug). Seeded here so
         // every shader that reads it (clip_cap, water_clip_cap, voxel_water,
         // voxel_water_backface) compiles cleanly before the first frame.

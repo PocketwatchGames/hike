@@ -9,3 +9,5 @@ shader = ExtResource("1_3ia0w")
 shader_parameter/albedo_tex = ExtResource("2_lky78")
 shader_parameter/form_strength = 0.55
 shader_parameter/color_tint = Color(0.51, 0.34645998, 0.1326, 1)
+shader_parameter/vertex_ao_strength = 1.0
+shader_parameter/ao_contact_strength = 0.0

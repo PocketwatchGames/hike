@@ -409,6 +409,10 @@ tree_silhouette_breakup_strength={
 "type": "float",
 "value": 1.0
 }
+model_ao_strength={
+"type": "float",
+"value": 1.0
+}
 wetness_level={
 "type": "float",
 "value": 0.0

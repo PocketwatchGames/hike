@@ -9,3 +9,5 @@ shader = ExtResource("1_shader")
 shader_parameter/albedo_tex = ExtResource("2_bark")
 shader_parameter/form_strength = 0.55
 shader_parameter/color_tint = Color(0.9, 0.78, 0.62, 1)
+shader_parameter/vertex_ao_strength = 1.0
+shader_parameter/ao_contact_strength = 0.0

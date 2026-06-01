@@ -128,6 +128,26 @@ public partial class TreeTrunk : MeshInstance3D
     // Per-vertex radial jitter — the faceted, bark-knotty silhouette.
     [Export(PropertyHint.Range, "0,0.6,0.01")] public float Jaggedness = 0.12f;
 
+    // -- Ambient occlusion bake -------------------------------------------
+    // We have the full branch skeleton here, so we bake REAL concavity AO into
+    // the trunk's vertex COLOR (brightness, 1 = open) instead of approximating it
+    // in the shader from height. model_lit reads COLOR.r and darkens by it (the
+    // bark materials opt in via vertex_ao_strength = 1). Two signals combine:
+    //   * Crotch / junction occlusion — a vertex near ANOTHER branch strand's
+    //     surface sits in a concave wood-meets-wood pocket (the dark fork
+    //     crotches, and anywhere two limbs pass close). "Other strand" is the
+    //     discriminator: a continuous tube never self-occludes, only nearby
+    //     separate limbs do — which is exactly where the real concavity is.
+    //   * Root contact — vertices within AoBaseHeight of the ground darken,
+    //     replacing the shader's contact-AO ramp for trunks.
+    // 0 = skip the bake (no vertex colors written; mesh reads as fully open).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float AoStrength = 0.7f;
+    // How far out from another branch's SURFACE the crotch darkening reaches, in
+    // meters. Larger = softer, wider-spreading junction shadows.
+    [Export] public float AoWoodReach = 0.5f;
+    // Height above the trunk base over which root-contact darkening fades to none.
+    [Export] public float AoBaseHeight = 0.6f;
+
     // -- Bark + twigs ------------------------------------------------------
     // Bark for the whole skeleton — applied to the generated trunk surface in
     // code (removing the static CylinderMesh sub-resource orphans any scene-
@@ -527,14 +547,37 @@ public partial class TreeTrunk : MeshInstance3D
 
     // -- Mesh baking -------------------------------------------------------
 
+    // A baked strand: its welded centreline polyline + per-node radii, ready to
+    // EmitTube. Built for every strand BEFORE any geometry is emitted so the AO
+    // bake can measure each vertex against the OTHER strands' centrelines.
+    private class StrandLine
+    {
+        public List<Vector3> Nodes;
+        public float[] Radii;
+        public bool CapBase;
+        public float Seed;
+    }
+
     private Mesh BakeSkeleton(List<Strand> strands)
     {
         SurfaceTool st = new SurfaceTool();
         st.Begin(Mesh.PrimitiveType.Triangles);
         float rootBulgeMeters = RootBulgeHeight * TrunkHeight;
+
+        // Build every strand's centreline first, then emit — so the per-vertex AO
+        // can see all the other branches it might be tucked against.
+        List<StrandLine> lines = new List<StrandLine>();
         foreach (Strand strand in strands)
         {
-            EmitStrand(st, strand, rootBulgeMeters);
+            lines.Add(BuildStrandLine(strand, rootBulgeMeters));
+        }
+        for (int li = 0; li < lines.Count; li++)
+        {
+            if (lines[li].Nodes.Count < 2)
+            {
+                continue;
+            }
+            EmitTube(st, lines[li], lines, li);
         }
         // Smooth normals read the gnarled bark softly. No tangents — the bark
         // material has no normal map (and they'd spam warnings on thin tips).
@@ -545,12 +588,12 @@ public partial class TreeTrunk : MeshInstance3D
         return st.Commit();
     }
 
-    // Bake one strand as a single continuous JAGGED tube. Each structural
-    // segment contributes a detailed node list (elbow + irregular kink runs)
-    // and per-node radii; consecutive segments are concatenated, dropping the
-    // duplicate joint node so the rings WELD into one un-broken tube walked by a
+    // Build one strand's welded centreline polyline + per-node radii. Each
+    // structural segment contributes a detailed node list (elbow + irregular
+    // kink runs); consecutive segments are concatenated, dropping the duplicate
+    // joint node so the rings later WELD into one un-broken tube walked by a
     // single parallel-transport frame (no gap, no twist seam at the forks).
-    private void EmitStrand(SurfaceTool st, Strand strand, float rootBulgeMeters)
+    private StrandLine BuildStrandLine(Strand strand, float rootBulgeMeters)
     {
         List<Vector3> nodes = new List<Vector3>();
         List<float> radii = new List<float>();
@@ -584,11 +627,60 @@ public partial class TreeTrunk : MeshInstance3D
             }
         }
 
-        if (nodes.Count < 2)
+        return new StrandLine
         {
-            return;
+            Nodes = nodes,
+            Radii = radii.ToArray(),
+            CapBase = strand.CapBase,
+            Seed = strandSeed,
+        };
+    }
+
+    // -- Ambient occlusion bake --------------------------------------------
+
+    // Per-vertex AO in [0,1] (0 = open, 1 = fully occluded), baked into vertex
+    // COLOR as brightness (1 - ao). Two signals, combined via max():
+    //   * Crotch occlusion — proximity to the SURFACE of any OTHER strand. A
+    //     vertex tucked against a separate limb (fork crotches, crossing
+    //     branches) sits in a concave pocket; a continuous tube never self-
+    //     occludes, so this fires exactly at the real concavities.
+    //   * Root contact — vertices within AoBaseHeight of the ground.
+    private float ComputeAo(Vector3 v, int ownStrand, List<StrandLine> lines)
+    {
+        if (AoStrength <= 0f)
+        {
+            return 0f;
         }
-        EmitTube(st, nodes, radii.ToArray(), strand.CapBase, strandSeed);
+        float wood = 0f;
+        float reach = Mathf.Max(AoWoodReach, 1e-3f);
+        for (int li = 0; li < lines.Count; li++)
+        {
+            if (li == ownStrand)
+            {
+                continue;
+            }
+            StrandLine other = lines[li];
+            for (int i = 0; i < other.Nodes.Count; i++)
+            {
+                // Distance from this vertex to the other branch's SURFACE (its
+                // centreline minus that node's radius), so a thick limb occludes
+                // from farther out than a twig.
+                float surfDist = v.DistanceTo(other.Nodes[i]) - other.Radii[i];
+                if (surfDist < reach)
+                {
+                    wood = Mathf.Max(wood, 1f - Mathf.Max(surfDist, 0f) / reach);
+                }
+            }
+        }
+        float baseTerm = AoBaseHeight > 1e-4f ? Mathf.Clamp(1f - v.Y / AoBaseHeight, 0f, 1f) : 0f;
+        return Mathf.Clamp(Mathf.Max(wood, baseTerm) * AoStrength, 0f, 1f);
+    }
+
+    // Vertex color carrying baked AO brightness (1 = open) in all channels.
+    private Color AoColor(Vector3 v, int ownStrand, List<StrandLine> lines)
+    {
+        float b = 1f - ComputeAo(v, ownStrand, lines);
+        return new Color(b, b, b, 1f);
     }
 
     // Build one structural segment's detailed centreline as a JAGGED polyline.
@@ -713,11 +805,16 @@ public partial class TreeTrunk : MeshInstance3D
         return new List<Vector3> { a, b };
     }
 
-    // Build a tapered tube through `nodes` (one ring per node) with a parallel-
-    // transported radial frame (no twist) and OUTWARD-facing winding. Hard
-    // corners at the nodes read as kinks. Jaggedness perturbs each ring radially.
-    private void EmitTube(SurfaceTool st, List<Vector3> nodes, float[] radii, bool capBase, float seed)
+    // Build a tapered tube through the strand's nodes (one ring per node) with a
+    // parallel-transported radial frame (no twist) and OUTWARD-facing winding.
+    // Hard corners at the nodes read as kinks. Jaggedness perturbs each ring
+    // radially. Each emitted vertex carries a baked-AO color measured against the
+    // OTHER strands (allLines, ownStrand identifies this one to skip).
+    private void EmitTube(SurfaceTool st, StrandLine line, List<StrandLine> allLines, int ownStrand)
     {
+        List<Vector3> nodes = line.Nodes;
+        float[] radii = line.Radii;
+        float seed = line.Seed;
         int n = nodes.Count - 1;
         if (n < 1)
         {
@@ -757,6 +854,25 @@ public partial class TreeTrunk : MeshInstance3D
             bin[k] = nrm[k].Cross(tan[k]);   // (N, B) match the old (worldX, worldZ) for a vertical tube
         }
 
+        // Precompute each ring's radial vertices and their baked-AO colors once
+        // (radial+1 entries per ring; index `radial` mirrors index 0's angle but
+        // keeps the original per-`seg` jaggedness hash). Computing AO here, rather
+        // than per-triangle-corner, samples the other strands once per vertex.
+        Vector3[][] rv = new Vector3[n + 1][];
+        Color[][] rc = new Color[n + 1][];
+        for (int k = 0; k <= n; k++)
+        {
+            rv[k] = new Vector3[radial + 1];
+            rc[k] = new Color[radial + 1];
+            for (int s = 0; s <= radial; s++)
+            {
+                float a = (float)s / radial * Mathf.Tau;
+                Vector3 v = TubeVertex(nodes[k], nrm[k], bin[k], radii[k], a, k, s, seed);
+                rv[k][s] = v;
+                rc[k][s] = AoColor(v, ownStrand, allLines);
+            }
+        }
+
         float cumLen = 0f;
         for (int k = 0; k < n; k++)
         {
@@ -765,34 +881,34 @@ public partial class TreeTrunk : MeshInstance3D
             float vB = cumLen;
             for (int s = 0; s < radial; s++)
             {
-                float a0 = (float)s / radial * Mathf.Tau;
-                float a1 = (float)(s + 1) / radial * Mathf.Tau;
-
-                Vector3 v00 = TubeVertex(nodes[k], nrm[k], bin[k], radii[k], a0, k, s, seed);
-                Vector3 v10 = TubeVertex(nodes[k], nrm[k], bin[k], radii[k], a1, k, s + 1, seed);
-                Vector3 v01 = TubeVertex(nodes[k + 1], nrm[k + 1], bin[k + 1], radii[k + 1], a0, k + 1, s, seed);
-                Vector3 v11 = TubeVertex(nodes[k + 1], nrm[k + 1], bin[k + 1], radii[k + 1], a1, k + 1, s + 1, seed);
+                Vector3 v00 = rv[k][s];
+                Vector3 v10 = rv[k][s + 1];
+                Vector3 v01 = rv[k + 1][s];
+                Vector3 v11 = rv[k + 1][s + 1];
+                Color c00 = rc[k][s];
+                Color c10 = rc[k][s + 1];
+                Color c01 = rc[k + 1][s];
+                Color c11 = rc[k + 1][s + 1];
 
                 float u0 = (float)s / radial;
                 float u1 = (float)(s + 1) / radial;
                 // Outward-facing winding (front faces point out of the trunk).
-                AddTri(st, v00, new Vector2(u0, vA), v11, new Vector2(u1, vB), v01, new Vector2(u0, vB));
-                AddTri(st, v00, new Vector2(u0, vA), v10, new Vector2(u1, vA), v11, new Vector2(u1, vB));
+                AddTri(st, v00, new Vector2(u0, vA), c00, v11, new Vector2(u1, vB), c11, v01, new Vector2(u0, vB), c01);
+                AddTri(st, v00, new Vector2(u0, vA), c00, v10, new Vector2(u1, vA), c10, v11, new Vector2(u1, vB), c11);
             }
         }
 
-        if (capBase)
+        if (line.CapBase)
         {
             Vector2 cuv = new Vector2(0.5f, 0.5f);
+            Color capCenter = AoColor(nodes[0], ownStrand, allLines);
             for (int s = 0; s < radial; s++)
             {
                 float a0 = (float)s / radial * Mathf.Tau;
                 float a1 = (float)(s + 1) / radial * Mathf.Tau;
-                Vector3 e0 = TubeVertex(nodes[0], nrm[0], bin[0], radii[0], a0, 0, s, seed);
-                Vector3 e1 = TubeVertex(nodes[0], nrm[0], bin[0], radii[0], a1, 0, s + 1, seed);
                 Vector2 uv0 = new Vector2(0.5f + 0.5f * Mathf.Cos(a0), 0.5f + 0.5f * Mathf.Sin(a0));
                 Vector2 uv1 = new Vector2(0.5f + 0.5f * Mathf.Cos(a1), 0.5f + 0.5f * Mathf.Sin(a1));
-                AddTri(st, nodes[0], cuv, e0, uv0, e1, uv1);
+                AddTri(st, nodes[0], cuv, capCenter, rv[0][s], uv0, rc[0][s], rv[0][s + 1], uv1, rc[0][s + 1]);
             }
         }
     }
@@ -808,12 +924,15 @@ public partial class TreeTrunk : MeshInstance3D
         return center + (nrm * Mathf.Cos(angle) + bin * Mathf.Sin(angle)) * rr;
     }
 
-    private static void AddTri(SurfaceTool st, Vector3 a, Vector2 ua, Vector3 b, Vector2 ub, Vector3 c, Vector2 uc)
+    private static void AddTri(SurfaceTool st, Vector3 a, Vector2 ua, Color ca, Vector3 b, Vector2 ub, Color cb, Vector3 c, Vector2 uc, Color cc)
     {
+        st.SetColor(ca);
         st.SetUV(ua);
         st.AddVertex(a);
+        st.SetColor(cb);
         st.SetUV(ub);
         st.AddVertex(b);
+        st.SetColor(cc);
         st.SetUV(uc);
         st.AddVertex(c);
     }

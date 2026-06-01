@@ -55,11 +55,59 @@ uniform float form_strength : hint_range(0.0, 1.0) = 0.55;
 // that reads at desert biome ambient without changing the source atlas.
 uniform vec3 color_tint : source_color = vec3(1.0, 1.0, 1.0);
 
+// --- Ambient occlusion ------------------------------------------------------
+// AO is a multiplicative darken on the diffuse lighting (the same place the
+// terrain applies its baked AO — voxel_clip). Two independent sources feed it,
+// because different model_lit users have different geometry available:
+//
+//   1. Baked vertex AO (`vertex_ao_strength`) — for meshes that bake real
+//      occlusion into vertex COLOR at construction. The procedural tree trunks
+//      do this (TreeTrunk.BakeSkeleton): the full branch skeleton is in hand, so
+//      we compute genuine concavity — fork crotches where limbs meet, plus root-
+//      ground contact — instead of approximating. COLOR.r carries BRIGHTNESS
+//      (1 = open, <1 = occluded), so a mesh with no vertex-color array reads as
+//      vec4(1.0) = fully open and is unaffected. Off (0) by default so imported
+//      meshes that happen to ship stray FBX vertex colors (some Synty rocks do)
+//      are ignored unless a material opts in.
+//   2. Contact AO (`ao_contact_strength`) — for imported meshes we CAN'T bake
+//      (rocks, chests, statues): fragments near the model's base (object-space Y
+//      near `ao_base_y`, fading over `ao_height`) darken, faking the ground
+//      contact shadow. Pure position ramp, no geometry needed.
+//
+// We deliberately DON'T fake a downward-facing/hemisphere AO term: the lighting
+// here isn't a uniform ambient dome but directional sky + bounced block lights,
+// so "faces down → darker" doesn't correspond to anything physical. Concavity is
+// the thing worth darkening — baked where we can compute it, contact-approximated
+// where we can't.
+//
+// Runtime gate `model_ao_strength` (global uniform, CVar `model_ao`) scales BOTH
+// sources: 0 = off (pre-AO look), 1 = authored, >1 exaggerates to confirm where
+// it lands — mirrors the terrain `ao_strength` CVar.
+global uniform float model_ao_strength;
+// Strength of the baked vertex-COLOR occlusion in [0,1]. 0 = ignore vertex color
+// (default — safe for any mesh). Trunk bark materials set this to 1.
+uniform float vertex_ao_strength : hint_range(0.0, 1.0) = 0.0;
+// Object-space Y of the contact point (model base). 0 works for props whose
+// pivot sits on the ground — the convention for the FBX rocks.
+uniform float ao_base_y = 0.0;
+// Height (object-space units ≈ meters) over which contact AO fades from full at
+// the base to none above. ~1.5 grounds a rock without creeping up the model.
+uniform float ao_height = 1.5;
+// Strength of the contact darken in [0,1]. Authored per material — set to 0 on
+// meshes that bake their own AO (the trunks) so the base isn't double-darkened.
+uniform float ao_contact_strength : hint_range(0.0, 1.0) = 0.55;
+
 varying vec3 world_pos;
 varying vec3 world_normal;
+// Object-space Y forwarded for the contact-AO height ramp in fragment().
+varying float object_y;
+// Baked per-vertex occlusion brightness (COLOR.r): 1 = open, <1 = occluded.
+varying float vert_brightness;
 
 void vertex() {
 	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	object_y = VERTEX.y;
+	vert_brightness = COLOR.r;
 	// Uniform-scale rig, so transforming the normal by MODEL_MATRIX (without
 	// the inverse-transpose) is correct.
 	world_normal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
@@ -102,10 +150,20 @@ void fragment() {
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color * form;
 		vec3 block_lit = lm.gba;
 
+		// AO (see uniforms above): baked vertex occlusion (real concavity, where a
+		// mesh provides it) plus the contact-height ramp (for un-baked meshes).
+		// Summed and clamped — for any given material typically only one source is
+		// non-zero. Gated by the runtime model_ao_strength for toggle / verify.
+		float baked_ao = (1.0 - vert_brightness) * vertex_ao_strength;
+		float contact_ao = (1.0 - smoothstep(ao_base_y, ao_base_y + ao_height, object_y)) * ao_contact_strength;
+		float ao = clamp(baked_ao + contact_ao, 0.0, 1.0);
+		float ao_factor = 1.0 - ao * model_ao_strength;
+
 		// Same split as sprite_lit_common: ALBEDO carries direct sun (light()
 		// scales it by the shadow atlas), EMISSION carries ambient + block.
-		ALBEDO = base * sun_lit * (1.0 - sun_ambient);
-		EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);
+		// AO multiplies both diffuse halves (matches voxel_clip's baked AO).
+		ALBEDO = base * sun_lit * (1.0 - sun_ambient) * ao_factor;
+		EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor;
 	}
 }
 
