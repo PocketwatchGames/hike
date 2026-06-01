@@ -53,43 +53,21 @@ public static class VoxelTypeInfo
         return block.AtlasBaseIndex;
     }
 
-    // Size of the `tile_variants` uniform array in voxel_clip.gdshader.
-    // Must be >= 1 + max BlockData.AtlasBaseIndex in the catalog. Keep modest
-    // — every entry is a vec2 shipped with the material.
-    public const int TILE_VARIANT_TABLE_SIZE = 64;
-
-    // Authored source-pixel density: every terrain PNG is authored so that
-    // TEXELS_PER_VOXEL source pixels map to one world unit on the ground.
-    // This is the single knob that controls texel size on screen — bumping
-    // it halves the on-screen size of every authored detail across every
-    // material, dropping it doubles them. Expressed as pixels-per-voxel
-    // (not a raw UV scale) so the relationship to the art stays explicit:
-    // if tiles are redrawn at a different feature scale, change this; if
-    // atlas slot resolution changes, change ATLAS_SLOT_PIXELS; no per-tile
-    // tuning either way.
-    public const int TEXELS_PER_VOXEL = 16;
+    // Upper bound on BlockData.AtlasBaseIndex; sizes the catalog's
+    // atlas-index lookup table. Headroom over the current layer count.
+    public const int MAX_ATLAS_LAYERS = 64;
 
     // Atlas slot resolution in pixels. Must match SLOT in
     // tools/stitch_voxel_atlas.py — the stitcher normalizes every authored
     // PNG to this size before packing, so the shader can assume every
     // tile_array layer is exactly this wide.
-    public const int ATLAS_SLOT_PIXELS = 128;
+    public const int ATLAS_SLOT_PIXELS = 256;
 
-    // Derived world-to-UV scale for the shader. One authored PNG covers
-    // (ATLAS_SLOT_PIXELS / TEXELS_PER_VOXEL) world units on each axis; the
-    // UV scale is the inverse. At 128/32 = 4 voxels per PNG → scale 0.25.
-    // Also drives the variant-pick hash so all fragments inside one
-    // PNG-sized zone agree on which variant to show (no per-voxel seam).
-    public const float TILE_UV_SCALE = (float)TEXELS_PER_VOXEL / ATLAS_SLOT_PIXELS;
-
-    // Band quantization for the shader. BandOriginY is the world Y where
-    // band 0 starts; BandHeight is how tall each band is in world units.
-    // BandBlend is the crossfade width at each band seam expressed as a
-    // fraction of BandHeight (0 = hard step; ~0.15 = 0.6 voxels at
-    // BandHeight=4). Matches corresponding uniforms in voxel_clip.gdshader.
-    public const float TILE_BAND_ORIGIN_Y = 0f;
-    public const float TILE_BAND_HEIGHT = 4f;
-    public const float TILE_BAND_BLEND = 0.15f;
+    // Default world-to-UV scale (tiling frequency) for the shader. One authored
+    // PNG spans 1/TILE_UV_SCALE world units on each axis — at 0.3 that's ~3.3
+    // voxels per repeat. Hand-tuned, not derived from texel density; seeds the
+    // terrain_tile_scale CVar, which overrides it live.
+    public const float TILE_UV_SCALE = 0.3f;
 
     public readonly struct TileFaces
     {

@@ -5,7 +5,7 @@ using System.Collections.Generic;
 // BlockCatalog asset (block_catalog.tres) is the single source of truth that
 // downstream systems consult:
 //   - ChunkMesh populates the shader's tile_variants[64] uniform from the
-//     catalog (per-AtlasBaseIndex Bands/VariantsPerBand).
+//     catalog (one atlas layer per AtlasBaseIndex).
 //   - MinimapData reads per-block per-band colors via GetByAtlasIndex.
 //   - TerrainData.FlatTile/WallTile point at BlockData refs; the kit
 //     resolves block.AtlasBaseIndex when uploading kit_tiles[] to the shader.
@@ -109,9 +109,9 @@ public partial class BlockCatalog : Resource
                 continue;
             }
 
-            if (block.AtlasBaseIndex < 0 || block.AtlasBaseIndex >= VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE)
+            if (block.AtlasBaseIndex < 0 || block.AtlasBaseIndex >= VoxelTypeInfo.MAX_ATLAS_LAYERS)
             {
-                GD.PushError($"BlockCatalog: '{block.BlockName}' AtlasBaseIndex={block.AtlasBaseIndex} out of range [0, {VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE}).");
+                GD.PushError($"BlockCatalog: '{block.BlockName}' AtlasBaseIndex={block.AtlasBaseIndex} out of range [0, {VoxelTypeInfo.MAX_ATLAS_LAYERS}).");
             }
 
             if (!seenIndices.Add(block.AtlasBaseIndex))
@@ -126,17 +126,6 @@ public partial class BlockCatalog : Resource
             else if (!seenNames.Add(block.BlockName))
             {
                 GD.PushError($"BlockCatalog: duplicate BlockName='{block.BlockName}'.");
-            }
-
-            if (block.Bands < 1 || block.VariantsPerBand < 1)
-            {
-                GD.PushError($"BlockCatalog: '{block.BlockName}' has Bands={block.Bands}, VariantsPerBand={block.VariantsPerBand} — both must be >= 1.");
-            }
-
-            if (block.MinimapColorPerBand == null || block.MinimapColorPerBand.Length != block.Bands)
-            {
-                int got = block.MinimapColorPerBand?.Length ?? 0;
-                GD.PushError($"BlockCatalog: '{block.BlockName}' MinimapColorPerBand length={got}, expected {block.Bands} (one color per band).");
             }
         }
 
@@ -176,7 +165,7 @@ public partial class BlockCatalog : Resource
         {
             return;
         }
-        _byAtlasIndex = new BlockData[VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE];
+        _byAtlasIndex = new BlockData[VoxelTypeInfo.MAX_ATLAS_LAYERS];
         _byName = new Dictionary<StringName, BlockData>();
         if (Blocks == null)
         {

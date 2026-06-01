@@ -48,29 +48,11 @@ uniform sampler2D sprite_texture : source_color, filter_linear;
 uniform vec4 uv_region = vec4(0.0, 0.0, 1.0, 1.0);
 
 // --- Normal pipeline ---
-// Terrain-anchored perturbation model. The BASE world normal for every
-// sprite is the per-instance terrain normal that ChunkDetailScatter packs
-// into INSTANCE_CUSTOM.xyz (same vector the sprite uses for its slope
-// lean), so sprites inherit the lighting profile of the voxel beneath
-// them. A small tangent-space perturbation (from an authored normal map
-// or the synthetic dome below) is projected into world space via the
-// sprite's horizontal (sprite_right) + vertical (sprite_up) axes and
-// added on top, scaled by dome_strength. sprite_forward (the billboard
-// out-of-plane direction, which rotates with the camera) is NOT used —
-// that's what made the previous model swing darkness with camera angle.
-// Net effect: sprites light like the terrain below them + a subtle
-// per-pixel wiggle that catches specular highlights without dominating.
-uniform sampler2D normal_map : hint_normal, filter_nearest;
-uniform bool use_normal_map = false;
-// Synthetic dome tangent-normal when no normal_map is bound:
-//   tangent.x = sign(2*UV.x-1) * sqrt(|2*UV.x-1|)  (horizontal lean)
-//   tangent.y = 1 - UV.y^2                         (vertical — flat at
-//                                                   root UV.y=1, strong
-//                                                   at tip UV.y=0)
-//   tangent.z = unused in terrain-anchored mode
-// dome_strength scales the perturbation. 0 = pure terrain normal (matches
-// ground exactly). ~0.25 = subtle dynamic variation. 1 = maximum wiggle.
-uniform float dome_strength : hint_range(0.0, 1.0) = 0.25;
+// Sprites light off the per-instance terrain normal that ChunkDetailScatter
+// packs into INSTANCE_CUSTOM.xyz (the same vector the sprite uses for its
+// slope lean), so each sprite inherits the lighting profile of the voxel
+// beneath it exactly and never reads as a separate object from the ground.
+// No per-pixel perturbation: the world normal IS the terrain normal.
 
 // Subpixel-perfect pixel-art filter (toggle for A/B).
 //   On:  fragment snaps the sample UV to the nearest texel center except in
@@ -119,8 +101,9 @@ global uniform float wet_spec_strength;
 global uniform float wet_albedo_floor;
 // Shared tint globals (voxel_clip uses the same pair). Two off-axis fill
 // directions and their colors. Surfaces facing away from a fill are
-// multiplied by that fill's color; surfaces facing toward it by 1. With
-// a dome or authored normal this gives the sprite free directional shading.
+// multiplied by that fill's color; surfaces facing toward it by 1. Shading
+// off the terrain normal gives sprites the same directional read as the
+// terrain underneath them.
 global uniform vec3 fill_a_world_dir;
 global uniform vec3 fill_b_world_dir;
 global uniform vec3 fill_a_color;
@@ -199,14 +182,8 @@ varying float wet_spec;
 // cloud state matches the fog shader's Y-dependent shaft sampling at the
 // same sun ray. See the cloud_shadow call in fragment().
 varying vec3 frag_world_pos;
-// Sprite tangent axes in world space (un-stretched rolled vectors). The
-// terrain-anchored normal model uses sprite_right and sprite_up only —
-// sprite_forward (the billboard out-of-plane axis) rotates with camera
-// and is deliberately excluded from the perturbation projection.
-varying vec3 sprite_right_ws;
-varying vec3 sprite_up_ws;
-// Per-instance terrain normal in world space — the base normal for
-// lighting. Inherited from INSTANCE_CUSTOM.xyz (same source as the slope
+// Per-instance terrain normal in world space — the sprite's lighting
+// normal. Inherited from INSTANCE_CUSTOM.xyz (same source as the slope
 // lean), so sprites match the lighting profile of the voxel they sit on.
 varying vec3 terrain_normal_ws;
 
@@ -223,14 +200,10 @@ void vertex() {
 	world_origin = MODEL_MATRIX[3].xyz;
 
 	// Random horizontal mirror per instance — picks a different hash offset
-	// from the sway phase so mirror doesn't correlate with wind timing.
-	// Computed up front because both the UV flip (texture sample) and the
-	// tangent frame X flip (normal sampling) need to agree. Without the
-	// tangent flip, normal-mapped / dome-synthesised nx stays in its
-	// authored orientation while UV is mirrored, so adjacent instances end
-	// up with dark sides swapped.
+	// from the sway phase so mirror doesn't correlate with wind timing. Only
+	// the texture UV is flipped; with the sprite lit by the flat terrain
+	// normal there's no tangent frame that needs to agree with the flip.
 	float mirror = step(0.5, hash12(world_origin.xz + vec2(7.31, 13.71)));
-	float mirror_sign = 1.0 - 2.0 * mirror;
 	UV.x = mix(UV.x, 1.0 - UV.x, mirror);
 
 	// Two-stage billboard:
@@ -281,19 +254,10 @@ void vertex() {
 	vec3 sprite_right_rolled = c * sprite_right_yaw - s * sprite_up_yaw;
 	vec3 sprite_up_rolled = s * sprite_right_yaw + c * sprite_up_yaw;
 
-	// Pass the unstretched tangent frame to the fragment stage. The stretch
-	// below is a screen-space correction for camera pitch (it distorts the
-	// quad geometry so source rows project one-to-one), but the sprite's
-	// actual tangent-space axes in world space are the un-stretched rolled
-	// vectors. Using the stretched versions would shear normals and make
-	// lighting read wrong at high camera tilt.
-	//
-	// For mirrored instances we negate the right axis so that sampling the
-	// normal source (map or dome synthesis) from flipped UV and then
-	// multiplying by sprite_right_ws produces the same world-space normal
-	// an unmirrored instance would produce at the equivalent art location.
-	sprite_right_ws = sprite_right_rolled * mirror_sign;
-	sprite_up_ws = sprite_up_rolled;
+	// Pass the per-instance terrain normal to the fragment stage as the
+	// sprite's lighting normal. (The rolled tangent axes below are used only
+	// to orient the quad geometry; the stretch is a screen-space correction
+	// for camera pitch and must not touch the lighting normal.)
 	terrain_normal_ws = normalize(n);
 
 	// Stretch only the world-Y component — the only component that gets
@@ -392,29 +356,11 @@ void fragment() {
 	float ground_blend = smoothstep(threshold, 1.0, UV.y);
 	tex.rgb = mix(tex.rgb, COLOR.rgb, ground_blend);
 
-	// Terrain-anchored normal: base = terrain normal under the sprite,
-	// plus a small tangent-space perturbation. We extract only the (x, y)
-	// components of the tangent normal (horizontal + "up-in-sprite") and
-	// project them through sprite_right / sprite_up — sprite_forward is
-	// skipped because it rotates with the camera. Scaled by dome_strength
-	// so 0 = pure terrain normal (matches ground lighting exactly) and
-	// larger values introduce progressively more per-pixel variation.
-	float raw_nx;
-	float raw_ny;
-	if (use_normal_map) {
-		vec3 m = texture(normal_map, atlas_uv).xyz * 2.0 - 1.0;
-		raw_nx = m.x;
-		raw_ny = m.y;
-	} else {
-		float u = 2.0 * UV.x - 1.0;
-		raw_nx = sign(u) * sqrt(abs(u));
-		// Godot QuadMesh UV.y=0 at top, UV.y=1 at bottom. (1 - UV.y²)
-		// reads 0 at the root and ≈1 at the tip, so the body bias adds
-		// a subtle "tip leans up" without fighting the terrain normal.
-		raw_ny = 1.0 - UV.y * UV.y;
-	}
-	vec3 perturb_ws = raw_nx * sprite_right_ws + raw_ny * sprite_up_ws;
-	vec3 world_normal = normalize(terrain_normal_ws + perturb_ws * dome_strength);
+	// The sprite's lighting normal is the per-instance terrain normal under
+	// it (passed through from the vertex stage), so it shades exactly like
+	// the voxel it sits on. Re-normalize because varying interpolation can
+	// shorten the vector across the quad.
+	vec3 world_normal = normalize(terrain_normal_ws);
 
 	// Sample the light map at the sprite's anchor (root). Per-fragment
 	// sampling would shimmer as the sprite sways; a single anchor sample
@@ -424,11 +370,11 @@ void fragment() {
 	vec3 uvw = (light_sample_pos - light_map_origin) * light_map_inv_size;
 	vec4 lm = textureLod(light_map, uvw, 0.0);
 	float sun_mask = pow(lm.r, light_falloff_exp);
-	// Wetness gate: only sky-exposed (sun_mask) and roughly upward-facing
-	// (positive Y normal) sprites wet out. Grass tips lean up via the dome
-	// perturb, so they pick up wetness while side leaves stay dry. Same
-	// curve and exponents as voxel_clip so wet grass and wet terrain
-	// behave consistently.
+	// Wetness gate: only sky-exposed (sun_mask) and upward-facing (positive
+	// Y normal) sprites wet out. Since the sprite normal is the terrain
+	// normal, grass on flat/upward ground picks up wetness while sprites on
+	// steep faces stay drier. Same curve and exponents as voxel_clip so wet
+	// grass and wet terrain behave consistently.
 	float wet_slope = pow(max(world_normal.y, 0.0), 3.0);
 	float wet_factor = wetness_level * sun_mask * wet_slope;
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - frag_world_pos);

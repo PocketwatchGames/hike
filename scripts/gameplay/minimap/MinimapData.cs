@@ -63,7 +63,7 @@ public static class MinimapData
     {
         // World Y of the top face (= Y_topSolid + 1). 0 = no surface.
         public ushort Height;
-        // Resolved tile layer id (0..VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE-1).
+        // Resolved tile layer id (0..VoxelTypeInfo.MAX_ATLAS_LAYERS-1).
         // Indexed into the BlockCatalog-driven tile LUT at render time
         // (see Minimap.BuildTileLutTexture).
         public byte TileId;
@@ -383,7 +383,7 @@ public static class MinimapData
     {
         if (overlayId != 0)
         {
-            return ApplyBand(overlayId, worldY);
+            return overlayId;
         }
         // Face index: 0 = top, 2 = side. Bottom (1) isn't useful here.
         int baseTile = VoxelTypeInfo.GetTileForFace(type, useWallTile ? 2 : 0);
@@ -393,7 +393,7 @@ public static class MinimapData
                 ? ResolveTerrainWallTile(TerrainId, terrainPalette)
                 : ResolveTerrainFlatTile(TerrainId, terrainPalette);
         }
-        return ApplyBand(baseTile, worldY);
+        return baseTile;
     }
 
     private static int ResolveTerrainFlatTile(int TerrainId, TerrainData[] terrainPalette)
@@ -422,18 +422,6 @@ public static class MinimapData
             return BlockCatalog.Active.DefaultWallTileIndex;
         }
         return terrain.WallTile.AtlasBaseIndex;
-    }
-
-    private static int ApplyBand(int baseTile, int worldY)
-    {
-        BlockData block = BlockCatalog.Active.GetByAtlasIndex(baseTile);
-        if (block != null && block.Bands > 1)
-        {
-            int band = Mathf.FloorToInt((worldY - VoxelTypeInfo.TILE_BAND_ORIGIN_Y) / VoxelTypeInfo.TILE_BAND_HEIGHT);
-            band = ((band % block.Bands) + block.Bands) % block.Bands;
-            return baseTile + band * block.VariantsPerBand;
-        }
-        return baseTile;
     }
 
     // DetailGroup is 1-based — 0 means "no scatter painted on this voxel".

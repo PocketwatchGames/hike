@@ -36,21 +36,6 @@ public partial class DetailEntry : Resource
     // ChunkDetailScatter.PIXELS_PER_UNIT) drive the sprite's base world size.
     [Export] public Texture2D Texture;
 
-    // Optional tangent-space normal map. When set, the shader uses it for
-    // per-pixel directional shading. Author with tangent-x → right, tangent-y
-    // → up, tangent-z → out of sprite.
-    [Export] public Texture2D NormalMap;
-
-    // Strength of the tangent-space perturbation applied on top of the
-    // per-instance terrain normal. 0 = the sprite uses the raw terrain
-    // normal (matches the lighting of the voxel beneath it exactly); small
-    // values (≈0.25) add a subtle per-pixel wiggle for specular breakup
-    // and dynamic shading without making the sprite stand out from the
-    // ground. Both the authored NormalMap (when present) and the synthetic
-    // dome share this scalar. Keeping it low is intentional — larger values
-    // bring back the "sprite doesn't match the ground" read.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float DomeStrength = 0.25f;
-
     // Sampling weight within the parent group. The group picks an entry by
     // weighted choice — entries with weight 2.0 appear twice as often as
     // entries with weight 1.0. Weights are not normalized; they're relative.
@@ -92,16 +77,6 @@ public partial class DetailEntry : Resource
             mat.SetShaderParameter("sprite_texture", spriteTex);
             mat.SetShaderParameter("uv_region", spriteRegion);
         }
-        // Normal pipeline: if NormalMap is set it wins; otherwise DomeNormal
-        // controls whether the shader synthesises a dome tangent-normal or
-        // falls back to a flat out-of-plane normal.
-        mat.SetShaderParameter("use_normal_map", NormalMap != null);
-        if (NormalMap != null)
-        {
-            ResolveAtlas(NormalMap, out Texture2D normalTex, out _);
-            mat.SetShaderParameter("normal_map", normalTex);
-        }
-        mat.SetShaderParameter("dome_strength", DomeStrength);
         mat.SetShaderParameter("wind_strength", WindStrength);
         _materialCache = mat;
         return mat;
@@ -111,10 +86,7 @@ public partial class DetailEntry : Resource
     // For a plain Texture2D the atlas is the texture itself and the region is
     // the identity rect (0,0,1,1), matching the shader's uv_region default so
     // non-atlas entries sample full 0..1 UV unchanged. Region normalization
-    // divides by the atlas pixel size; NormalMap callers pass the identity
-    // region through untouched (see GetMaterial — normal map remap reuses the
-    // sprite's atlas_uv because mixing normal/sprite atlases is not a
-    // supported authoring mode).
+    // divides by the atlas pixel size.
     private static void ResolveAtlas(Texture2D tex, out Texture2D atlas, out Vector4 region)
     {
         if (tex is AtlasTexture at && at.Atlas != null)

@@ -87,6 +87,39 @@ public partial class ChunkMesh : Node3D
         }
     }
 
+    // Terrain atlas tuning, cached so a CVar set before the material exists
+    // still applies once EnsureMaterialsInitialized runs (see CVars). Defaults
+    // mirror the uniform defaults in voxel_clip.gdshader.
+    private static float _tileScale = VoxelTypeInfo.TILE_UV_SCALE;
+    private static float _tileNormalStrength = 0.6f;
+    private static float _wallBlendSharpness = 0.65f;
+    private static float _cliffBlendSharpness = 0.4f;
+    private static float _groundBlendSharpness = 0.4f;
+
+    // Wetness model tuning, cached like the above (mirror the shader defaults).
+    private static float _wetDisplacement = 0.5f;
+    private static float _wetPoolStrength = 1.0f;
+    private static float _wetRoughnessMin = 0.25f;
+    private static float _wetChroma = 0.2f;
+
+    public static void SetTileScale(float value) { _tileScale = value; PushParam("tile_uv_scale", value); }
+    public static void SetTileNormalStrength(float value) { _tileNormalStrength = value; PushParam("tile_normal_strength", value); }
+    public static void SetWallBlendSharpness(float value) { _wallBlendSharpness = value; PushParam("wall_blend_sharpness", value); }
+    public static void SetCliffBlendSharpness(float value) { _cliffBlendSharpness = value; PushParam("cliff_blend_sharpness", value); }
+    public static void SetGroundBlendSharpness(float value) { _groundBlendSharpness = value; PushParam("ground_blend_sharpness", value); }
+    public static void SetWetDisplacement(float value) { _wetDisplacement = value; PushParam("wet_displacement", value); }
+    public static void SetWetPoolStrength(float value) { _wetPoolStrength = value; PushParam("wet_pool_strength", value); }
+    public static void SetWetRoughnessMin(float value) { _wetRoughnessMin = value; PushParam("wet_roughness_min", value); }
+    public static void SetWetChroma(float value) { _wetChroma = value; PushParam("wet_chroma", value); }
+
+    private static void PushParam(string name, Variant value)
+    {
+        if (_materialsInitialized && SharedMaterial != null)
+        {
+            SharedMaterial.SetShaderParameter(name, value);
+        }
+    }
+
     private static void EnsureMaterialsInitialized()
     {
         if (_materialsInitialized)
@@ -110,39 +143,37 @@ public partial class ChunkMesh : Node3D
         SharedMaterial.SetShaderParameter("concavity_threshold", _concavityThreshold);
         SharedMaterial.SetShaderParameter("debug_concavity", _debugConcavity);
 
-        // Macro detail overlay + glancing-angle ground normal. Both are
-        // low-cost noise textures; the shader defaults for freq/strength live
-        // alongside the uniform declarations in voxel_clip.gdshader.
-        var detailNoise = GD.Load<Texture2D>("res://assets/textures/voxels/detail_noise.tres");
-        SharedMaterial.SetShaderParameter("detail_noise", detailNoise);
-        var detailNormal = GD.Load<Texture2D>("res://assets/textures/voxels/detail_normal.tres");
-        SharedMaterial.SetShaderParameter("detail_normal", detailNormal);
+        // Packed per-tile normal (RGB) + height (A) atlas, sampled alongside
+        // the color atlas (both nearest-filtered).
+        var nrmHeight = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles_nrm_height.png");
+        SharedMaterial.SetShaderParameter("tile_nrm_height", nrmHeight);
 
-        // Populate the per-tile variant table from the BlockCatalog. Entry i
-        // carries (num_bands, variants_per_band, _, _) for the block whose
-        // AtlasBaseIndex is i; unused slots stay at (1,1,0,0) so any
-        // accidental index collapses to "no variation". The world-to-UV
-        // scale is global (see TILE_UV_SCALE below) — no longer a per-tile
-        // value.
-        BlockCatalog blockCatalog = BlockCatalog.Active;
-        var variantTable = new Godot.Collections.Array();
-        for (int i = 0; i < VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE; i++)
+        // Tiling frequency + blend/normal tuning (honor any CVar set pre-init).
+        SharedMaterial.SetShaderParameter("tile_uv_scale", _tileScale);
+        SharedMaterial.SetShaderParameter("tile_normal_strength", _tileNormalStrength);
+        SharedMaterial.SetShaderParameter("wall_blend_sharpness", _wallBlendSharpness);
+        SharedMaterial.SetShaderParameter("cliff_blend_sharpness", _cliffBlendSharpness);
+        SharedMaterial.SetShaderParameter("ground_blend_sharpness", _groundBlendSharpness);
+
+        // Wetness model tuning (honor any CVar set pre-init).
+        SharedMaterial.SetShaderParameter("wet_displacement", _wetDisplacement);
+        SharedMaterial.SetShaderParameter("wet_pool_strength", _wetPoolStrength);
+        SharedMaterial.SetShaderParameter("wet_roughness_min", _wetRoughnessMin);
+        SharedMaterial.SetShaderParameter("wet_chroma", _wetChroma);
+
+        // Per-atlas-layer cliff/ground class (BlockData.IsCliff) and wetness
+        // porosity (BlockData.Porosity), for the shader's height-blend routing
+        // and wet-look split. Both indexed by AtlasBaseIndex.
+        var cliffTable = new Godot.Collections.Array();
+        var porosityTable = new Godot.Collections.Array();
+        for (int i = 0; i < VoxelTypeInfo.MAX_ATLAS_LAYERS; i++)
         {
-            BlockData block = blockCatalog.GetByAtlasIndex(i);
-            if (block != null)
-            {
-                variantTable.Add(new Vector4(block.Bands, block.VariantsPerBand, 0f, 0f));
-            }
-            else
-            {
-                variantTable.Add(new Vector4(1, 1, 0, 0));
-            }
+            BlockData block = BlockCatalog.Active.GetByAtlasIndex(i);
+            cliffTable.Add((block != null && block.IsCliff) ? 1f : 0f);
+            porosityTable.Add(block != null ? block.Porosity : 0.5f);
         }
-        SharedMaterial.SetShaderParameter("tile_variants", variantTable);
-        SharedMaterial.SetShaderParameter("tile_uv_scale", VoxelTypeInfo.TILE_UV_SCALE);
-        SharedMaterial.SetShaderParameter("band_origin_y", VoxelTypeInfo.TILE_BAND_ORIGIN_Y);
-        SharedMaterial.SetShaderParameter("band_height", VoxelTypeInfo.TILE_BAND_HEIGHT);
-        SharedMaterial.SetShaderParameter("band_blend", VoxelTypeInfo.TILE_BAND_BLEND);
+        SharedMaterial.SetShaderParameter("tile_is_cliff", cliffTable);
+        SharedMaterial.SetShaderParameter("tile_porosity", porosityTable);
 
         var shadowCasterShader = GD.Load<Shader>("res://shaders/voxel_shadow_caster.gdshader");
         ShadowCasterMaterial = new ShaderMaterial();

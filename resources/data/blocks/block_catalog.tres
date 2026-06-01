@@ -13,9 +13,10 @@
 [ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/blocks/block_desert_wall.tres" id="11_desert_wall"]
 [ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/blocks/block_desert_cave.tres" id="12_desert_cave"]
 [ext_resource type="Resource" uid="uid://d22rcvc2fr0jy" path="res://resources/data/blocks/block_marsh.tres" id="13_marsh"]
+[ext_resource type="Resource" uid="uid://cqf7n2cavefl0" path="res://resources/data/blocks/block_cave_floor.tres" id="14_cave_floor"]
 
 [resource]
 script = ExtResource("1_catalog")
-Blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("8_field"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh")])
+Blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("8_field"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
 DefaultFlatTile = ExtResource("4_grass")
 DefaultWallTile = ExtResource("3_stone")

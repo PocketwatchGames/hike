@@ -23,24 +23,28 @@ public partial class BlockData : Resource
     // the shader hardcodes those two ids as float constants.
     [Export] public StringName BlockName;
 
-    // First layer in voxel_tiles.png belonging to this block. Stable wire id
-    // — never reassign after the block is referenced from disk (kit .tres,
-    // serialized chunk OverlayId bytes). When adding a new block, append to
-    // the end of the PNG and pick the next free index.
+    // The atlas layer in voxel_tiles.png / voxel_tiles_nrm_height.png belonging
+    // to this block. Each block is exactly one layer (the elevation-band /
+    // variant system was removed). Stable wire id — the per-voxel OverlayId byte
+    // is this index. When adding a block, append the next free index.
     [Export] public int AtlasBaseIndex;
 
-    // Elevation bands. Shader cycles bands by world Y at TILE_BAND_HEIGHT
-    // intervals. Default 1 = no banding.
-    [Export] public int Bands = 1;
+    // Flat-shaded color for this block on the minimap.
+    [Export] public Color MinimapColor = new Color(0.3f, 0.3f, 0.3f);
 
-    // Random per-voxel variants within each band. Shader picks via hash of
-    // voxel position. Default 1 = no variation.
-    [Export] public int VariantsPerBand = 1;
+    // Cliff/rock material? Drives the terrain shader's height-blend ramps:
+    // cliff↔ground blends tightly (sharp interlock), while cliff↔cliff and
+    // ground↔ground blend softly. The shader routes each tile to a "cliff" or
+    // "ground" accumulator by this flag (uploaded as tile_is_cliff[]).
+    [Export] public bool IsCliff = false;
 
-    // Minimap color, one entry per band. Length should equal Bands; the
-    // catalog validator warns on mismatch. Variants within a band aren't
-    // differentiated on the minimap (one color paints all variants).
-    [Export] public Color[] MinimapColorPerBand = new Color[] { new Color(0.3f, 0.3f, 0.3f) };
+    // Wetness porosity in [0,1] — how absorbent the material is. LOW (rock,
+    // cobble) = water beads on top and reads as reflective standing water; HIGH
+    // (soil, mud, sand) = water soaks in, so the surface darkens/saturates with
+    // little glint. The terrain shader's wet model splits its look by this
+    // (uploaded as tile_porosity[]): albedo darkening scales with porosity,
+    // glint/reflection scales with (1 - porosity).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float Porosity = 0.5f;
 
     // Logical ground category for footstep dispatch. GroundTypeResolver
     // resolves the voxel under the player's feet to a BlockData (overlay
@@ -48,23 +52,4 @@ public partial class BlockData : Resource
     // blocks may share a category — DesertTop, DesertSand, DesertCave all
     // resolve to Sand. New categories should append to EGroundType.
     [Export] public EGroundType GroundType = EGroundType.Grass;
-
-    public int LayerCount => Bands * VariantsPerBand;
-
-    public Color GetMinimapColor(int bandIndex)
-    {
-        if (MinimapColorPerBand == null || MinimapColorPerBand.Length == 0)
-        {
-            return new Color(0.3f, 0.3f, 0.3f);
-        }
-        if (bandIndex < 0)
-        {
-            bandIndex = 0;
-        }
-        if (bandIndex >= MinimapColorPerBand.Length)
-        {
-            bandIndex = MinimapColorPerBand.Length - 1;
-        }
-        return MinimapColorPerBand[bandIndex];
-    }
 }

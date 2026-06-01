@@ -5,8 +5,7 @@
 [resource]
 script = ExtResource("1_block")
 BlockName = &"Water"
-AtlasBaseIndex = 17
-Bands = 1
-VariantsPerBand = 1
-MinimapColorPerBand = PackedColorArray(0.24959998, 0.35328007, 0.48, 1)
+AtlasBaseIndex = 2
+MinimapColor = Color(0.24959998, 0.35328007, 0.48, 1)
 GroundType = 3
+Porosity = 0.0

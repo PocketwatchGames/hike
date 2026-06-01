@@ -5,6 +5,6 @@
 [resource]
 script = ExtResource("1_block")
 BlockName = &"Cobblestone"
-AtlasBaseIndex = 18
-VariantsPerBand = 4
-MinimapColorPerBand = PackedColorArray(0.48, 0.45688, 0.39839998, 1)
+AtlasBaseIndex = 3
+MinimapColor = Color(0.48, 0.45688, 0.39839998, 1)
+Porosity = 0.2

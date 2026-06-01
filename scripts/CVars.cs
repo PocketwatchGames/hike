@@ -646,6 +646,64 @@ public static class CVars
         ChunkMesh.SetDebugConcavity(((CVarBool)cvar).Value);
     });
 
+    // Terrain texture tuning — all live shader pushes, no regen needed.
+    //   terrain_tile_scale     = world-to-UV scale (tiling frequency). One PNG
+    //                            spans 1/scale world units; higher = finer/more
+    //                            repeats. Default = VoxelTypeInfo.TILE_UV_SCALE.
+    //   tile_normal_strength   = how hard the per-tile normal map perturbs
+    //                            shading (0 = flat lighting, 1 = full).
+    //   Blend sharpness in [0,1]: HIGHER = sharper/tighter, LOWER = softer ramp.
+    //   wall_blend_sharpness   = cliff↔ground (SHARPEST; the slope seam).
+    //   cliff_blend_sharpness  = cliff↔cliff (soft; two rock walls meeting).
+    //   ground_blend_sharpness = ground↔ground & overlay-on-ground (soft).
+    public static CVarFloat terrainTileScale = new CVarFloat("terrain_tile_scale", VoxelTypeInfo.TILE_UV_SCALE, (cvar) =>
+    {
+        ChunkMesh.SetTileScale(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat tileNormalStrength = new CVarFloat("tile_normal_strength", 0.6f, (cvar) =>
+    {
+        ChunkMesh.SetTileNormalStrength(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat wallBlendSharpness = new CVarFloat("wall_blend_sharpness", 0.65f, (cvar) =>
+    {
+        ChunkMesh.SetWallBlendSharpness(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat cliffBlendSharpness = new CVarFloat("cliff_blend_sharpness", 0.4f, (cvar) =>
+    {
+        ChunkMesh.SetCliffBlendSharpness(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat groundBlendSharpness = new CVarFloat("ground_blend_sharpness", 0.4f, (cvar) =>
+    {
+        ChunkMesh.SetGroundBlendSharpness(((CVarFloat)cvar).Value);
+    });
+
+    // Wetness model tuning (all live shader pushes; see voxel_clip.gdshader).
+    //   wet_displacement   = how much the per-tile height map adds micro-pit
+    //                        pooling (0 = ignore height, weather-only).
+    //   wet_pool_strength  = strength of the standing-water (pooled) state where
+    //                        baked concavity + flat + wet say water collects.
+    //   wet_roughness_min  = synthesized wet roughness floor (lower = glossier
+    //                        glint + sharper sky reflection when wet).
+    //   wet_chroma         = extra saturation lift on wet, porous (soil) ground.
+    // Per-material porosity (rock reflects vs soil darkens) is authored on
+    // BlockData.Porosity, not a CVar.
+    public static CVarFloat wetDisplacement = new CVarFloat("wet_displacement", 0.5f, (cvar) =>
+    {
+        ChunkMesh.SetWetDisplacement(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat wetPoolStrength = new CVarFloat("wet_pool_strength", 1.0f, (cvar) =>
+    {
+        ChunkMesh.SetWetPoolStrength(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat wetRoughnessMin = new CVarFloat("wet_roughness_min", 0.25f, (cvar) =>
+    {
+        ChunkMesh.SetWetRoughnessMin(((CVarFloat)cvar).Value);
+    });
+    public static CVarFloat wetChroma = new CVarFloat("wet_chroma", 0.2f, (cvar) =>
+    {
+        ChunkMesh.SetWetChroma(((CVarFloat)cvar).Value);
+    });
+
     // Forces the terrain shader to ignore texture+lighting and output a solid
     // color. Set to "1 0 1" (magenta) to test whether triangles exist at all.
     // Empty string or zero values = disabled.

@@ -93,68 +93,60 @@ global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
-// source_color decodes the sRGB-authored PNG to linear on sample. Without
-// it, Godot reads the gamma-encoded bytes as raw linear values and every
-// shaded pixel ends up ~2× brighter than the authored texture — which is
-// what made terrain look washed out under debug_unlit while detail sprites
-// (declared with source_color) matched their sources.
+// Base color atlas (sRGB). source_color decodes the gamma-authored PNG to
+// linear on sample. Nearest filtering — the chosen terrain look.
 uniform sampler2DArray tile_array : source_color, filter_nearest_mipmap, repeat_enable;
+// Packed per-tile detail: RGB = tangent-space normal, A = height/displacement.
+// Linear (NOT source_color). Drives the per-tile normal perturbation and the
+// height-aware blend between flat/wall and overlay tiles.
+uniform sampler2DArray tile_nrm_height : filter_nearest_mipmap, repeat_enable;
+// How strongly the per-tile normal map perturbs the shading normal.
+uniform float tile_normal_strength : hint_range(0.0, 1.0) = 0.6;
+// Height-blend sharpness in [0,1]: HIGHER = sharper/tighter interlock, LOWER =
+// softer ramp (converted to a blend depth = 1 - sharpness in fragment()). Three
+// regimes, by the cliff/ground class of the tiles meeting:
+//   wall_blend_sharpness   — cliff ↔ ground (SHARPEST; the slope cliff/ground seam)
+//   cliff_blend_sharpness  — cliff ↔ cliff  (soft; two rock walls meeting)
+//   ground_blend_sharpness — ground ↔ ground & overlay-on-ground (soft)
+uniform float wall_blend_sharpness : hint_range(0.0, 1.0) = 0.65;
+uniform float cliff_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
+uniform float ground_blend_sharpness : hint_range(0.0, 1.0) = 0.4;
+
+// Per-atlas-layer class flag: 1.0 = cliff/rock, 0.0 = ground. Uploaded from
+// BlockData.IsCliff. Routes each tile into the cliff or ground accumulator.
+const int TILE_CLASS_TABLE_SIZE = 64;
+uniform float tile_is_cliff[TILE_CLASS_TABLE_SIZE];
+// Per-atlas-layer wetness porosity [0,1] (BlockData.Porosity). LOW = rock
+// (water beads on top → reflective), HIGH = soil (water soaks in → darkens).
+uniform float tile_porosity[TILE_CLASS_TABLE_SIZE];
+
+// Wetness model tuning (material uniforms; live via CVars).
+//   wet_displacement   — how much the per-tile height map adds micro-pit pooling.
+//   wet_pool_strength  — strength of the standing-water (pooled) state.
+//   wet_roughness_min  — synthesized wet roughness floor (0 = mirror smooth).
+//   wet_chroma         — extra saturation on wet, porous (soil) surfaces.
+uniform float wet_displacement : hint_range(0.0, 1.0) = 0.5;
+uniform float wet_pool_strength : hint_range(0.0, 1.0) = 1.0;
+uniform float wet_roughness_min : hint_range(0.0, 1.0) = 0.25;
+uniform float wet_chroma : hint_range(0.0, 1.0) = 0.2;
 
 // Tile layer indices — must match the AtlasBaseIndex authored on the
-// matching BlockData in resources/data/blocks/. BlockCatalog.ValidateOrLog
-// asserts the two named slots referenced here ("Stone" at 0, "GrassTop" at
-// 1) at boot. Values are the BASE layer of a block's contiguous variant
-// range; the real sampled layer is resolved per-fragment in `resolve_layer`
-// from the base, the elevation band (world Y), and a position hash.
+// matching BlockData in resources/data/blocks/. Each block is now exactly one
+// atlas layer (the elevation-band / variant system was removed), so the layer
+// index equals the block's AtlasBaseIndex directly. BlockCatalog.ValidateOrLog
+// asserts the two named slots referenced here ("Stone" at 0, "GrassTop" at 1).
 const float TILE_STONE = 0.0;
-// Grass top's base is 1; variants/bands occupy layers 1..16 — resolved in
-// resolve_layer() from the tile_variants[] entry at index 1.
 const float TILE_GRASS_TOP = 1.0;
 // "Auto" sentinel — when a vertex carries this id (TILE_AUTO = 255), the
 // fragment picks the real tile from per-kit flat/wall via a smoothstep on
 // surface normal.y. Must match VoxelTypeInfo.TILE_AUTO.
 const float TILE_AUTO_THRESHOLD = 254.5;
 
-// Per base-tile variant config indexed by base layer id:
-//   .x = num elevation bands
-//   .y = variants per band
-//   .z, .w = reserved
-// Entries we never index may be stale; keep TILE_VARIANT_TABLE_SIZE in sync
-// with VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE. A (1,1,_,_) entry means "no
-// variation" — the effective layer equals the base.
-const int TILE_VARIANT_TABLE_SIZE = 64;
-uniform vec4 tile_variants[TILE_VARIANT_TABLE_SIZE];
-
 // Global world-to-UV scale shared by every tile. One authored PNG spans
-// 1/tile_uv_scale world units on each axis. Keeping this uniform across
-// tiles means the same camera distance produces the same texel density for
-// all materials — no per-tile tuning and no surprises when a tile's base
-// layer is reused as an overlay. Also drives the variant-pick hash so all
-// fragments in one PNG-sized region agree on which variant to show.
-uniform float tile_uv_scale = 0.25;
-uniform float band_origin_y = 0.0;
-uniform float band_height = 32.0;
-// Crossfade width across an elevation-band seam, expressed as a fraction of
-// band_height. 0 = hard step (original behavior); larger values smooth the
-// transition between a tile's adjacent band layers. Both bands share the
-// variant hash so the crossfade doesn't also flip splatter variant.
-uniform float band_blend : hint_range(0.0, 0.5) = 0.15;
-
-// Low-frequency grayscale overlay multiplied into albedo. Breaks up obvious
-// tiling in large stretches of the same material without needing multi-tile
-// variants. Sampled on world_vertex.xz so top-facing ground gets the most
-// benefit; sides read the same pattern projected straight down, which is
-// acceptable for an isometric view.
-uniform sampler2D detail_noise : filter_linear, repeat_enable;
-uniform float detail_noise_freq = 0.03125;  // ~1/32 world units per cycle.
-uniform float detail_noise_strength = 0.2;
-
-// Detail normal perturbation on the ground. Sampled as a tangent-space
-// normal map in the XZ plane; its influence is scaled by how much the
-// surface faces up, so cliffs stay clean and ground gets the break-up.
-uniform sampler2D detail_normal : filter_linear, repeat_enable, hint_normal;
-uniform float detail_normal_freq = 0.5;  // ~2 world units per cycle.
-uniform float detail_normal_strength = 0.35;
+// 1/tile_uv_scale world units on each axis (the tiling frequency). Uniform
+// across tiles so the same camera distance produces the same texel density
+// for every material; exposed live via the `terrain_tile_scale` CVar.
+uniform float tile_uv_scale = 0.3;
 
 // Ambient-occlusion bake strength. AO is baked per-vertex into COLOR.a by the
 // DC mesher (0 = open, 1 = fully sheltered) and applied here as a multiplicative
@@ -286,70 +278,60 @@ float hash13(vec3 p) {
 	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
 }
 
-// Resolve the two adjacent tile_array layers a fragment straddles (the
-// lower band + the band above it, wrapped modulo `bands`) along with the
-// crossfade weight `band_t` in [0,1] and the texture's world-to-UV scale.
-// band_t ramps from 0 to 1 across the top `band_blend` fraction of each
-// band so mid-band fragments return band_t=0 and sample only layer_lo,
-// matching the pre-blend behavior.
-//
-// Tiles configured with (1,1,1,_) collapse to layer_lo == layer_hi so the
-// crossfade is a no-op. The variant hash is position-based and shared
-// across both layers so the crossfade doesn't also swap splatter variant.
-void resolve_layer(
-		float base_layer,
-		vec3 world_pos,
-		out float layer_lo,
-		out float layer_hi,
-		out float band_t) {
-	int id = clamp(int(base_layer), 0, TILE_VARIANT_TABLE_SIZE - 1);
-	vec4 cfg = tile_variants[id];
-	float bands = max(1.0, cfg.x);
-	float per_band = max(1.0, cfg.y);
-	// Bands are a function of elevation (world Y), not texture scale —
-	// terrain's geographic Y banding is independent of any overlay's
-	// tiling scale. Modulus so bands cycle forever up and down (GLSL mod
-	// handles negative Y correctly: mod(-1, 4) = 3).
-	float b = (world_pos.y - band_origin_y) / band_height;
-	float base_band = floor(b);
-	float frac = b - base_band;
-	float band_lo = mod(base_band, bands);
-	float band_hi = mod(base_band + 1.0, bands);
-	band_t = smoothstep(1.0 - band_blend, 1.0, frac);
-	// Variant granularity follows the global texture scale so one
-	// PNG-sized region picks one variant. At tile_uv_scale=0.25 that's
-	// one variant per 4-voxel region across every tile.
-	vec3 scaled = world_pos * tile_uv_scale;
-	float h = hash13(floor(scaled) + vec3(37.2, 11.7, 91.3));
-	float variant = clamp(floor(h * per_band), 0.0, per_band - 1.0);
-	layer_lo = base_layer + band_lo * per_band + variant;
-	layer_hi = base_layer + band_hi * per_band + variant;
+// Triplanar sample of one tile layer. `wp` is the world position already
+// scaled by tile_uv_scale; `blend` is the axis weight vector from the shading
+// normal. Returns base color, a world-space normal (decoded + remapped from
+// the packed tangent-space normal map), and the height/displacement scalar.
+void sample_tile(float layer, vec3 wp, vec3 blend,
+		out vec3 color, out vec3 wnormal, out float height) {
+	// Fast path: near-flat ground is dominated by the XZ plane, so skip the two
+	// vertical projections — 1 fetch instead of 3, across the bulk of the ground.
+	if (blend.y > 0.995) {
+		color = texture(tile_array, vec3(wp.x, wp.z, layer)).rgb;
+		vec4 nh = texture(tile_nrm_height, vec3(wp.x, wp.z, layer));
+		height = nh.a;
+		vec3 n = nh.xyz * 2.0 - 1.0;
+		wnormal = normalize(vec3(n.x, n.z, n.y));
+		return;
+	}
+	vec3 c_xy = texture(tile_array, vec3(wp.x, -wp.y, layer)).rgb;
+	vec3 c_xz = texture(tile_array, vec3(wp.x,  wp.z, layer)).rgb;
+	vec3 c_yz = texture(tile_array, vec3(wp.z, -wp.y, layer)).rgb;
+	vec4 nh_xy = texture(tile_nrm_height, vec3(wp.x, -wp.y, layer));
+	vec4 nh_xz = texture(tile_nrm_height, vec3(wp.x,  wp.z, layer));
+	vec4 nh_yz = texture(tile_nrm_height, vec3(wp.z, -wp.y, layer));
+	color = c_xz * blend.y + c_xy * blend.z + c_yz * blend.x;
+	height = nh_xz.a * blend.y + nh_xy.a * blend.z + nh_yz.a * blend.x;
+	// Decode each plane's tangent-space normal and remap into world space
+	// using that plane's natural frame (same mapping as the old detail
+	// normal): xy(Z-facing)→(x,y,z), xz(Y-facing)→(x,z,y), yz(X-facing)→(z,y,x).
+	vec3 n_xy = nh_xy.xyz * 2.0 - 1.0;
+	vec3 n_xz = nh_xz.xyz * 2.0 - 1.0;
+	vec3 n_yz = nh_yz.xyz * 2.0 - 1.0;
+	wnormal = normalize(
+		vec3(n_xy.x, n_xy.y, n_xy.z) * blend.z +
+		vec3(n_xz.x, n_xz.z, n_xz.y) * blend.y +
+		vec3(n_yz.z, n_yz.y, n_yz.x) * blend.x);
 }
 
-// Triplanar sample of a tile with variant/band resolution. `blend` is the
-// axis weight vector computed from the shading normal in fragment(). When
-// a fragment falls inside the elevation-band crossfade window we sample
-// both the lower and upper band layers and lerp; outside the window we
-// skip the second sample entirely.
-vec4 sample_tile(float base_layer, vec3 world_pos, vec3 blend) {
-	float layer_lo;
-	float layer_hi;
-	float band_t;
-	resolve_layer(base_layer, world_pos, layer_lo, layer_hi, band_t);
-	vec3 wp = world_pos * tile_uv_scale;
-	vec4 lo_xy = texture(tile_array, vec3(wp.x, -wp.y, layer_lo));
-	vec4 lo_xz = texture(tile_array, vec3(wp.x,  wp.z, layer_lo));
-	vec4 lo_yz = texture(tile_array, vec3(wp.z, -wp.y, layer_lo));
-	vec4 tex_lo = lo_xz * blend.y + lo_xy * blend.z + lo_yz * blend.x;
-	if (band_t > 0.0) {
-		vec4 hi_xy = texture(tile_array, vec3(wp.x, -wp.y, layer_hi));
-		vec4 hi_xz = texture(tile_array, vec3(wp.x,  wp.z, layer_hi));
-		vec4 hi_yz = texture(tile_array, vec3(wp.z, -wp.y, layer_hi));
-		vec4 tex_hi = hi_xz * blend.y + hi_xy * blend.z + hi_yz * blend.x;
-		return mix(tex_lo, tex_hi, band_t);
-	}
-	return tex_lo;
+// Height-aware blend weight toward tile B. `t` is the geometric weight [0,1]
+// toward B (e.g. the wall fraction, or overlay coverage); ha/hb are the two
+// height samples [0,1]; `depth` sets the transition width — small = tight
+// interlock (cliffs), large = smooth ramp (ground overlays). Returns the
+// resolved A→B weight, used identically for color and normal so they agree.
+float height_blend_weight(float t, float ha, float hb, float depth) {
+	float wa = (1.0 - t) + ha;
+	float wb = t + hb;
+	float m = max(wa, wb) - depth;
+	float ba = max(wa - m, 0.0);
+	float bb = max(wb - m, 0.0);
+	return bb / (ba + bb + 1e-5);
 }
+
+// NOTE: the per-class height-blend (ground / cliff) is written inline in
+// fragment() rather than as a helper — Godot's shader language has no
+// array-parameter functions, and the blend needs the candidate id/weight
+// arrays. See the two inlined blend blocks after the candidate-build loop.
 float vnoise(vec3 p) {
 	vec3 i = floor(p);
 	vec3 f = fract(p);
@@ -383,46 +365,13 @@ void fragment() {
 	vec3 face_n = normalize(face_n_raw * sign(dot(face_n_raw, smooth_n) + 1e-6));
 	vec3 shaded_normal = normalize(mix(smooth_n, face_n, clamp(sharpness, 0.0, 1.0)));
 
-	// Triplanar axis weights from the pre-perturbation normal, used only by
-	// the detail-normal triplanar blend below. A single XZ sample smeared
-	// vertically on cliff faces; this lets the perturbation read from all
-	// three planes. Tile sampling re-derives its own blend from the
-	// post-perturbation normal further down so tile triplanar weights
-	// still match the final shading normal (unchanged behavior).
-	vec3 dn_blend = pow(abs(shaded_normal), vec3(4.0));
-	dn_blend /= (dn_blend.x + dn_blend.y + dn_blend.z + 1e-5);
+	// Per-tile normal-map detail now replaces the old global detail_normal —
+	// it's sampled below alongside each tile's color/height and perturbs
+	// shaded_normal after the tile pick.
 
-	// Detail normal map perturbation — triplanar. Each planar projection
-	// is decoded to a world-space perturbation using that plane's natural
-	// tangent frame, then blended by dn_blend.
-	vec3 dn_xy = texture(detail_normal, world_vertex.xy * detail_normal_freq).xyz * 2.0 - 1.0;
-	vec3 dn_xz = texture(detail_normal, world_vertex.xz * detail_normal_freq).xyz * 2.0 - 1.0;
-	vec3 dn_yz = texture(detail_normal, world_vertex.zy * detail_normal_freq).xyz * 2.0 - 1.0;
-	// Remap each tangent-space sample (tx, ty, tz) into world space for its
-	// projection's natural frame:
-	//   xy plane (Z-facing): T=+X, B=+Y, N=+Z → (tx, ty, tz)
-	//   xz plane (Y-facing): T=+X, B=+Z, N=+Y → (tx, tz, ty)
-	//   yz plane (X-facing): T=+Z, B=+Y, N=+X → (tz, ty, tx)
-	// A flat (0,0,1) sample decodes to each plane's outward axis, so the
-	// blended perturb equals shaded_normal when the map is unperturbed.
-	vec3 dn_xy_world = vec3(dn_xy.x, dn_xy.y, dn_xy.z);
-	vec3 dn_xz_world = vec3(dn_xz.x, dn_xz.z, dn_xz.y);
-	vec3 dn_yz_world = vec3(dn_yz.z, dn_yz.y, dn_yz.x);
-	vec3 dn_world = normalize(
-		dn_xy_world * dn_blend.z +
-		dn_xz_world * dn_blend.y +
-		dn_yz_world * dn_blend.x);
-	if (!debug_no_detail_normal) {
-		shaded_normal = normalize(mix(shaded_normal, dn_world, detail_normal_strength));
-	}
-
-	// Pick which corner's tile this fragment shows. COLOR.rgb was set per
-	// vertex to (1,0,0)/(0,1,0)/(0,0,1) so the rasterizer's linear interpolation
-	// gives us the barycentric weights for free. Perturb each weight with a
-	// 3D noise sample (different offset per corner) and take the argmax — this
-	// is a hard pick (no smearing) but the boundary becomes irregular instead
-	// of a straight triangle bisector. blend_amp = 0 (e.g. man-made walls)
-	// collapses back to the un-perturbed bisector for a crisp seam.
+	// Per-corner barycentric weights (COLOR.rgb interpolates them for free),
+	// perturbed by 3D noise so material boundaries are irregular instead of a
+	// straight triangle bisector. blend_amp = 0 (man-made) → un-jittered weights.
 	vec3 bary = COLOR.rgb / max(COLOR.r + COLOR.g + COLOR.b, 1e-5);
 	vec3 np = world_vertex * BLEND_NOISE_FREQ;
 	float n0 = vnoise(np);
@@ -430,83 +379,218 @@ void fragment() {
 	float n2 = vnoise(np + vec3(0.0, 17.3, 7.1));
 	vec3 jitter = (vec3(n0, n1, n2) - 0.5) * blend_amp;
 	vec3 weights = bary + jitter;
-	float tile_index;
-	float terrain_index;
-	float overlay_index;
-	if (weights.x >= weights.y && weights.x >= weights.z) {
-		tile_index = tile_ids.x;
-		terrain_index = terrain_ids.x;
-		overlay_index = overlay_ids.x;
-	} else if (weights.y >= weights.z) {
-		tile_index = tile_ids.y;
-		terrain_index = terrain_ids.y;
-		overlay_index = overlay_ids.y;
-	} else {
-		tile_index = tile_ids.z;
-		terrain_index = terrain_ids.z;
-		overlay_index = overlay_ids.z;
-	}
 
-	// Triplanar blend — DC vertices have arbitrary normals, so a dominant-axis
-	// pick produces visible seams. Sample the tile on all three planes and
-	// blend by |normal|^k. Derived from the post-perturbation shaded_normal
-	// so tile weighting follows the detail-normal wobble as well as the
-	// geometric surface.
+	// Triplanar axis weights from the geometric shading normal (before per-tile
+	// normal perturbation) so tile weighting stays coherent across a face.
 	vec3 blend = pow(abs(shaded_normal), vec3(4.0));
 	blend /= (blend.x + blend.y + blend.z + 1e-5);
 
-	vec4 tex_color;
-	if (tile_index >= TILE_AUTO_THRESHOLD) {
-		// AUTO terrain: per-kit flat↔wall via a single smoothstep on normal.y.
-		// No intermediate slope tile — dirt/edge appearance is painted by the
-		// overlay layer only where worldgen authored OverlayId != 0. Keeps
-		// cliff tops sharp (no auto dirt ring) and makes dirt an intentional
-		// marker for walkable slopes and small features. Each concrete tile
-		// runs through sample_tile so kit tiles that happen to be variant-
-		// capable bases (e.g. grass) get per-fragment band/variant resolution.
-		int terrain_idx = clamp(int(terrain_index), 0, MAX_TERRAINS - 1);
-		vec4 tiles = terrain_tiles[terrain_idx];
-		vec4 bands = terrain_bands[terrain_idx];
-		float s = clamp(shaded_normal.y, 0.0, 1.0);
-		float w_flat = smoothstep(bands.x, bands.y, s);
-		float w_wall = 1.0 - w_flat;
-		vec4 t_flat = sample_tile(tiles.x, world_vertex, blend);
-		vec4 t_wall = sample_tile(tiles.y, world_vertex, blend);
-		tex_color = t_flat * w_flat + t_wall * w_wall;
+	vec3 wp = world_vertex * tile_uv_scale;
+	float s = clamp(shaded_normal.y, 0.0, 1.0);
+	// Sharpness (higher = sharper) → height-blend depth (lower = tighter).
+	float wall_depth = 1.0 - wall_blend_sharpness;
+	float cliff_depth = 1.0 - cliff_blend_sharpness;
+	float ground_depth = 1.0 - ground_blend_sharpness;
 
-		// Overlay pass: OverlayId is a direct tile_array base layer (0 = none,
-		// non-zero = any overlay tile in the global catalog — dirt, field,
-		// clover, moss, etc.). Decoupling from kits lets one kit carry mixed
-		// overlays across voxels. Variants on the overlay base layer are
-		// resolved automatically by sample_tile → resolve_layer, so overlays
-		// with multiple art variants (e.g. 4 dirt splatters) just need the
-		// right tile_variants entry.
-		//
-		// The overlay's own alpha channel drives blend strength, so authored
-		// soft edges in the PNG read as partial coverage. Multiplied by w_flat
-		// so overlays ride on top of flat ground and fade out on walls (a
-		// cliff face carrying an overlay id would otherwise overwrite its
-		// wall tile).
-		if (overlay_index > 0.5) {
-			vec4 t_overlay = sample_tile(overlay_index, world_vertex, blend);
-			tex_color.rgb = mix(tex_color.rgb, t_overlay.rgb, w_flat * t_overlay.a);
+	// Build deduped ground/cliff candidate sets across the triangle's 3 corners.
+	// Each AUTO corner contributes its flat tile (weight·w_flat, ground) and
+	// wall tile (weight·w_wall, cliff); a concrete corner contributes one tile.
+	// Duplicate ids merge (per class), so a single-material interior collapses
+	// to one sample per class. Class comes from tile_is_cliff[].
+	float g_ids[3];
+	float g_wts[3];
+	int g_n = 0;
+	float c_ids[3];
+	float c_wts[3];
+	int c_n = 0;
+	float ov_id = 0.0;
+	float ov_w = 0.0;
+	float ov_cov = 0.0;
+	for (int i = 0; i < 3; i++) {
+		float w = max(weights[i], 0.0);
+		if (w <= 0.001) {
+			continue;
 		}
-	} else {
-		tex_color = sample_tile(tile_index, world_vertex, blend);
+		// Up to two (id, weight) entries from this corner.
+		float ent_id[2];
+		float ent_w[2];
+		int cnt;
+		float tid = tile_ids[i];
+		if (tid >= TILE_AUTO_THRESHOLD) {
+			int ti = clamp(int(terrain_ids[i]), 0, MAX_TERRAINS - 1);
+			vec4 tiles = terrain_tiles[ti];
+			vec4 band = terrain_bands[ti];
+			float wf = smoothstep(band.x, band.y, s);
+			ent_id[0] = tiles.x;
+			ent_w[0] = w * wf;
+			ent_id[1] = tiles.y;
+			ent_w[1] = w * (1.0 - wf);
+			cnt = 2;
+			if (overlay_ids[i] > 0.5 && w * wf > ov_w) {
+				ov_id = overlay_ids[i];
+				ov_w = w * wf;
+				ov_cov = wf;
+			}
+		} else {
+			ent_id[0] = tid;
+			ent_w[0] = w;
+			ent_id[1] = 0.0;
+			ent_w[1] = 0.0;
+			cnt = 1;
+		}
+		// Route + dedup-append each entry into its class list.
+		for (int j = 0; j < cnt; j++) {
+			float id = ent_id[j];
+			float ew = ent_w[j];
+			if (ew <= 0.001) {
+				continue;
+			}
+			if (tile_is_cliff[clamp(int(id), 0, TILE_CLASS_TABLE_SIZE - 1)] > 0.5) {
+				bool merged = false;
+				for (int k = 0; k < c_n; k++) {
+					if (c_ids[k] == id) { c_wts[k] += ew; merged = true; break; }
+				}
+				if (!merged && c_n < 3) { c_ids[c_n] = id; c_wts[c_n] = ew; c_n += 1; }
+			} else {
+				bool merged = false;
+				for (int k = 0; k < g_n; k++) {
+					if (g_ids[k] == id) { g_wts[k] += ew; merged = true; break; }
+				}
+				if (!merged && g_n < 3) { g_ids[g_n] = id; g_wts[g_n] = ew; g_n += 1; }
+			}
+		}
 	}
 
-	// Macro detail overlay: a low-frequency grayscale noise multiplied into
-	// albedo as a small brightness modulation. Breaks up same-tile repetition
-	// over large areas without adding any texture-array variants. Triplanar
-	// so cliff faces don't inherit a vertically smeared XZ slice.
-	float macro_xy = texture(detail_noise, world_vertex.xy * detail_noise_freq).r;
-	float macro_xz = texture(detail_noise, world_vertex.xz * detail_noise_freq).r;
-	float macro_yz = texture(detail_noise, world_vertex.zy * detail_noise_freq).r;
-	float macro = macro_xy * blend.z + macro_xz * blend.y + macro_yz * blend.x;
-	float overlay = mix(1.0 - detail_noise_strength, 1.0 + detail_noise_strength, macro);
-	// NOTE: applied below, after wet_factor is known. Wetness flattens this
-	// macro contrast toward 1.0 — water fills the surface and evens out the
-	// dry-texture noise instead of letting the darkened albedo amplify it.
+	// Soft height-blend within each class. Ground and cliff blocks are identical
+	// apart from arrays/depth — inlined twice since the shader language has no
+	// array-parameter functions. Each samples its unique tiles once and weights
+	// them by (normalized geometric weight + height) with a max-cutoff = depth.
+	vec3 g_col = vec3(0.0);
+	vec3 g_nrm = vec3(0.0, 1.0, 0.0);
+	float g_h = 0.0;
+	float g_tw = 0.0;
+	float g_por = 0.0;
+	{
+		vec3 cols[3];
+		vec3 nrms[3];
+		float hs[3];
+		float gw[3];
+		for (int k = 0; k < g_n; k++) {
+			vec3 cc;
+			vec3 nn;
+			float hh;
+			sample_tile(g_ids[k], wp, blend, cc, nn, hh);
+			cols[k] = cc;
+			nrms[k] = nn;
+			hs[k] = hh;
+			g_tw += g_wts[k];
+		}
+		float gmax = -1.0;
+		for (int k = 0; k < g_n; k++) {
+			gw[k] = g_wts[k] / max(g_tw, 1e-5) + hs[k];
+			gmax = max(gmax, gw[k]);
+		}
+		float mm = gmax - ground_depth;
+		float sum = 0.0;
+		for (int k = 0; k < g_n; k++) {
+			gw[k] = max(gw[k] - mm, 0.0);
+			sum += gw[k];
+		}
+		for (int k = 0; k < g_n; k++) {
+			float wk = gw[k] / max(sum, 1e-5);
+			g_col += cols[k] * wk;
+			g_nrm += nrms[k] * wk;
+			g_h += hs[k] * wk;
+			g_por += tile_porosity[clamp(int(g_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
+		}
+		if (g_n > 0) {
+			g_nrm = normalize(g_nrm);
+		}
+	}
+
+	vec3 c_col = vec3(0.0);
+	vec3 c_nrm = vec3(0.0, 1.0, 0.0);
+	float c_h = 0.0;
+	float c_tw = 0.0;
+	float c_por = 0.0;
+	{
+		vec3 cols[3];
+		vec3 nrms[3];
+		float hs[3];
+		float gw[3];
+		for (int k = 0; k < c_n; k++) {
+			vec3 cc;
+			vec3 nn;
+			float hh;
+			sample_tile(c_ids[k], wp, blend, cc, nn, hh);
+			cols[k] = cc;
+			nrms[k] = nn;
+			hs[k] = hh;
+			c_tw += c_wts[k];
+		}
+		float gmax = -1.0;
+		for (int k = 0; k < c_n; k++) {
+			gw[k] = c_wts[k] / max(c_tw, 1e-5) + hs[k];
+			gmax = max(gmax, gw[k]);
+		}
+		float mm = gmax - cliff_depth;
+		float sum = 0.0;
+		for (int k = 0; k < c_n; k++) {
+			gw[k] = max(gw[k] - mm, 0.0);
+			sum += gw[k];
+		}
+		for (int k = 0; k < c_n; k++) {
+			float wk = gw[k] / max(sum, 1e-5);
+			c_col += cols[k] * wk;
+			c_nrm += nrms[k] * wk;
+			c_h += hs[k] * wk;
+			c_por += tile_porosity[clamp(int(c_ids[k]), 0, TILE_CLASS_TABLE_SIZE - 1)] * wk;
+		}
+		if (c_n > 0) {
+			c_nrm = normalize(c_nrm);
+		}
+	}
+
+	// Overlay (dirt/mud/field) feathers onto the ground result with the SMOOTH
+	// depth where authored — coverage follows its flat-ground fraction.
+	if (ov_id > 0.5 && g_n > 0) {
+		vec3 oc, on;
+		float oh;
+		sample_tile(ov_id, wp, blend, oc, on, oh);
+		float ob = height_blend_weight(ov_cov, g_h, oh, ground_depth);
+		g_col = mix(g_col, oc, ob);
+		g_nrm = normalize(mix(g_nrm, on, ob));
+		g_h = mix(g_h, oh, ob);
+	}
+
+	// TIGHT cliff↔ground blend, by the slope-aggregated class weights. cliff↔cliff
+	// and ground↔ground were already blended softly within their classes above.
+	vec4 tex_color;
+	vec3 tile_normal;
+	float surface_h;
+	float surface_porosity;
+	if (c_n == 0) {
+		tex_color = vec4(g_col, 1.0);
+		tile_normal = g_nrm;
+		surface_h = g_h;
+		surface_porosity = g_por;
+	} else if (g_n == 0) {
+		tex_color = vec4(c_col, 1.0);
+		tile_normal = c_nrm;
+		surface_h = c_h;
+		surface_porosity = c_por;
+	} else {
+		float t = c_tw / max(c_tw + g_tw, 1e-5);
+		float wb = height_blend_weight(t, g_h, c_h, wall_depth);
+		tex_color = vec4(mix(g_col, c_col, wb), 1.0);
+		tile_normal = normalize(mix(g_nrm, c_nrm, wb));
+		surface_h = mix(g_h, c_h, wb);
+		surface_porosity = mix(g_por, c_por, wb);
+	}
+
+	// Per-tile normal map perturbs the shading normal (replaces the old global
+	// detail_normal). Strength is tunable.
+	shaded_normal = normalize(mix(shaded_normal, tile_normal, tile_normal_strength));
 
 	// Sample lightmap per-pixel so it interpolates smoothly across the face.
 	// Push 0.5 along the outward normal so the sample lands in the adjacent
@@ -526,46 +610,62 @@ void fragment() {
 	// perturbed normal is exactly what made wet ground read as "crunchier
 	// texture" instead of wet.
 	float wet_slope = pow(max(smooth_n.y, 0.0), 3.0);
-	// Concavity pooling, driven by the gameplay surface wetness. wetness_level
-	// is WorldState.WetnessLevel — the weather-derived [0,1] dampness that wets
-	// up in rain/fog and dries on a half-life curve (SkyController.UpdateWetness).
-	// Concavity doesn't add water out of nowhere; it makes concave + flat spots
-	// COLLECT more of whatever moisture is currently present, so dips wet up
-	// first and stay damp longest, while bumps and steep faces shed. When the
-	// surface is bone dry (wetness_level = 0) even dips read dry.
-	// HOOK: displacement_wetness is reserved for the not-yet-implemented detail
-	// displacement (height) map — it will fold per-texel micro-pits into the
-	// pooling later (a multiply in [0,1]). Keep it 1.0 until that map exists.
-	float displacement_wetness = 1.0;
-	// Local wetness boost in concave spots: ramps 0→1 with dip depth, scaled by
-	// strength. Multiplies the global wetness so pooling is always proportional
-	// to the real surface wetness, never a constant.
+	// Displacement: the per-tile height map's micro-pits (low height) collect
+	// water. Folds into the concavity pooling as a [0,1] multiply; wet_displacement
+	// tunes how strongly (0 = ignore the height map, the old weather-only look).
+	float displacement_wetness = mix(1.0, 1.0 - surface_h, wet_displacement);
+	// Concavity pooling (macro dips) × displacement (micro pits), scaled by the
+	// real weather wetness (WorldState.WetnessLevel) so pooling is always
+	// proportional to the current dampness — bone-dry weather = dry dips.
 	float pool_boost = smoothstep(0.0, concavity_threshold, concavity) * displacement_wetness * concavity_wetness_strength;
 	float local_wetness = clamp(wetness_level * (1.0 + pool_boost), 0.0, 1.0);
-	// concavity_wetness_strength = 0 → pool_boost = 0 → local_wetness =
-	// wetness_level, collapsing this back to the original weather-only term.
-	float wet_factor = sun_mask * wet_slope * local_wetness;
+	// saturation: how wet this fragment is — weather × sky-exposure × slope ×
+	// pooling. The single "is it wet here" scalar every wet look keys off.
+	float saturation = sun_mask * wet_slope * local_wetness;
+
+	// Porosity splits the wet LOOK: porous soil (high) soaks water → darkens with
+	// little glint; non-porous rock (low) beads water → reflects. reflectivity is
+	// the "water sits on top" amount.
+	float porosity = clamp(surface_porosity, 0.0, 1.0);
+	float reflectivity = 1.0 - porosity;
+
+	// Standing-water (pooled) state: where the baked concavity is deep, the
+	// surface is flat (wet_slope), it's wet (local_wetness) and non-porous, water
+	// STANDS — a puddle. Plugs the concavity bake into a distinct water look.
+	float pool_depth = smoothstep(concavity_threshold, concavity_threshold * 2.5, concavity);
+	float pool_mask = clamp(pool_depth * wet_slope * local_wetness * mix(0.4, 1.0, reflectivity) * wet_pool_strength, 0.0, 1.0);
+	// Waterline: a thin brighter sky-tinted rim at the pool edge (band on pool_mask).
+	float waterline = smoothstep(0.02, 0.18, pool_mask) * (1.0 - smoothstep(0.18, 0.4, pool_mask)) * saturation;
+
+	// Roughness synthesized from wetness — no static map. Dry = rough (1); wetting
+	// drops it toward wet_roughness_min; a pool goes to ~mirror. This one term
+	// drives BOTH the glint tightness and the reflection strength/sharpness below.
+	float wet_roughness = mix(1.0, wet_roughness_min, saturation);
+	wet_roughness = mix(wet_roughness, 0.02, pool_mask);
+	float smoothness = 1.0 - wet_roughness;
+
+	// In a pool, flatten the reflecting normal toward level water for a clean
+	// mirror; elsewhere it's the smooth geometric normal (coherent across a face).
+	vec3 wet_n = normalize(mix(smooth_n, vec3(0.0, 1.0, 0.0), pool_mask));
+
 	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - world_vertex);
-	// Tight sun glint off the smooth normal. Exponent 40 (vs the old 16)
-	// makes a compact glossy hotspot that reads as a wet specular rather
-	// than a broad brightening. Folded through the shadow/cloud gate in
-	// light() via the wet_spec varying.
+	// Sun glint: hotspot tightness from smoothness (smoother = tighter), gated by
+	// saturation and by reflectivity (non-porous beads glint; pools glint hard).
 	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
-	float wet_ndoth = max(dot(smooth_n, wet_h), 0.0);
-	wet_spec = pow(wet_ndoth, 40.0) * wet_factor;
-	// Fresnel SKY reflection — the primary wet cue. Wet ground becomes a
-	// partial mirror: at grazing view angles it reflects the sky dome.
-	// Reflect the view about the smooth normal and sample the same
-	// horizon→zenith gradient the sky shader uses, so the sheen tints with
-	// the current sky. Schlick Fresnel with a small base reflectance; gated
-	// by wet_factor so it only shows on wet, sky-exposed, upward faces.
-	// Added to EMISSION below (a reflection, not a diffuse term, so it is
-	// NOT multiplied by albedo) and cloud-dimmed (clouds occlude the sky).
-	float wet_fresnel = wet_fresnel_base + (1.0 - wet_fresnel_base) * pow(1.0 - max(dot(wet_view, smooth_n), 0.0), 5.0);
-	vec3 wet_refl_dir = reflect(-wet_view, smooth_n);
+	float wet_ndoth = max(dot(wet_n, wet_h), 0.0);
+	float spec_power = mix(24.0, 400.0, smoothness);
+	wet_spec = pow(wet_ndoth, spec_power) * saturation * mix(reflectivity, 1.0, pool_mask);
+	// Fresnel SKY reflection — wet ground as a partial mirror of the sky gradient.
+	// Strength scales with smoothness (sharper when smoother) and reflectivity,
+	// and is forced near-full inside pools. Added to EMISSION (a reflection, not
+	// diffuse, so NOT multiplied by albedo) and cloud-dimmed below.
+	float wet_fresnel = wet_fresnel_base + (1.0 - wet_fresnel_base) * pow(1.0 - max(dot(wet_view, wet_n), 0.0), 5.0);
+	vec3 wet_refl_dir = reflect(-wet_view, wet_n);
 	float wet_sky_t = clamp(wet_refl_dir.y * 0.5 + 0.5, 0.0, 1.0);
 	vec3 wet_sky = mix(horizon_color, zenith_color, wet_sky_t);
-	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * wet_factor);
+	float reflect_amount = max(saturation * smoothness * mix(reflectivity, 1.0, pool_mask), pool_mask);
+	vec3 wet_reflect = wet_sky * (wet_fresnel * wet_reflect_strength * reflect_amount);
+	wet_reflect += wet_sky * (waterline * wet_reflect_strength * 0.5);
 	// Cloud shadow: pass to light() via cloud_dim so it composes with
 	// ATTENUATION as min() (darkest occluder wins) rather than multiplying
 	// onto the direct-sun term. Ambient sky-bounce (EMISSION half) is still
@@ -605,14 +705,15 @@ void fragment() {
 		tex_color.rgb = vec3(0.0);
 	}
 
-	// Macro noise overlay (deferred from above), flattened toward 1.0 as the
-	// surface wets — water fills the pores and evens out the dry-texture
-	// contrast instead of the darkened albedo making it crunchier.
-	tex_color.rgb *= mix(overlay, 1.0, wet_factor);
-	// Wet surfaces look darker as well as shinier — same gate as wet_spec.
-	// Floor tuned via SkyController's wet_albedo_floor (lower = more
-	// darkening at full wet, more contrast with the highlight).
-	tex_color.rgb *= mix(1.0, wet_albedo_floor, wet_factor);
+	// Wet albedo: porous soil darkens & saturates a lot, non-porous rock barely
+	// (the dark-saturated-ground half of the split). Gated by saturation × porosity;
+	// pools force at least some darkening so standing water reads dark under its
+	// sky reflection. wet_albedo_floor (SkyController) sets the full-wet darkness.
+	float wet_dark = max(saturation * porosity, pool_mask * 0.6);
+	// Slight chroma lift so wet ground reads richer, not just darker.
+	float wet_luma = dot(tex_color.rgb, vec3(0.299, 0.587, 0.114));
+	tex_color.rgb = mix(tex_color.rgb, mix(vec3(wet_luma), tex_color.rgb, 1.0 + wet_chroma), wet_dark);
+	tex_color.rgb *= mix(1.0, wet_albedo_floor, wet_dark);
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
 

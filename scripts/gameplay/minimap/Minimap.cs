@@ -546,16 +546,12 @@ public partial class Minimap : Node3D
     // X axis to pick by tile id. Built once at Initialize; the catalog is
     // authored, not mutated at runtime.
     //
-    // For each block in the catalog, every layer in its [base, base+LayerCount)
-    // range is painted with the block's per-band color (variants within a
-    // band share a color — the minimap doesn't differentiate them). Aliases
-    // (a smaller block whose AtlasBaseIndex falls inside another block's
-    // range, e.g. DesertSand@28 inside DesertTop@27..28) overwrite by virtue
-    // of their position later in catalog.Blocks. WallSlotIndex paints the
-    // authored wall color; unauthored slots stay magenta as a sanity-check.
+    // Each block is one atlas layer, painted at its AtlasBaseIndex with the
+    // block's MinimapColor. WallSlotIndex paints the authored wall color;
+    // unauthored slots stay magenta as a sanity-check.
     private static Texture2D BuildTileLutTexture(BlockCatalog catalog, Color wallSlotColor)
     {
-        const int W = VoxelTypeInfo.TILE_VARIANT_TABLE_SIZE;
+        const int W = VoxelTypeInfo.MAX_ATLAS_LAYERS;
         Color[] table = new Color[W];
         Color unauthored = new Color(1f, 0f, 1f);
         for (int i = 0; i < W; i++)
@@ -568,18 +564,10 @@ public partial class Minimap : Node3D
             foreach (BlockData block in catalog.Blocks)
             {
                 if (block == null) { continue; }
-                for (int band = 0; band < block.Bands; band++)
+                int idx = block.AtlasBaseIndex;
+                if (idx >= 0 && idx < W)
                 {
-                    Color c = block.GetMinimapColor(band);
-                    int bandStart = block.AtlasBaseIndex + band * block.VariantsPerBand;
-                    for (int v = 0; v < block.VariantsPerBand; v++)
-                    {
-                        int idx = bandStart + v;
-                        if (idx >= 0 && idx < W)
-                        {
-                            table[idx] = c;
-                        }
-                    }
+                    table[idx] = block.MinimapColor;
                 }
             }
         }

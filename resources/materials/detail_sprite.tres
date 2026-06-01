@@ -6,7 +6,5 @@
 render_priority = 0
 shader = ExtResource("1_shader")
 shader_parameter/uv_region = Vector4(0, 0, 1, 1)
-shader_parameter/use_normal_map = false
-shader_parameter/dome_strength = 0.25
 shader_parameter/subpixel_aa = true
 shader_parameter/ground_fade_pixels = 3.0
