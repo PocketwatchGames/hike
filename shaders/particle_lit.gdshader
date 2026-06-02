@@ -17,10 +17,16 @@ render_mode blend_mix, unshaded, depth_draw_opaque, cull_disabled;
 //   - Mixed (e.g. dimly lit ember with bright core): set both. Alpha is
 //     the max of the two so a non-zero emission keeps the particle visible
 //     even when albedo.a is 0.
+//   - Textured (soft smoke / dust / mist puffs): point `albedo_texture` at a
+//     shape texture (e.g. cloud_puff). It modulates the `albedo` term's RGB
+//     and alpha so the quad reads as a soft puff instead of a hard square.
+//     Left unset it defaults to opaque white, so untextured particles (sparks,
+//     pixel-sized motes) render exactly as before.
 //
 // Each particle's process material may also multiply COLOR via color_ramp;
 // COLOR.a fades the final alpha over particle lifetime.
 
+uniform sampler2D albedo_texture : source_color, hint_default_white;
 uniform vec4 albedo : source_color = vec4(0.0);
 uniform vec4 emission : source_color = vec4(0.0);
 
@@ -84,6 +90,11 @@ void fragment() {
 		lit = vec3(1.0);
 	}
 
+	// Shape texture (defaults to opaque white when unset, so untextured
+	// particles are unaffected). Modulates only the albedo term — emission
+	// stays a flat color so emissive fire/sparks never depend on a texture.
+	vec4 tex = texture(albedo_texture, UV);
+
 	// render_mode is unshaded → final output = ALBEDO + EMISSION. Write
 	// everything through ALBEDO and zero EMISSION so we don't accidentally
 	// double-add anything (per the CLAUDE.md unshaded fragment-output note).
@@ -91,7 +102,7 @@ void fragment() {
 	// defaults to false, so the per-particle COLOR.rgb did NOT tint the
 	// rendered output. Only COLOR.a (driven by the process material's
 	// color_ramp) drives the lifetime fade. Apply that here.
-	ALBEDO = albedo.rgb * lit + emission.rgb;
+	ALBEDO = tex.rgb * albedo.rgb * lit + emission.rgb;
 	EMISSION = vec3(0.0);
-	ALPHA = max(albedo.a, emission.a) * particle_color.a;
+	ALPHA = max(tex.a * albedo.a, emission.a) * particle_color.a;
 }

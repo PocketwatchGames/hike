@@ -6,6 +6,7 @@
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_03.wav" id="2_s03"]
 [ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_04.wav" id="2_s04"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootspawn"]
 emission_shape = 1
@@ -23,6 +24,7 @@ scale_max = 1.2
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lootspawn"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0.85, 0.95, 1, 0.7)
 shader_parameter/emission = Color(0, 0, 0, 0)
 
