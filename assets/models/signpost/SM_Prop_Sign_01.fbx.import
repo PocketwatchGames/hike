@@ -42,7 +42,7 @@ _subresources={
 "Explorer_MAT31": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://resources/materials/sign_interactive.tres",
-"use_external/path": ""
+"use_external/path": "uid://dvm88vlw0n0qf"
 }
 }
 }

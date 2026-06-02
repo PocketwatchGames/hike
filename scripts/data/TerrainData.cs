@@ -47,12 +47,17 @@ public partial class TerrainData : Resource
     // 0 = straight bisector (crisp, for man-made walls). Higher = more jagged.
     [Export] public float BlendAmp = 0.55f;
 
-    // Detail-sprite root tint for blades/flowers scattered on an AUTO-Terrain
-    // voxel belonging to this entry. ChunkDetailScatter uses this to tint the
-    // bottom texels of each sprite so blades read as rooted in this terrain's
-    // ground. Bias it ~50% darker than the authored FlatTile average so the
-    // tint doubles as a fake contact-AO at the blade base. Authored-override
-    // VoxelTypes (Grass/Dirt/Sand/etc.) bypass this and use
+    // Detail-sprite ground tint for blades/flowers scattered on an AUTO-Terrain
+    // voxel belonging to this entry. The detail shader pulls sprite pixels
+    // toward this color where the entry's tint map paints the G channel, so the
+    // grass base blends into the ground it's rooted in.
+    //
+    // OVERWRITTEN AT LOAD: ChunkMesh.SetTerrains replaces this with the
+    // linear-space average of this terrain's actual FlatTile texture (see
+    // TryGetLayerAverageLinear), so the tint matches the rendered ground exactly
+    // and stays in sync when tile textures change — no manual bake. The value
+    // authored here is only a fallback used if the tile layer can't be decoded.
+    // Authored-override VoxelTypes (Grass/Dirt/Sand/etc.) bypass this and use
     // VoxelTypeInfo.GroundTint instead.
     [Export] public Color GroundTint = new Color(0.16f, 0.22f, 0.09f);
 }

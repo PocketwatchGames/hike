@@ -93,7 +93,7 @@ hitstun = 0.25
 knockbackDistance = 1.5
 knockbackTime = 0.25
 statusEffects = []
-buildups = null
+buildups = []
 modifiers = Array[Object]([SubResource("Resource_sx562")])
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
@@ -111,7 +111,7 @@ hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
 statusEffects = []
-buildups = null
+buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
 
 [resource]

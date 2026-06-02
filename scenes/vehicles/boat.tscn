@@ -1,10 +1,13 @@
-[gd_scene load_steps=8 format=3 uid="uid://rpa7b9ba2fnp8"]
+[gd_scene format=3 uid="uid://b8npx1masl5o6"]
 
-[ext_resource type="Script" uid="uid://8uoz8ky2bb9zv" path="res://scripts/gameplay/vehicles/Boat.cs" id="1_boat"]
-[ext_resource type="Resource" uid="uid://fh1ftwjb0n6kd" path="res://resources/data/vehicles/boat.tres" id="2_data"]
+[ext_resource type="Script" uid="uid://cxf2i4m1rpaxr" path="res://scripts/gameplay/vehicles/Boat.cs" id="1_boat"]
+[ext_resource type="Resource" uid="uid://bmmj8ul2ghbsl" path="res://resources/data/vehicles/boat.tres" id="2_data"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="3_interactivebox"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="4_action"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_o8l7w"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_q2y0g"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_4tnv2"]
 
 [sub_resource type="Resource" id="Resource_boat_event_board"]
 script = ExtResource("5_event")
@@ -19,45 +22,74 @@ completionEvents = Array[ExtResource("5_event")]([SubResource("Resource_boat_eve
 [sub_resource type="BoxShape3D" id="BoxShape3D_hull"]
 size = Vector3(2, 0.6, 3.2)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(2.6, 1.5, 3.8)
-
 [sub_resource type="BoxMesh" id="BoxMesh_hull"]
 size = Vector3(2, 0.5, 3)
 
 [sub_resource type="StandardMaterial3D" id="Material_hull"]
 albedo_color = Color(0.42, 0.27, 0.13, 1)
 
-[node name="Boat" type="CharacterBody3D" node_paths=PackedStringArray("_seatAnchor", "_hudNode")]
+[sub_resource type="BoxMesh" id="BoxMesh_5tejg"]
+size = Vector3(0.5, 3, 0.5)
+
+[sub_resource type="BoxMesh" id="BoxMesh_ktwqb"]
+size = Vector3(3, 0.1, 0.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_v3vxb"]
+size = Vector3(2.5, 2, 0.1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
+size = Vector3(2.6, 1.5, 3.8)
+
+[node name="Boat" type="CharacterBody3D" unique_id=1737708684 node_paths=PackedStringArray("_seatAnchor", "_hudNode")]
 collision_layer = 8
 collision_mask = 2049
 script = ExtResource("1_boat")
+_data = ExtResource("2_data")
 _seatAnchor = NodePath("SeatAnchor")
 _hudNode = NodePath("HUDNode")
 _actions = Array[ExtResource("4_action")]([SubResource("Resource_boat_action_board")])
-_data = ExtResource("2_data")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=187974728]
 shape = SubResource("BoxShape3D_hull")
 
-[node name="Hull" type="MeshInstance3D" parent="."]
+[node name="Hull" type="MeshInstance3D" parent="." unique_id=967339114]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
 mesh = SubResource("BoxMesh_hull")
 surface_material_override/0 = SubResource("Material_hull")
 
-[node name="SeatAnchor" type="Node3D" parent="."]
+[node name="Mast" type="MeshInstance3D" parent="." unique_id=708624052]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7879555, 0)
+mesh = SubResource("BoxMesh_5tejg")
+surface_material_override/0 = SubResource("Material_hull")
+
+[node name="Mast2" type="MeshInstance3D" parent="." unique_id=1277480903]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4098477, 0.19411242)
+mesh = SubResource("BoxMesh_ktwqb")
+surface_material_override/0 = SubResource("Material_hull")
+
+[node name="Mast3" type="MeshInstance3D" parent="." unique_id=1491054421]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.1234462, 0.19411242)
+mesh = SubResource("BoxMesh_ktwqb")
+surface_material_override/0 = SubResource("Material_hull")
+
+[node name="Mast4" type="MeshInstance3D" parent="." unique_id=1066478657]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2440336, 0.24980032)
+mesh = SubResource("BoxMesh_v3vxb")
+surface_material_override/0 = SubResource("Material_hull")
+
+[node name="SeatAnchor" type="Node3D" parent="." unique_id=515006204]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, -0.2)
 
-[node name="HUDNode" type="Node3D" parent="."]
+[node name="HUDNode" type="Node3D" parent="." unique_id=1929973395]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 
-[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=1793600888 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
 script = ExtResource("3_interactivebox")
 _interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=1125636449]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
 shape = SubResource("BoxShape3D_interact")

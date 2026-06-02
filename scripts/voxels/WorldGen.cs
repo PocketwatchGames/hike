@@ -11,7 +11,7 @@ public static class WorldGen
     // placement pass, etc. WorldGenCache rolls this into its fingerprint so
     // every bump invalidates all cached worlds. WorldGenData .tres edits are
     // detected automatically by content-hashing and don't require a bump.
-    public const int WORLDGEN_VERSION = 3;
+    public const int WORLDGEN_VERSION = 6;
 
     // Bitmask flags for the worldgen_skip CVar — see CVars.worldgenSkip.
     // Each category is checked independently inside GenerateProps; setting
@@ -558,7 +558,7 @@ public static class WorldGen
         int skipFlags = CVars.worldgenSkip.Value;
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
-            StampDetailScatter(ws, roadColumns);
+            StampDetailScatter(ws, roadColumns, genData);
         }
 
         // Always run GenerateProps when *any* of its categories are still
@@ -2825,7 +2825,7 @@ public static class WorldGen
     // object is sampled at base frequency 1, with coords pre-scaled by the
     // kit's DetailNoiseFrequency, so kits within a single zone read
     // different noise patterns (sharp transitions where kits change).
-    private static void StampDetailScatter(WorldState ws, HashSet<(int, int)> roadColumns)
+    private static void StampDetailScatter(WorldState ws, HashSet<(int, int)> roadColumns, WorldGenData genData)
     {
         var surfaceNoise = new FastNoiseLite();
         surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -2872,13 +2872,30 @@ public static class WorldGen
                         continue;
                     }
 
-                    int TerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
-                    TerrainKitData kit = ResolveKit(TerrainId);
+                    // Surface detail follows the DETERMINISTIC dominant zone
+                    // (argmax of the smooth zone-weight kernel), NOT this voxel's
+                    // stamped kit. Kit borders are assigned by a per-column random
+                    // hash (PickWeightedZoneFromHash) so the terrain reads as a
+                    // jagged organic transition once the shader blends it — but
+                    // detail renders each per-column pick as a discrete sprite, so
+                    // that RNG shows up as a salt-and-pepper of off-biome grass
+                    // (and the occasional dense off-biome clump where the hash
+                    // rolled one way several columns running). Keying detail off
+                    // the dominant zone instead snaps its boundary to the blend
+                    // midline, so detail tracks the terrain's visual transition
+                    // rather than its per-voxel randomness. Cave / submerged
+                    // detail keeps the voxel's own kit (less visible, not the
+                    // reported problem). The chosen kit's DetailNoise* thresholds
+                    // still drive presence/strength below.
+                    int voxelTerrainId = ws.GetTerrainIdWorld(wx, wy, wz);
+                    bool isSurface = IsSurfaceKit(voxelTerrainId);
+                    TerrainKitData kit = isSurface
+                        ? (DominantZoneSurfaceKit(wx, wz, genData.Zones) ?? ResolveKit(voxelTerrainId))
+                        : ResolveKit(voxelTerrainId);
                     if (kit == null || kit.DefaultDetail == null)
                     {
                         continue;
                     }
-                    bool isSurface = IsSurfaceKit(TerrainId);
                     // Paved roads suppress Surface-kit scatter so the
                     // cobblestone reads as authored ground, not a clearing
                     // in the grass. Cave / submerged kits don't care about
@@ -2913,6 +2930,33 @@ public static class WorldGen
                 }
             }
         }
+    }
+
+    // SurfaceKit of the zone with the highest weight at column (wx, wz) — the
+    // deterministic dominant zone. Uses the same KIT_BLEND_RADIUS kernel the
+    // (random) kit-border hash samples, so the dominant flips exactly at that
+    // kernel's midline and the detail boundary sits where the terrain blend
+    // visually crosses over. Returns null when no zone has positive weight or
+    // the winner has no SurfaceKit, so the caller falls back to the voxel's own
+    // stamped kit. See StampDetailScatter for why detail keys off the dominant
+    // zone rather than the per-column random pick.
+    private static TerrainKitData DominantZoneSurfaceKit(int wx, int wz, ZoneGenData[] zones)
+    {
+        int n = zones != null ? zones.Length : 0;
+        if (n == 0) { return null; }
+        Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
+        GetZoneGenWeights(wx, wz, n, weights, KIT_BLEND_RADIUS);
+        int best = -1;
+        float bestW = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            if (weights[i] > bestW)
+            {
+                bestW = weights[i];
+                best = i;
+            }
+        }
+        return best >= 0 ? zones[best]?.SurfaceKit : null;
     }
 
     // Stamp OVERLAY_DIRT on "surface voxels" (solid with air directly above)

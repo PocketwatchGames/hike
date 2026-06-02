@@ -4,7 +4,7 @@ using Godot;
 [GlobalClass]
 public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 {
-    [Export] private LitSpriteAnimator _animator;
+    [Export] private Node3D _berries;
     [Export] private HurtBox _hurtBox;
     [Export] private Node3D _hudNode;
     // Authored interaction list. Berry trees ship with a single "Pick"
@@ -19,9 +19,6 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
     [Export] private ItemData _berryItem;
     [Export] private float _lootSpeed = 10;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
-
-    private static readonly StringName AnimRipe = "ripe";
-    private static readonly StringName AnimPicked = "picked";
 
     private bool _picked;
     private BerryTreeSimState _interactiveState;
@@ -103,7 +100,7 @@ public partial class BerryTree : Node3D, IInteractive, IWorldEntity
 
     private void UpdateVisuals()
     {
-        _animator.Play(_picked ? AnimPicked : AnimRipe);
+        _berries.Visible = !_picked;
     }
 
     public static BerryTree Create(World world, BerryTreeSimState data)

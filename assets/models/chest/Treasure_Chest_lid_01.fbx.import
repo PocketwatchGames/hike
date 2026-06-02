@@ -17,7 +17,7 @@ nodes/root_type=""
 nodes/root_name=""
 nodes/root_script=null
 nodes/apply_root_scale=true
-nodes/root_scale=1.0
+nodes/root_scale=100.0
 nodes/import_as_skeleton_bones=false
 nodes/use_name_suffixes=true
 nodes/use_node_type_suffixes=true
@@ -42,7 +42,7 @@ _subresources={
 "Atlas_Props_01": {
 "use_external/enabled": true,
 "use_external/fallback_path": "res://resources/materials/chest_interactive.tres",
-"use_external/path": ""
+"use_external/path": "uid://cu8wky4n8u01x"
 }
 }
 }

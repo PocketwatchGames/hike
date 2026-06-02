@@ -110,5 +110,5 @@ void fragment() {
 	vec3 vertex_tint = use_vertex_color ? particle_color.rgb : vec3(1.0);
 	ALBEDO = (tex.rgb * albedo.rgb * lit + emission.rgb) * vertex_tint;
 	EMISSION = vec3(0.0);
-	ALPHA = max(tex.a * albedo.a, emission.a) * particle_color.a;
+	ALPHA = tex.a * max(albedo.a, emission.a) * particle_color.a;
 }

@@ -32,8 +32,9 @@ color_ramp = SubResource("GradientTexture1D_di3vq")
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_firecol_flame"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0, 0, 0, 0)
-shader_parameter/emission = Color(1, 0.55, 0.15, 0.95)
+shader_parameter/emission = Color(1, 0.6, 0.2509804, 0.9490196)
 shader_parameter/use_vertex_color = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_firecol_flame"]
@@ -102,6 +103,7 @@ _loop = true
 
 [node name="Flame" type="GPUParticles3D" parent="." unique_id=1220278634]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+cast_shadow = 0
 amount = 60
 lifetime = 0.8
 randomness = 0.4
@@ -118,6 +120,7 @@ draw_pass_1 = SubResource("QuadMesh_firecol_embers")
 
 [node name="Smoke" type="GPUParticles3D" parent="." unique_id=2068512175]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
+cast_shadow = 0
 amount = 14
 lifetime = 2.2
 randomness = 0.5

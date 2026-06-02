@@ -39,6 +39,14 @@ public partial class ChunkMesh : Node3D
     private static ShaderMaterial MaskBackfaceMaterial;
     private static bool _materialsInitialized;
 
+    // The terrain color atlas (voxel_tiles.png as a Texture2DArray), kept so
+    // SetTerrains can sample each terrain's flat-tile average for its detail
+    // GroundTint. Same resource the shader binds to `tile_array`.
+    private static TextureLayered _tileColorArray;
+    // Per-atlas-layer cached linear-space average color. Keyed by layer index
+    // so terrains sharing a flat tile decode the layer only once.
+    private static readonly Dictionary<int, Color> _layerAverageCache = new();
+
     // Baked-AO darkening strength pushed to the terrain shader's `ao_strength`
     // uniform (0 = AO off, 1 = authored, >1 exaggerates for verification).
     // Cached so a CVar set before the material exists still takes effect once
@@ -135,6 +143,15 @@ public partial class ChunkMesh : Node3D
         SharedMaterial = new ShaderMaterial();
         SharedMaterial.Shader = shader;
         var tileArray = GD.Load<TextureLayered>("res://assets/textures/voxels/voxel_tiles.png");
+        _tileColorArray = tileArray;
+        // Pre-warm the per-layer average-color cache (used for detail-sprite
+        // GroundTint, flat tiles AND per-voxel overlays) on the main thread at
+        // load, so the scatter — which reads it per painted voxel and may run
+        // off-thread in future — only ever hits the populated cache.
+        for (int layer = 0; layer < tileArray.GetLayers(); layer++)
+        {
+            TryGetLayerAverageLinear(layer, out _);
+        }
         SharedMaterial.SetShaderParameter("tile_array", tileArray);
         // Seed AO darkening strength (honors any CVar set before this ran).
         SharedMaterial.SetShaderParameter("ao_strength", _aoStrength);
@@ -266,9 +283,88 @@ public partial class ChunkMesh : Node3D
             int wall = terrain.WallTile != null ? terrain.WallTile.AtlasBaseIndex : BlockCatalog.Active.GetAtlasIndexByName("Stone");
             tiles[i] = new Vector4(flat, wall, 0f, 0f);
             bands[i] = new Vector4(terrain.WallBand.X, terrain.WallBand.Y, 0f, 0f);
+
+            // Detail-sprite ground tint = the average color of the exact flat
+            // tile the shader renders for this terrain, so grass roots blended
+            // toward it (the tint map's G channel) match the ground beneath
+            // them. Computed at load from the atlas rather than hand-authored,
+            // so re-importing a tile texture keeps the tint in sync with no
+            // bake step. Falls back to the authored GroundTint if the layer
+            // can't be decoded (logged once in TryGetLayerAverageLinear).
+            if (TryGetLayerAverageLinear(flat, out Color flatAverage))
+            {
+                terrain.GroundTint = flatAverage;
+            }
         }
         SharedMaterial.SetShaderParameter("terrain_tiles", tiles);
         SharedMaterial.SetShaderParameter("terrain_bands", bands);
+    }
+
+    // Average color of one atlas layer in voxel_tiles.png, in LINEAR space.
+    //
+    // Color space matters: the shader binds tile_array as `source_color`, so it
+    // sees each texel decoded sRGB->linear, and the detail sprite consumes this
+    // tint as linear albedo (MultiMesh instance COLOR is passed through without
+    // conversion). Image.GetPixel returns the stored sRGB-encoded value, so we
+    // decode each texel before accumulating — averaging in linear space is the
+    // physically correct mean reflectance and is what makes the rooted grass
+    // base match the lit terrain. Alpha-weighted so any transparent padding
+    // texels don't drag the average toward black.
+    //
+    // Cached per layer: terrains sharing a flat tile decode it once. The atlas
+    // is small and this runs once per world load, so the cost is negligible.
+    internal static bool TryGetLayerAverageLinear(int layer, out Color average)
+    {
+        average = Colors.White;
+        if (_layerAverageCache.TryGetValue(layer, out average))
+        {
+            return true;
+        }
+        if (_tileColorArray == null || layer < 0 || layer >= _tileColorArray.GetLayers())
+        {
+            return false;
+        }
+
+        Image img = _tileColorArray.GetLayerData(layer);
+        if (img == null)
+        {
+            GD.PushWarning($"ChunkMesh: could not read tile_array layer {layer} for GroundTint; keeping authored tint.");
+            return false;
+        }
+        // The imported atlas is VRAM-compressed; decode to RGBA before sampling.
+        if (img.IsCompressed() && img.Decompress() != Error.Ok)
+        {
+            GD.PushWarning($"ChunkMesh: could not decompress tile_array layer {layer} for GroundTint; keeping authored tint.");
+            return false;
+        }
+
+        int w = img.GetWidth();
+        int h = img.GetHeight();
+        double r = 0.0;
+        double g = 0.0;
+        double b = 0.0;
+        double weight = 0.0;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                Color texel = img.GetPixel(x, y);
+                Color lin = texel.SrgbToLinear();
+                double a = texel.A;
+                r += lin.R * a;
+                g += lin.G * a;
+                b += lin.B * a;
+                weight += a;
+            }
+        }
+        if (weight <= 0.0)
+        {
+            return false;
+        }
+
+        average = new Color((float)(r / weight), (float)(g / weight), (float)(b / weight), 1f);
+        _layerAverageCache[layer] = average;
+        return true;
     }
 
     // Detail-sprite palette for ChunkDetailScatter. Index 0 of the per-voxel

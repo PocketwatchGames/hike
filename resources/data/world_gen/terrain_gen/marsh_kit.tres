@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://gpdraqwf22b8"]
 
+[ext_resource type="Resource" uid="uid://ckhiesfv77y2b" path="res://resources/data/details/detail_grass_swamp.tres" id="1_c0fex"]
 [ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" path="res://resources/data/terrain/marsh.tres" id="2_kit"]
-[ext_resource type="Resource" uid="uid://hv046le0b30u" path="res://resources/data/details/detail_grass.tres" id="3_detail"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="4_g01"]
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="4_g02"]
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="4_g03"]
@@ -19,6 +19,6 @@
 [resource]
 script = ExtResource("1_script")
 Terrain = ExtResource("2_kit")
-DefaultDetail = ExtResource("3_detail")
+DefaultDetail = ExtResource("1_c0fex")
 TreeScenes = [ExtResource("5_t01"), ExtResource("5_t02"), ExtResource("9_veml7"), ExtResource("10_c0fex"), ExtResource("11_tpi02"), ExtResource("11_tpi02"), ExtResource("12_vum8l"), ExtResource("12_vum8l"), ExtResource("13_c0fex"), ExtResource("11_eh5vr")]
 TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]

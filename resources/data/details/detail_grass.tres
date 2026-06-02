@@ -2,20 +2,28 @@
 
 [ext_resource type="Texture2D" uid="uid://cc6as7l6ipqvo" path="res://assets/textures/details/grass_01.png" id="2_mxn6u"]
 [ext_resource type="Texture2D" uid="uid://bx5qkc3he2is3" path="res://assets/textures/details/grass_02.png" id="3_05b5i"]
+[ext_resource type="Texture2D" uid="uid://covhxqvaf2rkv" path="res://assets/textures/details/grass_01_tint.png" id="3_ox733"]
 [ext_resource type="Texture2D" uid="uid://dn5dksty0sags" path="res://assets/textures/details/grass_03.png" id="4_a6s4p"]
 [ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="4_group_script"]
+[ext_resource type="Texture2D" uid="uid://doeo053ua5fdm" path="res://assets/textures/details/grass_02_tint.png" id="5_2gh2g"]
 [ext_resource type="Texture2D" uid="uid://bm0nc52ekfjhy" path="res://assets/textures/details/grass_04.png" id="5_8sc02"]
+[ext_resource type="Texture2D" uid="uid://nxldhpssxck4" path="res://assets/textures/details/grass_03_tint.png" id="7_lmaee"]
+[ext_resource type="Texture2D" uid="uid://bmyrj83dkgqu5" path="res://assets/textures/details/grass_04_tint.png" id="9_cmtml"]
 [ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="entry_script"]
 
 [sub_resource type="Resource" id="Resource_grass_entry"]
 script = ExtResource("entry_script")
 Texture = ExtResource("2_mxn6u")
+TintMap = ExtResource("3_ox733")
+TintColorA = Color(0.49, 0.49, 0.23030002, 1)
 ScaleMin = 0.7
 ScaleMax = 1.3
 
 [sub_resource type="Resource" id="Resource_a6s4p"]
 script = ExtResource("entry_script")
 Texture = ExtResource("3_05b5i")
+TintMap = ExtResource("5_2gh2g")
+TintColorA = Color(0.49019608, 0.49019608, 0.23137255, 1)
 ScaleMin = 0.7
 ScaleMax = 1.3
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
@@ -23,6 +31,8 @@ metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 [sub_resource type="Resource" id="Resource_0mhvy"]
 script = ExtResource("entry_script")
 Texture = ExtResource("4_a6s4p")
+TintMap = ExtResource("7_lmaee")
+TintColorA = Color(0.49019608, 0.49019608, 0.23137255, 1)
 Weight = 0.1
 ScaleMin = 0.7
 ScaleMax = 1.3
@@ -31,12 +41,34 @@ metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 [sub_resource type="Resource" id="Resource_hrmu7"]
 script = ExtResource("entry_script")
 Texture = ExtResource("5_8sc02")
-Weight = 0.1
+TintMap = ExtResource("9_cmtml")
+TintColorA = Color(0.49019608, 0.49019608, 0.23137255, 1)
+Weight = 0.05
 ScaleMin = 0.7
 ScaleMax = 1.3
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_ox733"]
+script = ExtResource("entry_script")
+Texture = ExtResource("5_8sc02")
+TintMap = ExtResource("9_cmtml")
+TintColorA = Color(0.49019608, 0.49019608, 0.23137255, 1)
+TintColorB = Color(1, 0.92800003, 0.27999997, 1)
+Weight = 0.05
+ScaleMin = 0.7
+ScaleMax = 1.3
+metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
+
+[sub_resource type="Resource" id="Resource_2gh2g"]
+script = ExtResource("entry_script")
+Texture = ExtResource("4_a6s4p")
+TintMap = ExtResource("7_lmaee")
+TintColorA = Color(0.49019608, 0.49019608, 0.23137255, 1)
+TintColorB = Color(1, 0.92941177, 0.2784314, 1)
+Weight = 0.05
 metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 
 [resource]
 script = ExtResource("4_group_script")
 GroupName = "grass"
-Entries = Array[ExtResource("entry_script")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_0mhvy"), SubResource("Resource_hrmu7")])
+Entries = Array[ExtResource("entry_script")]([SubResource("Resource_grass_entry"), SubResource("Resource_a6s4p"), SubResource("Resource_0mhvy"), SubResource("Resource_hrmu7"), SubResource("Resource_ox733"), SubResource("Resource_2gh2g")])

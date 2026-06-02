@@ -47,6 +47,23 @@ uniform sampler2D sprite_texture : source_color, filter_linear;
 // (e.g. ground_fade column hashing) multiplies it by uv_region.zw.
 uniform vec4 uv_region = vec4(0.0, 0.0, 1.0, 1.0);
 
+// Per-entry tint map (a data/mask texture, NOT source_color — import the PNG
+// as non-sRGB / "Linear" so its channel values read as raw weights). Per
+// texel: R = pull weight toward tint_color_a, G = pull weight toward the
+// per-instance ground color (COLOR.rgb), B = pull weight toward tint_color_b;
+// a black texel keeps the source texture color. Bound per entry by
+// DetailEntry.GetMaterial. Defaults to black (hint_default_black) so entries
+// with no tint map render straight from sprite_texture. filter_nearest: the
+// mask is sampled at snapped texel centers and must not bleed between regions.
+uniform sampler2D tint_map : hint_default_black, filter_nearest;
+// Atlas region for tint_map, same xy=origin / zw=size packing as uv_region.
+// Identity (0,0,1,1) when the tint map is a standalone (non-atlas) texture.
+uniform vec4 tint_uv_region = vec4(0.0, 0.0, 1.0, 1.0);
+// The two authored tint targets the tint_map's R and B channels pull toward.
+// source_color so the authored sRGB colors linearize to match the albedo.
+uniform vec3 tint_color_a : source_color = vec3(1.0);
+uniform vec3 tint_color_b : source_color = vec3(1.0);
+
 // --- Normal pipeline ---
 // Sprites light off the per-instance terrain normal that ChunkDetailScatter
 // packs into INSTANCE_CUSTOM.xyz (the same vector the sprite uses for its
@@ -72,14 +89,6 @@ uniform vec4 uv_region = vec4(0.0, 0.0, 1.0, 1.0);
 // transparent texels carry a sensible RGB.
 uniform bool subpixel_aa = true;
 
-// Ground-rooting: each texel column of the sprite picks a random fade
-// height in [0, ground_fade_pixels] pixels, then smoothstep-lerps that
-// band toward COLOR.rgb (per-instance ground tint set by
-// ChunkDetailScatter). The per-column hash produces an irregular
-// pixel-art boundary (some columns have no tint, others have the full
-// N pixels) rather than a clean horizontal band.
-uniform float ground_fade_pixels : hint_range(0.0, 8.0) = 3.0;
-
 // --- Lighting globals (shared with sprite_lit / voxel_clip) ---
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
@@ -91,13 +100,14 @@ global uniform float sun_ambient;
 global uniform vec3 sun_world_dir;
 // Lingering surface wetness in [0, 1]. Driven by SkyController from recent
 // rain / fog / humidity. Same value the terrain shader reads, so wet grass
-// and wet stone shift together. Modulated per-fragment by sun_mask (sprites
-// under cover stay dry) and by world_normal.y (grass tips/upward leaves
-// catch the highlight, downward-facing leaves don't).
+// and wet stone darken together. Modulated per-fragment by sun_mask (sprites
+// under cover stay dry) and by world_normal.y (upward-facing blades darken,
+// downward-facing leaves don't).
 global uniform float wetness_level;
-// Shared wetness tunables — same values the terrain shader reads so grass
-// and stone glint and darken in lockstep.
-global uniform float wet_spec_strength;
+// Shared wet-darken tunable — same value the terrain shader reads so wet grass
+// darkens in lockstep with wet stone. Grass uses ONLY this darken for its wet
+// look; the terrain's specular / sky reflection / pooling are deliberately not
+// shared (see fragment()).
 global uniform float wet_albedo_floor;
 // Shared tint globals (voxel_clip uses the same pair). Two off-axis fill
 // directions and their colors. Surfaces facing away from a fill are
@@ -169,23 +179,17 @@ global uniform float player_strength;
 // from the [Export] WindStrength field on the entry resource.
 uniform float wind_strength : hint_range(0.0, 1.0) = 1.0;
 
-// Per-entry response to surface wetness. Multiplies the wet_factor that both
-// the wet darken and the wet sheen derive from, so one knob scales the whole
-// wet look for this sprite type. 1.0 = wets out alongside the terrain (grass,
-// leaves — default); 0.0 = ignores wetness entirely (dry twigs, bones,
-// pebbles). Stamped into the material by DetailEntry.GetMaterial from the
-// [Export] WetStrength field on the entry resource.
+// Per-entry response to surface wetness. Scales the wet_factor that drives the
+// wet darken — grass's only wet effect (no specular / reflection / pooling).
+// 1.0 = darkens alongside the terrain when wet (grass, leaves — default);
+// 0.0 = ignores wetness entirely (dry twigs, bones, pebbles). Stamped into the
+// material by DetailEntry.GetMaterial from the [Export] WetStrength field.
 uniform float wet_strength : hint_range(0.0, 1.0) = 1.0;
 
 varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
 varying float cloud_dim;
-// Pre-multiplied wetness specular term, same model as voxel_clip:
-//   pow(N·H, k) * wetness_level * sun_mask * slope.
-// Composed in light() with sun_color × sun_intensity and the same shadow
-// gates as DIFFUSE_LIGHT so cast shadows kill the highlight on grass too.
-varying float wet_spec;
 // Per-fragment world position. Sampled for cloud shadow so the sprite's
 // cloud state matches the fog shader's Y-dependent shaft sampling at the
 // same sun ray. See the cloud_shadow call in fragment().
@@ -305,7 +309,17 @@ void vertex() {
 	vertex_world += wind_offset + push_offset;
 	frag_world_pos = vertex_world;
 
-	POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(vertex_world, 1.0);
+	vec4 view_pos = VIEW_MATRIX * vec4(vertex_world, 1.0);
+	POSITION = PROJECTION_MATRIX * view_pos;
+	// Hand the built-in (Environment) depth fog a correct view-space VERTEX.
+	// render_mode skip_vertex_transform leaves VERTEX in the quad's local space
+	// (used above for the billboard + UV), which Godot's fog stage would read as
+	// ~0 fragment depth — so detail sprites escape the distance fog that fogs the
+	// terrain and pop against the fogged-dark far terrain at the top of the view.
+	// Writing the real view-space position makes grass fog identically to the
+	// ground beneath it. (Same gap exists in the other skip_vertex_transform
+	// sprite shaders if their geometry ever needs to fog.)
+	VERTEX = view_pos.xyz;
 }
 
 void fragment() {
@@ -342,27 +356,28 @@ void fragment() {
 		discard;
 	}
 
-	// Ground root blend — smoothly lerp the bottom N texels of the sprite
-	// toward the per-instance ground tint (COLOR, set by ChunkDetailScatter).
-	// Per texel-column hash offsets the fade threshold so the boundary is
-	// irregular (pixel-art "drip"), while smoothstep keeps the interior
-	// gradient reading as real lerp rather than a flat color block.
-	// Quantizing the hash input to the texel grid (not raw UV.x) keeps the
-	// boundary stable under filter_nearest — all screen fragments within one
-	// texel agree on threshold, so there's no sub-texel shimmer. Per-instance
-	// offset decorrelates adjacent blades.
-	vec2 tex_size = vec2(textureSize(sprite_texture, 0)) * uv_region.zw;
-	float texel_col = floor(UV.x * tex_size.x);
-	float col_hash = hash12(vec2(texel_col, world_origin.x * 17.0 + world_origin.z * 23.0));
-	// Per-column fade height in [0, ground_fade_pixels] texels. Columns
-	// that roll near 0 stay fully untinted; columns that roll near N are
-	// tinted all the way up to N texels from the root. Smoothstep within
-	// the column gives a gradient from pure texture at the band's top to
-	// full ground tint at UV.y = 1.
-	float fade_px = col_hash * ground_fade_pixels;
-	float threshold = 1.0 - fade_px / tex_size.y;
-	float ground_blend = smoothstep(threshold, 1.0, UV.y);
-	tex.rgb = mix(tex.rgb, COLOR.rgb, ground_blend);
+	// Tint-map recolor. The per-entry tint_map carries, per texel, three pull
+	// weights: R toward tint_color_a, G toward the per-instance ground color
+	// (COLOR.rgb — the GroundTint of the voxel under this sprite, set by
+	// ChunkDetailScatter), B toward tint_color_b. A black texel leaves the
+	// source texture color untouched. The three pulls blend as a normalized
+	// weighted average with the texture holding the remaining
+	// (1 - r - g - b) weight, so overlapping channels never oversaturate and
+	// the order of the pulls doesn't matter. The denominator is
+	// max(1, r+g+b) >= 1, so there's no divide-by-zero and no scaling when the
+	// weights already sum to <= 1. Sampled at the same snapped sprite-space UV
+	// as the albedo (remapped into the tint atlas region) so mask and texture
+	// stay texel-aligned. Replaces the old procedural bottom-pixels "drip"
+	// rooting — authors now paint the ground-pull falloff into the G channel.
+	vec2 snapped_uv01 = (sprite_uv - uv_region.xy) / uv_region.zw;
+	vec2 tint_uv = tint_uv_region.xy + snapped_uv01 * tint_uv_region.zw;
+	vec3 tmap = texture(tint_map, tint_uv).rgb;
+	float w_tex = max(0.0, 1.0 - tmap.r - tmap.g - tmap.b);
+	float inv_total = 1.0 / (w_tex + tmap.r + tmap.g + tmap.b);
+	tex.rgb = (tex.rgb * w_tex
+		+ tint_color_a * tmap.r
+		+ COLOR.rgb * tmap.g
+		+ tint_color_b * tmap.b) * inv_total;
 
 	// The sprite's lighting normal is the per-instance terrain normal under
 	// it (passed through from the vertex stage), so it shades exactly like
@@ -384,14 +399,12 @@ void fragment() {
 	// steep faces stay drier. Same curve and exponents as voxel_clip so wet
 	// grass and wet terrain behave consistently.
 	float wet_slope = pow(max(world_normal.y, 0.0), 3.0);
-	// Per-entry wet_strength folds in here so it scales both the darken and the
-	// sheen (both read wet_factor). The debug_wet_spec view below intentionally
-	// shows the un-weighted gate so it still reads the shared terrain wetness.
+	// Grass shares the terrain's wetness INPUT (wetness_level) and the same
+	// sky-exposure × upward-slope gate, but NOT the terrain's wet look — no
+	// specular glint, sky reflection, or pooling. The only wet effect is the
+	// slight albedo darken applied below, so blades don't read dry/grey over
+	// wet ground. Per-entry wet_strength scales how strongly this sprite darkens.
 	float wet_factor = wetness_level * sun_mask * wet_slope * wet_strength;
-	vec3 wet_view = normalize(INV_VIEW_MATRIX[3].xyz - frag_world_pos);
-	vec3 wet_h = normalize(wet_view + (-sun_world_dir));
-	float wet_ndoth = max(dot(world_normal, wet_h), 0.0);
-	wet_spec = pow(wet_ndoth, 16.0) * wet_factor;
 	// Same cloud_shadow_ground call as terrain and regular sprites —
 	// samples the cloud noise at world XZ with no sun-direction projection,
 	// so grass, terrain, and sprite shadows stay in lockstep and all drift
@@ -438,20 +451,16 @@ void fragment() {
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);
 		EMISSION = world_normal * 0.5 + 0.5;
-		wet_spec = 0.0;
 	}
 	if (debug_unlit) {
 		ALBEDO = vec3(0.0);
 		EMISSION = tex.rgb;
-		wet_spec = 0.0;
 	}
 	if (debug_wet_spec) {
-		// Same channel breakdown as voxel_clip:
-		//   R = wetness_level, G = sun_mask*slope gate, B = pow(N·H,16) glint.
-		float wet_geom = pow(max(dot(world_normal, wet_h), 0.0), 16.0);
+		// Grass has no wet specular; show the shared wet gate it darkens by:
+		//   R = wetness_level (global), G = sun_mask * wet_slope (per-fragment).
 		ALBEDO = vec3(0.0);
-		EMISSION = vec3(wetness_level, sun_mask * wet_slope, wet_geom);
-		wet_spec = 0.0;
+		EMISSION = vec3(wetness_level, sun_mask * wet_slope, 0.0);
 	}
 }
 
@@ -465,8 +474,4 @@ void light() {
 	float light_energy = LIGHT_COLOR.r * INV_PI;
 	float light_gate = light_energy * min(ATTENUATION, cloud_dim);
 	DIFFUSE_LIGHT += ALBEDO * light_gate;
-	// Wetness specular — matches voxel_clip's contribution so wet grass
-	// glints alongside wet terrain. Amplitude tuned via SkyController's
-	// wet_spec_strength.
-	DIFFUSE_LIGHT += wet_spec_strength * sun_color * sun_intensity * wet_spec * light_gate;
 }

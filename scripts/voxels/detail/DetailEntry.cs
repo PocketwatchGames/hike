@@ -25,7 +25,8 @@ using Godot;
 // material inspector can't surface its parameters; an authored .tres would
 // silently lose its `shader_parameter/sprite_texture` line on resave. At
 // scatter time, ChunkDetailScatter calls GetMaterial(), which lazily clones
-// the shared detail_sprite.tres template and stamps Texture onto it.
+// the shared detail_sprite.tres template and stamps Texture, TintMap, and the
+// tint colors onto it.
 [GlobalClass]
 public partial class DetailEntry : Resource
 {
@@ -35,6 +36,22 @@ public partial class DetailEntry : Resource
     // when the runtime material is built. Its pixel dimensions (divided by
     // ChunkDetailScatter.PIXELS_PER_UNIT) drive the sprite's base world size.
     [Export] public Texture2D Texture;
+
+    // Per-texel recolor mask wired through to the shader's `tint_map` uniform.
+    // R = pull toward TintColorA, G = pull toward the ground color of the voxel
+    // beneath the sprite, B = pull toward TintColorB; a black texel keeps the
+    // source Texture color. Authored at the same pixel dimensions as Texture
+    // and may be a standalone Texture2D or an AtlasTexture (same atlas handling
+    // as Texture). Import the PNG as a non-sRGB / "Linear" data texture so its
+    // channels read as raw weights. Leave null to render straight from Texture
+    // (the shader's tint_map defaults to black).
+    [Export] public Texture2D TintMap;
+
+    // The two colors the tint map's R and B channels pull toward. White leaves
+    // the masked region looking like the texture under the tint (a neutral
+    // default); pick the actual recolor targets per entry.
+    [Export] public Color TintColorA = Colors.White;
+    [Export] public Color TintColorB = Colors.White;
 
     // Sampling weight within the parent group. The group picks an entry by
     // weighted choice — entries with weight 2.0 appear twice as often as
@@ -88,6 +105,14 @@ public partial class DetailEntry : Resource
             mat.SetShaderParameter("sprite_texture", spriteTex);
             mat.SetShaderParameter("uv_region", spriteRegion);
         }
+        if (TintMap != null)
+        {
+            ResolveAtlas(TintMap, out Texture2D tintTex, out Vector4 tintRegion);
+            mat.SetShaderParameter("tint_map", tintTex);
+            mat.SetShaderParameter("tint_uv_region", tintRegion);
+        }
+        mat.SetShaderParameter("tint_color_a", TintColorA);
+        mat.SetShaderParameter("tint_color_b", TintColorB);
         mat.SetShaderParameter("wind_strength", WindStrength);
         mat.SetShaderParameter("wet_strength", WetStrength);
         _materialCache = mat;

@@ -19,9 +19,11 @@ using Godot;
 //                   sprite's up axis so blades on a slope lean with the
 //                   slope when viewed across the slope, and read as upright
 //                   when viewed along the slope.
-//   - color       : (r,g,b,1) — VoxelTypeInfo.GroundTint of the solid voxel
-//                   under the sprite. Shader lerps the bottom few pixels of
-//                   the sprite toward this color so blades read as rooted in
+//   - color       : (r,g,b,1) — ground color of the solid voxel under the
+//                   sprite (a terrain's load-computed flat-tile average, or
+//                   VoxelTypeInfo.GroundTint for authored-override types). The
+//                   shader pulls sprite pixels toward this where the entry's
+//                   tint map paints its G channel, so blades read as rooted in
 //                   the ground instead of floating.
 //
 // All scatter inputs (placement, weighted entry pick, scale) hash from
@@ -134,6 +136,20 @@ public static class ChunkDetailScatter
                     else
                     {
                         groundTint = VoxelTypeInfo.GetGroundTint(voxelType);
+                    }
+
+                    // The visible ground under the sprite is the OVERLAY tile
+                    // (dirt path, clover, moss, etc.) wherever one is painted —
+                    // not the terrain's flat tile. OverlayId is a direct
+                    // tile_array layer index (0 = none), so pull the sprite root
+                    // toward that tile's average instead. This makes grass roots
+                    // match the actual ground they sit on (paths/overlays), and
+                    // is per-voxel so it's correct even where detail of one biome
+                    // scatters over a voxel of another.
+                    int overlayId = data.GetOverlayId(x, y, z);
+                    if (overlayId != 0 && ChunkMesh.TryGetLayerAverageLinear(overlayId, out Color overlayTint))
+                    {
+                        groundTint = overlayTint;
                     }
 
                     EnsureCumulativeWeights(group, ref cumulativeWeights, out float totalWeight);
