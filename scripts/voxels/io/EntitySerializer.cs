@@ -24,6 +24,7 @@ public static class EntitySerializer
         KnowledgeStone = 12,
         Well = 13,
         ClimbableTree = 14,
+        Boat = 15,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -144,6 +145,13 @@ public static class EntitySerializer
                 WriteScene(w, door.Scene);
                 w.Write(door.RotationY);
                 w.Write(door.Active);
+                break;
+
+            case BoatSimState boat:
+                w.Write((byte)Tag.Boat);
+                WriteVec3(w, boat.WorldPosition);
+                WriteScene(w, boat.Scene);
+                w.Write(boat.RotationY);
                 break;
 
             case ForgeSimState forge:
@@ -392,6 +400,13 @@ public static class EntitySerializer
                 var door = new DoorSimState(pos, rotationY, scene);
                 door.Active = active;
                 return door;
+            }
+            case Tag.Boat:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                float rotationY = r.ReadSingle();
+                return new BoatSimState(pos, rotationY, scene);
             }
             case Tag.Torch:
             {

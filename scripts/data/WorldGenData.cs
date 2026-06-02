@@ -100,6 +100,12 @@ public partial class WorldGenData : Resource
     // NearSpawnStashScene — the editor's placement pass replaces it.
     [Export] public PackedScene NearSpawnClimbableTreeScene;
 
+    // Single test-fixture rideable boat. WorldGen drops it on the nearest water
+    // surface it can find around spawn (see the near-spawn placement block);
+    // skipped if null or if no water is within search range. Temporary
+    // scaffolding — the editor's placement pass replaces it.
+    [Export] public PackedScene NearSpawnBoatScene;
+
     // Single test-fixture friendly villager placed a few voxels east of the
     // default player spawn. NearSpawnVillagerData is the species template;
     // the rest are per-instance overrides stamped onto the spawned

@@ -38,4 +38,9 @@ public enum EAnimation
     Casting = 24,
     Using = 25,
     Fly = 26,
+    // Seated on a rideable vehicle (see IRideable / RideableData): BoatIdle is
+    // the paddle-rest loop, BoatPaddle the stroke loop. Until dedicated clips
+    // are authored, default_player.tres maps these to placeholder clips.
+    BoatIdle = 27,
+    BoatPaddle = 28,
 }
