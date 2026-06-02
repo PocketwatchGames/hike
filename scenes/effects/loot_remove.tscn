@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootremove"]
 emission_shape = 1
@@ -19,6 +20,7 @@ scale_max = 1.0
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lootremove"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0.45, 0.4, 0.35, 0.75)
 shader_parameter/emission = Color(0, 0, 0, 0)
 

@@ -10,6 +10,7 @@
 [ext_resource type="AudioStream" uid="uid://dunp3l3w8k03u" path="res://audio/source/footsteps/un_shr_foot_sand_07.wav" id="2_s07"]
 [ext_resource type="AudioStream" uid="uid://c4852ldbqdpa8" path="res://audio/source/footsteps/un_shr_foot_sand_08.wav" id="2_s08"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
 emission_shape = 1
@@ -27,6 +28,7 @@ scale_max = 2.0
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_dust"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0.55, 0.5126917, 0.3465, 0.7019608)
 shader_parameter/emission = Color(0, 0, 0, 0)
 

@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_kt6lc"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_a6v0s"]
 [ext_resource type="AudioStream" uid="uid://bkikwuxig1qa7" path="res://audio/source/footsteps/skid_dirt_loop.wav" id="3_gwifa"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_dust"]
 emission_shape = 1
@@ -20,6 +21,7 @@ scale_max = 2.0
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_dust"]
 render_priority = 0
 shader = ExtResource("2_a6v0s")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0.36, 0.27, 0.17, 0.7019608)
 shader_parameter/emission = Color(0, 0, 0, 0)
 
