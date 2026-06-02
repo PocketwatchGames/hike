@@ -13,12 +13,15 @@ using Godot;
 //                   * per-instance random ScaleMin..ScaleMax multiplier. The
 //                   shader reads scale_x / scale_y separately so texture
 //                   aspect drives the sprite shape automatically.
-//   - custom data : (normal.xyz, _) — world-space surface normal estimated
-//                   from the painted voxel's neighbour heights. The shader
-//                   projects this onto the screen plane and uses it as the
-//                   sprite's up axis so blades on a slope lean with the
+//   - custom data : (normal.xyz, porosity) — world-space surface normal
+//                   estimated from the painted voxel's neighbour heights. The
+//                   shader projects this onto the screen plane and uses it as
+//                   the sprite's up axis so blades on a slope lean with the
 //                   slope when viewed across the slope, and read as upright
-//                   when viewed along the slope.
+//                   when viewed along the slope. The .w channel carries the
+//                   ground tile's wetness porosity (BlockData.Porosity) so the
+//                   sprite's wet darken scales by the same fraction as the
+//                   ground beneath it.
 //   - color       : (r,g,b,1) — ground color of the solid voxel under the
 //                   sprite (a terrain's load-computed flat-tile average, or
 //                   VoxelTypeInfo.GroundTint for authored-override types). The
@@ -152,6 +155,18 @@ public static class ChunkDetailScatter
                         groundTint = overlayTint;
                     }
 
+                    // Wetness porosity of the ground beneath the sprite — the
+                    // SAME BlockData.Porosity the terrain shader folds into its
+                    // wet darken (wet_dark = saturation * porosity). Resolved in
+                    // lockstep with groundTint above (overlay > terrain FlatTile >
+                    // authored voxel tile). The detail shader multiplies its
+                    // wet_factor by this so a wet blade darkens by the same
+                    // fraction as the ground it's rooted in; without it sprites
+                    // darken at full strength (porosity 1) and read too dark over
+                    // the same wet terrain (which only darkens by its porosity).
+                    float groundPorosity = ResolveGroundPorosity(
+                        voxelType, chunkWx + x, chunkWy + y, chunkWz + z, getTerrainId, overlayId, terrains);
+
                     EnsureCumulativeWeights(group, ref cumulativeWeights, out float totalWeight);
                     if (totalWeight <= 0f)
                     {
@@ -217,13 +232,54 @@ public static class ChunkDetailScatter
                             list = new List<InstanceData>();
                             buckets[entry] = list;
                         }
-                        list.Add(new InstanceData { Transform = transform, Normal = normal, GroundTint = groundTint });
+                        list.Add(new InstanceData { Transform = transform, Normal = normal, GroundTint = groundTint, Porosity = groundPorosity });
                     }
                 }
             }
         }
 
         return buckets.Count > 0 ? buckets : null;
+    }
+
+    // Underlying ground porosity for one painted voxel, mirroring
+    // GroundTypeResolver's BlockData resolution order (overlay > terrain
+    // FlatTile > authored voxel tile) so the value matches the porosity the
+    // terrain shader reads for the same surface. Defaults to BlockData's 0.5
+    // when no block resolves.
+    private static float ResolveGroundPorosity(
+        VoxelType voxelType, int wx, int wy, int wz,
+        System.Func<int, int, int, int> getTerrainId, int overlayId, TerrainData[] terrains)
+    {
+        const float DEFAULT_POROSITY = 0.5f;
+        BlockCatalog catalog = BlockCatalog.Active;
+        if (catalog == null)
+        {
+            return DEFAULT_POROSITY;
+        }
+
+        if (overlayId != 0)
+        {
+            BlockData overlay = catalog.GetByAtlasIndex(overlayId);
+            if (overlay != null)
+            {
+                return overlay.Porosity;
+            }
+        }
+
+        if (voxelType == VoxelType.Terrain)
+        {
+            int terrainId = getTerrainId(wx, wy, wz);
+            if (terrains != null && terrainId >= 0 && terrainId < terrains.Length
+                && terrains[terrainId] != null && terrains[terrainId].FlatTile != null)
+            {
+                return terrains[terrainId].FlatTile.Porosity;
+            }
+            BlockData defaultFlat = catalog.DefaultFlatTile;
+            return defaultFlat != null ? defaultFlat.Porosity : DEFAULT_POROSITY;
+        }
+
+        BlockData block = catalog.GetByAtlasIndex(VoxelTypeInfo.GetTileForFace(voxelType, 0));
+        return block != null ? block.Porosity : DEFAULT_POROSITY;
     }
 
     private static void EnsureCumulativeWeights(DetailGroupData group, ref float[] scratch, out float total)
@@ -331,5 +387,9 @@ public static class ChunkDetailScatter
         public Transform3D Transform;
         public Vector3 Normal;
         public Color GroundTint;
+        // Porosity of the ground tile under the sprite (BlockData.Porosity).
+        // Packed into the MultiMesh per-instance custom data's .w channel
+        // (INSTANCE_CUSTOM.w) and folded into the detail shader's wet darken.
+        public float Porosity;
     }
 }

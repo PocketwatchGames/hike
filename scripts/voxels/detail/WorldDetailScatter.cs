@@ -197,7 +197,11 @@ public partial class WorldDetailScatter : Node3D
             {
                 ChunkDetailScatter.InstanceData d = list[i];
                 bucket.Mm.SetInstanceTransform(slot, d.Transform);
-                bucket.Mm.SetInstanceCustomData(slot, new Color(d.Normal.X, d.Normal.Y, d.Normal.Z, 0f));
+                // .xyz = terrain normal (sprite lighting/lean); .w = ground
+                // tile porosity, read by detail_sprite.gdshader to scale the
+                // wet darken so sprites darken by the same fraction as the
+                // ground beneath them.
+                bucket.Mm.SetInstanceCustomData(slot, new Color(d.Normal.X, d.Normal.Y, d.Normal.Z, d.Porosity));
                 bucket.Mm.SetInstanceColor(slot, d.GroundTint);
                 slot++;
             }

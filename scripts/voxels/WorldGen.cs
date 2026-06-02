@@ -291,8 +291,8 @@ public static class WorldGen
     private const int SEED_SALT_RIVER   = 0x06;
     private const int SEED_SALT_FOREST  = 0x07;
     private const int SEED_SALT_ZONE  = 0x08;
-    // Used by GenerateRoads — kept in the same registry so it can't collide
-    // with a future channel.
+    // Reserved (the procedural road walker was removed) — kept in the registry
+    // so the salt value isn't reused by a future channel.
     public const int SEED_SALT_ROAD     = 0x09;
     private const int SEED_SALT_ELEVATION = 0x0A;
     private const int SEED_SALT_PROPS   = 0x0B;
@@ -540,16 +540,7 @@ public static class WorldGen
         // Surface-kit voxels. Noise-driven placement is a rough
         // starting point so the authored overlay art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
-        // Cobblestone roads — sparse 5-voxel-wide ribbons that follow the
-        // authored heightfield (step up/down ramps, avoid cliffs and water)
-        // and occasionally branch. Runs BEFORE StampProceduralOverlays so
-        // the procedural dirt/field scatter can be suppressed on and around
-        // road columns — otherwise the mesher's 27-voxel overlay vote at
-        // road edges would mix in field/dirt and the road would read as a
-        // muddy path instead of paved cobblestone.
-        var roadColumns = GenerateRoads(ws, heightMap, genData, worldSeed);
-
-        StampProceduralOverlays(ws, roadColumns);
+        StampProceduralOverlays(ws);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
         // the worldgen_skip CVar (bitmask — see SKIP_* flags below). Each
@@ -558,7 +549,7 @@ public static class WorldGen
         int skipFlags = CVars.worldgenSkip.Value;
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
-            StampDetailScatter(ws, roadColumns, genData);
+            StampDetailScatter(ws, genData);
         }
 
         // Always run GenerateProps when *any* of its categories are still
@@ -2545,28 +2536,8 @@ public static class WorldGen
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
     // to Surface kits — sand (underwater/cave) and cave palette stay clean.
-    //
-    // roadColumns carries the (wx, wz) mask of cobblestone road columns; those
-    // are skipped entirely AND given a one-voxel buffer of suppression so the
-    // mesher's 27-voxel overlay vote at road edges isn't polluted by field or
-    // dirt stamped one voxel outside the road.
-    private const int ROAD_OVERLAY_BUFFER = 1;
-    private static void StampProceduralOverlays(WorldState ws, HashSet<(int, int)> roadColumns)
+    private static void StampProceduralOverlays(WorldState ws)
     {
-        bool NearRoad(int wx, int wz)
-        {
-            for (int dx = -ROAD_OVERLAY_BUFFER; dx <= ROAD_OVERLAY_BUFFER; dx++)
-            {
-                for (int dz = -ROAD_OVERLAY_BUFFER; dz <= ROAD_OVERLAY_BUFFER; dz++)
-                {
-                    if (roadColumns.Contains((wx + dx, wz + dz)))
-                    {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         dirtNoise.Seed = OVERLAY_DIRT_SEED;
@@ -2590,10 +2561,6 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                if (NearRoad(wx, wz))
-                {
-                    continue;
-                }
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
                     if (!IsSurfaceVoxel(ws, wx, wy, wz))
@@ -2620,203 +2587,6 @@ public static class WorldGen
         }
     }
 
-    // Cobblestone road placement.
-    //
-    // Roads are drawn by a set of random walkers that start at scattered
-    // points on dry land and step one cell at a time along an 8-connected
-    // grid. Each step:
-    //   - prefers to continue in the current heading, falling back to small
-    //     left/right offsets if the heading is blocked;
-    //   - only accepts neighbours with |height delta| <= 1, so ramps are
-    //     followed naturally and cliffs / water are avoided by construction;
-    //   - occasionally spawns a perpendicular branch walker.
-    // The walker centres are dilated to a 5-voxel-wide disk per step so the
-    // road reads as a continuous ribbon through turns and diagonals. The
-    // resulting column mask is used twice: stamped as OverlayId on the
-    // surface voxel in each column, and handed to StampDetailScatter so
-    // grass sprites do not spawn on the pavement.
-    private const int ROAD_HALF_WIDTH = 2;           // 5-wide disk (radius 2.5).
-    private const int ROAD_DISK_R2 = 6;              // dx*dx+dz*dz threshold.
-    private const float ROAD_TURN_CHANCE = 0.15f;    // Per step, nudge heading ±1.
-    private const float ROAD_BRANCH_CHANCE = 0.004f; // Per step, spawn perpendicular walker.
-    private const int ROAD_MAX_WALKERS = 16;         // Safety cap on branching.
-    private const int ROAD_START_SPACING = 32;       // World voxels per start walker.
-    private const int ROAD_MIN_STARTS = 2;
-    private const int ROAD_START_ATTEMPTS = 32;      // Max tries to land a start on dry land.
-
-    private static HashSet<(int, int)> GenerateRoads(WorldState ws, HeightMap heightMap, WorldGenData genData, int worldSeed)
-    {
-        int worldMinX = ws.Min.X * ChunkState.SIZE;
-        int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int worldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int worldExtent = Math.Max(worldMaxX - worldMinX, worldMaxZ - worldMinZ);
-        int maxSteps = Math.Max(32, worldExtent * 2);
-        int startCount = Math.Max(ROAD_MIN_STARTS, worldExtent / ROAD_START_SPACING);
-
-        var roadColumns = new HashSet<(int, int)>();
-        // Roads share the worldSeed but use their own salt so they don't
-        // correlate with the ramp/path noise for the same seed.
-        var rng = new Random(DeriveSeed(worldSeed, SEED_SALT_ROAD));
-
-        // 8-connected directions, in a ring so (dir+1)%8 is a 45° turn.
-        var dirs = new (int dx, int dz)[]
-        {
-            ( 1,  0), ( 1,  1), ( 0,  1), (-1,  1),
-            (-1,  0), (-1, -1), ( 0, -1), ( 1, -1),
-        };
-
-        bool CanWalkOnto(int wx, int wz, int fromHeight)
-        {
-            if (wx < worldMinX || wx > worldMaxX || wz < worldMinZ || wz > worldMaxZ)
-            {
-                return false;
-            }
-            int h = heightMap.GetHeight(wx, wz);
-            if (h <= WATER_LEVEL)
-            {
-                return false;
-            }
-            return Math.Abs(h - fromHeight) <= 1;
-        }
-
-        // Flood fill from (cx, cz) out to the 5-disk, 4-connected, only
-        // crossing between columns whose heights differ by <= 1. This keeps
-        // the paint on a single walkable surface: when the walker straddles
-        // a cliff edge, the disk cells on the other side of the cliff fail
-        // the per-step height check and stay unpainted, so the road doesn't
-        // smear half onto one plateau and half onto its neighbour.
-        //
-        // Ramps still paint fully — their per-step delta is 1 by construction
-        // — so a road that follows a ramp gets a continuous cobblestone
-        // ribbon up the slope.
-        var floodQueue = new Queue<(int x, int z)>();
-        var floodVisited = new HashSet<(int, int)>();
-        void StampDisk(int cx, int cz)
-        {
-            floodQueue.Clear();
-            floodVisited.Clear();
-            floodQueue.Enqueue((cx, cz));
-            floodVisited.Add((cx, cz));
-            int centerH = heightMap.GetHeight(cx, cz);
-            if (centerH <= WATER_LEVEL)
-            {
-                return;
-            }
-            while (floodQueue.Count > 0)
-            {
-                var (x, z) = floodQueue.Dequeue();
-                roadColumns.Add((x, z));
-                int h = heightMap.GetHeight(x, z);
-                // 4-connected: diagonal neighbours would let the fill squeeze
-                // across a corner between two columns at different heights
-                // (e.g. A=0, B=2 diagonally) even when both cardinal edges
-                // are cliffs.
-                int[] ndx = { 1, -1, 0, 0 };
-                int[] ndz = { 0, 0, 1, -1 };
-                for (int i = 0; i < 4; i++)
-                {
-                    int nx = x + ndx[i];
-                    int nz = z + ndz[i];
-                    int ox = nx - cx;
-                    int oz = nz - cz;
-                    if (ox * ox + oz * oz > ROAD_DISK_R2)
-                    {
-                        continue;
-                    }
-                    if (nx < worldMinX || nx > worldMaxX || nz < worldMinZ || nz > worldMaxZ)
-                    {
-                        continue;
-                    }
-                    if (!floodVisited.Add((nx, nz)))
-                    {
-                        continue;
-                    }
-                    int nh = heightMap.GetHeight(nx, nz);
-                    if (nh <= WATER_LEVEL)
-                    {
-                        continue;
-                    }
-                    if (Math.Abs(nh - h) > 1)
-                    {
-                        continue;
-                    }
-                    floodQueue.Enqueue((nx, nz));
-                }
-            }
-        }
-
-        var walkers = new Queue<(int wx, int wz, int dir, int stepsLeft)>();
-        for (int s = 0; s < startCount; s++)
-        {
-            for (int attempt = 0; attempt < ROAD_START_ATTEMPTS; attempt++)
-            {
-                int sx = rng.Next(worldMinX, worldMaxX + 1);
-                int sz = rng.Next(worldMinZ, worldMaxZ + 1);
-                if (heightMap.GetHeight(sx, sz) <= WATER_LEVEL)
-                {
-                    continue;
-                }
-                walkers.Enqueue((sx, sz, rng.Next(0, 8), maxSteps));
-                break;
-            }
-        }
-
-        while (walkers.Count > 0)
-        {
-            var (wx, wz, dir, stepsLeft) = walkers.Dequeue();
-            for (int step = 0; step < stepsLeft; step++)
-            {
-                StampDisk(wx, wz);
-
-                if (rng.NextDouble() < ROAD_TURN_CHANCE)
-                {
-                    dir = (dir + (rng.Next(2) == 0 ? -1 : 1) + 8) % 8;
-                }
-
-                if (rng.NextDouble() < ROAD_BRANCH_CHANCE && walkers.Count < ROAD_MAX_WALKERS)
-                {
-                    // ±90° so branches read as intersections, not grazing forks.
-                    int branchDir = (dir + (rng.Next(2) == 0 ? -2 : 2) + 8) % 8;
-                    walkers.Enqueue((wx, wz, branchDir, stepsLeft - step));
-                }
-
-                // Try heading first, then ±45°, then ±90°. A walker that
-                // can't find any walkable neighbour within ±90° ends — the
-                // road has hit a cliff / dead-end and shouldn't spawn a U-turn.
-                int curH = heightMap.GetHeight(wx, wz);
-                int[] offsets = { 0, -1, 1, -2, 2 };
-                bool moved = false;
-                foreach (int o in offsets)
-                {
-                    int tryDir = (dir + o + 8) % 8;
-                    int nx = wx + dirs[tryDir].dx;
-                    int nz = wz + dirs[tryDir].dz;
-                    if (!CanWalkOnto(nx, nz, curH))
-                    {
-                        continue;
-                    }
-                    wx = nx;
-                    wz = nz;
-                    dir = tryDir;
-                    moved = true;
-                    break;
-                }
-                if (!moved)
-                {
-                    break;
-                }
-            }
-        }
-
-        // Cobblestone overlay disabled for now — the walker still runs so
-        // roadColumns suppresses dirt/field overlays and grass scatter (the
-        // path-smoothing footprint stays visible as cleaner ground), but the
-        // path tile itself isn't painted until we settle on path art.
-
-        return roadColumns;
-    }
-
     // Walks every surface voxel and stamps the voxel's kit's DefaultDetail
     // wherever the appropriate noise field crosses the kit's threshold. Two
     // noise fields are kept (Surface vs other) so cave/submerged scatter
@@ -2825,7 +2595,7 @@ public static class WorldGen
     // object is sampled at base frequency 1, with coords pre-scaled by the
     // kit's DetailNoiseFrequency, so kits within a single zone read
     // different noise patterns (sharp transitions where kits change).
-    private static void StampDetailScatter(WorldState ws, HashSet<(int, int)> roadColumns, WorldGenData genData)
+    private static void StampDetailScatter(WorldState ws, WorldGenData genData)
     {
         var surfaceNoise = new FastNoiseLite();
         surfaceNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
@@ -2850,10 +2620,6 @@ public static class WorldGen
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
             {
-                // Roads run on Surface-kit columns; caves below the road
-                // still get their kit's scatter. Branch per-voxel below
-                // instead of skipping the column outright.
-                bool roadColumn = roadColumns.Contains((wx, wz));
                 for (int wy = worldMinY; wy < worldMaxY; wy++)
                 {
                     if (!IsSurfaceVoxel(ws, wx, wy, wz))
@@ -2893,14 +2659,6 @@ public static class WorldGen
                         ? (DominantZoneSurfaceKit(wx, wz, genData.Zones) ?? ResolveKit(voxelTerrainId))
                         : ResolveKit(voxelTerrainId);
                     if (kit == null || kit.DefaultDetail == null)
-                    {
-                        continue;
-                    }
-                    // Paved roads suppress Surface-kit scatter so the
-                    // cobblestone reads as authored ground, not a clearing
-                    // in the grass. Cave / submerged kits don't care about
-                    // road columns above them.
-                    if (isSurface && roadColumn)
                     {
                         continue;
                     }

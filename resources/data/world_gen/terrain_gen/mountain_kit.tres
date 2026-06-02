@@ -23,6 +23,7 @@
 script = ExtResource("1_script")
 Terrain = ExtResource("2_kit")
 DefaultDetail = ExtResource("3_detail")
+DetailNoiseThreshold = -0.5
 ForestDensity = 0.1
 TreeScenes = [ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("5_t06"), ExtResource("13_3t0o8"), ExtResource("13_3t0o8"), ExtResource("14_elbrs"), ExtResource("15_pag05"), ExtResource("15_pag05"), ExtResource("20_3r3jf"), ExtResource("20_3r3jf"), ExtResource("5_t14"), ExtResource("5_t15"), ExtResource("20_elbrs"), ExtResource("17_qpata"), ExtResource("14_elbrs"), ExtResource("17_qpata")]
 TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]

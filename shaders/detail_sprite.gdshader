@@ -198,6 +198,12 @@ varying vec3 frag_world_pos;
 // normal. Inherited from INSTANCE_CUSTOM.xyz (same source as the slope
 // lean), so sprites match the lighting profile of the voxel they sit on.
 varying vec3 terrain_normal_ws;
+// Per-instance ground porosity (INSTANCE_CUSTOM.w), the BlockData.Porosity
+// of the tile under this sprite. Scales the wet darken so a wet blade
+// darkens by the same fraction as the ground it's rooted in — the terrain
+// shader gates its wet_dark by this same porosity. Set by ChunkDetailScatter
+// / WorldDetailScatter.
+varying float ground_porosity;
 
 // Cheap 2D hash for per-instance wind phase. Derived from instance origin so
 // adjacent blades have different sway phases and a field doesn't sway in
@@ -251,6 +257,7 @@ void vertex() {
 	// sprite's local up axis ends up aligned with the projected normal, so
 	// the top of the sprite leans in the same direction the terrain normal
 	// points (i.e. downslope for an outward-facing surface).
+	ground_porosity = INSTANCE_CUSTOM.w;
 	vec3 n = INSTANCE_CUSTOM.xyz;
 	vec3 n_in_plane = n - dot(n, sprite_forward) * sprite_forward;
 	float right_comp = dot(n_in_plane, sprite_right_yaw);
@@ -404,7 +411,12 @@ void fragment() {
 	// specular glint, sky reflection, or pooling. The only wet effect is the
 	// slight albedo darken applied below, so blades don't read dry/grey over
 	// wet ground. Per-entry wet_strength scales how strongly this sprite darkens.
-	float wet_factor = wetness_level * sun_mask * wet_slope * wet_strength;
+	// ground_porosity is the porosity of the tile under the sprite (the same
+	// BlockData.Porosity the terrain shader folds into its wet_dark): porous
+	// soil darkens a lot, non-porous rock barely. Folding it in here keeps the
+	// sprite's darken in lockstep with the ground rather than always darkening
+	// at full strength (which read too dark over the same wet terrain).
+	float wet_factor = wetness_level * sun_mask * wet_slope * wet_strength * ground_porosity;
 	// Same cloud_shadow_ground call as terrain and regular sprites —
 	// samples the cloud noise at world XZ with no sun-direction projection,
 	// so grass, terrain, and sprite shadows stay in lockstep and all drift
