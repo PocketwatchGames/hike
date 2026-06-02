@@ -175,7 +175,13 @@ public partial class Player : CharacterBody3D, IActionActor
 			primaryItem = weapon,
 			sourceSlot = slot,
 		};
-		_runner.TryStart(weapon.data.actionProfile, context);
+		if (_runner.TryStart(weapon.data.actionProfile, context))
+		{
+			// The wielded weapon pops into the hand and persists there; using
+			// the other weapon next swaps it. No-op when it's already the held
+			// model (re-swinging the same weapon).
+			_heldVisual?.SetWeapon(weapon.data.heldModel);
+		}
 	}
 
 	void ReleaseWeaponAction(EInventorySlot slot)

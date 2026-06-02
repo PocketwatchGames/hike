@@ -26,6 +26,16 @@ public partial class ItemData : Resource
 	[Export] public int value = 0;
 	[Export] public Texture2D inventorySprite;
 
+	// Optional 3D prop shown in the player's hand while this item is the one
+	// being wielded / used — the sword that pops in when you swing, the potion
+	// that appears while you drink. Distinct from the 2D inventorySprite /
+	// worldSprite. HeldItemVisual instances this scene under a hand-bone socket;
+	// the grip is baked into the scene itself (offset the mesh so the scene
+	// origin sits in the palm) so no per-item transform authoring is needed.
+	// Null = the item shows no in-hand model (most loot, ammo, etc.). Armor is
+	// NOT wielded — it uses its own worn-mesh path, not this field.
+	[Export] public PackedScene heldModel;
+
 	// Smaller world-pickup icon, authored at chunky-pixel resolution
 	// (16×16 by convention) so the Sprite3D on Loot renders one source pixel
 	// per chunky screen pixel. Null falls back to inventorySprite, which is

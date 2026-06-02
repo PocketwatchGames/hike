@@ -22,4 +22,12 @@ public partial class AnimationData : Resource
     // (run / sprint / swim / etc.) — otherwise a slowed actor would visibly
     // play their attack / hitstun / die at half speed too.
     [Export] public bool affectedBySpeedMultiplier;
+
+    // When true, the actor's in-hand weapon model is concealed while this clip
+    // is the one playing. Authored on poses that take over the hands — drinking
+    // a potion, reading a scroll, casting — so the wielded weapon gives way to
+    // the consumable model (or to empty hands) for the duration of the pose,
+    // then pops back when the clip ends. Read by Player via HeldItemVisual; the
+    // sprite-only mob path ignores it (mobs have no held visual yet).
+    [Export] public bool hidesHeldItem;
 }

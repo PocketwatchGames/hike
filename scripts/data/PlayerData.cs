@@ -27,6 +27,28 @@ public partial class PlayerData : Resource
 		return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
 	}
 
+	// Whether the currently-playing clip is authored to conceal the wielded
+	// weapon (drink / read / cast poses). Keyed by clip name rather than
+	// EAnimation so HeldItemVisual can drive concealment straight off the
+	// animator's CurrentAnimation without reverse-mapping the slot — the
+	// dictionary is small (one entry per slot) so the linear scan is cheap.
+	public bool AnimationHidesHeldItem(StringName clipName)
+	{
+		if (clipName == default)
+		{
+			return false;
+		}
+		foreach (System.Collections.Generic.KeyValuePair<EAnimation, AnimationData> kvp in animations)
+		{
+			AnimationData d = kvp.Value;
+			if (d != null && d.hidesHeldItem && d.name == clipName)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	[ExportGroup("Movement")]
 	[Export] public float stepHeight = 0.5f;
 	[Export] public float coyoteTime = 0.25f;

@@ -100,21 +100,25 @@ metadata/_custom_type_script = "uid://jqeoac08u010"
 [sub_resource type="Resource" id="Resource_slt01"]
 script = ExtResource("7_animdata")
 name = &"drinking"
+hidesHeldItem = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_bq760"]
 script = ExtResource("7_animdata")
 name = &"eating"
+hidesHeldItem = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_2ravq"]
 script = ExtResource("7_animdata")
 name = &"reading"
+hidesHeldItem = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_vsln3"]
 script = ExtResource("7_animdata")
 name = &"casting"
+hidesHeldItem = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
 [sub_resource type="Resource" id="Resource_3lyta"]
