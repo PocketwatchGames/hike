@@ -3,12 +3,17 @@
 [ext_resource type="Script" uid="uid://c8h7yqpjyorr3" path="res://scripts/voxels/detail/DetailEntry.cs" id="1_5c3fe"]
 [ext_resource type="Texture2D" uid="uid://bpebble01uuuu" path="res://assets/textures/details/pebble_01.png" id="2_bhbmd"]
 [ext_resource type="Texture2D" uid="uid://bpebble02vvvv" path="res://assets/textures/details/pebble_02.png" id="3_oo7oi"]
+[ext_resource type="Texture2D" uid="uid://dhywk6847b07x" path="res://assets/textures/details/pebble_01_tint.png" id="3_su6n1"]
 [ext_resource type="Texture2D" uid="uid://bpebble03wwww" path="res://assets/textures/details/pebble_03.png" id="4_su6n1"]
 [ext_resource type="Script" uid="uid://bxmmuij45e6re" path="res://scripts/voxels/detail/DetailGroupData.cs" id="5_43chk"]
+[ext_resource type="Texture2D" uid="uid://bgvwn300cd3ai" path="res://assets/textures/details/pebble_02_tint.png" id="5_nl87c"]
+[ext_resource type="Texture2D" uid="uid://djr62xcmjh3w4" path="res://assets/textures/details/pebble_03_tint.png" id="7_j6cub"]
 
 [sub_resource type="Resource" id="Resource_pebble_01"]
 script = ExtResource("1_5c3fe")
 Texture = ExtResource("2_bhbmd")
+TintMap = ExtResource("3_su6n1")
+TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
 ScaleMin = 0.7
 ScaleMax = 1.2
 WindStrength = 0.0
@@ -17,6 +22,8 @@ metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 [sub_resource type="Resource" id="Resource_pebble_02"]
 script = ExtResource("1_5c3fe")
 Texture = ExtResource("3_oo7oi")
+TintMap = ExtResource("5_nl87c")
+TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
 Weight = 0.6
 ScaleMin = 0.7
 ScaleMax = 1.3
@@ -26,6 +33,8 @@ metadata/_custom_type_script = "uid://c8h7yqpjyorr3"
 [sub_resource type="Resource" id="Resource_pebble_03"]
 script = ExtResource("1_5c3fe")
 Texture = ExtResource("4_su6n1")
+TintMap = ExtResource("7_j6cub")
+TintColorA = Color(0.3019608, 0.34901962, 0.36078432, 1)
 Weight = 0.4
 ScaleMin = 0.7
 ScaleMax = 1.2

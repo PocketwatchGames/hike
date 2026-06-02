@@ -1,99 +1,79 @@
-"""Stitches the PBR terrain material sets in assets/textures/terrain/ into two
-vertical Texture2DArray strips:
+"""Headless mirror of the in-editor "Rebuild Atlas" button on
+resources/data/blocks/voxel_atlas_manifest.tres (VoxelAtlasManifest.cs).
+
+Stitches the PBR terrain source maps into two vertical Texture2DArray strips:
 
   voxel_tiles.png            - base color (sRGB)
   voxel_tiles_nrm_height.png - RGB = tangent-space normal, A = height/displacement
 
-Reads only; never overwrites source art. Layer order and count must match the
-AtlasBaseIndex authored on each BlockData (resources/data/blocks/) and the
-slices/vertical count in both .import files. See scripts/voxels/VoxelType.cs and
-scripts/data/BlockData.cs.
+The layer list is NOT duplicated here — it is parsed from the manifest .tres so
+the editor button and this CLI/CI path stay in lockstep. To change which source
+texture a block uses, edit the manifest in the Godot inspector (or the .tres),
+not this script. Layer order in the manifest must match the AtlasBaseIndex on
+each BlockData and the slices/vertical count in both .import files.
+
+Reads only; never overwrites source art.
 """
 import os
+import re
 from PIL import Image
 
-SLOT = 256  # atlas slot size (px). Source art (1024/2048) is downscaled to this.
-ROOT = os.path.join(os.path.dirname(__file__), "..")
-TERRAIN_DIR = os.path.join(ROOT, "assets", "textures", "terrain")
+SLOT = 256  # atlas slot size (px). Source art (1024/2048/4096) is downscaled to this.
+ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+MANIFEST = os.path.join(ROOT, "resources", "data", "blocks", "voxel_atlas_manifest.tres")
 VOXEL_DIR = os.path.join(ROOT, "assets", "textures", "voxels")
 
-# One entry per atlas layer, in AtlasBaseIndex order. Filenames are inconsistent
-# across the source sets (COLOR/basecolor/BaseColor, NORM/normal/Normal/NRM,
-# DISP/height/Height), so each map is spelled out explicitly. `color` paths are
-# relative to TERRAIN_DIR unless absolute. Water (layer 2) is a placeholder — it
-# is rendered by the separate water shader, not the tile array.
-def _terrain(folder, color, normal, height):
-    base = os.path.join(TERRAIN_DIR, folder)
-    return {
-        "color": os.path.join(base, color),
-        "normal": os.path.join(base, normal),
-        "height": os.path.join(base, height),
-    }
-
-
-LAYERS = [
-    # 0 Stone -> stylized rocks (general cliff faces)
-    _terrain("Stylized_Rocks_002_4K",
-             "Stylized_Rocks_002_basecolor.png",
-             "Stylized_Rocks_002_normal.png",
-             "Stylized_Rocks_002_height.png"),
-    # 1 GrassTop -> forest/mountain ground
-    _terrain("Stylized_Grass_002_SD",
-             "Stylized_Grass_002_basecolor.jpg",
-             "Stylized_Grass_002_normal.jpg",
-             "Stylized_Grass_002_height.png"),
-    # 2 Water (placeholder; rendered by water shader)
-    {"color": os.path.join(VOXEL_DIR, "water.png"), "normal": None, "height": None},
-    # 3 Cobblestone
-    _terrain("Cobblestone_Irregular_Floor_001",
-             "Cobblestone_Irregular_Floor_001_basecolor.png",
-             "Cobblestone_Irregular_Floor_001_normal.png",
-             "Cobblestone_Irregular_Floor_001_height.png"),
-    # 4 DirtOverlay -> dry mud
-    _terrain("Stylized_Dry_Mud_001_SD",
-             "Stylized_Dry_Mud_001_basecolor.jpg",
-             "Stylized_Dry_Mud_001_normal.jpg",
-             "Stylized_Dry_Mud_001_height.png"),
-    # 5 FieldOverlay -> same stylized grass as the base ground (matches mountain)
-    _terrain("Stylized_Grass_002_SD",
-             "Stylized_Grass_002_basecolor.jpg",
-             "Stylized_Grass_002_normal.jpg",
-             "Stylized_Grass_002_height.png"),
-    # 6 DesertTop -> stylized sand dune
-    _terrain("Stylized_Sand_002_SD",
-             "Stylized_Sand_002_basecolor.png",
-             "Stylized_Sand_002_normal.png",
-             "Stylized_Sand_002_height.png"),
-    # 7 DesertSand -> realistic sand
-    _terrain("Sand 001",
-             "Sand_001_COLOR.png",
-             "Sand_001_NRM.png",
-             "Sand_001_DISP.png"),
-    # 8 DesertWall -> stylized cliff rock (desert cliffs)
-    _terrain("Stylized_Cliff_Rock_006_SD",
-             "Stylized_Cliff_Rock_006_basecolor.png",
-             "Stylized_Cliff_Rock_006_normal.png",
-             "Stylized_Cliff_Rock_006_height.png"),
-    # 9 DesertCave -> dry mud (sandstone cave floor)
-    _terrain("Stylized_Dry_Mud_001_SD",
-             "Stylized_Dry_Mud_001_basecolor.jpg",
-             "Stylized_Dry_Mud_001_normal.jpg",
-             "Stylized_Dry_Mud_001_height.png"),
-    # 10 Marsh -> wet ground (swamp)
-    _terrain("Ground_Wet_002_SD",
-             "Ground_Wet_002_basecolor.jpg",
-             "Ground_Wet_002_normal.jpg",
-             "Ground_Wet_002_height.png"),
-    # 11 CaveFloor -> stylized stone floor (limestone cave floor)
-    _terrain("Stylized_Stone_Floor_002_4K",
-             "Stylized_Stone_Floor_002_basecolor.png",
-             "Stylized_Stone_Floor_002_normal.png",
-             "Stylized_Stone_Floor_002_height.png"),
-]
-
 # Flat tangent-space normal (points straight out: 0.5,0.5,1.0 encoded) and zero
-# height, used for the water placeholder slot.
+# height, used for slots with a null normal/height (e.g. the water placeholder).
 FLAT_NORMAL_RGB = (128, 128, 255)
+
+
+def _res_to_path(res):
+    """res://foo/bar.png -> <ROOT>/foo/bar.png"""
+    assert res.startswith("res://"), res
+    return os.path.join(ROOT, *res[len("res://"):].split("/"))
+
+
+def _parse_manifest(path):
+    """Returns [{color, normal, height}] in layer order, paths absolute on disk.
+    normal/height are None when the manifest leaves them unset."""
+    with open(path, encoding="utf-8") as f:
+        text = f.read()
+
+    # ext_resource id -> res:// path
+    ext = {}
+    for m in re.finditer(r'\[ext_resource\b[^\]]*\bpath="([^"]+)"[^\]]*\bid="([^"]+)"\]', text):
+        ext[m.group(2)] = m.group(1)
+
+    # sub_resource id -> {Color/Normal/Height ext-id}
+    subs = {}
+    for m in re.finditer(r'\[sub_resource type="Resource" id="([^"]+)"\]\n(.*?)(?=\n\[|\Z)', text, re.S):
+        body = m.group(2)
+        fields = {}
+        for fm in re.finditer(r'(\w+) = ExtResource\("([^"]+)"\)', body):
+            fields[fm.group(1)] = fm.group(2)
+        subs[m.group(1)] = fields
+
+    # Layers array order (list of SubResource ids)
+    lm = re.search(r'Layers = Array\[[^\]]*\]\(\[(.*?)\]\)', text, re.S)
+    if lm is None:
+        raise SystemExit("stitch_voxel_atlas: no Layers array found in manifest")
+    order = re.findall(r'SubResource\("([^"]+)"\)', lm.group(1))
+
+    layers = []
+    for sid in order:
+        fields = subs[sid]
+
+        def resolve(key):
+            ext_id = fields.get(key)
+            return _res_to_path(ext[ext_id]) if ext_id else None
+
+        layers.append({
+            "color": resolve("Color"),
+            "normal": resolve("Normal"),
+            "height": resolve("Height"),
+        })
+    return layers
 
 
 def _load_slot(path, mode):
@@ -104,10 +84,11 @@ def _load_slot(path, mode):
 
 
 def main():
-    color_strip = Image.new("RGB", (SLOT, SLOT * len(LAYERS)))
-    nh_strip = Image.new("RGBA", (SLOT, SLOT * len(LAYERS)))
+    layers = _parse_manifest(MANIFEST)
+    color_strip = Image.new("RGB", (SLOT, SLOT * len(layers)))
+    nh_strip = Image.new("RGBA", (SLOT, SLOT * len(layers)))
 
-    for i, layer in enumerate(LAYERS):
+    for i, layer in enumerate(layers):
         # Base color.
         color = _load_slot(layer["color"], "RGB")
         color_strip.paste(color, (0, i * SLOT))
@@ -129,8 +110,8 @@ def main():
     nh_out = os.path.join(VOXEL_DIR, "voxel_tiles_nrm_height.png")
     color_strip.save(color_out)
     nh_strip.save(nh_out)
-    print(f"Wrote {len(LAYERS)} layers to {color_out}")
-    print(f"Wrote {len(LAYERS)} layers to {nh_out}")
+    print(f"Wrote {len(layers)} layers to {color_out}")
+    print(f"Wrote {len(layers)} layers to {nh_out}")
 
 
 if __name__ == "__main__":

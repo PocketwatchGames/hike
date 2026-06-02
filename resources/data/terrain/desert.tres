@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://pyvwh3yyr1dc"]
+[gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://bo7c1u37ca228"]
 
 [ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/TerrainData.cs" id="1_kit"]
 [ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/blocks/block_desert_top.tres" id="5_block_flat"]

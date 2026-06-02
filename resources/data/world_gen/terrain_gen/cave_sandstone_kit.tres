@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="TerrainKitData" format=3]
+[gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://cvb6vwn8y1eav"]
 
-[ext_resource type="Script" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
-[ext_resource type="Resource" path="res://resources/data/terrain/cave_sandstone.tres" id="2_kit"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://cwn2meyk24pmn" path="res://resources/data/terrain/cave_sandstone.tres" id="2_kit"]
 [ext_resource type="Resource" uid="uid://bn085av1yfjuf" path="res://resources/data/details/detail_pebbles_sandstone.tres" id="3_detail"]
 
 [resource]

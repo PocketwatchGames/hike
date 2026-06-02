@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="ZoneGenData" format=3 uid="uid://wwpw4gcdk0vs"]
 
 [ext_resource type="Resource" uid="uid://dsq8h2o3n55es" path="res://resources/data/world_gen/terrain_gen/desert_kit.tres" id="2_qtgnd"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/cave_sandstone_kit.tres" id="3_nc5be"]
+[ext_resource type="Resource" uid="uid://cvb6vwn8y1eav" path="res://resources/data/world_gen/terrain_gen/cave_sandstone_kit.tres" id="3_nc5be"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/underwater_kit.tres" id="4_uxbjh"]
 [ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/data/zones/desert.tres" id="5_25es0"]
 [ext_resource type="Resource" uid="uid://dc3pchs6rhlok" path="res://resources/data/world_gen/spawn_lists/surface_entities_desert.tres" id="5_stsr1"]
