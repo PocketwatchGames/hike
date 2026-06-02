@@ -37,4 +37,8 @@ public enum EActionVerb
 	// the bird's-eye overlook, hides the sprite, and conceals them from mobs
 	// until they take damage or end the overlook.
 	Climb,
+	// Board a rideable vehicle (boat, future mounts) — the interactive's
+	// Complete parents the player onto the vehicle and suspends on-foot
+	// locomotion (see RideableVehicle / Player.Mount).
+	Mount,
 }

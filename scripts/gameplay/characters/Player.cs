@@ -256,6 +256,15 @@ public partial class Player : CharacterBody3D
 	// pick Lockpick/Break/Open on a chest.
 	int _curInteractiveActionIndex;
 	IInteractive _highlightInteractive;
+	// Rideable vehicle the player is currently aboard (boat now, mounts later).
+	// While non-null the normal locomotion in _PhysicsProcess is suspended — the
+	// player is parented under the vehicle's seat anchor and the vehicle drives
+	// the transform. See Mount / Dismount.
+	IRideable _mount;
+	// The player's parent before mounting, restored on dismount so the rider
+	// returns to the world layer rather than leaking under the (possibly
+	// streamed-out) vehicle.
+	Node _preMountParent;
 	// Latched at AttackContextSensitive press time so the release routes to
 	// the same weapon slot even if the player releases Aim mid-attack.
 	EInventorySlot? _contextSensitiveAttackSlot;
@@ -572,6 +581,119 @@ public partial class Player : CharacterBody3D
 	public IInteractive HighlightInteractive => _highlightInteractive;
 	public IInteractive CurInteractive => _curInteractive;
 	public int CurInteractiveActionIndex => _curInteractiveActionIndex;
+
+	// True while the player is riding a vehicle. Suppresses on-foot locomotion
+	// and gates the interactive-detect / board path so a mounted player can't
+	// board a second vehicle.
+	public bool IsMounted => _mount != null;
+
+	// The rider's camera-relative steering intent, exposed so a mounted vehicle
+	// can read it from its own _PhysicsProcess (see IRideable / Boat). Same
+	// vector the on-foot path uses; the vehicle decides how to apply it.
+	public Vector3 MountMoveInput => _inputMove;
+
+	// Board a rideable. Called from the vehicle's IInteractive.Complete (the
+	// Board action's OpenInteractive event) — i.e. from inside the runner tick
+	// during _PhysicsProcess, so the actual reparent (a physics-tree mutation)
+	// is deferred to the idle frame boundary via AttachToMount.
+	public void Mount(IRideable vehicle)
+	{
+		if (vehicle == null || _mount != null)
+		{
+			return;
+		}
+		_mount = vehicle;
+		_preMountParent = GetParent();
+		// Drop transient locomotion so dismount resumes from a clean slate.
+		Velocity = Vector3.Zero;
+		_dashTimeRemaining = 0f;
+		_skating = false;
+		_skidding = false;
+		_sneaking = false;
+		SetCurInteractive(null);
+		_highlightInteractive = null;
+		onHighlightChanged?.Invoke(null);
+		vehicle.OnMounted(this);
+		Callable.From(AttachToMount).CallDeferred();
+	}
+
+	private void AttachToMount()
+	{
+		if (_mount?.SeatAnchor == null)
+		{
+			return;
+		}
+		// keepGlobalTransform:false leaves the local transform as-is; we then
+		// zero it so the rider sits exactly on the seat anchor and faces the
+		// vehicle's forward.
+		Reparent(_mount.SeatAnchor, keepGlobalTransform: false);
+		Position = Vector3.Zero;
+		Rotation = Vector3.Zero;
+	}
+
+	// Leave the current vehicle and drop onto the nearest shore. Called from
+	// ProcessInput (which runs in _Process, not the physics flush), so the
+	// reparent is safe to do inline here.
+	public void Dismount()
+	{
+		if (_mount == null)
+		{
+			return;
+		}
+		IRideable vehicle = _mount;
+		Vector3 dropPos = vehicle.GetDismountPosition();
+		_mount = null;
+		vehicle.OnDismounted(this);
+
+		Node parent = (_preMountParent != null && IsInstanceValid(_preMountParent))
+			? _preMountParent
+			: GetParent();
+		_preMountParent = null;
+		if (parent != null && parent != GetParent())
+		{
+			Reparent(parent, keepGlobalTransform: false);
+		}
+		GlobalPosition = dropPos;
+		Rotation = Vector3.Zero;
+		Velocity = Vector3.Zero;
+		_grounded = false;
+	}
+
+	// Emergency dismount used when the vehicle itself is being freed (its
+	// origin chunk evicted out from under a long voyage) — hand the rider back
+	// to the world so freeing the parented vehicle doesn't free the player too.
+	// Mirrors Dismount minus the vehicle-side calls (the vehicle is mid-
+	// teardown). Pure tree move + state reset — no spawning, safe from the
+	// vehicle's _ExitTree.
+	public void ForceDismount(Node fallbackParent, Vector3 pos)
+	{
+		if (_mount == null)
+		{
+			return;
+		}
+		_mount = null;
+		Node parent = (_preMountParent != null && IsInstanceValid(_preMountParent) && _preMountParent.IsInsideTree())
+			? _preMountParent
+			: fallbackParent;
+		_preMountParent = null;
+		if (parent != null && IsInstanceValid(parent) && parent.IsInsideTree())
+		{
+			Reparent(parent, keepGlobalTransform: false);
+			GlobalPosition = pos;
+		}
+		Rotation = Vector3.Zero;
+		Velocity = Vector3.Zero;
+		_grounded = false;
+	}
+
+	// Minimal per-frame upkeep while mounted: keep status effects ticking and
+	// drive the seated animation loop. All locomotion, gravity, water, and
+	// collision are owned by the vehicle (the rider rides its transform).
+	private void TickMounted(float dt)
+	{
+		_statusEffects?.Tick(dt);
+		UpdateAnimation();
+	}
 
 	// Drop any highlighted or current interactive without going through the
 	// proximity-detect path. Modal screens (merchant, etc.) that take focus
@@ -1131,6 +1253,13 @@ public partial class Player : CharacterBody3D
 		if (_health <= 0f)
 		{
 			loopAnim = EAnimation.Dead;
+		}
+		else if (_mount != null)
+		{
+			// Seated on a vehicle: paddle-rest vs paddle-stroke per the mount's
+			// propulsion state. The vehicle owns the body transform, so locomotion
+			// speed / ground state below are irrelevant here.
+			loopAnim = _mount.IsPropelling ? _mount.MoveAnim : _mount.IdleAnim;
 		}
 		else if (chargeAnimOverride.HasValue)
 		{
@@ -2511,6 +2640,16 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Riding a vehicle: the boat / mount owns position, physics, and water
+		// handling; the rider just keeps its status effects and seated anim
+		// ticking. Began-mounted frames take this gate; the frame mounting
+		// completes is handled by the post-runner bail below.
+		if (_mount != null)
+		{
+			TickMounted(dt);
+			return;
+		}
+
 		UpdateTerrainSpeed();
 		UpdateWaterState();
 		UpdateSprintState();
@@ -2907,6 +3046,15 @@ public partial class Player : CharacterBody3D
 			onHighlightChanged?.Invoke(null);
 		}
 
+		// Mounting completed this tick — the Board interactive's OpenInteractive
+		// fired Mount() from inside _runner.Tick above. Bail before MoveAndSlide;
+		// the deferred AttachToMount snaps the rider onto the seat and the
+		// top-of-frame gate drives every subsequent frame.
+		if (_mount != null)
+		{
+			return;
+		}
+
 		// Step up: lift the player before moving so they can clear small obstacles.
 		// Disabled while swimming — the player is floating, not walking. Uses
 		// MoveAndCollide so the lift stops at contact; raw teleport would clip
@@ -3234,6 +3382,20 @@ public partial class Player : CharacterBody3D
 		else if (!Input.IsActionPressed("Aim"))
 		{
 			_inputLook = Vector3.Zero;
+		}
+
+		// Riding a vehicle: keep the steering vectors computed above (the boat
+		// reads MountMoveInput) but drop every other action press — the only
+		// control while mounted is Interact to dismount. Dismount reparents the
+		// rider out of the vehicle; safe here because ProcessInput runs from
+		// _Process, not the physics flush.
+		if (_mount != null)
+		{
+			if (Input.IsActionJustPressed("Interact"))
+			{
+				Dismount();
+			}
+			return;
 		}
 
 		// Bird's-eye lock drops every action press for the duration of the

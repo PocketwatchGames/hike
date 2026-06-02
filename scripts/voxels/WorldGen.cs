@@ -721,6 +721,39 @@ public static class WorldGen
             ws.AddEntity(new ClimbableTreeSimState(pos, genData.NearSpawnClimbableTreeScene));
         }
 
+        // Near-spawn test boat. Unlike the land fixtures above it must sit on
+        // water, and procedural terrain doesn't guarantee a pond at a fixed
+        // offset — so ring-scan outward from spawn for the nearest water-topped
+        // column and float the boat there. Skipped if no water is found within
+        // range. The boat origin rides the water surface (WATER_LEVEL + 1).
+        if (genData.NearSpawnBoatScene != null)
+        {
+            const int BoatSearchRadius = 48;
+            bool placed = false;
+            for (int r = 1; r <= BoatSearchRadius && !placed; r++)
+            {
+                for (int dx = -r; dx <= r && !placed; dx++)
+                {
+                    for (int dz = -r; dz <= r && !placed; dz++)
+                    {
+                        // Boundary of the ring only — inner cells were covered
+                        // by a smaller radius.
+                        if (Mathf.Abs(dx) != r && Mathf.Abs(dz) != r) { continue; }
+                        int bx = dx;
+                        int bz = dz;
+                        if (bx < stoneWorldMinX || bx > stoneWorldMaxX
+                            || bz < stoneWorldMinZ || bz > stoneWorldMaxZ) { continue; }
+                        // Water-surfaced column: water at sea level, air above.
+                        if (ws.GetVoxelWorld(bx, WATER_LEVEL, bz) != VoxelType.Water
+                            || ws.GetVoxelWorld(bx, WATER_LEVEL + 1, bz) != VoxelType.Air) { continue; }
+                        var boatPos = new Vector3(bx + 0.5f, WATER_LEVEL + 1f, bz + 0.5f);
+                        ws.AddEntity(new BoatSimState(boatPos, 0f, genData.NearSpawnBoatScene));
+                        placed = true;
+                    }
+                }
+            }
+        }
+
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
             GenerateSignposts(ws, genData, heightMap, worldSeed);

@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="BoatData" format=3 uid="uid://fh1ftwjb0n6kd"]
+
+[ext_resource type="Script" uid="uid://m1qi70swr0b0c" path="res://scripts/data/vehicles/BoatData.cs" id="1_boatdata"]
+
+[resource]
+script = ExtResource("1_boatdata")
+idleAnim = 27
+moveAnim = 28
+maxSpeed = 5.0
+acceleration = 6.0
+drag = 4.0
+turnRateDegrees = 120.0
+buoyancyLerp = 8.0
+bobAmplitude = 0.08
+bobPeriodSeconds = 2.5
+propellingInputThreshold = 0.15
+beachedGravity = 12.0

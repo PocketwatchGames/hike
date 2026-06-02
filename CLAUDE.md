@@ -119,6 +119,10 @@ Per-mob hierarchical state machine driven by polymorphic Resource data — `Brai
 
 A single per-actor `ActionRunner` drives all timeline-based player and mob actions via two authored data shapes — `ItemActionProfile` (charge-tier-based `ItemAction`s, used for weapons / consumables / mob attacks, dispatched by `EActionVerb`) and `InteractiveAction` (single-phase wait used for chests / doors / torches / loot via `IInteractive`); both consume `ItemEvent` timelines whose `type` is an `EItemEventType` flag bitmask (Melee, Hitscan, UseAmmo, ApplyEffect, DecrementStack, ToggleMovingLight, PlayAnim, PlaySound, OpenInteractive, ConsumeFromInventory). See [scripts/gameplay/actions/CLAUDE.md](scripts/gameplay/actions/CLAUDE.md).
 
+### Rideable Vehicles (`scripts/gameplay/vehicles/`, `scripts/data/vehicles/`)
+
+The player can board and ride vehicles (`Boat` now, mounts later) through a common interface. Boarding reuses the interactive system — a `RideableVehicle` is an `IInteractive` whose `Mount`-verb `InteractiveAction` calls `Player.Mount`, which parents the player under the vehicle's `SeatAnchor` and suspends on-foot locomotion. The vehicle owns its own physics in `_PhysicsProcess` and reads the rider's steering via `Player.MountMoveInput`; the rider just loops the vehicle's `IdleAnim` / `MoveAnim`. `RideableVehicle` carries the shared plumbing; concrete subclasses (`Boat`) supply only their physics + `GetDismountPosition`. See [scripts/gameplay/vehicles/CLAUDE.md](scripts/gameplay/vehicles/CLAUDE.md).
+
 ### Audio-Visual Effects (`scripts/utils/Fx.cs`)
 
 `Fx` is the lifecycle-managed scene wrapper for audio + particles (replaces the older `EffectOneShot`). One-shot mode (`_loop = false`, default) auto-frees once every child `GpuParticles3D` has stopped emitting AND every child `AudioStreamPlayer3D` has finished playing. Loop mode (`_loop = true`) re-plays randomized audio on each `Finished` and frees only after `Stop()` plus a particle-lifetime grace window. Distinct from the gameplay-state `ItemEffect` / `HealEffect` hierarchy — `Fx` is purely audio-visual; `ItemEffect` mutates actor state.

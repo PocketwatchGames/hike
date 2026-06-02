@@ -16,6 +16,7 @@
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="8_stone"]
 [ext_resource type="PackedScene" uid="uid://bjgdbkg42m5u8" path="res://scenes/interactives/chest_stash.tscn" id="9_chest"]
 [ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="10_climbtree"]
+[ext_resource type="PackedScene" uid="uid://rpa7b9ba2fnp8" path="res://scenes/vehicles/boat.tscn" id="12_boat"]
 [ext_resource type="Resource" uid="uid://csrlvynmra002" path="res://resources/data/items/scrolls/scroll_vyeshal_numbers.tres" id="11_s_numbers"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="12_s_kunkun"]
 [ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
@@ -65,6 +66,7 @@ KnowledgeStoneText = "Vyeshal is difficult to read. But study, my friend, and yo
 NearSpawnStashScene = ExtResource("9_chest")
 NearSpawnStashItems = [SubResource("Resource_chest_loot_numbers"), SubResource("Resource_chest_loot_kunkun")]
 NearSpawnClimbableTreeScene = ExtResource("10_climbtree")
+NearSpawnBoatScene = ExtResource("12_boat")
 NearSpawnVillagerData = ExtResource("13_villager")
 NearSpawnVillagerConversation = ExtResource("14_v_conv")
 NearSpawnVillagerLoyaltyGifts = Array[ExtResource("15_loyaltygift")]([SubResource("Resource_villager_loyalty_grammar")])
