@@ -33,6 +33,11 @@ public partial class Player : CharacterBody3D
 	[Export] private DashGhostTrail _dashGhostTrail;
 	[Export] private AudioListener3D _audioListener;
 	[Export] private AimingReticle _aimingReticle;
+	// Drives the in-hand 3D model of the wielded weapon / used consumable.
+	// Updated event-side from TryStartWeaponAction (weapon swap) and per-tick
+	// from UpdateHeldItemVisual (consumable show, weapon conceal). Optional —
+	// null on rigs without the socket wired.
+	[Export] private HeldItemVisual _heldVisual;
 	// Status effect applied while the player is in water or in unsheltered
 	// rain. Authored data lives on the resource (duration, displayName, icon);
 	// TickWetEffect arms / pauses the timer so the 30s dry-out only counts
@@ -3098,6 +3103,33 @@ public partial class Player : CharacterBody3D
 		UpdateHighlightInteractive();
 
 		UpdateAnimation();
+
+		UpdateHeldItemVisual();
+	}
+
+	// Drives the in-hand model each tick off authoritative runner / animator
+	// state. The weapon channel is set event-side (TryStartWeaponAction) and
+	// only needs conceal toggling here; the consumable channel mirrors the live
+	// Use action. A consumable in hand conceals the weapon (the potion replaces
+	// the sword); so does any clip authored with AnimationData.hidesHeldItem.
+	private void UpdateHeldItemVisual()
+	{
+		if (_heldVisual == null)
+		{
+			return;
+		}
+
+		PackedScene itemModel = null;
+		if (_runner != null && _runner.IsBusy
+			&& _runner.Current.context.sourceSlot == EInventorySlot.Consumable)
+		{
+			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
+		}
+		_heldVisual.SetActiveItem(itemModel);
+
+		bool animHides = data != null && _animator != null
+			&& data.AnimationHidesHeldItem(_animator.CurrentAnimation);
+		_heldVisual.SetWeaponConcealed(itemModel != null || animHides);
 	}
 
 	// Aim deflection from the mouse path. `deflection01` is the virtual aim

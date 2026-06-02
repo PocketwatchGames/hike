@@ -39,6 +39,7 @@
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/swordsman_anims.res" id="30_animlib"]
 [ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="31_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="32_modelanim"]
+[ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="34_helditem"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("28_ftsetframes")
@@ -1034,7 +1035,7 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_spriteAnimator", "_modelAnimator", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_spriteAnimator", "_modelAnimator", "_dashGhostTrail", "_audioListener", "_aimingReticle", "_heldVisual")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -1046,6 +1047,7 @@ _modelAnimator = NodePath("ModelAnimator")
 _dashGhostTrail = NodePath("DashGhostTrail")
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
+_heldVisual = NodePath("HeldItemVisual")
 _wetEffectData = ExtResource("26_statuswet")
 _wetClothesEffectData = ExtResource("26_statuswetclothes")
 _dirtyEffectData = ExtResource("27_statusdirty")
@@ -1128,6 +1130,10 @@ player = NodePath("../PlayerModel/F_Swordsman/AnimationPlayer")
 visual = NodePath("../PlayerModel")
 modelMaterial = ExtResource("31_modelmat")
 hiddenMeshNames = PackedStringArray("F_TopBody", "F_BottomBody", "F_hair_2", "F_hair_3", "F_hair_4", "F_hair_5", "F_hair_6", "F_hair_7", "F_hair_8", "F_hair_9", "F_hair_10", "F_hair_11", "F_hair_12", "F_hair_13", "F_hair_14")
+
+[node name="HeldItemVisual" type="Node3D" parent="." unique_id=1349314067 node_paths=PackedStringArray("visual")]
+script = ExtResource("34_helditem")
+visual = NodePath("../PlayerModel")
 
 [node name="DashGhostTrail" type="Node3D" parent="." unique_id=567420860 node_paths=PackedStringArray("_source")]
 script = ExtResource("27_dashghost")

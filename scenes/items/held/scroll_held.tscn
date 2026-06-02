@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://bscrollheld001x"]
+
+; PLACEHOLDER held-in-hand model for a scroll. Primitive box stand-in until the
+; real rolled-parchment mesh is sourced. Scene ORIGIN is the grip point. Shown
+; only while the scroll's Use action plays (the reading pose conceals the weapon
+; via AnimationData.hidesHeldItem).
+
+[sub_resource type="StandardMaterial3D" id="Mat_scroll"]
+albedo_color = Color(0.85, 0.78, 0.55, 1)
+
+[sub_resource type="BoxMesh" id="Box_scroll"]
+material = SubResource("Mat_scroll")
+size = Vector3(0.04, 0.04, 0.22)
+
+[node name="ScrollHeld" type="Node3D"]
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
+mesh = SubResource("Box_scroll")

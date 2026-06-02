@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://bpotionheld001x"]
+
+; PLACEHOLDER held-in-hand model for a potion. Primitive box stand-in until the
+; real bottle mesh is sourced. Scene ORIGIN is the grip point; the small bottle
+; body sits just above it. Shown only while the potion's Use action plays (the
+; drinking pose conceals the weapon via AnimationData.hidesHeldItem).
+
+[sub_resource type="StandardMaterial3D" id="Mat_potion"]
+albedo_color = Color(0.8, 0.12, 0.12, 1)
+
+[sub_resource type="BoxMesh" id="Box_potion"]
+material = SubResource("Mat_potion")
+size = Vector3(0.08, 0.14, 0.08)
+
+[node name="HealthPotionHeld" type="Node3D"]
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
+mesh = SubResource("Box_potion")

@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="7_5gdvb"]
 [ext_resource type="Texture2D" uid="uid://d1e6kk71hv51d" path="res://assets/textures/items/pickups/Potion_red.png" id="8_world"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/effects/drink_loop.tscn" id="9_drinkfx"]
+[ext_resource type="PackedScene" uid="uid://bpotionheld001x" path="res://scenes/items/held/health_potion_held.tscn" id="10_held"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
@@ -52,3 +53,4 @@ maxStack = 5
 value = 10
 inventorySprite = ExtResource("7_5gdvb")
 worldSprite = ExtResource("8_world")
+heldModel = ExtResource("10_held")
