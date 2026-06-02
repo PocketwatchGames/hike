@@ -5,6 +5,7 @@
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="4_shake"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_firewarn_smoke"]
 emission_shape = 1
@@ -18,6 +19,7 @@ damping_min = 0.4
 damping_max = 1.2
 scale_min = 0.8
 scale_max = 1.4
+color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_firewarn_smoke"]
 render_priority = 0
@@ -25,6 +27,7 @@ shader = ExtResource("particle_lit_shader")
 shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
 shader_parameter/albedo = Color(0.4, 0.38, 0.34, 0.55)
 shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_firewarn_smoke"]
 material = SubResource("ShaderMaterial_firewarn_smoke")

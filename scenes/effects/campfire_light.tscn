@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_player_lantern_head.wav" id="2_lh"]
 [ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campignite"]
 emission_shape = 1
@@ -16,12 +17,14 @@ damping_min = 0.3
 damping_max = 0.9
 scale_min = 0.8
 scale_max = 1.6
+color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_campignite"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
 shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.7, 0.25, 0.9)
+shader_parameter/use_vertex_color = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_campignite"]
 material = SubResource("ShaderMaterial_campignite")
@@ -39,12 +42,14 @@ damping_min = 0.0
 damping_max = 0.3
 scale_min = 0.4
 scale_max = 0.9
+color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_campspark"]
 render_priority = 0
 shader = ExtResource("particle_lit_shader")
 shader_parameter/albedo = Color(0, 0, 0, 0)
 shader_parameter/emission = Color(1, 0.85, 0.4, 1)
+shader_parameter/use_vertex_color = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_campspark"]
 material = SubResource("ShaderMaterial_campspark")

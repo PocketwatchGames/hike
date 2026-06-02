@@ -106,6 +106,14 @@ public partial class WorldGenData : Resource
     // scaffolding — the editor's placement pass replaces it.
     [Export] public PackedScene NearSpawnBoatScene;
 
+    // Single test-fixture rideable boat moored off the coast. WorldGen marches
+    // straight outward from the origin along +X (the coastal half — see
+    // PickZoneIndex) until it reaches open sea, then floats the boat a few
+    // voxels offshore. References the boat *scene* (which embeds boat.tres /
+    // BoatData); skipped if null or if no coastline is found along the ray.
+    // Temporary scaffolding — the editor's placement pass replaces it.
+    [Export] public PackedScene OffCoastBoatScene;
+
     // Single test-fixture friendly villager placed a few voxels east of the
     // default player spawn. NearSpawnVillagerData is the species template;
     // the rest are per-instance overrides stamped onto the spawned

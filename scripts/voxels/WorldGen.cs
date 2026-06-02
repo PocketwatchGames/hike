@@ -754,6 +754,48 @@ public static class WorldGen
             }
         }
 
+        // Off-coast boat. March straight outward from the origin along +X (the
+        // coastal half — east transitions to ocean via BuildHeightMap's
+        // east-edge falloff) at z = 0 until we reach the first water-surfaced
+        // column (the shoreline), then keep stepping out while still over water
+        // so the boat moors a few voxels clear of the beach rather than against
+        // it. Skipped if no sea is found along the ray within the world's east
+        // extent. The boat origin rides the water surface (WATER_LEVEL + 1).
+        if (genData.OffCoastBoatScene != null)
+        {
+            const int OffCoastBoatZ = 0;
+            const int OffshoreStep = 4;
+            if (OffCoastBoatZ >= stoneWorldMinZ && OffCoastBoatZ <= stoneWorldMaxZ)
+            {
+                int shoreX = int.MinValue;
+                for (int x = Math.Max(1, stoneWorldMinX); x <= stoneWorldMaxX; x++)
+                {
+                    if (ws.GetVoxelWorld(x, WATER_LEVEL, OffCoastBoatZ) == VoxelType.Water
+                        && ws.GetVoxelWorld(x, WATER_LEVEL + 1, OffCoastBoatZ) == VoxelType.Air)
+                    {
+                        shoreX = x;
+                        break;
+                    }
+                }
+                if (shoreX != int.MinValue)
+                {
+                    // Nudge further out to sea while the column stays open water
+                    // and inside the world, up to OffshoreStep voxels.
+                    int boatX = shoreX;
+                    for (int s = 1; s <= OffshoreStep; s++)
+                    {
+                        int candidate = shoreX + s;
+                        if (candidate > stoneWorldMaxX) { break; }
+                        if (ws.GetVoxelWorld(candidate, WATER_LEVEL, OffCoastBoatZ) != VoxelType.Water
+                            || ws.GetVoxelWorld(candidate, WATER_LEVEL + 1, OffCoastBoatZ) != VoxelType.Air) { break; }
+                        boatX = candidate;
+                    }
+                    var boatPos = new Vector3(boatX + 0.5f, WATER_LEVEL + 1f, OffCoastBoatZ + 0.5f);
+                    ws.AddEntity(new BoatSimState(boatPos, 0f, genData.OffCoastBoatScene));
+                }
+            }
+        }
+
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
             GenerateSignposts(ws, genData, heightMap, worldSeed);

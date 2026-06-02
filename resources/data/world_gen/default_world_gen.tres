@@ -67,6 +67,7 @@ NearSpawnStashScene = ExtResource("9_chest")
 NearSpawnStashItems = [SubResource("Resource_chest_loot_numbers"), SubResource("Resource_chest_loot_kunkun")]
 NearSpawnClimbableTreeScene = ExtResource("10_climbtree")
 NearSpawnBoatScene = ExtResource("12_boat")
+OffCoastBoatScene = ExtResource("12_boat")
 NearSpawnVillagerData = ExtResource("13_villager")
 NearSpawnVillagerConversation = ExtResource("14_v_conv")
 NearSpawnVillagerLoyaltyGifts = Array[ExtResource("15_loyaltygift")]([SubResource("Resource_villager_loyalty_grammar")])

@@ -29,6 +29,11 @@ render_mode blend_mix, unshaded, depth_draw_opaque, cull_disabled;
 uniform sampler2D albedo_texture : source_color, hint_default_white;
 uniform vec4 albedo : source_color = vec4(0.0);
 uniform vec4 emission : source_color = vec4(0.0);
+// When true, the per-particle COLOR.rgb (from the process material's color /
+// color_ramp) tints the final output — the equivalent of StandardMaterial3D's
+// `vertex_color_use_as_albedo`. Defaults false so existing particles that set a
+// process-material color purely for COLOR.a are unaffected.
+uniform bool use_vertex_color = false;
 
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
@@ -98,11 +103,12 @@ void fragment() {
 	// render_mode is unshaded → final output = ALBEDO + EMISSION. Write
 	// everything through ALBEDO and zero EMISSION so we don't accidentally
 	// double-add anything (per the CLAUDE.md unshaded fragment-output note).
-	// Match StandardMaterial3D's default behavior: vertex_color_use_as_albedo
-	// defaults to false, so the per-particle COLOR.rgb did NOT tint the
-	// rendered output. Only COLOR.a (driven by the process material's
-	// color_ramp) drives the lifetime fade. Apply that here.
-	ALBEDO = tex.rgb * albedo.rgb * lit + emission.rgb;
+	// COLOR.a (driven by the process material's color_ramp) always drives the
+	// lifetime fade. COLOR.rgb tints the composite only when use_vertex_color
+	// is set — matching StandardMaterial3D's vertex_color_use_as_albedo, which
+	// defaults false (so the per-particle COLOR.rgb did NOT tint the output).
+	vec3 vertex_tint = use_vertex_color ? particle_color.rgb : vec3(1.0);
+	ALBEDO = (tex.rgb * albedo.rgb * lit + emission.rgb) * vertex_tint;
 	EMISSION = vec3(0.0);
 	ALPHA = max(tex.a * albedo.a, emission.a) * particle_color.a;
 }
