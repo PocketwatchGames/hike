@@ -14,8 +14,15 @@ public partial class BoatData : RideableData
     [Export] public float acceleration = 6f;
 
     // Passive water resistance that bleeds off speed when the rider eases off
-    // the stick (m/s²). Also what eventually halts a drifting boat.
+    // the stick (m/s²). Also the rate the hull settles onto the local current
+    // (or onto a stop in still water) when released.
     [Export] public float drag = 4f;
+
+    // How strongly the local water current carries the boat while ridden and
+    // afloat. 1 = the hull drifts at the full water speed (SampleWaterCurrent,
+    // matching the visible surface flow); 0 = current is ignored. Paddle thrust
+    // adds on top of this, so the rider can still push across or upstream.
+    [Export(PropertyHint.Range, "0,2,0.05")] public float currentStrength = 1f;
 
     // Maximum rate the hull heading swings toward the steering direction
     // (degrees/second). The boat pivots toward where the rider points rather

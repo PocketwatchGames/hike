@@ -45,23 +45,40 @@ public partial class Boat : RideableVehicle
         float steerMag = steer.Length();
         _propelling = surfaceY.HasValue && steerMag > _data.propellingInputThreshold;
 
+        // Ambient water current carries the hull while a rider is aboard and the
+        // boat is afloat: it's the velocity the boat drifts toward when unpaddled
+        // and the baseline that paddle thrust adds onto. An empty or beached boat
+        // gets no current, so derelicts stay put instead of drifting off and
+        // churning chunk streaming. Y is always 0 — currents are 2D in XZ.
+        Vector3 current = Vector3.Zero;
+        if (_rider != null && surfaceY.HasValue)
+        {
+            current = _world.WorldState.SampleWaterCurrent(GlobalPosition) * _data.currentStrength;
+        }
+
         // Horizontal momentum.
         Vector3 horizVel = new(Velocity.X, 0f, Velocity.Z);
         if (_propelling)
         {
-            Vector3 target = steer.Normalized() * _data.maxSpeed * Mathf.Min(steerMag, 1f);
+            // Paddle thrust rides on top of the current, so the rider can angle
+            // across or push upstream while the flow still carries the hull.
+            Vector3 paddle = steer.Normalized() * _data.maxSpeed * Mathf.Min(steerMag, 1f);
+            Vector3 target = current + paddle;
             horizVel = horizVel.MoveToward(target, _data.acceleration * dt);
 
-            // Pivot the hull toward the travel heading at a bounded rate so the
-            // boat turns with weight instead of snapping.
-            float targetYaw = Mathf.Atan2(target.X, target.Z);
+            // Pivot the hull toward the paddle heading (steering intent, not the
+            // current-blended travel vector) at a bounded rate so the boat points
+            // where the rider paddles and turns with weight instead of snapping.
+            float targetYaw = Mathf.Atan2(paddle.X, paddle.Z);
             float maxStep = Mathf.DegToRad(_data.turnRateDegrees) * dt;
             float yaw = Mathf.RotateToward(Rotation.Y, targetYaw, maxStep);
             Rotation = new Vector3(0f, yaw, 0f);
         }
         else
         {
-            horizVel = horizVel.MoveToward(Vector3.Zero, _data.drag * dt);
+            // Released: drift toward the current (toward zero in still water) so
+            // the boat is carried downstream rather than braking to a dead stop.
+            horizVel = horizVel.MoveToward(current, _data.drag * dt);
         }
 
         // Vertical: settle onto the water surface (+ bob), or sink to the
