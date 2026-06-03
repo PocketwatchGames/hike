@@ -134,6 +134,15 @@ public static class PlayerPerception
         {
             float lightAtTarget = world.GetPerceivedLight(targetPos + new Vector3(0f, inputs.lightSampleHeight, 0f));
             float lightFactor = targetLightMax > 0f ? Mathf.Clamp(lightAtTarget / targetLightMax, 0f, 1f) : 0f;
+            // Night vision lifts the darkness-suppression term toward full
+            // brightness: relief is the fraction of the darkness penalty the
+            // player's equipment removes (e.g. a NightVision modifier of 1.85
+            // yields 0.85, so darkness only costs 15% of what it normally would).
+            float nightVisionRelief = Mathf.Clamp(player.ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
+            if (nightVisionRelief > 0f)
+            {
+                lightFactor = Mathf.Lerp(lightFactor, 1f, nightVisionRelief);
+            }
             debug.lighting = lightFactor;
             // Fog/rain shorten sight; sampled at the player (the perceiver here).
             float visibilityDistance = maxVisibilityDistance * lightFactor * VisionRangeMultiplier(world, player.GlobalPosition);

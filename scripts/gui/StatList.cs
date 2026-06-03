@@ -341,6 +341,7 @@ public static class StatList
 			EStat.MoveSpeed => EStatName.MoveSpeed,
 			EStat.AnimSpeed => EStatName.AnimSpeed,
 			EStat.Vision => EStatName.Vision,
+			EStat.NightVision => EStatName.NightVision,
 			EStat.Hearing => EStatName.Hearing,
 			EStat.Noise => EStatName.Noise,
 			EStat.Scent => EStatName.Scent,

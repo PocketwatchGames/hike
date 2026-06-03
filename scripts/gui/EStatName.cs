@@ -29,6 +29,7 @@ public enum EStatName
 	Armor,
 	Camouflage,
 	Vision,
+	NightVision,
 	Hearing,
 	Noise,
 	Scent,
