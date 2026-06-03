@@ -12,6 +12,16 @@ public class WeaponState : ItemState
 	public int exp;
 	public int level;
 
+	// Live block-armor guard pool + its recharge-delay gate. Capacity and
+	// recharge tuning live on WeaponData (blockArmor / blockArmorRechargeDelay
+	// / blockArmorRechargeSpeed); this is the current pool plus the game-time
+	// at which recharge may resume. Only absorbs damage while the player is
+	// charging this weapon (Player.OnHurtBoxHit), but recharges continuously
+	// once the delay elapses so the guard is ready for the next charge. Starts
+	// full so a freshly-equipped weapon guards on its first charge.
+	public float blockArmor;
+	public ulong blockArmorRechargeStartMs;
+
 	// Arrows this bow has fired that are still recoverable. Spans both
 	// forms an arrow can take: loose loot on the ground (ArrowLootSimState)
 	// and stuck on a mob (ArrowStuck). Each entry returns 1 ammo via
@@ -32,6 +42,7 @@ public class WeaponState : ItemState
 		if (_data != null)
 		{
 			ammo = _data.maxAmmo;
+			blockArmor = _data.blockArmor;
 		}
 	}
 
