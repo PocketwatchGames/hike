@@ -42,6 +42,17 @@ public partial class MoteEffect : Node3D
     // (curl-noise hot spots); the .tscn also caps influence + adds damping so
     // any kick decays back to a gentle drift.
     [Export(PropertyHint.Range, "0,4,0.01")] public float turbulence = 0.15f;
+    // How much the local baked wind nudges motes downwind. Applied as a
+    // horizontal drift FORCE (the process material's Gravity vector) because
+    // that's the only knob that imparts a consistent net drift through the
+    // 180-degree emission spread — Direction/InitialVelocity get washed out by
+    // the full-sphere spread. Since Gravity is a constant acceleration the
+    // drift accumulates over a mote's (long) lifetime, so keep this SMALL: at
+    // 0.02 a gentle ~5 m/s breeze leans motes a fraction of a m/s downwind
+    // while a ~25 m/s gale visibly blows them. The sampled wind is damped by
+    // the wind factor first, so sealed cells (caves / interiors) stay calm. 0
+    // disables (pure drift + turbulence, as before).
+    [Export(PropertyHint.Range, "0,1,0.001")] public float windInfluence = 0.02f;
     // Near-ground concentration: brightness e-folds over this many metres of
     // height above the player's ground. Smaller = motes hug the ground.
     [Export(PropertyHint.Range, "0.5,32,0.5")] public float nearGroundHeight = 6.0f;
@@ -153,11 +164,23 @@ public partial class MoteEffect : Node3D
         // Anchor the emission column on the PLAYER (not the camera, which sits
         // ~65 m above) so motes populate the visible near-ground air. The node
         // is a child of MainCamera for scene structure; we override world
-        // position here and kill any inherited camera pitch.
+        // position here and kill any inherited camera pitch. While here, sample
+        // the local baked wind so we can lean the motes downwind below.
+        Vector3 windDrift = Vector3.Zero;
         if (worldReady)
         {
             Vector3 pp = world.player.GlobalPosition;
             GlobalPosition = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
+
+            WorldState ws = world.WorldState;
+            if (ws != null && windInfluence > 0f)
+            {
+                Vector3 windVel = ws.GetWindVelocityWorld(
+                    Mathf.FloorToInt(pp.X), Mathf.FloorToInt(pp.Y), Mathf.FloorToInt(pp.Z));
+                // Damp by the wind factor so motes in sealed cells (caves /
+                // building interiors) aren't pushed around by ambient wind.
+                windDrift = windVel * ws.SampleWindFactor(pp) * windInfluence;
+            }
         }
         GlobalRotation = Vector3.Zero;
 
@@ -183,6 +206,9 @@ public partial class MoteEffect : Node3D
             _procRuntime.InitialVelocityMax = speed;
             _procRuntime.TurbulenceEnabled = turbulence > 0f;
             _procRuntime.TurbulenceNoiseStrength = turbulence;
+            // Gentle downwind lean (zero when windInfluence is 0 or in calm /
+            // sealed air), applied as the constant gravity-force vector.
+            _procRuntime.Gravity = windDrift;
         }
 
         // Push the draw-pass tunables every frame too (cheap), so size / spin /

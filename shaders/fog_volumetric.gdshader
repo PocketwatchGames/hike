@@ -39,6 +39,16 @@ uniform sampler2D depth_tex : hint_depth_texture;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
+// Vertical (top-down, non-leaky) sky-reach field, registered by ChunkManager
+// and also used by the rain shader. R = how much open sky is directly above
+// a voxel [0..1]: 1 under open sky, 0 under solid overhead cover (roof /
+// overhang / cave ceiling). Unlike light_map.R (the BFS sun mask, which
+// leaks horizontally into cave mouths), this is the true overhead-cover line.
+// The sun shaft samples it at the ground target to fade beams that land on
+// covered floor (incl. cutaway-revealed tunnel/cave interiors).
+global uniform sampler3D sky_exposure_map : filter_linear;
+global uniform vec3 sky_exposure_map_origin;
+global uniform vec3 sky_exposure_map_inv_size;
 // Ceiling cutaway altitude + animation. Voxel/sprite shaders discard
 // fragments above camera_clip (the cut-away ceiling) so the player sees into
 // indoor spaces from above. We treat above-clip air as occluded (the cut
@@ -187,6 +197,19 @@ uniform float wash_shadow_darkness : hint_range(0.0, 1.0) = 0.5;
 // Keep small — this is the only additive term, so it's the one that could
 // brighten. 0 = beams are pure un-darkened scene; ~0.15 = subtly colored.
 uniform float wash_tint_strength : hint_range(0.0, 1.0) = 0.15;
+// Sky-cover fade for the sun shaft. Each dust sample's top-down sky exposure
+// is remapped through smoothstep(shaft_sky_cover_min, shaft_sky_cover_max, .)
+// and band-averaged, so a beam whose AIR COLUMN sits under solid overhead
+// cover (roofed tunnel / cave / overhang, incl. cutaway-revealed interiors)
+// fades while open-air beams stay — keyed to the beam's own air, NOT the
+// backdrop surface (so a valid beam isn't erased just because its far surface
+// is covered). Sky exposure is measured TOP-DOWN but beams arrive ANGLED, so
+// partial top-down cover can still legitimately be lit — keep `max` low so
+// beams persist strongly into partial cover and only die as cover nears total.
+// min = exposure at/below which the beam is fully gone; max = exposure at/above
+// which the beam is at full strength. Outdoors exposure ~= 1, so no effect.
+uniform float shaft_sky_cover_min : hint_range(0.0, 1.0, 0.01) = 0.0;
+uniform float shaft_sky_cover_max : hint_range(0.0, 1.0, 0.01) = 0.25;
 
 // Color tint on shaft inscatter. SkyController crossfades between the
 // day sun color and weather.moonShaftColor based on which source is
@@ -457,6 +480,12 @@ void fragment()
     // lit_weighted / band_weight = average lit fraction.
     float lit_weighted = 0.0;
     float band_weight = 0.0;
+    // Band-averaged top-down sky exposure of the beam's air column. Each
+    // sample's exposure is remapped through the lenient cover smoothstep and
+    // accumulated dust-weighted; sky_cover_frac = this / band_weight at
+    // composite. Fades the sun shaft where its air sits under solid overhead
+    // cover (roofed tunnel / cave) without keying off the backdrop surface.
+    float sky_cover_weighted = 0.0;
     // Authored per-voxel fog density (fog_map.r) accumulated along the band,
     // band-weighted like lit. Lets WorldGen/editor-painted fog volumes drive
     // LOCAL shaft density on top of the global humidity/dust wash.
@@ -517,6 +546,10 @@ void fragment()
     // Dust + shaft inscatter stays live so you can see beams on a
     // fog-free baseline.
     float authored_scale = fog_enabled ? fog_density : 0.0;
+
+    // Upper edge of the sky-cover smoothstep, guarded so min == max can't
+    // divide by zero. Computed once for the per-sample remap in the march.
+    float sky_cover_hi = max(shaft_sky_cover_max, shaft_sky_cover_min + 1e-3);
 
     if (band_range > 0.0)
     {
@@ -692,6 +725,19 @@ void fragment()
                 band_weight += dust_gate;
                 fog_weighted += fog_raw * dust_gate;
 
+                // Top-down sky cover of THIS air sample (non-leaky vertical
+                // reach), remapped through the lenient cover smoothstep and
+                // dust-weighted like lit. Out-of-bounds (distant / above loaded
+                // chunks) defaults to open sky so far outdoor beams aren't
+                // gated. Band-averaged into sky_cover_frac at composite.
+                vec3 se_uvw = (p - sky_exposure_map_origin) * sky_exposure_map_inv_size;
+                float sky_exp = 1.0;
+                if (all(greaterThanEqual(se_uvw, vec3(0.0))) && all(lessThanEqual(se_uvw, vec3(1.0))))
+                {
+                    sky_exp = texture(sky_exposure_map, se_uvw).r;
+                }
+                sky_cover_weighted += smoothstep(shaft_sky_cover_min, sky_cover_hi, sky_exp) * dust_gate;
+
                 L_block += lm.gba * phase_block * block_halo_intensity;
 
                 // Diagnostic accumulators (debug modes 4 / 9).
@@ -768,6 +814,10 @@ void fragment()
     // Average lit fraction of the air column along this ray (band-weighted).
     // 0 = fully shadowed (deep canopy / cave / cloud), 1 = fully sunlit.
     float lit_frac = band_weight > 0.0 ? clamp(lit_weighted / band_weight, 0.0, 1.0) : 0.0;
+    // Band-averaged sky-cover gate for the shaft (1 = open air, 0 = under solid
+    // overhead cover). band_weight == 0 -> 1 so distant outdoor rays are
+    // untouched. Folded into shaft_clip at composite.
+    float sky_cover_frac = band_weight > 0.0 ? clamp(sky_cover_weighted / band_weight, 0.0, 1.0) : 1.0;
 
     // Inscatter now carries ONLY the block-light halos; the sun shaft is a
     // coverage wash applied as a value-preserving tint at composite time.
@@ -942,8 +992,8 @@ void fragment()
         // (band_weight == 0 -> lit_frac == 0) would read as "fully shadowed"
         // and darken the sky / far terrain incorrectly.
         float coverage = clamp(band_weight, 0.0, 1.0);
-        // Two cut-away suppressors, handling DIFFERENT geometry — a shaft
-        // needs both:
+        // Three shaft suppressors, handling DIFFERENT geometry (the third,
+        // sky_cover_frac, is band-averaged in the march above):
         //   clip_fade  : kills shafts whose ground DESTINATION is above the
         //                clip (cut-away exterior/ceiling surfaces). Follows
         //                the cutaway growth iris so it dissolves in sync with
@@ -961,7 +1011,15 @@ void fragment()
         //                the pre-refactor behavior where shafts lived in
         //                outdoor_inscatter and were attenuated by clip_atten.
         float clip_fade = clip_visibility_smooth(surface_world);
-        float shaft_clip = clip_fade * clip_atten;
+        // Third suppressor: sky-cover fade (sky_cover_frac), band-averaged over
+        // the beam's OWN dust column during the march above — NOT sampled at the
+        // backdrop surface. Sampling the backdrop wrongly erased the upper part
+        // of a valid open-air beam whenever its far surface happened to be
+        // covered/clipped. Averaging the top-down sky-exposure along the beam's
+        // air instead fades beams whose air sits under solid overhead cover
+        // (roofed tunnel / cave / overhang, incl. cutaway-revealed interiors)
+        // while leaving open-air beams intact regardless of their backdrop.
+        float shaft_clip = clip_fade * clip_atten * sky_cover_frac;
         // TEST: fade the darkening out where the column has near-zero light, so
         // genuinely lightless areas aren't washed. 0 floor = off (full effect).
         float light_present = shaft_light_floor > 0.0

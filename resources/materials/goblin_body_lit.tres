@@ -1,0 +1,12 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://bnixe36gx83ge"]
+
+[ext_resource type="Shader" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://c2yqtrkygt35s" path="res://assets/models/characters/goblin/goblin_body.png" id="2_atlas"]
+[ext_resource type="ShaderMaterial" path="res://resources/materials/model_xray.tres" id="3_xray"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_atlas")
+shader_parameter/form_strength = 0.55
+next_pass = ExtResource("3_xray")

@@ -47,6 +47,14 @@ public partial class ModelAnimator : Node, IActorAnimator
     // already-authored material in code (not creating one) is simpler and robust
     // to the imported mesh layout. Null leaves the imported materials in place.
     [Export] public ShaderMaterial modelMaterial;
+    // Optional second material for modular characters whose body and props are
+    // separate meshes painted from DIFFERENT atlases (e.g. the goblin: one mesh
+    // on the body texture, sword/shield/armor on a props texture). Meshes named
+    // in secondaryMeshNames get this material; everything else gets
+    // modelMaterial. Null (the common case — single-atlas characters like the
+    // player and bunny) means every mesh gets modelMaterial as before.
+    [Export] public ShaderMaterial secondaryMaterial;
+    [Export] public string[] secondaryMeshNames = Array.Empty<string>();
     // Names of MeshInstance3D nodes under `visual` to hide at startup. Imported
     // character FBX often bundle alternate cosmetics (extra hairstyles, the
     // naked body underneath an outfit, optional helmets) that all render at
@@ -150,7 +158,9 @@ public partial class ModelAnimator : Node, IActorAnimator
     {
         if (node is MeshInstance3D mesh)
         {
-            mesh.MaterialOverride = modelMaterial;
+            bool secondary = secondaryMaterial != null
+                && Array.IndexOf(secondaryMeshNames, mesh.Name.ToString()) >= 0;
+            mesh.MaterialOverride = secondary ? secondaryMaterial : modelMaterial;
         }
         foreach (Node child in node.GetChildren())
         {
