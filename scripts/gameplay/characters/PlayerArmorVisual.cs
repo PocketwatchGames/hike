@@ -8,10 +8,14 @@ using Godot;
 // animator, which toggles visibility on the one shared skeleton — no reload,
 // no skin rebind. Recomputed on every armor slot change and once at spawn.
 //
+// Targets the live gender model (_activeModelAnimator), so it composites onto
+// whichever body type the player spawned as.
+//
 // Placeholder scope: the base / bare-default mesh names below are the
-// BasicHero_F rig's body parts. Head-slot coverage is wired but no head armor
-// exists yet. When richer authoring lands, only the body-rig constants here
-// need revisiting — the per-piece meshes are already data (ArmorData).
+// BasicHero_F (Female) rig's body parts. Head-slot coverage is wired but no
+// head armor exists yet. When a second body type (EGender.Male) and richer
+// authoring land, these base/bare constants become per-gender (the male rig
+// names its parts M_*); the per-piece meshes are already data (ArmorData).
 public partial class Player : CharacterBody3D
 {
 	// Always visible regardless of equipment: head shell + facial features.
@@ -30,14 +34,14 @@ public partial class Player : CharacterBody3D
 	// inventory exists.
 	private void UpdateArmorVisual()
 	{
-		if (_modelAnimator == null || _inventory == null)
+		if (_activeModelAnimator == null || _inventory == null)
 		{
 			return;
 		}
 		List<string> visible = new(ArmorBaseMeshes);
 		AppendSlotMeshes(EInventorySlot.ArmorHead, ArmorBareHead, visible);
 		AppendSlotMeshes(EInventorySlot.ArmorBody, ArmorBareBody, visible);
-		_modelAnimator.SetVisibleMeshes(visible.ToArray());
+		_activeModelAnimator.SetVisibleMeshes(visible.ToArray());
 	}
 
 	// Append the equipped armor's worn meshes for `slot`, or the bare-body

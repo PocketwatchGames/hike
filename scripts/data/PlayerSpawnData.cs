@@ -4,6 +4,13 @@ using Godot.Collections;
 [GlobalClass]
 public partial class PlayerSpawnData : Resource
 {
+	// Body type the player spawns as. Selects which base character model
+	// renders — Player.Initialize looks this up in the player scene's
+	// per-gender model map and activates the matching model subtree (each
+	// gender shares the skeleton + animation library, so only the visible
+	// model swaps). Defaults to Female (0).
+	[Export] public EGender gender = EGender.Female;
+
 	// Items the player tries to spawn already equipped. Each entry is added to
 	// the inventory and then we attempt to move it into the matching slot:
 	// armor → its armorSlot, weapons → their CanonicalSlot (melee → WeaponLeft,
