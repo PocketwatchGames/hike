@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="7_chestopen"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="8_disc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_p7wb5"]
-[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="9_autocoll"]
+[ext_resource type="Script" uid="uid://b8meshautcolld" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="9_autocoll"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="PackedScene" uid="uid://dfvpiex5fijps" path="res://assets/models/chest/Treasure_Chest_Base_01.fbx" id="11_body"]
 [ext_resource type="PackedScene" uid="uid://nw4vqfkd6xqt" path="res://assets/models/chest/Treasure_Chest_lid_01.fbx" id="12_lid"]
@@ -77,10 +77,11 @@ script = ExtResource("2_hurtbox")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
 shape = SubResource("BoxShape3D_hurt")
 
-[node name="Discoverable" type="Node3D" parent="." unique_id=1497437143 node_paths=PackedStringArray("_interactBox")]
+[node name="Discoverable" type="Node3D" parent="." unique_id=1497437143 node_paths=PackedStringArray("_interactBox", "_fadeMeshRoot")]
 script = ExtResource("8_disc")
 discoveredThreshold = 0.1
 _interactBox = NodePath("../InteractiveBox")
+_fadeMeshRoot = NodePath("../ChestVisual")
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1485804551 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("10_meshhl")

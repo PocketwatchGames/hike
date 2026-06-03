@@ -41,6 +41,13 @@ global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 global uniform float sun_intensity;
 global uniform vec3 sun_color;
+// Ceiling-cutaway clip plane (driven by GameCamera). A particle whose origin
+// sits above it is on the hidden interior ceiling / outside above-ground when
+// the player is under cover, so it must not paint into the revealed interior —
+// the same hard discard mote.gdshader uses. Without this, wind-blown leaves
+// shed from surface trees stayed visible through the cutaway while the player
+// was below in a cave.
+global uniform float camera_clip;
 
 varying vec3 world_pos;
 // COLOR is the particle's per-instance color (set by the
@@ -78,6 +85,13 @@ void fragment() {
 
 	vec3 lit;
 	if (globals_ready) {
+		// Cutaway clip: discard particles above the ceiling cutaway so they
+		// never draw on the hidden interior ceiling when the player is inside
+		// (matches mote.gdshader). camera_clip is parked very high outdoors, so
+		// nothing clips when there's no ceiling overhead.
+		if (world_pos.y > camera_clip) {
+			discard;
+		}
 		// Particles spawn at arbitrary positions and can briefly intersect
 		// solid voxels (e.g. blood spawned at a mob's chest center on a
 		// solid mob, dust from a footstep on a chunk top face). Push the

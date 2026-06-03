@@ -34,6 +34,7 @@ FillBWhiteMix = 1.0
 FillDustPullK = 1.0
 FillDesatK = 1.0
 AmbientFogHumidityK = 0.0025
+ShaftDustColorMix = 1.0
 NightIntensityBase = 0.6
 DayAmbientBase = 0.05
 AmbientHumidityLift = 0.25

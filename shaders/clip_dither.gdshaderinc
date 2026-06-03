@@ -44,6 +44,43 @@ float clip_dither_hash(ivec2 p)
 	return float((n ^ (n >> 16)) & 0xFFFF) / 65535.0;
 }
 
+// Smooth [0,1] "how much is this point part of the visible interior
+// (below the animating cutaway clip)". 1 = fully drawn / below-clip,
+// 0 = fully cut-away / above-clip; the transition follows the same
+// player-centered growth iris as the dither discard. Volumetric consumers
+// (fog/shafts) use this directly instead of the per-fragment dither so the
+// cutaway dissolves into them smoothly rather than snapping at camera_clip.
+float clip_visibility_smooth(vec3 world_pos)
+{
+	bool above_prev = world_pos.y > camera_clip_prev;
+	bool above_new = world_pos.y > camera_clip;
+	if (above_prev && above_new)
+	{
+		return 0.0;
+	}
+	if (!above_prev && !above_new)
+	{
+		return 1.0;
+	}
+	// In the transition band — compute a player-centered phase that
+	// normalizes the horizontal distance from the growth center (player
+	// position) by max_radius, with world-stable sin-noise on the edge.
+	vec2 to_center = world_pos.xz - camera_clip_growth_center.xz;
+	float dist = length(to_center);
+	float phase = dist / max(camera_clip_growth_max_radius, 1e-3);
+	float n = sin(world_pos.x * 1.3 + world_pos.z * 0.7) * 0.06
+	        + sin(world_pos.x * 0.5 - world_pos.z * 1.7) * 0.04
+	        + sin(world_pos.x * 2.1 + world_pos.z * 0.4) * 0.03;
+	phase = clamp(phase + n, 0.0, 1.0);
+	if (camera_clip > camera_clip_prev) {
+		phase = 1.0 - phase;
+	}
+	float softness = max(camera_clip_growth_edge_softness, 1e-3);
+	float leading_phase = -softness + camera_clip_blend * (1.0 + 2.0 * softness);
+	float local_blend = clamp(0.5 - (phase - leading_phase) / (2.0 * softness), 0.0, 1.0);
+	return above_new ? (1.0 - local_blend) : local_blend;
+}
+
 bool clip_dither_should_discard(vec3 world_pos, vec2 frag_xy)
 {
 	bool above_prev = world_pos.y > camera_clip_prev;

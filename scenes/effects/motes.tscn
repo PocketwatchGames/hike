@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://daek4pk8ecen3"]
+
+[ext_resource type="Script" uid="uid://cbx3dii8j1ian" path="res://scripts/client/MoteEffect.cs" id="1_mote"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="2_f3kxx"]
+[ext_resource type="Material" uid="uid://b3mote7matr01" path="res://resources/materials/mote.tres" id="2_mote_mat"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_motes"]
+emission_shape = 3
+emission_box_extents = Vector3(28, 8, 28)
+direction = Vector3(0, 1, 0)
+spread = 180.0
+initial_velocity_min = 0.2
+initial_velocity_max = 0.5
+gravity = Vector3(0, 0, 0)
+attractor_interaction_enabled = false
+scale_min = 0.8
+scale_max = 1.2
+color_ramp = ExtResource("2_f3kxx")
+turbulence_enabled = true
+turbulence_influence_min = 0.0
+
+[sub_resource type="QuadMesh" id="QuadMesh_mote"]
+material = ExtResource("2_mote_mat")
+size = Vector2(0.01, 0.01)
+
+[node name="MoteEffect" type="Node3D" unique_id=771203401 node_paths=PackedStringArray("moteParticles")]
+script = ExtResource("1_mote")
+moteParticles = NodePath("MoteParticles")
+moteSizePx = 0.5
+speed = 1.0
+turbulence = 0.0
+nearGroundHeight = 12.0
+beamThreshold = 0.86
+
+[node name="MoteParticles" type="GPUParticles3D" parent="." unique_id=771203402]
+extra_cull_margin = 16384.0
+amount = 4000
+lifetime = 10.0
+visibility_aabb = AABB(-60, -30, -60, 120, 60, 120)
+process_material = SubResource("ParticleProcessMaterial_motes")
+draw_pass_1 = SubResource("QuadMesh_mote")

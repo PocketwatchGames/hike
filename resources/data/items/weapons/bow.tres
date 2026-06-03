@@ -22,6 +22,7 @@
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="17_kwtcm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
+[ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -130,4 +131,5 @@ displayName = &"Short Bow"
 description = "Shooty shooty"
 value = 50
 inventorySprite = ExtResource("15_tnjmy")
+heldModel = ExtResource("20_kwtcm")
 worldSprite = ExtResource("16_world")

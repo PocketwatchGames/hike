@@ -26,3 +26,4 @@ description = "Polar bears stay warm in the winter!"
 value = 25
 inventorySprite = ExtResource("2_sprite")
 worldSprite = ExtResource("3_world")
+wornMeshNames = PackedStringArray("F_Archer_Top", "F_Archer_Bottom", "F_Archer_Cape")

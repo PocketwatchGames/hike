@@ -26,3 +26,4 @@ description = "Protects against nicks and scratches."
 value = 25
 inventorySprite = ExtResource("1_kkvw5")
 worldSprite = ExtResource("3_bvjtb")
+wornMeshNames = PackedStringArray("F_Fighter_Top", "F_Fighter_Bottom")

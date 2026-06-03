@@ -1,0 +1,208 @@
+using Godot;
+
+// Camera-parented floating dust-mote visuals — a real GPU particle system
+// (scenes/effects/motes.tscn) that replaces the old in-shader fog motes.
+// Modeled on RainEffect: the GPUParticles3D is a child of MainCamera for
+// scene-structure convenience, but each frame we override its world position
+// so the emission box stays anchored on the player (world-axis-aligned), and
+// SkyController.Apply() pushes the per-frame look (dust hue + density wash)
+// every frame so motes track time-of-day and weather. The specular glint
+// colour comes straight from the global sun_color (blended sun→moon→sunset).
+//
+// Particles emit everywhere in the box; the draw-pass shader (mote.gdshader)
+// gates each speck per-fragment against the voxel sun mask × cloud shadow, so
+// motes only appear inside intense sunbeams and vanish under cover / in caves
+// — the same "emit everywhere, discard per-fragment" approach rain uses for
+// its falling streaks. Density (AmountRatio) is scaled by SkyController's
+// dust × cloudCover² wash so clear skies stay clean.
+[GlobalClass]
+public partial class MoteEffect : Node3D
+{
+    // Mirror of SkyController.Current — SkyController.Apply() fetches this to
+    // push per-frame mote params. Same static-ref rationale as RainEffect:
+    // Godot 4's C# binding strips a NodePath wired from another scene because
+    // the instanced root arrives typed as plain Node3D at property-set time.
+    public static MoteEffect Current { get; private set; }
+
+    [Export] public GpuParticles3D moteParticles;
+
+    // --- Tunables ---------------------------------------------------------
+    // Total particle budget. A good fraction survive the beam gate at a time;
+    // the rest are emitted but discarded per-fragment outside the beams.
+    [Export] public int particleCount = 4000;
+    // Speck size in SubViewport pixels (pushed to the draw shader). 1 px.
+    [Export(PropertyHint.Range, "0.1,8,0.1")] public float moteSizePx = 1.0f;
+    // Float speed (m/s). A slow gentle drift — motes hang in the air and
+    // wander rather than streak. Drives the process material's initial
+    // velocity. Keep low; this is the baseline drift before turbulence.
+    [Export(PropertyHint.Range, "0,8,0.01")] public float speed = 0.3f;
+    // Turbulence noise strength on the process material — the independent,
+    // wandering, non-uniform motion (vs a uniform scroll). 0 disables. Keep
+    // SMALL: high turbulence is what produces occasional fast outlier specks
+    // (curl-noise hot spots); the .tscn also caps influence + adds damping so
+    // any kick decays back to a gentle drift.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float turbulence = 0.15f;
+    // Near-ground concentration: brightness e-folds over this many metres of
+    // height above the player's ground. Smaller = motes hug the ground.
+    [Export(PropertyHint.Range, "0.5,32,0.5")] public float nearGroundHeight = 6.0f;
+    // Tumble rate of each fleck's normal (radians/sec). The specular glint
+    // flashes as the spinning normal sweeps through the light/eye half-vector,
+    // so this is effectively the sparkle rate. Each speck has an independent
+    // per-particle phase.
+    [Export(PropertyHint.Range, "0,12,0.1")] public float spinRate = 2.0f;
+    // Specular sharpness — higher = tighter, briefer, rarer glints.
+    [Export(PropertyHint.Range, "1,64,1")] public float specPower = 8.0f;
+    // Specular flash brightness (in the light colour); >1 lets a catching fleck
+    // bloom briefly.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float specIntensity = 1.0f;
+    // Beam gate: lit = light_map.r * (1 - cloud) must clear this for a speck
+    // to show. Higher = motes confined to the most intense beams only; lower =
+    // motes also drift through softly-lit air, not just the sharpest beams.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float beamThreshold = 0.3f;
+    // Block-light (torch / campfire / lamp) contribution. Lets motes also drift
+    // and glint inside local light, and strongly tints/brightens their glint
+    // toward the block-light colour. Block-light values are small, so this wants
+    // a big multiplier — push to 8-24 for a strong torch response (past ~1 the
+    // glint blooms). 0 = sun/moon shafts only.
+    [Export(PropertyHint.Range, "0,32,0.1")] public float blockLightStrength = 8.0f;
+    // Shaft occlusion gate — makes motes track the actual god-rays instead of
+    // blanketing open lit sky (clear desert noon). A mote needs cloud cover OR
+    // local terrain/foliage shadow contrast to show. shaftSampleRadius = how far
+    // out (m) to probe the sun mask for that contrast; occlusionMin/Soft remap
+    // how much occlusion is required → fully shown. Block-lit motes bypass it.
+    [Export(PropertyHint.Range, "0.25,8,0.25")] public float shaftSampleRadius = 2.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float shaftOcclusionMin = 0.15f;
+    [Export(PropertyHint.Range, "0.01,1,0.01")] public float shaftOcclusionSoft = 0.3f;
+
+    // Metres the emission column is lifted above the player's ground position
+    // each frame, so the box sits in the visible air column instead of
+    // straddling the player (its bottom half would otherwise be underground,
+    // where every particle is discarded by the sun-mask gate — wasted budget).
+    // Pair with the box's vertical extent in motes.tscn (~8 half-height): with
+    // a +6 lift the box spans roughly ground−2 .. ground+14.
+    private const float AnchorHeightAbovePlayer = 6f;
+
+    private float _intensity;
+    // Pre-integrated sparkle time (accumulates dt), pushed as mote_time so the
+    // twinkle phase doesn't ride raw shader TIME (precision over long sessions).
+    private float _moteTime;
+
+    // Runtime copies of the process + draw-pass materials. Duplicated in
+    // _Ready so the per-frame tuning writes (and SkyController's weather-driven
+    // glint/dust colour writes) never persist back to the shared .tres on an
+    // editor save (same pattern as RainEffect's runtime materials).
+    public ShaderMaterial MoteMatRuntime { get; private set; }
+    private ParticleProcessMaterial _procRuntime;
+    // Last Amount we pushed — Amount reallocates GPU buffers, so we only write
+    // it when particleCount actually changes (lets it be tuned live without
+    // thrashing). -1 forces the first sync.
+    private int _appliedCount = -1;
+
+    public override void _Ready()
+    {
+        Current = this;
+
+        if (moteParticles == null)
+        {
+            return;
+        }
+
+        moteParticles.Emitting = true;
+
+        // Duplicate both materials. The actual tunable values are pushed every
+        // frame in _Process (NOT here) so editing the node's [Export]s on the
+        // live/running effect takes effect immediately instead of only at load.
+        if (moteParticles.ProcessMaterial is ParticleProcessMaterial proc)
+        {
+            _procRuntime = (ParticleProcessMaterial)proc.Duplicate();
+            moteParticles.ProcessMaterial = _procRuntime;
+            _procRuntime.Gravity = Vector3.Zero;
+        }
+
+        if (moteParticles.DrawPass1 is PrimitiveMesh mesh && mesh.Material is ShaderMaterial mat)
+        {
+            MoteMatRuntime = (ShaderMaterial)mat.Duplicate();
+            mesh.Material = MoteMatRuntime;
+        }
+    }
+
+    public override void _ExitTree()
+    {
+        if (Current == this)
+        {
+            Current = null;
+        }
+    }
+
+    // Called by SkyController.ApplyMotes() every frame. `intensity` is the
+    // already-computed density wash (dust baseline faded by shaft presence), so
+    // this node just consumes it as the density scalar (AmountRatio).
+    public void SetIntensity(float intensity)
+    {
+        _intensity = Mathf.Clamp(intensity, 0f, 1f);
+    }
+
+    public override void _Process(double delta)
+    {
+        float dt = (float)delta;
+        _moteTime += dt;
+
+        World world = World.Current;
+        bool worldReady = world != null && world.player != null;
+
+        // Anchor the emission column on the PLAYER (not the camera, which sits
+        // ~65 m above) so motes populate the visible near-ground air. The node
+        // is a child of MainCamera for scene structure; we override world
+        // position here and kill any inherited camera pitch.
+        if (worldReady)
+        {
+            Vector3 pp = world.player.GlobalPosition;
+            GlobalPosition = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
+        }
+        GlobalRotation = Vector3.Zero;
+
+        // Motes emit everywhere; the draw shader gates per-fragment to the
+        // sunbeams. Density rides the SkyController wash.
+        if (moteParticles != null)
+        {
+            int wanted = Mathf.Max(1, particleCount);
+            if (wanted != _appliedCount)
+            {
+                moteParticles.Amount = wanted;
+                _appliedCount = wanted;
+            }
+            moteParticles.AmountRatio = _intensity;
+        }
+
+        // Push the motion tunables every frame so they're live-tunable on the
+        // running node. These only affect newly-spawned particles, which is
+        // fine for a continuously-emitting drift field.
+        if (_procRuntime != null)
+        {
+            _procRuntime.InitialVelocityMin = speed * 0.4f;
+            _procRuntime.InitialVelocityMax = speed;
+            _procRuntime.TurbulenceEnabled = turbulence > 0f;
+            _procRuntime.TurbulenceNoiseStrength = turbulence;
+        }
+
+        // Push the draw-pass tunables every frame too (cheap), so size / spin /
+        // specular / beam-gate / near-ground edits apply live. The glint/dust
+        // COLOURS are weather-driven and pushed by SkyController.
+        if (MoteMatRuntime != null)
+        {
+            MoteMatRuntime.SetShaderParameter("mote_size_px", moteSizePx);
+            MoteMatRuntime.SetShaderParameter("spin_rate", spinRate);
+            MoteMatRuntime.SetShaderParameter("spec_power", specPower);
+            MoteMatRuntime.SetShaderParameter("spec_intensity", specIntensity);
+            MoteMatRuntime.SetShaderParameter("beam_threshold", beamThreshold);
+            MoteMatRuntime.SetShaderParameter("block_light_strength", blockLightStrength);
+            MoteMatRuntime.SetShaderParameter("shaft_sample_radius", shaftSampleRadius);
+            MoteMatRuntime.SetShaderParameter("shaft_occlusion_min", shaftOcclusionMin);
+            MoteMatRuntime.SetShaderParameter("shaft_occlusion_soft", shaftOcclusionSoft);
+            MoteMatRuntime.SetShaderParameter("near_ground_height", nearGroundHeight);
+            MoteMatRuntime.SetShaderParameter("mote_time", _moteTime);
+            float groundY = worldReady ? world.player.GlobalPosition.Y : 0f;
+            MoteMatRuntime.SetShaderParameter("ground_reference_y", groundY);
+        }
+    }
+}

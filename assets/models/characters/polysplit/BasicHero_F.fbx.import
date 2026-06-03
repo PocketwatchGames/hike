@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://qficleeo56im"
-path="res://.godot/imported/F_Swordsman.fbx-0f31a4df53ff9a4c8614836b0584db02.scn"
+uid="uid://ckibma4hpcyu7"
+path="res://.godot/imported/BasicHero_F.fbx-f8edb8763ce69c71f57df2c5ac6d07c8.scn"
 
 [deps]
 
-source_file="res://assets/models/characters/polysplit/F_Swordsman.fbx"
-dest_files=["res://.godot/imported/F_Swordsman.fbx-0f31a4df53ff9a4c8614836b0584db02.scn"]
+source_file="res://assets/models/characters/polysplit/BasicHero_F.fbx"
+dest_files=["res://.godot/imported/BasicHero_F.fbx-f8edb8763ce69c71f57df2c5ac6d07c8.scn"]
 
 [params]
 

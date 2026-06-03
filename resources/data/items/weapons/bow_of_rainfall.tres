@@ -23,6 +23,7 @@
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
+[ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="21_5ljk8"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -143,4 +144,5 @@ displayName = &"Bow of Rainfall"
 description = "A shower of arrows."
 value = 50
 inventorySprite = ExtResource("15_tnjmy")
+heldModel = ExtResource("21_5ljk8")
 worldSprite = ExtResource("16_world")

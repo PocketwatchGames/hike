@@ -89,6 +89,21 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,30,0.5")] public float shaftFadeAngleDegrees = 5f;
     [Export(PropertyHint.Range, "0.1,30,0.5")] public float shaftFadeRangeDegrees = 10.1f;
 
+    // Sun-wash intensity tuning (client-side visual — drives the global "how
+    // lit is the atmosphere" scalar before per-pixel shadows carve it).
+    // washIntensity = min(washMax, effectiveDust × (baseline + cloudGain ×
+    // cloudCover²)). The shader darkens shadowed air by this; the per-pixel
+    // shadow carve and the shaft COLOUR (zone-derived) live elsewhere.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float shaftWashBaseline = 0.15f;
+    [Export(PropertyHint.Range, "0,4,0.01")] public float shaftWashCloudGain = 1.0f;
+    [Export(PropertyHint.Range, "0,1,0.01")] public float shaftWashMax = 1.0f;
+    // Per-voxel authored-fog → shaft boost (fog_shaft_gain). Painted fog_map
+    // volumes locally thicken the shafts on top of the global wash. 0 = off.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float fogShaftGain = 1.0f;
+    // Day↔night beam knob: moon-shaft intensity = sun wash × this. >1 makes
+    // moon beams MORE prominent than daytime, <1 less.
+    [Export(PropertyHint.Range, "0,4,0.01")] public float moonBeamScale = 0.5f;
+
     [ExportSubgroup("Shadows")]
     // Baseline DirectionalLight3D light_angular_distance (degrees) at noon in
     // clear air. Drives a PCSS-style penumbra whose width scales with caster
@@ -509,6 +524,11 @@ public partial class SkyController : Node3D
     [Export] public ShaderMaterial fogMaterial;
     [Export] public float fogMaxDistance = 100.0f;
     [Export(PropertyHint.Range, "1,64,1")] public int fogSteps = 48;
+    // Target world-space spacing between shaft raymarch samples (V1). The
+    // march adds samples on deep dust bands so step size never exceeds this,
+    // keeping the "platter" step banding sub-pixel. Lower = smoother beams,
+    // higher fill cost. 0.35 m is a good smooth/perf balance.
+    [Export(PropertyHint.Range, "0.05,2,0.01")] public float shaftStepSize = 0.35f;
 
     // External "see-farther" multiplier. The bird's-eye driver lerps this up
     // during the fly-up so the overview isn't choked by ground-level fog
@@ -539,25 +559,21 @@ public partial class SkyController : Node3D
     [Export(PropertyHint.Range, "0,1,0.01")] public float dustNoiseSharpness = 0.5f;
 
     [ExportSubgroup("Inscatter")]
-    [Export(PropertyHint.Range, "-0.95,0.95,0.01")] public float scatterAnisotropy = 0.8f;
-    [Export(PropertyHint.Range, "0,90,0.1")] public float shaftCameraFadeDegrees = 45.0f;
     [Export(PropertyHint.Range, "0,32,0.01")] public float blockHaloIntensity = 6.0f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpness = 0.95f;
     [Export(PropertyHint.Range, "0,1,0.01")] public float cloudShaftSharpnessLowSunFloor = 0.35f;
 
-    [ExportSubgroup("Sun Shadow Raymarch")]
-    [Export] public bool sunShadowEnabled = true;
-    [Export(PropertyHint.Range, "1,16,1")] public int sunShadowSteps = 6;
-    [Export(PropertyHint.Range, "1,64,0.1")] public float sunShadowDistance = 16.0f;
-    [Export(PropertyHint.Range, "0,0.01,0.0001")] public float sunShadowBias = 0.0005f;
+    // --- Sun-wash (carve-by-darkening) controls ---
+    // How dark fully-shadowed air gets at full global wash — the main beam
+    // CONTRAST knob. Darkens shadowed columns; expands value range, can't
+    // blow out, doesn't desaturate.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float washShadowDarkness = 0.5f;
+    // Bounded warm tint added in the lit gaps (sun/dust color in the beams).
+    // The only additive term — keep small.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float washTintStrength = 0.15f;
 
     [ExportSubgroup("Shaping")]
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float shaftGroundFade = 0.2f;
-
-    [ExportSubgroup("Mote Shimmer")]
-    [Export(PropertyHint.Range, "0,1,0.01")] public float moteStrength = 0.5f;
-    [Export] public float moteScale = 0.5f;
-    [Export] public Vector3 moteScroll = new Vector3(0.35f, 0.12f, -0.25f);
 
     // Wetness is a client-only visual signal driven by rain / fog /
     // humidity. Lives here, not on SimData, because it never affects sim
@@ -619,7 +635,6 @@ public partial class SkyController : Node3D
     public Vector2 waveStreakOffsetB;
     public Vector2 dustNoiseOffsetA;
     public Vector2 dustNoiseOffsetB;
-    public Vector3 moteOffset;
     // Shoreline-foam UV scroll offset, integrated as
     // `foamScroll * windSpeed * dt` so foam moves only when there's wind
     // (driving wave energy at shore) and speeds up in stormy weather.
@@ -1091,8 +1106,6 @@ public partial class SkyController : Node3D
             dustNoiseOffsetA += dustNoiseScroll * dt;
             Vector2 dustScrollB = new Vector2(-dustNoiseScroll.Y, dustNoiseScroll.X) * 0.7f;
             dustNoiseOffsetB += dustScrollB * dt;
-
-            moteOffset += moteScroll * dt;
         }
 
         TickDynamicRipples(dt);
@@ -1691,8 +1704,20 @@ public partial class SkyController : Node3D
         float sunShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _sunLightElevationDegrees);
         float moonShaftFactor = Mathf.SmoothStep(shaftFadeEnd, shaftFadeStart, _moonLightElevationDegrees);
 
-        float effShaftIntensity = _palette.SunShaftIntensity * sunShaftFactor
-                                 + _palette.MoonShaftIntensity * moonShaftFactor;
+        // Global sun-wash intensity (client-side tuning). Product of the scalar
+        // weather: humidity-folded dust × (baseline + cloudGain × cloudCover²),
+        // capped. cloudCover² so heavier overhead cover pushes beams brighter
+        // (and sparser). The shaft COLOUR (zone-derived) stays in the palette.
+        float washCloudCover = weather?.cloudCover ?? 0f;
+        float washDust = weather?.dustAmount ?? 0.1f;
+        float washHumidity = weather?.humidity ?? 0.5f;
+        float washDustFromHumidity = sim?.DustFromHumidity ?? 0.5f;
+        float washEffDust = Mathf.Clamp(washDust + washHumidity * washDustFromHumidity, 0f, 1f);
+        float washCover = shaftWashBaseline + shaftWashCloudGain * washCloudCover * washCloudCover;
+        float washIntensity = Mathf.Min(shaftWashMax, washEffDust * washCover);
+
+        float effShaftIntensity = washIntensity * sunShaftFactor
+                                 + washIntensity * moonBeamScale * moonShaftFactor;
         if (!CVars.sunShafts.Value)
         {
             effShaftIntensity = 0f;
@@ -1722,6 +1747,7 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("ambient_fog_density", _palette.AmbientFogDensity * invVisScale);
             fogMaterial.SetShaderParameter("fog_max_distance", fogMaxDistance * visScale);
             fogMaterial.SetShaderParameter("fog_steps", effFogSteps);
+            fogMaterial.SetShaderParameter("shaft_step_size", shaftStepSize);
             fogMaterial.SetShaderParameter("dust_density", _palette.DustDensity);
             fogMaterial.SetShaderParameter("dust_band_height", dustBandHeight);
 
@@ -1735,27 +1761,64 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("dust_noise_scroll", dustNoiseScroll);
             fogMaterial.SetShaderParameter("dust_noise_offset_a", dustNoiseOffsetA);
             fogMaterial.SetShaderParameter("dust_noise_offset_b", dustNoiseOffsetB);
-            fogMaterial.SetShaderParameter("mote_offset", moteOffset);
             fogMaterial.SetShaderParameter("sun_shaft_intensity", effShaftIntensity);
             fogMaterial.SetShaderParameter("shaft_color", ColorToVec3(effShaftColor));
             fogMaterial.SetShaderParameter("block_halo_intensity", blockHaloIntensity);
-            fogMaterial.SetShaderParameter("scatter_anisotropy", scatterAnisotropy);
+            fogMaterial.SetShaderParameter("fog_shaft_gain", fogShaftGain);
+            fogMaterial.SetShaderParameter("wash_shadow_darkness", washShadowDarkness);
+            fogMaterial.SetShaderParameter("wash_tint_strength", washTintStrength);
+            fogMaterial.SetShaderParameter("shaft_light_floor", CVars.shaftLightFloor.Value);
 
             float shaftSharpnessBlend = Mathf.Max(sunShaftFactor, moonShaftFactor);
             float effCloudShaftSharpness = Mathf.Lerp(cloudShaftSharpnessLowSunFloor, cloudShaftSharpness, shaftSharpnessBlend);
             fogMaterial.SetShaderParameter("cloud_shaft_sharpness", effCloudShaftSharpness);
-            fogMaterial.SetShaderParameter("shaft_camera_fade_degrees", shaftCameraFadeDegrees);
-            fogMaterial.SetShaderParameter("sun_shadow_enabled", sunShadowEnabled);
-            fogMaterial.SetShaderParameter("sun_shadow_steps", sunShadowSteps);
-            fogMaterial.SetShaderParameter("sun_shadow_distance", sunShadowDistance);
-            fogMaterial.SetShaderParameter("sun_shadow_bias", sunShadowBias);
             fogMaterial.SetShaderParameter("shaft_ground_fade", shaftGroundFade);
-            fogMaterial.SetShaderParameter("mote_strength", moteStrength);
-            fogMaterial.SetShaderParameter("mote_scale", moteScale);
-            fogMaterial.SetShaderParameter("mote_scroll", moteScroll);
         }
 
+        ApplyMotes(washDust, washCloudCover, sunShaftFactor, moonShaftFactor);
         ApplyPrecipitation();
+    }
+
+    // Drives the floating dust-mote GPU particle system (MoteEffect) — the
+    // real-particle replacement for the old in-shader fog motes. Density
+    // (AmountRatio) is gated on RAW dust amount (`dust`, weather.dustAmount) —
+    // NOT the humidity-folded value the shafts use — so dust motes appear only
+    // in genuinely DUSTY air. Humid / foggy but clean air still shows god-rays
+    // (those run on humidity+dust) but no motes. Also faded by shaft presence
+    // so motes vanish at night with no moon. The per-particle beam/occlusion/
+    // noise gates in mote.gdshader do the spatial selection; the specular glint
+    // colour is the global sun_color, so only the dust-hued base is pushed here.
+    private void ApplyMotes(float dust, float cloudCover, float sunShaftFactor, float moonShaftFactor)
+    {
+        MoteEffect motes = MoteEffect.Current;
+        if (motes == null) { return; }
+
+        float shaftPresence = Mathf.Clamp(sunShaftFactor + moonShaftFactor, 0f, 1f);
+        // Clean "not dusty → none" to "dusty → full" ramp on the raw dust level.
+        float wash = Mathf.SmoothStep(0.05f, 0.4f, dust) * shaftPresence;
+        if (!CVars.sunShafts.Value) { wash = 0f; }
+        motes.SetIntensity(wash);
+
+        if (motes.MoteMatRuntime != null)
+        {
+            // Base albedo = the true regional dust colour (tan/ochre), NOT
+            // FogTint — FogTint is atmospheric haze and reads near-white, which
+            // washed the motes out.
+            motes.MoteMatRuntime.SetShaderParameter("dust_color", ColorToVec3(_palette.DustColor));
+            // Cloud cover feeds the mote shaft-occlusion gate (same signal the
+            // god-rays use) so overcast days light motes in the sunlit gaps and
+            // clear days don't blanket open ground.
+            motes.MoteMatRuntime.SetShaderParameter("cloud_cover", cloudCover);
+            // Mirror the fog's animated dust-noise (identical values + scroll
+            // offsets) so motes sit inside the SAME structured beam shape and
+            // their edges track the shafts instead of just roughly agreeing.
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_scale", dustNoiseScale);
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_threshold", dustNoiseThreshold);
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_sharpness", dustNoiseSharpness);
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_strength", dustNoiseStrength);
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_offset_a", dustNoiseOffsetA);
+            motes.MoteMatRuntime.SetShaderParameter("dust_noise_offset_b", dustNoiseOffsetB);
+        }
     }
 
     // Dynamic precipitation manager. Consumes palette.RainIntensity +

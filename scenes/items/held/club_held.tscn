@@ -1,20 +1,14 @@
-[gd_scene load_steps=3 format=3 uid="uid://bclubheld0001x"]
-
-; PLACEHOLDER held-in-hand model for the club weapon. Primitive box stand-in
-; until the real weapon mesh is sourced from the asset library. The scene
-; ORIGIN is the grip point (where the hand bone holds it); the mesh is offset
-; up +Y so the handle sits in the palm and the head extends away. Tune the
-; mesh transform in-editor against the rig's hand to align the grip.
+[gd_scene format=3 uid="uid://bs6g5vb3w6472"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_club"]
 albedo_color = Color(0.45, 0.32, 0.18, 1)
 
 [sub_resource type="BoxMesh" id="Box_club"]
 material = SubResource("Mat_club")
-size = Vector3(0.06, 0.5, 0.06)
+size = Vector3(0.1, 1, 0.1)
 
-[node name="ClubHeld" type="Node3D"]
+[node name="ClubHeld" type="Node3D" unique_id=521571708]
 
-[node name="Mesh" type="MeshInstance3D" parent="."]
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=749498337]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
 mesh = SubResource("Box_club")

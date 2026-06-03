@@ -90,12 +90,12 @@ animations = [{
 "speed": 10.0
 }]
 
-[node name="FriendlyVillager" type="RigidBody3D" unique_id=968756915 node_paths=PackedStringArray("_collisionShape", "_animator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
+[node name="FriendlyVillager" type="RigidBody3D" unique_id=968756915 node_paths=PackedStringArray("_collisionShape", "_spriteAnimator", "_mesh", "_sprite", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
 _collisionShape = NodePath("MovementCollision")
-_animator = NodePath("LitSpriteAnimator")
+_spriteAnimator = NodePath("LitSpriteAnimator")
 _mesh = NodePath("MeshContainer")
 _sprite = NodePath("MeshContainer/Sprite")
 _hurtBox = NodePath("HurtBox")

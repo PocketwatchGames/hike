@@ -29,8 +29,8 @@ public partial class HeldItemVisual : Node3D
 	// Wire this to the same node ModelAnimator drives as `visual` (PlayerModel).
 	[Export] public Node3D visual;
 
-	// Bone the hand socket binds to. Default matches the F_Swordsman rig's right
-	// wrist joint; override per rig if a different skeleton is used.
+	// Bone the hand socket binds to. Default matches the shared polysplit rig's
+	// right wrist joint; override per rig if a different skeleton is used.
 	[Export] public StringName boneName = "R_wrist_joint";
 
 	private BoneAttachment3D _socket;

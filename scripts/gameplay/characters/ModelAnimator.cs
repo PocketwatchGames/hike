@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // 3D-model counterpart to LitSpriteAnimator. Drives an AnimationPlayer that
@@ -51,6 +52,13 @@ public partial class ModelAnimator : Node, IActorAnimator
     // naked body underneath an outfit, optional helmets) that all render at
     // once unless culled. List the redundant ones here per scene.
     [Export] public string[] hiddenMeshNames = Array.Empty<string>();
+    // Allowlist counterpart to hiddenMeshNames. When non-empty, ONLY the named
+    // MeshInstance3D nodes stay visible and every other one under `visual` is
+    // hidden — the natural shape for a modular character on a shared skeleton
+    // (the All-in-One rig bundles every outfit's parts; an equipped loadout
+    // names just the pieces it wants shown). Takes precedence over
+    // hiddenMeshNames when both are set. Empty = fall back to the denylist.
+    [Export] public string[] visibleMeshNames = Array.Empty<string>();
 
     public float effectSpeedMultiplier { get; set; } = 1f;
     public StringName CurrentAnimation { get; private set; }
@@ -65,6 +73,11 @@ public partial class ModelAnimator : Node, IActorAnimator
     // body node the visual hangs under (its yaw is the "true" facing).
     private Camera3D _cachedCamera;
     private Node3D _body;
+    // Every MeshInstance3D under `visual`, gathered once at _Ready. The
+    // discovery presentation (visibility dither / silhouette / X-ray fade) is
+    // pushed to these as per-instance shader params so model mobs fade exactly
+    // like sprite mobs — see SetDiscoveryVisuals, driven by Mob.cs.
+    private readonly List<MeshInstance3D> _meshes = new();
 
     public override void _Ready()
     {
@@ -76,13 +89,58 @@ public partial class ModelAnimator : Node, IActorAnimator
         {
             ApplyMaterial(visual);
         }
-        if (hiddenMeshNames.Length > 0 && visual != null)
+        if (visual != null && (visibleMeshNames.Length > 0 || hiddenMeshNames.Length > 0))
         {
-            HideMeshes(visual);
+            ApplyMeshVisibility(visual);
         }
         _body = visual?.GetParent() as Node3D;
+        if (visual != null)
+        {
+            CollectMeshes(visual);
+        }
         // Default inactive until Player decides which visual is live.
         SetActive(_active);
+    }
+
+    private void CollectMeshes(Node node)
+    {
+        if (node is MeshInstance3D mesh)
+        {
+            _meshes.Add(mesh);
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            CollectMeshes(child);
+        }
+    }
+
+    // Push the discovery presentation onto every mesh of the model, mirroring
+    // what Mob does to a LitSprite. visibility drives the Bayer dither pop-in;
+    // silhouette blends to the flat memory tint; xrayAmount fades the through-
+    // cover silhouette next_pass (1 = always-on when occluded, as mobs want).
+    // castShadow is toggled per-mesh so a dithered-out (undiscovered) mob also
+    // stops casting a tell-tale shadow — the model casts real shadows directly
+    // (no ShadowsOnly proxy like sprites), so this is the equivalent suppression.
+    public void SetDiscoveryVisuals(float visibility, float silhouette, float xrayAmount, bool castShadow)
+    {
+        GeometryInstance3D.ShadowCastingSetting castMode = castShadow
+            ? GeometryInstance3D.ShadowCastingSetting.On
+            : GeometryInstance3D.ShadowCastingSetting.Off;
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh == null)
+            {
+                continue;
+            }
+            mesh.SetInstanceShaderParameter("visibility", visibility);
+            mesh.SetInstanceShaderParameter("silhouette_amount", silhouette);
+            mesh.SetInstanceShaderParameter("xray_amount", xrayAmount);
+            if (mesh.CastShadow != castMode)
+            {
+                mesh.CastShadow = castMode;
+            }
+        }
     }
 
     // Override every surface of every MeshInstance3D in the subtree with the
@@ -100,18 +158,28 @@ public partial class ModelAnimator : Node, IActorAnimator
         }
     }
 
-    // Cull MeshInstance3D nodes named in `hiddenMeshNames` so bundled-but-
-    // unwanted cosmetics (alternate hair, naked body under outfit, etc.) don't
-    // all render on top of each other.
-    private void HideMeshes(Node node)
+    // Resolve each MeshInstance3D's visibility under `visual`. When
+    // visibleMeshNames is set it's an allowlist (show only those, hide the
+    // rest); otherwise hiddenMeshNames acts as a denylist. Bundled-but-unwanted
+    // cosmetics (alternate hair, naked body under outfit, other outfits' parts)
+    // are culled so they don't all render on top of each other.
+    private void ApplyMeshVisibility(Node node)
     {
-        if (node is MeshInstance3D mesh && Array.IndexOf(hiddenMeshNames, mesh.Name.ToString()) >= 0)
+        if (node is MeshInstance3D mesh)
         {
-            mesh.Visible = false;
+            string name = mesh.Name.ToString();
+            if (visibleMeshNames.Length > 0)
+            {
+                mesh.Visible = Array.IndexOf(visibleMeshNames, name) >= 0;
+            }
+            else if (Array.IndexOf(hiddenMeshNames, name) >= 0)
+            {
+                mesh.Visible = false;
+            }
         }
         foreach (Node child in node.GetChildren())
         {
-            HideMeshes(child);
+            ApplyMeshVisibility(child);
         }
     }
 
@@ -127,6 +195,18 @@ public partial class ModelAnimator : Node, IActorAnimator
         if (!active && player != null)
         {
             player.Stop();
+        }
+    }
+
+    // Runtime swap of the visible mesh set — the modular-armor hook. Replaces
+    // visibleMeshNames and re-applies, so an equipped loadout can reveal/hide
+    // outfit parts live on the one shared skeleton without reloading the model.
+    public void SetVisibleMeshes(string[] names)
+    {
+        visibleMeshNames = names ?? Array.Empty<string>();
+        if (visual != null)
+        {
+            ApplyMeshVisibility(visual);
         }
     }
 

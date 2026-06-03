@@ -1,132 +1,106 @@
-[gd_resource type="Resource" script_class="VoxelAtlasManifest" format=3 uid="uid://b4e0cg8pba6a4"]
+[gd_resource type="Resource" script_class="VoxelAtlasManifest" format=3 uid="uid://dfo7mt0ouqh3c"]
 
-[ext_resource type="Script" uid="uid://7n06hq6scaz02" path="res://scripts/data/VoxelAtlasManifest.cs" id="s_manifest"]
-[ext_resource type="Script" uid="uid://waupugyignqme" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
-
-[ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/blocks/block_stone.tres" id="blk_stone"]
-[ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/blocks/block_grass_top.tres" id="blk_grass"]
-[ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/blocks/block_water.tres" id="blk_water"]
-[ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="blk_cobble"]
-[ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="blk_dirt"]
-[ext_resource type="Resource" uid="uid://c0mpf4rb3xdx4" path="res://resources/data/blocks/block_field_overlay.tres" id="blk_field"]
-[ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/blocks/block_desert_top.tres" id="blk_desert_top"]
-[ext_resource type="Resource" uid="uid://chx6p8gf7rf1r" path="res://resources/data/blocks/block_desert_sand.tres" id="blk_desert_sand"]
-[ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/blocks/block_desert_wall.tres" id="blk_desert_wall"]
-[ext_resource type="Resource" uid="uid://dqx8riexpk03r" path="res://resources/data/blocks/block_desert_cave.tres" id="blk_desert_cave"]
-[ext_resource type="Resource" uid="uid://d22rcvc2fr0jy" path="res://resources/data/blocks/block_marsh.tres" id="blk_marsh"]
-[ext_resource type="Resource" uid="uid://cqf7n2cavefl0" path="res://resources/data/blocks/block_cave_floor.tres" id="blk_cave_floor"]
-
-[ext_resource type="Texture2D" uid="uid://l1gr4yv8yhji" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_basecolor.png" id="col_stone"]
-[ext_resource type="Texture2D" uid="uid://dgvg0ubnx3sll" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_normal.png" id="nrm_stone"]
-[ext_resource type="Texture2D" uid="uid://cu1b0mqpkprxg" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_height.png" id="hgt_stone"]
-[ext_resource type="Texture2D" uid="uid://dmccn8wq48rtb" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_basecolor.jpg" id="col_grass"]
-[ext_resource type="Texture2D" uid="uid://cie1bfvfquafd" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_normal.jpg" id="nrm_grass"]
-[ext_resource type="Texture2D" uid="uid://cx3tqghwlufp4" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_height.png" id="hgt_grass"]
-[ext_resource type="Texture2D" uid="uid://dimnqqwolia18" path="res://assets/textures/voxels/water.png" id="col_water"]
-[ext_resource type="Texture2D" uid="uid://dkphrjtqhhj2x" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_basecolor.png" id="col_cobble"]
-[ext_resource type="Texture2D" uid="uid://dypx1q55emfe2" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_normal.png" id="nrm_cobble"]
-[ext_resource type="Texture2D" uid="uid://cul72l2nbmsvv" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_height.png" id="hgt_cobble"]
-[ext_resource type="Texture2D" uid="uid://bl5yg2bpbsd0j" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_basecolor.jpg" id="col_drymud"]
-[ext_resource type="Texture2D" uid="uid://bqdpkgmr8sf5x" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_normal.jpg" id="nrm_drymud"]
-[ext_resource type="Texture2D" uid="uid://ddviirne3gc0a" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_height.png" id="hgt_drymud"]
-[ext_resource type="Texture2D" uid="uid://idcbnnh454ld" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_basecolor.png" id="col_sand002"]
-[ext_resource type="Texture2D" uid="uid://dveve0ftgtfpj" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_normal.png" id="nrm_sand002"]
-[ext_resource type="Texture2D" uid="uid://7oimftra0sb0" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_height.png" id="hgt_sand002"]
-[ext_resource type="Texture2D" uid="uid://qq6qrvynirjl" path="res://assets/textures/terrain/Sand 001/Sand_001_COLOR.png" id="col_sand001"]
-[ext_resource type="Texture2D" uid="uid://bkqxq8fhiu2rt" path="res://assets/textures/terrain/Sand 001/Sand_001_NRM.png" id="nrm_sand001"]
-[ext_resource type="Texture2D" uid="uid://dno57on7ybxdk" path="res://assets/textures/terrain/Sand 001/Sand_001_DISP.png" id="hgt_sand001"]
 [ext_resource type="Texture2D" uid="uid://dcqwhfn1c7cp2" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_basecolor.png" id="col_cliff006"]
-[ext_resource type="Texture2D" uid="uid://c5rai0rlqryoo" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_normal.png" id="nrm_cliff006"]
-[ext_resource type="Texture2D" uid="uid://cwuu2ck6m30qs" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_height.png" id="hgt_cliff006"]
-[ext_resource type="Texture2D" uid="uid://brgbyamnnon7e" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_basecolor.jpg" id="col_wet"]
-[ext_resource type="Texture2D" uid="uid://h05wnobg7klq" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_normal.jpg" id="nrm_wet"]
-[ext_resource type="Texture2D" uid="uid://be4m032wbishi" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_height.png" id="hgt_wet"]
+[ext_resource type="Texture2D" uid="uid://dkphrjtqhhj2x" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_basecolor.png" id="col_cobble"]
+[ext_resource type="Texture2D" uid="uid://bl5yg2bpbsd0j" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_basecolor.jpg" id="col_drymud"]
+[ext_resource type="Texture2D" uid="uid://dmccn8wq48rtb" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_basecolor.jpg" id="col_grass"]
+[ext_resource type="Texture2D" uid="uid://qq6qrvynirjl" path="res://assets/textures/terrain/Sand 001/Sand_001_COLOR.png" id="col_sand001"]
+[ext_resource type="Texture2D" uid="uid://idcbnnh454ld" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_basecolor.png" id="col_sand002"]
+[ext_resource type="Texture2D" uid="uid://l1gr4yv8yhji" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_basecolor.png" id="col_stone"]
 [ext_resource type="Texture2D" uid="uid://bc1od0np46rpi" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_basecolor.png" id="col_stonefloor"]
-[ext_resource type="Texture2D" uid="uid://70vo857fycfl" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_normal.png" id="nrm_stonefloor"]
+[ext_resource type="Texture2D" uid="uid://dimnqqwolia18" path="res://assets/textures/voxels/water.png" id="col_water"]
+[ext_resource type="Texture2D" uid="uid://brgbyamnnon7e" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_basecolor.jpg" id="col_wet"]
+[ext_resource type="Texture2D" uid="uid://cwuu2ck6m30qs" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_height.png" id="hgt_cliff006"]
+[ext_resource type="Texture2D" uid="uid://cul72l2nbmsvv" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_height.png" id="hgt_cobble"]
+[ext_resource type="Texture2D" uid="uid://ddviirne3gc0a" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_height.png" id="hgt_drymud"]
+[ext_resource type="Texture2D" uid="uid://cx3tqghwlufp4" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_height.png" id="hgt_grass"]
+[ext_resource type="Texture2D" uid="uid://dno57on7ybxdk" path="res://assets/textures/terrain/Sand 001/Sand_001_DISP.png" id="hgt_sand001"]
+[ext_resource type="Texture2D" uid="uid://7oimftra0sb0" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_height.png" id="hgt_sand002"]
+[ext_resource type="Texture2D" uid="uid://cu1b0mqpkprxg" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_height.png" id="hgt_stone"]
 [ext_resource type="Texture2D" uid="uid://c10s8mh82v13x" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_height.png" id="hgt_stonefloor"]
+[ext_resource type="Texture2D" uid="uid://be4m032wbishi" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_height.png" id="hgt_wet"]
+[ext_resource type="Texture2D" uid="uid://c5rai0rlqryoo" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_normal.png" id="nrm_cliff006"]
+[ext_resource type="Texture2D" uid="uid://dypx1q55emfe2" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_normal.png" id="nrm_cobble"]
+[ext_resource type="Texture2D" uid="uid://bqdpkgmr8sf5x" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_normal.jpg" id="nrm_drymud"]
+[ext_resource type="Texture2D" uid="uid://cie1bfvfquafd" path="res://assets/textures/terrain/Stylized_Grass_002_SD/Stylized_Grass_002_normal.jpg" id="nrm_grass"]
+[ext_resource type="Texture2D" uid="uid://bkqxq8fhiu2rt" path="res://assets/textures/terrain/Sand 001/Sand_001_NRM.png" id="nrm_sand001"]
+[ext_resource type="Texture2D" uid="uid://dveve0ftgtfpj" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_normal.png" id="nrm_sand002"]
+[ext_resource type="Texture2D" uid="uid://dgvg0ubnx3sll" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_normal.png" id="nrm_stone"]
+[ext_resource type="Texture2D" uid="uid://70vo857fycfl" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_normal.png" id="nrm_stonefloor"]
+[ext_resource type="Texture2D" uid="uid://h05wnobg7klq" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_normal.jpg" id="nrm_wet"]
+[ext_resource type="Script" uid="uid://cxtdv6d8mndtk" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
+[ext_resource type="Script" uid="uid://bqq7rbtrsn0xx" path="res://scripts/data/VoxelAtlasManifest.cs" id="s_manifest"]
 
 [sub_resource type="Resource" id="layer_0"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_stone")
 Color = ExtResource("col_stone")
 Normal = ExtResource("nrm_stone")
 Height = ExtResource("hgt_stone")
 
 [sub_resource type="Resource" id="layer_1"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_grass")
 Color = ExtResource("col_grass")
 Normal = ExtResource("nrm_grass")
 Height = ExtResource("hgt_grass")
 
 [sub_resource type="Resource" id="layer_2"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_water")
 Color = ExtResource("col_water")
 
 [sub_resource type="Resource" id="layer_3"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_cobble")
 Color = ExtResource("col_cobble")
 Normal = ExtResource("nrm_cobble")
 Height = ExtResource("hgt_cobble")
 
 [sub_resource type="Resource" id="layer_4"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_dirt")
 Color = ExtResource("col_drymud")
 Normal = ExtResource("nrm_drymud")
 Height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_5"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_field")
 Color = ExtResource("col_grass")
 Normal = ExtResource("nrm_grass")
 Height = ExtResource("hgt_grass")
 
 [sub_resource type="Resource" id="layer_6"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_desert_top")
 Color = ExtResource("col_sand002")
 Normal = ExtResource("nrm_sand002")
 Height = ExtResource("hgt_sand002")
 
 [sub_resource type="Resource" id="layer_7"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_desert_sand")
 Color = ExtResource("col_sand001")
 Normal = ExtResource("nrm_sand001")
 Height = ExtResource("hgt_sand001")
 
 [sub_resource type="Resource" id="layer_8"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_desert_wall")
 Color = ExtResource("col_cliff006")
 Normal = ExtResource("nrm_cliff006")
 Height = ExtResource("hgt_cliff006")
 
 [sub_resource type="Resource" id="layer_9"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_desert_cave")
 Color = ExtResource("col_drymud")
 Normal = ExtResource("nrm_drymud")
 Height = ExtResource("hgt_drymud")
 
 [sub_resource type="Resource" id="layer_10"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_marsh")
 Color = ExtResource("col_wet")
 Normal = ExtResource("nrm_wet")
 Height = ExtResource("hgt_wet")
 
 [sub_resource type="Resource" id="layer_11"]
 script = ExtResource("s_layer")
-Block = ExtResource("blk_cave_floor")
 Color = ExtResource("col_stonefloor")
 Normal = ExtResource("nrm_stonefloor")
 Height = ExtResource("hgt_stonefloor")
 
 [resource]
 script = ExtResource("s_manifest")
-Layers = Array[ExtResource("s_layer")]([SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_2"), SubResource("layer_3"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")])
+Layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_2"), SubResource("layer_3"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")]

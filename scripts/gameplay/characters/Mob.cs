@@ -6,7 +6,14 @@ using Godot;
 public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 {
     [Export] private CollisionShape3D _collisionShape;
-    [Export] private LitSpriteAnimator _animator;
+    // Billboard-sprite animator (the default mob visual). Wired in every mob
+    // .tscn. Mirrors Player: when a 3D _modelAnimator is also wired the model
+    // wins and the sprite is hidden; otherwise this drives the mob.
+    [Export] private LitSpriteAnimator _spriteAnimator;
+    // Optional 3D skinned-model animator. Null on sprite-only mobs, so they
+    // keep their existing sprite path untouched. When present, _Ready selects
+    // it as the live animator and hides the sprite (see Player._Ready).
+    [Export] private ModelAnimator _modelAnimator;
     [Export] private Node3D _mesh;
     [Export] private Sprite3D _sprite;
     [Export] private HurtBox _hurtBox;
@@ -218,6 +225,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public PerceptionDebug playerToMobDebug;
     public PerceptionDebug mobToPlayerDebug;
 
+    // Live animator resolved in _Ready: the 3D model when one is wired,
+    // otherwise the sprite. Mob drives this through IActorAnimator so the
+    // EAnimation state machine animates either visual without branching.
+    private IActorAnimator _animator;
+
     private MobSimState _simState;
     World _world;
     public World World => _world;
@@ -325,6 +337,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private bool _lastMeshVisibleInit;
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
+    // Last discovery-presentation values pushed to the 3D model (sprite mobs
+    // don't use these — LitSprite self-gates its own setters). The model push
+    // isn't self-gating, so cache here and only push on change.
+    private bool _lastModelVisualsInit;
+    private float _lastModelVisibility;
+    private float _lastModelSilhouette;
+    private float _lastModelXray;
+    private bool _lastModelCastShadow;
     private float _lastLinearDamp = float.NaN;
     private float _lastGravityScale = float.NaN;
     // Authored GravityScale captured on first swim entry. The swim gate
@@ -397,6 +417,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     break;
                 }
             }
+        }
+
+        // Pick the live visual + animator: prefer the 3D skinned model when it's
+        // wired, otherwise the billboard sprite (mirrors Player._Ready). Code
+        // owns both visuals' visibility so exactly one renders — the model's via
+        // SetActive, the sprite's hidden when the model is used. The sprite lives
+        // under _mesh (MeshContainer), so the discovery visibility/scale logic in
+        // _Process still gates the model when it's parented there too.
+        bool use3d = _modelAnimator != null;
+        _modelAnimator?.SetActive(use3d);
+        _animator = use3d ? _modelAnimator : _spriteAnimator;
+        if (_sprite != null)
+        {
+            _sprite.Visible = !use3d;
         }
 
         if (_animator != null)
@@ -1499,6 +1533,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // silhouette them through the ground. Suppress it so a buried mob
             // is genuinely invisible.
             litSprite.XrayAmount = burrowed ? 0f : 1f;
+        }
+        // Parity for 3D-model mobs: push the same discovery presentation onto
+        // the model's meshes (dither / silhouette / X-ray fade / shadow). Unlike
+        // LitSprite's self-gating setters the model push isn't free, so gate it
+        // on change — during a fade _visibility/_silhouette move every frame, but
+        // a settled mob pushes nothing. xray suppressed while burrowed, same as
+        // the sprite path.
+        if (_modelAnimator != null)
+        {
+            float modelXray = burrowed ? 0f : 1f;
+            if (!_lastModelVisualsInit
+                || _visibility != _lastModelVisibility
+                || _silhouette != _lastModelSilhouette
+                || modelXray != _lastModelXray
+                || castsShadowTarget != _lastModelCastShadow)
+            {
+                _modelAnimator.SetDiscoveryVisuals(_visibility, _silhouette, modelXray, castsShadowTarget);
+                _lastModelVisibility = _visibility;
+                _lastModelSilhouette = _silhouette;
+                _lastModelXray = modelXray;
+                _lastModelCastShadow = castsShadowTarget;
+                _lastModelVisualsInit = true;
+            }
         }
     }
 

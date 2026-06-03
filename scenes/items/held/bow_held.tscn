@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://b6xvvkhj2thr"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_club"]
+albedo_color = Color(0.45, 0.32, 0.18, 1)
+
+[sub_resource type="BoxMesh" id="Box_club"]
+material = SubResource("Mat_club")
+size = Vector3(0.1, 0.8, 0.1)
+
+[sub_resource type="BoxMesh" id="BoxMesh_oowiw"]
+material = SubResource("Mat_club")
+size = Vector3(0.025, 1, 0.025)
+
+[sub_resource type="BoxMesh" id="BoxMesh_6plkw"]
+material = SubResource("Mat_club")
+size = Vector3(0.1, 0.25, 0.1)
+
+[node name="ClubHeld" type="Node3D" unique_id=189049250]
+
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=260214687]
+mesh = SubResource("Box_club")
+
+[node name="Mesh4" type="MeshInstance3D" parent="." unique_id=1920788940]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.22022194)
+mesh = SubResource("BoxMesh_oowiw")
+
+[node name="Mesh2" type="MeshInstance3D" parent="." unique_id=70591036]
+transform = Transform3D(1, 0, 0, 0, 0.70710677, -0.70710677, 0, 0.70710677, 0.70710677, 0, -0.4479821, -0.10603285)
+mesh = SubResource("BoxMesh_6plkw")
+
+[node name="Mesh3" type="MeshInstance3D" parent="." unique_id=971486732]
+transform = Transform3D(1, 0, 0, 0, 0.7071067, 0.7071067, 0, -0.7071067, 0.7071067, 0, 0.4525373, -0.10603285)
+mesh = SubResource("BoxMesh_6plkw")

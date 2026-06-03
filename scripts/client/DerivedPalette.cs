@@ -46,16 +46,20 @@ public struct DerivedPalette
     public float FogDensity;
     public float AmbientFogDensity;
     public float DustDensity;
+    // Raw regional dust albedo (zone.DustColor), unblended by the day/night/
+    // sunset fog phase. This is the true "colour of a speck of dust" — used by
+    // the dust-mote particles (MoteEffect) as their base albedo. Distinct from
+    // FogTint, which is atmospheric haze and reads much whiter/bluer.
+    public Color DustColor;
 
     // Cloud shape — weather-driven only, no phase blend.
     public float CloudThreshold;
     public float CloudSharpness;
 
-    // Shaft channels. Day and night shaft intensities come in separately
-    // so SkyController can crossfade them by each source's above-horizon
-    // factor. Each shaft COLOR already has sunset bias baked in.
-    public float SunShaftIntensity;
-    public float MoonShaftIntensity;
+    // Shaft COLOUR channels (zone-derived, sunset bias baked in). Day and
+    // night come separately so SkyController can crossfade them by each
+    // source's above-horizon factor. Shaft INTENSITY is client-side tuning
+    // computed in SkyController, not part of the derived palette.
     public Color SunShaftColor;
     public Color MoonShaftColor;
 

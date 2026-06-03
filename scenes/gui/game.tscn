@@ -28,6 +28,7 @@
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
+[ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/effects/motes.tscn" id="mote_scene"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/effects/wind_foam.tscn" id="wind_foam_scene"]
@@ -166,6 +167,8 @@ extra_cull_margin = 16384.0
 mesh = SubResource("QuadMesh_shimmer")
 
 [node name="RainEffect" parent="SceneViewport/MainCamera" unique_id=480680992 instance=ExtResource("rain_scene")]
+
+[node name="MoteEffect" parent="SceneViewport/MainCamera" unique_id=480680993 instance=ExtResource("mote_scene")]
 
 [node name="InnerEnv" type="WorldEnvironment" parent="SceneViewport" unique_id=1455759092]
 environment = SubResource("Environment_scene")

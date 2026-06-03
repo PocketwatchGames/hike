@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://carpnncp8fg1l"]
+
+[ext_resource type="Shader" path="res://shaders/model_xray.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 1
+shader = ExtResource("1_shader")
+shader_parameter/xray_alpha = 0.2
+shader_parameter/xray_depth_bias = 0.05

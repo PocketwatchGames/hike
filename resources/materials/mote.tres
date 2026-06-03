@@ -1,0 +1,29 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://b3mote7matr01"]
+
+[ext_resource type="Shader" uid="uid://dfy07gvfns00y" path="res://shaders/mote.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 11
+shader = ExtResource("1_shader")
+shader_parameter/dust_color = Color(0.8, 0.72, 0.55, 1)
+shader_parameter/beam_threshold = 0.45
+shader_parameter/beam_softness = 0.2
+shader_parameter/block_light_strength = 8.0
+shader_parameter/shaft_sample_radius = 2.0
+shader_parameter/shaft_occlusion_min = 0.15
+shader_parameter/shaft_occlusion_soft = 0.3
+shader_parameter/cloud_cover = 0.0
+shader_parameter/dust_noise_scale = 0.062
+shader_parameter/dust_noise_threshold = 0.2
+shader_parameter/dust_noise_sharpness = 0.5
+shader_parameter/dust_noise_strength = 0.7
+shader_parameter/dust_noise_offset_a = Vector2(0, 0)
+shader_parameter/dust_noise_offset_b = Vector2(0, 0)
+shader_parameter/mote_size_px = 1.0
+shader_parameter/spin_rate = 2.0
+shader_parameter/spec_power = 8.0
+shader_parameter/spec_intensity = 1.0
+shader_parameter/mote_time = 0.0
+shader_parameter/ground_reference_y = 0.0
+shader_parameter/near_ground_height = 6.0
+shader_parameter/mote_alpha = 0.250000011875

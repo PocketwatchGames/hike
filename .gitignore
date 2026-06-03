@@ -18,3 +18,7 @@ scripts/VersionGenerated.g.cs
 
 #debug output
 worldgen_debug/
+
+# Character animation FBX are build-inputs for the baked *_anims.res libraries
+# (tools/build_*_anims.gd); the .res is self-contained, so the source FBX are not committed.
+assets/models/characters/*/anims/

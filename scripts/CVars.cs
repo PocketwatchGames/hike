@@ -137,6 +137,14 @@ public static class CVars
     // gate on `sun_shaft_intensity` pushed to the fog material.
     public static CVarBool sunShafts = new CVarBool("sun_shafts", true);
 
+    // TEST: fade the sun-wash DARKENING out where the air column has
+    // (near-)zero sunlight. The darkening is wash×(1-lit_frac), so it's
+    // maximal in fully-shadowed air — this gates it by
+    // smoothstep(0, value, lit_frac) so genuinely lightless areas get no
+    // wash. 0 = off (current behaviour); ~0.08 = fade out below ~8% lit.
+    // Pushed to the fog material as `shaft_light_floor`.
+    public static CVarFloat shaftLightFloor = new CVarFloat("shaft_light_floor", 0f);
+
     // Atmospheric visual state — sky dome, clouds, sun tint, fog haze,
     // inscatter shafts, animated dust — is derived each frame by
     // SkyController from (ZoneData, WeatherData, time-of-day) via

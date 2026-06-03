@@ -39,15 +39,21 @@ uniform sampler2D depth_tex : hint_depth_texture;
 global uniform sampler3D light_map : filter_linear;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
-// Ceiling cutaway altitude. Voxel shaders discard any fragment with
-// world_vertex.y > camera_clip so the player can see into indoor spaces
-// from above. The cut-away ceiling never writes to the depth buffer,
-// which fools the sun-occlusion raymarch below (depth_tex reports "no
-// surface" in the cut-away region, so sun rays appear unobstructed) —
-// the fix is to treat any sun-ray sample above camera_clip as occluded,
-// since the discarded voxels are still physically solid terrain. Default
-// 1e+20 leaves outdoor rendering untouched.
+// Ceiling cutaway altitude + animation. Voxel/sprite shaders discard
+// fragments above camera_clip (the cut-away ceiling) so the player sees into
+// indoor spaces from above. We treat above-clip air as occluded (the cut
+// voxels are still solid terrain). The cutaway doesn't move camera_clip
+// smoothly — it SNAPS, and animates the dissolve via camera_clip_prev /
+// camera_clip_blend + a player-centered growth iris. clip_dither.gdshaderinc
+// turns those into a smooth clip_visibility_smooth() so the shafts dissolve
+// in sync with the ceiling instead of popping. Default 1e+20 = outdoor.
 global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
 
 // Sun direction / intensity (shared with sky + voxel shaders, set by
 // SkyController and ChunkManager). sun_world_dir points FROM the sun toward
@@ -56,7 +62,6 @@ global uniform float camera_clip;
 // shafts track the authored moon shaft color at night independent of the
 // primary-light color the rest of the scene uses.
 global uniform vec3 sun_world_dir;
-global uniform float sun_intensity;
 
 // Cloud occlusion parameters (shared with sky + terrain + sprite + water
 // shaders, registered by SkyController). cloud_shadow.gdshaderinc reads
@@ -85,6 +90,13 @@ uniform float fog_density : hint_range(0.0, 1.0) = 0.05;
 // still pick up the medium for inscatter).
 uniform float ambient_fog_density : hint_range(0.0, 0.2) = 0.0;
 uniform int fog_steps : hint_range(1, 128) = 48;
+// Target world-space spacing between raymarch samples. The march always
+// takes AT LEAST fog_steps, but ADDS samples for deeper dust bands so the
+// actual step size never exceeds this. Bounding the step SIZE (not just
+// the count) is what keeps the Riemann-sum "platter" banding sub-pixel
+// regardless of how deep the band is. Lower = smoother beams, more fill
+// cost. (V1 only.)
+uniform float shaft_step_size : hint_range(0.05, 2.0, 0.01) = 0.35;
 uniform float fog_max_distance = 100.0;
 // Toggles the AUTHORED voxel fog contribution only. Dust, shafts, and
 // halos keep working when this is off — they come from dust_density
@@ -151,23 +163,31 @@ uniform vec2 dust_noise_offset_a = vec2(0.0);
 uniform vec2 dust_noise_offset_b = vec2(0.0);
 
 // In-scattering tuning.
-// sun_shaft_intensity: multiplier on the sunlight inscatter term (raise to
-//   make beams more dramatic; 0 disables shafts).
-// block_halo_intensity: multiplier on the block-light inscatter term (raise
+// sun_shaft_intensity: the global sun-wash intensity (= dust × cloudCover²,
+//   pushed by SkyController) — how strongly shadowed air columns are darkened.
+// block_halo_intensity: multiplier on the block-light halo inscatter (raise
 //   to make torch/lamp halos more visible; 0 disables halos).
-// scatter_anisotropy: Henyey-Greenstein g. 0 = isotropic (uniform in all
-//   directions), positive = forward-peaked (dramatic when looking toward
-//   the sun, effectively invisible when looking away — ~25x dimmer at
-//   g=0.55 for a camera pointing away from the sun).
-// Default anisotropy is 0 because this game's isometric camera has a fixed
-// pitch and usually does NOT face the sun: a forward-peaked phase would
-// kill shaft visibility. Default shaft intensity is high (8) to compensate
-// for the flat phase — isotropic scattering distributes energy over the
-// full 4π steradians (factor 1/(4π) ≈ 0.08), so we need ~8x more raw
-// intensity to reach the same brightness as a forward peak.
 uniform float sun_shaft_intensity : hint_range(0.0, 32.0) = 8.0;
 uniform float block_halo_intensity : hint_range(0.0, 32.0) = 6.0;
-uniform float scatter_anisotropy : hint_range(-0.95, 0.95) = 0.0;
+// Per-voxel authored-fog → shaft boost. The band-averaged fog_map density is
+// multiplied by this and ADDED to the global wash, so painted fog volumes
+// (mist over water, dusty hollows) get locally denser shafts. 0 = off.
+uniform float fog_shaft_gain : hint_range(0.0, 4.0) = 1.0;
+
+// --- Sun-wash (carve-by-darkening) controls -------------------------
+// TEST gate (CVar shaft_light_floor): fade the darkening out where the air
+// column has near-zero sunlight, so genuinely lightless areas get no wash.
+// The darkening is multiplied by smoothstep(0, this, lit_frac). 0 = off.
+uniform float shaft_light_floor : hint_range(0.0, 1.0) = 0.0;
+// How dark fully-shadowed air gets, at full global wash. This is the main
+// CONTRAST knob: the scene is the lit baseline and shadowed columns are
+// multiplied down by up to this much. Expands value range, never blows out.
+uniform float wash_shadow_darkness : hint_range(0.0, 1.0) = 0.5;
+// Bounded warm tint ADDED in the lit gaps (sun/dust color in the beams).
+// Keep small — this is the only additive term, so it's the one that could
+// brighten. 0 = beams are pure un-darkened scene; ~0.15 = subtly colored.
+uniform float wash_tint_strength : hint_range(0.0, 1.0) = 0.15;
+
 // Color tint on shaft inscatter. SkyController crossfades between the
 // day sun color and weather.moonShaftColor based on which source is
 // currently above the horizon, so this tracks the "real" shaft source
@@ -176,23 +196,6 @@ uniform float scatter_anisotropy : hint_range(-0.95, 0.95) = 0.0;
 // geometry, swapped palette: day beams read warm, moon beams read
 // whatever mood the weather author picked.
 uniform vec3 shaft_color : source_color = vec3(1.0, 0.96, 0.88);
-
-// Animated mote shimmer drifting through the shafts. The shaft geometry
-// itself is anchored to the (static) sun occlusion in the LightMap +
-// cloud pattern, so without this the beams would look frozen. Modulates
-// ONLY the sun inscatter contribution — haze stays smooth and doesn't
-// crawl. Carries no scattering density of its own (that's dust_density);
-// this is pure visual noise on top of the shaft brightness.
-//   mote_strength: 0 = no shimmer, 1 = beams vary 0..2x as motes pass through.
-//   mote_scale: world-space frequency of motes (higher = finer).
-//   mote_scroll: world-space velocity of the mote field (units/sec).
-uniform float mote_strength : hint_range(0.0, 1.0) = 0.55;
-uniform float mote_scale = 0.18;
-uniform vec3 mote_scroll = vec3(0.35, 0.12, -0.25);
-// Pre-integrated mote position (SkyController accumulates mote_scroll
-// per frame). Same precision / speed-change-retune reasoning as the
-// dust offsets above.
-uniform vec3 mote_offset = vec3(0.0);
 
 // World Y of the water surface. The water shader uses depth_draw_never, so
 // DEPTH_TEXTURE at water pixels returns the depth of the opaque terrain
@@ -209,35 +212,12 @@ uniform float water_level = -1e20;
 // caves, and anything beneath the ceiling see dust (and therefore shafts).
 // ALL pixels — tree, terrain, water — share the same ceiling in this
 // mode, so their marches sample cloud_shadow_shafts at the same Y-range
-// along a given sun ray and the sprite-vs-terrain brightness pop goes
+// along a given sun ray and the tree-vs-terrain brightness pop goes
 // away.
 // Left at default (-1e20) the shader falls back to the per-pixel legacy
 // behavior: ceiling = surface_y + dust_band_height (i.e. dust is a band
 // just above each pixel's own surface).
 uniform float dust_reference_y = -1e20;
-
-// Screen-space sun shadow raymarch — shapes the shafts by the ACTUAL
-// scene geometry the camera can see (trees, terrain, sprites — anything
-// that writes to the depth buffer). Without this, shafts are only gated
-// by the voxel LightMap's top-down BFS sun mask, which doesn't know
-// about tree-sprite silhouettes, so beams never stream through canopies
-// the way Tessellator-style pixel-art forests do.
-//
-// For each fog march sample p, step K times along to_sun, project each
-// step to screen space, and compare that projected depth against the
-// scene depth at the same screen position. If scene_depth shows geometry
-// IN FRONT OF our step, the sun ray at p is occluded — no shaft there.
-//
-// Cost: K depth samples per fog march step (K*48 total per pixel at
-// defaults). Keep K small and sun_shadow_distance short unless the
-// scene has many tall occluders.
-uniform bool sun_shadow_enabled = true;
-uniform int sun_shadow_steps : hint_range(1, 16) = 6;
-uniform float sun_shadow_distance : hint_range(1.0, 64.0) = 16.0;
-// Reverse-Z depth comparison bias. Prevents the raymarch from "hitting"
-// the occluder at the projected step itself due to FP precision near
-// the ground.
-uniform float sun_shadow_bias : hint_range(0.0, 0.01, 0.0001) = 0.0005;
 
 // Sharpness of the cloud mask SPECIFICALLY when used for shaft gating.
 // Decoupled from the scene-wide cloud_sharpness so you can crank shaft
@@ -245,15 +225,6 @@ uniform float sun_shadow_bias : hint_range(0.0, 0.01, 0.0001) = 0.0005;
 // the sky dome / terrain cloud shadows hard-edged too. 0 = soft gradient,
 // 1 = hard step.
 uniform float cloud_shaft_sharpness : hint_range(0.0, 1.0) = 0.95;
-
-// Half-angle (degrees from the sun axis) at which view-aligned shafts
-// start fading. When the view ray is close to parallel with the sun
-// direction, beams collapse into foreshortened dots / radial rays
-// instead of side-on streaks — physically correct, but often reads as
-// a rendering artifact to the player. Fade shaft intensity and dust
-// noise structuring smoothly to zero as |dot(ray_dir, to_sun)| crosses
-// cos(threshold). 90 disables the fade.
-uniform float shaft_camera_fade_degrees : hint_range(0.0, 90.0, 0.1) = 60.0;
 
 // Near-surface inscatter fade. Dust peaks at the surface (dust_gate = 1
 // when h_above_ground = 0) — without this fade, the march samples right
@@ -281,9 +252,6 @@ uniform float shaft_ground_fade : hint_range(0.0, 0.5, 0.01) = 0.2;
 //     Should show a bold drifting noise pattern. If uniform black / gray,
 //     the cloud globals aren't reaching the shader (suspect: stale shader
 //     cache — delete .godot/shader_cache/ and relaunch).
-// 6 = visualize AVERAGE screen-space sun occlusion along the march ray.
-//     Black = fully sunlit, white = fully shadowed. Tree/terrain shadow
-//     silhouettes should be visible as darker bands in the air.
 // 7 = shaft intensity per pixel as a HEATMAP of total inscatter magnitude
 //     (black = no shaft, blue → green → yellow → red → white for
 //     increasing brightness). Shows which screen pixels actually receive
@@ -297,91 +265,17 @@ uniform float shaft_ground_fade : hint_range(0.0, 0.5, 0.01) = 0.2;
 //     ref_y + band_height). If you see RED pixels above where you
 //     expected the band to end, the shaft IS in the band but the
 //     screen projection is fooling your eye.
-// 9 = AVERAGE cloud_mask (cloud_shadow_shafts output) along the march,
-//     isolated from voxel_sun and geometry occlusion. Direct diagnostic
-//     for the sprite-vs-terrain cloud-projection divergence: if a tree
-//     pixel and the ground right next to it read different gray values
-//     here, they're sampling different cloud columns because their band
-//     altitudes differ. Uniform gray across sprite+terrain at the same
-//     XZ = cloud sampling is coherent; banding = diverges.
-// 10 = dust band anchor Y per pixel, grayscale. With dust_reference_y
-//     disabled, each pixel reads its own surface Y, so tree pixels are
-//     brighter than the ground beneath them (confirms the band floats
-//     up with the billboard). With dust_reference_y set, all pixels
-//     should read the same gray value (band anchor is absolute).
-// 11 = band_range normalized by dust_band_height — how much of the
-//     march passes through dust. 0 (black) = no dust crossing (pixel
-//     is entirely above or below the band), 1 (white) = full band
-//     crossed. Taller sprites should read dimmer than adjacent ground
-//     when dust_reference_y is set (shorter crossing for higher pixels).
 // 12 = MIN raw lm.r encountered along the march. Unthresholded,
 //     unaveraged — pure darkest-voxel readout. Pixel goes fully
 //     black if any voxel along the view ray has zero BFS sun. Use
 //     to diagnose "is the fog seeing any truly dark voxels" without
 //     the ray-average or shaft-threshold noise in mode 4.
-uniform int debug_mode : hint_range(0, 12) = 0;
+// 13 = sun-wash coverage. GREEN = lit_frac (how sunlit this air column is:
+//     bright = lit beam, dark = shadowed). This is what the wash darkens
+//     and tints.
+uniform int debug_mode : hint_range(0, 13) = 0;
 
 const float INV_4PI = 0.0795774715459;
-
-// Henyey-Greenstein phase function. g > 0 is forward-scattering; the shaft
-// lighting gets a strong boost when the view ray is aligned with the inbound
-// sun direction (i.e. looking toward the sun through dust).
-float phase_hg(float cos_theta, float g)
-{
-    float g2 = g * g;
-    float denom = 1.0 + g2 - 2.0 * g * cos_theta;
-    // max() guards against a negative base under the fractional power when
-    // g * cos_theta slightly overshoots 1 due to fp error.
-    return INV_4PI * (1.0 - g2) / (pow(max(denom, 1e-4), 1.5));
-}
-
-// Screen-space sun occlusion raymarch. Returns fraction [0..1] of sun-march
-// samples that land behind visible scene geometry (trees, terrain, sprites
-// — anything in depth_tex). 0 = fully sunlit, 1 = fully shadowed.
-//
-// The projection/view matrices are fragment-stage built-ins in Godot's
-// spatial shader, so this helper takes them as parameters instead of
-// reading them at file scope.
-float sun_occlusion(vec3 p, vec3 to_sun, mat4 proj, mat4 view)
-{
-    if (!sun_shadow_enabled) { return 0.0; }
-    float step_len = sun_shadow_distance / float(sun_shadow_steps);
-    float occluded = 0.0;
-    for (int i = 1; i <= sun_shadow_steps; i++)
-    {
-        vec3 sp = p + to_sun * step_len * float(i);
-        vec4 clip = proj * view * vec4(sp, 1.0);
-        if (clip.w <= 0.0) { continue; }
-        vec3 ndc = clip.xyz / clip.w;
-        vec2 uv = ndc.xy * 0.5 + 0.5;
-        if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0))))
-        {
-            continue;
-        }
-        float scene_z = texture(depth_tex, uv).r;
-        // Reverse-Z: 1 = near plane, 0 = far plane. If scene_z > sp's
-        // ndc.z, the scene's visible surface at that screen location is
-        // closer to the camera than our sun-ray sample — approximates
-        // "something opaque sits between p and the sun along this ray
-        // segment", so p is shadowed.
-        if (scene_z > ndc.z + sun_shadow_bias)
-        {
-            occluded += 1.0;
-        }
-    }
-    return occluded / float(sun_shadow_steps);
-}
-
-// Cheap triple-sine value noise for the animated mote shimmer. Not a true
-// noise (has visible periodicity at low frequencies), but inexpensive
-// per-sample and reads as drifting motes once multiple axes are combined.
-// Keeps the march loop affordable at 24-48 steps per pixel.
-float mote_noise(vec3 p)
-{
-    float n1 = sin(p.x * 1.3) * sin(p.y * 1.7 + 0.5) * sin(p.z * 1.1 - 0.3);
-    float n2 = sin(p.x * 2.7 + 1.1) * sin(p.y * 2.3 - 0.7) * sin(p.z * 3.1 + 1.9);
-    return 0.5 + 0.5 * (n1 * 0.65 + n2 * 0.35);
-}
 
 void vertex()
 {
@@ -508,31 +402,24 @@ void fragment()
     t_dust_enter = max(t_dust_enter, 0.0);
     t_dust_exit = min(t_dust_exit, march_dist);
     float band_range = max(t_dust_exit - t_dust_enter, 0.0);
-    float step_size = (band_range > 0.0) ? band_range / float(fog_steps) : 0.0;
+    // Per-pixel step count derived from a TARGET step size, so step size is
+    // capped no matter how deep the band is. fog_steps is the floor; deep
+    // bands add samples up to a hard cap. This bounds the "platter" banding
+    // to sub-pixel without per-pixel jitter (which goes chunky at low res).
+    int v1_steps = fog_steps;
+    if (band_range > 0.0)
+    {
+        v1_steps = int(ceil(band_range / max(shaft_step_size, 0.01)));
+        v1_steps = clamp(v1_steps, fog_steps, 256);
+    }
+    float step_size = (band_range > 0.0) ? band_range / float(v1_steps) : 0.0;
     float t_band_enter = t_dust_enter;  // name kept for downstream use
 
-    // Phase values are view-direction-dependent but not per-step, so compute
-    // once per fragment. cos_theta is the angle between the ray direction
-    // and the direction TOWARD the sun (-sun_world_dir is the vector from
-    // the receiver to the sun).
+    // Direction toward the sun (-sun_world_dir points from receiver to sun),
+    // used for the dust-noise sun projection below. The sun wash is a uniform
+    // tint, so there's no view-direction phase function for it.
     vec3 to_sun = -normalize(sun_world_dir);
-    float cos_theta = dot(ray_dir, to_sun);
-    float phase_sun = phase_hg(cos_theta, scatter_anisotropy);
-
-    // View-alignment fade: when the view ray is close to the sun axis
-    // (either facing sun or anti-facing), beams foreshorten into radial
-    // dots instead of streaks. Fade the shaft + dust-noise contribution
-    // smoothly from full (at the threshold angle) to zero (at 0°
-    // alignment, i.e. looking directly along the sun ray). Uses
-    // |cos_theta| so both facing-sun and facing-away directions fade.
-    float shaft_camera_fade_cos = cos(radians(shaft_camera_fade_degrees));
-    float align = abs(cos_theta);
-    float align_fade = smoothstep(shaft_camera_fade_cos, 1.0, align);
-    float shaft_align_mod = 1.0 - align_fade;
-    float eff_shaft_intensity = sun_shaft_intensity * shaft_align_mod;
-    float eff_dust_noise_strength = dust_noise_strength * shaft_align_mod;
-    // Block lights scatter isotropically — no preferred direction relative
-    // to the view ray, so halos stay round regardless of camera facing.
+    // Block lights scatter isotropically — halos stay round.
     float phase_block = INV_4PI;
 
     // Two-zone accumulators. Above-clip ("outdoor" — air or
@@ -551,27 +438,39 @@ void fragment()
     // contribution dies as the ray traverses cutaway rock; indoor
     // zone passes through unchanged. Then the two zones layer
     // (outdoor on top of indoor) via standard premul-alpha.
+    // Shaft (sun god-ray) and halo (block-light) inscatter are kept in
+    // SEPARATE accumulators per zone: only the shaft term is scaled by the
+    // partial-shadow contrast gate at composite. Block-light halos are round
+    // and always visible regardless of sun contrast, so they bypass the gate.
     float outdoor_tau = 0.0;
     float outdoor_transmittance = 1.0;
-    vec3 outdoor_inscatter = vec3(0.0);
+    vec3 outdoor_halo = vec3(0.0);
     vec3 outdoor_lit_haze = vec3(0.0);
     float indoor_tau = 0.0;
     float indoor_transmittance = 1.0;
-    vec3 indoor_inscatter = vec3(0.0);
+    vec3 indoor_halo = vec3(0.0);
     vec3 indoor_lit_haze = vec3(0.0);
+    // Sun-wash model: accumulate the LIT FRACTION of the air column (the
+    // un-shadowed coverage), weighted by the dust band. The global wash
+    // intensity/color is applied once at composite as a value-preserving tint
+    // carved by this fraction — NOT additive per-step radiance.
+    // lit_weighted / band_weight = average lit fraction.
+    float lit_weighted = 0.0;
+    float band_weight = 0.0;
+    // Authored per-voxel fog density (fog_map.r) accumulated along the band,
+    // band-weighted like lit. Lets WorldGen/editor-painted fog volumes drive
+    // LOCAL shaft density on top of the global humidity/dust wash.
+    float fog_weighted = 0.0;
     // For debug mode 4: average sun mask seen along the ray.
     float sun_mask_sum = 0.0;
     float sun_mask_samples = 0.0;
-    // For debug mode 6: average geometry-shadow occlusion along the ray.
-    float sun_occ_sum = 0.0;
-    float sun_occ_samples = 0.0;
     // For debug modes 7/8: track peak shaft contribution magnitude + where
     // (world Y) along the ray it occurred, so we can visualize which pixels
     // get shafts and at what altitude the band actually delivers.
     float peak_shaft = 0.0;
     float peak_shaft_y = 0.0;
-    // For debug mode 9: average cloud_mask along the march, isolated from
-    // voxel_sun / sun_occ. Pure cloud-projection diagnostic.
+    // Average cloud_mask along the march, isolated from voxel_sun. Pure
+    // cloud-projection diagnostic accumulator.
     float cloud_mask_sum = 0.0;
     float cloud_mask_samples = 0.0;
     // For debug mode 12: minimum raw lm.r along the march (unthresholded).
@@ -611,9 +510,9 @@ void fragment()
     // aliasing the standard way (Monte Carlo) but with the low-res
     // SceneViewport (480x270) and no bilateral blur pass downstream, the
     // jitter becomes visible as chunky 4x4 noise blocks after upscale.
-    // Rely on low moteStrength + ground fade to hide any stripe patterns
-    // instead; reduces noise at the cost of mild aliasing we can't see
-    // through the pixel-art quantization anyway.
+    // Rely on the ground fade + pixel-art quantization to hide any stripe
+    // patterns instead; reduces noise at the cost of mild aliasing we can't
+    // see through the pixel-art quantization anyway.
     // fog_enabled now ONLY gates authored fog below, not the whole march.
     // Dust + shaft inscatter stays live so you can see beams on a
     // fog-free baseline.
@@ -621,7 +520,7 @@ void fragment()
 
     if (band_range > 0.0)
     {
-        for (int i = 0; i < fog_steps; i++)
+        for (int i = 0; i < v1_steps; i++)
         {
             // t is absolute along the full view ray (0 at near plane, up
             // to march_dist at surface). Keeping it in that coordinate
@@ -690,15 +589,20 @@ void fragment()
             // Scale by 2 so at strength=1, dense pockets can double the
             // dust density while sparse gaps drop it to zero — preserves
             // average dust on the scene.
-            float dust_mod = mix(1.0, 2.0 * dust_pattern, eff_dust_noise_strength);
+            float dust_mod = mix(1.0, 2.0 * dust_pattern, dust_noise_strength);
 
-            float authored = texture(fog_map, uvw).r * authored_scale;
+            // Raw per-voxel authored fog density [0..1] (before the weather
+            // fog_density scale) — used to boost LOCAL shaft density in fog
+            // volumes. `authored` keeps the extinction-scaled value for haze.
+            float fog_raw = texture(fog_map, uvw).r;
+            float authored = fog_raw * authored_scale;
             // Ambient haze adds uniform extinction AND scattering — acts
             // like diluted fog everywhere the raymarch visits, letting
             // overcast / foggy / stormy feel enclosed in atmosphere
             // without needing authored fog_map volumes.
+            float dust_amount_here = dust_density * dust_gate * dust_mod;
             float sigma_t = authored + ambient_fog_density;
-            float sigma_s = authored + ambient_fog_density + dust_density * dust_gate * dust_mod;
+            float sigma_s = authored + ambient_fog_density + dust_amount_here;
             if (sigma_s <= 0.0)
             {
                 continue;
@@ -710,7 +614,7 @@ void fragment()
             // >0 where direct sun reaches), which is exactly what makes
             // shafts appear: the inscatter integrates bright only along ray
             // segments that are simultaneously in dust AND in sun.
-            vec3 L = vec3(0.0);
+            vec3 L_block = vec3(0.0);
             // Voxel-sun gate for haze accumulation below. Default 1.0
             // for out-of-lightmap samples (distant sky rays beyond
             // loaded chunks) so far-distance outdoor haze still
@@ -745,27 +649,14 @@ void fragment()
                 haze_gate = lm_r_soft;
                 min_lm_r = min(min_lm_r, lm.r);
 
-                // Animated mote shimmer modulates the sun shaft term only.
-                // Motes drift in world space so the beams come alive without
-                // the ambient haze crawling with them. Centered at 1.0 so
-                // the average shaft brightness stays independent of strength.
-                vec3 mp = p * mote_scale + mote_offset;
-                float dust = mix(1.0, 2.0 * mote_noise(mp), mote_strength);
-
-                // Sun gating: combine two occlusion sources.
-                //   1. Cloud mask (atmospheric, low-frequency) — soft
-                //      drifting variation from the cloud noise texture.
-                //   2. Geometry occlusion (screen-space raymarch toward
-                //      the sun, samples depth_tex) — sharp beams shaped
-                //      by trees / terrain / sprites actually blocking
-                //      the sun along the ray at p.
-                // Both combine multiplicatively — either can fully
-                // shadow the sample.
+                // Sun gating: cloud mask (atmospheric, drifting) only. Terrain
+                // AND foliage occlusion both come from the voxel light_map.R
+                // (voxel_sun) below — the BFS sun mask, which lets sun leak
+                // horizontally into a cave mouth / under a canopy. The old
+                // screen-space depth raymarch toward the sun is gone (it was a
+                // separate, expensive, view-dependent foliage approximation).
                 float cloud_mask = cloud_shadow_shafts(p, TIME, cloud_shaft_sharpness);
-                float sun_through_clouds = 1.0 - cloud_mask;
-                float sun_occ = sun_occlusion(p, to_sun, PROJECTION_MATRIX, VIEW_MATRIX);
-                float sun_through_geom = 1.0 - sun_occ;
-                float sun_through = sun_through_clouds * sun_through_geom;
+                float sun_through = 1.0 - cloud_mask;
 
                 cloud_mask_sum += cloud_mask;
                 cloud_mask_samples += 1.0;
@@ -778,14 +669,34 @@ void fragment()
                 // rock_thickness clip_atten handles cave/cutaway
                 // suppression now.
                 float voxel_sun = smoothstep(0.0, 1.0, lm_r_soft);
-                vec3 sun_radiance = voxel_sun * sun_intensity * shaft_color * sun_through;
-                L += sun_radiance * phase_sun * eff_shaft_intensity * dust;
-                L += lm.gba * phase_block * block_halo_intensity;
+                // Sun-wash: accumulate the lit FRACTION (coverage), not added
+                // radiance. lit = terrain × cloud-gap × foliage-gap, weighted
+                // by the dust band and streak noise. A tree
+                // here lowers `lit` (a shadow in the wash) instead of adding a
+                // beam. The wash color/intensity is applied once at composite.
+                // Shaft SHAPE comes from real shadows (terrain × cloud ×
+                // foliage), animated by the drifting clouds — NOT the dust
+                // noise, which (a) pushed lit_frac above 1 → "reverse shadow"
+                // bright blobs and (b) smears into blobs once band-averaged
+                // instead of reading as streaks. Dust noise stays on the haze
+                // (sigma_s) only.
+                // Above-clip samples are cut-away rock (still physically solid
+                // terrain) — treat them as occluded so caves / indoor columns
+                // read as shadowed: no shaft leaks in from the sky-lit rock the
+                // cutaway hides. clip_visibility_smooth follows the cutaway's
+                // growth iris, so this dissolves in sync with the ceiling
+                // instead of snapping when camera_clip changes (was a pop).
+                float clip_occ = clip_visibility_smooth(p);
+                float lit = voxel_sun * sun_through * clip_occ;
+                lit_weighted += lit * dust_gate;
+                band_weight += dust_gate;
+                fog_weighted += fog_raw * dust_gate;
 
+                L_block += lm.gba * phase_block * block_halo_intensity;
+
+                // Diagnostic accumulators (debug modes 4 / 9).
                 sun_mask_sum += voxel_sun * sun_through;
                 sun_mask_samples += 1.0;
-                sun_occ_sum += sun_occ;
-                sun_occ_samples += 1.0;
             }
 
             // Near-surface fade on inscatter. Dust is maximum at the
@@ -820,7 +731,15 @@ void fragment()
             // composite time only dampens the outdoor zone.
             bool above_clip = p.y > camera_clip;
             float zone_transmittance = above_clip ? outdoor_transmittance : indoor_transmittance;
-            vec3 sample_inscatter = shaft_fade * zone_transmittance * L * sigma_s * step_size;
+            // Shared inscatter weight (transmittance * scattering * length,
+            // with the near-surface fade). Applied to the sun-shaft and
+            // block-halo radiances separately so they can be composited with
+            // different gates (shaft is contrast-gated, halo is not).
+            float inscatter_weight = shaft_fade * zone_transmittance * sigma_s * step_size;
+            // Block-light halos stay additive radiance (they ARE emitters).
+            // The sun shaft is no longer accumulated here — it's a coverage
+            // wash applied at composite via lit_frac.
+            vec3 sample_halo_v = inscatter_weight * L_block;
             // Accumulate light-gated haze. sigma_t * transmittance *
             // step_size is the "per-step extinction weight" that sums
             // across the march to (1 - transmittance); multiplying by
@@ -830,28 +749,30 @@ void fragment()
             vec3 sample_haze = haze_gate * fog_color * sigma_t * zone_transmittance * step_size;
             if (above_clip)
             {
-                outdoor_inscatter += sample_inscatter;
+                outdoor_halo += sample_halo_v;
                 outdoor_lit_haze += sample_haze;
                 outdoor_transmittance *= exp(-seg_tau);
                 outdoor_tau += seg_tau;
             }
             else
             {
-                indoor_inscatter += sample_inscatter;
+                indoor_halo += sample_halo_v;
                 indoor_lit_haze += sample_haze;
                 indoor_transmittance *= exp(-seg_tau);
                 indoor_tau += seg_tau;
             }
-            // Debug: track this ray's peak shaft contribution for debug
-            // modes 7 & 8. max-channel is close enough to luma for these.
-            float sample_shaft = max(max(sample_inscatter.r, sample_inscatter.g), sample_inscatter.b);
-            if (sample_shaft > peak_shaft)
-            {
-                peak_shaft = sample_shaft;
-                peak_shaft_y = p.y;
-            }
         }
     }
+
+    // --- Sun-wash coverage ------------------------------------------
+    // Average lit fraction of the air column along this ray (band-weighted).
+    // 0 = fully shadowed (deep canopy / cave / cloud), 1 = fully sunlit.
+    float lit_frac = band_weight > 0.0 ? clamp(lit_weighted / band_weight, 0.0, 1.0) : 0.0;
+
+    // Inscatter now carries ONLY the block-light halos; the sun shaft is a
+    // coverage wash applied as a value-preserving tint at composite time.
+    vec3 outdoor_inscatter = outdoor_halo;
+    vec3 indoor_inscatter = indoor_halo;
 
     if (debug_mode == 1)
     {
@@ -900,18 +821,6 @@ void fragment()
         // (suspect sun_world_dir or cloud_scale reading as 0, or stale cache).
         float cloud = cloud_shadow(surface_world, TIME);
         ALBEDO = vec3(cloud);
-        ALPHA = 1.0;
-    }
-    else if (debug_mode == 6)
-    {
-        // Average screen-space geometry occlusion along the ray. Tree and
-        // terrain silhouettes should appear as bright bands (shadowed air)
-        // between dark bands (sunlit air). Uniform black = raymarch is
-        // finding no occluders (check sun_shadow_enabled, depth_tex wiring).
-        // Uniform white = everything reads as occluded (bias too low, or
-        // depth reconstruction broken).
-        float avg = sun_occ_samples > 0.0 ? sun_occ_sum / sun_occ_samples : 0.0;
-        ALBEDO = vec3(avg);
         ALPHA = 1.0;
     }
     else if (debug_mode == 7)
@@ -963,6 +872,14 @@ void fragment()
         ALBEDO = vec3(min_lm_r);
         ALPHA = 1.0;
     }
+    else if (debug_mode == 13)
+    {
+        // Sun-wash coverage. GREEN = lit_frac (how sunlit this air column is:
+        // bright = lit beam, dark = shadowed). This is what the wash darkens
+        // and tints.
+        ALBEDO = vec3(0.0, clamp(lit_frac, 0.0, 1.0), 0.0);
+        ALPHA = 1.0;
+    }
     else
     {
         // Two-zone layered composite. Outdoor (above-clip) zone is on
@@ -995,8 +912,78 @@ void fragment()
         float alpha_a = clip_atten * clamp(1.0 - outdoor_transmittance, 0.0, 1.0);
         vec3 albedo_b = indoor_lit_haze + indoor_inscatter;
         float alpha_b = clamp(1.0 - indoor_transmittance, 0.0, 1.0);
-        ALBEDO = albedo_a + (1.0 - alpha_a) * albedo_b;
-        ALPHA = clamp(1.0 - (1.0 - alpha_a) * (1.0 - alpha_b), 0.0, 1.0);
+        vec3 haze_albedo = albedo_a + (1.0 - alpha_a) * albedo_b;
+        float haze_alpha = clamp(1.0 - (1.0 - alpha_a) * (1.0 - alpha_b), 0.0, 1.0);
+
+        // --- Sun-wash composite (carve by darkening, not brightening) ---
+        // The scene IS the fully-lit atmosphere; we DARKEN the shadowed air
+        // columns rather than add light to the lit ones. Darkening cannot
+        // blow out, EXPANDS value contrast (deeper shadows) instead of
+        // depressing it, and being a neutral multiply it preserves color/
+        // saturation. The lit gaps stay at full scene value and pop as beams;
+        // a small bounded warm tint is added ONLY in those lit gaps for sun/
+        // dust color. Both are gated by the global wash intensity
+        // (sun_shaft_intensity = dust × cloudCover², from SkyController), so
+        // clear skies stay clean.
+        //
+        // No screen read needed: under premultiplied-alpha the hardware does
+        // result = ALBEDO + (1 - ALPHA)·scene. Setting ALPHA = darken makes
+        // (1 - ALPHA) attenuate the scene (the darkening); ALBEDO carries the
+        // additive tint. Composited over the haze layer below.
+        // Local authored-fog boost: the global wash (humidity + dust + cloud +
+        // cave) PLUS the per-voxel painted fog density along this pixel's band,
+        // so WorldGen / editor fog volumes (mist over water, dusty hollows)
+        // thicken the shafts right where the author placed them.
+        float fog_frac = band_weight > 0.0 ? fog_weighted / band_weight : 0.0;
+        float wash = sun_shaft_intensity + fog_shaft_gain * fog_frac;
+        float shadow = 1.0 - clamp(lit_frac, 0.0, 1.0);
+        // Coverage guard: only darken where the dust band was actually
+        // sampled. Without this, distant pixels beyond the loaded lightmap
+        // (band_weight == 0 -> lit_frac == 0) would read as "fully shadowed"
+        // and darken the sky / far terrain incorrectly.
+        float coverage = clamp(band_weight, 0.0, 1.0);
+        // Two cut-away suppressors, handling DIFFERENT geometry — a shaft
+        // needs both:
+        //   clip_fade  : kills shafts whose ground DESTINATION is above the
+        //                clip (cut-away exterior/ceiling surfaces). Follows
+        //                the cutaway growth iris so it dissolves in sync with
+        //                the ceiling instead of snapping. Outdoors it's 1.
+        //   clip_atten : kills shafts that sit BEHIND cut-away rock — i.e. a
+        //                cave floor below the clip whose view ray traverses
+        //                the (discarded but physically solid) ceiling above
+        //                it. clip_fade alone returns 1 for any below-clip
+        //                surface, so without clip_atten the whole visible
+        //                cave interior carries full-strength beams. The haze
+        //                and block-halo layers already fold clip_atten in
+        //                (albedo_a above); the sun-wash refactor that moved
+        //                the shaft to this composite-time tint/darken pair
+        //                dropped it for the shaft. Restoring it here matches
+        //                the pre-refactor behavior where shafts lived in
+        //                outdoor_inscatter and were attenuated by clip_atten.
+        float clip_fade = clip_visibility_smooth(surface_world);
+        float shaft_clip = clip_fade * clip_atten;
+        // TEST: fade the darkening out where the column has near-zero light, so
+        // genuinely lightless areas aren't washed. 0 floor = off (full effect).
+        float light_present = shaft_light_floor > 0.0
+            ? smoothstep(0.0, shaft_light_floor, clamp(lit_frac, 0.0, 1.0))
+            : 1.0;
+        float shaft_darken = clamp(wash * shadow, 0.0, wash_shadow_darkness) * coverage * shaft_clip * light_present;
+
+        // Warm wash tint, faded at the clip. It's a PARTIAL-SHADOW term:
+        // lit air that sits next to shadow (a beam). lit·shadow goes to ZERO
+        // in fully-lit clear air (shadow = 0) AND in fully-shadowed air
+        // (lit = 0), peaking where the column is ~half occluded — so the wash
+        // vanishes when it's clear and fades in with occlusion instead of
+        // tinting every lit pixel. ×4 normalises lit·(1-lit) (max 0.25) so the
+        // peak reaches the full wash. (Floating dust motes are now a separate
+        // GPU particle system — see MoteEffect / scenes/effects/motes.tscn.)
+        float beam_lit = clamp(lit_frac, 0.0, 1.0) * shadow * 4.0 * wash;
+        vec3 tint = shaft_color * (beam_lit * wash_tint_strength) * shaft_clip;
+
+        // Shaft layer (darken + tint) composited OVER the haze layer via
+        // premultiplied alpha.
+        ALBEDO = tint + (1.0 - shaft_darken) * haze_albedo;
+        ALPHA = clamp(shaft_darken + (1.0 - shaft_darken) * haze_alpha, 0.0, 1.0);
     }
 
     } // end if (fog_volumetric_enabled)

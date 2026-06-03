@@ -276,27 +276,12 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,0.05,0.0005")] public float AmbientFogHumidityK = 0f;
 
     [ExportSubgroup("Shafts")]
-    // Base sun-shaft intensity before dust / cloud modulation. 12 lets
-    // a dusty zone (mountain/desert at dustAmount=0.4) produce shafts
-    // comfortably into the "visible beam" range (effective 12-16) while
-    // low-dust zones stay subtle. Old authored values ran 3-20 across
-    // presets with 8 as the default.
-    [Export] public float ShaftBaseIntensity = 12f;
-    // Dust amount at which shafts hit their base intensity. Lower =
-    // shafts are visible even in thin dust; higher = only very dusty
-    // air produces visible shafts. 0.3 keeps a "typical dusty" zone
-    // (dustAmount ~0.3) near the base intensity; a full desert at
-    // dustAmount=0.5 lands around 13 (within the old dusty preset's 20).
-    [Export(PropertyHint.Range, "0.001,1,0.001")] public float ShaftDustReference = 0.3f;
-    // How much cloudCover dims shaft intensity. 0 = clouds don't
-    // affect shafts; 0.5 = full overcast halves them.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float ShaftCloudDim = 0.5f;
-    // How much DustColor tints shaft color away from pure SunColor /
-    // MoonColor. Higher = shafts pick up the regional dust hue.
+    // Shaft COLOUR only — how much the regional DustColor tints the shaft
+    // away from pure SunColor / MoonColor (zone-appearance, so it lives with
+    // the palette derivation). Shaft INTENSITY and its weather response are
+    // client-side visual tuning on SkyController (shaftWash* / moonBeamScale),
+    // NOT here.
     [Export(PropertyHint.Range, "0,1,0.01")] public float ShaftDustColorMix = 0.3f;
-    // Moon shafts are dimmer than sun shafts by this ratio. Moonlight
-    // just doesn't scatter as brightly as sunlight.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float MoonShaftFactor = 0.5f;
 
     [ExportSubgroup("Direct Light Intensity")]
     // Floor for daytime intensity at full overcast. 1.0 = never dim;
@@ -428,6 +413,12 @@ public partial class SimData : Resource
     // onto that full range linearly. Our authored desert has
     // dustAmount=0.5 → dustDensity=0.05 (half of old dusty max).
     [Export(PropertyHint.Range, "0,0.2,0.001")] public float DustDensityK = 0.1f;
+    // Humid air carries its own light-scattering medium (haze droplets), so
+    // a humid zone can show beams through partial cloud even with low
+    // authored dust. Adds humidity * this to the effective dust amount
+    // before DustDensityK. 0 = humidity contributes no scattering medium;
+    // 0.5 lets a fully-humid zone scatter like ~0.5 dustAmount.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float DustFromHumidity = 0.5f;
 
     [ExportGroup("Weather Simulation")]
     // Diurnal weather variation. Authored ZoneData.weather values are
@@ -603,6 +594,11 @@ public partial class SimData : Resource
     // separate authored fog field.
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromHumidity = 1.5f;
     [Export(PropertyHint.Range, "0.1,4,0.05")] public float FogFromCoolDiurnal = 1.0f;
+    // Low-end dead-zone on the fog signal: fog below this collapses to 0, then
+    // the remainder is rescaled to [0,1]. Stops the concave AmbientFog curve
+    // from amplifying a trace humidity wisp into visible haze, so a nearly-dry
+    // desert reads as genuinely clear. Heavy fog (swamp) is barely affected.
+    [Export(PropertyHint.Range, "0,0.9,0.01")] public float FogFloor = 0.1f;
 
     // Rain needs heavy cloud AND falling temperature (cold front /
     // afternoon-thunderstorm pattern). Falling-temp signal = max(0,

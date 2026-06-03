@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // Composable perception slot for interactives. Drop a Discoverable child
@@ -53,6 +54,15 @@ public partial class Discoverable : Node3D
     // SpriteBase. Hosts whose sprites are already always-visible (regular
     // doors, torches) leave this empty.
     [Export] private Godot.Collections.Array<SpriteBase> _fadeSprites = new();
+    // 3D-mesh counterpart of _fadeSprites for mesh-based hosts (chests, the
+    // statue, mesh secret doors). Every MeshInstance3D under this node dithers
+    // in/out with discovery via the `visibility` instance uniform that
+    // model_lit carries — the same Bayer fade the model mobs use — instead of
+    // hard-popping. Leave null on sprite-only hosts. The meshes must use a
+    // model_lit-family material (it declares the uniform); a mesh on some other
+    // shader silently won't fade. Cast shadow is suppressed while fully faded
+    // out so an undiscovered host casts no tell-tale shadow.
+    [Export] private Node3D _fadeMeshRoot;
     // Optional InteractiveBox (or any Area3D) the player's interactArea
     // picks up. Toggled off until Discovered so a not-yet-noticed chest /
     // secret door doesn't draw an interact prompt. Hosts with extra
@@ -72,6 +82,8 @@ public partial class Discoverable : Node3D
 
     private PerceivedByPlayerState _state;
     private World _world;
+    // MeshInstance3D descendants of _fadeMeshRoot, gathered once at _Ready.
+    private readonly List<MeshInstance3D> _fadeMeshes = new();
 
     public EPlayerPerceptionState State => _state.state;
     public float Perception => _state.perception;
@@ -99,9 +111,13 @@ public partial class Discoverable : Node3D
             _world.onDiscoverableSpawned?.Invoke(this);
             TreeExiting += () => _world.onDiscoverableRemoved?.Invoke(this);
         }
-        // Seed the dither uniform on every wired sprite so a pre-Discovered
-        // host doesn't render at LitSprite's default Visibility=1 for a
-        // frame before the first _Process tick takes over.
+        if (_fadeMeshRoot != null)
+        {
+            CollectFadeMeshes(_fadeMeshRoot);
+        }
+        // Seed the dither uniform on every wired sprite/mesh so a pre-Discovered
+        // host doesn't render at the default Visibility=1 for a frame before the
+        // first _Process tick takes over.
         PushFade();
         // Initial interact gate matches Hidden state — disabled until the
         // host hits Discovered.
@@ -169,18 +185,48 @@ public partial class Discoverable : Node3D
         PushFade();
     }
 
+    private void CollectFadeMeshes(Node node)
+    {
+        if (node is MeshInstance3D mesh)
+        {
+            _fadeMeshes.Add(mesh);
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            CollectFadeMeshes(child);
+        }
+    }
+
     private void PushFade()
     {
-        if (_fadeSprites == null)
+        if (_fadeSprites != null)
         {
-            return;
-        }
-        for (int i = 0; i < _fadeSprites.Count; i++)
-        {
-            SpriteBase sprite = _fadeSprites[i];
-            if (sprite != null)
+            for (int i = 0; i < _fadeSprites.Count; i++)
             {
-                sprite.Visibility = _visibility;
+                SpriteBase sprite = _fadeSprites[i];
+                if (sprite != null)
+                {
+                    sprite.Visibility = _visibility;
+                }
+            }
+        }
+        // Mesh hosts: push the dither uniform per instance (so meshes sharing a
+        // material still fade independently) and drop cast-shadow while fully
+        // faded out, matching the model-mob path in ModelAnimator.
+        GeometryInstance3D.ShadowCastingSetting castMode = _visibility > 0f
+            ? GeometryInstance3D.ShadowCastingSetting.On
+            : GeometryInstance3D.ShadowCastingSetting.Off;
+        for (int i = 0; i < _fadeMeshes.Count; i++)
+        {
+            MeshInstance3D mesh = _fadeMeshes[i];
+            if (mesh == null)
+            {
+                continue;
+            }
+            mesh.SetInstanceShaderParameter("visibility", _visibility);
+            if (mesh.CastShadow != castMode)
+            {
+                mesh.CastShadow = castMode;
             }
         }
     }

@@ -16,6 +16,14 @@ public partial class ArmorData : ItemData
 	//   { Fire,          0.5 } — fire-warded plate (halves fire damage)
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 
+	// Names of the MeshInstance3D parts this piece shows on the player's 3D
+	// model while equipped (the worn-mesh path referenced by ItemData.heldModel).
+	// They live on the shared polysplit rig and replace that slot's bare-body
+	// default — a body piece names its torso+legs outfit meshes, a head piece
+	// its helmet/hood. Player.UpdateArmorVisual composites these per slot.
+	// Empty = the slot falls back to the bare body (no visual change on equip).
+	[Export] public string[] wornMeshNames = System.Array.Empty<string>();
+
 	[Export] public override int maxLevel { get; set; } = 5;
 
 	public override ItemState CreateState()

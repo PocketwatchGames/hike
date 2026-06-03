@@ -35,6 +35,7 @@ public static class WeatherDerivation
         Color moonC = zone?.MoonColor ?? new Color(0.55f, 0.6f, 0.75f);
         Color skyC = zone?.SkyColor ?? new Color(0.25f, 0.48f, 0.82f);
         Color dustC = zone?.DustColor ?? new Color(0.85f, 0.78f, 0.6f);
+        p.DustColor = dustC;
 
         float cloudCover = weather?.cloudCover ?? 0f;
         float humidity = weather?.humidity ?? 0.5f;
@@ -60,6 +61,13 @@ public static class WeatherDerivation
         float humidGate = humidity > 0f ? Mathf.Pow(humidity, fogFromHumidity) : 0f;
         float coolGate = coolDiurnal > 0f ? Mathf.Pow(coolDiurnal, fogFromCoolDiurnal) : 0f;
         float fog = Mathf.Clamp(humidGate * coolGate, 0f, 1f);
+        // Low-end dead-zone: trace fog (below FogFloor) collapses to 0, the
+        // remainder rescaled to [0,1]. Keeps the concave AmbientFog curve from
+        // turning a nearly-dry desert's residual humidity into visible haze;
+        // heavy fog is barely touched. Applied at the source so the disk /
+        // water fog reads agree that a dry zone has no fog.
+        float fogFloor = sim?.FogFloor ?? 0.1f;
+        fog = fogFloor < 1f ? Mathf.Clamp((fog - fogFloor) / (1f - fogFloor), 0f, 1f) : 0f;
         p.Fog = fog;
 
         // Phase weights (day / sunset / night).
@@ -279,8 +287,14 @@ public static class WeatherDerivation
         p.AmbientFogDensity = (fogShaped * ambientFogK + humidity * ambientFogHumidityK) * fogPhaseScale;
 
         // --- Dust density -------------------------------------------
+        // Dust is the scattering medium that beams need. Humidity folds in
+        // as additional haze droplets so humid zones can show shafts through
+        // partial cloud even where authored dustAmount is low — the shader's
+        // contrast gate still keeps them from washing out open sunlit air.
         float dustDensityK = sim?.DustDensityK ?? 0.03f;
-        p.DustDensity = dustAmount * dustDensityK;
+        float dustFromHumidity = sim?.DustFromHumidity ?? 0.5f;
+        float effectiveDustAmount = Mathf.Clamp(dustAmount + humidity * dustFromHumidity, 0f, 1f);
+        p.DustDensity = effectiveDustAmount * dustDensityK;
 
         // --- Cloud shape --------------------------------------------
         // Authored cloudCover maps to a CENTER threshold for the
@@ -326,22 +340,15 @@ public static class WeatherDerivation
         float halfBand = (1f - p.CloudSharpness) * 0.5f;
         p.CloudThreshold = authoredThreshold - halfBand;
 
-        // --- Shafts -------------------------------------------------
-        float shaftBaseIntensity = sim?.ShaftBaseIntensity ?? 8f;
-        float shaftDustReference = Mathf.Max(sim?.ShaftDustReference ?? 0.1f, 1e-4f);
-        float shaftCloudDim = sim?.ShaftCloudDim ?? 0.5f;
-        float shaftDustColorMix = sim?.ShaftDustColorMix ?? 0.3f;
-        float moonShaftFactor = sim?.MoonShaftFactor ?? 0.5f;
-
-        float shaftDustScale = dustAmount / shaftDustReference;
-        float shaftIntensityBase = shaftBaseIntensity * shaftDustScale * (1f - cloudCover * shaftCloudDim);
-        p.SunShaftIntensity = Mathf.Max(shaftIntensityBase, 0f);
-        p.MoonShaftIntensity = Mathf.Max(shaftIntensityBase * moonShaftFactor, 0f);
-
-        // Shaft colors already include the sunset warm bias (each
-        // channel's "when this source is primary" color blended with
+        // --- Shaft colours ------------------------------------------
+        // Only the COLOUR is derived here (it's a function of the zone's
+        // sun / moon / dust palette + sunset bias). The shaft INTENSITY and
+        // its weather response are client-side tuning — see SkyController's
+        // sun-wash block. Shaft colours already include the sunset warm bias
+        // (each channel's "when this source is primary" colour blended with
         // sunset primary by sunsetT). SkyController does the remaining
         // sun↔moon crossfade by horizon factors.
+        float shaftDustColorMix = sim?.ShaftDustColorMix ?? 0.3f;
         Color sunShaftDay = sunC.Lerp(dustC, shaftDustColorMix);
         Color moonShaftNight = moonC.Lerp(dustC, shaftDustColorMix * 0.5f);
         Color shaftSunset = sunsetPrimary.Lerp(dustC, shaftDustColorMix);

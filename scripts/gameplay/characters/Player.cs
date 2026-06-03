@@ -2249,6 +2249,10 @@ public partial class Player : CharacterBody3D
 		_armor = _maxArmor;
 		_stamina = MaxStamina;
 
+		// Authoritative first pass so the worn-armor meshes match the spawned
+		// loadout even when nothing fired a slot-change (e.g. spawning bare).
+		UpdateArmorVisual();
+
 		// Seed body temperature to the spawn ambient so the player isn't
 		// born already cold / hot just because the default float is 70°F.
 		GameClient client = GameClient.Current;
@@ -2290,6 +2294,7 @@ public partial class Player : CharacterBody3D
 			|| slot == EInventorySlot.ArmorBody)
 		{
 			RecalculateMaxArmor();
+			UpdateArmorVisual();
 		}
 	}
 
@@ -3274,6 +3279,21 @@ public partial class Player : CharacterBody3D
 			itemModel = _runner.Current.context.primaryItem?.data?.heldModel;
 		}
 		_heldVisual.SetActiveItem(itemModel);
+
+		// While aiming, draw the equipped ranged weapon so the bow is in hand
+		// for the full aim/draw — not just once an attack fires (the event-side
+		// SetWeapon in TryStartWeaponAction). The weapon channel is persistent,
+		// so the bow stays in hand after aim ends; a later melee swing swaps it
+		// back. Only ranged weapons are forced here — aiming with nothing but a
+		// melee weapon equipped leaves the existing held model untouched.
+		if (_aiming)
+		{
+			PackedScene rangedModel = _inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data?.heldModel;
+			if (rangedModel != null)
+			{
+				_heldVisual.SetWeapon(rangedModel);
+			}
+		}
 
 		bool animHides = data != null && _animator != null
 			&& data.AnimationHidesHeldItem(_animator.CurrentAnimation);
