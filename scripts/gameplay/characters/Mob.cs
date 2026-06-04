@@ -126,6 +126,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
+    // Elite marker + the elite's signature status effect (see MobSimState).
+    // Read by MobHUD to badge the health bar with the effect's icon. Immutable
+    // after spawn, so the HUD samples them once at init.
+    public bool IsElite => _simState?.Elite ?? false;
+    public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
     // True when at least one active status effect flags `incapacitates`.
     // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
     // the flag; future Frozen / Knocked-Down would too without touching Mob.

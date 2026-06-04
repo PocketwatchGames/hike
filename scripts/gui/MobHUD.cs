@@ -17,6 +17,12 @@ public partial class MobHUD : Node2D
 	[Export] private Label _debugLabel;
 	[Export] private BoxContainer _statusEffectContainer;
 	[Export] private PackedScene _statusEffectIconScene;
+	// Badge nested inside the health bar showing an elite mob's signature
+	// status effect (MobSimState.EliteStatusEffect). It's a child of the health
+	// bar in the scene, so it rides the bar's visibility — it shows exactly when
+	// the elite's health bar is on screen. Wired only for elites; hidden (and
+	// untextured) for ordinary mobs.
+	[Export] private TextureRect _eliteStatusIcon;
 
 	// One icon per active StatusEffectState — multiple stacks of the same data
 	// show as multiple icons side-by-side. New entries play the intro animation
@@ -64,6 +70,20 @@ public partial class MobHUD : Node2D
 		if (_statusEffectContainer != null && parent != null)
 		{
 			_statusEffectContainer.Reparent(parent);
+		}
+		// Elite mobs badge their health bar with their signature status effect's
+		// icon. Elite state is fixed at spawn, so resolve the texture + visibility
+		// once here rather than per frame; the icon then tracks the health bar's
+		// visibility automatically as a child of it in the scene.
+		if (_eliteStatusIcon != null)
+		{
+			StatusEffectData elite = _mob.EliteStatusEffect;
+			bool showElite = _mob.IsElite && elite?.icon != null;
+			_eliteStatusIcon.Visible = showElite;
+			if (showElite)
+			{
+				_eliteStatusIcon.Texture = elite.icon;
+			}
 		}
 		_mob.TreeExiting += QueueFree;
 		_curScale = 0f;
