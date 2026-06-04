@@ -2504,10 +2504,11 @@ public partial class Player : CharacterBody3D
 	}
 
 	// The weapon whose block-armor guard is currently live — non-null only
-	// while the player is charging a weapon that carries a block pool. The
-	// guard is "active" (absorbs damage) only during the Charging phase; it
-	// still recharges between charges (TickBlockArmor) so it's topped up for
-	// the next one.
+	// while the player is holding the charge on a weapon that carries a block
+	// pool. The guard is entirely scoped to this window: it absorbs damage,
+	// arms its recharge delay on a hit, and refills only while the charge is
+	// held (see AbsorbWeaponBlock / TickBlockArmor). Outside the charge the
+	// pool is frozen.
 	private WeaponState GetChargingBlockWeapon()
 	{
 		if (_runner == null || !_runner.IsBusy || _runner.Phase != EActionPhase.Charging)
@@ -2550,28 +2551,26 @@ public partial class Player : CharacterBody3D
 		return before - weapon.blockArmor;
 	}
 
-	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors
-	// TickArmor but keyed off the weapon's own (independent) recharge stats and
-	// driven for both weapon slots so a guard refills whether or not it's the
-	// one being charged. No depletion fx — the HUD bar carries the feedback.
+	// Per-tick recharge of the block-armor guard. The guard is scoped entirely
+	// to the active charge: it only refills while the player is holding that
+	// weapon's charge (and only after blockArmorRechargeDelay has elapsed since
+	// the last hit taken mid-charge). A guard that was depleted stays frozen at
+	// its current pool until the player charges that weapon again — nothing
+	// about the guard moves unless the charge button is held. No depletion fx —
+	// the HUD bar carries the feedback.
 	private void TickBlockArmor(float dt)
 	{
-		ulong now = _world?.GameTimeMs ?? 0;
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
-		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
-	}
-
-	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
-	{
-		if (weapon?.data == null)
+		WeaponState weapon = GetChargingBlockWeapon();
+		if (weapon == null)
 		{
 			return;
 		}
 		float max = weapon.data.blockArmor;
-		if (max <= 0f || weapon.blockArmor >= max)
+		if (weapon.blockArmor >= max)
 		{
 			return;
 		}
+		ulong now = _world?.GameTimeMs ?? 0;
 		if (now < weapon.blockArmorRechargeStartMs)
 		{
 			return;
