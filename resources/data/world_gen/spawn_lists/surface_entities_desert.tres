@@ -14,9 +14,9 @@ script = ExtResource("3_3y2ux")
 Data = ExtResource("2_ajkyq")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
+EliteChance = 0.15
 SquareMetersPerSpawn = 1000.0
 spawnConditions = 2
-EliteChance = 0.15
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("3_3y2ux")

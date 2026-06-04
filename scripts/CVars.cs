@@ -269,6 +269,57 @@ public static class CVars
         Godot.GD.Print($"    humidity       = {w.humidity:F3}");
         Godot.GD.Print($"    windSpeed      = {w.windSpeed:F2} m/s");
         Godot.GD.Print($"    airTemperature = {w.airTemperature:F1}°F");
+
+        // FOG breakdown — the values that actually drive the volumetric
+        // shader, plus the night-dimming diagnostic. fogPhaseScale is
+        // SUPPOSED to dim fog at night, but it's fed p.PrimaryIntensity
+        // (sun-side only, never drops at night), so this shows whether
+        // night fog is rendering at full daytime density.
+        DerivedPalette pal = sky.Palette;
+        float fogIntensityReference = sim.FogIntensityReference;
+        float fogIntensityFloor = sim.FogIntensityFloor;
+        // Reconstruct the CURRENT phase scale exactly as WeatherDerivation does.
+        float curFactor = Godot.Mathf.SmoothStep(0f, fogIntensityReference, pal.PrimaryIntensity);
+        float curPhaseScale = Godot.Mathf.Lerp(fogIntensityFloor, 1f, curFactor);
+        // What it WOULD be if the reference used the night-blended intensity.
+        float effIntensity = Godot.Mathf.Lerp(pal.PrimaryIntensity, pal.NightPrimaryIntensity, pal.NightT);
+        float fixFactor = Godot.Mathf.SmoothStep(0f, fogIntensityReference, effIntensity);
+        float fixPhaseScale = Godot.Mathf.Lerp(fogIntensityFloor, 1f, fixFactor);
+        // Final values sent to the shader (× 1/visScale, like SkyController does).
+        float visScale = Godot.Mathf.Max(0.01f, sky.FogVisibilityScale);
+        float invVis = 1f / visScale;
+        // Sample authored fog_map around the player to see if painted volumes
+        // (not ambient haze) are the source of the murk here.
+        int maxAuthoredFog = 0;
+        Player probePlayer = World.Current?.player;
+        if (probePlayer != null)
+        {
+            Godot.Vector3 pp = probePlayer.GlobalPosition;
+            int bx = Godot.Mathf.FloorToInt(pp.X);
+            int by = Godot.Mathf.FloorToInt(pp.Y);
+            int bz = Godot.Mathf.FloorToInt(pp.Z);
+            for (int dx = -3; dx <= 3; dx++)
+            {
+                for (int dy = -2; dy <= 12; dy++)
+                {
+                    for (int dz = -3; dz <= 3; dz++)
+                    {
+                        maxAuthoredFog = Godot.Mathf.Max(maxAuthoredFog, ws.GetFogWorld(bx + dx, by + dy, bz + dz));
+                    }
+                }
+            }
+        }
+        Godot.GD.Print($"  FOG (what the volumetric shader reads):");
+        Godot.GD.Print($"    fog signal           = {pal.Fog:F3}   (post-floor humidity×coolDiurnal)");
+        Godot.GD.Print($"    fog_density          = {pal.FogDensity * invVis:F4}   (scales painted fog_map)");
+        Godot.GD.Print($"    ambient_fog_density  = {pal.AmbientFogDensity * invVis:F4}   (uniform whole-scene haze, NO height gate)");
+        Godot.GD.Print($"    authored fog_map nearby = {maxAuthoredFog}/255   (>0 = painted fog volume present)");
+        Godot.GD.Print($"  FOG NIGHT-DIMMING DIAGNOSTIC:");
+        Godot.GD.Print($"    PrimaryIntensity (sun-side, used now) = {pal.PrimaryIntensity:F3}");
+        Godot.GD.Print($"    NightPrimaryIntensity / NightT        = {pal.NightPrimaryIntensity:F3} / {pal.NightT:F3}");
+        Godot.GD.Print($"    fogPhaseScale  CURRENT = {curPhaseScale:F3}   (1.0 = no night dimming)");
+        Godot.GD.Print($"    fogPhaseScale  IF FIXED= {fixPhaseScale:F3}   (would scale fog by this/{curPhaseScale:F3} = {(curPhaseScale > 0 ? fixPhaseScale / curPhaseScale : 1f):F2}×)");
+
         Godot.GD.Print($"  VARIANCE  (prev → cur → next   |   currently displayed)");
         Godot.GD.Print($"    weather    = {ws.WeatherVariancePrev:F3} → {ws.WeatherVarianceCur:F3} → {ws.WeatherVarianceNext:F3}   |  {ws.WeatherVariance:F3}  slope={ws.WeatherVarianceSlope:F3}");
         Godot.GD.Print($"    humidity   = {ws.HumidityVariancePrev:F3} → {ws.HumidityVarianceCur:F3} → {ws.HumidityVarianceNext:F3}   |  {ws.HumidityVariance:F3}");
