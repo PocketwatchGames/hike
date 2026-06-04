@@ -15,6 +15,8 @@
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="10_tbb4l"]
 [ext_resource type="Resource" uid="uid://b1m3fjtd0cwee" path="res://resources/data/items/consumables/ruby_slippers.tres" id="13_h1t84"]
 [ext_resource type="Resource" uid="uid://c4xap2vx7nkdy" path="res://resources/data/items/consumables/birds_eye.tres" id="14_birdseye"]
+[ext_resource type="Resource" uid="uid://cgosbark1helm0" path="res://resources/data/items/armor/helmet_gosbark.tres" id="15_gosbark"]
+[ext_resource type="Resource" uid="uid://cglimp1visor02" path="res://resources/data/items/armor/helmet_glimp.tres" id="16_glimp"]
 
 [sub_resource type="Resource" id="Resource_club"]
 script = ExtResource("3_itemcount")
@@ -58,9 +60,19 @@ script = ExtResource("3_itemcount")
 item = ExtResource("5_ranged")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
+[sub_resource type="Resource" id="Resource_helmgosbark"]
+script = ExtResource("3_itemcount")
+item = ExtResource("15_gosbark")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Resource_helmglimp"]
+script = ExtResource("3_itemcount")
+item = ExtResource("16_glimp")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [resource]
 script = ExtResource("1_pspawn")
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club"), SubResource("Resource_bow"), SubResource("Resource_furcoat")])
 startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("14_birdseye")])
-startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_berry"), SubResource("Resource_mushroom"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62")])
+startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_berry"), SubResource("Resource_mushroom"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp")])
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])

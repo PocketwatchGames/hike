@@ -38,6 +38,7 @@ public partial class GameClient : Node3D
 		{ EStatName.Armor, "Armor" },
 		{ EStatName.Camouflage, "Camouflage" },
 		{ EStatName.Vision, "Vision" },
+		{ EStatName.NightVision, "Night Vision" },
 		{ EStatName.Hearing, "Hearing" },
 		{ EStatName.Noise, "Noise" },
 		{ EStatName.Scent, "Scent" },
