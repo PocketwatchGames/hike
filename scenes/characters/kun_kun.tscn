@@ -30,6 +30,7 @@
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/forest_bunny/forest_bunny_anims.res" id="29_bunnyanims"]
 [ext_resource type="ShaderMaterial" uid="uid://dq3frbny1mat" path="res://resources/materials/forest_bunny_lit.tres" id="30_bunnymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
+[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("27_ftsetframes")
@@ -472,6 +473,10 @@ target = NodePath("../MeshContainer/Sprite")
 frames = SubResource("SpriteFrames_u5xnt")
 defaultAnimation = &"idle"
 metadata/_custom_type_script = "uid://dwrtaigmbeepp"
+
+[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+script = ExtResource("40_pixelsnap")
+_target = NodePath("../MeshContainer/BunnyModel")
 
 [node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("31_modelanim")

@@ -39,6 +39,7 @@
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/swordsman_anims.res" id="30_animlib"]
 [ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="31_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="32_modelanim"]
+[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="34_helditem"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
@@ -1130,6 +1131,10 @@ player = NodePath("../PlayerModel/BasicHero_F/AnimationPlayer")
 visual = NodePath("../PlayerModel")
 modelMaterial = ExtResource("31_modelmat")
 visibleMeshNames = PackedStringArray("F_Head", "F_eyes0", "F_eyebrows0", "F_mouth0", "F_hair_1", "F_BottomBody", "F_TopBody")
+
+[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+script = ExtResource("40_pixelsnap")
+_target = NodePath("../PlayerModel")
 
 [node name="HeldItemVisual" type="Node3D" parent="." unique_id=1349314067 node_paths=PackedStringArray("visual")]
 script = ExtResource("34_helditem")
