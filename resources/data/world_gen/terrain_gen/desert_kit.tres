@@ -7,14 +7,9 @@
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="4_g02"]
 [ext_resource type="PackedScene" uid="uid://0dp7et4lyks5" path="res://scenes/tall_grasses/tall_grass_03.tscn" id="4_g03"]
 [ext_resource type="PackedScene" uid="uid://blbnd5dai0alt" path="res://scenes/tall_grasses/tall_grass_04.tscn" id="4_g04"]
-[ext_resource type="PackedScene" uid="uid://dn5bv5cnvgkp4" path="res://scenes/props/desert_bonepile1x1_1.tscn" id="5_t01"]
-[ext_resource type="PackedScene" uid="uid://ctowibu6ya2gj" path="res://scenes/props/desert_bonepile1x1_2.tscn" id="5_t02"]
 [ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="5_t03"]
 [ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="5_t04"]
 [ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="5_t05"]
-[ext_resource type="PackedScene" uid="uid://btygekl7qcd4" path="res://scenes/props/desert_rocks_mid1.tscn" id="5_t06"]
-[ext_resource type="PackedScene" uid="uid://cxnhpgjkqrvpf" path="res://scenes/props/desert_rocks_mid2.tscn" id="5_t07"]
-[ext_resource type="PackedScene" uid="uid://bgs7cf34nrgar" path="res://scenes/props/desert_rocks_mid3.tscn" id="5_t08"]
 [ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="15_3vcyj"]
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="16_o5gs6"]
 
@@ -27,5 +22,5 @@ DetailNoiseThreshold = 0.0
 ForestNoiseFrequency = 5.0
 ForestThreshold = 1.0
 ForestDensity = 0.05
-TreeScenes = [ExtResource("5_t01"), ExtResource("5_t02"), ExtResource("5_t03"), ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("5_t06"), ExtResource("5_t07"), ExtResource("5_t08"), ExtResource("15_3vcyj"), ExtResource("15_3vcyj"), ExtResource("16_o5gs6"), ExtResource("16_o5gs6")]
+TreeScenes = [ExtResource("5_t03"), ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("15_3vcyj"), ExtResource("15_3vcyj"), ExtResource("16_o5gs6"), ExtResource("16_o5gs6")]
 TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]

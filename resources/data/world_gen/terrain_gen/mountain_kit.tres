@@ -10,8 +10,6 @@
 [ext_resource type="PackedScene" uid="uid://crock1mod0scn" path="res://scenes/props/rock1.tscn" id="5_t04"]
 [ext_resource type="PackedScene" uid="uid://crock2mod0scn" path="res://scenes/props/rock2.tscn" id="5_t05"]
 [ext_resource type="PackedScene" uid="uid://crock3mod0scn" path="res://scenes/props/rock3.tscn" id="5_t06"]
-[ext_resource type="PackedScene" path="res://scenes/props/stump1.tscn" id="5_t14"]
-[ext_resource type="PackedScene" path="res://scenes/props/stump2.tscn" id="5_t15"]
 [ext_resource type="PackedScene" uid="uid://dgf3lsf0f6ngm" path="res://scenes/props/tree_pine.tscn" id="13_3t0o8"]
 [ext_resource type="PackedScene" uid="uid://w7si8tgx547d" path="res://scenes/props/tree_pine_dead.tscn" id="14_elbrs"]
 [ext_resource type="PackedScene" uid="uid://5ms106hlrlms" path="res://scenes/props/tree_sequoia.tscn" id="15_pag05"]
@@ -25,5 +23,5 @@ Terrain = ExtResource("2_kit")
 DefaultDetail = ExtResource("3_detail")
 DetailNoiseThreshold = -0.5
 ForestDensity = 0.1
-TreeScenes = [ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("5_t06"), ExtResource("13_3t0o8"), ExtResource("13_3t0o8"), ExtResource("14_elbrs"), ExtResource("15_pag05"), ExtResource("15_pag05"), ExtResource("20_3r3jf"), ExtResource("20_3r3jf"), ExtResource("5_t14"), ExtResource("5_t15"), ExtResource("20_elbrs"), ExtResource("17_qpata"), ExtResource("14_elbrs"), ExtResource("17_qpata")]
+TreeScenes = [ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("5_t06"), ExtResource("13_3t0o8"), ExtResource("13_3t0o8"), ExtResource("14_elbrs"), ExtResource("15_pag05"), ExtResource("15_pag05"), ExtResource("20_3r3jf"), ExtResource("20_3r3jf"), ExtResource("20_elbrs"), ExtResource("17_qpata"), ExtResource("14_elbrs"), ExtResource("17_qpata")]
 TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]
