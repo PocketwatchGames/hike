@@ -73,4 +73,15 @@ public partial class ZoneData : Resource
     // weights as the player crosses zone borders, the same way the
     // visual palette already blends.
     [Export] public ZoneAmbienceData ambience;
+
+    // Pool of status effects an elite mob spawned in this zone may carry.
+    // When MobSpawnEntry rolls a mob as elite (EliteChance) it draws one random
+    // entry from this pool as the elite's permanent signature effect. Empty =
+    // elites in this zone are simply 25% larger with no status effect.
+    //
+    // These are applied for the life of the mob, so author them as buffs/auras
+    // the elite keeps: persistent (duration 0) or long-lived. Avoid finite
+    // damage-over-time debuffs here — a Burning/Poisoned entry would whittle
+    // the elite down to nothing on its own.
+    [Export] public Godot.Collections.Array<StatusEffectData> EliteStatusEffects = new();
 }

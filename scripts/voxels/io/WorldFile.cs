@@ -89,7 +89,10 @@ public static class WorldFile
     // v21: Prop entity payload appended a RotationY float (after the legacy
     //      PickedUp byte) so WorldGen's per-tree random Y rotation round-trips
     //      through .hike export/import instead of collapsing back to 0 on load.
-    public const uint VERSION = 21;
+    // v22: Mob entity payload appended an Elite bool + EliteStatusEffect resource
+    //      ref (after GiftCounts) — elite mobs render 25% larger and carry a
+    //      signature status effect drawn at spawn from their zone's pool.
+    public const uint VERSION = 22;
 
     public struct IndexEntry
     {

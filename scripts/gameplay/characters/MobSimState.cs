@@ -87,6 +87,16 @@ public class MobSimState : EntitySimState
     // the player has staged. Per-instance so a worldgen-authored shopkeeper
     // can trade while another mob sharing the same MobData stays gift-only.
     public bool WillTrade;
+    // Elite mobs are a rarer, tougher variant rolled once at spawn
+    // (MobSpawnEntry.EliteChance). They render 25% larger (Mob applies the
+    // scale) and carry a single signature status effect drawn at spawn from a
+    // pool associated with the zone they spawned in (ZoneData.EliteStatusEffects).
+    // Both fields are authored once — at worldgen or by the disk loader — and
+    // persist: EliteStatusEffect is a stable resource ref so a reloaded elite
+    // keeps its size and the same drawn effect rather than re-rolling. Null
+    // effect on an elite is valid (the zone had no pool) — it's still 25% bigger.
+    public bool Elite;
+    public StatusEffectData EliteStatusEffect;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
