@@ -13,6 +13,10 @@ public enum EWaterState
 public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
+	// The character's display name (stats panel, etc.), set from
+	// PlayerSpawnData.playerName at Initialize. Defaults to a placeholder so the
+	// UI always has something to show even before / without spawn data.
+	public string PlayerName { get; private set; } = "Wyatt Anderson";
 	[Export] public Area3D interactArea;
 	// World-space anchor (head height) used to project a screen-space point
 	// above the player for HUD elements that float over the character — e.g.
@@ -20,12 +24,26 @@ public partial class Player : CharacterBody3D
 	[Export] public Node3D HudAnchor;
 	[Export] private HurtBox _hurtBox;
 	// The player's visual + its animation driver. Either may be wired in
-	// player.tscn; _Ready prefers the 3D model (_modelAnimator) when present
-	// and otherwise uses the billboard sprite (_spriteAnimator). The chosen one
-	// is bound to _animator (IActorAnimator) and made visible; the rest of the
-	// class drives animation through _animator without caring which it is.
+	// player.tscn; ActivateVisual (run from Initialize, once the spawn gender
+	// is known) prefers the 3D model when present and otherwise uses the
+	// billboard sprite (_spriteAnimator). The chosen one is bound to _animator
+	// (IActorAnimator) and made visible; the rest of the class drives animation
+	// through _animator without caring which it is.
 	[Export] private LitSpriteAnimator _spriteAnimator;
+	// The default 3D model, used for EGender.Female (the wired BasicHero_F
+	// rig). Also the fallback for any gender whose own model isn't wired yet.
 	[Export] private ModelAnimator _modelAnimator;
+	// Alternate base model for EGender.Male — its own model subtree (instanced
+	// FBX + ModelAnimator) in player.tscn, sharing the skeleton and animation
+	// library so the EAnimation state machine drives it identically. Null until
+	// the male rig is dropped in and wired; Male then falls back to
+	// _modelAnimator (the default model). Adding a body type = a new sibling
+	// subtree + a field like this + a ResolveGenderModel case.
+	[Export] private ModelAnimator _modelAnimatorMale;
+	// The gender-selected model animator that's actually live (one of the
+	// model slots above), resolved in Initialize once the spawn gender is
+	// known. The unused slots are deactivated so only this one renders.
+	private ModelAnimator _activeModelAnimator;
 	private IActorAnimator _animator;
 	// The visual root of whichever animator is live — toggled by
 	// SetModelVisible for hide / birds-eye. Sprite node or model subtree root.
@@ -804,15 +822,52 @@ public partial class Player : CharacterBody3D
 			_hurtBox.GetHitType = GetHitType;
 		}
 
-		// Pick the live visual + animator: prefer the 3D skinned model when it's
-		// wired, otherwise fall back to the billboard sprite. Code owns BOTH
-		// visuals' visibility (model shown via SetActive, sprite shown iff the
-		// model isn't used) so whichever nodes exist in player.tscn, exactly one
-		// visual renders and it can never end up invisible.
-		bool use3d = _modelAnimator != null;
-		_modelAnimator?.SetActive(use3d);
-		_animator = use3d ? _modelAnimator : _spriteAnimator;
-		_activeVisual = use3d ? _modelAnimator.visual : _spriteAnimator?.target;
+		_aimingReticle?.Initialize(this);
+	}
+
+	// Map a gender to its base-model animator. Each EGender that has a wired
+	// model subtree returns it; anything not yet authored falls back to the
+	// default model (_modelAnimator, the Female rig) so the player always has
+	// a visual. Add a case here when a new body type's subtree is wired.
+	private ModelAnimator ResolveGenderModel(EGender gender)
+	{
+		switch (gender)
+		{
+			case EGender.Male:
+				return _modelAnimatorMale ?? _modelAnimator;
+			case EGender.Female:
+			default:
+				return _modelAnimator;
+		}
+	}
+
+	// Pick the live visual + animator: prefer the gender-selected 3D model
+	// (_activeModelAnimator) when wired, otherwise fall back to the billboard
+	// sprite. Code owns BOTH visuals' visibility (model shown via SetActive,
+	// sprite shown iff the model isn't used) so whichever nodes exist in
+	// player.tscn, exactly one visual renders and it can never end up invisible.
+	//
+	// Deferred to Initialize (not _Ready) because the gender that selects the
+	// base model only arrives with PlayerSpawnData. GameClient calls Initialize
+	// synchronously right after instantiating the scene, before any frame is
+	// processed, so there's no window where the player renders unselected.
+	private void ActivateVisual()
+	{
+		bool use3d = _activeModelAnimator != null;
+		// Hide every non-chosen gender model subtree, then activate only the
+		// selected one, so an unused variant can't render through the active
+		// model. (ModelAnimator also defaults to inactive in its own _Ready;
+		// this is the authoritative pass once the gender is known.)
+		foreach (ModelAnimator slot in new[] { _modelAnimator, _modelAnimatorMale })
+		{
+			if (slot != null && slot != _activeModelAnimator)
+			{
+				slot.SetActive(false);
+			}
+		}
+		_activeModelAnimator?.SetActive(use3d);
+		_animator = use3d ? _activeModelAnimator : _spriteAnimator;
+		_activeVisual = use3d ? _activeModelAnimator.visual : _spriteAnimator?.target;
 		if (_spriteAnimator?.target != null)
 		{
 			_spriteAnimator.target.Visible = !use3d;
@@ -822,8 +877,6 @@ public partial class Player : CharacterBody3D
 		{
 			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
 		}
-
-		_aimingReticle?.Initialize(this);
 	}
 
 	// Footstep / footprint emission is driven by the sprite animator instead
@@ -2178,6 +2231,22 @@ public partial class Player : CharacterBody3D
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
+
+		// Adopt the spawned character's name (blank keeps the default).
+		if (!string.IsNullOrEmpty(spawnData?.playerName))
+		{
+			PlayerName = spawnData.playerName;
+		}
+
+		// Select the base model for the spawned gender, then activate the live
+		// visual. Must run before UpdateArmorVisual below, which drives the
+		// active model's mesh set.
+		_activeModelAnimator = ResolveGenderModel(spawnData?.gender ?? EGender.Female);
+		ActivateVisual();
+		// Resolve + apply the modular appearance (skin tone, hair color, hair
+		// style) before inventory seeding so the styled hair mesh is known the
+		// first time the armor compositor runs.
+		ApplyAppearance(spawnData);
 
 		if (spawnData != null)
 		{

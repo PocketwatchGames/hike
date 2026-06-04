@@ -73,6 +73,21 @@ instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
 instance uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
 instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
 
+// --- Palette recolor (instance uniforms) ------------------------------------
+// Flat per-instance recolor for modular character parts (skin tone, hair
+// color). A MeshInstance3D that should take a palette color sets `recolor` to
+// that color and `recolor_amount` to 1; the sampled atlas color is replaced by
+// the flat color BEFORE lighting, so form/AO/lightmap still shade it but the
+// hue is the chosen palette tone — an arbitrary color (incl. lighter than the
+// baked swatch), unlike a multiply that can only darken. Default amount 0
+// leaves every other mesh (props, armor, mobs) untouched. Driven via
+// SetInstanceShaderParameter from Player (see ModelAnimator.SetMeshRecolor /
+// PlayerArmorVisual). Declared AFTER the discovery names so the shared
+// instance-uniform indices stay aligned with model_xray.gdshader (which mirrors
+// these two as placeholders for the same reason).
+instance uniform vec3 recolor : source_color = vec3(1.0);
+instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
+
 // --- Ambient occlusion ------------------------------------------------------
 // AO is a multiplicative darken on the diffuse lighting (the same place the
 // terrain applies its baked AO — voxel_clip). Two independent sources feed it,
@@ -152,6 +167,10 @@ void fragment() {
 
 	vec4 tex = texture(albedo_tex, UV);
 	vec3 base = tex.rgb * color_tint;
+	// Palette recolor: flat-replace the sampled hue with the chosen tone before
+	// lighting (inert at recolor_amount 0, the default for every non-skin/hair
+	// mesh). See the instance-uniform comment above.
+	base = mix(base, recolor, recolor_amount);
 
 	// Editor-preview fallback: light globals aren't registered until the game
 	// starts, so a standalone .tres / editor preview gets vec3(0) for
