@@ -23,8 +23,8 @@
 [ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="25_ftsetframes"]
 [ext_resource type="PackedScene" uid="uid://kk8sdm8tk63s" path="res://assets/models/characters/goblin/goblin.fbx" id="26_goblinfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/goblin/goblin_anims.res" id="27_goblinanims"]
-[ext_resource type="ShaderMaterial" uid="uid://bnixe36gx83ge" path="res://resources/materials/goblin_body_lit.tres" id="28_goblinbodymat"]
-[ext_resource type="ShaderMaterial" uid="uid://bnixs7h6x83ge" path="res://resources/materials/goblin_props_lit.tres" id="29_goblinpropsmat"]
+[ext_resource type="Material" uid="uid://bnixe36gx83ge" path="res://resources/materials/goblin_body_lit.tres" id="28_goblinbodymat"]
+[ext_resource type="Material" uid="uid://bnixs7h6x83ge" path="res://resources/materials/goblin_props_lit.tres" id="29_goblinpropsmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
@@ -34,11 +34,11 @@ frames = Array[int]([3, 6])
 metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
-height = 1.5
+height = 2.5
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.8
-height = 1.6
+height = 2.5
 
 [node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
@@ -76,16 +76,16 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1610472919]
 
-[node name="GoblinModel" type="Node3D" parent="MeshContainer"]
-transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
+[node name="GoblinModel" type="Node3D" parent="MeshContainer" unique_id=459564527]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0, 0)
 
-[node name="goblin" parent="MeshContainer/GoblinModel" instance=ExtResource("26_goblinfbx")]
+[node name="goblin" parent="MeshContainer/GoblinModel" unique_id=351241307 instance=ExtResource("26_goblinfbx")]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="MeshContainer/GoblinModel/goblin"]
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="MeshContainer/GoblinModel/goblin" unique_id=1741754756]
 libraries/ = ExtResource("27_goblinanims")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1267120486]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("CapsuleShape3D_gby2u")
 
 [node name="HurtBox" type="Area3D" parent="." unique_id=1798461975]
@@ -94,15 +94,15 @@ collision_mask = 0
 script = ExtResource("2_hurtbox")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=35722461]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=1599354847]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
 
-[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="." unique_id=318847850 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("30_modelanim")
-player = NodePath("../MeshContainer/GoblinModel/goblin/AnimationPlayer")
+player = NodePath("../MeshContainer/GoblinModel/goblin/AnimationPlayer2")
 visual = NodePath("../MeshContainer/GoblinModel")
 modelMaterial = ExtResource("28_goblinbodymat")
 secondaryMaterial = ExtResource("29_goblinpropsmat")

@@ -125,6 +125,8 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")
+blockArmor = 10.0
+blockArmorRechargeDelay = 5.0
 displayName = &"Big Stick"
 description = "Bashy bashy"
 value = 50
