@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/WeatherData.cs" id="2_weather"]
 [ext_resource type="Resource" path="res://resources/audio/forest_ambience.tres" id="3_ambience"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_se"]
+[ext_resource type="Resource" uid="uid://dwfsk5p3n2qr7" path="res://resources/data/status_effects/status_well_fed_superior.tres" id="5_e0"]
+[ext_resource type="Resource" uid="uid://dwgxgxbii2arl" path="res://resources/data/status_effects/status_goblin_battle_cry_buff.tres" id="6_e1"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -24,3 +27,4 @@ WaterOpacity = 0.5019608
 DustAmount = 0.0
 weather = SubResource("Resource_weather")
 ambience = ExtResource("3_ambience")
+EliteStatusEffects = Array[ExtResource("4_se")]([ExtResource("5_e0"), ExtResource("6_e1")])

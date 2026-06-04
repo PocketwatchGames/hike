@@ -19,6 +19,7 @@ Data = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
 SquareMetersPerSpawn = 1000.0
+EliteChance = 0.15
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("2_mob_entry")

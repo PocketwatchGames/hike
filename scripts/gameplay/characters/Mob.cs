@@ -101,6 +101,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the dither pattern a chance to resolve rather than popping.
     private const float VisibilityFadeTime = 0.3f;
 
+    // Uniform mesh scale applied to elite mobs (MobSimState.Elite) so they read
+    // as a tougher variant at a glance — 25% larger than a standard mob.
+    private const float EliteScaleMultiplier = 1.25f;
+
     public float discoveryProgress
     {
         get
@@ -122,6 +126,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
+    // Elite marker + the elite's signature status effect (see MobSimState).
+    // Read by MobHUD to badge the health bar with the effect's icon. Immutable
+    // after spawn, so the HUD samples them once at init.
+    public bool IsElite => _simState?.Elite ?? false;
+    public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
     // True when at least one active status effect flags `incapacitates`.
     // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
     // the flag; future Frozen / Knocked-Down would too without touching Mob.
@@ -519,6 +528,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (burrowing || burrowed)
         {
             SetBurrowed(true);
+        }
+        // Elite mobs carry a single signature status effect drawn at spawn from
+        // their zone's pool (MobSimState.EliteStatusEffect). Applied here, after
+        // AddChild above, so the mob is already in the tree and the effect's
+        // start/loop Fx parent and position correctly. The 25% size bump is
+        // handled separately in _Process alongside the alive/dead scale write.
+        if (_simState.Elite && _simState.EliteStatusEffect != null)
+        {
+            _statusEffects.Add(_simState.EliteStatusEffect);
         }
     }
 
@@ -1502,7 +1520,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // regardless of value so initial state is always applied.
         if (!_lastAliveInit || aliveState != _lastAlive)
         {
-            _mesh.Scale = aliveState ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f);
+            // Elite mobs render 25% larger; the multiplier folds into both the
+            // alive and the flattened-dead scale so the bump survives the
+            // alive→dead transition.
+            float eliteScale = _simState.Elite ? EliteScaleMultiplier : 1f;
+            _mesh.Scale = (aliveState ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f)) * eliteScale;
             _lastAlive = aliveState;
             _lastAliveInit = true;
         }

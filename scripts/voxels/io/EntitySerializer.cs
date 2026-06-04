@@ -137,6 +137,11 @@ public static class EntitySerializer
                         w.Write(kvp.Value);
                     }
                 }
+                // Elite flag + the elite's signature status effect (resource
+                // ref, may be null). Persisted so a reloaded elite keeps its
+                // size and the same drawn effect rather than re-rolling.
+                w.Write(mob.Elite);
+                WriteResource(w, mob.EliteStatusEffect);
                 break;
 
             case DoorSimState door:
@@ -363,6 +368,8 @@ public static class EntitySerializer
                         giftCounts[key] = val;
                     }
                 }
+                bool elite = r.ReadBoolean();
+                var eliteStatusEffect = ReadResource<StatusEffectData>(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.Language = language;
@@ -389,6 +396,8 @@ public static class EntitySerializer
                 mob.Inventory = inventory;
                 mob.LoyaltyGifts = loyaltyGifts;
                 mob.GiftCounts = giftCounts;
+                mob.Elite = elite;
+                mob.EliteStatusEffect = eliteStatusEffect;
                 return mob;
             }
             case Tag.Door:
