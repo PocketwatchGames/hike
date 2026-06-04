@@ -41,6 +41,14 @@ public partial class Hud : Control
 	// lockstep — so the visible tail shrinks cleanly as drain heals back.
 	[Export] ProgressBar _drainedHealthBar;
 	[Export] ProgressBar _armorBar;
+	// Weapon block-armor guard pool drawn as a dark extension past the right
+	// end of _armorBar — same additive-underlay trick as _drainedHealthBar:
+	// layered UNDERNEATH _armorBar with a transparent background and
+	// value = (Armor + blockArmor) / (MaxArmor + blockCapacity), so the bright
+	// armor fill paints over [0, Armor] and only the [Armor, Armor + blockArmor]
+	// guard segment shows past it. Tinted dark grey while dormant and dark blue
+	// while charging (the only state in which block armor actually absorbs).
+	[Export] ProgressBar _blockArmorBar;
 	[Export] ProgressBar _staminaBar;
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
@@ -168,6 +176,11 @@ public partial class Hud : Control
 	// still shows weather; a proper cave drops it cleanly.
 	const float CaveFadeSunlightFloor = 0.0f;
 	const float CaveFadeSunlightFull = 0.25f;
+	// Tints for the block-armor extension underlay. The fill stylebox is
+	// white so these multiply straight through: dark grey while the guard is
+	// dormant, dark blue while the weapon is charging and the pool is live.
+	static readonly Color BlockArmorIdleColor = new Color(0.45f, 0.45f, 0.45f, 1f);
+	static readonly Color BlockArmorChargingColor = new Color(0.15f, 0.3f, 0.7f, 1f);
 
 	public override void _Ready()
 	{
@@ -444,6 +457,8 @@ public partial class Hud : Control
 			size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(maxArmor, 100f) / 100f;
 			_armorBar.CustomMinimumSize = size;
 		}
+
+		UpdateBlockArmorExtension(maxArmor);
 
 		float maxStamina = _player.MaxStamina;
 		_staminaBar.MinValue = 0;
@@ -954,6 +969,69 @@ public partial class Hud : Control
 			return false;
 		}
 		return _player.Runner.Current.context.sourceSlot == slot;
+	}
+
+	// Drive the block-armor extension underlay. The pool shown is the weapon
+	// currently being charged (the only weapon whose guard is live); when
+	// nothing is charging we fall back to an equipped weapon's pool so the
+	// reserve still reads as a dormant grey extension. Hidden entirely when no
+	// equipped weapon carries block armor. Units are kept in lockstep with the
+	// armor bar's units-per-pixel by sizing against the same MaxArmor=100 cap.
+	void UpdateBlockArmorExtension(float maxArmor)
+	{
+		if (_blockArmorBar == null)
+		{
+			return;
+		}
+		WeaponState weapon = SelectBlockArmorWeapon(out bool charging);
+		float capacity = weapon?.data?.blockArmor ?? 0f;
+		float total = maxArmor + capacity;
+		if (weapon == null || capacity <= 0f || total <= 0f)
+		{
+			_blockArmorBar.Visible = false;
+			return;
+		}
+		_blockArmorBar.Visible = true;
+		_blockArmorBar.MinValue = 0;
+		_blockArmorBar.MaxValue = 1;
+		_blockArmorBar.Value = (_player.Armor + weapon.blockArmor) / total;
+		Vector2 size = _blockArmorBar.CustomMinimumSize;
+		size.X = _healthBar.CustomMinimumSize.X * Mathf.Min(total, 100f) / 100f;
+		_blockArmorBar.CustomMinimumSize = size;
+		_blockArmorBar.Modulate = charging ? BlockArmorChargingColor : BlockArmorIdleColor;
+	}
+
+	// Picks the weapon whose block-armor pool the extension represents: the
+	// charging weapon takes priority (its guard is the one actually absorbing),
+	// otherwise the first equipped weapon that carries block armor so the
+	// dormant reserve still shows. `charging` reports whether the returned
+	// weapon is the one being charged, which drives the grey/blue tint.
+	WeaponState SelectBlockArmorWeapon(out bool charging)
+	{
+		charging = false;
+		WeaponState left = _inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState;
+		WeaponState right = _inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState;
+		bool leftHas = left?.data != null && left.data.blockArmor > 0f;
+		bool rightHas = right?.data != null && right.data.blockArmor > 0f;
+		if (leftHas && IsSlotCharging(EInventorySlot.WeaponLeft))
+		{
+			charging = true;
+			return left;
+		}
+		if (rightHas && IsSlotCharging(EInventorySlot.WeaponRight))
+		{
+			charging = true;
+			return right;
+		}
+		if (leftHas)
+		{
+			return left;
+		}
+		if (rightHas)
+		{
+			return right;
+		}
+		return null;
 	}
 
 	// Charge fill across the current tier's hold window. With per-tier

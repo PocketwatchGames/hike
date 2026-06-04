@@ -51,6 +51,18 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_blockarmor"]
+content_margin_left = 2.0
+content_margin_top = 2.0
+content_margin_right = 2.0
+content_margin_bottom = 2.0
+bg_color = Color(1, 1, 1, 1)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+corner_detail = 6
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_stam0"]
 content_margin_left = 2.0
 content_margin_top = 2.0
@@ -63,7 +75,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -84,6 +96,7 @@ _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
 _drainedHealthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/DrainedHealthBar")
 _armorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/ArmorBar")
+_blockArmorBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/BlockArmorBar")
 _staminaBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StaminaMarginContainer/StaminaBar")
 _signpostPanel = NodePath("HudSignpostPanel")
 _dialoguePanel = NodePath("DialoguePanel")
@@ -148,6 +161,17 @@ theme_override_styles/fill = SubResource("StyleBoxFlat_aoesn")
 max_value = 1.0
 step = 0.001
 value = 0.5
+show_percentage = false
+
+[node name="BlockArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068374]
+custom_minimum_size = Vector2(50, 15)
+layout_mode = 2
+size_flags_horizontal = 0
+mouse_filter = 2
+theme_override_styles/background = SubResource("StyleBoxEmpty_drain_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_blockarmor")
+max_value = 1.0
+step = 0.001
 show_percentage = false
 
 [node name="ArmorBar" type="ProgressBar" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer" unique_id=181068372]
