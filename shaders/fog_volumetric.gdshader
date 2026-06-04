@@ -173,6 +173,30 @@ uniform vec2 dust_noise_scroll = vec2(0.05, 0.03);
 uniform vec2 dust_noise_offset_a = vec2(0.0);
 uniform vec2 dust_noise_offset_b = vec2(0.0);
 
+// --- Sun-shaft streak carve -----------------------------------------
+// A second, COARSER + SHARPER sun-projected dust pattern multiplied into the
+// per-step beam visibility (`lit`), so the shafts EVOLVE in linear streaks
+// running along the shaft instead of only drifting rigidly with the wind. The
+// cloud mask that shapes the shafts is a single rigidly-scrolling layer (moves
+// but never reshapes); this layer's two perpendicular scrolls (offset_a vs
+// offset_b drift apart) make the streaks form and dissolve.
+//
+// Folded in per-march-step via mix(1, pattern, occlusion) — a pure DARKEN
+// (capped at 1 → no reverse-shadow blowout). The KEY to it reading as streaks
+// rather than a faint uniform dampening: the pattern must be coarse enough
+// (large contiguous regions) and sharp enough (hard edges) that it survives
+// the band-average along the view ray. dust_streak_scale well below the halo
+// dust_noise_scale (0.12) is what does that; fewer raymarch steps (lower
+// fog_steps / larger shaft_step_size) sharpen it further by averaging less.
+//   occlusion : carve strength. 0 = off, 1 = dense regions fully erase the beam.
+//   scale     : world→UV multiplier. LOWER = larger contiguous streaks.
+//   threshold / sharpness : smoothstep remap. High threshold = sparser, more
+//               dramatic dark gaps; high sharpness = hard streak edges.
+uniform float dust_shaft_occlusion : hint_range(0.0, 1.0) = 0.85;
+uniform float dust_streak_scale = 0.04;
+uniform float dust_streak_threshold : hint_range(0.0, 1.0) = 0.5;
+uniform float dust_streak_sharpness : hint_range(0.0, 1.0) = 0.9;
+
 // In-scattering tuning.
 // sun_shaft_intensity: the global sun-wash intensity (= dust × cloudCover²,
 //   pushed by SkyController) — how strongly shadowed air columns are darkened.
@@ -297,6 +321,34 @@ uniform float shaft_ground_fade : hint_range(0.0, 0.5, 0.01) = 0.2;
 uniform int debug_mode : hint_range(0, 13) = 0;
 
 const float INV_4PI = 0.0795774715459;
+
+// Sun-projected dust noise pattern in [0..1]. Two cloud-noise samples at
+// perpendicular pre-integrated scrolls (offset_a / offset_b drift apart, so
+// the field EVOLVES rather than rigidly sliding) and slightly different
+// scales, averaged then remapped via threshold/sharpness. The XZ is projected
+// along the sun to cloud_altitude so points stacked on one sun ray share a
+// sample — pockets form sun-aligned columns (beam-aligned streaks), not
+// vertical on-screen stripes. `to_sun` is passed in to avoid re-normalizing
+// per march step.
+//
+// scale / threshold / sharpness are parameters (not the dust_noise_* globals)
+// so the two callers tune independently: the halo-density modulation keeps the
+// fine dust_noise_* values, while the beam-streak carve uses coarser + sharper
+// dust_streak_* values — larger contiguous lit/dark regions with hard edges
+// survive the band-average along the view ray and read as streaks instead of a
+// faint uniform dampening.
+float dust_pattern_at(vec3 world_pos, vec3 to_sun, float scale, float threshold, float sharpness)
+{
+    float proj_t = (cloud_altitude - world_pos.y) / max(to_sun.y, 0.15);
+    vec2 dust_xz = world_pos.xz + to_sun.xz * proj_t;
+    // Pre-integrated positions (SkyController side); equivalent to the old
+    // `scroll * TIME` math but precision-stable across long sessions.
+    vec2 uv_a = dust_xz * scale + dust_noise_offset_a;
+    vec2 uv_b = dust_xz * scale * 1.3 + dust_noise_offset_b;
+    float dn = (texture(cloud_noise_tex, uv_a).r + texture(cloud_noise_tex, uv_b).r) * 0.5;
+    float band = max(1e-4, 1.0 - sharpness);
+    return smoothstep(threshold, min(threshold + band, 1.0), dn);
+}
 
 void vertex()
 {
@@ -582,35 +634,18 @@ void fragment()
             float h_below_ceiling = ceiling_y - p.y;
             float dust_gate = clamp(h_below_ceiling / max(dust_band_height, 0.01), 0.0, 1.0);
 
-            // Fine-scale dust noise — two 2D samples of the cloud noise
-            // texture at perpendicular scrolls and slightly different
-            // scales, averaged then remapped via threshold/sharpness. The
-            // perpendicular-scroll pair gives "evolving" motion rather
-            // than a single drift direction — closer to the ambient-air
-            // turbulence feel than plain scrolling.
-            //
-            // SAMPLE XZ IS SUN-PROJECTED: we project p along the sun
-            // direction to a fixed reference altitude (cloud_altitude)
-            // and use that XZ. Points stacked along a sun ray share the
-            // same projected XZ → dust pockets form columns aligned with
-            // the sun instead of vertical air columns, so beams streak
-            // in the sun direction rather than appearing as vertical
-            // on-screen stripes in an iso view.
-            float dust_proj_t = (cloud_altitude - p.y) / max(to_sun.y, 0.15);
-            vec2 dust_xz = p.xz + to_sun.xz * dust_proj_t;
-            // Pre-integrated positions (SkyController side); see uniform
-            // declarations above. Equivalent to the old `scroll * TIME`
-            // math at the current frame but precision-stable across long
-            // sessions and speed retunes.
-            vec2 dust_uv_a = dust_xz * dust_noise_scale + dust_noise_offset_a;
-            vec2 dust_uv_b = dust_xz * dust_noise_scale * 1.3 + dust_noise_offset_b;
-            float dn = (texture(cloud_noise_tex, dust_uv_a).r + texture(cloud_noise_tex, dust_uv_b).r) * 0.5;
-            float dust_band_width = max(1e-4, 1.0 - dust_noise_sharpness);
-            float dust_pattern = smoothstep(dust_noise_threshold, min(dust_noise_threshold + dust_band_width, 1.0), dn);
+            // Fine-scale dust noise for HALO density: modulates the scattering
+            // medium (sigma_s) so block-light halos get denser/sparser pockets.
+            float dust_pattern = dust_pattern_at(p, to_sun, dust_noise_scale, dust_noise_threshold, dust_noise_sharpness);
             // Scale by 2 so at strength=1, dense pockets can double the
             // dust density while sparse gaps drop it to zero — preserves
             // average dust on the scene.
             float dust_mod = mix(1.0, 2.0 * dust_pattern, dust_noise_strength);
+            // Coarser + sharper sun-projected pattern that carves linear streaks
+            // into the beam below (see dust_shaft_occlusion). Multiplied into
+            // `lit` per step so the streaks are genuinely volumetric (float in
+            // the air column and parallax) rather than pinned to a surface.
+            float dust_streak = dust_pattern_at(p, to_sun, dust_streak_scale, dust_streak_threshold, dust_streak_sharpness);
 
             // Raw per-voxel authored fog density [0..1] (before the weather
             // fog_density scale) — used to boost LOCAL shaft density in fog
@@ -708,7 +743,10 @@ void fragment()
                 // growth iris, so this dissolves in sync with the ceiling
                 // instead of snapping when camera_clip changes (was a pop).
                 float clip_occ = clip_visibility_smooth(p);
-                float lit = voxel_sun * sun_through * clip_occ;
+                // Carve the coarse+sharp streak pattern into beam visibility.
+                // Pure darken (mix capped at 1) so it can only thin/erase a
+                // beam, never brighten it (no reverse-shadow blowout).
+                float lit = voxel_sun * sun_through * clip_occ * mix(1.0, dust_streak, dust_shaft_occlusion);
                 lit_weighted += lit * dust_gate;
                 band_weight += dust_gate;
                 fog_weighted += fog_raw * dust_gate;

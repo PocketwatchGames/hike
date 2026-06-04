@@ -178,6 +178,61 @@ public class StatusEffectController
 		}
 	}
 
+	// Data of the first active effect whose category overlaps `mask`, or null.
+	// Used by the mob HUD to pick the elite badge's icon (the first
+	// Elite-category effect on the mob). First-wins matches the rest of the
+	// controller's single-pass composition; an elite carries one signature in
+	// practice, so ordering ambiguity is moot.
+	public StatusEffectData FirstOfCategory(EEffectCategory mask)
+	{
+		if (mask == EEffectCategory.None)
+		{
+			return null;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data != null && (data.category & mask) != 0)
+			{
+				return data;
+			}
+		}
+		return null;
+	}
+
+	// Remove every active instance whose category overlaps `mask`. The category
+	// axis is orthogonal to RemoveByTagMask's tag axis: tags say "what kind of
+	// effect" (Poison, Fire) for cure-by-element; category says "what bucket"
+	// (Transient / Permanent / Elite) so a clear can spare an elite signature
+	// or a permanent quirk while wiping ordinary combat states. Matching buildup
+	// meters are zeroed so a partially-charged effect doesn't immediately
+	// re-apply after the clear.
+	public void RemoveByCategory(EEffectCategory mask)
+	{
+		if (mask == EEffectCategory.None)
+		{
+			return;
+		}
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null || (data.category & mask) == 0)
+			{
+				continue;
+			}
+			EndFx(_statusEffects[i]);
+			_statusEffects.RemoveAt(i);
+		}
+		foreach (var kv in _buildups)
+		{
+			if (kv.Key != null && (kv.Key.category & mask) != 0 && kv.Value != null)
+			{
+				kv.Value.amount = 0f;
+				kv.Value.armedInstance = null;
+			}
+		}
+	}
+
 	// Current buildup meter for `data` in [0, 1+). Returns 0 when no
 	// contribution has landed (no entry allocated yet). Read-only — HUD /
 	// debug overlays use this.
@@ -339,6 +394,40 @@ public class StatusEffectController
 		return false;
 	}
 
+
+	// Fire each active effect's on-attack-impact burst at `position`. Called by
+	// the Melee / Hitscan handlers (via IActionActor.TriggerAttackImpact) the
+	// instant an attack resolves its impact point, so an elite's lightning aura
+	// crackles an AoE everywhere the carrier strikes. `attacker` is threaded
+	// through for the area-damage query's team / hurtbox-mask / self-exclusion;
+	// the burst's damage, radius, and fx are authored on the effect itself, so
+	// the same effect serves mobs today and the player later without either
+	// needing a per-actor damage profile. The fx is world-parented at the
+	// impact point (like the start/end cues) so it stays put as the carrier
+	// keeps moving.
+	public void TriggerAttackImpact(IActionActor attacker, Vector3 position)
+	{
+		if (attacker == null)
+		{
+			return;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null || (data.attackImpactDamage == null && data.attackImpactFx == null))
+			{
+				continue;
+			}
+			if (data.attackImpactFx != null && _world != null)
+			{
+				Fx.Create(data.attackImpactFx, _world, position);
+			}
+			if (data.attackImpactDamage != null)
+			{
+				ItemEventHandlers.ApplyAreaDamage(attacker, data.attackImpactDamage, position, data.attackImpactRadius);
+			}
+		}
+	}
 
 	public StatusEffectState Add(StatusEffectData data)
 	{

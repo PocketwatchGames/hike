@@ -47,7 +47,17 @@ public interface IActionActor
 	float OutgoingDamageMultiplier { get; }
 
 	// Faction tag used by direct-hit handlers (Melee / Hitscan / Projectile)
-	// to skip same-team hurtboxes when ItemEvent.friendlyFire is false. Player
+	// to skip same-team hurtboxes when DamageData.friendlyFire is false. Player
 	// returns ETeam.Player; mobs forward MobData.team.
 	ETeam ActorTeam { get; }
+
+	// Fire any status-effect-driven on-attack-impact payloads at `position`.
+	// Called by the Melee / Hitscan handlers the moment an attack resolves its
+	// impact point — an elite's lightning aura, a player's shock-enchant, etc.,
+	// each authored as a StatusEffectData carrying an AoE burst. Player and Mob
+	// forward to their shared StatusEffectController, so the same content works
+	// on either actor. Symmetric with OutgoingDamageMultiplier: both let an
+	// active status effect reshape the swing without the handler knowing which
+	// effect (if any) is responsible.
+	void TriggerAttackImpact(Vector3 position);
 }

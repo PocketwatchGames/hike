@@ -288,7 +288,10 @@ public partial class MobHUD : Node2D
 		for (int i = 0; i < effects.Count; i++)
 		{
 			StatusEffectState s = effects[i];
-			if (s?.data == null || s.data.icon == null)
+			// Only Transient effects ride the fading strip. Elite signatures show
+			// in the health-bar badge instead; Permanent quirks aren't surfaced
+			// on the mob HUD at all.
+			if (s?.data == null || s.data.icon == null || (s.data.category & EEffectCategory.Transient) == 0)
 			{
 				continue;
 			}

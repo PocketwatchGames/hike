@@ -3118,6 +3118,15 @@ public partial class Player : CharacterBody3D
 		}
 		// Speed-line streaks during the dash (the model player's trail effect).
 		UpdateLoopEffect(ref _dashLoop, _dashSpeedLinesFx, _dashTimeRemaining > 0f);
+		// The streaks are emitted forward (+Z) at the dash speed and damped so
+		// they fall behind — GPUParticles3D inherit_velocity is broken in Godot
+		// 4.x, so we drive the heading ourselves. The dash can travel a
+		// different way than the player faces (look-locked backstep while
+		// aiming), so orient the emitter to the real _dashDir rather than facing.
+		if (_dashLoop != null)
+		{
+			_dashLoop.GlobalRotation = new Vector3(0f, Mathf.Atan2(_dashDir.X, _dashDir.Z), 0f);
+		}
 
 		// Vertical: airborne dry-land dash with freezeGravity zeros Y and
 		// suppresses gravity for the dash hang. Grounded dash falls through to

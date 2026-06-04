@@ -1,16 +1,17 @@
 [gd_scene format=3 uid="uid://b7gskto31x441"]
 
-[ext_resource type="Script" uid="uid://b8wellscript01" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
+[ext_resource type="Script" uid="uid://b7gsktphwax41" path="res://scripts/gameplay/entities/Well.cs" id="1_well"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="4_apply"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_vq54l"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
 [ext_resource type="Resource" uid="uid://br1kqb63rhipl" path="res://resources/data/status_effects/status_hydrated.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
-[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_frw8t"]
-[ext_resource type="Script" uid="uid://bb5jy6ebt0p15" path="res://scripts/gameplay/sprites/LitSprite.cs" id="10_litsprite"]
 [ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="16_drink"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]
+[ext_resource type="PackedScene" uid="uid://bqpljtncy01vm" path="res://assets/models/well/SM_Prop_Well_01.fbx" id="18_wellfbx"]
 
 [sub_resource type="Resource" id="Resource_apply_hydrated"]
 script = ExtResource("4_apply")
@@ -29,11 +30,13 @@ completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_well_eve
 durationSeconds = 2.0
 locksMovement = true
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_block"]
-size = Vector3(1, 2, 1)
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_n51pk"]
+height = 4.0
+radius = 1.25
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(1.5, 2, 1.5)
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_ojfqh"]
+height = 4.0
+radius = 2.5
 
 [node name="Well" type="Node3D" unique_id=918273645 node_paths=PackedStringArray("_hudNode")]
 script = ExtResource("1_well")
@@ -43,8 +46,8 @@ _hudNode = NodePath("HUDNode")
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=918273646]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=918273647]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_block")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("CylinderShape3D_n51pk")
 
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=918273648 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
@@ -54,20 +57,17 @@ script = ExtResource("8_interactivebox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=918273649]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
-shape = SubResource("BoxShape3D_interact")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)
+shape = SubResource("CylinderShape3D_ojfqh")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=918273650]
-cast_shadow = 0
-centered = false
-offset = Vector2(-9.5, 0)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("10_frw8t")
-region_enabled = true
-region_rect = Rect2(682, 119, 19, 30)
-script = ExtResource("10_litsprite")
-ForwardOffset = 0.5
+[node name="Model" type="Node3D" parent="." unique_id=1678413894]
+transform = Transform3D(1.5, 0, 0, 0, 1.5, 0, 0, 0, 1.5, 0, 0.131296, 0)
+
+[node name="SM_Prop_Well_01" parent="Model" unique_id=1571398016 instance=ExtResource("18_wellfbx")]
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=918273651]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5480789, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.639555, 0)
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1383154147 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("17_meshhl")
+_collectFrom = NodePath("../Model")

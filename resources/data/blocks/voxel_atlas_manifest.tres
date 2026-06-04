@@ -7,7 +7,6 @@
 [ext_resource type="Texture2D" uid="uid://qq6qrvynirjl" path="res://assets/textures/terrain/Sand 001/Sand_001_COLOR.png" id="col_sand001"]
 [ext_resource type="Texture2D" uid="uid://idcbnnh454ld" path="res://assets/textures/terrain/Stylized_Sand_002_SD/Stylized_Sand_002_basecolor.png" id="col_sand002"]
 [ext_resource type="Texture2D" uid="uid://l1gr4yv8yhji" path="res://assets/textures/terrain/Stylized_Rocks_002_4K/Stylized_Rocks_002_basecolor.png" id="col_stone"]
-[ext_resource type="Texture2D" uid="uid://bc1od0np46rpi" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_basecolor.png" id="col_stonefloor"]
 [ext_resource type="Texture2D" uid="uid://dimnqqwolia18" path="res://assets/textures/voxels/water.png" id="col_water"]
 [ext_resource type="Texture2D" uid="uid://brgbyamnnon7e" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_basecolor.jpg" id="col_wet"]
 [ext_resource type="Texture2D" uid="uid://cwuu2ck6m30qs" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_height.png" id="hgt_cliff006"]
@@ -97,7 +96,6 @@ Height = ExtResource("hgt_wet")
 
 [sub_resource type="Resource" id="layer_11"]
 script = ExtResource("s_layer")
-Color = ExtResource("col_stonefloor")
 Normal = ExtResource("nrm_stonefloor")
 Height = ExtResource("hgt_stonefloor")
 

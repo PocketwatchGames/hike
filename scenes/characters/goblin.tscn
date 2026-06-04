@@ -26,7 +26,7 @@
 [ext_resource type="Material" uid="uid://bnixe36gx83ge" path="res://resources/materials/goblin_body_lit.tres" id="28_goblinbodymat"]
 [ext_resource type="Material" uid="uid://bnixs7h6x83ge" path="res://resources/materials/goblin_props_lit.tres" id="29_goblinpropsmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
-[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 
 [sub_resource type="Resource" id="Resource_footsteps_run"]
 script = ExtResource("25_ftsetframes")
@@ -99,9 +99,9 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
 [node name="Node3D" type="Node3D" parent="." unique_id=1599354847]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6781473, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4073021, 0)
 
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1139919210 node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
 _target = NodePath("../MeshContainer/GoblinModel")
 

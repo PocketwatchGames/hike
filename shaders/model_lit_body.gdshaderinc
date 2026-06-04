@@ -52,6 +52,18 @@ uniform float form_strength : hint_range(0.0, 1.0) = 0.55;
 // that reads at desert biome ambient without changing the source atlas.
 uniform vec3 color_tint : source_color = vec3(1.0, 1.0, 1.0);
 
+// Optional self-illumination, independent of the light map (so it glows even
+// in the dark / when no fire light reaches it). Default strength 0 is inert so
+// every existing material (trees, rocks, signs, chests, characters) renders
+// exactly as before. Modulated by the sampled albedo (`base`) rather than added
+// flat, so the glow FOLLOWS the texture — bright ember texels glow hot, dark
+// charred wood stays dim — instead of washing the whole surface a flat color.
+// Tint warm-shifts the glow; strength scales it (can exceed 1 for a hot bloom).
+// Used by the lit campfire LOG material; the doused variant (and the stone ring,
+// a separate mesh) leave strength at 0.
+uniform vec3 emission_tint : source_color = vec3(0.0);
+uniform float emission_strength = 0.0;
+
 // --- Discovery presentation (instance uniforms) -----------------------------
 // Per-instance so every mesh that shares one model material can still fade /
 // silhouette independently — driven via GeometryInstance3D.SetInstanceShader
@@ -222,6 +234,12 @@ void fragment() {
 		out_albedo = base * sun_lit * (1.0 - sun_ambient) * ao_factor;
 		out_emission = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor;
 	}
+
+	// Self-illumination (inert at default 0), modulated by albedo so the glow
+	// carries the texture's detail instead of a flat wash. After the lighting
+	// composite and before the silhouette blend, so a silhouetted mesh still
+	// collapses to its flat tint rather than glowing through.
+	out_emission += base * emission_tint * emission_strength;
 
 	// Silhouette blend toward a flat tint, post-lighting (matches sprite_lit):
 	// ALBEDO fades to zero (so light() stops adding sun) while EMISSION fades to

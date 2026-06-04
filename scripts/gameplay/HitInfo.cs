@@ -86,6 +86,11 @@ public struct HitInfo
 	// into a per-second accumulator instead of spawning a floating HUD
 	// number every frame.
 	public bool dot;
+	// Whether this hit may damage hurtboxes on the attacker's own team. Sourced
+	// from DamageData.friendlyFire so the direct-hit handlers' same-team skip
+	// (IsFriendlyFireBlocked) reads the policy off the payload rather than the
+	// delivering event. Continuous-damage hits leave it false.
+	public bool friendlyFire;
 	// Tracks whether `statusEffects` has been cloned away from the source
 	// template's array. The first AddStatusEffects fold allocates a fresh
 	// list so we don't mutate the authored DamageData; subsequent folds
@@ -116,6 +121,7 @@ public struct HitInfo
 			buildups = template.buildups;
 			modifiers = template.modifiers;
 			dot = template.dot;
+			friendlyFire = template.friendlyFire;
 		}
 		else
 		{
@@ -130,6 +136,7 @@ public struct HitInfo
 			buildups = null;
 			modifiers = null;
 			dot = false;
+			friendlyFire = false;
 		}
 		buildupAmountMultiplier = 1f;
 	}
@@ -172,6 +179,7 @@ public struct HitInfo
 		statusEffects = null;
 		modifiers = null;
 		dot = true;
+		friendlyFire = false;
 		// Per-second buildup rates on ContinuousDamageData scale by delta so a
 		// body that stays in the zone for one second accumulates `amount`
 		// units regardless of frame rate.

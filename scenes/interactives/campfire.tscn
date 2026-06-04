@@ -1,27 +1,29 @@
 [gd_scene format=3 uid="uid://4hqhwaeg3xwx"]
 
-[ext_resource type="Script" uid="uid://dq8wzkn7p4mr3" path="res://scripts/gameplay/entities/Forge.cs" id="1_5bkwe"]
+[ext_resource type="Script" uid="uid://dq8w0kn7p4mr3" path="res://scripts/gameplay/entities/Forge.cs" id="1_5bkwe"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_light.tscn" id="2_q0pgg"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_extinguish.tscn" id="3_qk6wi"]
 [ext_resource type="PackedScene" path="res://scenes/effects/campfire_loop.tscn" id="4_4nu01"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="5_yf2vb"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="6_naflh"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_xn81r"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_vs5lw"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_e7drt"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
-[ext_resource type="Texture2D" uid="uid://c4v4ybksgte7p" path="res://assets/textures/props/decor.png" id="10_22kvh"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="11_continuous"]
-[ext_resource type="Script" uid="uid://bh20sg27my266" path="res://scripts/gameplay/sprites/FlatLitSprite.cs" id="11_naflh"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
-[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="15_xray"]
-[ext_resource type="Script" uid="uid://dwrtaigmbeepp" path="res://scripts/gameplay/sprites/LitSpriteAnimator.cs" id="16_anim"]
-[ext_resource type="Script" uid="uid://3prfeyoqvrzd3" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
+[ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
 [ext_resource type="Texture2D" uid="uid://bplefhrwcau14" path="res://assets/textures/interactions/cook.png" id="18_cook"]
 [ext_resource type="Texture2D" uid="uid://bagjs7ylxtu6r" path="res://assets/textures/interactions/douse.png" id="19_douse"]
 [ext_resource type="Texture2D" uid="uid://ghht8t77y7kx" path="res://assets/textures/interactions/light.png" id="20_light"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
-[ext_resource type="Script" uid="uid://b5h7q3xkz9n2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="22_buildup"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="23_meshhl"]
+[ext_resource type="PackedScene" uid="uid://80yie5cpnhwg" path="res://assets/models/campfire/SM_Prop_Camp_Fireplace_Stones_01.fbx" id="24_stones"]
+[ext_resource type="PackedScene" uid="uid://drs27nnlht6ve" path="res://assets/models/campfire/SM_Prop_Camp_Fireplace_01.fbx" id="25_logs"]
+[ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="26_lit"]
+[ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="27_doused"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -52,7 +54,7 @@ completionEvents = Array[ExtResource("6_xn81r")]([SubResource("Resource_torch_ev
 radius = 1.0
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_qk6wi"]
-radius = 1.75
+radius = 2.2
 
 [sub_resource type="Resource" id="Resource_campfire_burning_buildup"]
 script = ExtResource("22_buildup")
@@ -65,41 +67,16 @@ healthDamage = 1.0
 buildups = Array[ExtResource("22_buildup")]([SubResource("Resource_campfire_burning_buildup")])
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_q0pgg"]
-radius = 1.1
+radius = 0.75
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_warmth"]
-radius = 3.0
+radius = 5.0
 
-[sub_resource type="AtlasTexture" id="AtlasTexture_campfire_off"]
-atlas = ExtResource("10_22kvh")
-region = Rect2(1, 383, 47, 37)
-
-[sub_resource type="AtlasTexture" id="AtlasTexture_campfire_on"]
-atlas = ExtResource("10_22kvh")
-region = Rect2(1, 383, 47, 36)
-
-[sub_resource type="SpriteFrames" id="SpriteFrames_campfire"]
-animations = [{
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_campfire_off")
-}],
-"loop": true,
-"name": &"off",
-"speed": 1.0
-}, {
-"frames": [{
-"duration": 1.0,
-"texture": SubResource("AtlasTexture_campfire_on")
-}],
-"loop": true,
-"name": &"on",
-"speed": 1.0
-}]
-
-[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_animator", "_light", "_hudNode", "_damageZone", "_warmthZone")]
+[node name="Campfire" type="Node3D" unique_id=2008818935 node_paths=PackedStringArray("_glowModel", "_light", "_hudNode", "_damageZone", "_warmthZone")]
 script = ExtResource("1_5bkwe")
-_animator = NodePath("LitSpriteAnimator")
+_glowModel = NodePath("Model/SM_Prop_Camp_Fireplace_01")
+_litMaterial = ExtResource("26_lit")
+_dousedMaterial = ExtResource("27_doused")
 _light = NodePath("StationaryLight")
 _hudNode = NodePath("HUDNode")
 _damageZone = NodePath("DamageZone")
@@ -109,7 +86,6 @@ _unlitActions = Array[ExtResource("5_yf2vb")]([SubResource("Resource_campfire_ac
 _lightOnEffectScene = ExtResource("2_q0pgg")
 _lightOffEffectScene = ExtResource("3_qk6wi")
 _lightLoopEffectScene = ExtResource("4_4nu01")
-_forgeType = 0
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1484772802]
 
@@ -146,25 +122,12 @@ metadata/_custom_type_script = "uid://3prfeyoqvrzd3"
 [node name="CollisionShape3D" type="CollisionShape3D" parent="WarmthZone" unique_id=1700000002]
 shape = SubResource("SphereShape3D_warmth")
 
-[node name="Sprite" type="Sprite3D" parent="." unique_id=821949110]
-transform = Transform3D(1, 0, 0, 0, -4.371139e-08, 1, 0, -1, -4.371139e-08, 0, 0.01, 0)
-cast_shadow = 0
-centered = false
-offset = Vector2(-23.5, -18)
-pixel_size = 0.0738
-alpha_cut = 1
-texture = ExtResource("10_22kvh")
-region_enabled = true
-region_rect = Rect2(1, 383, 47, 36)
-script = ExtResource("11_naflh")
-metadata/_custom_type_script = "uid://bh20sg27my266"
+[node name="Model" type="Node3D" parent="." unique_id=1042645394]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
 
-[node name="LitSpriteAnimator" type="Node" parent="." unique_id=2074831234 node_paths=PackedStringArray("target")]
-script = ExtResource("16_anim")
-target = NodePath("../Sprite")
-frames = SubResource("SpriteFrames_campfire")
-defaultAnimation = &"on"
-metadata/_custom_type_script = "uid://dwrtaigmbeepp"
+[node name="SM_Prop_Camp_Fireplace_Stones_01" parent="Model" unique_id=540536945 instance=ExtResource("24_stones")]
+
+[node name="SM_Prop_Camp_Fireplace_01" parent="Model" unique_id=380242467 instance=ExtResource("25_logs")]
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1171222661]
 script = ExtResource("14_3pg55")
@@ -172,6 +135,6 @@ script = ExtResource("14_3pg55")
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
 
-[node name="InteractiveXray" type="Node3D" parent="." unique_id=127640960 node_paths=PackedStringArray("_sprites")]
-script = ExtResource("15_xray")
-_sprites = [NodePath("../Sprite")]
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=127825040 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("23_meshhl")
+_collectFrom = NodePath("../Model")

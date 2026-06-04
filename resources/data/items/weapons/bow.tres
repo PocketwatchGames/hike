@@ -22,6 +22,7 @@
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="17_kwtcm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
+[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/effects/arrow_trail.tscn" id="19_arrowtrail"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
@@ -34,6 +35,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
 projectileSpeed = 24.0
 projectileLifetimeSeconds = 0.25
+projectileLoopEffect = ExtResource("19_arrowtrail")
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
@@ -59,6 +61,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
 projectileSpeed = 48.0
 projectileLifetimeSeconds = 0.25
+projectileLoopEffect = ExtResource("19_arrowtrail")
 
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")

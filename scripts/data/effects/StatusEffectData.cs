@@ -24,6 +24,30 @@ public enum EBuildupBehavior
 	ContinuousArm = 1,
 }
 
+// How an effect is presented and how long it's meant to live. A single effect
+// authors exactly one category, but the type is [Flags] so removal/clear ops
+// can target a mask of categories (e.g. a cure consumable clears
+// Transient | Permanent while leaving Elite signatures alone). The HUD routes
+// by category: only Transient renders in the mob's fading status strip; the
+// first Elite-category effect rides the elite health-bar badge instead.
+//
+//   Transient  — ordinary timed / buildup-driven combat states (poison, wet,
+//                dizzy, food buffs). The default so existing effects keep
+//                showing in the status strip without re-authoring.
+//   Permanent  — long-term character quirks / afflictions the actor carries
+//                indefinitely (player traits, lasting injuries). Not yet
+//                surfaced in any HUD strip; reserved for the future panel.
+//   Elite      — an elite mob's signature aura. Shown only in the elite badge,
+//                never the strip.
+[System.Flags]
+public enum EEffectCategory
+{
+	None = 0,
+	Transient = 1 << 0,
+	Permanent = 1 << 1,
+	Elite = 1 << 2,
+}
+
 // Authored data for a status effect held by a Player or Mob — icon, display
 // name, lifecycle, fx, and a list of StatModifier entries the runtime
 // composes into the actor's stat values while the effect is active.
@@ -44,6 +68,10 @@ public partial class StatusEffectData : Resource
 	// effect's name. Plain string — keep it short ("Wet. Slows drying.
 	// Lowers cold tolerance.") so it fits next to the progress bar.
 	[Export(PropertyHint.MultilineText)] public string description = "";
+
+	// Presentation + lifecycle bucket. See EEffectCategory. Author exactly one
+	// bit; default Transient keeps existing effects in the mob status strip.
+	[Export, CompactFlags] public EEffectCategory category = EEffectCategory.Transient;
 
 	// Type tags this effect carries. Used by the resistance / modifier system
 	// in two places: (1) buildup contributions feeding this effect scale by
@@ -113,6 +141,23 @@ public partial class StatusEffectData : Resource
 	[Export] public PackedScene startFx;
 	[Export] public PackedScene endFx;
 	[Export] public PackedScene loopFx;
+
+	// --- On-attack-impact burst ---
+	// When `attackImpactDamage` is set, every Melee / Hitscan attack the
+	// carrying actor lands fires a one-shot AoE damage burst centered on the
+	// hit's impact position — the elite lightning aura's "every strike
+	// crackles" payload. The burst is self-contained on the effect (not the
+	// actor's damage profiles), so any mob or the player deals it just by
+	// holding this status. Author `attackImpactDamage` with Electrical|Damage
+	// tags + healthDamage (knockback / hitstun optional). `attackImpactRadius`
+	// is the sphere radius in meters; `attackImpactFx` is the one-shot
+	// visual + sound spawned at the impact point (author it to read at the
+	// radius so the AoE reach is legible). Null damage AND null fx = the
+	// effect contributes no impact burst. Friendly fire is off — the burst
+	// skips hurtboxes on the carrier's own team, like a normal swing.
+	[Export] public DamageData attackImpactDamage;
+	[Export(PropertyHint.Range, "0.5,10,0.5,or_greater")] public float attackImpactRadius = 2f;
+	[Export] public PackedScene attackImpactFx;
 
 	// --- Buildup meter ---
 	// Damage data carries StatusEffectBuildup entries; each contribution

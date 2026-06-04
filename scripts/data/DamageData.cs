@@ -95,4 +95,15 @@ public partial class DamageData : Resource
 	// number per second instead of one per physics frame. No effect on the
 	// underlying damage application — only HUD rollup.
 	[Export] public bool dot = false;
+
+	// When false (default), direct-hit senders (Melee / Hitscan / Projectile
+	// handlers, status-effect AoE bursts) skip hurtboxes belonging to mobs on
+	// the attacker's own team — a goblin's swing can't hurt its kin, an elite's
+	// lightning discharge spares allies. Author true for damage meant to spill
+	// onto everyone regardless of team (a wild cleave, a friendly-fire
+	// fireball). The policy rides on the hit payload so every sender that
+	// builds a HitInfo from this template inherits it consistently. (Does NOT
+	// govern GasCloud / DamageZone hazards — those carry their own scene-level
+	// team filter.)
+	[Export] public bool friendlyFire = false;
 }

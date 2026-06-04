@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 // Campfire / cooking station. Standalone from Torch — they share a similar
@@ -25,6 +26,15 @@ using Godot;
 public partial class Forge : Node3D, IInteractive, IWorldEntity
 {
     [Export] private LitSpriteAnimator _animator;
+    // Model-based forges (the 3D campfire) swap the mesh material between a
+    // glowing lit variant and a cold doused variant. _glowModel is the sub-model
+    // that should light up (the logs) — point it at just that instance, not the
+    // whole prop, so siblings like the stone ring keep their imported material
+    // and never glow. Both materials are optional, so sprite-based forges leave
+    // them unwired and skip the swap.
+    [Export] private Node3D _glowModel;
+    [Export] private Material _litMaterial;
+    [Export] private Material _dousedMaterial;
     [Export] private StationaryLight _light;
     [Export] private Node3D _hudNode;
     [Export] private DamageZone _damageZone;
@@ -264,14 +274,55 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         }
     }
 
+    private readonly List<MeshInstance3D> _modelMeshes = new();
+    private bool _modelMeshesCollected;
+
     private void UpdateVisuals()
     {
-        if (_animator == null)
+        // Sprite-based forges swap on/off frames here; model-based forges swap
+        // the mesh material (lit glow vs cold ash). Both paths are optional —
+        // whichever is wired runs, the other no-ops.
+        _animator?.Play(_active ? AnimOn : AnimOff);
+        ApplyModelMaterial();
+    }
+
+    // Swap the surface override material on every mesh under _glowModel to match
+    // the lit/doused state. The lit material's emission makes the logs read as
+    // burning even where the fire light doesn't reach; the doused one drops
+    // emission and cools the tint. Meshes are collected once and cached.
+    private void ApplyModelMaterial()
+    {
+        if (_glowModel == null || _litMaterial == null || _dousedMaterial == null)
         {
-            GD.PushError($"Forge '{Name}' has no _animator wired");
             return;
         }
-        _animator.Play(_active ? AnimOn : AnimOff);
+        if (!_modelMeshesCollected)
+        {
+            CollectModelMeshes(_glowModel);
+            _modelMeshesCollected = true;
+        }
+        Material mat = _active ? _litMaterial : _dousedMaterial;
+        foreach (MeshInstance3D mesh in _modelMeshes)
+        {
+            if (mesh != null)
+            {
+                mesh.SetSurfaceOverrideMaterial(0, mat);
+            }
+        }
+    }
+
+    // Gather every MeshInstance3D under the model container (meshes live inside
+    // instanced FBX sub-scenes). Mirrors InteractiveMeshHighlight's collection.
+    private void CollectModelMeshes(Node node)
+    {
+        foreach (Node child in node.GetChildren())
+        {
+            if (child is MeshInstance3D mesh)
+            {
+                _modelMeshes.Add(mesh);
+            }
+            CollectModelMeshes(child);
+        }
     }
 
     public static Forge Create(World world, ForgeSimState data)

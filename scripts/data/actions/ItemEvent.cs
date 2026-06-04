@@ -121,14 +121,6 @@ public partial class ItemEvent : Resource
 	[Export] public float cameraShakeDuration = 0.15f;
 	[Export] public float cameraShakeRange = 0f;
 
-	// When false (default), Melee / Hitscan / Projectile direct-hit handlers
-	// skip hurtboxes belonging to mobs on the attacker's own team. Authors
-	// flip this on for AoE-style weapons whose damage is intended to spill
-	// onto allies (a goblin's wild cleave that hits its kin, a friendly-fire
-	// fireball). The flag does not affect SpawnAreaEffect / GasCloud hazards
-	// or buff sprays — those have their own scene-level / team-filtered policy.
-	[Export] public bool friendlyFire;
-
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
 	// on what the swing/ray hit. Authored on the event so a single weapon can
 	// give light vs heavy attacks distinct impact signatures, and so mob
@@ -276,7 +268,6 @@ public partial class ItemEvent : Resource
 			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
 			nameof(concept) => EItemEventType.LearnConcept,
 			nameof(damageProfileKey) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
-			nameof(friendlyFire) => EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile,
 			nameof(impactMissEffect)
 				or nameof(impactEnvironmentEffect)
 				or nameof(impactHealthEffect)

@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://b8wq3n7rvtak2"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+
+[sub_resource type="Gradient" id="Gradient_tracer"]
+offsets = PackedFloat32Array(0, 0.6, 1)
+colors = PackedColorArray(1, 1, 1, 0.39215687, 0.85, 0.92, 1, 0.39215687, 0.8, 0.88, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_tracer"]
+gradient = SubResource("Gradient_tracer")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_tracer"]
+emission_shape = 1
+emission_sphere_radius = 0.01
+inherit_velocity_ratio = 1.0
+direction = Vector3(0, 0, -0.25)
+spread = 0.0
+initial_velocity_min = 5.0
+initial_velocity_max = 10.0
+gravity = Vector3(0, 0, 0)
+scale_min = 0.9
+color_ramp = SubResource("GradientTexture1D_tracer")
+
+[sub_resource type="Curve" id="Curve_taper"]
+_data = [Vector2(0, 1), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]
+point_count = 2
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_tracer"]
+transparency = 1
+blend_mode = 1
+cull_mode = 2
+shading_mode = 0
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.75, 0.85, 1, 0.85)
+use_particle_trails = true
+
+[sub_resource type="RibbonTrailMesh" id="RibbonTrailMesh_tracer"]
+material = SubResource("StandardMaterial3D_tracer")
+size = 0.045
+sections = 8
+section_length = 0.12
+curve = SubResource("Curve_taper")
+
+[node name="ArrowTrail" type="Node3D" unique_id=1557560209]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Tracer" type="GPUParticles3D" parent="." unique_id=124633755]
+lifetime = 0.25
+trail_enabled = true
+trail_lifetime = 0.09999999999999999
+process_material = SubResource("ParticleProcessMaterial_tracer")
+draw_pass_1 = SubResource("RibbonTrailMesh_tracer")

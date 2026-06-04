@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="DamageData" format=3 uid="uid://del1te0apdmg7"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="1_damage"]
+
+[resource]
+script = ExtResource("1_damage")
+tags = 33
+healthDamage = 6.0
+statusEffects = []
+buildups = []
+modifiers = []
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"

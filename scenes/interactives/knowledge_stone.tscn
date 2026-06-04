@@ -9,7 +9,7 @@
 [ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
 [ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/effects/learn_language.tscn" id="6_learnfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_45v1k"]
-[ext_resource type="Script" uid="uid://b8meshautcolld" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="7_autocoll"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="7_autocoll"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="8_meshhl"]
 [ext_resource type="PackedScene" uid="uid://b5j7jn0ipqi5g" path="res://assets/models/statue/SM_Stone_Statue_Big_A.fbx" id="9_statuebig"]
 [ext_resource type="PackedScene" uid="uid://bjficgdci3xwn" path="res://assets/models/statue/SM_Stone_Statue_Base_A.fbx" id="10_statuebase"]

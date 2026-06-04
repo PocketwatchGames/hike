@@ -1,0 +1,102 @@
+[gd_scene format=3 uid="uid://dixwcnqy125hf"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bufckyu23oiwg" path="res://audio/source/impact/sfx_lightning_zap_01.wav" id="zap_01"]
+[ext_resource type="AudioStream" uid="uid://crp4gqd0ssmng" path="res://audio/source/impact/sfx_lightning_zap_02.wav" id="zap_02"]
+[ext_resource type="AudioStream" uid="uid://dgn6ntm6fb0dh" path="res://audio/source/impact/sfx_lightning_zap_03.wav" id="zap_03"]
+[ext_resource type="AudioStream" uid="uid://ke5ks2gel3qy" path="res://audio/source/impact/sfx_lightning_zap_04.wav" id="zap_04"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_ring"]
+emission_shape = 6
+emission_ring_axis = Vector3(0, 1, 0)
+emission_ring_height = 0.2
+emission_ring_radius = 2.0
+emission_ring_inner_radius = 1.8
+direction = Vector3(0, 1, 0)
+spread = 12.0
+initial_velocity_min = 2.5
+initial_velocity_max = 5.0
+gravity = Vector3(0, -4, 0)
+damping_min = 0.5
+damping_max = 1.2
+scale_min = 0.4
+scale_max = 0.8
+color = Color(0.6, 0.8, 1.0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_ring"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.75, 0.88, 1.0, 0.85)
+shader_parameter/emission = Color(0.7, 0.85, 1.0, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_ring"]
+material = SubResource("ShaderMaterial_ring")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_core"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 90.0
+flatness = 0.3
+initial_velocity_min = 5.0
+initial_velocity_max = 12.0
+gravity = Vector3(0, -10, 0)
+damping_min = 0.8
+damping_max = 2.0
+scale_min = 0.3
+scale_max = 0.6
+color = Color(0.85, 0.92, 1.0, 1)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_core"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0.9, 0.95, 1.0, 0.9)
+shader_parameter/emission = Color(0.85, 0.92, 1.0, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_core"]
+material = SubResource("ShaderMaterial_core")
+size = Vector2(0.18, 0.18)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_zap"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("zap_01")
+stream_1/stream = ExtResource("zap_02")
+stream_2/stream = ExtResource("zap_03")
+stream_3/stream = ExtResource("zap_04")
+
+[node name="LightningAuraBurst" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="RangeRing" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+emitting = false
+amount = 64
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_ring")
+draw_pass_1 = SubResource("QuadMesh_ring")
+
+[node name="CoreSparks" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+emitting = false
+amount = 32
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_core")
+draw_pass_1 = SubResource("QuadMesh_core")
+
+[node name="Zap" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_zap")
+volume_db = 0.0
+unit_size = 10.0
+max_distance = 60.0
+bus = &"World3D"

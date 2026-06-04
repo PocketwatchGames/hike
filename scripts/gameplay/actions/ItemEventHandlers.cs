@@ -45,7 +45,7 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
-				if (IsFriendlyFireBlocked(actor, hurtBox, ev.friendlyFire))
+				if (IsFriendlyFireBlocked(actor, hurtBox, hit.friendlyFire))
 				{
 					continue;
 				}
@@ -92,6 +92,11 @@ public static class ItemEventHandlers
 			SpawnImpact(actor, PickImpactScene(ev, bestResult), impactPos);
 			SpawnTriggerOverlays(actor, action.selectedTier, bestTriggers, impactPos);
 		}
+
+		// Status-effect on-impact bursts (elite lightning aura, shock enchant,
+		// etc.) fire at the swing's resolved impact point — the best hurtbox
+		// when one was hit, else the swing center. See StatusEffectController.
+		actor.TriggerAttackImpact(impactPos);
 
 		DebugDraw.Sphere(damagePos, ev.meleeRadius, new Color(1f, 0f, 0f, 0.3f), 0.15f);
 	}
@@ -169,7 +174,7 @@ public static class ItemEventHandlers
 			if (collider is HurtBox hurtBox)
 			{
 				bool isSelf = selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value;
-				if (!isSelf && !IsFriendlyFireBlocked(actor, hurtBox, ev.friendlyFire))
+				if (!isSelf && !IsFriendlyFireBlocked(actor, hurtBox, hit.friendlyFire))
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
 					hitResult = hurtBox.QueryHitType(hit);
@@ -232,7 +237,69 @@ public static class ItemEventHandlers
 			}
 		}
 
+		// Status-effect on-impact bursts fire at the resolved hit point —
+		// hurtbox, environment clip, or the ray's air end. See DoMelee.
+		actor.TriggerAttackImpact(hitPos);
+
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
+	}
+
+	// Apply a single-frame AoE hit to every hurtbox inside `radius` of
+	// `center`. Position-anchored sibling of DoMelee's sphere query, factored
+	// out so status-effect on-impact bursts (elite lightning aura, etc.) reuse
+	// the exact same hurtbox resolution — self-exclusion, friendly-fire skip,
+	// one Hit per target. Friendly-fire policy rides on the DamageData (same as
+	// every other hit), so allies are spared unless the payload opts in. No
+	// charge-tier scaling and no per-target impact overlay: the burst's own fx
+	// (spawned by the caller at `center`) is the visual, and the payload is
+	// authored flat on the DamageData. Not a DoT — each call lands exactly once
+	// per affected target. Does NOT re-enter the attack pipeline (it calls
+	// HurtBox.Hit directly), so an on-impact burst can't recursively re-trigger
+	// itself.
+	public static void ApplyAreaDamage(IActionActor attacker, DamageData damage, Vector3 center, float radius)
+	{
+		if (attacker == null || damage == null || radius <= 0f)
+		{
+			return;
+		}
+		World3D world3D = attacker.AttackerNode?.GetWorld3D();
+		if (world3D == null)
+		{
+			return;
+		}
+		var sphere = new SphereShape3D() { Radius = radius };
+		var query = new PhysicsShapeQueryParameters3D
+		{
+			Shape = sphere,
+			Transform = new Transform3D(Basis.Identity, center),
+			CollisionMask = attacker.AttackHurtboxMask,
+			CollideWithAreas = true,
+			CollideWithBodies = false,
+		};
+		var results = world3D.DirectSpaceState.IntersectShape(query, maxResults: 32);
+		Rid? selfHurtBox = attacker.SelfHurtBoxRid;
+		foreach (var result in results)
+		{
+			if (result["collider"].Obj is not HurtBox hurtBox)
+			{
+				continue;
+			}
+			if (selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value)
+			{
+				continue;
+			}
+			if (IsFriendlyFireBlocked(attacker, hurtBox, damage.friendlyFire))
+			{
+				continue;
+			}
+			// Radial burst — no swing axis, so leave hitDirection zero (the
+			// receiver applies no knockback when it's zero; lightning authors
+			// no knockback anyway). The attacker node is the source so the
+			// receiver still attributes the hit correctly.
+			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, Vector3.Zero);
+			hurtBox.Hit(hit);
+		}
+		DebugDraw.Sphere(center, radius, new Color(0.6f, 0.85f, 1f, 0.3f), 0.15f);
 	}
 
 	// Same-team filter for direct-hit handlers. Returns true when the hit
@@ -410,7 +477,7 @@ public static class ItemEventHandlers
 			noCollide,
 			ev.impactEvent,
 			actor.ActorTeam,
-			ev.friendlyFire);
+			hit.friendlyFire);
 	}
 
 	// Position-aware sub-dispatcher for projectile impactEvents (and any

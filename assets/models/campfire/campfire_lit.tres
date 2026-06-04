@@ -1,0 +1,17 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cwfk2p8nxe7lq"]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dod52gtaafx5w" path="res://assets/models/signpost/PolygonNatureBiomes_Meadow_Texture_01.png" id="2_tex"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_tex")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(1, 0.92, 0.82, 1)
+shader_parameter/emission_tint = Color(1.5, 0.75, 0.35, 1)
+shader_parameter/emission_strength = 1.5
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.55

@@ -126,11 +126,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
-    // Elite marker + the elite's signature status effect (see MobSimState).
-    // Read by MobHUD to badge the health bar with the effect's icon. Immutable
-    // after spawn, so the HUD samples them once at init.
+    // Elite marker + the elite's signature status effect. Read by MobHUD to
+    // badge the health bar with the effect's icon. The signature is the first
+    // active effect tagged EEffectCategory.Elite (applied at spawn from the
+    // zone pool); resolving from the live list rather than _simState keeps the
+    // HUD keyed on the same categorization the strip filter uses. Immutable
+    // after spawn, so the HUD samples it once at init.
     public bool IsElite => _simState?.Elite ?? false;
-    public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
+    public StatusEffectData EliteStatusEffect => _statusEffects?.FirstOfCategory(EEffectCategory.Elite);
     // True when at least one active status effect flags `incapacitates`.
     // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
     // the flag; future Frozen / Knocked-Down would too without touching Mob.
@@ -340,8 +343,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the first frame through so initial state is always pushed. Note:
     // LitSprite's Visibility / Silhouette / CastsShadow setters are equality-
     // checked inside the property itself, so Mob doesn't track them here.
-    private bool _lastAlive;
-    private bool _lastAliveInit;
     private bool _lastMeshVisible;
     private bool _lastMeshVisibleInit;
     private bool _lastHudVisible;
@@ -532,12 +533,105 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Elite mobs carry a single signature status effect drawn at spawn from
         // their zone's pool (MobSimState.EliteStatusEffect). Applied here, after
         // AddChild above, so the mob is already in the tree and the effect's
-        // start/loop Fx parent and position correctly. The 25% size bump is
-        // handled separately in _Process alongside the alive/dead scale write.
-        if (_simState.Elite && _simState.EliteStatusEffect != null)
+        // start/loop Fx parent and position correctly.
+        if (_simState.Elite)
         {
-            _statusEffects.Add(_simState.EliteStatusEffect);
+            // 25% size bump. Elite is immutable after spawn, so the visual mesh,
+            // body collider, and hurtbox are scaled once here rather than per
+            // frame. _Ready ran during AddChild above, so _hurtBoxShape is
+            // resolved by now.
+            ApplyEliteScale();
+            if (_simState.EliteStatusEffect != null)
+            {
+                _statusEffects.Add(_simState.EliteStatusEffect);
+            }
         }
+    }
+
+    // Grow an elite mob by EliteScaleMultiplier. The visual mesh scales
+    // uniformly (it's base-anchored at the mob origin, so it grows upward and
+    // the feet stay on the ground). The body capsule scales the same amount but
+    // is re-grounded — its bottom is pinned to its original Y so the larger mob
+    // still rests on terrain rather than spawning half-buried or floating. The
+    // hurtbox is NOT scaled by percent: it's resized to keep the same absolute
+    // clearance (radial + top/bottom) it had over the body capsule before the
+    // bump, so the "reach past the body to land a hit" margin is identical for
+    // elites and standard mobs. Both shapes are duplicated first because Godot
+    // shares a scene's embedded sub-resources across every instance — mutating
+    // the shared shape would resize every mob of this species.
+    private void ApplyEliteScale()
+    {
+        float k = EliteScaleMultiplier;
+        if (_mesh != null)
+        {
+            _mesh.Scale = Vector3.One * k;
+        }
+
+        CapsuleShape3D bodyCap = DuplicateCapsule(_collisionShape);
+        if (_collisionShape == null || bodyCap == null)
+        {
+            return;
+        }
+
+        // Original body extents (capsule is centered on its CollisionShape3D's
+        // local origin, whose parent shares the mob frame).
+        float rBody = bodyCap.Radius;
+        float hBody = bodyCap.Height;
+        float bodyBottom = _collisionShape.Position.Y - hBody * 0.5f;
+
+        // Capture the hurtbox's clearance over the body before resizing either.
+        CapsuleShape3D hurtCap = DuplicateCapsule(_hurtBoxShape);
+        float radialClearance = 0f;
+        float bottomClearance = 0f;
+        float topClearance = 0f;
+        if (hurtCap != null)
+        {
+            float hurtBottom = _hurtBoxShape.Position.Y - hurtCap.Height * 0.5f;
+            float hurtTop = _hurtBoxShape.Position.Y + hurtCap.Height * 0.5f;
+            radialClearance = hurtCap.Radius - rBody;
+            bottomClearance = bodyBottom - hurtBottom;
+            topClearance = hurtTop - (_collisionShape.Position.Y + hBody * 0.5f);
+        }
+
+        // Scale the body, keeping its bottom grounded.
+        float rBodyNew = rBody * k;
+        float hBodyNew = hBody * k;
+        bodyCap.Radius = rBodyNew;
+        bodyCap.Height = hBodyNew;
+        SetLocalY(_collisionShape, bodyBottom + hBodyNew * 0.5f);
+
+        // Rebuild the hurtbox from the scaled body + the original clearances.
+        if (hurtCap != null)
+        {
+            float hurtBottomNew = bodyBottom - bottomClearance;
+            float hurtTopNew = (bodyBottom + hBodyNew) + topClearance;
+            hurtCap.Radius = rBodyNew + radialClearance;
+            hurtCap.Height = hurtTopNew - hurtBottomNew;
+            SetLocalY(_hurtBoxShape, (hurtTopNew + hurtBottomNew) * 0.5f);
+        }
+    }
+
+    // Per-instance copy of a CollisionShape3D's CapsuleShape3D, assigned back so
+    // edits don't bleed into other instances sharing the embedded resource.
+    // Returns null (and leaves the shape untouched) for a missing node or a
+    // non-capsule shape, so a species authored with a different shape type just
+    // skips the resize rather than crashing.
+    private static CapsuleShape3D DuplicateCapsule(CollisionShape3D node)
+    {
+        if (node?.Shape is not CapsuleShape3D capsule)
+        {
+            return null;
+        }
+        var copy = (CapsuleShape3D)capsule.Duplicate();
+        node.Shape = copy;
+        return copy;
+    }
+
+    private static void SetLocalY(Node3D node, float y)
+    {
+        Vector3 p = node.Position;
+        p.Y = y;
+        node.Position = p;
     }
 
     // IActionActor — what ActionRunner and ItemEventHandlers read. Forward
@@ -613,6 +707,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsSwimming => false;
 
     public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
+
+    // IActionActor — fire any active status effect's on-attack-impact burst
+    // (elite lightning aura, etc.) at the swing/ray impact point. Forwarded to
+    // the shared controller so mobs and the player run identical logic.
+    public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
 
     // Compose a single stat across inherent MobData modifiers and active
     // status-effect modifiers. Mobs don't currently equip armor, so the
@@ -1480,7 +1579,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         // Compute target state.
-        bool aliveState = alive;
         bool discovered = _simState.DiscoveryState == EPlayerPerceptionState.Discovered && _simState.MemoryTimeMs > _world.GameTimeMs;
         if (CVars.revealMobs.Value)
         {
@@ -1518,16 +1616,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // transform, so skipping them on stable frames is the bulk of the
         // win. The cached "_last*Init" pairs force the first frame through
         // regardless of value so initial state is always applied.
-        if (!_lastAliveInit || aliveState != _lastAlive)
-        {
-            // Elite mobs render 25% larger; the multiplier folds into both the
-            // alive and the flattened-dead scale so the bump survives the
-            // alive→dead transition.
-            float eliteScale = _simState.Elite ? EliteScaleMultiplier : 1f;
-            _mesh.Scale = (aliveState ? new Vector3(1f, 1f, 1f) : new Vector3(1f, 0.25f, 1f)) * eliteScale;
-            _lastAlive = aliveState;
-            _lastAliveInit = true;
-        }
         if (!_lastMeshVisibleInit || meshVisibleTarget != _lastMeshVisible)
         {
             _mesh.Visible = meshVisibleTarget;

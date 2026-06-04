@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_w7day"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_kopq1"]
 [ext_resource type="Texture2D" uid="uid://cekrs1qg2sois" path="res://assets/textures/interactions/look.png" id="5_look"]
-[ext_resource type="Script" uid="uid://b8meshautcolld" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="6_autocoll"]
+[ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="6_autocoll"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_4hym0"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="7_meshhl"]
 [ext_resource type="PackedScene" uid="uid://btbyx6031l2vv" path="res://assets/models/signpost/SM_Prop_Sign_01.fbx" id="8_signfbx"]

@@ -1,0 +1,11 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://barrowmat9k2v"]
+
+[ext_resource type="Shader" uid="uid://cm0d3llitsh8r" path="res://shaders/model_lit.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dq3arrowtex8xq" path="res://assets/models/arrow/genericRGB_medievalTexture.png" id="2_atlas"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_atlas")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = Color(1, 1, 1, 1)

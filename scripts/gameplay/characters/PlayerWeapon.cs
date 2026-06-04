@@ -527,6 +527,10 @@ public partial class Player : CharacterBody3D, IActionActor
 	public Node3D AttackerNode => this;
 	public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
 	public ETeam ActorTeam => ETeam.Player;
+	// IActionActor — fire any active status effect's on-attack-impact burst at
+	// the swing/ray impact point. Shares the controller path with Mob so an
+	// enchant authored as a StatusEffectData works identically on the player.
+	public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
 	// Positional-aim handlers (DoSpawnAreaEffect) read the live aim cursor
 	// off the reticle. Nullable in case Initialize hasn't run; callers check
 	// HasAimWorldPosition before reading AimWorldPosition.

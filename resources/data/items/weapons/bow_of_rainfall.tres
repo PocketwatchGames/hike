@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="21_5ljk8"]
+[ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/effects/arrow_trail.tscn" id="22_arrowtrail"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -35,6 +36,7 @@ impactLethalEffect = ExtResource("7_hitkill")
 projectileScene = ExtResource("18_arrowscene")
 projectileSpeed = 20.0
 projectileLifetimeSeconds = 0.25
+projectileLoopEffect = ExtResource("22_arrowtrail")
 
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
@@ -67,6 +69,7 @@ script = ExtResource("3_event")
 type = 8260
 projectileScene = ExtResource("18_arrowscene")
 projectileLifetimeSeconds = 0.5
+projectileLoopEffect = ExtResource("22_arrowtrail")
 projectileArcing = true
 impactEvent = SubResource("Resource_event_rain_impact")
 
