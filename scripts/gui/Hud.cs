@@ -452,9 +452,9 @@ public partial class Hud : Control
 		_staminaBar.Value = maxStamina > 0f ? _player.Stamina / maxStamina : 0f;
 
 		ulong now = gameClient.World?.GameTimeMs ?? 0;
-		_weaponLeftHud.Tick(now);
-		_weaponRightHud.Tick(now);
-		_consumableHud.Tick(now);
+		_weaponLeftHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponLeft));
+		_weaponRightHud.Tick(now, IsSlotCharging(EInventorySlot.WeaponRight));
+		_consumableHud.Tick(now, IsSlotCharging(EInventorySlot.Consumable));
 
 		UpdateStatusEffects(now);
 
@@ -938,6 +938,22 @@ public partial class Hud : Control
 			_activeStatusEffectIcon.Position = new Vector2(-20f, -20f);
 			_activeStatusEffectIcon.Init(next, autoOutro: true);
 		}
+	}
+
+	// Whether the player is actively charging the weapon equipped in `slot`.
+	// Drives the per-slot guard gauge's full-opacity vs. faint-ghost state —
+	// the weapon's block armor is only active while that weapon is charging.
+	bool IsSlotCharging(EInventorySlot slot)
+	{
+		if (_player?.Runner == null || !_player.Runner.IsBusy)
+		{
+			return false;
+		}
+		if (_player.Runner.Phase != EActionPhase.Charging)
+		{
+			return false;
+		}
+		return _player.Runner.Current.context.sourceSlot == slot;
 	}
 
 	// Charge fill across the current tier's hold window. With per-tier

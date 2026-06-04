@@ -994,6 +994,11 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon
+		// authored to interrupt-on-damage would otherwise leave Charging here
+		// and the hit that ended the charge wouldn't be blocked. The guard was
+		// up when the hit landed, so it catches this one and then drops.
+		WeaponState blockWeapon = GetChargingBlockWeapon();
 		// Damage may interrupt an in-flight action (gated by profile +
 		// per-tier canInterrupt). External interruption fires BEFORE damage
 		// is applied so abortEvents can run on coherent pre-damage state.
@@ -1021,6 +1026,17 @@ public partial class Player : CharacterBody3D
 		float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
+		// Weapon block armor takes the absorbable slice FIRST while the player
+		// is charging a guard-bearing weapon — the held charge doubles as a
+		// shield. When the guard eats the slice, only the pre-resolved bypass
+		// continues past it (matching the central-armor "overflow doesn't
+		// bleed" rule below). AbsorbWeaponBlock also re-arms the weapon's
+		// recharge delay on any mid-charge hit, even at zero guard.
+		float blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
+		if (blockAbsorbed > 0f)
+		{
+			incomingDamage = bypassed;
+		}
 		float armorAbsorbed = 0f;
 		if (_armor > 0f && absorbable > 0f)
 		{
@@ -1077,7 +1093,7 @@ public partial class Player : CharacterBody3D
 		// armor / health had to give). DoT hits route into the per-second
 		// accumulator so a fast-ticking burn / poison zone emits one rolled-up
 		// number per second; single hits fire onDamage immediately.
-		float totalShown = armorAbsorbed + Mathf.Max(0f, incomingDamage);
+		float totalShown = blockAbsorbed + armorAbsorbed + Mathf.Max(0f, incomingDamage);
 		if (totalShown > 0f)
 		{
 			if (hit.dot)
@@ -2018,6 +2034,12 @@ public partial class Player : CharacterBody3D
 			float p = Mathf.Clamp(pierce, 0f, 1f);
 			float bypassed = damage * p;
 			float absorbable = damage - bypassed;
+			// Charging guard soaks the absorbable slice before central armor,
+			// and any mid-charge DoT tick re-arms its recharge delay. Blunt
+			// isn't modeled on status ticks, so the chip is unscaled here.
+			// Status ticks don't interrupt actions, so querying the guard at
+			// the call site is safe (no TryInterrupt ordering concern).
+			AbsorbWeaponBlock(GetChargingBlockWeapon(), ref absorbable, 0f);
 			float armorDamage = absorbable;
 			if (_armor > 0f && armorDamage > 0f)
 			{
@@ -2550,6 +2572,82 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// The weapon whose block-armor guard is currently live — non-null only
+	// while the player is charging a weapon that carries a block pool. The
+	// guard is "active" (absorbs damage) only during the Charging phase; it
+	// still recharges between charges (TickBlockArmor) so it's topped up for
+	// the next one.
+	private WeaponState GetChargingBlockWeapon()
+	{
+		if (_runner == null || !_runner.IsBusy || _runner.Phase != EActionPhase.Charging)
+		{
+			return null;
+		}
+		if (_runner.Current.context.primaryItem is WeaponState weapon
+			&& weapon.data != null && weapon.data.blockArmor > 0f)
+		{
+			return weapon;
+		}
+		return null;
+	}
+
+	// Routes the armor-touchable slice of an incoming hit through the charging
+	// weapon's guard before the player's central armor. While the guard has
+	// any charge it eats the WHOLE absorbable slice (zeroing `absorbable` so
+	// the central-armor block downstream sees nothing) and reports how much
+	// the pool actually lost for HUD feedback. Re-arms the weapon's recharge
+	// delay on every mid-charge hit — even a fully-pierced hit with no
+	// absorbable slice, and even when the pool is already empty — so a player
+	// taking fire can't regenerate their guard. No-op when not charging a
+	// guard-bearing weapon.
+	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
+	{
+		if (weapon == null)
+		{
+			return 0f;
+		}
+		ulong now = _world?.GameTimeMs ?? 0;
+		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
+		if (weapon.blockArmor <= 0f || absorbable <= 0f)
+		{
+			return 0f;
+		}
+		float blockDamage = absorbable * (1f + blunt);
+		float before = weapon.blockArmor;
+		weapon.blockArmor = Mathf.Max(0f, before - blockDamage);
+		absorbable = 0f;
+		return before - weapon.blockArmor;
+	}
+
+	// Per-tick recharge of every equipped weapon's block-armor guard. Mirrors
+	// TickArmor but keyed off the weapon's own (independent) recharge stats and
+	// driven for both weapon slots so a guard refills whether or not it's the
+	// one being charged. No depletion fx — the HUD bar carries the feedback.
+	private void TickBlockArmor(float dt)
+	{
+		ulong now = _world?.GameTimeMs ?? 0;
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now, dt);
+		TickWeaponBlockArmor(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now, dt);
+	}
+
+	private static void TickWeaponBlockArmor(WeaponState weapon, ulong now, float dt)
+	{
+		if (weapon?.data == null)
+		{
+			return;
+		}
+		float max = weapon.data.blockArmor;
+		if (max <= 0f || weapon.blockArmor >= max)
+		{
+			return;
+		}
+		if (now < weapon.blockArmorRechargeStartMs)
+		{
+			return;
+		}
+		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + weapon.data.blockArmorRechargeSpeed * dt);
+	}
+
 	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0
 	// or less always pass.
 	public bool HasStamina(float amount)
@@ -2733,6 +2831,7 @@ public partial class Player : CharacterBody3D
 		UpdateWaterState();
 		UpdateSprintState();
 		TickArmor(dt);
+		TickBlockArmor(dt);
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
