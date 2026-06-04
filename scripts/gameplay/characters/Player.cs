@@ -13,6 +13,10 @@ public enum EWaterState
 public partial class Player : CharacterBody3D
 {
 	[Export] public PlayerData data;
+	// The character's display name (stats panel, etc.), set from
+	// PlayerSpawnData.playerName at Initialize. Defaults to a placeholder so the
+	// UI always has something to show even before / without spawn data.
+	public string PlayerName { get; private set; } = "Wyatt Anderson";
 	[Export] public Area3D interactArea;
 	// World-space anchor (head height) used to project a screen-space point
 	// above the player for HUD elements that float over the character — e.g.
@@ -2228,11 +2232,21 @@ public partial class Player : CharacterBody3D
 			data.scentStampInterval, data.scentStampMoveDistance, data.scentMaxCrumbs);
 		_health = MaxHealth;
 
+		// Adopt the spawned character's name (blank keeps the default).
+		if (!string.IsNullOrEmpty(spawnData?.playerName))
+		{
+			PlayerName = spawnData.playerName;
+		}
+
 		// Select the base model for the spawned gender, then activate the live
 		// visual. Must run before UpdateArmorVisual below, which drives the
 		// active model's mesh set.
 		_activeModelAnimator = ResolveGenderModel(spawnData?.gender ?? EGender.Female);
 		ActivateVisual();
+		// Resolve + apply the modular appearance (skin tone, hair color, hair
+		// style) before inventory seeding so the styled hair mesh is known the
+		// first time the armor compositor runs.
+		ApplyAppearance(spawnData);
 
 		if (spawnData != null)
 		{

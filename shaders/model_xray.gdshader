@@ -44,6 +44,11 @@ instance uniform float visibility : hint_range(0.0, 1.0) = 1.0;
 // instance-uniform indices aligned with the base pass.
 instance uniform float silhouette_amount : hint_range(0.0, 1.0) = 0.0;
 instance uniform vec3 silhouette_tint : source_color = vec3(0.0);
+// Not read here (the X-ray cue is a flat black silhouette, never recolored) but
+// declared in the same position as model_lit_body.gdshaderinc so the shared
+// instance-uniform indices stay aligned across the base + this next_pass.
+instance uniform vec3 recolor : source_color = vec3(1.0);
+instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
 // === xray-only uniforms below — must follow all shared names ===
 // Per-instance fade for the X-ray. Mobs leave this at 1 (silhouette always on
 // whenever occluded); an InteractiveXray-style driver can gate 0→1→0 so a mesh

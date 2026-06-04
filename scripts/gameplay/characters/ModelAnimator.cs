@@ -210,6 +210,37 @@ public partial class ModelAnimator : Node, IActorAnimator
         }
     }
 
+    // Palette-recolor the named meshes to a flat tone via the `recolor` /
+    // `recolor_amount` instance uniforms on model_lit (see the shader include).
+    // Per-instance so skin meshes and the hair mesh can take different colors
+    // while sharing the one model material; meshes not named here keep their
+    // inert defaults (amount 0 = untouched). The player's modular-appearance
+    // hook — skin tone on the body/face meshes, hair color on the live hair
+    // style — applied once at spawn from Player. Names match the FBX node names.
+    public void SetMeshRecolor(string[] meshNames, Color color)
+    {
+        if (meshNames == null || meshNames.Length == 0)
+        {
+            return;
+        }
+        // A vec3 source_color instance uniform takes a Vector3 (R,G,B), matching
+        // SpriteBase's silhouette_tint push — not a Color Variant.
+        Vector3 rgb = new(color.R, color.G, color.B);
+        for (int i = 0; i < _meshes.Count; i++)
+        {
+            MeshInstance3D mesh = _meshes[i];
+            if (mesh == null)
+            {
+                continue;
+            }
+            if (Array.IndexOf(meshNames, mesh.Name.ToString()) >= 0)
+            {
+                mesh.SetInstanceShaderParameter("recolor", rgb);
+                mesh.SetInstanceShaderParameter("recolor_amount", 1f);
+            }
+        }
+    }
+
     public bool HasAnimation(StringName name)
     {
         return player != null && name != default && player.HasAnimation(name);

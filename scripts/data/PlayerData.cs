@@ -453,4 +453,78 @@ public partial class PlayerData : Resource
 	// There is no passive decay — only getting the piece wet (rain or water)
 	// scrubs it clean, and it need not be worn to be washed.
 	[Export(PropertyHint.Range, "0.1,30,0.1,or_greater")] public float dirtyDaysToFull = 3f;
+
+	[ExportGroup("Appearance")]
+	// Palettes the character's modular look is picked from. PlayerSpawnData
+	// stores the chosen INDEX into each (skinTone / hairColor / hairStyle), so a
+	// spawn / character-creation choice is a small int and the menu of options
+	// lives here as authored data. Colors feed the model's per-instance `recolor`
+	// uniform (flat tone replace, see model_lit_body.gdshaderinc); the hair style
+	// names a hair MeshInstance3D on the rig to show. Defaults give a usable
+	// spread out of the box and are fully overridable in the inspector.
+	//
+	// Skin tones recolor the face + bare body meshes (see PlayerArmorVisual).
+	[Export] public Color[] skinTones =
+	{
+		new Color(0.96f, 0.80f, 0.69f), // pale
+		new Color(0.91f, 0.71f, 0.56f), // light
+		new Color(0.80f, 0.58f, 0.42f), // tan
+		new Color(0.55f, 0.38f, 0.26f), // brown
+		new Color(0.36f, 0.24f, 0.17f), // deep
+	};
+	// Hair colors recolor whichever hair-style mesh is shown.
+	[Export] public Color[] hairColors =
+	{
+		new Color(0.10f, 0.09f, 0.10f), // black
+		new Color(0.26f, 0.17f, 0.10f), // dark brown
+		new Color(0.45f, 0.30f, 0.17f), // brown
+		new Color(0.85f, 0.68f, 0.39f), // blonde
+		new Color(0.55f, 0.24f, 0.12f), // auburn
+		new Color(0.62f, 0.62f, 0.64f), // grey
+	};
+	// Hair styles as the rig hair-mesh name to show when no head armor is worn.
+	// These are BasicHero_F (Female) rig names; the per-gender rig swap (the male
+	// rig's M_* equivalents) lands with the male model, alongside the other
+	// female-rig mesh constants in PlayerArmorVisual. An empty / out-of-range
+	// pick resolves to "no hair mesh" (bald) rather than erroring.
+	[Export] public string[] hairStyles =
+	{
+		"F_hair_1", "F_hair_2", "F_hair_3", "F_hair_4",
+		"F_hair_5", "F_hair_6", "F_hair_7", "F_hair_8",
+	};
+
+	// Resolve a palette color by index, clamping out-of-range picks to the first
+	// entry (and a hard-coded grey when the palette itself is empty) so a bad
+	// authored index can never crash spawn — it just reads as a default look.
+	public Color GetSkinTone(int index)
+	{
+		return PaletteColor(skinTones, index);
+	}
+
+	public Color GetHairColor(int index)
+	{
+		return PaletteColor(hairColors, index);
+	}
+
+	private static Color PaletteColor(Color[] palette, int index)
+	{
+		if (palette == null || palette.Length == 0)
+		{
+			return new Color(0.7f, 0.7f, 0.7f);
+		}
+		return palette[Mathf.Clamp(index, 0, palette.Length - 1)];
+	}
+
+	// Resolve the hair-style mesh name by index. Out-of-range (or empty palette)
+	// returns null = no hair mesh shown (bald), which the visibility compositor
+	// handles as an empty bare-head set.
+	public string GetHairStyleMesh(int index)
+	{
+		if (hairStyles == null || hairStyles.Length == 0
+			|| index < 0 || index >= hairStyles.Length)
+		{
+			return null;
+		}
+		return hairStyles[index];
+	}
 }

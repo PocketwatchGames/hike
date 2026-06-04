@@ -39,6 +39,12 @@ public partial class PlayerStatsPanel : PanelContainer
 			ClearStatPanels();
 			return;
 		}
+		// Name is fixed for the run, so set it once here rather than every
+		// per-frame Refresh.
+		if (_nameLabel != null)
+		{
+			_nameLabel.Text = player.PlayerName;
+		}
 		Refresh();
 	}
 
