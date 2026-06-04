@@ -15,11 +15,10 @@ public class WeaponState : ItemState
 	// Live block-armor guard pool + its recharge-delay gate. Capacity and
 	// recharge tuning live on WeaponData (blockArmor / blockArmorRechargeDelay
 	// / blockArmorRechargeSpeed); this is the current pool plus the game-time
-	// at which recharge may resume. The whole guard is scoped to holding this
-	// weapon's charge: it only absorbs damage, arms its delay on a hit, and
-	// refills while the player is charging (Player.OnHurtBoxHit /
-	// TickBlockArmor). Outside the charge the pool sits frozen. Starts full so
-	// a freshly-equipped weapon guards on its first charge.
+	// at which recharge may resume. Only absorbs damage while the player is
+	// charging this weapon (Player.OnHurtBoxHit), but recharges continuously
+	// once the delay elapses so the guard is ready for the next charge. Starts
+	// full so a freshly-equipped weapon guards on its first charge.
 	public float blockArmor;
 	public ulong blockArmorRechargeStartMs;
 
