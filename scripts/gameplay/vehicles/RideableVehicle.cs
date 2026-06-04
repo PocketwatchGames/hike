@@ -19,6 +19,13 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
     [Export] protected Node3D _seatAnchor;
     [Export] protected Node3D _hudNode;
 
+    // Drives the vehicle's visual the same way Player/Mob do: camera-relative
+    // 8-direction yaw faceting + stepped (quantized) animation playback, so the
+    // hull reads like the game's pixel-art sprites. The body (this CharacterBody3D)
+    // keeps its smooth physics yaw; only the model child it points at is faceted.
+    // Optional — a vehicle without a model visual just leaves it null.
+    [Export] protected ModelAnimator _modelAnimator;
+
     // Authored interactions — typically a single Board entry whose
     // completionEvents fire [OpenInteractive] to mount the rider.
     [Export] protected Array<InteractiveAction> _actions = new();
@@ -51,6 +58,15 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
 
     // Subclasses override with their propulsion test (default: never).
     public virtual bool IsPropelling => false;
+
+    public override void _Ready()
+    {
+        // ModelAnimator defaults to inactive (visual hidden, _Process off) until
+        // its owner picks it as the live visual — Player/Mob do this in their own
+        // _Ready. A vehicle always shows its model, so activate it here. This
+        // turns on the faceting / quantization passes for the hull.
+        _modelAnimator?.SetActive(true);
+    }
 
     public virtual void OnSpawned(World world)
     {

@@ -52,10 +52,33 @@ from `_ExitTree`).
 3. `HorseSimState : EntitySimState` → `CreateEntity` calls `Horse.Create`.
 4. Append a `Tag.Horse` to `EntitySerializer` (never reuse numbers) with
    write/read cases.
-5. Author the scene: `CharacterBody3D (Horse)` + hull collision + a placeholder
-   visual + `SeatAnchor` + `HUDNode` + an `InteractiveBox` (layer Interactive,
-   `_interactiveNode = ..`) + the Board `InteractiveAction`. Wire the data `.tres`.
+5. Author the scene: `CharacterBody3D (Horse)` + hull collision + a visual model
+   under a single `Node3D` child + a `ModelAnimator` (`visual` = that child,
+   wired to `_modelAnimator` so it faceting/quantizes like the boat) + `SeatAnchor`
+   + `HUDNode` + an `InteractiveBox` (layer Interactive, `_interactiveNode = ..`)
+   + the Board `InteractiveAction`. Wire the data `.tres`.
 6. Add `EAnimation` seated slots and map them in each rider's `PlayerData.animations`.
+
+## Vehicle visual: yaw faceting + animation quantization
+
+The hull reads like the game's pixel-art sprites the same way Player and model
+mobs do — through a shared `ModelAnimator`. `RideableVehicle` carries an optional
+`[Export] _modelAnimator` and calls `SetActive(true)` on it in `_Ready` (the
+animator defaults inactive, since Player/Mob normally pick which of two visuals
+is live; a vehicle always shows its model). `ModelAnimator` then runs its two
+stylization passes on the visual node: camera-relative yaw snapped to 8 facets
+and stepped (`quantizeFps`) playback. Only the **visual child** is faceted — the
+`CharacterBody3D` root keeps its smooth physics yaw for travel/steering, exactly
+like the player body vs. `PlayerModel`.
+
+Scene shape: the hull meshes live under a single `BoatModel` `Node3D` (the
+animator's `visual`); its parent is the `Boat` root, whose yaw is the "true"
+heading the facet snaps relative to. The rider sits on `SeatAnchor` (also on the
+smooth-yaw root), and the rider's own `ModelAnimator` facets against the same
+root yaw and camera, so rider and hull snap to the same octant in lockstep.
+The boat has no `AnimationPlayer` of its own yet (placeholder box), so the
+quantization pass is dormant (no clip playing) until real boat art adds one —
+the wiring is already in place for it.
 
 ## Boat physics (`Boat.cs`)
 
