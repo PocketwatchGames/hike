@@ -42,7 +42,8 @@ script = ExtResource("5_berry_entry")
 Scene = ExtResource("11_berry_scene")
 BerryCountMin = 3
 BerryCountMax = 6
-SquareMetersPerSpawn = 100.0
+SquareMetersPerSpawn = 300.0
+MinSpacing = 4.0
 
 [sub_resource type="Resource" id="Resource_well"]
 script = ExtResource("13_well_entry")
@@ -60,7 +61,7 @@ metadata/_custom_type_script = "uid://dhkkrl6qof485"
 [sub_resource type="Resource" id="Resource_climbtree"]
 script = ExtResource("15_climb_entry")
 Scene = ExtResource("16_climb_scene")
-SquareMetersPerSpawn = 250.0
+SquareMetersPerSpawn = 800.0
 
 [resource]
 script = ExtResource("1_list")

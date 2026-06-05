@@ -44,6 +44,8 @@ public static class StatModifierUtil
 		{
 			case EStat.Camouflage:
 			case EStat.MaxStamina:
+			case EStat.MaxHealth:
+			case EStat.MaxArmor:
 			case EStat.ColdResist:
 			case EStat.HeatResist:
 				return true;

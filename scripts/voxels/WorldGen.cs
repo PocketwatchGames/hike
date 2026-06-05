@@ -297,6 +297,7 @@ public static class WorldGen
     private const int SEED_SALT_ELEVATION = 0x0A;
     private const int SEED_SALT_PROPS   = 0x0B;
     private const int SEED_SALT_SIGNPOST = 0x0C;
+    private const int SEED_SALT_FIXTURE = 0x0D;
 
     // Stable, process-independent mix of three ints. System.HashCode.Combine
     // seeds itself with a process-random salt, so it would re-randomize
@@ -579,13 +580,40 @@ public static class WorldGen
         int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
         int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
 
-        // One-off friendly villager placed deep in the mountain zone (the NE
+        // Pick a flat, dry land column in the same quadrant as (cx, cz) so a
+        // one-off fixture doesn't land on a ramp face or in water. Just rolls
+        // random columns in the quadrant until one is flat-and-dry, capped at
+        // MaxTries, then falls back to the target. The quadrant bounds (split
+        // at X=0 / Z=0, matching PickZoneIndex) keep the fixture in its zone.
+        // Temporary, like the fixtures themselves — replace with authored
+        // placement once the editor lands.
+        var fixtureRng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
+        Vector3I FindFlatDryInZone(int cx, int cz)
+        {
+            int xLo = cx >= 0 ? 0 : stoneWorldMinX;
+            int xHi = cx >= 0 ? stoneWorldMaxX : -1;
+            int zLo = cz >= 0 ? 0 : stoneWorldMinZ;
+            int zHi = cz >= 0 ? stoneWorldMaxZ : -1;
+            const int MaxTries = 256;
+            for (int i = 0; i < MaxTries; i++)
+            {
+                int x = fixtureRng.Next(xLo, xHi + 1);
+                int z = fixtureRng.Next(zLo, zHi + 1);
+                if (IsFlatTerrainAt(x, z, heightMap))
+                {
+                    return new Vector3I(x, 0, z);
+                }
+            }
+            return new Vector3I(cx, 0, cz);
+        }
+
+        // One-off friendly villager placed in the mountain zone (the NE
         // quadrant — chunk X >= 0, Z >= 0; see PickZoneIndex) so the new
         // IInteractive/Talk plumbing has a concrete target without requiring an
-        // editor placement. Snaps to the heightmap so the villager sits on the
-        // ground regardless of terrain noise. Temporary test fixture — fold
-        // into a proper NPC population pass once authored villager spawn rules
-        // exist.
+        // editor placement. The (X, Z) below only selects the quadrant —
+        // FindFlatDryInZone then rolls a flat, dry column within it. Temporary
+        // test fixture — fold into a proper NPC population pass once authored
+        // villager spawn rules exist.
         const int VillagerSpawnX = 32;
         const int VillagerSpawnZ = 32;
         if (genData.NearSpawnVillagerData != null
@@ -594,8 +622,9 @@ public static class WorldGen
             && VillagerSpawnZ >= stoneWorldMinZ && VillagerSpawnZ <= stoneWorldMaxZ)
         {
             MobData villagerData = genData.NearSpawnVillagerData;
-            int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
-            var pos = new Vector3(VillagerSpawnX + 0.5f, sy + 1.5f, VillagerSpawnZ + 0.5f);
+            Vector3I spot = FindFlatDryInZone(VillagerSpawnX, VillagerSpawnZ);
+            int sy = heightMap.GetHeight(spot.X, spot.Z);
+            var pos = new Vector3(spot.X + 0.5f, sy + 1.5f, spot.Z + 0.5f);
             var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
             // The villager test fixture speaks the same language the
             // KnowledgeStone fixtures teach, so reading the stones
@@ -654,8 +683,9 @@ public static class WorldGen
             {
                 if (sx < stoneWorldMinX || sx > stoneWorldMaxX
                     || sz < stoneWorldMinZ || sz > stoneWorldMaxZ) { continue; }
-                int sy = heightMap.GetHeight(sx, sz);
-                var pos = new Vector3(sx + 0.5f, sy + 1f, sz + 0.5f);
+                Vector3I spot = FindFlatDryInZone(sx, sz);
+                int sy = heightMap.GetHeight(spot.X, spot.Z);
+                var pos = new Vector3(spot.X + 0.5f, sy + 1f, spot.Z + 0.5f);
                 // Wrap the per-fixture (language, component) pair in a
                 // LanguageTeachable so the stone runs through the unified
                 // TeachableConcept path. Resource is constructed transient
@@ -2838,6 +2868,11 @@ public static class WorldGen
 
         var treedCells = new HashSet<(int, int)>();
 
+        // One reusable palette refilled per cell (via WeightedScene.Fill) for
+        // both the tree and tall-grass passes — avoids allocating a WeightedList
+        // for every scattered prop.
+        var scenePalette = new WeightedList<PackedScene>();
+
         bool TryPlaceTree(int localX, int localZ)
         {
             if (treedCells.Contains((localX, localZ)))
@@ -2852,12 +2887,12 @@ public static class WorldGen
             }
             int sy = SurfaceYAt(wx, wz);
             TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-            PackedScene[] cellTreeScenes = cellKit?.TreeScenes;
-            if (cellTreeScenes == null || cellTreeScenes.Length == 0)
+            WeightedScene.Fill(scenePalette, cellKit?.TreeScenes);
+            if (scenePalette.Count == 0)
             {
                 return false;
             }
-            PackedScene scene = cellTreeScenes[rng.Next(cellTreeScenes.Length)];
+            PackedScene scene = scenePalette.Choose(rng);
             if (scene == null)
             {
                 return false;
@@ -2935,12 +2970,12 @@ public static class WorldGen
 
                     int sy = SurfaceYAt(wx, wz);
                     TerrainKitData cellKit = ResolveKit(ws.GetTerrainIdWorld(wx, sy, wz));
-                    PackedScene[] cellGrassScenes = cellKit?.TallGrassScenes;
-                    if (cellGrassScenes == null || cellGrassScenes.Length == 0)
+                    WeightedScene.Fill(scenePalette, cellKit?.TallGrassScenes);
+                    if (scenePalette.Count == 0)
                     {
                         continue;
                     }
-                    PackedScene grassScene = cellGrassScenes[rng.Next(cellGrassScenes.Length)];
+                    PackedScene grassScene = scenePalette.Choose(rng);
                     if (grassScene == null)
                     {
                         continue;

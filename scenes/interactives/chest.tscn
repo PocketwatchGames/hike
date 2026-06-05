@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
 [ext_resource type="PackedScene" uid="uid://dfvpiex5fijps" path="res://assets/models/chest/Treasure_Chest_Base_01.fbx" id="11_body"]
 [ext_resource type="PackedScene" uid="uid://nw4vqfkd6xqt" path="res://assets/models/chest/Treasure_Chest_lid_01.fbx" id="12_lid"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
 
 [sub_resource type="Resource" id="Resource_chest_event_open"]
 script = ExtResource("5_event")
@@ -98,3 +99,8 @@ _collectFrom = NodePath("../ChestVisual")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=692065589]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots", "_discoverable")]
+script = ExtResource("13_xray")
+_meshRoots = [NodePath("../ChestVisual")]
+_discoverable = NodePath("../Discoverable")

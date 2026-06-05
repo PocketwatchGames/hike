@@ -51,7 +51,7 @@ metadata/_custom_type_script = "uid://dhkkrl6qof485"
 [sub_resource type="Resource" id="Resource_climbtree"]
 script = ExtResource("12_climb_entry")
 Scene = ExtResource("13_climb_scene")
-SquareMetersPerSpawn = 500.0
+SquareMetersPerSpawn = 1000.0
 
 [resource]
 script = ExtResource("1_list")

@@ -651,6 +651,22 @@ public partial class Mob
                 {
                     target.triggered = true;
                 }
+                // Once alerted, strong-enough sensory contact — sight, hearing,
+                // or smell — refreshes the fix on the player to its true
+                // position, not just direct line of sight. Hearing/smell aren't
+                // directional, but an alerted mob that can still clearly sense
+                // the player should keep turning to face it (BehaviorAttack
+                // drives yaw from lastKnownPosition while canSee is false). The
+                // PerceptionThresholdTrack gate (higher than MinPerceptionDelta)
+                // means faint edge-of-range contact sustains the alert but
+                // doesn't snap facing — only contact strong enough to "track"
+                // turns the mob. Breaking all sensory contact below
+                // MinPerceptionDelta drops into the decay branch where triggered
+                // eventually clears.
+                if (target.triggered && perceptionDelta > mobData.PerceptionThresholdTrack)
+                {
+                    target.lastKnownPosition = _world.player.GlobalPosition;
+                }
             }
             else
             {

@@ -53,9 +53,9 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
 type = 65601
-animName = 20
 meleeRange = 1.5
 meleeRadius = 2.5
+animName = 20
 cameraShakeMagnitude = 0.25
 cameraShakeDuration = 0.18
 impactEnvironmentEffect = ExtResource("7_hitsolid")

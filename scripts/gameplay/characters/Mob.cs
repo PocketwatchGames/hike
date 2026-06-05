@@ -395,6 +395,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // window — short pops off geometry while running don't earn the anim.
     private ulong _airborneStartMs;
 
+    // Game-time at which the mob first went "intent-moving but pinned" — the
+    // navigator still wants to move yet the body is sitting at ~0 speed. Cleared
+    // the moment it makes progress (or stops wanting to move). Gates the
+    // run-in-place masking behind a grace window so a brief jam against a wall
+    // keeps the run anim, but a goblin genuinely wedged against the player / a
+    // prop / an unreachable encircle slot falls back to idle instead of running
+    // forever in place.
+    private ulong _intentStuckStartMs;
+
     public static Mob Create(World world, MobSimState data)
     {
         var instance = data.Scene.Instantiate<Mob>();
@@ -445,25 +454,43 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         if (_animator != null)
         {
+            // Sprites drive footfalls off frame indices (OnFrameAdvanced); the
+            // 3D model can instead fire them from authored method-call tracks
+            // (OnFootstep) when its useFootstepTracks flag is set. Subscribe to
+            // both — only the active animator's mechanism actually emits.
             _animator.OnFrameAdvanced += OnAnimFrameAdvanced;
+            if (use3d)
+            {
+                _modelAnimator.OnFootstep += EmitFootstep;
+            }
         }
     }
 
-    // Footstep / footprint emission is driven by the sprite animator instead
-    // of distance travelled. The animator fires this whenever its frame
-    // changes; we look up the current animation in _footstepFrames and emit
-    // when the frame index matches an authored footfall. Skip while in
-    // water (the wading ripple covers it). The mob_footstep_fx CVar gates
-    // the audible/visible FX puff for perf bisection; the perception gate
-    // suppresses footsteps the player has no awareness of. Footprints are
-    // always laid (subject to the discoverability gate) regardless of CVar.
+    // Sprite-animator footfall hook: fired whenever the sprite frame changes;
+    // we look up the current animation in _footstepFrames and emit when the
+    // frame index matches an authored footfall. The 3D model takes the
+    // keyframe-accurate route instead (EmitFootstep via a method-call track).
     private void OnAnimFrameAdvanced(StringName anim, int frame)
     {
-        if (_world == null || _footstepFrames == null)
+        if (_footstepFrames == null)
         {
             return;
         }
-        if (!FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+        if (FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+        {
+            EmitFootstep();
+        }
+    }
+
+    // Spawn one footstep + footprint at the current foot position. Shared by
+    // the sprite frame-match path and the model's method-call track. Skip while
+    // in water (the wading ripple covers it). The mob_footstep_fx CVar gates
+    // the audible/visible FX puff for perf bisection; the perception gate
+    // suppresses footsteps the player has no awareness of. Footprints are
+    // always laid (subject to the discoverability gate) regardless of CVar.
+    private void EmitFootstep()
+    {
+        if (_world == null)
         {
             return;
         }
@@ -541,10 +568,33 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // frame. _Ready ran during AddChild above, so _hurtBoxShape is
             // resolved by now.
             ApplyEliteScale();
+            // Shared elite buff applied to every elite regardless of zone. It's
+            // categorized Permanent (not Elite), so it never collides with the
+            // zone signature effect that MobHUD surfaces as the elite icon.
+            StatusEffectData sharedElite = _world?.SimData?.EliteStatusEffect;
+            if (sharedElite != null)
+            {
+                _statusEffects.Add(sharedElite);
+            }
+            // Zone-specific signature effect (the one MobHUD shows as the icon).
             if (_simState.EliteStatusEffect != null)
             {
                 _statusEffects.Add(_simState.EliteStatusEffect);
             }
+        }
+
+        // Finalize vitals now that every spawn-time modifier is in place —
+        // inherent MobData.modifiers plus any elite status effects added just
+        // above — so a freshly-spawned mob (elites included) starts at its full
+        // modified max. Mobs store MaxHealth rather than recomposing it per
+        // access (unlike the player), so this is the one point those MaxHealth/
+        // MaxArmor bonuses fold into the pool. A mob loaded from save keeps the
+        // Health / MaxHealth / Armor it was persisted with.
+        if (!_simState.RestoredFromSave)
+        {
+            _simState.MaxHealth = mobData.maxHealth + ComposeStat(EStat.MaxHealth);
+            _simState.Health = _simState.MaxHealth;
+            _simState.Armor = mobData.maxArmor + ComposeStat(EStat.MaxArmor);
         }
     }
 
@@ -738,6 +788,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             product = StatModifierUtil.FoldMask(mask, mobData.modifiers, product);
         }
         product = _statusEffects?.FoldMask(mask, product) ?? product;
+        // Per-species Dizzy resistance (MobData.dizzyResistance). The buildup
+        // feed scales by this product, so dividing by the resistance means a
+        // resistance of 2 needs twice the buildup to land Dizzy. Only bites the
+        // Dizzy buildup path — Dizzy isn't in DamageScaleTags, so no damage-
+        // scaling site ever composes this mask.
+        if ((mask & EStat.Dizzy) != 0 && mobData != null && mobData.dizzyResistance > 0f)
+        {
+            product /= mobData.dizzyResistance;
+        }
         return product;
     }
 
@@ -1129,6 +1188,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // small ledges or being shoved by another mob flickers the fall
             // anim for a frame.
             ulong now = _world?.GameTimeMs ?? 0;
+
+            // Stuck-grace on the run-in-place masking. intentMoving deliberately
+            // keeps Run playing while a pursuing mob is momentarily jammed
+            // (collision zeroes LinearVelocity but the navigator hasn't arrived).
+            // If the body stays pinned at ~0 speed past the grace window it's
+            // genuinely wedged — drop intentMoving so the velocity-driven pick
+            // below falls back to Idle instead of running forever in place.
+            if (intentMoving && horizSpeedSq < StuckRunSpeedSq)
+            {
+                if (_intentStuckStartMs == 0)
+                {
+                    _intentStuckStartMs = now;
+                }
+                else if (now - _intentStuckStartMs >= StuckRunGraceMs)
+                {
+                    intentMoving = false;
+                }
+            }
+            else
+            {
+                _intentStuckStartMs = 0;
+            }
             bool fallingFast = vel.Y < -mobData.fallEnterSpeed;
             if (fallingFast)
             {
@@ -1229,6 +1310,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // every other frame.
     const float MoveLoopEnterSpeedSq = 0.01f;     // 0.1 m/s
     const float MoveLoopExitSpeedSq = 0.0001f;    // 0.01 m/s
+    // A mob with an active nav goal moving slower than this counts as pinned,
+    // not progressing — feeds the run-in-place stuck-grace in UpdateAnimation.
+    const float StuckRunSpeedSq = 0.0025f;        // 0.05 m/s
+    // How long a pinned-but-intent-moving mob tolerates the run anim before it
+    // drops to idle. Long enough to ride out a momentary collision bump, short
+    // enough that a genuinely wedged mob stops running on the spot promptly.
+    const ulong StuckRunGraceMs = 300;
     private EAnimation PickMoveLoop(float speedSq, bool intentMoving, EAnimation moveAnim, EAnimation idleAnim)
     {
         if (intentMoving || speedSq > MoveLoopEnterSpeedSq)

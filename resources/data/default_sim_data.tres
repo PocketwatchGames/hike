@@ -19,12 +19,14 @@
 [ext_resource type="Resource" uid="uid://bln1dat1pqrst" path="res://resources/data/weather/lightning_storm.tres" id="12_lightning"]
 [ext_resource type="Resource" uid="uid://dvbajkb2qcbeg" path="res://resources/data/actions/talk_action.tres" id="13_talk_action"]
 [ext_resource type="Resource" uid="uid://cgc48024hwymp" path="res://resources/data/actions/give_item_action.tres" id="14_give_action"]
+[ext_resource type="Resource" uid="uid://4i71qwhti0ki" path="res://resources/data/status_effects/status_elite_standard.tres" id="15_elite_std"]
 
 [resource]
 script = ExtResource("1_1meao")
 Gravity = 50.0
 Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk_hi"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg_hi"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_cure")])
 Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
+EliteStatusEffect = ExtResource("15_elite_std")
 TalkAction = ExtResource("13_talk_action")
 GiveItemAction = ExtResource("14_give_action")
 SunMaxElevationDegrees = 65.0

@@ -349,6 +349,8 @@ public static class StatList
 			EStat.FootprintDuration => EStatName.FootprintDuration,
 			EStat.Camouflage => EStatName.Camouflage,
 			EStat.MaxStamina => EStatName.MaxStamina,
+			EStat.MaxArmor => EStatName.Armor,
+			EStat.MaxHealth => EStatName.Health,
 			EStat.ColdResist => EStatName.ColdResist,
 			EStat.HeatResist => EStatName.HeatResist,
 			_ => EStatName.Damage,

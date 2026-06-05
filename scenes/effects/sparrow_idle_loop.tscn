@@ -1,0 +1,32 @@
+[gd_scene format=3 uid="uid://dpu1gi2nvshf2"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://cacqb0uwjgkv8" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_01.wav" id="2_i01"]
+[ext_resource type="AudioStream" uid="uid://ccc1v48sqg25p" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_02.wav" id="2_i02"]
+[ext_resource type="AudioStream" uid="uid://s0fjlmc5ubi" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_03.wav" id="2_i03"]
+[ext_resource type="AudioStream" uid="uid://dxd15p04f45yd" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_song_01.wav" id="2_song"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_idle"]
+playback_mode = 1
+random_pitch = 1.15
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_i01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_i02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_i03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_song")
+stream_3/weight = 0.5
+
+[node name="SparrowIdleLoop" type="Node3D"]
+script = ExtResource("1_oneshot")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_idle")
+volume_db = -4.0
+unit_size = 2.5
+max_distance = 12.0
+bus = &"World3D"

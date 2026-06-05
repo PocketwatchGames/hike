@@ -40,6 +40,16 @@ uniform float damage_flash : hint_range(0.0, 1.0) = 0.0;
 uniform float low_health_desaturation : hint_range(0.0, 1.0) = 0.0;
 uniform float low_health_dim : hint_range(0.0, 1.0) = 0.0;
 
+// Heartbeat thump tint. GameClient drives `low_health_pulse` 0..1 on a
+// lub-dub cadence (faster the closer to death; decelerating to a stop on
+// death), already pre-scaled by its max. Each thump washes the
+// (desaturated) scene toward `low_health_pulse_color` — a faint blood-red
+// surge synced with the heartbeat SFX. The desaturation itself is also
+// breathed by C# (color bleeds back a touch on each thump) so the pulse
+// reads even on a fully grey screen.
+uniform float low_health_pulse : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 low_health_pulse_color : source_color = vec3(0.5, 0.0, 0.0);
+
 void fragment()
 {
 	vec3 scene;
@@ -76,6 +86,10 @@ void fragment()
 	if (low_health_dim > 0.0)
 	{
 		scene *= 1.0 - low_health_dim;
+	}
+	if (low_health_pulse > 0.0)
+	{
+		scene = mix(scene, low_health_pulse_color, low_health_pulse);
 	}
 
 	if (damage_flash > 0.0)

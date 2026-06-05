@@ -456,15 +456,23 @@ public partial class WorldEditor : Node3D
         // KunKun load their MobData directly so the editor doesn't depend on
         // them being authored into a spawn list.
         TerrainKitData cursorKit = ResolveKitAtCursor(position);
-        PackedScene[] treeScenes = cursorKit?.TreeScenes ?? System.Array.Empty<PackedScene>();
-        PackedScene[] tallGrassScenes = cursorKit?.TallGrassScenes ?? System.Array.Empty<PackedScene>();
         ZoneGenData firstZone = worldGenData.Zones != null && worldGenData.Zones.Length > 0 ? worldGenData.Zones[0] : null;
         switch (entityName)
         {
             case "Tree":
-                return treeScenes.Length > 0 ? new PropSimState(PropType.Tree, position, treeScenes[(int)(GD.Randi() % treeScenes.Length)]) : null;
+            {
+                WeightedList<PackedScene> treeChances = WeightedScene.BuildList(cursorKit?.TreeScenes);
+                return treeChances.Count > 0
+                    ? new PropSimState(PropType.Tree, position, treeChances.Choose(GD.Randf() * treeChances.TotalWeight))
+                    : null;
+            }
             case "TallGrass":
-                return tallGrassScenes.Length > 0 ? new PropSimState(PropType.Foliage, position, tallGrassScenes[(int)(GD.Randi() % tallGrassScenes.Length)]) : null;
+            {
+                WeightedList<PackedScene> grassChances = WeightedScene.BuildList(cursorKit?.TallGrassScenes);
+                return grassChances.Count > 0
+                    ? new PropSimState(PropType.Foliage, position, grassChances.Choose(GD.Randf() * grassChances.TotalWeight))
+                    : null;
+            }
             case "Loot":
             {
                 LootSpawnEntry loot = FindFirstSurfaceEntry<LootSpawnEntry>(firstZone);

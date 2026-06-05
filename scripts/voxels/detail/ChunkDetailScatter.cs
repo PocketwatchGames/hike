@@ -71,9 +71,10 @@ public static class ChunkDetailScatter
         // chunks into one MultiMesh per entry.
         var buckets = new Dictionary<DetailEntry, List<InstanceData>>();
 
-        // Cumulative-weight scratch reused per group so we don't re-allocate
-        // per voxel. Sized lazily to the largest group seen.
-        float[] cumulativeWeights = null;
+        // Weighted-pick palette reused per voxel (refilled from each voxel's
+        // group) so the scatter doesn't allocate per voxel. Clear() keeps the
+        // backing buffer between voxels.
+        var palette = new WeightedList<DetailEntry>();
 
         Vector3I chunkCoord = data.ChunkCoord;
         int chunkWx = chunkCoord.X * ChunkState.SIZE;
@@ -167,8 +168,16 @@ public static class ChunkDetailScatter
                     float groundPorosity = ResolveGroundPorosity(
                         voxelType, chunkWx + x, chunkWy + y, chunkWz + z, getTerrainId, overlayId, terrains);
 
-                    EnsureCumulativeWeights(group, ref cumulativeWeights, out float totalWeight);
-                    if (totalWeight <= 0f)
+                    palette.Clear();
+                    for (int e = 0; e < group.Entries.Count; e++)
+                    {
+                        DetailEntry de = group.Entries[e];
+                        if (de != null)
+                        {
+                            palette.Add(de, de.Weight);
+                        }
+                    }
+                    if (palette.TotalWeight <= 0f)
                     {
                         continue;
                     }
@@ -187,7 +196,8 @@ public static class ChunkDetailScatter
                         }
 
                         uint entryRoll = Hash(chunkCoord, x, y, z, slot, 1);
-                        DetailEntry entry = PickEntry(group, cumulativeWeights, totalWeight, entryRoll);
+                        float roll = ((entryRoll & 0xFFFFFF) / (float)0xFFFFFF) * palette.TotalWeight;
+                        DetailEntry entry = palette.Choose(roll);
                         if (entry == null || entry.Texture == null)
                         {
                             continue;
@@ -280,38 +290,6 @@ public static class ChunkDetailScatter
 
         BlockData block = catalog.GetByAtlasIndex(VoxelTypeInfo.GetTileForFace(voxelType, 0));
         return block != null ? block.Porosity : DEFAULT_POROSITY;
-    }
-
-    private static void EnsureCumulativeWeights(DetailGroupData group, ref float[] scratch, out float total)
-    {
-        int n = group.Entries.Count;
-        if (scratch == null || scratch.Length < n)
-        {
-            scratch = new float[n];
-        }
-        float running = 0f;
-        for (int i = 0; i < n; i++)
-        {
-            DetailEntry e = group.Entries[i];
-            float w = e != null ? Mathf.Max(0f, e.Weight) : 0f;
-            running += w;
-            scratch[i] = running;
-        }
-        total = running;
-    }
-
-    private static DetailEntry PickEntry(DetailGroupData group, float[] cumulative, float total, uint roll)
-    {
-        float r = ((roll & 0xFFFFFF) / (float)0xFFFFFF) * total;
-        int n = group.Entries.Count;
-        for (int i = 0; i < n; i++)
-        {
-            if (r <= cumulative[i])
-            {
-                return group.Entries[i];
-            }
-        }
-        return group.Entries[n - 1];
     }
 
     // FNV-1a 32-bit over the input bytes. Cheap and produces visually

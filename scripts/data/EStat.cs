@@ -59,4 +59,6 @@ public enum EStat
 	HeatResist = 1 << 23,        // additive (temperature threshold shift)
 	WetnessDryRate = 1 << 24,    // multiplicative (drying speed; <1 slows, >1 accelerates)
 	NightVision = 1 << 25,       // multiplicative (perception darkness relief; value-1 = fraction of darkness penalty removed, e.g. 1.85 = 85%)
+	MaxHealth = 1 << 26,        // additive (flat health bonus)
+	MaxArmor = 1 << 27,        // additive (flat armor bonus)
 }

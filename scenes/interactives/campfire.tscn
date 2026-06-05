@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" uid="uid://drs27nnlht6ve" path="res://assets/models/campfire/SM_Prop_Camp_Fireplace_01.fbx" id="25_logs"]
 [ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="26_lit"]
 [ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="27_doused"]
+[ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="28_xray"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -138,3 +139,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=127825040 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("23_meshhl")
 _collectFrom = NodePath("../Model")
+
+[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots")]
+script = ExtResource("28_xray")
+_meshRoots = [NodePath("../Model")]

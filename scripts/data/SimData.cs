@@ -36,6 +36,13 @@ public partial class SimData : Resource
     // can appear in the bestiary once spotted.
     [Export] public Array<MobData> Mobs = new();
 
+    // Status effect applied to every elite mob at spawn (in addition to the
+    // zone-specific signature effect drawn from ZoneData.EliteStatusEffects).
+    // Authored once here so the shared elite buff — larger health, etc. — is
+    // consistent across all zones rather than copy-pasted into every zone's
+    // pool. Null = no shared effect; elites still get their zone signature.
+    [Export] public StatusEffectData EliteStatusEffect;
+
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
     // talking NPC species doesn't require copy-pasting Talk / GiveItem

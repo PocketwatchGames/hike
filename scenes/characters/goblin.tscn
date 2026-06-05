@@ -107,6 +107,7 @@ _target = NodePath("../MeshContainer/GoblinModel")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=318847850 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("30_modelanim")
+useFootstepTracks = true
 player = NodePath("../MeshContainer/GoblinModel/goblin/AnimationPlayer2")
 visual = NodePath("../MeshContainer/GoblinModel")
 modelMaterial = ExtResource("28_goblinbodymat")

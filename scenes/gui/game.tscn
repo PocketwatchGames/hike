@@ -15,6 +15,7 @@
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
+[ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
@@ -24,11 +25,11 @@
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
 [ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
+[ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/effects/motes.tscn" id="mote_scene"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
-[ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/effects/motes.tscn" id="mote_scene"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/effects/wind_foam.tscn" id="wind_foam_scene"]
@@ -70,7 +71,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "bloomQuad")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "bloomQuad", "heartbeatAudio")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
@@ -96,6 +97,9 @@ hudTextHealHeavyScene = ExtResource("hud_text_heal_heavy")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
 postProcessMaterial = ExtResource("post_process_mat")
+lowHealthHeartbeatSlowBpm = 45.0
+lowHealthHeartbeatFastBpm = 90.0
+heartbeatAudio = NodePath("HeartbeatAudio")
 minimapFoliageColors = ExtResource("minimap_foliage_colors")
 minimapRevealMultiplier = 2.0
 minimapRevealInnerFraction = 0.95
@@ -273,6 +277,10 @@ windToSwayMeters = 0.01
 cloudAltitude = 100.0
 cloudShadowStrength = 0.6
 fogMaterial = ExtResource("fog_volumetric_mat")
+
+[node name="HeartbeatAudio" type="AudioStreamPlayer" parent="." unique_id=1349076880]
+stream = ExtResource("heartbeat_sfx")
+volume_db = -4.0
 
 [node name="PostProcess" type="CanvasLayer" parent="." unique_id=1349076879]
 layer = 0

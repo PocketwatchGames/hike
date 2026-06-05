@@ -10,8 +10,56 @@
 [ext_resource type="PackedScene" uid="uid://d0kbigg6xw7pf" path="res://scenes/props/desert_rocks_big1.tscn" id="5_t03"]
 [ext_resource type="PackedScene" uid="uid://cuqyeyeg5imfv" path="res://scenes/props/desert_rocks_big2.tscn" id="5_t04"]
 [ext_resource type="PackedScene" uid="uid://bxgmlna1my2w" path="res://scenes/props/desert_rocks_big3.tscn" id="5_t05"]
+[ext_resource type="Script" uid="uid://ds8co0dgtl6yb" path="res://scripts/data/WeightedScene.cs" id="6_weighted"]
 [ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="15_3vcyj"]
 [ext_resource type="PackedScene" uid="uid://c78rpmt7laew1" path="res://scenes/props/tree_desert_pine_dead.tscn" id="16_o5gs6"]
+
+[sub_resource type="Resource" id="ws_5_t03"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("5_t03")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_5_t04"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("5_t04")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_5_t05"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("5_t05")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_15_3vcyj"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("15_3vcyj")
+Weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_16_o5gs6"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("16_o5gs6")
+Weight = 2.0
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g01"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g01")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g02"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g02")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g03"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g03")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g04"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g04")
+metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]
 script = ExtResource("1_script")
@@ -22,5 +70,5 @@ DetailNoiseThreshold = 0.0
 ForestNoiseFrequency = 5.0
 ForestThreshold = 1.0
 ForestDensity = 0.05
-TreeScenes = [ExtResource("5_t03"), ExtResource("5_t04"), ExtResource("5_t05"), ExtResource("15_3vcyj"), ExtResource("15_3vcyj"), ExtResource("16_o5gs6"), ExtResource("16_o5gs6")]
-TallGrassScenes = [ExtResource("4_g01"), ExtResource("4_g02"), ExtResource("4_g03"), ExtResource("4_g04")]
+TreeScenes = [SubResource("ws_5_t03"), SubResource("ws_5_t04"), SubResource("ws_5_t05"), SubResource("ws_15_3vcyj"), SubResource("ws_16_o5gs6")]
+TallGrassScenes = [SubResource("ws_4_g01"), SubResource("ws_4_g02"), SubResource("ws_4_g03"), SubResource("ws_4_g04")]

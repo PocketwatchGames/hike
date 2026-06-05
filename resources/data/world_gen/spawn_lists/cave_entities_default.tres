@@ -9,6 +9,8 @@
 [ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="6_goblin_data"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/critter/kun_kun.tres" id="7_kunkun_data"]
+[ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="8_ysb6p"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/ItemCountRange.cs" id="9_1cm8f"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="9_chest_scene"]
 [ext_resource type="PackedScene" uid="uid://bfdv5jjcu2h5d" path="res://scenes/interactives/chest_poison.tscn" id="10_poison_scene"]
 [ext_resource type="PackedScene" uid="uid://dnbg3pwmomno5" path="res://scenes/interactives/torch.tscn" id="11_torch_scene"]
@@ -33,10 +35,16 @@ script = ExtResource("4_loot_entry")
 Item = ExtResource("5_11hbm")
 SquareMetersPerSpawn = 200.0
 
+[sub_resource type="Resource" id="Resource_osyot"]
+script = ExtResource("9_1cm8f")
+item = ExtResource("8_ysb6p")
+metadata/_custom_type_script = "uid://ckoqq24nk8tsg"
+
 [sub_resource type="Resource" id="Resource_chest"]
 script = ExtResource("3_chest_entry")
 Scene = ExtResource("9_chest_scene")
 AltScene = ExtResource("10_poison_scene")
+LootItems = [SubResource("Resource_osyot")]
 SquareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_torch"]

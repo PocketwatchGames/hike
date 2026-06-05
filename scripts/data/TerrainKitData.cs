@@ -66,8 +66,13 @@ public partial class TerrainKitData : Resource
     // kernel-blended mash-up at the seam. TreesPerChunkMin/Max drive the
     // baseline scatter that runs independent of forest noise; they're read
     // off the kit at the chunk center.
-    [Export] public PackedScene[] TreeScenes = System.Array.Empty<PackedScene>();
-    [Export] public PackedScene[] TallGrassScenes = System.Array.Empty<PackedScene>();
+    //
+    // Each entry pairs a scene with a relative Frequency — WorldGen builds a
+    // WeightedList from these and draws one per tree, so a commoner tree just
+    // carries a higher Frequency instead of being listed multiple times. The
+    // tall-grass palette works the same way.
+    [Export] public WeightedScene[] TreeScenes = System.Array.Empty<WeightedScene>();
+    [Export] public WeightedScene[] TallGrassScenes = System.Array.Empty<WeightedScene>();
     [Export] public int TreesPerChunkMin = 0;
     [Export] public int TreesPerChunkMax = 4;
 }

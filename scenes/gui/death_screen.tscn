@@ -12,6 +12,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 script = ExtResource("1_dthscr")
+fadeOutSeconds = 2.5
 overlay = NodePath("Overlay")
 promptRoot = NodePath("Prompt")
 titleLabel = NodePath("Prompt/CenterContainer/VBoxContainer/Title")

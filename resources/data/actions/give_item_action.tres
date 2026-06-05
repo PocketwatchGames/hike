@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_lqhh1"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_xnxkg"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="3_lqhh1"]
+[ext_resource type="Texture2D" uid="uid://4qy44obr1h8l" path="res://assets/textures/interactions/giveitem.png" id="4_giveicon"]
 
 [sub_resource type="Resource" id="Resource_event_give"]
 script = ExtResource("2_event")
@@ -14,4 +15,5 @@ type = 256
 script = ExtResource("1_action")
 verb = 5
 displayName = &"Give Item"
+icon = ExtResource("4_giveicon")
 completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_event_give")])

@@ -78,6 +78,16 @@ public partial class MobData : Resource
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
+    // Contact strength (summed vision+hearing+smell perceptionDelta) above which
+    // an already-triggered mob refreshes its fix on the player's true position
+    // from ANY sense — so it turns to face a player it can only hear/smell.
+    // Higher than MinPerceptionDelta on purpose: faint contact is enough to
+    // *sustain* the alert (it stays out of the decay branch) but not to *track*
+    // facing, so a mob lingering at the edge of smell range stays agitated
+    // without snapping to stare straight at the player. Direct line of sight
+    // refreshes the fix regardless of this value (see UpdatePerception's canSee
+    // block); this gate only governs the hearing/smell-only case.
+    [Export] public float PerceptionThresholdTrack = 0.15f;
     // Per-sense multipliers applied to the vision / hearing / smell perception
     // delta before they're summed and accumulated. Setting any of these to 0
     // turns off that sense for this mob (blind / deaf / anosmic) while
@@ -160,6 +170,17 @@ public partial class MobData : Resource
     // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
     // lands triple.
     [Export] public Godot.Collections.Array<StatModifier> modifiers;
+
+    // Per-species Dizzy resistance — a base trait every mob tunes, like
+    // maxHealth / maxArmor (which are likewise direct fields with EStat
+    // counterparts for situational deltas). The Dizzy buildup meter fills to
+    // 1.0 to land the effect; this is the buildup multiple required to get
+    // there — 1 is stock, 2 means "needs twice the buildup" (resistant), 0.5
+    // means "half the buildup" (easily dizzied). Folded into ComposeMaskMul as
+    // an inverse contribution scalar, so it composes with any situational
+    // { Dizzy, x } StatModifier (kun-kun's { Dizzy, 3 } vulnerability still
+    // stacks on top). Leave at 1 for no per-species adjustment.
+    [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
 
     // Named damage profiles fired by this mob's attack actions. Mirrors
     // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves

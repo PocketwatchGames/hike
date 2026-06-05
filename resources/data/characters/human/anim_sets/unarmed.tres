@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="WeaponAnimSet" load_steps=28 format=3 uid="uid://dunrm4n1msetq7"]
+[gd_resource type="Resource" script_class="WeaponAnimSet" format=3 uid="uid://ct4ntwjta4pai"]
 
-[ext_resource type="Script" uid="uid://ebr0vht6y6v0e" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
+[ext_resource type="Script" uid="uid://gd5bfwxfy08m" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
 
 [sub_resource type="Resource" id="a_attack1"]

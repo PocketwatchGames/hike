@@ -8,6 +8,7 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="5_lootcount"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="6_meat"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="7_animdata"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="8_cxd6e"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="8_damage"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
@@ -84,6 +85,12 @@ script = ExtResource("5_lootcount")
 item = ExtResource("6_meat")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
+[sub_resource type="Resource" id="Resource_dbs3s"]
+script = ExtResource("8_cxd6e")
+stat = 8
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("1_vvowg")
 animations = Dictionary[int, ExtResource("7_animdata")]({
@@ -103,18 +110,18 @@ displayName = &"Goblin"
 killsPerLevel = Array[int]([5, 15, 30, 60, 100])
 hudScale = 0.8
 VisionRange = 20.0
-MinPerceptionDelta = 0.0
-SmellStrength = 0.25
+MinPerceptionDelta = 0.05
+SmellStrength = 0.15
 smellRange = 16.0
 smellRangePower = 2.0
 visibilityMovementMin = 0.75
 visibilityMovementPower = 1.0
 maxArmor = 10.0
-modifiers = null
+modifiers = Array[Object]([SubResource("Resource_dbs3s")])
 damageProfiles = Dictionary[StringName, ExtResource("8_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
-armorRechargeDelay = 3.0
+armorRechargeDelay = 8.0
 armorRecoverTime = 3.0
 exp = 10
 brain = ExtResource("2_brain")

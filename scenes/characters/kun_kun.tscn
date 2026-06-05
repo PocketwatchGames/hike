@@ -480,6 +480,7 @@ _target = NodePath("../MeshContainer/BunnyModel")
 
 [node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("31_modelanim")
+useFootstepTracks = true
 player = NodePath("../MeshContainer/BunnyModel/forest_bunny/AnimationPlayer")
 visual = NodePath("../MeshContainer/BunnyModel")
 modelMaterial = ExtResource("30_bunnymat")

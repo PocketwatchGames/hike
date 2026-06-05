@@ -1,17 +1,25 @@
+using System.Collections.Generic;
 using Godot;
 
 // Probes player visibility on a coarse cadence and fades the X-ray pass on
-// a set of LitSprites so an interactive only silhouettes through walls when
-// the player is roughly looking at it. Player + mobs use the X-ray pass at
-// full strength all the time (every threat is gameplay-relevant); broadcasting
-// every chest, door, and torch in the world the same way would be visual
-// noise, hence the per-instance probe + fade.
+// a set of LitSprites AND/OR 3D meshes so an interactive only silhouettes
+// through walls when the player is roughly looking at it. Player + mobs use the
+// X-ray pass at full strength all the time (every threat is gameplay-relevant);
+// broadcasting every chest, door, and torch in the world the same way would be
+// visual noise, hence the per-instance probe + fade.
 //
-// Wiring: drop one of these as a child of an interactive scene, point the
-// `_sprites` export at the SpriteBase subclass(es) that should X-ray, and
-// optionally bind `_discoverable` so a state change forces the X-ray on instantly
-// (the chest pops into existence and the silhouette is already there
-// instead of waiting up to one probe interval to confirm).
+// Two render primitives, one driver: billboards (`_sprites`, SpriteBase whose
+// material is sprite_lit_character) and mesh interactives (`_meshRoots`, model
+// meshes whose material is model_lit_character + a model_xray next_pass — chest,
+// stash, campfire). Both expose an `xray_amount` per-instance fade the probe
+// drives 0→1→0; this class pushes the same value to whichever set is wired.
+//
+// Wiring: drop one of these as a child of an interactive scene. Point `_sprites`
+// at the SpriteBase subclass(es) and/or `_meshRoots` at the model container
+// node(s) whose MeshInstance3D descendants should X-ray, and optionally bind
+// `_discoverable` so a state change forces the X-ray on instantly (the chest
+// pops into existence and the silhouette is already there instead of waiting up
+// to one probe interval to confirm).
 //
 // Probe model: one cadence (~0.5s, jittered per-instance), range-gated so
 // far-away interactives skip the raycast entirely. Asymmetric lerp — fast
@@ -40,6 +48,14 @@ public partial class InteractiveXray : Node3D
     // dense multi-story interiors where you want stricter elevation gating.
     [Export] public float plateauHeight = 3f;
     [Export] private Godot.Collections.Array<SpriteBase> _sprites = new();
+    // Model-mesh interactives (chest, stash, campfire): point these at the
+    // container node(s) holding the instanced FBX. Every MeshInstance3D
+    // descendant is gathered once and gets the same xray_amount push the
+    // sprites do. The meshes' material must be model_lit_character with a
+    // model_xray next_pass for the fade to render (see chest_interactive.tres).
+    [Export] private Godot.Collections.Array<Node3D> _meshRoots = new();
+    private readonly List<MeshInstance3D> _meshes = new();
+    private static readonly StringName XrayAmountParam = "xray_amount";
     // Optional: when set, the X-ray snaps on the moment the host's perception
     // state changes (e.g. chest goes Hidden → Discovered). Without this kick
     // the X-ray would wait up to probeInterval before catching up.
@@ -72,7 +88,26 @@ public partial class InteractiveXray : Node3D
             _discoverable.OnStateChanged += OnDiscoverableStateChanged;
         }
         _interactive = GetParent() as IInteractive;
+        foreach (Node3D root in _meshRoots)
+        {
+            if (root != null)
+            {
+                CollectMeshes(root);
+            }
+        }
         ApplyXrayAmount(0f);
+    }
+
+    private void CollectMeshes(Node node)
+    {
+        if (node is MeshInstance3D mesh)
+        {
+            _meshes.Add(mesh);
+        }
+        foreach (Node child in node.GetChildren())
+        {
+            CollectMeshes(child);
+        }
     }
 
     private void OnDiscoverableStateChanged(EPlayerPerceptionState state)
@@ -99,11 +134,12 @@ public partial class InteractiveXray : Node3D
         }
 
         float dt = (float)delta;
-        // Skip the LOS probe (and force the target to 0) when the host is
-        // no longer interactable. Falls through to the fade path below so
-        // the silhouette dims away naturally instead of snapping off.
-        bool interactable = _interactive == null || _interactive.CanInteract();
-        if (interactable)
+        // Skip the LOS probe (and force the target to 0) when the host no longer
+        // wants the discovery silhouette — an opened chest, picked-up loot, or a
+        // stash the player has already found. Falls through to the fade path
+        // below so the silhouette dims away naturally instead of snapping off.
+        bool shouldXray = _interactive == null || _interactive.ShouldShowXray();
+        if (shouldXray)
         {
             _probeAccumulator += dt;
             if (_probeAccumulator >= probeInterval)
@@ -145,6 +181,13 @@ public partial class InteractiveXray : Node3D
             if (sprite != null)
             {
                 sprite.XrayAmount = value;
+            }
+        }
+        foreach (MeshInstance3D mesh in _meshes)
+        {
+            if (mesh != null)
+            {
+                mesh.SetInstanceShaderParameter(XrayAmountParam, value);
             }
         }
     }

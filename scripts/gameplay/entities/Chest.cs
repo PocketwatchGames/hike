@@ -41,6 +41,11 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     private static readonly StringName AnimClosed = "closed";
 
     private bool _open;
+    // Set the first time the chest is opened (loot OR stash). Loot chests also
+    // flip _open (and become non-interactable), but a stash stays reopenable
+    // forever, so this is the signal that suppresses the discovery X-ray once
+    // the player has found and used it — see ShouldShowXray.
+    private bool _opened;
     private ChestSimState _interactiveState;
     private World _world;
 
@@ -65,6 +70,15 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     public bool CanInteract()
     {
         return !_open;
+    }
+
+    // Stop X-raying once the player has opened the chest — they know where it is
+    // now. A loot chest is also covered by CanInteract() (it goes non-interactable
+    // on open), but a stash stays reopenable, so the explicit _opened flag is what
+    // suppresses the silhouette there.
+    public bool ShouldShowXray()
+    {
+        return CanInteract() && !_opened;
     }
 
     public bool CanActorInteract(Player player)
@@ -109,6 +123,9 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
+        // Mark "found + used" so the discovery X-ray stops, for loot and stash
+        // alike (the loot branch below also flips _open).
+        _opened = true;
         if (_isStash)
         {
             // Stash chests don't eject loot and stay reopenable — interaction

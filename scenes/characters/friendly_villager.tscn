@@ -6,7 +6,7 @@
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="4_mobhud"]
 [ext_resource type="PackedScene" uid="uid://cgihjbbk73uss" path="res://assets/models/characters/polysplit/BasicHero_M.fbx" id="5_herofbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/polysplit/human_anims.res" id="6_heroanims"]
-[ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="7_heromat"]
+[ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="7_heromat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]

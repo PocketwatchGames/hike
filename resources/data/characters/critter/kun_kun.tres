@@ -73,12 +73,6 @@ item = ExtResource("5_meat")
 count = 2
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
-[sub_resource type="Resource" id="Resource_dizzy_vuln"]
-script = ExtResource("7_statmod")
-stat = 8
-value = 3.0
-metadata/_custom_type_script = "uid://bovyciaikopwb"
-
 [resource]
 script = ExtResource("1_mobdata")
 animations = Dictionary[int, ExtResource("6_animdata")]({
@@ -107,7 +101,8 @@ team = 4
 canBurrow = true
 burrowTime = 0.5
 hideRange = 8.0
-modifiers = Array[ExtResource("7_statmod")]([SubResource("Resource_dizzy_vuln")])
+modifiers = Array[ExtResource("7_statmod")]([])
+dizzyResistance = 0.5
 maxSpeed = 8.0
 exp = 1
 brain = ExtResource("2_brain")

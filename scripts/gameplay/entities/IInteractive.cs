@@ -6,6 +6,16 @@ public interface IInteractive : IPorous
     Vector3 hudPosition { get; }
     bool CanInteract();
     bool CanActorInteract(Player player);
+
+    // Whether the discovery X-ray silhouette should currently render (driven by
+    // InteractiveXray's LOS probe). Defaults to CanInteract() — an interactive
+    // the player can no longer act on isn't worth highlighting through walls, so
+    // an opened loot chest / picked-up loot stops X-raying for free. Override
+    // when "should highlight" diverges from "can interact": a stash stays
+    // interactable forever (reopenable) but should stop broadcasting once the
+    // player has found and opened it.
+    bool ShouldShowXray() => CanInteract();
+
     // Resolution callback for the action at `actionIndex` in GetActions().
     // Implementers look the action up themselves and branch on `action.verb`
     // when behavior differs by verb (Open swings a door open while Lockpick

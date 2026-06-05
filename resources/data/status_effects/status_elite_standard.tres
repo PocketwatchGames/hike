@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://4i71qwhti0ki"]
+
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="1_g20gd"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_ruwv5"]
+
+[sub_resource type="Resource" id="Resource_ki1mv"]
+script = ExtResource("1_g20gd")
+stat = 67108864
+value = 25.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="Resource_g20gd"]
+script = ExtResource("1_g20gd")
+stat = 134217728
+value = 10.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="Resource_lqeo4"]
+script = ExtResource("1_g20gd")
+stat = 2048
+value = 2.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="Resource_bgspn"]
+script = ExtResource("1_g20gd")
+stat = 8
+value = 0.25
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("4_ruwv5")
+displayName = &""
+category = 2
+modifiers = [SubResource("Resource_ki1mv"), SubResource("Resource_g20gd"), SubResource("Resource_lqeo4"), SubResource("Resource_bgspn")]
+maxStack = 1
+removesOnApply = []
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

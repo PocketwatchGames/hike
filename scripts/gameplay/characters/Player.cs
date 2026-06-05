@@ -137,6 +137,12 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorDepletedFx;
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
+	// One-shot "out of breath" pant spawned the moment stamina is exhausted
+	// (crosses from positive to <= 0 via sprint / swim / dash / wall-jump
+	// spend). Parented to the player so the gasp audio + breath puff track the
+	// body as they keep moving. Re-arms only after stamina climbs back above
+	// zero, so it fires once per exhaustion rather than every frame at the floor.
+	[Export] private PackedScene _outOfBreathFx;
 	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
 	// one of these scenes; only one (or none) is active at a time. Slots can
 	// be left null in the .tscn — the actor falls silent for that state,
@@ -444,6 +450,10 @@ public partial class Player : CharacterBody3D
 	bool _armorRecharging;
 	bool _armorDepleted;
 	float _stamina;
+	// Latched while stamina sits at/below zero so the out-of-breath one-shot
+	// fires once on the positive→exhausted crossing rather than every frame at
+	// the floor. Cleared when stamina recovers above zero (see TickStaminaExhaustion).
+	bool _staminaExhausted;
 	// Game-time at which stamina recharge can begin. Set to (now + rechargeDelay)
 	// on every ConsumeStamina call; TickStamina is a no-op until now reaches it.
 	ulong _staminaRechargeStartMs;
@@ -589,9 +599,9 @@ public partial class Player : CharacterBody3D
 	}
 	public ActionRunner Runner => _runner;
 	public float Health => _health;
-	public float MaxHealth => data?.maxHealth ?? 100f;
+	public float MaxHealth => (data?.maxHealth ?? 100f) + ComposeStat(EStat.MaxHealth);
 	public float Armor => _armor;
-	public float MaxArmor => _maxArmor;
+	public float MaxArmor => _maxArmor + ComposeStat(EStat.MaxArmor);
 	public float Stamina => _stamina;
 	public float MaxStamina => (data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
@@ -893,7 +903,15 @@ public partial class Player : CharacterBody3D
 
 		if (_animator != null)
 		{
+			// Sprites drive footfalls off frame indices (OnFrameAdvanced); the
+			// 3D model can instead fire them from authored method-call tracks
+			// (OnFootstep) when its useFootstepTracks flag is set. Subscribe to
+			// both — only the active animator's mechanism actually emits.
 			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
+			if (use3d)
+			{
+				_activeModelAnimator.OnFootstep += EmitFootstep;
+			}
 			// Validate the base set's clip strings against the live library now
 			// that the animator (and its library) exist. Weapon sets validate
 			// lazily the first time they're wielded.
@@ -901,19 +919,29 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Footstep / footprint emission is driven by the sprite animator instead
-	// of distance travelled. The animator fires this whenever its frame
-	// changes; we look up the current animation in _footstepFrames and emit
-	// when the frame index matches an authored footfall. State gates the
-	// spawn: skip while ungrounded, swimming, or interacting; route to the
-	// shallow-water splash variant while wading.
+	// Sprite-animator footfall hook: fired whenever the sprite frame changes;
+	// we look up the current animation in _footstepFrames and emit when the
+	// frame index matches an authored footfall. The 3D model takes the
+	// keyframe-accurate route instead (EmitFootstep via a method-call track).
 	private void OnAnimFrameAdvanced(StringName anim, int frame)
 	{
-		if (_world == null || _footstepFrames == null)
+		if (_footstepFrames == null)
 		{
 			return;
 		}
-		if (!FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+		if (FootstepFrameSet.Matches(_footstepFrames, anim, frame))
+		{
+			EmitFootstep();
+		}
+	}
+
+	// Spawn one footstep + footprint at the current foot position. Shared by
+	// the sprite frame-match path and the model's method-call track. State
+	// gates the spawn: skip while ungrounded, swimming, or interacting; route
+	// to the shallow-water splash variant while wading.
+	private void EmitFootstep()
+	{
+		if (_world == null)
 		{
 			return;
 		}
@@ -1187,6 +1215,19 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		Fx.Create(scene, _world, GlobalPosition);
+	}
+
+	// One-shot effect parented to the player (local origin) so its audio +
+	// particles track the body as it keeps moving — used for self-anchored
+	// cues like the out-of-breath pant, as opposed to SpawnWorldEffect which
+	// leaves the effect behind in world space.
+	private void SpawnSelfEffect(PackedScene scene)
+	{
+		if (scene == null)
+		{
+			return;
+		}
+		Fx.Create(scene, this, Vector3.Zero);
 	}
 
 	// Drives a loop's lifetime from a "should be active" flag. When `active`
@@ -2276,7 +2317,7 @@ public partial class Player : CharacterBody3D
 		_warmthZoneCount = 0;
 		_warmthBonus = 0f;
 		_health = MaxHealth;
-		_armor = _maxArmor;
+		_armor = MaxArmor;
 		_stamina = MaxStamina;
 		_armorRecharging = false;
 		_armorDepleted = false;
@@ -2454,7 +2495,7 @@ public partial class Player : CharacterBody3D
 		// Start the player at full armor so freshly-spawned armor reads as
 		// "ready" rather than charging up through the HUD on first frame.
 		RecalculateMaxArmor();
-		_armor = _maxArmor;
+		_armor = MaxArmor;
 		_stamina = MaxStamina;
 
 		// Authoritative first pass so the worn-armor meshes match the spawned
@@ -2668,7 +2709,10 @@ public partial class Player : CharacterBody3D
 
 	private void TickArmor(float dt)
 	{
-		if (_maxArmor <= 0f || _armor >= _maxArmor)
+		// MaxArmor (not the raw _maxArmor equipment sum) so a MaxArmor stat
+		// modifier actually expands the rechargeable pool, not just the readout.
+		float maxArmor = MaxArmor;
+		if (maxArmor <= 0f || _armor >= maxArmor)
 		{
 			return;
 		}
@@ -2682,8 +2726,8 @@ public partial class Player : CharacterBody3D
 			_armorRecharging = true;
 			SpawnWorldEffect(_armorDepleted ? _armorRecoverStartFx : _armorRechargeStartFx);
 		}
-		_armor = Mathf.Min(_maxArmor, _armor + data.armorRechargeSpeed * dt);
-		if (_armor >= _maxArmor)
+		_armor = Mathf.Min(maxArmor, _armor + data.armorRechargeSpeed * dt);
+		if (_armor >= maxArmor)
 		{
 			_armorDepleted = false;
 		}
@@ -2908,6 +2952,20 @@ public partial class Player : CharacterBody3D
 		_staminaRechargeStartMs = now + (ulong)(data.staminaRechargeDelay * 1000f);
 	}
 
+	// Fires the out-of-breath one-shot on the positive→exhausted crossing.
+	// Run after the stamina drains/recharge each tick so it reads the settled
+	// value. The latch clears only once stamina climbs back above zero, so the
+	// gasp plays once per exhaustion instead of every frame the bar is empty.
+	private void TickStaminaExhaustion()
+	{
+		bool exhausted = _stamina <= 0f;
+		if (exhausted && !_staminaExhausted)
+		{
+			SpawnSelfEffect(_outOfBreathFx);
+		}
+		_staminaExhausted = exhausted;
+	}
+
 	// Centralized cancel for dash-and-sprint. Called from attack handlers so
 	// committing to a swing always wins over an in-flight movement state.
 	// TryAbort on the runner only fires AbortActive when the active tier's
@@ -2952,6 +3010,7 @@ public partial class Player : CharacterBody3D
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
+		TickStaminaExhaustion();
 		TickBloodDrain(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);

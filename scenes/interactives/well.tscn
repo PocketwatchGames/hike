@@ -9,7 +9,7 @@
 [ext_resource type="Resource" uid="uid://br1kqb63rhipl" path="res://resources/data/status_effects/status_hydrated.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="7_req"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
-[ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="16_drink"]
+[ext_resource type="Texture2D" uid="uid://d2gqmdkg2cujq" path="res://assets/textures/interactions/drink.png" id="16_drink"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]
 [ext_resource type="PackedScene" uid="uid://bqpljtncy01vm" path="res://assets/models/well/SM_Prop_Well_01.fbx" id="18_wellfbx"]
 

@@ -146,17 +146,25 @@ public partial class BehaviorAttack : BehaviorBase
         // Slot count of 1 (or no slot available) collapses to "stand at
         // desired range on the line between mob and target" — no encircle
         // structure, just a hold-distance.
+        // Encircle around the *perceived* target position (targetPos), not the
+        // live target.GlobalPosition. Using the real position let a mob that
+        // had lost sight keep circling exactly where the player actually is —
+        // a wallhack that also looked broken, since yaw faces lastKnownPosition
+        // (so the mob adjusted its surround as you moved while staring at the
+        // wrong spot and never closing for an attack, which is canSee-gated).
+        // Keyed off targetPos, the ring sits on the last-known spot until the
+        // mob reacquires line of sight, matching where it's facing.
         Vector3 standoff;
         float standoffDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : _data.desiredAttackRange;
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(world, target.GlobalPosition, standoffDistance, angleToTarget);
+            standoff = NavigationGoals.PickStandoffPoint(world, targetPos, standoffDistance, angleToTarget);
         }
         else
         {
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(world, target.GlobalPosition, standoffDistance, slotAngle);
+            standoff = NavigationGoals.PickStandoffPoint(world, targetPos, standoffDistance, slotAngle);
         }
         me.Navigator.Goto(standoff, allowFalling: true);
         return new BehaviorOutput(EBehaviorResult.Running);

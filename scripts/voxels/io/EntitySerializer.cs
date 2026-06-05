@@ -98,6 +98,7 @@ public static class EntitySerializer
                 w.Write(mob.BurrowTimeMs);
                 w.Write(mob.MaxHealth);
                 w.Write(mob.Health);
+                w.Write(mob.Armor);
                 w.Write(mob.PerceptionTargets[0].perception);
                 w.Write(mob.PerceptionTargets[0].triggered);
                 w.Write(mob.PlayerPerception);
@@ -326,6 +327,7 @@ public static class EntitySerializer
                 ulong burrowTimeMs = r.ReadUInt64();
                 float maxHealth = r.ReadSingle();
                 float health = r.ReadSingle();
+                float armor = r.ReadSingle();
                 float targetPerception = r.ReadSingle();
                 bool targetTriggered = r.ReadBoolean();
                 float playerPerception = r.ReadSingle();
@@ -372,6 +374,7 @@ public static class EntitySerializer
                 var eliteStatusEffect = ReadResource<StatusEffectData>(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
+                mob.RestoredFromSave = true;
                 mob.Language = language;
                 if (!string.IsNullOrEmpty(initialBehavior))
                 {
@@ -384,6 +387,7 @@ public static class EntitySerializer
                 mob.BurrowTimeMs = burrowTimeMs;
                 mob.MaxHealth = maxHealth;
                 mob.Health = health;
+                mob.Armor = armor;
                 mob.PerceptionTargets[0].perception = targetPerception;
                 mob.PerceptionTargets[0].triggered = targetTriggered;
                 mob.PerceptionTargets[0].aggro = targetPerception;

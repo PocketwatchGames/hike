@@ -5,10 +5,10 @@ using Godot;
 // per `stat`, hardcoded on the receiver side via StatModifierUtil.IsAdditive,
 // so authors only have to think about "what stat" + "what value". Default
 // `value = 1` is the neutral identity for the multiplicative stats (the
-// common case); the four additive stats (Camouflage / MaxStamina /
-// ColdResist / HeatResist) author the value explicitly and treat the
-// default-1 as a benign +1 the author will notice during tuning rather
-// than an immediate failure mode.
+// common case); the additive stats (Camouflage / MaxStamina / ColdResist /
+// HeatResist / MaxHealth / MaxArmor — see StatModifierUtil.IsAdditive)
+// author the value explicitly and treat the default-1 as a benign +1 the
+// author will notice during tuning rather than an immediate failure mode.
 //
 // Multiple sources (inherent data + equipped armor + active status effects)
 // stack per stat — multiplicatively for multiply-stats, additively for

@@ -113,6 +113,10 @@ public class MobSimState : EntitySimState
     public bool Airborne;
     public float MaxHealth;
     public float Health;
+    // Set by the deserializer so Mob.Initialize preserves the persisted vitals
+    // instead of refilling to the freshly-composed max. Transient — a fresh
+    // spawn leaves it false and gets its vitals finalized at spawn.
+    public bool RestoredFromSave;
     // Latches true the first time the player deals damage to this mob (any
     // hit with hit.source == Player, regardless of whether armor absorbed
     // it). Decides whether the eventual death awards bestiary kill credit:
@@ -200,6 +204,10 @@ public class MobSimState : EntitySimState
         SpawnRotationY = spawnRotationY;
         MobData = mobData;
         Alive = true;
+        // Base vitals. The authoritative max — folding inherent MobData.modifiers
+        // plus any elite status effects added at spawn — is finalized in
+        // Mob.Initialize once those modifiers are all in place. A mob restored
+        // from save (RestoredFromSave) keeps its persisted Health/MaxHealth/Armor.
         MaxHealth = mobData.maxHealth;
         Health = mobData.maxHealth;
         Armor = mobData.maxArmor;
