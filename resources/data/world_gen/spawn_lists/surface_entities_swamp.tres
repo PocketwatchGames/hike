@@ -15,7 +15,7 @@ script = ExtResource("2_mob_entry")
 Data = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-EliteChance = 1.0
+EliteChance = 0.35
 SquareMetersPerSpawn = 500.0
 
 [sub_resource type="Resource" id="Resource_loot"]

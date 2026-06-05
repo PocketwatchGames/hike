@@ -29,31 +29,11 @@
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 [ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
-[ext_resource type="Script" uid="uid://ckf44jg78p0tm" path="res://scripts/gameplay/DashGhostTrail.cs" id="27_dashghost"]
 [ext_resource type="Resource" uid="uid://fy565pr1emwe" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
-[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="28_ftsetframes"]
 [ext_resource type="Resource" uid="uid://bbs2iny1ukw4q" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
 [ext_resource type="PackedScene" uid="uid://ol8ysqglfqnu" path="res://scenes/characters/player_model_female.tscn" id="29_modelfem"]
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
 [ext_resource type="PackedScene" uid="uid://el7ngc3sj7g" path="res://scenes/effects/dash_speed_lines.tscn" id="33_dashlines"]
-
-[sub_resource type="Resource" id="Resource_footsteps_run"]
-script = ExtResource("28_ftsetframes")
-anim = &"run"
-frames = Array[int]([4, 9])
-metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
-
-[sub_resource type="Resource" id="Resource_footsteps_sprint"]
-script = ExtResource("28_ftsetframes")
-anim = &"sprint"
-frames = Array[int]([4, 9])
-metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
-
-[sub_resource type="Resource" id="Resource_footsteps_sneak"]
-script = ExtResource("28_ftsetframes")
-anim = &"sneak"
-frames = Array[int]([4])
-metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
 radius = 0.25
@@ -76,7 +56,7 @@ height = 0.12
 radial_segments = 12
 rings = 6
 
-[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_dashGhostTrail", "_audioListener", "_aimingReticle")]
+[node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_audioListener", "_aimingReticle")]
 floor_max_angle = 1.0471976
 script = ExtResource("1_kqtwu")
 data = ExtResource("2_6eyoc")
@@ -87,7 +67,6 @@ _modelPackages = Dictionary[int, PackedScene]({
 0: ExtResource("29_modelfem"),
 1: ExtResource("41_modelmale")
 })
-_dashGhostTrail = NodePath("DashGhostTrail")
 _audioListener = NodePath("AudioListener3D")
 _aimingReticle = NodePath("AimingReticle")
 _wetEffectData = ExtResource("26_statuswet")
@@ -125,7 +104,6 @@ _footstepEffects = Dictionary[int, PackedScene]({
 5: ExtResource("4_xrqxk")
 })
 _shallowWaterFootstepFx = ExtResource("7_d6tgn")
-_footstepFrames = Array[ExtResource("28_ftsetframes")]([SubResource("Resource_footsteps_run"), SubResource("Resource_footsteps_sprint"), SubResource("Resource_footsteps_sneak")])
 _footprintTexture = ExtResource("8_5jukt")
 _footprintSize = Vector2(0.4, 0.6)
 
@@ -152,9 +130,6 @@ script = ExtResource("5_7vyk4")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1476629525]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
-
-[node name="DashGhostTrail" type="Node3D" parent="." unique_id=567420860]
-script = ExtResource("27_dashghost")
 
 [node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob")]
 script = ExtResource("24_aimreticle_script")

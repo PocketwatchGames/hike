@@ -20,7 +20,6 @@
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="18_bmt4b"]
 [ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/effects/footstep_water.tscn" id="19_0rs25"]
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="20_ewv3i"]
-[ext_resource type="Script" uid="uid://bjifkxwnkq7mk" path="res://scripts/data/FootstepFrameSet.cs" id="21_2gghu"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="22_smeql"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="25_46vmd"]
 [ext_resource type="PackedScene" uid="uid://bge0a3ixatdrt" path="res://assets/models/characters/birdy/birdy.fbx" id="26_birdyfbx"]
@@ -28,12 +27,6 @@
 [ext_resource type="Material" uid="uid://cr8w5qp148pnb" path="res://resources/materials/birdy_lit.tres" id="28_birdymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="29_modelanim"]
 [ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="30_pixelsnap"]
-
-[sub_resource type="Resource" id="Resource_footsteps_run"]
-script = ExtResource("21_2gghu")
-anim = &"run"
-frames = Array[int]([3, 6])
-metadata/_custom_type_script = "uid://bjifkxwnkq7mk"
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35
@@ -73,7 +66,6 @@ _footstepEffects = Dictionary[int, PackedScene]({
 4: ExtResource("20_ewv3i"),
 5: ExtResource("17_svrjh")
 })
-_footstepFrames = Array[ExtResource("21_2gghu")]([SubResource("Resource_footsteps_run")])
 _footprintTexture = ExtResource("22_smeql")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 

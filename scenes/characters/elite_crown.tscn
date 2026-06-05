@@ -1,0 +1,18 @@
+[gd_scene format=3 uid="uid://d4nf6t08w1rye"]
+
+[ext_resource type="Script" uid="uid://b7hm3vx9k2qaf" path="res://scripts/gameplay/characters/EliteCrown.cs" id="1_crown"]
+[ext_resource type="Material" uid="uid://c8kr2wq5n4xpd" path="res://resources/materials/crown_lit.tres" id="2_mat"]
+
+[sub_resource type="TorusMesh" id="TorusMesh_halo"]
+inner_radius = 0.3
+outer_radius = 0.42
+rings = 48
+ring_segments = 16
+
+[node name="EliteCrown" type="Node3D" node_paths=PackedStringArray("_halo")]
+script = ExtResource("1_crown")
+_halo = NodePath("Halo")
+
+[node name="Halo" type="MeshInstance3D" parent="."]
+material_override = ExtResource("2_mat")
+mesh = SubResource("TorusMesh_halo")

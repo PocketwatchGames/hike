@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cp0go53lm2mv2"]
+
+[ext_resource type="Shader" uid="uid://co18nytf3642q" path="res://shaders/model_lit_character.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://dwghfs3v6cy86" path="res://assets/textures/effects/white.png" id="2_tex"]
+[ext_resource type="Material" uid="uid://carpnncp8fg1l" path="res://resources/materials/model_xray.tres" id="3_xray"]
+
+[resource]
+render_priority = 0
+next_pass = ExtResource("3_xray")
+shader = ExtResource("1_shader")
+shader_parameter/albedo_tex = ExtResource("2_tex")
+shader_parameter/form_strength = 0.25
+shader_parameter/color_tint = Color(1, 0.85, 0.32, 1)
+shader_parameter/emission_tint = Color(2, 1.45, 0.5, 1)
+shader_parameter/emission_strength = 0.5
+shader_parameter/vertex_ao_strength = 0.0
+shader_parameter/ao_base_y = 0.0
+shader_parameter/ao_height = 1.5
+shader_parameter/ao_contact_strength = 0.0

@@ -23,13 +23,6 @@ public partial class Player : CharacterBody3D
 	// the transient status-effect notification. Mirrors Mob.HudAnchor.
 	[Export] public Node3D HudAnchor;
 	[Export] private HurtBox _hurtBox;
-	// The player's visual + its animation driver. Either may be wired in
-	// player.tscn; ActivateVisual (run from Initialize, once the spawn gender
-	// is known) prefers the 3D model when present and otherwise uses the
-	// billboard sprite (_spriteAnimator). The chosen one is bound to _animator
-	// (IActorAnimator) and made visible; the rest of the class drives animation
-	// through _animator without caring which it is.
-	[Export] private LitSpriteAnimator _spriteAnimator;
 	// Per-gender base model packages, keyed by (int)EGender. Each value is a
 	// PlayerModelPackage scene (model + ModelAnimator + HeldItemVisual +
 	// PixelSnap, all wired inside it). Initialize instances exactly the spawned
@@ -40,13 +33,12 @@ public partial class Player : CharacterBody3D
 	[Export] private Godot.Collections.Dictionary<int, PackedScene> _modelPackages = new();
 	// The live model package instanced for the spawned gender (child of Player),
 	// and its animator — resolved in Initialize once the spawn gender is known.
+	// The rest of the class drives animation through _animator.
 	private PlayerModelPackage _modelPackageInstance;
-	private ModelAnimator _activeModelAnimator;
-	private IActorAnimator _animator;
-	// The visual root of whichever animator is live — toggled by
-	// SetModelVisible for hide / birds-eye. Sprite node or model subtree root.
+	private ModelAnimator _animator;
+	// The visual root of the live model subtree — toggled by SetModelVisible for
+	// hide / birds-eye.
 	private Node3D _activeVisual;
-	[Export] private DashGhostTrail _dashGhostTrail;
 	[Export] private AudioListener3D _audioListener;
 	[Export] private AimingReticle _aimingReticle;
 	// Drives the in-hand 3D model of the wielded weapon / used consumable.
@@ -97,9 +89,8 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _waterMovementLoopFx;
 	[Export] private PackedScene _foliageMovementLoopFx;
 	// Speed-line streak loop spawned during a dash burst (held alive while
-	// _dashTimeRemaining > 0). The 3D-model player's analogue of the sprite
-	// DashGhostTrail afterimage — a trailing particle effect rather than frame
-	// snapshots. Parented to the body so it tracks/rotates with the dash.
+	// _dashTimeRemaining > 0). A trailing particle effect parented to the body
+	// so it tracks/rotates with the dash.
 	[Export] private PackedScene _dashSpeedLinesFx;
 	// Per-ground-type foot-puff loop spawned while sliding / skating /
 	// skidding. Tracks the body. Keys must match what GroundTypeResolver
@@ -162,13 +153,6 @@ public partial class Player : CharacterBody3D
 	// _waterState (an Area-trigger flag), not the EGroundType resolver — a
 	// thin film of water over grass should still trigger water audio.
 	[Export] private PackedScene _shallowWaterFootstepFx;
-	// Per-animation footfall frame indices. One entry per animation that
-	// should emit footsteps (run, sprint, sneak, …); each entry names the
-	// animation and lists the frame numbers within it where the foot
-	// strikes the ground. The animator fires OnFrameAdvanced as the sprite
-	// cycles; a matching (anim, frame) pair triggers a footstep + footprint.
-	// Anims absent from this list (idle, jump, fall, attack, …) never emit.
-	[Export] private Godot.Collections.Array<FootstepFrameSet> _footstepFrames = new();
 	// Minimum horizontal speed² to count as "moving" for loop-FX gating
 	// (water swim loop, tall-grass rustle). Footstep cadence itself is
 	// frame-driven and ignores this.
@@ -207,7 +191,7 @@ public partial class Player : CharacterBody3D
 	// sense contribution when this is set, so any standing aggro decays and the
 	// triggered alert resets — exactly how a burrowed mob drops off the
 	// player's own perception. Set true while perched in a [[ClimbableTree]];
-	// the climb also hides the sprite and lifts the camera into bird's-eye.
+	// the climb also hides the model and lifts the camera into bird's-eye.
 	bool _hidden;
 	public bool IsHidden => _hidden;
 
@@ -248,7 +232,7 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Entered from ClimbableTree.Complete. Conceals the player (hidden from
-	// mobs + sprite hidden) and lifts into the bird's-eye overlook. The matching
+	// mobs + model hidden) and lifts into the bird's-eye overlook. The matching
 	// restore lives in OnBirdsEyeReturnComplete, driven by the bird's-eye
 	// fly-down — there is no explicit "descend" call, the player leaves the tree
 	// by ending bird's-eye (ESC) or by taking damage.
@@ -263,10 +247,7 @@ public partial class Player : CharacterBody3D
 		BeginBirdsEye();
 	}
 
-	// Toggles the player's active visual (sprite or 3D model, whichever was
-	// selected in _Ready). For the sprite, LitSpriteAnimator watches the
-	// target's VisibilityChanged and stops processing while hidden, so a
-	// concealed player costs nothing to animate.
+	// Toggles the player's model subtree visibility (hide / birds-eye).
 	void SetModelVisible(bool visible)
 	{
 		if (_activeVisual != null)
@@ -850,7 +831,7 @@ public partial class Player : CharacterBody3D
 
 	// Resolve the base-model package scene for a gender. Falls back to the
 	// Female entry when the gender has no authored package, so the player always
-	// has a body. Returns null only if the map is empty (sprite-only fallback).
+	// has a body. Returns null only if the map is empty.
 	private PackedScene ResolveGenderPackage(EGender gender)
 	{
 		if (_modelPackages == null)
@@ -876,69 +857,36 @@ public partial class Player : CharacterBody3D
 		}
 		_modelPackageInstance = packageScene.Instantiate<PlayerModelPackage>();
 		AddChild(_modelPackageInstance);
-		_activeModelAnimator = _modelPackageInstance.animator;
+		_animator = _modelPackageInstance.animator;
 		_heldVisual = _modelPackageInstance.heldVisual;
 	}
 
-	// Pick the live visual + animator: prefer the gender-selected 3D model
-	// (_activeModelAnimator) when instanced, otherwise fall back to the billboard
-	// sprite. Code owns BOTH visuals' visibility (model shown via SetActive,
-	// sprite shown iff the model isn't used) so exactly one visual renders and it
-	// can never end up invisible.
-	//
-	// Deferred to Initialize (not _Ready) because the gender that selects the
-	// base model only arrives with PlayerSpawnData. GameClient calls Initialize
-	// synchronously right after instantiating the scene, before any frame is
-	// processed, so there's no window where the player renders unselected.
+	// Show the instanced model and wire its drivers. Deferred to Initialize (not
+	// _Ready) because the gender that selects the base model only arrives with
+	// PlayerSpawnData. GameClient calls Initialize synchronously right after
+	// instantiating the scene, before any frame is processed, so there's no
+	// window where the player renders unselected.
 	private void ActivateVisual()
 	{
-		bool use3d = _activeModelAnimator != null;
-		_activeModelAnimator?.SetActive(use3d);
-		_animator = use3d ? _activeModelAnimator : _spriteAnimator;
-		_activeVisual = use3d ? _activeModelAnimator.visual : _spriteAnimator?.target;
-		if (_spriteAnimator?.target != null)
-		{
-			_spriteAnimator.target.Visible = !use3d;
-		}
-
-		if (_animator != null)
-		{
-			// Sprites drive footfalls off frame indices (OnFrameAdvanced); the
-			// 3D model can instead fire them from authored method-call tracks
-			// (OnFootstep) when its useFootstepTracks flag is set. Subscribe to
-			// both — only the active animator's mechanism actually emits.
-			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
-			if (use3d)
-			{
-				_activeModelAnimator.OnFootstep += EmitFootstep;
-			}
-			// Validate the base set's clip strings against the live library now
-			// that the animator (and its library) exist. Weapon sets validate
-			// lazily the first time they're wielded.
-			ValidateAnimSet(data?.baseAnims, "base/unarmed");
-		}
-	}
-
-	// Sprite-animator footfall hook: fired whenever the sprite frame changes;
-	// we look up the current animation in _footstepFrames and emit when the
-	// frame index matches an authored footfall. The 3D model takes the
-	// keyframe-accurate route instead (EmitFootstep via a method-call track).
-	private void OnAnimFrameAdvanced(StringName anim, int frame)
-	{
-		if (_footstepFrames == null)
+		if (_animator == null)
 		{
 			return;
 		}
-		if (FootstepFrameSet.Matches(_footstepFrames, anim, frame))
-		{
-			EmitFootstep();
-		}
+		_animator.SetActive(true);
+		_activeVisual = _animator.visual;
+		// Footfalls fire from a Call Method Track authored on the model's
+		// movement clips (OnFootstep) at the exact foot-contact frame.
+		_animator.OnFootstep += EmitFootstep;
+		// Validate the base set's clip strings against the live library now
+		// that the animator (and its library) exist. Weapon sets validate
+		// lazily the first time they're wielded.
+		ValidateAnimSet(data?.baseAnims, "base/unarmed");
 	}
 
-	// Spawn one footstep + footprint at the current foot position. Shared by
-	// the sprite frame-match path and the model's method-call track. State
-	// gates the spawn: skip while ungrounded, swimming, or interacting; route
-	// to the shallow-water splash variant while wading.
+	// Spawn one footstep + footprint at the current foot position, fired from
+	// the model's foot-contact method track. State gates the spawn: skip while
+	// ungrounded, swimming, or interacting; route to the shallow-water splash
+	// variant while wading.
 	private void EmitFootstep()
 	{
 		if (_world == null)
@@ -1511,7 +1459,7 @@ public partial class Player : CharacterBody3D
 		else if (_skating || _skidding)
 		{
 			// Skate anim wins over fall — on a steep slope _grounded is false
-			// and the airborne grace would otherwise flip the sprite to the
+			// and the airborne grace would otherwise flip the model to the
 			// fall pose every tick the skate ticks past FallGraceMs. Also
 			// fires for grounded skids (sharp direction changes), so the
 			// player visibly slides their feet during sharp turns at speed.
@@ -3051,9 +2999,9 @@ public partial class Player : CharacterBody3D
 		Vector3 ripplePos = new(GlobalPosition.X, _waterSurfaceY, GlobalPosition.Z);
 		_rippleEmitter.Update(ripplePos, inWater, rippleStrength, rippleStride);
 
-		// Footsteps and footprints are driven by sprite animation events
-		// (see OnAnimFrameAdvanced), not anything in this method. Movement-
-		// gated continuous loops below still key off horizontal speed.
+		// Footsteps and footprints are driven by the model's foot-contact
+		// method track (see EmitFootstep), not anything in this method.
+		// Movement-gated continuous loops below still key off horizontal speed.
 		Vector2 horizVel = new(Velocity.X, Velocity.Z);
 		float horizSpeedSq = horizVel.LengthSquared();
 
@@ -3126,7 +3074,7 @@ public partial class Player : CharacterBody3D
 		}
 		float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 		speed *= statusMoveMul;
-		// Sprite anim retiming is gated to movement-loop anims only — see
+		// Anim retiming is gated to movement-loop anims only — see
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
 		// on the currently-picked loopAnim. Attack / hitstun / death anims
 		// play at authored speed regardless of status.
@@ -3283,16 +3231,9 @@ public partial class Player : CharacterBody3D
 			_wallJumpAirControlTimer = Mathf.Max(0f, _wallJumpAirControlTimer - dt);
 		}
 
-		// Ghost-trail emit state is a side-effect of the dash phase, not part
-		// of the velocity chain — it must NOT live inside the if/else if/else
-		// above or the glide and input-rebuild branches get skipped whenever
-		// the trail is wired, leaving Velocity locked at the last dash value
-		// for the rest of the run.
-		if (_dashGhostTrail != null)
-		{
-			_dashGhostTrail.EmitEnabled = _dashTimeRemaining > 0f;
-		}
-		// Speed-line streaks during the dash (the model player's trail effect).
+		// Speed-line streaks during the dash. Driven outside the velocity
+		// if/else chain above so toggling the loop can't skip the glide and
+		// input-rebuild branches.
 		UpdateLoopEffect(ref _dashLoop, _dashSpeedLinesFx, _dashTimeRemaining > 0f);
 		// The streaks are emitted forward (+Z) at the dash speed and damped so
 		// they fall behind — GPUParticles3D inherit_velocity is broken in Godot
@@ -3371,7 +3312,7 @@ public partial class Player : CharacterBody3D
 		// Same CanLook gate as the _aiming suppression above — during dash or
 		// sprint, rotation falls through to move direction. While skating
 		// or skidding, yaw locks to the velocity heading rather than the
-		// input direction so the sprite reads as committed to its existing
+		// input direction so the model reads as committed to its existing
 		// trajectory — the feet are visibly sliding because the body
 		// hasn't caught up to the input yet.
 		if (_skating || _skidding)

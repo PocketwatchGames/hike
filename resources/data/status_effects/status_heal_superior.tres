@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bx03scg2f2668"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="2_icon"]
+[ext_resource type="Texture2D" uid="uid://ddce2ofirul1c" path="res://assets/textures/status_effects/heart.png" id="2_icon"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_heal_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_heal_end.tscn" id="4_endfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_heal_loop.tscn" id="5_loopfx"]

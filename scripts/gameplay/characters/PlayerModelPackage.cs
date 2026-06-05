@@ -10,8 +10,8 @@ using Godot;
 [GlobalClass]
 public partial class PlayerModelPackage : Node3D
 {
-    // The rig's animation / faceting driver (IActorAnimator). Player binds this
-    // as the live _animator when this package is the spawned gender.
+    // The rig's animation / faceting driver. Player binds this as the live
+    // _animator when this package is the spawned gender.
     [Export] public ModelAnimator animator;
     // The hand-socket held-item renderer for this rig. Null on a package without
     // the socket wired, in which case Player treats held items as disabled.

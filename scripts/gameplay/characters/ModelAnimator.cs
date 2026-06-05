@@ -2,11 +2,10 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// 3D-model counterpart to LitSpriteAnimator. Drives an AnimationPlayer that
-// holds the combined player_anims library (clips named to match the
-// EAnimation slot names authored on PlayerData), so the same state machine in
-// Player.cs animates the skinned polyperfect mesh. Implements IActorAnimator
-// so Player treats it interchangeably with the sprite animator.
+// Drives an AnimationPlayer that holds the combined player_anims library
+// (clips named to match the EAnimation slot names authored on PlayerData), so
+// the same state machine in Player.cs / Mob.cs animates the skinned polyperfect
+// mesh.
 //
 // Beyond playing clips it adds two stylization passes that make the 3D model
 // read like the game's pixel-art sprites:
@@ -21,28 +20,14 @@ using Godot;
 //     Only the VISUAL is faceted — the Player body keeps its smooth yaw for
 //     aiming / movement / firing.
 [GlobalClass]
-public partial class ModelAnimator : Node, IActorAnimator
+public partial class ModelAnimator : Node
 {
     [Export] public AnimationPlayer player;
     // Model root toggled with this animator's active state (the whole imported
-    // character subtree). Hidden when the sprite visual is the active one.
+    // character subtree).
     [Export] public Node3D visual;
-    // Authored playback-rate multiplier (analogous to LitSpriteAnimator.speed).
+    // Authored playback-rate multiplier.
     [Export] public float speed = 1f;
-    // Nominal fps used to synthesize OnFrameAdvanced "frame" crossings for
-    // Player._footstepFrames. Matched to the sprite clips' authored ~10fps so
-    // footfall frame indices land at similar relative times. Approximate, and
-    // IGNORED when useFootstepTracks is set (footsteps then come from method
-    // tracks instead — see useFootstepTracks / EmitFootstep).
-    [Export] public float frameFps = 10f;
-    // Opt in to keyframe-accurate footsteps: when true this animator stops
-    // synthesizing OnFrameAdvanced "frame" crossings (so the actor's
-    // _footstepFrames no longer drive footfalls for the model) and instead a
-    // Call Method Track authored in the AnimationLibrary fires EmitFootstep()
-    // at the exact foot-contact frame of each movement clip. Left false on
-    // models not yet migrated (their footsteps keep coming from the synthesized
-    // frame approximation). Sprites are unaffected either way.
-    [Export] public bool useFootstepTracks = false;
     // Pose sampling rate (stop-motion look). The skeleton is only re-posed this
     // many times per second. <= 0 disables the effect and plays back smoothly
     // via the AnimationPlayer's own advance.
@@ -102,15 +87,11 @@ public partial class ModelAnimator : Node, IActorAnimator
     public float effectSpeedMultiplier { get; set; } = 1f;
     public StringName CurrentAnimation { get; private set; }
     public bool Finished { get; private set; }
-    public event Action<StringName, int> OnFrameAdvanced;
     // Raised by EmitFootstep(), which a Call Method Track in the movement clips
-    // invokes on the exact foot-contact frame. Player / Mob subscribe (only
-    // when this model animator is the active visual) and run their normal
-    // ground-resolution + footprint emission off it. Distinct from
-    // OnFrameAdvanced: this fires from authored keyframes, not synthesized ones.
+    // invokes on the exact foot-contact frame. Player / Mob subscribe and run
+    // their normal ground-resolution + footprint emission off it.
     public event Action OnFootstep;
 
-    private int _lastFrame = -1;
     private bool _active;
     // Accumulated real time waiting to be spent in discrete quantized steps.
     private double _stepAccum;
@@ -326,7 +307,6 @@ public partial class ModelAnimator : Node, IActorAnimator
         }
         CurrentAnimation = name;
         Finished = false;
-        _lastFrame = 0;
         _stepAccum = 0.0;
         // Stepped mode hard-cuts (no cross-fade) to keep the stop-motion read;
         // smooth mode uses a short blend so state changes don't pop.
@@ -336,10 +316,6 @@ public partial class ModelAnimator : Node, IActorAnimator
             // Pause auto-advance — _Process drives the position in discrete
             // steps via Advance(); Godot still handles loop wrap inside Advance.
             player.Pause();
-        }
-        if (!useFootstepTracks)
-        {
-            OnFrameAdvanced?.Invoke(CurrentAnimation, 0);
         }
     }
 
@@ -370,14 +346,6 @@ public partial class ModelAnimator : Node, IActorAnimator
             // Smooth: let the AnimationPlayer advance itself.
             player.SpeedScale = speed * effectSpeedMultiplier;
         }
-
-        // Synthesized frame events feed the legacy _footstepFrames path; when
-        // this model uses authored method-call tracks for footfalls, skip them
-        // entirely so footsteps fire once, from the track, not twice.
-        if (!Finished && !useFootstepTracks)
-        {
-            EmitFrameEvents(player.CurrentAnimationPosition);
-        }
     }
 
     // Call Method Track target. Authored as a key on the foot-contact frame of
@@ -390,30 +358,6 @@ public partial class ModelAnimator : Node, IActorAnimator
     public void EmitFootstep()
     {
         OnFootstep?.Invoke();
-    }
-
-    // Synthesize OnFrameAdvanced "frame" crossings from a continuous position so
-    // Player._footstepFrames (authored as sprite-frame indices) still triggers.
-    private void EmitFrameEvents(double pos)
-    {
-        int frame = (int)(pos * frameFps);
-        if (frame == _lastFrame)
-        {
-            return;
-        }
-        if (frame > _lastFrame)
-        {
-            for (int f = _lastFrame + 1; f <= frame; f++)
-            {
-                OnFrameAdvanced?.Invoke(CurrentAnimation, f);
-            }
-        }
-        else
-        {
-            // Looped/wrapped back toward the start.
-            OnFrameAdvanced?.Invoke(CurrentAnimation, frame);
-        }
-        _lastFrame = frame;
     }
 
     // Snap the visual's yaw to one of `facingDirections` headings measured

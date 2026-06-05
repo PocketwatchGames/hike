@@ -43,6 +43,13 @@ public partial class SimData : Resource
     // pool. Null = no shared effect; elites still get their zone signature.
     [Export] public StatusEffectData EliteStatusEffect;
 
+    // Spinning, bobbing emissive halo floated over every elite mob (Mob.IsElite)
+    // as an at-a-glance "this one's tougher" marker. Authored once here — the
+    // crown is species-agnostic — so Mob can spawn it for any elite without
+    // per-species .tscn wiring. Null disables the marker (elites still scale +
+    // carry their effects). See EliteCrown / crown_lit.tres.
+    [Export] public PackedScene EliteCrownScene;
+
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
     // talking NPC species doesn't require copy-pasting Talk / GiveItem

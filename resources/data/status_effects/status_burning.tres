@@ -3,9 +3,11 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="PackedScene" uid="uid://ca6w1oujti21a" path="res://scenes/effects/fire_column_ignite.tscn" id="2_startfx"]
 [ext_resource type="PackedScene" uid="uid://bc8qfslk1814k" path="res://scenes/effects/fire_column_loop.tscn" id="3_loopfx"]
+[ext_resource type="Texture2D" uid="uid://gwbjofqi4jx6" path="res://assets/textures/status_effects/fire.png" id="4_icon"]
 
 [resource]
 script = ExtResource("1_data")
+icon = ExtResource("4_icon")
 displayName = &"Burning"
 tags = 3
 damagePerSecond = 2.0

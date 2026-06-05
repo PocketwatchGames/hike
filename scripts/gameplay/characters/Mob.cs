@@ -6,16 +6,10 @@ using Godot;
 public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 {
     [Export] private CollisionShape3D _collisionShape;
-    // Billboard-sprite animator (the default mob visual). Wired in every mob
-    // .tscn. Mirrors Player: when a 3D _modelAnimator is also wired the model
-    // wins and the sprite is hidden; otherwise this drives the mob.
-    [Export] private LitSpriteAnimator _spriteAnimator;
-    // Optional 3D skinned-model animator. Null on sprite-only mobs, so they
-    // keep their existing sprite path untouched. When present, _Ready selects
-    // it as the live animator and hides the sprite (see Player._Ready).
+    // The mob's 3D skinned-model animator. Wired in every mob .tscn; _Ready
+    // activates it as the live visual and subscribes its footstep hooks.
     [Export] private ModelAnimator _modelAnimator;
     [Export] private Node3D _mesh;
-    [Export] private Sprite3D _sprite;
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
@@ -76,13 +70,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // footfall. Authored in each mob .tscn; missing keys silently emit
     // nothing.
     [Export] private Godot.Collections.Dictionary<EGroundType, PackedScene> _footstepEffects;
-    // Per-animation footfall frame indices. One entry per animation that
-    // should emit footsteps (run, …); each entry names the animation and
-    // lists the frame numbers within it where the foot strikes the ground.
-    // The animator fires OnFrameAdvanced as the sprite cycles; a matching
-    // (anim, frame) pair triggers a footstep + footprint. Anims absent from
-    // this list never emit.
-    [Export] private Godot.Collections.Array<FootstepFrameSet> _footstepFrames = new();
     // Minimum horizontal speed² to count as "moving" for loop-FX gating
     // (water swim loop, tall-grass rustle). Footstep cadence itself is
     // frame-driven and ignores this.
@@ -104,6 +91,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Uniform mesh scale applied to elite mobs (MobSimState.Elite) so they read
     // as a tougher variant at a glance — 25% larger than a standard mob.
     private const float EliteScaleMultiplier = 1.25f;
+
+    // Height (base/mesh-local units) of the elite crown above the mob's HUD
+    // anchor (≈ head top). Parented under the elite-scaled mesh, so this rides
+    // the 25% bump into world space and the halo floats just over the head.
+    private const float CrownHeadMargin = 0.4f;
 
     public float discoveryProgress
     {
@@ -237,10 +229,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public PerceptionDebug playerToMobDebug;
     public PerceptionDebug mobToPlayerDebug;
 
-    // Live animator resolved in _Ready: the 3D model when one is wired,
-    // otherwise the sprite. Mob drives this through IActorAnimator so the
-    // EAnimation state machine animates either visual without branching.
-    private IActorAnimator _animator;
+    // Alias for _modelAnimator, bound in _Ready. The EAnimation state machine
+    // drives animation through this.
+    private ModelAnimator _animator;
 
     private MobSimState _simState;
     World _world;
@@ -340,21 +331,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the bulk of these methods is the cost of setters firing every frame
     // even when the value hasn't changed since last frame. Cache + skip-on-
     // equal cuts the per-mob cost ~10× for stable mobs. NaN sentinels force
-    // the first frame through so initial state is always pushed. Note:
-    // LitSprite's Visibility / Silhouette / CastsShadow setters are equality-
-    // checked inside the property itself, so Mob doesn't track them here.
+    // the first frame through so initial state is always pushed.
     private bool _lastMeshVisible;
     private bool _lastMeshVisibleInit;
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
-    // Last discovery-presentation values pushed to the 3D model (sprite mobs
-    // don't use these — LitSprite self-gates its own setters). The model push
+    // Last discovery-presentation values pushed to the 3D model. The model push
     // isn't self-gating, so cache here and only push on change.
     private bool _lastModelVisualsInit;
     private float _lastModelVisibility;
     private float _lastModelSilhouette;
     private float _lastModelXray;
     private bool _lastModelCastShadow;
+    // Spinning emissive halo over an elite mob; null on non-elites. Spawned in
+    // Initialize, fed the same discovery presentation as the body each frame,
+    // freed on death.
+    private EliteCrown _crown;
     private float _lastLinearDamp = float.NaN;
     private float _lastGravityScale = float.NaN;
     // Authored GravityScale captured on first swim entry. The swim gate
@@ -386,7 +378,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
-    // until LitSpriteAnimator.Finished flips. Behaviors emit via
+    // until the animator's Finished flips. Behaviors emit via
     // AIOutput.oneShotAnim; combat events route here through PlayAnim.
     private EAnimation? _oneShotAnim;
     // Game-time at which the mob first started falling fast (vel.Y below the
@@ -438,52 +430,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
         }
 
-        // Pick the live visual + animator: prefer the 3D skinned model when it's
-        // wired, otherwise the billboard sprite (mirrors Player._Ready). Code
-        // owns both visuals' visibility so exactly one renders — the model's via
-        // SetActive, the sprite's hidden when the model is used. The sprite lives
-        // under _mesh (MeshContainer), so the discovery visibility/scale logic in
-        // _Process still gates the model when it's parented there too.
-        bool use3d = _modelAnimator != null;
-        _modelAnimator?.SetActive(use3d);
-        _animator = use3d ? _modelAnimator : _spriteAnimator;
-        if (_sprite != null)
+        // Activate the model as the live visual. It lives under _mesh
+        // (MeshContainer), so the discovery visibility/scale logic in _Process
+        // still gates it when parented there.
+        _animator = _modelAnimator;
+        if (_modelAnimator != null)
         {
-            _sprite.Visible = !use3d;
-        }
-
-        if (_animator != null)
-        {
-            // Sprites drive footfalls off frame indices (OnFrameAdvanced); the
-            // 3D model can instead fire them from authored method-call tracks
-            // (OnFootstep) when its useFootstepTracks flag is set. Subscribe to
-            // both — only the active animator's mechanism actually emits.
-            _animator.OnFrameAdvanced += OnAnimFrameAdvanced;
-            if (use3d)
-            {
-                _modelAnimator.OnFootstep += EmitFootstep;
-            }
+            _modelAnimator.SetActive(true);
+            // Footfalls fire from a Call Method Track authored on the model's
+            // movement clips (OnFootstep) at the exact foot-contact frame.
+            _modelAnimator.OnFootstep += EmitFootstep;
         }
     }
 
-    // Sprite-animator footfall hook: fired whenever the sprite frame changes;
-    // we look up the current animation in _footstepFrames and emit when the
-    // frame index matches an authored footfall. The 3D model takes the
-    // keyframe-accurate route instead (EmitFootstep via a method-call track).
-    private void OnAnimFrameAdvanced(StringName anim, int frame)
-    {
-        if (_footstepFrames == null)
-        {
-            return;
-        }
-        if (FootstepFrameSet.Matches(_footstepFrames, anim, frame))
-        {
-            EmitFootstep();
-        }
-    }
-
-    // Spawn one footstep + footprint at the current foot position. Shared by
-    // the sprite frame-match path and the model's method-call track. Skip while
+    // Spawn one footstep + footprint at the current foot position, fired from
+    // the model's foot-contact method track. Skip while
     // in water (the wading ripple covers it). The mob_footstep_fx CVar gates
     // the audible/visible FX puff for perf bisection; the perception gate
     // suppresses footsteps the player has no awareness of. Footprints are
@@ -581,6 +542,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _statusEffects.Add(_simState.EliteStatusEffect);
             }
+            SpawnEliteCrown();
         }
 
         // Finalize vitals now that every spawn-time modifier is in place —
@@ -596,6 +558,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.Health = _simState.MaxHealth;
             _simState.Armor = mobData.maxArmor + ComposeStat(EStat.MaxArmor);
         }
+    }
+
+    // Instantiate the spinning emissive halo over an elite mob. Parented under
+    // the (already elite-scaled) mesh container so it rides the body's transform
+    // and the 25% size bump, sitting just above the head. Shares the mob's
+    // render stack via crown_lit.tres, so it silhouettes / X-rays in lockstep —
+    // the per-frame discovery push happens in _Process alongside the body's.
+    // No-op (and no marker) when SimData authors no crown scene.
+    private void SpawnEliteCrown()
+    {
+        PackedScene scene = _world?.SimData?.EliteCrownScene;
+        if (scene == null || _mesh == null)
+        {
+            return;
+        }
+        _crown = scene.Instantiate<EliteCrown>();
+        _mesh.AddChild(_crown);
+        float headY = HudAnchor != null ? HudAnchor.Position.Y : 2f;
+        _crown.Position = new Vector3(0f, headY + CrownHeadMargin, 0f);
     }
 
     // Grow an elite mob by EliteScaleMultiplier. The visual mesh scales
@@ -1585,11 +1566,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Land a flying mob on `perch`: claim it, freeze the body so it rests there
-    // without falling (perches sit on billboard branches / posts with no
-    // collider), and start tracking the perch's painted landing point. Because
-    // that point moves with the camera (billboard) and the sprite's mirror, the
-    // bird re-snaps to it every frame in _Process via UpdatePerchedTransform —
-    // a one-time snap would drift off the branch as the view rotates.
+    // without falling (perches sit on branches / ledges with no collider), and
+    // snap onto the perch's landing point. The point is a static 3D marker, so a
+    // single placement holds — facing is then driven by BehaviorPerch through
+    // AIOutput.yaw.
     public void SettleOnPerch(Perch perch)
     {
         if (perch == null)
@@ -1601,7 +1581,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _perched = true;
         LinearVelocity = Vector3.Zero;
         Freeze = true;
-        UpdatePerchedTransform();
+        GlobalPosition = perch.WorldPosition;
     }
 
     // Take off / abandon the current perch: stop tracking, unfreeze the body,
@@ -1619,20 +1599,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _claimedPerch.Release(this);
             _claimedPerch = null;
         }
-    }
-
-    // Re-place a perched bird on its perch's current visual landing point.
-    // Position only — facing is driven by BehaviorPerch through AIOutput.yaw.
-    // Called every render frame while perched so the bird stays glued to the
-    // painted branch as the camera orbits / the sprite mirror flips.
-    private void UpdatePerchedTransform()
-    {
-        if (!_perched || _claimedPerch == null || !IsInstanceValid(_claimedPerch))
-        {
-            return;
-        }
-        Camera3D cam = GetViewport()?.GetCamera3D();
-        GlobalPosition = _claimedPerch.ResolveLandingPosition(cam);
     }
 
     // Writes the node's current transform back into the persistent sim state so
@@ -1656,14 +1622,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_mesh == null)
         {
             return;
-        }
-
-        // Keep a perched bird glued to its perch's painted landing point, which
-        // moves with the camera (billboard) and the prop sprite's mirror. Done
-        // in _Process (after the camera updates) so it tracks view rotation.
-        if (_perched)
-        {
-            UpdatePerchedTransform();
         }
 
         // Compute target state.
@@ -1716,28 +1674,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _lastHudVisible = hudVisibleTarget;
             _lastHudVisibleInit = true;
         }
-        if (_sprite is LitSprite litSprite)
-        {
-            // LitSprite's Visibility / Silhouette / CastsShadow setters all
-            // short-circuit on equal value internally, so we can write them
-            // unconditionally and not pay the shader-uniform push for stable
-            // frames. mob_shadows is a profiling bisection toggle baked into
-            // castsShadowTarget upstream.
-            litSprite.Visibility = _visibility;
-            litSprite.Silhouette = _silhouette;
-            litSprite.CastsShadow = castsShadowTarget;
-            // Burrowed mobs are underground — the normal depth-tested mesh is
-            // already hidden by terrain, but the next_pass X-ray would still
-            // silhouette them through the ground. Suppress it so a buried mob
-            // is genuinely invisible.
-            litSprite.XrayAmount = burrowed ? 0f : 1f;
-        }
-        // Parity for 3D-model mobs: push the same discovery presentation onto
-        // the model's meshes (dither / silhouette / X-ray fade / shadow). Unlike
-        // LitSprite's self-gating setters the model push isn't free, so gate it
-        // on change — during a fade _visibility/_silhouette move every frame, but
-        // a settled mob pushes nothing. xray suppressed while burrowed, same as
-        // the sprite path.
+        // Push the discovery presentation onto the model's meshes (dither /
+        // silhouette / X-ray fade / shadow). The push isn't free, so gate it on
+        // change — during a fade _visibility/_silhouette move every frame, but a
+        // settled mob pushes nothing. xray suppressed while burrowed so a buried
+        // mob's through-cover silhouette doesn't show.
         if (_modelAnimator != null)
         {
             float modelXray = burrowed ? 0f : 1f;
@@ -1755,6 +1696,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _lastModelVisualsInit = true;
             }
         }
+        // Feed the elite crown the same discovery presentation as the body (it
+        // gates internally, so this is cheap on settled frames) — works for both
+        // sprite and model mobs since the crown carries its own meshes. xray
+        // suppressed while burrowed, matching the body.
+        _crown?.SetDiscoveryVisuals(_visibility, _silhouette, burrowed ? 0f : 1f);
     }
 
     override public void _PhysicsProcess(double delta)
@@ -1949,7 +1895,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             float? targetYaw = aiOutput.yaw;
 
             float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
-            // Sprite anim retiming is gated to movement-loop anims only — see
+            // Anim retiming is gated to movement-loop anims only — see
             // UpdateAnimation, which writes effectSpeedMultiplier per-frame
             // based on the currently-picked loopAnim. Attack / hitstun / die
             // one-shots play at authored speed regardless of status.
@@ -2189,11 +2135,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         else
         {
             // AxisLockAngularY is cleared in Die() so a corpse can tumble
-            // when pushed, but a residual slow Y spin keeps re-flipping
-            // LitSprite's yaw-mirror (sign of forward · camRight), making
-            // the sprite oscillate. Heavy angular damp settles the tumble
-            // fast, and the snap-to-zero below kills the last sub-flicker
-            // residual the contact resolver leaves behind.
+            // when pushed, but a residual slow Y spin keeps re-snapping the
+            // model's camera-relative facing facets, making the visual
+            // oscillate. Heavy angular damp settles the tumble fast, and the
+            // snap-to-zero below kills the last sub-flicker residual the
+            // contact resolver leaves behind.
             AngularDamp = 5f;
             // Knockback owns linear damping while active — the per-tick
             // velocity force in ApplyKnockback wants no decay so the corpse
@@ -2851,6 +2797,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // so a dead mob's lit torch would otherwise leak its light deposit
         // and loop FX.
         DespawnTorch();
+        // Drop the elite crown — the marker is for live elites; a corpse keeps
+        // no halo.
+        if (_crown != null)
+        {
+            _crown.QueueFree();
+            _crown = null;
+        }
         // Drop every active status effect so any looping fx (dizzy stars,
         // burning crackle, wet drip) stops the moment the mob dies — same
         // "only runs while alive" rationale as the torch cleanup above.
@@ -3114,10 +3067,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _rippleEmitter.Update(ripplePos, true, 0.8f, 0.5f);
     }
 
-    // Footsteps and footprints emit on sprite-animation events (see
-    // OnAnimFrameAdvanced) rather than from this method. What stays here is
-    // the water-enter splash + the water/tall-grass movement loop gates,
-    // which key off the voxel-at-feet sample and the navigator's intent.
+    // Footsteps and footprints emit from the model's foot-contact method track
+    // (see EmitFootstep) rather than from this method. What stays here is the
+    // water-enter splash + the water/tall-grass movement loop gates, which key
+    // off the voxel-at-feet sample and the navigator's intent.
     private void UpdateFootsteps()
     {
         WorldState ws = _world?.WorldState;

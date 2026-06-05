@@ -8,7 +8,7 @@ using Godot;
 // animator, which toggles visibility on the one shared skeleton — no reload,
 // no skin rebind. Recomputed on every armor slot change and once at spawn.
 //
-// Targets the live gender model (_activeModelAnimator), so it composites onto
+// Targets the live gender model (_animator), so it composites onto
 // whichever body type the player spawned as. The rig-specific part names (head
 // shell, bare body, skin meshes, hair menu) are NOT hardcoded here — they live
 // on each gender's ModelAnimator (baseMeshNames / bareBodyMeshNames /
@@ -33,30 +33,29 @@ public partial class Player : CharacterBody3D
 	// hair-style mesh is known when the visible set is composited.
 	private void ApplyAppearance(PlayerSpawnData spawnData)
 	{
-		if (_activeModelAnimator == null || data == null)
+		if (_animator == null || data == null)
 		{
 			return;
 		}
-		string hairMesh = _activeModelAnimator.GetHairStyleMesh(spawnData?.hairStyle ?? 0);
+		string hairMesh = _animator.GetHairStyleMesh(spawnData?.hairStyle ?? 0);
 		_hairStyleMeshes = hairMesh != null ? new[] { hairMesh } : System.Array.Empty<string>();
 
-		_activeModelAnimator.SetMeshRecolor(_activeModelAnimator.skinMeshNames, data.GetSkinTone(spawnData?.skinTone ?? 0));
-		_activeModelAnimator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(spawnData?.hairColor ?? 0));
+		_animator.SetMeshRecolor(_animator.skinMeshNames, data.GetSkinTone(spawnData?.skinTone ?? 0));
+		_animator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(spawnData?.hairColor ?? 0));
 	}
 
 	// Recompose the visible mesh set from equipped armor and push it to the
-	// model. No-op on the sprite player (no model animator) or before the
-	// inventory exists.
+	// model. No-op before the model animator or inventory exists.
 	private void UpdateArmorVisual()
 	{
-		if (_activeModelAnimator == null || _inventory == null)
+		if (_animator == null || _inventory == null)
 		{
 			return;
 		}
-		List<string> visible = new(_activeModelAnimator.baseMeshNames);
+		List<string> visible = new(_animator.baseMeshNames);
 		AppendSlotMeshes(EInventorySlot.ArmorHead, _hairStyleMeshes, visible);
-		AppendSlotMeshes(EInventorySlot.ArmorBody, _activeModelAnimator.bareBodyMeshNames, visible);
-		_activeModelAnimator.SetVisibleMeshes(visible.ToArray());
+		AppendSlotMeshes(EInventorySlot.ArmorBody, _animator.bareBodyMeshNames, visible);
+		_animator.SetVisibleMeshes(visible.ToArray());
 	}
 
 	// Append the equipped armor's worn meshes for `slot`, or the bare-body

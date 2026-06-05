@@ -15,6 +15,26 @@
 [ext_resource type="PackedScene" uid="uid://dnfw47fqkhyov" path="res://scenes/props/tree_willow_dead_tiny.tscn" id="12_vum8l"]
 [ext_resource type="PackedScene" uid="uid://c8iro0h5nif8x" path="res://scenes/props/tree_desert_pine.tscn" id="13_c0fex"]
 
+[sub_resource type="Resource" id="ws_4_g01"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g01")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g02"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g02")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g03"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g03")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
+[sub_resource type="Resource" id="ws_4_g04"]
+script = ExtResource("6_weighted")
+Scene = ExtResource("4_g04")
+metadata/_custom_type_script = "uid://taus171g3fozd"
+
 [sub_resource type="Resource" id="ws_9_veml7"]
 script = ExtResource("6_weighted")
 Scene = ExtResource("9_veml7")
@@ -45,26 +65,6 @@ metadata/_custom_type_script = "uid://taus171g3fozd"
 [sub_resource type="Resource" id="ws_11_eh5vr"]
 script = ExtResource("6_weighted")
 Scene = ExtResource("11_eh5vr")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g01"]
-script = ExtResource("6_weighted")
-Scene = ExtResource("4_g01")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g02"]
-script = ExtResource("6_weighted")
-Scene = ExtResource("4_g02")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g03"]
-script = ExtResource("6_weighted")
-Scene = ExtResource("4_g03")
-metadata/_custom_type_script = "uid://taus171g3fozd"
-
-[sub_resource type="Resource" id="ws_4_g04"]
-script = ExtResource("6_weighted")
-Scene = ExtResource("4_g04")
 metadata/_custom_type_script = "uid://taus171g3fozd"
 
 [resource]

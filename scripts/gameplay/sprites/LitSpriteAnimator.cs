@@ -17,7 +17,7 @@ using Godot;
 // uniforms until their next setter call.
 [Tool]
 [GlobalClass]
-public partial class LitSpriteAnimator : Node, IActorAnimator
+public partial class LitSpriteAnimator : Node
 {
     [Export] public SpriteBase target;
     [Export] public SpriteFrames frames;
@@ -36,9 +36,9 @@ public partial class LitSpriteAnimator : Node, IActorAnimator
 
     // Fires every time the current frame index changes (each forward step,
     // and on Play() when the new animation lands on a different starting
-    // frame than what was previously showing). Footstep and footprint
-    // emission subscribes to this so cadence stays locked to the animator
-    // regardless of movement speed, status retiming, or paused locomotion.
+    // frame than what was previously showing). Lets cadence-locked consumers
+    // (e.g. frame-indexed footsteps) stay synced to the animator regardless of
+    // movement speed, status retiming, or paused locomotion.
     public event Action<StringName, int> OnFrameAdvanced;
 
     private int _frame;

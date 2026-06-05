@@ -24,7 +24,6 @@ libraries/ = ExtResource("3_animlib")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=950067907 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("5_modelanim")
-useFootstepTracks = true
 player = NodePath("../PlayerModel/BasicHero_M/AnimationPlayer")
 visual = NodePath("../PlayerModel")
 modelMaterial = ExtResource("4_modelmat")

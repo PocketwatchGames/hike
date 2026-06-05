@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dwgxgxbii2arl"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Texture2D" uid="uid://byl6yu4o41toi" path="res://assets/textures/status_effects/Damage Multiplier_Status.png" id="2_icon"]
+[ext_resource type="Texture2D" uid="uid://b5t33j2cqwfih" path="res://assets/textures/status_effects/strength.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_movespeed"]
