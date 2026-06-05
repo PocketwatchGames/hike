@@ -132,6 +132,7 @@ pitchRangeDegrees = 45.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
+wieldHand = 1
 animSet = ExtResource("21_animset")
 displayName = &"Short Bow"
 description = "Shooty shooty"

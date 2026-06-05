@@ -1,27 +1,27 @@
 using Godot;
 
 // Renders the player's currently-wielded item as a rigid 3D prop attached to a
-// hand bone of the skinned character. Two independent channels share one hand
-// socket:
+// hand bone of the skinned character. Two independent channels:
 //
 //   - Weapon channel (persistent): the last-used weapon. It pops into the hand
 //     when a weapon action fires and STAYS there between swings; using the other
-//     weapon swaps it. Set via SetWeapon.
+//     weapon swaps it. Set via SetWeapon, which also picks which hand (left or
+//     right) the model attaches to per the weapon's EHand.
 //   - Item channel (transient): a consumable (potion / scroll) shown only for
 //     the duration of its Use action, then cleared back to the weapon. Set via
-//     SetActiveItem.
+//     SetActiveItem. Always shown in the right (main) hand.
 //
 // Each item's grip alignment is baked into its own model scene (offset the mesh
 // so the scene origin sits in the palm), so this component never authors a
 // per-item transform — it just instances the scene under the socket holder.
 //
-// The hand socket is a BoneAttachment3D built once against the imported
-// character Skeleton3D. The rig is an instanced FBX with no hand-authored nodes
-// to [Export] against, so the Skeleton3D is found by walking the `visual`
-// subtree — the same pattern ModelAnimator uses for its material / mesh-hide
-// passes. Socket construction is deferred out of _Ready (CallDeferred) so it
-// runs after the scene-instantiation AddChild storm settles, matching the
-// MovingLight lifecycle convention.
+// The hand sockets are BoneAttachment3Ds built once against the imported
+// character Skeleton3D (one per wrist joint). The rig is an instanced FBX with
+// no hand-authored nodes to [Export] against, so the Skeleton3D is found by
+// walking the `visual` subtree — the same pattern ModelAnimator uses for its
+// material / mesh-hide passes. Socket construction is deferred out of _Ready
+// (CallDeferred) so it runs after the scene-instantiation AddChild storm
+// settles, matching the MovingLight lifecycle convention.
 [GlobalClass]
 public partial class HeldItemVisual : Node3D
 {
@@ -29,28 +29,33 @@ public partial class HeldItemVisual : Node3D
 	// Wire this to the same node ModelAnimator drives as `visual` (PlayerModel).
 	[Export] public Node3D visual;
 
-	// Bone the hand socket binds to. Default matches the shared polysplit rig's
-	// right wrist joint; override per rig if a different skeleton is used.
+	// Bones the hand sockets bind to. Defaults match the shared polysplit rig's
+	// wrist joints; override per rig if a different skeleton is used.
 	[Export] public StringName boneName = "R_wrist_joint";
+	[Export] public StringName leftBoneName = "L_wrist_joint";
 
-	private BoneAttachment3D _socket;
-	private Node3D _weaponHolder;
+	private Node3D _weaponHolderRight;
+	private Node3D _weaponHolderLeft;
 	private Node3D _itemHolder;
 
-	// Desired scenes are latched even before the socket exists so a SetWeapon
-	// that races the deferred build is applied once BuildSocket runs.
+	// Desired scenes are latched even before the sockets exist so a SetWeapon
+	// that races the deferred build is applied once BuildSockets runs.
 	private PackedScene _weaponScene;
+	private EHand _weaponHand = EHand.Right;
 	private PackedScene _itemScene;
 	private Node3D _weaponInstance;
 	private Node3D _itemInstance;
 	private bool _weaponConcealed;
 
+	// The weapon holder for the hand currently selected. Null until built.
+	private Node3D ActiveWeaponHolder => _weaponHand == EHand.Left ? _weaponHolderLeft : _weaponHolderRight;
+
 	public override void _Ready()
 	{
-		CallDeferred(MethodName.BuildSocket);
+		CallDeferred(MethodName.BuildSockets);
 	}
 
-	private void BuildSocket()
+	private void BuildSockets()
 	{
 		Skeleton3D skeleton = FindSkeleton(visual);
 		if (skeleton == null)
@@ -58,27 +63,39 @@ public partial class HeldItemVisual : Node3D
 			GD.PushError($"HeldItemVisual '{Name}': no Skeleton3D found under `visual`; held-item models disabled.");
 			return;
 		}
-		_socket = new BoneAttachment3D { Name = "HandSocket", BoneName = boneName.ToString() };
-		skeleton.AddChild(_socket);
-		_weaponHolder = new Node3D { Name = "WeaponHolder" };
+		_weaponHolderRight = BuildHandSocket(skeleton, boneName, "HandSocketRight", "WeaponHolderRight");
+		_weaponHolderLeft = BuildHandSocket(skeleton, leftBoneName, "HandSocketLeft", "WeaponHolderLeft");
+		_weaponHolderRight.Visible = !_weaponConcealed;
+		_weaponHolderLeft.Visible = !_weaponConcealed;
+		// The transient consumable always rides the right hand.
 		_itemHolder = new Node3D { Name = "ItemHolder" };
-		_socket.AddChild(_weaponHolder);
-		_socket.AddChild(_itemHolder);
-		_weaponHolder.Visible = !_weaponConcealed;
-		// Apply anything latched before the socket existed.
+		_weaponHolderRight.GetParent().AddChild(_itemHolder);
+		// Apply anything latched before the sockets existed.
 		ApplyWeapon();
 		ApplyItem();
 	}
 
-	// Sets the persistent weapon model. No-op when unchanged so the per-press
-	// call site can fire freely. Null clears the weapon channel.
-	public void SetWeapon(PackedScene model)
+	// Builds a BoneAttachment3D for one wrist and returns its weapon holder.
+	private static Node3D BuildHandSocket(Skeleton3D skeleton, StringName bone, string socketName, string holderName)
 	{
-		if (model == _weaponScene)
+		var socket = new BoneAttachment3D { Name = socketName, BoneName = bone.ToString() };
+		skeleton.AddChild(socket);
+		var holder = new Node3D { Name = holderName };
+		socket.AddChild(holder);
+		return holder;
+	}
+
+	// Sets the persistent weapon model and the hand it attaches to. No-op when
+	// both are unchanged so the per-press call site can fire freely. Null model
+	// clears the weapon channel.
+	public void SetWeapon(PackedScene model, EHand hand = EHand.Right)
+	{
+		if (model == _weaponScene && hand == _weaponHand)
 		{
 			return;
 		}
 		_weaponScene = model;
+		_weaponHand = hand;
 		ApplyWeapon();
 	}
 
@@ -99,20 +116,27 @@ public partial class HeldItemVisual : Node3D
 	public void SetWeaponConcealed(bool concealed)
 	{
 		_weaponConcealed = concealed;
-		if (_weaponHolder != null)
+		if (_weaponHolderRight != null)
 		{
-			_weaponHolder.Visible = !concealed;
+			_weaponHolderRight.Visible = !concealed;
+		}
+		if (_weaponHolderLeft != null)
+		{
+			_weaponHolderLeft.Visible = !concealed;
 		}
 	}
 
 	private void ApplyWeapon()
 	{
-		// Socket not built yet — BuildSocket re-applies the latched scene.
-		if (_weaponHolder == null)
+		// Sockets not built yet — BuildSockets re-applies the latched scene.
+		// SwapInstance frees the old instance regardless of which holder it sat
+		// in, so a hand change moves the weapon to the now-active holder.
+		Node3D holder = ActiveWeaponHolder;
+		if (holder == null)
 		{
 			return;
 		}
-		SwapInstance(ref _weaponInstance, _weaponHolder, _weaponScene);
+		SwapInstance(ref _weaponInstance, holder, _weaponScene);
 	}
 
 	private void ApplyItem()

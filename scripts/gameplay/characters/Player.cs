@@ -515,6 +515,12 @@ public partial class Player : CharacterBody3D
 	// during an action); this field is the fallback for the idle/run stance between
 	// actions.
 	WeaponState _wieldedWeapon;
+	// Lazily-built WeaponState wrapping PlayerData.unarmedWeapon — the fists the
+	// melee attack falls back to when the WeaponLeft slot is empty. Cached so the
+	// unarmed weapon keeps its own runtime state (combo chain, exp/level) across
+	// swings instead of being rebuilt each press. Lives on the player, never in
+	// the inventory. See GetMeleeWeaponOrUnarmed.
+	WeaponState _unarmedWeapon;
 	// Wall-clock time at which the player most recently lost ground contact.
 	// Drives the fall-anim grace window — running up/down hills momentarily
 	// lifts off, and we don't want a one-frame !_grounded to spike the fall
@@ -3586,7 +3592,7 @@ public partial class Player : CharacterBody3D
 			PackedScene rangedModel = ranged?.data?.heldModel;
 			if (rangedModel != null)
 			{
-				_heldVisual.SetWeapon(rangedModel);
+				_heldVisual.SetWeapon(rangedModel, ranged.data.wieldHand);
 				// The drawn bow becomes the wielded weapon, so its anim set drives
 				// the stance / charge poses while aiming and after aim ends.
 				_wieldedWeapon = ranged;
@@ -3920,7 +3926,7 @@ public partial class Player : CharacterBody3D
 			}
 			else if (_runner != null && !_runner.IsBusy)
 			{
-				WeaponState pendingWeapon = _inventory?.GetWeapon(pendingSlot);
+				WeaponState pendingWeapon = GetMeleeWeaponOrUnarmed(pendingSlot);
 				ulong nowMs = _world?.GameTimeMs ?? 0;
 				if (pendingWeapon != null && pendingWeapon.cooldownExpireMs <= nowMs)
 				{

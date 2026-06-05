@@ -5,10 +5,12 @@
 [ext_resource type="Resource" uid="uid://bgra13f0vo0vi" path="res://resources/data/status_effects/status_hot.tres" id="5_hot"]
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]
 [ext_resource type="Resource" uid="uid://ct4ntwjta4pai" path="res://resources/data/characters/human/anim_sets/unarmed.tres" id="7_unarmed"]
+[ext_resource type="Resource" uid="uid://b8nf3qkxr7m2p" path="res://resources/data/items/weapons/fists.tres" id="8_fists"]
 
 [resource]
 script = ExtResource("1_mknwc")
 baseAnims = ExtResource("7_unarmed")
+unarmedWeapon = ExtResource("8_fists")
 stepHeight = 1.1
 moveSpeed = 6.5
 skidGroundAcceleration = 20.0

@@ -20,6 +20,7 @@
 [ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="18_5rplm"]
+[ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="18_an6y7"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://ck5pq8rxnv7hd" path="res://scenes/effects/rain_of_arrows_aoe.tscn" id="19_rainaoe"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="20_areaspec"]
@@ -143,6 +144,8 @@ pitchRangeDegrees = 45.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
+wieldHand = 1
+animSet = ExtResource("18_an6y7")
 displayName = &"Bow of Rainfall"
 description = "A shower of arrows."
 value = 50

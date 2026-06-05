@@ -129,6 +129,27 @@ public partial class Player : CharacterBody3D, IActionActor
 		_sneaking = false;
 	}
 
+	// Resolve the weapon a press on `slot` should drive. Normally the equipped
+	// weapon, but an empty melee slot (WeaponLeft) falls back to the player's
+	// unarmed weapon so a bare-handed player still punches. The unarmed
+	// WeaponState is built once and cached — it carries its own combo / exp
+	// state like any inventory weapon. Returns null only when the slot is empty
+	// and there's no unarmed fallback (or it's the ranged slot).
+	WeaponState GetMeleeWeaponOrUnarmed(EInventorySlot slot)
+	{
+		WeaponState weapon = _inventory?.GetWeapon(slot);
+		if (weapon != null)
+		{
+			return weapon;
+		}
+		if (slot == EInventorySlot.WeaponLeft && data?.unarmedWeapon != null)
+		{
+			_unarmedWeapon ??= new WeaponState(data.unarmedWeapon);
+			return _unarmedWeapon;
+		}
+		return null;
+	}
+
 	void TryStartWeaponAction(EInventorySlot slot, string actionName)
 	{
 		// Committing to an attack always wins over an in-flight movement burst —
@@ -140,7 +161,7 @@ public partial class Player : CharacterBody3D, IActionActor
 		{
 			return;
 		}
-		WeaponState weapon = _inventory?.GetWeapon(slot);
+		WeaponState weapon = GetMeleeWeaponOrUnarmed(slot);
 		if (weapon?.data?.actionProfile == null)
 		{
 			return;
@@ -181,7 +202,7 @@ public partial class Player : CharacterBody3D, IActionActor
 			// the other weapon next swaps it. No-op when it's already the held
 			// model (re-swinging the same weapon). Tracked for the anim system so
 			// this weapon's WeaponAnimSet drives the stance / charge / attack poses.
-			_heldVisual?.SetWeapon(weapon.data.heldModel);
+			_heldVisual?.SetWeapon(weapon.data.heldModel, weapon.data.wieldHand);
 			_wieldedWeapon = weapon;
 			ValidateAnimSet(weapon.data.animSet, weapon.data.displayName);
 		}

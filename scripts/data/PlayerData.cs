@@ -231,6 +231,15 @@ public partial class PlayerData : Resource
 	[ExportGroup("Combat")]
 	[Export] public float maxHealth = 100f;
 
+	// Fallback melee weapon used by the melee attack when the WeaponLeft slot is
+	// empty — the player's bare-handed punch/kick. Authored as an ordinary
+	// WeaponData (its own actionProfile, damage, animSet, no heldModel) so unarmed
+	// combat shares the entire weapon timeline / event pipeline; it just lives on
+	// the player instead of in the inventory. Player lazily wraps it in a
+	// WeaponState the first time it's needed. Null = no unarmed attack (an empty
+	// melee press does nothing).
+	[Export] public WeaponData unarmedWeapon;
+
 	// Inherent stat modifiers. Composed with equipped ArmorData.modifiers
 	// and active StatusEffectData.modifiers when the actor queries any
 	// stat (incoming-damage scale by tag, pierce / blunt / knockback

@@ -90,6 +90,13 @@ public partial class WeaponData : ItemData
 	// chargeTime windows.
 	[Export] public ItemActionProfile actionProfile;
 
+	// Which hand the wielded model attaches to. HeldItemVisual binds a socket
+	// per side against the rig's L_/R_wrist_joint bones and routes SetWeapon to
+	// this hand. Default Right matches swords and the bow's draw hand; set Left
+	// for an off-hand weapon. Independent of CanonicalSlot (the inventory slot) —
+	// this is purely the visual attach point.
+	[Export] public EHand wieldHand = EHand.Right;
+
 	// Per-weapon animation overrides consulted by Player.UpdateAnimation while
 	// this weapon is the one in hand — its own idle/run stance, charge poses
 	// (tier x locomotion), attack one-shots, and block reaction. Null = the

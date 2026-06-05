@@ -1,11 +1,11 @@
-[gd_resource type="Resource" script_class="WeaponAnimSet" load_steps=14 format=3 uid="uid://cbow4n1msetk9"]
+[gd_resource type="Resource" script_class="WeaponAnimSet" format=3 uid="uid://cbow4n1msetla"]
 
-[ext_resource type="Script" uid="uid://ebr0vht6y6v0e" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
+[ext_resource type="Script" uid="uid://gd5bfwxfy08m" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
 
 [sub_resource type="Resource" id="b_attack1"]
 script = ExtResource("2_animdata")
-name = &"bowattack1"
+name = &"bowattack"
 
 [sub_resource type="Resource" id="b_idle"]
 script = ExtResource("2_animdata")
@@ -17,31 +17,31 @@ name = &"bowrun"
 
 [sub_resource type="Resource" id="b_attack2"]
 script = ExtResource("2_animdata")
-name = &"bowattack2"
+name = &"bowattack"
 
 [sub_resource type="Resource" id="b_c1idle"]
 script = ExtResource("2_animdata")
-name = &"bowcharging1idle"
+name = &"bowcharge1loop"
 
 [sub_resource type="Resource" id="b_c1walk"]
 script = ExtResource("2_animdata")
-name = &"bowcharging1walk"
+name = &"bowwalk"
 
 [sub_resource type="Resource" id="b_c1run"]
 script = ExtResource("2_animdata")
-name = &"bowcharging1run"
+name = &"bowrun"
 
 [sub_resource type="Resource" id="b_c2idle"]
 script = ExtResource("2_animdata")
-name = &"bowcharging2idle"
+name = &"bowcharge2loop"
 
 [sub_resource type="Resource" id="b_c2walk"]
 script = ExtResource("2_animdata")
-name = &"bowcharging2walk"
+name = &"bowwalk"
 
 [sub_resource type="Resource" id="b_c2run"]
 script = ExtResource("2_animdata")
-name = &"bowcharging2run"
+name = &"bowrun"
 
 [sub_resource type="Resource" id="b_block"]
 script = ExtResource("2_animdata")
