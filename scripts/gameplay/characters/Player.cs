@@ -30,19 +30,17 @@ public partial class Player : CharacterBody3D
 	// (IActorAnimator) and made visible; the rest of the class drives animation
 	// through _animator without caring which it is.
 	[Export] private LitSpriteAnimator _spriteAnimator;
-	// The default 3D model, used for EGender.Female (the wired BasicHero_F
-	// rig). Also the fallback for any gender whose own model isn't wired yet.
-	[Export] private ModelAnimator _modelAnimator;
-	// Alternate base model for EGender.Male — its own model subtree (instanced
-	// FBX + ModelAnimator) in player.tscn, sharing the skeleton and animation
-	// library so the EAnimation state machine drives it identically. Null until
-	// the male rig is dropped in and wired; Male then falls back to
-	// _modelAnimator (the default model). Adding a body type = a new sibling
-	// subtree + a field like this + a ResolveGenderModel case.
-	[Export] private ModelAnimator _modelAnimatorMale;
-	// The gender-selected model animator that's actually live (one of the
-	// model slots above), resolved in Initialize once the spawn gender is
-	// known. The unused slots are deactivated so only this one renders.
+	// Per-gender base model packages, keyed by (int)EGender. Each value is a
+	// PlayerModelPackage scene (model + ModelAnimator + HeldItemVisual +
+	// PixelSnap, all wired inside it). Initialize instances exactly the spawned
+	// gender's package and reads its drivers — so only one rig is ever built,
+	// not every gender hidden behind one. A gender with no entry falls back to
+	// Female. Adding a body type = author a package scene + add a dictionary
+	// entry; no new fields or code branches.
+	[Export] private Godot.Collections.Dictionary<int, PackedScene> _modelPackages = new();
+	// The live model package instanced for the spawned gender (child of Player),
+	// and its animator — resolved in Initialize once the spawn gender is known.
+	private PlayerModelPackage _modelPackageInstance;
 	private ModelAnimator _activeModelAnimator;
 	private IActorAnimator _animator;
 	// The visual root of whichever animator is live — toggled by
@@ -510,7 +508,22 @@ public partial class Player : CharacterBody3D
 	// Non-DoT hits bypass this and fire onDamage / onHeal immediately.
 	readonly DotHudAccumulator _dotHud = new();
 	MovingLight _movingLight;
-	EAnimation? _oneShotAnim;
+	// One-shot animation latch — holds the resolved clip name currently playing
+	// as a one-shot (attack / jump / die / hitstun / weapon block); default = no
+	// one-shot, fall back to the state-driven loop. `_oneShotIsHitstun` gates the
+	// special hitstun timer release; `_oneShotOverridesCharge` keeps a block
+	// reaction alive over a held weapon charge (every other one-shot yields to a
+	// charge pose).
+	StringName _oneShotClip;
+	bool _oneShotIsHitstun;
+	bool _oneShotOverridesCharge;
+	// The weapon whose WeaponAnimSet currently drives the player's stance / charge
+	// / attack poses — the last weapon popped into the hand (swing or aim). Null
+	// until the player first draws a weapon; then its set overrides the unarmed
+	// clips. Charge/attack poses prefer the runner's in-flight weapon (authoritative
+	// during an action); this field is the fallback for the idle/run stance between
+	// actions.
+	WeaponState _wieldedWeapon;
 	// Wall-clock time at which the player most recently lost ground contact.
 	// Drives the fall-anim grace window — running up/down hills momentarily
 	// lifts off, and we don't want a one-frame !_grounded to spike the fall
@@ -825,27 +838,43 @@ public partial class Player : CharacterBody3D
 		_aimingReticle?.Initialize(this);
 	}
 
-	// Map a gender to its base-model animator. Each EGender that has a wired
-	// model subtree returns it; anything not yet authored falls back to the
-	// default model (_modelAnimator, the Female rig) so the player always has
-	// a visual. Add a case here when a new body type's subtree is wired.
-	private ModelAnimator ResolveGenderModel(EGender gender)
+	// Resolve the base-model package scene for a gender. Falls back to the
+	// Female entry when the gender has no authored package, so the player always
+	// has a body. Returns null only if the map is empty (sprite-only fallback).
+	private PackedScene ResolveGenderPackage(EGender gender)
 	{
-		switch (gender)
+		if (_modelPackages == null)
 		{
-			case EGender.Male:
-				return _modelAnimatorMale ?? _modelAnimator;
-			case EGender.Female:
-			default:
-				return _modelAnimator;
+			return null;
 		}
+		if (_modelPackages.TryGetValue((int)gender, out PackedScene scene) && scene != null)
+		{
+			return scene;
+		}
+		_modelPackages.TryGetValue((int)EGender.Female, out PackedScene fallback);
+		return fallback;
+	}
+
+	// Instance the spawned gender's model package as a child of the player and
+	// bind its drivers (animator + held-item socket). Only one rig is ever built.
+	private void SpawnModelPackage(EGender gender)
+	{
+		PackedScene packageScene = ResolveGenderPackage(gender);
+		if (packageScene == null)
+		{
+			return;
+		}
+		_modelPackageInstance = packageScene.Instantiate<PlayerModelPackage>();
+		AddChild(_modelPackageInstance);
+		_activeModelAnimator = _modelPackageInstance.animator;
+		_heldVisual = _modelPackageInstance.heldVisual;
 	}
 
 	// Pick the live visual + animator: prefer the gender-selected 3D model
-	// (_activeModelAnimator) when wired, otherwise fall back to the billboard
+	// (_activeModelAnimator) when instanced, otherwise fall back to the billboard
 	// sprite. Code owns BOTH visuals' visibility (model shown via SetActive,
-	// sprite shown iff the model isn't used) so whichever nodes exist in
-	// player.tscn, exactly one visual renders and it can never end up invisible.
+	// sprite shown iff the model isn't used) so exactly one visual renders and it
+	// can never end up invisible.
 	//
 	// Deferred to Initialize (not _Ready) because the gender that selects the
 	// base model only arrives with PlayerSpawnData. GameClient calls Initialize
@@ -854,17 +883,6 @@ public partial class Player : CharacterBody3D
 	private void ActivateVisual()
 	{
 		bool use3d = _activeModelAnimator != null;
-		// Hide every non-chosen gender model subtree, then activate only the
-		// selected one, so an unused variant can't render through the active
-		// model. (ModelAnimator also defaults to inactive in its own _Ready;
-		// this is the authoritative pass once the gender is known.)
-		foreach (ModelAnimator slot in new[] { _modelAnimator, _modelAnimatorMale })
-		{
-			if (slot != null && slot != _activeModelAnimator)
-			{
-				slot.SetActive(false);
-			}
-		}
 		_activeModelAnimator?.SetActive(use3d);
 		_animator = use3d ? _activeModelAnimator : _spriteAnimator;
 		_activeVisual = use3d ? _activeModelAnimator.visual : _spriteAnimator?.target;
@@ -1036,6 +1054,10 @@ public partial class Player : CharacterBody3D
 		if (blockAbsorbed > 0f)
 		{
 			incomingDamage = bypassed;
+			// Guard reaction one-shot, played over the held charge pose (resolves
+			// the wielded weapon's Block override; no-op if it authors none). The
+			// blocking weapon is the one being charged, i.e. the wielded weapon.
+			PlayOneShot(EAnimation.Block, overridesCharge: true);
 		}
 		float armorAbsorbed = 0f;
 		if (_armor > 0f && absorbable > 0f)
@@ -1215,25 +1237,78 @@ public partial class Player : CharacterBody3D
 		_slideLoopScene = target;
 	}
 
-	// One-shots (attack, die, jump) latch _oneShotAnim and let the
-	// LitSpriteAnimator drive itself to completion — Finished flips because
-	// these anims are authored with loop=false in player.tscn. While a one-
-	// shot is latched, UpdateAnimation defers; once Finished (or the animator
-	// gets reassigned by something else) we clear the latch and resume the
-	// state-driven loop pick.
-	public void PlayOneShot(EAnimation anim)
+	// One-shots (attack, die, jump) latch the resolved clip and let the animator
+	// drive itself to completion — Finished flips because these anims are authored
+	// with loop=false. While a one-shot is latched, UpdateAnimation defers; once
+	// Finished (or the animator gets reassigned by something else) we clear the
+	// latch and resume the state-driven loop pick.
+	// `overridesCharge` keeps the one-shot playing over a held charge pose (the
+	// block reaction passes true); everything else yields to a charge. Resolves
+	// through AnimName, so a wielded weapon's override for the slot wins and an
+	// unmapped / missing clip falls back silently.
+	public void PlayOneShot(EAnimation anim, bool overridesCharge = false)
 	{
 		if (_animator == null || data == null)
 		{
 			return;
 		}
-		StringName name = data.GetAnimationName(anim);
+		StringName name = AnimName(anim);
 		if (name == default || !_animator.HasAnimation(name))
 		{
 			return;
 		}
-		_oneShotAnim = anim;
+		_oneShotClip = name;
+		_oneShotIsHitstun = anim == EAnimation.Hitstun;
+		_oneShotOverridesCharge = overridesCharge;
 		_animator.Play(name);
+	}
+
+	// Resolve an EAnimation slot to a clip name, preferring the wielded weapon's
+	// override and falling back to the unarmed clip. The single chokepoint that
+	// makes the whole standard anim set per-weapon overridable with an automatic
+	// unarmed fallback — a weapon set leaves a slot blank (or names a clip the
+	// active animator lacks) and the unarmed clip is used.
+	private StringName AnimName(EAnimation anim)
+	{
+		WeaponAnimSet set = _wieldedWeapon?.data?.animSet;
+		if (set != null)
+		{
+			StringName ov = set.GetOverride(anim);
+			if (ov != default && _animator != null && _animator.HasAnimation(ov))
+			{
+				return ov;
+			}
+		}
+		return data != null ? data.GetAnimationName(anim) : default;
+	}
+
+	// EAnimation charge slot for the in-flight weapon charge, or null when the
+	// player isn't charging a weapon. Tier (selectedTierIndex, clamped at 1)
+	// picks Charge1 vs Charge2; locomotion picks Idle / Walk / Run on the
+	// 75%-of-run-speed split (standing → Idle, moving below → Walk, at/above →
+	// Run, so a slowing charge stays in Walk). The slot resolves to a clip
+	// through AnimName like every other state — one path.
+	const float ChargeRunSpeedFraction = 0.75f;
+	private EAnimation? WeaponChargeSlot(float speedSq, bool intentMoving)
+	{
+		if (_runner == null || !_runner.IsBusy
+			|| _runner.Phase != EActionPhase.Charging
+			|| _runner.Current.context.primaryItem is not WeaponState)
+		{
+			return null;
+		}
+		bool heavy = _runner.Current.selectedTierIndex >= 1;
+		bool moving = intentMoving || speedSq > MoveLoopEnterSpeedSq;
+		if (!moving)
+		{
+			return heavy ? EAnimation.Charge2Idle : EAnimation.Charge1Idle;
+		}
+		float runThreshold = (data?.moveSpeed ?? 0f) * ChargeRunSpeedFraction;
+		if (speedSq >= runThreshold * runThreshold)
+		{
+			return heavy ? EAnimation.Charge2Run : EAnimation.Charge1Run;
+		}
+		return heavy ? EAnimation.Charge2Walk : EAnimation.Charge1Walk;
 	}
 
 	private void UpdateAnimation()
@@ -1261,50 +1336,52 @@ public partial class Player : CharacterBody3D
 			_airborneStartMs = _world.GameTimeMs;
 		}
 
-		// Drive the charge-anim off the runner state for movement-locked
-		// profiles (consumables, scrolls). chargeEvents PlayAnim fires
-		// PlayOneShot on press; a looping drink/eat/read clip never reports
-		// Finished, so without this override the latch would trap the player
-		// in the anim past release. Treating it as a held loop here clears
-		// the stale latch and lets the regular loop pick swap back to
-		// Idle/Run the instant Charging ends. Active phase reverts to normal
-		// loop selection so a future Active-phase PlayAnim event can take
-		// over without competing with the charge pose.
-		EAnimation? chargeAnimOverride = null;
-		if (_runner != null && _runner.IsBusy && _runner.LocksMovement
-			&& _runner.Phase == EActionPhase.Charging)
+		// Any held charge (consumable or weapon) clears a stale, non-priority
+		// one-shot so the charge pose shows immediately; a block reaction
+		// (overridesCharge) survives to play over the charge.
+		bool chargingNow = _runner != null && _runner.IsBusy
+			&& _runner.Phase == EActionPhase.Charging;
+		if (chargingNow && !_oneShotOverridesCharge)
 		{
-			chargeAnimOverride = ResolveChargeAnim(_runner.Current.profile);
-			if (chargeAnimOverride.HasValue)
-			{
-				_oneShotAnim = null;
-			}
+			_oneShotClip = default;
 		}
 
-		if (_oneShotAnim.HasValue)
+		// Movement-locked consumable / scroll held pose (drink / eat / read).
+		// chargeEvents PlayAnim fires PlayOneShot on press; a looping clip never
+		// reports Finished, so this override clears the stale latch and lets the
+		// loop pick swap back to Idle/Run the instant Charging ends. Weapon
+		// charges take the Charge* slot branch in the loop pick below instead;
+		// weapon ATTACKS fire through their tier's PlayAnim event (animName =
+		// Attack / Attack2) like any other timeline one-shot.
+		EAnimation? chargeAnimOverride = null;
+		if (chargingNow && _runner.LocksMovement
+			&& _runner.Current.context.primaryItem is not WeaponState)
 		{
-			EAnimation oneShot = _oneShotAnim.Value;
-			// Hitstun is gated solely by _hitstunTime — when the timer hits
-			// zero the latch releases regardless of the clip's loop flag or
-			// Finished state, so a looping hitstun clip doesn't trap the
-			// player in the anim past the flinch window. Other one-shots
-			// hold while the animator says the clip is still playing.
-			if (oneShot == EAnimation.Hitstun)
+			chargeAnimOverride = ResolveChargeAnim(_runner.Current.profile);
+		}
+
+		if (_oneShotClip != default)
+		{
+			// Hitstun is gated solely by _hitstunTime — when the timer hits zero
+			// the latch releases regardless of the clip's loop flag or Finished
+			// state, so a looping hitstun clip doesn't trap the player past the
+			// flinch window. Other one-shots hold while the animator says the
+			// clip is still playing.
+			if (_oneShotIsHitstun)
 			{
 				if (_hitstunTime > 0f)
 				{
 					return;
 				}
-				_oneShotAnim = null;
+				_oneShotClip = default;
 			}
 			else
 			{
-				StringName oneShotName = data.GetAnimationName(oneShot);
-				if (_animator.CurrentAnimation == oneShotName && !_animator.Finished)
+				if (_animator.CurrentAnimation == _oneShotClip && !_animator.Finished)
 				{
 					return;
 				}
-				_oneShotAnim = null;
+				_oneShotClip = default;
 			}
 		}
 
@@ -1339,6 +1416,13 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = chargeAnimOverride.Value;
 		}
+		else if (WeaponChargeSlot(speedSq, intentMoving) is EAnimation chargeSlot)
+		{
+			// Holding a weapon charge: the Charge* slot (tier x locomotion) takes
+			// priority over normal locomotion and resolves to the weapon's clip
+			// through AnimName, same as every other slot.
+			loopAnim = chargeSlot;
+		}
 		else if (_curInteractive != null)
 		{
 			// Interaction holds the player still (movement speed is forced to
@@ -1355,6 +1439,16 @@ public partial class Player : CharacterBody3D
 			// tread until the player starts moving.)
 			EAnimation swimMove = _sprinting ? EAnimation.SwimSprint : EAnimation.Swim;
 			loopAnim = PickMoveLoop(speedSq, intentMoving, swimMove, EAnimation.SwimIdle);
+		}
+		else if (_dashTimeRemaining > 0f)
+		{
+			// Still dashing after the Dash one-shot anim has finished. The dash
+			// velocity sits far from the input-target velocity, which would put
+			// the skid/skate branch below in charge and show Skating -- but a
+			// dash should read as a hard run, so fall back to Sprint until the
+			// dash ends and normal loop selection resumes. (Water dashes are
+			// already handled by the swimming branch above.)
+			loopAnim = EAnimation.Sprint;
 		}
 		else if (_skating || _skidding)
 		{
@@ -1384,7 +1478,10 @@ public partial class Player : CharacterBody3D
 		{
 			loopAnim = PickMoveLoop(speedSq, intentMoving, EAnimation.Run, EAnimation.Idle);
 		}
-		StringName loopName = data.GetAnimationName(loopAnim);
+		// One path: every slot — locomotion, charge pose, anything — resolves
+		// through AnimName, preferring the wielded weapon's override and falling
+		// back to the unarmed clip.
+		StringName loopName = AnimName(loopAnim);
 		if (loopName != default)
 		{
 			_animator.Play(loopName);
@@ -1394,6 +1491,7 @@ public partial class Player : CharacterBody3D
 		// only loops authored with affectedBySpeedMultiplier track statusAnimMul
 		// (movement anims whose underlying action is also slowed by statusMoveMul).
 		// One-shots already returned above, so this branch only runs for loops.
+		// Charge slots aren't mapped with that flag, so they're naturally excluded.
 		if (data.IsAnimationSpeedAffected(loopAnim))
 		{
 			_animator.effectSpeedMultiplier = _statusEffects?.FoldStat(EStat.AnimSpeed, 1f) ?? 1f;
@@ -1401,7 +1499,7 @@ public partial class Player : CharacterBody3D
 
 		// Drive the anim-audio loop off the same loopAnim. Only idle / run /
 		// swim_idle have audio; everything else (fall, dead, interacting,
-		// active swim) is silent for the anim-loop layer.
+		// active swim, weapon charge) is silent for the anim-loop layer.
 		PackedScene animLoopTarget = null;
 		if (_health > 0f)
 		{
@@ -1498,11 +1596,11 @@ public partial class Player : CharacterBody3D
 		// band to stick to. Both lookups are dictionary reads, so this is
 		// cheap to run every tick.
 		StringName current = _animator.CurrentAnimation;
-		if (current == data.GetAnimationName(moveAnim))
+		if (current == AnimName(moveAnim))
 		{
 			return moveAnim;
 		}
-		if (current == data.GetAnimationName(idleAnim))
+		if (current == AnimName(idleAnim))
 		{
 			return idleAnim;
 		}
@@ -2176,7 +2274,9 @@ public partial class Player : CharacterBody3D
 		_sprinting = false;
 		_aiming = false;
 		_jumpHeld = false;
-		_oneShotAnim = null;
+		_oneShotClip = default;
+		_oneShotIsHitstun = false;
+		_oneShotOverridesCharge = false;
 		_grounded = false;
 		_coyoteTimeEndMs = 0;
 		TeleportTo(position);
@@ -2185,7 +2285,7 @@ public partial class Player : CharacterBody3D
 		// will repick on the next physics tick.
 		if (_animator != null && data != null)
 		{
-			StringName idleName = data.GetAnimationName(EAnimation.Idle);
+			StringName idleName = AnimName(EAnimation.Idle);
 			if (idleName != default)
 			{
 				_animator.Play(idleName);
@@ -2260,10 +2360,10 @@ public partial class Player : CharacterBody3D
 			PlayerName = spawnData.playerName;
 		}
 
-		// Select the base model for the spawned gender, then activate the live
-		// visual. Must run before UpdateArmorVisual below, which drives the
-		// active model's mesh set.
-		_activeModelAnimator = ResolveGenderModel(spawnData?.gender ?? EGender.Female);
+		// Instance the base model package for the spawned gender, then activate
+		// the live visual. Must run before UpdateArmorVisual below, which drives
+		// the active model's mesh set.
+		SpawnModelPackage(spawnData?.gender ?? EGender.Female);
 		ActivateVisual();
 		// Resolve + apply the modular appearance (skin tone, hair color, hair
 		// style) before inventory seeding so the styled hair mesh is known the
@@ -3465,10 +3565,14 @@ public partial class Player : CharacterBody3D
 		// melee weapon equipped leaves the existing held model untouched.
 		if (_aiming)
 		{
-			PackedScene rangedModel = _inventory?.GetWeapon(EInventorySlot.WeaponRight)?.data?.heldModel;
+			WeaponState ranged = _inventory?.GetWeapon(EInventorySlot.WeaponRight);
+			PackedScene rangedModel = ranged?.data?.heldModel;
 			if (rangedModel != null)
 			{
 				_heldVisual.SetWeapon(rangedModel);
+				// The drawn bow becomes the wielded weapon, so its anim set drives
+				// the stance / charge poses while aiming and after aim ends.
+				_wieldedWeapon = ranged;
 			}
 		}
 

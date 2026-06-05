@@ -179,8 +179,10 @@ public partial class Player : CharacterBody3D, IActionActor
 		{
 			// The wielded weapon pops into the hand and persists there; using
 			// the other weapon next swaps it. No-op when it's already the held
-			// model (re-swinging the same weapon).
+			// model (re-swinging the same weapon). Tracked for the anim system so
+			// this weapon's WeaponAnimSet drives the stance / charge / attack poses.
 			_heldVisual?.SetWeapon(weapon.data.heldModel);
+			_wieldedWeapon = weapon;
 		}
 	}
 

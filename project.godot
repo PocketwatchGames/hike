@@ -34,7 +34,7 @@ project/assembly_name="hike"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/voxel_atlas_stitcher/plugin.cfg", "res://addons/data_ed/plugin.cfg")
+enabled=PackedStringArray("res://addons/voxel_atlas_stitcher/plugin.cfg", "res://addons/data_ed/plugin.cfg", "res://addons/anim_library_builder/plugin.cfg")
 
 [input]
 

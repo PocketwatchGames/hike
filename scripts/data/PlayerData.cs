@@ -482,16 +482,10 @@ public partial class PlayerData : Resource
 		new Color(0.55f, 0.24f, 0.12f), // auburn
 		new Color(0.62f, 0.62f, 0.64f), // grey
 	};
-	// Hair styles as the rig hair-mesh name to show when no head armor is worn.
-	// These are BasicHero_F (Female) rig names; the per-gender rig swap (the male
-	// rig's M_* equivalents) lands with the male model, alongside the other
-	// female-rig mesh constants in PlayerArmorVisual. An empty / out-of-range
-	// pick resolves to "no hair mesh" (bald) rather than erroring.
-	[Export] public string[] hairStyles =
-	{
-		"F_hair_1", "F_hair_2", "F_hair_3", "F_hair_4",
-		"F_hair_5", "F_hair_6", "F_hair_7", "F_hair_8",
-	};
+	// NOTE: the hair-style *mesh* menu (which MeshInstance3D a hairStyle index
+	// shows) is gender-specific and lives on the rig — see ModelAnimator
+	// .hairStyleMeshNames, authored per package scene. Only the gender-agnostic
+	// color palettes stay here.
 
 	// Resolve a palette color by index, clamping out-of-range picks to the first
 	// entry (and a hard-coded grey when the palette itself is empty) so a bad
@@ -513,18 +507,5 @@ public partial class PlayerData : Resource
 			return new Color(0.7f, 0.7f, 0.7f);
 		}
 		return palette[Mathf.Clamp(index, 0, palette.Length - 1)];
-	}
-
-	// Resolve the hair-style mesh name by index. Out-of-range (or empty palette)
-	// returns null = no hair mesh shown (bald), which the visibility compositor
-	// handles as an empty bare-head set.
-	public string GetHairStyleMesh(int index)
-	{
-		if (hairStyles == null || hairStyles.Length == 0
-			|| index < 0 || index >= hairStyles.Length)
-		{
-			return null;
-		}
-		return hairStyles[index];
 	}
 }

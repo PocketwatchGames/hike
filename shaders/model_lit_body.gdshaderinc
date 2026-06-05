@@ -247,6 +247,19 @@ void fragment() {
 	// the lighting state under the mesh.
 	ALBEDO = mix(out_albedo, vec3(0.0), silhouette_amount);
 	EMISSION = mix(out_emission, silhouette_tint, silhouette_amount);
+
+#ifdef MODEL_ALPHA_CUTOUT
+	// Alpha-cutout variant (model_lit_cutout.gdshader only — it defines this
+	// macro before the include). The atlas carries an alpha channel that keys out
+	// the facial-feature backgrounds: the red / white separator padding the Synty
+	// atlas packs around each eye / brow / mouth sprite. Hard scissor at 0.5 so
+	// only the feature itself draws over the skin, and it stays in the opaque
+	// queue (no transparency sorting). Inert for every other material that pairs
+	// this include (model_lit / model_lit_character don't define the macro, so
+	// ALPHA keeps its default 1.0 and those meshes render fully opaque as before).
+	ALPHA = tex.a;
+	ALPHA_SCISSOR_THRESHOLD = 0.5;
+#endif
 }
 
 void light() {

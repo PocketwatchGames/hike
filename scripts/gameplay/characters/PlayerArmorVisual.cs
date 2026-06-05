@@ -9,31 +9,15 @@ using Godot;
 // no skin rebind. Recomputed on every armor slot change and once at spawn.
 //
 // Targets the live gender model (_activeModelAnimator), so it composites onto
-// whichever body type the player spawned as.
-//
-// Placeholder scope: the base / bare-default mesh names below are the
-// BasicHero_F (Female) rig's body parts. Head-slot coverage is wired but no
-// head armor exists yet. When a second body type (EGender.Male) and richer
-// authoring land, these base/bare constants become per-gender (the male rig
-// names its parts M_*); the per-piece meshes are already data (ArmorData).
+// whichever body type the player spawned as. The rig-specific part names (head
+// shell, bare body, skin meshes, hair menu) are NOT hardcoded here — they live
+// on each gender's ModelAnimator (baseMeshNames / bareBodyMeshNames /
+// skinMeshNames / hairStyleMeshNames), authored per package scene, because the
+// Female rig prefixes its parts F_ and the Male rig M_. Head-slot coverage is
+// wired but no head armor exists yet; the per-piece worn meshes are data
+// (ArmorData.wornMeshNames).
 public partial class Player : CharacterBody3D
 {
-	// Always visible regardless of equipment: head shell + facial features.
-	static readonly string[] ArmorBaseMeshes =
-	{
-		"F_Head", "F_eyes0", "F_eyebrows0", "F_mouth0",
-	};
-
-	// Bare-body fallback shown when the body slot is empty (or its armor
-	// authored no meshes): bare torso + legs.
-	static readonly string[] ArmorBareBody = { "F_TopBody", "F_BottomBody" };
-
-	// Skin meshes recolored by the chosen skin tone — face shell + bare body.
-	// (The bare body only shows when no body armor is worn; recoloring it while
-	// hidden is harmless.) Same female-rig placeholder caveat as the constants
-	// above; becomes per-gender with the male rig.
-	static readonly string[] SkinMeshNames = { "F_Head", "F_TopBody", "F_BottomBody" };
-
 	// The chosen hair-style mesh(es), shown in the head slot when no head armor
 	// is worn — the bare-head fallback, resolved per-spawn from the appearance
 	// palette (ApplyAppearance). Empty = bald (no hair mesh). Set before the
@@ -53,10 +37,10 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		string hairMesh = data.GetHairStyleMesh(spawnData?.hairStyle ?? 0);
+		string hairMesh = _activeModelAnimator.GetHairStyleMesh(spawnData?.hairStyle ?? 0);
 		_hairStyleMeshes = hairMesh != null ? new[] { hairMesh } : System.Array.Empty<string>();
 
-		_activeModelAnimator.SetMeshRecolor(SkinMeshNames, data.GetSkinTone(spawnData?.skinTone ?? 0));
+		_activeModelAnimator.SetMeshRecolor(_activeModelAnimator.skinMeshNames, data.GetSkinTone(spawnData?.skinTone ?? 0));
 		_activeModelAnimator.SetMeshRecolor(_hairStyleMeshes, data.GetHairColor(spawnData?.hairColor ?? 0));
 	}
 
@@ -69,9 +53,9 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		List<string> visible = new(ArmorBaseMeshes);
+		List<string> visible = new(_activeModelAnimator.baseMeshNames);
 		AppendSlotMeshes(EInventorySlot.ArmorHead, _hairStyleMeshes, visible);
-		AppendSlotMeshes(EInventorySlot.ArmorBody, ArmorBareBody, visible);
+		AppendSlotMeshes(EInventorySlot.ArmorBody, _activeModelAnimator.bareBodyMeshNames, visible);
 		_activeModelAnimator.SetVisibleMeshes(visible.ToArray());
 	}
 

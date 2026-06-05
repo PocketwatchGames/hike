@@ -68,6 +68,27 @@ public partial class ModelAnimator : Node, IActorAnimator
     // hiddenMeshNames when both are set. Empty = fall back to the denylist.
     [Export] public string[] visibleMeshNames = Array.Empty<string>();
 
+    // --- Modular-appearance mesh sets for the player rig ---
+    // These name the rig's anatomy parts that the player's armor / appearance
+    // compositor (PlayerArmorVisual) builds its visible set from. They live on
+    // the rig because the names are gender-specific (the Female rig prefixes its
+    // parts F_, the Male rig M_), so each gender's package scene authors its own
+    // — this is what replaced the old hardcoded F_ constants in PlayerArmorVisual
+    // and PlayerData. Left empty on non-player rigs (mobs), which never run the
+    // compositor.
+
+    // Always visible regardless of equipment: head shell + facial features.
+    [Export] public string[] baseMeshNames = Array.Empty<string>();
+    // Bare torso + legs shown when the body armor slot is empty.
+    [Export] public string[] bareBodyMeshNames = Array.Empty<string>();
+    // Skin meshes recolored by the chosen skin tone (face shell + bare body).
+    [Export] public string[] skinMeshNames = Array.Empty<string>();
+    // Hair-style menu: a creation-choice index (PlayerSpawnData.hairStyle) maps
+    // to the hair MeshInstance3D name shown when no head armor is worn. Authored
+    // in the SAME order across genders so a creation pick is gender-agnostic; an
+    // empty / out-of-range pick resolves to bald (no hair mesh).
+    [Export] public string[] hairStyleMeshNames = Array.Empty<string>();
+
     public float effectSpeedMultiplier { get; set; } = 1f;
     public StringName CurrentAnimation { get; private set; }
     public bool Finished { get; private set; }
@@ -220,6 +241,18 @@ public partial class ModelAnimator : Node, IActorAnimator
         }
     }
 
+    // Resolve the hair-style mesh name for a creation-menu index, or null (bald)
+    // when out of range / unauthored — the visibility compositor treats null as
+    // an empty bare-head set.
+    public string GetHairStyleMesh(int index)
+    {
+        if (hairStyleMeshNames == null || index < 0 || index >= hairStyleMeshNames.Length)
+        {
+            return null;
+        }
+        return hairStyleMeshNames[index];
+    }
+
     // Palette-recolor the named meshes to a flat tone via the `recolor` /
     // `recolor_amount` instance uniforms on model_lit (see the shader include).
     // Per-instance so skin meshes and the hair mesh can take different colors
@@ -234,8 +267,14 @@ public partial class ModelAnimator : Node, IActorAnimator
             return;
         }
         // A vec3 source_color instance uniform takes a Vector3 (R,G,B), matching
-        // SpriteBase's silhouette_tint push — not a Color Variant.
-        Vector3 rgb = new(color.R, color.G, color.B);
+        // SpriteBase's silhouette_tint push — not a Color Variant. Because we push
+        // a Vector3 (not a Color), Godot does NOT apply the source_color sRGB->linear
+        // conversion the hint implies, so we must do it here: the shader replaces the
+        // (linear) sampled albedo with this value, and the palette is authored in
+        // sRGB. Skipping this leaves skin/hair too bright + desaturated (washed
+        // white, blooms in bright sun).
+        Color linear = color.SrgbToLinear();
+        Vector3 rgb = new(linear.R, linear.G, linear.B);
         for (int i = 0; i < _meshes.Count; i++)
         {
             MeshInstance3D mesh = _meshes[i];

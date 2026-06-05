@@ -24,6 +24,7 @@
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
 [ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/effects/arrow_trail.tscn" id="19_arrowtrail"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
+[ext_resource type="Resource" uid="uid://cbow4n1msetk9" path="res://resources/data/items/weapons/anim_sets/bow.tres" id="21_animset"]
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -53,6 +54,7 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
 type = 8260
+animName = 20
 damageProfileKey = &"heavy"
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -130,6 +132,7 @@ pitchRangeDegrees = 45.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")
+animSet = ExtResource("21_animset")
 displayName = &"Short Bow"
 description = "Shooty shooty"
 value = 50

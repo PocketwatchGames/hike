@@ -1,0 +1,184 @@
+[gd_resource type="Resource" script_class="PlayerAnimManifest" format=3 uid="uid://uqp2pv8l6041"]
+
+[ext_resource type="Script" uid="uid://d22vvcgsti6w8" path="res://scripts/data/PlayerAnimManifest.cs" id="1_panim"]
+[ext_resource type="Script" uid="uid://bstvhvkw6tq8u" path="res://scripts/data/PlayerAnimClipSetting.cs" id="2_clip"]
+
+[sub_resource type="Resource" id="clip_idle"]
+resource_name = "idle"
+script = ExtResource("2_clip")
+Name = "idle"
+
+[sub_resource type="Resource" id="clip_run"]
+resource_name = "run"
+script = ExtResource("2_clip")
+Name = "run"
+
+[sub_resource type="Resource" id="clip_sprint"]
+resource_name = "sprint"
+script = ExtResource("2_clip")
+Name = "sprint"
+
+[sub_resource type="Resource" id="clip_fall"]
+resource_name = "fall"
+script = ExtResource("2_clip")
+Name = "fall"
+
+[sub_resource type="Resource" id="clip_jump"]
+resource_name = "jump"
+script = ExtResource("2_clip")
+Name = "jump"
+Loop = false
+
+[sub_resource type="Resource" id="clip_attack1"]
+resource_name = "attack1"
+script = ExtResource("2_clip")
+Name = "attack1"
+Loop = false
+
+[sub_resource type="Resource" id="clip_attack2"]
+resource_name = "attack2"
+script = ExtResource("2_clip")
+Name = "attack2"
+Loop = false
+
+[sub_resource type="Resource" id="clip_land"]
+resource_name = "land"
+script = ExtResource("2_clip")
+Name = "land"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_cw8cl"]
+resource_name = "casting"
+script = ExtResource("2_clip")
+Name = "casting"
+
+[sub_resource type="Resource" id="Resource_bkwsj"]
+resource_name = "dash"
+script = ExtResource("2_clip")
+Name = "dash"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_4b76u"]
+resource_name = "dead"
+script = ExtResource("2_clip")
+Name = "dead"
+
+[sub_resource type="Resource" id="Resource_uh1qw"]
+resource_name = "die"
+script = ExtResource("2_clip")
+Name = "die"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_pcmhk"]
+resource_name = "drinking"
+script = ExtResource("2_clip")
+Name = "drinking"
+
+[sub_resource type="Resource" id="Resource_ib5l2"]
+resource_name = "eating"
+script = ExtResource("2_clip")
+Name = "eating"
+
+[sub_resource type="Resource" id="Resource_p38is"]
+resource_name = "hitstun"
+script = ExtResource("2_clip")
+Name = "hitstun"
+
+[sub_resource type="Resource" id="Resource_b2a4t"]
+resource_name = "interacting"
+script = ExtResource("2_clip")
+Name = "interacting"
+
+[sub_resource type="Resource" id="Resource_8vdgf"]
+resource_name = "reading"
+script = ExtResource("2_clip")
+Name = "reading"
+
+[sub_resource type="Resource" id="Resource_hfisr"]
+resource_name = "skating"
+script = ExtResource("2_clip")
+Name = "skating"
+
+[sub_resource type="Resource" id="Resource_a8krt"]
+resource_name = "sneak"
+script = ExtResource("2_clip")
+Name = "sneak"
+
+[sub_resource type="Resource" id="Resource_ys45c"]
+resource_name = "sneak_idle"
+script = ExtResource("2_clip")
+Name = "sneak_idle"
+
+[sub_resource type="Resource" id="Resource_6cd5o"]
+resource_name = "swim"
+script = ExtResource("2_clip")
+Name = "swim"
+
+[sub_resource type="Resource" id="Resource_xei7e"]
+resource_name = "swim_idle"
+script = ExtResource("2_clip")
+Name = "swim_idle"
+
+[sub_resource type="Resource" id="Resource_4goy6"]
+resource_name = "swim_sprint"
+script = ExtResource("2_clip")
+Name = "swim_sprint"
+
+[sub_resource type="Resource" id="Resource_bv0xc"]
+resource_name = "using"
+script = ExtResource("2_clip")
+Name = "using"
+
+[sub_resource type="Resource" id="clip_swordchargerun"]
+resource_name = "swordchargerun"
+script = ExtResource("2_clip")
+Name = "swordchargerun"
+Speed = 1.5
+
+[sub_resource type="Resource" id="Resource_xlls8"]
+resource_name = "swordattack1"
+script = ExtResource("2_clip")
+Name = "swordattack1"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_hqr28"]
+resource_name = "swordattack2"
+script = ExtResource("2_clip")
+Name = "swordattack2"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_46101"]
+resource_name = "swordblock"
+script = ExtResource("2_clip")
+Name = "swordblock"
+Loop = false
+
+[sub_resource type="Resource" id="Resource_4h205"]
+resource_name = "swordcharge1loop"
+script = ExtResource("2_clip")
+Name = "swordcharge1loop"
+
+[sub_resource type="Resource" id="Resource_ingf0"]
+resource_name = "swordcharge2loop"
+script = ExtResource("2_clip")
+Name = "swordcharge2loop"
+
+[sub_resource type="Resource" id="Resource_ia155"]
+resource_name = "swordidle"
+script = ExtResource("2_clip")
+Name = "swordidle"
+
+[sub_resource type="Resource" id="Resource_lnqss"]
+resource_name = "swordrun"
+script = ExtResource("2_clip")
+Name = "swordrun"
+
+[sub_resource type="Resource" id="Resource_fxn4c"]
+resource_name = "swordwalk"
+script = ExtResource("2_clip")
+Name = "swordwalk"
+
+[resource]
+script = ExtResource("1_panim")
+Clips = [SubResource("clip_idle"), SubResource("clip_run"), SubResource("clip_sprint"), SubResource("clip_fall"), SubResource("clip_jump"), SubResource("clip_attack1"), SubResource("clip_attack2"), SubResource("clip_land"), SubResource("Resource_cw8cl"), SubResource("Resource_bkwsj"), SubResource("Resource_4b76u"), SubResource("Resource_uh1qw"), SubResource("Resource_pcmhk"), SubResource("Resource_ib5l2"), SubResource("Resource_p38is"), SubResource("Resource_b2a4t"), SubResource("Resource_8vdgf"), SubResource("Resource_hfisr"), SubResource("Resource_a8krt"), SubResource("Resource_ys45c"), SubResource("Resource_6cd5o"), SubResource("Resource_xei7e"), SubResource("Resource_4goy6"), SubResource("Resource_bv0xc"), SubResource("clip_swordchargerun"), SubResource("Resource_xlls8"), SubResource("Resource_hqr28"), SubResource("Resource_46101"), SubResource("Resource_4h205"), SubResource("Resource_ingf0"), SubResource("Resource_ia155"), SubResource("Resource_lnqss"), SubResource("Resource_fxn4c")]
+metadata/_custom_type_script = "uid://c7panmqf3xk2vd"

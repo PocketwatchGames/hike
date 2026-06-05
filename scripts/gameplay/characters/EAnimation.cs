@@ -43,4 +43,20 @@ public enum EAnimation
     // are authored, default_player.tres maps these to placeholder clips.
     BoatIdle = 27,
     BoatPaddle = 28,
+    // Held weapon-charge poses, picked by charge tier (1 = first/light charge
+    // level, 2 = heavy) crossed with locomotion (Idle = standing, Walk = moving
+    // below the 75%-of-run-speed split, Run = at/above it). Generic STATE slots
+    // shared by all weapons — the per-weapon CLIP is supplied through
+    // WeaponData.animSet's override dict. Unarmed leaves these unmapped (you
+    // can't charge a weapon with no weapon), so they only resolve through a
+    // weapon override. UpdateAnimation selects the slot from runner state.
+    Charge1Idle = 29,
+    Charge1Walk = 30,
+    Charge1Run = 31,
+    Charge2Idle = 32,
+    Charge2Walk = 33,
+    Charge2Run = 34,
+    // One-shot guard reaction, fired by PlayOneShot from the hit handler when a
+    // blocked hit is soaked by a charging weapon's block-armor pool.
+    Block = 35,
 }

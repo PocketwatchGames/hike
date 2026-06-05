@@ -90,6 +90,12 @@ public partial class WeaponData : ItemData
 	// chargeTime windows.
 	[Export] public ItemActionProfile actionProfile;
 
+	// Per-weapon animation overrides consulted by Player.UpdateAnimation while
+	// this weapon is the one in hand — its own idle/run stance, charge poses
+	// (tier x locomotion), attack one-shots, and block reaction. Null = the
+	// player uses the unarmed clips throughout. See WeaponAnimSet.
+	[Export] public WeaponAnimSet animSet;
+
 	[Export] public override int maxLevel { get; set; } = 5;
 
 	[ExportGroup("Blocking")]

@@ -12,17 +12,18 @@ public partial class PlayerSpawnData : Resource
 
 	// Body type the player spawns as. Selects which base character model
 	// renders — Player.Initialize looks this up in the player scene's
-	// per-gender model map and activates the matching model subtree (each
-	// gender shares the skeleton + animation library, so only the visible
-	// model swaps). Defaults to Female (0).
+	// per-gender model-package map and instances the matching package (each
+	// gender shares the skeleton + animation library, so only the body model
+	// differs). Defaults to Female (0).
 	[Export] public EGender gender = EGender.Female;
 
-	// Modular-appearance picks: each is an INDEX into the matching palette on
-	// PlayerData (skinTones / hairColors / hairStyles). Player.Initialize
-	// resolves them to a flat recolor on the skin / hair meshes and the hair
-	// mesh to show. Out-of-range indices clamp to a sane default (see
-	// PlayerData.Get*), so a partially-authored spawn never breaks. Defaults
-	// (0) pick the first palette entry.
+	// Modular-appearance picks: each is an INDEX. skinTone / hairColor index the
+	// gender-agnostic color palettes on PlayerData (skinTones / hairColors);
+	// hairStyle indexes the rig's gender-specific hair menu (ModelAnimator
+	// .hairStyleMeshNames). Player.Initialize resolves them to a flat recolor on
+	// the skin / hair meshes and the hair mesh to show. Out-of-range indices
+	// clamp to a sane default (or bald), so a partially-authored spawn never
+	// breaks. Defaults (0) pick the first entry.
 	[Export] public int skinTone;
 	[Export] public int hairColor;
 	[Export] public int hairStyle;
