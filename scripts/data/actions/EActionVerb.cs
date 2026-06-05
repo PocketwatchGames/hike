@@ -34,7 +34,7 @@ public enum EActionVerb
 	// from the merchant's side.
 	Trade,
 	// Climb a ClimbableTree — the interactive's Complete lifts the player into
-	// the bird's-eye overlook, hides the sprite, and conceals them from mobs
+	// the bird's-eye overlook, hides the model, and conceals them from mobs
 	// until they take damage or end the overlook.
 	Climb,
 	// Board a rideable vehicle (boat, future mounts) — the interactive's

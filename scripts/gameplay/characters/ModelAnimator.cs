@@ -101,8 +101,8 @@ public partial class ModelAnimator : Node
     private Node3D _body;
     // Every MeshInstance3D under `visual`, gathered once at _Ready. The
     // discovery presentation (visibility dither / silhouette / X-ray fade) is
-    // pushed to these as per-instance shader params so model mobs fade exactly
-    // like sprite mobs — see SetDiscoveryVisuals, driven by Mob.cs.
+    // pushed to these as per-instance shader params so undiscovered mobs dither
+    // out — see SetDiscoveryVisuals, driven by Mob.cs.
     private readonly List<MeshInstance3D> _meshes = new();
 
     public override void _Ready()
@@ -140,13 +140,11 @@ public partial class ModelAnimator : Node
         }
     }
 
-    // Push the discovery presentation onto every mesh of the model, mirroring
-    // what Mob does to a LitSprite. visibility drives the Bayer dither pop-in;
-    // silhouette blends to the flat memory tint; xrayAmount fades the through-
-    // cover silhouette next_pass (1 = always-on when occluded, as mobs want).
-    // castShadow is toggled per-mesh so a dithered-out (undiscovered) mob also
-    // stops casting a tell-tale shadow — the model casts real shadows directly
-    // (no ShadowsOnly proxy like sprites), so this is the equivalent suppression.
+    // Push the discovery presentation onto every mesh of the model. visibility
+    // drives the Bayer dither pop-in; silhouette blends to the flat memory tint;
+    // xrayAmount fades the through-cover silhouette next_pass (1 = always-on when
+    // occluded, as mobs want). castShadow is toggled per-mesh so a dithered-out
+    // (undiscovered) mob also stops casting a tell-tale shadow.
     public void SetDiscoveryVisuals(float visibility, float silhouette, float xrayAmount, bool castShadow)
     {
         GeometryInstance3D.ShadowCastingSetting castMode = castShadow

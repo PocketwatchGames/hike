@@ -1,6 +1,6 @@
 using Godot;
 
-// Per-actor authoring binding from an EAnimation slot to a concrete SpriteFrames
+// Per-actor authoring binding from an EAnimation slot to a concrete animation
 // clip name plus the rules for how the animator should play it. PlayerData and
 // MobData each hold a Dictionary<EAnimation, AnimationData> so each actor type
 // can rename its anims and opt into status-driven retiming on a per-anim basis
@@ -10,10 +10,10 @@ using Godot;
 [GlobalClass]
 public partial class AnimationData : Resource
 {
-    // SpriteFrames clip name this slot resolves to (e.g. "run", "swim_idle").
-    // Must match the animation name authored in the actor's SpriteFrames
-    // resource — the animator does a HasAnimation lookup and silently skips
-    // unknown names. Empty / default means the slot is unbound.
+    // Animation clip name this slot resolves to (e.g. "run", "swim_idle").
+    // Must match a clip authored in the actor's animation library — the
+    // animator does a HasAnimation lookup and silently skips unknown names.
+    // Empty / default means the slot is unbound.
     [Export] public StringName name;
 
     // When true, the animator's effectSpeedMultiplier is set to the actor's
@@ -27,7 +27,7 @@ public partial class AnimationData : Resource
     // is the one playing. Authored on poses that take over the hands — drinking
     // a potion, reading a scroll, casting — so the wielded weapon gives way to
     // the consumable model (or to empty hands) for the duration of the pose,
-    // then pops back when the clip ends. Read by Player via HeldItemVisual; the
-    // sprite-only mob path ignores it (mobs have no held visual yet).
+    // then pops back when the clip ends. Read by Player via HeldItemVisual;
+    // mobs ignore it (they have no held visual yet).
     [Export] public bool hidesHeldItem;
 }

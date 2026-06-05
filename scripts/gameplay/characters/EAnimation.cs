@@ -1,4 +1,4 @@
-// Canonical animation identifiers. The concrete SpriteFrames clip name and
+// Canonical animation identifiers. The concrete animation clip name and
 // the slowing-affected flag are looked up per-actor through PlayerData /
 // MobData `animations` dictionaries (see AnimationData) — this enum is just
 // the typo-proof slot key. ItemEvent.animName and AIOutput.oneShotAnim use

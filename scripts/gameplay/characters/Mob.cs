@@ -1697,9 +1697,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
         }
         // Feed the elite crown the same discovery presentation as the body (it
-        // gates internally, so this is cheap on settled frames) — works for both
-        // sprite and model mobs since the crown carries its own meshes. xray
-        // suppressed while burrowed, matching the body.
+        // gates internally, so this is cheap on settled frames; the crown carries
+        // its own meshes). xray suppressed while burrowed, matching the body.
         _crown?.SetDiscoveryVisuals(_visibility, _silhouette, burrowed ? 0f : 1f);
     }
 

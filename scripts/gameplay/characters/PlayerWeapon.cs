@@ -315,7 +315,7 @@ public partial class Player : CharacterBody3D, IActionActor
 	// PlayerWeapon's old Melee/Hitscan code), composed with the live aim
 	// pitch so ranged hitscan / projectile fire along the auto-aimed
 	// elevation. The player body itself only rotates around Y — pitch lives
-	// purely in this composition so the sprite, capsule, and basis stay flat.
+	// purely in this composition so the model, capsule, and basis stay flat.
 	public Vector3 ActorWorldPosition => GlobalPosition;
 	public Vector3 ActorForward
 	{

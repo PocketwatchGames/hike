@@ -4,15 +4,15 @@ using Godot.Collections;
 [GlobalClass]
 public partial class MobData : Resource
 {
-    // Per-EAnimation binding from logical slot to SpriteFrames clip name plus
-    // retiming policy. Empty slots resolve to default-StringName and the
+    // Per-EAnimation binding from logical slot to a concrete animation clip name
+    // plus retiming policy. Empty slots resolve to default-StringName and the
     // animator silently skips them — author the dictionary in each mob .tres
     // to wire each slot to its concrete clip. See AnimationData.
     [Export] public Godot.Collections.Dictionary<EAnimation, AnimationData> animations = new();
 
-    // Look up the SpriteFrames clip name for an EAnimation slot. Returns
+    // Look up the animation clip name for an EAnimation slot. Returns
     // default StringName when the slot is unbound — callers route this
-    // through LitSpriteAnimator.Play / HasAnimation, both of which no-op
+    // through the animator's Play / HasAnimation, both of which no-op
     // on unknown names, so an unbound slot is a silent skip rather than a
     // hard error.
     public StringName GetAnimationName(EAnimation anim)
