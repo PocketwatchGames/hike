@@ -4,7 +4,7 @@ using Godot;
 // single animation FBX. Name is the clip name (= the source FBX filename,
 // lower-cased: Idle.fbx -> "idle"); Loop toggles the baked loop mode; Speed
 // time-scales the baked clip (1 = source speed, 2 = twice as fast, 0.5 = half).
-// All of it is baked into swordsman_anims.res when the manifest rebuilds — see
+// All of it is baked into human_anims.res when the manifest rebuilds — see
 // PlayerAnimManifest. New clips discovered in the source folder get a default
 // row appended automatically on rebuild.
 [Tool]

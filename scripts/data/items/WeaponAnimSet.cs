@@ -14,7 +14,7 @@ using Godot.Collections;
 // every animation, loop or one-shot. Each slot binds to an AnimationData — a single
 // per-slot structure carrying the clip name AND its flags (affectedBySpeedMultiplier,
 // hidesHeldItem) together, not split across parallel collections. The clip name must
-// exist in the player's combined AnimationLibrary (swordsman_anims.res); a missing
+// exist in the player's combined AnimationLibrary (human_anims.res); a missing
 // name falls back silently at runtime, and Validate() surfaces it at load.
 //
 // The flags are universal per slot, so they're read from the BASE set (PlayerData

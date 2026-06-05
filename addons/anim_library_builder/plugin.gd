@@ -4,7 +4,7 @@ extends EditorPlugin
 # Editor convenience wrapper around PlayerAnimManifest (the C# resource that owns
 # the actual merge). Adds "Project > Tools > Rebuild Player Animations", which
 # scans the manifest's source folder of animation FBXs and merges each clip into
-# swordsman_anims.res.
+# human_anims.res.
 #
 # Unlike the voxel atlas stitcher this does NOT auto-rebuild on filesystem
 # change: the animation library is partly hand-curated (clips with no source FBX

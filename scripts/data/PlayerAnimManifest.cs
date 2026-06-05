@@ -2,7 +2,7 @@ using Godot;
 using System.Collections.Generic;
 
 // Authoring-only editor tool: merges single-clip animation FBXs from a folder
-// into the player's combined AnimationLibrary (swordsman_anims.res), so adding
+// into the player's combined AnimationLibrary (human_anims.res), so adding
 // a downloaded animation is "drop the FBX in the folder + press a button"
 // instead of the manual extract / Save-to-File / Load / rename / set-loop loop.
 //
@@ -16,7 +16,7 @@ using System.Collections.Generic;
 //
 // Per-clip loop + speed are authored in the Clips list (one row each). Loop and
 // Speed are BAKED at rebuild: Loop sets the clip's loop mode, Speed time-scales
-// its keyframes, both written into swordsman_anims.res. There is no runtime
+// its keyframes, both written into human_anims.res. There is no runtime
 // cost and no import-time involvement — re-tune a value and rebuild to apply.
 // Any FBX in the folder without a Clips row gets a default row appended (Loop
 // guessed from the clip name, Speed 1) so every animation shows up as an
@@ -47,7 +47,7 @@ public partial class PlayerAnimManifest : Resource
     // loads this as its default ("") library, so clip names must be bare
     // ("idle", not "lib/idle").
     [Export(PropertyHint.GlobalFile, "*.res")]
-    public string OutputLibraryPath = "res://assets/models/characters/polysplit/swordsman_anims.res";
+    public string OutputLibraryPath = "res://assets/models/characters/polysplit/human_anims.res";
 
     // One row per clip: its name (= source filename, lower-cased), loop flag,
     // and playback speed. The single source of truth for per-clip authoring —
