@@ -24,7 +24,7 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="Texture2D" uid="uid://clsxls6s8mfqk" path="res://assets/textures/items/pickups/Club.png" id="16_world"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/held/club_held.tscn" id="17_held"]
-[ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/items/weapons/anim_sets/sword.tres" id="20_animset"]
+[ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")

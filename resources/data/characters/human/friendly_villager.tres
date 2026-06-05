@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://cnpc1villdata"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/friendly_villager_brain.tres" id="2_brain"]
+[ext_resource type="Resource" uid="uid://jrricbbgivll" path="res://resources/data/characters/human/friendly_villager_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://jrricbbw20qc" path="res://scenes/characters/friendly_villager.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="4_2p6at"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]

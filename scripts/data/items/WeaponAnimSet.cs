@@ -1,39 +1,90 @@
 using Godot;
 using Godot.Collections;
 
-// Per-weapon-type animation overrides, wired onto WeaponData.animSet and
-// consulted by Player.UpdateAnimation while THIS weapon is the one in hand.
+// A named set of animation bindings for one loadout. Two roles, same type:
 //
-// A single SPARSE map over EAnimation slots: author only the slots this weapon
-// changes (its own idle / run / sneak / attack / charge poses / block); any slot
-// absent here falls back to the player's unarmed clip (PlayerData.animations).
-// This is the one and only place per-weapon clips live — every animation, loop
-// or one-shot, resolves through the same chokepoint (Player.AnimName), so there
-// is exactly one path from "what the player is doing" to "which clip plays".
+//   - The BASE (unarmed) set — referenced by PlayerData.baseAnims — authors every
+//     slot the player can play. It is the single source of truth that used to live
+//     inline on PlayerData.
+//   - Per-weapon override sets — referenced by WeaponData.animSet — author only the
+//     slots that weapon changes (its idle / run / charge poses / attacks / block).
+//     Any slot absent here falls back to the base set.
 //
-// The weapon-specific poses (charge tiers, block) are just EAnimation slots like
-// any other — Charge1Idle/Walk/Run, Charge2Idle/Walk/Run, Block, Attack, Attack2
-// — selected by UpdateAnimation from runner state and resolved here. Nothing is
-// keyed by a bespoke field anymore.
+// Resolution (Player.AnimName): wielded weapon's override ?? base. One path for
+// every animation, loop or one-shot. Each slot binds to an AnimationData — a single
+// per-slot structure carrying the clip name AND its flags (affectedBySpeedMultiplier,
+// hidesHeldItem) together, not split across parallel collections. The clip name must
+// exist in the player's combined AnimationLibrary (swordsman_anims.res); a missing
+// name falls back silently at runtime, and Validate() surfaces it at load.
 //
-// Clip names resolve against the player's combined AnimationLibrary
-// (swordsman_anims.res); clips are added through PlayerAnimManifest (drop the
-// FBX in the anims folder named to match, rebuild). An unmapped slot, or a name
-// the active animator doesn't have, falls back cleanly — so this set is inert
-// until the matching art exists.
+// The flags are universal per slot, so they're read from the BASE set (PlayerData
+// delegates IsAnimationSpeedAffected / AnimationHidesHeldItem to it). An override
+// set only needs to fill in `name`; its flag fields are inert.
 [GlobalClass]
 public partial class WeaponAnimSet : Resource
 {
-    [Export] public Dictionary<EAnimation, StringName> overrides = new();
+    [Export] public Dictionary<EAnimation, AnimationData> overrides = new();
 
-    // Override clip for a slot, or default (empty) when this weapon doesn't
-    // change it — the caller composes "empty => unarmed fallback".
+    // The per-slot binding, or null when this set doesn't define the slot.
+    public AnimationData Get(EAnimation anim)
+    {
+        if (overrides != null && overrides.TryGetValue(anim, out AnimationData d))
+        {
+            return d;
+        }
+        return null;
+    }
+
+    // Clip name for a slot, or default (empty) when undefined — the caller
+    // composes "empty => fall back to the base set / unarmed clip".
     public StringName GetOverride(EAnimation anim)
     {
-        if (overrides != null && overrides.TryGetValue(anim, out StringName name))
+        AnimationData d = Get(anim);
+        return d != null ? d.name : default;
+    }
+
+    public bool IsSpeedAffected(EAnimation anim)
+    {
+        AnimationData d = Get(anim);
+        return d != null && d.affectedBySpeedMultiplier;
+    }
+
+    // Whether `clipName` is one of this set's hides-held-item poses. Keyed by clip
+    // name (not slot) so HeldItemVisual can test the animator's current clip
+    // directly; the hides poses live on the base set, never weapon-overridden.
+    public bool HidesHeldItemClip(StringName clipName)
+    {
+        if (clipName == default || overrides == null)
         {
-            return name;
+            return false;
         }
-        return default;
+        foreach (System.Collections.Generic.KeyValuePair<EAnimation, AnimationData> kvp in overrides)
+        {
+            AnimationData d = kvp.Value;
+            if (d != null && d.hidesHeldItem && d.name == clipName)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // Load-time check: every authored clip name must exist in the live animation
+    // library. Missing names are logged (not fatal — they fall back at runtime),
+    // catching the one fragile link: a clip string that doesn't match a baked clip.
+    public void Validate(System.Func<StringName, bool> hasAnimation, string label)
+    {
+        if (overrides == null || hasAnimation == null)
+        {
+            return;
+        }
+        foreach (System.Collections.Generic.KeyValuePair<EAnimation, AnimationData> kvp in overrides)
+        {
+            AnimationData d = kvp.Value;
+            if (d != null && d.name != default && !hasAnimation(d.name))
+            {
+                GD.PushError($"WeaponAnimSet '{label}': slot {kvp.Key} -> '{d.name}' has no clip in the animation library.");
+            }
+        }
     }
 }

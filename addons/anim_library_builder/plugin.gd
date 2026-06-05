@@ -9,9 +9,9 @@ extends EditorPlugin
 # Unlike the voxel atlas stitcher this does NOT auto-rebuild on filesystem
 # change: the animation library is partly hand-curated (clips with no source FBX
 # yet), so the merge is explicit to avoid surprise overwrites. The merge logic
-# lives ONLY on res://resources/data/characters/player_anim_manifest.tres — this
+# lives ONLY on res://assets/models/characters/polysplit/player_anim_manifest.tres — this
 # plugin just loads it and calls RebuildLibrary(). See PlayerAnimManifest.cs.
-const MANIFEST_PATH := "res://resources/data/characters/player_anim_manifest.tres"
+const MANIFEST_PATH := "res://assets/models/characters/polysplit/player_anim_manifest.tres"
 const MENU_ITEM := "Rebuild Player Animations"
 
 var _manifest: Resource

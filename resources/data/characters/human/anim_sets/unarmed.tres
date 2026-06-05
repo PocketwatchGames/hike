@@ -1,0 +1,145 @@
+[gd_resource type="Resource" script_class="WeaponAnimSet" load_steps=28 format=3 uid="uid://dunrm4n1msetq7"]
+
+[ext_resource type="Script" uid="uid://ebr0vht6y6v0e" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
+
+[sub_resource type="Resource" id="a_attack1"]
+script = ExtResource("2_animdata")
+name = &"attack1"
+
+[sub_resource type="Resource" id="a_dead"]
+script = ExtResource("2_animdata")
+name = &"dead"
+
+[sub_resource type="Resource" id="a_die"]
+script = ExtResource("2_animdata")
+name = &"die"
+
+[sub_resource type="Resource" id="a_fall"]
+script = ExtResource("2_animdata")
+name = &"fall"
+
+[sub_resource type="Resource" id="a_idle"]
+script = ExtResource("2_animdata")
+name = &"idle"
+
+[sub_resource type="Resource" id="a_jump"]
+script = ExtResource("2_animdata")
+name = &"jump"
+
+[sub_resource type="Resource" id="a_run"]
+script = ExtResource("2_animdata")
+name = &"run"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_swim"]
+script = ExtResource("2_animdata")
+name = &"swim"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_swim_idle"]
+script = ExtResource("2_animdata")
+name = &"swim_idle"
+
+[sub_resource type="Resource" id="a_interacting"]
+script = ExtResource("2_animdata")
+name = &"interacting"
+
+[sub_resource type="Resource" id="a_sneak"]
+script = ExtResource("2_animdata")
+name = &"sneak"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_sneak_idle"]
+script = ExtResource("2_animdata")
+name = &"sneak_idle"
+
+[sub_resource type="Resource" id="a_dash"]
+script = ExtResource("2_animdata")
+name = &"dash"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_sprint"]
+script = ExtResource("2_animdata")
+name = &"sprint"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_swim_sprint"]
+script = ExtResource("2_animdata")
+name = &"swim_sprint"
+affectedBySpeedMultiplier = true
+
+[sub_resource type="Resource" id="a_hitstun"]
+script = ExtResource("2_animdata")
+name = &"hitstun"
+
+[sub_resource type="Resource" id="a_skating"]
+script = ExtResource("2_animdata")
+name = &"skating"
+
+[sub_resource type="Resource" id="a_attack2"]
+script = ExtResource("2_animdata")
+name = &"attack2"
+
+[sub_resource type="Resource" id="a_drinking"]
+script = ExtResource("2_animdata")
+name = &"drinking"
+hidesHeldItem = true
+
+[sub_resource type="Resource" id="a_eating"]
+script = ExtResource("2_animdata")
+name = &"eating"
+hidesHeldItem = true
+
+[sub_resource type="Resource" id="a_reading"]
+script = ExtResource("2_animdata")
+name = &"reading"
+hidesHeldItem = true
+
+[sub_resource type="Resource" id="a_casting"]
+script = ExtResource("2_animdata")
+name = &"casting"
+hidesHeldItem = true
+
+[sub_resource type="Resource" id="a_using"]
+script = ExtResource("2_animdata")
+name = &"using"
+
+[sub_resource type="Resource" id="a_boat_idle"]
+script = ExtResource("2_animdata")
+name = &"idle"
+
+[sub_resource type="Resource" id="a_boat_paddle"]
+script = ExtResource("2_animdata")
+name = &"using"
+
+[resource]
+script = ExtResource("1_animset")
+overrides = Dictionary[int, ExtResource("2_animdata")]({
+0: SubResource("a_attack1"),
+1: SubResource("a_dead"),
+2: SubResource("a_die"),
+3: SubResource("a_fall"),
+4: SubResource("a_idle"),
+5: SubResource("a_jump"),
+6: SubResource("a_run"),
+7: SubResource("a_swim"),
+8: SubResource("a_swim_idle"),
+9: SubResource("a_interacting"),
+13: SubResource("a_sneak"),
+14: SubResource("a_sneak_idle"),
+15: SubResource("a_dash"),
+16: SubResource("a_sprint"),
+17: SubResource("a_swim_sprint"),
+18: SubResource("a_hitstun"),
+19: SubResource("a_skating"),
+20: SubResource("a_attack2"),
+21: SubResource("a_drinking"),
+22: SubResource("a_eating"),
+23: SubResource("a_reading"),
+24: SubResource("a_casting"),
+25: SubResource("a_using"),
+27: SubResource("a_boat_idle"),
+28: SubResource("a_boat_paddle")
+})
+metadata/_custom_type_script = "uid://ebr0vht6y6v0e"

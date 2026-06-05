@@ -1,12 +1,12 @@
-[gd_scene load_steps=9 format=3 uid="uid://ol8ysqglfqnu"]
+[gd_scene format=3 uid="uid://ol8ysqglfqnu"]
 
 [ext_resource type="Script" uid="uid://bgpy464q710yr" path="res://scripts/gameplay/characters/PlayerModelPackage.cs" id="1_pkg"]
 [ext_resource type="PackedScene" uid="uid://ckibma4hpcyu7" path="res://assets/models/characters/polysplit/BasicHero_F.fbx" id="2_rig"]
-[ext_resource type="AnimationLibrary" uid="uid://dwcf1itpl4vor" path="res://assets/models/characters/polysplit/swordsman_anims.res" id="3_animlib"]
+[ext_resource type="AnimationLibrary" uid="uid://benr8vvkpofwi" path="res://assets/models/characters/polysplit/swordsman_anims.res" id="3_animlib"]
 [ext_resource type="Material" uid="uid://c8mdllitmat0r" path="res://resources/materials/model_lit.tres" id="4_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="5_modelanim"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="6_helditem"]
-[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="7_pixelsnap"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="7_pixelsnap"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="8_facemat"]
 
 [node name="PlayerModelFemale" type="Node3D" node_paths=PackedStringArray("animator", "heldVisual")]

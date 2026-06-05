@@ -3,50 +3,32 @@ using Godot;
 [GlobalClass]
 public partial class PlayerData : Resource
 {
-	// Per-EAnimation binding from logical slot to SpriteFrames clip name plus
-	// retiming policy. Empty slots resolve to default-StringName and the
-	// animator silently skips them — author the dictionary in the .tres to
-	// wire each slot to its concrete clip. See AnimationData.
-	[Export] public Godot.Collections.Dictionary<EAnimation, AnimationData> animations = new();
+	// The player's BASE (unarmed) animation set — the slot→clip mapping plus the
+	// speed-affected / hides-held-item slot classifications. Lifted out of
+	// PlayerData into a shared WeaponAnimSet so the unarmed loadout is just another
+	// set, co-located with the source art. A wielded weapon's WeaponData.animSet
+	// overrides individual slots over this base (see Player.AnimName).
+	[Export] public WeaponAnimSet baseAnims;
 
-	// Look up the SpriteFrames clip name for an EAnimation slot. Returns
-	// default StringName when the slot is unbound — callers route this
-	// through LitSpriteAnimator.Play / HasAnimation, both of which no-op
-	// on unknown names, so an unbound slot is a silent skip rather than a
-	// hard error.
+	// Clip name for an EAnimation slot from the base set, or default when unbound
+	// (the animator no-ops on unknown names, so an unbound slot is a silent skip).
 	public StringName GetAnimationName(EAnimation anim)
 	{
-		return animations.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
+		return baseAnims != null ? baseAnims.GetOverride(anim) : default;
 	}
 
-	// Returns whether the slot is authored to track statusAnimMul. Returns
-	// false for unbound slots — playing nothing at status-retimed speed is
-	// the same as playing nothing at authored speed.
+	// Whether the slot retimes with slow/haste status (base-set classification).
 	public bool IsAnimationSpeedAffected(EAnimation anim)
 	{
-		return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
+		return baseAnims != null && baseAnims.IsSpeedAffected(anim);
 	}
 
-	// Whether the currently-playing clip is authored to conceal the wielded
-	// weapon (drink / read / cast poses). Keyed by clip name rather than
-	// EAnimation so HeldItemVisual can drive concealment straight off the
-	// animator's CurrentAnimation without reverse-mapping the slot — the
-	// dictionary is small (one entry per slot) so the linear scan is cheap.
+	// Whether the currently-playing clip conceals the wielded weapon (drink / read
+	// / cast). Keyed by clip name so HeldItemVisual can test the animator's current
+	// clip directly; the hides poses are base clips, never weapon-overridden.
 	public bool AnimationHidesHeldItem(StringName clipName)
 	{
-		if (clipName == default)
-		{
-			return false;
-		}
-		foreach (System.Collections.Generic.KeyValuePair<EAnimation, AnimationData> kvp in animations)
-		{
-			AnimationData d = kvp.Value;
-			if (d != null && d.hidesHeldItem && d.name == clipName)
-			{
-				return true;
-			}
-		}
-		return false;
+		return baseAnims != null && baseAnims.HidesHeldItemClip(clipName);
 	}
 
 	[ExportGroup("Movement")]

@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://cn3tkwyerft7v"]
 
 [ext_resource type="Script" uid="uid://cs5o5c0rouhsv" path="res://scripts/gameplay/characters/Player.cs" id="1_kqtwu"]
-[ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/characters/default_player.tres" id="2_6eyoc"]
+[ext_resource type="Resource" uid="uid://coogbmmdto6m5" path="res://resources/data/characters/human/default_player.tres" id="2_6eyoc"]
 [ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="4_xrqxk"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="5_7vyk4"]
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="5_g66nw"]

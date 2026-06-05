@@ -894,6 +894,10 @@ public partial class Player : CharacterBody3D
 		if (_animator != null)
 		{
 			_animator.OnFrameAdvanced += OnAnimFrameAdvanced;
+			// Validate the base set's clip strings against the live library now
+			// that the animator (and its library) exist. Weapon sets validate
+			// lazily the first time they're wielded.
+			ValidateAnimSet(data?.baseAnims, "base/unarmed");
 		}
 	}
 
@@ -1280,6 +1284,19 @@ public partial class Player : CharacterBody3D
 			}
 		}
 		return data != null ? data.GetAnimationName(anim) : default;
+	}
+
+	// Load-time validation: each WeaponAnimSet's clip strings must exist in the
+	// live animation library. Deduped so a set is checked once (the first time
+	// it's used / wielded). Missing clips are logged, not fatal.
+	private readonly System.Collections.Generic.HashSet<WeaponAnimSet> _validatedAnimSets = new();
+	private void ValidateAnimSet(WeaponAnimSet set, string label)
+	{
+		if (set == null || _animator == null || !_validatedAnimSets.Add(set))
+		{
+			return;
+		}
+		set.Validate(_animator.HasAnimation, label);
 	}
 
 	// EAnimation charge slot for the in-flight weapon charge, or null when the
@@ -3573,6 +3590,7 @@ public partial class Player : CharacterBody3D
 				// The drawn bow becomes the wielded weapon, so its anim set drives
 				// the stance / charge poses while aiming and after aim ends.
 				_wieldedWeapon = ranged;
+				ValidateAnimSet(ranged.data.animSet, ranged.data.displayName);
 			}
 		}
 

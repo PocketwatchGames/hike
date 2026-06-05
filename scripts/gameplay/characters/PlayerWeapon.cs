@@ -183,6 +183,7 @@ public partial class Player : CharacterBody3D, IActionActor
 			// this weapon's WeaponAnimSet drives the stance / charge / attack poses.
 			_heldVisual?.SetWeapon(weapon.data.heldModel);
 			_wieldedWeapon = weapon;
+			ValidateAnimSet(weapon.data.animSet, weapon.data.displayName);
 		}
 	}
 

@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://b8kcdhsqios2o"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://syb6453ftgs8" path="res://resources/data/characters/kun_kun_brain.tres" id="2_brain"]
+[ext_resource type="Resource" uid="uid://syb6453ftgs8" path="res://resources/data/characters/critter/kun_kun_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="4_l8bhi"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="4_lootcount"]

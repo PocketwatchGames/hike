@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="SpawnListData" format=3 uid="uid://dc3pchs6rhlok"]
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_lnvkt"]
-[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin.tres" id="2_ajkyq"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_ajkyq"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_3y2ux"]
-[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun.tres" id="4_epbtr"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/critter/kun_kun.tres" id="4_epbtr"]
 [ext_resource type="Resource" uid="uid://ndilv758jxnj" path="res://resources/data/world_gen/spawn_groups/campfire_camp_desert.tres" id="5_lnvkt"]
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="8_88i6m"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="9_well_entry"]
