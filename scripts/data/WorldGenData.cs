@@ -98,7 +98,7 @@ public partial class WorldGenData : Resource
     // and conceals them from mobs (see ClimbableTree / Player.
     // EnterClimbableTree). Skipped if null. Temporary scaffolding alongside
     // NearSpawnStashScene — the editor's placement pass replaces it.
-    [Export] public PackedScene NearSpawnClimbableTreeScene;
+    [Export] public PackedScene ClimbableTreeScene;
 
     // Single test-fixture rideable boat. WorldGen drops it on the nearest water
     // surface it can find around spawn (see the near-spawn placement block);

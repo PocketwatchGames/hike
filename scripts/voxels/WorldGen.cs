@@ -569,18 +569,29 @@ public static class WorldGen
             }
         }
 
-        // One-off friendly villager near the default player spawn (0, 24, 0)
-        // so the new IInteractive/Talk plumbing has a concrete target without
-        // requiring an editor placement. Drops 3 voxels east of origin and
-        // snaps to the heightmap so the villager sits on the ground regardless
-        // of terrain noise. Temporary test fixture — fold into a proper NPC
-        // population pass once authored villager spawn rules exist.
-        const int VillagerSpawnX = 3;
-        const int VillagerSpawnZ = 0;
+        // Voxel-space extent of the world. ws.Min/Max are in *chunks*; the
+        // fixture coordinates below are voxels, so compare against the chunk
+        // extent expressed in voxels to avoid the unit mismatch (a voxel X of
+        // 32 is well outside the raw chunk range of -4..4, and the old villager
+        // check at X=3 only passed by coincidence).
+        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
+        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        // One-off friendly villager placed deep in the mountain zone (the NE
+        // quadrant — chunk X >= 0, Z >= 0; see PickZoneIndex) so the new
+        // IInteractive/Talk plumbing has a concrete target without requiring an
+        // editor placement. Snaps to the heightmap so the villager sits on the
+        // ground regardless of terrain noise. Temporary test fixture — fold
+        // into a proper NPC population pass once authored villager spawn rules
+        // exist.
+        const int VillagerSpawnX = 32;
+        const int VillagerSpawnZ = 32;
         if (genData.NearSpawnVillagerData != null
             && genData.NearSpawnVillagerData.MobScene != null
-            && VillagerSpawnX >= ws.Min.X && VillagerSpawnX <= ws.Max.X
-            && VillagerSpawnZ >= ws.Min.Z && VillagerSpawnZ <= ws.Max.Z)
+            && VillagerSpawnX >= stoneWorldMinX && VillagerSpawnX <= stoneWorldMaxX
+            && VillagerSpawnZ >= stoneWorldMinZ && VillagerSpawnZ <= stoneWorldMaxZ)
         {
             MobData villagerData = genData.NearSpawnVillagerData;
             int sy = heightMap.GetHeight(VillagerSpawnX, VillagerSpawnZ);
@@ -625,36 +636,26 @@ public static class WorldGen
             ws.AddEntity(villagerSim);
         }
 
-        // KnowledgeStone test fixtures placed in a row west of the default
-        // player spawn. One stone per language component (Grammar, Numbers,
-        // Vocabulary1, Vocabulary2, Vocabulary3) so the partial-learning
-        // flow can be exercised by walking down the line and reading each
-        // in turn. Skipped if the worldgen data doesn't carry a stone
-        // scene/language.
-        const int KnowledgeStoneZ = 0;
-        var stoneComponents = new (int x, ELanguageComponents component)[]
+        // KnowledgeStone test fixtures, one per language component, scattered
+        // across three zones so exercising the partial-learning flow means
+        // travelling between biomes rather than walking down a row at spawn:
+        // swamp (SE), desert (NW) and forest (SW). See PickZoneIndex for the
+        // quadrant -> zone mapping. Skipped if the worldgen data doesn't carry
+        // a stone scene/language.
+        var stoneComponents = new (int x, int z, ELanguageComponents component)[]
         {
-            (-3, ELanguageComponents.Vocabulary1),
-            (-4, ELanguageComponents.Vocabulary2),
-            (-5, ELanguageComponents.Vocabulary3),
+            (32, -32, ELanguageComponents.Vocabulary1),   // swamp  (SE quadrant)
+            (-32, 32, ELanguageComponents.Vocabulary2),   // desert (NW quadrant)
+            (-32, -32, ELanguageComponents.Vocabulary3),  // forest (SW quadrant)
         };
-        // ws.Min/Max are in *chunks*; the stone coordinates are voxels.
-        // Compare against the chunk extent expressed in voxels so the row
-        // doesn't get clipped by the unit mismatch (the original single-
-        // stone fixture got away with this by coincidence — -3 happened to
-        // be >= -4, the default-world chunk min).
-        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
-        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null
-            && KnowledgeStoneZ >= stoneWorldMinZ && KnowledgeStoneZ <= stoneWorldMaxZ)
+        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null)
         {
-            foreach (var (sx, component) in stoneComponents)
+            foreach (var (sx, sz, component) in stoneComponents)
             {
-                if (sx < stoneWorldMinX || sx > stoneWorldMaxX) { continue; }
-                int sy = heightMap.GetHeight(sx, KnowledgeStoneZ);
-                var pos = new Vector3(sx + 0.5f, sy + 1f, KnowledgeStoneZ + 0.5f);
+                if (sx < stoneWorldMinX || sx > stoneWorldMaxX
+                    || sz < stoneWorldMinZ || sz > stoneWorldMaxZ) { continue; }
+                int sy = heightMap.GetHeight(sx, sz);
+                var pos = new Vector3(sx + 0.5f, sy + 1f, sz + 0.5f);
                 // Wrap the per-fixture (language, component) pair in a
                 // LanguageTeachable so the stone runs through the unified
                 // TeachableConcept path. Resource is constructed transient
@@ -696,20 +697,6 @@ public static class WorldGen
                 }
             }
             ws.AddEntity(stashSim);
-        }
-
-        // Near-spawn test climbable tree, a few voxels south of the stash.
-        // Climbing lifts the player into the bird's-eye overlook and conceals
-        // them from mobs (ClimbableTree / Player.EnterClimbableTree).
-        const int NearSpawnClimbTreeX = 2;
-        const int NearSpawnClimbTreeZ = 3;
-        if (genData.NearSpawnClimbableTreeScene != null
-            && NearSpawnClimbTreeX >= stoneWorldMinX && NearSpawnClimbTreeX <= stoneWorldMaxX
-            && NearSpawnClimbTreeZ >= stoneWorldMinZ && NearSpawnClimbTreeZ <= stoneWorldMaxZ)
-        {
-            int ty = heightMap.GetHeight(NearSpawnClimbTreeX, NearSpawnClimbTreeZ);
-            var pos = new Vector3(NearSpawnClimbTreeX + 0.5f, ty + 1f, NearSpawnClimbTreeZ + 0.5f);
-            ws.AddEntity(new ClimbableTreeSimState(pos, genData.NearSpawnClimbableTreeScene));
         }
 
         // Near-spawn test boat. Unlike the land fixtures above it must sit on

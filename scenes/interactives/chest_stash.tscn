@@ -9,7 +9,6 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
 [ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="6_open"]
 [ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="7_chestopen"]
-[ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="8_disc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_p7wb5"]
 [ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="9_autocoll"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
@@ -30,21 +29,24 @@ durationSeconds = 3.0
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_interact"]
-size = Vector3(1.2, 1.5, 1.2)
+size = Vector3(3, 2, 2)
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_hurt"]
-size = Vector3(0.8, 0.7, 0.6)
+[sub_resource type="BoxShape3D" id="BoxShape3D_n5o48"]
+size = Vector3(1.5, 1.3, 1)
 
-[node name="Chest" type="Node3D" unique_id=62162955 node_paths=PackedStringArray("_hurtBox", "_discoverable", "_hudNode", "_lidHinge")]
+[sub_resource type="BoxShape3D" id="BoxShape3D_ssl1y"]
+size = Vector3(1.5, 1.3, 1)
+
+[node name="Chest" type="Node3D" unique_id=62162955 node_paths=PackedStringArray("_hurtBox", "_hudNode", "_lidHinge")]
 script = ExtResource("1_chest")
 _hurtBox = NodePath("HurtBox")
 _actions = Array[ExtResource("4_action")]([SubResource("Resource_stash_action_open")])
 _isStash = true
-_discoverable = NodePath("Discoverable")
 _hudNode = NodePath("HUDNode")
 _lidHinge = NodePath("ChestVisual/LidHinge")
 
 [node name="ChestVisual" type="Node3D" parent="." unique_id=371219082]
+transform = Transform3D(2, 0, 0, 0, 2, 0, 0, 0, 2, 0, 0, 0)
 
 [node name="Body" type="Node3D" parent="ChestVisual" unique_id=769182467]
 script = ExtResource("9_autocoll")
@@ -65,23 +67,23 @@ script = ExtResource("3_ibox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=935562186]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("BoxShape3D_interact")
 
-[node name="HurtBox" type="Area3D" parent="." unique_id=1990354410]
+[node name="HurtBox" type="Area3D" parent="." unique_id=1593756831]
 collision_layer = 32
 collision_mask = 0
 script = ExtResource("2_hurtbox")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1949767300]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
-shape = SubResource("BoxShape3D_hurt")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=862679477]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+shape = SubResource("BoxShape3D_n5o48")
 
-[node name="Discoverable" type="Node3D" parent="." unique_id=1497437143 node_paths=PackedStringArray("_interactBox", "_fadeMeshRoot")]
-script = ExtResource("8_disc")
-discoveredThreshold = 0.1
-_interactBox = NodePath("../InteractiveBox")
-_fadeMeshRoot = NodePath("../ChestVisual")
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=840126329]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1860419168]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+shape = SubResource("BoxShape3D_ssl1y")
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1485804551 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("10_meshhl")

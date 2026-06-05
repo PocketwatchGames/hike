@@ -485,8 +485,8 @@ public partial class WorldEditor : Node3D
             case "Door":
                 return new DoorSimState(position, 0f, worldGenData.DoorScene);
             case "ClimbableTree":
-                return worldGenData.NearSpawnClimbableTreeScene != null
-                    ? new ClimbableTreeSimState(position, worldGenData.NearSpawnClimbableTreeScene)
+                return worldGenData.ClimbableTreeScene != null
+                    ? new ClimbableTreeSimState(position, worldGenData.ClimbableTreeScene)
                     : null;
             case "SpikeTrap":
                 return worldGenData.SpikeTrapScene != null

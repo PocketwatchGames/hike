@@ -25,8 +25,17 @@ icon = ExtResource("5_look")
 completionEvents = Array[ExtResource("4_event")]([SubResource("Resource_ks_event_open")])
 durationSeconds = 3.0
 
-[sub_resource type="BoxShape3D" id="BoxShape3D_ks_interact"]
-size = Vector3(2, 4.5, 2)
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_wjlsr"]
+height = 6.0
+radius = 1.25
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_wxwuj"]
+height = 0.5
+radius = 2.35
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_45v1k"]
+height = 6.0
+radius = 2.5
 
 [node name="KnowledgeStone" type="Node3D" unique_id=1495357093 node_paths=PackedStringArray("_hudNode")]
 script = ExtResource("1_knowledgestone")
@@ -49,6 +58,16 @@ script = ExtResource("7_autocoll")
 [node name="SM_Stone_Statue_Big_A" parent="StatueModel" unique_id=1887680722 instance=ExtResource("9_statuebig")]
 transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, 0, 0)
 
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=391963226]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=1011289550]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+shape = SubResource("CylinderShape3D_wjlsr")
+
+[node name="CollisionShape3D2" type="CollisionShape3D" parent="BlockCollider" unique_id=786146929]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.22729874, -0.14160633, -0.13680148)
+shape = SubResource("CylinderShape3D_wxwuj")
+
 [node name="InteractiveBox" type="Area3D" parent="." unique_id=1142806717 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
@@ -57,12 +76,11 @@ script = ExtResource("2_interactivebox")
 _interactiveNode = NodePath("..")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=822438635]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.25, 0)
-shape = SubResource("BoxShape3D_ks_interact")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+shape = SubResource("CylinderShape3D_45v1k")
 
 [node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=724549262 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("8_meshhl")
-plateauHeight = 5.0
 _collectFrom = NodePath("../StatueModel")
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=1996100106]
