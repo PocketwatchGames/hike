@@ -2860,13 +2860,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // arrowLootData. The stuck arrow registers with the source weapon's
     // outstandingArrows list so it counts against the cap and recovers
     // ammo via the standard OnArrowRemoved path when it leaves play.
-    public void StickArrow(WeaponState sourceWeapon, ArrowLootData data, Vector3 worldHitPos)
+    public void StickArrow(WeaponState sourceWeapon, ArrowLootData data, Vector3 worldHitPos, Vector3 hitDirection)
     {
         if (sourceWeapon == null || data == null)
         {
             return;
         }
-        ArrowStuck stuck = ArrowStuck.Create(this, data, sourceWeapon, worldHitPos);
+        ArrowStuck stuck = ArrowStuck.Create(this, data, sourceWeapon, worldHitPos, hitDirection);
         if (stuck == null)
         {
             return;

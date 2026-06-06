@@ -223,7 +223,7 @@ public static class ItemEventHandlers
 			Mob targetMob = hitResult != EHitResult.None ? FindOwningMob(hitHurtBox) : null;
 			if (targetMob != null && targetMob.alive)
 			{
-				targetMob.StickArrow(shootingWeapon, shootingWeapon.data.arrowLootData, hitPos);
+				targetMob.StickArrow(shootingWeapon, shootingWeapon.data.arrowLootData, hitPos, direction);
 			}
 			else
 			{

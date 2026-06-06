@@ -10,4 +10,12 @@ using Godot;
 [GlobalClass]
 public partial class ArrowLootData : LootData
 {
+    // 3D model shown while the arrow is embedded in a live mob (ArrowStuck).
+    // This is the same scene the in-flight Projectile renders
+    // (scenes/projectiles/arrow_model.tscn), so a stuck arrow reads as the
+    // exact object that was fired rather than the flat worldSprite billboard.
+    // Loose arrows that drop to the ground stay on worldSprite for parity with
+    // every other Loot pickup; only the embedded case uses the model. Null
+    // falls back to the worldSprite billboard.
+    [Export] public PackedScene worldModel;
 }

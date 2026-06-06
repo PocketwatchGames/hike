@@ -348,7 +348,7 @@ public partial class Projectile : Node3D
 		Mob targetMob = result == EHitResult.Health ? ItemEventHandlers.FindOwningMob(hurtBox) : null;
 		if (targetMob != null && targetMob.alive)
 		{
-			targetMob.StickArrow(weapon, arrowLootData, position);
+			targetMob.StickArrow(weapon, arrowLootData, position, _velocity);
 		}
 		else
 		{

@@ -37,7 +37,7 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         return Mathf.Clamp(_ageSeconds * 1000f / _data.removeTimeMs, 0f, 1f);
     }
 
-    public static ArrowStuck Create(Mob mob, ArrowLootData data, WeaponState sourceWeapon, Vector3 worldHitPos)
+    public static ArrowStuck Create(Mob mob, ArrowLootData data, WeaponState sourceWeapon, Vector3 worldHitPos, Vector3 hitDirection)
     {
         if (mob == null || data == null || sourceWeapon == null)
         {
@@ -49,10 +49,29 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         mob.AddChild(stuck);
         stuck.GlobalPosition = worldHitPos;
 
-        // Programmatic Sprite3D — the texture is the arrow data's authored
-        // worldSprite (resource), which we're allowed to bind at runtime.
-        // No LitSprite shading on this pass; the stuck arrow is a small
-        // detail and reads fine with the default unshaded sprite.
+        // Embedded arrows use the same 3D model the in-flight Projectile fired
+        // (arrow data's worldModel → scenes/projectiles/arrow_model.tscn), so
+        // the arrow stuck in the mob reads as the object that was shot rather
+        // than the flat worldSprite billboard. Loose ground arrows keep the
+        // sprite (Loot), so only this embedded case carries the model. Orient
+        // it along the shot's travel direction the same way Projectile.Launch
+        // aims the in-flight visual (LookAt points local -Z down the flight).
+        if (data.worldModel != null)
+        {
+            Node3D model = data.worldModel.Instantiate<Node3D>();
+            stuck.AddChild(model);
+            if (hitDirection.LengthSquared() > 1e-6f)
+            {
+                Vector3 fwd = hitDirection.Normalized();
+                Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
+                stuck.LookAt(stuck.GlobalPosition + fwd, up);
+            }
+            return stuck;
+        }
+
+        // Fallback when no model is authored: programmatic Sprite3D from the
+        // arrow data's worldSprite. Unshaded billboard, no orientation — the
+        // stuck arrow is a small detail and reads fine flat.
         Texture2D texture = data.worldSprite ?? data.inventorySprite;
         if (texture != null)
         {

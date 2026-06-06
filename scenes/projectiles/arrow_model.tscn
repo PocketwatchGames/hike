@@ -1,0 +1,11 @@
+[gd_scene format=3 uid="uid://b1arrowmodelvis"]
+
+[ext_resource type="PackedScene" uid="uid://carrowfbx7m4d" path="res://assets/models/arrow/arrow.fbx" id="1_arrowmodel"]
+
+[node name="ArrowModel" type="Node3D"]
+
+[node name="Model" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
+
+[node name="ArrowBasic" parent="Model" instance=ExtResource("1_arrowmodel")]
+transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0, 0)
