@@ -73,6 +73,13 @@ public partial class Player : CharacterBody3D
 	// to `_dirtyEffectData` if left null in the .tscn.
 	[Export] private StatusEffectData _dirtyClothesEffectData;
 
+	// Status effect armed while the player is caked in mud. Carries the
+	// MoveSpeed penalty (you slog) and the Scent modifier < 1 (the mud masks
+	// your smell), plus the HUD icon. TickMuddyEffect drives its ContinuousArm
+	// meter up while the player stands on EGroundType.Mud terrain and snaps it
+	// to zero the moment they enter water — mud rinses off when you get wet.
+	[Export] private StatusEffectData _muddyEffectData;
+
 	[ExportGroup("FX")]
 	// One-shot blood splatter spawned at the player's position on a non-lethal
 	// damage hit. Spawned in world space so the puff stays put as the player
@@ -1954,6 +1961,49 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Per-physics-tick muddy driver. The Muddy ContinuousArm meter fills while
+	// the player walks on EGroundType.Mud ground (marsh, mud patches) and
+	// drains slowly once they're back on dry footing. Stepping into water of
+	// any depth rinses the mud right off — the meter snaps to zero, mirroring
+	// the way water instantly soaks the Wet meter. Unlike Dirty there's no
+	// per-armor model: mud cakes the player directly, not their wardrobe.
+	private void TickMuddyEffect(float dt)
+	{
+		if (_muddyEffectData == null || data == null)
+		{
+			return;
+		}
+
+		float delta;
+		if (_waterState != EWaterState.None)
+		{
+			// Water wins: rinse the mud off completely the moment any part of
+			// the player is submerged. Snap exactly to empty.
+			delta = -_statusEffects.GetBuildup(_muddyEffectData);
+		}
+		else
+		{
+			EGroundType ground = GroundTypeResolver.Resolve(_world?.WorldState, GlobalPosition);
+			if (ground == EGroundType.Mud && data.muddySoakSeconds > 0f)
+			{
+				delta = dt / data.muddySoakSeconds;
+			}
+			else if (data.muddyDrySeconds > 0f)
+			{
+				delta = -dt / data.muddyDrySeconds;
+			}
+			else
+			{
+				delta = 0f;
+			}
+		}
+
+		if (delta != 0f)
+		{
+			_statusEffects.AddBuildup(_muddyEffectData, delta);
+		}
+	}
+
 	// Surface a continuous 0..1 progress value the HUD's status-effect
 	// strip can render as a fill bar, for status effects whose intensity
 	// is driven by a continuous player-side state rather than a timer.
@@ -2970,6 +3020,7 @@ public partial class Player : CharacterBody3D
 		_statusEffects.Tick(dt);
 		TickWetEffect(dt);
 		TickDirtyEffect(dt);
+		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);
 		DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, GlobalPosition);
 		if (dotFlush.damage)

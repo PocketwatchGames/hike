@@ -445,6 +445,19 @@ public partial class PlayerData : Resource
 	// scrubs it clean, and it need not be worn to be washed.
 	[Export(PropertyHint.Range, "0.1,30,0.1,or_greater")] public float dirtyDaysToFull = 3f;
 
+	[ExportGroup("Muddiness")]
+	// Seconds of continuous walking on EGroundType.Mud ground to fill the
+	// player's Muddy meter 0→1 and arm the effect (slower movement, masked
+	// scent). The Muddy status' ContinuousArm armThreshold decides how full
+	// the meter must get before the penalty kicks in, so the felt "time to get
+	// muddy" is muddySoakSeconds × armThreshold.
+	[Export(PropertyHint.Range, "0.5,120,0.5,or_greater")] public float muddySoakSeconds = 6f;
+	// Seconds for the Muddy meter to drain 1→0 once the player is off mud and
+	// out of water — mud flaking off as it dries. Slower than soaking so a
+	// muddy stretch lingers after you leave it. Stepping into water ignores
+	// this and rinses instantly.
+	[Export(PropertyHint.Range, "0.5,600,0.5,or_greater")] public float muddyDrySeconds = 30f;
+
 	[ExportGroup("Appearance")]
 	// Palettes the character's modular look is picked from. PlayerSpawnData
 	// stores the chosen INDEX into each (skinTone / hairColor / hairStyle), so a
