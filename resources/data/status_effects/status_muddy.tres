@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://b7mu3dyq8ka1n"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://idxjyig5rcky" path="res://assets/textures/status_effects/dots.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_movespeed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.7
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_scent"]
+script = ExtResource("m_script")
+stat = 131072
+value = 0.3
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Muddy"
+description = "Caked in mud. It slows you down, but it smothers your scent so mobs have a harder time tracking you. Rinses off in water."
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_scent")])
+maxStack = 1
+buildupBehavior = 1
+armThreshold = 0.5
+disarmThreshold = 0.1
+removesOnApply = []
