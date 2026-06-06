@@ -7,20 +7,21 @@
 // night vision is byte-for-byte unchanged.
 //
 // What it does: raises the LOWER HALF of the block-light brightness range
-// up toward 50%. Block light at or above 0.5 is untouched; darker values
-// are lifted so that light which normally reads as "dark" (roughly the
+// up toward 50%, so light that normally reads as "dark" (roughly the
 // 0.1..0.5 band) instead reads as "dim". The lift:
 //   - preserves hue — it scales the RGB triple by the brightness gain
 //     rather than lifting each channel independently (a torch stays warm),
-//   - preserves contrast — it's a monotonic sqrt curve, not a flat floor,
-//     so relative brightness within the world is retained,
-//   - leaves true black black — areas with no block light at all (max
-//     channel == 0) gain nothing; this lifts existing dim light, it does
-//     not invent light from nothing.
-//
-// The sqrt curve meets the identity exactly at 0.5 (sqrt(0.5*0.5) == 0.5),
-// so there is no seam between the lifted lower half and the untouched
-// upper half.
+//   - preserves contrast — it's a monotonic curve, not a flat floor, so
+//     relative brightness within the world is retained,
+//   - meets the identity exactly at 0.5 (sqrt(0.5*0.5) == 0.5), so there is
+//     no seam between the lifted lower half and the untouched upper half,
+//   - KEEPS PITCH BLACK PITCH BLACK. The sqrt curve alone has a near-
+//     vertical slope at 0, which would amplify the faintest trace of light
+//     into something clearly visible — the opposite of "you can't see in
+//     true darkness". So the lift is gated by a smoothstep that ramps from
+//     0 at v == 0 to full at v == FLOOR (0.1): below the floor the boost
+//     tapers to nothing (deep shadow and absolute black stay dark), and it
+//     reaches full strength right where the perceptible "dim" band begins.
 //
 // Caller declares nothing — this file owns the `night_vision` global. Any
 // shader that composes `lm.gba` into its lit color includes this file once
@@ -40,9 +41,15 @@ vec3 apply_night_vision(vec3 block_lit)
 		return block_lit;
 	}
 	const float MID = 0.5;
+	const float FLOOR = 0.1;
 	// lifted = sqrt(MID * v): for v < MID this is > v (raise toward MID);
 	// for v >= MID it is <= v, so max() clamps it back to identity.
-	float lifted = sqrt(MID * v);
-	float target = mix(v, max(v, lifted), night_vision);
+	float lifted = max(v, sqrt(MID * v));
+	// Ramp the lift in across [0, FLOOR] so true black and the deepest
+	// shadow keep their darkness — only light at/above the floor is dimmed
+	// up. smoothstep is 0 at v == 0, so pitch black is untouched.
+	float gate = smoothstep(0.0, FLOOR, v);
+	float lifted_gated = mix(v, lifted, gate);
+	float target = mix(v, lifted_gated, night_vision);
 	return block_lit * (target / v);
 }
