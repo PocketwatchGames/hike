@@ -1,13 +1,9 @@
 [gd_scene format=3 uid="uid://bs7n2lawxq3rm"]
 
 [ext_resource type="Script" uid="uid://rmy8owd5hawv" path="res://scripts/gameplay/entities/Projectile.cs" id="1_proj"]
-[ext_resource type="PackedScene" uid="uid://carrowfbx7m4d" path="res://assets/models/arrow/arrow.fbx" id="2_arrowmodel"]
+[ext_resource type="PackedScene" uid="uid://b1arrowmodelvis" path="res://scenes/projectiles/arrow_model.tscn" id="2_arrowmodel"]
 
 [node name="BowArrow" type="Node3D" unique_id=1342996802]
 script = ExtResource("1_proj")
 
-[node name="Model" type="Node3D" parent="." unique_id=2073227362]
-transform = Transform3D(-1, 0, -8.742278e-08, 0, 1, 0, 8.742278e-08, 0, -1, 0, 0, 0)
-
-[node name="ArrowBasic" parent="Model" unique_id=868366865 instance=ExtResource("2_arrowmodel")]
-transform = Transform3D(6, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0, 0)
+[node name="Model" parent="." instance=ExtResource("2_arrowmodel")]
