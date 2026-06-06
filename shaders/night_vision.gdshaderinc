@@ -7,8 +7,8 @@
 // night vision is byte-for-byte unchanged.
 //
 // What it does: raises the LOWER HALF of the block-light brightness range
-// up toward 50%, so light that normally reads as "dark" (roughly the
-// 0.1..0.5 band) instead reads as "dim". The lift:
+// partway toward 50% (see FULL_STRENGTH), so light that normally reads as
+// "dark" (roughly the 0.1..0.5 band) instead reads as "dim". The lift:
 //   - preserves hue — it scales the RGB triple by the brightness gain
 //     rather than lifting each channel independently (a torch stays warm),
 //   - preserves contrast — it's a monotonic curve, not a flat floor, so
@@ -42,6 +42,13 @@ vec3 apply_night_vision(vec3 block_lit)
 	}
 	const float MID = 0.5;
 	const float FLOOR = 0.1;
+	// Cap on how far a fully-applied effect lifts toward the seamless sqrt
+	// ceiling. The strongest in-game source (the Glimp Visor) grants a 0.85
+	// degree, which is nearly "full"; without a cap that reads as extreme —
+	// the dark band gets pulled most of the way to half-bright. At 0.6 the
+	// visor stays clearly noticeable (e.g. 10% block light reads ~16%, 30%
+	// reads ~34%) without flattening the world into uniform dim.
+	const float FULL_STRENGTH = 0.6;
 	// lifted = sqrt(MID * v): for v < MID this is > v (raise toward MID);
 	// for v >= MID it is <= v, so max() clamps it back to identity.
 	float lifted = max(v, sqrt(MID * v));
@@ -49,7 +56,7 @@ vec3 apply_night_vision(vec3 block_lit)
 	// shadow keep their darkness — only light at/above the floor is dimmed
 	// up. smoothstep is 0 at v == 0, so pitch black is untouched.
 	float gate = smoothstep(0.0, FLOOR, v);
-	float lifted_gated = mix(v, lifted, gate);
-	float target = mix(v, lifted_gated, night_vision);
+	float amount = night_vision * gate * FULL_STRENGTH;
+	float target = mix(v, lifted, amount);
 	return block_lit * (target / v);
 }
