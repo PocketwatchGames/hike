@@ -333,6 +333,18 @@ water_hide={
 "type": "bool",
 "value": false
 }
+overlook_reveal_center={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+overlook_reveal_radius={
+"type": "float",
+"value": 1e+20
+}
+overlook_reveal_softness={
+"type": "float",
+"value": 24.0
+}
 block_light_shadow_tex={
 "type": "sampler2D",
 "value": "res://assets/textures/block_light_shadow_placeholder.tres"

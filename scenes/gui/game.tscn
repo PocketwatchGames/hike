@@ -109,7 +109,7 @@ foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
 birdsEyeAltitude = 10.0
 birdsEyePitchDelta = 10.0
-birdsEyeSizeMultiplier = 2.0
+birdsEyeSizeMultiplier = 5.0
 birdsEyeTransitionSeconds = 1.0
 
 [node name="OuterEnv" type="WorldEnvironment" parent="." unique_id=1077832549]

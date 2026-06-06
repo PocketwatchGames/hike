@@ -74,6 +74,20 @@ global uniform float camera_clip_growth_edge_softness;
 // primary-light color the rest of the scene uses.
 global uniform vec3 sun_world_dir;
 
+// Bird's-eye overlook reveal. While the player is perched in a climbable tree
+// the camera zooms far out and the backdrop chunks stream in over the fly-up;
+// this radial curtain fades any ground beyond overlook_reveal_radius (XZ
+// distance from overlook_reveal_center) to full fog_color haze, so chunks that
+// aren't meshed yet are hidden behind atmosphere. GameClient rides the radius
+// outward along the chunk-load frontier, so the haze burns off exactly as fast
+// as the world fills. Default radius (1e20, set in project.godot / ChunkManager)
+// keeps the curtain disabled for all normal play. Sky + not-yet-loaded pixels
+// reconstruct to the far plane and read as "far" → curtained, which is the
+// mechanism that masks the un-streamed ring.
+global uniform vec3 overlook_reveal_center;
+global uniform float overlook_reveal_radius;
+global uniform float overlook_reveal_softness;
+
 // Cloud occlusion parameters (shared with sky + terrain + sprite + water
 // shaders, registered by SkyController). cloud_shadow.gdshaderinc reads
 // these to compute projective cloud shadows cast along the sun direction.
@@ -1065,6 +1079,17 @@ void fragment()
         // premultiplied alpha.
         ALBEDO = tint + (1.0 - shaft_darken) * haze_albedo;
         ALPHA = clamp(shaft_darken + (1.0 - shaft_darken) * haze_alpha, 0.0, 1.0);
+
+        // Overlook reveal curtain (premultiplied-alpha). Fade to opaque
+        // fog_color for any surface beyond the streaming frontier so chunks
+        // still loading under the bird's-eye view are masked by haze. At
+        // curtain = 1: ALBEDO = fog_color, ALPHA = 1 → result is solid fog;
+        // at curtain = 0 the composite above is untouched. The default radius
+        // (1e20) puts curtain at 0 everywhere, so this is inert in normal play.
+        float reveal_d = distance(surface_world.xz, overlook_reveal_center.xz);
+        float curtain = smoothstep(overlook_reveal_radius, overlook_reveal_radius + max(overlook_reveal_softness, 0.001), reveal_d);
+        ALBEDO = ALBEDO * (1.0 - curtain) + fog_color * curtain;
+        ALPHA = ALPHA * (1.0 - curtain) + curtain;
     }
 
     } // end if (fog_volumetric_enabled)
