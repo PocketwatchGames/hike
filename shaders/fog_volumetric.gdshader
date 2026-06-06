@@ -208,6 +208,11 @@ uniform float block_halo_intensity : hint_range(0.0, 32.0) = 6.0;
 // multiplied by this and ADDED to the global wash, so painted fog volumes
 // (mist over water, dusty hollows) get locally denser shafts. 0 = off.
 uniform float fog_shaft_gain : hint_range(0.0, 4.0) = 1.0;
+// Day↔night fade for the shafts (0 at the day/night boundary, up to 1 with the
+// sun/moon high). SkyController already folds this into sun_shaft_intensity for
+// the weather-driven wash; it's passed separately so the authored-fog boost
+// above fades on the same curve instead of carving beams through the night.
+uniform float shaft_day_factor : hint_range(0.0, 1.0) = 1.0;
 
 // --- Sun-wash (carve-by-darkening) controls -------------------------
 // TEST gate (CVar shaft_light_floor): fade the darkening out where the air
@@ -994,7 +999,10 @@ void fragment()
         // so WorldGen / editor fog volumes (mist over water, dusty hollows)
         // thicken the shafts right where the author placed them.
         float fog_frac = band_weight > 0.0 ? fog_weighted / band_weight : 0.0;
-        float wash = sun_shaft_intensity + fog_shaft_gain * fog_frac;
+        // sun_shaft_intensity already carries the day/night fade; gate the
+        // authored-fog boost with the same factor so painted fog volumes don't
+        // keep carving beams across the day/night boundary and into night.
+        float wash = sun_shaft_intensity + fog_shaft_gain * fog_frac * shaft_day_factor;
         float shadow = 1.0 - clamp(lit_frac, 0.0, 1.0);
         // Coverage guard: only darken where the dust band was actually
         // sampled. Without this, distant pixels beyond the loaded lightmap

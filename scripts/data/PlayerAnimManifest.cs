@@ -14,13 +14,22 @@ using System.Collections.Generic;
 //   2. Open this resource in the inspector and press "Rebuild Animation Library"
 //      (or Project > Tools > Rebuild Player Animations).
 //
-// Per-clip loop + speed are authored in the Clips list (one row each). Loop and
-// Speed are BAKED at rebuild: Loop sets the clip's loop mode, Speed time-scales
-// its keyframes, both written into human_anims.res. There is no runtime
-// cost and no import-time involvement — re-tune a value and rebuild to apply.
-// Any FBX in the folder without a Clips row gets a default row appended (Loop
-// guessed from the clip name, Speed 1) so every animation shows up as an
-// editable row after a rebuild.
+// Per-clip loop + speed + events are authored in the Clips list (one row each).
+// Loop, Speed, and Events are BAKED at rebuild: Loop sets the clip's loop mode,
+// Speed time-scales its keyframes, and each PlayerAnimEvent becomes a Call
+// Method Track key — all written into human_anims.res. There is no runtime cost
+// and no import-time involvement — re-tune a value and rebuild to apply. Any FBX
+// in the folder without a Clips row gets a default row appended (Loop guessed
+// from the clip name, Speed 1) so every animation shows up as an editable row
+// after a rebuild.
+//
+// EVENTS SURVIVE RE-IMPORT: the rebuild replaces each clip wholesale with a
+// fresh duplicate of the source FBX animation, so any method tracks / events
+// added directly in the AnimationPlayer dock are LOST on the next rebuild (this
+// is how the footstep cues were silently wiped once). Authoring events on the
+// Clips rows here — the text .tres, not the binary .res — makes them durable:
+// rebuild re-bakes them every time. To pull events you tuned visually in the
+// dock back into the manifest, press "Capture Events From Library".
 //
 // MERGE, not replace: each rebuild adds/overwrites only the clips that have an
 // FBX in the folder and leaves every other clip in the library untouched, so
@@ -50,10 +59,19 @@ public partial class PlayerAnimManifest : Resource
     public string OutputLibraryPath = "res://assets/models/characters/polysplit/human_anims.res";
 
     // One row per clip: its name (= source filename, lower-cased), loop flag,
-    // and playback speed. The single source of truth for per-clip authoring —
-    // auto-grows as new FBXs are added to the folder and rebuilt.
+    // playback speed, and authored events. The single source of truth for
+    // per-clip authoring — auto-grows as new FBXs are added to the folder and
+    // rebuilt.
     [Export]
     public PlayerAnimClipSetting[] Clips = System.Array.Empty<PlayerAnimClipSetting>();
+
+    // NodePath (relative to the AnimationPlayer's root_node) of the node whose
+    // method a baked event calls — the rig's ModelAnimator. The player model
+    // packages put it one level above the FBX root, so the default resolves in
+    // both BasicHero_F and BasicHero_M sharing this one library. Authored here
+    // (not hardcoded) so a different rig layout can repoint it.
+    [Export]
+    public string MethodTrackTarget = "../../ModelAnimator";
 
     // Initial loop guess for a freshly-discovered clip's auto-appended row.
     // These are the typical one-shots; everything else defaults to looping.
@@ -66,6 +84,14 @@ public partial class PlayerAnimManifest : Resource
     // Inspector button (Godot 4.4+). Same entry point as the Tools menu item.
     [ExportToolButton("Rebuild Animation Library")]
     public Callable RebuildButton => Callable.From(RebuildLibrary);
+
+    // Pull the method-track keys currently in the library back into the manifest
+    // as PlayerAnimEvents, so events tuned visually in the AnimationPlayer dock
+    // become durable (re-baked on every future rebuild) instead of being lost on
+    // the next FBX re-import. The author's loop: scrub + place a Call Method
+    // Track key in the dock, press this, then rebuilds preserve it.
+    [ExportToolButton("Capture Events From Library")]
+    public Callable CaptureButton => Callable.From(CaptureEventsFromLibrary);
 
     // Merge every *.fbx in SourceFolder into the output AnimationLibrary, baking
     // each clip's loop + speed from its Clips row. Existing clips not represented
@@ -151,6 +177,10 @@ public partial class PlayerAnimManifest : Resource
             Animation anim = (Animation)ap.GetAnimation(names[0]).Duplicate(true);
             anim.LoopMode = setting.Loop ? Animation.LoopModeEnum.Linear : Animation.LoopModeEnum.None;
             ApplyClipSpeed(anim, setting.Speed, clip);
+            // Re-bake authored events (footsteps, hit frames, ...) onto the fresh
+            // duplicate — done AFTER speed scaling so normalized times map onto
+            // the final clip length. This is what makes events outlast a re-import.
+            ApplyClipEvents(anim, setting, clip);
 
             if (lib.HasAnimation(clip))
             {
@@ -221,6 +251,119 @@ public partial class PlayerAnimManifest : Resource
             }
         }
         anim.Length = (float)(anim.Length * timeFactor);
+    }
+
+    // Insert one Call Method Track per clip carrying a key for each authored
+    // PlayerAnimEvent, at NormalizedTime * (post-speed) clip length. Pointed at
+    // MethodTrackTarget (the rig's ModelAnimator). No events = no track added, so
+    // clips without events are byte-identical to the plain FBX duplicate.
+    private void ApplyClipEvents(Animation anim, PlayerAnimClipSetting setting, string clip)
+    {
+        if (setting?.Events == null || setting.Events.Length == 0)
+        {
+            return;
+        }
+        int track = -1;
+        foreach (PlayerAnimEvent ev in setting.Events)
+        {
+            if (ev == null || string.IsNullOrEmpty(ev.Method))
+            {
+                continue;
+            }
+            if (track < 0)
+            {
+                track = anim.AddTrack(Animation.TrackType.Method);
+                anim.TrackSetPath(track, MethodTrackTarget);
+            }
+            double time = Mathf.Clamp(ev.NormalizedTime, 0f, 1f) * anim.Length;
+            Godot.Collections.Dictionary key = new()
+            {
+                { "method", ev.Method },
+                { "args", ev.Args ?? new Godot.Collections.Array() },
+            };
+            anim.TrackInsertKey(track, time, key);
+        }
+        if (track >= 0)
+        {
+            GD.Print($"PlayerAnimManifest: baked {setting.Events.Length} event(s) onto '{clip}'.");
+        }
+    }
+
+    // Reverse of the bake: read the method-track keys currently in the library
+    // and write them into the matching Clips rows as PlayerAnimEvents (normalized
+    // times). Lets events tuned visually in the AnimationPlayer dock be made
+    // durable, after which every rebuild re-applies them. Only clips that exist
+    // as Clips rows are updated; a clip with no method tracks gets an empty list
+    // (so deleting a key in the dock + capturing also clears it from the manifest).
+    public void CaptureEventsFromLibrary()
+    {
+        if (!Godot.FileAccess.FileExists(OutputLibraryPath))
+        {
+            GD.PushError($"PlayerAnimManifest: library '{OutputLibraryPath}' does not exist; nothing to capture.");
+            return;
+        }
+        AnimationLibrary lib = ResourceLoader.Load<AnimationLibrary>(OutputLibraryPath, "", ResourceLoader.CacheMode.Reuse);
+        if (lib == null)
+        {
+            GD.PushError($"PlayerAnimManifest: failed to load '{OutputLibraryPath}'.");
+            return;
+        }
+
+        Dictionary<string, PlayerAnimClipSetting> byName = new();
+        if (Clips != null)
+        {
+            foreach (PlayerAnimClipSetting c in Clips)
+            {
+                if (c != null && !string.IsNullOrEmpty(c.Name))
+                {
+                    byName[c.Name] = c;
+                }
+            }
+        }
+
+        int totalEvents = 0;
+        int clipsTouched = 0;
+        foreach (string clip in lib.GetAnimationList())
+        {
+            if (!byName.TryGetValue(clip, out PlayerAnimClipSetting setting))
+            {
+                continue;
+            }
+            Animation anim = lib.GetAnimation(clip);
+            float length = anim.Length > 0f ? anim.Length : 1f;
+            List<PlayerAnimEvent> events = new();
+            for (int t = 0; t < anim.GetTrackCount(); t++)
+            {
+                if (anim.TrackGetType(t) != Animation.TrackType.Method)
+                {
+                    continue;
+                }
+                int keys = anim.TrackGetKeyCount(t);
+                for (int k = 0; k < keys; k++)
+                {
+                    Godot.Collections.Dictionary key = anim.TrackGetKeyValue(t, k).AsGodotDictionary();
+                    events.Add(new PlayerAnimEvent
+                    {
+                        NormalizedTime = (float)(anim.TrackGetKeyTime(t, k) / length),
+                        Method = key.TryGetValue("method", out Variant m) ? m.AsStringName() : "",
+                        Args = key.TryGetValue("args", out Variant a) ? a.AsGodotArray() : new Godot.Collections.Array(),
+                    });
+                }
+            }
+            if (events.Count != (setting.Events?.Length ?? 0) || events.Count > 0)
+            {
+                setting.Events = events.ToArray();
+                clipsTouched++;
+                totalEvents += events.Count;
+            }
+        }
+
+        if (!string.IsNullOrEmpty(ResourcePath))
+        {
+            ResourceSaver.Save(this, ResourcePath);
+        }
+        EmitChanged();
+        GD.Print($"PlayerAnimManifest: captured {totalEvents} event(s) across {clipsTouched} clip(s) into the manifest.");
     }
 
     private static AnimationPlayer FindAnimationPlayer(Node node)

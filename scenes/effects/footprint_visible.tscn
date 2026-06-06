@@ -9,5 +9,5 @@ _decal = NodePath("Decal")
 metadata/_custom_type_script = "uid://yqzj43w1mevdm"
 
 [node name="Decal" type="Decal" parent="." unique_id=183628650]
-size = Vector3(0.6, 0.5, 0.6)
+size = Vector3(0.6, 1.5, 0.6)
 texture_albedo = ExtResource("2_e62r6")

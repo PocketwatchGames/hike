@@ -11,7 +11,7 @@ _discoverable = NodePath("Discoverable")
 metadata/_custom_type_script = "uid://yqzj43w1mevdm"
 
 [node name="Decal" type="Decal" parent="." unique_id=1390100084]
-size = Vector3(0.6, 0.5, 0.6)
+size = Vector3(0.6, 1.5, 0.6)
 texture_albedo = ExtResource("2_icxdf")
 
 [node name="Discoverable" type="Node3D" parent="." unique_id=2125199758]

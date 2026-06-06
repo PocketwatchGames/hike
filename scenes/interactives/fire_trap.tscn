@@ -11,15 +11,15 @@
 [ext_resource type="PackedScene" uid="uid://ca6w1oujti21a" path="res://scenes/effects/fire_column_ignite.tscn" id="6_ignite"]
 [ext_resource type="PackedScene" uid="uid://bc8qfslk1814k" path="res://scenes/effects/fire_column_loop.tscn" id="7_loop"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="8_light"]
-[ext_resource type="Script" uid="uid://3prfeyoqvrzd3" path="res://scripts/gameplay/WarmthZone.cs" id="9_warmth"]
-[ext_resource type="Texture2D" uid="uid://b0smp59rjwmgf" path="res://assets/textures/effects/scorch.png" id="10_scorch"]
+[ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="9_warmth"]
+[ext_resource type="Texture2D" uid="uid://b0smp6arjwmgf" path="res://assets/textures/effects/scorch.png" id="10_scorch"]
 
 [sub_resource type="Resource" id="Resource_firetrap_damage"]
 script = ExtResource("3_damage")
 healthDamage = 8.0
-statusEffects = null
-buildups = null
-modifiers = null
+statusEffects = []
+buildups = []
+modifiers = []
 
 [sub_resource type="Resource" id="Resource_firetrap_data"]
 script = ExtResource("2_firetrapdata")
@@ -71,8 +71,8 @@ _lightColor = Color(1, 0.55, 0.25, 1)
 _flicker = true
 _flickerMin = 0.6
 
-[node name="ScorchDecal" type="Decal" parent="."]
-size = Vector3(1.8, 1.0, 1.8)
+[node name="ScorchDecal" type="Decal" parent="." unique_id=1631401259]
+size = Vector3(3, 4, 3)
 texture_albedo = ExtResource("10_scorch")
 
 [node name="WarmthZone" type="Area3D" parent="." unique_id=1841825179]

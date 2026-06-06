@@ -13,22 +13,38 @@ extends EditorPlugin
 # plugin just loads it and calls RebuildLibrary(). See PlayerAnimManifest.cs.
 const MANIFEST_PATH := "res://assets/models/characters/polysplit/player_anim_manifest.tres"
 const MENU_ITEM := "Rebuild Player Animations"
+const CAPTURE_MENU_ITEM := "Capture Player Animation Events"
 
 var _manifest: Resource
 
 
 func _enter_tree() -> void:
 	add_tool_menu_item(MENU_ITEM, _rebuild)
+	add_tool_menu_item(CAPTURE_MENU_ITEM, _capture_events)
 
 
 func _exit_tree() -> void:
 	remove_tool_menu_item(MENU_ITEM)
+	remove_tool_menu_item(CAPTURE_MENU_ITEM)
 
 
-func _rebuild(_arg = null) -> void:
+func _load_manifest() -> Resource:
 	if _manifest == null:
 		_manifest = load(MANIFEST_PATH)
 	if _manifest == null:
 		push_error("Anim Library Builder: cannot load %s (build the C# project first)" % MANIFEST_PATH)
-		return
-	_manifest.RebuildLibrary()
+	return _manifest
+
+
+func _rebuild(_arg = null) -> void:
+	var manifest := _load_manifest()
+	if manifest != null:
+		manifest.RebuildLibrary()
+
+
+# Pull method-track keys tuned in the AnimationPlayer dock back into the manifest
+# so they're re-baked on every future rebuild instead of lost on FBX re-import.
+func _capture_events(_arg = null) -> void:
+	var manifest := _load_manifest()
+	if manifest != null:
+		manifest.CaptureEventsFromLibrary()

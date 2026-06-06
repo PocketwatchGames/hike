@@ -1716,11 +1716,16 @@ public partial class SkyController : Node3D
         float washCover = shaftWashBaseline + shaftWashCloudGain * washCloudCover * washCloudCover;
         float washIntensity = Mathf.Min(shaftWashMax, washEffDust * washCover);
 
-        float effShaftIntensity = washIntensity * sunShaftFactor
-                                 + washIntensity * moonBeamScale * moonShaftFactor;
+        // Combined day/night shaft fade (sun + moon-scaled), reaching 0 at the
+        // day/night boundary. Folded into effShaftIntensity for the weather
+        // wash; passed separately so the shader can fade the per-voxel
+        // authored-fog shaft boost on the same curve.
+        float shaftDayFactor = sunShaftFactor + moonBeamScale * moonShaftFactor;
+        float effShaftIntensity = washIntensity * shaftDayFactor;
         if (!CVars.sunShafts.Value)
         {
             effShaftIntensity = 0f;
+            shaftDayFactor = 0f;
         }
 
         float shaftColorT = moonShaftFactor / (sunShaftFactor + moonShaftFactor + 1e-6f);
@@ -1765,6 +1770,7 @@ public partial class SkyController : Node3D
             fogMaterial.SetShaderParameter("shaft_color", ColorToVec3(effShaftColor));
             fogMaterial.SetShaderParameter("block_halo_intensity", blockHaloIntensity);
             fogMaterial.SetShaderParameter("fog_shaft_gain", fogShaftGain);
+            fogMaterial.SetShaderParameter("shaft_day_factor", shaftDayFactor);
             fogMaterial.SetShaderParameter("wash_shadow_darkness", washShadowDarkness);
             fogMaterial.SetShaderParameter("wash_tint_strength", washTintStrength);
             fogMaterial.SetShaderParameter("shaft_light_floor", CVars.shaftLightFloor.Value);

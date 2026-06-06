@@ -118,7 +118,7 @@ collision_layer = 0
 collision_mask = 2
 script = ExtResource("17_warmth")
 warmingTemperature = 25.0
-metadata/_custom_type_script = "uid://3prfeyoqvrzd3"
+metadata/_custom_type_script = "uid://bnwcak8yxdu2q"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="WarmthZone" unique_id=1700000002]
 shape = SubResource("SphereShape3D_warmth")

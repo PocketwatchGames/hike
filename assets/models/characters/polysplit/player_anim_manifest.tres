@@ -1,6 +1,7 @@
-[gd_resource type="Resource" script_class="PlayerAnimManifest" format=3 uid="uid://uqp2pv8l6041"]
+[gd_resource type="Resource" script_class="PlayerAnimManifest" format=3 uid="uid://iia7112h05i6"]
 
 [ext_resource type="Script" uid="uid://d22vvcgsti6w8" path="res://scripts/data/PlayerAnimManifest.cs" id="1_panim"]
+[ext_resource type="Script" uid="uid://djp3h8k2qmxev" path="res://scripts/data/PlayerAnimEvent.cs" id="2_6hihe"]
 [ext_resource type="Script" uid="uid://bstvhvkw6tq8u" path="res://scripts/data/PlayerAnimClipSetting.cs" id="2_clip"]
 
 [sub_resource type="Resource" id="clip_idle"]
@@ -8,15 +9,37 @@ resource_name = "idle"
 script = ExtResource("2_clip")
 Name = "idle"
 
+[sub_resource type="Resource" id="Resource_apwli"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.14
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_7kipb"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.635
+Method = &"EmitFootstep"
+
 [sub_resource type="Resource" id="clip_run"]
 resource_name = "run"
 script = ExtResource("2_clip")
 Name = "run"
+Events = [SubResource("Resource_apwli"), SubResource("Resource_7kipb")]
+
+[sub_resource type="Resource" id="Resource_vqtc4"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.12
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_biw4k"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.625
+Method = &"EmitFootstep"
 
 [sub_resource type="Resource" id="clip_sprint"]
 resource_name = "sprint"
 script = ExtResource("2_clip")
 Name = "sprint"
+Events = [SubResource("Resource_vqtc4"), SubResource("Resource_biw4k")]
 
 [sub_resource type="Resource" id="clip_fall"]
 resource_name = "fall"
@@ -99,10 +122,21 @@ resource_name = "skating"
 script = ExtResource("2_clip")
 Name = "skating"
 
+[sub_resource type="Resource" id="Resource_trh5a"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.12
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_p4hcm"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.665
+Method = &"EmitFootstep"
+
 [sub_resource type="Resource" id="Resource_a8krt"]
 resource_name = "sneak"
 script = ExtResource("2_clip")
 Name = "sneak"
+Events = [SubResource("Resource_trh5a"), SubResource("Resource_p4hcm")]
 
 [sub_resource type="Resource" id="Resource_ys45c"]
 resource_name = "sneak_idle"
@@ -129,11 +163,22 @@ resource_name = "using"
 script = ExtResource("2_clip")
 Name = "using"
 
+[sub_resource type="Resource" id="Resource_1pwsg"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.11
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_k0l0l"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.60999995
+Method = &"EmitFootstep"
+
 [sub_resource type="Resource" id="clip_swordchargerun"]
 resource_name = "swordchargerun"
 script = ExtResource("2_clip")
 Name = "swordchargerun"
 Speed = 1.5
+Events = [SubResource("Resource_1pwsg"), SubResource("Resource_k0l0l")]
 
 [sub_resource type="Resource" id="Resource_xlls8"]
 resource_name = "swordattack1"
@@ -168,15 +213,37 @@ resource_name = "swordidle"
 script = ExtResource("2_clip")
 Name = "swordidle"
 
+[sub_resource type="Resource" id="Resource_syfqs"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.114999995
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_xevnx"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.64500004
+Method = &"EmitFootstep"
+
 [sub_resource type="Resource" id="Resource_lnqss"]
 resource_name = "swordrun"
 script = ExtResource("2_clip")
 Name = "swordrun"
+Events = [SubResource("Resource_syfqs"), SubResource("Resource_xevnx")]
+
+[sub_resource type="Resource" id="Resource_xynv1"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.11000001
+Method = &"EmitFootstep"
+
+[sub_resource type="Resource" id="Resource_rx7y8"]
+script = ExtResource("2_6hihe")
+NormalizedTime = 0.60999995
+Method = &"EmitFootstep"
 
 [sub_resource type="Resource" id="Resource_fxn4c"]
 resource_name = "swordwalk"
 script = ExtResource("2_clip")
 Name = "swordwalk"
+Events = [SubResource("Resource_xynv1"), SubResource("Resource_rx7y8")]
 
 [sub_resource type="Resource" id="Resource_8pvgj"]
 resource_name = "bowattack"

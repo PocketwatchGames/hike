@@ -18,4 +18,11 @@ public partial class PlayerAnimClipSetting : Resource
     // snapping trap; or_greater allows >4 if ever needed.
     [Export(PropertyHint.Range, "0.1,4,0.05,or_greater")]
     public float Speed = 1f;
+
+    // Per-clip animation events re-baked onto the clip every rebuild (Call
+    // Method Track keys — footsteps, hit frames, sound/vfx cues). Authored here
+    // (or captured from the library via PlayerAnimManifest.CaptureEventsFromLibrary)
+    // so they survive a source-FBX re-import that would otherwise wipe them. See
+    // PlayerAnimEvent.
+    [Export] public PlayerAnimEvent[] Events = System.Array.Empty<PlayerAnimEvent>();
 }

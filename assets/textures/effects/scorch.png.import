@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b0smp59rjwmgf"
-path="res://.godot/imported/scorch.png-0000000000000000000000000000000000.ctex"
+uid="uid://b0smp6arjwmgf"
+path="res://.godot/imported/scorch.png-a346050221430ea6784c8460b751baa2.ctex"
 metadata={
 "vram_texture": false
 }
@@ -11,7 +11,7 @@ metadata={
 [deps]
 
 source_file="res://assets/textures/effects/scorch.png"
-dest_files=["res://.godot/imported/scorch.png-0000000000000000000000000000000000.ctex"]
+dest_files=["res://.godot/imported/scorch.png-a346050221430ea6784c8460b751baa2.ctex"]
 
 [params]
 
@@ -38,5 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=0
-</content>
-</invoke>
