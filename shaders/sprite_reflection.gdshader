@@ -66,6 +66,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 instance uniform ivec2 sprite_size = ivec2(1, 1);
 instance uniform ivec2 sprite_region_origin = ivec2(0, 0);
 // Mirror in lockstep with the visible sprite.
@@ -480,7 +481,7 @@ void fragment() {
 	// own water-fragment position — same anchor as the lightmap sample
 	// above, so a sprite standing above the water dims the reflection
 	// surface here without affecting reflections elsewhere.
-	vec3 block_lit = lm.gba * block_light_shadow_factor(vertex_world_var);
+	vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(vertex_world_var);
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
 	// Silhouette bypasses lighting (same as sprite_lit) then the reflection

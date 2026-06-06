@@ -210,6 +210,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -489,7 +490,7 @@ void fragment() {
 		// Per-fragment block_lit dimmed by the sprite/tree silhouette
 		// projector — matches voxel_clip's receive path. Trees don't
 		// currently CAST into the projector themselves; this only RECEIVES.
-		vec3 block_lit = lm.gba * block_light_shadow_factor(world_pos);
+		vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_pos);
 
 		// Off-axis fill tints — same composition voxel_clip uses. Reads
 		// shade_normal so the fills follow the cluster sphere shading,

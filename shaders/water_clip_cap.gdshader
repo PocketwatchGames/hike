@@ -20,6 +20,7 @@ global uniform float sun_intensity;
 #include "res://shaders/sky_common.gdshaderinc"
 global uniform float cloud_shadow_strength;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 // All water styling comes from region-driven globals — same authored set
 // as voxel_water.gdshader so the cap reads continuously with the water
@@ -124,7 +125,7 @@ void fragment() {
 	float cloud = cloud_shadow_ground(world_pos, TIME);
 	float cloud_sun = 1.0 - cloud * cloud_shadow_strength;
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
-	vec3 block_lit = lm.gba;
+	vec3 block_lit = apply_night_vision(lm.gba);
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
 	// Compute water thickness from depth buffer

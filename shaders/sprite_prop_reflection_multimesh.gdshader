@@ -68,6 +68,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
@@ -508,7 +509,7 @@ void fragment() {
     vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun;
     // Match the lightmap sampling position above — the reflection's
     // block_lit dim follows whatever silhouette covers the source prop.
-    vec3 block_lit = lm.gba * block_light_shadow_factor(source_world_pos);
+    vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(source_world_pos);
     vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
     vec3 reflected = tex.rgb * light;

@@ -393,6 +393,10 @@ light_falloff_exp={
 "type": "float",
 "value": 2.0
 }
+night_vision={
+"type": "float",
+"value": 0.0
+}
 tree_wind_strength={
 "type": "float",
 "value": 1.0

@@ -89,6 +89,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 // Per-instance unpacked from MultiMesh data, passed via flat varyings to
 // the fragment stage so the integer cast / hash happens once per vertex.
@@ -256,7 +257,7 @@ void fragment() {
     // Per-prop block_lit dim — sample at the anchor (one position for the
     // whole prop), so a tree under another tree's silhouette reads as
     // dimmed without cross-fading inside its own footprint.
-    vec3 block_lit = lm.gba * block_light_shadow_factor(world_origin);
+    vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_origin);
 
     NORMAL = vec3(0.0, 1.0, 0.0);
     if (debug_white_albedo) {
