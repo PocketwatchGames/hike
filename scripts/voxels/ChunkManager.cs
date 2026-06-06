@@ -129,6 +129,10 @@ public partial class ChunkManager : Node3D
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
         ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
+        // Night-vision lift for perceived ambient block light (shaders/
+        // night_vision.gdshaderinc). Seeded to 0 (off, exact identity);
+        // Player pushes the live degree each frame from its NightVision stat.
+        ShaderGlobals.Register("night_vision", RenderingServer.GlobalShaderParameterType.Float, 0f);
         // SkyExposureMap — same origin/inv_size UVW convention as light_map.
         // Declared in project.godot with a PlaceholderTexture3D so the editor
         // can compile the rain shader that reads it; the real ImageTexture3D

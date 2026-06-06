@@ -100,6 +100,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -278,7 +279,7 @@ void fragment() {
 		float cloud = cloud_shadow_ground(frag_world_pos, TIME);
 		float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color;
-		vec3 block_lit = lm.gba * block_light_shadow_factor(world_origin);
+		vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_origin);
 		ALBEDO = base * sun_lit * (1.0 - sun_ambient);
 		EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);
 	}

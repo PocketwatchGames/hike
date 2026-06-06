@@ -126,6 +126,7 @@ global uniform float cloud_shadow_strength;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 global uniform float camera_clip;
 global uniform float camera_clip_prev;
@@ -428,7 +429,7 @@ void fragment() {
 	// and detail sprites pop into bloom at matching angles. See voxel_clip.
 	float sun_ndl = max(0.0, dot(world_normal, -sun_world_dir));
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * (0.9 + 0.4 * sun_ndl);
-	vec3 block_lit = lm.gba;
+	vec3 block_lit = apply_night_vision(lm.gba);
 
 	// Reverse directional shading — same pair voxel_clip uses so detail
 	// sprites and terrain shade under the same key/fill at matching angles.

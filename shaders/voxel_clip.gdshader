@@ -221,6 +221,7 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 const float MIN_AMBIENT = 0.0;
 
@@ -702,7 +703,7 @@ void fragment() {
 	// Per-fragment block_lit (torch/lamp + skylight) is dimmed by any
 	// sprite silhouette projected from above by BlockLightShadowProjector.
 	// Direct sun (sun_lit, carried via ALBEDO) is untouched.
-	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
+	vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_vertex);
 
 	// "Reverse" directional shading: each fill darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing

@@ -732,6 +732,7 @@ public partial class Player : CharacterBody3D
 	private void TickMounted(float dt)
 	{
 		_statusEffects?.Tick(dt);
+		UpdateNightVisionShaderGlobal();
 		UpdateAnimation();
 	}
 
@@ -2986,6 +2987,21 @@ public partial class Player : CharacterBody3D
 		_sprinting = false;
 	}
 
+	// Shader global that lifts perceived ambient block lighting while a
+	// night-vision effect is active (shaders/night_vision.gdshaderinc).
+	private static readonly StringName NightVisionGlobal = "night_vision";
+
+	// Push the player's night-vision *degree* (0..1) to the shader global each
+	// frame. Mirrors PlayerPerception's relief term: NightVision is a
+	// multiplicative stat where value-1 is the fraction of darkness relieved,
+	// so no effect (stat == 1) yields 0 and a 1.85 stat yields 0.85. At 0 the
+	// shader path is an exact identity, so this is free when nothing grants it.
+	private void UpdateNightVisionShaderGlobal()
+	{
+		float nightVision = Mathf.Clamp(ComposeStat(EStat.NightVision) - 1f, 0f, 1f);
+		RenderingServer.GlobalShaderParameterSet(NightVisionGlobal, nightVision);
+	}
+
 	public override void _PhysicsProcess(double delta)
 	{
 		float dt = (float)delta;
@@ -3018,6 +3034,7 @@ public partial class Player : CharacterBody3D
 		TickBloodDrain(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
+		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);

@@ -38,6 +38,7 @@ global uniform float cloud_shadow_strength;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
+#include "res://shaders/night_vision.gdshaderinc"
 
 // How strongly the wrap-lambert form term darkens surfaces facing away from
 // the sun. 0 = flat (lit purely by the volumetric light map, like a sprite);
@@ -217,7 +218,7 @@ void fragment() {
 		float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color * form;
-		vec3 block_lit = lm.gba;
+		vec3 block_lit = apply_night_vision(lm.gba);
 
 		// AO (see uniforms above): baked vertex occlusion (real concavity, where a
 		// mesh provides it) plus the contact-height ramp (for un-baked meshes).
