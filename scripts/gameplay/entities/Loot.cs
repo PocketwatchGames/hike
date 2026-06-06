@@ -19,6 +19,9 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	[Export] private HurtBox _hurtBox;
 	[Export] private Node3D _hudNode;
 	[Export] private Sprite3D _sprite;
+	// Anchor a LootData.worldModel is parented under when the dropped item
+	// renders as a 3D mesh instead of the flat sprite (e.g. the elite crown).
+	[Export] private Node3D _modelAnchor;
 	[Export] private PackedScene _pickupEffectScene;
 	[Export] private PackedScene _spawnEffectScene;
 	// Played at the loot's position when it expires (LootData.removeTimeMs).
@@ -621,17 +624,33 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		instance._world = world;
 		instance._initialImpulse = impulse;
 		instance._playSpawnEffects = true;
-		// Swap the world-pickup sprite to the carried item's icon. Prefer the
-		// item's worldSprite (authored at chunky-pixel resolution) and fall
-		// back to inventorySprite when none is set — RegionEnabled=false makes
-		// SpriteBase.Apply recompute the quad size + center offset for
-		// whatever texture lands here.
 		ItemData itemData = data.Item?.data ?? data.Data;
-		Texture2D texture = itemData?.worldSprite ?? itemData?.inventorySprite;
-		if (instance._sprite != null && texture != null)
+		PackedScene worldModel = (itemData as LootData)?.worldModel;
+		if (worldModel != null && instance._modelAnchor != null)
 		{
-			instance._sprite.RegionEnabled = false;
-			instance._sprite.Texture = texture;
+			// 3D-model loot (the elite crown halo) renders its authored mesh
+			// instead of the flat sprite. The model brings its own material /
+			// x-ray stack and idle spin/bob, so hide the sprite quad to avoid a
+			// doubled visual rather than swap its texture.
+			if (instance._sprite != null)
+			{
+				instance._sprite.Visible = false;
+			}
+			instance._modelAnchor.AddChild(worldModel.Instantiate<Node3D>());
+		}
+		else
+		{
+			// Swap the world-pickup sprite to the carried item's icon. Prefer
+			// the item's worldSprite (authored at chunky-pixel resolution) and
+			// fall back to inventorySprite when none is set — RegionEnabled=false
+			// makes SpriteBase.Apply recompute the quad size + center offset for
+			// whatever texture lands here.
+			Texture2D texture = itemData?.worldSprite ?? itemData?.inventorySprite;
+			if (instance._sprite != null && texture != null)
+			{
+				instance._sprite.RegionEnabled = false;
+				instance._sprite.Texture = texture;
+			}
 		}
 		world.AddChild(instance);
 		return instance;

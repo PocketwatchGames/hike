@@ -16,4 +16,14 @@ public partial class LootData : ItemData
     // like raw meat that should rot off the ground if the player doesn't
     // grab them.
     [Export] public int removeTimeMs = 0;
+
+    // Optional 3D model shown in place of the flat world sprite when this loot
+    // is on the ground. Null (the default) keeps the standard Sprite3D pickup;
+    // set it for loot whose authored identity is a mesh rather than an icon —
+    // e.g. the crown, which reuses the elite mob's golden halo so the dropped
+    // trophy reads identically to the marker the live elite carried. The model
+    // supplies its own material / x-ray stack and any idle animation, so the
+    // Loot scene hides its sprite and lets the model render itself. The
+    // inventorySprite is still used for the backpack icon.
+    [Export] public PackedScene worldModel;
 }
