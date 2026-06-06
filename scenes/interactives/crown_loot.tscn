@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://xona5fet1xi8"]
+
+[ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="1_crown"]
+
+[node name="CrownLoot" type="Node3D"]
+
+[node name="EliteCrown" parent="." instance=ExtResource("1_crown")]
+transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)

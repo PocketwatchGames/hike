@@ -14,6 +14,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="12_event"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="13_xray"]
 [ext_resource type="Texture2D" uid="uid://bbp21smdd4f0b" path="res://assets/textures/interactions/pickup.png" id="14_pickup"]
+[ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="15_meshhl"]
 
 [sub_resource type="PhysicsMaterial" id="PhysicsMaterial_loot"]
 bounce = 0.5
@@ -112,7 +113,7 @@ _data = {
 &"RESET": SubResource("Animation_1ntuc")
 }
 
-[node name="Loot" type="RigidBody3D" unique_id=1123862929 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode", "_sprite")]
+[node name="Loot" type="RigidBody3D" unique_id=1123862929 node_paths=PackedStringArray("_collisionShape", "_animationPlayer", "_interactArea", "_hurtBox", "_hudNode", "_sprite", "_modelAnchor")]
 collision_layer = 8
 axis_lock_angular_x = true
 axis_lock_angular_y = true
@@ -126,6 +127,7 @@ _interactArea = NodePath("InteractArea")
 _hurtBox = NodePath("HurtBox")
 _hudNode = NodePath("HUDNode")
 _sprite = NodePath("Sprite")
+_modelAnchor = NodePath("Model")
 _pickupEffectScene = ExtResource("9_lootpickup")
 _spawnEffectScene = ExtResource("10_lootspawn")
 _removeEffectScene = ExtResource("10b_lootremove")
@@ -148,6 +150,9 @@ script = ExtResource("4_litsprite")
 Material = 1
 Reflects = 1
 Xray = true
+
+[node name="Model" type="Node3D" parent="." unique_id=1781013267]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
 
 [node name="InteractArea" type="Area3D" parent="." unique_id=1090654577 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
@@ -178,3 +183,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 [node name="InteractiveXray" type="Node3D" parent="." unique_id=1320763382 node_paths=PackedStringArray("_sprites")]
 script = ExtResource("13_xray")
 _sprites = [NodePath("../Sprite")]
+
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1320763383 node_paths=PackedStringArray("_collectFrom")]
+script = ExtResource("15_meshhl")
+_collectFrom = NodePath("../Model")

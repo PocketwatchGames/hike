@@ -50,6 +50,12 @@ public partial class SimData : Resource
     // carry their effects). See EliteCrown / crown_lit.tres.
     [Export] public PackedScene EliteCrownScene;
 
+    // Loot ejected by every elite mob on death, on top of its species loot.
+    // Authored once here — the drop is species-agnostic, the trophy form of the
+    // EliteCrownScene halo — so any elite drops it without per-species wiring.
+    // Null disables the trophy drop. See Mob.EjectLoot.
+    [Export] public LootData EliteLoot;
+
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
     // talking NPC species doesn't require copy-pasting Talk / GiveItem

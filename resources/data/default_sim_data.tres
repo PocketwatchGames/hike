@@ -21,6 +21,7 @@
 [ext_resource type="Resource" uid="uid://cgc48024hwymp" path="res://resources/data/actions/give_item_action.tres" id="14_give_action"]
 [ext_resource type="Resource" uid="uid://4i71qwhti0ki" path="res://resources/data/status_effects/status_elite_standard.tres" id="15_elite_std"]
 [ext_resource type="PackedScene" uid="uid://d4nf6tz8w1rye" path="res://scenes/characters/elite_crown.tscn" id="16_elite_crown"]
+[ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="17_elite_loot"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -29,6 +30,7 @@ Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), 
 Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
 EliteStatusEffect = ExtResource("15_elite_std")
 EliteCrownScene = ExtResource("16_elite_crown")
+EliteLoot = ExtResource("17_elite_loot")
 TalkAction = ExtResource("13_talk_action")
 GiveItemAction = ExtResource("14_give_action")
 SunMaxElevationDegrees = 65.0

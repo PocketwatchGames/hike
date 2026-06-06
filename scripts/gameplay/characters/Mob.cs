@@ -97,6 +97,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the 25% bump into world space and the halo floats just over the head.
     private const float CrownHeadMargin = 0.4f;
 
+    // Fallback outward arc speed for ejected loot when a mob has no MobData
+    // (defensive — real mobs always carry one, but the elite-trophy drop path
+    // must still pick a speed). Mirrors MobData.lootEjectSpeed's default.
+    private const float DefaultLootEjectSpeed = 5f;
+
     public float discoveryProgress
     {
         get
@@ -2827,32 +2832,57 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // dropping in a tight stack.
     private void EjectLoot()
     {
+        if (_world == null)
+        {
+            return;
+        }
         MobData md = mobData;
-        if (md?.loot == null || md.loot.Count == 0 || _world == null)
+        bool hasSpeciesLoot = md?.loot != null && md.loot.Count > 0;
+        // Elites drop the shared crown trophy on top of their species loot —
+        // the same halo (SimData.EliteCrownScene) that marked them alive, now a
+        // collectible. Authored once on SimData so it's species-agnostic, and
+        // dropped even by an elite of a mob type with no authored loot.
+        LootData eliteLoot = IsElite ? _world.SimData?.EliteLoot : null;
+        if (!hasSpeciesLoot && eliteLoot == null)
         {
             return;
         }
         var rng = new Random();
-        float horizontalSpeed = md.lootEjectSpeed * Mathf.Cos(Mathf.Pi / 4f);
-        float verticalSpeed = md.lootEjectSpeed * Mathf.Sin(Mathf.Pi / 4f);
-        for (int i = 0; i < md.loot.Count; i++)
+        float ejectSpeed = md?.lootEjectSpeed ?? DefaultLootEjectSpeed;
+        float horizontalSpeed = ejectSpeed * Mathf.Cos(Mathf.Pi / 4f);
+        float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
+        if (hasSpeciesLoot)
         {
-            ItemCount entry = md.loot[i];
-            if (entry?.item == null)
+            for (int i = 0; i < md.loot.Count; i++)
             {
-                continue;
-            }
-            for (int n = 0; n < entry.count; n++)
-            {
-                float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-                var impulse = new Vector3(
-                    horizontalSpeed * Mathf.Cos(angle),
-                    verticalSpeed,
-                    horizontalSpeed * Mathf.Sin(angle)
-                );
-                _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, entry.item);
+                ItemCount entry = md.loot[i];
+                if (entry?.item == null)
+                {
+                    continue;
+                }
+                for (int n = 0; n < entry.count; n++)
+                {
+                    EjectLootPiece(entry.item, horizontalSpeed, verticalSpeed, rng);
+                }
             }
         }
+        if (eliteLoot != null)
+        {
+            EjectLootPiece(eliteLoot, horizontalSpeed, verticalSpeed, rng);
+        }
+    }
+
+    // Fire a single loot item outward on a 45° upward arc with a random
+    // horizontal heading so a multi-drop carcass scatters rather than stacking.
+    private void EjectLootPiece(ItemData item, float horizontalSpeed, float verticalSpeed, Random rng)
+    {
+        float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+        var impulse = new Vector3(
+            horizontalSpeed * Mathf.Cos(angle),
+            verticalSpeed,
+            horizontalSpeed * Mathf.Sin(angle)
+        );
+        _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, item);
     }
 
     // Spawn an ArrowStuck child at the world-space hit point. Caller has
