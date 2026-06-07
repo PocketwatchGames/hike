@@ -1,13 +1,23 @@
 [gd_scene format=3 uid="uid://bq3flcvyjqp3f"]
 
 [ext_resource type="Script" uid="uid://yqzj43w1mevdm" path="res://scripts/gameplay/Footprint.cs" id="1_footprint"]
-[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="2_e62r6"]
 
-[node name="Footprint" type="Node3D" unique_id=1671344440 node_paths=PackedStringArray("_decal")]
+[sub_resource type="PlaneMesh" id="PlaneMesh_fp"]
+size = Vector2(1, 1)
+
+[sub_resource type="StandardMaterial3D" id="Mat_fp"]
+resource_local_to_scene = true
+transparency = 1
+shading_mode = 0
+cull_mode = 2
+
+[node name="Footprint" type="Node3D" unique_id=1671344440 node_paths=PackedStringArray("_quad")]
 script = ExtResource("1_footprint")
-_decal = NodePath("Decal")
+_quad = NodePath("Quad")
 metadata/_custom_type_script = "uid://yqzj43w1mevdm"
 
-[node name="Decal" type="Decal" parent="." unique_id=183628650]
-size = Vector3(0.6, 1.5, 0.6)
-texture_albedo = ExtResource("2_e62r6")
+[node name="Quad" type="MeshInstance3D" parent="." unique_id=183628650]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+layers = 16
+mesh = SubResource("PlaneMesh_fp")
+material_override = SubResource("Mat_fp")

@@ -221,7 +221,18 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
-#include "res://shaders/night_vision.gdshaderinc"
+
+// Ground-stain projector — flat ground marks (scorch / footprints / blood)
+// composited into BASE before the lighting split so they read in every
+// lighting condition. See shaders/ground_stain.gdshaderinc.
+global uniform sampler2D ground_stain_tex : filter_linear;
+global uniform vec3 ground_stain_origin;
+global uniform vec3 ground_stain_right;
+global uniform vec3 ground_stain_up;
+global uniform float ground_stain_size;
+global uniform float ground_stain_strength;
+global uniform bool ground_stain_enabled;
+#include "res://shaders/ground_stain.gdshaderinc"
 
 const float MIN_AMBIENT = 0.0;
 
@@ -703,7 +714,7 @@ void fragment() {
 	// Per-fragment block_lit (torch/lamp + skylight) is dimmed by any
 	// sprite silhouette projected from above by BlockLightShadowProjector.
 	// Direct sun (sun_lit, carried via ALBEDO) is untouched.
-	vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_vertex);
+	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
 
 	// "Reverse" directional shading: each fill darkens faces by its tint
 	// color in proportion to how much they face away from it. Faces facing
@@ -739,6 +750,10 @@ void fragment() {
 	tex_color.rgb = mix(tex_color.rgb, water_deep_tint, pool_mask * water_muddiness);
 
 	vec3 base = tex_color.rgb * fill_a_tint * fill_b_tint;
+	// Ground stains (scorch / footprints / blood) composite into base BEFORE
+	// the ALBEDO/EMISSION split so they survive the always-on EMISSION term —
+	// a no-op when the stain projector is off or this fragment is unstained.
+	base = apply_ground_stain(base, world_vertex);
 
 	// Baked AO: multiplicative shelter/contact darkening on the diffuse
 	// lighting only. ao=0 (open) leaves lighting untouched; ao=1 (buried)

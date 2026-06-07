@@ -121,7 +121,6 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
-#include "res://shaders/night_vision.gdshaderinc"
 
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
@@ -297,7 +296,7 @@ void fragment() {
 	// per-sprite, not per-fragment, so a sprite either reads as "stood
 	// under another sprite" or doesn't, with no cross-fading inside its
 	// own footprint.
-	vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_origin);
+	vec3 block_lit = lm.gba * block_light_shadow_factor(world_origin);
 	vec3 light = min(vec3(1.0), sun_lit + block_lit);
 
 	NORMAL = vec3(0.0, 1.0, 0.0);

@@ -250,7 +250,6 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
-#include "res://shaders/night_vision.gdshaderinc"
 
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
@@ -887,7 +886,7 @@ void fragment() {
 	vec3 sun_lit = sun_mask * sun_intensity * sun_color * cloud_sun * ripple_light_factor;
 	// Per-fragment block_lit dim from the shadow projector — a sprite
 	// standing above the water dims its surface here.
-	vec3 block_lit = apply_night_vision(lm.gba) * block_light_shadow_factor(world_vertex);
+	vec3 block_lit = lm.gba * block_light_shadow_factor(world_vertex);
 	vec3 light = max(min(vec3(1.0), sun_lit + block_lit), vec3(MIN_AMBIENT));
 	vec3 shaded_light = face_shade * light;
 

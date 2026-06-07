@@ -2987,8 +2987,10 @@ public partial class Player : CharacterBody3D
 		_sprinting = false;
 	}
 
-	// Shader global that lifts perceived ambient block lighting while a
-	// night-vision effect is active (shaders/night_vision.gdshaderinc).
+	// Shader global driving the screenspace night-vision effect (lifts darks +
+	// desaturates the final image) while a night-vision effect is active. Read
+	// by shaders/post_process.gdshader. Purely visual; the gameplay relief
+	// lives in PlayerPerception, keyed off the same NightVision stat.
 	private static readonly StringName NightVisionGlobal = "night_vision";
 
 	// Push the player's night-vision *degree* (0..1) to the shader global each

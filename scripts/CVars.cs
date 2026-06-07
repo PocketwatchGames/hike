@@ -944,6 +944,16 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("block_light_shadow_enabled", ((CVarBool)cvar).Value);
     });
 
+    // ground_stain 0 -> the GroundStainProjector stops rendering and the lit
+    // ground shaders branch around the stain sample, so scorch/footprint/blood
+    // marks vanish and terrain renders byte-identical to pre-feature. Perf
+    // bisection toggle + a quick way to confirm a visual issue is the stain
+    // layer vs the underlying terrain.
+    public static CVarBool groundStain = new CVarBool("ground_stain", true, (cvar) =>
+    {
+        Godot.RenderingServer.GlobalShaderParameterSet("ground_stain_enabled", ((CVarBool)cvar).Value);
+    });
+
     // Discards every voxel_water fragment when set. Lets you check the
     // terrain stencil + cap pipeline without water front faces in the
     // way — particularly useful with `clip_debug 13` to see which screen

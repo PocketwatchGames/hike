@@ -365,6 +365,34 @@ block_light_shadow_enabled={
 "type": "bool",
 "value": true
 }
+ground_stain_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/block_light_shadow_placeholder.tres"
+}
+ground_stain_origin={
+"type": "vec3",
+"value": Vector3(0, 0, 0)
+}
+ground_stain_right={
+"type": "vec3",
+"value": Vector3(1, 0, 0)
+}
+ground_stain_up={
+"type": "vec3",
+"value": Vector3(0, 1, 0)
+}
+ground_stain_size={
+"type": "float",
+"value": 80.0
+}
+ground_stain_strength={
+"type": "float",
+"value": 0.85
+}
+ground_stain_enabled={
+"type": "bool",
+"value": true
+}
 foliage_camera_world={
 "type": "vec3",
 "value": Vector3(0, 0, 0)

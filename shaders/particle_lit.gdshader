@@ -48,7 +48,6 @@ global uniform vec3 sun_color;
 // shed from surface trees stayed visible through the cutaway while the player
 // was below in a cave.
 global uniform float camera_clip;
-#include "res://shaders/night_vision.gdshaderinc"
 
 varying vec3 world_pos;
 // COLOR is the particle's per-instance color (set by the
@@ -104,7 +103,7 @@ void fragment() {
 		vec4 lm = textureLod(light_map, uvw, 0.0);
 		float sun_mask = pow(lm.r, light_falloff_exp);
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color;
-		vec3 block_lit = apply_night_vision(lm.gba);
+		vec3 block_lit = lm.gba;
 		lit = sun_lit + block_lit;
 	} else {
 		lit = vec3(1.0);

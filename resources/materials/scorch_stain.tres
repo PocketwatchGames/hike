@@ -1,0 +1,10 @@
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://bscorchstn4mq"]
+
+[ext_resource type="Texture2D" uid="uid://b0smp6arjwmgf" path="res://assets/textures/effects/scorch.png" id="1_scorch"]
+
+[resource]
+resource_name = "scorch_stain"
+transparency = 1
+shading_mode = 0
+albedo_texture = ExtResource("1_scorch")
+cull_mode = 2

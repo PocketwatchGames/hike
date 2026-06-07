@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="26_5drka"]
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
+[ext_resource type="Script" uid="uid://cgstainproj8w2" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
@@ -139,7 +140,7 @@ render_target_update_mode = 4
 
 [node name="MainCamera" type="Camera3D" parent="SceneViewport" unique_id=159032169]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 25)
-cull_mask = 1048567
+cull_mask = 1048551
 projection = 1
 current = true
 fov = 20.0
@@ -220,6 +221,25 @@ render_target_update_mode = 4
 
 [node name="ProjectorCamera" type="Camera3D" parent="SceneViewport/BlockLightShadowProjector/ProjectorViewport" unique_id=1756990398]
 cull_mask = 8
+projection = 1
+current = true
+size = 80.0
+near = 0.1
+far = 200.0
+
+[node name="GroundStainProjector" type="Node3D" parent="SceneViewport" unique_id=2090210001 node_paths=PackedStringArray("viewport", "camera")]
+script = ExtResource("ground_stain_projector_script")
+strength = 0.85
+viewport = NodePath("StainViewport")
+camera = NodePath("StainViewport/StainCamera")
+
+[node name="StainViewport" type="SubViewport" parent="SceneViewport/GroundStainProjector" unique_id=2090210002]
+transparent_bg = true
+handle_input_locally = false
+render_target_update_mode = 4
+
+[node name="StainCamera" type="Camera3D" parent="SceneViewport/GroundStainProjector/StainViewport" unique_id=2090210003]
+cull_mask = 16
 projection = 1
 current = true
 size = 80.0

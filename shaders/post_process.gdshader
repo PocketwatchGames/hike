@@ -12,6 +12,16 @@ shader_type canvas_item;
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 
+// Night vision — screenspace "see in the dark" sell. Player.cs pushes this
+// global in 0..1 (the NightVision-stat degree) every frame via
+// RenderingServer.GlobalShaderParameterSet; it's declared in project.godot's
+// [shader_globals] and seeded to 0 in ChunkManager. At 0 the effect is an
+// exact no-op. This is PURELY visual — the gameplay (the player actually
+// perceiving mobs/loot in the dark) lives in PlayerPerception, independent
+// of this. Doing it here (once, on the final image) instead of in every lit
+// material keeps the lighting shaders clean.
+global uniform float night_vision;
+
 // Directional motion blur. Reusable channel — any system that needs to
 // smear the framebuffer in a screen-space direction can drive these. Today
 // it's the camera rotation (set in GameCamera.RotateLeft/Right and decayed
@@ -76,6 +86,44 @@ void fragment()
 	else
 	{
 		scene = texture(screen_tex, SCREEN_UV).rgb;
+	}
+
+	// Night vision: lift the dark end of the image toward a dim mid and wash
+	// the lifted pixels toward grey, leaving bright pixels and true black
+	// alone. Applied to the scene first so the low-health dim / vignette
+	// below still layer on top of the night-vision'd image.
+	if (night_vision > 0.0)
+	{
+		// Brightness = max channel (HSV "value").
+		float v = max(scene.r, max(scene.g, scene.b));
+		if (v > 0.0)
+		{
+			const float MID = 0.5;
+			// Below this brightness the lift tapers to nothing, so pitch
+			// black and the deepest shadow stay dark (you can't see in true
+			// darkness). Small because this acts on the final tonemapped
+			// image, where even dim ambient already sits above near-zero.
+			const float FLOOR = 0.04;
+			// Caps the lift at full degree (1.0). Quadratic in the degree so
+			// weak night vision stays subtle and strong reserves the big lift.
+			const float MAX_STRENGTH = 0.6;
+			float response = night_vision * night_vision * MAX_STRENGTH;
+			// lifted = sqrt(MID * v): raises v toward MID for v < MID; for
+			// v >= MID it's <= v so max() clamps back to identity (no seam,
+			// bright pixels untouched).
+			float lifted = max(v, sqrt(MID * v));
+			float gate = smoothstep(0.0, FLOOR, v);
+			float amount = response * gate;
+			float target = mix(v, lifted, amount);
+			vec3 boosted = scene * (target / v);
+			// Scotopic desaturation, scaled by how hard this pixel was lifted
+			// (lift_frac = 1 - v/target, 0 when unlifted). Bright pixels keep
+			// their colour; the dim stuff we crank up reads near-grey.
+			const float DESAT_STRENGTH = 0.6;
+			float lift_frac = 1.0 - v / target;
+			float luma = dot(boosted, vec3(0.299, 0.587, 0.114));
+			scene = mix(boosted, vec3(luma), lift_frac * DESAT_STRENGTH);
+		}
 	}
 
 	if (low_health_desaturation > 0.0)

@@ -76,7 +76,6 @@ global uniform float cloud_shadow_strength;
 global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
-#include "res://shaders/night_vision.gdshaderinc"
 
 // Per-feature CVar gates (0 = off, 1 = full). Seeded by ChunkManager._Ready
 // from the matching tree_wind / tree_sphere_normal / tree_detail_noise /
@@ -366,7 +365,7 @@ void fragment() {
 		float cloud_dim = 1.0 - cloud * cloud_shadow_strength;
 
 		vec3 sun_lit = sun_mask * sun_intensity * sun_color * form;
-		vec3 block_lit = apply_night_vision(lm.gba);
+		vec3 block_lit = lm.gba;
 
 		ALBEDO = base * sun_lit * (1.0 - sun_ambient);
 		EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim);

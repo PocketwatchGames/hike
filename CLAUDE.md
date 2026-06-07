@@ -174,6 +174,21 @@ The runtime `RenderingServer.GlobalShaderParameterGet`/`GetList` APIs are editor
 
 Two parallel renderers behind one HUD widget — a global outdoor heightmap (2m/voxel, one height per XZ column) and a sparse per-slice indoor atlas (1m/voxel, slice = `floor(Y / PlateauHeight)`), composited via a state-A/state-B crossfade so mode toggles and slice-level crossings glide. Surface texels pack height + tile id (`MinimapTileColors` LUT) + foliage id (`MinimapFoliageColors` LUT); exploration is a separate R8 mask per renderer, revealed via soft-edged disk writes scaled by `WorldState.GetPerceivedLightWorld` for slices. See [scripts/gameplay/minimap/CLAUDE.md](scripts/gameplay/minimap/CLAUDE.md).
 
+### Ground Stains / Decals (`scripts/client/GroundStainProjector.cs`, `shaders/ground_stain.gdshaderinc`)
+
+Flat ground marks — scorch, footprints, blood, worn paths — are **not** Godot `Decal` nodes. A `Decal` only modifies `ALBEDO`, but the terrain/sprite shaders (`voxel_clip`, `detail_sprite`) run `ambient_light_disabled` and route most surface brightness through `EMISSION` (ambient sky-bounce + block/torch light computed from `base`). So a `Decal` only tints the direct-sun fraction and **washes out wherever EMISSION dominates** — shade, dark terrain (swamp), and right next to a light (a fire trap). Decals are visible only on bright, sunlit ground; do not use them for ground marks.
+
+Instead they go through the **ground-stain layer**, a sibling of the `BlockLightShadowProjector` pattern:
+- **`GroundStainProjector`** (in `game.tscn` under `SceneViewport`) is a top-down orthographic `SubViewport` camera over the player that renders stain proxies on **visual layer 5** (`STAIN_PROXY_LAYER_MASK = 1u << 4`, value `16`) into `ground_stain_tex`, publishing `ground_stain_origin/right/up/size/strength` globals each frame. `MainCamera`'s `cull_mask` excludes layer 5 so proxies never draw to the screen directly — only into the projector.
+- **`voxel_clip.gdshader`** samples it via `apply_ground_stain(base, world_vertex)` (from `ground_stain.gdshaderinc`) **immediately after `base` is computed, BEFORE the ALBEDO/EMISSION split** — so a stain darkens/tints both channels and reads in every lighting condition. The RT is a transparent `SubViewport` (premultiplied color), so the composite is `base*(1 - a*strength) + premult_rgb*strength`, not a plain `mix`.
+- The shader hook is a strict **no-op when unstained** (`ground_stain_enabled` false, or the fragment is outside the projector frustum / has zero coverage) → terrain is byte-identical to pre-feature. **Do not "fix" decal visibility by restructuring the ALBEDO/EMISSION lighting** (e.g. moving ambient/block light into `light()` so a `Decal` can darken it) — that path silently darkens all terrain and was reverted; the stain layer exists precisely to avoid touching the lighting model.
+
+**Adding a new stain type:** give the source a flat quad proxy — a `MeshInstance3D` with a `PlaneMesh` on **layer 5** and an **unshaded, alpha-blended** material showing the mark texture (see `resources/materials/scorch_stain.tres`). The shader composites whatever the quad renders.
+- **Static mark** (e.g. scorch on a fire trap): author the quad + material directly in the prop scene (`fire_trap.tscn` → `ScorchStain`).
+- **Dynamic / per-instance mark** (e.g. footprints): author a `resource_local_to_scene` `StandardMaterial3D` on the quad so each spawned instance gets its own material copy, then set texture / albedo color (tint + animated alpha) / quad scale at runtime (`Footprint.cs`). This keeps per-instance variation without creating materials in code (honors the no-programmatic-resources rule). The ground shader already light-matches the mark, so **don't pre-dim the mark by perceived light** — a print on dark ground reads dark because the ground is dark.
+
+Per-mark intensity comes from the mark's own texture/tint alpha; `GroundStainProjector.strength` (and the `ground_stain` CVar) is the shared master. New globals follow the `ShaderGlobals` rules below (declared in `project.godot` + the texture seeded via `Register`).
+
 ### Build-Time Code Generation (`hike.csproj`)
 
 Two MSBuild targets run before compilation:

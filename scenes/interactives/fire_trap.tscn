@@ -12,7 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://bc8qfslk1814k" path="res://scenes/effects/fire_column_loop.tscn" id="7_loop"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="8_light"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="9_warmth"]
-[ext_resource type="Texture2D" uid="uid://b0smp6arjwmgf" path="res://assets/textures/effects/scorch.png" id="10_scorch"]
+[ext_resource type="Material" uid="uid://bscorchstn4mq" path="res://resources/materials/scorch_stain.tres" id="10_scorch_mat"]
 
 [sub_resource type="Resource" id="Resource_firetrap_damage"]
 script = ExtResource("3_damage")
@@ -47,6 +47,9 @@ radius = 0.7
 height = 3.0
 radius = 2.5
 
+[sub_resource type="PlaneMesh" id="PlaneMesh_scorch"]
+size = Vector2(3, 3)
+
 [node name="FireTrap" type="Node3D" unique_id=1976458525 node_paths=PackedStringArray("_damageZone", "_light", "_warmthZone")]
 script = ExtResource("1_firetrap")
 data = SubResource("Resource_firetrap_data")
@@ -71,9 +74,11 @@ _lightColor = Color(1, 0.55, 0.25, 1)
 _flicker = true
 _flickerMin = 0.6
 
-[node name="ScorchDecal" type="Decal" parent="." unique_id=1631401259]
-size = Vector3(3, 4, 3)
-texture_albedo = ExtResource("10_scorch")
+[node name="ScorchStain" type="MeshInstance3D" parent="." unique_id=1631401259]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+layers = 16
+mesh = SubResource("PlaneMesh_scorch")
+material_override = ExtResource("10_scorch_mat")
 
 [node name="WarmthZone" type="Area3D" parent="." unique_id=1841825179]
 collision_layer = 0

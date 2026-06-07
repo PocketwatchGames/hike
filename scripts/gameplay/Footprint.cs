@@ -1,28 +1,29 @@
 using Godot;
 
-// Ground decal left behind by a Player or Mob at footstep cadence.
+// Ground mark left behind by a Player or Mob at footstep cadence.
 //
-// Visual is a Godot Decal — projects the actor's footprint texture down onto
-// whatever geometry is below, so prints sit correctly on slopes, voxel
-// step-ups, and uneven ground without per-actor projection math. Decals
-// bypass our custom voxel lighting shader (they render in Godot's standard
-// decal pass), so this script samples World.GetPerceivedLight at the print's
-// position and modulates the decal tint to keep prints consistent with the
-// rest of the world's day/night/cloud-shadow integration.
+// Visual is a flat quad on the ground-stain projector layer (see
+// GroundStainProjector): the GroundStainProjector renders it from straight
+// above into a world-space texture, and the lit ground shaders composite that
+// into the surface BASE color before the lighting split. So prints read in any
+// lighting (sun, shade, swamp, torchlight) AND the shader handles light-
+// matching for free — unlike the old Godot Decal, which only modified ALBEDO
+// (the direct-sun fraction) and washed out wherever the EMISSION term
+// dominated, so we no longer sample perceived light here.
 //
-// Lifetime / discovery composition: lifetimeFade × discoveryFade × baseAlpha
-// × worldLight, all written into the decal's Modulate alpha each frame.
-// QueueFree's once lifetimeFade hits zero. Discoverable on the mob variant
-// drives discoveryFade through its own perception state.
+// Lifetime / discovery composition: lifetimeFade × discoveryFade × baseAlpha,
+// written into the quad material's albedo alpha each frame. QueueFree's once
+// lifetimeFade hits zero. Discoverable on the mob variant drives discoveryFade
+// through its own perception state.
 [GlobalClass]
 public partial class Footprint : Node3D
 {
-	// The projected ground decal. Authored in the .tscn with a sensible
-	// projection depth (Decal.Size.Y) and albedo_mix; this script writes
-	// texture_albedo, the X/Z size (from the actor-supplied footprint size),
-	// and modulate at runtime, so each actor can size their own prints
-	// without needing a per-actor scene.
-	[Export] private Decal _decal;
+	// The stain proxy quad. Authored in the .tscn on the stain projector layer
+	// (layer 5) with a resource_local_to_scene StandardMaterial3D so each
+	// instance gets its own material copy — this script writes the albedo
+	// texture (per actor), the albedo color (tint + animated alpha), and the
+	// quad scale (per-actor footprint size) without cross-talk between prints.
+	[Export] private MeshInstance3D _quad;
 	// Optional perception gate for mob-laid prints. When wired, the
 	// print is held invisible until the player notices it; player-print
 	// scenes leave this null and the print is visible immediately.
@@ -39,16 +40,8 @@ public partial class Footprint : Node3D
 	// Smoothed 0..1 noticed-by-player factor. For player prints (no
 	// Discoverable) this stays pinned at 1.
 	private float _discoveryAlpha;
-
-	// World-light sample throttle. Perceived light changes on the
-	// time-of-day / dynamic-light cadence, both far slower than 60Hz; a
-	// 100ms refresh is visually identical. The expensive call is
-	// World.GetPerceivedLight; the per-frame modulate write itself is a
-	// single Color assignment and stays at frame rate so lifetime fade
-	// reads smooth.
-	private const ulong LightSampleIntervalMs = 100;
-	private ulong _nextLightSampleMs;
-	private float _cachedLit = 1f;
+	// Per-instance quad material (unique via resource_local_to_scene).
+	private StandardMaterial3D _material;
 
 	public void Initialize(World world, Texture2D texture, Vector2 footprintSize, Color tint, float durationSeconds)
 	{
@@ -57,22 +50,24 @@ public partial class Footprint : Node3D
 		_durationSeconds = Mathf.Max(0.1f, durationSeconds);
 		_spawnTimeMs = world?.GameTimeMs ?? 0;
 		_discoveryAlpha = _discoverable == null ? 1f : 0f;
-		// Jitter the first light sample across [0, LightSampleIntervalMs)
-		// so 100+ simultaneous footprints don't all sample on the same
-		// frame and tile the cost into a per-frame spike.
-		_nextLightSampleMs = _spawnTimeMs + (ulong)GD.RandRange(0, (int)LightSampleIntervalMs);
-		if (_decal != null)
+		if (_quad != null)
 		{
-			_decal.TextureAlbedo = texture;
-			Vector3 size = _decal.Size;
-			size.X = footprintSize.X;
-			size.Z = footprintSize.Y;
-			_decal.Size = size;
+			_material = _quad.MaterialOverride as StandardMaterial3D;
+			if (_material != null)
+			{
+				_material.AlbedoTexture = texture;
+			}
+			// The authored PlaneMesh is unit-sized; scale the quad to the
+			// actor's footprint size (X = width, Z = stride length). Rotation
+			// (facing) lives on the Footprint root, so scaling the child stays
+			// shear-free.
+			Vector3 scale = _quad.Scale;
+			scale.X = footprintSize.X;
+			scale.Z = footprintSize.Y;
+			_quad.Scale = scale;
 		}
-		// Seed the modulate so a pre-discovery footprint doesn't render a
-		// frame at the decal's authored Modulate before _Process runs. The
-		// initial sample uses the cached 1.0 lit value; the throttled
-		// schedule will replace it within LightSampleIntervalMs.
+		// Seed the alpha so a pre-discovery footprint doesn't render a frame at
+		// the material's authored color before _Process runs.
 		PushModulate(1f);
 	}
 
@@ -104,10 +99,9 @@ public partial class Footprint : Node3D
 			}
 		}
 
-		// Pre-discovery mob prints sit at _discoveryAlpha = 0 → alpha = 0,
-		// the decal renders nothing, and no amount of GetPerceivedLight
-		// or modulate writes makes it visible. Skip the work entirely.
-		// The decal already carries an alpha=0 modulate from Initialize.
+		// Pre-discovery mob prints sit at _discoveryAlpha = 0 → alpha = 0, the
+		// quad contributes nothing to the stain texture, so skip the write. The
+		// material already carries an alpha=0 color from Initialize.
 		float alpha = _tintColor.A * lifetimeAlpha * _discoveryAlpha;
 		if (alpha <= 0f)
 		{
@@ -117,28 +111,17 @@ public partial class Footprint : Node3D
 		PushModulate(lifetimeAlpha);
 	}
 
-	// Compose final modulate from baseline tint + lifetime + discovery + world
-	// light. The decal pass doesn't read our voxel lightmap, so we sample it
-	// here (throttled to LightSampleIntervalMs) and tint by it; a print
-	// rendered indoors at night reads dark, matching the surrounding voxel
-	// terrain.
+	// Compose the quad albedo from baseline tint + lifetime + discovery. The
+	// ground-stain shader lights the composited surface, so we no longer pre-dim
+	// the tint by perceived light — a print on dark ground reads dark because
+	// the surface it stains is dark, not because we darkened the print.
 	private void PushModulate(float lifetimeAlpha)
 	{
-		if (_decal == null)
+		if (_material == null)
 		{
 			return;
 		}
-		if (_world != null && _world.GameTimeMs >= _nextLightSampleMs)
-		{
-			float worldLight = _world.GetPerceivedLight(GlobalPosition);
-			// SimData.TargetLightMax normalizes light into the same 0..1
-			// band the rest of the perception model uses. Above that the
-			// surface is at "fully lit" already, so clamp to 1.
-			float targetMax = _world.SimData?.TargetLightMax ?? 0.75f;
-			_cachedLit = targetMax > 0f ? Mathf.Clamp(worldLight / targetMax, 0f, 1f) : 0f;
-			_nextLightSampleMs = _world.GameTimeMs + LightSampleIntervalMs;
-		}
 		float alpha = _tintColor.A * lifetimeAlpha * _discoveryAlpha;
-		_decal.Modulate = new Color(_tintColor.R * _cachedLit, _tintColor.G * _cachedLit, _tintColor.B * _cachedLit, alpha);
+		_material.AlbedoColor = new Color(_tintColor.R, _tintColor.G, _tintColor.B, alpha);
 	}
 }
