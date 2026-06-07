@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://52575tsqfy9r7" path="res://scripts/client/FlyCamera.cs" id="fly_camera_script"]
 [ext_resource type="Script" uid="uid://7ghqjjq8jmk82" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
 [ext_resource type="Script" uid="uid://7glw86vtjqvky" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
+[ext_resource type="Script" uid="uid://cjflro9ep9ulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
@@ -78,7 +79,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "flyCamera", "screenEffects", "birdsEye", "minimap", "heatField")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "flyCamera", "screenEffects", "birdsEye", "minimap", "heatField")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
@@ -90,7 +91,6 @@ deathScreen = NodePath("DeathCanvas/DeathScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
-upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
 interactHudScene = ExtResource("3_0q6jn")
 lootScene = ExtResource("20_loot")
@@ -107,6 +107,7 @@ foliagePlayerFadeRadius = 8.0
 foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
+viewportRig = NodePath("ViewportRig")
 flyCamera = NodePath("FlyCamera")
 screenEffects = NodePath("ScreenEffects")
 birdsEye = NodePath("BirdsEye")
@@ -133,6 +134,12 @@ altitude = 10.0
 pitchDelta = 10.0
 sizeMultiplier = 5.0
 transitionSeconds = 1.0
+
+[node name="ViewportRig" type="Node" parent="." node_paths=PackedStringArray("sceneViewport", "camera")]
+script = ExtResource("viewport_rig_script")
+sceneViewport = NodePath("../SceneViewport")
+upscaleMaterial = ExtResource("upscale_mat")
+camera = NodePath("../SceneViewport/MainCamera")
 
 [node name="Minimap" parent="." instance=ExtResource("minimap_scene")]
 

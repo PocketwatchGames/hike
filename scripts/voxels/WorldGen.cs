@@ -57,6 +57,15 @@ public static class WorldGen
     private static DetailGroupData[] _activeDetailPalette;
     private static System.Collections.Generic.Dictionary<DetailGroupData, byte> _detailIndex;
 
+    // The WorldGenData for the run currently inside Generate(). Set at the top
+    // of Generate alongside the palettes, so the many free-standing static
+    // helpers below can read authored tuning (blend radii, overlay scatter,
+    // ramp slope, etc.) without threading genData through every signature —
+    // same lifetime/rationale as the active palettes. The `?? <literal>`
+    // fallbacks at the few read sites keep behaviour identical if a helper is
+    // ever called outside a Generate run (e.g. a debug dump before first gen).
+    private static WorldGenData _activeGenData;
+
     // Public read-only views of the active palettes. The terrain array is
     // what ChunkMesh uploads to the shader; the kit palette is for authoring
     // tools (e.g. the editor's spawn dropdown reads TreeScenes from here).
@@ -263,22 +272,9 @@ public static class WorldGen
     // zone borders the bucket levels blend per-column via the same
     // kernel that drives prop / kit divergence. Only open-to-sky voxels
     // get seeded — caves / tunnels stay fog-free.
-    public const int FOG_MAX_DENSITY = 255;
-    // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
-    // Tuned so a humid zone (≈0.9) yields a few voxels of average fog
-    // depth — reads as low mist, not a wall.
-    private const float FOG_VOLUME_PER_HUMIDITY = 6f;
-    // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
-    // FOG_DENSITY_PER_VOXEL, clamped to [0, FOG_MAX_DENSITY]. With value 80,
-    // the bottom of a 4-voxel-deep pocket caps at full density and the top
-    // voxel reads as a thin haze.
-    private const float FOG_DENSITY_PER_VOXEL = 80f;
-
-    // Horizontal cells per 1 vertical voxel on the ramp skirt cast by a taller
-    // plateau into its lower neighbour. With PlateauStep=4, slope=1 produces
-    // a 4-cell ramp that rises one full plateau step — steep (45°) but
-    // narrow, matching the "ramps should be a handful of cells wide" spec.
-    private const int RAMP_SLOPE = 1;
+    public const int FOG_MAX_DENSITY = 255;   // storage cap (byte max), not a tunable
+    // Fog bucket-fill tuning (FogVolumePerHumidity / FogDensityPerVoxel) and
+    // the ramp-skirt slope (RampSlope) are authored on WorldGenData.
 
     // Per-channel salts for DeriveSeed. Stable values — never reuse one for a
     // new noise channel, or two channels will share a noise field for the
@@ -372,125 +368,24 @@ public static class WorldGen
     public static WorldState Generate(WorldGenData genData, int worldSeed, Vector3I worldSize)
     {
         BindActivePalettes(genData);
+        _activeGenData = genData;
 
         var min = new Vector3I(-worldSize.X / 2, -1, -worldSize.Z / 2);
         var max = new Vector3I(min.X + worldSize.X - 1, min.Y + worldSize.Y - 1, min.Z + worldSize.Z - 1);
         var ws = new WorldState(min, max, genData.SimData);
 
-        // Build the per-world ZoneState array from the authored zone
-        // templates. The ZoneData embedded in each ZoneGenData is what
-        // ZoneState carries forward — the per-zone worldgen scalars on
-        // ZoneGenData stay in `genData` and get blended per-position
-        // during the passes below. Runtime fields (windDirection, elevation)
-        // are seeded here — windDirection randomized in the XZ plane so
-        // each generated world has its own prevailing wind per zone.
-        // Elevation defaults to 0 for now; once the editor lands it can
-        // be authored per-zone per-world.
-        var zoneRng = new RandomNumberGenerator();
-        zoneRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_ZONE);
-        ws.Zones = new ZoneState[genData.Zones.Length];
-        for (int i = 0; i < genData.Zones.Length; i++)
-        {
-            float angle = zoneRng.RandfRange(0f, Mathf.Tau);
-            ws.Zones[i] = new ZoneState
-            {
-                Data = genData.Zones[i]?.Zone,
-                WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
-                Elevation = 0f,
-            };
-        }
+        BuildZoneStates(ws, genData, worldSeed);
+        BuildRegionStates(ws, genData);
 
-        // Build the per-world RegionState array from the authored region
-        // palette. Independent from Zones — a region is a top-level named
-        // place identifier, not a biome theme. PickRegionIndex (currently
-        // quadrant-based, mirroring PickZoneIndex) decides which entry
-        // each chunk belongs to.
-        RegionData[] regionPalette = genData.Regions ?? [];
-        ws.Regions = new RegionState[regionPalette.Length];
-        for (int i = 0; i < regionPalette.Length; i++)
-        {
-            ws.Regions[i] = new RegionState { Data = regionPalette[i] };
-        }
-
-        var terrainNoise = new FastNoiseLite();
-        terrainNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        terrainNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_TERRAIN);
-        terrainNoise.Frequency = 0.02f;
-        terrainNoise.FractalOctaves = 4;
-
-        var tunnelNoise = new FastNoiseLite();
-        tunnelNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        tunnelNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_TUNNEL);
-        tunnelNoise.Frequency = 0.025f;
-        tunnelNoise.FractalOctaves = 2;
-
-        var caveNoise = new FastNoiseLite();
-        caveNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        caveNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_CAVE);
-        // Single shared cave noise for the whole world — frequency comes
-        // from the first zone. CaveThreshold IS blended per-column below,
-        // so zones can still vary in cave density even though the underlying
-        // noise pattern is the same.
-        caveNoise.Frequency = FirstZoneGen(genData)?.CaveNoiseFrequency ?? 0.04f;
-        caveNoise.FractalOctaves = 2;
-
-        var grassNoise = new FastNoiseLite();
-        grassNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        grassNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_GRASS);
-        grassNoise.Frequency = 0.1f;
-        grassNoise.FractalOctaves = 2;
-
-        // Dedicated low-frequency gate noise. Its zero-crossings mark
-        // plateau-boundary segments that get ramped; everything else stays a
-        // cliff. Lower frequency than pathNoise so the world has just a
-        // handful of long, sparse ramp zones rather than dozens of short
-        // meanders. Seeded off the path channel so the pattern is stable
-        // with the rest of the world-gen output for a given worldSeed.
-        var rampGateNoise = new FastNoiseLite();
-        rampGateNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        rampGateNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_PATH);
-        rampGateNoise.Frequency = 0.015f;
-        rampGateNoise.FractalOctaves = 1;
-
-        var forestNoise = new FastNoiseLite();
-        forestNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        forestNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_FOREST);
-        // Base frequency 1; per-kit frequency is applied at sample time by
-        // scaling input coords. Lets two kits in the same zone read different
-        // forest patterns (sharp tree-density boundaries where kits change).
-        forestNoise.Frequency = 1f;
-        forestNoise.FractalOctaves = 2;
-
-        // Low-frequency macro elevation. Drives broad continental shape that
-        // the per-zone terrain noise modulates around — generates rolling
-        // foothills/basins independent of which zone a chunk belongs to.
-        var elevationNoise = new FastNoiseLite();
-        elevationNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        elevationNoise.Seed = DeriveSeed(worldSeed, SEED_SALT_ELEVATION);
-        elevationNoise.Frequency = 0.005f;
-        elevationNoise.FractalOctaves = 1;
+        WorldNoise noise = BuildWorldNoise(genData, worldSeed);
 
         // Build the integer height field once up front. Chunk and prop
         // generation read from this map instead of re-evaluating noise per
-        // voxel — the shape is also authored here (plateau / ramp / river)
-        // so geometry is noise-free by construction.
-        var heightMap = BuildHeightMap(ws, genData, terrainNoise, rampGateNoise, elevationNoise);
+        // voxel — the shape is authored here (plateau / ramp / river) so
+        // geometry is noise-free by construction.
+        var heightMap = BuildHeightMap(ws, genData, noise.Terrain, noise.RampGate, noise.Elevation);
 
-        for (int x = ws.Min.X; x <= ws.Max.X; x++)
-        {
-            for (int y = ws.Min.Y; y <= ws.Max.Y; y++)
-            {
-                for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
-                {
-                    var coord = new Vector3I(x, y, z);
-                    var chunk = new ChunkState(coord);
-                    chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
-                    chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
-                    GenerateChunk(chunk, genData, tunnelNoise, heightMap);
-                    ws._chunks[coord] = chunk;
-                }
-            }
-        }
+        GenerateChunks(ws, genData, noise.Tunnel, heightMap);
 
         // Tag the submerged shell as KIT_UNDERWATER. Runs after every chunk
         // (and its water voxels) exist so we can check actual water adjacency
@@ -502,7 +397,7 @@ public static class WorldGen
         // Carve swiss-cheese caves through terrain. Runs after terrain+tunnel
         // generation so cave carving sees the full solid column and can
         // connect tunnels vertically where they overlap.
-        GenerateCaves(ws, genData, caveNoise);
+        GenerateCaves(ws, genData, noise.Cave);
 
         // One-off test stamp for underground-water visuals. Carves a wide
         // shallow cavern inland in the mountain zone (toward the desert
@@ -530,7 +425,7 @@ public static class WorldGen
         // bumps, walkable ramps, and small plateau steps. The shader's
         // per-fragment slope on a box-smoothed normal cannot see features the
         // smoothing averages away; this authored signal puts them back.
-        // Currently disabled — the ±EDGE_SCAN_WINDOW / diff-threshold heuristic
+        // Currently disabled — the ±EdgeScanWindow / diff-threshold heuristic
         // doesn't map cleanly to the terrain shapes we actually generate, so
         // overlays end up in the wrong places. Revisit once we have a clearer
         // read on which features need the dirt treatment (probably driven by
@@ -541,268 +436,22 @@ public static class WorldGen
         // Surface-kit voxels. Noise-driven placement is a rough
         // starting point so the authored overlay art shows up in generated
         // worlds; replace with authored tags once the custom editor lands.
-        StampProceduralOverlays(ws);
+        StampProceduralOverlays(ws, genData);
 
         // Detail-sprite scatter and prop / mob / loot spawning are gated by
-        // the worldgen_skip CVar (bitmask — see SKIP_* flags below). Each
-        // category is checked independently so e.g. setting just "details"
-        // strips grass blades without affecting trees or mobs.
+        // the worldgen_skip CVar (bitmask — see SKIP_* flags). Each category is
+        // checked independently so e.g. setting just "details" strips grass
+        // blades without affecting trees or mobs.
         int skipFlags = CVars.worldgenSkip.Value;
         if ((skipFlags & SKIP_DETAILS) == 0)
         {
             StampDetailScatter(ws, genData);
         }
+        GenerateAllProps(ws, genData, noise.Grass, noise.Forest, heightMap, skipFlags, worldSeed);
 
-        // Always run GenerateProps when *any* of its categories are still
-        // active — internal gates pick which subsections actually spawn.
-        // Block-light sources are no longer pre-propagated here — torch
-        // entities register themselves with WorldState.LightSources when
-        // they spawn, which runs the BFS footprint at that point.
-        if ((skipFlags & (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES)) != (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES))
-        {
-            for (int x = ws.Min.X; x <= ws.Max.X; x++)
-            {
-                for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
-                {
-                    var coord = new Vector3I(x, 0, z);
-                    GenerateProps(ws, coord, genData, grassNoise, forestNoise, heightMap, skipFlags, worldSeed);
-                }
-            }
-        }
-
-        // Voxel-space extent of the world. ws.Min/Max are in *chunks*; the
-        // fixture coordinates below are voxels, so compare against the chunk
-        // extent expressed in voxels to avoid the unit mismatch (a voxel X of
-        // 32 is well outside the raw chunk range of -4..4, and the old villager
-        // check at X=3 only passed by coincidence).
-        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
-        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
-        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
-        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
-
-        // Pick a flat, dry land column in the same quadrant as (cx, cz) so a
-        // one-off fixture doesn't land on a ramp face or in water. Just rolls
-        // random columns in the quadrant until one is flat-and-dry, capped at
-        // MaxTries, then falls back to the target. The quadrant bounds (split
-        // at X=0 / Z=0, matching PickZoneIndex) keep the fixture in its zone.
-        // Temporary, like the fixtures themselves — replace with authored
-        // placement once the editor lands.
-        var fixtureRng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
-        Vector3I FindFlatDryInZone(int cx, int cz)
-        {
-            int xLo = cx >= 0 ? 0 : stoneWorldMinX;
-            int xHi = cx >= 0 ? stoneWorldMaxX : -1;
-            int zLo = cz >= 0 ? 0 : stoneWorldMinZ;
-            int zHi = cz >= 0 ? stoneWorldMaxZ : -1;
-            const int MaxTries = 256;
-            for (int i = 0; i < MaxTries; i++)
-            {
-                int x = fixtureRng.Next(xLo, xHi + 1);
-                int z = fixtureRng.Next(zLo, zHi + 1);
-                if (IsFlatTerrainAt(x, z, heightMap))
-                {
-                    return new Vector3I(x, 0, z);
-                }
-            }
-            return new Vector3I(cx, 0, cz);
-        }
-
-        // One-off friendly villager placed in the mountain zone (the NE
-        // quadrant — chunk X >= 0, Z >= 0; see PickZoneIndex) so the new
-        // IInteractive/Talk plumbing has a concrete target without requiring an
-        // editor placement. The (X, Z) below only selects the quadrant —
-        // FindFlatDryInZone then rolls a flat, dry column within it. Temporary
-        // test fixture — fold into a proper NPC population pass once authored
-        // villager spawn rules exist.
-        const int VillagerSpawnX = 32;
-        const int VillagerSpawnZ = 32;
-        if (genData.NearSpawnVillagerData != null
-            && genData.NearSpawnVillagerData.MobScene != null
-            && VillagerSpawnX >= stoneWorldMinX && VillagerSpawnX <= stoneWorldMaxX
-            && VillagerSpawnZ >= stoneWorldMinZ && VillagerSpawnZ <= stoneWorldMaxZ)
-        {
-            MobData villagerData = genData.NearSpawnVillagerData;
-            Vector3I spot = FindFlatDryInZone(VillagerSpawnX, VillagerSpawnZ);
-            int sy = heightMap.GetHeight(spot.X, spot.Z);
-            var pos = new Vector3(spot.X + 0.5f, sy + 1.5f, spot.Z + 0.5f);
-            var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
-            // The villager test fixture speaks the same language the
-            // KnowledgeStone fixtures teach, so reading the stones
-            // progressively un-scrambles the dialogue too. Set per-
-            // instance via SimState rather than on MobData so the shared
-            // friendly_villager.tres stays language-agnostic.
-            villagerSim.Language = genData.KnowledgeStoneLanguage;
-            // Branching conversation attached per-instance so the shared
-            // friendly_villager.tres stays conversation-agnostic — a
-            // future quest-specific villager can pin its own conversation
-            // without forking the MobData.
-            villagerSim.Conversation = genData.NearSpawnVillagerConversation;
-            // Loyalty rewards and merchant inventory live on the placement
-            // entry, not the species template — see WorldGenData for the
-            // rationale.
-            if (genData.NearSpawnVillagerLoyaltyGifts != null)
-            {
-                foreach (LoyaltyGift gift in genData.NearSpawnVillagerLoyaltyGifts)
-                {
-                    if (gift != null) { villagerSim.LoyaltyGifts.Add(gift); }
-                }
-            }
-            if (genData.NearSpawnVillagerInventory != null)
-            {
-                foreach (MobInventoryData entry in genData.NearSpawnVillagerInventory)
-                {
-                    if (entry == null || entry.item == null) { continue; }
-                    ItemState state = entry.item.CreateState();
-                    state.stackCount = Mathf.Max(1, entry.count);
-                    villagerSim.Inventory.Add(new MobInventoryItem
-                    {
-                        item = state,
-                        loyaltyCost = entry.loyaltyCost,
-                        secret = entry.secret,
-                    });
-                }
-            }
-            ws.AddEntity(villagerSim);
-        }
-
-        // KnowledgeStone test fixtures, one per language component, scattered
-        // across three zones so exercising the partial-learning flow means
-        // travelling between biomes rather than walking down a row at spawn:
-        // swamp (SE), desert (NW) and forest (SW). See PickZoneIndex for the
-        // quadrant -> zone mapping. Skipped if the worldgen data doesn't carry
-        // a stone scene/language.
-        var stoneComponents = new (int x, int z, ELanguageComponents component)[]
-        {
-            (32, -32, ELanguageComponents.Vocabulary1),   // swamp  (SE quadrant)
-            (-32, 32, ELanguageComponents.Vocabulary2),   // desert (NW quadrant)
-            (-32, -32, ELanguageComponents.Vocabulary3),  // forest (SW quadrant)
-        };
-        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null)
-        {
-            foreach (var (sx, sz, component) in stoneComponents)
-            {
-                if (sx < stoneWorldMinX || sx > stoneWorldMaxX
-                    || sz < stoneWorldMinZ || sz > stoneWorldMaxZ) { continue; }
-                Vector3I spot = FindFlatDryInZone(sx, sz);
-                int sy = heightMap.GetHeight(spot.X, spot.Z);
-                var pos = new Vector3(spot.X + 0.5f, sy + 1f, spot.Z + 0.5f);
-                // Wrap the per-fixture (language, component) pair in a
-                // LanguageTeachable so the stone runs through the unified
-                // TeachableConcept path. Resource is constructed transient
-                // — never gets serialized as its own .tres; saves/loads
-                // round-trip through EntitySerializer's Tag.KnowledgeStone
-                // wire format which re-synthesizes a LanguageTeachable on
-                // read.
-                var concepts = new Godot.Collections.Array<TeachableConcept>
-                {
-                    new LanguageTeachable { language = genData.KnowledgeStoneLanguage, components = component },
-                };
-                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, concepts));
-            }
-        }
-
-        // Near-spawn test stash. The chest_stash.tscn flips Chest._isStash so
-        // interaction opens the StashScreen; the authored item list is
-        // materialized into ItemStates and seeded into Contents (not
-        // LootItems) so the player finds the stash pre-loaded with starter
-        // items rather than ejecting them on first open.
-        const int NearSpawnStashX = 0;
-        const int NearSpawnStashZ = 3;
-        if (genData.NearSpawnStashScene != null
-            && NearSpawnStashX >= stoneWorldMinX && NearSpawnStashX <= stoneWorldMaxX
-            && NearSpawnStashZ >= stoneWorldMinZ && NearSpawnStashZ <= stoneWorldMaxZ)
-        {
-            int sy = heightMap.GetHeight(NearSpawnStashX, NearSpawnStashZ);
-            var pos = new Vector3(NearSpawnStashX + 0.5f, sy + 1f, NearSpawnStashZ + 0.5f);
-            var stashSim = new ChestSimState(pos, genData.NearSpawnStashScene);
-            if (genData.NearSpawnStashItems != null)
-            {
-                for (int i = 0; i < genData.NearSpawnStashItems.Length; i++)
-                {
-                    ItemCount entry = genData.NearSpawnStashItems[i];
-                    if (entry == null || entry.item == null || entry.count <= 0) { continue; }
-                    ItemState state = entry.item.CreateState();
-                    state.stackCount = entry.count;
-                    stashSim.Contents.Add(state);
-                }
-            }
-            ws.AddEntity(stashSim);
-        }
-
-        // Near-spawn test boat. Unlike the land fixtures above it must sit on
-        // water, and procedural terrain doesn't guarantee a pond at a fixed
-        // offset — so ring-scan outward from spawn for the nearest water-topped
-        // column and float the boat there. Skipped if no water is found within
-        // range. The boat origin rides the water surface (WATER_LEVEL + 1).
-        if (genData.NearSpawnBoatScene != null)
-        {
-            const int BoatSearchRadius = 48;
-            bool placed = false;
-            for (int r = 1; r <= BoatSearchRadius && !placed; r++)
-            {
-                for (int dx = -r; dx <= r && !placed; dx++)
-                {
-                    for (int dz = -r; dz <= r && !placed; dz++)
-                    {
-                        // Boundary of the ring only — inner cells were covered
-                        // by a smaller radius.
-                        if (Mathf.Abs(dx) != r && Mathf.Abs(dz) != r) { continue; }
-                        int bx = dx;
-                        int bz = dz;
-                        if (bx < stoneWorldMinX || bx > stoneWorldMaxX
-                            || bz < stoneWorldMinZ || bz > stoneWorldMaxZ) { continue; }
-                        // Water-surfaced column: water at sea level, air above.
-                        if (ws.GetVoxelWorld(bx, WATER_LEVEL, bz) != VoxelType.Water
-                            || ws.GetVoxelWorld(bx, WATER_LEVEL + 1, bz) != VoxelType.Air) { continue; }
-                        var boatPos = new Vector3(bx + 0.5f, WATER_LEVEL + 1f, bz + 0.5f);
-                        ws.AddEntity(new BoatSimState(boatPos, 0f, genData.NearSpawnBoatScene));
-                        placed = true;
-                    }
-                }
-            }
-        }
-
-        // Off-coast boat. March straight outward from the origin along +X (the
-        // coastal half — east transitions to ocean via BuildHeightMap's
-        // east-edge falloff) at z = 0 until we reach the first water-surfaced
-        // column (the shoreline), then keep stepping out while still over water
-        // so the boat moors a few voxels clear of the beach rather than against
-        // it. Skipped if no sea is found along the ray within the world's east
-        // extent. The boat origin rides the water surface (WATER_LEVEL + 1).
-        if (genData.OffCoastBoatScene != null)
-        {
-            const int OffCoastBoatZ = 0;
-            const int OffshoreStep = 4;
-            if (OffCoastBoatZ >= stoneWorldMinZ && OffCoastBoatZ <= stoneWorldMaxZ)
-            {
-                int shoreX = int.MinValue;
-                for (int x = Math.Max(1, stoneWorldMinX); x <= stoneWorldMaxX; x++)
-                {
-                    if (ws.GetVoxelWorld(x, WATER_LEVEL, OffCoastBoatZ) == VoxelType.Water
-                        && ws.GetVoxelWorld(x, WATER_LEVEL + 1, OffCoastBoatZ) == VoxelType.Air)
-                    {
-                        shoreX = x;
-                        break;
-                    }
-                }
-                if (shoreX != int.MinValue)
-                {
-                    // Nudge further out to sea while the column stays open water
-                    // and inside the world, up to OffshoreStep voxels.
-                    int boatX = shoreX;
-                    for (int s = 1; s <= OffshoreStep; s++)
-                    {
-                        int candidate = shoreX + s;
-                        if (candidate > stoneWorldMaxX) { break; }
-                        if (ws.GetVoxelWorld(candidate, WATER_LEVEL, OffCoastBoatZ) != VoxelType.Water
-                            || ws.GetVoxelWorld(candidate, WATER_LEVEL + 1, OffCoastBoatZ) != VoxelType.Air) { break; }
-                        boatX = candidate;
-                    }
-                    var boatPos = new Vector3(boatX + 0.5f, WATER_LEVEL + 1f, OffCoastBoatZ + 0.5f);
-                    ws.AddEntity(new BoatSimState(boatPos, 0f, genData.OffCoastBoatScene));
-                }
-            }
-        }
+        // One-off near-spawn test fixtures (villager, knowledge stones, stash,
+        // boat). Temporary scaffolding — replaced by the editor's placement pass.
+        PlaceNearSpawnFixtures(ws, genData, heightMap, worldSeed);
 
         if ((skipFlags & SKIP_INTERACTIVES) == 0)
         {
@@ -853,6 +502,348 @@ public static class WorldGen
         _lastHeightMap = heightMap;
         _lastPlateauStep = (int)Math.Max(1, Math.Round(genData.PlateauStep));
         return ws;
+    }
+
+    // Per-run noise channels, built once at the top of Generate from the
+    // authored frequencies / octaves on WorldGenData and the per-channel seed
+    // salts. Bundled into one value so Generate can hand them to each pass
+    // without juggling seven locals.
+    private readonly struct WorldNoise
+    {
+        public readonly FastNoiseLite Terrain;
+        public readonly FastNoiseLite Tunnel;
+        public readonly FastNoiseLite Cave;
+        public readonly FastNoiseLite Grass;
+        public readonly FastNoiseLite RampGate;
+        public readonly FastNoiseLite Forest;
+        public readonly FastNoiseLite Elevation;
+
+        public WorldNoise(FastNoiseLite terrain, FastNoiseLite tunnel, FastNoiseLite cave,
+            FastNoiseLite grass, FastNoiseLite rampGate, FastNoiseLite forest, FastNoiseLite elevation)
+        {
+            Terrain = terrain;
+            Tunnel = tunnel;
+            Cave = cave;
+            Grass = grass;
+            RampGate = rampGate;
+            Forest = forest;
+            Elevation = elevation;
+        }
+    }
+
+    private static FastNoiseLite MakePerlin(int seed, float frequency, int octaves)
+    {
+        var noise = new FastNoiseLite();
+        noise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
+        noise.Seed = seed;
+        noise.Frequency = frequency;
+        noise.FractalOctaves = octaves;
+        return noise;
+    }
+
+    private static WorldNoise BuildWorldNoise(WorldGenData genData, int worldSeed)
+    {
+        // Cave noise is a single shared field for the whole world — its
+        // frequency comes from the first zone (CaveThreshold is still blended
+        // per-column, so zones vary in density even though the pattern is
+        // shared). The ramp gate is seeded off the path channel so its pattern
+        // stays stable with the rest of the output. Forest noise keeps base
+        // frequency 1; per-kit frequency is applied at sample time by scaling
+        // input coords, so two kits in a zone can read different patterns.
+        return new WorldNoise(
+            terrain: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TERRAIN), genData.TerrainNoiseFrequency, genData.TerrainNoiseOctaves),
+            tunnel: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_TUNNEL), genData.TunnelNoiseFrequency, genData.TunnelNoiseOctaves),
+            cave: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_CAVE), FirstZoneGen(genData)?.CaveNoiseFrequency ?? 0.04f, genData.CaveNoiseOctaves),
+            grass: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_GRASS), genData.GrassNoiseFrequency, genData.GrassNoiseOctaves),
+            rampGate: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_PATH), genData.RampGateNoiseFrequency, genData.RampGateNoiseOctaves),
+            forest: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_FOREST), 1f, genData.ForestNoiseOctaves),
+            elevation: MakePerlin(DeriveSeed(worldSeed, SEED_SALT_ELEVATION), genData.ElevationNoiseFrequency, genData.ElevationNoiseOctaves));
+    }
+
+    // Build the per-world ZoneState array from the authored zone templates. The
+    // ZoneData embedded in each ZoneGenData is what ZoneState carries forward —
+    // the per-zone worldgen scalars on ZoneGenData stay in `genData` and blend
+    // per-position during the passes. WindDirection is randomized in the XZ
+    // plane so each world has its own prevailing wind per zone; Elevation
+    // defaults to 0 until the editor authors it per-zone per-world.
+    private static void BuildZoneStates(WorldState ws, WorldGenData genData, int worldSeed)
+    {
+        var zoneRng = new RandomNumberGenerator();
+        zoneRng.Seed = (ulong)DeriveSeed(worldSeed, SEED_SALT_ZONE);
+        ws.Zones = new ZoneState[genData.Zones.Length];
+        for (int i = 0; i < genData.Zones.Length; i++)
+        {
+            float angle = zoneRng.RandfRange(0f, Mathf.Tau);
+            ws.Zones[i] = new ZoneState
+            {
+                Data = genData.Zones[i]?.Zone,
+                WindDirection = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)),
+                Elevation = 0f,
+            };
+        }
+    }
+
+    // Build the per-world RegionState array from the authored region palette.
+    // Independent from Zones — a region is a top-level named place identifier,
+    // not a biome theme. PickRegionIndex (currently quadrant-based, mirroring
+    // PickZoneIndex) decides which entry each chunk belongs to.
+    private static void BuildRegionStates(WorldState ws, WorldGenData genData)
+    {
+        RegionData[] regionPalette = genData.Regions ?? [];
+        ws.Regions = new RegionState[regionPalette.Length];
+        for (int i = 0; i < regionPalette.Length; i++)
+        {
+            ws.Regions[i] = new RegionState { Data = regionPalette[i] };
+        }
+    }
+
+    // Generate every chunk's voxels: assign zone / region index, then run the
+    // per-chunk terrain + tunnel pass against the prebuilt height field.
+    private static void GenerateChunks(WorldState ws, WorldGenData genData, FastNoiseLite tunnelNoise, HeightMap heightMap)
+    {
+        for (int x = ws.Min.X; x <= ws.Max.X; x++)
+        {
+            for (int y = ws.Min.Y; y <= ws.Max.Y; y++)
+            {
+                for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
+                {
+                    var coord = new Vector3I(x, y, z);
+                    var chunk = new ChunkState(coord);
+                    chunk.ZoneIndex = PickZoneIndex(coord, ws.Zones.Length);
+                    chunk.RegionIndex = PickRegionIndex(coord, ws.Regions.Length);
+                    GenerateChunk(chunk, genData, tunnelNoise, heightMap);
+                    ws._chunks[coord] = chunk;
+                }
+            }
+        }
+    }
+
+    // Prop / mob / loot spawn pass (per surface column). Runs whenever *any* of
+    // its skip categories is still active — internal gates pick which
+    // subsections actually spawn. Block-light sources aren't pre-propagated
+    // here; torch entities register themselves with WorldState.LightSources
+    // when they spawn, which runs the BFS footprint at that point.
+    private static void GenerateAllProps(WorldState ws, WorldGenData genData, FastNoiseLite grassNoise,
+        FastNoiseLite forestNoise, HeightMap heightMap, int skipFlags, int worldSeed)
+    {
+        if ((skipFlags & (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES)) == (SKIP_PROPS | SKIP_MOBS | SKIP_INTERACTIVES))
+        {
+            return;
+        }
+        for (int x = ws.Min.X; x <= ws.Max.X; x++)
+        {
+            for (int z = ws.Min.Z; z <= ws.Max.Z; z++)
+            {
+                var coord = new Vector3I(x, 0, z);
+                GenerateProps(ws, coord, genData, grassNoise, forestNoise, heightMap, skipFlags, worldSeed);
+            }
+        }
+    }
+
+    // One-off near-spawn test fixtures: a friendly villager, KnowledgeStones,
+    // a stash chest, and a rideable boat. All temporary scaffolding for systems
+    // that lack an authored placement pass — fold each into a real population /
+    // editor placement once those exist. Placement coordinates are authored on
+    // WorldGenData (Placement Tuning group).
+    private static void PlaceNearSpawnFixtures(WorldState ws, WorldGenData genData, HeightMap heightMap, int worldSeed)
+    {
+        // Voxel-space extent of the world. ws.Min/Max are in *chunks*; the
+        // fixture coordinates below are voxels, so compare against the chunk
+        // extent expressed in voxels to avoid the unit mismatch (a voxel X of
+        // 32 is well outside the raw chunk range of -4..4).
+        int stoneWorldMinX = ws.Min.X * ChunkState.SIZE;
+        int stoneWorldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
+        int stoneWorldMinZ = ws.Min.Z * ChunkState.SIZE;
+        int stoneWorldMaxZ = ws.Max.Z * ChunkState.SIZE + ChunkState.SIZE - 1;
+
+        // Pick a flat, dry land column in the same quadrant as (cx, cz) so a
+        // one-off fixture doesn't land on a ramp face or in water. Rolls random
+        // columns in the quadrant until one is flat-and-dry, capped at
+        // FixturePlacementMaxTries, then falls back to the target. The quadrant
+        // bounds (split at X=0 / Z=0, matching PickZoneIndex) keep the fixture
+        // in its zone.
+        var fixtureRng = new Random(DeriveSeed(worldSeed, SEED_SALT_FIXTURE));
+        Vector3I FindFlatDryInZone(int cx, int cz)
+        {
+            int xLo = cx >= 0 ? 0 : stoneWorldMinX;
+            int xHi = cx >= 0 ? stoneWorldMaxX : -1;
+            int zLo = cz >= 0 ? 0 : stoneWorldMinZ;
+            int zHi = cz >= 0 ? stoneWorldMaxZ : -1;
+            int maxTries = genData.FixturePlacementMaxTries;
+            for (int i = 0; i < maxTries; i++)
+            {
+                int x = fixtureRng.Next(xLo, xHi + 1);
+                int z = fixtureRng.Next(zLo, zHi + 1);
+                if (IsFlatTerrainAt(x, z, heightMap))
+                {
+                    return new Vector3I(x, 0, z);
+                }
+            }
+            return new Vector3I(cx, 0, cz);
+        }
+
+        // One-off friendly villager placed in the mountain zone (the NE
+        // quadrant — chunk X >= 0, Z >= 0; see PickZoneIndex) so the new
+        // IInteractive/Talk plumbing has a concrete target without requiring an
+        // editor placement. The spawn XZ only selects the quadrant —
+        // FindFlatDryInZone then rolls a flat, dry column within it. Temporary
+        // test fixture — fold into a proper NPC population pass once authored
+        // villager spawn rules exist.
+        int villagerSpawnX = genData.NearSpawnVillagerSpawn.X;
+        int villagerSpawnZ = genData.NearSpawnVillagerSpawn.Y;
+        if (genData.NearSpawnVillagerData != null
+            && genData.NearSpawnVillagerData.MobScene != null
+            && villagerSpawnX >= stoneWorldMinX && villagerSpawnX <= stoneWorldMaxX
+            && villagerSpawnZ >= stoneWorldMinZ && villagerSpawnZ <= stoneWorldMaxZ)
+        {
+            MobData villagerData = genData.NearSpawnVillagerData;
+            Vector3I spot = FindFlatDryInZone(villagerSpawnX, villagerSpawnZ);
+            int sy = heightMap.GetHeight(spot.X, spot.Z);
+            var pos = new Vector3(spot.X + 0.5f, sy + 1.5f, spot.Z + 0.5f);
+            var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
+            // The villager test fixture speaks the same language the
+            // KnowledgeStone fixtures teach, so reading the stones
+            // progressively un-scrambles the dialogue too. Set per-
+            // instance via SimState rather than on MobData so the shared
+            // friendly_villager.tres stays language-agnostic.
+            villagerSim.Language = genData.KnowledgeStoneLanguage;
+            // Branching conversation attached per-instance so the shared
+            // friendly_villager.tres stays conversation-agnostic — a
+            // future quest-specific villager can pin its own conversation
+            // without forking the MobData.
+            villagerSim.Conversation = genData.NearSpawnVillagerConversation;
+            // Loyalty rewards and merchant inventory live on the placement
+            // entry, not the species template — see WorldGenData for the
+            // rationale.
+            if (genData.NearSpawnVillagerLoyaltyGifts != null)
+            {
+                foreach (LoyaltyGift gift in genData.NearSpawnVillagerLoyaltyGifts)
+                {
+                    if (gift != null) { villagerSim.LoyaltyGifts.Add(gift); }
+                }
+            }
+            if (genData.NearSpawnVillagerInventory != null)
+            {
+                foreach (MobInventoryData entry in genData.NearSpawnVillagerInventory)
+                {
+                    if (entry == null || entry.item == null) { continue; }
+                    ItemState state = entry.item.CreateState();
+                    state.stackCount = Mathf.Max(1, entry.count);
+                    villagerSim.Inventory.Add(new MobInventoryItem
+                    {
+                        item = state,
+                        loyaltyCost = entry.loyaltyCost,
+                        secret = entry.secret,
+                    });
+                }
+            }
+            ws.AddEntity(villagerSim);
+        }
+
+        // KnowledgeStone test fixtures, one per language component, scattered
+        // across three zones so exercising the partial-learning flow means
+        // travelling between biomes rather than walking down a row at spawn:
+        // swamp (SE), desert (NW) and forest (SW). See PickZoneIndex for the
+        // quadrant -> zone mapping. The (position, component) layout is a fixed
+        // test-fixture table (like StaircasePattern), not an authoring knob.
+        // Skipped if the worldgen data doesn't carry a stone scene/language.
+        var stoneComponents = new (int x, int z, ELanguageComponents component)[]
+        {
+            (32, -32, ELanguageComponents.Vocabulary1),   // swamp  (SE quadrant)
+            (-32, 32, ELanguageComponents.Vocabulary2),   // desert (NW quadrant)
+            (-32, -32, ELanguageComponents.Vocabulary3),  // forest (SW quadrant)
+        };
+        if (genData.KnowledgeStoneScene != null && genData.KnowledgeStoneLanguage != null)
+        {
+            foreach (var (sx, sz, component) in stoneComponents)
+            {
+                if (sx < stoneWorldMinX || sx > stoneWorldMaxX
+                    || sz < stoneWorldMinZ || sz > stoneWorldMaxZ) { continue; }
+                Vector3I spot = FindFlatDryInZone(sx, sz);
+                int sy = heightMap.GetHeight(spot.X, spot.Z);
+                var pos = new Vector3(spot.X + 0.5f, sy + 1f, spot.Z + 0.5f);
+                // Wrap the per-fixture (language, component) pair in a
+                // LanguageTeachable so the stone runs through the unified
+                // TeachableConcept path. Resource is constructed transient
+                // — never gets serialized as its own .tres; saves/loads
+                // round-trip through EntitySerializer's Tag.KnowledgeStone
+                // wire format which re-synthesizes a LanguageTeachable on
+                // read.
+                var concepts = new Godot.Collections.Array<TeachableConcept>
+                {
+                    new LanguageTeachable { language = genData.KnowledgeStoneLanguage, components = component },
+                };
+                ws.AddEntity(new KnowledgeStoneSimState(pos, genData.KnowledgeStoneScene, genData.KnowledgeStoneText, genData.KnowledgeStoneLanguage, concepts));
+            }
+        }
+
+        // Near-spawn test stash. The chest_stash.tscn flips Chest._isStash so
+        // interaction opens the StashScreen; the authored item list is
+        // materialized into ItemStates and seeded into Contents (not
+        // LootItems) so the player finds the stash pre-loaded with starter
+        // items rather than ejecting them on first open.
+        int stashX = genData.NearSpawnStashSpawn.X;
+        int stashZ = genData.NearSpawnStashSpawn.Y;
+        if (genData.NearSpawnStashScene != null
+            && stashX >= stoneWorldMinX && stashX <= stoneWorldMaxX
+            && stashZ >= stoneWorldMinZ && stashZ <= stoneWorldMaxZ)
+        {
+            int sy = heightMap.GetHeight(stashX, stashZ);
+            var pos = new Vector3(stashX + 0.5f, sy + 1f, stashZ + 0.5f);
+            var stashSim = new ChestSimState(pos, genData.NearSpawnStashScene);
+            if (genData.NearSpawnStashItems != null)
+            {
+                for (int i = 0; i < genData.NearSpawnStashItems.Length; i++)
+                {
+                    ItemCount entry = genData.NearSpawnStashItems[i];
+                    if (entry == null || entry.item == null || entry.count <= 0) { continue; }
+                    ItemState state = entry.item.CreateState();
+                    state.stackCount = entry.count;
+                    stashSim.Contents.Add(state);
+                }
+            }
+            ws.AddEntity(stashSim);
+        }
+
+        // Near-spawn test boat. Unlike the land fixtures above it must sit on
+        // water, and procedural terrain doesn't guarantee a pond at a fixed
+        // offset — so ring-scan outward from spawn for the nearest water-topped
+        // column and float the boat there (origin riding the water surface,
+        // WATER_LEVEL + 1). Skipped if no water is found within range.
+        Vector3? FindNearestWaterSurface()
+        {
+            int searchRadius = genData.NearSpawnBoatSearchRadius;
+            for (int r = 1; r <= searchRadius; r++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    for (int dz = -r; dz <= r; dz++)
+                    {
+                        // Boundary of the ring only — inner cells were covered
+                        // by a smaller radius.
+                        if (Mathf.Abs(dx) != r && Mathf.Abs(dz) != r) { continue; }
+                        int bx = dx;
+                        int bz = dz;
+                        if (bx < stoneWorldMinX || bx > stoneWorldMaxX
+                            || bz < stoneWorldMinZ || bz > stoneWorldMaxZ) { continue; }
+                        // Water-surfaced column: water at sea level, air above.
+                        if (ws.GetVoxelWorld(bx, WATER_LEVEL, bz) != VoxelType.Water
+                            || ws.GetVoxelWorld(bx, WATER_LEVEL + 1, bz) != VoxelType.Air) { continue; }
+                        return new Vector3(bx + 0.5f, WATER_LEVEL + 1f, bz + 0.5f);
+                    }
+                }
+            }
+            return null;
+        }
+
+        if (genData.NearSpawnBoatScene != null)
+        {
+            Vector3? boatPos = FindNearestWaterSurface();
+            if (boatPos.HasValue)
+            {
+                ws.AddEntity(new BoatSimState(boatPos.Value, 0f, genData.NearSpawnBoatScene));
+            }
+        }
     }
 
     // Authored "strong gust" region — multiplies the WindGen-baked
@@ -1031,34 +1022,24 @@ public static class WorldGen
     }
 
     // Per-column smoothstep blend kernel that mirrors ZoneBlend.Sample.
-    // Reaches ZONE_GEN_BLEND_RADIUS chunks out from (wx, wz) and weights
-    // each chunk's zone by its smoothstep falloff. PickZoneIndex still
+    // Reaches WorldGenData.ZoneGenBlendRadius chunks out from (wx, wz) and
+    // weights each chunk's zone by its smoothstep falloff. PickZoneIndex still
     // returns one zone per chunk for ChunkState.ZoneIndex (gameplay
     // needs a single value), but the worldgen scalars blend smoothly across
     // chunk borders so a desert→forest transition isn't a hard line.
     //
+    // The blend radii (ZoneGenBlendRadius for soft scalar fades like elevation
+    // and density; the tighter KitBlendRadius for kit-identity stamps) are
+    // authored on WorldGenData — KitBlendRadius must stay >= 1.0 or corner
+    // voxels get zero weight and PickKitZone falls back to a chunk-aligned hard
+    // seam, the exact thing the kernel exists to avoid.
+    //
     // `weights` Span must be sized to zoneCount. Output sums to 1 (or
     // all zeros if no neighbour has a valid zone — caller's choice what
     // to do about that).
-    private const float ZONE_GEN_BLEND_RADIUS = 2.0f;
-
-    // Per-voxel kit-stamp blend radius. Independent from
-    // ZONE_GEN_BLEND_RADIUS (which drives soft scalar fades like elevation
-    // and density) so the kit-identity bleed can be tuned without
-    // distorting the worldgen scalars.
-    //
-    // Must stay >= 1.0: the kernel walks chunk centers, and a voxel at a
-    // chunk corner sits ~0.71 chunks from its own center. Radii below ~0.71
-    // leave corner voxels with total weight 0 and PickKitZone falls back to
-    // the chunk's authoritative ZoneIndex, which produces a chunk-aligned
-    // hard seam — the exact thing the kernel exists to avoid. Larger values
-    // widen the noisy seam band proportionally; 2.0 gives ~32-voxel
-    // (~2 chunk) wide jitter where adjacent biomes interpenetrate.
-    private const float KIT_BLEND_RADIUS = 2.0f;
-
     private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights)
     {
-        GetZoneGenWeights(wx, wz, zoneCount, weights, ZONE_GEN_BLEND_RADIUS);
+        GetZoneGenWeights(wx, wz, zoneCount, weights, _activeGenData?.ZoneGenBlendRadius ?? 2.0f);
     }
 
     private static void GetZoneGenWeights(int wx, int wz, int zoneCount, Span<float> weights, float blendRadius)
@@ -1201,9 +1182,9 @@ public static class WorldGen
     // we want jagged zone borders that follow the kernel weights — a hash
     // of the voxel's column gives a stable noisy boundary instead of the
     // chunk-aligned orthogonal seam you'd get from `chunk.ZoneIndex`.
-    // `blendRadius` overrides ZONE_GEN_BLEND_RADIUS for the weight kernel —
-    // kit stamps use a tighter radius (KIT_BLEND_RADIUS) so out-of-biome
-    // kit bleed stays localized.
+    // `blendRadius` overrides WorldGenData.ZoneGenBlendRadius for the weight
+    // kernel — kit stamps use the tighter KitBlendRadius so out-of-biome kit
+    // bleed stays localized.
     private static int PickWeightedZoneFromHash(int wx, int wz, ZoneGenData[] zones, float r01, float blendRadius)
     {
         int n = zones != null ? zones.Length : 0;
@@ -1240,11 +1221,11 @@ public static class WorldGen
     // Pick a zone for a kit stamp at (wx, wz). Falls back to the chunk's
     // ZoneIndex when the kernel produces no positive weight (off-world,
     // edge cases) so we always end up with a stamped kit. Uses the tighter
-    // KIT_BLEND_RADIUS so out-of-biome kit stamps stay near the seam
+    // KitBlendRadius so out-of-biome kit stamps stay near the seam
     // instead of penetrating ~2 chunks into adjacent biomes.
     private static int PickKitZone(int wx, int wz, ZoneGenData[] zones, int fallbackZoneIndex)
     {
-        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), KIT_BLEND_RADIUS);
+        int idx = PickWeightedZoneFromHash(wx, wz, zones, HashFloat01(wx, wz, KIT_HASH_SALT), _activeGenData?.KitBlendRadius ?? 2.0f);
         return idx >= 0 ? idx : fallbackZoneIndex;
     }
 
@@ -1326,7 +1307,8 @@ public static class WorldGen
         using (var sw = new System.IO.StreamWriter($"{dir}/stats.txt"))
         {
             sw.WriteLine($"World: {sizeX} x {sizeZ} = {total} columns");
-            sw.WriteLine($"RAMP_SLOPE={RAMP_SLOPE}, PlateauStep={_lastPlateauStep}, rampRadius={_lastPlateauStep * RAMP_SLOPE}");
+            int rampSlope = _activeGenData?.RampSlope ?? 1;
+            sw.WriteLine($"RampSlope={rampSlope}, PlateauStep={_lastPlateauStep}, rampRadius={_lastPlateauStep * rampSlope}");
             sw.WriteLine();
             sw.WriteLine($"Ramp cells: {rampCells} ({100.0 * rampCells / total:F1}%)");
             sw.WriteLine($"Plain plateau cells: {plateauCells} ({100.0 * plateauCells / total:F1}%)");
@@ -1518,25 +1500,15 @@ public static class WorldGen
         int[,] plateau = new int[sizeX, sizeZ];
         bool[,] rampAnchor = new bool[sizeX, sizeZ];
         int step = Math.Max(1, (int)Math.Round(genData.PlateauStep));
-        // Strict anchor band — `|pathNoise|` below this marks the core of a
-        // ramp zone. Kept tight so anchors form thin, sparse meanders rather
-        // than a blanket. Anchors get dilated below to give ramp skirts room
-        // to form.
-        const float RAMP_ANCHOR_BAND = 0.015f;
-
-        // Half-amplitude (in plateau steps) added by the macro elevation
-        // noise. ±1 step keeps the macro shape subtle relative to per-zone
-        // ElevationRange so zones still drive the dominant terrain look.
-        const float MACRO_ELEVATION_RANGE_PLATEAUS = 1f;
-
-        // Far east of the world drops to ocean. Over this many chunks the
-        // plateau-quantized inland height lerps down to OCEAN_DEPTH_PLATEAUS
-        // below zero at the east edge. Kept narrow so the slope doesn't bite
-        // into the bulk of coastal zones; widen for a sandier, gentler
-        // coast.
-        const int SHORELINE_CHUNKS = 2;
-        const float OCEAN_DEPTH_PLATEAUS = 3f;
-        float shorelineFalloffWidth = SHORELINE_CHUNKS * ChunkState.SIZE;
+        // Ramp anchor band, macro-elevation amplitude, and shoreline falloff
+        // are authored on WorldGenData (Terrain Shaping group). `|pathNoise|`
+        // below RampAnchorBand marks the core of a ramp zone; the macro noise
+        // adds ±MacroElevationRangePlateaus steps; the far east drops to ocean
+        // over ShorelineChunks chunks down to OceanDepthPlateaus below zero.
+        float rampAnchorBand = genData.RampAnchorBand;
+        float macroElevationRangePlateaus = genData.MacroElevationRangePlateaus;
+        float oceanDepthPlateaus = genData.OceanDepthPlateaus;
+        float shorelineFalloffWidth = genData.ShorelineChunks * ChunkState.SIZE;
 
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
@@ -1556,7 +1528,7 @@ public static class WorldGen
                 float macroN = elevationNoise.GetNoise2D(wx, wz);
                 float plateaus = blend.Elevation
                                + blend.ElevationRange * terrainN
-                               + macroN * MACRO_ELEVATION_RANGE_PLATEAUS;
+                               + macroN * macroElevationRangePlateaus;
 
                 // Step 3: plateau-step quantization (round to integer
                 // plateau count). Done BEFORE the ocean falloff so cliffs
@@ -1569,13 +1541,13 @@ public static class WorldGen
 
                 // Step 4: east-edge ocean falloff in plateau-step units.
                 // Inland (coastT = 1) → unchanged plateauSteps. Coastal
-                // (coastT → 0) → -OCEAN_DEPTH_PLATEAUS (deep ocean below
+                // (coastT → 0) → -oceanDepthPlateaus (deep ocean below
                 // sea level).
                 int distFromEastEdge = worldMaxX - wx;
                 float coastT = Mathf.Clamp(distFromEastEdge / shorelineFalloffWidth, 0f, 1f);
                 coastT = Mathf.SmoothStep(0f, 1f, coastT);
                 int effectivePlateaus = (int)Mathf.Round(
-                    Mathf.Lerp(-OCEAN_DEPTH_PLATEAUS, plateauSteps, coastT));
+                    Mathf.Lerp(-oceanDepthPlateaus, plateauSteps, coastT));
 
                 // Step 5: convert plateau steps → world voxels with
                 // Elevation = 0 anchored at sea level. Sea is at WATER_LEVEL
@@ -1584,7 +1556,7 @@ public static class WorldGen
                 // ElevationRange shifts the surface by exactly one plateau
                 // step (4 voxels) above or below the water plane.
                 plateau[lx, lz] = WATER_LEVEL + effectivePlateaus * step;
-                rampAnchor[lx, lz] = Math.Abs(rampGateNoise.GetNoise2D(wx, wz)) < RAMP_ANCHOR_BAND;
+                rampAnchor[lx, lz] = Math.Abs(rampGateNoise.GetNoise2D(wx, wz)) < rampAnchorBand;
             }
         }
 
@@ -1592,7 +1564,7 @@ public static class WorldGen
         // worth on each side of the raw anchor line, so the lift scan has a
         // fully eligible neighbourhood and always produces a complete skirt.
         bool[,] rampEligible = new bool[sizeX, sizeZ];
-        int rampRadiusConst = step * RAMP_SLOPE;
+        int rampRadiusConst = step * genData.RampSlope;
         int dilateRadius = rampRadiusConst;
         for (int lx = 0; lx < sizeX; lx++)
         {
@@ -1623,10 +1595,11 @@ public static class WorldGen
         }
 
         int[,] height = new int[sizeX, sizeZ];
-        // One step of rise takes `step * RAMP_SLOPE` horizontal cells; that's
+        // One step of rise takes `step * RampSlope` horizontal cells; that's
         // also the scan radius since anything farther would only contribute
         // a zero (or clamped-away) lift.
-        int rampRadius = step * RAMP_SLOPE;
+        int rampSlope = genData.RampSlope;
+        int rampRadius = step * rampSlope;
         for (int wx = worldMinX; wx <= worldMaxX; wx++)
         {
             for (int wz = worldMinZ; wz <= worldMaxZ; wz++)
@@ -1670,7 +1643,7 @@ public static class WorldGen
                             // out can't out-vote a closer single-step plateau.
                             int target = Math.Min(neighborPlateau, oneStepUp);
                             int dist = Math.Max(Math.Abs(dx), Math.Abs(dz));
-                            int verticalDrop = (dist + RAMP_SLOPE - 1) / RAMP_SLOPE;
+                            int verticalDrop = (dist + rampSlope - 1) / rampSlope;
                             int candidate = target - verticalDrop;
                             if (candidate > best)
                             {
@@ -1959,7 +1932,7 @@ public static class WorldGen
             return ws.GetVoxelWorld(wx, sy + 1, wz) == VoxelType.Air;
         }
 
-        const int MAX_ATTEMPTS = 256;
+        int MAX_ATTEMPTS = genData.FixturePlacementMaxTries;
         for (int q = 0; q < 4; q++)
         {
             string text = texts[q];
@@ -2050,7 +2023,7 @@ public static class WorldGen
             {
                 humidity = rg.Zone.weather.humidity;
             }
-            float desiredVolume = humidity * FOG_VOLUME_PER_HUMIDITY * floors.Count;
+            float desiredVolume = humidity * genData.FogVolumePerHumidity * floors.Count;
             fogLevelY[i] = SolveBucketFill(floors, desiredVolume);
         }
 
@@ -2103,7 +2076,7 @@ public static class WorldGen
                         continue;
                     }
                     float depth = blendedLevel - wy;
-                    int density = (int)Mathf.Clamp(depth * FOG_DENSITY_PER_VOXEL, 0f, FOG_MAX_DENSITY);
+                    int density = (int)Mathf.Clamp(depth * genData.FogDensityPerVoxel, 0f, FOG_MAX_DENSITY);
                     if (density > 0)
                     {
                         ws.SetFogWorld(wx, wy, wz, density);
@@ -2399,17 +2372,8 @@ public static class WorldGen
         }
     }
 
-    // Chebyshev radius for the water-adjacency search in TagSubmergedKits.
-    // Must be >= 2: the mesher's kit vote is a 3x3x3 neighbourhood around a
-    // DC cell corner, so a seabed cell's vote sees one layer of seabed (would
-    // be KIT_UNDERWATER) plus one layer of buried rock just below (would be
-    // surface slot). With a 1-voxel shell the two layers tie at 9–9 and the
-    // lower-index kit (surface) wins — seabed reads as grass. A 2-voxel
-    // shell tags both layers underwater so the vote goes 18–0.
-    private const int SUBMERGED_KIT_RADIUS = 2;
-
     // Re-tag solid voxels at or below WATER_LEVEL to KIT_UNDERWATER iff they
-    // sit within SUBMERGED_KIT_RADIUS of a water voxel. Runs after every
+    // sit within WorldGenData.SubmergedKitRadius of a water voxel. Runs after every
     // chunk exists so the water pass has already filled every non-solid
     // wy<=WATER_LEVEL cell with VoxelType.Water. Semantic "near water" beats
     // the old "wy<=WATER_LEVEL" rule because the latter paints deeply buried
@@ -2417,6 +2381,9 @@ public static class WorldGen
     // for nearby DC cells drags that sand onto the visible cliff face.
     private static void TagSubmergedKits(WorldState ws, WorldGenData genData)
     {
+        // Chebyshev radius for the water-adjacency search. Must be >= 2 (see
+        // WorldGenData.SubmergedKitRadius for the mesher-vote rationale).
+        int submergedRadius = genData.SubmergedKitRadius;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
         int worldMaxX = ws.Max.X * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -2461,11 +2428,11 @@ public static class WorldGen
                     }
 
                     bool nearWater = false;
-                    for (int dy = -SUBMERGED_KIT_RADIUS; dy <= SUBMERGED_KIT_RADIUS && !nearWater; dy++)
+                    for (int dy = -submergedRadius; dy <= submergedRadius && !nearWater; dy++)
                     {
-                        for (int dx = -SUBMERGED_KIT_RADIUS; dx <= SUBMERGED_KIT_RADIUS && !nearWater; dx++)
+                        for (int dx = -submergedRadius; dx <= submergedRadius && !nearWater; dx++)
                         {
-                            for (int dz = -SUBMERGED_KIT_RADIUS; dz <= SUBMERGED_KIT_RADIUS && !nearWater; dz++)
+                            for (int dz = -submergedRadius; dz <= submergedRadius && !nearWater; dz++)
                             {
                                 if (ws.GetVoxelWorld(wx + dx, wy + dy, wz + dz) == VoxelType.Water)
                                 {
@@ -2513,29 +2480,12 @@ public static class WorldGen
         return (byte)block.AtlasBaseIndex;
     }
 
-    // How many voxels above/below `wy` to scan the neighbor column for its
-    // local surface. Anything beyond this is treated as a cliff and skipped
-    // (the kit's wall tile already paints cliff faces; overlays are for
-    // walkable slopes the smooth normal can't see).
-    private const int EDGE_SCAN_WINDOW = 4;
-    // Neighbor-diff threshold at/above which we stamp OVERLAY_EDGE. 1 = any
-    // non-flat cardinal neighbor (1-voxel bumps, ramps). Raise to 2+ for
-    // smaller overlay coverage.
-    private const int EDGE_MIN_DIFF = 1;
-    // Neighbor-diff at/above which we stop stamping edge — the feature is a
-    // real cliff and the wall band owns it.
-    private const int EDGE_MAX_DIFF = 3;
-
-    // Placement tuning for the procedural overlay scatter. Noise patches at
-    // these frequencies produce ~10–30-voxel blobs; thresholds choose
-    // roughly 10–20% coverage per type, with field winning over dirt where
-    // they overlap. Feel free to tweak or replace with authored placement.
+    // Edge-overlay scan window / diff band (EdgeScanWindow, EdgeMinDiff,
+    // EdgeMaxDiff) and the procedural overlay scatter frequencies / thresholds
+    // are authored on WorldGenData. The scatter SEEDS stay fixed here — they're
+    // stable RNG salts (like the SEED_SALT_* channels), not feel knobs.
     private const int OVERLAY_DIRT_SEED = 4242;
     private const int OVERLAY_FIELD_SEED = 7373;
-    private const float OVERLAY_DIRT_FREQ = 0.2f;
-    private const float OVERLAY_FIELD_FREQ = 0.015f;
-    private const float OVERLAY_DIRT_THRESHOLD = 0.9f;
-    private const float OVERLAY_FIELD_THRESHOLD = 0.10f;
 
     // Test placement for detail-sprite scatter. Each kit advertises its own
     // DefaultDetail group; this pass walks every surface voxel, reads the
@@ -2553,18 +2503,18 @@ public static class WorldGen
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
     // to Surface kits — sand (underwater/cave) and cave palette stay clean.
-    private static void StampProceduralOverlays(WorldState ws)
+    private static void StampProceduralOverlays(WorldState ws, WorldGenData genData)
     {
         var dirtNoise = new FastNoiseLite();
         dirtNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         dirtNoise.Seed = OVERLAY_DIRT_SEED;
-        dirtNoise.Frequency = OVERLAY_DIRT_FREQ;
+        dirtNoise.Frequency = genData.OverlayDirtFrequency;
         dirtNoise.FractalOctaves = 2;
 
         var fieldNoise = new FastNoiseLite();
         fieldNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
         fieldNoise.Seed = OVERLAY_FIELD_SEED;
-        fieldNoise.Frequency = OVERLAY_FIELD_FREQ;
+        fieldNoise.Frequency = genData.OverlayFieldFrequency;
         fieldNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
@@ -2590,12 +2540,12 @@ public static class WorldGen
                     }
 
                     // Field wins — denser grass masks muddy ground beneath.
-                    if (fieldNoise.GetNoise2D(wx, wz) > OVERLAY_FIELD_THRESHOLD)
+                    if (fieldNoise.GetNoise2D(wx, wz) > genData.OverlayFieldThreshold)
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_FIELD);
                         continue;
                     }
-                    if (dirtNoise.GetNoise2D(wx, wz) > OVERLAY_DIRT_THRESHOLD)
+                    if (dirtNoise.GetNoise2D(wx, wz) > genData.OverlayDirtThreshold)
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
                     }
@@ -2708,7 +2658,7 @@ public static class WorldGen
     }
 
     // SurfaceKit of the zone with the highest weight at column (wx, wz) — the
-    // deterministic dominant zone. Uses the same KIT_BLEND_RADIUS kernel the
+    // deterministic dominant zone. Uses the same KitBlendRadius kernel the
     // (random) kit-border hash samples, so the dominant flips exactly at that
     // kernel's midline and the detail boundary sits where the terrain blend
     // visually crosses over. Returns null when no zone has positive weight or
@@ -2720,7 +2670,7 @@ public static class WorldGen
         int n = zones != null ? zones.Length : 0;
         if (n == 0) { return null; }
         Span<float> weights = n <= 32 ? stackalloc float[n] : new float[n];
-        GetZoneGenWeights(wx, wz, n, weights, KIT_BLEND_RADIUS);
+        GetZoneGenWeights(wx, wz, n, weights, _activeGenData?.KitBlendRadius ?? 2.0f);
         int best = -1;
         float bestW = 0f;
         for (int i = 0; i < n; i++)
@@ -2735,12 +2685,16 @@ public static class WorldGen
     }
 
     // Stamp OVERLAY_DIRT on "surface voxels" (solid with air directly above)
-    // whose local neighborhood slope is in [EDGE_MIN_DIFF, EDGE_MAX_DIFF-1].
+    // whose local neighborhood slope is in [EdgeMinDiff, EdgeMaxDiff-1].
     // Per-voxel, not per-column: correctly handles cave floors, overhangs, and
-    // ledges because the ±EDGE_SCAN_WINDOW clip keeps each voxel's comparison
-    // local to its own walkable layer.
+    // ledges because the ±EdgeScanWindow clip keeps each voxel's comparison
+    // local to its own walkable layer. Currently unused (see the disabled call
+    // in Generate); reads its tuning from the active WorldGenData.
     private static void StampEdgeOverlays(WorldState ws)
     {
+        int edgeScanWindow = _activeGenData?.EdgeScanWindow ?? 4;
+        int edgeMinDiff = _activeGenData?.EdgeMinDiff ?? 1;
+        int edgeMaxDiff = _activeGenData?.EdgeMaxDiff ?? 3;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         int worldMinX = ws.Min.X * ChunkState.SIZE;
@@ -2767,14 +2721,14 @@ public static class WorldGen
                     {
                         int nx = wx + dx[i];
                         int nz = wz + dz[i];
-                        int neighborDiff = FindNearestSurfaceDiff(ws, nx, wy, nz, EDGE_SCAN_WINDOW);
+                        int neighborDiff = FindNearestSurfaceDiff(ws, nx, wy, nz, edgeScanWindow);
                         if (neighborDiff > maxDiff)
                         {
                             maxDiff = neighborDiff;
                         }
                     }
 
-                    if (maxDiff >= EDGE_MIN_DIFF && maxDiff < EDGE_MAX_DIFF)
+                    if (maxDiff >= edgeMinDiff && maxDiff < edgeMaxDiff)
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);
                     }
@@ -2980,7 +2934,7 @@ public static class WorldGen
                     {
                         continue;
                     }
-                    const float grassJitter = 0.2f;
+                    float grassJitter = genData.TallGrassJitter;
                     float jitterX = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
                     float jitterZ = ((float)rng.NextDouble() * 2f - 1f) * grassJitter;
                     ws.AddEntity(new PropSimState(PropType.Foliage,
@@ -3048,8 +3002,8 @@ public static class WorldGen
         // surface). No SpawnContext is supplied — cave-pocket cells are
         // pre-validated by the loop, and a SpawnGroupData inside a cave
         // list collapses to anchor-only placement.
-        const int HEAD_CLEARANCE = 2;
-        const int CAVE_CEILING_PROBE = 6;
+        int HEAD_CLEARANCE = genData.CaveHeadClearance;
+        int CAVE_CEILING_PROBE = genData.CaveCeilingProbe;
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
         for (int localX = 0; localX < ChunkState.SIZE; localX++)

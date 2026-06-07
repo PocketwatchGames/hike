@@ -79,7 +79,10 @@ public partial class GameClient : Node3D
 	// view; the bird's-eye overlook recedes it along the eased lift so the
 	// overview isn't blacked out past the ground-level fog wall.
 	[Export] public WorldEnvironment sceneEnvironment;
-	[Export] public ShaderMaterial upscaleMaterial;
+	// Pixel-art upscale rig (SubViewport render → snapped → upscale composite).
+	// GameClient drives its per-frame snap from _Process; ProjectToScreen
+	// forwards to it. See ViewportRig.
+	[Export] public ViewportRig viewportRig;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
 	// Shared world-pickup scene. Every dropped or spawned item materializes
@@ -109,16 +112,16 @@ public partial class GameClient : Node3D
 	// low-health overlay + heartbeat). GameClient ticks it in _Process and
 	// forwards damage / death events; see ScreenEffectsController.
 	[Export] public ScreenEffectsController screenEffects;
-	[ExportGroup("")]
+	[ExportGroup("Aim Cursor")]
 	// Aim-cursor saturation radius (pixels). Larger = more mouse travel
 	// before the virtual cursor reaches the edge of its disk, so the aim
 	// direction takes longer to swing. Direction-only after this — atan2
 	// in Player ignores magnitude.
-	const float AIM_CURSOR_RADIUS_PX = 200f;
+	[Export(PropertyHint.Range, "20,600,1")] public float aimCursorRadiusPx = 200f;
 	// Below this magnitude the accumulator is treated as "at rest" and the
 	// player's aim direction is left alone. Stops sub-pixel jitter from
 	// continuously re-aiming when the player is trying to hold steady.
-	const float AIM_CURSOR_DEADZONE_PX = 5f;
+	[Export(PropertyHint.Range, "0,50,0.5")] public float aimCursorDeadzonePx = 5f;
 
 	[ExportGroup("Subsystems")]
 	// Authored as embedded child scenes in game.tscn — their tuning lives on
@@ -291,11 +294,13 @@ public partial class GameClient : Node3D
 	// a chain of border zones can't keep the player tagged with a region
 	// they've walked far away from. UpdateRegion runs the state machine
 	// each tick.
-	const float REGION_DWELL_SECONDS = 1.5f;
-	const float REGION_ENTER_DISTANCE_CHUNKS = 1.0f;
+	[ExportGroup("Region Hysteresis")]
+	[Export(PropertyHint.Range, "0,10,0.1")] public float regionDwellSeconds = 1.5f;
+	[Export(PropertyHint.Range, "0,8,0.25")] public float regionEnterDistanceChunks = 1.0f;
 	// A bit larger than ZoneBlend.BlendRadiusChunks (= 2) so the visible
 	// cross-blend band is fully inside the sticky range.
-	const float REGION_BORDER_TRAVEL_CHUNKS = 3.0f;
+	[Export(PropertyHint.Range, "0,8,0.25")] public float regionBorderTravelChunks = 3.0f;
+	[ExportGroup("")]
 	RegionData _pendingRegion;
 	Vector3 _pendingRegionEnterPos;
 	float _pendingRegionElapsed;
@@ -353,33 +358,28 @@ public partial class GameClient : Node3D
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
 	InteractHUD _interactHUD;
-	Vector2 _subpixelTexelOffset;
 
 	// Per-frame entity-spawn budget for the loading-screen-opaque window.
 	// World defaults to 8/frame for hitch-free in-game streaming; 64 burns
 	// through the inner sphere in a fraction of a second since the player
 	// can't see the frame hitches behind the overlay. Reset to the default
 	// before the fade so post-fade pop-in stays smooth.
-	const int LOADING_ENTITY_SPAWN_BURST = 64;
+	[ExportGroup("Loading")]
+	[Export(PropertyHint.Range, "1,256,1")] public int loadingEntitySpawnBurst = 64;
 
+	[ExportGroup("")]
 	// Bird's-eye overlook driver — lifts the camera off the player into a
 	// zoomed-out overview. GameClient ticks it in _Process, forwards the
 	// player's onBirdsEye event, and reads its foliage/blur state; see
 	// BirdsEyeController.
 	[Export] public BirdsEyeController birdsEye;
 
-	public int PixelScale => Math.Max(1, CVars.pixelScale.Value);
-
+	// World → screen-pixel projection for the HUD layers. Forwards to the
+	// viewport rig, which owns the sub-texel offset that aligns it with the
+	// upscaled render.
 	public Vector2 ProjectToScreen(Vector3 worldPos)
 	{
-		// The upscale shader flips V (sample at 1 - inner_uv.y) to
-		// compensate for Godot's Y-up viewport texture storage. That flip
-		// inverts the direction of uv_offset.y relative to uv_offset.x, so
-		// the Y correction here adds the subpixel offset where X subtracts.
-		Vector2 innerPx = camera.UnprojectPosition(worldPos);
-		return new Vector2(
-			(innerPx.X - _subpixelTexelOffset.X) * PixelScale,
-			(innerPx.Y + _subpixelTexelOffset.Y) * PixelScale);
+		return viewportRig?.ProjectToScreen(worldPos) ?? Vector2.Zero;
 	}
 
 	public override void _Ready()
@@ -412,13 +412,6 @@ public partial class GameClient : Node3D
 		_inputSuppressed = false;
 		_inputSuppressClearPending = false;
 
-		GetTree().Root.SizeChanged += UpdateViewportSize;
-		UpdateViewportSize();
-
-		if (upscaleMaterial != null)
-		{
-			upscaleMaterial.SetShaderParameter("inner_tex", sceneViewport.GetTexture());
-		}
 	}
 
 	public async void Init(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldState worldState, LoadingScreen loadingScreen = null)
@@ -497,7 +490,7 @@ public partial class GameClient : Node3D
 		// frames for fewer of them. Reset to the in-game default right
 		// before HideWithFade so the outer-shell drain (enqueued by
 		// ExpandToFullEntityRadius) pops in at the normal rate.
-		_world.MaxEntitiesPerFrame = LOADING_ENTITY_SPAWN_BURST;
+		_world.MaxEntitiesPerFrame = loadingEntitySpawnBurst;
 		_world.SetPlayer(_player);
 
 		// Capture the peak entity-spawn count immediately after SetPlayer.
@@ -655,11 +648,13 @@ public partial class GameClient : Node3D
 		return component != null ? $"{langName} {component}" : langName;
 	}
 
-// Push radius and bend strength for the detail-sprite shader's player
+	[ExportGroup("Detail Sprite Reaction")]
+	// Push radius and bend strength for the detail-sprite shader's player
 	// reaction. ~0.6m matches the player's foot footprint; 0.25m bend reads
 	// as grass parting around the player's legs without snapping flat.
-	private const float DETAIL_PLAYER_RADIUS = 0.6f;
-	private const float DETAIL_PLAYER_STRENGTH = 0.25f;
+	[Export(PropertyHint.Range, "0,4,0.05")] public float detailPlayerRadius = 0.6f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float detailPlayerStrength = 0.25f;
+	[ExportGroup("")]
 
 	// Per-frame smoothing state for the foliage cutaway radius. 0 = at base
 	// radius, 1 = at active (expanded) radius. Lerped toward 1 when the
@@ -818,13 +813,13 @@ public partial class GameClient : Node3D
 		// the player. Single global, sub-byte cost; written every frame so
 		// stale values don't persist when the player teleports.
 		RenderingServer.GlobalShaderParameterSet("player_pos", _player.GlobalPosition);
-		RenderingServer.GlobalShaderParameterSet("player_radius", DETAIL_PLAYER_RADIUS);
-		RenderingServer.GlobalShaderParameterSet("player_strength", DETAIL_PLAYER_STRENGTH);
+		RenderingServer.GlobalShaderParameterSet("player_radius", detailPlayerRadius);
+		RenderingServer.GlobalShaderParameterSet("player_strength", detailPlayerStrength);
 
 		if (birdsEye != null && birdsEye.IsActive)
 		{
 			birdsEye.UpdateCamera(deltaTime);
-			SnapCameraAndUpdateUpscale();
+			viewportRig?.SnapAndUpscale();
 			// Sprites are sized off `sprite_chunky` (world meters per inner-viewport
 			// texel) — SnapCameraAndUpdateUpscale ties it to the live ortho Size so
 			// the pixel-art look stays "1 source pixel = N screen pixels". During
@@ -863,7 +858,7 @@ public partial class GameClient : Node3D
 				followTime = camera.followTimeNormal;
 			}
 			camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
-			SnapCameraAndUpdateUpscale();
+			viewportRig?.SnapAndUpscale();
 			CullProps(camera.Clip);
 		}
 		// Sync the cap-mask camera AFTER the chunky-pixel snap so the mask
@@ -915,11 +910,11 @@ public partial class GameClient : Node3D
 	//   - Candidate region differs from CurrentRegion: dwell timer
 	//     accumulates; commit the swap (and announce the region) once
 	//     the player has stayed in the candidate's chunks for
-	//     REGION_DWELL_SECONDS or moved REGION_ENTER_DISTANCE_CHUNKS
+	//     regionDwellSeconds or moved regionEnterDistanceChunks
 	//     past where the dwell started.
 	//   - Underfoot chunk is a border (Regions[i].Data == null):
 	//     CurrentRegion stays put until the player has traveled
-	//     REGION_BORDER_TRAVEL_CHUNKS from where they entered, then
+	//     regionBorderTravelChunks from where they entered, then
 	//     CurrentRegion clears silently.
 	void UpdateRegion(double deltaTime)
 	{
@@ -938,7 +933,7 @@ public partial class GameClient : Node3D
 
 			if (CurrentRegion != null)
 			{
-				if (ChunkDistanceXZ(playerPos, _currentRegionEnterPos) > REGION_BORDER_TRAVEL_CHUNKS)
+				if (ChunkDistanceXZ(playerPos, _currentRegionEnterPos) > regionBorderTravelChunks)
 				{
 					CurrentRegion = null;
 				}
@@ -969,8 +964,8 @@ public partial class GameClient : Node3D
 			_pendingRegionElapsed += (float)deltaTime;
 		}
 
-		bool dwellMet = _pendingRegionElapsed >= REGION_DWELL_SECONDS;
-		bool distMet = ChunkDistanceXZ(playerPos, _pendingRegionEnterPos) >= REGION_ENTER_DISTANCE_CHUNKS;
+		bool dwellMet = _pendingRegionElapsed >= regionDwellSeconds;
+		bool distMet = ChunkDistanceXZ(playerPos, _pendingRegionEnterPos) >= regionEnterDistanceChunks;
 		if (dwellMet || distMet)
 		{
 			CurrentRegion = candidate;
@@ -1075,107 +1070,6 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	void UpdateViewportSize()
-	{
-		if (sceneViewport == null)
-		{
-			return;
-		}
-		Vector2I screenSize = GetTree().Root.Size;
-		int scale = Math.Max(1, CVars.pixelScale.Value);
-		// +1 pixel padding on each axis for subpixel camera offset.
-		int innerW = (screenSize.X + scale - 1) / scale + 1;
-		int innerH = (screenSize.Y + scale - 1) / scale + 1;
-		sceneViewport.Size = new Vector2I(innerW, innerH);
-
-		if (upscaleMaterial != null)
-		{
-			Vector2 uvScale = new Vector2(
-				(float)screenSize.X / (scale * innerW),
-				(float)screenSize.Y / (scale * innerH));
-			upscaleMaterial.SetShaderParameter("uv_scale", uvScale);
-		}
-	}
-
-	void SnapCameraAndUpdateUpscale()
-	{
-		if (sceneViewport == null || upscaleMaterial == null)
-		{
-			return;
-		}
-
-		int scale = Math.Max(1, CVars.pixelScale.Value);
-		Vector2I screenSize = GetTree().Root.Size;
-		Vector2I innerSize = sceneViewport.Size;
-
-		// World units per inner-viewport texel. Orthographic camera.Size is
-		// the vertical world extent mapped across innerSize.Y texels (Godot
-		// derives horizontal size from viewport aspect, so texel width in
-		// world equals this too). The camera must snap in multiples of this
-		// so every voxel edge projects to the same sub-texel offset frame
-		// to frame — otherwise wall pixels crawl within each chunky block.
-		float chunky = camera.Size / Mathf.Max(1, innerSize.Y);
-		RenderingServer.GlobalShaderParameterSet("sprite_chunky", chunky);
-
-		// Vertical stretch = 1/cos(camera pitch) — compensates for the main
-		// camera's tilt so one source pixel = one screen pixel. The shadow
-		// caster uses the same stretch to match the visible sprite's
-		// world-space height, keeping shadow length consistent with the view.
-		// Vertical stretch = 1/cos(camera pitch) — compensates for the main
-		// camera's tilt so one source pixel = one screen pixel.
-		Vector3 mainForward = camera.GlobalBasis.Z;
-		float mainPitch = Mathf.Asin(Mathf.Clamp(Mathf.Abs(mainForward.Y), 0f, 1f));
-		float spriteStretch = 1f / Mathf.Max(Mathf.Cos(mainPitch), 1e-4f);
-		RenderingServer.GlobalShaderParameterSet("sprite_stretch", spriteStretch);
-		// Flat-on-ground sprite stretch = 1/sin(camera pitch). Read by the
-		// sprite_lit_flat shader. The depth axis (horizontal, away from
-		// camera) projects to screen Y with sin(pitch); inverting that
-		// recovers a 1:1 source-pixel-to-screen-pixel mapping for flat
-		// sprites just like sprite_stretch does for upright. Behaves
-		// reciprocally to spriteStretch — high-pitch (camera near vertical)
-		// stretches upright sprites toward infinity but leaves flat sprites
-		// at ~1, and vice versa.
-		float spriteStretchFlat = 1f / Mathf.Max(Mathf.Sin(mainPitch), 1e-4f);
-		RenderingServer.GlobalShaderParameterSet("sprite_stretch_flat", spriteStretchFlat);
-
-		Vector3 pos = camera.GlobalPosition;
-		Basis basis = camera.GlobalBasis;
-		Vector3 right = basis.X;
-		Vector3 up = basis.Y;
-		Vector3 forward = basis.Z;
-
-		float rx = right.Dot(pos);
-		float ry = up.Dot(pos);
-		float rz = forward.Dot(pos);
-
-		float sx = Mathf.Floor(rx / chunky) * chunky;
-		float sy = Mathf.Floor(ry / chunky) * chunky;
-		float fracX = rx - sx;
-		float fracY = ry - sy;
-
-		camera.GlobalPosition = sx * right + sy * up + rz * forward;
-
-		// fracX/fracY in [0, chunky); convert to texel units (in [0,1) of a
-		// single inner texel) and then to UV.
-		float texFracX = fracX / chunky;
-		float texFracY = fracY / chunky;
-		Vector2 uvOffset = new Vector2(texFracX / innerSize.X, texFracY / innerSize.Y);
-		_subpixelTexelOffset = new Vector2(texFracX, texFracY);
-
-		upscaleMaterial.SetShaderParameter("uv_offset", uvOffset);
-		// uv_scale may drift if pixel_scale is changed at runtime without a
-		// window resize; refresh it every frame so the CVar toggle works live.
-		Vector2 uvScale = new Vector2(
-			(float)screenSize.X / (scale * innerSize.X),
-			(float)screenSize.Y / (scale * innerSize.Y));
-		upscaleMaterial.SetShaderParameter("uv_scale", uvScale);
-
-		if (sceneViewport.Size.X != innerSize.X || sceneViewport.Size.Y != innerSize.Y)
-		{
-			UpdateViewportSize();
-		}
-	}
-
 	// Bumps the screen damage-flash + low-health overlay window. Called from
 	// Player.OnHurtBoxHit (direct) and from _PhysicsProcess after each DOT HUD
 	// flush; forwards to the ScreenEffectsController that owns the post pass.
@@ -1222,17 +1116,17 @@ public partial class GameClient : Node3D
 				return;
 			}
 			_mousePosition += mouseMotion.Relative * CVars.mouseSensitivity.Value;
-			if (_mousePosition.LengthSquared() > AIM_CURSOR_RADIUS_PX * AIM_CURSOR_RADIUS_PX)
+			if (_mousePosition.LengthSquared() > aimCursorRadiusPx * aimCursorRadiusPx)
 			{
-				_mousePosition = _mousePosition.Normalized() * AIM_CURSOR_RADIUS_PX;
+				_mousePosition = _mousePosition.Normalized() * aimCursorRadiusPx;
 			}
-			if (_mousePosition.LengthSquared() >= AIM_CURSOR_DEADZONE_PX * AIM_CURSOR_DEADZONE_PX)
+			if (_mousePosition.LengthSquared() >= aimCursorDeadzonePx * aimCursorDeadzonePx)
 			{
 				// Pass the deflection normalized to the disk radius so the
 				// magnitude matches the gamepad right-stick convention (0..1).
 				// Positional aim integrates this as a rate input; Directional
 				// reads only the angle so it doesn't care either way.
-				Vector2 deflection01 = _mousePosition / AIM_CURSOR_RADIUS_PX;
+				Vector2 deflection01 = _mousePosition / aimCursorRadiusPx;
 				_player.ProcessMouseMotion(deflection01, camera.Yaw);
 			}
 		}

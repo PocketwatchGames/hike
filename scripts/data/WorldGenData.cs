@@ -106,14 +106,6 @@ public partial class WorldGenData : Resource
     // scaffolding — the editor's placement pass replaces it.
     [Export] public PackedScene NearSpawnBoatScene;
 
-    // Single test-fixture rideable boat moored off the coast. WorldGen marches
-    // straight outward from the origin along +X (the coastal half — see
-    // PickZoneIndex) until it reaches open sea, then floats the boat a few
-    // voxels offshore. References the boat *scene* (which embeds boat.tres /
-    // BoatData); skipped if null or if no coastline is found along the ray.
-    // Temporary scaffolding — the editor's placement pass replaces it.
-    [Export] public PackedScene OffCoastBoatScene;
-
     // Single test-fixture friendly villager placed a few voxels east of the
     // default player spawn. NearSpawnVillagerData is the species template;
     // the rest are per-instance overrides stamped onto the spawned
@@ -134,4 +126,109 @@ public partial class WorldGenData : Resource
     // sunlight bake. Y is picked from average surface elevation over the
     // footprint — see SubsceneStamper.ComputeSurfaceAnchor.
     [Export] public SubscenePlacement[] Subscenes = System.Array.Empty<SubscenePlacement>();
+
+    // ─────────────────────────────────────────────────────────────────────
+    // WorldGen tuning. These were `const`s inside WorldGen.cs — the feel /
+    // authoring knobs the generator reads each run. Defaults match the former
+    // constants exactly, so an un-edited WorldGenData generates the same world
+    // as before. Stable internal identifiers (seed/hash salts, skip-flag
+    // bitmasks, storage caps, the staircase pattern) stay as consts in
+    // WorldGen.cs — they are not authoring knobs.
+    // ─────────────────────────────────────────────────────────────────────
+
+    [ExportGroup("Terrain Noise")]
+    // Primary terrain height noise. Frequency sets feature scale (lower =
+    // broader hills); octaves add fractal detail.
+    [Export] public float TerrainNoiseFrequency = 0.02f;
+    [Export] public int TerrainNoiseOctaves = 4;
+    // Low-frequency macro elevation the per-zone terrain noise rides on top of
+    // — broad continental basins / foothills independent of which zone a chunk
+    // belongs to.
+    [Export] public float ElevationNoiseFrequency = 0.005f;
+    [Export] public int ElevationNoiseOctaves = 1;
+
+    [ExportGroup("Cave & Tunnel Noise")]
+    [Export] public float TunnelNoiseFrequency = 0.025f;
+    [Export] public int TunnelNoiseOctaves = 2;
+    // Cave noise frequency is authored per-zone (ZoneGenData.CaveNoiseFrequency);
+    // only the fractal octave count is world-wide.
+    [Export] public int CaveNoiseOctaves = 2;
+
+    [ExportGroup("Scatter Noise")]
+    [Export] public float GrassNoiseFrequency = 0.1f;
+    [Export] public int GrassNoiseOctaves = 2;
+    // Low-frequency ramp gate whose zero-crossings mark which plateau
+    // boundaries get ramped instead of cliffed.
+    [Export] public float RampGateNoiseFrequency = 0.015f;
+    [Export] public int RampGateNoiseOctaves = 1;
+    // Forest noise base frequency stays 1 (per-kit frequency is applied at
+    // sample time by scaling input coords); only the octave count is shared.
+    [Export] public int ForestNoiseOctaves = 2;
+
+    [ExportGroup("Terrain Shaping")]
+    // Horizontal cells per 1 vertical voxel on a ramp skirt. With PlateauStep=4,
+    // slope 1 gives a 4-cell ramp rising one full step (steep but narrow).
+    [Export] public int RampSlope = 1;
+    // |pathNoise| below this marks the core of a ramp zone (thin, sparse
+    // meanders). Authored at sub-0.01 magnitudes — the range hint keeps the
+    // spinbox from snapping the value.
+    [Export(PropertyHint.Range, "0,1,0.0001")] public float RampAnchorBand = 0.015f;
+    // Half-amplitude (in plateau steps) added by the macro elevation noise.
+    [Export] public float MacroElevationRangePlateaus = 1f;
+    // Far east of the world drops to ocean over this many chunks, down to
+    // OceanDepthPlateaus below zero at the east edge.
+    [Export] public int ShorelineChunks = 2;
+    [Export] public float OceanDepthPlateaus = 3f;
+
+    [ExportGroup("Fog")]
+    // Per-column "bucket capacity" at humidity = 1, in voxel-depth units.
+    [Export] public float FogVolumePerHumidity = 6f;
+    // Density gradient inside the bucket: density(wy) = (ceiling - wy) *
+    // FogDensityPerVoxel, clamped to [0, 255].
+    [Export] public float FogDensityPerVoxel = 80f;
+
+    [ExportGroup("Zone Blending")]
+    // Per-column smoothstep blend radius (in chunks) for the worldgen scalar
+    // fades (elevation, density). See WorldGen.GetZoneGenWeights.
+    [Export] public float ZoneGenBlendRadius = 2.0f;
+    // Per-voxel kit-stamp blend radius (in chunks). Must stay >= 1.0 or corner
+    // voxels fall back to a chunk-aligned hard seam. See WorldGen.PickKitZone.
+    [Export] public float KitBlendRadius = 2.0f;
+
+    [ExportGroup("Overlay Scatter")]
+    [Export] public float OverlayDirtFrequency = 0.2f;
+    [Export] public float OverlayFieldFrequency = 0.015f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float OverlayDirtThreshold = 0.9f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float OverlayFieldThreshold = 0.10f;
+    // Edge-overlay heuristic (the StampEdgeOverlays pass, currently disabled):
+    // how far up/down to scan a neighbour column for its surface, and the
+    // diff band that counts as a ramp/step rather than a flat or a cliff.
+    [Export] public int EdgeScanWindow = 4;
+    [Export] public int EdgeMinDiff = 1;
+    [Export] public int EdgeMaxDiff = 3;
+
+    [ExportGroup("Submerged Kit")]
+    // Chebyshev radius for the water-adjacency search in TagSubmergedKits.
+    // Must be >= 2 (see WorldGen.TagSubmergedKits).
+    [Export] public int SubmergedKitRadius = 2;
+
+    [ExportGroup("Props")]
+    // XZ jitter (in voxels) applied to scattered tall-grass foliage.
+    [Export] public float TallGrassJitter = 0.2f;
+    // Cave-pocket spawn gate: required head clearance and how far up to probe
+    // for a ceiling before a column counts as an enclosed pocket.
+    [Export] public int CaveHeadClearance = 2;
+    [Export] public int CaveCeilingProbe = 6;
+
+    [ExportGroup("Placement Tuning")]
+    // Max rejection-sampling attempts when rolling a random column for a
+    // one-off fixture / signpost before giving up (or falling back).
+    [Export] public int FixturePlacementMaxTries = 256;
+    // Near-spawn test-fixture placement (voxel XZ). Temporary scaffolding —
+    // see the matching scene fields above.
+    [Export] public Vector2I NearSpawnVillagerSpawn = new(32, 32);
+    [Export] public Vector2I NearSpawnStashSpawn = new(0, 3);
+    // Ring-scan radius (in voxels) for the nearest water-topped column the
+    // near-spawn boat is floated on.
+    [Export] public int NearSpawnBoatSearchRadius = 48;
 }
