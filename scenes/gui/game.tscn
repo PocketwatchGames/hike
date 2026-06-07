@@ -17,6 +17,8 @@
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
+[ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
+[ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="Material" uid="uid://bodv5gd4psxkh" path="res://resources/materials/heat_shimmer.tres" id="heat_shimmer_mat"]
 [ext_resource type="PackedScene" uid="uid://cuyfeo5we7vxp" path="res://scenes/hud/hud_text_backstab.tscn" id="hud_text_backstab"]
 [ext_resource type="PackedScene" uid="uid://bv6kkm02f7457" path="res://scenes/hud/hud_text_crit.tscn" id="hud_text_crit"]
@@ -72,7 +74,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "bloomQuad", "heartbeatAudio")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "bloomQuad", "heartbeatAudio", "birdsEyeWindAudio", "birdsEyeSwooshAudio")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
@@ -83,6 +85,7 @@ stashScreen = NodePath("GUICanvas/StashScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
+sceneEnvironment = NodePath("SceneViewport/InnerEnv")
 bloomQuad = NodePath("BloomQuad")
 upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
@@ -101,6 +104,8 @@ postProcessMaterial = ExtResource("post_process_mat")
 lowHealthHeartbeatSlowBpm = 45.0
 lowHealthHeartbeatFastBpm = 90.0
 heartbeatAudio = NodePath("HeartbeatAudio")
+birdsEyeWindAudio = NodePath("BirdsEyeWindAudio")
+birdsEyeSwooshAudio = NodePath("BirdsEyeSwooshAudio")
 minimapFoliageColors = ExtResource("minimap_foliage_colors")
 minimapRevealMultiplier = 2.0
 minimapRevealInnerFraction = 0.95
@@ -303,6 +308,14 @@ fogMaterial = ExtResource("fog_volumetric_mat")
 [node name="HeartbeatAudio" type="AudioStreamPlayer" parent="." unique_id=1349076880]
 stream = ExtResource("heartbeat_sfx")
 volume_db = -4.0
+
+[node name="BirdsEyeWindAudio" type="AudioStreamPlayer" parent="." unique_id=1349076881]
+stream = ExtResource("birdseye_wind_sfx")
+volume_db = -60.0
+
+[node name="BirdsEyeSwooshAudio" type="AudioStreamPlayer" parent="." unique_id=1349076882]
+stream = ExtResource("birdseye_swoosh_sfx")
+volume_db = -2.0
 
 [node name="PostProcess" type="CanvasLayer" parent="." unique_id=1349076879]
 layer = 0

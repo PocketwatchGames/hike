@@ -285,9 +285,10 @@ public static class CVars
         float effIntensity = Godot.Mathf.Lerp(pal.PrimaryIntensity, pal.NightPrimaryIntensity, pal.NightT);
         float fixFactor = Godot.Mathf.SmoothStep(0f, fogIntensityReference, effIntensity);
         float fixPhaseScale = Godot.Mathf.Lerp(fogIntensityFloor, 1f, fixFactor);
-        // Final values sent to the shader (× 1/visScale, like SkyController does).
-        float visScale = Godot.Mathf.Max(0.01f, sky.FogVisibilityScale);
-        float invVis = 1f / visScale;
+        // Final values sent to the shader. Authored fog is no longer thinned by
+        // the overview's FogVisibilityScale (it only stretches fog_max_distance
+        // now); the general haze is thinned by AmbientFogScale instead.
+        float ambientFogScale = sky.AmbientFogScale;
         // Sample authored fog_map around the player to see if painted volumes
         // (not ambient haze) are the source of the murk here.
         int maxAuthoredFog = 0;
@@ -311,8 +312,8 @@ public static class CVars
         }
         Godot.GD.Print($"  FOG (what the volumetric shader reads):");
         Godot.GD.Print($"    fog signal           = {pal.Fog:F3}   (post-floor humidity×coolDiurnal)");
-        Godot.GD.Print($"    fog_density          = {pal.FogDensity * invVis:F4}   (scales painted fog_map)");
-        Godot.GD.Print($"    ambient_fog_density  = {pal.AmbientFogDensity * invVis:F4}   (uniform whole-scene haze, NO height gate)");
+        Godot.GD.Print($"    fog_density          = {pal.FogDensity:F4}   (scales painted fog_map)");
+        Godot.GD.Print($"    ambient_fog_density  = {pal.AmbientFogDensity * ambientFogScale:F4}   (uniform whole-scene haze, NO height gate)");
         Godot.GD.Print($"    authored fog_map nearby = {maxAuthoredFog}/255   (>0 = painted fog volume present)");
         Godot.GD.Print($"  FOG NIGHT-DIMMING DIAGNOSTIC:");
         Godot.GD.Print($"    PrimaryIntensity (sun-side, used now) = {pal.PrimaryIntensity:F3}");

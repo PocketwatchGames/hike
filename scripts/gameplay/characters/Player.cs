@@ -40,6 +40,9 @@ public partial class Player : CharacterBody3D
 	// hide / birds-eye.
 	private Node3D _activeVisual;
 	[Export] private AudioListener3D _audioListener;
+	// Authored head-height local pose of _audioListener (player.tscn). Restored
+	// when the bird's-eye world-position override is cleared.
+	private static readonly Vector3 AUDIO_LISTENER_REST_POS = new Vector3(0f, 1f, 0f);
 	[Export] private AimingReticle _aimingReticle;
 	// Drives the in-hand 3D model of the wielded weapon / used consumable.
 	// Updated event-side from TryStartWeaponAction (weapon swap) and per-tick
@@ -235,6 +238,30 @@ public partial class Player : CharacterBody3D
 		{
 			_hidden = false;
 			SetModelVisible(true);
+		}
+	}
+
+	// Bird's-eye lifts the audio listener off the player's head toward the
+	// overview camera so ground-positional (World3D) audio recedes as the view
+	// climbs. The listener is a child of the player; TopLevel detaches it from
+	// the player transform so a world-space position sticks (the player is
+	// movement-locked during the overlook, but knockback can still nudge it).
+	// Pass null to restore the authored head-local rest pose on the way down.
+	public void SetAudioListenerWorldOverride(Vector3? worldPos)
+	{
+		if (_audioListener == null)
+		{
+			return;
+		}
+		if (worldPos.HasValue)
+		{
+			_audioListener.TopLevel = true;
+			_audioListener.GlobalPosition = worldPos.Value;
+		}
+		else if (_audioListener.TopLevel)
+		{
+			_audioListener.TopLevel = false;
+			_audioListener.Position = AUDIO_LISTENER_REST_POS;
 		}
 	}
 
@@ -4043,6 +4070,19 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateHighlightInteractive()
 	{
+		// Bird's-eye suppresses interactive highlighting entirely — no outline,
+		// no interact prompt while the camera is up. Clear any target held when
+		// the overview began so GameClient drops the outline + interact HUD.
+		if (_birdsEye)
+		{
+			if (_highlightInteractive != null)
+			{
+				_highlightInteractive = null;
+				onHighlightChanged?.Invoke(null);
+			}
+			return;
+		}
+
 		if (_curInteractive != null)
 		{
 			return;

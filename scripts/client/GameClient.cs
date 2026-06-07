@@ -72,6 +72,11 @@ public partial class GameClient : Node3D
 	[Export] public DeathScreen deathScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
+	// Scene WorldEnvironment (SceneViewport/InnerEnv). Its built-in DEPTH fog
+	// (fog_depth_begin/end, black) darkens distant ground for the normal iso
+	// view; the bird's-eye overlook recedes it along the eased lift so the
+	// overview isn't blacked out past the ground-level fog wall.
+	[Export] public WorldEnvironment sceneEnvironment;
 	[Export] public MeshInstance3D bloomQuad;
 	[Export] public ShaderMaterial upscaleMaterial;
 	[Export] public ShaderMaterial fogMaterial;
@@ -579,12 +584,34 @@ public partial class GameClient : Node3D
 	// by ground-level fog. Lerps from 1 (ground) to this at full lift via
 	// SkyController.FogVisibilityScale.
 	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeFogVisibilityScale = 4f;
+	// Apex multiplier on the GENERAL whole-scene haze (ambient_fog_density) for
+	// the overview. 0 = no general fog aloft (authored low-lying fog_map volumes
+	// are unaffected and stay visible). Eased 1→this over the lift, restored to
+	// 1 on the way down.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float birdsEyeAmbientFogScale = 0f;
+	// Apex multiplier on the scene Environment's built-in DEPTH fog range
+	// (fog_depth_begin/end). The authored range (~88–105 m, black) is meant for
+	// ground-level play; at this multiplier it's pushed well past the camera far
+	// plane so the overview shows distant ground instead of a black wall. Eased
+	// 1→this over the lift, restored to 1 on the way down.
+	[Export(PropertyHint.Range, "1,64,1,or_greater")] public float birdsEyeBuiltinFogDepthScale = 16f;
 	// Time-constant (seconds) for easing the fog-reveal radius out toward the
 	// chunk-load frontier. The fly-up timing itself is fixed (birdsEye-
 	// TransitionSeconds); this only smooths the haze edge so a batch of chunks
 	// finishing in one frame doesn't snap the curtain outward. Clamped to never
 	// exceed the frontier, so it can't reveal a chunk that isn't resident.
 	[Export(PropertyHint.Range, "0.05,2,0.05")] public float birdsEyeRevealSmoothTime = 0.3f;
+	// Looping high-altitude wind, faded in along the eased lift so the overview
+	// crossfades from ground ambience to wind aloft. Lives on a non-ducked bus
+	// (Master) so the ambience-duck below doesn't pull it down with the ground
+	// layers. Apex volume below.
+	[Export] public AudioStreamPlayer birdsEyeWindAudio;
+	[Export(PropertyHint.Range, "-40,0,1")] public float birdsEyeWindVolumeDb = -7f;
+	// One-shot whoosh played at the start of the fly-up AND the fly-down.
+	[Export] public AudioStreamPlayer birdsEyeSwooshAudio;
+	// How far the ground ambience bus is ducked at the apex (dB), so the wind
+	// reads as taking over aloft. Restored on the way down.
+	[Export(PropertyHint.Range, "0,24,0.5")] public float birdsEyeAmbienceDuckDb = 12f;
 
 	enum EBirdsEyePhase { None, FlyUp, Steady, FlyDown }
 	EBirdsEyePhase _birdsEyePhase = EBirdsEyePhase.None;
@@ -594,6 +621,19 @@ public partial class GameClient : Node3D
 	// Eased fog-reveal radius (world metres). -1 = "snap to the frontier on the
 	// next overlook frame" (set on FlyUp start and after FlyDown completes).
 	float _overlookRevealRadius = -1f;
+	// Ground ambience bus name + its pre-overlook volume, captured on FlyUp so
+	// the eased duck restores cleanly even if the authored level changes.
+	const string AMBIENCE_BUS_NAME = "Ambience2D";
+	float _ambienceBaseVolumeDb;
+	// Authored built-in depth-fog range, captured on FlyUp so the eased push
+	// (and restore) ride the values the Environment was actually authored with.
+	float _builtinFogDepthBeginBase;
+	float _builtinFogDepthEndBase;
+	// Wind volume at eased=0 — effectively silent so the loop starts inaudible.
+	const float BIRDS_EYE_WIND_DB_FLOOR = -60f;
+	// Height above the player's feet treated as the on-ground listener anchor
+	// (matches the AudioListener3D's authored local Y in player.tscn).
+	const float AUDIO_LISTENER_HEAD_HEIGHT = 1f;
 	// Screen-space motion-blur direction during fly-up. The camera rises in
 	// world; objects sweep downward on screen (Godot SCREEN_UV has Y=0 at top),
 	// so the blur trails toward +Y. Same convention as the camera's RotateLeft.
@@ -1161,7 +1201,8 @@ public partial class GameClient : Node3D
 			// outline via _meshHighlight; without this gate the overlay is forced
 			// visible here still carrying the PREVIOUS sprite target's texture and
 			// transform — the "stale villager highlight in a weird place" ghost.
-			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive && _meshHighlight == null;
+			bool birdsEyeActive = _player?.IsBirdsEye ?? false;
+			bool shouldShow = _player?.HighlightInteractive != null && !externalHudActive && _meshHighlight == null && !birdsEyeActive;
 			if (_highlightOverlay.Visible != shouldShow)
 			{
 				_highlightOverlay.Visible = shouldShow;
@@ -1346,6 +1387,51 @@ public partial class GameClient : Node3D
 		}
 	}
 
+	public override void _ExitTree()
+	{
+		// Safety net: a quit or scene change mid-overlook never runs the FlyDown
+		// teardown, so the globally-shared ground ambience bus would stay ducked
+		// — and the next overlook would snapshot that ducked level as its base,
+		// accumulating the duck across runs. Undo it here if still active.
+		if (_birdsEyePhase != EBirdsEyePhase.None)
+		{
+			int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
+			if (ambBus >= 0)
+			{
+				AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb);
+			}
+		}
+	}
+
+	// Show/hide the in-world UI for the bird's-eye overview shot. Hides the HUD,
+	// the dust motes, and the rain, and drops any live interactive outline +
+	// floating prompt. The per-frame highlight gate and UpdateInteractHUD keep
+	// the outline/prompt from reappearing while IsBirdsEye is true.
+	void SetBirdsEyeUiHidden(bool hidden)
+	{
+		if (hud != null)
+		{
+			hud.Visible = !hidden;
+		}
+		if (MoteEffect.Current != null)
+		{
+			MoteEffect.Current.Visible = !hidden;
+		}
+		if (RainEffect.Current != null)
+		{
+			RainEffect.Current.Visible = !hidden;
+		}
+		if (hidden)
+		{
+			RemoveHighlight();
+			if (_interactHUD != null)
+			{
+				_interactHUD.QueueFree();
+				_interactHUD = null;
+			}
+		}
+	}
+
 	void OnPlayerBirdsEye(bool active)
 	{
 		if (active)
@@ -1358,8 +1444,11 @@ public partial class GameClient : Node3D
 			_birdsEyeElapsed = 0f;
 			// Switch the chunk streamer into its panorama profile and arm the
 			// fog reveal to snap to the frontier on its first frame (so the
-			// already-loaded near field isn't briefly curtained).
-			World.Current?.ChunkManager?.BeginOverlook();
+			// already-loaded near field isn't briefly curtained). The streamed
+			// radius is sized from the apex visible footprint so the backdrop
+			// reaches the screen corners even at extreme zoom (otherwise the
+			// reveal — clamped to the loaded frontier — leaves a foggy ring).
+			World.Current?.ChunkManager?.BeginOverlook(ComputeOverlookGroundRadius());
 			_overlookRevealRadius = -1f;
 			camera.ManualClipMode = true;
 			// Force the indoor cutaway off so the camera can see the world from
@@ -1377,6 +1466,33 @@ public partial class GameClient : Node3D
 			{
 				_cloudOverheadPlane.Visible = CVars.clouds.Value;
 			}
+			// Audio: whoosh the lift, start the (silent) high-altitude wind loop
+			// that UpdateBirdsEyeCamera fades in, and snapshot the ground
+			// ambience bus level so the eased duck restores to it on the descent.
+			birdsEyeSwooshAudio?.Play();
+			if (birdsEyeWindAudio != null)
+			{
+				birdsEyeWindAudio.VolumeDb = BIRDS_EYE_WIND_DB_FLOOR;
+				birdsEyeWindAudio.Play();
+			}
+			int ambBusUp = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
+			if (ambBusUp >= 0)
+			{
+				_ambienceBaseVolumeDb = AudioServer.GetBusVolumeDb(ambBusUp);
+			}
+			// Snapshot the authored built-in depth-fog range so the eased push
+			// (and the restore on completion) stay relative to it.
+			Godot.Environment env = sceneEnvironment?.Environment;
+			if (env != null)
+			{
+				_builtinFogDepthBeginBase = env.FogDepthBegin;
+				_builtinFogDepthEndBase = env.FogDepthEnd;
+			}
+			// Strip the in-world UI for the clean overview shot: HUD, dust motes,
+			// the interactive outline + its floating prompt. The per-frame
+			// highlight gate and UpdateInteractHUD keep them from reappearing
+			// while the overview is active.
+			SetBirdsEyeUiHidden(true);
 		}
 		else
 		{
@@ -1384,6 +1500,8 @@ public partial class GameClient : Node3D
 			{
 				return;
 			}
+			// Whoosh the descent too (the climb back down past the wind).
+			birdsEyeSwooshAudio?.Play();
 			// Cancelling mid-FlyUp: seed _birdsEyeElapsed so FlyDown picks up at
 			// the current eased height instead of snapping. FlyUp eases toward
 			// the apex as 1-(1-t)^2; FlyDown eases toward the ground as t^2 (t
@@ -1495,6 +1613,20 @@ public partial class GameClient : Node3D
 		if (SkyController.Current != null)
 		{
 			SkyController.Current.FogVisibilityScale = Mathf.Lerp(1f, birdsEyeFogVisibilityScale, eased);
+			// Suppress only the general haze; authored fog_map volumes stay full.
+			SkyController.Current.AmbientFogScale = Mathf.Lerp(1f, birdsEyeAmbientFogScale, eased);
+		}
+
+		// Recede the scene Environment's built-in DEPTH fog along the same eased
+		// curve. This is a SEPARATE fog system from the custom volumetric pass
+		// (SkyController only drives the latter); its authored ~88–105 m black
+		// wall would otherwise black out all distant ground in the overview.
+		Godot.Environment fogEnv = sceneEnvironment?.Environment;
+		if (fogEnv != null)
+		{
+			float depthScale = Mathf.Lerp(1f, birdsEyeBuiltinFogDepthScale, eased);
+			fogEnv.FogDepthBegin = _builtinFogDepthBeginBase * depthScale;
+			fogEnv.FogDepthEnd = _builtinFogDepthEndBase * depthScale;
 		}
 
 		// Drive the overlook fog reveal: hide everything beyond the streaming
@@ -1520,6 +1652,23 @@ public partial class GameClient : Node3D
 			Vector3 revealCenter = camera.GetFollowTarget(_player.GlobalPosition);
 			RenderingServer.GlobalShaderParameterSet("overlook_reveal_center", revealCenter);
 			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", _overlookRevealRadius);
+		}
+
+		// Audio rides the same eased curve as the lift:
+		//   - the listener climbs from the player's head toward the camera, so
+		//     World3D positional audio attenuates with altitude;
+		//   - the ground ambience bus ducks while the high-altitude wind fades
+		//     in — together a crossfade from ground sounds to wind aloft.
+		Vector3 listenerHead = _player.GlobalPosition + Vector3.Up * AUDIO_LISTENER_HEAD_HEIGHT;
+		_player.SetAudioListenerWorldOverride(listenerHead.Lerp(camera.GlobalPosition, eased));
+		if (birdsEyeWindAudio != null)
+		{
+			birdsEyeWindAudio.VolumeDb = Mathf.Lerp(BIRDS_EYE_WIND_DB_FLOOR, birdsEyeWindVolumeDb, eased);
+		}
+		int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
+		if (ambBus >= 0)
+		{
+			AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb - birdsEyeAmbienceDuckDb * eased);
 		}
 
 		// Push the cloud band's world-Y bounds to the 2D cloud shader.
@@ -1573,8 +1722,18 @@ public partial class GameClient : Node3D
 			if (SkyController.Current != null)
 			{
 				SkyController.Current.FogVisibilityScale = 1f;
+				SkyController.Current.AmbientFogScale = 1f;
 				SkyController.Current.CloudAltitudeOverride = null;
 			}
+			// Restore the built-in depth-fog range to its authored values.
+			Godot.Environment doneEnv = sceneEnvironment?.Environment;
+			if (doneEnv != null)
+			{
+				doneEnv.FogDepthBegin = _builtinFogDepthBeginBase;
+				doneEnv.FogDepthEnd = _builtinFogDepthEndBase;
+			}
+			// Restore the HUD + motes hidden for the overview.
+			SetBirdsEyeUiHidden(false);
 			// Re-seat the follow position so the normal camera path picks up
 			// from the player on the next frame rather than lerping from the
 			// stale (lifted) follow target.
@@ -1582,6 +1741,18 @@ public partial class GameClient : Node3D
 			if (_cloudOverheadPlane != null)
 			{
 				_cloudOverheadPlane.Visible = false;
+			}
+			// Restore audio: listener back to the player's head, wind loop off,
+			// ground ambience bus back to its pre-overlook level. eased is 0 at
+			// FlyDown completion, so these all landed at their rest values on the
+			// final frame already; this makes the reset explicit and stops the
+			// looping stream.
+			_player.SetAudioListenerWorldOverride(null);
+			birdsEyeWindAudio?.Stop();
+			int ambBusDone = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
+			if (ambBusDone >= 0)
+			{
+				AudioServer.SetBusVolumeDb(ambBusDone, _ambienceBaseVolumeDb);
 			}
 			_player.OnBirdsEyeReturnComplete();
 		}
@@ -1600,6 +1771,27 @@ public partial class GameClient : Node3D
 		}
 		float baseChunky = _birdsEyeBaseSize / Mathf.Max(1, sceneViewport.Size.Y);
 		RenderingServer.GlobalShaderParameterSet("sprite_chunky", baseChunky);
+	}
+
+	// Ground radius (metres) from the player to the farthest visible screen
+	// corner at the bird's-eye apex. The chunk streamer uses this to size the
+	// overlook backdrop so the fog reveal can reach the corners. Orthographic,
+	// so altitude doesn't change the footprint — only the apex ortho Size and
+	// pitch do. Derivation: the vertical screen axis projects onto the ground
+	// foreshortened by 1/sin(pitch-below-horizontal); the horizontal axis is
+	// parallel to the ground (no foreshortening). Corner = hypot of the two
+	// half-extents. Reads _birdsEyeBaseSize, so call after it's captured.
+	float ComputeOverlookGroundRadius()
+	{
+		float apexSize = _birdsEyeBaseSize * birdsEyeSizeMultiplier;
+		float phi = Mathf.DegToRad(Mathf.Abs(camera.pitchDegrees - birdsEyePitchDelta));
+		float sinPhi = Mathf.Max(0.1f, Mathf.Sin(phi));
+		float aspect = sceneViewport != null && sceneViewport.Size.Y > 0
+			? (float)sceneViewport.Size.X / sceneViewport.Size.Y
+			: 16f / 9f;
+		float halfDepth = apexSize * 0.5f / sinPhi;
+		float halfWidth = apexSize * aspect * 0.5f;
+		return Mathf.Sqrt(halfDepth * halfDepth + halfWidth * halfWidth);
 	}
 
 	void UpdateViewportSize()
@@ -2074,7 +2266,10 @@ public partial class GameClient : Node3D
 	// is currently meaningful.
 	void UpdateInteractHUD()
 	{
-		IInteractive target = _player?.CurInteractive ?? _player?.HighlightInteractive;
+		// No interact prompt during the bird's-eye overview shot.
+		IInteractive target = (_player?.IsBirdsEye ?? false)
+			? null
+			: _player?.CurInteractive ?? _player?.HighlightInteractive;
 		if (_interactHUD != null && _interactHUD.Interactive != target)
 		{
 			_interactHUD.QueueFree();

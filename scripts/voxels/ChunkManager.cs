@@ -47,7 +47,15 @@ public partial class ChunkManager : Node3D
     // cap because the backdrop chunks are visual-only (cheaper than a full
     // collision+detail chunk) and the fill happens under a cinematic where a
     // mild framerate dip is acceptable.
-    private const int OVERLOOK_LOAD_DISTANCE = 24;
+    // Default/min overlook horizontal radius (chunks). BeginOverlook widens
+    // this to cover the actual zoomed-out footprint the camera reveals — the
+    // overview's visible ground radius can exceed the default at high zoom, and
+    // a fixed radius would leave the screen corners curtained behind fog (the
+    // reveal radius is clamped to the loaded frontier). MAX caps the streaming
+    // cost: each backdrop chunk is visual-only but still a mesh build, so the
+    // cylinder can't grow without bound.
+    private const int OVERLOOK_LOAD_DISTANCE_MIN = 24;
+    private const int OVERLOOK_LOAD_DISTANCE_MAX = 48;
     private const int OVERLOOK_Y_BAND = 4;
     private const int MAX_OVERLOOK_LOADS_PER_FRAME = 6;
     // Per-frame cap on chunk unloads. QueueFree() looks cheap synchronously
@@ -73,13 +81,28 @@ public partial class ChunkManager : Node3D
     // huge so a non-overlook query never triggers the curtain.
     private bool _overlookActive;
     private float _overlookFrontierRadiusWorld = 1e20f;
+    // Horizontal overlook radius in chunks, sized per-overlook from the visible
+    // ground footprint passed to BeginOverlook so the streamed backdrop always
+    // reaches past the screen corners (the fog reveal can only uncover resident
+    // chunks). Defaults to the min when an overlook starts without a radius.
+    private int _overlookLoadDistance = OVERLOOK_LOAD_DISTANCE_MIN;
     public bool OverlookActive => _overlookActive;
     public float OverlookLoadedRadiusWorld => _overlookFrontierRadiusWorld;
-    public void BeginOverlook() { _overlookActive = true; }
+    // worldRadius is the overview's visible ground radius (metres) from the
+    // player to the farthest screen corner; the streamed cylinder is grown to
+    // cover it (plus a chunk of margin for the frontier shrink + reveal
+    // softness), clamped to [MIN, MAX].
+    public void BeginOverlook(float worldRadius)
+    {
+        int chunks = Mathf.CeilToInt(worldRadius / ChunkState.SIZE) + 2;
+        _overlookLoadDistance = Mathf.Clamp(chunks, OVERLOOK_LOAD_DISTANCE_MIN, OVERLOOK_LOAD_DISTANCE_MAX);
+        _overlookActive = true;
+    }
     public void EndOverlook()
     {
         _overlookActive = false;
         _overlookFrontierRadiusWorld = 1e20f;
+        _overlookLoadDistance = OVERLOOK_LOAD_DISTANCE_MIN;
     }
 
     // Scratch buffers reused every UpdateLoadedChunks call. The set fills with
@@ -490,7 +513,7 @@ public partial class ChunkManager : Node3D
             // XZ, thin in Y) and relies on the frustum test alone to cull;
             // normal play keeps the symmetric sphere so the load boundary is
             // the same world distance in every direction.
-            int searchXZ = _overlookActive ? OVERLOOK_LOAD_DISTANCE : MAX_LOAD_DISTANCE;
+            int searchXZ = _overlookActive ? _overlookLoadDistance : MAX_LOAD_DISTANCE;
             int searchY = _overlookActive ? OVERLOOK_Y_BAND : MAX_LOAD_DISTANCE;
             for (int x = -searchXZ; x <= searchXZ; x++)
             {
@@ -652,6 +675,16 @@ public partial class ChunkManager : Node3D
             {
                 continue;
             }
+            // A desired coord with no chunk data is out of world bounds (the
+            // wide overlook frustum + Y band overshoot the edges) or genuinely
+            // empty — there is nothing to stream there, so it must NOT count as
+            // a pending frontier chunk. Without this, the nearest out-of-bounds
+            // air chunk collapses the frontier to a few metres and the reveal
+            // curtain blankets the whole overview in fog.
+            if (_worldData.GetChunk(coord) == null)
+            {
+                continue;
+            }
             Vector3I rel = coord - _lastPlayerChunkCoord;
             int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
             if (distSq < minUnloadedDistSq)
@@ -662,7 +695,7 @@ public partial class ChunkManager : Node3D
         if (minUnloadedDistSq == int.MaxValue)
         {
             // Whole desired set resident — reveal the full panorama.
-            _overlookFrontierRadiusWorld = OVERLOOK_LOAD_DISTANCE * ChunkState.SIZE;
+            _overlookFrontierRadiusWorld = _overlookLoadDistance * ChunkState.SIZE;
         }
         else
         {
