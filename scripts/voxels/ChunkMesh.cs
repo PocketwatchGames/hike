@@ -388,13 +388,22 @@ public partial class ChunkMesh : Node3D
         }
     }
 
+    // buildCollision / buildDetails default true for normal chunks. The
+    // bird's-eye overlook loads its far backdrop ring with both false: the
+    // player is movement-locked in the tree so nothing walks on those chunks
+    // (no trimesh collision / water trigger needed), and at the zoomed-out
+    // scale the sub-metre detail sprites are sub-pixel (skip the scatter to
+    // save the multimesh rebuild + memory). They render mesh + prop scatter
+    // only, and unload when the overview ends.
     public static ChunkMesh Create(
         ChunkState data,
         Func<int, int, int, VoxelType> getVoxel,
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
-        Func<int, int, int, bool> chunkExists)
+        Func<int, int, int, bool> chunkExists,
+        bool buildCollision = true,
+        bool buildDetails = true)
     {
         using var _prof = Profiler.Sample("ChunkMesh.Create");
         EnsureMaterialsInitialized();
@@ -404,7 +413,7 @@ public partial class ChunkMesh : Node3D
             data.ChunkCoord.Y * ChunkState.SIZE,
             data.ChunkCoord.Z * ChunkState.SIZE
         );
-        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists);
+        chunk.BuildMesh(data, getVoxel, getShape, getTerrainId, getOverlayId, chunkExists, buildCollision, buildDetails);
         return chunk;
     }
 
@@ -414,7 +423,9 @@ public partial class ChunkMesh : Node3D
         Func<int, int, int, VoxelTypeInfo.SharpAxes> getShape,
         Func<int, int, int, int> getTerrainId,
         Func<int, int, int, int> getOverlayId,
-        Func<int, int, int, bool> chunkExists)
+        Func<int, int, int, bool> chunkExists,
+        bool buildCollision,
+        bool buildDetails)
     {
         if (OnlyChunkFilter.HasValue && data.ChunkCoord != OnlyChunkFilter.Value)
         {
@@ -450,14 +461,17 @@ public partial class ChunkMesh : Node3D
         // every chunk's instances of the same DetailEntry collapse into one
         // MultiMesh draw call. _ExitTree below removes this chunk's
         // contributions when the chunk evicts.
-        _scatteredChunkCoord = data.ChunkCoord;
-        Dictionary<DetailEntry, List<ChunkDetailScatter.InstanceData>> scatterContrib;
-        using (Profiler.Sample("ChunkMesh.DetailScatter"))
+        if (buildDetails)
         {
-            scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getTerrainId, _activeDetailGroups, _activeTerrains);
+            _scatteredChunkCoord = data.ChunkCoord;
+            Dictionary<DetailEntry, List<ChunkDetailScatter.InstanceData>> scatterContrib;
+            using (Profiler.Sample("ChunkMesh.DetailScatter"))
+            {
+                scatterContrib = ChunkDetailScatter.Compute(data, getVoxel, getTerrainId, _activeDetailGroups, _activeTerrains);
+            }
+            World.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
+            _scatterPosted = scatterContrib != null;
         }
-        World.Current?.DetailScatter?.SetChunk(data.ChunkCoord, scatterContrib);
-        _scatterPosted = scatterContrib != null;
 
         // Water (axis-aligned cubic faces)
         var stWater = new SurfaceTool();
@@ -540,9 +554,12 @@ public partial class ChunkMesh : Node3D
             shadowCaster.CastShadow = GeometryInstance3D.ShadowCastingSetting.ShadowsOnly;
             AddChild(shadowCaster);
 
-            using (Profiler.Sample("ChunkMesh.TrimeshCollision"))
+            if (buildCollision)
             {
-                visual.CreateTrimeshCollision();
+                using (Profiler.Sample("ChunkMesh.TrimeshCollision"))
+                {
+                    visual.CreateTrimeshCollision();
+                }
             }
         }
 
@@ -568,14 +585,17 @@ public partial class ChunkMesh : Node3D
             waterBackface.MaterialOverride = WaterBackfaceMaterial;
             AddChild(waterBackface);
 
-            using (Profiler.Sample("ChunkMesh.WaterTrimeshCollision"))
+            if (buildCollision)
             {
-                var waterTrigger = new WaterTrigger();
-                var waterShape = waterMesh.CreateTrimeshShape();
-                var waterCollision = new CollisionShape3D();
-                waterCollision.Shape = waterShape;
-                waterTrigger.AddChild(waterCollision);
-                AddChild(waterTrigger);
+                using (Profiler.Sample("ChunkMesh.WaterTrimeshCollision"))
+                {
+                    var waterTrigger = new WaterTrigger();
+                    var waterShape = waterMesh.CreateTrimeshShape();
+                    var waterCollision = new CollisionShape3D();
+                    waterCollision.Shape = waterShape;
+                    waterTrigger.AddChild(waterCollision);
+                    AddChild(waterTrigger);
+                }
             }
         }
 

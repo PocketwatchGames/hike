@@ -561,11 +561,14 @@ public partial class GameClient : Node3D
 	// negative (looking down), so we subtract this to tilt further toward
 	// straight-down for the overview. Reverses on FlyDown.
 	[Export(PropertyHint.Range, "0,45,1,or_greater")] public float birdsEyePitchDelta = 15f;
-	// Multiplier on the camera's base orthographic Size at the apex. 4× takes
-	// the default ~10m vertical extent out to ~40m so a sizable chunk of the
-	// surrounding chunks is on-screen. This is the "zoom out" knob; combined
-	// with birdsEyeAltitude it controls how big the overview reads.
-	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeSizeMultiplier = 4f;
+	// Multiplier on the camera's base orthographic Size at the apex. This is
+	// the "zoom out" knob; combined with birdsEyeAltitude it controls how big
+	// the overview reads. The overlook streaming profile (ChunkManager
+	// BeginOverlook + the fog reveal) fills the wider footprint as the camera
+	// zooms, so this can go well past the old 4× — the backdrop chunks beyond
+	// the normal load distance stream in visual-only and hide behind the fog
+	// curtain until resident.
+	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeSizeMultiplier = 8f;
 	// Wall-clock seconds for either transition (fly-up and fly-down match).
 	[Export(PropertyHint.Range, "0.25,5,0.05")] public float birdsEyeTransitionSeconds = 1.5f;
 	// Peak motion-blur strength during FlyUp. 1 = max (heavy smear), 0 = no
@@ -576,12 +579,21 @@ public partial class GameClient : Node3D
 	// by ground-level fog. Lerps from 1 (ground) to this at full lift via
 	// SkyController.FogVisibilityScale.
 	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeFogVisibilityScale = 4f;
+	// Time-constant (seconds) for easing the fog-reveal radius out toward the
+	// chunk-load frontier. The fly-up timing itself is fixed (birdsEye-
+	// TransitionSeconds); this only smooths the haze edge so a batch of chunks
+	// finishing in one frame doesn't snap the curtain outward. Clamped to never
+	// exceed the frontier, so it can't reveal a chunk that isn't resident.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float birdsEyeRevealSmoothTime = 0.3f;
 
 	enum EBirdsEyePhase { None, FlyUp, Steady, FlyDown }
 	EBirdsEyePhase _birdsEyePhase = EBirdsEyePhase.None;
 	float _birdsEyeElapsed;
 	float _birdsEyeBaseSize;
 	float _birdsEyeBlur;
+	// Eased fog-reveal radius (world metres). -1 = "snap to the frontier on the
+	// next overlook frame" (set on FlyUp start and after FlyDown completes).
+	float _overlookRevealRadius = -1f;
 	// Screen-space motion-blur direction during fly-up. The camera rises in
 	// world; objects sweep downward on screen (Godot SCREEN_UV has Y=0 at top),
 	// so the blur trails toward +Y. Same convention as the camera's RotateLeft.
@@ -1344,6 +1356,11 @@ public partial class GameClient : Node3D
 			_birdsEyeBaseSize = camera.Size;
 			_birdsEyePhase = EBirdsEyePhase.FlyUp;
 			_birdsEyeElapsed = 0f;
+			// Switch the chunk streamer into its panorama profile and arm the
+			// fog reveal to snap to the frontier on its first frame (so the
+			// already-loaded near field isn't briefly curtained).
+			World.Current?.ChunkManager?.BeginOverlook();
+			_overlookRevealRadius = -1f;
 			camera.ManualClipMode = true;
 			// Force the indoor cutaway off so the camera can see the world from
 			// above even if the player started under a roof. SetClip routes
@@ -1480,6 +1497,31 @@ public partial class GameClient : Node3D
 			SkyController.Current.FogVisibilityScale = Mathf.Lerp(1f, birdsEyeFogVisibilityScale, eased);
 		}
 
+		// Drive the overlook fog reveal: hide everything beyond the streaming
+		// frontier so chunks still meshing under the overview are masked by
+		// haze. The radius eases out toward the frontier but is clamped to never
+		// exceed it (a chunk that isn't resident is never revealed); the soft
+		// edge (overlook_reveal_softness) feathers the boundary.
+		ChunkManager chunkManager = World.Current?.ChunkManager;
+		if (chunkManager != null)
+		{
+			float frontier = chunkManager.OverlookLoadedRadiusWorld;
+			if (_overlookRevealRadius < 0f || frontier < _overlookRevealRadius)
+			{
+				// First overlook frame, or the frontier receded — snap (the
+				// snap-down case keeps the curtain from ever over-revealing).
+				_overlookRevealRadius = frontier;
+			}
+			else
+			{
+				float revealT = 1f - Mathf.Pow(0.01f, dt / Mathf.Max(0.0001f, birdsEyeRevealSmoothTime));
+				_overlookRevealRadius = Mathf.Min(frontier, Mathf.Lerp(_overlookRevealRadius, frontier, revealT));
+			}
+			Vector3 revealCenter = camera.GetFollowTarget(_player.GlobalPosition);
+			RenderingServer.GlobalShaderParameterSet("overlook_reveal_center", revealCenter);
+			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", _overlookRevealRadius);
+		}
+
 		// Push the cloud band's world-Y bounds to the 2D cloud shader.
 		//
 		// Apex band position (eased=1): [50%, 75%] of player→camera height.
@@ -1523,6 +1565,11 @@ public partial class GameClient : Node3D
 			_birdsEyeBlur = 0f;
 			camera.Size = _birdsEyeBaseSize;
 			camera.ManualClipMode = false;
+			// Drop the panorama streaming profile (its backdrop ring unloads as
+			// the desired set shrinks) and disable the fog curtain.
+			World.Current?.ChunkManager?.EndOverlook();
+			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", 1e20f);
+			_overlookRevealRadius = -1f;
 			if (SkyController.Current != null)
 			{
 				SkyController.Current.FogVisibilityScale = 1f;

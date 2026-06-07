@@ -35,6 +35,21 @@ public partial class ChunkManager : Node3D
     //     handles the bigger pre-spawn fill.
     private const int MAX_FRUSTUM_LOADS_PER_FRAME = 2;
     private const int MAX_SPHERE_LOADS_PER_FRAME = 4;
+    private const int MAX_LOAD_DISTANCE_SQ = MAX_LOAD_DISTANCE * MAX_LOAD_DISTANCE;
+    // Bird's-eye overlook panorama. While BeginOverlook() is active the frustum
+    // pass extends far past MAX_LOAD_DISTANCE in the horizontal plane (the
+    // zoomed-out ortho overview reveals hundreds of metres) but stays shallow
+    // in Y — only surface chunks matter for a top-down backdrop, so a tall
+    // column of vertical chunks would be wasted work. The extra ring loads
+    // WITHOUT collision or detail scatter (see LoadChunkInternal) and unloads
+    // as soon as the overview ends and the desired set shrinks back inside
+    // MAX_LOAD_DISTANCE. The per-frame cap is higher than the normal frustum
+    // cap because the backdrop chunks are visual-only (cheaper than a full
+    // collision+detail chunk) and the fill happens under a cinematic where a
+    // mild framerate dip is acceptable.
+    private const int OVERLOOK_LOAD_DISTANCE = 24;
+    private const int OVERLOOK_Y_BAND = 4;
+    private const int MAX_OVERLOOK_LOADS_PER_FRAME = 6;
     // Per-frame cap on chunk unloads. QueueFree() looks cheap synchronously
     // but each ChunkMesh holds a trimesh StaticBody3D (Jolt broadphase entry)
     // + GPU mesh resources + child entity nodes; releasing them happens in
@@ -49,6 +64,23 @@ public partial class ChunkManager : Node3D
 
     private readonly Dictionary<Vector3I, ChunkMesh> _loadedChunks = new();
     private readonly Queue<Vector3I> _meshRebuildQueue = new();
+
+    // Bird's-eye overlook streaming state. _overlookActive widens the frustum
+    // pass to the panorama radius; _overlookFrontierRadiusWorld is the world
+    // radius around the player inside which every desired overlook chunk is
+    // resident — the guaranteed-filled frontier. GameClient reads it to drive
+    // the fog reveal so the haze edge rides the streaming frontier. Defaults
+    // huge so a non-overlook query never triggers the curtain.
+    private bool _overlookActive;
+    private float _overlookFrontierRadiusWorld = 1e20f;
+    public bool OverlookActive => _overlookActive;
+    public float OverlookLoadedRadiusWorld => _overlookFrontierRadiusWorld;
+    public void BeginOverlook() { _overlookActive = true; }
+    public void EndOverlook()
+    {
+        _overlookActive = false;
+        _overlookFrontierRadiusWorld = 1e20f;
+    }
 
     // Scratch buffers reused every UpdateLoadedChunks call. The set fills with
     // ~1100 sphere coords + frustum-visible chunks (thousands per frame); the
@@ -217,6 +249,17 @@ public partial class ChunkManager : Node3D
         // with the day/night-blended CurrentPrimaryIntensity.
         ShaderGlobals.Register("sun_intensity", RenderingServer.GlobalShaderParameterType.Float, 2f);
         ShaderGlobals.Register("sun_color", RenderingServer.GlobalShaderParameterType.Vec3, CVars.SunColor);
+
+        // Bird's-eye overlook fog reveal (fog_volumetric.gdshader). The curtain
+        // hides any ground beyond overlook_reveal_radius (XZ distance from
+        // overlook_reveal_center) behind full haze so chunks still streaming in
+        // under the overview are masked; GameClient rides the radius out along
+        // the load frontier (OverlookLoadedRadiusWorld). Declared in
+        // project.godot so the fog material previews in-editor; default radius
+        // huge = no curtain in normal play.
+        ShaderGlobals.Register("overlook_reveal_center", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.Zero);
+        ShaderGlobals.Register("overlook_reveal_radius", RenderingServer.GlobalShaderParameterType.Float, 1e20f);
+        ShaderGlobals.Register("overlook_reveal_softness", RenderingServer.GlobalShaderParameterType.Float, 24f);
 
         // Detail-sprite player-push globals (player_pos / player_radius /
         // player_strength) and wind globals live in project.godot's
@@ -443,14 +486,19 @@ public partial class ChunkManager : Node3D
         if (_camera != null && _camera.IsInsideTree())
         {
             Godot.Collections.Array<Plane> frustumPlanes = _camera.GetFrustum();
-            int maxDistSq = MAX_LOAD_DISTANCE * MAX_LOAD_DISTANCE;
-            for (int x = -MAX_LOAD_DISTANCE; x <= MAX_LOAD_DISTANCE; x++)
+            // Overlook extends the search to a wide, shallow cylinder (far in
+            // XZ, thin in Y) and relies on the frustum test alone to cull;
+            // normal play keeps the symmetric sphere so the load boundary is
+            // the same world distance in every direction.
+            int searchXZ = _overlookActive ? OVERLOOK_LOAD_DISTANCE : MAX_LOAD_DISTANCE;
+            int searchY = _overlookActive ? OVERLOOK_Y_BAND : MAX_LOAD_DISTANCE;
+            for (int x = -searchXZ; x <= searchXZ; x++)
             {
-                for (int y = -MAX_LOAD_DISTANCE; y <= MAX_LOAD_DISTANCE; y++)
+                for (int y = -searchY; y <= searchY; y++)
                 {
-                    for (int z = -MAX_LOAD_DISTANCE; z <= MAX_LOAD_DISTANCE; z++)
+                    for (int z = -searchXZ; z <= searchXZ; z++)
                     {
-                        if (x * x + y * y + z * z > maxDistSq)
+                        if (!_overlookActive && x * x + y * y + z * z > MAX_LOAD_DISTANCE_SQ)
                         {
                             continue;
                         }
@@ -564,13 +612,21 @@ public partial class ChunkManager : Node3D
             }
             else
             {
-                if (frustumLoaded >= MAX_FRUSTUM_LOADS_PER_FRAME)
+                int frustumCap = _overlookActive ? MAX_OVERLOOK_LOADS_PER_FRAME : MAX_FRUSTUM_LOADS_PER_FRAME;
+                if (frustumLoaded >= frustumCap)
                 {
                     continue;
                 }
                 frustumLoaded++;
             }
             LoadChunkInternal(coord);
+        }
+
+        // Track the overlook frontier (nearest desired-but-unloaded chunk) so
+        // GameClient's fog reveal only uncovers ground that's actually resident.
+        if (_overlookActive)
+        {
+            UpdateOverlookFrontier(desired);
         }
 
         // Flip the initial-load bypass off once the player's current chunk
@@ -582,6 +638,39 @@ public partial class ChunkManager : Node3D
         }
     }
 
+    // Nearest desired-but-unloaded chunk = the frontier; everything closer is
+    // resident. Center-out loading (the Pass 2 distance sort) makes it grow
+    // monotonically as the panorama fills. Reported as a world radius shrunk by
+    // one chunk so the fog edge sits at the INNER face of the first unloaded
+    // chunk — the reveal never uncovers a chunk that isn't there yet.
+    private void UpdateOverlookFrontier(HashSet<Vector3I> desired)
+    {
+        int minUnloadedDistSq = int.MaxValue;
+        foreach (Vector3I coord in desired)
+        {
+            if (_loadedChunks.ContainsKey(coord))
+            {
+                continue;
+            }
+            Vector3I rel = coord - _lastPlayerChunkCoord;
+            int distSq = rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z;
+            if (distSq < minUnloadedDistSq)
+            {
+                minUnloadedDistSq = distSq;
+            }
+        }
+        if (minUnloadedDistSq == int.MaxValue)
+        {
+            // Whole desired set resident — reveal the full panorama.
+            _overlookFrontierRadiusWorld = OVERLOOK_LOAD_DISTANCE * ChunkState.SIZE;
+        }
+        else
+        {
+            float chunkRadius = Mathf.Max(0f, Mathf.Sqrt(minUnloadedDistSq) - 1f);
+            _overlookFrontierRadiusWorld = chunkRadius * ChunkState.SIZE;
+        }
+    }
+
     private void LoadChunkInternal(Vector3I coord)
     {
         ChunkState data = _worldData.GetChunk(coord);
@@ -589,7 +678,12 @@ public partial class ChunkManager : Node3D
         {
             return;
         }
-        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds);
+        // Chunks beyond the normal load distance only ever exist as bird's-eye
+        // overlook backdrop — skip collision AND detail scatter for them. Within
+        // MAX_LOAD_DISTANCE this is always false, so normal play is unchanged.
+        Vector3I rel = coord - _lastPlayerChunkCoord;
+        bool visualOnly = (rel.X * rel.X + rel.Y * rel.Y + rel.Z * rel.Z) > MAX_LOAD_DISTANCE_SQ;
+        ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
         onChunkLoaded?.Invoke(coord);
