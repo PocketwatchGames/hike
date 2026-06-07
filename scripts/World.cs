@@ -14,6 +14,91 @@ public partial class World : Node3D
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
 
+    // --- Environmental sampling (weather + voxel-light driven) -----------
+    // Pure queries over the current weather (SkyController) and the voxel
+    // sunlight BFS (WorldState). Live on World, not the client, because the
+    // sim (Player thermal/wetness, perception, scent) is the primary
+    // consumer; the debug `temp` CVar reads the breakdown too.
+
+    // Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
+    // BFS reports no skylight at all — a stand-in for "the player is in a
+    // cave or under a roof", where the open-sky wind from the weather
+    // system shouldn't reach them. Permissive: BFS spreads sideways from
+    // open columns, so a cave mouth or doorway still seeps wind. Same
+    // shape as SampleAirTemperature so callers can ignore wind whenever
+    // they ignore weather.
+    public float SampleWindSpeed(Vector3 worldPos)
+    {
+        SkyController sky = SkyController.Current;
+        if (sky?.Weather == null) { return 0f; }
+        float wind = sky.Weather.windSpeed;
+        if (wind <= 0f) { return 0f; }
+
+        if (_worldState != null && _worldState.GetSkyLight01(worldPos) <= 0f)
+        {
+            return 0f;
+        }
+        return wind;
+    }
+
+    // Per-component breakdown of the air-temperature sample. The `temp`
+    // console CVar prints these so weather / lighting / occlusion can be
+    // inspected independently. Final temperature is `Total`.
+    public struct AirTemperatureSample
+    {
+        public float air;             // weather.airTemperature (°F, base ambient)
+        public float sunTemperature;  // weather.sunTemperature (°F, max sun add)
+        public float sunFactor;       // sky.SunFactor (time-of-day, 0..1)
+        public float cloudCover;      // weather.cloudCover (0..1)
+        public float fog;             // sky.Palette.Fog (0..1)
+        public float skyTransmission; // 1 − clamp(cloudCover + fog, 0, 1)
+        public float sunMask;         // sunBfs / LightEngine.MAX_LIGHT (0..1)
+
+        public readonly float SunContribution => sunTemperature * sunFactor * skyTransmission * sunMask;
+        public readonly float Total => air + SunContribution;
+    }
+
+    // Sample environmental air temperature in degrees F at `worldPos`.
+    // airTemperature flows through unconditionally; sunTemperature stacks on
+    // scaled by (a) sun strength now, (b) atmospheric transmission (clouds +
+    // fog), and (c) the voxel sunlight BFS mask at the sample point — so
+    // overhangs, caves, and foliage shade the sun's heating exactly the way
+    // the world's lighting pass already classifies them. Player.cs adds its
+    // own warmth-zone bonus on top of this — campfires are not sampled here
+    // because the player tracks zone enter/exit directly.
+    public float SampleAirTemperature(Vector3 worldPos)
+    {
+        return SampleAirTemperatureBreakdown(worldPos).Total;
+    }
+
+    public AirTemperatureSample SampleAirTemperatureBreakdown(Vector3 worldPos)
+    {
+        AirTemperatureSample s = default;
+        SkyController sky = SkyController.Current;
+        if (sky == null) { s.air = 64.4f; return s; }
+        WeatherData weather = sky.Weather;
+        if (weather == null) { s.air = 64.4f; return s; }
+
+        s.air = weather.airTemperature;
+        s.sunTemperature = weather.sunTemperature;
+        s.sunFactor = sky.SunFactor;
+        s.cloudCover = weather.cloudCover;
+        s.fog = sky.Palette.Fog;
+        // Atmospheric attenuation. Cloud cover (weather) and fog (palette,
+        // derived from humidity + cool diurnal) each occlude the sun
+        // independently; their sum is clamped to 1 so a fully overcast OR
+        // fully foggy sky drives the multiplier to 0 without going negative
+        // when both pile up.
+        s.skyTransmission = 1f - Mathf.Clamp(s.cloudCover + s.fog, 0f, 1f);
+
+        s.sunMask = 1f;
+        if (_worldState != null)
+        {
+            s.sunMask = _worldState.GetSkyLight01(worldPos);
+        }
+        return s;
+    }
+
     // Spherical radius (in chunks) for spawning entities around the player. Must be
     // <= ChunkManager.NEARBY_RADIUS so chunk collision is guaranteed to exist when
     // an entity spawns. Kept symmetric in world space (not frustum-culled) so
@@ -270,15 +355,15 @@ public partial class World : Node3D
         AddChild(_chunkAmbienceSpawner);
         _chunkAmbienceSpawner.Bind(this);
 
-        _minimap = new Minimap();
-        _minimap.Name = "Minimap";
-        AddChild(_minimap);
-        _minimap.Initialize(this);
+        // Minimap and HeatField are authored as embedded child scenes under
+        // GameClient in game.tscn (so their tuning is inspector-visible); World
+        // just references and initializes them, it doesn't own their lifetime.
+        GameClient gc = GameClient.Current;
+        _minimap = gc?.minimap;
+        _minimap?.Initialize(this);
 
-        _heatField = new HeatField();
-        _heatField.Name = "HeatField";
-        AddChild(_heatField);
-        _heatField.Initialize(this);
+        _heatField = gc?.heatField;
+        _heatField?.Initialize(this);
 
         CreateWorldBoundary();
     }

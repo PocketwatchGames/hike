@@ -24,6 +24,30 @@ public partial class Minimap : Node3D
         Indoor,
     }
 
+    [ExportGroup("Style")]
+    // Slice-view color for solid-rock columns. Painted at the reserved
+    // MinimapData.WallSlotIndex slot in the tile LUT; kit-agnostic so a
+    // tunnel through any biome reads as the same dark grey.
+    [Export] public Color wallSlotColor = new Color(0.045f, 0.045f, 0.05f);
+    // Color palette for foliage stamps on the minimap.
+    [Export] public MinimapFoliageColors foliageColors;
+    // Visual zoom: how many minimap-source pixels each world meter occupies
+    // on the rendered TextureRect. Higher = more zoomed in. Independent of
+    // player vision — purely presentation. Read by Hud.UpdateMinimapViewRadius.
+    [Export(PropertyHint.Range, "0.25,16,0.25")] public float pixelsPerMeter = 2f;
+    // Indoor zoom-in multiplier on top of pixelsPerMeter — 2.0 = 2× closer
+    // indoors, useful for corridors. Presentation only; doesn't affect what
+    // the player perceives.
+    [Export(PropertyHint.Range, "0.5,8,0.25")] public float indoorZoom = 2f;
+    // Reveal radius (what the player perceives) = vision × this. Drives both
+    // the outdoor surface mask and the indoor active-slice mask; independent of
+    // zoom because how far you see doesn't depend on how the map is rendered.
+    [Export(PropertyHint.Range, "0.5,10,0.1")] public float revealMultiplier = 1.5f;
+    // Soft-edge inner-fraction for every reveal disk. Inside `radius * this`
+    // the disk paints at full brightness; from there to the outer radius the
+    // value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
+    [Export(PropertyHint.Range, "0.1,1,0.05")] public float revealInnerFraction = 0.7f;
+
     private World _world;
     private MinimapTextures _textures;
     private MinimapSliceAtlas _sliceAtlas;
@@ -76,9 +100,8 @@ public partial class Minimap : Node3D
     private int _lastCapturedSliceLevel;
     private const float StateLerpRate = 7f;
 
-    // Reveal cadence. Reveal radius is vision × GameClient multiplier;
-    // view radius (zoom) is computed by Hud from the TextureRect size +
-    // GameClient.minimapPixelsPerMeter (decoupled from this Minimap).
+    // Reveal cadence. Reveal radius is vision × revealMultiplier; view radius
+    // (zoom) is computed by Hud from the TextureRect size + pixelsPerMeter.
     private const double RevealIntervalSeconds = 0.1;
     private const float RevealMoveThresholdSquared = 0.25f * 0.25f;
     // Fallback player vision range used when PlayerData isn't available
@@ -227,9 +250,7 @@ public partial class Minimap : Node3D
     public void Initialize(World world)
     {
         _world = world;
-        GameClient gc = GameClient.Current;
-        _foliageColors = gc?.minimapFoliageColors;
-        Color wallSlotColor = gc != null ? gc.minimapWallSlotColor : new Color(0.045f, 0.045f, 0.05f);
+        _foliageColors = foliageColors;
 
         _textures = new MinimapTextures(world.WorldState);
         _sliceAtlas = new MinimapSliceAtlas(world.WorldState);
@@ -285,8 +306,7 @@ public partial class Minimap : Node3D
         if (_revealAccumulator >= RevealIntervalSeconds && moved)
         {
             _revealAccumulator = 0.0;
-            GameClient gc = GameClient.Current;
-            float innerFraction = gc?.minimapRevealInnerFraction ?? 0.7f;
+            float innerFraction = revealInnerFraction;
             // Reveal radius is independent of indoor zoom — it represents
             // what the player can perceive, which doesn't shrink just
             // because we're rendering a more zoomed-in indoor view.
@@ -437,8 +457,7 @@ public partial class Minimap : Node3D
     // in Hud, computed from TextureRect size + GameClient pixels-per-meter.
     public float ComputeRevealRadius()
     {
-        GameClient gc = GameClient.Current;
-        float multiplier = gc?.minimapRevealMultiplier ?? 1.5f;
+        float multiplier = revealMultiplier;
         float visionRange = _world?.player?.data?.visionRange ?? DefaultVisionRange;
         return visionRange * multiplier;
     }

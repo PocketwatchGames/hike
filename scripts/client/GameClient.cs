@@ -2,7 +2,6 @@ using Godot;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 
 public partial class GameClient : Node3D
 {
@@ -64,6 +63,9 @@ public partial class GameClient : Node3D
 	};
 
 	[Export] public GameCamera camera;
+	// Debug free-fly camera (WASD + right-drag), gated by the `debugFlyCam`
+	// CVar. GameClient ticks it in _Process and forwards mouse-motion in _Input.
+	[Export] public FlyCamera flyCamera;
 	[Export] public Hud hud;
 	[Export] public AlmanacScreen almanacScreen;
 	[Export] public CookingScreen cookingScreen;
@@ -77,7 +79,6 @@ public partial class GameClient : Node3D
 	// view; the bird's-eye overlook recedes it along the eased lift so the
 	// overview isn't blacked out past the ground-level fog wall.
 	[Export] public WorldEnvironment sceneEnvironment;
-	[Export] public MeshInstance3D bloomQuad;
 	[Export] public ShaderMaterial upscaleMaterial;
 	[Export] public ShaderMaterial fogMaterial;
 	[Export] public PackedScene interactHudScene;
@@ -104,62 +105,10 @@ public partial class GameClient : Node3D
 	// FlatLitSprite — the upright outline shader's vertex math would build
 	// a Y-aligned billboard outline that misses the flat geometry by 90°.
 	[Export] public ShaderMaterial outlineFlatMaterial;
-	[Export] public ShaderMaterial postProcessMaterial;
-
-	[ExportGroup("Damage Feedback")]
-	// Red-flash intensity = (damage / maxHealth) * scale, clamped to 1.
-	// A scale of 2 means a 50% chunk drives the flash to its max; tune up
-	// to make smaller chips more visible.
-	[Export(PropertyHint.Range, "0.1,8,0.1")] public float damageFlashScale = 2f;
-	// Seconds for the flash to decay from 1 → 0. Decay is linear; tune by
-	// feel against the typical hit cadence.
-	[Export(PropertyHint.Range, "0.05,2,0.05")] public float damageFlashFadeSeconds = 0.4f;
-	// Optional vignette mask. When null the shader's hint_default_white
-	// drives a uniform red overlay — assign a soft-edged radial PNG to
-	// make damage "bleed in from the screen edges".
-	[Export] public Texture2D damageFlashTexture;
-	[Export] public Color damageFlashColor = new Color(1f, 0.05f, 0.05f, 1f);
-	// Health fraction below which the low-health overlay starts to ramp.
-	// 0.333 = enters at 1/3 health; at 0 health the overlay is full
-	// strength against the per-component max below.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthThreshold = 1f / 3f;
-	// Maximum desaturation and dim at 0 health. The ramp from
-	// lowHealthThreshold → 0 health interpolates these toward 0 → max.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthMaxDesaturation = 0.85f;
-	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthMaxDim = 0.35f;
-	// The whole low-health overlay (desat + dim + heartbeat) only lingers for
-	// a window after the last hit, then fades out — so a player who survived a
-	// scare isn't stuck staring at a grey screen. Taking damage refills the
-	// timer to full, snapping the effect back to its nearness-to-death
-	// intensity. This is the fade duration / window length in seconds.
-	[Export(PropertyHint.Range, "1,30,0.5")] public float lowHealthEffectSeconds = 10f;
-
-	// Heartbeat thump on the low-health overlay. Once the ramp is active the
-	// screen pulses on a lub-dub cadence — the desaturation breathes (color
-	// bleeds back a touch per thump) and a faint red tint surges — at a rate
-	// that climbs from `Slow` at the threshold to `Fast` at 0 health. The
-	// heartbeat SFX retriggers on each cycle.
-	[Export(PropertyHint.Range, "20,200,1")] public float lowHealthHeartbeatSlowBpm = 55f;
-	[Export(PropertyHint.Range, "20,260,1")] public float lowHealthHeartbeatFastBpm = 150f;
-	// Fraction of the current desaturation the world's color regains at the
-	// peak of each thump — the visible "breath" of the pulse.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthHeartbeatDesaturationPulse = 0.35f;
-	// Peak red tint mixed in at the crest of each thump.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float lowHealthHeartbeatRedTint = 0.22f;
-	[Export] public Color lowHealthHeartbeatColor = new Color(0.5f, 0f, 0f);
-	// On death the heartbeat decelerates from its live rate to a full stop —
-	// and the thump tint fades out — over this window. Sourced from the
-	// DeathScreen's fade-out time when one is wired so the heart and the
-	// screen wind down together; this is the fallback when none is.
-	[Export(PropertyHint.Range, "0.5,8,0.1")] public float lowHealthDeathSlowdownSeconds = 3f;
-	// Heartbeat SFX, retriggered once per lub-dub cycle. Non-spatial (the
-	// player's own heart) — wired to an AudioStreamPlayer on the Master bus
-	// so the DeathScreen's World3D fade doesn't silence it mid-wind-down.
-	[Export] public AudioStreamPlayer heartbeatAudio;
-	[Export(PropertyHint.Range, "-40,6,0.5")] public float lowHealthHeartbeatVolumeDb = -4f;
-	// Pitch climbs toward this at 0 health (adrenaline), then drifts down as
-	// the heartbeat slows to a stop on death.
-	[Export(PropertyHint.Range, "1,2,0.01")] public float lowHealthHeartbeatMaxPitch = 1.2f;
+	// Full-screen post-process pass (vignette / motion blur / damage flash /
+	// low-health overlay + heartbeat). GameClient ticks it in _Process and
+	// forwards damage / death events; see ScreenEffectsController.
+	[Export] public ScreenEffectsController screenEffects;
 	[ExportGroup("")]
 	// Aim-cursor saturation radius (pixels). Larger = more mouse travel
 	// before the virtual cursor reaches the edge of its disk, so the aim
@@ -171,49 +120,12 @@ public partial class GameClient : Node3D
 	// continuously re-aiming when the player is trying to hold steady.
 	const float AIM_CURSOR_DEADZONE_PX = 5f;
 
-	[ExportGroup("Minimap")]
-	// Slice-view color for solid-rock columns. Painted at the reserved
-	// MinimapData.WallSlotIndex slot in the tile LUT; kit-agnostic so a
-	// tunnel through any biome reads as the same dark grey.
-	[Export] public Color minimapWallSlotColor = new Color(0.045f, 0.045f, 0.05f);
-	// Color palette for foliage stamps on the minimap.
-	[Export] public MinimapFoliageColors minimapFoliageColors;
-	// Visual zoom: how many minimap-source pixels each world meter occupies
-	// on the rendered TextureRect. Higher = more zoomed in. Independent of
-	// player vision — purely presentation.
-	[Export(PropertyHint.Range, "0.25,16,0.25")] public float minimapPixelsPerMeter = 2f;
-	// Indoor zoom-in multiplier on top of minimapPixelsPerMeter — 2.0 = 2×
-	// closer indoors, useful for corridors. Presentation only; doesn't
-	// affect what the player perceives.
-	[Export(PropertyHint.Range, "0.5,8,0.25")] public float minimapIndoorZoom = 2f;
-	// Reveal radius (what the player perceives) = vision × this. Drives
-	// both the outdoor surface mask and the indoor active-slice mask;
-	// independent of zoom because how far you see doesn't depend on how
-	// the map is rendered.
-	[Export(PropertyHint.Range, "0.5,10,0.1")] public float minimapRevealMultiplier = 1.5f;
-	// Soft-edge inner-fraction for every reveal disk. Inside `radius * this`
-	// the disk paints at full brightness; from there to the outer radius
-	// the value falls linearly to 0. 1.0 = hard edge, ~0.5 = wide soft fade.
-	[Export(PropertyHint.Range, "0.1,1,0.05")] public float minimapRevealInnerFraction = 0.7f;
-
-	[ExportGroup("Heat Shimmer")]
-	// Texture side length (cells). Locked at boot — HeatField allocates the
-	// ImageTexture in _Ready. Larger = sharper disk edges + finer gradient;
-	// cost is N*N bytes per per-frame upload.
-	[Export(PropertyHint.Range, "32,1024,1")] public int heatShimmerResolution = 256;
-	// Total side length in meters covered by the heat field. Centered on the
-	// player; field UVs are 0 at (player − size/2) and 1 at (player + size/2).
-	[Export(PropertyHint.Range, "8,512,1")] public float heatShimmerSizeMeters = 64f;
-	// Ambient air-temperature ramp (°F). Below START = no shimmer, above
-	// FULL = max shimmer; linear interpolation between.
-	[Export(PropertyHint.Range, "0,200,0.5")] public float heatShimmerAmbientStartF = 90f;
-	[Export(PropertyHint.Range, "0,200,0.5")] public float heatShimmerAmbientFullF = 120f;
-	// WarmthZone shimmer intensity = clamp(warmingTemperature / divisor, 0, 1).
-	// 30°F warming hits ~1.0 intensity; the 20°F campfire default lands at ~0.67.
-	[Export(PropertyHint.Range, "1,200,0.5")] public float heatShimmerWarmIntensityDivisor = 30f;
-	// Inner fraction of stamped disks that paints at full intensity. Outside
-	// this fraction falls linearly to 0 at the disk edge.
-	[Export(PropertyHint.Range, "0,1,0.05")] public float heatShimmerDiskInnerFraction = 0.5f;
+	[ExportGroup("Subsystems")]
+	// Authored as embedded child scenes in game.tscn — their tuning lives on
+	// the Minimap / HeatField nodes, not here. World references and initializes
+	// them rather than creating them.
+	[Export] public Minimap minimap;
+	[Export] public HeatField heatField;
 
 	[ExportGroup("Foliage Player Fade")]
 	// Cutaway tube radius around the camera→player capsule axis. The
@@ -311,93 +223,7 @@ public partial class GameClient : Node3D
 	// gives the iso rig headroom without trawling distant entities.
 	[Export(PropertyHint.Range, "2,32,0.5")] public float foliagePlayerFadeProbeRange = 8f;
 
-	// Sample wind speed in m/s at `worldPos`. Returns 0 when the voxel sun
-	// BFS reports no skylight at all — a stand-in for "the player is in a
-	// cave or under a roof", where the open-sky wind from the weather
-	// system shouldn't reach them. Permissive: BFS spreads sideways from
-	// open columns, so a cave mouth or doorway still seeps wind. Same
-	// shape as SampleAirTemperature so callers can ignore wind whenever
-	// they ignore weather.
-	public float SampleWindSpeed(Vector3 worldPos)
-	{
-		SkyController sky = SkyController.Current;
-		if (sky?.Weather == null) { return 0f; }
-		float wind = sky.Weather.windSpeed;
-		if (wind <= 0f) { return 0f; }
-
-		WorldState ws = World.Current?.WorldState;
-		if (ws != null && ws.GetSkyLight01(worldPos) <= 0f)
-		{
-			return 0f;
-		}
-		return wind;
-	}
-
-	// Per-component breakdown of the air-temperature sample. The `temp`
-	// console CVar prints these so weather / lighting / occlusion can be
-	// inspected independently. Final temperature is `Total`.
-	public struct AirTemperatureSample
-	{
-		public float air;             // weather.airTemperature (°F, base ambient)
-		public float sunTemperature;  // weather.sunTemperature (°F, max sun add)
-		public float sunFactor;       // sky.SunFactor (time-of-day, 0..1)
-		public float cloudCover;      // weather.cloudCover (0..1)
-		public float fog;             // sky.Palette.Fog (0..1)
-		public float skyTransmission; // 1 − clamp(cloudCover + fog, 0, 1)
-		public float sunMask;         // sunBfs / LightEngine.MAX_LIGHT (0..1)
-
-		public readonly float SunContribution => sunTemperature * sunFactor * skyTransmission * sunMask;
-		public readonly float Total => air + SunContribution;
-	}
-
-	// Sample environmental air temperature in degrees F at `worldPos`.
-	// airTemperature flows through unconditionally; sunTemperature stacks on
-	// scaled by (a) sun strength now, (b) atmospheric transmission (clouds +
-	// fog), and (c) the voxel sunlight BFS mask at the sample point — so
-	// overhangs, caves, and foliage shade the sun's heating exactly the way
-	// the world's lighting pass already classifies them. Player.cs adds its
-	// own warmth-zone bonus on top of this — campfires are not sampled here
-	// because the player tracks zone enter/exit directly.
-	public float SampleAirTemperature(Vector3 worldPos)
-	{
-		return SampleAirTemperatureBreakdown(worldPos).Total;
-	}
-
-	public AirTemperatureSample SampleAirTemperatureBreakdown(Vector3 worldPos)
-	{
-		AirTemperatureSample s = default;
-		SkyController sky = SkyController.Current;
-		if (sky == null) { s.air = 64.4f; return s; }
-		WeatherData weather = sky.Weather;
-		if (weather == null) { s.air = 64.4f; return s; }
-
-		s.air = weather.airTemperature;
-		s.sunTemperature = weather.sunTemperature;
-		s.sunFactor = sky.SunFactor;
-		s.cloudCover = weather.cloudCover;
-		s.fog = sky.Palette.Fog;
-		// Atmospheric attenuation. Cloud cover (weather) and fog (palette,
-		// derived from humidity + cool diurnal) each occlude the sun
-		// independently; their sum is clamped to 1 so a fully overcast OR
-		// fully foggy sky drives the multiplier to 0 without going negative
-		// when both pile up.
-		s.skyTransmission = 1f - Mathf.Clamp(s.cloudCover + s.fog, 0f, 1f);
-
-		s.sunMask = 1f;
-		WorldState ws = World.Current?.WorldState;
-		if (ws != null)
-		{
-			s.sunMask = ws.GetSkyLight01(worldPos);
-		}
-		return s;
-	}
-
-	public Action onInit;
 	public Action<Player> onPlayerSpawned;
-	// Fires once when the player crosses to dead — Hud and any other
-	// subscribers can react alongside the DeathScreen sequence the client
-	// drives directly.
-	public Action<Player> onPlayerDied;
 	// Floating world-space text request. Type picks which HudText scene is
 	// instantiated (color / fade timing / vertical drift are baked per scene).
 	// The default subscriber in Init forwards to OnHudTextRequested; callers
@@ -422,13 +248,13 @@ public partial class GameClient : Node3D
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
-	// Fired when the player enters a named region (CurrentRegion null →
-	// non-null OR → a different non-null region). Border chunks (RegionIndex
-	// points at a Regions[] entry whose Data is null) keep CurrentRegion
-	// sticky; clearing back to null on extended border travel is silent so
-	// the next named region's entry pulses the banner cleanly.
-	public Action<RegionData> onRegionEntered;
-	public RegionData CurrentRegion { get; private set; }
+	// The named region the player is currently within, or null on unnamed /
+	// border terrain. Border chunks (RegionIndex points at a Regions[] entry
+	// whose Data is null) keep this sticky; clearing back to null on extended
+	// border travel is silent so the next named region's entry pulses the
+	// banner cleanly. Region entry is surfaced through the Announce bus in
+	// UpdateRegion. Set + read only here.
+	RegionData CurrentRegion;
 
 	// Generic announcement bus. Anything that wants to surface a one-shot
 	// notification (region entry, recipe / item / language discovery,
@@ -526,12 +352,6 @@ public partial class GameClient : Node3D
 	Vector3 _spawnPosition;
 	Vector2 _mousePosition;
 	Sprite3D _highlightOverlay;
-	// Flat plane mesh that renders clouds from above when the camera clears
-	// the cloud layer. Hosted under sceneViewport (not SkyController, which
-	// is outside the SubViewport that owns the main camera) and follows the
-	// camera XZ at world y=SkyController.EffectiveCloudAltitude each frame.
-	MeshInstance3D _cloudOverheadPlane;
-	ShaderMaterial _cloudOverheadMaterial;
 	InteractHUD _interactHUD;
 	Vector2 _subpixelTexelOffset;
 
@@ -542,102 +362,11 @@ public partial class GameClient : Node3D
 	// before the fade so post-fade pop-in stays smooth.
 	const int LOADING_ENTITY_SPAWN_BURST = 64;
 
-	const float FLYCAM_SPEED = 20f;
-	const float FLYCAM_BOOST = 5f;
-	const float FLYCAM_LOOK_SENSITIVITY = 0.005f;
-	float _flyYaw;
-	float _flyPitch;
-	bool _flyInitialized;
-
-	// Bird's-eye view driver. The player fires onBirdsEye(true/false); we run
-	// a three-phase state machine (FlyUp → Steady → FlyDown) that lifts the
-	// camera off the player and zooms the orthographic Size out, then reverses
-	// on cancel. Motion blur is driven only during FlyUp — the shader uniform
-	// is combined max-of with the camera's rotation blur in UpdatePostProcess.
-	// Movement-lock release waits for Player.OnBirdsEyeReturnComplete, called
-	// from this driver when FlyDown lands back at base.
-	[ExportGroup("Bird's Eye")]
-	// Vertical lift (world meters) added to the camera's normal offset at the
-	// top of the FlyUp. Orthographic projection so altitude doesn't change
-	// scale on its own — paired with the size multiplier below for the zoom.
-	[Export(PropertyHint.Range, "0,400,1,or_greater")] public float birdsEyeAltitude = 80f;
-	// Degrees to steepen (lower) the camera pitch at the apex, eased in
-	// alongside the lift and zoom. The camera's resting pitchDegrees is
-	// negative (looking down), so we subtract this to tilt further toward
-	// straight-down for the overview. Reverses on FlyDown.
-	[Export(PropertyHint.Range, "0,45,1,or_greater")] public float birdsEyePitchDelta = 15f;
-	// Multiplier on the camera's base orthographic Size at the apex. This is
-	// the "zoom out" knob; combined with birdsEyeAltitude it controls how big
-	// the overview reads. The overlook streaming profile (ChunkManager
-	// BeginOverlook + the fog reveal) fills the wider footprint as the camera
-	// zooms, so this can go well past the old 4× — the backdrop chunks beyond
-	// the normal load distance stream in visual-only and hide behind the fog
-	// curtain until resident.
-	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeSizeMultiplier = 8f;
-	// Wall-clock seconds for either transition (fly-up and fly-down match).
-	[Export(PropertyHint.Range, "0.25,5,0.05")] public float birdsEyeTransitionSeconds = 1.5f;
-	// Peak motion-blur strength during FlyUp. 1 = max (heavy smear), 0 = no
-	// blur. Tapers to 0 at the apex via sin(πt) regardless of peak.
-	[Export(PropertyHint.Range, "0,1,0.05")] public float birdsEyeMotionBlurPeak = 1f;
-	// Fog visibility multiplier at the apex. Stretches fog_max_distance and
-	// thins both fog densities by 1/scale so the overview isn't smothered
-	// by ground-level fog. Lerps from 1 (ground) to this at full lift via
-	// SkyController.FogVisibilityScale.
-	[Export(PropertyHint.Range, "1,16,0.25,or_greater")] public float birdsEyeFogVisibilityScale = 4f;
-	// Apex multiplier on the GENERAL whole-scene haze (ambient_fog_density) for
-	// the overview. 0 = no general fog aloft (authored low-lying fog_map volumes
-	// are unaffected and stay visible). Eased 1→this over the lift, restored to
-	// 1 on the way down.
-	[Export(PropertyHint.Range, "0,1,0.05")] public float birdsEyeAmbientFogScale = 0f;
-	// Apex multiplier on the scene Environment's built-in DEPTH fog range
-	// (fog_depth_begin/end). The authored range (~88–105 m, black) is meant for
-	// ground-level play; at this multiplier it's pushed well past the camera far
-	// plane so the overview shows distant ground instead of a black wall. Eased
-	// 1→this over the lift, restored to 1 on the way down.
-	[Export(PropertyHint.Range, "1,64,1,or_greater")] public float birdsEyeBuiltinFogDepthScale = 16f;
-	// Time-constant (seconds) for easing the fog-reveal radius out toward the
-	// chunk-load frontier. The fly-up timing itself is fixed (birdsEye-
-	// TransitionSeconds); this only smooths the haze edge so a batch of chunks
-	// finishing in one frame doesn't snap the curtain outward. Clamped to never
-	// exceed the frontier, so it can't reveal a chunk that isn't resident.
-	[Export(PropertyHint.Range, "0.05,2,0.05")] public float birdsEyeRevealSmoothTime = 0.3f;
-	// Looping high-altitude wind, faded in along the eased lift so the overview
-	// crossfades from ground ambience to wind aloft. Lives on a non-ducked bus
-	// (Master) so the ambience-duck below doesn't pull it down with the ground
-	// layers. Apex volume below.
-	[Export] public AudioStreamPlayer birdsEyeWindAudio;
-	[Export(PropertyHint.Range, "-40,0,1")] public float birdsEyeWindVolumeDb = -7f;
-	// One-shot whoosh played at the start of the fly-up AND the fly-down.
-	[Export] public AudioStreamPlayer birdsEyeSwooshAudio;
-	// How far the ground ambience bus is ducked at the apex (dB), so the wind
-	// reads as taking over aloft. Restored on the way down.
-	[Export(PropertyHint.Range, "0,24,0.5")] public float birdsEyeAmbienceDuckDb = 12f;
-
-	enum EBirdsEyePhase { None, FlyUp, Steady, FlyDown }
-	EBirdsEyePhase _birdsEyePhase = EBirdsEyePhase.None;
-	float _birdsEyeElapsed;
-	float _birdsEyeBaseSize;
-	float _birdsEyeBlur;
-	// Eased fog-reveal radius (world metres). -1 = "snap to the frontier on the
-	// next overlook frame" (set on FlyUp start and after FlyDown completes).
-	float _overlookRevealRadius = -1f;
-	// Ground ambience bus name + its pre-overlook volume, captured on FlyUp so
-	// the eased duck restores cleanly even if the authored level changes.
-	const string AMBIENCE_BUS_NAME = "Ambience2D";
-	float _ambienceBaseVolumeDb;
-	// Authored built-in depth-fog range, captured on FlyUp so the eased push
-	// (and restore) ride the values the Environment was actually authored with.
-	float _builtinFogDepthBeginBase;
-	float _builtinFogDepthEndBase;
-	// Wind volume at eased=0 — effectively silent so the loop starts inaudible.
-	const float BIRDS_EYE_WIND_DB_FLOOR = -60f;
-	// Height above the player's feet treated as the on-ground listener anchor
-	// (matches the AudioListener3D's authored local Y in player.tscn).
-	const float AUDIO_LISTENER_HEAD_HEIGHT = 1f;
-	// Screen-space motion-blur direction during fly-up. The camera rises in
-	// world; objects sweep downward on screen (Godot SCREEN_UV has Y=0 at top),
-	// so the blur trails toward +Y. Same convention as the camera's RotateLeft.
-	static readonly Vector2 BIRDS_EYE_BLUR_DIR = new Vector2(0f, 1f);
+	// Bird's-eye overlook driver — lifts the camera off the player into a
+	// zoomed-out overview. GameClient ticks it in _Process, forwards the
+	// player's onBirdsEye event, and reads its foliage/blur state; see
+	// BirdsEyeController.
+	[Export] public BirdsEyeController birdsEye;
 
 	public int PixelScale => Math.Max(1, CVars.pixelScale.Value);
 
@@ -663,30 +392,6 @@ public partial class GameClient : Node3D
 		_highlightOverlay.AlphaCut = SpriteBase3D.AlphaCutMode.Disabled;
 		_highlightOverlay.Visible = false;
 		sceneViewport.AddChild(_highlightOverlay);
-
-		// 2D screen-space cloud quad — fullscreen NDC pass that samples two
-		// noise reads per pixel (base offset + coverage) to render a cloud
-		// layer bounded to [50%, 75%] of player→camera height. Same shape
-		// as the in-scene FogQuad: a QuadMesh at 2×2, parented to the camera
-		// at local (0,0,-6) so the mesh follows the camera and stays inside
-		// the frustum. The shader emits POSITION = (VERTEX.xy * 2, 1, 1) so
-		// the world transform doesn't matter for fragment placement — only
-		// for AABB-based culling. Cost is bounded to the overlook scene by
-		// the Visible gate.
-		var cloudShader = GD.Load<Shader>("res://shaders/clouds_overhead.gdshader");
-		_cloudOverheadMaterial = new ShaderMaterial();
-		_cloudOverheadMaterial.Shader = cloudShader;
-		var cloudQuadMesh = new QuadMesh();
-		cloudQuadMesh.Size = new Vector2(2f, 2f);
-		_cloudOverheadPlane = new MeshInstance3D();
-		_cloudOverheadPlane.Name = "CloudQuad";
-		_cloudOverheadPlane.Mesh = cloudQuadMesh;
-		_cloudOverheadPlane.MaterialOverride = _cloudOverheadMaterial;
-		_cloudOverheadPlane.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
-		_cloudOverheadPlane.ExtraCullMargin = 16384f;
-		_cloudOverheadPlane.Visible = false;
-		camera.AddChild(_cloudOverheadPlane);
-		_cloudOverheadPlane.Position = new Vector3(0f, 0f, -6f);
 
 		// Start every input-consuming modal hidden regardless of how the
 		// authored .tscn left them, and clear InputSuppressed so the player
@@ -723,7 +428,6 @@ public partial class GameClient : Node3D
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
 		onConversation += OnConversationRequested;
-		onInit?.Invoke();
 
 		// The loading screen owned by Main is up and currently sitting on
 		// the chunk-fill phase (~60%). We keep gameplay input suppressed
@@ -771,7 +475,7 @@ public partial class GameClient : Node3D
 		_player.onInteractChanged += OnPlayerInteractChanged;
 		_player.onLanguageLearned += OnPlayerLanguageLearned;
 		_player.onDied += OnPlayerDiedInternal;
-		_player.onBirdsEye += OnPlayerBirdsEye;
+		if (birdsEye != null) { _player.onBirdsEye += birdsEye.SetActive; }
 		sceneViewport.AddChild(_player);
 		// Suppress announcements during spawn-time knowledge application so
 		// the starting health potion, known recipes, etc. don't pop banners
@@ -983,28 +687,15 @@ public partial class GameClient : Node3D
 		float tightProbeRadius = foliagePlayerFadeRadius * Mathf.Max(foliagePlayerFadeAspectHorizontal, foliagePlayerFadeAspectVertical);
 		float wideProbeRadius = tightProbeRadius * foliagePlayerFadeWideProbeMultiplier;
 
-		if (_birdsEyePhase == EBirdsEyePhase.FlyUp || _birdsEyePhase == EBirdsEyePhase.Steady)
+		if (birdsEye != null && birdsEye.IsLifting)
 		{
-			// Entering the bird's-eye overlook (started by BirdsEyeEffect): the
-			// camera lifts overhead, so the iso-angle camera→player fade tube
-			// must close. Skip the probe and clamp the live activation down to
-			// a ceiling that tracks the FlyUp vertical lift — (1-t)² while
-			// rising (i.e. 1 minus the lift's own eased curve), 0 at the apex —
-			// so the dithered iris contracts in lockstep with the lift and is
-			// fully gone exactly when the lift completes. min() means it only
-			// ever shrinks here, never re-widens mid-contraction.
-			float ceiling;
-			if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
-			{
-				float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
-				float t = Mathf.Min(1f, _birdsEyeElapsed / duration);
-				ceiling = (1f - t) * (1f - t);
-			}
-			else
-			{
-				ceiling = 0f;
-			}
-			_foliageFadeActivationAmount = Mathf.Min(_foliageFadeActivationAmount, ceiling);
+			// Entering the bird's-eye overlook: the camera lifts overhead, so the
+			// iso-angle camera→player fade tube must close. Skip the probe and
+			// clamp the live activation down to the driver's lift-tracking ceiling
+			// — (1-t)² while rising, 0 at the apex — so the dithered iris contracts
+			// in lockstep with the lift. min() means it only ever shrinks here,
+			// never re-widens mid-contraction.
+			_foliageFadeActivationAmount = Mathf.Min(_foliageFadeActivationAmount, birdsEye.FoliageActivationCeiling);
 		}
 		else
 		{
@@ -1130,30 +821,30 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("player_radius", DETAIL_PLAYER_RADIUS);
 		RenderingServer.GlobalShaderParameterSet("player_strength", DETAIL_PLAYER_STRENGTH);
 
-		if (_birdsEyePhase != EBirdsEyePhase.None)
+		if (birdsEye != null && birdsEye.IsActive)
 		{
-			UpdateBirdsEyeCamera(deltaTime);
+			birdsEye.UpdateCamera(deltaTime);
 			SnapCameraAndUpdateUpscale();
 			// Sprites are sized off `sprite_chunky` (world meters per inner-viewport
 			// texel) — SnapCameraAndUpdateUpscale ties it to the live ortho Size so
 			// the pixel-art look stays "1 source pixel = N screen pixels". During
 			// the fly-up we WANT sprites to shrink with the zoom, so re-anchor the
-			// uniform to the pre-zoom Size. Snap math has already run against the
-			// live (inflated) chunky, so the camera's grid stays consistent; only
-			// the sprite scaler is reverted. Sub-pixel sprite rendering during the
-			// overview is the explicit tradeoff for a view that actually reads as
-			// zoomed out.
-			ApplyBirdsEyeSpriteChunky();
+			// uniform to the pre-zoom Size (ApplySpriteChunky). Snap math has
+			// already run against the live (inflated) chunky, so the camera's grid
+			// stays consistent; only the sprite scaler is reverted. Sub-pixel
+			// sprite rendering during the overview is the explicit tradeoff for a
+			// view that actually reads as zoomed out.
+			birdsEye.ApplySpriteChunky();
 			CullProps(camera.Clip);
 		}
 		else if (CVars.debugFlyCam.Value)
 		{
-			UpdateFlyCamera(deltaTime);
+			flyCamera?.Tick(deltaTime);
 			CullProps(float.PositiveInfinity);
 		}
 		else
 		{
-			_flyInitialized = false;
+			flyCamera?.Reset();
 			float followTime;
 			if (_player.IsDashing)
 			{
@@ -1183,7 +874,7 @@ public partial class GameClient : Node3D
 		{
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
-		UpdatePostProcess();
+		screenEffects?.Tick(deltaTime, birdsEye?.MotionBlur ?? 0f, BirdsEyeController.BlurDir);
 
 		// Hide the per-interactive highlight outline while another fullscreen
 		// HUD (merchant, conversation, cooking, etc.) has InputSuppressed on.
@@ -1222,7 +913,7 @@ public partial class GameClient : Node3D
 	// I in?" stream into a stable "what named region am I in?" signal.
 	// Hysteresis rules:
 	//   - Candidate region differs from CurrentRegion: dwell timer
-	//     accumulates; commit the swap (and fire onRegionEntered) once
+	//     accumulates; commit the swap (and announce the region) once
 	//     the player has stayed in the candidate's chunks for
 	//     REGION_DWELL_SECONDS or moved REGION_ENTER_DISTANCE_CHUNKS
 	//     past where the dwell started.
@@ -1287,7 +978,6 @@ public partial class GameClient : Node3D
 			_pendingRegion = null;
 			_pendingRegionElapsed = 0f;
 			ws.SimState.DiscoveredRegions.Add(CurrentRegion);
-			onRegionEntered?.Invoke(CurrentRegion);
 			Announce(new Announcement
 			{
 				type = EAnnouncementType.Region,
@@ -1355,59 +1045,12 @@ public partial class GameClient : Node3D
 		return Mathf.Sqrt(dx * dx + dz * dz);
 	}
 
-	void UpdateFlyCamera(double deltaTime)
-	{
-		if (!_flyInitialized)
-		{
-			Vector3 rot = camera.GlobalRotation;
-			_flyPitch = rot.X;
-			_flyYaw = rot.Y;
-			camera.SetClip(float.PositiveInfinity, camera.GlobalPosition);
-			_flyInitialized = true;
-		}
-
-		float dt = (float)deltaTime;
-		Vector3 move = Vector3.Zero;
-		if (Input.IsPhysicalKeyPressed(Key.W)) { move.Z -= 1f; }
-		if (Input.IsPhysicalKeyPressed(Key.S)) { move.Z += 1f; }
-		if (Input.IsPhysicalKeyPressed(Key.A)) { move.X -= 1f; }
-		if (Input.IsPhysicalKeyPressed(Key.D)) { move.X += 1f; }
-		if (Input.IsPhysicalKeyPressed(Key.Space)) { move.Y += 1f; }
-		if (Input.IsPhysicalKeyPressed(Key.Ctrl)) { move.Y -= 1f; }
-
-		float speed = FLYCAM_SPEED;
-		if (Input.IsPhysicalKeyPressed(Key.Shift)) { speed *= FLYCAM_BOOST; }
-
-		camera.GlobalRotation = new Vector3(_flyPitch, _flyYaw, 0);
-		if (move.LengthSquared() > 0f)
-		{
-			Basis basis = camera.GlobalBasis;
-			Vector3 worldMove = (basis.X * move.X + basis.Z * move.Z) + Vector3.Up * move.Y;
-			camera.GlobalPosition += worldMove.Normalized() * speed * dt;
-		}
-	}
-
-	public override void _ExitTree()
-	{
-		// Safety net: a quit or scene change mid-overlook never runs the FlyDown
-		// teardown, so the globally-shared ground ambience bus would stay ducked
-		// — and the next overlook would snapshot that ducked level as its base,
-		// accumulating the duck across runs. Undo it here if still active.
-		if (_birdsEyePhase != EBirdsEyePhase.None)
-		{
-			int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBus >= 0)
-			{
-				AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb);
-			}
-		}
-	}
 
 	// Show/hide the in-world UI for the bird's-eye overview shot. Hides the HUD,
 	// the dust motes, and the rain, and drops any live interactive outline +
 	// floating prompt. The per-frame highlight gate and UpdateInteractHUD keep
 	// the outline/prompt from reappearing while IsBirdsEye is true.
-	void SetBirdsEyeUiHidden(bool hidden)
+	public void SetBirdsEyeUiHidden(bool hidden)
 	{
 		if (hud != null)
 		{
@@ -1430,368 +1073,6 @@ public partial class GameClient : Node3D
 				_interactHUD = null;
 			}
 		}
-	}
-
-	void OnPlayerBirdsEye(bool active)
-	{
-		if (active)
-		{
-			// Capture the resting ortho Size so the fly-up zoom and the fly-down
-			// snap-back both lerp against the same anchor — CVar tweaks to the
-			// base size during the overlook don't strand the camera zoomed in.
-			_birdsEyeBaseSize = camera.Size;
-			_birdsEyePhase = EBirdsEyePhase.FlyUp;
-			_birdsEyeElapsed = 0f;
-			// Switch the chunk streamer into its panorama profile and arm the
-			// fog reveal to snap to the frontier on its first frame (so the
-			// already-loaded near field isn't briefly curtained). The streamed
-			// radius is sized from the apex visible footprint so the backdrop
-			// reaches the screen corners even at extreme zoom (otherwise the
-			// reveal — clamped to the loaded frontier — leaves a foggy ring).
-			World.Current?.ChunkManager?.BeginOverlook(ComputeOverlookGroundRadius());
-			_overlookRevealRadius = -1f;
-			camera.ManualClipMode = true;
-			// Force the indoor cutaway off so the camera can see the world from
-			// above even if the player started under a roof. SetClip routes
-			// through the existing fade so the ceiling cap dissolves smoothly.
-			// ClipAlways=false drops the user-toggled cutaway too, and stays
-			// false after FlyDown so the player has to re-enable it manually
-			// if they want it back.
-			camera.ClipAlways = false;
-			camera.SetClip(float.PositiveInfinity, _player.GlobalPosition);
-			// Cloud quad renders only while the overview is active AND the
-			// `clouds` CVar is enabled. UpdateBirdsEyeCamera re-checks the
-			// CVar every frame so toggling it mid-overlook updates live.
-			if (_cloudOverheadPlane != null)
-			{
-				_cloudOverheadPlane.Visible = CVars.clouds.Value;
-			}
-			// Audio: whoosh the lift, start the (silent) high-altitude wind loop
-			// that UpdateBirdsEyeCamera fades in, and snapshot the ground
-			// ambience bus level so the eased duck restores to it on the descent.
-			birdsEyeSwooshAudio?.Play();
-			if (birdsEyeWindAudio != null)
-			{
-				birdsEyeWindAudio.VolumeDb = BIRDS_EYE_WIND_DB_FLOOR;
-				birdsEyeWindAudio.Play();
-			}
-			int ambBusUp = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBusUp >= 0)
-			{
-				_ambienceBaseVolumeDb = AudioServer.GetBusVolumeDb(ambBusUp);
-			}
-			// Snapshot the authored built-in depth-fog range so the eased push
-			// (and the restore on completion) stay relative to it.
-			Godot.Environment env = sceneEnvironment?.Environment;
-			if (env != null)
-			{
-				_builtinFogDepthBeginBase = env.FogDepthBegin;
-				_builtinFogDepthEndBase = env.FogDepthEnd;
-			}
-			// Strip the in-world UI for the clean overview shot: HUD, dust motes,
-			// the interactive outline + its floating prompt. The per-frame
-			// highlight gate and UpdateInteractHUD keep them from reappearing
-			// while the overview is active.
-			SetBirdsEyeUiHidden(true);
-		}
-		else
-		{
-			if (_birdsEyePhase == EBirdsEyePhase.None)
-			{
-				return;
-			}
-			// Whoosh the descent too (the climb back down past the wind).
-			birdsEyeSwooshAudio?.Play();
-			// Cancelling mid-FlyUp: seed _birdsEyeElapsed so FlyDown picks up at
-			// the current eased height instead of snapping. FlyUp eases toward
-			// the apex as 1-(1-t)^2; FlyDown eases toward the ground as t^2 (t
-			// runs 1→0). Solve t^2 = easedNow for the FlyDown start fraction so
-			// the height is continuous. From Steady (easedNow=1) this lands on
-			// elapsed=0 naturally.
-			float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
-			float easedNow = 1f;
-			if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
-			{
-				float currentT = Mathf.Clamp(_birdsEyeElapsed / duration, 0f, 1f);
-				easedNow = 1f - (1f - currentT) * (1f - currentT);
-			}
-			// FlyDown's per-frame t = 1 - elapsed/duration, so to start at
-			// t = sqrt(easedNow) we seed elapsed = (1 - sqrt(easedNow))·duration.
-			float startT = Mathf.Sqrt(easedNow);
-			_birdsEyePhase = EBirdsEyePhase.FlyDown;
-			_birdsEyeElapsed = (1f - startT) * duration;
-		}
-	}
-
-	// Per-frame camera drive while bird's-eye view is active. Owns position
-	// (lifted along world-up off the player), ortho Size (zoom), and the
-	// motion-blur uniform consumed by UpdatePostProcess. End-of-FlyDown signals
-	// Player.OnBirdsEyeReturnComplete to drop the movement lock and restores
-	// the normal follow-position so the next frame's standard camera path
-	// resumes seamlessly.
-	void UpdateBirdsEyeCamera(double deltaTime)
-	{
-		float dt = (float)deltaTime;
-		_birdsEyeElapsed += dt;
-
-		// Tick the Q/E rotation tween, rotation-blur decay, and clip-plane
-		// fade every frame so CameraLeft / CameraRight stay responsive AND
-		// the ceiling-cutaway dissolve runs to completion during the overlook.
-		// The camera's own UpdateCamera (which normally runs these) is
-		// skipped while bird's-eye owns the pose.
-		camera.TickRotation(dt);
-		camera.AdvanceClipFade(dt);
-
-		// Re-sync the cloud quad's visibility against the `clouds` CVar each
-		// frame so toggling it mid-overlook updates without waiting for the
-		// next FlyUp/Down.
-		if (_cloudOverheadPlane != null)
-		{
-			_cloudOverheadPlane.Visible = CVars.clouds.Value;
-		}
-
-		float duration = Mathf.Max(0.0001f, birdsEyeTransitionSeconds);
-		float t;
-		bool finished = false;
-		if (_birdsEyePhase == EBirdsEyePhase.FlyUp)
-		{
-			t = Mathf.Min(1f, _birdsEyeElapsed / duration);
-			if (t >= 1f)
-			{
-				_birdsEyePhase = EBirdsEyePhase.Steady;
-			}
-		}
-		else if (_birdsEyePhase == EBirdsEyePhase.FlyDown)
-		{
-			t = 1f - Mathf.Min(1f, _birdsEyeElapsed / duration);
-			if (t <= 0f)
-			{
-				finished = true;
-			}
-		}
-		else
-		{
-			t = 1f;
-		}
-
-		// Ease-out in BOTH directions: the camera leaves fast and decelerates
-		// into its destination — the apex on fly-up, the ground on fly-down.
-		// A single curve of t would ease-out one way and ease-in the other
-		// (t descends 1→0 on FlyDown), so the curve is picked per phase.
-		// FlyDown's start elapsed is seeded in OnPlayerBirdsEye to keep the
-		// eased height continuous across a mid-fly-up cancel.
-		float eased = _birdsEyePhase == EBirdsEyePhase.FlyDown
-			? t * t                       // ease-out toward the ground (t: 1→0)
-			: 1f - (1f - t) * (1f - t);   // ease-out toward the apex  (t: 0→1)
-
-		// Camera pose. Read live camera.Yaw (TickRotation just updated it) so
-		// CameraLeft / CameraRight rotate the overview, lift straight up along
-		// world-Y by the eased altitude, and steepen the pitch by the eased
-		// delta so the overview looks further down. Horizontal tracking stays
-		// glued to the player so a knockback (which bypasses the movement lock)
-		// doesn't strand the view.
-		float pitchDeg = Mathf.Lerp(camera.pitchDegrees, camera.pitchDegrees - birdsEyePitchDelta, eased);
-		float pitch = Mathf.DegToRad(pitchDeg);
-		camera.GlobalRotation = new Vector3(pitch, camera.Yaw, 0f);
-		Vector3 baseOffset = camera.GlobalTransform.Basis.Z * camera.distance;
-		Vector3 lifted = baseOffset + Vector3.Up * birdsEyeAltitude;
-		// Anchor on the SAME framing target the normal follow uses, not the raw
-		// player feet — otherwise the eased=0 endpoint sits ~followHeightOffset
-		// below where the standard camera path resumes, popping the view on the
-		// FlyDown handoff.
-		Vector3 followTarget = camera.GetFollowTarget(_player.GlobalPosition);
-		camera.GlobalPosition = followTarget + baseOffset.Lerp(lifted, eased);
-
-		camera.Size = Mathf.Lerp(_birdsEyeBaseSize, _birdsEyeBaseSize * birdsEyeSizeMultiplier, eased);
-
-		// Push fog visibility along the same eased curve so the overview clears
-		// in step with the lift. SkyController reads this every frame; on
-		// FlyDown completion we reset it to 1.0 below so ground-level fog
-		// resumes its normal range. Null-safe: SkyController is created during
-		// scene init and outlives GameClient, but the static singleton may
-		// briefly be unset during teardown.
-		if (SkyController.Current != null)
-		{
-			SkyController.Current.FogVisibilityScale = Mathf.Lerp(1f, birdsEyeFogVisibilityScale, eased);
-			// Suppress only the general haze; authored fog_map volumes stay full.
-			SkyController.Current.AmbientFogScale = Mathf.Lerp(1f, birdsEyeAmbientFogScale, eased);
-		}
-
-		// Recede the scene Environment's built-in DEPTH fog along the same eased
-		// curve. This is a SEPARATE fog system from the custom volumetric pass
-		// (SkyController only drives the latter); its authored ~88–105 m black
-		// wall would otherwise black out all distant ground in the overview.
-		Godot.Environment fogEnv = sceneEnvironment?.Environment;
-		if (fogEnv != null)
-		{
-			float depthScale = Mathf.Lerp(1f, birdsEyeBuiltinFogDepthScale, eased);
-			fogEnv.FogDepthBegin = _builtinFogDepthBeginBase * depthScale;
-			fogEnv.FogDepthEnd = _builtinFogDepthEndBase * depthScale;
-		}
-
-		// Drive the overlook fog reveal: hide everything beyond the streaming
-		// frontier so chunks still meshing under the overview are masked by
-		// haze. The radius eases out toward the frontier but is clamped to never
-		// exceed it (a chunk that isn't resident is never revealed); the soft
-		// edge (overlook_reveal_softness) feathers the boundary.
-		ChunkManager chunkManager = World.Current?.ChunkManager;
-		if (chunkManager != null)
-		{
-			float frontier = chunkManager.OverlookLoadedRadiusWorld;
-			if (_overlookRevealRadius < 0f || frontier < _overlookRevealRadius)
-			{
-				// First overlook frame, or the frontier receded — snap (the
-				// snap-down case keeps the curtain from ever over-revealing).
-				_overlookRevealRadius = frontier;
-			}
-			else
-			{
-				float revealT = 1f - Mathf.Pow(0.01f, dt / Mathf.Max(0.0001f, birdsEyeRevealSmoothTime));
-				_overlookRevealRadius = Mathf.Min(frontier, Mathf.Lerp(_overlookRevealRadius, frontier, revealT));
-			}
-			Vector3 revealCenter = camera.GetFollowTarget(_player.GlobalPosition);
-			RenderingServer.GlobalShaderParameterSet("overlook_reveal_center", revealCenter);
-			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", _overlookRevealRadius);
-		}
-
-		// Audio rides the same eased curve as the lift:
-		//   - the listener climbs from the player's head toward the camera, so
-		//     World3D positional audio attenuates with altitude;
-		//   - the ground ambience bus ducks while the high-altitude wind fades
-		//     in — together a crossfade from ground sounds to wind aloft.
-		Vector3 listenerHead = _player.GlobalPosition + Vector3.Up * AUDIO_LISTENER_HEAD_HEIGHT;
-		_player.SetAudioListenerWorldOverride(listenerHead.Lerp(camera.GlobalPosition, eased));
-		if (birdsEyeWindAudio != null)
-		{
-			birdsEyeWindAudio.VolumeDb = Mathf.Lerp(BIRDS_EYE_WIND_DB_FLOOR, birdsEyeWindVolumeDb, eased);
-		}
-		int ambBus = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-		if (ambBus >= 0)
-		{
-			AudioServer.SetBusVolumeDb(ambBus, _ambienceBaseVolumeDb - birdsEyeAmbienceDuckDb * eased);
-		}
-
-		// Push the cloud band's world-Y bounds to the 2D cloud shader.
-		//
-		// Apex band position (eased=1): [50%, 75%] of player→camera height.
-		//
-		// Start band position (eased=0): the entire band sits ABOVE the
-		// camera's ortho frustum, so no ray crosses it and alpha=0. As
-		// `eased` rises 0→1 we slide the band downward through the
-		// (stationary) camera, which the shader's path-length integration
-		// reads as the camera "rising through" the cloud — same fade-in
-		// visual without actually lifting the camera node.
-		if (_cloudOverheadMaterial != null)
-		{
-			float playerY = _player.GlobalPosition.Y;
-			float apexCameraY = playerY + lifted.Y;
-			float deltaY = apexCameraY - playerY;
-			float thickness = 0.25f * deltaY;
-			// Camera Y at eased=t — typically constant when birdsEyeAltitude=0.
-			float currentCameraY = playerY + baseOffset.Lerp(lifted, eased).Y;
-			// Ortho's world-Y extent above the optical axis (= half ortho
-			// Size projected onto world-up via Basis.Y.Y). Plus a small
-			// padding so the band is unambiguously above ALL view rays.
-			float orthoBufferY = camera.Size * 0.5f * Mathf.Abs(camera.GlobalTransform.Basis.Y.Y) + 5f;
-			float startBottom = currentCameraY + orthoBufferY;
-			float startTop = startBottom + thickness;
-			float targetBottom = playerY + 0.5f * deltaY;
-			float targetTop = playerY + 0.75f * deltaY;
-			float bandBottom = Mathf.Lerp(startBottom, targetBottom, eased);
-			float bandTop = Mathf.Lerp(startTop, targetTop, eased);
-			_cloudOverheadMaterial.SetShaderParameter("band_bottom_altitude", bandBottom);
-			_cloudOverheadMaterial.SetShaderParameter("band_top_altitude", bandTop);
-		}
-
-		// Motion blur fires only during FlyUp — peaks at mid-flight via sin(πt)
-		// so it builds with acceleration and is gone by the time the camera
-		// settles at the apex. Steady and FlyDown render clean.
-		_birdsEyeBlur = _birdsEyePhase == EBirdsEyePhase.FlyUp ? Mathf.Sin(t * Mathf.Pi) * birdsEyeMotionBlurPeak : 0f;
-
-		if (finished)
-		{
-			_birdsEyePhase = EBirdsEyePhase.None;
-			_birdsEyeBlur = 0f;
-			camera.Size = _birdsEyeBaseSize;
-			camera.ManualClipMode = false;
-			// Drop the panorama streaming profile (its backdrop ring unloads as
-			// the desired set shrinks) and disable the fog curtain.
-			World.Current?.ChunkManager?.EndOverlook();
-			RenderingServer.GlobalShaderParameterSet("overlook_reveal_radius", 1e20f);
-			_overlookRevealRadius = -1f;
-			if (SkyController.Current != null)
-			{
-				SkyController.Current.FogVisibilityScale = 1f;
-				SkyController.Current.AmbientFogScale = 1f;
-				SkyController.Current.CloudAltitudeOverride = null;
-			}
-			// Restore the built-in depth-fog range to its authored values.
-			Godot.Environment doneEnv = sceneEnvironment?.Environment;
-			if (doneEnv != null)
-			{
-				doneEnv.FogDepthBegin = _builtinFogDepthBeginBase;
-				doneEnv.FogDepthEnd = _builtinFogDepthEndBase;
-			}
-			// Restore the HUD + motes hidden for the overview.
-			SetBirdsEyeUiHidden(false);
-			// Re-seat the follow position so the normal camera path picks up
-			// from the player on the next frame rather than lerping from the
-			// stale (lifted) follow target.
-			camera.SetInitialPosition(_player.GlobalPosition);
-			if (_cloudOverheadPlane != null)
-			{
-				_cloudOverheadPlane.Visible = false;
-			}
-			// Restore audio: listener back to the player's head, wind loop off,
-			// ground ambience bus back to its pre-overlook level. eased is 0 at
-			// FlyDown completion, so these all landed at their rest values on the
-			// final frame already; this makes the reset explicit and stops the
-			// looping stream.
-			_player.SetAudioListenerWorldOverride(null);
-			birdsEyeWindAudio?.Stop();
-			int ambBusDone = AudioServer.GetBusIndex(AMBIENCE_BUS_NAME);
-			if (ambBusDone >= 0)
-			{
-				AudioServer.SetBusVolumeDb(ambBusDone, _ambienceBaseVolumeDb);
-			}
-			_player.OnBirdsEyeReturnComplete();
-		}
-	}
-
-	// Pushes `sprite_chunky` to the pre-zoom base value so sprite-billboard
-	// world size doesn't track the inflated bird's-eye ortho Size. Must run
-	// AFTER SnapCameraAndUpdateUpscale (which sets the live-Size value); the
-	// _Process bird's-eye branch calls it in that order. Skipped (no-op) when
-	// the viewport isn't yet wired so the first-frame init path is safe.
-	void ApplyBirdsEyeSpriteChunky()
-	{
-		if (sceneViewport == null)
-		{
-			return;
-		}
-		float baseChunky = _birdsEyeBaseSize / Mathf.Max(1, sceneViewport.Size.Y);
-		RenderingServer.GlobalShaderParameterSet("sprite_chunky", baseChunky);
-	}
-
-	// Ground radius (metres) from the player to the farthest visible screen
-	// corner at the bird's-eye apex. The chunk streamer uses this to size the
-	// overlook backdrop so the fog reveal can reach the corners. Orthographic,
-	// so altitude doesn't change the footprint — only the apex ortho Size and
-	// pitch do. Derivation: the vertical screen axis projects onto the ground
-	// foreshortened by 1/sin(pitch-below-horizontal); the horizontal axis is
-	// parallel to the ground (no foreshortening). Corner = hypot of the two
-	// half-extents. Reads _birdsEyeBaseSize, so call after it's captured.
-	float ComputeOverlookGroundRadius()
-	{
-		float apexSize = _birdsEyeBaseSize * birdsEyeSizeMultiplier;
-		float phi = Mathf.DegToRad(Mathf.Abs(camera.pitchDegrees - birdsEyePitchDelta));
-		float sinPhi = Mathf.Max(0.1f, Mathf.Sin(phi));
-		float aspect = sceneViewport != null && sceneViewport.Size.Y > 0
-			? (float)sceneViewport.Size.X / sceneViewport.Size.Y
-			: 16f / 9f;
-		float halfDepth = apexSize * 0.5f / sinPhi;
-		float halfWidth = apexSize * aspect * 0.5f;
-		return Mathf.Sqrt(halfDepth * halfDepth + halfWidth * halfWidth);
 	}
 
 	void UpdateViewportSize()
@@ -1895,229 +1176,12 @@ public partial class GameClient : Node3D
 		}
 	}
 
-	// Red damage-flash intensity in [0, 1]. Bumped by FlashDamage on every
-	// player hit (direct + DOT rollup), decayed linearly each frame so the
-	// flash fades over damageFlashFadeSeconds.
-	float _damageFlash;
-
-	// Heartbeat pulse state. `_heartbeatPhase` is the position in the current
-	// lub-dub cycle in [0, 1); a cycle boundary retriggers the SFX. While the
-	// player is alive the rate tracks the low-health ramp; on death we latch
-	// the live rate and ease it (and the pulse amplitude) to zero over the
-	// death-slowdown window, so the thump-thump audibly winds down.
-	float _heartbeatPhase;
-	bool _heartbeatActive;
-	float _heartbeatLiveRate;
-	bool _heartbeatDying;
-	float _heartbeatDeathElapsed;
-	float _heartbeatDeathStartRate;
-	float _heartbeatDeathSlowdown;
-
-	// Counts down from lowHealthEffectSeconds; refilled on every hit. The
-	// normalized value (eased) is the master multiplier on the whole
-	// low-health overlay, so it fades out a few seconds after the last hit.
-	float _lowHealthEffectTimer;
-
-	// Lub-dub envelope shape, in cycle-phase units. The lub sits at phase 0
-	// (cycle boundary, where the SFX fires); the quieter dub follows shortly
-	// after. Each is a smooth cosine bump of the given half-width.
-	const float HEARTBEAT_LUB_WIDTH = 0.07f;
-	const float HEARTBEAT_DUB_OFFSET = 0.2f;
-	const float HEARTBEAT_DUB_WIDTH = 0.06f;
-	const float HEARTBEAT_DUB_STRENGTH = 0.65f;
-	// Pitch floor the slowing heartbeat sags toward as it dies out.
-	const float HEARTBEAT_DEATH_PITCH = 0.7f;
-	// Bus-relative volume floor the dying heartbeat fades toward.
-	const float HEARTBEAT_DEATH_VOLUME_DB = -30f;
-
-	// Bumps the damage flash by the hit fraction of max health, scaled by
-	// damageFlashScale and capped at 1. Stacks with whatever is already in
-	// the buffer (max-of) so a follow-up hit during a fade doesn't shrink
-	// the flash. Called from Player.OnHurtBoxHit (direct) and from
-	// _PhysicsProcess after each DOT HUD flush.
+	// Bumps the screen damage-flash + low-health overlay window. Called from
+	// Player.OnHurtBoxHit (direct) and from _PhysicsProcess after each DOT HUD
+	// flush; forwards to the ScreenEffectsController that owns the post pass.
 	public void FlashDamage(float amount)
 	{
-		if (amount <= 0f || _player == null) { return; }
-		float maxHealth = _player.MaxHealth;
-		if (maxHealth <= 0f) { return; }
-		// Any hit refills the low-health overlay window — the effect snaps back
-		// to full and resumes its nearness-to-death intensity (the ramp is
-		// recomputed live from current health).
-		_lowHealthEffectTimer = lowHealthEffectSeconds;
-		float intensity = Mathf.Clamp(amount / maxHealth * damageFlashScale, 0f, 1f);
-		if (intensity > _damageFlash)
-		{
-			_damageFlash = intensity;
-		}
-	}
-
-	void UpdatePostProcess()
-	{
-		if (postProcessMaterial == null) { return; }
-
-		postProcessMaterial.SetShaderParameter("vignette_radius", CVars.vignetteRadius.Value);
-		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
-		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
-
-		// Motion blur — combined max-of between the camera's rotation blur
-		// (decays over rotationBlurDuration after a Q/E press) and the
-		// bird's-eye fly-up blur. The CVar gates only the rotation source so
-		// the bird's-eye effect runs even when rotation blur is disabled.
-		// When `motion_blur_strength` is 0 the shader skips the blur loop, so
-		// idle frames pay nothing.
-		float rotBlur = CVars.rotationBlur.Value ? camera.RotationBlurStrength : 0f;
-		float blurStrength = Mathf.Max(rotBlur, _birdsEyeBlur);
-		Vector2 blurDir = _birdsEyeBlur > rotBlur ? BIRDS_EYE_BLUR_DIR : camera.RotationBlurDir;
-		postProcessMaterial.SetShaderParameter("motion_blur_strength", blurStrength);
-		postProcessMaterial.SetShaderParameter("motion_blur_dir", blurDir);
-
-		// Decay the flash. dt comes from the engine's _Process delta — we
-		// don't have it here directly, so pull from the frame time. This
-		// runs once per visual frame (called from _Process), so
-		// GetProcessDeltaTime is the right scale.
-		float dt = (float)GetProcessDeltaTime();
-		if (_damageFlash > 0f && damageFlashFadeSeconds > 0f)
-		{
-			_damageFlash = Mathf.Max(0f, _damageFlash - dt / damageFlashFadeSeconds);
-		}
-		postProcessMaterial.SetShaderParameter("damage_flash", _damageFlash);
-		postProcessMaterial.SetShaderParameter("damage_flash_color", damageFlashColor);
-		// SetShaderParameter accepts a null Texture2D — the shader's
-		// hint_default_white kicks in and the flash paints uniformly red.
-		postProcessMaterial.SetShaderParameter("damage_flash_tex", damageFlashTexture);
-
-		// Low-health overlay. Ramp = (threshold - healthFrac) / threshold
-		// so at threshold the ramp is 0, at 0 health the ramp is 1. Each
-		// component (desat, dim) is sent pre-scaled by its max so the
-		// shader just applies a 0..1.
-		float ramp = 0f;
-		if (_player != null && lowHealthThreshold > 0f)
-		{
-			float maxHealth = _player.MaxHealth;
-			if (maxHealth > 0f)
-			{
-				float frac = Mathf.Clamp(_player.Health / maxHealth, 0f, 1f);
-				ramp = Mathf.Clamp((lowHealthThreshold - frac) / lowHealthThreshold, 0f, 1f);
-			}
-		}
-		// Damage-gated fade. The overlay only lingers for a window after the
-		// last hit (refilled in FlashDamage); past that it eases out. Eased
-		// with smoothstep so it holds near full for most of the window and
-		// drops off toward the end rather than dimming the whole time.
-		_lowHealthEffectTimer = Mathf.Max(0f, _lowHealthEffectTimer - dt);
-		float fade = lowHealthEffectSeconds > 0f
-			? Mathf.SmoothStep(0f, 1f, _lowHealthEffectTimer / lowHealthEffectSeconds)
-			: 0f;
-
-		// Heartbeat thump. Active whenever the overlay is showing or the death
-		// wind-down is still running. `pulse` is the lub-dub envelope scaled by
-		// the death amplitude AND the damage-gated fade; it breathes the
-		// desaturation (color bleeds back) and feeds the shader's red-tint
-		// surge. The cadence still tracks nearness to death — only the
-		// amplitude/volume fades with the window.
-		float pulse = UpdateHeartbeat(dt, ramp, fade);
-		float baseDesat = ramp * lowHealthMaxDesaturation * fade;
-		float desat = baseDesat * (1f - pulse * lowHealthHeartbeatDesaturationPulse);
-		postProcessMaterial.SetShaderParameter("low_health_desaturation", desat);
-		postProcessMaterial.SetShaderParameter("low_health_dim", ramp * lowHealthMaxDim * fade);
-		postProcessMaterial.SetShaderParameter("low_health_pulse", pulse * lowHealthHeartbeatRedTint);
-		postProcessMaterial.SetShaderParameter("low_health_pulse_color",
-			new Vector3(lowHealthHeartbeatColor.R, lowHealthHeartbeatColor.G, lowHealthHeartbeatColor.B));
-	}
-
-	// Advances the heartbeat phase and returns the current lub-dub envelope
-	// value in [0, 1] (already scaled by the death-wind-down amplitude and the
-	// damage-gated `fade`). The heartbeat is live while `ramp` > 0 and the fade
-	// window is open; on death it ignores both and decelerates the latched rate
-	// to a stop. Retriggers the SFX on each cycle boundary. Returns 0 when idle.
-	float UpdateHeartbeat(float dt, float ramp, float fade)
-	{
-		bool active = (ramp > 0f && fade > 0f) || _heartbeatDying;
-		if (!active)
-		{
-			_heartbeatActive = false;
-			return 0f;
-		}
-
-		// Per-frame rate (cycles/sec) and the amplitude/pitch envelope.
-		float rate;
-		float amplitude;
-		float pitch;
-		if (_heartbeatDying)
-		{
-			_heartbeatDeathElapsed += dt;
-			float t = _heartbeatDeathSlowdown > 0f
-				? Mathf.Clamp(_heartbeatDeathElapsed / _heartbeatDeathSlowdown, 0f, 1f)
-				: 1f;
-			// Ease-out so the deceleration is steep at first then crawls to a
-			// halt — reads as a heart giving out rather than a linear ramp.
-			float ease = 1f - (t * t);
-			rate = _heartbeatDeathStartRate * ease;
-			amplitude = ease;
-			pitch = Mathf.Lerp(HEARTBEAT_DEATH_PITCH, 1f, ease);
-		}
-		else
-		{
-			float bpm = Mathf.Lerp(lowHealthHeartbeatSlowBpm, lowHealthHeartbeatFastBpm, ramp);
-			rate = bpm / 60f;
-			_heartbeatLiveRate = rate;
-			amplitude = 1f;
-			pitch = Mathf.Lerp(1f, lowHealthHeartbeatMaxPitch, ramp);
-		}
-		// The damage-gated window fades the heartbeat's loudness/strength
-		// without touching its cadence. Death refills the window, so the
-		// wind-down always plays at full.
-		amplitude *= fade;
-
-		// Fire the first beat the instant the overlay engages, then on every
-		// cycle wrap. New beats stop once the dying rate has crawled to zero.
-		bool beat = false;
-		if (!_heartbeatActive)
-		{
-			_heartbeatActive = true;
-			_heartbeatPhase = 0f;
-			beat = true;
-		}
-		else
-		{
-			_heartbeatPhase += rate * dt;
-			if (_heartbeatPhase >= 1f)
-			{
-				_heartbeatPhase -= Mathf.Floor(_heartbeatPhase);
-				beat = true;
-			}
-		}
-
-		if (beat && heartbeatAudio != null && amplitude > 0.02f)
-		{
-			heartbeatAudio.PitchScale = pitch;
-			heartbeatAudio.VolumeDb = Mathf.Lerp(HEARTBEAT_DEATH_VOLUME_DB, lowHealthHeartbeatVolumeDb, amplitude);
-			heartbeatAudio.Play();
-		}
-
-		return HeartbeatEnvelope(_heartbeatPhase) * amplitude;
-	}
-
-	// Two smooth cosine bumps per cycle — the loud lub at the boundary and a
-	// softer dub just after — forming the thump-thump shape.
-	static float HeartbeatEnvelope(float phase)
-	{
-		float lub = HeartbeatBump(phase, 0f, HEARTBEAT_LUB_WIDTH);
-		float dub = HeartbeatBump(phase, HEARTBEAT_DUB_OFFSET, HEARTBEAT_DUB_WIDTH) * HEARTBEAT_DUB_STRENGTH;
-		return Mathf.Max(lub, dub);
-	}
-
-	// Cosine bump centered at `center` (cycle-wrapped) with the given
-	// half-width: 1 at the center, smoothly to 0 at ±width, 0 beyond.
-	static float HeartbeatBump(float phase, float center, float width)
-	{
-		float d = Mathf.Abs(phase - center);
-		d = Mathf.Min(d, 1f - d);
-		if (d >= width)
-		{
-			return 0f;
-		}
-		return 0.5f * (1f + Mathf.Cos(d / width * Mathf.Pi));
+		screenEffects?.FlashDamage(amount);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -2137,11 +1201,8 @@ public partial class GameClient : Node3D
 		// UnhandledInput block uses.
 		if (e is InputEventMouseMotion mouseMotion && !paused && !InputSuppressed && _player != null)
 		{
-			if (CVars.debugFlyCam.Value && Input.IsMouseButtonPressed(MouseButton.Right))
+			if (flyCamera != null && flyCamera.HandleMouseMotion(mouseMotion))
 			{
-				_flyYaw -= mouseMotion.Relative.X * FLYCAM_LOOK_SENSITIVITY;
-				_flyPitch -= mouseMotion.Relative.Y * FLYCAM_LOOK_SENSITIVITY;
-				_flyPitch = Mathf.Clamp(_flyPitch, -Mathf.Pi / 2f + 0.01f, Mathf.Pi / 2f - 0.01f);
 				return;
 			}
 			// Virtual aim-stick model: _mousePosition is the deflection of an
@@ -2495,22 +1556,11 @@ public partial class GameClient : Node3D
 	{
 		InputSuppressed = true;
 
-		// Hand the heartbeat over to its death wind-down: latch the live rate
-		// (fall back to the fast-BPM rate if the player died before the
-		// overlay was ramping, e.g. a one-shot kill) and let UpdateHeartbeat
-		// decelerate it to a stop. Sync the slowdown to the DeathScreen fade
-		// so the heart and the screen go quiet together.
-		_heartbeatDying = true;
-		_heartbeatDeathElapsed = 0f;
-		// Refill the window so the death wind-down is always at full strength,
-		// even if the killing blow landed after the overlay had faded out.
-		_lowHealthEffectTimer = lowHealthEffectSeconds;
-		_heartbeatDeathStartRate = _heartbeatLiveRate > 0f ? _heartbeatLiveRate : lowHealthHeartbeatFastBpm / 60f;
-		_heartbeatDeathSlowdown = deathScreen != null && deathScreen.fadeOutSeconds > 0f
-			? deathScreen.fadeOutSeconds
-			: lowHealthDeathSlowdownSeconds;
+		// Hand the heartbeat over to its death wind-down (latched live rate,
+		// eased to a stop synced to the DeathScreen fade). 0 → the controller
+		// uses its own lowHealthDeathSlowdownSeconds fallback.
+		screenEffects?.NotifyPlayerDied(deathScreen?.fadeOutSeconds ?? 0f);
 
-		onPlayerDied?.Invoke(player);
 		if (deathScreen != null)
 		{
 			deathScreen.Show(this);
@@ -2542,10 +1592,7 @@ public partial class GameClient : Node3D
 		// Clear the death wind-down so the heartbeat goes fully idle (health is
 		// restored, so the overlay ramp is 0); a fresh low-health episode will
 		// re-engage it from scratch.
-		_heartbeatDying = false;
-		_heartbeatActive = false;
-		_heartbeatDeathElapsed = 0f;
-		_lowHealthEffectTimer = 0f;
+		screenEffects?.ResetOnRespawn();
 	}
 
 	public void Save()

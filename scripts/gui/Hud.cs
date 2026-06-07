@@ -108,8 +108,8 @@ public partial class Hud : Control
 	StatusEffectIcon _activeStatusEffectIcon;
 	float _mapRotation;
 	// Lerped minimap view radius (meters), computed each frame from
-	// TextureRect size and GameClient.minimapPixelsPerMeter. Damps toward
-	// the target so indoor/outdoor mode toggles glide smoothly.
+	// TextureRect size and Minimap.pixelsPerMeter. Damps toward the target
+	// so indoor/outdoor mode toggles glide smoothly.
 	float _minimapViewRadius;
 	const float MinimapViewRadiusLerpRate = 10f;
 	// Last-pushed texture references per state slot, so we only call
@@ -729,17 +729,16 @@ public partial class Hud : Control
 
 	// Computes the visible half-extent (meters) for the minimap shader.
 	// Independent of player vision: the TextureRect's screen-pixel size
-	// divided by GameClient.minimapPixelsPerMeter gives the world meters
+	// divided by Minimap.pixelsPerMeter gives the world meters
 	// the rect covers; halve for the radius. Indoor mode multiplies
-	// pixels-per-meter by minimapIndoorZoom so corridors zoom in. Damp-
+	// pixels-per-meter by Minimap.indoorZoom so corridors zoom in. Damp-
 	// lerps toward the target so mode toggles glide smoothly.
 	float UpdateMinimapViewRadius(Minimap minimap)
 	{
-		GameClient gc = gameClient;
-		float ppm = gc?.minimapPixelsPerMeter ?? 2f;
+		float ppm = minimap.pixelsPerMeter;
 		if (minimap.Mode == Minimap.EMinimapMode.Indoor)
 		{
-			ppm *= gc?.minimapIndoorZoom ?? 2f;
+			ppm *= minimap.indoorZoom;
 		}
 		float screenPx = Mathf.Min(_minimapTexture.Size.X, _minimapTexture.Size.Y);
 		float target = (screenPx / ppm) * 0.5f;

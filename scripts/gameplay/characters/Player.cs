@@ -1839,9 +1839,8 @@ public partial class Player : CharacterBody3D
 		float warmthRate = 0f;
 		if (!inWater && !inRain)
 		{
-			GameClient client = GameClient.Current;
-			float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
-			float airTemp = client != null ? client.SampleAirTemperature(GlobalPosition) : data.dryRateReferenceTempF;
+			float windSpeed = _world?.SampleWindSpeed(GlobalPosition) ?? 0f;
+			float airTemp = _world?.SampleAirTemperature(GlobalPosition) ?? data.dryRateReferenceTempF;
 			float humidity = SkyController.Current?.Weather?.humidity ?? 0f;
 			float windMul = 1f + windSpeed * data.dryRateWindBoostPerMps;
 			float humidityMul = Mathf.Clamp(1f - humidity * data.dryRateHumidityDamping, 0f, 1f);
@@ -2115,13 +2114,12 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		GameClient client = GameClient.Current;
-		if (client == null)
+		if (_world == null)
 		{
 			return;
 		}
 
-		float envTemp = client.SampleAirTemperature(GlobalPosition) + _warmthBonus;
+		float envTemp = _world.SampleAirTemperature(GlobalPosition) + _warmthBonus;
 		float speed = data.temperatureAcclimationSpeed;
 		if (speed > 0f)
 		{
@@ -2150,7 +2148,7 @@ public partial class Player : CharacterBody3D
 		// upward in actual ambient, so cold triggers earlier and hot needs
 		// hotter air to reach. SampleWindSpeed zeroes out under overhead
 		// shelter so caves don't pretend to be windy.
-		float windEffect = client.SampleWindSpeed(GlobalPosition) * data.windTemperatureReduction;
+		float windEffect = _world.SampleWindSpeed(GlobalPosition) * data.windTemperatureReduction;
 		float coldThreshold = data.coldTemperature - coldResist + windEffect;
 		float hotThreshold = data.hotTemperature + heatResist + windEffect;
 
@@ -2342,10 +2340,7 @@ public partial class Player : CharacterBody3D
 		_hotState = null;
 		_drainedHealth = 0f;
 		_bloodRegenStartMs = 0;
-		GameClient client = GameClient.Current;
-		_bodyTemperature = client != null
-			? client.SampleAirTemperature(position)
-			: 70f;
+		_bodyTemperature = _world?.SampleAirTemperature(position) ?? 70f;
 		_warmthZoneCount = 0;
 		_warmthBonus = 0f;
 		_health = MaxHealth;
@@ -2536,10 +2531,9 @@ public partial class Player : CharacterBody3D
 
 		// Seed body temperature to the spawn ambient so the player isn't
 		// born already cold / hot just because the default float is 70°F.
-		GameClient client = GameClient.Current;
-		if (client != null)
+		if (_world != null)
 		{
-			_bodyTemperature = client.SampleAirTemperature(GlobalPosition);
+			_bodyTemperature = _world.SampleAirTemperature(GlobalPosition);
 		}
 	}
 
@@ -3211,8 +3205,7 @@ public partial class Player : CharacterBody3D
 			Vector3 windDir = SkyController.Current?.ZoneState.WindDirection ?? Vector3.Zero;
 			if (windDir.LengthSquared() > 0.0001f)
 			{
-				GameClient client = GameClient.Current;
-				float windSpeed = client != null ? client.SampleWindSpeed(GlobalPosition) : 0f;
+				float windSpeed = _world?.SampleWindSpeed(GlobalPosition) ?? 0f;
 				if (windSpeed > 0f)
 				{
 					windDir.Y = 0f;

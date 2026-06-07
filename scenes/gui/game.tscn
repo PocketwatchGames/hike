@@ -15,6 +15,9 @@
 [ext_resource type="Script" uid="uid://yem15b51ht1r" path="res://scripts/client/BlockLightShadowProjector.cs" id="block_light_shadow_projector_script"]
 [ext_resource type="Script" uid="uid://cgstainproj8w2" path="res://scripts/client/GroundStainProjector.cs" id="ground_stain_projector_script"]
 [ext_resource type="Script" uid="uid://oaoils24s6un" path="res://scripts/client/GameCamera.cs" id="camera_script"]
+[ext_resource type="Script" uid="uid://52575tsqfy9r7" path="res://scripts/client/FlyCamera.cs" id="fly_camera_script"]
+[ext_resource type="Script" uid="uid://7ghqjjq8jmk82" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
+[ext_resource type="Script" uid="uid://7glw86vtjqvky" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
 [ext_resource type="Material" uid="uid://bg6xptnbqq2n1" path="res://resources/materials/fog_volumetric.tres" id="fog_volumetric_mat"]
 [ext_resource type="AudioStream" uid="uid://cltpadmtjyil1" path="res://audio/source/player/sfx_heartbeat_01.wav" id="heartbeat_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
@@ -27,7 +30,8 @@
 [ext_resource type="PackedScene" uid="uid://wrdegol14u0e" path="res://scenes/hud/hud_text_heal_heavy.tscn" id="hud_text_heal_heavy"]
 [ext_resource type="PackedScene" uid="uid://daw07fd8ckjrx" path="res://scenes/hud/hud_text_heal_light.tscn" id="hud_text_heal_light"]
 [ext_resource type="PackedScene" uid="uid://bajbqjuap3wxc" path="res://scenes/hud/hud_text_info.tscn" id="hud_text_info"]
-[ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="minimap_foliage_colors"]
+[ext_resource type="PackedScene" uid="uid://cmnmapscene7x1a" path="res://scenes/subsystems/minimap.tscn" id="minimap_scene"]
+[ext_resource type="PackedScene" uid="uid://chtfieldscene7y2b" path="res://scenes/subsystems/heat_field.tscn" id="heat_field_scene"]
 [ext_resource type="PackedScene" uid="uid://daek4pk8ecen3" path="res://scenes/effects/motes.tscn" id="mote_scene"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline_flat.tres" id="outline_flat_mat"]
 [ext_resource type="Material" path="res://resources/materials/highlight_outline.tres" id="outline_mat"]
@@ -74,7 +78,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "bloomQuad", "heartbeatAudio", "birdsEyeWindAudio", "birdsEyeSwooshAudio")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "flyCamera", "screenEffects", "birdsEye", "minimap", "heatField")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 hud = NodePath("GUICanvas/HUD")
@@ -86,7 +90,6 @@ deathScreen = NodePath("DeathCanvas/DeathScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
-bloomQuad = NodePath("BloomQuad")
 upscaleMaterial = ExtResource("upscale_mat")
 fogMaterial = ExtResource("fog_volumetric_mat")
 interactHudScene = ExtResource("3_0q6jn")
@@ -100,23 +103,40 @@ hudTextHealLightScene = ExtResource("hud_text_heal_light")
 hudTextHealHeavyScene = ExtResource("hud_text_heal_heavy")
 outlineMaterial = ExtResource("outline_mat")
 outlineFlatMaterial = ExtResource("outline_flat_mat")
-postProcessMaterial = ExtResource("post_process_mat")
-lowHealthHeartbeatSlowBpm = 45.0
-lowHealthHeartbeatFastBpm = 90.0
-heartbeatAudio = NodePath("HeartbeatAudio")
-birdsEyeWindAudio = NodePath("BirdsEyeWindAudio")
-birdsEyeSwooshAudio = NodePath("BirdsEyeSwooshAudio")
-minimapFoliageColors = ExtResource("minimap_foliage_colors")
-minimapRevealMultiplier = 2.0
-minimapRevealInnerFraction = 0.95
 foliagePlayerFadeRadius = 8.0
 foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
-birdsEyeAltitude = 10.0
-birdsEyePitchDelta = 10.0
-birdsEyeSizeMultiplier = 5.0
-birdsEyeTransitionSeconds = 1.0
+flyCamera = NodePath("FlyCamera")
+screenEffects = NodePath("ScreenEffects")
+birdsEye = NodePath("BirdsEye")
+minimap = NodePath("Minimap")
+heatField = NodePath("HeatField")
+
+[node name="FlyCamera" type="Node" parent="." node_paths=PackedStringArray("camera")]
+script = ExtResource("fly_camera_script")
+camera = NodePath("../SceneViewport/MainCamera")
+
+[node name="ScreenEffects" type="Node" parent="." node_paths=PackedStringArray("heartbeatAudio")]
+script = ExtResource("screen_effects_script")
+postProcessMaterial = ExtResource("post_process_mat")
+heartbeatAudio = NodePath("../HeartbeatAudio")
+lowHealthHeartbeatSlowBpm = 45.0
+lowHealthHeartbeatFastBpm = 90.0
+
+[node name="BirdsEye" type="Node" parent="." node_paths=PackedStringArray("camera", "windAudio", "swooshAudio")]
+script = ExtResource("birds_eye_script")
+camera = NodePath("../SceneViewport/MainCamera")
+windAudio = NodePath("../BirdsEyeWindAudio")
+swooshAudio = NodePath("../BirdsEyeSwooshAudio")
+altitude = 10.0
+pitchDelta = 10.0
+sizeMultiplier = 5.0
+transitionSeconds = 1.0
+
+[node name="Minimap" parent="." instance=ExtResource("minimap_scene")]
+
+[node name="HeatField" parent="." instance=ExtResource("heat_field_scene")]
 
 [node name="OuterEnv" type="WorldEnvironment" parent="." unique_id=1077832549]
 environment = SubResource("Environment_bloom")

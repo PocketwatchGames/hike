@@ -44,7 +44,7 @@ public static class MinimapData
     // BlockData entry — the slice generator writes this index directly so
     // every biome's solid-wall pixels read the same color regardless of terrain
     // or voxel type. Picked above the BlockCatalog's active range; the LUT
-    // builder paints this slot from GameClient.minimapWallSlotColor.
+    // builder paints this slot from Minimap.wallSlotColor.
     public const int WallSlotIndex = 32;
 
     // Bit values for SliceCell.Flags. Floor = a solid voxel was found in the

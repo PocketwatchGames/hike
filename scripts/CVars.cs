@@ -1238,7 +1238,7 @@ public static class CVars
             return;
         }
         Godot.Vector3 p = World.Current.player.GlobalPosition;
-        GameClient.AirTemperatureSample s = client.SampleAirTemperatureBreakdown(p);
+        World.AirTemperatureSample s = World.Current.SampleAirTemperatureBreakdown(p);
         Godot.GD.Print(
             $"temp at ({p.X:F1}, {p.Y:F1}, {p.Z:F1}): {s.Total:F1}°F\n" +
             $"  air        = {s.air:F1}°F\n" +

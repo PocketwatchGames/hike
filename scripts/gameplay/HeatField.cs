@@ -19,12 +19,27 @@ using System.Collections.Generic;
 [GlobalClass]
 public partial class HeatField : Node3D
 {
-	// Tuning knobs live on GameClient under [ExportGroup("Heat Shimmer")] —
-	// matches the minimap convention (HeatField is created programmatically in
-	// World, so its own [Export] fields wouldn't surface in any inspector).
-	// _resolution is captured once in _Ready; all other values are read live
-	// from GameClient.Current each Tick so editor-time tweaks take effect
-	// without restart.
+	[ExportGroup("Heat Shimmer")]
+	// Texture side length (cells). Locked at boot — the ImageTexture is
+	// allocated at this size in _Ready and never resized. Larger = sharper
+	// disk edges + finer gradient; cost is N*N bytes per per-frame upload.
+	[Export(PropertyHint.Range, "32,1024,1")] public int resolution = 256;
+	// Total side length in meters covered by the heat field. Centered on the
+	// player; field UVs are 0 at (player − size/2) and 1 at (player + size/2).
+	[Export(PropertyHint.Range, "8,512,1")] public float sizeMeters = 64f;
+	// Ambient air-temperature ramp (°F). Below START = no shimmer, above
+	// FULL = max shimmer; linear interpolation between.
+	[Export(PropertyHint.Range, "0,200,0.5")] public float ambientStartF = 90f;
+	[Export(PropertyHint.Range, "0,200,0.5")] public float ambientFullF = 120f;
+	// WarmthZone shimmer intensity = clamp(warmingTemperature / divisor, 0, 1).
+	// 30°F warming hits ~1.0 intensity; the 20°F campfire default lands at ~0.67.
+	[Export(PropertyHint.Range, "1,200,0.5")] public float warmIntensityDivisor = 30f;
+	// Inner fraction of stamped disks that paints at full intensity. Outside
+	// this fraction falls linearly to 0 at the disk edge.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float diskInnerFraction = 0.5f;
+
+	// Mirrors the `resolution` export, captured once in _Ready (the texture is
+	// allocated at that size and never resized).
 	private int _resolution;
 	private byte[] _buffer;
 	private Image _image;
@@ -35,7 +50,7 @@ public partial class HeatField : Node3D
 
 	public override void _Ready()
 	{
-		_resolution = Mathf.Max(8, GameClient.Current?.heatShimmerResolution ?? 256);
+		_resolution = Mathf.Max(8, resolution);
 		_buffer = new byte[_resolution * _resolution];
 		_image = Image.CreateEmpty(_resolution, _resolution, false, Image.Format.R8);
 		_texture = ImageTexture.CreateFromImage(_image);
@@ -44,7 +59,7 @@ public partial class HeatField : Node3D
 		// runtime swaps in this ImageTexture before the first frame.
 		ShaderGlobals.Register("heat_field", RenderingServer.GlobalShaderParameterType.Sampler2D, _texture);
 		ShaderGlobals.Register("heat_field_origin_xz", RenderingServer.GlobalShaderParameterType.Vec2, Vector2.Zero);
-		ShaderGlobals.Register("heat_field_size", RenderingServer.GlobalShaderParameterType.Float, GameClient.Current?.heatShimmerSizeMeters ?? 64f);
+		ShaderGlobals.Register("heat_field_size", RenderingServer.GlobalShaderParameterType.Float, sizeMeters);
 	}
 
 	public void Initialize(World world)
@@ -73,12 +88,7 @@ public partial class HeatField : Node3D
 		}
 
 		Vector3 playerPos = _world.player.GlobalPosition;
-		GameClient gc = GameClient.Current;
-		float sizeMeters = gc?.heatShimmerSizeMeters ?? 64f;
-		float ambientStartF = gc?.heatShimmerAmbientStartF ?? 90f;
-		float ambientFullF = gc?.heatShimmerAmbientFullF ?? 120f;
-		float warmDivisor = gc?.heatShimmerWarmIntensityDivisor ?? 30f;
-		float diskInnerFraction = gc?.heatShimmerDiskInnerFraction ?? 0.5f;
+		float warmDivisor = warmIntensityDivisor;
 
 		Vector2 originXZ = new Vector2(
 			playerPos.X - sizeMeters * 0.5f,
@@ -90,7 +100,7 @@ public partial class HeatField : Node3D
 		if (enabled)
 		{
 			float ambientRange = Mathf.Max(ambientFullF - ambientStartF, 0.001f);
-			float airTempF = gc?.SampleAirTemperature(playerPos) ?? ambientStartF;
+			float airTempF = World.Current?.SampleAirTemperature(playerPos) ?? ambientStartF;
 			baseline = Mathf.Clamp((airTempF - ambientStartF) / ambientRange, 0f, 1f);
 		}
 

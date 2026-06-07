@@ -1,0 +1,10 @@
+[gd_scene load_steps=3 format=3 uid="uid://cmnmapscene7x1a"]
+
+[ext_resource type="Script" uid="uid://fminimapcoord3z2" path="res://scripts/gameplay/minimap/Minimap.cs" id="1_mnmap"]
+[ext_resource type="Resource" uid="uid://cmfolcolor01" path="res://resources/data/minimap/minimap_foliage_colors.tres" id="2_folcol"]
+
+[node name="Minimap" type="Node3D"]
+script = ExtResource("1_mnmap")
+foliageColors = ExtResource("2_folcol")
+revealMultiplier = 2.0
+revealInnerFraction = 0.95

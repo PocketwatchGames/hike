@@ -283,8 +283,7 @@ public static class PlayerPerception
         {
             return 0f;
         }
-        GameClient gc = GameClient.Current;
-        float windSpeed = gc != null ? gc.SampleWindSpeed(pos) : 0f;
+        float windSpeed = world.SampleWindSpeed(pos);
         if (windSpeed <= 0f)
         {
             return 0f;

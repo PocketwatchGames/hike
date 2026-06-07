@@ -550,15 +550,6 @@ public partial class SkyController : Node3D
     // state); restored to 1.0 on FlyDown completion.
     public float AmbientFogScale { get; set; } = 1f;
 
-    // Per-frame override on cloudAltitude. Bird's-eye driver lerps this so
-    // clouds end up 75% of the way between the player and the apex camera,
-    // making the camera visibly transit through the layer. Null restores
-    // the authored cloudAltitude (the default behavior). Read through
-    // EffectiveCloudAltitude so the overhead-plane mesh in GameClient and
-    // the `cloud_altitude` shader global stay in lockstep.
-    public float? CloudAltitudeOverride { get; set; }
-    public float EffectiveCloudAltitude => CloudAltitudeOverride ?? cloudAltitude;
-
     [ExportGroup("Sunbeams")]
     [ExportSubgroup("Dust Band")]
     [Export(PropertyHint.Range, "1,64,0.1")] public float dustBandHeight = 16.0f;
@@ -801,12 +792,6 @@ public partial class SkyController : Node3D
     // directly for ambient / shafts / etc. Returned by value (the
     // struct is small and callers read a single field at a time).
     public DerivedPalette Palette => _palette;
-
-    // Unit vector pointing FROM the sky toward the ground along the sun's
-    // current arc — same value the sky shader gets via sky_sun_dir. Negate
-    // to get the direction toward the sun (used by GameClient.SampleAirTemperature
-    // to raycast for shade).
-    public Vector3 SunDirection => _sunActualDir;
 
     // Sun elevation factor in [0, 1]: sin of the sun's elevation above the
     // horizon, clamped at 0 below it. Used as the multiplier on
@@ -1446,7 +1431,7 @@ public partial class SkyController : Node3D
         RenderingServer.GlobalShaderParameterSet("cloud_threshold", _palette.CloudThreshold);
         RenderingServer.GlobalShaderParameterSet("cloud_sharpness", _palette.CloudSharpness);
         RenderingServer.GlobalShaderParameterSet("cloud_scale", cloudScale);
-        RenderingServer.GlobalShaderParameterSet("cloud_altitude", EffectiveCloudAltitude);
+        RenderingServer.GlobalShaderParameterSet("cloud_altitude", cloudAltitude);
         // Cloud-shadow attenuation. Multiplicatively blanked by an
         // active lightning flash so the flash energy boost above reaches
         // the ground even where a cloud was darkening it — the

@@ -85,8 +85,6 @@ public class ScentEmitter
             windDir = windDir.Normalized();
         }
 
-        GameClient gc = GameClient.Current;
-
         for (int i = _crumbs.Count - 1; i >= 0; i--)
         {
             Breadcrumb c = _crumbs[i];
@@ -98,9 +96,9 @@ public class ScentEmitter
                 continue;
             }
 
-            if (windActive && gc != null)
+            if (windActive)
             {
-                float windSpeed = gc.SampleWindSpeed(c.pos);
+                float windSpeed = _world.SampleWindSpeed(c.pos);
                 if (windSpeed > 0f)
                 {
                     Vector3 desired = c.pos + windDir * (windSpeed * dt);

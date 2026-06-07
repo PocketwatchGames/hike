@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://chtfieldscene7y2b"]
+
+[ext_resource type="Script" uid="uid://cw3rm9k4l8znq" path="res://scripts/gameplay/HeatField.cs" id="1_heat"]
+
+[node name="HeatField" type="Node3D"]
+script = ExtResource("1_heat")
