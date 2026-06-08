@@ -39,6 +39,10 @@ global uniform sampler2D cloud_noise_tex : filter_linear, repeat_enable;
 global uniform float cloud_altitude;
 #include "res://shaders/cloud_shadow.gdshaderinc"
 
+// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
+// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
+#include "res://shaders/eye_adaptation.gdshaderinc"
+
 // How strongly the wrap-lambert form term darkens surfaces facing away from
 // the sun. 0 = flat (lit purely by the volumetric light map, like a sprite);
 // 1 = full wrap-lambert. A middle value keeps the world-consistent lightmap
@@ -233,6 +237,14 @@ void fragment() {
 		// AO multiplies both diffuse halves (matches voxel_clip's baked AO).
 		out_albedo = base * sun_lit * (1.0 - sun_ambient) * ao_factor;
 		out_emission = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor;
+
+		// Eye adaptation: lift in low local light when dark-adapted, push toward
+		// blowout in bright. light_est = area illuminance here (sun + block,
+		// pre-shadow, not albedo). Scales the lit composite only — self-illum /
+		// silhouette below stay as authored. No-op when eye_adaptation == 0.
+		float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+		out_albedo *= ea_gain;
+		out_emission *= ea_gain;
 	}
 
 	// Self-illumination (inert at default 0), modulated by albedo so the glow

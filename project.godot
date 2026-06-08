@@ -457,6 +457,22 @@ night_vision={
 "type": "float",
 "value": 0.0
 }
+eye_adaptation={
+"type": "float",
+"value": 0.0
+}
+eye_adapt_dark_gain={
+"type": "float",
+"value": 10.0
+}
+eye_adapt_light_gain={
+"type": "float",
+"value": 2.0
+}
+eye_adapt_knee={
+"type": "float",
+"value": 1.5
+}
 tree_wind_strength={
 "type": "float",
 "value": 1.0

@@ -134,6 +134,9 @@ global uniform vec3 camera_clip_growth_center;
 global uniform float camera_clip_growth_max_radius;
 global uniform float camera_clip_growth_edge_softness;
 #include "res://shaders/clip_dither.gdshaderinc"
+// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
+// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
+#include "res://shaders/eye_adaptation.gdshaderinc"
 // Debug toggles — shared with voxel_clip so terrain and sprites behave
 // identically under each flag and you can isolate shading divergences.
 global uniform bool debug_normals;        // RGB = world_normal * 0.5 + 0.5
@@ -459,6 +462,14 @@ void fragment() {
 	//   EMISSION = ambient sky bounce + block light (never shadowed)
 	ALBEDO = tinted * sun_lit * (1.0 - sun_ambient);
 	EMISSION = tinted * (block_lit + sun_lit * sun_ambient * cloud_dim);
+
+	// Eye adaptation (eye_adaptation.gdshaderinc): lift in low local light when
+	// dark-adapted, push toward blowout in bright. light_est = area illuminance
+	// (sun + block, pre-shadow, not albedo). Before the debug blocks so
+	// diagnostics stay un-adapted. No-op when eye_adaptation == 0.
+	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+	ALBEDO *= ea_gain;
+	EMISSION *= ea_gain;
 
 	if (debug_normals) {
 		ALBEDO = vec3(0.0);

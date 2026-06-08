@@ -143,6 +143,16 @@ public static class PlayerPerception
             {
                 lightFactor = Mathf.Lerp(lightFactor, 1f, nightVisionRelief);
             }
+            // Dark-adaptation relief: a dilated pupil partially lifts the same
+            // darkness-suppression term, scaled by eyeDilationVisionRelief so it's
+            // only a partial help (and stacks on top of equipment night vision).
+            // This is the gameplay half of EyeDilation — standing in the gloom long
+            // enough lets the player notice nearby dim things a little better.
+            float dilationRelief = player.EyeDilation * pd.eyeDilationVisionRelief;
+            if (dilationRelief > 0f)
+            {
+                lightFactor = Mathf.Lerp(lightFactor, 1f, dilationRelief);
+            }
             debug.lighting = lightFactor;
             // Fog/rain shorten sight; sampled at the player (the perceiver here).
             float visibilityDistance = maxVisibilityDistance * lightFactor * VisionRangeMultiplier(world, player.GlobalPosition);

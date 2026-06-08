@@ -567,6 +567,13 @@ public partial class Player : CharacterBody3D
 	public float visibilityLight = 1f;
 	public float visibilitySpeed = 1f;
 	public float visibilityCamouflage = 1f; // 1 - max(grass.camouflage)
+	// Dark-adaptation ("night eyes") state in [0,1]: 0 = light-adapted (bright),
+	// 1 = fully dilated (deep dark). Sim-owned — updated each physics tick from
+	// the perceived light where the player stands (UpdateEyeDilation), smoothed
+	// with asymmetric time constants. GameClient reads this to drive the
+	// eye_adaptation render global; PlayerPerception reads it to partially relieve
+	// the darkness penalty when noticing things in the gloom.
+	public float EyeDilation { get; private set; }
 	public ScentEmitter Scent => _scent;
 	// Current movement-noise output, in decibels. Sampled by mobs in their
 	// mob-perceives-player tick to add a hearing contribution to perception.
@@ -3681,6 +3688,7 @@ public partial class Player : CharacterBody3D
 		_lastTickPosition = GlobalPosition;
 
 		UpdateVisibility();
+		UpdateEyeDilation(dt);
 
 		// Update highlight interactive
 		UpdateHighlightInteractive();
@@ -4774,6 +4782,24 @@ public partial class Player : CharacterBody3D
 		Vector3 horizVel = Velocity;
 		horizVel.Y = 0f;
 		CurrentDecibels = PlayerPerception.ComputeMovementDecibels(horizVel.Length(), data.sneakSpeed, data.moveSpeed, data.sneakDecibels, data.runDecibels);
+	}
+
+	// Smooth the dark-adaptation state toward "how dark is it where I stand".
+	// Reuses visibilityLight (set by UpdateVisibility immediately above): the
+	// player's own perceived light, 0 (pitch dark) .. 1 (>= perception-saturation).
+	// Asymmetric like a real pupil — dilate slowly toward darkness, constrict fast
+	// toward light. Drives the eye_adaptation render global (via GameClient) and
+	// the perception darkness relief (via PlayerPerception).
+	private void UpdateEyeDilation(float dt)
+	{
+		if (data == null)
+		{
+			return;
+		}
+		float target = Mathf.Clamp(1f - visibilityLight, 0f, 1f);
+		float tau = target > EyeDilation ? data.eyeDilationDilateSeconds : data.eyeDilationConstrictSeconds;
+		float k = 1f - Mathf.Exp(-dt / Mathf.Max(tau, 0.001f));
+		EyeDilation = Mathf.Lerp(EyeDilation, target, k);
 	}
 
 	public void AddTerrainModifier(Foliage foliage)

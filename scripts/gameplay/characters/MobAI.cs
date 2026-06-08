@@ -469,7 +469,16 @@ public partial class Mob
                 * PlayerPerception.VisionRangeMultiplier(_world, _world.player.GlobalPosition);
             if (!target.triggered)
             {
-                visibilityDistance *= _world.player.visibility;
+                // Eye dilation relieves the darkness penalty on seeing the player,
+                // mirroring PlayerPerception: a dark-adapted mob spots a dimly-lit
+                // player a little better. Lift only the LIGHT factor of the
+                // player's visibility (keep speed / camouflage), then recompose so
+                // it matches player.visibility exactly when relief is 0.
+                float dilationRelief = _simState.EyeDilation * mobData.eyeDilationVisionRelief;
+                float lightFactor = Mathf.Lerp(_world.player.visibilityLight, 1f, dilationRelief);
+                float relievedVisibility = Mathf.Clamp(
+                    lightFactor * _world.player.visibilitySpeed * _world.player.visibilityCamouflage, 0f, 1f);
+                visibilityDistance *= relievedVisibility;
             }
             bool canSee = false;
             float visionDelta = 0;

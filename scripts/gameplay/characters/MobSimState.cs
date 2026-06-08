@@ -184,6 +184,12 @@ public class MobSimState : EntitySimState
     public float SunExposure;
     public float AmbientLight;
 
+    // Dark-adaptation ("night eyes") state in [0,1]: 0 = light-adapted, 1 = fully
+    // dilated. Mirrors Player.EyeDilation — smoothed each frame in Mob from the
+    // cached AmbientLight, and read by UpdatePerception to relieve the darkness
+    // penalty on seeing the player. Not serialized; re-converges in ~seconds.
+    public float EyeDilation;
+
     // Torch light/douse thresholds live on SimData (MobTorchLightThreshold /
     // MobTorchDouseThreshold) so they're tunable per-world and can carry a
     // hysteresis gap between them — the gap kills the per-tick on/off

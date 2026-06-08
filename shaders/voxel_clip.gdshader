@@ -234,6 +234,12 @@ global uniform float ground_stain_strength;
 global uniform bool ground_stain_enabled;
 #include "res://shaders/ground_stain.gdshaderinc"
 
+// Eye adaptation — local "night eyes" tone curve, driven by the eye_adaptation
+// global. The dilation state is owned by the player sim (Player.EyeDilation) and
+// pushed by GameClient. Applied to the lit output below; exact no-op when
+// eye_adaptation == 0. See shaders/eye_adaptation.gdshaderinc.
+#include "res://shaders/eye_adaptation.gdshaderinc"
+
 const float MIN_AMBIENT = 0.0;
 
 varying vec3 world_vertex;
@@ -781,6 +787,18 @@ void fragment() {
 	// vertical face sees less sky, so it reflects less of it). ao_factor also
 	// darkens the diffuse above.
 	EMISSION = base * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor + wet_reflect * cloud_dim * ao_factor;
+
+	// Eye adaptation: lift this fragment when it sits in low local light and the
+	// player is dark-adapted, push it toward blowout in bright light. ea_light is
+	// the AREA illuminance here (direct sun + block light, pre-shadow — NOT
+	// albedo, so dark ground in bright light isn't lifted like a genuinely dim
+	// spot). Scaling ALBEDO + EMISSION equally scales the final composite
+	// (ALBEDO*ATTENUATION + EMISSION) cleanly. No-op when eye_adaptation == 0.
+	// Runs BEFORE the debug blocks so diagnostics stay un-adapted.
+	float ea_light = dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114));
+	float ea_gain = eye_adaptation_gain(ea_light);
+	ALBEDO *= ea_gain;
+	EMISSION *= ea_gain;
 
 	if (dot(debug_solid, vec3(1.0)) > 0.001) {
 		ALBEDO = vec3(0.0);

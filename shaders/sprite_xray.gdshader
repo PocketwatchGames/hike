@@ -21,14 +21,24 @@ shader_type spatial;
 // across both.
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_disabled, skip_vertex_transform, ambient_light_disabled;
 // Skip pixels stamped with stencil=8 by sprite_lit_character (player /
-// mobs / character-style interactives). Keeps the X-ray pass from
-// drawing over other characters in front of the player. Voxel terrain,
-// sprite_lit props, detail sprites, and multimesh props all leave
-// stencil at 0, so X-ray fires correctly through every kind of cover
-// the character is genuinely behind. water_clip_cap / sprite_reflection
-// use stencil values 2 and 4 — they don't equal 8 either, so X-ray
-// paints over water surfaces / reflections without interaction.
-stencil_mode read, compare_not_equal, 8;
+// mobs / character-style interactives), AND stamp 8 on every pixel we
+// paint. The read keeps the X-ray from drawing over another character in
+// front of the player. The `write` makes the X-ray a FLAT, draw-once
+// silhouette: when a character is fully behind cover its own fragments
+// never win the depth test, so they leave stencil 0 (the occluder's
+// value) and overlapping body parts would each alpha-blend translucent
+// black and STACK (1-(1-a)^n) — a semi-transparent limb over the body.
+// Writing 8 on the first fragment to paint a pixel makes every later
+// overlapping X-ray fragment of the frame fail compare_not_equal 8, so it
+// paints exactly one 20% layer. Reusing 8 unifies "a character front
+// occupies this pixel" and "X-ray already painted here" — both mean don't
+// paint. Voxel terrain, sprite_lit props, detail sprites, and multimesh
+// props all leave stencil at 0, so X-ray fires correctly through every
+// kind of cover the character is genuinely behind. water_clip_cap /
+// sprite_reflection use stencil values 2 and 4 — they don't equal 8
+// either, so X-ray paints over water surfaces / reflections without
+// interaction.
+stencil_mode read, write, compare_not_equal, 8;
 
 uniform sampler2D sprite_texture : source_color, filter_linear;
 // Main viewport's depth buffer, sampled to decide whether this fragment

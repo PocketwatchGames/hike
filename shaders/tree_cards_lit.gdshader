@@ -210,6 +210,9 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
+// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
+#include "res://shaders/eye_adaptation.gdshaderinc"
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -504,6 +507,13 @@ void fragment() {
 
 		ALBEDO = base_filled * sun_lit * (1.0 - sun_ambient);
 			EMISSION = base_filled * (block_lit + sun_lit * sun_ambient * cloud_dim);
+
+		// Eye adaptation: lift in low local light when dark-adapted, push toward
+		// blowout in bright. light_est = area illuminance (sun + block,
+		// pre-shadow, not albedo). No-op when eye_adaptation == 0.
+		float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+		ALBEDO *= ea_gain;
+		EMISSION *= ea_gain;
 	}
 }
 

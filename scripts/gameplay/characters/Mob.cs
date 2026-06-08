@@ -1774,6 +1774,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.LightSampleAccumulator = 0f;
         }
 
+        // Eye dilation — mirrors Player.UpdateEyeDilation. Driven by the cached
+        // AmbientLight (refreshed above), normalized by TargetLightMax like the
+        // player's visibilityLight, smoothed asymmetrically (dilate slow,
+        // constrict fast). Updated every frame off the cached light so the curve
+        // stays smooth despite the 0.75s light-sample throttle.
+        MobData dilData = _simState.MobData;
+        if (dilData != null)
+        {
+            float targetLightMax = _world?.SimData?.TargetLightMax ?? 0.75f;
+            float mobLight01 = targetLightMax > 0f ? Mathf.Clamp(_simState.AmbientLight / targetLightMax, 0f, 1f) : 0f;
+            float dilTarget = 1f - mobLight01;
+            float dilTau = dilTarget > _simState.EyeDilation ? dilData.eyeDilationDilateSeconds : dilData.eyeDilationConstrictSeconds;
+            float dilK = 1f - Mathf.Exp(-(float)delta / Mathf.Max(dilTau, 0.001f));
+            _simState.EyeDilation = Mathf.Lerp(_simState.EyeDilation, dilTarget, dilK);
+        }
+
         // Knockback timer + velocity force run on alive AND dead bodies — a
         // killing blow should still send the corpse flying for the authored
         // distance. TickHitstun also decrements HitstunTime, which is a no-op

@@ -17,11 +17,20 @@ shader_type spatial;
 // (no albedo alpha-cut needed). depth_test_disabled puts the pass in the
 // transparent queue so DEPTH_TEXTURE is fully populated when we sample it.
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_disabled, ambient_light_disabled;
-// Skip pixels stamped with stencil = 8 by model_lit_character / sprite_lit_
-// character (player / mobs / character interactives), so the X-ray doesn't draw
-// over other characters in front. Terrain / props leave stencil 0, so X-ray
-// still fires through every kind of real cover.
-stencil_mode read, compare_not_equal, 8;
+// Skip pixels stamped with stencil = 8, AND stamp 8 ourselves on every pixel we
+// paint. The base character pass writes 8 on visible character fronts (so X-ray
+// never draws over another character in front). The `write` here makes the
+// X-ray a FLAT, draw-once silhouette: when a character is fully behind cover its
+// own meshes never win the depth test, so they leave stencil 0 (the occluder's
+// value) and every overlapping body part — arm over torso over head — would
+// otherwise alpha-blend its own translucent black and STACK (1-(1-a)^n), reading
+// as a semi-transparent arm in front of the body. By writing 8 on the first
+// fragment to paint a pixel, every later overlapping X-ray fragment of the frame
+// fails compare_not_equal 8 and is rejected — exactly one 20% layer, flat.
+// Reusing 8 unifies "a character front occupies this pixel" and "X-ray already
+// painted this pixel": both mean "don't paint X-ray here." Terrain / props leave
+// stencil 0, so X-ray still fires through every kind of real cover.
+stencil_mode read, write, compare_not_equal, 8;
 
 // Main viewport depth, sampled to decide occlusion. MUST be filter_nearest —
 // depth can't be interpolated across geometry boundaries.

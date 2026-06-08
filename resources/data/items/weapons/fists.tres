@@ -3,19 +3,22 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
 [ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_8hcq5"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_x8mh0"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/effects/fists_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/effects/fists_kill.tscn" id="7_hitkill"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/effects/fists_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/effects/fists_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/effects/fists_attack_light.tscn" id="8_atklight"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_5mj5i"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
 type = 65
-meleeRange = 1.0
 meleeRadius = 1.5
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
@@ -40,7 +43,6 @@ meleeRange = 1.2
 meleeRadius = 1.5
 animName = 20
 cameraShakeMagnitude = 0.18
-cameraShakeDuration = 0.15
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -96,4 +98,3 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 actionProfile = SubResource("Resource_profile")
 displayName = &"Fists"
 description = "Bare-handed."
-value = 0

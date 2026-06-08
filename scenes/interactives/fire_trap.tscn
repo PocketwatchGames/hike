@@ -75,6 +75,7 @@ _falloff = 1.5
 _brightness = 1.3
 _flicker = true
 _flickerMin = 0.4
+_fadeInDuration = 0.1
 
 [node name="ScorchStain" type="MeshInstance3D" parent="." unique_id=1631401259]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)

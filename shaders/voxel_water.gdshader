@@ -250,6 +250,9 @@ global uniform float block_light_shadow_strength;
 global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
+// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
+// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
+#include "res://shaders/eye_adaptation.gdshaderinc"
 
 // Underwater caustics — fake focused-sunlight bands projected onto the seabed
 // reconstructed from the depth buffer. Strength=0 skips the sample entirely.
@@ -1244,7 +1247,13 @@ void fragment() {
 	// cloud, foam, caustics, and reflection are all baked in above), so
 	// it goes into ALBEDO. Block-light shadow is folded into the composite
 	// via the dim of `block_lit` above, not via a directional-light overlay.
-	ALBEDO = composited;
+	// Eye adaptation: lift the whole self-lit composite in low light when the
+	// player is dark-adapted (a cave pool brightens), push toward blowout in
+	// bright. light_est = local water illuminance (sun + block). The water is
+	// `unshaded`, so scaling the composite directly is the final adaptation; no
+	// ALBEDO/EMISSION split here. No-op when eye_adaptation == 0.
+	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+	ALBEDO = composited * ea_gain;
 	ALPHA = 1.0;
 	}
 }

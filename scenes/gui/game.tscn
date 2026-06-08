@@ -113,6 +113,10 @@ foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
 birdsEye = NodePath("BirdsEye")
+eyeAdaptDarkGain = 5.0
+eyeAdaptDarkKnee = 1.0
+eyeAdaptBrightGain = 2.0
+eyeAdaptBrightKnee = 1.0
 
 [node name="FlyCamera" type="Node" parent="." unique_id=1919340182 node_paths=PackedStringArray("camera")]
 script = ExtResource("fly_camera_script")

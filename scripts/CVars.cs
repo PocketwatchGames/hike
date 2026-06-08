@@ -5,6 +5,20 @@ public static class CVars
     public static CVar version = new CVar("version", (cvar) => Godot.GD.Print(Version.Full));
     public static CVarBool ceilingCap = new CVarBool("ceiling_cap", true);
 
+    // Master scale for the dark-adaptation ("night eyes") effect — lit shaders
+    // lift dim surfaces and blow out bright ones based on the player's eye
+    // dilation (Player.EyeDilation, sim-owned). 1 = GameClient's authored
+    // strength; 0 = off (the shader curve collapses to its exact no-op). Live A/B
+    // knob; the authored default lives on GameClient.eyeAdaptationStrength.
+    public static CVarFloat eyeAdaptation = new CVarFloat("eye_adaptation", 1.0f, (cvar) =>
+    {
+        GameClient client = GameClient.Current;
+        if (client != null)
+        {
+            client.eyeAdaptationStrength = ((CVarFloat)cvar).Value;
+        }
+    });
+
     // Console action: kills the player. Routes through Player.Kill so the
     // full death sequence (blood / VO / Die animation / onDied →
     // DeathScreen) fires exactly like a fatal hit. No-op if no active

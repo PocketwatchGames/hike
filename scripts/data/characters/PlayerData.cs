@@ -175,6 +175,25 @@ public partial class PlayerData : Resource
 	// hearing primes perception but can't cross the threshold alone.
 	[Export] public float hearingRange = 10f;
 	[Export] public float hearingRangePower = 0.5f;
+
+	[ExportGroup("Eye Dilation")]
+	// Dark-adaptation ("night eyes") — a sim-owned 0..1 state on Player.EyeDilation,
+	// driven by the perceived light where the player stands (1 in pitch dark, 0 in
+	// bright light). GameClient reads it to drive the eye_adaptation render global
+	// (lit shaders lift shadows / blow highlights), and PlayerPerception folds it
+	// into the darkness-suppression term so a dark-adapted player notices things in
+	// the gloom slightly better.
+	//
+	// Seconds to dilate toward darkness — slow, like real pupils adjusting.
+	[Export(PropertyHint.Range, "0.1,15,0.1")] public float eyeDilationDilateSeconds = 3.0f;
+	// Seconds to constrict toward light — fast; bright light hits the eye at once.
+	[Export(PropertyHint.Range, "0.05,5,0.05")] public float eyeDilationConstrictSeconds = 0.4f;
+	// How much full dilation relieves the darkness perception penalty, in [0,1].
+	// PARTIAL by design (0.35 = at full dilation the dark only costs 65% of normal).
+	// Stacks with the NightVision equipment stat's relief. 0 = visuals only, no
+	// gameplay visibility help.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float eyeDilationVisionRelief = 0.35f;
+
 	[ExportGroup("Perceivability")]
 	// Continuous movement noise the player emits. Mapped piecewise: 0 at
 	// rest, sneakDecibels at sneakSpeed, runDecibels at moveSpeed. Mobs

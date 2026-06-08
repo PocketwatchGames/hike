@@ -102,6 +102,17 @@ public partial class MobData : Resource
     // perception but won't cross the threshold without sight.
     [Export] public float hearingRange = 5f;
     [Export] public float hearingRangePower = 0.5f;
+    // Eye dilation ("night eyes") — mirrors the player's (PlayerData). A 0..1
+    // runtime state on MobSimState.EyeDilation, driven by the cached AmbientLight
+    // where the mob stands and smoothed asymmetrically (dilate slow, constrict
+    // fast). Relieves the darkness penalty on the mob seeing the player, so a mob
+    // that's been sitting in the gloom spots a dimly-lit player a little better.
+    // Defaults match PlayerData so mob and player dark-adapt identically.
+    [Export(PropertyHint.Range, "0.1,15,0.1")] public float eyeDilationDilateSeconds = 3.0f;
+    [Export(PropertyHint.Range, "0.05,5,0.05")] public float eyeDilationConstrictSeconds = 0.4f;
+    // PARTIAL by design (0.35 = at full dilation darkness costs 65% of normal).
+    // 0 = off (mob perception unaffected by dilation).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float eyeDilationVisionRelief = 0.35f;
     // Smell reach in meters. The mob walks the target's ScentEmitter.Crumbs
     // each perception tick; a crumb contributes when it's within smellRange
     // AND a physics raycast from the mob's nose to the crumb is unblocked.

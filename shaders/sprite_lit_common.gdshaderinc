@@ -122,6 +122,10 @@ global uniform float block_light_shadow_blur_uv;
 global uniform bool block_light_shadow_enabled;
 #include "res://shaders/block_light_shadow.gdshaderinc"
 
+// Dark-adaptation ("night eyes") tone curve. Driven by the player sim
+// (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
+#include "res://shaders/eye_adaptation.gdshaderinc"
+
 varying flat vec2 anchor_px;
 varying flat vec3 world_origin;
 // Uniform scale extracted from MODEL_MATRIX in vertex(). The custom billboard
@@ -312,6 +316,13 @@ void fragment() {
 	// yielding `tint` at silhouette_amount=1 regardless of lighting state.
 	vec3 lit_albedo = tex.rgb * sun_lit * (1.0 - sun_ambient);
 	vec3 lit_emission = tex.rgb * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	// Eye adaptation: lift in low local light when dark-adapted, push toward
+	// blowout in bright. light_est = area illuminance (sun + block, pre-shadow,
+	// not albedo). Scales the lit composite before the silhouette blend below
+	// (so a flat silhouette still overrides). No-op when eye_adaptation == 0.
+	float ea_gain = eye_adaptation_gain(dot(sun_lit + block_lit, vec3(0.299, 0.587, 0.114)));
+	lit_albedo *= ea_gain;
+	lit_emission *= ea_gain;
 	ALBEDO = mix(lit_albedo, vec3(0.0), silhouette_amount);
 	EMISSION = mix(lit_emission, silhouette_tint, silhouette_amount);
 }

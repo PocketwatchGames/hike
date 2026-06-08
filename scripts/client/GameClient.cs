@@ -654,6 +654,23 @@ public partial class GameClient : Node3D
 	// as grass parting around the player's legs without snapping flat.
 	[Export(PropertyHint.Range, "0,4,0.05")] public float detailPlayerRadius = 0.6f;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float detailPlayerStrength = 0.25f;
+
+	[ExportGroup("Eye Adaptation")]
+	// Rendering half of dark-adaptation. The 0..1 STATE is owned by the player sim
+	// (Player.EyeDilation); this node reads it each frame and drives the lit-shader
+	// tone curve (eye_adaptation.gdshaderinc) via the eye_adaptation render global,
+	// shaped by the curve params below. Master scale; 0 makes the shader curve an
+	// exact no-op. Live-settable via the `eye_adaptation` CVar for A/B.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float eyeAdaptationStrength = 1.0f;
+	// Lift multiplier at the darkest (light_est = 0) when fully dilated.
+	[Export(PropertyHint.Range, "1,16,0.1")] public float eyeAdaptDarkGain = 10.0f;
+	// Lift multiplier at/above the knee (bright). Brights still get this (>1), and
+	// the tonemap blows them out from there. Keep below dark gain.
+	[Export(PropertyHint.Range, "1,8,0.05")] public float eyeAdaptLightGain = 2.0f;
+	// Local light level (shader light_est scale, ~0..2) at which the lift has
+	// fallen from dark gain to light gain. Larger = the ramp spans a wider tonal
+	// range, which is what keeps the lift seam-free (no mid-tone cutoff).
+	[Export(PropertyHint.Range, "0.1,3,0.05")] public float eyeAdaptKnee = 1.5f;
 	[ExportGroup("")]
 
 	// Per-frame smoothing state for the foliage cutaway radius. 0 = at base
@@ -815,6 +832,14 @@ public partial class GameClient : Node3D
 		RenderingServer.GlobalShaderParameterSet("player_pos", _player.GlobalPosition);
 		RenderingServer.GlobalShaderParameterSet("player_radius", detailPlayerRadius);
 		RenderingServer.GlobalShaderParameterSet("player_strength", detailPlayerStrength);
+
+		// Eye adaptation: the player sim owns the dilation STATE; we read it and
+		// drive the lit-shader tone curve. Globals are declared in project.godot,
+		// so a plain Set (no Register) matches the player_pos pushes above.
+		RenderingServer.GlobalShaderParameterSet("eye_adaptation", _player.EyeDilation * eyeAdaptationStrength);
+		RenderingServer.GlobalShaderParameterSet("eye_adapt_dark_gain", eyeAdaptDarkGain);
+		RenderingServer.GlobalShaderParameterSet("eye_adapt_light_gain", eyeAdaptLightGain);
+		RenderingServer.GlobalShaderParameterSet("eye_adapt_knee", eyeAdaptKnee);
 
 		if (birdsEye != null && birdsEye.IsActive)
 		{
