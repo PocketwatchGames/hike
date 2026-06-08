@@ -1,0 +1,37 @@
+[gd_scene format=3 uid="uid://pt7u8y1hyqc2v"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
+[ext_resource type="AudioStream" uid="uid://crdytrjpoxexs" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" uid="uid://swh5jqlf01nq" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_02.wav" id="2_d02"]
+[ext_resource type="AudioStream" uid="uid://momlp27hp1fo" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_03.wav" id="2_d03"]
+[ext_resource type="AudioStream" uid="uid://ycjex602ql5f" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_04.wav" id="2_d04"]
+[ext_resource type="AudioStream" uid="uid://bcqpvam5hohbq" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_05.wav" id="2_d05"]
+[ext_resource type="AudioStream" uid="uid://y6xt5jjuo1nh" path="res://assets/audio/source/vo/com_vo_bel_inworld_death_06.wav" id="2_d06"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_death"]
+playback_mode = 1
+random_pitch = 1.05
+random_volume_offset_db = 2.0
+streams_count = 6
+stream_0/stream = ExtResource("2_d01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("2_d02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("2_d03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("2_d04")
+stream_3/weight = 1.0
+stream_4/stream = ExtResource("2_d05")
+stream_4/weight = 1.0
+stream_5/stream = ExtResource("2_d06")
+stream_5/weight = 1.0
+
+[node name="PlayerDeathVo" type="Node3D"]
+script = ExtResource("1_oneshot")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_death")
+unit_size = 6.0
+max_distance = 40.0
+volume_db = 2.0
+bus = &"World3D"

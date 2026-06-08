@@ -1,7 +1,7 @@
 using Godot;
 using Godot.Collections;
 
-public interface IInteractive : IPorous
+public interface IInteractive
 {
     Vector3 hudPosition { get; }
     bool CanInteract();

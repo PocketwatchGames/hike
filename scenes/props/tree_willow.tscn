@@ -13,6 +13,7 @@
 [ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="13_vagkl"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="14_l78e4"]
 [ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="15_b66o7"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]
 height = 6.0
@@ -61,6 +62,7 @@ buffer = PackedFloat32Array(0, 0.6700551, -0.8099576, 4.9596376, 0, -0.8099576, 
 script = ExtResource("1_08m73")
 
 [node name="Body" type="StaticBody3D" parent="." unique_id=1280491403]
+script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=458441161]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)

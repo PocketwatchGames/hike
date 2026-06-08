@@ -13,9 +13,9 @@ public partial class Door : Node3D, IInteractive, IWorldEntity
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
-    // Doors are solid walls — keep their block collider on Environment so smell,
-    // sound, sight, and flight are all stopped (unlike porous interactives).
-    public bool Porous => false;
+    // Doors are solid walls — their block collider is a plain StaticBody3D on
+    // Environment (not a PorousBody) so smell, sound, sight, and flight are all
+    // stopped, unlike porous interactives (chests, wells).
 
     private static readonly StringName AnimOpen = "open";
     private static readonly StringName AnimClosed = "closed";

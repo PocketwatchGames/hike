@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="8_modelanim"]
 [ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="9_pixelsnap"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="10_meshhl"]
+[ext_resource type="Resource" uid="uid://cx7ub2sgi3fui" path="res://resources/data/characters/friendly_villager_voice.tres" id="11_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_villager"]
 radius = 0.35
@@ -25,6 +26,7 @@ _mesh = NodePath("MeshContainer")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("HudAnchor")
 HudScene = ExtResource("4_mobhud")
+_voice = ExtResource("11_voice")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=979065073]

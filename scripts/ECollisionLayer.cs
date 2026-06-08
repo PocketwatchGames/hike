@@ -41,9 +41,9 @@ public enum ECollisionLayer
     // Porous props (trees and most prop colliders). Distinct from Environment
     // so a prop blocks movement and grounded line-of-sight (queries mask Solid)
     // while letting smell, sound, perched vision, and flight pass straight
-    // through (those mask Environment alone). PropInstance.Porous remaps a
-    // prop's default-layer-1 colliders here at spawn. Terrain/walls stay on
-    // Environment so they stay solid to everything.
+    // through (those mask Environment alone). Colliders authored as a PorousBody
+    // node sit here; terrain/walls stay on Environment so they stay solid to
+    // everything.
     Porous = 2048,
     // Convenience combo: "solid to the world" — terrain/walls plus porous
     // props. Movement bodies and most world raycasts (vision, arrows, aim,

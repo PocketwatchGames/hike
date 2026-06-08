@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://cx7ub2sgi3fui"]
+
+[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
+[ext_resource type="PackedScene" uid="uid://dqsytkhv5j0zz" path="res://scenes/effects/player_hurt_vo_male.tscn" id="2_hurt"]
+[ext_resource type="PackedScene" uid="uid://pt7u8y1hyqc2v" path="res://scenes/effects/player_death_vo_male.tscn" id="3_death"]
+
+[resource]
+script = ExtResource("1_voice")
+hurt = ExtResource("2_hurt")
+death = ExtResource("3_death")
+pitchShift = 1.12

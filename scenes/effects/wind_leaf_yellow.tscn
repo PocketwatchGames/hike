@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://bwlfylw4d5e6f"]
 
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_pl"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_pl"]
 
 [sub_resource type="GradientTexture1D" id="GradientTexture1D_ka7jo"]
 

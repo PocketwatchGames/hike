@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://c5fmmvmcapg0m"]
+
+[ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
+[ext_resource type="PackedScene" uid="uid://c7oscgq7bwwuf" path="res://scenes/effects/sparrow_death_vo.tscn" id="2_death"]
+[ext_resource type="PackedScene" uid="uid://8661ui4c6kmi" path="res://scenes/effects/sparrow_yell.tscn" id="3_yell"]
+
+[resource]
+script = ExtResource("1_voice")
+death = ExtResource("2_death")
+yell = ExtResource("3_yell")
+pitchShift = 1.0

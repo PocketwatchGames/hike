@@ -1,17 +1,12 @@
 using Godot;
 
 [GlobalClass]
-public partial class PropInstance : Node3D, IWorldEntity, IPorous
+public partial class PropInstance : Node3D, IWorldEntity
 {
-    // When true (the default), this prop's colliders authored on the default
-    // Environment layer (1) are remapped to Porous at spawn (by World, via
-    // PorousColliders.Apply), so the prop blocks movement/grounded-sight but
-    // lets smell, sound, perched vision, and flight pass through. Only layer-1
-    // colliders are touched — anything deliberately authored on another layer
-    // (a tallgrass-style rustle area, a future bespoke collider) keeps its
-    // layer, so mixed-collider props work. Set false for genuinely solid props
-    // (boulders, buildings) whose colliders should stay solid like a wall.
-    [Export] public bool Porous { get; set; } = true;
+    // Porousness is owned per-collider by node type: a prop's movement collider
+    // is a PorousBody (blocks movement / grounded sight, lets smell, sound,
+    // perched vision, and flight pass through), while a genuinely solid prop
+    // would use a plain StaticBody3D on Environment. No per-prop toggle.
 
     public void OnSpawned(World world) { }
 

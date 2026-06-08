@@ -22,15 +22,14 @@
 [ext_resource type="PackedScene" uid="uid://dy7pahbiw5boy" path="res://scenes/effects/land_hard.tscn" id="19_landhard"]
 [ext_resource type="PackedScene" uid="uid://da0fmu7g5je6s" path="res://scenes/effects/water_plunge.tscn" id="20_plunge"]
 [ext_resource type="PackedScene" uid="uid://lp4qvc1hx545" path="res://scenes/effects/player_swim_idle_loop.tscn" id="21_tread"]
-[ext_resource type="PackedScene" uid="uid://lpruawkk8545" path="res://scenes/effects/player_hurt_vo.tscn" id="22_hurtvo"]
-[ext_resource type="PackedScene" uid="uid://lpnsyydv8545" path="res://scenes/effects/player_death_vo.tscn" id="23_deathvo"]
-[ext_resource type="PackedScene" uid="uid://b8wq3vxn7m4kp" path="res://scenes/effects/out_of_breath.tscn" id="42_breath"]
+[ext_resource type="Resource" uid="uid://h3a8y7nv5avz1" path="res://resources/data/characters/player_voice_female.tres" id="22_voicefem"]
+[ext_resource type="Resource" uid="uid://uae0q98gi8unx" path="res://resources/data/characters/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 [ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
 [ext_resource type="Resource" uid="uid://fy565pr1emwe" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
-[ext_resource type="Resource" uid="uid://bbs2iny1ukw4q" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
+[ext_resource type="Resource" uid="uid://by9w4dirtcl2h7" path="res://resources/data/status_effects/status_dirty_clothes.tres" id="28_statusdirtyclothes"]
 [ext_resource type="Resource" uid="uid://b7mu3dyq8ka1n" path="res://resources/data/status_effects/status_muddy.tres" id="29_statusmuddy"]
 [ext_resource type="PackedScene" uid="uid://ol8ysqglfqnu" path="res://scenes/characters/player_model_female.tscn" id="29_modelfem"]
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
@@ -92,10 +91,11 @@ _landHardFx = ExtResource("19_landhard")
 _wallJumpFootFx = ExtResource("12_5jukt")
 _wallJumpEffortFx = ExtResource("17_jump")
 _waterPlungeFx = ExtResource("20_plunge")
-_hurtVoFx = ExtResource("22_hurtvo")
-_deathVoFx = ExtResource("23_deathvo")
+_voices = Dictionary[int, VoiceData]({
+0: ExtResource("22_voicefem"),
+1: ExtResource("23_voicemale")
+})
 _armorDepletedFx = ExtResource("16_vwwfy")
-_outOfBreathFx = ExtResource("42_breath")
 _swimIdleLoopFx = ExtResource("21_tread")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_footstep_grass"),

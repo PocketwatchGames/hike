@@ -49,6 +49,11 @@ cp -r <main-repo>/.godot/shader_cache/ <worktree>/.godot/shader_cache/
 
 Source textures, models, animations, and some sounds for new assets are pulled from an external Unity asset library at `C:\Users\andy\source\AssetDump\Assets` (outside this repo, not committed). A large bank of stock sound effects lives under `C:\Users\andy\source\AssetDump\Assets\Universal Sound FX`.
 
+**Additional source locations** — first-party Pocketwatch projects on this machine, also browse/source-only and outside this repo. Mine them for audio (and art) the same way as AssetDump:
+- `C:\Users\andy\source\Armada` — audio under `Armada\Audio` and `ArmadaContent\audio`.
+- `C:\Users\andy\source\house\dev\Assets` — `Art\` and `Audio\` (e.g. character/foley/VO `.wav` under `Audio\Assets`, plus temp/dev sounds under `Audio\Assets\Temp`).
+- `C:\Users\andy\source\bowhead\Assets` — `Audio\` (incl. `Audio\Music`), art, shaders, icons.
+
 This is a **browse/source location only** — scan and read it in place when implementing a new asset; do not copy the whole library into the project. Godot imports everything under the project root, so a bulk copy (even gitignored) would generate `.import`/`.godot/imported/` churn for hundreds of unused files.
 
 Workflow when adding an asset:

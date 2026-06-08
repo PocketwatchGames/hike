@@ -21,6 +21,7 @@
 [ext_resource type="Material" uid="uid://bscpx8s0pp5yo" path="res://resources/materials/plank_yellow.tres" id="17_yellow"]
 [ext_resource type="Material" uid="uid://dj3ur6ltwb1tk" path="res://resources/materials/plank_pine.tres" id="18_pine"]
 [ext_resource type="Material" uid="uid://ddlwld85tbt3p" path="res://resources/materials/plank_orange.tres" id="19_orange"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_climb_event"]
 script = ExtResource("2_event")
@@ -166,6 +167,7 @@ RollJitter = 0.0
 DroopAmount = 0.7
 
 [node name="Body" type="StaticBody3D" parent="Trunk" unique_id=133238978]
+script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Trunk/Body" unique_id=1324153388]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 9, 0)

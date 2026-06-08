@@ -309,14 +309,6 @@ public partial class World
         {
             worldEntity.OnSpawned(this);
         }
-        // Porous props / interactives: move their default-layer colliders onto
-        // Porous so smell, sound, perched vision, and flight pass through while
-        // movement and grounded sight still block. One shared concept (IPorous)
-        // and one application site for props and interactives alike.
-        if (entity is IPorous porous && porous.Porous)
-        {
-            PorousColliders.Apply(entity);
-        }
         if (state != null)
         {
             state.RuntimeNode = entity;

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cllgx17yuurot"]
 
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_rsf1q"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="1_rsf1q"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_rkves"]
 emission_shape = 1

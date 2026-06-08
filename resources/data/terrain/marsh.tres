@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="TerrainData" format=3 uid="uid://pyv6u3yyr1dc"]
 
-[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/TerrainData.cs" id="1_kit"]
+[ext_resource type="Script" uid="uid://dm7cuarr7hpl7" path="res://scripts/data/world/TerrainData.cs" id="1_kit"]
 [ext_resource type="Resource" uid="uid://d22rcvc2fr0jy" path="res://resources/data/blocks/block_marsh.tres" id="5_block_flat"]
 
 [resource]

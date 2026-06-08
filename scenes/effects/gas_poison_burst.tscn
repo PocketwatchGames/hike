@@ -1,13 +1,13 @@
 [gd_scene format=3 uid="uid://cakjul286ucv4"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_ggwg3"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_poisonGas_hiss_01.wav" id="hiss_01"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_poisonGas_hiss_02.wav" id="hiss_02"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_poisonGas_hiss_03.wav" id="hiss_03"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_poisonGas_hiss_04.wav" id="hiss_04"]
+[ext_resource type="AudioStream" uid="uid://cqtlrsyyg46st" path="res://assets/audio/source/interactives/sfx_poisonGas_hiss_01.wav" id="hiss_01"]
+[ext_resource type="AudioStream" uid="uid://d1nuoxcvwwfyq" path="res://assets/audio/source/interactives/sfx_poisonGas_hiss_02.wav" id="hiss_02"]
+[ext_resource type="AudioStream" uid="uid://nrxtgxjnj3bq" path="res://assets/audio/source/interactives/sfx_poisonGas_hiss_03.wav" id="hiss_03"]
+[ext_resource type="AudioStream" uid="uid://1p5txy8vl5jj" path="res://assets/audio/source/interactives/sfx_poisonGas_hiss_04.wav" id="hiss_04"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_poisonwisps"]
 lifetime_randomness = 1.0

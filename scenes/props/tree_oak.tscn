@@ -15,6 +15,7 @@
 [ext_resource type="Material" uid="uid://cmtbbo1hrg1ii" path="res://resources/materials/tree_bark_oak.tres" id="10_bark"]
 [ext_resource type="Texture2D" uid="uid://w04w7ebvfol2" path="res://assets/models/trees/twigs_branches.tga" id="12_twigs_tex"]
 [ext_resource type="Script" uid="uid://djr80hyhxcm7x" path="res://scripts/gameplay/trees/TreeTrunk.cs" id="13_trunk"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]
 height = 6.0
@@ -72,6 +73,7 @@ VerticalOffset = -1.0
 script = ExtResource("1_prop")
 
 [node name="Body" type="StaticBody3D" parent="." unique_id=1280491403]
+script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Body" unique_id=458441161]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)

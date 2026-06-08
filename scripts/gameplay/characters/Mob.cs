@@ -35,10 +35,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Stop()'d when leaving.
     [Export] private PackedScene _waterMovementLoopFx;
     [Export] private PackedScene _foliageMovementLoopFx;
-    // Fired the moment AIOutput.yell goes true — once per alert acquisition,
-    // not per tick (the yell broadcast block below already runs once per
-    // transition because nothing else flips _simState.Yelled back).
-    [Export] private PackedScene _yellFx;
     // Burrow lifecycle effects. Loop runs while the mob is mid-descent
     // (`burrowing` flag); complete fires on the burrowing→burrowed transition;
     // emerge fires when the mob leaves either burrow state and re-surfaces.
@@ -52,12 +48,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private PackedScene _idleLoopFx;
     [Export] private PackedScene _runLoopFx;
     [Export] private PackedScene _swimIdleLoopFx;
-    // VO that plays on top of the shared blood/death scenes. Per-actor so
-    // each species can carry its own voice without authoring per-actor blood
-    // scenes. Either may be null — the asset library doesn't always include
-    // a hurt VO for every species.
-    [Export] private PackedScene _hurtVoFx;
-    [Export] private PackedScene _deathVoFx;
+    // Per-species voice bank — the hurt / death / yell clips that ride on top
+    // of the shared blood / death-splat / yell-particle effects. Same VoiceData
+    // resource the player uses (the player keys a per-gender map; a mob has one
+    // bank per species). Any slot may be null — the asset library doesn't
+    // always include a hurt VO for every species, and not every species yells.
+    // pitchShift on the bank re-voices shared clips per species / villager.
+    [Export] private VoiceData _voice;
     // Armor lifecycle one-shots. See Player for the lifecycle: depleted on
     // the hit that drains the bar to zero; rechargeStart when the post-hit
     // delay elapses; recoverStart when the recharge follows a full depletion.
@@ -241,11 +238,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private MobSimState _simState;
     World _world;
     public World World => _world;
-
-    // Mobs are interactive (talk/trade) but not porous props — their collider
-    // lives on the Mob layer and is managed dynamically (flight, burrow, death),
-    // so the spawn-time porous remap must skip them.
-    public bool Porous => false;
 
     // Navigation controller — owns this mob's pathfinding/steering intent.
     // Behaviors call _navigator.Goto/Wander/Stop; the navigator writes
@@ -1799,7 +1791,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 // Continuous damage authors no per-frame fx; its "ouch" rides
                 // on the once-per-second HUD rollup instead.
-                SpawnWorldEffect(_hurtVoFx);
+                SpawnVoice(_voice?.hurt);
             }
             UpdateWaterState();
             // Engine gravity is owned by ApplyWaterPhysics while swimming —
@@ -2312,7 +2304,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Owns the _simState.Yelled flip so callers never set it directly.
     private void Yell(Vector3 targetPos)
     {
-        SpawnWorldEffect(_yellFx);
+        SpawnVoice(_voice?.yell);
         _simState.PlayerPerception = 1;
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
         _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
@@ -2545,7 +2537,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         else if (incoming > 0f && !hit.dot)
         {
             SpawnWorldEffect(_bloodDamageFx);
-            SpawnWorldEffect(_hurtVoFx);
+            SpawnVoice(_voice?.hurt);
         }
 
         // Floating-number HUD feedback. Armor chip and pierced health damage
@@ -2815,7 +2807,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // persist on the corpse until QueueFree.
         _statusEffects.Clear();
         SpawnWorldEffect(_deathFx);
-        SpawnWorldEffect(_deathVoFx);
+        SpawnVoice(_voice?.death);
         EjectLoot();
         EjectStuckArrows();
         AxisLockAngularY = false;
@@ -3036,6 +3028,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Fx.Create(scene, _world, GlobalPosition);
+    }
+
+    // Spawn a clip from this species' voice bank, applying its pitch shift.
+    // No-ops on a null scene (a species without that vocalization) or before
+    // the bank is wired.
+    private void SpawnVoice(PackedScene scene)
+    {
+        if (scene == null || _world == null)
+        {
+            return;
+        }
+        Fx.Create(scene, _world, GlobalPosition, _voice?.pitchShift ?? 1f);
     }
 
     // Mirrors Player.UpdateLoopEffect — instantiate parented to the mob on

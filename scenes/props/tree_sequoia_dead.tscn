@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://ws08cueclt1v" path="res://scripts/gameplay/trees/FoliageMultiMesh.cs" id="8_whl18"]
 [ext_resource type="Script" uid="uid://dalig6n7oy2sv" path="res://scripts/gameplay/trees/FoliageCluster.cs" id="9_rki4s"]
 [ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="11_enh3c"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_m1kp1"]
 height = 8.0
@@ -52,6 +53,7 @@ shader_parameter/canopy_height = 7.2
 script = ExtResource("1_1brew")
 
 [node name="Body" type="StaticBody3D" parent="." unique_id=787095505]
+script = ExtResource("porous_body")
 
 [node name="CollisionShape3D2" type="CollisionShape3D" parent="Body" unique_id=1649539872]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4, 0)

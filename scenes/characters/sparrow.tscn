@@ -7,14 +7,13 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="5_k83x8"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="6_7deve"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="7_su5fo"]
-[ext_resource type="PackedScene" uid="uid://8661ui4c6kmi" path="res://scenes/effects/sparrow_yell.tscn" id="8_7lau7"]
+[ext_resource type="Resource" uid="uid://c5fmmvmcapg0m" path="res://resources/data/characters/sparrow_voice.tres" id="50_voice"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdly088k" path="res://scenes/effects/kunkun_burrow_loop.tscn" id="9_e0pid"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="10_rm11g"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="11_3a1wr"]
 [ext_resource type="PackedScene" uid="uid://dpu1gi2nvshf2" path="res://scenes/effects/sparrow_idle_loop.tscn" id="12_hnvx3"]
 [ext_resource type="PackedScene" uid="uid://cjwow2b304os0" path="res://scenes/effects/sparrow_run_loop.tscn" id="13_oh3jt"]
 [ext_resource type="PackedScene" uid="uid://cs36dtda23cbn" path="res://scenes/effects/sparrow_swim_idle_loop.tscn" id="14_ifwu8"]
-[ext_resource type="PackedScene" uid="uid://c7oscgq7bwwuf" path="res://scenes/effects/sparrow_death_vo.tscn" id="15_wol5r"]
 [ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/effects/footstep_grass.tscn" id="16_s43eu"]
 [ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/effects/footstep_stone.tscn" id="17_svrjh"]
 [ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/effects/footstep_sand.tscn" id="18_bmt4b"]
@@ -50,14 +49,13 @@ _deathFx = ExtResource("4_us5sg")
 _waterEnterSplashFx = ExtResource("5_k83x8")
 _waterMovementLoopFx = ExtResource("6_7deve")
 _foliageMovementLoopFx = ExtResource("7_su5fo")
-_yellFx = ExtResource("8_7lau7")
+_voice = ExtResource("50_voice")
 _burrowLoopFx = ExtResource("9_e0pid")
 _burrowCompleteFx = ExtResource("10_rm11g")
 _burrowEmergeFx = ExtResource("11_3a1wr")
 _idleLoopFx = ExtResource("12_hnvx3")
 _runLoopFx = ExtResource("13_oh3jt")
 _swimIdleLoopFx = ExtResource("14_ifwu8")
-_deathVoFx = ExtResource("15_wol5r")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("16_s43eu"),
 1: ExtResource("17_svrjh"),

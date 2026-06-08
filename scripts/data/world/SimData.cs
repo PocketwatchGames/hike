@@ -710,6 +710,56 @@ public partial class SimData : Resource
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
 
+    [ExportGroup("Block Light Diffusion")]
+    // Shapes how every block light (torches, campfires, the carried player
+    // torch) spreads through open voxels. LightEngine seeds the source voxel
+    // and runs an absorbing diffusion in a local buffer, then quantizes the
+    // result into the LightMap. All five knobs are read ONCE per kernel build
+    // and hoisted into locals before the hot inner loop, so they're as cheap
+    // as the old consts were — see LightEngine.ComputeFootprint.
+    //
+    // COST: per-source work ≈ iterations × (2·reach+1)³. ReachDivisor and
+    // IterationDivisor are the EXPENSIVE knobs — lowering either grows reach
+    // but cost scales ~quartically. DiffusionRate / AbsorptionRate /
+    // SeedPerLevel are FREE shaping knobs (they don't change buffer size or
+    // iteration count). Static lights pay the cost once at spawn; the carried
+    // torch pays it on each voxel crossing (via the cheaper incremental path).
+
+    // Per-iteration spread fraction. Each open voxel gives this fraction of
+    // its energy to each open neighbor. MUST be ≤ 1/6 ≈ 0.166 — above that the
+    // outflow at a fully-open voxel exceeds 100% of self and energy goes
+    // negative (clamped to zero, killing the source). Higher = broader spread.
+    [Export(PropertyHint.Range, "0,0.166,0.001")] public float BlockLightDiffusionRate = 0.166f;
+
+    // Per-iteration energy absorption — each voxel loses this fraction before
+    // diffusing. Controls reach / falloff steepness in principle, but with the
+    // current low iteration count the spread is iteration-limited, not
+    // absorption-limited, so this is a weak lever in practice (raise the
+    // IterationDivisor reach if you want a genuinely larger lit disk). Kept
+    // exposed because it matters once iteration count climbs.
+    [Export(PropertyHint.Range, "0,0.3,0.001")] public float BlockLightAbsorptionRate = 0.08f;
+
+    // Seed magnitude injected at the source per unit of light level. The peak
+    // deposit at the source voxel is level × this; values well above the
+    // LightMap channel cap blow out the core into a flat white blob then a
+    // hard cliff. Lowering this de-clips the core and reveals a softer
+    // gradient (it does NOT extend reach — it scales the whole field linearly,
+    // so the visible edge pulls in slightly). Tune until a max-level white
+    // light reads bright-but-not-saturated for a voxel or two at the source.
+    [Export(PropertyHint.Range, "1,100,0.5")] public float BlockLightSeedPerLevel = 25f;
+
+    // Per-light reach in voxels = max(2, level / ReachDivisor); sets the
+    // diffusion buffer half-extent. LOWER = larger buffer = more reach but
+    // cubic cost growth. EXPENSIVE knob.
+    [Export(PropertyHint.Range, "1,16,1")] public int BlockLightReachDivisor = 4;
+
+    // Diffusion iteration count = max(4, level / IterationDivisor). This is the
+    // PRIMARY reach lever — more iterations let energy fill further out before
+    // the sim stops, softening the falloff. LOWER = more iterations = more
+    // reach, cost scales linearly with iterations. Drop to ~2 for a noticeably
+    // larger, softer glow at roughly double the per-crossing recompute cost.
+    [Export(PropertyHint.Range, "1,16,1")] public int BlockLightIterationDivisor = 4;
+
     [ExportGroup("Foliage Canopy Shadow")]
     // FoliageStamper rasterizes every CastsSunShadow cluster's ellipsoid
     // plus a downward shadow column into WorldState.CanopyAttenuation;

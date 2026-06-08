@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://d2gqmdkg2cujq" path="res://assets/textures/interactions/drink.png" id="16_drink"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]
 [ext_resource type="PackedScene" uid="uid://bqpljtncy01vm" path="res://assets/models/well/SM_Prop_Well_01.fbx" id="18_wellfbx"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_apply_hydrated"]
 script = ExtResource("4_apply")
@@ -44,6 +45,7 @@ _actions = Array[ExtResource("3_action")]([SubResource("Resource_well_action_dri
 _hudNode = NodePath("HUDNode")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=918273646]
+script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=918273647]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2, 0)

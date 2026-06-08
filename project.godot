@@ -258,6 +258,21 @@ InteractCancel={
 ]
 }
 
+[layer_names]
+
+3d_physics/layer_1="Environment"
+3d_physics/layer_2="Player"
+3d_physics/layer_3="Interactive"
+3d_physics/layer_4="Passive"
+3d_physics/layer_5="Mob"
+3d_physics/layer_6="HurtBox"
+3d_physics/layer_7="Water"
+3d_physics/layer_8="Burrowed"
+3d_physics/layer_9="BurrowedHurtBox"
+3d_physics/layer_10="Dead"
+3d_physics/layer_11="DeadHurtBox"
+3d_physics/layer_12="Porous"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

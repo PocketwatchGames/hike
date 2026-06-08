@@ -49,11 +49,18 @@ public partial class Fx : Node3D
 	// still alive" query for continuous emitters, so we gate on lifetime.
 	ulong _stopTimeMs;
 
-	public static Fx Create(PackedScene scene, Node parent, Vector3 position)
+	// Multiplier folded into every child AudioStreamPlayer3D's pitch_scale in
+	// _Ready (before Play), so a caller can re-voice a shared clip set — e.g. a
+	// VoiceData.pitchShift that turns one recording into several characters.
+	// 1 = play as authored. Set via the Create overload, applied once.
+	float _pitchScale = 1f;
+
+	public static Fx Create(PackedScene scene, Node parent, Vector3 position, float pitch = 1f)
 	{
 		using var _prof = Profiler.Sample("Fx.Create");
 		Fx effect = scene.Instantiate<Fx>();
 		effect.Position = position;
+		effect._pitchScale = pitch;
 		parent.AddChild(effect);
 		// Godot rejects AddChild when the parent is mid-setup (data.blocked > 0)
 		// — this happens when an Fx is spawned from a sibling's _Ready while
@@ -88,6 +95,10 @@ public partial class Fx : Node3D
 			{
 				_audio.Add(a);
 				_activeAudio++;
+				if (_pitchScale != 1f)
+				{
+					a.PitchScale *= _pitchScale;
+				}
 				if (_loop)
 				{
 					AudioStreamPlayer3D captured = a;

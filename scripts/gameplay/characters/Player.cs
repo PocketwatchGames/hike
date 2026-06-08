@@ -125,12 +125,16 @@ public partial class Player : CharacterBody3D
 	// High-speed water entry. Picked over the standard splash when inbound
 	// vertical speed at WaterAreaEntered exceeds WaterPlungeSpeedThreshold.
 	[Export] private PackedScene _waterPlungeFx;
-	// VO that plays in tandem with _bloodDamageFx / _deathFx on
-	// the same hit. Separate scenes so the per-actor voice clips can ride on
-	// top of the shared impact / death-splat audio without authoring per-
-	// actor blood scenes.
-	[Export] private PackedScene _hurtVoFx;
-	[Export] private PackedScene _deathVoFx;
+	// Per-gender player voice-over banks, keyed by (int)EGender. Each value is a
+	// PlayerVoiceData carrying the hurt cry / death cry / out-of-breath gasp
+	// scenes — the voice clips ride on top of the shared, gender-agnostic
+	// impact / death-splat / breath-puff effects so only the vocal layer varies
+	// by body type. Initialize resolves the spawned gender's bank into _voice
+	// (Female fallback), mirroring the model-package map. A gender with no entry
+	// falls back to Female; a null slot inside a bank just stays silent.
+	[Export] private Godot.Collections.Dictionary<int, VoiceData> _voices = new();
+	// The live voice bank for the spawned gender, resolved in Initialize.
+	private VoiceData _voice;
 	// Armor lifecycle one-shots. Depleted plays the moment armor hits zero
 	// from damage; rechargeStart plays when the post-hit recharge delay
 	// elapses and the bar starts climbing again; recoverStart replaces it
@@ -138,12 +142,6 @@ public partial class Player : CharacterBody3D
 	[Export] private PackedScene _armorDepletedFx;
 	[Export] private PackedScene _armorRechargeStartFx;
 	[Export] private PackedScene _armorRecoverStartFx;
-	// One-shot "out of breath" pant spawned the moment stamina is exhausted
-	// (crosses from positive to <= 0 via sprint / swim / dash / wall-jump
-	// spend). Parented to the player so the gasp audio + breath puff track the
-	// body as they keep moving. Re-arms only after stamina climbs back above
-	// zero, so it fires once per exhaustion rather than every frame at the floor.
-	[Export] private PackedScene _outOfBreathFx;
 	// Per-anim-state loops. UpdateAnimation maps the picked loopAnim down to
 	// one of these scenes; only one (or none) is active at a time. Slots can
 	// be left null in the .tscn — the actor falls silent for that state,
@@ -887,6 +885,45 @@ public partial class Player : CharacterBody3D
 		return fallback;
 	}
 
+	// Resolve the voice-over bank for a gender. Falls back to the Female entry
+	// when the gender has no authored bank, so the player always has a voice (or
+	// null only when the map is empty — every vocalization then no-ops).
+	private VoiceData ResolveGenderVoice(EGender gender)
+	{
+		if (_voices == null)
+		{
+			return null;
+		}
+		if (_voices.TryGetValue((int)gender, out VoiceData voice) && voice != null)
+		{
+			return voice;
+		}
+		_voices.TryGetValue((int)EGender.Female, out VoiceData fallback);
+		return fallback;
+	}
+
+	// Spawn a voice clip from the resolved bank, applying its pitch shift. World
+	// variant leaves the clip behind in world space (hurt / death); Self variant
+	// parents it to the player so it tracks the body (out-of-breath). Both no-op
+	// on a null scene or before _voice resolves.
+	private void SpawnVoice(PackedScene scene)
+	{
+		if (scene == null || _world == null)
+		{
+			return;
+		}
+		Fx.Create(scene, _world, GlobalPosition, _voice?.pitchShift ?? 1f);
+	}
+
+	private void SpawnVoiceSelf(PackedScene scene)
+	{
+		if (scene == null)
+		{
+			return;
+		}
+		Fx.Create(scene, this, Vector3.Zero, _voice?.pitchShift ?? 1f);
+	}
+
 	// Instance the spawned gender's model package as a child of the player and
 	// bind its drivers (animator + held-item socket). Only one rig is ever built.
 	private void SpawnModelPackage(EGender gender)
@@ -1112,7 +1149,7 @@ public partial class Player : CharacterBody3D
 			if (wasAlive)
 			{
 				SpawnWorldEffect(_deathFx);
-				SpawnWorldEffect(_deathVoFx);
+				SpawnVoice(_voice?.death);
 				HandleDeath();
 			}
 			PlayOneShot(EAnimation.Die);
@@ -1124,7 +1161,7 @@ public partial class Player : CharacterBody3D
 		else if (incomingDamage > 0f && !hit.dot)
 		{
 			SpawnWorldEffect(_bloodDamageFx);
-			SpawnWorldEffect(_hurtVoFx);
+			SpawnVoice(_voice?.hurt);
 			// Slight camera shake on actual health damage. Shares the !hit.dot
 			// gate with blood/VO so a continuous burn zone doesn't sustain
 			// shake every frame; range=0 since the player IS the camera target.
@@ -2267,7 +2304,7 @@ public partial class Player : CharacterBody3D
 		if (_health <= 0f && wasAlive)
 		{
 			SpawnWorldEffect(_deathFx);
-			SpawnWorldEffect(_deathVoFx);
+			SpawnVoice(_voice?.death);
 			HandleDeath();
 			PlayOneShot(EAnimation.Die);
 		}
@@ -2321,7 +2358,7 @@ public partial class Player : CharacterBody3D
 		}
 		_health = 0f;
 		SpawnWorldEffect(_deathFx);
-		SpawnWorldEffect(_deathVoFx);
+		SpawnVoice(_voice?.death);
 		HandleDeath();
 		PlayOneShot(EAnimation.Die);
 	}
@@ -2448,7 +2485,9 @@ public partial class Player : CharacterBody3D
 		// Instance the base model package for the spawned gender, then activate
 		// the live visual. Must run before UpdateArmorVisual below, which drives
 		// the active model's mesh set.
-		SpawnModelPackage(spawnData?.gender ?? EGender.Female);
+		EGender spawnGender = spawnData?.gender ?? EGender.Female;
+		_voice = ResolveGenderVoice(spawnGender);
+		SpawnModelPackage(spawnGender);
 		ActivateVisual();
 		// Resolve + apply the modular appearance (skin tone, hair color, hair
 		// style) before inventory seeding so the styled hair mesh is known the
@@ -2987,7 +3026,7 @@ public partial class Player : CharacterBody3D
 		bool exhausted = _stamina <= 0f;
 		if (exhausted && !_staminaExhausted)
 		{
-			SpawnSelfEffect(_outOfBreathFx);
+			SpawnVoiceSelf(_voice?.outOfBreath);
 		}
 		_staminaExhausted = exhausted;
 	}
@@ -3069,7 +3108,7 @@ public partial class Player : CharacterBody3D
 			// the once-per-second HUD rollup instead. Same pacing for the
 			// red damage-flash so a slow burn doesn't desaturate the screen
 			// permanently — one pulse per HUD-rolled second.
-			SpawnWorldEffect(_hurtVoFx);
+			SpawnVoice(_voice?.hurt);
 			GameClient.Current?.FlashDamage(dotFlush.damageAmount);
 		}
 		// Recompose emitted scent strength each tick so equipment / status

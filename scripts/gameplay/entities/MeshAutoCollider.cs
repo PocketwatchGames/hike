@@ -12,7 +12,7 @@ using Godot;
 //      visible rock under the prop's spawn point; recenter does that
 //      without re-exporting the FBX.
 //
-//   2. BAKE COLLISION — for each MeshInstance3D, adds a StaticBody3D +
+//   2. BAKE COLLISION — for each MeshInstance3D, adds a PorousBody +
 //      ConcavePolygonShape3D as a direct child of this node with owner =
 //      scene root, so the colliders persist in the .tscn. Runtime is then
 //      zero-cost — the colliders are just authored scene nodes.
@@ -21,14 +21,14 @@ using Godot;
 // mesh is a zero-translation, and bake removes prior AutoCollision_*
 // children before regenerating.
 //
-// Layer: the generated StaticBody3D is on the default Environment layer
-// (1), so PorousColliders.Apply (run by World on IPorous entities at spawn)
-// remaps it to Porous along with any other layer-1 colliders, matching the
-// sprite-prop pipeline.
+// Layer: the generated body is a PorousBody, so it sits on the Porous layer —
+// the prop blocks movement / grounded sight while smell, sound, perched vision,
+// and flight pass through. (This tool only services porous props; a solid prop
+// authors a plain StaticBody3D on Environment instead.)
 //
-// Runtime fallback: if the scene was never baked, _Ready calls
-// CreateTrimeshCollision() on each descendant MeshInstance3D so unbaked
-// scenes still collide. Recentering does NOT happen at runtime — the
+// Runtime fallback: if the scene was never baked, _Ready builds a PorousBody +
+// trimesh shape on each descendant MeshInstance3D so unbaked scenes still
+// collide on the right layer. Recentering does NOT happen at runtime — the
 // .tscn either ships with the centered authored transform or it doesn't.
 [Tool]
 [GlobalClass]
@@ -53,7 +53,13 @@ public partial class MeshAutoCollider : Node3D
         {
             if (descendant is MeshInstance3D mi && mi.Mesh != null)
             {
-                mi.CreateTrimeshCollision();
+                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name };
+                mi.AddChild(body);
+                body.AddChild(new CollisionShape3D
+                {
+                    Shape = mi.Mesh.CreateTrimeshShape(),
+                    Name = "Shape",
+                });
             }
         }
     }
@@ -156,7 +162,7 @@ public partial class MeshAutoCollider : Node3D
         {
             if (descendant is MeshInstance3D mi && mi.Mesh != null)
             {
-                var body = new StaticBody3D { Name = AutoCollisionPrefix + mi.Name };
+                var body = new PorousBody { Name = AutoCollisionPrefix + mi.Name };
                 AddChild(body);
                 body.Owner = sceneRoot;
 

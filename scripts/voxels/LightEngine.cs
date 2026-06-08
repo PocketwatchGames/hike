@@ -12,40 +12,23 @@ public static class LightEngine
     public const int FALLOFF_PER_VOXEL = 4;
 
     // --- Block-light relaxation tuning ------------------------------------
+    //
+    // The shaping/cost knobs (diffusion rate, absorption, seed-per-level,
+    // reach divisor, iteration divisor) now live on SimData as [Export]s so
+    // they're inspector-tunable for a feel pass — see the "Block Light
+    // Diffusion" group there. Each is read ONCE per kernel build and hoisted
+    // into a local before the hot inner loop, so this is as cheap as the old
+    // consts (the const-vs-field cost only matters for values read inside the
+    // per-voxel loop, which these never are). The two floors below stay as
+    // consts — they're structural safety minimums, not feel tuning.
 
-    // Per-iteration spread coefficient. Each voxel contributes this fraction
-    // of its value to each open neighbor and retains (1 - DIFFUSION_RATE *
-    // openNeighborCount) of itself. MUST be ≤ 1/6 ≈ 0.166 — otherwise the
-    // outflow at a fully-open voxel exceeds 100% of self and energy goes
-    // negative (clamped to zero, killing the source). Unity used 0.15.
-    // Controls the *shape* of the spread (tight vs broad).
-    private const float DIFFUSION_RATE = 0.15f;
-
-    // Per-iteration energy absorption. Each voxel loses this fraction of
-    // its energy before diffusing. Controls *reach / falloff steepness* —
-    // higher absorption = shorter reach, sharper falloff. With absorption
-    // the field converges to a steady state where injection = total absorbed,
-    // giving a predictable exponential-ish falloff that's independent of
-    // DIFFUSION_RATE. Also gives the "small room brighter than large room"
-    // behavior because less total volume absorbs the same injected energy.
-    private const float ABSORPTION_RATE = 0.08f;
-
-    // Per-light reach in voxels = max(MIN_REACH, source.Level / REACH_DIVISOR).
-    // Sets the bounding-box half-extent for the relaxation buffer.
-    private const int REACH_DIVISOR = 4;
+    // Floor on the per-light reach (buffer half-extent) regardless of how high
+    // SimData.BlockLightReachDivisor is set.
     private const int MIN_REACH = 2;
 
-    // Iteration count for the diffusion = max(MIN_ITERS, source.Level /
-    // ITER_DIVISOR). More iterations let energy fill the kernel further; the
-    // kernel buffer is sized to bound the work.
-    private const int ITER_DIVISOR = 4;
+    // Floor on the diffusion iteration count regardless of
+    // SimData.BlockLightIterationDivisor.
     private const int MIN_ITERS = 4;
-
-    // Seed magnitude per unit of source.Level. With absorption, the source
-    // voxel gets re-injected each iteration so it stays bright. This scale
-    // factor controls the peak brightness at the source — tune until a
-    // max-level white torch reads ~200-255 GPU bytes at the source voxel.
-    private const float SEED_PER_LEVEL = 40.0f;
 
     // --- Fog-scaled attenuation ------------------------------------------
     //
@@ -57,10 +40,10 @@ public static class LightEngine
     // is the extra falloff subtracted per voxel at maximum density (255);
     // intermediate densities scale linearly via integer math.
     //
-    // Block-light diffusion uses per-iteration ABSORPTION_RATE=0.08. FOG_BLOCK
-    // _ABSORPTION_255 is the *additional* absorption applied at max density,
-    // so foggy cells retain less of their energy each iteration. Kept small
-    // relative to ABSORPTION_RATE so the total retention stays well-behaved.
+    // Block-light diffusion uses per-iteration SimData.BlockLightAbsorptionRate.
+    // FOG_BLOCK_ABSORPTION_255 is the *additional* absorption applied at max
+    // density, so foggy cells retain less of their energy each iteration. Kept
+    // small relative to that absorption rate so total retention stays well-behaved.
     public const int FOG_SUN_FALLOFF_255 = 4;
     private const float FOG_BLOCK_ABSORPTION_255 = 0.04f;
 
@@ -232,8 +215,13 @@ public static class LightEngine
         int level = Math.Min(source.Level, MAX_LIGHT);
         if (level <= 0) { return; }
 
-        int reach = Math.Max(MIN_REACH, level / REACH_DIVISOR);
-        int iterations = Math.Max(MIN_ITERS, level / ITER_DIVISOR);
+        SimData sim = world.SimData;
+        float diffusionRate = sim.BlockLightDiffusionRate;
+        float absorptionRate = sim.BlockLightAbsorptionRate;
+        float seedPerLevel = sim.BlockLightSeedPerLevel;
+
+        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
+        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
         int dim = reach * 2 + 1;
         int total = dim * dim * dim;
         int dimSq = dim * dim;
@@ -271,9 +259,9 @@ public static class LightEngine
         // seeds merged (by linearity, this equals summing 8 separate corner
         // kernels weighted by the trilinear coefficients). Static lights don't
         // move, so the frozen blend is correct forever.
-        float seedR = level * SEED_PER_LEVEL * source.Color.R;
-        float seedG = level * SEED_PER_LEVEL * source.Color.G;
-        float seedB = level * SEED_PER_LEVEL * source.Color.B;
+        float seedR = level * seedPerLevel * source.Color.R;
+        float seedG = level * seedPerLevel * source.Color.G;
+        float seedB = level * seedPerLevel * source.Color.B;
 
         float sx = Mathf.Clamp(source.SubVoxelOffset.X, 0f, 0.99999f);
         float sy = Mathf.Clamp(source.SubVoxelOffset.Y, 0f, 0.99999f);
@@ -306,6 +294,7 @@ public static class LightEngine
                     if (!open[seedIdx]) { continue; }
 
                     Diffuse(open, fogAbsorb, dim, total, iterations,
+                        absorptionRate, diffusionRate,
                         seedIdx, seedR * w, seedG * w, seedB * w,
                         tempR, tempG, tempB, scrR, scrG, scrB);
 
@@ -375,8 +364,13 @@ public static class LightEngine
     public static CornerKernels ComputeCornerKernels(WorldState world, Vector3I position, int level, Color color)
     {
         level = Math.Min(level, MAX_LIGHT);
-        int reach = Math.Max(MIN_REACH, level / REACH_DIVISOR);
-        int iterations = Math.Max(MIN_ITERS, level / ITER_DIVISOR);
+        SimData sim = world.SimData;
+        float diffusionRate = sim.BlockLightDiffusionRate;
+        float absorptionRate = sim.BlockLightAbsorptionRate;
+        float seedPerLevel = sim.BlockLightSeedPerLevel;
+
+        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
+        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
         int dim = reach * 2 + 1;
         int total = dim * dim * dim;
 
@@ -386,7 +380,7 @@ public static class LightEngine
 
         var open = new bool[total];
         var fogAbsorb = new float[total];
-        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
+        float canopyBlockAbsorbFactor = sim.CanopyBlockAbsorptionPeak / 255f;
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -404,9 +398,9 @@ public static class LightEngine
             }
         }
 
-        float baseR = level * SEED_PER_LEVEL * color.R;
-        float baseG = level * SEED_PER_LEVEL * color.G;
-        float baseB = level * SEED_PER_LEVEL * color.B;
+        float baseR = level * seedPerLevel * color.R;
+        float baseG = level * seedPerLevel * color.G;
+        float baseB = level * seedPerLevel * color.B;
 
         var kernels = new CornerKernels
         {
@@ -444,6 +438,7 @@ public static class LightEngine
                     if (!open[seedIdx]) { continue; }
 
                     Diffuse(open, fogAbsorb, dim, total, iterations,
+                        absorptionRate, diffusionRate,
                         seedIdx, baseR, baseG, baseB,
                         kernels.R[c], kernels.G[c], kernels.B[c],
                         scratchR, scratchG, scratchB);
@@ -507,15 +502,20 @@ public static class LightEngine
         }
 
         level = Math.Min(level, MAX_LIGHT);
-        int reach = Math.Max(MIN_REACH, level / REACH_DIVISOR);
-        int iterations = Math.Max(MIN_ITERS, level / ITER_DIVISOR);
+        SimData sim = world.SimData;
+        float diffusionRate = sim.BlockLightDiffusionRate;
+        float absorptionRate = sim.BlockLightAbsorptionRate;
+        float seedPerLevel = sim.BlockLightSeedPerLevel;
+
+        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
+        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
         int dim = reach * 2 + 1;
         int total = dim * dim * dim;
 
         // Sanity: reach/dim must match the previous buffer for index translation
-        // to be valid. Emission is fixed per MovingLight so this should always
-        // hold; the check is a cheap safety net for future code that mutates
-        // emission at runtime.
+        // to be valid. Normally holds (Emission and the SimData reach divisor are
+        // fixed at runtime); if a designer retunes BlockLightReachDivisor live,
+        // dim changes for one crossing and we self-heal via a full recompute.
         if (prevKernels.Dim != dim)
         {
             return ComputeCornerKernels(world, position, level, color);
@@ -527,7 +527,7 @@ public static class LightEngine
 
         var open = new bool[total];
         var fogAbsorb = new float[total];
-        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
+        float canopyBlockAbsorbFactor = sim.CanopyBlockAbsorptionPeak / 255f;
         for (int lz = 0; lz < dim; lz++)
         {
             for (int ly = 0; ly < dim; ly++)
@@ -545,9 +545,9 @@ public static class LightEngine
             }
         }
 
-        float baseR = level * SEED_PER_LEVEL * color.R;
-        float baseG = level * SEED_PER_LEVEL * color.G;
-        float baseB = level * SEED_PER_LEVEL * color.B;
+        float baseR = level * seedPerLevel * color.R;
+        float baseG = level * seedPerLevel * color.G;
+        float baseB = level * seedPerLevel * color.B;
 
         var kernels = new CornerKernels
         {
@@ -633,6 +633,7 @@ public static class LightEngine
             {
                 if (!open[seedIdx]) { continue; }
                 Diffuse(open, fogAbsorb, dim, total, iterations,
+                    absorptionRate, diffusionRate,
                     seedIdx, baseR, baseG, baseB,
                     kernels.R[c], kernels.G[c], kernels.B[c],
                     scratchR, scratchG, scratchB);
@@ -672,6 +673,7 @@ public static class LightEngine
     // max fog. Clamped so total absorption never exceeds 1 (energy negative).
     private static void Diffuse(
         bool[] open, float[] fogAbsorb, int dim, int total, int iterations,
+        float absorptionRate, float diffusionRate,
         int seedIdx, float seedR, float seedG, float seedB,
         float[] outR, float[] outG, float[] outB,
         float[] scrR, float[] scrG, float[] scrB)
@@ -701,7 +703,7 @@ public static class LightEngine
                             continue;
                         }
 
-                        float keep = 1f - ABSORPTION_RATE - fogAbsorb[idx];
+                        float keep = 1f - absorptionRate - fogAbsorb[idx];
                         if (keep < 0f) { keep = 0f; }
                         float selfR = outR[idx] * keep;
                         float selfG = outG[idx] * keep;
@@ -723,12 +725,12 @@ public static class LightEngine
                         if (lz < dim - 1 && open[idx + dimSq])
                         { sumR += outR[idx + dimSq]; sumG += outG[idx + dimSq]; sumB += outB[idx + dimSq]; openCount++; }
 
-                        float retain = 1f - DIFFUSION_RATE * openCount;
+                        float retain = 1f - diffusionRate * openCount;
                         if (retain < 0f) { retain = 0f; }
 
-                        scrR[idx] = sumR * DIFFUSION_RATE + selfR * retain;
-                        scrG[idx] = sumG * DIFFUSION_RATE + selfG * retain;
-                        scrB[idx] = sumB * DIFFUSION_RATE + selfB * retain;
+                        scrR[idx] = sumR * diffusionRate + selfR * retain;
+                        scrG[idx] = sumG * diffusionRate + selfG * retain;
+                        scrB[idx] = sumB * diffusionRate + selfB * retain;
                     }
                 }
             }

@@ -14,11 +14,10 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
-[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/effects/goblin_yell.tscn" id="17_yell"]
+[ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin_voice.tres" id="50_voice"]
 [ext_resource type="PackedScene" uid="uid://b8oe6da86xb0k" path="res://scenes/effects/goblin_idle_loop.tscn" id="18_idle"]
 [ext_resource type="PackedScene" uid="uid://b8xv8kd878b0k" path="res://scenes/effects/goblin_run_loop.tscn" id="19_run"]
 [ext_resource type="PackedScene" uid="uid://b8yx7g15v8b0k" path="res://scenes/effects/goblin_swim_idle_loop.tscn" id="20_swimidle"]
-[ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="21_deathvo"]
 [ext_resource type="PackedScene" uid="uid://ccc3b2d0mgx8l" path="res://scenes/effects/armor_break.tscn" id="22_armorbrk"]
 [ext_resource type="PackedScene" uid="uid://kk8sdm8tk63s" path="res://assets/models/characters/goblin/goblin.fbx" id="26_goblinfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/goblin/goblin_anims.res" id="27_goblinanims"]
@@ -49,11 +48,10 @@ _deathFx = ExtResource("13_deathmed")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
 _foliageMovementLoopFx = ExtResource("16_grassloop")
-_yellFx = ExtResource("17_yell")
+_voice = ExtResource("50_voice")
 _idleLoopFx = ExtResource("18_idle")
 _runLoopFx = ExtResource("19_run")
 _swimIdleLoopFx = ExtResource("20_swimidle")
-_deathVoFx = ExtResource("21_deathvo")
 _armorDepletedFx = ExtResource("22_armorbrk")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_fstgrass"),

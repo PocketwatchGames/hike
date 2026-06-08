@@ -41,10 +41,6 @@ public partial class RideableVehicle : CharacterBody3D, IInteractive, IWorldEnti
 
     protected World _world;
 
-    // Vehicles float / move through the world; keep them porous so they never
-    // register as permanent path blockers or stop smell / sound / sight.
-    public bool Porous => true;
-
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
     public Node3D SeatAnchor => _seatAnchor;
