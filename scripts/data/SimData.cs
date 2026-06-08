@@ -681,6 +681,13 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0,1,0.01")] public float DustRainSuppression = 0.95f;
 
     [ExportSubgroup("Rain")]
+    // Blended rainAmount (0..1) at or above which ESpawnConditions.Clear entries
+    // refuse to spawn. Sampled from the live player-blended weather; since spawn
+    // gating only runs at chunk activation (which streams around the player),
+    // this is the right gameplay read. The lighter sibling of
+    // HeavyRainSpawnThreshold — Clear suppresses on any meaningful rain, while
+    // NotHeavyRain only suppresses in a real downpour. See World.SpawnConditionsMet.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float RainSpawnThreshold = 0.2f;
     // Blended rainAmount (0..1) at or above which weather counts as "heavy
     // rain" for spawn gating: mobs/chests flagged ESpawnConditions.NotHeavyRain
     // refuse to spawn once rain reaches this. Distinct from the lighter Clear

@@ -712,12 +712,12 @@ public partial class GameClient : Node3D
 			//   None  → 0     (no nearby cover — drift to off).
 			World world = World.Current;
 			int nearbyPropCount = 0;
-			World.FadeProbeResult probeResult = world != null
-				? world.ProbeFadeVolume(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
-				: World.FadeProbeResult.None;
+			FadeProbeResult probeResult = world != null
+				? world.FadeProbe.Probe(cameraWorld, feet, head, tightProbeRadius, wideProbeRadius, foliagePlayerFadeProbeRange, out nearbyPropCount)
+				: FadeProbeResult.None;
 
 			float target;
-			if (probeResult == World.FadeProbeResult.Tight)
+			if (probeResult == FadeProbeResult.Tight)
 			{
 				// Saturation point of 1 means a single nearby tree already hits
 				// full radius — guard so the divide can't go negative.
@@ -725,7 +725,7 @@ public partial class GameClient : Node3D
 				float countNorm = Mathf.Clamp((nearbyPropCount - 1) / (float)Mathf.Max(saturate - 1, 1), 0f, 1f);
 				target = Mathf.Lerp(foliagePlayerFadeCountScaleMin, 1f, countNorm);
 			}
-			else if (probeResult == World.FadeProbeResult.Wide)
+			else if (probeResult == FadeProbeResult.Wide)
 			{
 				target = foliagePlayerFadeMinimumAmount;
 			}

@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://syb6453ftgs8"]
 
 [ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="1_brain"]
-[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
 [ext_resource type="Script" uid="uid://6xs48do3vkin" path="res://scripts/data/behaviors/IdleBehaviorData.cs" id="3_idle"]
-[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/BehaviorNodeTransition.cs" id="4_transition"]
+[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_transition"]
 [ext_resource type="Script" uid="uid://d3thrtwd1n5kq" path="res://scripts/data/behaviors/conditions/ThreatWithinDistanceCondition.cs" id="5_threat"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="6_aggro_lost"]
 [ext_resource type="Script" uid="uid://drpm3lmw62rmu" path="res://scripts/data/behaviors/FleeBehaviorData.cs" id="7_flee"]

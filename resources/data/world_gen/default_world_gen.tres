@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
 
-[ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/WorldGenData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_region_desert"]
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_region_forest"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_region_mountain"]

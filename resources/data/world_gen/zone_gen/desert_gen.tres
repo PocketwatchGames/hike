@@ -6,7 +6,7 @@
 [ext_resource type="Resource" uid="uid://bv7uylxclo2m1" path="res://resources/data/zones/desert.tres" id="5_25es0"]
 [ext_resource type="Resource" uid="uid://dc3pchs6rhlok" path="res://resources/data/world_gen/spawn_lists/surface_entities_desert.tres" id="5_stsr1"]
 [ext_resource type="Resource" path="res://resources/data/world_gen/terrain_gen/shore_sand_kit.tres" id="9_25es0"]
-[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/ZoneGenData.cs" id="28_8kxn4"]
+[ext_resource type="Script" uid="uid://wwpw4gghcevs" path="res://scripts/data/worldgen/ZoneGenData.cs" id="28_8kxn4"]
 [ext_resource type="Resource" uid="uid://c6gsht63fk45a" path="res://resources/data/world_gen/spawn_lists/cave_entities_default.tres" id="30_cave"]
 
 [resource]

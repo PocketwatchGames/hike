@@ -20,6 +20,6 @@ public enum ESpawnConditions
     None        = 0,
     Day         = 1 << 0, // only when it is NOT night
     Night       = 1 << 1, // only at night
-    Clear       = 1 << 2, // only when not raining (rain below RainSpawnThreshold)
+    Clear       = 1 << 2, // only when not raining (rain below SimData.RainSpawnThreshold)
     NotHeavyRain = 1 << 3, // only when rain is below SimData.HeavyRainSpawnThreshold
 }

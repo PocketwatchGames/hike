@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="TerrainKitData" format=3 uid="uid://gpdraqwf22b8"]
 
 [ext_resource type="Resource" uid="uid://ckhiesfv77y2b" path="res://resources/data/details/detail_grass_swamp.tres" id="1_c0fex"]
-[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/TerrainKitData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://dfrx5xho61xt1" path="res://scripts/data/worldgen/TerrainKitData.cs" id="1_script"]
 [ext_resource type="Resource" path="res://resources/data/terrain/marsh.tres" id="2_kit"]
 [ext_resource type="PackedScene" uid="uid://6yefvnijgm0y" path="res://scenes/tall_grasses/tall_grass_01.tscn" id="4_g01"]
 [ext_resource type="PackedScene" uid="uid://c42a1k5bov8rw" path="res://scenes/tall_grasses/tall_grass_02.tscn" id="4_g02"]
