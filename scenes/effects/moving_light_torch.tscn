@@ -12,6 +12,7 @@ Brightness = 0.75
 Flicker = true
 FlickerMin = 0.8
 FlickerHz = 10.0
+FadeOutDuration = 0.1
 LightOnEffectScene = ExtResource("2_torchon")
 LightOffEffectScene = ExtResource("3_torchoff")
 LightLoopEffectScene = ExtResource("4_torchloop")

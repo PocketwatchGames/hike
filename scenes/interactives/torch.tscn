@@ -108,6 +108,7 @@ _brightness = 0.65
 _flicker = true
 _flickerMin = 0.75
 _flickerHz = 14.0
+_fadeOutDuration = 0.1
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)

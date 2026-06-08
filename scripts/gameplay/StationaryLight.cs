@@ -23,11 +23,24 @@ public partial class StationaryLight : Node3D
     [Export] private float _flickerMax = 1.0f;
     [Export] private float _flickerHz = 12f;
 
+    // Fade envelope — the deposited light ramps from 0→full over _fadeInDuration
+    // when toggled on and full→0 over _fadeOutDuration when toggled off. Set
+    // either to 0 for an instant snap. Combines multiplicatively with flicker.
+    // Only runtime toggles fade; spawn/streaming activation snaps (see SetActive's
+    // fade arg) so torches don't all flare up as chunks load.
+    [Export(PropertyHint.Range, "0,5,0.05")] private float _fadeInDuration = 0.5f;
+    [Export(PropertyHint.Range, "0,5,0.05")] private float _fadeOutDuration = 0.5f;
+
     private WorldState _worldData;
     private World _world;
     private Vector3I _baseWorldPos;
     private bool _active = true;
     private LightSource _source;
+    // Fade level (0 = off, 1 = full) eased toward _fadeTarget, and the current
+    // flicker factor (1 = no dim). The world holds footprint × _fade × _flickerAmp.
+    private float _fade = 1f;
+    private float _fadeTarget = 1f;
+    private float _flickerAmp = 1f;
     // Once registered, the source stays in the world's source list for the
     // lifetime of this node. Off-states are expressed as amplitude=0 rather
     // than a remove+re-add — the cached footprint is reused, skipping the flood
@@ -56,44 +69,93 @@ public partial class StationaryLight : Node3D
         };
     }
 
-    public void SetActive(bool active)
+    // fade=false snaps instantly (used for spawn/streaming activation); the
+    // default fades over _fadeInDuration / _fadeOutDuration for runtime toggles.
+    public void SetActive(bool active, bool fade = true)
     {
         _active = active;
-        SetProcess(_active && _flicker);
-
         if (_source == null) { return; }
 
-        if (_active && !_registered)
+        // Never registered and staying off: nothing has been deposited, so
+        // there's nothing to fade — park the envelope and skip processing.
+        if (!active && !_registered)
+        {
+            _fade = 0f;
+            _fadeTarget = 0f;
+            UpdateProcessing();
+            return;
+        }
+
+        bool ramp = fade && (active ? _fadeInDuration > 0f : _fadeOutDuration > 0f);
+        _fadeTarget = active ? 1f : 0f;
+
+        if (active && !_registered)
         {
             // First activation pays the footprint compute. Subsequent
             // toggles ride the amplitude path below.
             _world.AddLightSource(_source);
             _registered = true;
             _flickerTimer = 0f;
+            _flickerAmp = 1f;
+            _fade = ramp ? 0f : 1f;
         }
-        else if (_active)
+        else if (active)
         {
-            _world.SetLightAmplitude(_source, 1f);
             _flickerTimer = 0f;
+            if (!ramp) { _fade = 1f; }
         }
-        else if (_registered)
+        else if (!ramp) // !active && _registered
         {
-            _world.SetLightAmplitude(_source, 0f);
+            _fade = 0f;
         }
+
+        ApplyAmplitude();
+        UpdateProcessing();
     }
 
     public override void _Process(double delta)
     {
         if (_source == null || _world == null) { return; }
-        _flickerTimer -= (float)delta;
-        if (_flickerTimer > 0f) { return; }
-        _flickerTimer = 1f / Mathf.Max(_flickerHz, 0.01f);
-        using var _prof = Profiler.Sample("StationaryLight.Flicker");
-        // Far lights hold steady (amp 1) — SetLightAmplitude is a no-op when the
-        // amplitude is unchanged, so a culled light costs nothing per tick. Only
-        // lights near the player re-deposit their flicker.
-        float amp = WithinFlickerRange() ? (float)GD.RandRange(_flickerMin, _flickerMax) : 1f;
-        _world.SetLightAmplitude(_source, amp);
+        using var _prof = Profiler.Sample("StationaryLight.Process");
+
+        // Fade envelope: ease toward _fadeTarget over the tunable duration.
+        if (_fade != _fadeTarget)
+        {
+            float dur = _fadeTarget > _fade ? _fadeInDuration : _fadeOutDuration;
+            float step = dur > 0f ? (float)delta / dur : 1f;
+            _fade = Mathf.MoveToward(_fade, _fadeTarget, step);
+        }
+
+        // Flicker re-roll on its own timer while active.
+        if (_active && _flicker)
+        {
+            _flickerTimer -= (float)delta;
+            if (_flickerTimer <= 0f)
+            {
+                _flickerTimer = 1f / Mathf.Max(_flickerHz, 0.01f);
+                // Far lights hold steady (amp 1) — only lights near the player
+                // re-deposit their flicker.
+                _flickerAmp = WithinFlickerRange() ? (float)GD.RandRange(_flickerMin, _flickerMax) : 1f;
+            }
+        }
+
+        // SetLightAmplitude is a no-op when the product is unchanged, so a settled
+        // light costs nothing here until the fade or flicker moves it.
+        ApplyAmplitude();
+        UpdateProcessing();
+    }
+
+    // Push the current effective amplitude (fade × flicker) to the world.
+    private void ApplyAmplitude()
+    {
+        _world.SetLightAmplitude(_source, _fade * _flickerAmp);
+    }
+
+    // Process only while a fade is in flight or an active light is flickering;
+    // a settled, steady light parks itself.
+    private void UpdateProcessing()
+    {
+        SetProcess(_fade != _fadeTarget || (_active && _flicker));
     }
 
     private bool WithinFlickerRange()

@@ -346,7 +346,8 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         }
         instance._active = data.Active;
         instance.UpdateVisuals();
-        instance._light.SetActive(instance._active);
+        // Snap to the spawned state — a streaming-in forge shouldn't fade up.
+        instance._light.SetActive(instance._active, fade: false);
         instance._damageZone?.SetActive(instance._active);
         instance._warmthZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();

@@ -194,6 +194,22 @@ Instead they go through the **ground-stain layer**, a sibling of the `BlockLight
 
 Per-mark intensity comes from the mark's own texture/tint alpha; `GroundStainProjector.strength` (and the `ground_stain` CVar) is the shared master. New globals follow the `ShaderGlobals` rules below (declared in `project.godot` + the texture seeded via `Register`).
 
+### Visual Render Layers (`VisualInstance3D.Layers` / `Camera3D.CullMask`)
+
+The game runs several off-screen `SubViewport` cameras alongside the main one, each culling to a **dedicated 3D-render layer bit** so it sees only its own geometry. These bits are a **shared global namespace** — every `GeometryInstance3D.Layers` value and every `Camera3D.CullMask` in the project draws from the same 20 bits — so a duplicate claim silently cross-feeds one system's meshes into another's projector. (This bit us once: the selection outline and the ground-stain projector both used bit 4, so highlighting a prop rendered its model into `ground_stain_tex` and smeared its color up nearby walls.)
+
+The allocation is the single source of truth — keep these in sync (C# const is authoritative; the `project.godot` name is the editor label; **editor "Layer N" = bit N-1**):
+
+| Bit | Value | C# constant | `project.godot` name | Culled by |
+|-----|-------|-------------|----------------------|-----------|
+| 0 | 1 | `GameCamera.MainSceneLayer` | `MainScene` | main camera |
+| 1 | 2 | `GameCamera.CapMaskLayer` | `CapMask` | cap-mask camera (ceiling cutaway) |
+| 2 | 4 | `GameCamera.OutlineMaskLayer` | `OutlineMask` | selection-outline mask camera |
+| 3 | 8 | `BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK` | `ShadowProxy` | block-light shadow projector |
+| 4 | 16 | `GroundStainProjector.STAIN_PROXY_LAYER_MASK` | `StainProxy` | ground-stain projector |
+
+When adding a new off-screen pass: pick the **next free bit**, add a `1u << N` const, name it under `[layer_names]`'s `3d_render/layer_(N+1)` in `project.godot`, and add a row here. The names make a collision visible in the editor's Layers/Cull Mask dropdowns, but they do **not** enforce uniqueness — this table is the actual guard.
+
 ### Build-Time Code Generation (`hike.csproj`)
 
 Two MSBuild targets run before compilation:

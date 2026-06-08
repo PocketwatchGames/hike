@@ -2754,8 +2754,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        _torch.Deactivate();
-        _torch.QueueFree();
+        // Hand off so the light fades out and frees itself rather than cutting.
+        _torch.Deactivate(freeWhenDone: true);
         _torch = null;
     }
 

@@ -102,15 +102,19 @@ public static class LightEngine
         world.LightSources.Remove(source);
     }
 
-    // Change the source's brightness without recomputing its kernel. The
-    // footprint shape stays the same — only the per-voxel deposit magnitudes
-    // change. Cost = O(footprint_size) array writes + chunk dirty marks.
+    // Change the source's brightness without recomputing its footprint. Full
+    // remove-at-old-amplitude then add-at-new — NOT a delta deposit. A delta
+    // (DepositFootprint(Δ)) re-rounds each step, so the deposited value drifts
+    // away from round(footprint × amplitude) over many flicker rolls and the
+    // eventual remove leaves permanent per-channel residue in the light map.
+    // Remove-then-add keeps the world exactly round(footprint × amplitude), so
+    // every add is undone exactly by the matching remove.
     public static void SetAmplitude(WorldState world, LightSource source, float newAmplitude)
     {
-        float delta = newAmplitude - source.Amplitude;
-        if (Math.Abs(delta) < 1e-6f) { return; }
-        DepositFootprint(world, source, delta);
+        if (Math.Abs(newAmplitude - source.Amplitude) < 1e-6f) { return; }
+        DepositFootprint(world, source, -source.Amplitude);
         source.Amplitude = newAmplitude;
+        DepositFootprint(world, source, source.Amplitude);
     }
 
     public static void OnVoxelsChanged(WorldState world, List<Vector3I> changedPositions)

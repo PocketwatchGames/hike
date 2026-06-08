@@ -2448,8 +2448,9 @@ public partial class Player : CharacterBody3D
 		}
 		else if (_movingLight != null)
 		{
-			_movingLight.Deactivate();
-			_movingLight.QueueFree();
+			// Hand the node off to fade out and free itself; clear the field now
+			// so a quick re-light spawns a fresh light (a brief crossfade overlap).
+			_movingLight.Deactivate(freeWhenDone: true);
 			_movingLight = null;
 		}
 	}

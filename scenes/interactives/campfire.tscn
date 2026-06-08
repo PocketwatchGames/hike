@@ -138,6 +138,8 @@ script = ExtResource("14_3pg55")
 _flicker = true
 _flickerMin = 0.8
 _flickerHz = 8.0
+_fadeInDuration = 1.0
+_fadeOutDuration = 0.25
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)

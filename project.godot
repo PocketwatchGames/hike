@@ -260,6 +260,11 @@ InteractCancel={
 
 [layer_names]
 
+3d_render/layer_1="MainScene"
+3d_render/layer_2="CapMask"
+3d_render/layer_3="OutlineMask"
+3d_render/layer_4="ShadowProxy"
+3d_render/layer_5="StainProxy"
 3d_physics/layer_1="Environment"
 3d_physics/layer_2="Player"
 3d_physics/layer_3="Interactive"

@@ -27,6 +27,13 @@ public partial class MovingLight : Node3D
     [Export(PropertyHint.Range, "0,2,0.01")] public float FlickerMax = 1.0f;
     [Export(PropertyHint.Range, "0.1,30,0.1")] public float FlickerHz = 12f;
 
+    // Fade envelope — the deposited light ramps from 0→full over FadeInDuration
+    // on Activate and full→0 over FadeOutDuration on Deactivate (then the deposit
+    // is dropped). Set either to 0 for an instant snap. Combines multiplicatively
+    // with flicker, so a torch still flickers while it fades in.
+    [Export(PropertyHint.Range, "0,5,0.05")] public float FadeInDuration = 0.5f;
+    [Export(PropertyHint.Range, "0,5,0.05")] public float FadeOutDuration = 0.5f;
+
     [Export] public bool Active { get; set; } = true;
     [Export] public PackedScene LightOnEffectScene;
     [Export] public PackedScene LightOffEffectScene;
@@ -42,10 +49,21 @@ public partial class MovingLight : Node3D
     private bool _registered;
     private Vector3I _lastVoxel;
     private Vector3 _lastShadeSub;
-    // Flicker amplitude currently applied to the deposit (the world holds
-    // footprint × _amplitude). Only changed bracketed by remove/deposit so the
-    // subtract always matches the add. 1 = full brightness.
+    // Effective amplitude currently applied to the deposit (the world holds
+    // footprint × _amplitude = _fade × _flickerAmp). Only changed bracketed by
+    // remove/deposit so the subtract always matches the add. 1 = full brightness.
     private float _amplitude = 1f;
+    // Flicker (1 = no dim) and fade (0 = off, 1 = full) factors, multiplied into
+    // _amplitude. _fade eases toward _fadeTarget over Fade{In,Out}Duration.
+    private float _flickerAmp = 1f;
+    private float _fade = 1f;
+    private float _fadeTarget = 1f;
+    // True while ramping out to zero before Cleanup — keeps the node registered
+    // and processing so the fade can finish, then tears down.
+    private bool _deactivating;
+    // When true, the node QueueFrees itself once its fade-out lands (set by a
+    // Deactivate(freeWhenDone: true) hand-off).
+    private bool _freeOnFadeOut;
     private float _flickerTimer;
     private Fx _loopEffect;
 
@@ -136,14 +154,28 @@ public partial class MovingLight : Node3D
                     // where flicker is visible. Carried torches sit at distance ~0
                     // so they always flicker.
                     float amp = WithinFlickerRange(world) ? (float)GD.RandRange(FlickerMin, FlickerMax) : 1f;
-                    if (amp != _amplitude)
+                    if (amp != _flickerAmp)
                     {
-                        RemoveCurrentDeposit(world.WorldState);
-                        _amplitude = amp;
-                        DepositScaled(world.WorldState);
+                        _flickerAmp = amp;
+                        UpdateAmplitude(world.WorldState);
                     }
                 }
             }
+        }
+
+        // Fade envelope: ease the deposit toward _fadeTarget over the tunable
+        // duration (instant if the duration is 0). When a fade-out reaches zero,
+        // finish the deferred teardown.
+        if (_fade != _fadeTarget)
+        {
+            float dur = _fadeTarget > _fade ? FadeInDuration : FadeOutDuration;
+            float step = dur > 0f ? (float)delta / dur : 1f;
+            _fade = Mathf.MoveToward(_fade, _fadeTarget, step);
+            UpdateAmplitude(world.WorldState);
+        }
+        if (_deactivating && _fade <= 0f)
+        {
+            FinishDeactivate();
         }
     }
 
@@ -163,9 +195,25 @@ public partial class MovingLight : Node3D
 
     public void Activate()
     {
-        if (_registered) { return; }
         World world = World.Current;
         if (world == null) { return; }
+
+        // Re-activated while still registered (toggled back on mid fade-out):
+        // reverse the envelope toward full and keep the existing field/deposit.
+        if (_registered)
+        {
+            if (_deactivating)
+            {
+                _deactivating = false;
+                Active = true;
+                _fadeTarget = 1f;
+                if (LightOnEffectScene != null)
+                {
+                    Fx.Create(LightOnEffectScene, GetParent() ?? this, GlobalPosition);
+                }
+            }
+            return;
+        }
 
         Vector3 pos = GlobalPosition;
         var voxel = new Vector3I(
@@ -176,7 +224,12 @@ public partial class MovingLight : Node3D
         _lastVoxel = voxel;
         _registered = true;
         Active = true;
-        _amplitude = 1f;
+        _deactivating = false;
+        // Start dark and ramp up — the per-frame envelope drives the fade-in.
+        _flickerAmp = 1f;
+        _fade = 0f;
+        _fadeTarget = 1f;
+        _amplitude = 0f;
         _flickerTimer = 0f;
         _tuning = LightEngine.ResolveTuning(world.WorldState, Distance, Falloff, Brightness);
         LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
@@ -193,13 +246,49 @@ public partial class MovingLight : Node3D
         }
     }
 
-    public void Deactivate()
+    // freeWhenDone lets a caller that owns the node lifecycle (the player-carried
+    // torch, recreated per toggle) hand the node off to fade out and QueueFree
+    // itself, instead of freeing it immediately and cutting the fade short.
+    public void Deactivate(bool freeWhenDone = false)
     {
-        if (!_registered) { return; }
-        Cleanup();
+        if (_deactivating)
+        {
+            _freeOnFadeOut = _freeOnFadeOut || freeWhenDone;
+            return;
+        }
+        if (!_registered)
+        {
+            if (freeWhenDone) { QueueFree(); }
+            return;
+        }
+        _freeOnFadeOut = freeWhenDone;
+        Active = false;
+        _deactivating = true;
+        _fadeTarget = 0f;
+        // The off-cue fires as the light begins to die out.
         if (LightOffEffectScene != null)
         {
             Fx.Create(LightOffEffectScene, GetParent() ?? this, GlobalPosition);
+        }
+        // No fade window — drop the deposit immediately. Otherwise the per-frame
+        // envelope ramps _fade to 0 and FinishDeactivate runs when it lands.
+        if (FadeOutDuration <= 0f)
+        {
+            _fade = 0f;
+            FinishDeactivate();
+        }
+    }
+
+    // Completes a faded-out Deactivate: drops the deposit, stops the loop fx, and
+    // frees the node if the caller handed off ownership via freeWhenDone.
+    private void FinishDeactivate()
+    {
+        _deactivating = false;
+        Cleanup();
+        if (_freeOnFadeOut)
+        {
+            _freeOnFadeOut = false;
+            QueueFree();
         }
     }
 
@@ -226,6 +315,7 @@ public partial class MovingLight : Node3D
         _currentDeposit.Clear();
         _registered = false;
         Active = false;
+        _deactivating = false;
         if (_loopEffect != null)
         {
             _loopEffect.Stop();
@@ -244,7 +334,18 @@ public partial class MovingLight : Node3D
         DepositScaled(worldState);
     }
 
-    // Deposit the cached footprint scaled by the current flicker amplitude.
+    // Re-apply the deposit at the current effective amplitude (fade × flicker),
+    // bracketed remove→deposit so the subtract always matches the prior add.
+    private void UpdateAmplitude(WorldState worldState)
+    {
+        float amp = _fade * _flickerAmp;
+        if (amp == _amplitude) { return; }
+        RemoveCurrentDeposit(worldState);
+        _amplitude = amp;
+        DepositScaled(worldState);
+    }
+
+    // Deposit the cached footprint scaled by the current effective amplitude.
     private void DepositScaled(WorldState worldState)
     {
         // Moving-light re-deposit volume per window (reshades + flicker rolls).
