@@ -145,6 +145,17 @@ public partial class ChunkManager : Node3D
     private bool _initialLoadPending = true;
     private Vector3I _lastPlayerChunkCoord;
     private float _lightFlushTimer;
+    // Cached "desired chunk set" gate (see ShouldRebuildDesired). The desired
+    // set is an O(MAX_LOAD_DISTANCE³) frustum scan that only changes when the
+    // player crosses a chunk boundary or the camera turns, so we snapshot those
+    // inputs and skip the scan on the (many) frames where neither moved.
+    private bool _desiredValid;
+    private Vector3I _desiredBuiltChunk;
+    private Vector3 _desiredBuiltCamForward;
+    private bool _desiredBuiltOverlook;
+    // Camera-forward dot below which we treat the view as having turned enough
+    // to need a fresh frustum scan (~1.8°).
+    private const float DESIRED_CAM_ROTATION_DOT = 0.9995f;
     private Func<Vector3> _getPlayerPosition;
     private WorldState _worldData;
     private LightMap _lightMap;
@@ -497,9 +508,41 @@ public partial class ChunkManager : Node3D
         }
     }
 
-    private void UpdateLoadedChunks()
+    // True world-direction the camera is looking (−Z of its basis), or a stable
+    // default before the camera is in the tree.
+    private Vector3 CameraForward()
     {
-        HashSet<Vector3I> desired = _desiredScratch;
+        if (_camera != null && _camera.IsInsideTree())
+        {
+            return (-_camera.GlobalTransform.Basis.Z).Normalized();
+        }
+        return Vector3.Forward;
+    }
+
+    // The desired-chunk set only changes when the player crosses a chunk
+    // boundary (moving the always-loaded sphere) or the camera turns (moving
+    // the frustum). Rebuilding it is an O(MAX_LOAD_DISTANCE³) frustum scan —
+    // ~7 ms/frame even standing still — so skip it until one of those inputs
+    // changes. Sub-chunk translation is deliberately ignored: any far chunk it
+    // would newly pull into view is still many chunks away and gets picked up
+    // at the next chunk crossing, and the NEARBY sphere always covers the
+    // player's immediate surroundings.
+    private bool ShouldRebuildDesired()
+    {
+        if (!_desiredValid) { return true; }
+        // Overlook zooms/pans its own wide frustum (and can change its load
+        // distance without a camera turn), so always re-scan while it's active
+        // — that keeps the panorama-streaming behaviour byte-identical.
+        if (_overlookActive || _desiredBuiltOverlook) { return true; }
+        if (_lastPlayerChunkCoord != _desiredBuiltChunk) { return true; }
+        return CameraForward().Dot(_desiredBuiltCamForward) < DESIRED_CAM_ROTATION_DOT;
+    }
+
+    // Recompute the desired-chunk set (always-loaded sphere + frustum-visible
+    // chunks out to MAX_LOAD_DISTANCE) and snapshot the inputs it was built
+    // from for ShouldRebuildDesired.
+    private void RebuildDesiredSet(HashSet<Vector3I> desired)
+    {
         desired.Clear();
 
         // Always load a sphere of chunks around the player for collision, gameplay,
@@ -565,6 +608,24 @@ public partial class ChunkManager : Node3D
             }
         }
 
+        _desiredValid = true;
+        _desiredBuiltChunk = _lastPlayerChunkCoord;
+        _desiredBuiltOverlook = _overlookActive;
+        _desiredBuiltCamForward = CameraForward();
+    }
+
+    private void UpdateLoadedChunks()
+    {
+        HashSet<Vector3I> desired = _desiredScratch;
+
+        // Cached gate: only re-scan the frustum when the player crossed a chunk
+        // or the camera turned. The unload/load passes below still run every
+        // frame, so streaming keeps catching up to the (possibly cached) set.
+        if (ShouldRebuildDesired())
+        {
+            RebuildDesiredSet(desired);
+        }
+
         // Unload chunks no longer needed. The toRemove scan is cheap; the
         // QueueFree loop is what queues the deferred end-of-frame work
         // (Jolt body removal, GPU mesh release, child entity frees) that
@@ -591,7 +652,12 @@ public partial class ChunkManager : Node3D
                     break;
                 }
                 onChunkUnloaded?.Invoke(coord);
-                _loadedChunks[coord].QueueFree();
+                ChunkMesh evicting = _loadedChunks[coord];
+                if (CVars.chunkWaterLog.Value && evicting.HasWater)
+                {
+                    GD.Print($"[water_log] UNLOAD water chunk {coord} tod={_worldData.TimeOfDay01:F3} loaded={_loadedChunks.Count - 1}");
+                }
+                evicting.QueueFree();
                 _loadedChunks.Remove(coord);
                 unloaded++;
             }
@@ -734,6 +800,10 @@ public partial class ChunkManager : Node3D
         ChunkMesh mesh = ChunkMesh.Create(data, _worldData.GetVoxelWorld, _worldData.GetShapeWorld, _worldData.GetTerrainIdWorld, _worldData.GetOverlayIdWorld, _worldData.IsInBounds, buildCollision: !visualOnly, buildDetails: !visualOnly);
         AddChild(mesh);
         _loadedChunks[coord] = mesh;
+        if (CVars.chunkWaterLog.Value && mesh.HasWater)
+        {
+            GD.Print($"[water_log] LOAD   water chunk {coord} tod={_worldData.TimeOfDay01:F3} loaded={_loadedChunks.Count}");
+        }
         onChunkLoaded?.Invoke(coord);
     }
 

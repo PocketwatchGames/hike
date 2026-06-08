@@ -6,6 +6,12 @@ public partial class ChunkMesh : Node3D
 {
     public bool CollisionReady { get; private set; }
 
+    // DIAGNOSTIC (water-vanish investigation): true when this chunk built a
+    // water surface mesh. Lets ChunkManager log streaming load/unload of
+    // water-bearing chunks behind the `chunk_water_log` CVar, to confirm
+    // whether an outdoor-water vanish coincides with the chunk streaming out.
+    public bool HasWater { get; private set; }
+
     // When non-null, only this chunk coord builds geometry. Set via CVar
     // `debug_only_chunk` for isolating chunks while debugging.
     public static Vector3I? OnlyChunkFilter;
@@ -563,6 +569,7 @@ public partial class ChunkMesh : Node3D
             }
         }
 
+        HasWater = hasAnyWaterFace;
         if (hasAnyWaterFace)
         {
             ArrayMesh waterMesh;

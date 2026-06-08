@@ -27,9 +27,17 @@ public partial class MoteEffect : Node3D
     [Export] public GpuParticles3D moteParticles;
 
     // --- Tunables ---------------------------------------------------------
-    // Total particle budget. A good fraction survive the beam gate at a time;
-    // the rest are emitted but discarded per-fragment outside the beams.
-    [Export] public int particleCount = 4000;
+    // Total particle budget (the CEILING, hit only at full dust density). Most
+    // are discarded per-fragment outside the beams, so this is far above the
+    // count ever visible at once — kept modest because the dust wash now scales
+    // the live buffer down from here (see amountQuantizationStep below).
+    [Export] public int particleCount = 1500;
+    // Buffer-size quantization for the dust-driven Amount. The live particle
+    // buffer is rounded to multiples of this and only rewritten when it crosses
+    // a step — each rewrite is a GPU realloc that restarts emission (a brief
+    // whole-field repop), so coarser = fewer pops as dust/weather drift, finer =
+    // the simulated count tracks dust more tightly.
+    [Export] public int amountQuantizationStep = 256;
     // Speck size in SubViewport pixels (pushed to the draw shader). 1 px.
     [Export(PropertyHint.Range, "0.1,8,0.1")] public float moteSizePx = 1.0f;
     // Float speed (m/s). A slow gentle drift — motes hang in the air and
@@ -89,9 +97,10 @@ public partial class MoteEffect : Node3D
     // each frame, so the box sits in the visible air column instead of
     // straddling the player (its bottom half would otherwise be underground,
     // where every particle is discarded by the sun-mask gate — wasted budget).
-    // Pair with the box's vertical extent in motes.tscn (~8 half-height): with
-    // a +6 lift the box spans roughly ground−2 .. ground+14.
-    private const float AnchorHeightAbovePlayer = 6f;
+    // Pair with the box's vertical extent in motes.tscn (~5 half-height): with
+    // a +4 lift the box spans roughly ground−1 .. ground+9, so we stop spawning
+    // the underground slab and the too-high band that nearGroundHeight fades out.
+    [Export(PropertyHint.Range, "0,16,0.5")] public float anchorHeightAbovePlayer = 4f;
 
     private float _intensity;
     // Pre-integrated sparkle time (accumulates dt), pushed as mote_time so the
@@ -104,9 +113,9 @@ public partial class MoteEffect : Node3D
     // editor save (same pattern as RainEffect's runtime materials).
     public ShaderMaterial MoteMatRuntime { get; private set; }
     private ParticleProcessMaterial _procRuntime;
-    // Last Amount we pushed — Amount reallocates GPU buffers, so we only write
-    // it when particleCount actually changes (lets it be tuned live without
-    // thrashing). -1 forces the first sync.
+    // Last Amount we pushed — Amount reallocates GPU buffers (and restarts
+    // emission), so we only rewrite it when the dust-driven, quantized target
+    // crosses a step. -1 forces the first sync.
     private int _appliedCount = -1;
 
     public override void _Ready()
@@ -155,6 +164,25 @@ public partial class MoteEffect : Node3D
 
     public override void _Process(double delta)
     {
+        // Bisection / cost toggle: when disabled, hide the particles so the
+        // renderer skips their simulation + draw-pass shader entirely, and skip
+        // the per-frame param pushes below. Hidden (not just non-emitting) so
+        // the cost drops immediately rather than after the 10s lifetime drains.
+        if (moteParticles != null && !CVars.motes.Value)
+        {
+            if (moteParticles.Visible)
+            {
+                moteParticles.Visible = false;
+                moteParticles.Emitting = false;
+            }
+            return;
+        }
+        if (moteParticles != null && !moteParticles.Visible)
+        {
+            moteParticles.Visible = true;
+            moteParticles.Emitting = true;
+        }
+
         float dt = (float)delta;
         _moteTime += dt;
 
@@ -170,7 +198,7 @@ public partial class MoteEffect : Node3D
         if (worldReady)
         {
             Vector3 pp = world.player.GlobalPosition;
-            GlobalPosition = new Vector3(pp.X, pp.Y + AnchorHeightAbovePlayer, pp.Z);
+            GlobalPosition = new Vector3(pp.X, pp.Y + anchorHeightAbovePlayer, pp.Z);
 
             WorldState ws = world.WorldState;
             if (ws != null && windInfluence > 0f)
@@ -186,15 +214,27 @@ public partial class MoteEffect : Node3D
 
         // Motes emit everywhere; the draw shader gates per-fragment to the
         // sunbeams. Density rides the SkyController wash.
+        // Density (the dust × shaft-presence wash, pushed via SetIntensity)
+        // drives the ACTUAL live particle count, not just AmountRatio — so a
+        // low-dust scene simulates far fewer motes instead of thinning a full
+        // buffer. Amount reallocates/restarts the system, so quantize it to
+        // coarse steps and only rewrite on a step change; AmountRatio then
+        // carries the smooth residual within the step so density still tracks
+        // the wash frame-to-frame without thrashing the buffer.
         if (moteParticles != null)
         {
-            int wanted = Mathf.Max(1, particleCount);
-            if (wanted != _appliedCount)
+            int ceiling = Mathf.Max(1, particleCount);
+            int step = Mathf.Clamp(amountQuantizationStep, 1, ceiling);
+            int target = Mathf.RoundToInt(ceiling * _intensity);
+            // Round the buffer UP to the next step (min one step) so AmountRatio
+            // always has headroom to fine-tune the density downward.
+            int quantized = Mathf.Clamp(((target + step - 1) / step) * step, step, ceiling);
+            if (quantized != _appliedCount)
             {
-                moteParticles.Amount = wanted;
-                _appliedCount = wanted;
+                moteParticles.Amount = quantized;
+                _appliedCount = quantized;
             }
-            moteParticles.AmountRatio = _intensity;
+            moteParticles.AmountRatio = Mathf.Clamp(target / (float)quantized, 0f, 1f);
         }
 
         // Push the motion tunables every frame so they're live-tunable on the

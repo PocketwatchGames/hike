@@ -6,7 +6,7 @@
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_motes"]
 emission_shape = 3
-emission_box_extents = Vector3(28, 8, 28)
+emission_box_extents = Vector3(28, 5, 28)
 direction = Vector3(0, 1, 0)
 spread = 180.0
 initial_velocity_min = 0.2
@@ -34,7 +34,7 @@ beamThreshold = 0.86
 
 [node name="MoteParticles" type="GPUParticles3D" parent="." unique_id=771203402]
 extra_cull_margin = 16384.0
-amount = 4000
+amount = 1500
 lifetime = 10.0
 visibility_aabb = AABB(-60, -30, -60, 120, 60, 120)
 process_material = SubResource("ParticleProcessMaterial_motes")

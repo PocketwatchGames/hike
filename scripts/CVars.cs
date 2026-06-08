@@ -611,6 +611,14 @@ public static class CVars
     //                  audio vs particles.
     public static CVarBool fxParticles = new CVarBool("fx_particles", true);
 
+    // motes 0 → the camera-parented dust-mote GpuParticles3D (MoteEffect,
+    //           scenes/effects/motes.tscn, 4000 particles) hides itself, so
+    //           the renderer skips its per-particle simulation + draw-pass
+    //           shader (which samples light_map/cloud several times per speck).
+    //           NOT covered by fx_particles — motes are a standalone scene
+    //           node, not an Fx. Bisection toggle for the mote cost.
+    public static CVarBool motes = new CVarBool("motes", true);
+
     // sprite_reflections 0 → every LitSprite hides its water-reflection
     //                        child and skips UpdateReflection's water lookup.
     //                        Bisection toggle for the LitSprite.UpdateReflection
@@ -985,6 +993,15 @@ public static class CVars
     {
         Godot.RenderingServer.GlobalShaderParameterSet("water_hide", ((CVarBool)cvar).Value);
     });
+
+    // DIAGNOSTIC (water-vanish investigation): when true, ChunkManager prints a
+    // line every time a water-bearing chunk streams in or out, with the game
+    // time-of-day and the loaded chunk count. If an outdoor-water "vanish"
+    // coincides with an "UNLOAD water chunk" line (and recovery with a matching
+    // "LOAD"), the cause is the chunk streaming out — not the water shader/mesh.
+    // If the water vanishes with NO unload line, the chunk stayed resident and
+    // the cause is water-specific (shader/material/mesh), not streaming.
+    public static CVarBool chunkWaterLog = new CVarBool("chunk_water_log", false);
 
     // Debug visualizer for sprite_prop_reflection_multimesh.gdshader. Replaces
     // the reflection sprite's ALBEDO with diagnostic values to track down
