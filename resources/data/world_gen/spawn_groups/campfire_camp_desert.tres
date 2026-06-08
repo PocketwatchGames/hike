@@ -6,7 +6,7 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="4_3ofq4"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="5_k7525"]
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="6_uvsbk"]
-[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/ItemCountRange.cs" id="7_udeir"]
+[ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="7_udeir"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="8_3f36l"]
 [ext_resource type="Resource" uid="uid://fpa73eeswwnb" path="res://resources/data/items/consumables/health_potion.tres" id="8_3ofq4"]
 [ext_resource type="Resource" uid="uid://cvf5c3uphf55d" path="res://resources/data/items/consumables/health_potion_superior.tres" id="9_k7525"]

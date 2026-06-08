@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://4i71qwhti0ki"]
 
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="1_g20gd"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="1_g20gd"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_ruwv5"]
 
 [sub_resource type="Resource" id="Resource_ki1mv"]

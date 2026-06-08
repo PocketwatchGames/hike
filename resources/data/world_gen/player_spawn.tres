@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="PlayerSpawnData" format=3 uid="uid://gmsa32q5mypy"]
 
-[ext_resource type="Script" uid="uid://bil32l24fys4k" path="res://scripts/data/PlayerSpawnData.cs" id="1_pspawn"]
+[ext_resource type="Script" uid="uid://bil32l24fys4k" path="res://scripts/data/characters/PlayerSpawnData.cs" id="1_pspawn"]
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="2_consumable_script"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="3_itemcount"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="3_itemcount"]
 [ext_resource type="Script" uid="uid://bglfc6qt5onq3" path="res://scripts/data/teaching/ItemTeachable.cs" id="3_itemteach"]
 [ext_resource type="Resource" uid="uid://dm4tlaswv03qa" path="res://resources/data/items/weapons/bow_of_rainfall.tres" id="3_jl16k"]
 [ext_resource type="Script" uid="uid://dcuj8yab1dxr0" path="res://scripts/data/teaching/TeachableConcept.cs" id="3_teachable"]

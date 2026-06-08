@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://culi48vuetet7"]
 
-[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="1_vvowg"]
+[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_vvowg"]
 [ext_resource type="Resource" uid="uid://crudckd4dl15b" path="res://resources/data/characters/goblin/goblin_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/moving_light_torch.tscn" id="3_torch"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="4_s0aos"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_s0aos"]
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="4_scene"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="5_lootcount"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="6_meat"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="7_animdata"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="8_cxd6e"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="8_damage"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_cxd6e"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="8_damage"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
 script = ExtResource("7_animdata")

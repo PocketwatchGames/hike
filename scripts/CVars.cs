@@ -1266,11 +1266,12 @@ public static class CVars
     public static CVarString worldgenDebugDump = new CVarString("worldgen_debug_dump", "");
 
     // Console command: dumps the most recently generated world's plateau/
-    // height fields to ./worldgen_debug. Useful when a game is already
-    // running and you want a snapshot without restarting.
+    // height fields to user://worldgen_debug (outside the project tree).
+    // Useful when a game is already running and you want a snapshot without
+    // restarting.
     public static CVar worldgenDebug = new CVar("worldgen_debug", (cvar) =>
     {
-        WorldGen.DumpDebug(Godot.ProjectSettings.GlobalizePath("res://worldgen_debug"));
+        WorldGen.DumpDebug(Godot.ProjectSettings.GlobalizePath("user://worldgen_debug"));
     });
 
 // Path to a packed world file (`.hike`). When non-empty at game start,

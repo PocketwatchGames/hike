@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://bepywys0dc8fq" path="res://assets/textures/status_effects/dizzy.png" id="1_yp3he"]
 [ext_resource type="PackedScene" uid="uid://b5tnkjqsx1prw" path="res://scenes/effects/dizzy_begin.tscn" id="2_startfx"]
 [ext_resource type="PackedScene" uid="uid://duw0p7jxqkb0v" path="res://scenes/effects/dizzy_loop.tscn" id="3_loopfx"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_movespeed"]
 script = ExtResource("m_script")

@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://cdg2icyjpksr5"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_01.wav" id="2_j01"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_02.wav" id="2_j02"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_03.wav" id="2_j03"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_04.wav" id="2_j04"]
+[ext_resource type="AudioStream" uid="uid://do6n4jov5modg" path="res://assets/audio/source/movement/sfx_player_jump_01.wav" id="2_j01"]
+[ext_resource type="AudioStream" uid="uid://b0bfhfbvdpyxm" path="res://assets/audio/source/movement/sfx_player_jump_02.wav" id="2_j02"]
+[ext_resource type="AudioStream" uid="uid://d0a5xqa8chkhr" path="res://assets/audio/source/movement/sfx_player_jump_03.wav" id="2_j03"]
+[ext_resource type="AudioStream" uid="uid://eaw4mhpp1w1n" path="res://assets/audio/source/movement/sfx_player_jump_04.wav" id="2_j04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_jump"]
 playback_mode = 1

@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://db534p4qcdj8k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_01.wav" id="2_r01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_02.wav" id="2_r02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_03.wav" id="2_r03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_04.wav" id="2_r04"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_05.wav" id="2_r05"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_06.wav" id="2_r06"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_07.wav" id="2_r07"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_run_08.wav" id="2_r08"]
+[ext_resource type="AudioStream" uid="uid://lq04f3j0w86n" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_01.wav" id="2_r01"]
+[ext_resource type="AudioStream" uid="uid://e7injw7dgtgt" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_02.wav" id="2_r02"]
+[ext_resource type="AudioStream" uid="uid://c1rjvyt0nxvx5" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_03.wav" id="2_r03"]
+[ext_resource type="AudioStream" uid="uid://3pndpla4nsh3" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_04.wav" id="2_r04"]
+[ext_resource type="AudioStream" uid="uid://cyy1qv50msxvd" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_05.wav" id="2_r05"]
+[ext_resource type="AudioStream" uid="uid://mbf3ory2nxnk" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_06.wav" id="2_r06"]
+[ext_resource type="AudioStream" uid="uid://dfgb7553pls2f" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_07.wav" id="2_r07"]
+[ext_resource type="AudioStream" uid="uid://carwfi3m6u338" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_run_08.wav" id="2_r08"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_run"]
 playback_mode = 1

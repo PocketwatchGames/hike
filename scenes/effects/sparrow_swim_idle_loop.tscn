@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://cs36dtda23cbn"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" uid="uid://cacqb0uwjgkv8" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_01.wav" id="2_i01"]
-[ext_resource type="AudioStream" uid="uid://ccc1v48sqg25p" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_02.wav" id="2_i02"]
+[ext_resource type="AudioStream" uid="uid://cacqb0uwjgkv8" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_01.wav" id="2_i01"]
+[ext_resource type="AudioStream" uid="uid://ccc1v48sqg25p" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_idle_02.wav" id="2_i02"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_swimidle"]
 playback_mode = 1

@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://cva1ywaqfv58i"]
 
 [ext_resource type="Script" uid="uid://bnfujjr3k2ir5" path="res://scripts/gameplay/entities/Trap.cs" id="1_trap"]
-[ext_resource type="Script" uid="uid://d3ycyn0iacjxh" path="res://scripts/data/SpikeTrapData.cs" id="2_data"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://d3ycyn0iacjxh" path="res://scripts/data/world/SpikeTrapData.cs" id="2_data"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_b1xdv"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="4_box"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_0b7b2"]

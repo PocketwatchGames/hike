@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dmlri0vh6oc8f"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_charge_head_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://b27f8b40ye6li" path="res://assets/audio/source/weapons/sfx_weapon_sword_charge_head_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://bvjqq5eimkn25" path="res://assets/audio/source/weapons/sfx_weapon_sword_charge_head_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://ch002c6sj8d8v" path="res://assets/audio/source/weapons/sfx_weapon_sword_charge_head_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://d2ry7y2lc3hlb" path="res://assets/audio/source/weapons/sfx_weapon_sword_charge_head_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_swdchghead"]
 playback_mode = 1

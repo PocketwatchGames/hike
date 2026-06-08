@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://dn4p7m2qx8kjf"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_04.wav" id="2_a04"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_01.wav" id="2_b01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_02.wav" id="2_b02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_03.wav" id="2_b03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_04.wav" id="2_b04"]
+[ext_resource type="AudioStream" uid="uid://don32arxhdtno" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://cjg7ri1e3h2lu" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://bd5b23npmoeok" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://bu2d0iq35ws61" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_A_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://caddgs71l76nn" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_01.wav" id="2_b01"]
+[ext_resource type="AudioStream" uid="uid://ctotv8i83qaup" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_02.wav" id="2_b02"]
+[ext_resource type="AudioStream" uid="uid://bydq4jefbpf1d" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_03.wav" id="2_b03"]
+[ext_resource type="AudioStream" uid="uid://ban21b7022mnd" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_attack_B_04.wav" id="2_b04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_gobclawhit"]
 playback_mode = 1

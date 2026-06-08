@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="PositionalEmitterData" format=3 uid="uid://cvbmohpni76of"]
 
-[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
-[ext_resource type="AudioStream" uid="uid://co6e50y3fswav" path="res://audio/source/ambience/insect_fly/amb_loc_flies_a_01.wav" id="stream_fly"]
+[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/world/PositionalEmitterData.cs" id="emitter_script"]
+[ext_resource type="AudioStream" uid="uid://co6e50y3fswav" path="res://assets/audio/source/ambience/insect_fly/amb_loc_flies_a_01.wav" id="stream_fly"]
 
 [sub_resource type="Curve" id="Curve_tod_day"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.4, 1), 0.0, 0.0, 0, 0, Vector2(0.6, 1), 0.0, 0.0, 0, 0, Vector2(0.78, 0), 0.0, 0.0, 0, 0, Vector2(1, 0), 0.0, 0.0, 0, 0]

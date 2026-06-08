@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://br5x8h2qkvr3m"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_01.wav" id="2_j01"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_02.wav" id="2_j02"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_03.wav" id="2_j03"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_jump_04.wav" id="2_j04"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://do6n4jov5modg" path="res://assets/audio/source/movement/sfx_player_jump_01.wav" id="2_j01"]
+[ext_resource type="AudioStream" uid="uid://b0bfhfbvdpyxm" path="res://assets/audio/source/movement/sfx_player_jump_02.wav" id="2_j02"]
+[ext_resource type="AudioStream" uid="uid://d0a5xqa8chkhr" path="res://assets/audio/source/movement/sfx_player_jump_03.wav" id="2_j03"]
+[ext_resource type="AudioStream" uid="uid://eaw4mhpp1w1n" path="res://assets/audio/source/movement/sfx_player_jump_04.wav" id="2_j04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 

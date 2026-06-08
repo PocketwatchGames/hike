@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="BlockCatalog" format=3 uid="uid://b721sd4co3tit"]
 
-[ext_resource type="Script" uid="uid://0hubpm0rp7ny" path="res://scripts/data/BlockCatalog.cs" id="1_catalog"]
-[ext_resource type="Script" uid="uid://62oa6hqy3vtuw" path="res://scripts/data/BlockData.cs" id="2_block_script"]
+[ext_resource type="Script" uid="uid://0hubpm0rp7ny" path="res://scripts/data/world/BlockCatalog.cs" id="1_catalog"]
+[ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockData.cs" id="2_block_script"]
 [ext_resource type="Resource" uid="uid://d3lu8tr346xm" path="res://resources/data/blocks/block_stone.tres" id="3_stone"]
 [ext_resource type="Resource" uid="uid://b4ruwi63vpapo" path="res://resources/data/blocks/block_grass_top.tres" id="4_grass"]
 [ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/blocks/block_water.tres" id="5_water"]

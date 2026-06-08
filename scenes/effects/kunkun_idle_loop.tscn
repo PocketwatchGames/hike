@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c1n1wm4o1dj8k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_idle_lp.wav" id="2_idlelp"]
+[ext_resource type="AudioStream" uid="uid://bu5n1gcmsx4u4" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_idle_lp.wav" id="2_idlelp"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_idle"]
 playback_mode = 1

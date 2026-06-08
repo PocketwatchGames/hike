@@ -1,13 +1,13 @@
 [gd_scene format=3 uid="uid://bln1war1abcde"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
-[ext_resource type="AudioStream" uid="uid://bvw7yb6djxb5d" path="res://audio/source/ambience/thunder/amb_base_thunder_med_01.wav" id="med_01"]
-[ext_resource type="AudioStream" uid="uid://bx6vutqgmubce" path="res://audio/source/ambience/thunder/amb_base_thunder_med_02.wav" id="med_02"]
-[ext_resource type="AudioStream" uid="uid://c2jcx7kxvi27i" path="res://audio/source/ambience/thunder/amb_base_thunder_med_03.wav" id="med_03"]
-[ext_resource type="AudioStream" uid="uid://b6pqrk4yomyhp" path="res://audio/source/ambience/thunder/amb_base_thunder_med_04.wav" id="med_04"]
-[ext_resource type="AudioStream" uid="uid://lnyausnqodey" path="res://audio/source/ambience/thunder/amb_base_thunder_med_05.wav" id="med_05"]
-[ext_resource type="AudioStream" uid="uid://cl3cn5ipalgui" path="res://audio/source/ambience/thunder/amb_base_thunder_med_06.wav" id="med_06"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bvw7yb6djxb5d" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_01.wav" id="med_01"]
+[ext_resource type="AudioStream" uid="uid://bx6vutqgmubce" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_02.wav" id="med_02"]
+[ext_resource type="AudioStream" uid="uid://c2jcx7kxvi27i" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_03.wav" id="med_03"]
+[ext_resource type="AudioStream" uid="uid://b6pqrk4yomyhp" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_04.wav" id="med_04"]
+[ext_resource type="AudioStream" uid="uid://lnyausnqodey" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_05.wav" id="med_05"]
+[ext_resource type="AudioStream" uid="uid://cl3cn5ipalgui" path="res://assets/audio/source/ambience/thunder/amb_base_thunder_med_06.wav" id="med_06"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_warningSparks"]
 emission_shape = 1

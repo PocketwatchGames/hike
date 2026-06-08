@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="AmbienceLayerData" format=3 uid="uid://dbh7iblyn0w6w"]
 
-[ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/AmbienceLayerData.cs" id="layer_script"]
-[ext_resource type="AudioStream" uid="uid://ce2unc4e47f0r" path="res://audio/source/ambience/wind/amb_base_wind_med.wav" id="stream_wind_med"]
+[ext_resource type="Script" uid="uid://b6vsor53010bf" path="res://scripts/data/world/AmbienceLayerData.cs" id="layer_script"]
+[ext_resource type="AudioStream" uid="uid://ce2unc4e47f0r" path="res://assets/audio/source/ambience/wind/amb_base_wind_med.wav" id="stream_wind_med"]
 
 [sub_resource type="Curve" id="Curve_gate_outdoor"]
 _data = [Vector2(0, 0), 0.0, 0.0, 0, 0, Vector2(0.25, 0), 0.0, 0.0, 0, 0, Vector2(0.55, 1), 0.0, 0.0, 0, 0, Vector2(1, 1), 0.0, 0.0, 0, 0]

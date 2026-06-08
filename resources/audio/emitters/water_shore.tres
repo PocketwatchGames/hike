@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="PositionalEmitterData" load_steps=3 format=3]
+[gd_resource type="Resource" script_class="PositionalEmitterData" format=3]
 
-[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/PositionalEmitterData.cs" id="emitter_script"]
-[ext_resource type="AudioStream" uid="uid://q4ufw8hi1lig" path="res://audio/source/ambience/water_shore/amb_loc_shore_a_01.wav" id="stream_shore"]
+[ext_resource type="Script" uid="uid://cpvqe8otxhh1d" path="res://scripts/data/world/PositionalEmitterData.cs" id="emitter_script"]
+[ext_resource type="AudioStream" uid="uid://q4ufw8hi1lig" path="res://assets/audio/source/ambience/water_shore/amb_loc_shore_a_01.wav" id="stream_shore"]
 
 [resource]
 script = ExtResource("emitter_script")

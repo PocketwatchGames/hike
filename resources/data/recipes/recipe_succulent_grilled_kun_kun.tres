@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://cak7m4n2p8qrx"]
 
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/RecipeInput.cs" id="1_input"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="2_meat"]
-[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="3_recipe"]
+[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe"]
 [ext_resource type="Resource" uid="uid://csgk7oap2r3x0" path="res://resources/data/items/consumables/succulent_grilled_kun_kun.tres" id="4_output"]
 
 [sub_resource type="Resource" id="Resource_input_meat"]

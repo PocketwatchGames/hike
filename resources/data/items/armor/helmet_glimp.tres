@@ -3,7 +3,7 @@
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://lf6o4djji52u" path="res://assets/textures/items/HelmetGlimp.png" id="2_inv"]
 [ext_resource type="Texture2D" uid="uid://cqowkq4myodpu" path="res://assets/textures/items/pickups/HelmetGlimp.png" id="3_world"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_nightvision"]
 script = ExtResource("m_script")

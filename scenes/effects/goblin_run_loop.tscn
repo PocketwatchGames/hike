@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://b8xv8kd878b0k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_01.wav" id="2_r01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_02.wav" id="2_r02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_03.wav" id="2_r03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_04.wav" id="2_r04"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_05.wav" id="2_r05"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_06.wav" id="2_r06"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_07.wav" id="2_r07"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_08.wav" id="2_r08"]
+[ext_resource type="AudioStream" uid="uid://cx2wkcr1oan5i" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_01.wav" id="2_r01"]
+[ext_resource type="AudioStream" uid="uid://bwoy4oq5qah85" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_02.wav" id="2_r02"]
+[ext_resource type="AudioStream" uid="uid://plf0kgn225s2" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_03.wav" id="2_r03"]
+[ext_resource type="AudioStream" uid="uid://borxw7p7qtiau" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_04.wav" id="2_r04"]
+[ext_resource type="AudioStream" uid="uid://d3nskh482efmy" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_05.wav" id="2_r05"]
+[ext_resource type="AudioStream" uid="uid://dkv14sx8s7sn0" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_06.wav" id="2_r06"]
+[ext_resource type="AudioStream" uid="uid://brtsu4rjd4lff" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_07.wav" id="2_r07"]
+[ext_resource type="AudioStream" uid="uid://dtwmyox01yow0" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_run_08.wav" id="2_r08"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_run"]
 playback_mode = 1

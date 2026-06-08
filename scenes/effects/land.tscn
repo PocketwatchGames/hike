@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dy7mfnxiw5boy"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_01.wav" id="2_l01"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_02.wav" id="2_l02"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_03.wav" id="2_l03"]
-[ext_resource type="AudioStream" path="res://audio/source/movement/sfx_player_land_04.wav" id="2_l04"]
+[ext_resource type="AudioStream" uid="uid://6xrib3yd5fh2" path="res://assets/audio/source/movement/sfx_player_land_01.wav" id="2_l01"]
+[ext_resource type="AudioStream" uid="uid://gq0jm18rmi3k" path="res://assets/audio/source/movement/sfx_player_land_02.wav" id="2_l02"]
+[ext_resource type="AudioStream" uid="uid://dacc62cjogpal" path="res://assets/audio/source/movement/sfx_player_land_03.wav" id="2_l03"]
+[ext_resource type="AudioStream" uid="uid://ojfx6thqve3k" path="res://assets/audio/source/movement/sfx_player_land_04.wav" id="2_l04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_land"]
 playback_mode = 1

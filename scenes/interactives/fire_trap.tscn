@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://clba532cprsy"]
 
 [ext_resource type="Script" uid="uid://b6bkyghkrf46n" path="res://scripts/gameplay/entities/FireTrap.cs" id="1_firetrap"]
-[ext_resource type="Script" uid="uid://2bkfuxbvq0v" path="res://scripts/data/FireTrapData.cs" id="2_firetrapdata"]
+[ext_resource type="Script" uid="uid://2bkfuxbvq0v" path="res://scripts/data/world/FireTrapData.cs" id="2_firetrapdata"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="3_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="3_burning"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="3_continuous"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="3_damage"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="4_damagezone"]
 [ext_resource type="PackedScene" path="res://scenes/effects/fire_column_warning.tscn" id="5_warning"]
 [ext_resource type="PackedScene" uid="uid://ca6w1oujti21a" path="res://scenes/effects/fire_column_ignite.tscn" id="6_ignite"]
@@ -43,12 +43,12 @@ buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_firetrap_burni
 height = 3.0
 radius = 0.7
 
+[sub_resource type="PlaneMesh" id="PlaneMesh_scorch"]
+size = Vector2(3, 3)
+
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_firetrap_warmth"]
 height = 3.0
 radius = 2.5
-
-[sub_resource type="PlaneMesh" id="PlaneMesh_scorch"]
-size = Vector2(3, 3)
 
 [node name="FireTrap" type="Node3D" unique_id=1976458525 node_paths=PackedStringArray("_damageZone", "_light", "_warmthZone")]
 script = ExtResource("1_firetrap")
@@ -77,8 +77,8 @@ _flickerMin = 0.6
 [node name="ScorchStain" type="MeshInstance3D" parent="." unique_id=1631401259]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 layers = 16
-mesh = SubResource("PlaneMesh_scorch")
 material_override = ExtResource("10_scorch_mat")
+mesh = SubResource("PlaneMesh_scorch")
 
 [node name="WarmthZone" type="Area3D" parent="." unique_id=1841825179]
 collision_layer = 0

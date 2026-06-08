@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://mjlru2fr7241"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_chest_open_01.wav" id="2_c01"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_chest_open_02.wav" id="2_c02"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_chest_open_03.wav" id="2_c03"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_chest_open_04.wav" id="2_c04"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bo0opcps8vfjs" path="res://assets/audio/source/interactives/sfx_chest_open_01.wav" id="2_c01"]
+[ext_resource type="AudioStream" uid="uid://bnjeblkw2hxi1" path="res://assets/audio/source/interactives/sfx_chest_open_02.wav" id="2_c02"]
+[ext_resource type="AudioStream" uid="uid://d1rmtpost2r04" path="res://assets/audio/source/interactives/sfx_chest_open_03.wav" id="2_c03"]
+[ext_resource type="AudioStream" uid="uid://bmhhexokix4g7" path="res://assets/audio/source/interactives/sfx_chest_open_04.wav" id="2_c04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_chestopen"]

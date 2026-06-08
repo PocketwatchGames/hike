@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dxx2ajycuaxpv"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_solid_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_solid_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_solid_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_solid_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://v2uwk5hujles" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_solid_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://bjmc56djwmxo" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_solid_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://bl2yh3fjq5h51" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_solid_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://emgtgew1030g" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_solid_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_bowhitsolid"]
 playback_mode = 1

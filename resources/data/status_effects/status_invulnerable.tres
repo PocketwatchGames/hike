@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://ghi3ms3aq1lb"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="m_script"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_damage"]
 script = ExtResource("m_script")

@@ -3,12 +3,12 @@
 [ext_resource type="PackedScene" uid="uid://bi4ak0i1a4rcb" path="res://scenes/characters/sparrow.tscn" id="1_2er1a"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_mky6i"]
 [ext_resource type="Resource" uid="uid://fvs72bqjuve5" path="res://resources/data/characters/bird/sparrow_brain.tres" id="3_mky6i"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="4_xf8iq"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/DamageData.cs" id="5_yluhv"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="6_5k01d"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_xf8iq"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_yluhv"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_5k01d"]
 [ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="7_j2hnf"]
-[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/StatModifier.cs" id="8_bjh47"]
-[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/MobData.cs" id="9_bcxhy"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_bjh47"]
+[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="9_bcxhy"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_mky6i")

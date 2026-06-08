@@ -1,11 +1,11 @@
 [gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://fvs72bqjuve5"]
 
 [ext_resource type="Script" uid="uid://bftakwiwgw6ef" path="res://scripts/data/behaviors/PerchBehaviorData.cs" id="1_perch"]
-[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
 [ext_resource type="Script" uid="uid://d3thrtwd1n5kq" path="res://scripts/data/behaviors/conditions/ThreatWithinDistanceCondition.cs" id="3_threat"]
-[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_trans"]
+[ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_trans"]
 [ext_resource type="Script" uid="uid://ujsevbhnpl0k" path="res://scripts/data/behaviors/FlyFleeBehaviorData.cs" id="5_flyflee"]
-[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="6_brain"]
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="6_brain"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="7_lookat"]
 [ext_resource type="Script" uid="uid://1ungofthkhct" path="res://scripts/data/behaviors/conditions/HasInvestigationCondition.cs" id="8_hasinv"]
 

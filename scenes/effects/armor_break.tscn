@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://ccc3b2d0mgx8l"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/impact/sfx_enemy_armor_break_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://dk5gnw0fraeuj" path="res://assets/audio/source/impact/sfx_enemy_armor_break_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://dvhvvk71ewg6e" path="res://assets/audio/source/impact/sfx_enemy_armor_break_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://dkv0st38ip0wn" path="res://assets/audio/source/impact/sfx_enemy_armor_break_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://biobllnu66xuu" path="res://assets/audio/source/impact/sfx_enemy_armor_break_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_armorbreak"]
 playback_mode = 1

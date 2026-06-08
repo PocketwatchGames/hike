@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://crudckd4dl15b"]
 
-[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/BrainData.cs" id="1_brain"]
-[ext_resource type="Script" uid="uid://8b11ol55m1y8" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
 [ext_resource type="Script" uid="uid://6xs48do3vkin" path="res://scripts/data/behaviors/IdleBehaviorData.cs" id="3_idle"]
-[ext_resource type="Script" uid="uid://ck42hl8ho2ike" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_transition"]
+[ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="4_transition"]
 [ext_resource type="Script" uid="uid://bwlr3o0ebr4jc" path="res://scripts/data/behaviors/AttackBehaviorData.cs" id="5_attack"]
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="6_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="7_aggro_lost"]

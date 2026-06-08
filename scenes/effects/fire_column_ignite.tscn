@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://ca6w1oujti21a"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxignite"]
-[ext_resource type="AudioStream" uid="uid://b1sdc07gq5ui3" path="res://audio/source/interactives/sfx_spikeTrap_spike_01.wav" id="2_s01"]
-[ext_resource type="AudioStream" uid="uid://c1pmmojd710k2" path="res://audio/source/interactives/sfx_spikeTrap_spike_02.wav" id="2_s02"]
-[ext_resource type="AudioStream" uid="uid://byrpyjc0ju8oo" path="res://audio/source/interactives/sfx_spikeTrap_spike_03.wav" id="2_s03"]
-[ext_resource type="AudioStream" uid="uid://cyr8l1m3gyyl" path="res://audio/source/interactives/sfx_spikeTrap_spike_04.wav" id="2_s04"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://b1sdc07gq5ui3" path="res://assets/audio/source/interactives/sfx_spikeTrap_spike_01.wav" id="2_s01"]
+[ext_resource type="AudioStream" uid="uid://c1pmmojd710k2" path="res://assets/audio/source/interactives/sfx_spikeTrap_spike_02.wav" id="2_s02"]
+[ext_resource type="AudioStream" uid="uid://byrpyjc0ju8oo" path="res://assets/audio/source/interactives/sfx_spikeTrap_spike_03.wav" id="2_s03"]
+[ext_resource type="AudioStream" uid="uid://cyr8l1m3gyyl" path="res://assets/audio/source/interactives/sfx_spikeTrap_spike_04.wav" id="2_s04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="Gradient" id="Gradient_gfca1"]
 offsets = PackedFloat32Array(0, 0.056603774, 0.7704403, 1)

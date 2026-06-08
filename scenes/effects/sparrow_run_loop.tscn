@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://cjwow2b304os0"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" uid="uid://cr0aposg1tn3l" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_run_01.wav" id="2_r01"]
-[ext_resource type="AudioStream" uid="uid://dq8k3pqjdtu2j" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_run_02.wav" id="2_r02"]
-[ext_resource type="AudioStream" uid="uid://swdxru676dbn" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_run_03.wav" id="2_r03"]
-[ext_resource type="AudioStream" uid="uid://cnau22kag2sry" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_run_04.wav" id="2_r04"]
-[ext_resource type="AudioStream" uid="uid://dbj6l3x6aik3a" path="res://audio/source/mobs/sparrow/sfx_enemy_sparrow_run_05.wav" id="2_r05"]
+[ext_resource type="AudioStream" uid="uid://cr0aposg1tn3l" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_run_01.wav" id="2_r01"]
+[ext_resource type="AudioStream" uid="uid://dq8k3pqjdtu2j" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_run_02.wav" id="2_r02"]
+[ext_resource type="AudioStream" uid="uid://swdxru676dbn" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_run_03.wav" id="2_r03"]
+[ext_resource type="AudioStream" uid="uid://cnau22kag2sry" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_run_04.wav" id="2_r04"]
+[ext_resource type="AudioStream" uid="uid://dbj6l3x6aik3a" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_run_05.wav" id="2_r05"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_wing"]
 playback_mode = 1

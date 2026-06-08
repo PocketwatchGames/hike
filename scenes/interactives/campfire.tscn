@@ -11,7 +11,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_e7drt"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="9_at2wd"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="10_qk6wi"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/ContinuousDamageData.cs" id="11_continuous"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_continuous"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="14_3pg55"]
 [ext_resource type="Script" uid="uid://bnwcak8yxdu2q" path="res://scripts/gameplay/WarmthZone.cs" id="17_warmth"]
 [ext_resource type="Texture2D" uid="uid://bplefhrwcau14" path="res://assets/textures/interactions/cook.png" id="18_cook"]

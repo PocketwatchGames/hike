@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_trigger"]
+[ext_resource type="AudioStream" uid="uid://bxreljms4dd5h" path="res://assets/audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_trigger"]
 
 [node name="SpikeTrapWarning" type="Node3D"]
 script = ExtResource("1_oneshot")

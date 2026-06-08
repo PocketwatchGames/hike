@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://dixwcnqy125hf"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
-[ext_resource type="AudioStream" uid="uid://bufckyu23oiwg" path="res://audio/source/impact/sfx_lightning_zap_01.wav" id="zap_01"]
-[ext_resource type="AudioStream" uid="uid://crp4gqd0ssmng" path="res://audio/source/impact/sfx_lightning_zap_02.wav" id="zap_02"]
-[ext_resource type="AudioStream" uid="uid://dgn6ntm6fb0dh" path="res://audio/source/impact/sfx_lightning_zap_03.wav" id="zap_03"]
-[ext_resource type="AudioStream" uid="uid://ke5ks2gel3qy" path="res://audio/source/impact/sfx_lightning_zap_04.wav" id="zap_04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bufckyu23oiwg" path="res://assets/audio/source/impact/sfx_lightning_zap_01.wav" id="zap_01"]
+[ext_resource type="AudioStream" uid="uid://crp4gqd0ssmng" path="res://assets/audio/source/impact/sfx_lightning_zap_02.wav" id="zap_02"]
+[ext_resource type="AudioStream" uid="uid://dgn6ntm6fb0dh" path="res://assets/audio/source/impact/sfx_lightning_zap_03.wav" id="zap_03"]
+[ext_resource type="AudioStream" uid="uid://ke5ks2gel3qy" path="res://assets/audio/source/impact/sfx_lightning_zap_04.wav" id="zap_04"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_ring"]
 emission_shape = 6

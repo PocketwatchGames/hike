@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://dxxldcqs8hb6v"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_creature_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_creature_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_creature_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_creature_04.wav" id="2_a04"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_hit_creature_05.wav" id="2_a05"]
+[ext_resource type="AudioStream" uid="uid://dcyx0nihv0m6a" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_creature_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://1h20ac5vqab5" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_creature_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://dx5l23cy3wwhc" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_creature_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://bd5u2gnsf2h4v" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_creature_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://c1c8fjaurj742" path="res://assets/audio/source/weapons/sfx_weapon_bow_hit_creature_05.wav" id="2_a05"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_bowhitcreature"]
 playback_mode = 1

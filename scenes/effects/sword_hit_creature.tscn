@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dowapbty01c52"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_hit_creature_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_hit_creature_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_hit_creature_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_hit_creature_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://bbte6vuqd8b8w" path="res://assets/audio/source/weapons/sfx_weapon_sword_hit_creature_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://ck1jlsmv1ddd3" path="res://assets/audio/source/weapons/sfx_weapon_sword_hit_creature_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://dp3fxtv8ahbma" path="res://assets/audio/source/weapons/sfx_weapon_sword_hit_creature_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://bfixh14t6durp" path="res://assets/audio/source/weapons/sfx_weapon_sword_hit_creature_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_swdhitcreature"]
 playback_mode = 1

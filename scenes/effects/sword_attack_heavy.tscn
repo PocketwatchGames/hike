@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://dkxvi0v1okv8f"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_attack_heavy_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_attack_heavy_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_attack_heavy_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_attack_heavy_04.wav" id="2_a04"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_sword_attack_heavy_05.wav" id="2_a05"]
+[ext_resource type="AudioStream" uid="uid://2okepmcgpa4f" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_heavy_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://doyr4eqcs40k3" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_heavy_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://na8d7s2rwdch" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_heavy_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://nytpv10ng01d" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_heavy_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://cbmjoq7yw6ev5" path="res://assets/audio/source/weapons/sfx_weapon_sword_attack_heavy_05.wav" id="2_a05"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_swdatkheavy"]
 playback_mode = 1

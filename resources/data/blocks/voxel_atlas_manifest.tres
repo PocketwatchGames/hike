@@ -1,5 +1,6 @@
 [gd_resource type="Resource" script_class="VoxelAtlasManifest" format=3 uid="uid://dfo7mt0ouqh3c"]
 
+[ext_resource type="Script" uid="uid://bqq7rbtrsn0xx" path="res://scripts/data/world/VoxelAtlasManifest.cs" id="29_04t8j"]
 [ext_resource type="Texture2D" uid="uid://dcqwhfn1c7cp2" path="res://assets/textures/terrain/Stylized_Cliff_Rock_006_SD/Stylized_Cliff_Rock_006_basecolor.png" id="col_cliff006"]
 [ext_resource type="Texture2D" uid="uid://dkphrjtqhhj2x" path="res://assets/textures/terrain/Cobblestone_Irregular_Floor_001/Cobblestone_Irregular_Floor_001_basecolor.png" id="col_cobble"]
 [ext_resource type="Texture2D" uid="uid://bl5yg2bpbsd0j" path="res://assets/textures/terrain/Stylized_Dry_Mud_001_SD/Stylized_Dry_Mud_001_basecolor.jpg" id="col_drymud"]
@@ -28,7 +29,6 @@
 [ext_resource type="Texture2D" uid="uid://70vo857fycfl" path="res://assets/textures/terrain/Stylized_Stone_Floor_002_4K/Stylized_Stone_Floor_002_normal.png" id="nrm_stonefloor"]
 [ext_resource type="Texture2D" uid="uid://h05wnobg7klq" path="res://assets/textures/terrain/Ground_Wet_002_SD/Ground_Wet_002_normal.jpg" id="nrm_wet"]
 [ext_resource type="Script" uid="uid://cxtdv6d8mndtk" path="res://scripts/data/AtlasLayer.cs" id="s_layer"]
-[ext_resource type="Script" uid="uid://bqq7rbtrsn0xx" path="res://scripts/data/VoxelAtlasManifest.cs" id="s_manifest"]
 
 [sub_resource type="Resource" id="layer_0"]
 script = ExtResource("s_layer")
@@ -100,5 +100,5 @@ Normal = ExtResource("nrm_stonefloor")
 Height = ExtResource("hgt_stonefloor")
 
 [resource]
-script = ExtResource("s_manifest")
+script = ExtResource("29_04t8j")
 Layers = [SubResource("layer_0"), SubResource("layer_1"), SubResource("layer_2"), SubResource("layer_3"), SubResource("layer_4"), SubResource("layer_5"), SubResource("layer_6"), SubResource("layer_7"), SubResource("layer_8"), SubResource("layer_9"), SubResource("layer_10"), SubResource("layer_11")]

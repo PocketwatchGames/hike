@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://b8ju2ueli8b0k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_01.wav" id="2_d01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_02.wav" id="2_d02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_03.wav" id="2_d03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_04.wav" id="2_d04"]
+[ext_resource type="AudioStream" uid="uid://bvucob6xp1tlm" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" uid="uid://vwnrbcut1yre" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_02.wav" id="2_d02"]
+[ext_resource type="AudioStream" uid="uid://bps7ma2jr3igr" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_03.wav" id="2_d03"]
+[ext_resource type="AudioStream" uid="uid://cojtonwyyqm3w" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_die_04.wav" id="2_d04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_gobdth"]
 playback_mode = 1

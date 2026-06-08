@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dbkwlsxhbirtn"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_kill_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_kill_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_kill_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_kill_04.wav" id="2_a04"]
+[ext_resource type="AudioStream" uid="uid://dfl2xqptawe6s" path="res://assets/audio/source/weapons/sfx_weapon_bow_kill_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://b02wf3627wjt7" path="res://assets/audio/source/weapons/sfx_weapon_bow_kill_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://dc3s4wkai7bct" path="res://assets/audio/source/weapons/sfx_weapon_bow_kill_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://o58lf8yw5ruy" path="res://assets/audio/source/weapons/sfx_weapon_bow_kill_04.wav" id="2_a04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_bowkill"]
 playback_mode = 1

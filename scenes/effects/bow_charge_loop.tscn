@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://c2jrl015q2rtn"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_bow_charge_lp.wav" id="2_lp"]
+[ext_resource type="AudioStream" uid="uid://bo0387cut023v" path="res://assets/audio/source/weapons/sfx_weapon_bow_charge_lp.wav" id="2_lp"]
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="3_shake"]
 
 [node name="BowChargeLoop" type="Node3D"]

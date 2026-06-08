@@ -1,11 +1,11 @@
 [gd_scene format=3 uid="uid://cfugvse2e2o77"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_01.wav" id="2_s01"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_02.wav" id="2_s02"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_03.wav" id="2_s03"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_loot_spawn_04.wav" id="2_s04"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://d1k5m2iytpbs3" path="res://assets/audio/source/interactives/sfx_loot_spawn_01.wav" id="2_s01"]
+[ext_resource type="AudioStream" uid="uid://ccki66uykfp0f" path="res://assets/audio/source/interactives/sfx_loot_spawn_02.wav" id="2_s02"]
+[ext_resource type="AudioStream" uid="uid://bj1fbbjvsa6dp" path="res://assets/audio/source/interactives/sfx_loot_spawn_03.wav" id="2_s03"]
+[ext_resource type="AudioStream" uid="uid://c2mb4ch0cd5jj" path="res://assets/audio/source/interactives/sfx_loot_spawn_04.wav" id="2_s04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_lootspawn"]

@@ -1,10 +1,10 @@
 [gd_scene format=3 uid="uid://dextdjcpcdj8k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_01.wav" id="2_d01"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_02.wav" id="2_d02"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_03.wav" id="2_d03"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/kunkun/sfx_enemy_kunkun_die_04.wav" id="2_d04"]
+[ext_resource type="AudioStream" uid="uid://b6bg4s6o2e4mg" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_die_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" uid="uid://xwilbdrqc2jo" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_die_02.wav" id="2_d02"]
+[ext_resource type="AudioStream" uid="uid://bgvgnh47fqrv5" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_die_03.wav" id="2_d03"]
+[ext_resource type="AudioStream" uid="uid://jaj5pht5p4d" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_die_04.wav" id="2_d04"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_kkdth"]
 playback_mode = 1

@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
 [ext_resource type="Texture2D" uid="uid://5otedprhm15o" path="res://assets/textures/items/pickups/Arrow.png" id="2_hs1iu"]
-[ext_resource type="AudioStream" uid="uid://cho3jjxhsserw" path="res://audio/source/ambience/wind/amb_base_wind_heavy.wav" id="3_lp"]
+[ext_resource type="AudioStream" uid="uid://cho3jjxhsserw" path="res://assets/audio/source/ambience/wind/amb_base_wind_heavy.wav" id="3_lp"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_arrowfall"]
 particle_flag_align_y = true

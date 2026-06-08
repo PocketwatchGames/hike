@@ -1,14 +1,14 @@
 [gd_scene format=3 uid="uid://7nfxgl33kg3n"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_q83ea"]
-[ext_resource type="AudioStream" uid="uid://k6u6tgfar05j" path="res://audio/source/footsteps/un_shr_foot_stone_01.wav" id="2_st01"]
-[ext_resource type="AudioStream" uid="uid://dhhjduavqur72" path="res://audio/source/footsteps/un_shr_foot_stone_02.wav" id="2_st02"]
-[ext_resource type="AudioStream" uid="uid://kbpbyxxekxnk" path="res://audio/source/footsteps/un_shr_foot_stone_03.wav" id="2_st03"]
-[ext_resource type="AudioStream" uid="uid://dcke1bsj0o1hc" path="res://audio/source/footsteps/un_shr_foot_stone_04.wav" id="2_st04"]
-[ext_resource type="AudioStream" uid="uid://dlcfocgivcqso" path="res://audio/source/footsteps/un_shr_foot_stone_05.wav" id="2_st05"]
-[ext_resource type="AudioStream" uid="uid://bf584xumsoxic" path="res://audio/source/footsteps/un_shr_foot_stone_06.wav" id="2_st06"]
-[ext_resource type="AudioStream" uid="uid://bajunwq3oy26s" path="res://audio/source/footsteps/un_shr_foot_stone_07.wav" id="2_st07"]
-[ext_resource type="AudioStream" uid="uid://cppc7v3urpw67" path="res://audio/source/footsteps/un_shr_foot_stone_08.wav" id="2_st08"]
+[ext_resource type="AudioStream" uid="uid://k6u6tgfar05j" path="res://assets/audio/source/footsteps/un_shr_foot_stone_01.wav" id="2_st01"]
+[ext_resource type="AudioStream" uid="uid://dhhjduavqur72" path="res://assets/audio/source/footsteps/un_shr_foot_stone_02.wav" id="2_st02"]
+[ext_resource type="AudioStream" uid="uid://kbpbyxxekxnk" path="res://assets/audio/source/footsteps/un_shr_foot_stone_03.wav" id="2_st03"]
+[ext_resource type="AudioStream" uid="uid://dcke1bsj0o1hc" path="res://assets/audio/source/footsteps/un_shr_foot_stone_04.wav" id="2_st04"]
+[ext_resource type="AudioStream" uid="uid://dlcfocgivcqso" path="res://assets/audio/source/footsteps/un_shr_foot_stone_05.wav" id="2_st05"]
+[ext_resource type="AudioStream" uid="uid://bf584xumsoxic" path="res://assets/audio/source/footsteps/un_shr_foot_stone_06.wav" id="2_st06"]
+[ext_resource type="AudioStream" uid="uid://bajunwq3oy26s" path="res://assets/audio/source/footsteps/un_shr_foot_stone_07.wav" id="2_st07"]
+[ext_resource type="AudioStream" uid="uid://cppc7v3urpw67" path="res://assets/audio/source/footsteps/un_shr_foot_stone_08.wav" id="2_st08"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_stone"]
 playback_mode = 1

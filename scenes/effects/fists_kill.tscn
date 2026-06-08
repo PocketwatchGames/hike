@@ -1,9 +1,9 @@
 [gd_scene format=3 uid="uid://g2qnx2aoo0cy"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_fist_kill_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_fist_kill_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" path="res://audio/source/weapons/sfx_weapon_fist_kill_03.wav" id="2_a03"]
+[ext_resource type="AudioStream" uid="uid://dm3unf5hw1eqq" path="res://assets/audio/source/weapons/sfx_weapon_fist_kill_01.wav" id="2_a01"]
+[ext_resource type="AudioStream" uid="uid://bbndvq1nds0xr" path="res://assets/audio/source/weapons/sfx_weapon_fist_kill_02.wav" id="2_a02"]
+[ext_resource type="AudioStream" uid="uid://dw54u6fnkwp0i" path="res://assets/audio/source/weapons/sfx_weapon_fist_kill_03.wav" id="2_a03"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_fistkill"]
 playback_mode = 1

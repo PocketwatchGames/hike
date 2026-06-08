@@ -1,8 +1,8 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxwarn"]
-[ext_resource type="AudioStream" path="res://audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_warn_trigger"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://bxreljms4dd5h" path="res://assets/audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_warn_trigger"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="4_shake"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]

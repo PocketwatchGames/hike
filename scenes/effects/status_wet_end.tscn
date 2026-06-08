@@ -1,11 +1,11 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_01.wav" id="2_ws01"]
-[ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_02.wav" id="2_ws02"]
-[ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_03.wav" id="2_ws03"]
-[ext_resource type="AudioStream" path="res://audio/source/footsteps/sfx_player_run_water_shallow_04.wav" id="2_ws04"]
-[ext_resource type="Shader" uid="uid://bx9k3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="AudioStream" uid="uid://denqiofeattib" path="res://assets/audio/source/footsteps/sfx_player_run_water_shallow_01.wav" id="2_ws01"]
+[ext_resource type="AudioStream" uid="uid://b277w05y6iixd" path="res://assets/audio/source/footsteps/sfx_player_run_water_shallow_02.wav" id="2_ws02"]
+[ext_resource type="AudioStream" uid="uid://ccft5f4dp0vkq" path="res://assets/audio/source/footsteps/sfx_player_run_water_shallow_03.wav" id="2_ws03"]
+[ext_resource type="AudioStream" uid="uid://cbqcc1j3a0atu" path="res://assets/audio/source/footsteps/sfx_player_run_water_shallow_04.wav" id="2_ws04"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wetfinal"]
 emission_shape = 1

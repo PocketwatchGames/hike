@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://b8yx7g15v8b0k"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" path="res://audio/source/mobs/goblin/sfx_enemy_scrab_elite_idle_lp.wav" id="2_idlelp"]
+[ext_resource type="AudioStream" uid="uid://byvtihmjb0bnh" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_idle_lp.wav" id="2_idlelp"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_swimidle"]
 playback_mode = 1

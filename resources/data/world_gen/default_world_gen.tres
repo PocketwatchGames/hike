@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://carn5t06puf34"]
 
-[ext_resource type="Script" uid="uid://dttoj7qxwsob4" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
+[ext_resource type="Script" uid="uid://bk2smsd8gwalq" path="res://scripts/data/worldgen/WorldGenData.cs" id="1_script"]
 [ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_region_desert"]
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_region_forest"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_region_mountain"]
@@ -21,10 +21,10 @@
 [ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
 [ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/human/friendly_villager.tres" id="13_villager"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/human/friendly_villager_conversation.tres" id="14_v_conv"]
-[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/LoyaltyGift.cs" id="15_loyaltygift"]
+[ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="15_loyaltygift"]
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
-[ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/MobInventoryData.cs" id="17_stock"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/ItemCount.cs" id="18_itemcount"]
+[ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="18_itemcount"]
 
 [sub_resource type="Resource" id="Resource_chest_loot_numbers"]
 script = ExtResource("18_itemcount")

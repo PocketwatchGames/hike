@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="RecipeData" format=3 uid="uid://c5j8tk2pnawhx"]
 
-[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/RecipeInput.cs" id="1_input"]
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="2_blue"]
-[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/RecipeData.cs" id="3_recipe"]
+[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="4_purple"]
 [ext_resource type="Resource" uid="uid://b7m3krxn4qpfv" path="res://resources/data/items/consumables/cure_poison_potion.tres" id="5_output"]
 

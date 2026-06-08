@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="PlayerData" format=3 uid="uid://coogbmmdto6m5"]
 
-[ext_resource type="Script" uid="uid://bjiejj7agueqt" path="res://scripts/data/PlayerData.cs" id="1_mknwc"]
+[ext_resource type="Script" uid="uid://bjiejj7agueqt" path="res://scripts/data/characters/PlayerData.cs" id="1_mknwc"]
 [ext_resource type="Resource" uid="uid://bbr2g5iqvgi7r" path="res://resources/data/status_effects/status_cold.tres" id="4_cold"]
 [ext_resource type="Resource" uid="uid://bgra13f0vo0vi" path="res://resources/data/status_effects/status_hot.tres" id="5_hot"]
 [ext_resource type="Resource" uid="uid://b5x8h2qkvr3wm" path="res://resources/data/actions/dash_action.tres" id="6_dash"]

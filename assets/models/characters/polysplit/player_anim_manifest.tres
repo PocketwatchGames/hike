@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="PlayerAnimManifest" format=3 uid="uid://iia7112h05i6"]
 
-[ext_resource type="Script" uid="uid://d22vvcgsti6w8" path="res://scripts/data/PlayerAnimManifest.cs" id="1_panim"]
-[ext_resource type="Script" uid="uid://djp3h8k2qmxev" path="res://scripts/data/PlayerAnimEvent.cs" id="2_6hihe"]
-[ext_resource type="Script" uid="uid://bstvhvkw6tq8u" path="res://scripts/data/PlayerAnimClipSetting.cs" id="2_clip"]
+[ext_resource type="Script" uid="uid://d22vvcgsti6w8" path="res://scripts/data/characters/PlayerAnimManifest.cs" id="1_panim"]
+[ext_resource type="Script" uid="uid://djp3h8k2qmxev" path="res://scripts/data/characters/PlayerAnimEvent.cs" id="2_6hihe"]
+[ext_resource type="Script" uid="uid://bstvhvkw6tq8u" path="res://scripts/data/characters/PlayerAnimClipSetting.cs" id="2_clip"]
 
 [sub_resource type="Resource" id="clip_idle"]
 resource_name = "idle"
