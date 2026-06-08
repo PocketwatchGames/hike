@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://fm8tun2kafj5" path="res://scripts/gameplay/entities/Torch.cs" id="1_torch"]
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="2_ty0ga"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="3_m4hkm"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_8hk5n"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_ett7l"]
 [ext_resource type="Script" uid="uid://bp5xvgntv4511" path="res://scripts/gameplay/StationaryLight.cs" id="4_light"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_8hk5n"]
@@ -101,6 +102,12 @@ metadata/_custom_type_script = "uid://dwrtaigmbeepp"
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1171222661]
 script = ExtResource("4_light")
+_distance = 8.0
+_falloff = 2.5
+_brightness = 0.65
+_flicker = true
+_flickerMin = 0.75
+_flickerHz = 14.0
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)

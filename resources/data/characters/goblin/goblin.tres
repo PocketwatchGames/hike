@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_vvowg"]
 [ext_resource type="Resource" uid="uid://crudckd4dl15b" path="res://resources/data/characters/goblin/goblin_brain.tres" id="2_brain"]
-[ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/moving_light_torch.tscn" id="3_torch"]
+[ext_resource type="PackedScene" uid="uid://b1k83q4aam63n" path="res://scenes/effects/moving_light_torch_goblin.tscn" id="3_torch"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_s0aos"]
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="4_scene"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]

@@ -3,20 +3,25 @@ using Godot;
 
 // A registered point light. Owned by WorldState.LightSources while active.
 //
-// The Footprint stores the full-amplitude deposit (the diffusion kernel at
+// The Footprint stores the full-amplitude deposit (the flood footprint at
 // amplitude = 1). Flicker and pulse scale the deposit by Amplitude without
-// recomputing the kernel — only the per-voxel array writes are needed.
+// re-flooding — only the per-voxel array writes are needed.
 //
-// EffectiveBounds is 1 voxel larger than the kernel's non-zero extent. When
-// a voxel changes within any source's EffectiveBounds, that source's kernel
-// is recomputed (geometry near its edge may now let light through that was
-// previously blocked, or vice versa).
+// Bounds are 1 voxel larger than the footprint's non-zero extent. When a voxel
+// changes within a source's bounds, its footprint is recomputed (geometry near
+// its edge may now let light through that was previously blocked, or vice versa).
 public class LightSource
 {
     public Vector3I Position;
-    public Vector3 SubVoxelOffset = Vector3.Zero;
-    public int Level;
     public Color Color = Colors.White;
+
+    // This light's falloff. Distance (reach) and Falloff (curve) together also
+    // size its flood radius; Brightness is the open-space core intensity. Set by
+    // the owning StationaryLight; defaults are a sane fallback. See
+    // LightEngine.ResolveTuning.
+    public float Distance = 10f;
+    public float Falloff = 1.25f;
+    public float Brightness = 0.9f;
 
     // Current brightness scalar [0, 1]. The deposited values in the world are
     // Footprint × Amplitude. Changing Amplitude is O(footprint) — just array

@@ -69,10 +69,12 @@ shape = SubResource("CylinderShape3D_firetrap_zone")
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=2067182165]
 script = ExtResource("8_light")
-_lightEmission = 50
 _lightColor = Color(1, 0.55, 0.25, 1)
+_distance = 8.0
+_falloff = 1.5
+_brightness = 1.3
 _flicker = true
-_flickerMin = 0.6
+_flickerMin = 0.4
 
 [node name="ScorchStain" type="MeshInstance3D" parent="." unique_id=1631401259]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)

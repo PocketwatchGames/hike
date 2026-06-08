@@ -710,55 +710,49 @@ public partial class SimData : Resource
     // suggest), while high values stay near the authored amount.
     [Export(PropertyHint.Range, "0.3,3,0.01")] public float RainIntensityExponent = 1.25f;
 
-    [ExportGroup("Block Light Diffusion")]
-    // Shapes how every block light (torches, campfires, the carried player
-    // torch) spreads through open voxels. LightEngine seeds the source voxel
-    // and runs an absorbing diffusion in a local buffer, then quantizes the
-    // result into the LightMap. All five knobs are read ONCE per kernel build
-    // and hoisted into locals before the hot inner loop, so they're as cheap
-    // as the old consts were — see LightEngine.ComputeFootprint.
+    [ExportGroup("Block Light")]
+    // ACTIVE model: a geodesic flood (LightEngine.ComputeFloodField/ShadeFloodField).
+    // Each block light (torches, campfires, the carried player torch) floods
+    // outward through open voxels out to a radius derived from its Distance,
+    // weights each reached voxel by exp(-(euclideanDist/λ)^Falloff) (λ derived
+    // from Distance+Falloff), then scales the field so the core peaks at its
+    // Brightness. The flood gives occlusion + corner-wrap for free (light only
+    // travels through open voxels). Cost is a single O(reached voxels) pass.
     //
-    // COST: per-source work ≈ iterations × (2·reach+1)³. ReachDivisor and
-    // IterationDivisor are the EXPENSIVE knobs — lowering either grows reach
-    // but cost scales ~quartically. DiffusionRate / AbsorptionRate /
-    // SeedPerLevel are FREE shaping knobs (they don't change buffer size or
-    // iteration count). Static lights pay the cost once at spawn; the carried
-    // torch pays it on each voxel crossing (via the cheaper incremental path).
+    // Distance / Falloff / Brightness are PER-LIGHT — authored on each MovingLight
+    // / StationaryLight. The knobs below are world-wide: the flood-radius cap, the
+    // AO strength, and the fog/canopy medium extinction.
 
-    // Per-iteration spread fraction. Each open voxel gives this fraction of
-    // its energy to each open neighbor. MUST be ≤ 1/6 ≈ 0.166 — above that the
-    // outflow at a fully-open voxel exceeds 100% of self and energy goes
-    // negative (clamped to zero, killing the source). Higher = broader spread.
-    [Export(PropertyHint.Range, "0,0.166,0.001")] public float BlockLightDiffusionRate = 0.166f;
+    // Hard cap on any light's flood radius (and thus the worst-case working
+    // buffer, (2·MaxDistance+1)³). Each light DERIVES its own radius from its
+    // Distance/Falloff (LightEngine.ResolveTuning) so a compact light floods a
+    // small ball; this only clamps the far-reaching ones. Raise it if a
+    // deliberately huge light gets truncated; lower it to bound worst-case cost.
+    [Export(PropertyHint.Range, "1,32,1")] public int BlockLightMaxDistance = 14;
 
-    // Per-iteration energy absorption — each voxel loses this fraction before
-    // diffusing. Controls reach / falloff steepness in principle, but with the
-    // current low iteration count the spread is iteration-limited, not
-    // absorption-limited, so this is a weak lever in practice (raise the
-    // IterationDivisor reach if you want a genuinely larger lit disk). Kept
-    // exposed because it matters once iteration count climbs.
-    [Export(PropertyHint.Range, "0,0.3,0.001")] public float BlockLightAbsorptionRate = 0.08f;
+    // CORNER AO — strength of the ambient-occlusion darkening on voxels with few
+    // open neighbours (corners, crevices, against walls/ground). 0 = off; 1 = a
+    // fully-enclosed-ish voxel goes dark. A free concavity hint, applied on top
+    // of the lighting (absolute, like fog — it doesn't redistribute energy).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float BlockLightAO = 0.5f;
 
-    // Seed magnitude injected at the source per unit of light level. The peak
-    // deposit at the source voxel is level × this; values well above the
-    // LightMap channel cap blow out the core into a flat white blob then a
-    // hard cliff. Lowering this de-clips the core and reveals a softer
-    // gradient (it does NOT extend reach — it scales the whole field linearly,
-    // so the visible edge pulls in slightly). Tune until a max-level white
-    // light reads bright-but-not-saturated for a voxel or two at the source.
-    [Export(PropertyHint.Range, "1,100,0.5")] public float BlockLightSeedPerLevel = 25f;
+    // FLICKER CULL DISTANCE (voxels). A flickering light beyond this from the
+    // player stops re-rolling and holds a steady full brightness — each flicker
+    // tick re-deposits a footprint and re-dirties its chunks, so this caps that
+    // churn to the handful of lights near the player (where flicker is actually
+    // visible). The player's own torch is always at distance ~0, so it never
+    // culls. Large enough to cover the visible play area.
+    [Export(PropertyHint.Range, "4,128,1")] public float BlockLightFlickerCullDistance = 28f;
 
-    // Per-light reach in voxels = max(2, level / ReachDivisor); sets the
-    // diffusion buffer half-extent. LOWER = larger buffer = more reach but
-    // cubic cost growth. EXPENSIVE knob.
-    [Export(PropertyHint.Range, "1,16,1")] public int BlockLightReachDivisor = 4;
-
-    // Diffusion iteration count = max(4, level / IterationDivisor). This is the
-    // PRIMARY reach lever — more iterations let energy fill further out before
-    // the sim stops, softening the falloff. LOWER = more iterations = more
-    // reach, cost scales linearly with iterations. Drop to ~2 for a noticeably
-    // larger, softer glow at roughly double the per-crossing recompute cost.
-    [Export(PropertyHint.Range, "1,16,1")] public int BlockLightIterationDivisor = 4;
+    // Medium extinction (Beer-Lambert optical depth) added to the flood as it
+    // passes through fog / foliage canopy. Each fully-dense voxel the light
+    // crosses adds this much optical depth to the running total, and brightness
+    // is multiplied by exp(-opticalDepth) on top of the geometric exp(-d/λ)
+    // falloff. So a torch dims faster the more foggy / canopied air its light
+    // threads through — independent of the geometric radius. 0 = the medium is
+    // transparent to block light. Scales linearly with per-voxel density.
+    [Export(PropertyHint.Range, "0,2,0.01")] public float BlockLightFogExtinction = 0.15f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float BlockLightCanopyExtinction = 0.15f;
 
     [ExportGroup("Foliage Canopy Shadow")]
     // FoliageStamper rasterizes every CastsSunShadow cluster's ellipsoid
@@ -791,11 +785,8 @@ public partial class SimData : Resource
     // and trigger rain shelter. Scales linearly with density at the voxel.
     [Export(PropertyHint.Range, "0,60,1")] public int CanopySunFalloffPeak = 18;
 
-    // Block-light absorption added per diffusion iteration at saturated
-    // canopy density. Matches the fog block-light coefficient so a torch
-    // under a canopy dims gently rather than getting killed entirely.
-    // Scales linearly with the canopy density at each voxel.
-    [Export(PropertyHint.Range, "0,0.5,0.001")] public float CanopyBlockAbsorptionPeak = 0.04f;
+    // (Block light's canopy attenuation is the per-light flood term
+    // BlockLightCanopyExtinction in the Block Light group, not here.)
 
     [ExportGroup("Spawn Cleanup")]
     // Mirror of the spawn gate: a loaded mob whose ESpawnConditions no longer

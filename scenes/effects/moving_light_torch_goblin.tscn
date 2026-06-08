@@ -1,17 +1,18 @@
-[gd_scene format=3 uid="uid://dmj3hp3rw122w"]
+[gd_scene format=3 uid="uid://b1k83q4aam63n"]
 
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/MovingLight.cs" id="1_moving"]
 [ext_resource type="PackedScene" uid="uid://co37ekr23jxpo" path="res://scenes/effects/torch_light.tscn" id="2_torchon"]
 [ext_resource type="PackedScene" uid="uid://co37ed8hknxpo" path="res://scenes/effects/torch_extinguish.tscn" id="3_torchoff"]
 [ext_resource type="PackedScene" uid="uid://co37ekycknxpo" path="res://scenes/effects/torch_loop.tscn" id="4_torchloop"]
 
-[node name="MovingLight" type="Node3D" unique_id=1552034072]
+[node name="MovingLight" type="Node3D" unique_id=1552034073]
 script = ExtResource("1_moving")
-Falloff = 1.4
-Brightness = 0.75
+Distance = 6.0
+Falloff = 2.0
+Brightness = 0.5
 Flicker = true
 FlickerMin = 0.8
-FlickerHz = 10.0
+FlickerHz = 5.0
 LightOnEffectScene = ExtResource("2_torchon")
 LightOffEffectScene = ExtResource("3_torchoff")
 LightLoopEffectScene = ExtResource("4_torchloop")

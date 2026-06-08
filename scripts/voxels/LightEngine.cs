@@ -4,53 +4,19 @@ using Godot;
 
 public static class LightEngine
 {
-    // Sun BFS still uses these — the sun channel is max-fill, untouched by
-    // the relaxation rewrite. Block lights compute per-source kernels via
-    // iterative diffusion (see ComputeFootprint), so the BFS-style "level
-    // minus per-step falloff" is only a sun concept now.
+    // Sun channel: a max-fill flood with a per-step falloff (block light uses
+    // the geodesic flood model instead — see the Block-light flood section).
     public const int MAX_LIGHT = 60;
     public const int FALLOFF_PER_VOXEL = 4;
 
-    // --- Block-light relaxation tuning ------------------------------------
-    //
-    // The shaping/cost knobs (diffusion rate, absorption, seed-per-level,
-    // reach divisor, iteration divisor) now live on SimData as [Export]s so
-    // they're inspector-tunable for a feel pass — see the "Block Light
-    // Diffusion" group there. Each is read ONCE per kernel build and hoisted
-    // into a local before the hot inner loop, so this is as cheap as the old
-    // consts (the const-vs-field cost only matters for values read inside the
-    // per-voxel loop, which these never are). The two floors below stay as
-    // consts — they're structural safety minimums, not feel tuning.
-
-    // Floor on the per-light reach (buffer half-extent) regardless of how high
-    // SimData.BlockLightReachDivisor is set.
-    private const int MIN_REACH = 2;
-
-    // Floor on the diffusion iteration count regardless of
-    // SimData.BlockLightIterationDivisor.
-    private const int MIN_ITERS = 4;
-
-    // --- Fog-scaled attenuation ------------------------------------------
-    //
-    // Fog density (byte, per voxel, see ChunkState.FogDensity) adds extra
-    // attenuation to light propagation so torches and sunbeams dim faster
-    // in foggy air. Linear in density — zero fog = unchanged behavior.
-    //
-    // Sun BFS is integer-stepped with FALLOFF_PER_VOXEL=4. FOG_SUN_FALLOFF_255
-    // is the extra falloff subtracted per voxel at maximum density (255);
-    // intermediate densities scale linearly via integer math.
-    //
-    // Block-light diffusion uses per-iteration SimData.BlockLightAbsorptionRate.
-    // FOG_BLOCK_ABSORPTION_255 is the *additional* absorption applied at max
-    // density, so foggy cells retain less of their energy each iteration. Kept
-    // small relative to that absorption rate so total retention stays well-behaved.
+    // Fog adds extra sun attenuation: FOG_SUN_FALLOFF_255 is the falloff
+    // subtracted per voxel at max fog density (255); intermediate densities scale
+    // linearly. (Block light's fog/canopy attenuation lives in the flood — see
+    // SimData.BlockLightFogExtinction / BlockLightCanopyExtinction.)
     public const int FOG_SUN_FALLOFF_255 = 4;
-    private const float FOG_BLOCK_ABSORPTION_255 = 0.04f;
 
-    // The canopy attenuation strength constants live on SimData
-    // (CanopySunFalloffPeak, CanopyBlockAbsorptionPeak) — read off
-    // world.SimData inside the methods that use them, with the per-call
-    // precompute hoisted out of the inner loop.
+    // The sun-channel canopy falloff strength lives on SimData
+    // (CanopySunFalloffPeak), read off world.SimData inside ComputeSunlight.
 
     private static readonly Vector3I[] Neighbors =
     {
@@ -58,6 +24,12 @@ public static class LightEngine
         new(0, 1, 0), new(0, -1, 0),
         new(0, 0, 1), new(0, 0, -1),
     };
+
+    // Per-thread scratch reused across ComputeFloodField calls so the carried
+    // torch's per-crossing flood doesn't allocate a bool[] + Queue every time.
+    // [ThreadStatic] keeps it correct if flood ever moves off the main thread.
+    [ThreadStatic] private static bool[] _floodVisited;
+    [ThreadStatic] private static Queue<(int lx, int ly, int lz, float depth)> _floodQueue;
 
     public static void ComputeSunlight(WorldState world)
     {
@@ -114,7 +86,6 @@ public static class LightEngine
 
     public static void AddLightSource(WorldState world, LightSource source)
     {
-        if (source.Level <= 0) { return; }
         ComputeFootprint(world, source);
         DepositFootprint(world, source, source.Amplitude);
         if (!world.LightSources.Contains(source))
@@ -177,6 +148,9 @@ public static class LightEngine
     // into the world's block-light arrays, scaled by |scale|.
     private static void DepositFootprint(WorldState world, LightSource source, float scale)
     {
+        using var _prof = Profiler.Sample("LightEngine.DepositFootprint");
+        // Static-light re-deposit (incl. StationaryLight flicker amplitude rolls).
+        Profiler.IncrementCounter("light_deposit_voxels", source.Footprint.Count);
         for (int i = 0; i < source.Footprint.Count; i++)
         {
             var (pos, r, g, b) = source.Footprint[i];
@@ -194,555 +168,306 @@ public static class LightEngine
         }
     }
 
-    // Computes the source's deposit field via iterative diffusion in a local
-    // float buffer, then quantizes to ushort RGB per voxel and stores in
-    // source.Footprint. Replaces the old BFS max-fill model.
-    //
-    // The diffusion gives several wins over BFS:
-    //   - Multiple seeds (corner-splat for sub-voxel carriers) blend smoothly
-    //     because contributions add through diffusion, not max-fill.
-    //   - Energy concentrates in small enclosed rooms and disperses in open
-    //     space — the small/large-room brightness behavior comes for free.
-    //   - Corners get less light than open voxels (fewer open neighbors to
-    //     pull energy in), giving a natural AO hint without a separate pass.
-    //   - Output values are perceptual; no shader pow needed for block.
-    //
-    // Per-source cost: O(iters * (2*reach+1)^3 * 6). At default tuning for a
-    // level-56 torch this is ~5M float ops, ~1ms in C#. Static torches pay
-    // this once at AddLightSource. Carrier torches pay it on each move.
+    // Fills source.Footprint by flooding light from the source voxel and records
+    // the EffectiveBounds that OnVoxelsChanged uses to decide when a geometry
+    // change forces a recompute. Uses the source's per-light λ/shape/energy
+    // (0 = SimData default), which also size the flood radius.
     private static void ComputeFootprint(WorldState world, LightSource source)
     {
-        int level = Math.Min(source.Level, MAX_LIGHT);
-        if (level <= 0) { return; }
+        BlockLightTuning tuning = ResolveTuning(world, source.Distance, source.Falloff, source.Brightness);
+        var cells = new List<(Vector3I pos, float opticalDepth, float ao)>();
+        ComputeFloodField(world, source.Position, tuning.FloodRadius, cells);
+        ShadeFloodField(world, cells, source.Position, source.Color, tuning,
+            source.Footprint, out Vector3I boundsMin, out Vector3I boundsMax);
+        source.BoundsMin = boundsMin;
+        source.BoundsMax = boundsMax;
+    }
+
+    // --- Block-light flood -------------------------------------------------
+    //
+    // Geodesic-flood model in two phases:
+    //
+    //   ComputeFloodField — breadth-first flood through open voxels out to a
+    //     per-light Euclidean radius (derived from its λ/shape so a compact light
+    //     floods a small ball), accumulating Beer-Lambert fog/canopy optical
+    //     depth along each path. Output is the reachable
+    //     open voxels + their optical depth. This is the geometry-dependent
+    //     work; it only changes when the source crosses a voxel or nearby
+    //     geometry changes. The BFS gives occlusion for free — light only
+    //     travels through open voxels, so walls shadow and light wraps corners.
+    //
+    //   ShadeFloodField — turns that field into a quantized RGB footprint by
+    //     weighting each cell exp(-distanceToSource / FalloffLambda − opticalDepth)
+    //     and normalizing so total deposited energy = level × EnergyPerLevel.
+    //     distanceToSource is measured from the light's FRACTIONAL position, so
+    //     re-shading every frame as the source slides within a voxel glides the
+    //     falloff smoothly (sub-voxel smoothing) without re-flooding. The
+    //     normalization gives small-room-brighter — fewer reached voxels means
+    //     each gets a larger share.
+    //
+    // Splitting them lets a moving light pay the O(reached voxels) flood only on
+    // voxel crossings and the cheaper shade per frame. Both allocate per call (a
+    // prototype concession; pool the buffers if GC churns). The optical-depth
+    // path is the first (shortest-hop) BFS arrival — a fine approximation, not
+    // the true minimal-optical-depth path (that would be Dijkstra).
+
+    // Resolved per-light tuning: the falloff (λ, shape, energy-per-level) plus a
+    // flood radius DERIVED from λ/shape, so a compact light floods (and shades) a
+    // small ball and a far-reaching one a large ball — both buffer and per-frame
+    // cost scale with the light's actual size, not a global worst case.
+    public readonly struct BlockLightTuning
+    {
+        public readonly float Lambda;       // internal exp scale, derived from Distance+Falloff
+        public readonly float Falloff;      // curve shape exponent
+        public readonly int FloodRadius;
+        public readonly float EnergyTarget; // total energy that yields a Brightness peak in open space
+
+        public BlockLightTuning(float lambda, float falloff, int floodRadius, float energyTarget)
+        {
+            Lambda = lambda;
+            Falloff = falloff;
+            FloodRadius = floodRadius;
+            EnergyTarget = energyTarget;
+        }
+    }
+
+    // Relative weight at the visible edge. λ is solved so the curve reaches this
+    // value at Distance — that's what makes Distance mean "reach".
+    private const float FLOOD_CUTOFF = 0.01f;
+    private const int MIN_FLOOD_RADIUS = 2;
+    // Deposited peak for Brightness = 1 (light map is RGBA8, so 255 = white).
+    private const float BYTE_MAX = 255f;
+
+    // Resolve a light's authored Distance / Falloff / Brightness into the internal
+    // falloff + energy. λ is solved so exp(-(r/λ)^Falloff) hits FLOOD_CUTOFF at
+    // Distance; the flood radius is Distance + the 2-voxel window margin, clamped
+    // to [MIN_FLOOD_RADIUS, BlockLightMaxDistance]. EnergyTarget is the total
+    // energy the shade's geometry normalization spreads — pre-solved so the
+    // OPEN-SPACE core peaks at Brightness×255, while small enclosed spaces
+    // (smaller geometric sum) read brighter (small-room-brighter).
+    public static BlockLightTuning ResolveTuning(WorldState world, float distance, float falloff, float brightness)
+    {
+        using var _prof = Profiler.Sample("LightEngine.ResolveTuning");
+        SimData sim = world.SimData;
+        float dist = Math.Max(0.5f, distance);
+        float fall = Math.Max(0.05f, falloff);
+        float bright = Math.Max(0f, brightness);
+
+        float lambda = dist / Mathf.Pow(Mathf.Log(1f / FLOOD_CUTOFF), 1f / fall);
+        int radius = Math.Clamp(Mathf.CeilToInt(dist) + 2, MIN_FLOOD_RADIUS, sim.BlockLightMaxDistance);
+
+        float windowR = Mathf.Max(1f, radius - 2f);
+        float windowFloor = FalloffWeight(windowR, lambda, fall);
+        float peakWeight = 1f - windowFloor;
+
+        // Reference open-space geometric sum, ∫ 4πr²·windowedWeight dr over the
+        // ball — approximates the discrete sum a light in the open would produce,
+        // so EnergyTarget/that ≈ Brightness peak at the core in open air.
+        float sumOpen = 0f;
+        const float step = 0.25f;
+        for (float r = step * 0.5f; r < radius; r += step)
+        {
+            float w = FalloffWeight(r, lambda, fall) - windowFloor;
+            if (w <= 0f) { continue; }
+            sumOpen += 4f * Mathf.Pi * r * r * w * step;
+        }
+        float energyTarget = peakWeight > 0f ? bright * BYTE_MAX * sumOpen / peakWeight : 0f;
+        return new BlockLightTuning(lambda, fall, radius, energyTarget);
+    }
+
+    // Floods the reachable open voxels into `cells` out to floodRadius, storing
+    // each voxel's path optical depth (fog/canopy) and openness (open-neighbour
+    // fraction, for corner AO). Cleared first. Empty if the source is blocked.
+    public static void ComputeFloodField(
+        WorldState world, Vector3I position, int floodRadius,
+        List<(Vector3I pos, float opticalDepth, float ao)> cells)
+    {
+        using var _prof = Profiler.Sample("LightEngine.ComputeFloodField");
+        cells.Clear();
+        if (!IsOpen(world, position.X, position.Y, position.Z)) { return; }
 
         SimData sim = world.SimData;
-        float diffusionRate = sim.BlockLightDiffusionRate;
-        float absorptionRate = sim.BlockLightAbsorptionRate;
-        float seedPerLevel = sim.BlockLightSeedPerLevel;
+        int maxDist = floodRadius;
+        float fogExtinction = sim.BlockLightFogExtinction;
+        float canopyExtinction = sim.BlockLightCanopyExtinction;
 
-        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
-        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
-        int dim = reach * 2 + 1;
+        int dim = maxDist * 2 + 1;
         int total = dim * dim * dim;
-        int dimSq = dim * dim;
+        int ox = position.X - maxDist;
+        int oy = position.Y - maxDist;
+        int oz = position.Z - maxDist;
 
-        int ox = source.Position.X - reach;
-        int oy = source.Position.Y - reach;
-        int oz = source.Position.Z - reach;
-
-        // Sample world opacity + fog absorption once into flat arrays. Avoids
-        // repeated VoxelType / fog lookups inside the iteration loop, which
-        // otherwise dominate the relaxation cost. fogAbsorb is the extra
-        // per-iteration absorption from fog density AND foliage-canopy density
-        // at each voxel — both attenuate block light symmetrically.
-        var open = new bool[total];
-        var fogAbsorb = new float[total];
-        float canopyBlockAbsorbFactor = world.SimData.CanopyBlockAbsorptionPeak / 255f;
-        for (int lz = 0; lz < dim; lz++)
+        // visited is indexed in the local buffer; the queue carries the running
+        // optical depth accumulated along the path so far. Both are pooled
+        // per-thread (grow-only) to avoid per-crossing GC churn.
+        bool[] visited = _floodVisited;
+        if (visited == null || visited.Length < total)
         {
-            for (int ly = 0; ly < dim; ly++)
-            {
-                int rowBase = (lz * dim + ly) * dim;
-                for (int lx = 0; lx < dim; lx++)
-                {
-                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
-                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                    open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] =
-                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
-                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
-                }
-            }
+            visited = new bool[total];
+            _floodVisited = visited;
         }
-
-        // For static lights, run a single diffusion with the 8-corner trilinear
-        // seeds merged (by linearity, this equals summing 8 separate corner
-        // kernels weighted by the trilinear coefficients). Static lights don't
-        // move, so the frozen blend is correct forever.
-        float seedR = level * seedPerLevel * source.Color.R;
-        float seedG = level * seedPerLevel * source.Color.G;
-        float seedB = level * seedPerLevel * source.Color.B;
-
-        float sx = Mathf.Clamp(source.SubVoxelOffset.X, 0f, 0.99999f);
-        float sy = Mathf.Clamp(source.SubVoxelOffset.Y, 0f, 0.99999f);
-        float sz = Mathf.Clamp(source.SubVoxelOffset.Z, 0f, 0.99999f);
-
-        // Accumulate weighted corner contributions into one buffer via
-        // separate Diffuse calls (linearity guarantees correctness).
-        var rA = new float[total];
-        var gA = new float[total];
-        var bA = new float[total];
-        var tempR = new float[total];
-        var tempG = new float[total];
-        var tempB = new float[total];
-        var scrR = new float[total];
-        var scrG = new float[total];
-        var scrB = new float[total];
-
-        for (int cx = 0; cx <= 1; cx++)
+        else
         {
-            float wx = cx == 0 ? (1f - sx) : sx;
-            for (int cy = 0; cy <= 1; cy++)
-            {
-                float wy = cy == 0 ? (1f - sy) : sy;
-                for (int cz = 0; cz <= 1; cz++)
-                {
-                    float wz = cz == 0 ? (1f - sz) : sz;
-                    float w = wx * wy * wz;
-                    if (w < 0.001f) { continue; }
-                    int seedIdx = ((reach + cz) * dim + (reach + cy)) * dim + (reach + cx);
-                    if (!open[seedIdx]) { continue; }
-
-                    Diffuse(open, fogAbsorb, dim, total, iterations,
-                        absorptionRate, diffusionRate,
-                        seedIdx, seedR * w, seedG * w, seedB * w,
-                        tempR, tempG, tempB, scrR, scrG, scrB);
-
-                    for (int i = 0; i < total; i++)
-                    {
-                        rA[i] += tempR[i];
-                        gA[i] += tempG[i];
-                        bA[i] += tempB[i];
-                    }
-                }
-            }
+            Array.Clear(visited, 0, total);
         }
+        Queue<(int lx, int ly, int lz, float depth)> queue = _floodQueue ??= new();
+        queue.Clear();
+        if (cells.Capacity < total / 4) { cells.Capacity = total / 4; }
 
-        // Quantize float field → ushort RGB deposits, skipping near-zero
-        // voxels. Also compute EffectiveBounds (1 voxel past the non-zero
-        // extent) for fast geo-change intersection tests.
+        int seedLocal = (maxDist * dim + maxDist) * dim + maxDist;
+        visited[seedLocal] = true;
+        queue.Enqueue((maxDist, maxDist, maxDist, 0f));
+
+        while (queue.Count > 0)
+        {
+            var (lx, ly, lz, depth) = queue.Dequeue();
+            int wx = ox + lx, wy = oy + ly, wz = oz + lz;
+
+            // Stop expanding at the spherical (Euclidean) boundary. Gating by
+            // hop count instead caps the flood as a Manhattan octahedron, which
+            // reads as a hard diamond on the ground; the radius cap keeps the
+            // lit region round.
+            float dx = wx - position.X, dy = wy - position.Y, dz = wz - position.Z;
+            bool canExpand = Mathf.Sqrt(dx * dx + dy * dy + dz * dz) < maxDist;
+
+            // Examine all 6 face neighbours once: count open ones for the AO hint
+            // (fewer open neighbours = more occluded corner) and, where in range,
+            // expand the flood into the unvisited open ones.
+            int openCount = 0;
+            for (int n = 0; n < Neighbors.Length; n++)
+            {
+                int dnx = Neighbors[n].X, dny = Neighbors[n].Y, dnz = Neighbors[n].Z;
+                int nwx = wx + dnx, nwy = wy + dny, nwz = wz + dnz;
+                bool nOpen = IsOpen(world, nwx, nwy, nwz);
+                if (nOpen) { openCount++; }
+
+                if (!canExpand || !nOpen) { continue; }
+                int nlx = lx + dnx, nly = ly + dny, nlz = lz + dnz;
+                if (nlx < 0 || nlx >= dim || nly < 0 || nly >= dim || nlz < 0 || nlz >= dim) { continue; }
+                int nLocal = (nlz * dim + nly) * dim + nlx;
+                if (visited[nLocal]) { continue; }
+                visited[nLocal] = true;
+                // Add this voxel's fog/canopy extinction to the path's optical
+                // depth as the light steps into it.
+                float stepDepth = depth
+                    + world.GetFogWorld(nwx, nwy, nwz) * (fogExtinction / 255f)
+                    + world.GetCanopyAttenuationWorld(nwx, nwy, nwz) * (canopyExtinction / 255f);
+                queue.Enqueue((nlx, nly, nlz, stepDepth));
+            }
+            cells.Add((new Vector3I(wx, wy, wz), depth, openCount / 6f));
+        }
+        Profiler.IncrementCounter("light_flood_cells", cells.Count);
+    }
+
+    // Shades a cached flood field into `footprint`. sourcePos is the light's
+    // FRACTIONAL world position; distance is measured from it, so re-shading as
+    // the source moves within a voxel slides the falloff smoothly. tuning must be
+    // the same one used to flood the field (its FloodRadius drives the window).
+    public static void ShadeFloodField(
+        WorldState world, List<(Vector3I pos, float opticalDepth, float ao)> cells,
+        Vector3 sourcePos, Color color, BlockLightTuning tuning,
+        List<(Vector3I pos, ushort r, ushort g, ushort b)> footprint,
+        out Vector3I boundsMin, out Vector3I boundsMax)
+    {
+        using var _prof = Profiler.Sample("LightEngine.ShadeFloodField");
+        footprint.Clear();
+        var seed = new Vector3I((int)sourcePos.X, (int)sourcePos.Y, (int)sourcePos.Z);
+        boundsMin = seed;
+        boundsMax = seed;
+        if (cells.Count == 0) { return; }
+
+        float lambda = tuning.Lambda;
+        float shape = tuning.Falloff;
+        float aoStrength = world.SimData.BlockLightAO;
+
+        // Window the geometric falloff to compact support: subtract the curve's
+        // value at radius windowR so the weight reaches exactly zero there.
+        // Distance is measured from the FRACTIONAL source, so the outer edge is a
+        // soft vignette that tracks the source smoothly — instead of the hard
+        // cell-set boundary (a sphere pinned to the integer voxel, rebuilt only
+        // on crossing) that otherwise snaps each time the carrier crosses a
+        // voxel. windowR sits ~2 voxels inside the flood radius so every cell at
+        // the integer-centered boundary is zeroed regardless of sub-voxel offset.
+        float windowR = Mathf.Max(1f, tuning.FloodRadius - 2f);
+        float windowFloor = FalloffWeight(windowR, lambda, shape);
+
+        // Geometry normalization: spread EnergyTarget across the GEOMETRIC weight
+        // sum (no fog, no AO). Fewer reached voxels (a small enclosed space) ⇒
+        // smaller sum ⇒ brighter — that's small-room-brighter. In the open the
+        // sum ≈ the reference baked into EnergyTarget, so the core ≈ Brightness.
+        // Fog (exp(-depth)) and AO are applied per-voxel AFTER, so they dim
+        // absolutely instead of redistributing energy.
+        float sumWgeom = 0f;
+        for (int i = 0; i < cells.Count; i++)
+        {
+            var (pos, _, _) = cells[i];
+            float dx = pos.X - sourcePos.X, dy = pos.Y - sourcePos.Y, dz = pos.Z - sourcePos.Z;
+            float g = FalloffWeight(Mathf.Sqrt(dx * dx + dy * dy + dz * dz), lambda, shape) - windowFloor;
+            if (g > 0f) { sumWgeom += g; }
+        }
+        if (sumWgeom <= 0f) { return; }
+        float scale = tuning.EnergyTarget / sumWgeom;
+
         int bMinX = int.MaxValue, bMinY = int.MaxValue, bMinZ = int.MaxValue;
         int bMaxX = int.MinValue, bMaxY = int.MinValue, bMaxZ = int.MinValue;
 
-        source.Footprint.Capacity = total / 4;
-        for (int lz = 0; lz < dim; lz++)
+        footprint.Capacity = cells.Count;
+        for (int i = 0; i < cells.Count; i++)
         {
-            for (int ly = 0; ly < dim; ly++)
-            {
-                int rowBase = (lz * dim + ly) * dim;
-                for (int lx = 0; lx < dim; lx++)
-                {
-                    int idx = rowBase + lx;
-                    if (!open[idx]) { continue; }
-                    float fr = rA[idx], fg = gA[idx], fb = bA[idx];
-                    if (fr < 0.5f && fg < 0.5f && fb < 0.5f) { continue; }
-                    ushort qr = ClampU16((int)(fr + 0.5f));
-                    ushort qg = ClampU16((int)(fg + 0.5f));
-                    ushort qb = ClampU16((int)(fb + 0.5f));
-                    if (qr == 0 && qg == 0 && qb == 0) { continue; }
+            var (pos, depth, aoRaw) = cells[i];
+            float dx = pos.X - sourcePos.X, dy = pos.Y - sourcePos.Y, dz = pos.Z - sourcePos.Z;
+            float r = Mathf.Sqrt(dx * dx + dy * dy + dz * dz);
+            float g = FalloffWeight(r, lambda, shape) - windowFloor;
+            if (g <= 0f) { continue; }
+            // AO darkens occluded corners (fewer open neighbours) absolutely.
+            float ao = 1f - aoStrength * (1f - aoRaw);
+            float v = g * ao * Mathf.Exp(-depth) * scale;
+            ushort qr = ClampU16((int)(v * color.R + 0.5f));
+            ushort qg = ClampU16((int)(v * color.G + 0.5f));
+            ushort qb = ClampU16((int)(v * color.B + 0.5f));
+            if (qr == 0 && qg == 0 && qb == 0) { continue; }
 
-                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
-                    source.Footprint.Add((new Vector3I(wx, wy, wz), qr, qg, qb));
+            footprint.Add((pos, qr, qg, qb));
 
-                    if (wx < bMinX) { bMinX = wx; }
-                    if (wx > bMaxX) { bMaxX = wx; }
-                    if (wy < bMinY) { bMinY = wy; }
-                    if (wy > bMaxY) { bMaxY = wy; }
-                    if (wz < bMinZ) { bMinZ = wz; }
-                    if (wz > bMaxZ) { bMaxZ = wz; }
-                }
-            }
+            if (pos.X < bMinX) { bMinX = pos.X; }
+            if (pos.X > bMaxX) { bMaxX = pos.X; }
+            if (pos.Y < bMinY) { bMinY = pos.Y; }
+            if (pos.Y > bMaxY) { bMaxY = pos.Y; }
+            if (pos.Z < bMinZ) { bMinZ = pos.Z; }
+            if (pos.Z > bMaxZ) { bMaxZ = pos.Z; }
         }
 
         // Pad bounds by 1 so a wall placed just outside the lit zone still
         // triggers a recompute (it could now block light that was leaking out).
-        if (source.Footprint.Count > 0)
+        if (footprint.Count > 0)
         {
-            source.BoundsMin = new Vector3I(bMinX - 1, bMinY - 1, bMinZ - 1);
-            source.BoundsMax = new Vector3I(bMaxX + 1, bMaxY + 1, bMaxZ + 1);
+            boundsMin = new Vector3I(bMinX - 1, bMinY - 1, bMinZ - 1);
+            boundsMax = new Vector3I(bMaxX + 1, bMaxY + 1, bMaxZ + 1);
         }
-        else
-        {
-            source.BoundsMin = source.Position;
-            source.BoundsMax = source.Position;
-        }
+        Profiler.IncrementCounter("light_shade_voxels", footprint.Count);
     }
 
-    // Compute 8 independent corner kernels for a carrier light. Each kernel
-    // is the diffusion result from seeding at one corner of the source voxel.
-    // The caller blends them per-frame by trilinear weights.
-    public static CornerKernels ComputeCornerKernels(WorldState world, Vector3I position, int level, Color color)
+    private static bool IsOpen(WorldState world, int wx, int wy, int wz)
     {
-        level = Math.Min(level, MAX_LIGHT);
-        SimData sim = world.SimData;
-        float diffusionRate = sim.BlockLightDiffusionRate;
-        float absorptionRate = sim.BlockLightAbsorptionRate;
-        float seedPerLevel = sim.BlockLightSeedPerLevel;
-
-        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
-        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
-        int dim = reach * 2 + 1;
-        int total = dim * dim * dim;
-
-        int ox = position.X - reach;
-        int oy = position.Y - reach;
-        int oz = position.Z - reach;
-
-        var open = new bool[total];
-        var fogAbsorb = new float[total];
-        float canopyBlockAbsorbFactor = sim.CanopyBlockAbsorptionPeak / 255f;
-        for (int lz = 0; lz < dim; lz++)
-        {
-            for (int ly = 0; ly < dim; ly++)
-            {
-                int rowBase = (lz * dim + ly) * dim;
-                for (int lx = 0; lx < dim; lx++)
-                {
-                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
-                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                    open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] =
-                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
-                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
-                }
-            }
-        }
-
-        float baseR = level * seedPerLevel * color.R;
-        float baseG = level * seedPerLevel * color.G;
-        float baseB = level * seedPerLevel * color.B;
-
-        var kernels = new CornerKernels
-        {
-            Reach = reach,
-            Dim = dim,
-            Total = total,
-            Origin = new Vector3I(ox, oy, oz),
-            Open = open,
-            R = new float[8][],
-            G = new float[8][],
-            B = new float[8][],
-            SeedIdx = new int[8],
-            SeedOpen = new bool[8],
-        };
-
-        var scratchR = new float[total];
-        var scratchG = new float[total];
-        var scratchB = new float[total];
-
-        for (int cx = 0; cx <= 1; cx++)
-        {
-            for (int cy = 0; cy <= 1; cy++)
-            {
-                for (int cz = 0; cz <= 1; cz++)
-                {
-                    int c = cx | (cy << 1) | (cz << 2);
-                    int seedIdx = ((reach + cz) * dim + (reach + cy)) * dim + (reach + cx);
-                    kernels.SeedIdx[c] = seedIdx;
-                    kernels.SeedOpen[c] = open[seedIdx];
-
-                    kernels.R[c] = new float[total];
-                    kernels.G[c] = new float[total];
-                    kernels.B[c] = new float[total];
-
-                    if (!open[seedIdx]) { continue; }
-
-                    Diffuse(open, fogAbsorb, dim, total, iterations,
-                        absorptionRate, diffusionRate,
-                        seedIdx, baseR, baseG, baseB,
-                        kernels.R[c], kernels.G[c], kernels.B[c],
-                        scratchR, scratchG, scratchB);
-                }
-            }
-        }
-
-
-        // Build sparse index list: any voxel that's non-zero in any corner.
-        var nonZero = new List<int>(total / 4);
-        const float THRESHOLD = 0.5f;
-        for (int idx = 0; idx < total; idx++)
-        {
-            if (!open[idx]) { continue; }
-            bool any = false;
-            for (int c = 0; c < 8; c++)
-            {
-                if (kernels.R[c][idx] > THRESHOLD || kernels.G[c][idx] > THRESHOLD || kernels.B[c][idx] > THRESHOLD)
-                {
-                    any = true;
-                    break;
-                }
-            }
-            if (any)
-            {
-                nonZero.Add(idx);
-            }
-        }
-        kernels.NonZeroIndices = nonZero.ToArray();
-        kernels.NonZeroCount = nonZero.Count;
-
-        return kernels;
+        VoxelType v = world.GetVoxelWorld(wx, wy, wz);
+        return v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
     }
 
-    // Adjacent carrier voxels share 4 of 8 corners (the corners on the face
-    // between them). For an axis-aligned ±1 voxel crossing, this skips 4 of
-    // the 8 diffusions by translating the shared kernels from the previous
-    // CornerKernels buffer into the new buffer, then running fresh diffusions
-    // for the 4 new-face corners. Falls back to a full recompute for any
-    // non-axis-aligned or multi-voxel delta.
-    //
-    // Edge truncation: the translated shared kernels lose a 1-voxel slab on
-    // the far side of the new buffer (those voxels had no source in the old
-    // buffer). The 4 fresh corners on the new face fill that slab with their
-    // own contributions; the diffusion field is small at that distance from
-    // any shared seed anyway, so the artifact is below the quantize threshold.
-    public static CornerKernels ComputeCornerKernelsIncremental(
-        WorldState world,
-        Vector3I position,
-        int level,
-        Color color,
-        CornerKernels prevKernels,
-        Vector3I delta)
+    // True if a light at this voxel would emit (the voxel is open). A moving
+    // light checks this before re-flooding so it can keep its previous field
+    // instead of blanking when it briefly crosses into solid / unloaded space.
+    public static bool CanEmitFrom(WorldState world, Vector3I voxel)
     {
-        int absX = Math.Abs(delta.X);
-        int absY = Math.Abs(delta.Y);
-        int absZ = Math.Abs(delta.Z);
-        if (prevKernels == null || absX + absY + absZ != 1)
-        {
-            return ComputeCornerKernels(world, position, level, color);
-        }
-
-        level = Math.Min(level, MAX_LIGHT);
-        SimData sim = world.SimData;
-        float diffusionRate = sim.BlockLightDiffusionRate;
-        float absorptionRate = sim.BlockLightAbsorptionRate;
-        float seedPerLevel = sim.BlockLightSeedPerLevel;
-
-        int reach = Math.Max(MIN_REACH, level / sim.BlockLightReachDivisor);
-        int iterations = Math.Max(MIN_ITERS, level / sim.BlockLightIterationDivisor);
-        int dim = reach * 2 + 1;
-        int total = dim * dim * dim;
-
-        // Sanity: reach/dim must match the previous buffer for index translation
-        // to be valid. Normally holds (Emission and the SimData reach divisor are
-        // fixed at runtime); if a designer retunes BlockLightReachDivisor live,
-        // dim changes for one crossing and we self-heal via a full recompute.
-        if (prevKernels.Dim != dim)
-        {
-            return ComputeCornerKernels(world, position, level, color);
-        }
-
-        int ox = position.X - reach;
-        int oy = position.Y - reach;
-        int oz = position.Z - reach;
-
-        var open = new bool[total];
-        var fogAbsorb = new float[total];
-        float canopyBlockAbsorbFactor = sim.CanopyBlockAbsorptionPeak / 255f;
-        for (int lz = 0; lz < dim; lz++)
-        {
-            for (int ly = 0; ly < dim; ly++)
-            {
-                int rowBase = (lz * dim + ly) * dim;
-                for (int lx = 0; lx < dim; lx++)
-                {
-                    int wx = ox + lx, wy = oy + ly, wz = oz + lz;
-                    VoxelType v = world.GetVoxelWorld(wx, wy, wz);
-                    open[rowBase + lx] = v == VoxelType.Air || VoxelTypeInfo.IsTransparent(v);
-                    fogAbsorb[rowBase + lx] =
-                        world.GetFogWorld(wx, wy, wz) * (FOG_BLOCK_ABSORPTION_255 / 255f)
-                        + world.GetCanopyAttenuationWorld(wx, wy, wz) * canopyBlockAbsorbFactor;
-                }
-            }
-        }
-
-        float baseR = level * seedPerLevel * color.R;
-        float baseG = level * seedPerLevel * color.G;
-        float baseB = level * seedPerLevel * color.B;
-
-        var kernels = new CornerKernels
-        {
-            Reach = reach,
-            Dim = dim,
-            Total = total,
-            Origin = new Vector3I(ox, oy, oz),
-            Open = open,
-            R = new float[8][],
-            G = new float[8][],
-            B = new float[8][],
-            SeedIdx = new int[8],
-            SeedOpen = new bool[8],
-        };
-
-        var scratchR = new float[total];
-        var scratchG = new float[total];
-        var scratchB = new float[total];
-
-        // Translation: world voxel at NEW buffer index (lx,ly,lz) corresponds
-        // to OLD buffer index (lx+delta.X, ly+delta.Y, lz+delta.Z). Valid
-        // when the OLD index is in [0, dim-1] on each axis.
-        int lxMin = Math.Max(0, -delta.X);
-        int lxMax = Math.Min(dim - 1, dim - 1 - delta.X);
-        int lyMin = Math.Max(0, -delta.Y);
-        int lyMax = Math.Min(dim - 1, dim - 1 - delta.Y);
-        int lzMin = Math.Max(0, -delta.Z);
-        int lzMax = Math.Min(dim - 1, dim - 1 - delta.Z);
-
-        for (int c = 0; c < 8; c++)
-        {
-            int cx = c & 1;
-            int cy = (c >> 1) & 1;
-            int cz = (c >> 2) & 1;
-            int seedIdx = ((reach + cz) * dim + (reach + cy)) * dim + (reach + cx);
-            kernels.SeedIdx[c] = seedIdx;
-            kernels.SeedOpen[c] = open[seedIdx];
-
-            kernels.R[c] = new float[total];
-            kernels.G[c] = new float[total];
-            kernels.B[c] = new float[total];
-
-            // New corner c (offset cx,cy,cz from V_new) coincides with old
-            // corner c_old (offset cxOld,cyOld,czOld from V_old) iff their
-            // world positions match: V_new + (cx,cy,cz) = V_old + (cxOld,...)
-            // => cxOld = cx + delta.X, etc. Valid only when ∈ {0,1}.
-            int cxOld = cx + delta.X;
-            int cyOld = cy + delta.Y;
-            int czOld = cz + delta.Z;
-            bool shared = (cxOld >= 0 && cxOld <= 1)
-                       && (cyOld >= 0 && cyOld <= 1)
-                       && (czOld >= 0 && czOld <= 1);
-
-            if (shared)
-            {
-                int cOld = cxOld | (cyOld << 1) | (czOld << 2);
-                float[] oldR = prevKernels.R[cOld];
-                float[] oldG = prevKernels.G[cOld];
-                float[] oldB = prevKernels.B[cOld];
-                float[] newR = kernels.R[c];
-                float[] newG = kernels.G[c];
-                float[] newB = kernels.B[c];
-
-                for (int lz = lzMin; lz <= lzMax; lz++)
-                {
-                    int lzOld = lz + delta.Z;
-                    for (int ly = lyMin; ly <= lyMax; ly++)
-                    {
-                        int lyOld = ly + delta.Y;
-                        int rowNew = (lz * dim + ly) * dim;
-                        int rowOld = (lzOld * dim + lyOld) * dim;
-                        for (int lx = lxMin; lx <= lxMax; lx++)
-                        {
-                            int lxOld = lx + delta.X;
-                            newR[rowNew + lx] = oldR[rowOld + lxOld];
-                            newG[rowNew + lx] = oldG[rowOld + lxOld];
-                            newB[rowNew + lx] = oldB[rowOld + lxOld];
-                        }
-                    }
-                }
-            }
-            else
-            {
-                if (!open[seedIdx]) { continue; }
-                Diffuse(open, fogAbsorb, dim, total, iterations,
-                    absorptionRate, diffusionRate,
-                    seedIdx, baseR, baseG, baseB,
-                    kernels.R[c], kernels.G[c], kernels.B[c],
-                    scratchR, scratchG, scratchB);
-            }
-        }
-
-        var nonZero = new List<int>(total / 4);
-        const float THRESHOLD = 0.5f;
-        for (int idx = 0; idx < total; idx++)
-        {
-            if (!open[idx]) { continue; }
-            bool any = false;
-            for (int c = 0; c < 8; c++)
-            {
-                if (kernels.R[c][idx] > THRESHOLD || kernels.G[c][idx] > THRESHOLD || kernels.B[c][idx] > THRESHOLD)
-                {
-                    any = true;
-                    break;
-                }
-            }
-            if (any)
-            {
-                nonZero.Add(idx);
-            }
-        }
-        kernels.NonZeroIndices = nonZero.ToArray();
-        kernels.NonZeroCount = nonZero.Count;
-
-        return kernels;
+        return IsOpen(world, voxel.X, voxel.Y, voxel.Z);
     }
 
-    // Single-seed iterative diffusion with absorption + re-injection.
-    // Shared by both ComputeFootprint (static lights) and ComputeCornerKernels
-    // (carrier lights). Writes results into outR/G/B; scrR/G/B are scratch.
-    // fogAbsorb[idx] is extra per-iteration absorption at each voxel due to
-    // local fog density — 0 in clear air, up to FOG_BLOCK_ABSORPTION_255 at
-    // max fog. Clamped so total absorption never exceeds 1 (energy negative).
-    private static void Diffuse(
-        bool[] open, float[] fogAbsorb, int dim, int total, int iterations,
-        float absorptionRate, float diffusionRate,
-        int seedIdx, float seedR, float seedG, float seedB,
-        float[] outR, float[] outG, float[] outB,
-        float[] scrR, float[] scrG, float[] scrB)
+    // Unwindowed geometric falloff weight at distance r: exp(-(r/λ)^shape).
+    // shape<1 = sharp hotspot + long tail; 1 = exponential; >1 = soft plateau.
+    // Monotonic decreasing in r, so subtracting its value at the window radius
+    // gives a smooth compact-support kernel (see ShadeFloodField).
+    private static float FalloffWeight(float r, float lambda, float shape)
     {
-        int dimSq = dim * dim;
-        Array.Clear(outR, 0, total);
-        Array.Clear(outG, 0, total);
-        Array.Clear(outB, 0, total);
-
-        outR[seedIdx] = seedR;
-        outG[seedIdx] = seedG;
-        outB[seedIdx] = seedB;
-
-        for (int iter = 0; iter < iterations; iter++)
-        {
-            for (int lz = 0; lz < dim; lz++)
-            {
-                for (int ly = 0; ly < dim; ly++)
-                {
-                    int rowBase = (lz * dim + ly) * dim;
-                    for (int lx = 0; lx < dim; lx++)
-                    {
-                        int idx = rowBase + lx;
-                        if (!open[idx])
-                        {
-                            scrR[idx] = 0f; scrG[idx] = 0f; scrB[idx] = 0f;
-                            continue;
-                        }
-
-                        float keep = 1f - absorptionRate - fogAbsorb[idx];
-                        if (keep < 0f) { keep = 0f; }
-                        float selfR = outR[idx] * keep;
-                        float selfG = outG[idx] * keep;
-                        float selfB = outB[idx] * keep;
-
-                        float sumR = 0f, sumG = 0f, sumB = 0f;
-                        int openCount = 0;
-
-                        if (lx > 0 && open[idx - 1])
-                        { sumR += outR[idx - 1]; sumG += outG[idx - 1]; sumB += outB[idx - 1]; openCount++; }
-                        if (lx < dim - 1 && open[idx + 1])
-                        { sumR += outR[idx + 1]; sumG += outG[idx + 1]; sumB += outB[idx + 1]; openCount++; }
-                        if (ly > 0 && open[idx - dim])
-                        { sumR += outR[idx - dim]; sumG += outG[idx - dim]; sumB += outB[idx - dim]; openCount++; }
-                        if (ly < dim - 1 && open[idx + dim])
-                        { sumR += outR[idx + dim]; sumG += outG[idx + dim]; sumB += outB[idx + dim]; openCount++; }
-                        if (lz > 0 && open[idx - dimSq])
-                        { sumR += outR[idx - dimSq]; sumG += outG[idx - dimSq]; sumB += outB[idx - dimSq]; openCount++; }
-                        if (lz < dim - 1 && open[idx + dimSq])
-                        { sumR += outR[idx + dimSq]; sumG += outG[idx + dimSq]; sumB += outB[idx + dimSq]; openCount++; }
-
-                        float retain = 1f - diffusionRate * openCount;
-                        if (retain < 0f) { retain = 0f; }
-
-                        scrR[idx] = sumR * diffusionRate + selfR * retain;
-                        scrG[idx] = sumG * diffusionRate + selfG * retain;
-                        scrB[idx] = sumB * diffusionRate + selfB * retain;
-                    }
-                }
-            }
-
-            (outR, scrR) = (scrR, outR);
-            (outG, scrG) = (scrG, outG);
-            (outB, scrB) = (scrB, outB);
-
-            outR[seedIdx] = seedR;
-            outG[seedIdx] = seedG;
-            outB[seedIdx] = seedB;
-        }
+        return Mathf.Exp(-Mathf.Pow(r / lambda, shape));
     }
 
     private static ushort ClampU16(int v)

@@ -3,12 +3,16 @@ using Godot;
 [GlobalClass]
 public partial class StationaryLight : Node3D
 {
-    // Reach in voxel-units. Up to LightEngine.MAX_LIGHT (60). Roughly
-    // emission/FALLOFF_PER_VOXEL voxels of visible light radius.
-    [Export] private int _lightEmission = 56;
     // Per-channel tint (alpha ignored). White = neutral; warm orange for fire,
     // cyan for magic, etc. Channel weights scale the deposited contribution.
     [Export] private Color _lightColor = new(1f, 0.75f, 0.4f);
+
+    // This light's falloff. Distance (reach, voxels) + Falloff (curve shape) also
+    // size its flood radius; Brightness is the open-space core intensity (1 ≈
+    // white). See LightEngine.ResolveTuning.
+    [Export(PropertyHint.Range, "1,32,0.5")] private float _distance = 10f;
+    [Export(PropertyHint.Range, "0.3,4,0.05")] private float _falloff = 1.25f;
+    [Export(PropertyHint.Range, "0,3,0.01")] private float _brightness = 0.9f;
 
     // Opt-in flicker. While active, the source's amplitude is re-rolled in
     // [_flickerMin, _flickerMax] every 1/_flickerHz seconds. Each roll costs
@@ -26,9 +30,9 @@ public partial class StationaryLight : Node3D
     private LightSource _source;
     // Once registered, the source stays in the world's source list for the
     // lifetime of this node. Off-states are expressed as amplitude=0 rather
-    // than a remove+re-add — the cached footprint is reused, skipping the
-    // ~1ms diffusion solve on every re-ignition (relevant for cyclic lights
-    // like fire traps; harmless for one-shot lights like torches).
+    // than a remove+re-add — the cached footprint is reused, skipping the flood
+    // recompute on every re-ignition (relevant for cyclic lights like fire
+    // traps; harmless for one-shot lights like torches).
     private bool _registered;
     private float _flickerTimer;
 
@@ -45,8 +49,10 @@ public partial class StationaryLight : Node3D
         _source = new LightSource
         {
             Position = baseWorldPos,
-            Level = _lightEmission,
             Color = _lightColor,
+            Distance = _distance,
+            Falloff = _falloff,
+            Brightness = _brightness,
         };
     }
 
@@ -82,7 +88,19 @@ public partial class StationaryLight : Node3D
         _flickerTimer -= (float)delta;
         if (_flickerTimer > 0f) { return; }
         _flickerTimer = 1f / Mathf.Max(_flickerHz, 0.01f);
-        float amp = (float)GD.RandRange(_flickerMin, _flickerMax);
+        using var _prof = Profiler.Sample("StationaryLight.Flicker");
+        // Far lights hold steady (amp 1) — SetLightAmplitude is a no-op when the
+        // amplitude is unchanged, so a culled light costs nothing per tick. Only
+        // lights near the player re-deposit their flicker.
+        float amp = WithinFlickerRange() ? (float)GD.RandRange(_flickerMin, _flickerMax) : 1f;
         _world.SetLightAmplitude(_source, amp);
+    }
+
+    private bool WithinFlickerRange()
+    {
+        Player p = _world.player;
+        if (p == null) { return true; }
+        float cull = _worldData.SimData.BlockLightFlickerCullDistance;
+        return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 }

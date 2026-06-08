@@ -107,15 +107,18 @@ public partial class GameCamera : Camera3D
 	// is bit 1 ONLY so it sees nothing else.
 	public const uint MainSceneLayer = 1u << 0;
 	public const uint CapMaskLayer = 1u << 1;
-	// Selection-outline mask layer (bit 4, layer 5). A highlighted interactive's
+	// Selection-outline mask layer (bit 2, layer 3). A highlighted interactive's
 	// meshes are temporarily ADDED to this layer (in addition to MainSceneLayer)
 	// by InteractiveMeshHighlight; the outline mask camera culls to this layer
 	// only, so the mask SubViewport sees just the selected model's silhouette.
-	// The main camera's cull_mask already includes bit 4 (it excludes only the
-	// shadow-proxy bit 3), which is harmless — the meshes are on MainSceneLayer
-	// too and render once; the extra bit just also makes them visible to the
-	// mask camera. Bit 3 is BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK.
-	public const uint OutlineMaskLayer = 1u << 4;
+	// The meshes stay on MainSceneLayer too so the main camera still draws them
+	// once; the extra bit just also makes them visible to the mask camera.
+	// MUST be a bit no other off-screen projector culls to — bit 3 is
+	// BlockLightShadowProjector.SHADOW_PROXY_LAYER_MASK and bit 4 is
+	// GroundStainProjector.STAIN_PROXY_LAYER_MASK. Reusing bit 4 caused the
+	// GroundStainProjector to render highlighted props into the ground-stain RT,
+	// smearing the model's color onto nearby terrain. Bit 2 is unshared.
+	public const uint OutlineMaskLayer = 1u << 2;
 
 	private readonly CameraShake _shake = new();
 	public CameraShake Shake => _shake;

@@ -2,32 +2,51 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-// A moving light source that pre-computes 8 diffusion kernels (one per corner
-// of the source voxel) and blends them by trilinear weights each frame based
-// on the carrier's sub-voxel position. This gives smooth sub-voxel light
-// motion without running diffusion per frame.
-//
-// On voxel crossing: all 8 kernels are recomputed (~8 diffusions, ~20ms).
-// Between crossings: only trilinear blend weights change — O(kernel volume)
-// float reads + array writes, no diffusion. Typically < 1ms per frame.
-//
-// Future optimization: adjacent voxels share 4 of 8 corners, so only 4
-// need recomputing per crossing.
+// A moving light source (carried torch, etc.). On each voxel crossing it floods
+// a fresh field (LightEngine.ComputeFloodField) and re-shades it per frame from
+// the fractional position for smooth sub-voxel motion. Optional flicker re-scales
+// the deposited footprint on a timer (cheap — no reflood/reshade).
 [GlobalClass]
 public partial class MovingLight : Node3D
 {
-    [Export] public int Emission = 32;
+    // This light's falloff. Distance (reach, voxels) + Falloff (curve shape) also
+    // size its flood radius, so a tight torch floods a small, cheap ball;
+    // Brightness is the open-space core intensity (1 ≈ white). See
+    // LightEngine.ResolveTuning.
+    [Export(PropertyHint.Range, "1,32,0.5")] public float Distance = 10f;
+    [Export(PropertyHint.Range, "0.3,4,0.05")] public float Falloff = 1.25f;
+    [Export(PropertyHint.Range, "0,3,0.01")] public float Brightness = 0.9f;
     [Export] public Color LightColor = new(1f, 0.75f, 0.4f);
+
+    // Opt-in flicker — re-scales the deposited footprint by a random amplitude
+    // in [FlickerMin, FlickerMax] every 1/FlickerHz seconds. Cheap: it only
+    // re-deposits the cached footprint (O(footprint) array writes), no reflood
+    // or reshade. Wider min↔max = more dramatic; 10–15 Hz reads as a flame.
+    [Export] public bool Flicker = false;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float FlickerMin = 0.4f;
+    [Export(PropertyHint.Range, "0,2,0.01")] public float FlickerMax = 1.0f;
+    [Export(PropertyHint.Range, "0.1,30,0.1")] public float FlickerHz = 12f;
+
     [Export] public bool Active { get; set; } = true;
     [Export] public PackedScene LightOnEffectScene;
     [Export] public PackedScene LightOffEffectScene;
     [Export] public PackedScene LightLoopEffectScene;
 
-    private CornerKernels _kernels;
     private List<(Vector3I pos, ushort r, ushort g, ushort b)> _currentDeposit = new();
+    // Cached flood field (reachable voxels + path optical depth), recomputed
+    // only on voxel crossing. Re-shaded from the sub-voxel position each frame.
+    private readonly List<(Vector3I pos, float opticalDepth, float ao)> _cells = new();
+    // Resolved falloff + flood radius, recomputed alongside _cells on crossing
+    // and reused by every per-frame reshade (must match the field's radius).
+    private LightEngine.BlockLightTuning _tuning;
     private bool _registered;
     private Vector3I _lastVoxel;
-    private Vector3 _lastSubVoxel;
+    private Vector3 _lastShadeSub;
+    // Flicker amplitude currently applied to the deposit (the world holds
+    // footprint × _amplitude). Only changed bracketed by remove/deposit so the
+    // subtract always matches the add. 1 = full brightness.
+    private float _amplitude = 1f;
+    private float _flickerTimer;
     private Fx _loopEffect;
 
     public override void _Ready()
@@ -64,50 +83,76 @@ public partial class MovingLight : Node3D
             Mathf.FloorToInt(pos.Z));
         Vector3 sub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
 
+        // The flood field (reachable set + optical depth) is keyed to the
+        // integer voxel, so it only changes on crossing. The shade (falloff from
+        // the fractional position) updates per frame for smooth sub-voxel motion.
         if (voxel != _lastVoxel)
         {
-            using (Profiler.Sample("MovingLight.KernelRecompute"))
+            // If the source voxel can't emit (carrier clipped into geometry, or
+            // its chunk isn't resident yet), keep the previous field/deposit
+            // rather than blanking the light. Don't advance _lastVoxel — retry
+            // the recompute next frame until we land in an open voxel again.
+            if (LightEngine.CanEmitFrom(world.WorldState, voxel))
             {
-                Vector3I voxelDelta = voxel - _lastVoxel;
-                bool axisAligned = _kernels != null
-                    && Mathf.Abs(voxelDelta.X) + Mathf.Abs(voxelDelta.Y) + Mathf.Abs(voxelDelta.Z) == 1;
-                if (axisAligned)
+                _lastVoxel = voxel;
+                using (Profiler.Sample("MovingLight.FloodRecompute"))
                 {
-                    _kernels = LightEngine.ComputeCornerKernelsIncremental(
-                        world.WorldState, voxel, Emission, LightColor, _kernels, voxelDelta);
+                    _tuning = LightEngine.ResolveTuning(world.WorldState, Distance, Falloff, Brightness);
+                    LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
                 }
-                else
+                Reshade(world.WorldState, pos);
+                _lastShadeSub = sub;
+            }
+        }
+        // Reshade on meaningful sub-voxel motion (smooth glide); skip below ~1/16
+        // voxel where the deposit delta is below the LightMap's byte quantization.
+        else
+        {
+            const float SHADE_MOTION_THRESHOLD = 1f / 16f;
+            if (Mathf.Abs(sub.X - _lastShadeSub.X) >= SHADE_MOTION_THRESHOLD
+                || Mathf.Abs(sub.Y - _lastShadeSub.Y) >= SHADE_MOTION_THRESHOLD
+                || Mathf.Abs(sub.Z - _lastShadeSub.Z) >= SHADE_MOTION_THRESHOLD)
+            {
+                _lastShadeSub = sub;
+                using (Profiler.Sample("MovingLight.Reshade"))
                 {
-                    using (Profiler.Sample("MovingLight.KernelRecompute.Full"))
+                    Reshade(world.WorldState, pos);
+                }
+            }
+        }
+
+        // Flicker: re-scale the deposited footprint on a timer, independent of
+        // motion (so it pulses while standing still). Just an O(footprint)
+        // re-deposit at a new amplitude — no reflood, no reshade.
+        if (Flicker && _currentDeposit.Count > 0)
+        {
+            _flickerTimer -= (float)delta;
+            if (_flickerTimer <= 0f)
+            {
+                _flickerTimer = 1f / Mathf.Max(FlickerHz, 0.01f);
+                using (Profiler.Sample("MovingLight.Flicker"))
+                {
+                    // Far lights hold steady — re-deposit only near the player,
+                    // where flicker is visible. Carried torches sit at distance ~0
+                    // so they always flicker.
+                    float amp = WithinFlickerRange(world) ? (float)GD.RandRange(FlickerMin, FlickerMax) : 1f;
+                    if (amp != _amplitude)
                     {
-                        _kernels = LightEngine.ComputeCornerKernels(
-                            world.WorldState, voxel, Emission, LightColor);
+                        RemoveCurrentDeposit(world.WorldState);
+                        _amplitude = amp;
+                        DepositScaled(world.WorldState);
                     }
                 }
             }
-            _lastVoxel = voxel;
-            _lastSubVoxel = new Vector3(-1, -1, -1);
         }
+    }
 
-        // Skip blends below ~1/16 voxel of motion in every axis — the
-        // resulting weight delta is below the byte-channel quantization of
-        // the LightMap, so the deposit is visually identical. The voxel-
-        // crossing path resets _lastSubVoxel to (-1,-1,-1), so the first
-        // blend after a kernel recompute always passes (every axis diff is
-        // > 1).
-        const float BLEND_MOTION_THRESHOLD = 1f / 16f;
-        if (Mathf.Abs(sub.X - _lastSubVoxel.X) < BLEND_MOTION_THRESHOLD
-            && Mathf.Abs(sub.Y - _lastSubVoxel.Y) < BLEND_MOTION_THRESHOLD
-            && Mathf.Abs(sub.Z - _lastSubVoxel.Z) < BLEND_MOTION_THRESHOLD)
-        {
-            return;
-        }
-        _lastSubVoxel = sub;
-
-        using (Profiler.Sample("MovingLight.BlendDeposit"))
-        {
-            BlendAndDeposit(world.WorldState, sub);
-        }
+    private bool WithinFlickerRange(World world)
+    {
+        Player p = world.player;
+        if (p == null) { return true; }
+        float cull = world.WorldState.SimData.BlockLightFlickerCullDistance;
+        return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 
     public void SetActive(bool active)
@@ -128,15 +173,15 @@ public partial class MovingLight : Node3D
             Mathf.FloorToInt(pos.Y),
             Mathf.FloorToInt(pos.Z));
 
-        _kernels = LightEngine.ComputeCornerKernels(
-            world.WorldState, voxel, Emission, LightColor);
         _lastVoxel = voxel;
         _registered = true;
         Active = true;
-
-        Vector3 sub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
-        _lastSubVoxel = sub;
-        BlendAndDeposit(world.WorldState, sub);
+        _amplitude = 1f;
+        _flickerTimer = 0f;
+        _tuning = LightEngine.ResolveTuning(world.WorldState, Distance, Falloff, Brightness);
+        LightEngine.ComputeFloodField(world.WorldState, voxel, _tuning.FloodRadius, _cells);
+        Reshade(world.WorldState, pos);
+        _lastShadeSub = new Vector3(pos.X - voxel.X, pos.Y - voxel.Y, pos.Z - voxel.Z);
 
         if (LightOnEffectScene != null)
         {
@@ -178,7 +223,6 @@ public partial class MovingLight : Node3D
         {
             RemoveCurrentDeposit(world.WorldState);
         }
-        _kernels = null;
         _currentDeposit.Clear();
         _registered = false;
         Active = false;
@@ -189,68 +233,26 @@ public partial class MovingLight : Node3D
         }
     }
 
-    private void BlendAndDeposit(WorldState worldState, Vector3 sub)
+    // Remove the previous deposit, re-shade the cached flood field from the
+    // light's current (fractional) position, and deposit the result. Cheap
+    // enough to run per frame — no re-flooding, just the falloff evaluation.
+    private void Reshade(WorldState worldState, Vector3 pos)
     {
         RemoveCurrentDeposit(worldState);
+        LightEngine.ShadeFloodField(
+            worldState, _cells, pos, LightColor, _tuning, _currentDeposit, out _, out _);
+        DepositScaled(worldState);
+    }
 
-        float sx = Mathf.Clamp(sub.X, 0f, 0.99999f);
-        float sy = Mathf.Clamp(sub.Y, 0f, 0.99999f);
-        float sz = Mathf.Clamp(sub.Z, 0f, 0.99999f);
-
-        // Compute trilinear weights for 8 corners.
-        Span<float> weights = stackalloc float[8];
-        for (int cx = 0; cx <= 1; cx++)
+    // Deposit the cached footprint scaled by the current flicker amplitude.
+    private void DepositScaled(WorldState worldState)
+    {
+        // Moving-light re-deposit volume per window (reshades + flicker rolls).
+        Profiler.IncrementCounter("light_deposit_voxels", _currentDeposit.Count);
+        for (int i = 0; i < _currentDeposit.Count; i++)
         {
-            float wx = cx == 0 ? (1f - sx) : sx;
-            for (int cy = 0; cy <= 1; cy++)
-            {
-                float wy = cy == 0 ? (1f - sy) : sy;
-                for (int cz = 0; cz <= 1; cz++)
-                {
-                    float wz = cz == 0 ? (1f - sz) : sz;
-                    int c = cx | (cy << 1) | (cz << 2);
-                    weights[c] = _kernels.SeedOpen[c] ? wx * wy * wz : 0f;
-                }
-            }
-        }
-
-        int dim = _kernels.Dim;
-        int dimSq = dim * dim;
-        Vector3I origin = _kernels.Origin;
-        int[] nonZero = _kernels.NonZeroIndices;
-        int nonZeroCount = _kernels.NonZeroCount;
-
-        _currentDeposit.Clear();
-        _currentDeposit.Capacity = nonZeroCount;
-
-        for (int ni = 0; ni < nonZeroCount; ni++)
-        {
-            int idx = nonZero[ni];
-
-            float blendR = 0f, blendG = 0f, blendB = 0f;
-            for (int c = 0; c < 8; c++)
-            {
-                float w = weights[c];
-                if (w <= 0f) { continue; }
-                blendR += w * _kernels.R[c][idx];
-                blendG += w * _kernels.G[c][idx];
-                blendB += w * _kernels.B[c][idx];
-            }
-
-            if (blendR < 0.5f && blendG < 0.5f && blendB < 0.5f) { continue; }
-
-            ushort qr = (ushort)Math.Min(ushort.MaxValue, (int)(blendR + 0.5f));
-            ushort qg = (ushort)Math.Min(ushort.MaxValue, (int)(blendG + 0.5f));
-            ushort qb = (ushort)Math.Min(ushort.MaxValue, (int)(blendB + 0.5f));
-            if (qr == 0 && qg == 0 && qb == 0) { continue; }
-
-            int lz = idx / dimSq;
-            int ly = (idx / dim) % dim;
-            int lx = idx % dim;
-            Vector3I wpos = new Vector3I(origin.X + lx, origin.Y + ly, origin.Z + lz);
-
-            worldState.AddBlockLightWorld(wpos.X, wpos.Y, wpos.Z, qr, qg, qb);
-            _currentDeposit.Add((wpos, qr, qg, qb));
+            var (pos, r, g, b) = _currentDeposit[i];
+            worldState.AddBlockLightWorld(pos.X, pos.Y, pos.Z, ScaleAmp(r), ScaleAmp(g), ScaleAmp(b));
         }
     }
 
@@ -259,7 +261,13 @@ public partial class MovingLight : Node3D
         for (int i = 0; i < _currentDeposit.Count; i++)
         {
             var (pos, r, g, b) = _currentDeposit[i];
-            worldState.SubtractBlockLightWorld(pos.X, pos.Y, pos.Z, r, g, b);
+            worldState.SubtractBlockLightWorld(pos.X, pos.Y, pos.Z, ScaleAmp(r), ScaleAmp(g), ScaleAmp(b));
         }
+    }
+
+    private ushort ScaleAmp(ushort v)
+    {
+        int s = (int)(v * _amplitude + 0.5f);
+        return (ushort)Math.Min(ushort.MaxValue, s);
     }
 }

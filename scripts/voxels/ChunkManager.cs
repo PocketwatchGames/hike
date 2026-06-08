@@ -144,6 +144,7 @@ public partial class ChunkManager : Node3D
     // multi-hundred-ms surge.
     private bool _initialLoadPending = true;
     private Vector3I _lastPlayerChunkCoord;
+    private float _lightFlushTimer;
     private Func<Vector3> _getPlayerPosition;
     private WorldState _worldData;
     private LightMap _lightMap;
@@ -336,12 +337,22 @@ public partial class ChunkManager : Node3D
         }
 
         // Drain any direct WorldState writes (e.g. MovingLight per-frame
-        // deposits) into LightMap, then flush. This is the single per-frame
-        // upload point — all light changes within this frame batch here.
-        using (Profiler.Sample("ChunkManager.LightFlush"))
+        // deposits) into LightMap, then flush. Throttled to light_flush_hz: the
+        // flush does a FULL-texture GPU upload (ImageTexture3D has no partial
+        // update), so a light that dirties a chunk every frame (flicker, a moving
+        // torch) would otherwise force a full re-upload per frame. Dirty chunks
+        // accumulate (deduped) in WorldState between flushes and batch into one
+        // upload here. Geometry/light-add paths still drain immediately; only the
+        // upload is rate-capped.
+        _lightFlushTimer += (float)delta;
+        if (_lightFlushTimer >= 1f / Mathf.Max(1f, CVars.lightFlushHz.Value))
         {
-            DrainLightChunkDirty();
-            _lightMap.Flush(_worldData, _loadedChunks.Keys);
+            _lightFlushTimer = 0f;
+            using (Profiler.Sample("ChunkManager.LightFlush"))
+            {
+                DrainLightChunkDirty();
+                _lightMap.Flush(_worldData, _loadedChunks.Keys);
+            }
         }
 
         using (Profiler.Sample("ChunkManager.SkyExposureFlush"))
@@ -421,6 +432,10 @@ public partial class ChunkManager : Node3D
     private void DrainLightChunkDirty()
     {
         if (_worldData.LightChunkDirty.Count == 0) { return; }
+        // Count distinct chunk light-texture re-uploads queued this frame. A high
+        // sustained number while standing still is the signature of flicker churn
+        // (every flickering light re-deposits → re-dirties its chunks each tick).
+        Profiler.IncrementCounter("light_chunk_uploads", _worldData.LightChunkDirty.Count);
         foreach (Vector3I coord in _worldData.LightChunkDirty)
         {
             _lightMap.MarkChunkDirty(coord);

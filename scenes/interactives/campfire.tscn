@@ -25,7 +25,7 @@
 [ext_resource type="Material" uid="uid://cwfk2p8nxe7lq" path="res://assets/models/campfire/campfire_lit.tres" id="26_lit"]
 [ext_resource type="Material" uid="uid://bq7n0wkx2mhd5" path="res://assets/models/campfire/campfire_doused.tres" id="27_doused"]
 [ext_resource type="Script" uid="uid://5qbiwb50n0qo" path="res://scripts/gameplay/entities/InteractiveXray.cs" id="28_xray"]
-[ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
+[ext_resource type="Script" uid="uid://b2fkvr3ckw30e" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="Resource" id="Resource_torch_event_open"]
 script = ExtResource("6_xn81r")
@@ -90,6 +90,7 @@ _lightOffEffectScene = ExtResource("3_qk6wi")
 _lightLoopEffectScene = ExtResource("4_4nu01")
 
 [node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1484772802]
+collision_layer = 2048
 script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="StaticBody3D" unique_id=1950758310]
@@ -134,6 +135,9 @@ transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 0, 0, 0)
 
 [node name="StationaryLight" type="Node3D" parent="." unique_id=1171222661]
 script = ExtResource("14_3pg55")
+_flicker = true
+_flickerMin = 0.8
+_flickerHz = 8.0
 
 [node name="HUDNode" type="Node3D" parent="." unique_id=2004748611]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
@@ -142,6 +146,6 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4942714, 0)
 script = ExtResource("23_meshhl")
 _collectFrom = NodePath("../Model")
 
-[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots")]
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=1694021549 node_paths=PackedStringArray("_meshRoots")]
 script = ExtResource("28_xray")
 _meshRoots = [NodePath("../Model")]
