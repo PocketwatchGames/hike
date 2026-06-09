@@ -41,6 +41,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     [Export] private PackedScene _burrowLoopFx;
     [Export] private PackedScene _burrowCompleteFx;
     [Export] private PackedScene _burrowEmergeFx;
+    // Dirt-mound prop shown at the surface while the mob is fully burrowed.
+    // Parented to the mob (not the world) so it tracks the mob and is freed
+    // automatically the moment the mob emerges, dies, or despawns.
+    [Export] private PackedScene _burrowMoundScene;
     // Per-anim-state loops. Driven by the loopAnim picked in UpdateAnimation —
     // exactly one (or none) is active at a time, swapped on state change.
     // Authored per-species so each mob can have its own breathing / footstep
@@ -72,8 +76,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // frame-driven and ignores this.
     [Export] private float _movingMinSpeedSq = 0.25f;
     // Per-mob footprint texture projected onto the ground on each footfall.
-    // Shared mob footprint scene (with the Discoverable child) and
-    // per-ground tints live on SimData.
+    // Batched by FootprintScatter into one MultiMesh per texture; the shared
+    // material, per-ground tints, and mob-print discovery gate live on SimData.
     [Export] private Texture2D _footprintTexture;
     // World-space size (meters) of the projected footprint decal — X is the
     // print's width (perpendicular to facing), Y is its length (along facing).
@@ -161,6 +165,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
+    // A mob can only dig into solid ground beneath it — not while swimming
+    // and not mid-fall. Gates both the AI transition into the burrow behavior
+    // (CanBurrowAndOutOfRangeCondition) and the per-frame descent start in
+    // _PhysicsProcess, so a mob fleeing across water or off a ledge keeps
+    // running instead of freezing into a do-nothing burrow pose.
+    public bool CanBurrowNow => !_swimming && !IsInWater()
+        && LinearVelocity.Y > -mobData.fallEnterSpeed;
     // Shared "is this a valid target for `weapon` right now" predicate used by
     // both the aiming reticle's mob-lock styling and the ranged auto-aim, so
     // the visual telegraph and the assist always agree. Hidden / Detected
@@ -283,6 +294,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     Fx _waterMovementLoop;
     Fx _foliageMovementLoop;
     Fx _burrowLoop;
+    // Live dirt-mound instance while burrowed (null otherwise).
+    Node3D _burrowMound;
     // Single active anim-loop reference + the scene it was created from. We
     // swap wholesale on transitions instead of cross-fading — simple, and
     // the listener barely registers the gap in practice.
@@ -1636,6 +1649,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         base._Process(delta);
         using var _profProcess = Profiler.Sample("Mob.Process");
+        // While vanishing, the fairy orb's own fade owns its visuals; freeze
+        // the discovery/HUD visibility updates so they don't fight it.
+        if (_vanishing)
+        {
+            return;
+        }
         if (_mesh == null)
         {
             return;
@@ -1646,6 +1665,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (CVars.revealMobs.Value)
         {
             discovered = true;
+        }
+        // A fully burrowed mob is underground — it should vanish, not linger as
+        // a black memory silhouette. Force the fade-out (the descent while
+        // `burrowing` stays visible so the dig-in still reads). The dirt mound
+        // marks the spot in its place.
+        if (burrowed)
+        {
+            discovered = false;
         }
         // Three-state visibility, driven off discovery:
         //   fully visible  → dithered to full, no silhouette
@@ -1764,6 +1791,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         base._PhysicsProcess(delta);
         using var _profPhys = Profiler.Sample("Mob.PhysicsProcess");
+
+        // Escape vanish (fairy getaway): a scripted rise + fade + permanent
+        // despawn. Runs ahead of all normal physics/AI and short-circuits the
+        // rest of the tick while active.
+        if (TickVanish((float)delta))
+        {
+            return;
+        }
 
         // mob_physics is a profiling bisection toggle — when off, freeze the
         // body and zero its layer/mask so Jolt's broadphase and contact
@@ -2125,7 +2160,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // a Burrowing descent and arm burrowTime. Once the timer elapses
             // we flip to fully Burrowed. As soon as the behavior stops
             // requesting burrow we clear both flags and the mesh pops back up.
-            if (aiOutput.burrow)
+            // CanBurrowNow gates only the start edge (swimming / falling) — an
+            // already in-progress burrow is pinned underground, so it can't be
+            // in either state and stays uninterrupted.
+            if (aiOutput.burrow && (burrowing || burrowed || CanBurrowNow))
             {
                 if (!burrowing && !burrowed)
                 {
@@ -2164,6 +2202,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 SpawnWorldEffect(_burrowEmergeFx);
             }
+            // Surface marker for a fully burrowed mob (the body itself fades
+            // out of view while burrowed). Idempotent + self-healing: spawns
+            // when burrowed, frees on emerge — and naturally restores the mound
+            // for a mob loaded from save mid-burrow.
+            UpdateBurrowMound(burrowed);
             _prevBurrowing = burrowing;
             _prevBurrowed = burrowed;
 
@@ -2382,10 +2425,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private void Yell(Vector3 targetPos)
     {
         SpawnVoice(_voice?.yell);
-        _simState.PlayerPerception = 1;
-        _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
-        _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
-        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
+        Discover();
         using (Profiler.Sample("Mob.YellBroadcast"))
         {
             // Only the mobs in nearby cells, not every mob in the world.
@@ -2893,6 +2933,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // already has Freeze=false; the new auto-freeze branch above
         // re-pins it once it settles.
         PlayOneShot(EAnimation.Die);
+
+        // Corpse-less species (the fairy orb): loot has been ejected and the
+        // death fx fired above; now fade the body out in place and remove it
+        // for good rather than leaving a resting corpse. Zero ascent so it
+        // winks out where it died instead of rising like the escape vanish.
+        if (mobData != null && mobData.despawnOnDeath)
+        {
+            BeginVanish(0f, mobData.deathDespawnSeconds);
+        }
     }
 
     // Mirrors Chest.Complete's loot ejection: each ItemCount entry on MobData
@@ -3041,6 +3090,70 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         base._ExitTree();
     }
 
+    // Dug up by the player's shovel (World.TryDig). Latches full awareness of
+    // the digger onto the primary perception slot — same edge the hit handler
+    // writes. For a burrowed mob this makes its Burrow behavior fail its
+    // out-of-range gate and transition to attack/chase, which drops
+    // aiOutput.burrow and lets the per-frame burrow block surface the mob and
+    // fire the emerge fx (single, behavior-driven — clearing the flags here
+    // would just be re-asserted by BehaviorBurrow next tick). For a mob freshly
+    // spawned by a buried spot it simply makes it engage immediately. Relies on
+    // every burrowing brain having an in-range exit from its Burrow node, which
+    // it must (or the mob could never surface on its own).
+    public void DigUp(Player digger)
+    {
+        if (!alive || digger == null)
+        {
+            return;
+        }
+        // Surface immediately — clear the burrow so the mesh pops above ground
+        // and the body unfreezes, rather than waiting for the behavior tree to
+        // transition out (which left a dug mob invisible underground). _prev*
+        // are cleared so the per-frame burrow block doesn't re-fire the emerge.
+        if (burrowing || burrowed)
+        {
+            burrowing = false;
+            burrowed = false;
+            SetBurrowed(false);
+            SpawnWorldEffect(_burrowEmergeFx);
+            _prevBurrowing = false;
+            _prevBurrowed = false;
+        }
+        // A burrowed mob was perception-suppressed (Hidden), so it would dither
+        // out even after surfacing — force discovery so the player sees what
+        // they dug up right away.
+        Discover();
+        // Latch full awareness of the digger so the mob engages the moment the
+        // stun wears off — same edge the hit handler writes.
+        ref PerceptionState slot = ref _simState.PerceptionTargets[0];
+        slot.target = digger;
+        slot.perception = 1f;
+        slot.aggro = 1f;
+        slot.triggered = true;
+        slot.lastKnownPosition = digger.GlobalPosition;
+        // Brief per-species stun on emergence (dizzy) so the player gets a beat
+        // before the mob attacks. incapacitates=true zeroes the AI output, which
+        // also keeps BehaviorBurrow from re-asserting the burrow while stunned.
+        // Null (e.g. an authored boss) = no stun.
+        StatusEffectData stun = _simState.MobData?.dugUpStun;
+        if (stun != null)
+        {
+            AddStatusEffect(stun);
+        }
+    }
+
+    // Make the player instantly aware of this mob: set the discovery state,
+    // record it on the world knowledge sim, and refresh memory so the mesh
+    // renders solid instead of dithering out. Shared by the damage/yell path
+    // and DigUp. Idempotent.
+    public void Discover()
+    {
+        _simState.PlayerPerception = 1;
+        _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
+        _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
+        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
+    }
+
     // Called on the burrow edges (false→burrowing in the transition block,
     // burrowing/burrowed→false in the same block) and from Initialize so a
     // mob loaded in a saved burrow state ends up with the right rigid-body
@@ -3135,6 +3248,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             instance.Stop();
             instance = null;
+        }
+    }
+
+    // Spawn / free the burrow dirt mound parented to the mob at its feet
+    // (origin sits at ground contact). Tying it to the mob means it tracks the
+    // pinned body and is freed automatically when the mob emerges, dies, or its
+    // chunk unloads — no separate world entity to clean up.
+    private void UpdateBurrowMound(bool active)
+    {
+        if (active)
+        {
+            if (_burrowMound == null && _burrowMoundScene != null)
+            {
+                _burrowMound = _burrowMoundScene.Instantiate<Node3D>();
+                AddChild(_burrowMound);
+            }
+        }
+        else if (_burrowMound != null)
+        {
+            _burrowMound.QueueFree();
+            _burrowMound = null;
         }
     }
 

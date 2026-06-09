@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://cwk3rn8qv2tba"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_handle"]
+albedo_color = Color(0.45, 0.3, 0.18, 1)
+roughness = 0.9
+
+[sub_resource type="CylinderMesh" id="Mesh_handle"]
+material = SubResource("Mat_handle")
+top_radius = 0.025
+bottom_radius = 0.025
+height = 0.7
+
+[sub_resource type="StandardMaterial3D" id="Mat_blade"]
+albedo_color = Color(0.55, 0.57, 0.6, 1)
+metallic = 0.6
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="Mesh_blade"]
+material = SubResource("Mat_blade")
+size = Vector3(0.18, 0.22, 0.03)
+
+[node name="ShovelHeld" type="Node3D"]
+
+[node name="Handle" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+mesh = SubResource("Mesh_handle")
+
+[node name="Blade" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.08, 0)
+mesh = SubResource("Mesh_blade")

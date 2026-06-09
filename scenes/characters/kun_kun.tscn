@@ -20,6 +20,7 @@
 [ext_resource type="PackedScene" uid="uid://ct58bqdly088k" path="res://scenes/effects/kunkun_burrow_loop.tscn" id="21_brwloop"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="22_brwcmp"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="23_brwemg"]
+[ext_resource type="PackedScene" uid="uid://cmd7r8wq3n2va" path="res://scenes/props/dirt_mound.tscn" id="24_dirtmound"]
 [ext_resource type="PackedScene" uid="uid://dtkn4fy5ctyvr" path="res://assets/models/characters/bunny_rat/bunny_rat.fbx" id="28_bunnyfbx"]
 [ext_resource type="AnimationLibrary" path="res://assets/models/characters/bunny_rat/bunny_rat_anims.res" id="29_bunnyanims"]
 [ext_resource type="Material" path="res://resources/materials/bunny_rat_lit.tres" id="30_bunnymat"]
@@ -52,6 +53,7 @@ _foliageMovementLoopFx = ExtResource("16_grassloop")
 _burrowLoopFx = ExtResource("21_brwloop")
 _burrowCompleteFx = ExtResource("22_brwcmp")
 _burrowEmergeFx = ExtResource("23_brwemg")
+_burrowMoundScene = ExtResource("24_dirtmound")
 _idleLoopFx = ExtResource("18_idle")
 _runLoopFx = ExtResource("19_run")
 _swimIdleLoopFx = ExtResource("20_swimidle")

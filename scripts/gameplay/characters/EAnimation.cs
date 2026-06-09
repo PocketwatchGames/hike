@@ -59,4 +59,8 @@ public enum EAnimation
     // One-shot guard reaction, fired by PlayOneShot from the hit handler when a
     // blocked hit is soaked by a charging weapon's block-armor pool.
     Block = 35,
+    // Shovel dig one-shot (consumable "Use" timeline). Clip: polysplit/anims/
+    // digging.fbx, mapped per anim-set in unarmed.tres and baked into
+    // human_anims.res by the PlayerAnimManifest rebuild.
+    Digging = 36,
 }

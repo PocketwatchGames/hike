@@ -166,9 +166,9 @@ public static class StatList
 		float scale = Mathf.Max(1f, action.chargedRangeScale);
 		if ((damageEvent.type & EItemEventType.Melee) != 0)
 		{
-			if (damageEvent.meleeRange > 0f)
+			if (damageEvent.range > 0f)
 			{
-				yield return (names[EStatName.Reach], StatFormat.Meters(damageEvent.meleeRange));
+				yield return (names[EStatName.Reach], StatFormat.Meters(damageEvent.range));
 			}
 		}
 		else if ((damageEvent.type & EItemEventType.Hitscan) != 0)

@@ -19,7 +19,9 @@
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
 type = 65
-meleeRadius = 1.5
+range = 2.5
+nearWidth = 0.6
+farWidth = 3.0
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -39,8 +41,9 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
 type = 65601
-meleeRange = 1.2
-meleeRadius = 1.5
+range = 2.7
+nearWidth = 0.6
+farWidth = 3.0
 animName = 20
 cameraShakeMagnitude = 0.18
 impactEnvironmentEffect = ExtResource("7_hitsolid")

@@ -1,0 +1,67 @@
+[gd_scene format=3 uid="uid://bfryscene7k07"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://bfryvis7k2a01" path="res://scripts/gameplay/effects/FairyVisuals.cs" id="2_fairyvis"]
+[ext_resource type="Material" uid="uid://4vyuqfq66tgj" path="res://resources/materials/fairy_orb.tres" id="3_orbmat"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="4_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="5_mobhud"]
+[ext_resource type="PackedScene" uid="uid://bfrydeath7k30" path="res://scenes/effects/fairy_death.tscn" id="6_deathfx"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_orb"]
+radius = 0.15
+height = 0.3
+radial_segments = 16
+rings = 8
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_body"]
+radius = 0.3
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_hurt"]
+
+[node name="Mob" type="RigidBody3D" unique_id=1847679287 node_paths=PackedStringArray("_collisionShape", "_mesh", "_hurtBox", "HudAnchor", "_vanishFade")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_mesh = NodePath("MeshContainer")
+_hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("HudAnchor")
+HudScene = ExtResource("5_mobhud")
+_deathFx = ExtResource("6_deathfx")
+_vanishFade = NodePath("FairyOrb")
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="FairyOrb" type="Node3D" parent="." unique_id=1047339726 node_paths=PackedStringArray("_orb", "_light")]
+script = ExtResource("2_fairyvis")
+_orb = NodePath("Orb")
+_light = NodePath("OrbLight")
+metadata/_custom_type_script = "uid://bfryvis7k2a01"
+
+[node name="Orb" type="MeshInstance3D" parent="FairyOrb" unique_id=456785502]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+material_override = ExtResource("3_orbmat")
+mesh = SubResource("SphereMesh_orb")
+
+[node name="OrbLight" type="OmniLight3D" parent="FairyOrb" unique_id=778717467]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+light_color = Color(0.68, 0.45, 1, 1)
+light_energy = 1.5
+omni_range = 6.0
+
+[node name="MeshContainer" type="Node3D" parent="." unique_id=897532595]
+
+[node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1338980486]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("SphereShape3D_body")
+
+[node name="HurtBox" type="Area3D" parent="." unique_id=2058549446]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("4_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox" unique_id=1181424051]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("SphereShape3D_hurt")
+
+[node name="HudAnchor" type="Node3D" parent="." unique_id=1328596344]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)

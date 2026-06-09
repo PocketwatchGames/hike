@@ -25,6 +25,7 @@ public static class EntitySerializer
         Well = 13,
         ClimbableTree = 14,
         Boat = 15,
+        BuriedSpot = 16,
     }
 
     // Legacy PropType byte values for loot. PropSimState used to cover loot
@@ -270,6 +271,14 @@ public static class EntitySerializer
                 w.Write((byte)Tag.ClimbableTree);
                 WriteVec3(w, climbTree.WorldPosition);
                 WriteScene(w, climbTree.Scene);
+                break;
+
+            case BuriedSpotSimState buried:
+                w.Write((byte)Tag.BuriedSpot);
+                WriteVec3(w, buried.WorldPosition);
+                WriteScene(w, buried.Scene);
+                WriteResource(w, buried.Data);
+                w.Write(buried.Excavated);
                 break;
 
             default:
@@ -538,6 +547,16 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 return new ClimbableTreeSimState(pos, scene);
+            }
+            case Tag.BuriedSpot:
+            {
+                Vector3 pos = ReadVec3(r);
+                PackedScene scene = ReadScene(r);
+                var data = ReadResource<BuriedSpotData>(r);
+                bool excavated = r.ReadBoolean();
+                var buried = new BuriedSpotSimState(pos, scene, data);
+                buried.Excavated = excavated;
+                return buried;
             }
             default:
                 throw new InvalidOperationException($"Unknown entity tag {(byte)tag}");

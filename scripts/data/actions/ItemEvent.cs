@@ -38,9 +38,28 @@ public partial class ItemEvent : Resource
 		}
 	}
 
-	// Melee fields
-	[Export] public float meleeRange = 1f;
-	[Export] public float meleeRadius = 2f;
+	// Melee fields — the damage volume is the convex hull of two vertical
+	// "cylinder" disks seen from above: a near disk of diameter `nearWidth`
+	// centered `nearWidth/2` in front of the actor, and a far disk of diameter
+	// `farWidth` centered `range - farWidth/2` in front. The two disks are
+	// joined by their external tangents (no acute corner where the side meets a
+	// disk), so the whole swept fan between them is part of the damage zone.
+	// `range` is the forward reach (the far edge) and is what the reticle /
+	// StatList report as Reach. See ItemEventHandlers.DoMelee.
+	[Export] public float range = 2f;
+	[Export] public float nearWidth = 0.5f;
+	[Export] public float farWidth = 2f;
+	// Full vertical height of the damage cylinders (flat top and bottom),
+	// centered on the actor's chest height. Both disks share it, so the volume
+	// is a flat-capped prism rather than a rounded capsule.
+	[Export] public float meleeHeight = 3f;
+	// Optional swing-smear visual. Spawned by DoMelee and sized to the live
+	// attack shape (range / nearWidth / farWidth) via WeaponSmear.Initialize,
+	// so any status effect that grows or shrinks the attack carries through to
+	// the smear for free. The scene root must be a WeaponSmear. `smearClockwise`
+	// picks the sweep direction (flip it between combo steps for variety).
+	[Export] public PackedScene smearEffect;
+	[Export] public bool smearClockwise = true;
 
 	// Hitscan fields
 	[Export] public float hitScanRange = 20f;
@@ -121,6 +140,13 @@ public partial class ItemEvent : Resource
 	[Export] public float cameraShakeDuration = 0.15f;
 	[Export] public float cameraShakeRange = 0f;
 
+	// ScreenFlash fields. Color + peak intensity of a one-shot full-screen
+	// flash; fadeSeconds <= 0 uses the ScreenEffectsController default. See
+	// EItemEventType.ScreenFlash.
+	[Export] public Color screenFlashColor = new Color(1f, 1f, 1f, 1f);
+	[Export(PropertyHint.Range, "0,1,0.01")] public float screenFlashIntensity = 0.5f;
+	[Export] public float screenFlashFadeSeconds = 0.3f;
+
 	// Per-event impact one-shots spawned by the Melee/Hitscan handlers based
 	// on what the swing/ray hit. Authored on the event so a single weapon can
 	// give light vs heavy attacks distinct impact signatures, and so mob
@@ -159,6 +185,20 @@ public partial class ItemEvent : Resource
 	// stack independently — a fire+poison cloud authors one fast burn
 	// entry and one slow status-stacking entry.
 	[Export] public Array<AreaIntervalSpec> areaIntervals = new();
+
+	// Dig fields. The dig is centered on the player's positional aim cursor
+	// when one is active, else a point `digReach` meters in front of the
+	// actor. `digRadius` is how close a buried spot / burrowed mob must be to
+	// the dig center to be uncovered. Authored on the shovel's Use timeline.
+	[Export] public float digRadius = 1.5f;
+	[Export] public float digReach = 1.5f;
+	// Dig completion effects, picked by the dig's result class (see
+	// World.TryDig / EDigResult). One-shot Fx spawned at the dig point: a sad
+	// puff when the hole comes up empty, a modest burst for a common find
+	// (carrot / loot), a celebratory one for treasure. Any may be null.
+	[Export] public PackedScene digNothingEffect;
+	[Export] public PackedScene digCommonEffect;
+	[Export] public PackedScene digTreasureEffect;
 
 	// Projectile fields. Spawned by DoProjectile at the actor's position,
 	// flying along the actor's forward (with the tier's accuracy spread
@@ -257,7 +297,8 @@ public partial class ItemEvent : Resource
 	{
 		return fieldName switch
 		{
-			nameof(meleeRange) or nameof(meleeRadius) => EItemEventType.Melee,
+			nameof(range) or nameof(nearWidth) or nameof(farWidth) or nameof(meleeHeight)
+				or nameof(smearEffect) or nameof(smearClockwise) => EItemEventType.Melee,
 			nameof(hitScanRange) => EItemEventType.Hitscan,
 			nameof(effects) => EItemEventType.ApplyStatusEffect | EItemEventType.ApplyAreaStatusEffect,
 			nameof(animName) => EItemEventType.PlayAnim,
@@ -288,6 +329,13 @@ public partial class ItemEvent : Resource
 			nameof(cameraShakeMagnitude)
 				or nameof(cameraShakeDuration)
 				or nameof(cameraShakeRange) => EItemEventType.CameraShake,
+			nameof(screenFlashColor)
+				or nameof(screenFlashIntensity)
+				or nameof(screenFlashFadeSeconds) => EItemEventType.ScreenFlash,
+			nameof(digRadius) or nameof(digReach)
+				or nameof(digNothingEffect)
+				or nameof(digCommonEffect)
+				or nameof(digTreasureEffect) => EItemEventType.Dig,
 			_ => 0,
 		};
 	}

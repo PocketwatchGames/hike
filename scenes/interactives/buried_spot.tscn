@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://b8rq2dnk7vxce"]
+
+[ext_resource type="Script" uid="uid://cdf8q1q68bseo" path="res://scripts/gameplay/entities/BuriedSpot.cs" id="1_spot"]
+
+[node name="BuriedSpot" type="Node3D" node_paths=PackedStringArray("_modelAnchor")]
+script = ExtResource("1_spot")
+_modelAnchor = NodePath("Model")
+
+[node name="Model" type="Node3D" parent="."]

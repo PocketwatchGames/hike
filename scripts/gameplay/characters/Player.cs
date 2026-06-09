@@ -161,6 +161,10 @@ public partial class Player : CharacterBody3D
 	// _waterState (an Area-trigger flag), not the EGroundType resolver — a
 	// thin film of water over grass should still trigger water audio.
 	[Export] private PackedScene _shallowWaterFootstepFx;
+	// Dirt puff spawned at the player's feet on each shovel scoop, fired from a
+	// Call Method Track on the dig clip (ModelAnimator.OnDigDirt). Authored in
+	// the player .tscn; null = no synced puff.
+	[Export] private PackedScene _digDirtFx;
 	// Minimum horizontal speed² to count as "moving" for loop-FX gating
 	// (water swim loop, tall-grass rustle). Footstep cadence itself is
 	// frame-driven and ignores this.
@@ -962,6 +966,8 @@ public partial class Player : CharacterBody3D
 		// Footfalls fire from a Call Method Track authored on the model's
 		// movement clips (OnFootstep) at the exact foot-contact frame.
 		_animator.OnFootstep += EmitFootstep;
+		// Dirt puffs synced to the shovel's scoop frames on the dig clip.
+		_animator.OnDigDirt += EmitDigDirt;
 		// Validate the base set's clip strings against the live library now
 		// that the animator (and its library) exist. Weapon sets validate
 		// lazily the first time they're wielded.
@@ -996,6 +1002,18 @@ public partial class Player : CharacterBody3D
 			float fpDurMul = _statusEffects?.FoldStat(EStat.FootprintDuration, 1f) ?? 1f;
 			FootprintEmitter.Emit(_world, pos, GlobalRotation.Y, ground, _footprintTexture, _footprintSize, fpAlphaMul, fpDurMul, gated: false);
 		}
+	}
+
+	// Spawn one dirt puff at the player's feet, fired from the dig clip's scoop
+	// method track so the burst lands on each shovel stroke. Parented to the
+	// world so the puff stays put rather than tracking the player.
+	private void EmitDigDirt()
+	{
+		if (_world == null || _digDirtFx == null)
+		{
+			return;
+		}
+		FootstepEmitter.Emit(_world, GlobalPosition, _digDirtFx);
 	}
 
 	// Pure prediction — no state mutation. See Mob.GetHitType for the

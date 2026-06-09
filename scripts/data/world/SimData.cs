@@ -821,17 +821,32 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float SpawnCleanupIntervalSeconds = 2f;
 
     [ExportGroup("Footprints")]
-    // Two shared scenes — one always-visible (player prints, and mob prints
-    // laid while the player was already aware of the mob), one with an
-    // internal Discoverable child that gates visibility on the player
-    // perceiving the decal itself. Authoring this here rather than
-    // per-actor: the visible/discoverable choice is a binary that doesn't
-    // vary per-character, and the textures are what differ between actors
-    // (carried per-actor via Player/Mob's _footprintTexture).
-    // World.SpawnFootprint picks the scene from this pair using the
-    // actor-supplied `gated` flag.
-    [Export] public PackedScene FootprintVisible;
-    [Export] public PackedScene FootprintDiscoverable;
+    // Template material for the batched footprint MultiMesh. FootprintScatter
+    // duplicates it once per actor footprint texture (binding that texture's
+    // albedo) and drives the per-print tint + animated alpha through
+    // INSTANCE_COLOR — so the template must be unshaded, alpha-blended, and
+    // have vertex_color_use_as_albedo enabled. See footprint_multimesh.tres.
+    [Export] public Material FootprintMaterial;
+
+    // ===== Mob-print discovery gate =====
+    // Prints a mob lays while the player hasn't yet noticed it stay invisible
+    // until the player perceives the print itself (then they fade in). Player
+    // prints — and mob prints laid while the mob was already perceived — skip
+    // this and show immediately. These mirror the tunings that used to live on
+    // the Discoverable child of the old footprint_discoverable scene.
+
+    // Free scalar on the player's vision range for noticing a print. < 1 makes
+    // prints subtler than a live target (a faint mark in the grass).
+    [Export] public float FootprintDiscoveryProminence = 0.3f;
+    // Perception value at which a print flips to visible. ~1 (perception must
+    // saturate); lower pops prints in sooner.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float FootprintDiscoveryThreshold = 1f;
+    // Height above the print to sample world light at when gauging whether the
+    // player could notice it (just above the floor voxel).
+    [Export] public float FootprintDiscoveryLightSampleHeight = 0.05f;
+    // Seconds for the noticed-fade-in to traverse 0..1 once a print is
+    // discovered.
+    [Export(PropertyHint.Range, "0.05,2,0.01")] public float FootprintDiscoveryFadeSeconds = 0.4f;
     // Per-ground-type tint applied to every footprint laid down on that
     // surface. The Color's RGB tints the actor's footprint texture (sand
     // → warm tan, mud → dark brown, snow → white); the Color's ALPHA is
@@ -842,11 +857,11 @@ public partial class SimData : Resource
     // alpha and duration via the StatusEffectData footprint multipliers.
     [Export] public Godot.Collections.Dictionary<EGroundType, Color> FootprintColors = new()
     {
-        { EGroundType.Grass, new Color(0.18f, 0.14f, 0.08f, 0.45f) },
-        { EGroundType.Sand,  new Color(0.22f, 0.18f, 0.12f, 0.75f) },
-        { EGroundType.Mud,   new Color(0.10f, 0.07f, 0.04f, 0.85f) },
-        { EGroundType.Dirt,  new Color(0.18f, 0.14f, 0.08f, 0.55f) },
-        { EGroundType.Stone, new Color(0.15f, 0.15f, 0.15f, 0.18f) },
+        { EGroundType.Grass, new Color(0.18f, 0.14f, 0.08f, 0.90f) },
+        { EGroundType.Sand,  new Color(0.22f, 0.18f, 0.12f, 1.0f) },
+        { EGroundType.Mud,   new Color(0.10f, 0.07f, 0.04f, 1.0f) },
+        { EGroundType.Dirt,  new Color(0.18f, 0.14f, 0.08f, 1.0f) },
+        { EGroundType.Stone, new Color(0.15f, 0.15f, 0.15f, 0.36f) },
     };
     // Global fade lifetime — seconds for a fresh print to dim from its
     // baseline alpha to zero (then despawn). One global value rather than

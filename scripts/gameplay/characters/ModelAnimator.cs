@@ -91,6 +91,9 @@ public partial class ModelAnimator : Node
     // invokes on the exact foot-contact frame. Player / Mob subscribe and run
     // their normal ground-resolution + footprint emission off it.
     public event Action OnFootstep;
+    // Raised by EmitDigDirt(), invoked by a Call Method Track on the dig clip's
+    // scoop frames so a dirt puff syncs to each shovel stroke. Player subscribes.
+    public event Action OnDigDirt;
 
     private bool _active;
     // Accumulated real time waiting to be spent in discrete quantized steps.
@@ -383,6 +386,15 @@ public partial class ModelAnimator : Node
     public void EmitFootstep()
     {
         OnFootstep?.Invoke();
+    }
+
+    // Call Method Track target authored on the dig clip's scoop frames (see
+    // PlayerAnimManifest's "digging" row). Raises OnDigDirt so the subscribed
+    // Player spawns a dirt puff exactly as the blade bites in. Public so Godot's
+    // animation system can invoke it by name; no-op unless something listens.
+    public void EmitDigDirt()
+    {
+        OnDigDirt?.Invoke();
     }
 
     // Snap the visual's yaw to one of `facingDirections` headings measured

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 
@@ -103,34 +104,119 @@ public partial class World
         return pickup;
     }
 
-    // Spawn a transient footprint decal at `position`. Parented directly to
-    // World (not registered in _activeEntities) because footprints have no
-    // persistent sim state and self-despawn via QueueFree once their fade
-    // hits zero. The two shared scenes (player / mob) live on SimData;
-    // `gated` picks the perception-gated variant for mob-laid prints.
-    // `yaw` rotates the decal box around Y so the texture aligns with the
-    // direction the actor is facing — toe of the print points where they
-    // were walking.
-    public Footprint SpawnFootprint(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
+    // Dig at `position`: uncover the nearest un-excavated buried spot within
+    // `radius`, or — failing that — force the nearest burrowed/burrowing mob in
+    // range to surface and notice `digger`. Returns the dig's result class so
+    // the caller can play the matching completion effect. Iterates only LOADED
+    // entities (the chunk under the player is resident), staying compatible
+    // with the streaming-world rule of never scanning the whole world.
+    public EDigResult TryDig(Vector3 position, float radius, Player digger)
     {
-        SimData sim = SimData;
-        if (sim == null || texture == null)
+        float r2 = radius * radius;
+
+        BuriedSpot bestSpot = null;
+        float bestSpotDist = r2;
+        foreach (BuriedSpot spot in GetEntities<BuriedSpot>())
         {
-            return null;
+            if (spot.Excavated)
+            {
+                continue;
+            }
+            float d = spot.GlobalPosition.DistanceSquaredTo(position);
+            if (d <= bestSpotDist)
+            {
+                bestSpotDist = d;
+                bestSpot = spot;
+            }
         }
-        PackedScene scene = gated ? sim.FootprintDiscoverable : sim.FootprintVisible;
-        if (scene == null)
+        if (bestSpot != null && bestSpot.Dig(digger))
         {
-            return null;
+            return bestSpot.ResultClass;
         }
-        Footprint fp = scene.Instantiate<Footprint>();
-        // Set transform before AddChild so the Discoverable's _Ready light
-        // sample (perception tick) reads the correct world-space coordinate
-        // on the first tick rather than seeing origin.
-        fp.Position = position;
-        fp.Rotation = new Vector3(0f, yaw, 0f);
-        AddChild(fp);
-        fp.Initialize(this, texture, size, tint, durationSeconds);
-        return fp;
+
+        Mob bestMob = null;
+        float bestMobDist = r2;
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            if (!mob.burrowed && !mob.burrowing)
+            {
+                continue;
+            }
+            float d = mob.GlobalPosition.DistanceSquaredTo(position);
+            if (d <= bestMobDist)
+            {
+                bestMobDist = d;
+                bestMob = mob;
+            }
+        }
+        if (bestMob != null)
+        {
+            bestMob.DigUp(digger);
+            // A creature clawing out of the ground is a "common" surprise for
+            // the shovel's feedback (distinct effect from finding loot/treasure
+            // would need a fourth class — not worth it).
+            return EDigResult.Common;
+        }
+
+        return EDigResult.Nothing;
+    }
+
+    // Roll a single SpawnEntryData payload at `position` and materialize its
+    // entity (or entities) into the live scene right now, rather than waiting
+    // for a chunk reload as the worldgen drain path does. Used by BuriedSpot
+    // when the player digs up its payload (chest / loot / mob). If a dug-up
+    // entity is a mob, it is emerged + alerted toward `digger`.
+    //
+    // Materialization diffs the new tail of the spot-chunk's entity list, so
+    // single-entity payloads (the buried-item cases) appear immediately; a
+    // payload that scatters into neighbouring chunks would only fill those on
+    // the normal streaming pass, which buried items never do.
+    public void SpawnEntryImmediate(SpawnEntryData entry, Vector3 position, Player digger)
+    {
+        if (entry == null)
+        {
+            return;
+        }
+        Vector3I coord = WorldToChunkCoord(position);
+        int before = _worldState.GetEntities(coord)?.Count ?? 0;
+
+        // entry.Spawn appends the new EntitySimState(s) via WorldState.AddEntity.
+        entry.Spawn(_worldState, position, new Random(), null);
+
+        List<EntitySimState> states = _worldState.GetEntities(coord);
+        if (states == null)
+        {
+            return;
+        }
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            entities = new List<Node3D>();
+            _activeEntities[coord] = entities;
+        }
+        for (int i = before; i < states.Count; i++)
+        {
+            EntitySimState state = states[i];
+            Node3D node = state.CreateEntity(this);
+            if (node == null)
+            {
+                continue;
+            }
+            RegisterEntity(node, entities, state);
+            if (node is Mob mob && digger != null)
+            {
+                mob.DigUp(digger);
+            }
+        }
+    }
+
+    // Lay down a transient footprint mark at `position`. Delegated to
+    // FootprintScatter, which batches every print of the same actor texture
+    // into one MultiMesh (no per-print Node) and owns the lifetime fade plus
+    // the mob-print discovery gate. `gated` requests the perception-gated
+    // behavior for mob-laid prints; `yaw` aligns the print with the actor's
+    // facing so the toe points where they were walking.
+    public void SpawnFootprint(Texture2D texture, Vector2 size, Color tint, Vector3 position, float yaw, float durationSeconds, bool gated)
+    {
+        _footprintScatter?.Spawn(texture, size, tint, position, yaw, durationSeconds, gated);
     }
 }

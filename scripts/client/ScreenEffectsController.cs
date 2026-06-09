@@ -11,6 +11,17 @@ public partial class ScreenEffectsController : Node
 {
 	[Export] public ShaderMaterial postProcessMaterial;
 
+	// Global access for any effect that wants to punch a screen flash —
+	// ItemEvent.ScreenFlash, the ScreenFlashEmitter node dropped into an Fx
+	// scene, weather lightning, etc. Mirrors GameCamera.Current.
+	public static ScreenEffectsController Current { get; private set; }
+
+	[ExportGroup("Screen Flash")]
+	// Default fade time (peak → 0) for a triggered flash when the caller doesn't
+	// pass its own. The channel is colorless here — callers pick the color, so
+	// one flash serves lightning, pickups, the fairy's death, and so on.
+	[Export(PropertyHint.Range, "0.05,2,0.05")] public float screenFlashFadeSeconds = 0.3f;
+
 	[ExportGroup("Damage Feedback")]
 	// Red-flash intensity = (damage / maxHealth) * scale, clamped to 1.
 	// A scale of 2 means a 50% chunk drives the flash to its max; tune up
@@ -84,6 +95,12 @@ public partial class ScreenEffectsController : Node
 	// flash fades over damageFlashFadeSeconds.
 	float _damageFlash;
 
+	// Generic screen-flash state. Intensity ramps to a peak on Flash() and
+	// decays linearly each frame over _screenFlashFadeActive seconds toward 0.
+	float _screenFlash;
+	Color _screenFlashColor = Colors.White;
+	float _screenFlashFadeActive = 0.3f;
+
 	// Heartbeat pulse state. `_heartbeatPhase` is the position in the current
 	// lub-dub cycle in [0, 1); a cycle boundary retriggers the SFX. While the
 	// player is alive the rate tracks the low-health ramp; on death we latch
@@ -107,6 +124,34 @@ public partial class ScreenEffectsController : Node
 	// the buffer (max-of) so a follow-up hit during a fade doesn't shrink
 	// the flash. Called from Player.OnHurtBoxHit (direct) and from
 	// _PhysicsProcess after each DOT HUD flush, via GameClient.FlashDamage.
+	public override void _EnterTree()
+	{
+		Current = this;
+	}
+
+	public override void _ExitTree()
+	{
+		if (Current == this)
+		{
+			Current = null;
+		}
+	}
+
+	// Trigger a one-shot full-screen flash toward `color`. `intensity` (0..1) is
+	// the peak; `fadeSeconds` <= 0 falls back to screenFlashFadeSeconds. Stacks
+	// max-of with any in-progress flash so a follow-up doesn't dim an active one.
+	public void Flash(Color color, float intensity = 1f, float fadeSeconds = -1f)
+	{
+		intensity = Mathf.Clamp(intensity, 0f, 1f);
+		if (intensity <= 0f) { return; }
+		_screenFlashColor = color;
+		_screenFlashFadeActive = fadeSeconds > 0f ? fadeSeconds : screenFlashFadeSeconds;
+		if (intensity > _screenFlash)
+		{
+			_screenFlash = intensity;
+		}
+	}
+
 	public void FlashDamage(float amount)
 	{
 		Player player = GameClient.Current?.Player;
@@ -189,6 +234,15 @@ public partial class ScreenEffectsController : Node
 		// SetShaderParameter accepts a null Texture2D — the shader's
 		// hint_default_white kicks in and the flash paints uniformly red.
 		postProcessMaterial.SetShaderParameter("damage_flash_tex", damageFlashTexture);
+
+		// Generic screen flash — decay toward 0 and push every frame (including
+		// 0) so a finished flash clears.
+		if (_screenFlash > 0f && _screenFlashFadeActive > 0f)
+		{
+			_screenFlash = Mathf.Max(0f, _screenFlash - dt / _screenFlashFadeActive);
+		}
+		postProcessMaterial.SetShaderParameter("screen_flash", _screenFlash);
+		postProcessMaterial.SetShaderParameter("screen_flash_color", _screenFlashColor);
 
 		// Low-health overlay. Ramp = (threshold - healthFrac) / threshold
 		// so at threshold the ramp is 0, at 0 health the ramp is 1. Each

@@ -1,0 +1,14 @@
+[gd_scene format=3 uid="uid://b6yt4lawnx1pe"]
+
+[sub_resource type="StandardMaterial3D" id="Mat_tops"]
+albedo_color = Color(0.2, 0.55, 0.15, 1)
+roughness = 1.0
+
+[sub_resource type="SphereMesh" id="Mesh_tops"]
+material = SubResource("Mat_tops")
+radius = 0.12
+height = 0.28
+
+[node name="CarrotTops" type="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 1.5, 0, 0, 0, 1, 0, 0.13, 0)
+mesh = SubResource("Mesh_tops")

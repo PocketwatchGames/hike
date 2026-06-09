@@ -13,6 +13,9 @@
 [ext_resource type="PackedScene" uid="uid://b7gskto31x441" path="res://scenes/interactives/well.tscn" id="11_well_scene"]
 [ext_resource type="Script" uid="uid://b4nclmbspwn2x" path="res://scripts/data/spawn/ClimbableTreeSpawnEntry.cs" id="12_climb_entry"]
 [ext_resource type="PackedScene" uid="uid://c8mxl2yqr3vkt" path="res://scenes/interactives/climbable_tree.tscn" id="13_climb_scene"]
+[ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="14_buried_entry"]
+[ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="15_buried_scene"]
+[ext_resource type="Resource" uid="uid://daxn4tq8wpv2r" path="res://resources/data/buried/buried_carrot.tres" id="16_carrot_data"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")
@@ -53,6 +56,12 @@ script = ExtResource("12_climb_entry")
 Scene = ExtResource("13_climb_scene")
 SquareMetersPerSpawn = 1000.0
 
+[sub_resource type="Resource" id="Resource_carrot"]
+script = ExtResource("14_buried_entry")
+Scene = ExtResource("15_buried_scene")
+Data = ExtResource("16_carrot_data")
+SquareMetersPerSpawn = 200.0
+
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree")])
+Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("8_campfire_group"), SubResource("Resource_well"), SubResource("Resource_prf3q"), SubResource("Resource_climbtree"), SubResource("Resource_carrot")])

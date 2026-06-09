@@ -33,6 +33,7 @@
 [ext_resource type="Resource" uid="uid://b7mu3dyq8ka1n" path="res://resources/data/status_effects/status_muddy.tres" id="29_statusmuddy"]
 [ext_resource type="PackedScene" uid="uid://ol8ysqglfqnu" path="res://scenes/characters/player_model_female.tscn" id="29_modelfem"]
 [ext_resource type="PackedScene" uid="uid://cypanyqryd22f" path="res://scenes/characters/player_model_male.tscn" id="41_modelmale"]
+[ext_resource type="PackedScene" uid="uid://dqv7n2wk8rmpc" path="res://scenes/effects/dig_scoop.tscn" id="42_digscoop"]
 [ext_resource type="PackedScene" uid="uid://el7ngc3sj7g" path="res://scenes/effects/dash_speed_lines.tscn" id="33_dashlines"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1uit0"]
@@ -106,6 +107,7 @@ _footstepEffects = Dictionary[int, PackedScene]({
 5: ExtResource("4_xrqxk")
 })
 _shallowWaterFootstepFx = ExtResource("7_d6tgn")
+_digDirtFx = ExtResource("42_digscoop")
 _footprintTexture = ExtResource("8_5jukt")
 _footprintSize = Vector2(0.4, 0.6)
 

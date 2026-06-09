@@ -112,6 +112,22 @@ public partial class GroundStainProjector : Node3D
 
         Vector3 focal = World.Current?.player?.GlobalPosition ?? Vector3.Zero;
 
+        // Snap the focal point to this projector's own texel grid in world XZ.
+        // The RT is low-res (~16 cm/texel), so a continuously-moving orthographic
+        // origin rasterizes stain edges onto different texels each frame — the
+        // marks crawl/shimmer against the pixel-snapped terrain as the player
+        // moves (no shimmer standing still). Advancing the origin in whole-texel
+        // steps pins every world point to a stable sub-texel position (the
+        // standard shadow-map texel-snap); render and sample share this origin,
+        // so the per-texel jump itself is invisible. Y doesn't affect the
+        // top-down XZ→UV mapping. Note this is the projector's grid, NOT the
+        // player's PixelSnap grid — that snaps to the main isometric screen
+        // pixels (a different texel size and orientation), so it wouldn't align
+        // with this RT.
+        float metersPerTexel = camera.Size / textureSize.Y;
+        focal.X = Mathf.Round(focal.X / metersPerTexel) * metersPerTexel;
+        focal.Z = Mathf.Round(focal.Z / metersPerTexel) * metersPerTexel;
+
         // Straight down over the player. Up hint = Forward so LookAt's basis is
         // stable when the direction is vertical (its cross product with world-Up
         // would otherwise collapse).

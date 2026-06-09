@@ -8,6 +8,18 @@ public static class ItemEventHandlers
 {
 	public static void DoMelee(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
+		// Effective attack shape — single source of truth shared by the damage
+		// query and the smear visual, so a future status effect that scales the
+		// swing's reach / width feeds both together.
+		float shapeRange = ev.range;
+		float shapeNearWidth = ev.nearWidth;
+		float shapeFarWidth = ev.farWidth;
+
+		// Swing smear, sized to that live shape. Fired on every swing — a
+		// blocked or zero-damage swing still swooshes — so it spawns before the
+		// damage early-out below.
+		SpawnSmear(actor, ev, shapeRange, shapeNearWidth, shapeFarWidth);
+
 		HitInfo hit = ResolveHit(ev, action, actor);
 		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
 		{
@@ -20,12 +32,26 @@ public static class ItemEventHandlers
 			return;
 		}
 
-		Vector3 damagePos = actor.ActorWorldPosition + Vector3.Up + actor.ActorForward * ev.meleeRange;
-		var sphere = new SphereShape3D() { Radius = ev.meleeRadius };
+		float halfHeight = ev.meleeHeight * 0.5f;
+		Vector3 basePos = actor.ActorWorldPosition + Vector3.Up * halfHeight;
+		Vector3 forward = actor.ActorForward;
+		float nearRadius = shapeNearWidth * 0.5f;
+		float farRadius = shapeFarWidth * 0.5f;
+		Vector3 nearCenter = basePos + forward * nearRadius;
+		Vector3 farCenter = basePos + forward * (shapeRange - farRadius);
+		// Damage volume is the convex hull of the two disks (the swept fan)
+		// extruded vertically into a flat-topped/-bottomed prism over
+		// `meleeHeight`. The physics query uses the convex hull of horizontal
+		// ring points sampled on each disk at the top and bottom planes — the
+		// hull spans both clusters so the tangent connection between them is
+		// filled in automatically, while the shared top/bottom rings give flat
+		// caps rather than a rounded capsule. The far disk center is the
+		// canonical impact point for whiff / environment fallbacks.
+		ConvexPolygonShape3D shape = BuildSweepShape(nearCenter, nearRadius, farCenter, farRadius, halfHeight);
+		Vector3 damagePos = farCenter;
 		var query = new PhysicsShapeQueryParameters3D
 		{
-			Shape = sphere,
-			Transform = new Transform3D(Basis.Identity, damagePos),
+			Shape = shape,
 			CollisionMask = actor.AttackHurtboxMask,
 			CollideWithAreas = true,
 			CollideWithBodies = false,
@@ -72,8 +98,7 @@ public static class ItemEventHandlers
 		{
 			var envQuery = new PhysicsShapeQueryParameters3D
 			{
-				Shape = sphere,
-				Transform = new Transform3D(Basis.Identity, damagePos),
+				Shape = shape,
 				CollisionMask = (uint)ECollisionLayer.Solid,
 				CollideWithAreas = false,
 				CollideWithBodies = true,
@@ -97,8 +122,79 @@ public static class ItemEventHandlers
 		// etc.) fire at the swing's resolved impact point — the best hurtbox
 		// when one was hit, else the swing center. See StatusEffectController.
 		actor.TriggerAttackImpact(impactPos);
+	}
 
-		DebugDraw.Sphere(damagePos, ev.meleeRadius, new Color(1f, 0f, 0f, 0.3f), 0.15f);
+	// Spawn the Melee event's authored smear scene, sized to the live attack
+	// shape via WeaponSmear.Initialize so status-effect range / width changes
+	// carry through to the visual. Parented to the actor so it inherits facing
+	// (the mesh is built in actor-local space pointing along +Z). Returns the
+	// spawned smear so future status-driven trail effects (fire, lightning) can
+	// be attached as children of it.
+	private static WeaponSmear SpawnSmear(IActionActor actor, ItemEvent ev, float range, float nearWidth, float farWidth)
+	{
+		if (ev.smearEffect == null)
+		{
+			return null;
+		}
+		Node3D parent = actor.AttackerNode;
+		if (parent == null)
+		{
+			return null;
+		}
+		WeaponSmear smear = ev.smearEffect.Instantiate<WeaponSmear>();
+		// Configure before AddChild so the geometry is set when _Ready builds
+		// the mesh.
+		smear.Initialize(range, nearWidth, farWidth, ev.smearClockwise);
+		parent.AddChild(smear);
+		return smear;
+	}
+
+	// Horizontal sample directions for the disk rings (y = 0). More points give
+	// a smoother polygonal approximation of each disk; the convex hull of the
+	// near + far rings (taken at both the top and bottom planes) is the
+	// flat-capped, tangent-joined prism the swing damages.
+	private const int SweepRingPoints = 12;
+	private static readonly Vector3[] RingDirs = BuildRingDirs();
+
+	private static Vector3[] BuildRingDirs()
+	{
+		var dirs = new Vector3[SweepRingPoints];
+		for (int i = 0; i < SweepRingPoints; i++)
+		{
+			float a = Mathf.Tau * i / SweepRingPoints;
+			dirs[i] = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+		}
+		return dirs;
+	}
+
+	private static ConvexPolygonShape3D BuildSweepShape(Vector3 nearCenter, float nearRadius, Vector3 farCenter, float farRadius, float halfHeight)
+	{
+		int n = RingDirs.Length;
+		var points = new Vector3[n * 4];
+		Vector3 vh = Vector3.Up * halfHeight;
+		int p = 0;
+		for (int i = 0; i < n; i++)
+		{
+			Vector3 nearRing = nearCenter + RingDirs[i] * nearRadius;
+			Vector3 farRing = farCenter + RingDirs[i] * farRadius;
+			points[p++] = nearRing + vh;
+			points[p++] = nearRing - vh;
+			points[p++] = farRing + vh;
+			points[p++] = farRing - vh;
+		}
+		return new ConvexPolygonShape3D { Points = points };
+	}
+
+	// A horizontal ring polyline for debug visualization of one flat cap.
+	private static void DebugDrawDisk(Vector3 center, float radius, Color color)
+	{
+		var ring = new Vector3[SweepRingPoints + 1];
+		for (int i = 0; i < SweepRingPoints; i++)
+		{
+			ring[i] = center + RingDirs[i] * radius;
+		}
+		ring[SweepRingPoints] = ring[0];
+		DebugDraw.Lines(ring, color, 0.15f);
 	}
 
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
@@ -520,6 +616,10 @@ public static class ItemEventHandlers
 				cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, position, ev.cameraShakeRange, playerPos);
 			}
 		}
+		if ((ev.type & EItemEventType.ScreenFlash) != 0)
+		{
+			ScreenEffectsController.Current?.Flash(ev.screenFlashColor, ev.screenFlashIntensity, ev.screenFlashFadeSeconds);
+		}
 	}
 
 	// Spawns ev.areaEffectScene at the player's aim cursor (when valid) or
@@ -616,6 +716,50 @@ public static class ItemEventHandlers
 		if (cam == null) { return; }
 		Vector3 playerPos = GameClient.Current?.Player?.GlobalPosition ?? actor.ActorWorldPosition;
 		cam.Shake.AddImpulse(ev.cameraShakeMagnitude, ev.cameraShakeDuration, actor.ActorWorldPosition, ev.cameraShakeRange, playerPos);
+	}
+
+	// Digs at the player's aim cursor (positional-aim tiers) or a short reach
+	// in front of the actor (directional / no cursor). Routes to World.TryDig,
+	// which uncovers the nearest buried-item spot in range — or, failing that,
+	// forces the nearest burrowed mob to the surface. Only the player digs;
+	// mob actors have no shovel.
+	public static void DoDig(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (actor is not Player player)
+		{
+			return;
+		}
+		World world = World.Current;
+		if (world == null)
+		{
+			return;
+		}
+		Vector3 center;
+		if (player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
+		{
+			center = player.AimingReticle.AimWorldPosition;
+		}
+		else
+		{
+			Vector3 forward = player.ActorForward;
+			forward.Y = 0f;
+			center = player.ActorWorldPosition + forward.Normalized() * ev.digReach;
+		}
+		EDigResult result = world.TryDig(center, ev.digRadius, player);
+		PackedScene effect = result switch
+		{
+			EDigResult.Treasure => ev.digTreasureEffect,
+			EDigResult.Common => ev.digCommonEffect,
+			_ => ev.digNothingEffect,
+		};
+		if (effect != null)
+		{
+			Node parent = (Node)World.Current ?? player.AttackerNode?.GetParent();
+			if (parent != null)
+			{
+				Fx.Create(effect, parent, center);
+			}
+		}
 	}
 
 	public static void DoUseAmmo(IActionActor actor, ItemEvent ev, ref PlayerAction action)

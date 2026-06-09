@@ -1,0 +1,32 @@
+[gd_resource type="Resource" script_class="MobData" format=3 uid="uid://bfrymobdata08"]
+
+[ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
+[ext_resource type="Resource" uid="uid://bfrybrain7k1a" path="res://resources/data/characters/fairy/fairy_brain.tres" id="2_brain"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_gns7t"]
+[ext_resource type="PackedScene" uid="uid://bfryscene7k07" path="res://scenes/characters/fairy.tscn" id="3_scene"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_8x8m2"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
+[ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="5_corpse"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_ud1my"]
+
+[sub_resource type="Resource" id="Resource_loot_corpse"]
+script = ExtResource("4_lootcount")
+item = ExtResource("5_corpse")
+
+[resource]
+script = ExtResource("1_mobdata")
+displayName = &"Fairy"
+killsPerLevel = Array[int]([3, 10, 25, 50])
+hudScale = 0.5
+VisionRange = 16.0
+prominence = 1.5
+team = 4
+maxHealth = 4.0
+modifiers = null
+maxSpeed = 6.0
+turnSpeed = 8.0
+exp = 2
+brain = ExtResource("2_brain")
+MobScene = ExtResource("3_scene")
+loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_corpse")])
+despawnOnDeath = true

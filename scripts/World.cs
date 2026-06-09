@@ -53,6 +53,7 @@ public partial class World : Node3D
     private ChunkManager _chunkManager;
     private WorldDetailScatter _detailScatter;
     private WorldPropScatter _propScatter;
+    private FootprintScatter _footprintScatter;
     private AmbienceController _ambienceController;
     private ThunderScheduler _thunderScheduler;
     private LightningFlasher _lightningFlasher;
@@ -80,6 +81,11 @@ public partial class World : Node3D
     // through chunk eviction without an explicit chunk-coord index.
     public WorldPropScatter PropScatter => _propScatter;
 
+    // Batched renderer for transient footprint ground marks — one MultiMesh
+    // per actor footprint texture, owning its own per-print lifetime fade and
+    // mob-print discovery gate. World.SpawnFootprint routes prints to it.
+    public FootprintScatter FootprintScatter => _footprintScatter;
+
     public Player player => _player;
 
     public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
@@ -104,6 +110,10 @@ public partial class World : Node3D
         _propScatter = new WorldPropScatter();
         _propScatter.Name = "PropScatter";
         AddChild(_propScatter);
+
+        _footprintScatter = new FootprintScatter();
+        _footprintScatter.Name = "FootprintScatter";
+        AddChild(_footprintScatter);
 
         _chunkManager = new ChunkManager();
         AddChild(_chunkManager);

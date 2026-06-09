@@ -207,6 +207,12 @@ public partial class MobData : Resource
     // but the mob is still hittable.
     [Export] public float burrowTime = 1.5f;
     [Export] public float hideRange = 20f;
+    // Status effect applied to this mob when the player digs it up (shovel) —
+    // a brief stun so the player gets a beat before it attacks. Per-species so
+    // a burrowing critter reads dizzy while a dug-up boss can be authored to
+    // resist (shorter effect) or skip the stun entirely (leave null). The
+    // effect's own duration is the stun length.
+    [Export] public StatusEffectData dugUpStun;
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
 
@@ -325,6 +331,14 @@ public partial class MobData : Resource
     // scattered with the corpse. Launched on a 45° upward arc; larger
     // values scatter wider.
     [Export] public float lootEjectSpeed = 5f;
+
+    // When true the mob leaves no corpse: once it dies (loot ejected, death
+    // fx fired) the body fades out in place over deathDespawnSeconds and is
+    // removed permanently (node + sim state). For ethereal creatures like the
+    // fairy, whose "body" is a glowing orb that should wink out rather than
+    // litter the ground. Reuses the escape-vanish path with zero ascent.
+    [Export] public bool despawnOnDeath = false;
+    [Export] public float deathDespawnSeconds = 0.5f;
 
     // ---- Traversal profile ----
     // Read by the navigation system to decide which voxels this mob can walk

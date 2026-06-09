@@ -1,8 +1,7 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="PackedScene" uid="uid://bvhhmrxjrbjb8" path="res://scenes/effects/footprint_discoverable.tscn" id="1_atie7"]
-[ext_resource type="PackedScene" uid="uid://bq3flcvyjqp3f" path="res://scenes/effects/footprint_visible.tscn" id="2_7ttre"]
+[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
 [ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
@@ -52,8 +51,7 @@ MobTorchLightThreshold = 0.8
 MobTorchDouseThreshold = 0.9
 RippleWindRef = 30.0
 CanopyDensity = 0.35
-FootprintVisible = ExtResource("2_7ttre")
-FootprintDiscoverable = ExtResource("1_atie7")
+FootprintMaterial = ExtResource("1_atie7")
 thunderScheduler = ExtResource("11_thunder_distant")
 weatherLightning = ExtResource("12_lightning")
 metadata/_custom_type_script = "uid://chvgahtb671mg"

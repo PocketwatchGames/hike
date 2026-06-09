@@ -636,6 +636,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoCameraShake(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.Dig) != 0)
+		{
+			ItemEventHandlers.DoDig(_actor, ev, ref _action);
+		}
 	}
 
 	private int SelectTierIndex(ItemActionProfile profile, in ActionContext context, float chargeElapsedSeconds, int comboIndex)

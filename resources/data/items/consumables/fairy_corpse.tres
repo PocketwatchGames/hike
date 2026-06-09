@@ -1,0 +1,46 @@
+[gd_resource type="Resource" script_class="ConsumableData" format=3 uid="uid://4vmr7jaq6thd"]
+
+[ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_ivhxd"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_4h0dy"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/effects/eat_loop.tscn" id="5_eatfx"]
+[ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="6_inv"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_oe4u8"]
+[ext_resource type="Texture2D" uid="uid://cuu3l18dhf632" path="res://assets/textures/items/pickups/GemWhite.png" id="7_world"]
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("4_event")
+type = 64
+animName = 22
+
+[sub_resource type="Resource" id="Resource_charged_hold"]
+script = ExtResource("3_charged")
+chargeTime = 1.5
+chargeLoopEffect = ExtResource("5_eatfx")
+
+[sub_resource type="Resource" id="Resource_event_decrement"]
+script = ExtResource("4_event")
+type = 16
+
+[sub_resource type="Resource" id="Resource_charged"]
+script = ExtResource("3_charged")
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_decrement")])
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged_hold"), SubResource("Resource_charged")])
+chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
+locksMovement = true
+
+[resource]
+script = ExtResource("1_consumable")
+actionProfile = SubResource("Resource_profile")
+displayName = &"Fairy Corpse"
+unidentifiedDisplayName = &"Glimmering Remains"
+description = "It still faintly glows."
+maxStack = 5
+inventorySprite = ExtResource("6_inv")
+worldSprite = ExtResource("7_world")

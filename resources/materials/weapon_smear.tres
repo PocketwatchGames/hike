@@ -1,0 +1,13 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cwsmrmat42rak"]
+
+[ext_resource type="Shader" path="res://shaders/weapon_smear.gdshader" id="1_shader"]
+[ext_resource type="Texture2D" uid="uid://3oyru43n445q" path="res://assets/textures/effects/smear_streak_placeholder.tres" id="2_streak"]
+
+[resource]
+render_priority = 4
+shader = ExtResource("1_shader")
+shader_parameter/streak_tex = ExtResource("2_streak")
+shader_parameter/tint = Color(1, 0.95, 0.85, 1)
+shader_parameter/streak_tiling = 6.0
+shader_parameter/edge_softness = 0.12
+shader_parameter/radial_fade = 0.12

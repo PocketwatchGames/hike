@@ -17,6 +17,7 @@
 [ext_resource type="Resource" uid="uid://c4xap2vx7nkdy" path="res://resources/data/items/consumables/birds_eye.tres" id="14_birdseye"]
 [ext_resource type="Resource" uid="uid://81q2o38qjx8h" path="res://resources/data/items/armor/helmet_gosbark.tres" id="15_gosbark"]
 [ext_resource type="Resource" uid="uid://5q3iyfp2t5mj" path="res://resources/data/items/armor/helmet_glimp.tres" id="16_glimp"]
+[ext_resource type="Resource" uid="uid://cq8n2v7rwk4be" path="res://resources/data/items/consumables/shovel.tres" id="17_shovel"]
 
 [sub_resource type="Resource" id="Resource_club"]
 script = ExtResource("3_itemcount")
@@ -74,6 +75,6 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 script = ExtResource("1_pspawn")
 playerName = "Mischa"
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club"), SubResource("Resource_bow"), SubResource("Resource_furcoat")])
-startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("14_birdseye")])
+startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("14_birdseye"), ExtResource("17_shovel")])
 startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_berry"), SubResource("Resource_mushroom"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp")])
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])

@@ -63,7 +63,7 @@ public partial class Player : CharacterBody3D, IActionActor
 			}
 			if ((ev.type & EItemEventType.Melee) != 0)
 			{
-				return ev.meleeRange;
+				return ev.range;
 			}
 		}
 		return 0f;
