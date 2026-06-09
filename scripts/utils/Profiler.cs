@@ -162,6 +162,13 @@ public static class Profiler
     private static readonly Dictionary<string, int> _latchedCounters = new();
     private static readonly List<string> _counterNames = new();
 
+    // Per-frame gauges — last-value-wins snapshots (vs counters' running sum),
+    // for "how many X right now" readouts. Latched per window like counters but
+    // never reset to zero, so the overlay shows the most recent frame's value.
+    private static readonly Dictionary<string, long> _gauges = new();
+    private static readonly Dictionary<string, long> _latchedGauges = new();
+    private static readonly List<string> _gaugeNames = new();
+
     // Window-relative GC tracking. Baseline is the GC.CollectionCount(N) value
     // at the start of the current window; AppendEngineMonitors subtracts the
     // baseline from the current count to get "collections in this window so
@@ -205,6 +212,23 @@ public static class Profiler
             current = 0;
         }
         _counters[name] = current + delta;
+    }
+
+    // Set a per-frame gauge (last value wins, not summed). Use for instantaneous
+    // "current count" readouts like how many mobs are animating this frame.
+    [Conditional("PROFILE")]
+    public static void SetGauge(string name, long value)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+        if (!_gauges.ContainsKey(name))
+        {
+            _gaugeNames.Add(name);
+            _latchedGauges[name] = value;
+        }
+        _gauges[name] = value;
     }
 
     [Conditional("PROFILE")]
@@ -320,6 +344,13 @@ public static class Profiler
             string n = _counterNames[i];
             _latchedCounters[n] = _counters[n];
             _counters[n] = 0;
+        }
+        // Gauges latch their current (last-set) value but are NOT reset — they
+        // represent an instantaneous reading, not a per-window accumulation.
+        for (int i = 0; i < _gaugeNames.Count; i++)
+        {
+            string n = _gaugeNames[i];
+            _latchedGauges[n] = _gauges[n];
         }
         _windowGcBaseline0 = System.GC.CollectionCount(0);
         _windowGcBaseline1 = System.GC.CollectionCount(1);
@@ -462,6 +493,13 @@ public static class Profiler
         {
             string n = _counterNames[i];
             int v = useLatched ? _latchedCounters[n] : _counters[n];
+            sb.Append("  ").Append(n.PadRight(32)).Append(v.ToString().PadLeft(12)).Append('\n');
+        }
+        // Per-frame gauges (instantaneous readings, not per-window sums).
+        for (int i = 0; i < _gaugeNames.Count; i++)
+        {
+            string n = _gaugeNames[i];
+            long v = useLatched ? _latchedGauges[n] : _gauges[n];
             sb.Append("  ").Append(n.PadRight(32)).Append(v.ToString().PadLeft(12)).Append('\n');
         }
     }

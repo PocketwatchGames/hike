@@ -331,6 +331,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the first frame through so initial state is always pushed.
     private bool _lastMeshVisible;
     private bool _lastMeshVisibleInit;
+    private bool _lastAnimProcess;
+    private bool _lastAnimProcessInit;
+    // Per-frame mob-animation census, published as readable gauges (mob_count /
+    // mob_anim_active / mob_anim_frozen) — instantaneous counts, not the
+    // per-window sums a plain counter gives. The first mob to run its gate each
+    // process frame publishes the prior frame's tally and resets.
+    private static ulong _animCensusFrame = ulong.MaxValue;
+    private static int _animCensusActive;
+    private static int _animCensusFrozen;
     private bool _lastHudVisible;
     private bool _lastHudVisibleInit;
     // Last discovery-presentation values pushed to the 3D model. The model push
@@ -1664,6 +1673,47 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _mesh.Visible = meshVisibleTarget;
             _lastMeshVisible = meshVisibleTarget;
             _lastMeshVisibleInit = true;
+        }
+        // Animation cull + cost diagnostic. freezable = not rendered AND in a
+        // stationary loop (no footstep events to miss). mob_anim 0 freezes EVERY
+        // mob (measures the total animation-cost ceiling); mob_anim_cull gates the
+        // idle-only cull. The counters report how many mobs each frame are
+        // actually frozen vs still animating, so the cull's reach is visible.
+        // Freeze the skeleton (static pose → Godot skips the per-frame GPU
+        // re-skin, the dominant visible-mob cost) for any mob the player can't
+        // actually SEE right now. withinVisibleTime is the line-of-sight window
+        // (VisibleTimeMs), refreshed only while the mob is in active visual
+        // contact — so a discovered-but-occluded/offscreen mob, drawn as a static
+        // memory silhouette, stops skinning. That's exactly the wasted work
+        // Godot's frustum-only culling leaves in (it skins every in-frustum
+        // visible mesh, occluded or not). mob_pose_distance optionally also
+        // freezes still-in-sight mobs past a radius.
+        bool tooFarToPose = false;
+        float poseDist = CVars.mobPoseDistance.Value;
+        if (poseDist > 0f && _world?.player != null)
+        {
+            tooFarToPose = (GlobalPosition - _world.player.GlobalPosition).LengthSquared() > poseDist * poseDist;
+        }
+        bool animProcessTarget = !CVars.mobAnimCull.Value || (withinVisibleTime && !tooFarToPose);
+        // Per-frame census → readable gauges (mob_count / mob_anim_active /
+        // mob_anim_frozen). The first mob each process frame publishes the prior
+        // frame's tally (one-frame lag) and resets.
+        ulong processFrame = Engine.GetProcessFrames();
+        if (processFrame != _animCensusFrame)
+        {
+            Profiler.SetGauge("mob_count", _animCensusActive + _animCensusFrozen);
+            Profiler.SetGauge("mob_anim_active", _animCensusActive);
+            Profiler.SetGauge("mob_anim_frozen", _animCensusFrozen);
+            _animCensusActive = 0;
+            _animCensusFrozen = 0;
+            _animCensusFrame = processFrame;
+        }
+        if (animProcessTarget) { _animCensusActive++; } else { _animCensusFrozen++; }
+        if (_modelAnimator != null && (!_lastAnimProcessInit || animProcessTarget != _lastAnimProcess))
+        {
+            _modelAnimator.SetPoseProcessing(animProcessTarget);
+            _lastAnimProcess = animProcessTarget;
+            _lastAnimProcessInit = true;
         }
         if (HudAnchor != null && (!_lastHudVisibleInit || hudVisibleTarget != _lastHudVisible))
         {

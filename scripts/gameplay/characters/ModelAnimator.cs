@@ -224,6 +224,33 @@ public partial class ModelAnimator : Node
         }
     }
 
+    // Pause/resume just the per-frame pose stepping (Advance + facing) WITHOUT
+    // touching visibility or resetting the clip — for skipping the CPU skeletal
+    // pose of mobs that aren't being rendered. The pose holds where it was;
+    // resuming continues from there. No-op on an inactive animator.
+    public void SetPoseProcessing(bool processing)
+    {
+        if (!_active)
+        {
+            return;
+        }
+        SetProcess(processing);
+        // Stepped rigs (quantizeFps > 0) keep the AnimationPlayer paused and are
+        // driven entirely by _Process, so toggling SetProcess is sufficient.
+        // Smooth rigs let the player advance itself, so pause/resume it too.
+        if (quantizeFps <= 0f && player != null && CurrentAnimation != default)
+        {
+            if (processing)
+            {
+                player.Play();
+            }
+            else
+            {
+                player.Pause();
+            }
+        }
+    }
+
     // Runtime swap of the visible mesh set — the modular-armor hook. Replaces
     // visibleMeshNames and re-applies, so an equipped loadout can reveal/hide
     // outfit parts live on the one shared skeleton without reloading the model.

@@ -599,6 +599,19 @@ public static class CVars
     //                      always-on per-mob audio bed.
     public static CVarBool mobAnimLoopFx = new CVarBool("mob_anim_loop_fx", true);
 
+    // mob_anim_cull 1 (default) → mobs the player can't currently see (no active
+    //              line of sight — drawn as memory silhouettes) freeze their
+    //              skeletal pose, so Godot skips their per-frame GPU re-skin (the
+    //              dominant visible-mob cost). Skinning then scales with VISIBLE
+    //              mob count, not total. 0 = every mob animates. The
+    //              mob_anim_frozen / mob_anim_active gauges show the split.
+    public static CVarBool mobAnimCull = new CVarBool("mob_anim_cull", true);
+
+    // mob_pose_distance > 0 → optional extra animation LOD on top of the LOS cull:
+    //              in-sight mobs farther than this many metres also freeze (a
+    //              distant moving mob holds its pose — slight moonwalk). 0 = off.
+    public static CVarFloat mobPoseDistance = new CVarFloat("mob_pose_distance", 0f);
+
     // fx_audio 0     → no Fx instance starts its AudioStreamPlayer3D
     //                  children. Particles still play. Distinguishes the
     //                  cost of audio mixing / 3D positional attenuation
