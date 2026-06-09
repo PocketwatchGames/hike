@@ -14,18 +14,18 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="14_watenter"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="15_watloop"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="16_grassloop"]
-[ext_resource type="Resource" uid="uid://bm2yf5vqo3fvx" path="res://resources/data/characters/kun_kun_voice.tres" id="50_voice"]
 [ext_resource type="PackedScene" uid="uid://c1n1wm4o1dj8k" path="res://scenes/effects/kunkun_idle_loop.tscn" id="18_idle"]
 [ext_resource type="PackedScene" uid="uid://db534p4qcdj8k" path="res://scenes/effects/kunkun_run_loop.tscn" id="19_run"]
 [ext_resource type="PackedScene" uid="uid://dc721e1fcdj8k" path="res://scenes/effects/kunkun_swim_idle_loop.tscn" id="20_swimidle"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdly088k" path="res://scenes/effects/kunkun_burrow_loop.tscn" id="21_brwloop"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="22_brwcmp"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="23_brwemg"]
-[ext_resource type="PackedScene" uid="uid://bxrs6ncd6vs70" path="res://assets/models/characters/forest_bunny/forest_bunny.fbx" id="28_bunnyfbx"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/forest_bunny/forest_bunny_anims.res" id="29_bunnyanims"]
-[ext_resource type="ShaderMaterial" uid="uid://dq3frbny1mat" path="res://resources/materials/forest_bunny_lit.tres" id="30_bunnymat"]
+[ext_resource type="PackedScene" uid="uid://dtkn4fy5ctyvr" path="res://assets/models/characters/bunny_rat/bunny_rat.fbx" id="28_bunnyfbx"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/bunny_rat/bunny_rat_anims.res" id="29_bunnyanims"]
+[ext_resource type="Material" path="res://resources/materials/bunny_rat_lit.tres" id="30_bunnymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="31_modelanim"]
-[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Resource" uid="uid://bm2yf5vqo3fvx" path="res://resources/data/characters/kun_kun_voice.tres" id="50_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35
@@ -49,13 +49,13 @@ _deathFx = ExtResource("13_deathsml")
 _waterEnterSplashFx = ExtResource("14_watenter")
 _waterMovementLoopFx = ExtResource("15_watloop")
 _foliageMovementLoopFx = ExtResource("16_grassloop")
-_voice = ExtResource("50_voice")
 _burrowLoopFx = ExtResource("21_brwloop")
 _burrowCompleteFx = ExtResource("22_brwcmp")
 _burrowEmergeFx = ExtResource("23_brwemg")
 _idleLoopFx = ExtResource("18_idle")
 _runLoopFx = ExtResource("19_run")
 _swimIdleLoopFx = ExtResource("20_swimidle")
+_voice = ExtResource("50_voice")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("11_fstgrass"),
 1: ExtResource("11_fststone"),
@@ -69,11 +69,11 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]
 
-[node name="BunnyModel" type="Node3D" parent="MeshContainer"]
+[node name="BunnyModel" type="Node3D" parent="MeshContainer" unique_id=112663683]
 
-[node name="forest_bunny" parent="MeshContainer/BunnyModel" instance=ExtResource("28_bunnyfbx")]
+[node name="bunny_rat" parent="MeshContainer/BunnyModel" unique_id=105473542 instance=ExtResource("28_bunnyfbx")]
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="MeshContainer/BunnyModel/forest_bunny"]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="MeshContainer/BunnyModel/bunny_rat" unique_id=1773715426]
 libraries/ = ExtResource("29_bunnyanims")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
@@ -92,12 +92,12 @@ shape = SubResource("CapsuleShape3D_kk0")
 [node name="Node3D" type="Node3D" parent="." unique_id=720373046]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
-[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+[node name="PixelSnap" type="Node" parent="." unique_id=1896505524 node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
 _target = NodePath("../MeshContainer/BunnyModel")
 
-[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+[node name="ModelAnimator" type="Node" parent="." unique_id=1304059796 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("31_modelanim")
-player = NodePath("../MeshContainer/BunnyModel/forest_bunny/AnimationPlayer")
+player = NodePath("../MeshContainer/BunnyModel/bunny_rat/AnimationPlayer")
 visual = NodePath("../MeshContainer/BunnyModel")
 modelMaterial = ExtResource("30_bunnymat")

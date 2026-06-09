@@ -7,7 +7,6 @@
 [ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/effects/water_enter_splash.tscn" id="5_k83x8"]
 [ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/effects/water_movement_loop.tscn" id="6_7deve"]
 [ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/effects/tall_grass_movement_loop.tscn" id="7_su5fo"]
-[ext_resource type="Resource" uid="uid://c5fmmvmcapg0m" path="res://resources/data/characters/sparrow_voice.tres" id="50_voice"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdly088k" path="res://scenes/effects/kunkun_burrow_loop.tscn" id="9_e0pid"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdcw2j8k" path="res://scenes/effects/kunkun_burrow_complete.tscn" id="10_rm11g"]
 [ext_resource type="PackedScene" uid="uid://ct58bqdewsj8k" path="res://scenes/effects/kunkun_burrow_emerge.tscn" id="11_3a1wr"]
@@ -21,11 +20,12 @@
 [ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/effects/footstep_mud.tscn" id="20_ewv3i"]
 [ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="22_smeql"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="25_46vmd"]
-[ext_resource type="PackedScene" uid="uid://bge0a3ixatdrt" path="res://assets/models/characters/birdy/birdy.fbx" id="26_birdyfbx"]
-[ext_resource type="AnimationLibrary" path="res://assets/models/characters/birdy/birdy_anims.res" id="27_birdyanims"]
-[ext_resource type="Material" uid="uid://cr8w5qp148pnb" path="res://resources/materials/birdy_lit.tres" id="28_birdymat"]
+[ext_resource type="PackedScene" uid="uid://bxrs6ncd6vs70" path="res://assets/models/characters/forest_bunny/forest_bunny.fbx" id="26_birdyfbx"]
+[ext_resource type="AnimationLibrary" path="res://assets/models/characters/forest_bunny/forest_bunny_anims.res" id="27_birdyanims"]
+[ext_resource type="Material" uid="uid://dq3frbny1mat" path="res://resources/materials/forest_bunny_lit.tres" id="28_birdymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="29_modelanim"]
-[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="30_pixelsnap"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="30_pixelsnap"]
+[ext_resource type="Resource" uid="uid://c5fmmvmcapg0m" path="res://resources/data/characters/sparrow_voice.tres" id="50_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35
@@ -49,13 +49,13 @@ _deathFx = ExtResource("4_us5sg")
 _waterEnterSplashFx = ExtResource("5_k83x8")
 _waterMovementLoopFx = ExtResource("6_7deve")
 _foliageMovementLoopFx = ExtResource("7_su5fo")
-_voice = ExtResource("50_voice")
 _burrowLoopFx = ExtResource("9_e0pid")
 _burrowCompleteFx = ExtResource("10_rm11g")
 _burrowEmergeFx = ExtResource("11_3a1wr")
 _idleLoopFx = ExtResource("12_hnvx3")
 _runLoopFx = ExtResource("13_oh3jt")
 _swimIdleLoopFx = ExtResource("14_ifwu8")
+_voice = ExtResource("50_voice")
 _footstepEffects = Dictionary[int, PackedScene]({
 0: ExtResource("16_s43eu"),
 1: ExtResource("17_svrjh"),
@@ -70,11 +70,10 @@ metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 [node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]
 
 [node name="SparrowModel" type="Node3D" parent="MeshContainer" unique_id=1169336104]
-transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 0, 0, 0)
 
-[node name="birdy" parent="MeshContainer/SparrowModel" unique_id=1302718041 instance=ExtResource("26_birdyfbx")]
+[node name="forest_bunny" parent="MeshContainer/SparrowModel" unique_id=1302718041 instance=ExtResource("26_birdyfbx")]
 
-[node name="AnimationPlayer2" type="AnimationPlayer" parent="MeshContainer/SparrowModel/birdy" unique_id=1741754757]
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="MeshContainer/SparrowModel/forest_bunny" unique_id=1741754757]
 libraries/ = ExtResource("27_birdyanims")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
@@ -99,7 +98,7 @@ _target = NodePath("../MeshContainer/SparrowModel")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=1864542241 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("29_modelanim")
-player = NodePath("../MeshContainer/SparrowModel/birdy/AnimationPlayer2")
+player = NodePath("../MeshContainer/SparrowModel/forest_bunny/AnimationPlayer2")
 visual = NodePath("../MeshContainer/SparrowModel")
 modelMaterial = ExtResource("28_birdymat")
 metadata/_custom_type_script = "uid://y5ti8jcvqdvm"
