@@ -788,6 +788,20 @@ public partial class SimData : Resource
     // (Block light's canopy attenuation is the per-light flood term
     // BlockLightCanopyExtinction in the Block Light group, not here.)
 
+    [ExportGroup("Spawn")]
+    // Minimum distance (m) from the player at which a time-of-day refresh may
+    // materialize a gated mob. When tod crosses sunset, RefreshTimeOfDayEntities
+    // spawns night-only entities on chunks that are ALREADY active — including
+    // the chunks right under the player's feet — so without this a goblin can
+    // pop in a couple meters away the instant night falls. The normal chunk-load
+    // spawn path streams entities in at the edge of the entity-load radius
+    // (>=48m), so it's never this close; this gate only applies to the sunset
+    // refresh. A mob skipped for being too close stays in its persistent sim
+    // state and spawns later — when the player walks off and its chunk evicts +
+    // reloads, or at the next nightfall once the player has moved away. See
+    // World.RefreshTimeOfDayEntities.
+    [Export(PropertyHint.Range, "0,100,1")] public float SpawnMinDistanceFromPlayer = 24f;
+
     [ExportGroup("Spawn Cleanup")]
     // Mirror of the spawn gate: a loaded mob whose ESpawnConditions no longer
     // hold (a night goblin caught at dawn, a clear-day sparrow once it starts

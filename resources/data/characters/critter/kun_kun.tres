@@ -88,6 +88,7 @@ animations = Dictionary[int, ExtResource("6_animdata")]({
 12: SubResource("Resource_anim_burrowed"),
 18: SubResource("Resource_anim_hitstun")
 })
+IdleLoopMaxRain = 0.2
 displayName = &"Kun-Kun"
 killsPerLevel = Array[int]([3, 10, 25, 50])
 hudScale = 0.5

@@ -135,6 +135,17 @@ public partial class World
     // from Tick on day↔night transitions.
     private void RefreshTimeOfDayEntities()
     {
+        // Don't let a gated mob materialize right on top of the player when
+        // night falls — these chunks are already active, so without a distance
+        // gate a goblin can appear a couple meters away the instant tod crosses
+        // sunset. A skipped mob keeps its sim state and spawns later via the
+        // normal chunk-load path (which streams in far away) once the player
+        // moves off, or at the next nightfall. 0 disables the gate.
+        float minDistance = _worldState.SimData?.SpawnMinDistanceFromPlayer ?? 0f;
+        float minDistanceSq = minDistance * minDistance;
+        bool gateOnDistance = _player != null && minDistanceSq > 0f;
+        Vector3 playerPos = _player?.GlobalPosition ?? Vector3.Zero;
+
         foreach (var pair in _activeEntities)
         {
             List<EntitySimState> states = _worldState.GetEntities(pair.Key);
@@ -150,6 +161,10 @@ public partial class World
                     continue;
                 }
                 if (!state.ShouldSpawn(this))
+                {
+                    continue;
+                }
+                if (gateOnDistance && (state.WorldPosition - playerPos).LengthSquared() < minDistanceSq)
                 {
                     continue;
                 }

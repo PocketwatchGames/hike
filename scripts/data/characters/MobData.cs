@@ -28,6 +28,42 @@ public partial class MobData : Resource
         return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
     }
 
+    // Time-of-day window (normalized [0,1): 0 = midnight, 0.25 = sunrise,
+    // 0.5 = noon, 0.75 = sunset) during which this mob plays its idle anim-
+    // audio loop (the _idleLoopFx chirp/hum). Outside the window the idle
+    // loop is suppressed — a sparrow set to 0.15..0.65 chirps from before
+    // dawn to early afternoon and falls silent the rest of the day. When
+    // Start == End the window is the whole day (always active, the default).
+    // Start > End wraps past midnight (e.g. a nocturnal mob at 0.75..0.25).
+    // Only the idle loop is gated; the idle animation itself still plays.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopStartTimeOfDay = 0f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopEndTimeOfDay = 0f;
+
+    // Blended rainAmount (0..1) above which the idle anim-audio loop falls
+    // silent — a skittish critter clams up once the weather turns from a
+    // drizzle into real rain. 1 = never suppressed by rain (the default; the
+    // loop plays in any weather). 0.2 ≈ "quiet in anything more than a
+    // drizzle". Same rainAmount signal the spawn gate reads
+    // (World.CurrentRainAmount).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float IdleLoopMaxRain = 1f;
+
+    // Whether the idle anim-audio loop should be playing at the given
+    // normalized time of day. Handles the wrap-around window (Start > End)
+    // and treats Start == End as "always on".
+    public bool IsIdleLoopActiveAt(double timeOfDay01)
+    {
+        if (Mathf.IsEqualApprox(IdleLoopStartTimeOfDay, IdleLoopEndTimeOfDay))
+        {
+            return true;
+        }
+        if (IdleLoopStartTimeOfDay < IdleLoopEndTimeOfDay)
+        {
+            return timeOfDay01 >= IdleLoopStartTimeOfDay && timeOfDay01 < IdleLoopEndTimeOfDay;
+        }
+        // Wrap-around window spanning midnight.
+        return timeOfDay01 >= IdleLoopStartTimeOfDay || timeOfDay01 < IdleLoopEndTimeOfDay;
+    }
+
     // Player-facing name shown in the Bestiary, announcement banners, and any
     // future "Goblin attacks!" UI. Matches the StringName pattern other
     // *Data resources use for human-readable identity (ItemData, RegionData).

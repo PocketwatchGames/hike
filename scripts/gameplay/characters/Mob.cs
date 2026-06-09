@@ -1253,7 +1253,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         PackedScene animLoopTarget = null;
         if (alive && !burrowing && !burrowed)
         {
-            if (loopAnim == EAnimation.Idle) animLoopTarget = _idleLoopFx;
+            // The idle loop is gated to a per-species time-of-day window
+            // (MobData.IsIdleLoopActiveAt) and a rain ceiling (IdleLoopMaxRain)
+            // so e.g. sparrows only chirp during the day and clam up once it's
+            // more than a drizzle; the move/swim loops play regardless.
+            if (loopAnim == EAnimation.Idle)
+            {
+                if (mobData.IsIdleLoopActiveAt(_world?.WorldState?.TimeOfDay01 ?? 0.0)
+                    && (_world?.CurrentRainAmount() ?? 0f) <= mobData.IdleLoopMaxRain)
+                {
+                    animLoopTarget = _idleLoopFx;
+                }
+            }
             else if (loopAnim == EAnimation.Run) animLoopTarget = _runLoopFx;
             else if (loopAnim == EAnimation.SwimIdle) animLoopTarget = _swimIdleLoopFx;
         }

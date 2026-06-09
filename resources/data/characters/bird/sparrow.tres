@@ -101,6 +101,9 @@ animations = Dictionary[int, ExtResource("2_mky6i")]({
 18: SubResource("Resource_anim_hitstun"),
 26: SubResource("Resource_anim_fly")
 })
+IdleLoopStartTimeOfDay = 0.15
+IdleLoopEndTimeOfDay = 0.65
+IdleLoopMaxRain = 0.2
 displayName = &"Sparrow"
 killsPerLevel = Array[int]([3, 10, 25, 50])
 hudScale = 0.5
