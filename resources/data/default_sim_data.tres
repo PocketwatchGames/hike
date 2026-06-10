@@ -21,6 +21,10 @@
 [ext_resource type="Resource" uid="uid://4i71qwhti0ki" path="res://resources/data/status_effects/status_elite_standard.tres" id="15_elite_std"]
 [ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="16_elite_crown"]
 [ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="17_elite_loot"]
+[ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="18_fairy_loot"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="19_seffdata"]
+[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="20_dizzy"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -30,6 +34,8 @@ Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResou
 EliteStatusEffect = ExtResource("15_elite_std")
 EliteCrownScene = ExtResource("16_elite_crown")
 EliteLoot = ExtResource("17_elite_loot")
+FairyLoot = ExtResource("18_fairy_loot")
+FairyLootStatusEffects = Array[ExtResource("19_seffdata")]([ExtResource("20_dizzy"), ExtResource("21_burning")])
 TalkAction = ExtResource("13_talk_action")
 GiveItemAction = ExtResource("14_give_action")
 SunMaxElevationDegrees = 65.0

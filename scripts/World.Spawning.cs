@@ -8,7 +8,7 @@ using Godot;
 // World.EntityStreaming.cs. See World.cs for the file split.
 public partial class World
 {
-    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item, Godot.Collections.Array<StatusEffectData> possibleStatusEffects = null)
+    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
     {
         if (item == null)
         {
@@ -21,15 +21,16 @@ public partial class World
             return null;
         }
         var simState = new LootSimState(position, item);
-        // Compose the loot source's possible status effects onto a freshly
-        // created item state so the menu of boons travels with this specific
-        // pickup (a fairy corpse's possible gifts). Eager-creating the state
-        // here mirrors the player-drop path (DropItem); ordinary loot leaves
-        // Item null and builds its state lazily at pickup.
-        if (possibleStatusEffects != null && possibleStatusEffects.Count > 0)
+        // The fairy corpse draws its candidate boons from SimData and carries
+        // them on its per-instance state, so on use one of them can be applied
+        // (and eventually chosen by the player). Eager-creating the state here
+        // mirrors the player-drop path (DropItem); all other loot leaves Item
+        // null and builds its state lazily at pickup. See ApplyStatusEffect.
+        SimData simData = SimData;
+        if (simData != null && item == simData.FairyLoot && simData.FairyLootStatusEffects.Count > 0)
         {
             ItemState state = item.CreateState();
-            foreach (StatusEffectData effect in possibleStatusEffects)
+            foreach (StatusEffectData effect in simData.FairyLootStatusEffects)
             {
                 if (effect != null)
                 {

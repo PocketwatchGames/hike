@@ -2980,19 +2980,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 }
                 for (int n = 0; n < entry.count; n++)
                 {
-                    EjectLootPiece(entry.item, entry.possibleStatusEffects, horizontalSpeed, verticalSpeed, rng);
+                    EjectLootPiece(entry.item, horizontalSpeed, verticalSpeed, rng);
                 }
             }
         }
         if (eliteLoot != null)
         {
-            EjectLootPiece(eliteLoot, null, horizontalSpeed, verticalSpeed, rng);
+            EjectLootPiece(eliteLoot, horizontalSpeed, verticalSpeed, rng);
         }
     }
 
     // Fire a single loot item outward on a 45° upward arc with a random
     // horizontal heading so a multi-drop carcass scatters rather than stacking.
-    private void EjectLootPiece(ItemData item, Godot.Collections.Array<StatusEffectData> possibleStatusEffects, float horizontalSpeed, float verticalSpeed, Random rng)
+    private void EjectLootPiece(ItemData item, float horizontalSpeed, float verticalSpeed, Random rng)
     {
         float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
         var impulse = new Vector3(
@@ -3000,7 +3000,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             verticalSpeed,
             horizontalSpeed * Mathf.Sin(angle)
         );
-        _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, item, possibleStatusEffects);
+        _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, item);
     }
 
     // Spawn an ArrowStuck child at the world-space hit point. Caller has
