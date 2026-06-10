@@ -8,10 +8,15 @@
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
 [ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="5_corpse"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_ud1my"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_seffdata"]
+[ext_resource type="Resource" uid="uid://td4nk2wwtqxx" path="res://resources/data/status_effects/status_heal.tres" id="7_heal"]
+[ext_resource type="Resource" uid="uid://dwfk3naq2pr5x" path="res://resources/data/status_effects/status_well_fed.tres" id="8_wellfed"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="9_foodpoison"]
 
 [sub_resource type="Resource" id="Resource_loot_corpse"]
 script = ExtResource("4_lootcount")
 item = ExtResource("5_corpse")
+possibleStatusEffects = Array[ExtResource("6_seffdata")]([ExtResource("7_heal"), ExtResource("8_wellfed"), ExtResource("9_foodpoison")])
 
 [resource]
 script = ExtResource("1_mobdata")

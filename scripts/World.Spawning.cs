@@ -8,7 +8,7 @@ using Godot;
 // World.EntityStreaming.cs. See World.cs for the file split.
 public partial class World
 {
-    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item)
+    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemData item, Godot.Collections.Array<StatusEffectData> possibleStatusEffects = null)
     {
         if (item == null)
         {
@@ -21,6 +21,23 @@ public partial class World
             return null;
         }
         var simState = new LootSimState(position, item);
+        // Compose the loot source's possible status effects onto a freshly
+        // created item state so the menu of boons travels with this specific
+        // pickup (a fairy corpse's possible gifts). Eager-creating the state
+        // here mirrors the player-drop path (DropItem); ordinary loot leaves
+        // Item null and builds its state lazily at pickup.
+        if (possibleStatusEffects != null && possibleStatusEffects.Count > 0)
+        {
+            ItemState state = item.CreateState();
+            foreach (StatusEffectData effect in possibleStatusEffects)
+            {
+                if (effect != null)
+                {
+                    state.possibleStatusEffects.Add(effect);
+                }
+            }
+            simState.Item = state;
+        }
         _worldState.AddEntity(simState);
         Loot loot = Loot.Create(this, simState, scene, impulse);
 
