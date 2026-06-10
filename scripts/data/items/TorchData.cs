@@ -9,6 +9,12 @@ public partial class TorchData : ConsumableData
 	// scene rather than overriding here.
 	[Export] public PackedScene movingLightScene;
 
+	// The visible in-hand torch prop (a HeldTorch scene) shown in the player's
+	// hand while this torch is the active consumable. Lit/unlit visual and the
+	// flame fx are driven by isActive. Distinct from movingLightScene, which is
+	// the invisible world-light deposit. Shared with the mob held torch.
+	[Export] public PackedScene heldTorchScene;
+
 	public override ItemState CreateState()
 	{
 		return new TorchState(this);

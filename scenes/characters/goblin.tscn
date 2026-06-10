@@ -24,6 +24,7 @@
 [ext_resource type="Material" uid="uid://bnixs7h6x83ge" path="res://resources/materials/goblin_props_lit.tres" id="29_goblinpropsmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+[ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="41_helditemvis"]
 [ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin_voice.tres" id="50_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
@@ -33,13 +34,14 @@ height = 2.5
 radius = 0.8
 height = 2.5
 
-[node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_hurtBox", "HudAnchor")]
+[node name="Mob2" type="RigidBody3D" unique_id=2065293612 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_heldVisual", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_hfanx")
 _collisionShape = NodePath("MovementCollision")
 _modelAnimator = NodePath("ModelAnimator")
 _mesh = NodePath("MeshContainer")
+_heldVisual = NodePath("HeldItemVisual")
 _hurtBox = NodePath("HurtBox")
 HudAnchor = NodePath("Node3D")
 HudScene = ExtResource("3_mobhud")
@@ -103,3 +105,9 @@ modelMaterial = ExtResource("28_goblinbodymat")
 secondaryMaterial = ExtResource("29_goblinpropsmat")
 secondaryMeshNames = PackedStringArray("SM_Sword", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad", "SM_DaggerLeft", "SM_DaggerRight", "SM_Stone", "SK_Slingshot")
 visibleMeshNames = PackedStringArray("SK_GoblinBody", "SM_Sword", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad")
+
+[node name="HeldItemVisual" type="Node3D" parent="." unique_id=318847851 node_paths=PackedStringArray("visual")]
+script = ExtResource("41_helditemvis")
+visual = NodePath("../MeshContainer/GoblinModel")
+boneName = &"R Hand"
+leftBoneName = &"L Hand"

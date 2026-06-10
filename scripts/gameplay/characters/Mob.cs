@@ -10,6 +10,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // activates it as the live visual and subscribes its footstep hooks.
     [Export] private ModelAnimator _modelAnimator;
     [Export] private Node3D _mesh;
+    // Optional in-hand prop renderer (hand-bone sockets). Only the held-torch
+    // channel is used for mobs; null on species that never carry a held prop.
+    [Export] private HeldItemVisual _heldVisual;
     [Export] private HurtBox _hurtBox;
     [Export] public Node3D HudAnchor;
     [Export] public PackedScene HudScene;
@@ -2240,6 +2243,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     {
                         _torch = _simState.MobData.movingLightScene.Instantiate<MovingLight>();
                         AddChild(_torch);
+                        // Show the held torch prop (lit) in the mob's hand. The
+                        // MovingLight is the invisible deposit; this is the visible
+                        // model that now carries the flame fx.
+                        if (_heldVisual != null && _simState.MobData.heldTorchScene != null)
+                        {
+                            _heldVisual.SetTorch(_simState.MobData.heldTorchScene);
+                            _heldVisual.SetTorchLit(true);
+                        }
                     }
                 }
                 else
@@ -2874,6 +2885,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Hand off so the light fades out and frees itself rather than cutting.
         _torch.Deactivate(freeWhenDone: true);
         _torch = null;
+        // Drop the visible held prop (its flame fx fades itself out via Stop).
+        _heldVisual?.SetTorch(null);
     }
 
     private void Die()
