@@ -88,6 +88,21 @@ public partial class World : Node3D
 
     public Player player => _player;
 
+    // The player's active companion (pet), if one is currently spawned. A Mob
+    // flagged MobData.isCompanion registers here on spawn so player command
+    // input (follow/stay toggle) can reach it without a scene-tree search.
+    // Single companion for now; becomes a list when multiple pets are allowed.
+    private Mob _companion;
+    public Mob Companion => _companion;
+    public void RegisterCompanion(Mob companion) => _companion = companion;
+    public void UnregisterCompanion(Mob companion)
+    {
+        if (_companion == companion)
+        {
+            _companion = null;
+        }
+    }
+
     public void Initialize(WorldState worldState, Vector3 spawnPosition, GameCamera camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldState = worldState;

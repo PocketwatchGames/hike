@@ -194,6 +194,11 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
+    // Marks this mob as the player's companion/pet. The companion brain
+    // (follow/stay) reads command state off the live Mob, and World tracks the
+    // active companion so the player's command input can reach it. A starter
+    // slice — taming, naming, and multiple companions build on this flag.
+    [Export] public bool isCompanion = false;
     // Native language spoken by this mob. Acts as the default
     // ConversationContext.speakerLanguage for any branch whose own
     // `language` field is null — the player's learned components against

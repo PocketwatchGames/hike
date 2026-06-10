@@ -4014,6 +4014,12 @@ public partial class Player : CharacterBody3D
 			_sneaking = !_sneaking;
 		}
 
+		// Toggle the active companion between following and staying put.
+		if (Input.IsActionJustPressed("CompanionToggleStay"))
+		{
+			_world?.Companion?.ToggleStayCommand();
+		}
+
 		if (Input.IsActionJustPressed("UseItem"))
 		{
 			TryUseActiveConsumable();
