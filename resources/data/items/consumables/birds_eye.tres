@@ -21,12 +21,6 @@ animName = 21
 [sub_resource type="Resource" id="Resource_no_ceiling"]
 script = ExtResource("7_noceiling")
 
-[sub_resource type="Resource" id="Resource_charged_hold"]
-script = ExtResource("3_charged")
-chargeTime = 1.5
-requirements = Array[ExtResource("6_oho1y")]([SubResource("Resource_no_ceiling")])
-chargeLoopEffect = ExtResource("9_drinkfx")
-
 [sub_resource type="Resource" id="Resource_birds_eye"]
 script = ExtResource("5_birdseye")
 
@@ -37,13 +31,16 @@ effects = Array[ExtResource("6_effect")]([SubResource("Resource_birds_eye")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
+chargeTime = 1.5
+chargeLoopEffect = ExtResource("9_drinkfx")
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_apply_decrement")])
 requirements = Array[ExtResource("6_oho1y")]([SubResource("Resource_no_ceiling")])
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
-chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged_hold"), SubResource("Resource_charged")])
+chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
 chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
+requireFullCharge = true
 locksMovement = true
 
 [resource]

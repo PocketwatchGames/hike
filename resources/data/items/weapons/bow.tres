@@ -128,7 +128,7 @@ damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"heavy": SubResource("Resource_oap68"),
 &"primary": SubResource("Resource_damage")
 })
-pitchRangeDegrees = 45.0
+pitchRangeDegrees = 85.0
 yawAssistDegrees = 60.0
 aimAssistStrength = 0.75
 actionProfile = SubResource("Resource_profile")

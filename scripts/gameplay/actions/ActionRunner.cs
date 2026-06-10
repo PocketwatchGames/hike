@@ -125,6 +125,14 @@ public class ActionRunner
 			AbortCharging();
 			return true;
 		}
+		// Hold-to-completion profiles never commit on release. A full hold
+		// auto-fires via MaybeAutoActivate before the player can release at
+		// max, so any release that reaches here is an early one — abort it.
+		if (_action.profile != null && _action.profile.requireFullCharge)
+		{
+			AbortCharging();
+			return true;
+		}
 		EnterActive(tier, _actor.GameTimeMs);
 		return true;
 	}

@@ -43,6 +43,16 @@ public partial class ItemActionProfile : Resource
 	// to commit.
 	[Export] public bool autoActivateAtMax = true;
 
+	// "Hold to completion": when true, releasing the input before the charge
+	// fully fills does NOT activate — it aborts (fires the selected tier's
+	// chargeCancelEffect / the profile's abortEvents). The only way to commit
+	// is a full hold, which auto-fires via autoActivateAtMax. Use for channeled
+	// actions where a half-hearted tap should accomplish nothing — digging with
+	// the shovel, future channeled abilities. Contrast the bow, where an early
+	// release is a deliberate weak shot. Requires autoActivateAtMax = true so a
+	// filled charge still has a way to fire.
+	[Export] public bool requireFullCharge = false;
+
 	// Apply a movement lock for the duration of the action (Charging + Active).
 	// Drinking a potion locks; weapon swings typically don't.
 	[Export] public bool locksMovement = false;

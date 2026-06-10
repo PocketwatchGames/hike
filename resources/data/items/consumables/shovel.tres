@@ -36,6 +36,7 @@ events = Array[ExtResource("4_event")]([SubResource("Resource_event_dig")])
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
 chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
+requireFullCharge = true
 locksMovement = true
 
 [resource]

@@ -75,12 +75,13 @@ public partial class WeaponData : ItemData
 	// 0 = yaw assist disabled.
 	[Export] public float yawAssistDegrees = 0f;
 
-	// Per-tick bias fraction in [0, 1] for both yaw pull and pitch smoothing.
-	// 0 = no assist (the player aims raw); 1 = fully snap to the target each
-	// tick. Yaw additionally has a smoothstep falloff to 0 at the cone edge
-	// so the assist is strongest near a target's silhouette and fades out
-	// before the player rotates past it. Pitch has no falloff because the
-	// pitch cone is purely an acquisition gate.
+	// Per-tick bias fraction in [0, 1] for the YAW pull only. 0 = no yaw assist
+	// (the player aims raw); 1 = fully snap yaw to the target each tick. The pull
+	// has a smoothstep falloff to 0 at the cone edge so it is strongest near a
+	// target's silhouette and fades out before the player rotates past it. Pitch
+	// does NOT use this scale — the stick has no manual pitch control, so pitch
+	// commits fully to the target's elevation (faded in by the same cone-proximity
+	// curve) rather than stopping short of it.
 	[Export(PropertyHint.Range, "0,1,0.01")] public float aimAssistStrength = 0.4f;
 
 	// Authored timeline + tier list. A tap-fire weapon has a single tier with

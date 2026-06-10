@@ -164,6 +164,17 @@ public partial class TreeTrunk : MeshInstance3D
     // texture's visible content meets the branch end.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float TwigsAttachInset = 0.1f;
 
+    // -- Collision ---------------------------------------------------------
+    // The trunk's movement collider (a Porous cylinder) is sized SHORT of the
+    // perch at the crown, so a bird perched up top isn't occluded from grounded
+    // line-of-sight / aim raycasts (which mask Solid = Environment | Porous) by
+    // the very trunk it's sitting on. The collider top sits at this fraction of
+    // the perch height, but never drops more than ColliderMaxDropBelowPerch
+    // below the perch — short trees keep most of their trunk solid; tall trees
+    // cap the open gap so the lower trunk still blocks movement.
+    [Export(PropertyHint.Range, "0.1,1,0.01")] public float ColliderHeightFraction = 0.85f;
+    [Export(PropertyHint.Range, "0,5,0.1")] public float ColliderMaxDropBelowPerch = 1.0f;
+
     [ExportToolButton("Rebuild")]
     public Callable RebuildButton => Callable.From(Rebuild);
 
@@ -215,24 +226,22 @@ public partial class TreeTrunk : MeshInstance3D
         List<FoliageCluster> clusters = CollectClusters(foliage);
 
         // Runtime: stretch the canopy vertically about its lowest cluster to the
-        // new height, resize the collider, and lift the perch / wind emitter.
-        // Done BEFORE growing the skeleton so it targets the final (stretched)
-        // cluster positions. cluster.Position is already trunk-local == prop-local
-        // (Foliage authored at the trunk origin), and so are the prop-space Y
-        // values of the collider / perch / wind emitter, so one pivot serves all.
+        // new height and lift the wind emitter. Done BEFORE growing the skeleton
+        // so it targets the final (stretched) cluster positions. cluster.Position
+        // is already trunk-local == prop-local (Foliage authored at the trunk
+        // origin), and so are the prop-space Y values of the perch / wind
+        // emitter, so one pivot serves all. The collider is sized later, after
+        // the perch lands on its final tip (ResizeCollider keys off perch height).
         if (!Engine.IsEditorHint() && clusters.Count > 0)
         {
             float scale = effHeight / TrunkHeight;
             float pivotY = MinClusterY(clusters);
-            float topY = pivotY;
             foreach (FoliageCluster c in clusters)
             {
                 Vector3 p = c.Position;
                 p.Y = pivotY + (p.Y - pivotY) * scale;
                 c.Position = p;
-                topY = Mathf.Max(topY, p.Y);
             }
-            ResizeCollider(topY);
             ScaleNodeY(FindSiblingOrChild<Node3D>("WindEmitterSource"), pivotY, scale);
         }
 
@@ -243,11 +252,14 @@ public partial class TreeTrunk : MeshInstance3D
 
         // Runtime: snap the perch to the highest branch tip the skeleton actually
         // grew (the topmost twig), so a bird sits at the true crown rather than
-        // the authored nominal point. Editor-gated so the authored transform
-        // never drifts on save (the editor previews the nominal skeleton anyway).
+        // the authored nominal point, then size the trunk collider to stop short
+        // of that perch so the perched bird stays visible to grounded LOS / aim.
+        // Editor-gated so the authored transform never drifts on save (the editor
+        // previews the nominal skeleton anyway).
         if (!Engine.IsEditorHint())
         {
-            PerchAtHighestTip(tips);
+            float perchY = PerchAtHighestTip(tips, effHeight);
+            ResizeCollider(perchY);
         }
         // Apply bark in code — the scene-authored surface_material_override/0 is
         // orphaned once the static trunk mesh sub-resource is removed.
@@ -267,19 +279,17 @@ public partial class TreeTrunk : MeshInstance3D
 
     // -- Canopy stretch / collider ----------------------------------------
 
-    // Move the perch to the highest branch tip. Tips are in trunk-local space,
-    // which equals prop-local (the trunk is identity at the prop origin), so the
-    // tip position drops straight onto the sibling perch's local transform.
-    private void PerchAtHighestTip(List<Tip> tips)
+    // Move the perch to the highest branch tip and return that tip's prop-local
+    // height (used to size the trunk collider just below it). Tips are in
+    // trunk-local space, which equals prop-local (the trunk is identity at the
+    // prop origin), so the tip position drops straight onto the sibling perch's
+    // local transform. Falls back to `fallbackY` (the grown trunk height) when
+    // there are no tips — e.g. a foliage-less lone trunk.
+    private float PerchAtHighestTip(List<Tip> tips, float fallbackY)
     {
         if (tips.Count == 0)
         {
-            return;
-        }
-        Node3D perch = FindSiblingOrChild<Node3D>("Perch");
-        if (perch == null)
-        {
-            return;
+            return fallbackY;
         }
         Vector3 highest = tips[0].Position;
         foreach (Tip t in tips)
@@ -289,7 +299,12 @@ public partial class TreeTrunk : MeshInstance3D
                 highest = t.Position;
             }
         }
-        perch.Position = highest;
+        Node3D perch = FindSiblingOrChild<Node3D>("Perch");
+        if (perch != null)
+        {
+            perch.Position = highest;
+        }
+        return highest.Y;
     }
 
     // Scale a node's prop-local Y about `pivotY` (the lowest cluster), matching
@@ -305,26 +320,31 @@ public partial class TreeTrunk : MeshInstance3D
         node.Position = p;
     }
 
-    // Stretch the trunk collider so it spans the ground up to the stretched
-    // trunk top (highest cluster). The cylinder shape is duplicated per instance
-    // first — it's a shared species sub-resource, so resizing it in place would
-    // resize every other tree of the same kind.
-    private void ResizeCollider(float trunkTop)
+    // Size the trunk collider to span the ground up to just BELOW the perch at
+    // the crown, so a bird perched up top isn't occluded from grounded LOS / aim
+    // raycasts by the trunk it's sitting on. Top = perchHeight * ColliderHeightFraction,
+    // clamped to never drop more than ColliderMaxDropBelowPerch below the perch.
+    // The cylinder shape is duplicated per instance first — it's a shared species
+    // sub-resource, so resizing it in place would resize every other tree of the
+    // same kind.
+    private void ResizeCollider(float perchHeight)
     {
         StaticBody3D body = FindSiblingOrChild<StaticBody3D>("Body");
         if (body == null)
         {
             return;
         }
+        float colliderTop = Mathf.Max(perchHeight * ColliderHeightFraction, perchHeight - ColliderMaxDropBelowPerch);
+        colliderTop = Mathf.Max(colliderTop, MinSegmentLength);
         foreach (Node child in body.GetChildren())
         {
             if (child is CollisionShape3D cs && cs.Shape is CylinderShape3D cyl)
             {
                 CylinderShape3D ownShape = (CylinderShape3D)cyl.Duplicate();
-                ownShape.Height = trunkTop;
+                ownShape.Height = colliderTop;
                 cs.Shape = ownShape;
                 Vector3 p = cs.Position;
-                p.Y = trunkTop * 0.5f;
+                p.Y = colliderTop * 0.5f;
                 cs.Position = p;
             }
         }

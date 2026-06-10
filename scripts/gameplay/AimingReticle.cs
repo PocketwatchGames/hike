@@ -74,6 +74,14 @@ public partial class AimingReticle : Node3D
 	// alone to telegraph the AoE footprint, so it reads as a stronger UI
 	// element than the directional-mode ring — 1.0 (fully opaque) by default.
 	[Export] private float _groundRingPositionalAlphaScale = 1.0f;
+	// Ease-out speed for the VISUAL-ONLY vertical smoothing of the directional
+	// beam's endpoint. The underlying aim/fire is unchanged — this only eases the
+	// rendered beam tip's Y so a lock onto an elevated target (a perched bird
+	// overhead) sweeps up to it instead of snapping. Each frame the tip closes an
+	// exp-decay fraction (1 - exp(-dt * this)) of the remaining distance, so the
+	// convergence is frame-rate independent and never overshoots. Larger =
+	// snappier; 0 freezes the tip. At 16 the tip settles (~99% closed) in ~0.3s.
+	[Export] private float _reticleVerticalEaseSpeed = 16.0f;
 
 	// Linear ease from current outer radius to the new target whenever the
 	// target changes (lock on/off, or the targeted mob's clearance differs
@@ -135,6 +143,13 @@ public partial class AimingReticle : Node3D
 	// so we can snap the player's facing toward the cursor on Pos → Dir
 	// (the directional raycast THIS SAME FRAME picks up the new yaw).
 	EAimType _lastAimType = EAimType.Directional;
+
+	// Smoothed Y of the directional beam's rendered endpoint (visual only —
+	// see _reticleVerticalSmoothTime). `_endYValid` goes false whenever the
+	// reticle fully hides so the next aim session snaps to its first endpoint
+	// rather than gliding up from a stale value.
+	float _smoothedEndY;
+	bool _endYValid;
 
 	// World position currently being aimed at — the ground circle anchor.
 	// Read by positional fire handlers (AoE drop target, throw destination)
@@ -258,6 +273,9 @@ public partial class AimingReticle : Node3D
 		if (_spreadLineRight != null) { _spreadLineRight.Visible = false; }
 		if (_groundCircle != null) { _groundCircle.Visible = false; }
 		if (_endKnob != null) { _endKnob.Visible = false; }
+		// Next aim session re-seeds the smoothed beam Y from its first endpoint
+		// instead of gliding up from wherever the last session left it.
+		_endYValid = false;
 	}
 
 	// Mirrors the gate Player uses in TryStartWeaponAction: a weapon must be
@@ -573,6 +591,27 @@ public partial class AimingReticle : Node3D
 		// Main line: ribbon from chest pivot to the (cached or fresh) endpoint.
 		Vector3 mainStart = chestWorld;
 		Vector3 mainEnd = chestWorld + forward * lineLength;
+		// VISUAL-ONLY vertical smoothing: ease just the rendered tip's Y toward
+		// the true endpoint so the beam sweeps up to an elevated lock instead of
+		// snapping. Horizontal (yaw) tracking stays instant, and the shot itself
+		// fires along _player.ActorForward — this never touches the mechanic. The
+		// smoothed Y is shared by the beam, the knob, and the spread markers so
+		// the whole forward telegraph rises together. First frame after a hide
+		// snaps (no glide-up from a stale value).
+		if (!_endYValid)
+		{
+			_smoothedEndY = mainEnd.Y;
+			_endYValid = true;
+		}
+		else
+		{
+			// Ease out toward the target by closing an exp-decay fraction of the
+			// remaining distance each frame: frame-rate independent, decelerates
+			// as it closes, never overshoots.
+			float k = 1f - Mathf.Exp(-dt * _reticleVerticalEaseSpeed);
+			_smoothedEndY = Mathf.Lerp(_smoothedEndY, mainEnd.Y, k);
+		}
+		mainEnd.Y = _smoothedEndY;
 		SetLineEndpoints(_mainLine, mainStart, mainEnd);
 		if (_mainLine != null)
 		{
@@ -657,6 +696,8 @@ public partial class AimingReticle : Node3D
 		// actual aim distance.
 		float length = Mathf.Min(_spreadLineLength, lineLength);
 		Vector3 endPoint = chestWorld + forward * lineLength + right * lateralOffset;
+		// Share the beam's visually-smoothed tip Y so the markers rise with it.
+		endPoint.Y = _smoothedEndY;
 		Vector3 startPoint = endPoint - forward * length;
 		SetLineEndpoints(line, startPoint, endPoint);
 	}

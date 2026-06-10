@@ -448,6 +448,14 @@ public partial class Player : CharacterBody3D, IActionActor
 				continue;
 			}
 			float horizontalDist = Mathf.Sqrt(horizontalDistSq);
+			// Range gate = true 3D distance, matching the shot's reach exactly. The
+			// shot flies a straight line of length `range`, so the hittable set is a
+			// sphere of radius `range`; gating the assist on that same sphere means
+			// it only ever pitches toward a target the shot can actually reach — no
+			// "aim pulls up at it but the arrow falls short" zone. (A per-axis XZ/Y
+			// gate would be a taller cylinder whose far-high rim sits out at
+			// range*sqrt(2), outside the sphere.) distSq is reused below as the
+			// closest-candidate tiebreak.
 			float distSq = horizontalDistSq + delta.Y * delta.Y;
 			if (distSq > range * range)
 			{
@@ -520,7 +528,14 @@ public partial class Player : CharacterBody3D, IActionActor
 		{
 			Rotation = new Vector3(0f, Mathf.LerpAngle(stickYaw, bestYaw, bias), 0f);
 		}
-		_aimPitchRadians = bias * bestPitch;
+		// Pitch has NO manual counterpart — the stick only drives yaw — so the
+		// assist must commit fully to the target's elevation, otherwise a steeply
+		// elevated target (a perched bird overhead) is unhittable: scaling pitch
+		// by the yaw-nudge strength would leave the aim line short of it with no
+		// way to finish the aim. Fade it in with cone proximity (t01) only, not
+		// `strength`, so it eases in as the player pans onto the target and
+		// reaches the true target pitch at full lock.
+		_aimPitchRadians = t01 * bestPitch;
 	}
 	// Normalized aim input deflection in world XZ (already camera-yaw-rotated
 	// at the input boundary). Magnitude is 0..1 for both gamepad (raw axis

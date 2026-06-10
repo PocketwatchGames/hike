@@ -18,11 +18,6 @@ script = ExtResource("1_gdqt6")
 type = 64
 animName = 21
 
-[sub_resource type="Resource" id="Resource_charged_hold"]
-script = ExtResource("3_smk86")
-chargeTime = 1.5
-chargeLoopEffect = ExtResource("11_drinkfx")
-
 [sub_resource type="Resource" id="Resource_apply_heal"]
 script = ExtResource("4_xext6")
 statusEffect = ExtResource("5_gdqt6")
@@ -34,12 +29,15 @@ effects = Array[ExtResource("2_qvsyu")]([SubResource("Resource_apply_heal")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_smk86")
+chargeTime = 1.5
+chargeLoopEffect = ExtResource("11_drinkfx")
 events = Array[ExtResource("1_gdqt6")]([SubResource("Resource_event_apply_decrement")])
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("7_5unc7")
-chargedActions = Array[ExtResource("3_smk86")]([SubResource("Resource_charged_hold"), SubResource("Resource_charged")])
+chargedActions = Array[ExtResource("3_smk86")]([SubResource("Resource_charged")])
 chargeEvents = Array[ExtResource("1_gdqt6")]([SubResource("Resource_event_anim")])
+requireFullCharge = true
 locksMovement = true
 
 [resource]
