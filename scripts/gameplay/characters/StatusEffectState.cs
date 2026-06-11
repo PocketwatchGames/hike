@@ -23,6 +23,13 @@ public class StatusEffectState
 	// nulled by the End path so the trailing audio + particles wind down.
 	public Fx loopInstance;
 
+	// Countdown to the next movement-trail drop (data.trailZoneScene), in
+	// seconds. Ticked down by StatusEffectController.TickMovementTrail only
+	// while the actor is moving (dashing/sprinting); a patch drops and the
+	// timer re-arms to data.trailDropInterval when it reaches 0. Unused unless
+	// the effect authors a trail.
+	public float trailAccumulator;
+
 	public StatusEffectState(StatusEffectData data, ulong nowMs)
 	{
 		this.data = data;

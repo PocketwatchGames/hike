@@ -24,7 +24,6 @@
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/effects/sword_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
-[ext_resource type="Texture2D" uid="uid://clsxls6s8mfqk" path="res://assets/textures/items/pickups/Club.png" id="16_world"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/held/club_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
 
@@ -145,4 +144,3 @@ description = "Bashy bashy"
 value = 50
 inventorySprite = ExtResource("15_3a20y")
 heldModel = ExtResource("17_held")
-worldSprite = ExtResource("16_world")

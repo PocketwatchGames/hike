@@ -2,7 +2,6 @@
 
 [ext_resource type="Texture2D" uid="uid://cxfdn0d5db6mw" path="res://assets/textures/items/LeatherArmor.png" id="1_kkvw5"]
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="2_bvjtb"]
-[ext_resource type="Texture2D" uid="uid://cqo7hboo3fxe0" path="res://assets/textures/items/pickups/LeatherArmor.png" id="3_bvjtb"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 
 [sub_resource type="Resource" id="m_cold"]
@@ -26,4 +25,3 @@ displayName = &"Leather Armor"
 description = "Protects against nicks and scratches."
 value = 25
 inventorySprite = ExtResource("1_kkvw5")
-worldSprite = ExtResource("3_bvjtb")

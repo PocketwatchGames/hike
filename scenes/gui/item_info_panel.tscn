@@ -73,8 +73,10 @@ grow_vertical = 2
 text = "Level 1"
 
 [node name="Description" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1205557154]
+custom_minimum_size = Vector2(400, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
+autowrap_mode = 3
 
 [node name="StatusEffectContainer" type="VBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=237535431]
 layout_mode = 2

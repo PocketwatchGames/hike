@@ -52,4 +52,12 @@ public partial class BlockData : Resource
     // blocks may share a category — DesertTop, DesertSand, DesertCave all
     // resolve to Sand. New categories should append to EGroundType.
     [Export] public EGroundType GroundType = EGroundType.Grass;
+
+    // Material scooped up when the player digs a bare hole in this block —
+    // i.e. the shovel finds no buried spot or burrowed mob (see World.TryDig).
+    // Marsh yields mud; most blocks leave this null (digging bare ground comes
+    // up empty). The item is dropped as loose loot at the dig point and the
+    // shovel reports a Common find. Resolved through GroundTypeResolver, so
+    // the overlay block wins over the base voxel just like footsteps.
+    [Export] public ItemData DigItem;
 }

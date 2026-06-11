@@ -113,11 +113,13 @@ public partial class GameClient : Node3D
 	// forwards damage / death events; see ScreenEffectsController.
 	[Export] public ScreenEffectsController screenEffects;
 	[ExportGroup("Aim Cursor")]
-	// Aim-cursor saturation radius (pixels). Larger = more mouse travel
-	// before the virtual cursor reaches the edge of its disk, so the aim
-	// direction takes longer to swing. Direction-only after this — atan2
-	// in Player ignores magnitude.
-	[Export(PropertyHint.Range, "20,600,1")] public float aimCursorRadiusPx = 200f;
+	// Aim-cursor saturation radius (pixels). Larger = more mouse travel before
+	// the virtual cursor reaches the edge of its disk — i.e. lower sensitivity.
+	// For Directional aim this only affects how far the cursor must travel to
+	// saturate (the aim direction is atan2, magnitude-independent); for
+	// Positional aim it sets the mouse-to-ground sensitivity directly, since the
+	// disk position maps straight onto the ground disk (deflection = pos/radius).
+	[Export(PropertyHint.Range, "20,1200,1")] public float aimCursorRadiusPx = 600f;
 	// Below this magnitude the accumulator is treated as "at rest" and the
 	// player's aim direction is left alone. Stops sub-pixel jitter from
 	// continuously re-aiming when the player is trying to hold steady.

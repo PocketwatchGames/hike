@@ -1,0 +1,27 @@
+[gd_scene format=3 uid="uid://bm0xpllarge02"]
+
+[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="PackedScene" uid="uid://bm0blastfxlha" path="res://scenes/effects/bomb_blast_fx_large.tscn" id="3_blast"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_bombzone"]
+radius = 2.5
+
+[node name="BombExplosionLarge" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+script = ExtResource("1_gas")
+lifetimeSeconds = 1.4
+_dangerZone = NodePath("DamageZone")
+
+[node name="DamageZone" type="Area3D" parent="." node_paths=PackedStringArray("_shape")]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("2_dz")
+_shape = NodePath("CollisionShape3D")
+enemiesOnly = true
+metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.0, 0)
+shape = SubResource("SphereShape3D_bombzone")
+
+[node name="Blast" parent="." instance=ExtResource("3_blast")]

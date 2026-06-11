@@ -34,6 +34,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	// before this elapses unlocks pickup at rest via Settle() instead.
 	[Export] private float _pickupReadyDelaySeconds = 0.6f;
 
+	// Longest-side pixel budget for an auto-derived world pickup sprite. When
+	// an item authors no worldSprite, its (full-res) inventory icon is
+	// point-downsampled to this many chunky pixels (see GetChunkyPickupTexture)
+	// so the dropped pickup reads at the same chunky scale as hand-authored
+	// pickup art instead of rendering the big inventory icon 1:1.
+	[Export] private int _pickupMaxChunkyPixels = 16;
+
 	// Water physics tuning. Same shape as MobData / PlayerData — small items
 	// bob more aggressively to the surface, ride currents readily, and don't
 	// sink fast when displaced downward. Defaults chosen for typical
@@ -640,12 +647,16 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 		else
 		{
-			// Swap the world-pickup sprite to the carried item's icon. Prefer
-			// the item's worldSprite (authored at chunky-pixel resolution) and
-			// fall back to inventorySprite when none is set — RegionEnabled=false
-			// makes SpriteBase.Apply recompute the quad size + center offset for
-			// whatever texture lands here.
-			Texture2D texture = itemData?.worldSprite ?? itemData?.inventorySprite;
+			// Swap the world-pickup sprite to the carried item's icon. Prefer an
+			// authored worldSprite (already drawn at chunky-pixel resolution);
+			// when none is set, point-downsample the full-res inventory icon to
+			// the loot's chunky-pixel budget so it reads at the right size and
+			// stays crisp (rather than rendering the big icon 1:1 — oversized —
+			// or live-minifying it, which swims as the loot bobs). RegionEnabled
+			// =false makes SpriteBase.Apply recompute the quad size + center
+			// offset for whatever texture lands here.
+			Texture2D texture = itemData?.worldSprite
+				?? GetChunkyPickupTexture(itemData?.inventorySprite, instance._pickupMaxChunkyPixels);
 			if (instance._sprite != null && texture != null)
 			{
 				instance._sprite.RegionEnabled = false;
@@ -654,6 +665,59 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 		world.AddChild(instance);
 		return instance;
+	}
+
+	// Cache of point-downsampled world-pickup textures, keyed by the source
+	// (inventory) texture. Lets an item with no authored worldSprite render a
+	// chunky-reduced copy of its inventory icon without hand-authoring a
+	// separate small pickup PNG per item. Pure render derivation — the same
+	// spirit as SpriteBase's shared-material cache, not authored game data — so
+	// it lives in code rather than a .tres. Reduced once per icon per run.
+	private static readonly System.Collections.Generic.Dictionary<Texture2D, Texture2D> _chunkyPickupCache = new();
+
+	// Point-downsample `source` so its longest side is ~maxChunkyPixels,
+	// snapping to an integer reduction factor so output texels map cleanly onto
+	// the chunky-pixel grid the sprite shader fetches per source texel (a 1:1
+	// fetch, so the baked-down icon is as shimmer-free as hand-authored pickup
+	// art — no fractional live minification to swim as the loot bobs). Returns
+	// `source` unchanged when it's already within budget or can't be decoded.
+	private static Texture2D GetChunkyPickupTexture(Texture2D source, int maxChunkyPixels)
+	{
+		if (source == null || maxChunkyPixels <= 0)
+		{
+			return source;
+		}
+		if (_chunkyPickupCache.TryGetValue(source, out Texture2D cached))
+		{
+			return cached;
+		}
+		Image img = source.GetImage();
+		if (img == null)
+		{
+			return source;
+		}
+		int longest = Mathf.Max(img.GetWidth(), img.GetHeight());
+		if (longest <= maxChunkyPixels)
+		{
+			// Already chunky enough (also covers tiny placeholder art) — keep
+			// the source so it shares the existing 1:1 fetch path untouched.
+			_chunkyPickupCache[source] = source;
+			return source;
+		}
+		// Resize needs an uncompressed image; lossless-imported icons decode
+		// fine, but bail to the source if some format can't be decompressed.
+		if (img.IsCompressed() && img.Decompress() != Error.Ok)
+		{
+			_chunkyPickupCache[source] = source;
+			return source;
+		}
+		int factor = Mathf.Max(1, Mathf.RoundToInt((float)longest / maxChunkyPixels));
+		int w = Mathf.Max(1, Mathf.RoundToInt(img.GetWidth() / (float)factor));
+		int h = Mathf.Max(1, Mathf.RoundToInt(img.GetHeight() / (float)factor));
+		img.Resize(w, h, Image.Interpolation.Nearest);
+		Texture2D reduced = ImageTexture.CreateFromImage(img);
+		_chunkyPickupCache[source] = reduced;
+		return reduced;
 	}
 
 	public override void _ExitTree()

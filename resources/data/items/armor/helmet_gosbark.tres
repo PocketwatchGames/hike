@@ -2,7 +2,6 @@
 
 [ext_resource type="Script" uid="uid://u4ihrlfhlmdd" path="res://scripts/data/items/ArmorData.cs" id="1_armor"]
 [ext_resource type="Texture2D" uid="uid://b8a115l6gornn" path="res://assets/textures/items/HelmetGosbark.png" id="2_inv"]
-[ext_resource type="Texture2D" uid="uid://spgsa3qju1vg" path="res://assets/textures/items/pickups/HelmetGosbark.png" id="3_world"]
 
 [resource]
 script = ExtResource("1_armor")
@@ -12,4 +11,3 @@ displayName = &"Gosbark Helm"
 description = "Thick bark-plated headgear that turns aside heavy blows."
 value = 30
 inventorySprite = ExtResource("2_inv")
-worldSprite = ExtResource("3_world")

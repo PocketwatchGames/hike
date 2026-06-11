@@ -10,7 +10,6 @@
 [ext_resource type="Resource" uid="uid://dwfk3naq2pr5x" path="res://resources/data/status_effects/status_well_fed.tres" id="6_status"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Texture2D" uid="uid://cm45nyokao6xw" path="res://assets/textures/items/GoodMeat.png" id="8_inv"]
-[ext_resource type="Texture2D" uid="uid://cnnndibcs4p5j" path="res://assets/textures/items/pickups/GoodMeat.png" id="9_world"]
 [ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/effects/eat_loop.tscn" id="10_eatfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
@@ -49,4 +48,3 @@ description = "Mushroom-cured. Goes down clean."
 maxStack = 5
 value = 5
 inventorySprite = ExtResource("8_inv")
-worldSprite = ExtResource("9_world")

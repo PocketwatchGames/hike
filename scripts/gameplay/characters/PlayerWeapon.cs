@@ -599,5 +599,9 @@ public partial class Player : CharacterBody3D, IActionActor
 		_dashSpeed = speed;
 		_dashTimeRemaining = duration;
 		_dashFreezeGravity = freezeGravity;
+		// A dash has just begun — let any held status effect (e.g. the fairy-
+		// corpse buff) fire its on-dash burst: a radial knockback + Dizzy
+		// shockwave around the player. No-op unless an active effect authors one.
+		_statusEffects?.TriggerDashBurst(this, GlobalPosition);
 	}
 }

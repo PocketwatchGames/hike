@@ -24,6 +24,16 @@ public partial class WeaponData : ItemData
 	// drop, ammo decrements permanently.
 	[Export] public ArrowLootData arrowLootData;
 
+	// Seconds to passively regenerate one unit of ammo while below maxAmmo —
+	// a self-recharging magazine (e.g. bombs refill on their own). The timer
+	// runs continuously while ammo < maxAmmo and restarts after each refill, so
+	// a fully-spent weapon climbs back to full in `ammoRechargeSeconds * maxAmmo`
+	// seconds; firing never resets the in-progress charge. 0 (default) disables
+	// auto-recharge — weapons that refill only via arrow recovery / pickups
+	// (the bow) leave it at 0. Independent of and additive with arrowLootData
+	// recovery. See Player.TickAmmoRecharge.
+	[Export] public float ammoRechargeSeconds = 0f;
+
 	// Named damage profiles fired by this weapon's events. Convention: the
 	// "primary" key is the default fallback for any event that doesn't
 	// override `damageProfileKey`; secondary keys (e.g. "rain_of_arrows")

@@ -88,6 +88,12 @@ public static class CVars
     // contact doesn't spam per-tick.
     public static CVarBool debugSlopes = new CVarBool("debug_slopes", false);
 
+    // Draw a translucent wireframe sphere at every ApplyAreaDamage burst
+    // (status-effect impact/dash bursts, etc.) for one frame. Off by default —
+    // the real hit feedback is the authored Fx; this is a dev visualizer for
+    // tuning blast radii. Toggle with `debug_aoe 1` in the in-game console.
+    public static CVarBool debugAoe = new CVarBool("debug_aoe", false);
+
     // Once-per-second console print of the sun + canopy reading at the
     // player's voxel — useful to verify foliage shadowing (a tree's
     // FoliageCluster with CastsSunShadow stamps into CanopyAttenuation;

@@ -24,6 +24,4 @@ description = "Caked in mud. It slows you down, but it smothers your scent so mo
 modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_scent")])
 maxStack = 1
 buildupBehavior = 1
-armThreshold = 0.5
-disarmThreshold = 0.1
 removesOnApply = []

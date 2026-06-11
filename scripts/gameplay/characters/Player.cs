@@ -2480,6 +2480,54 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Environment-driven counterpart to the manual ToggleMovingLight douse:
+	// a carried torch can't survive being plunged underwater or stand up to
+	// heavy rain, so swimming (over the head) or rain past the douse threshold
+	// clears every active carried torch and reconciles the MovingLight (which
+	// fires its authored off-cue). Mirrors DoToggleMovingLight's douse half but
+	// is one-way — isActive is only ever set false here, so the flame never
+	// auto-relights when conditions ease; the player relights manually. Wading
+	// in shallows keeps a torch lit (only EWaterState.Swimming counts).
+	// Idempotent: once cleared, the next tick finds nothing active, so running
+	// every physics frame is a no-op.
+	private void DouseCarriedTorches()
+	{
+		if (_inventory == null || data == null) { return; }
+
+		bool douse = IsSwimming;
+		if (!douse)
+		{
+			// RainExposure01 already folds in the perceptible-rain floor and the
+			// overhead-shelter ramp, so > 0 means the player is genuinely being
+			// rained on; only then does raw intensity decide "heavy enough".
+			float rainIntensity = SkyController.Current?.Palette.RainIntensity ?? 0f;
+			douse = RainExposure01() > 0f && rainIntensity >= data.torchDouseRainThreshold;
+		}
+		if (!douse) { return; }
+
+		bool dousedAny = false;
+		PackedScene douseFx = null;
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item is ConsumableState cs && cs.isActive && cs.data is TorchData torch)
+			{
+				cs.isActive = false;
+				dousedAny = true;
+				// Fire one wet-douse cue per event (the player only carries one
+				// visible light), from the first doused torch that authors one.
+				douseFx ??= torch.douseEffectScene;
+			}
+		}
+		if (dousedAny)
+		{
+			RefreshCarriedLight();
+			if (douseFx != null)
+			{
+				Fx.Create(douseFx, this, Vector3.Up * SkyExposureProbeHeight);
+			}
+		}
+	}
+
 	public void Initialize(World world, PlayerSpawnData spawnData, Vector3 position, Vector3 rotation)
 	{
 		_world = world;
@@ -2900,6 +2948,53 @@ public partial class Player : CharacterBody3D
 		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + weapon.data.blockArmorRechargeSpeed * dt);
 	}
 
+	// Per-tick passive ammo regeneration for every equipped weapon that opts in
+	// (WeaponData.ammoRechargeSeconds > 0). Driven for both slots so a holstered
+	// weapon still refills. The timer is a single deadline (ammoRechargeReadyMs):
+	// armed the frame ammo drops below max, re-armed after each unit refills, and
+	// cleared at full — so it runs continuously while below max and firing never
+	// resets an in-flight charge. Additive with arrow-recovery refills (the bow
+	// leaves ammoRechargeSeconds 0 and uses only recovery).
+	private void TickAmmoRecharge(ulong now)
+	{
+		TickWeaponAmmoRecharge(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
+	}
+
+	private static void TickWeaponAmmoRecharge(WeaponState weapon, ulong now)
+	{
+		if (weapon?.data == null)
+		{
+			return;
+		}
+		float per = weapon.data.ammoRechargeSeconds;
+		int max = weapon.data.maxAmmo;
+		if (per <= 0f || max <= 0)
+		{
+			return;
+		}
+		if (weapon.ammo >= max)
+		{
+			// At capacity — clear the deadline so the next depletion arms a
+			// fresh full interval rather than refilling instantly.
+			weapon.ammoRechargeReadyMs = 0;
+			return;
+		}
+		if (weapon.ammoRechargeReadyMs == 0)
+		{
+			weapon.ammoRechargeReadyMs = now + (ulong)(per * 1000f);
+			return;
+		}
+		if (now < weapon.ammoRechargeReadyMs)
+		{
+			return;
+		}
+		weapon.ammo++;
+		// Re-arm for the next unit while still below max; clear at full so the
+		// HUD and gate see a stable count.
+		weapon.ammoRechargeReadyMs = weapon.ammo < max ? now + (ulong)(per * 1000f) : 0;
+	}
+
 	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0
 	// or less always pass.
 	public bool HasStamina(float amount)
@@ -3115,6 +3210,7 @@ public partial class Player : CharacterBody3D
 		UpdateSprintState();
 		TickArmor(dt);
 		TickBlockArmor(dt);
+		TickAmmoRecharge(_world?.GameTimeMs ?? 0);
 		TickStamina(dt);
 		TickSwimStamina(dt);
 		TickSprintStamina(dt);
@@ -3122,8 +3218,13 @@ public partial class Player : CharacterBody3D
 		TickBloodDrain(dt);
 		TickHitstun(dt);
 		_statusEffects.Tick(dt);
+		// Drop movement-trail hazards (e.g. the fairy-corpse buff's burning
+		// fairy-fire) while dashing or sprinting. No-op unless an active effect
+		// authors a trailZoneScene.
+		_statusEffects.TickMovementTrail(this, IsDashing || IsSprinting, GlobalPosition, dt);
 		UpdateNightVisionShaderGlobal();
 		TickWetEffect(dt);
+		DouseCarriedTorches();
 		TickDirtyEffect(dt);
 		TickMuddyEffect(dt);
 		TickBodyTemperature(dt);

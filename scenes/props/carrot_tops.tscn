@@ -2,13 +2,12 @@
 
 [sub_resource type="StandardMaterial3D" id="Mat_tops"]
 albedo_color = Color(0.2, 0.55, 0.15, 1)
-roughness = 1.0
 
 [sub_resource type="SphereMesh" id="Mesh_tops"]
 material = SubResource("Mat_tops")
-radius = 0.12
-height = 0.28
+radius = 0.25
+height = 0.5
 
-[node name="CarrotTops" type="MeshInstance3D"]
-transform = Transform3D(1, 0, 0, 0, 1.5, 0, 0, 0, 1, 0, 0.13, 0)
+[node name="CarrotTops" type="MeshInstance3D" unique_id=1823016704]
+transform = Transform3D(1, 0, 0, 0, 1.5, 0, 0, 0, 1, 0, 0, 0)
 mesh = SubResource("Mesh_tops")

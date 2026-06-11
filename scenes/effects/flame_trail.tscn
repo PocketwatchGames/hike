@@ -1,0 +1,41 @@
+[gd_scene format=3 uid="uid://cf4lmtr00ax27"]
+
+[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="5_burning"]
+[ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/effects/flame_trail_loop.tscn" id="6_loop"]
+
+[sub_resource type="Resource" id="Resource_trail_burning_buildup"]
+script = ExtResource("4_buildup")
+effect = ExtResource("5_burning")
+amount = 0.5
+
+[sub_resource type="Resource" id="Resource_trail_continuous"]
+script = ExtResource("3_continuous")
+tags = 3
+healthDamage = 8.0
+pierce = 0.75
+buildups = Array[ExtResource("4_buildup")]([SubResource("Resource_trail_burning_buildup")])
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_trail_zone"]
+radius = 0.8
+
+[node name="FlameTrail" type="Node3D" node_paths=PackedStringArray("_dangerZone")]
+script = ExtResource("1_gas")
+lifetimeSeconds = 2.0
+_dangerZone = NodePath("DamageZone")
+
+[node name="DamageZone" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("2_dz")
+damageContinuous = SubResource("Resource_trail_continuous")
+enemiesOnly = true
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("SphereShape3D_trail_zone")
+
+[node name="Flame" parent="." instance=ExtResource("6_loop")]

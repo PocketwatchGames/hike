@@ -158,7 +158,33 @@ public partial class World
             return EDigResult.Common;
         }
 
+        // Nothing buried and nothing burrowed — fall back to the dug block's
+        // own yield. Some ground scoops up a material when you dig a bare hole
+        // in it (marsh → mud); the block authors what via BlockData.DigItem.
+        // Spawn it as loose loot popping out of the hole and report Common so
+        // the shovel plays its "found something" cue. Most blocks leave DigItem
+        // null and the dig comes up empty.
+        BlockData dugBlock = GroundTypeResolver.ResolveBlock(_worldState, position);
+        if (dugBlock?.DigItem != null)
+        {
+            SpawnLoot(position + Vector3.Up * DIG_YIELD_POP_HEIGHT, BuildDigYieldImpulse(), dugBlock.DigItem);
+            return EDigResult.Common;
+        }
+
         return EDigResult.Nothing;
+    }
+
+    // Loose-loot pop for a bare-ground dig yield: a 45° upward arc on a random
+    // horizontal heading so the scooped material tumbles out of the hole. Same
+    // arc shape the berry tree / chest ejects use.
+    private const float DIG_YIELD_POP_HEIGHT = 0.5f;
+    private const float DIG_YIELD_POP_SPEED = 3f;
+    private static Vector3 BuildDigYieldImpulse()
+    {
+        float horizontal = DIG_YIELD_POP_SPEED * Mathf.Cos(Mathf.Pi / 4f);
+        float vertical = DIG_YIELD_POP_SPEED * Mathf.Sin(Mathf.Pi / 4f);
+        float angle = (float)GD.RandRange(0.0, Mathf.Tau);
+        return new Vector3(horizontal * Mathf.Cos(angle), vertical, horizontal * Mathf.Sin(angle));
     }
 
     // Roll a single SpawnEntryData payload at `position` and materialize its

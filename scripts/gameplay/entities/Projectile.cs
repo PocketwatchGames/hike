@@ -53,6 +53,11 @@ public struct ProjectileImpact
 [GlobalClass]
 public partial class Projectile : Node3D
 {
+	// How far along the surface normal a bounced projectile is nudged after a
+	// reflection, so the following tick's sweep doesn't immediately re-hit the
+	// surface it just bounced off.
+	private const float BounceSurfaceOffset = 0.03f;
+
 	private DamageData _damageData;
 	// Who fired this projectile. Goes into HitInfo.source so the receiver
 	// (mob, player) sees the attacker for retaliation / aggro / etc.
@@ -71,6 +76,18 @@ public partial class Projectile : Node3D
 	// Used by arcing delivery projectiles whose impact is the landing point,
 	// not a collision.
 	private bool _noCollide;
+	// Bounce mode (arced lobs): env hits reflect the velocity (scaled by
+	// _restitution) and the projectile keeps flying instead of detonating;
+	// hurtboxes are ignored in flight. It only ends at lifetime expiry, which is
+	// where its `_impactEvent` (the explosion) fires. Mutually meaningful only
+	// when _noCollide is false.
+	private bool _bounce;
+	// Normal-direction restitution (fraction of into-surface speed kept on the
+	// rebound) and tangential friction (fraction of along-surface speed shed) on
+	// each bounce. Split so walls (mostly normal impact) stay bouncy while the
+	// ground (repeated grazing impacts) rolls the projectile to a stop.
+	private float _restitution;
+	private float _friction;
 	// Optional follow-up event fired at the despawn position. Currently
 	// supports SpawnAreaEffect (drops areaEffectScene where the projectile
 	// landed). See ItemEventHandlers.DispatchAtPosition.
@@ -105,7 +122,10 @@ public partial class Projectile : Node3D
 		bool noCollide = false,
 		ItemEvent impactEvent = null,
 		ETeam attackerTeam = ETeam.Hostile,
-		bool friendlyFire = false)
+		bool friendlyFire = false,
+		bool bounce = false,
+		float bounciness = 0f,
+		float friction = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -120,6 +140,9 @@ public partial class Projectile : Node3D
 		inst._impact = impact;
 		inst._gravity = gravity;
 		inst._noCollide = noCollide;
+		inst._bounce = bounce;
+		inst._restitution = bounciness;
+		inst._friction = friction;
 		inst._impactEvent = impactEvent;
 		inst._attackerTeam = attackerTeam;
 		inst._friendlyFire = friendlyFire;
@@ -171,7 +194,49 @@ public partial class Projectile : Node3D
 
 		// Arcing / delivery projectiles skip collision entirely — only
 		// lifetime expiry ends them.
-		if (!_noCollide)
+		if (!_noCollide && _bounce)
+		{
+			// Bounce mode: reflect off solids and keep flying; ignore hurtboxes.
+			// Only lifetime ends it (where the explosion fires).
+			World3D bounceWorld = GetWorld3D();
+			if (bounceWorld != null)
+			{
+				using var envQuery = PhysicsRayQueryParameters3D.Create(prev, next);
+				envQuery.CollisionMask = (uint)ECollisionLayer.Solid;
+				envQuery.CollideWithBodies = true;
+				envQuery.CollideWithAreas = false;
+				if (_bodyExclude != null)
+				{
+					envQuery.Exclude = _bodyExclude;
+				}
+				var envResult = bounceWorld.DirectSpaceState.IntersectRay(envQuery);
+				if (envResult.Count > 0)
+				{
+					Vector3 hitPos = (Vector3)envResult["position"];
+					Vector3 normal = (Vector3)envResult["normal"];
+					// Split into normal + tangential: the normal component reverses
+					// scaled by restitution (wall bounce), the tangential component is
+					// shed by friction (rolls to rest on the ground). Nudge off the
+					// surface so the next tick's sweep doesn't immediately re-hit it.
+					Vector3 vNormal = _velocity.Dot(normal) * normal;
+					Vector3 vTangent = _velocity - vNormal;
+					_velocity = (-vNormal * _restitution) + (vTangent * (1f - _friction));
+					GlobalPosition = hitPos + normal * BounceSurfaceOffset;
+					if (_velocity.LengthSquared() > 1e-6f)
+					{
+						Vector3 fwd = _velocity.Normalized();
+						Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
+						LookAt(GlobalPosition + fwd, up);
+					}
+					if (_ageSeconds >= _maxLifetimeSeconds)
+					{
+						Despawn(EHitResult.None, EDamageTriggerFlags.None, null, GlobalPosition);
+					}
+					return;
+				}
+			}
+		}
+		else if (!_noCollide)
 		{
 			World3D world3D = GetWorld3D();
 			if (world3D != null)

@@ -1,0 +1,23 @@
+[gd_scene format=3 uid="uid://bm0thrwfx02d"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://rc12n6tunksu" path="res://assets/audio/source/weapons/sfx_bomb_throw_01.wav" id="2_t1"]
+[ext_resource type="AudioStream" uid="uid://dwli1rm1co08l" path="res://assets/audio/source/weapons/sfx_bomb_throw_02.wav" id="3_t2"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_throw"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("2_t1")
+stream_1/stream = ExtResource("3_t2")
+
+[node name="BombThrow" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_throw")
+unit_size = 5.0
+max_distance = 35.0
+volume_db = 0.0
+bus = &"World3D"

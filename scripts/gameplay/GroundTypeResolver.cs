@@ -19,9 +19,20 @@ public static class GroundTypeResolver
 {
     public static EGroundType Resolve(WorldState ws, Vector3 worldPos)
     {
+        BlockData block = ResolveBlock(ws, worldPos);
+        return block != null ? block.GroundType : EGroundType.Stone;
+    }
+
+    // Resolves the BlockData under a world-space position, most-specific wins
+    // (overlay → terrain flat tile → base type top face). Returns null when the
+    // world is unavailable or the column under `worldPos` is empty. Shared by
+    // the footstep ground-type query above and the shovel's bare-ground dig
+    // yield (World.TryDig reads block.DigItem).
+    public static BlockData ResolveBlock(WorldState ws, Vector3 worldPos)
+    {
         if (ws == null)
         {
-            return EGroundType.Stone;
+            return null;
         }
 
         int fx = Mathf.FloorToInt(worldPos.X);
@@ -43,12 +54,11 @@ public static class GroundTypeResolver
             BlockData overlay = catalog.GetByAtlasIndex(overlayId);
             if (overlay != null)
             {
-                return overlay.GroundType;
+                return overlay;
             }
         }
 
-        BlockData block = ResolveBaseBlock(ws, catalog, v, fx, fy, fz);
-        return block != null ? block.GroundType : EGroundType.Stone;
+        return ResolveBaseBlock(ws, catalog, v, fx, fy, fz);
     }
 
     private static BlockData ResolveBaseBlock(WorldState ws, BlockCatalog catalog, VoxelType v, int fx, int fy, int fz)

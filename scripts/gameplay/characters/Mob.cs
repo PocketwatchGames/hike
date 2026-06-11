@@ -89,10 +89,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the dither pattern a chance to resolve rather than popping.
     private const float VisibilityFadeTime = 0.3f;
 
-    // Uniform mesh scale applied to elite mobs (MobSimState.Elite) so they read
-    // as a tougher variant at a glance — 25% larger than a standard mob.
-    private const float EliteScaleMultiplier = 1.25f;
-
     // Height (base/mesh-local units) of the elite crown above the mob's HUD
     // anchor (≈ head top). Parented under the elite-scaled mesh, so this rides
     // the 25% bump into world space and the halo floats just over the head.
@@ -543,11 +539,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // start/loop Fx parent and position correctly.
         if (_simState.Elite)
         {
-            // 25% size bump. Elite is immutable after spawn, so the visual mesh,
-            // body collider, and hurtbox are scaled once here rather than per
-            // frame. _Ready ran during AddChild above, so _hurtBoxShape is
-            // resolved by now.
-            ApplyEliteScale();
             // Shared elite buff applied to every elite regardless of zone. It's
             // categorized Permanent (not Elite), so it never collides with the
             // zone signature effect that MobHUD surfaces as the elite icon.
@@ -580,8 +571,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Instantiate the spinning emissive halo over an elite mob. Parented under
-    // the (already elite-scaled) mesh container so it rides the body's transform
-    // and the 25% size bump, sitting just above the head. Shares the mob's
+    // the mesh container so it rides the body's transform, sitting just above
+    // the head. Shares the mob's
     // render stack via crown_lit.tres, so it silhouettes / X-rays in lockstep —
     // the per-frame discovery push happens in _Process alongside the body's.
     // No-op (and no marker) when SimData authors no crown scene.
@@ -598,20 +589,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         _crown.Position = new Vector3(0f, headY + CrownHeadMargin, 0f);
     }
 
-    // Grow an elite mob by EliteScaleMultiplier. The visual mesh scales
-    // uniformly (it's base-anchored at the mob origin, so it grows upward and
-    // the feet stay on the ground). The body capsule scales the same amount but
-    // is re-grounded — its bottom is pinned to its original Y so the larger mob
-    // still rests on terrain rather than spawning half-buried or floating. The
-    // hurtbox is NOT scaled by percent: it's resized to keep the same absolute
-    // clearance (radial + top/bottom) it had over the body capsule before the
-    // bump, so the "reach past the body to land a hit" margin is identical for
-    // elites and standard mobs. Both shapes are duplicated first because Godot
-    // shares a scene's embedded sub-resources across every instance — mutating
-    // the shared shape would resize every mob of this species.
-    private void ApplyEliteScale()
+    // Grow a mob uniformly by `scale`. The visual mesh scales uniformly (it's
+    // base-anchored at the mob origin, so it grows upward and the feet stay on
+    // the ground). The body capsule scales the same amount but is re-grounded —
+    // its bottom is pinned to its original Y so the larger mob still rests on
+    // terrain rather than spawning half-buried or floating. The hurtbox is NOT
+    // scaled by percent: it's resized to keep the same absolute clearance
+    // (radial + top/bottom) it had over the body capsule before the bump, so the
+    // "reach past the body to land a hit" margin is identical regardless of
+    // scale. Both shapes are duplicated first because Godot shares a scene's
+    // embedded sub-resources across every instance — mutating the shared shape
+    // would resize every mob of this species.
+    private void ScaleMob(float scale)
     {
-        float k = EliteScaleMultiplier;
+        float k = scale;
         if (_mesh != null)
         {
             _mesh.Scale = Vector3.One * k;
@@ -2124,7 +2115,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 ApplyWaterPhysics((float)delta);
             }
 
-            if (!inBurrow && targetYaw.HasValue)
+            // Freeze facing alongside the pose while the player can only
+            // remember the mob (out of the VisibleTimeMs line-of-sight
+            // window → drawn as a static memory silhouette). The pose freeze
+            // in _Process stops the skeleton re-skinning; without this gate the
+            // body would keep rotating to track the player under that frozen
+            // pose, so the silhouette's facing would drift while its animation
+            // sat still. playerCanSee == withinVisibleTime, the same window.
+            if (!inBurrow && targetYaw.HasValue && playerCanSee)
             {
                 Vector3 currentRot = Rotation;
                 float yawDelta = Mathf.Wrap(targetYaw.Value - currentRot.Y, -Mathf.Pi, Mathf.Pi);

@@ -159,6 +159,40 @@ public partial class StatusEffectData : Resource
 	[Export(PropertyHint.Range, "0.5,10,0.5,or_greater")] public float attackImpactRadius = 2f;
 	[Export] public PackedScene attackImpactFx;
 
+	// --- On-dash burst ---
+	// Direct analog of the attack-impact burst above, fired every time the
+	// carrying actor dashes (Player.ApplyMotion → StatusEffectController.
+	// TriggerDashBurst) instead of on each landed attack. The burst is a
+	// one-shot AoE centered on the dashing actor that pushes nearby targets
+	// directly away (radial knockback) and feeds whatever the payload's
+	// StatusEffectBuildup entries author — the fairy-corpse buff uses this to
+	// make a buffed dash scatter and dizzy the surrounding crowd. Self-
+	// contained on the effect (not the actor's damage profiles) like the
+	// attack-impact burst, so any actor deals it just by holding this status.
+	// Author `dashBurstDamage` with the knockback / Dizzy-buildup payload (it
+	// may carry zero healthDamage — knockback and buildup still apply);
+	// `dashBurstRadius` is the sphere radius in meters; `dashBurstFx` is the
+	// one-shot visual + sound spawned at the actor. Null damage AND null fx =
+	// the effect contributes no dash burst. Friendly fire is off — the burst
+	// skips the carrier's own hurtbox and (for mob carriers) their team.
+	[Export] public DamageData dashBurstDamage;
+	[Export(PropertyHint.Range, "0.5,10,0.5,or_greater")] public float dashBurstRadius = 3f;
+	[Export] public PackedScene dashBurstFx;
+
+	// --- Movement trail ---
+	// When `trailZoneScene` is set, the carrying actor drops a copy of that
+	// scene at its feet on a fixed interval while it's dashing or sprinting
+	// (Player.cs → StatusEffectController.TickMovementTrail). Author it as a
+	// self-expiring hazard — a `GasCloud` rooting a `DamageZone` + looping Fx,
+	// like `flame_trail.tscn` — so each dropped patch owns its own lifetime,
+	// damage ticking, and visuals; the controller just spawns and forgets. The
+	// fairy-corpse buff drops burning fairy-fire this way, leaving a damaging
+	// wake behind a sprint. `trailDropInterval` is the spacing in seconds
+	// between drops (smaller = denser, more overlap, more live patches). Null
+	// scene = the effect leaves no trail.
+	[Export] public PackedScene trailZoneScene;
+	[Export(PropertyHint.Range, "0.05,2,0.01,or_greater")] public float trailDropInterval = 0.2f;
+
 	// --- Buildup meter ---
 	// Damage data carries StatusEffectBuildup entries; each contribution
 	// accumulates into the receiver's meter for this effect. How the meter

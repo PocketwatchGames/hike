@@ -4,8 +4,7 @@
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
-[ext_resource type="Texture2D" uid="uid://chlcu5f08xm4a" path="res://assets/textures/items/Axe.png" id="5_icon"]
-[ext_resource type="Texture2D" uid="uid://bcvjkenunlfya" path="res://assets/textures/items/pickups/Axe.png" id="6_world"]
+[ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="5_icon"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/held/shovel_held.tscn" id="7_held"]
 [ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/effects/dig_loop.tscn" id="8_digloop"]
 [ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/effects/dig_nothing.tscn" id="9_dignothing"]
@@ -48,4 +47,3 @@ maxStack = 1
 value = 15
 inventorySprite = ExtResource("5_icon")
 heldModel = ExtResource("7_held")
-worldSprite = ExtResource("6_world")

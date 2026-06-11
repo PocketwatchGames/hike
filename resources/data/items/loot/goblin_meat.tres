@@ -2,12 +2,10 @@
 
 [ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://mvhg0aoobuv6" path="res://assets/textures/items/BadMeat.png" id="2_inv"]
-[ext_resource type="Texture2D" uid="uid://cvpjwqyb4050k" path="res://assets/textures/items/pickups/BadMeat.png" id="3_world"]
 
 [resource]
 script = ExtResource("1_loot_data")
 displayName = &"Goblin Meat"
 maxStack = 99
 inventorySprite = ExtResource("2_inv")
-worldSprite = ExtResource("3_world")
 removeTimeMs = 60000

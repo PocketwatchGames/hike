@@ -429,6 +429,80 @@ public class StatusEffectController
 		}
 	}
 
+	// Fire each active effect's on-dash burst centered on the dashing actor.
+	// Called from Player.ApplyMotion (the dash seed) the instant a dash begins,
+	// so any held status whose effect authors a dash burst scatters and dizzies
+	// the surrounding crowd. Mirror of TriggerAttackImpact, but the area damage
+	// is dealt with radial knockback so each caught target is shoved straight
+	// away from the actor rather than along a swing axis. The burst's damage
+	// (knockback + buildup payload), radius, and fx are authored on the effect
+	// itself — the same effect serves the player today and a mob later without
+	// either needing a per-actor profile. The fx is world-parented at the dash
+	// origin (like the attack-impact cue) so it stays put as the actor speeds off.
+	public void TriggerDashBurst(IActionActor attacker, Vector3 position)
+	{
+		if (attacker == null)
+		{
+			return;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null || (data.dashBurstDamage == null && data.dashBurstFx == null))
+			{
+				continue;
+			}
+			if (data.dashBurstFx != null && _world != null)
+			{
+				Fx.Create(data.dashBurstFx, _world, position);
+			}
+			if (data.dashBurstDamage != null)
+			{
+				ItemEventHandlers.ApplyAreaDamage(attacker, data.dashBurstDamage, position, data.dashBurstRadius, radialKnockback: true);
+			}
+		}
+	}
+
+	// Drop a movement-trail hazard patch for each active effect that authors a
+	// `trailZoneScene`, paced by the effect's `trailDropInterval`. Called every
+	// physics frame from the actor (Player) with `moving` = dashing OR sprinting
+	// and the actor's world `position`. While not moving, each effect's drop
+	// timer is held re-armed so the next step lays a patch promptly rather than
+	// after a stale partial interval. Each patch is a self-expiring GasCloud
+	// (damage ticking + visuals own their lifetime), parented to the World so it
+	// stays put as the actor speeds off — same parenting as DoSpawnAreaEffect.
+	public void TickMovementTrail(IActionActor actor, bool moving, Vector3 position, float dt)
+	{
+		if (_world == null || _statusEffects.Count == 0)
+		{
+			return;
+		}
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState state = _statusEffects[i];
+			StatusEffectData data = state?.data;
+			if (data?.trailZoneScene == null)
+			{
+				continue;
+			}
+			float interval = Mathf.Max(0.01f, data.trailDropInterval);
+			if (!moving)
+			{
+				state.trailAccumulator = interval;
+				continue;
+			}
+			state.trailAccumulator -= dt;
+			if (state.trailAccumulator > 0f)
+			{
+				continue;
+			}
+			state.trailAccumulator = interval;
+			Node3D patch = data.trailZoneScene.Instantiate<Node3D>();
+			_world.AddChild(patch);
+			patch.GlobalPosition = position;
+		}
+	}
+
 	public StatusEffectState Add(StatusEffectData data)
 	{
 		if (data == null)

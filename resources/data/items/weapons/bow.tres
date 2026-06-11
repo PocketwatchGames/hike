@@ -18,7 +18,6 @@
 [ext_resource type="PackedScene" uid="uid://c2jrl015q2rtn" path="res://scenes/effects/bow_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://c2jrtlu1q2rtn" path="res://scenes/effects/bow_charge_tail.tscn" id="8_chgtail"]
 [ext_resource type="Texture2D" uid="uid://dev3akgtvwnhk" path="res://assets/textures/items/Bow.png" id="15_tnjmy"]
-[ext_resource type="Texture2D" uid="uid://x7pjuylc00rt" path="res://assets/textures/items/pickups/Bow.png" id="16_world"]
 [ext_resource type="Resource" uid="uid://cuxcddhgxlojw" path="res://resources/data/items/loot/arrow.tres" id="17_arrow"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="17_kwtcm"]
 [ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="18_arrowscene"]
@@ -139,4 +138,3 @@ description = "Shooty shooty"
 value = 50
 inventorySprite = ExtResource("15_tnjmy")
 heldModel = ExtResource("20_kwtcm")
-worldSprite = ExtResource("16_world")

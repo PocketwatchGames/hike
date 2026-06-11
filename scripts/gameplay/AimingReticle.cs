@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // Aiming overlay attached to the player. Main forward line, two spread lines,
@@ -23,6 +24,11 @@ public partial class AimingReticle : Node3D
 	// material so it inherits the same gradient ramp, depth-based occlusion
 	// scaling, and alpha-multiplier fade as the mainline itself.
 	[Export] private MeshInstance3D _endKnob;
+	// Ballistic-arc preview for Arced aim: a camera-facing ribbon (connected
+	// quads) rebuilt each frame along the previewed trajectory (RenderArcRibbon)
+	// into its ImmediateMesh. Should be top_level so its vertices are authored in
+	// world space. Null is tolerated — Arced aim then shows no arc.
+	[Export] private MeshInstance3D _arcRibbon;
 
 	// Vertical offset of the chest pivot above the player's feet.
 	[Export] private float _aimHeight = 1f;
@@ -83,6 +89,50 @@ public partial class AimingReticle : Node3D
 	// snappier; 0 freezes the tip. At 16 the tip settles (~99% closed) in ~0.3s.
 	[Export] private float _reticleVerticalEaseSpeed = 16.0f;
 
+	// Ground-ring terrain draping. The ground circle's mesh is subdivided and its
+	// vertices are displaced in the shader to the ground height sampled from a
+	// RETICLE_PATCH_RES² grid of voxel-surface heights resolved here each frame
+	// (UpdateGroundUndulation). When disabled (or no voxel world), the shader
+	// keeps the flat plane.
+	[Export] private bool _undulationEnabled = true;
+	// World-space size of the square height-patch sampled under the ground ring.
+	// Must EXCEED the ground-circle PlaneMesh footprint (4x4) by at least a cell,
+	// because the patch origin is snapped to the sample grid (see
+	// UpdateGroundUndulation) and so drifts up to one cell off-center — the extra
+	// margin keeps every drawn vertex inside the sampled patch.
+	[Export(PropertyHint.Range, "1,16,0.5")] private float _undulationPatchWorldSize = 6f;
+	// Max voxels scanned up/down from the player's level when resolving each
+	// column's surface height. Bounds the per-frame voxel reads.
+	[Export(PropertyHint.Range, "4,64,1")] private int _undulationMaxScanVoxels = 24;
+
+	// Positional cursor sweep speed — GAMEPAD only — as a fraction of the active
+	// tier's range per second, scaled directly by the analog stick deflection
+	// (so a half-pushed stick sweeps at half speed — velocity, not a ramped
+	// speed). At full deflection the cursor covers
+	// range * _positionalCursorSpeedFraction meters per second. Mouse aim ignores
+	// this — it maps the virtual cursor's disk position straight onto the ground
+	// disk (see UpdatePositional), so holding the mouse still holds the cursor.
+	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _positionalCursorSpeedFraction = 2f;
+	// How long a gamepad positional cursor lingers after aim stops before it
+	// resets. The cursor stays visible and fades to zero across this window;
+	// moving the aim stick or firing the ranged weapon refills it. A follow-up
+	// attack within the window fires at the held cursor; after it expires the
+	// next aim re-seeds (first deflection → 50% range). Mouse aim ignores this.
+	[Export(PropertyHint.Range, "0,30,0.5")] private float _positionalPersistSeconds = 6f;
+	// Alpha the reticle dims to (relative to its normal alpha) while the ranged
+	// weapon is on cooldown but the player is still aiming. The cursor keeps
+	// tracking input so the player can pre-aim the next shot; it just reads as
+	// "not ready" rather than vanishing.
+	[Export(PropertyHint.Range, "0,1,0.05")] private float _cooldownAlphaScale = 0.35f;
+
+	// Arced aim: world-space width of the previewed arc ribbon, in meters.
+	[Export(PropertyHint.Range, "0.02,0.5,0.01")] private float _arcRibbonWidth = 0.12f;
+	// Arced aim: distance (meters) from the launch point over which the ribbon
+	// fades in — fully transparent up to start, ramping to full alpha by end. Hides
+	// the ribbon right at the thrower's hand so it reads as leaving the throw.
+	[Export(PropertyHint.Range, "0,5,0.1")] private float _arcGradientStartDistance = 1f;
+	[Export(PropertyHint.Range, "0,6,0.1")] private float _arcGradientEndDistance = 2f;
+
 	// Linear ease from current outer radius to the new target whenever the
 	// target changes (lock on/off, or the targeted mob's clearance differs
 	// from the previous one). Inner derives from outer so a single lerp
@@ -94,13 +144,16 @@ public partial class AimingReticle : Node3D
 	// constant for fade-in so reticle pop-on is symmetric and not jarring.
 	const float FadeDurationSeconds = 0.15f;
 
-	// Positional aim cursor speed scalar. At full input deflection the
-	// cursor sweeps `weaponRange * PositionalCursorRangeFractionPerSecond`
-	// meters per second across the ground — value 1.0 means a full-
-	// deflection sweep covers the disk's edge-to-center in one second,
-	// so short-range and long-range positional tiers both feel like the
-	// same edge-to-edge time regardless of physical range.
-	const float PositionalCursorRangeFractionPerSecond = 1.0f;
+	// Fraction of the active tier's range the gamepad cursor jumps to on the
+	// first stick deflection after a reset (see UpdatePositional's seed). 0.5 =
+	// halfway out toward the disk edge in the pressed direction.
+	const float PositionalResetSeedFraction = 0.5f;
+
+	// Ground-ring height-patch resolution. MUST match RETICLE_PATCH_RES in
+	// aiming_reticle.gdshader (and the shader's reticle_heights[] array size,
+	// which is this squared).
+	const int UndulationPatchRes = 16;
+	const int UndulationCellCount = UndulationPatchRes * UndulationPatchRes;
 
 	Player _player;
 	// Last forward-raycast clamp distance from an active update. Reused as
@@ -139,6 +192,36 @@ public partial class AimingReticle : Node3D
 	// reusing a stale cursor from minutes ago. Downstream consumers must
 	// check HasAimWorldPosition before reading the position.
 	bool _cursorValid;
+	// True while the held cursor came from a gamepad positional aim — gates the
+	// post-aim persistence window in _Process. Cleared by directional / mouse
+	// updates and when the window expires.
+	bool _positionalPersist;
+	// Seconds since the gamepad positional cursor last saw activity (aiming,
+	// stick movement, or a ranged attack). Counts up only during the persistence
+	// window; reaching _positionalPersistSeconds resets the cursor.
+	float _persistTimer;
+	// Character-relative XZ offset of the cursor from the player, captured each
+	// active gamepad positional frame. The persistence window re-derives the
+	// world cursor from this + the current player position each frame, so a
+	// held cursor follows the player around instead of staying pinned in world
+	// space (character-relative persistence).
+	Vector2 _persistOffset;
+
+	// Reused per-frame buffer of voxel-surface heights pushed to the ground
+	// ring's shader for terrain draping. Allocated once; refilled in
+	// UpdateGroundUndulation.
+	readonly float[] _undulationHeights = new float[UndulationCellCount];
+	// Cached ground-circle shader material — the height array is a material
+	// (not instance) uniform, so it's set here. Only the ground-ring vertex path
+	// reads it, so sharing the material with the beam/spread lines is harmless.
+	ShaderMaterial _groundMaterial;
+	// Cache key for the snapped height patch — skip the voxel rescan while the
+	// snapped grid origin and the player's voxel level are unchanged (static
+	// terrain → identical field). _undulationValid guards the first fill.
+	bool _undulationValid;
+	float _lastPatchOriginX;
+	float _lastPatchOriginZ;
+	int _lastAnchorVoxelY;
 	// Last frame's resolved aim type — used to detect Pos ↔ Dir transitions
 	// so we can snap the player's facing toward the cursor on Pos → Dir
 	// (the directional raycast THIS SAME FRAME picks up the new yaw).
@@ -151,12 +234,33 @@ public partial class AimingReticle : Node3D
 	float _smoothedEndY;
 	bool _endYValid;
 
+	// Arced-aim solve outputs, recomputed each aiming frame (UpdateArced /
+	// SolveArcToTarget). The thrown projectile reads _arcLaunchVelocity/Gravity so
+	// it flies the exact previewed hump; _arcPoints is the sampled trajectory the
+	// dotted preview draws. _arcLaunchValid gates all of them — false outside Arced
+	// aim or when the tier has no arced projectile event.
+	Vector3 _arcLaunchVelocity;
+	float _arcLaunchGravity;
+	bool _arcLaunchValid;
+	readonly List<Vector3> _arcPoints = new(ArcPreviewSamples + 1);
+
+	// Segment count the previewed arc (hump + post-arc fall over the fuse) is
+	// sampled into for the ribbon.
+	const int ArcPreviewSamples = 32;
+
 	// World position currently being aimed at — the ground circle anchor.
 	// Read by positional fire handlers (AoE drop target, throw destination)
 	// at activation. Always check HasAimWorldPosition first; the value is
 	// stale when false.
 	public Vector3 AimWorldPosition => _cursorWorldPos;
 	public bool HasAimWorldPosition => _cursorValid;
+
+	// Arced-aim throw solve, consumed by DoProjectile so the thrown projectile
+	// flies the previewed arc. Only meaningful (HasArcLaunch) while Arced aim is
+	// active with an arced projectile tier — check it before reading.
+	public Vector3 ArcLaunchVelocity => _arcLaunchVelocity;
+	public float ArcLaunchGravity => _arcLaunchGravity;
+	public bool HasArcLaunch => _arcLaunchValid;
 
 	public void Initialize(Player player)
 	{
@@ -206,6 +310,7 @@ public partial class AimingReticle : Node3D
 			// clipped by the rasterizer.
 			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _groundRingOuterRadius);
 			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", _groundRingInnerRadius);
+			_groundMaterial = _groundCircle.GetActiveMaterial(0) as ShaderMaterial;
 		}
 	}
 
@@ -222,25 +327,83 @@ public partial class AimingReticle : Node3D
 			return;
 		}
 
-		bool active = _player.IsAiming && IsRangedWeaponAvailable();
 		float dt = (float)delta;
 		float step = dt / FadeDurationSeconds;
 
+		// Active = aiming with a ranged weapon equipped. Cooldown does NOT drop
+		// us out of active — the cursor keeps tracking input so the player can
+		// pre-aim the next shot; it just dims to _cooldownAlphaScale (a shot can't
+		// start mid-cooldown anyway, so this is purely the visual "not ready"
+		// state, and stops the reticle from vanishing the instant a shot fires).
+		bool active = _player.IsAiming && IsRangedWeaponEquipped();
+
 		if (active)
 		{
-			_currentAlpha = Mathf.Min(_currentAlpha + step, 1f);
+			float targetAlpha = IsRangedWeaponOnCooldown() ? _cooldownAlphaScale : 1f;
+			_currentAlpha = Mathf.MoveToward(_currentAlpha, targetAlpha, step);
 			UpdateReticle(dt);
+			// Actively aiming counts as activity — hold the persistence timer full.
+			_persistTimer = 0f;
+		}
+		else if (_cursorValid && _positionalPersist)
+		{
+			// Gamepad positional persistence window: aim stopped, but the cursor
+			// sticks around so a quick follow-up ranged attack still fires at it
+			// (it stays valid → HasAimWorldPosition true). It remains visible and
+			// fades linearly to zero across _positionalPersistSeconds. Moving the
+			// aim stick is "activity" that refills the timer (re-brightening the
+			// reticle); a ranged attack re-enters the `active` branch, which also
+			// refills it. Only after the full window with neither does the cursor
+			// reset, so the next aim re-seeds (first deflection → 50% range).
+			bool stickMoved = InputDevice.Current == InputDevice.EDevice.Gamepad
+				&& _player.AimDeflection01.LengthSquared() > 0f;
+			_persistTimer = stickMoved ? 0f : _persistTimer + dt;
+
+			if (_persistTimer >= _positionalPersistSeconds)
+			{
+				_cursorValid = false;
+				_positionalPersist = false;
+				_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
+			}
+			else
+			{
+				_currentAlpha = _positionalPersistSeconds > 0f
+					? Mathf.Max(0f, 1f - _persistTimer / _positionalPersistSeconds)
+					: 0f;
+				// Character-relative: re-anchor the held cursor to the current
+				// player position using the offset captured while aiming, so it
+				// follows the player around instead of staying pinned in world
+				// space. Re-drop Y so it tracks the ground under the new spot.
+				Vector3 pp = _player.GlobalPosition;
+				_cursorWorldPos.X = pp.X + _persistOffset.X;
+				_cursorWorldPos.Z = pp.Z + _persistOffset.Y;
+				if (_lastAimType == EAimType.Arced)
+				{
+					// Re-anchor + re-solve so a delayed throw fired during the
+					// persistence window still flies a correct, up-to-date arc.
+					SolveArcToTarget(pp + Vector3.Up * _aimHeight, _cursorWorldPos);
+				}
+				else
+				{
+					Vector3 dropFrom = new(_cursorWorldPos.X, pp.Y + _aimHeight, _cursorWorldPos.Z);
+					if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
+					{
+						_cursorWorldPos.Y = groundHit.Y;
+					}
+				}
+				// `_lastAimType` stays Positional / Arced so the ground ring (and the
+				// dotted arc for Arced) keep their styling through the window.
+				RenderReticle(_lastAimType, _lastLineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: _lastPositionalRadius, dt: dt);
+			}
 		}
 		else
 		{
 			_currentAlpha = Mathf.Max(_currentAlpha - step, 0f);
-			// Aim turned off — invalidate the cursor so the next aim session
-			// re-seeds from a fresh raycast / positional default instead of
-			// jumping back to a stale point from minutes ago. `_lastAimType`
-			// stays at its last-active value so the fade-out renders with
-			// the same ring radius / alpha scale the player was just seeing
-			// (a Positional → fade-out doesn't snap the ring back to
-			// directional defaults while alpha is dropping to zero).
+			// Aim turned off with no persistence (mouse / directional) —
+			// invalidate the cursor so the next aim session re-seeds instead of
+			// jumping back to a stale point. `_lastAimType` stays at its
+			// last-active value so the fade-out renders with the same ring
+			// radius / alpha scale the player was just seeing.
 			_cursorValid = false;
 			if (_currentAlpha > 0f)
 			{
@@ -273,29 +436,43 @@ public partial class AimingReticle : Node3D
 		if (_spreadLineRight != null) { _spreadLineRight.Visible = false; }
 		if (_groundCircle != null) { _groundCircle.Visible = false; }
 		if (_endKnob != null) { _endKnob.Visible = false; }
+		if (_arcRibbon != null)
+		{
+			_arcRibbon.Visible = false;
+			(_arcRibbon.Mesh as ImmediateMesh)?.ClearSurfaces();
+		}
 		// Next aim session re-seeds the smoothed beam Y from its first endpoint
 		// instead of gliding up from wherever the last session left it.
 		_endYValid = false;
 	}
 
-	// Mirrors the gate Player uses in TryStartWeaponAction: a weapon must be
-	// equipped with an action profile, have ammo if it consumes any, not be
-	// on cooldown, and the action runner must not be running a DIFFERENT
-	// slot's action (charging the bow itself is fine — that's the reticle's
-	// whole point of existing during charge).
-	bool IsRangedWeaponAvailable()
+	// Mirrors the gate Player uses in TryStartWeaponAction, minus the cooldown:
+	// a weapon must be equipped with an action profile, have ammo if it consumes
+	// any, and the action runner must not be running a DIFFERENT slot's action
+	// (charging the bow itself is fine — that's the reticle's whole point of
+	// existing during charge). Cooldown is checked separately (IsRangedWeaponOnCooldown)
+	// so the reticle can stay visible-but-dimmed through a cooldown instead of
+	// vanishing the moment a shot fires.
+	bool IsRangedWeaponEquipped()
 	{
 		if (_player?.Inventory == null) { return false; }
 		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
 		if (weapon?.data?.actionProfile == null) { return false; }
 		if (weapon.data.maxAmmo > 0 && weapon.ammo <= 0) { return false; }
-		if (weapon.cooldownExpireMs > _player.GameTimeMs) { return false; }
 		ActionRunner runner = _player.Runner;
 		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
 		{
 			return false;
 		}
 		return true;
+	}
+
+	// True when the equipped ranged weapon is mid-cooldown (just fired). The
+	// reticle dims rather than hiding during this window.
+	bool IsRangedWeaponOnCooldown()
+	{
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		return weapon != null && weapon.cooldownExpireMs > _player.GameTimeMs;
 	}
 
 	// Fresh active update: resolve aim type → update cursor + cached state → render.
@@ -311,7 +488,7 @@ public partial class AimingReticle : Node3D
 		// ActorForward this frame reflects the previously-aimed direction.
 		// Dir → Pos needs no explicit seed — the cursor already sits at the
 		// last directional ground point from the previous tick.
-		if (_cursorValid && aimType == EAimType.Directional && _lastAimType == EAimType.Positional)
+		if (_cursorValid && aimType == EAimType.Directional && _lastAimType != EAimType.Directional)
 		{
 			_player.SnapAimYawToward(_cursorWorldPos);
 		}
@@ -319,6 +496,10 @@ public partial class AimingReticle : Node3D
 		if (aimType == EAimType.Directional)
 		{
 			UpdateDirectional(maxRange, dt);
+		}
+		else if (aimType == EAimType.Arced)
+		{
+			UpdateArced(maxRange, dt);
 		}
 		else
 		{
@@ -329,6 +510,10 @@ public partial class AimingReticle : Node3D
 
 	void UpdateDirectional(float maxRange, float dt)
 	{
+		// Directional aim doesn't use the gamepad positional persistence window,
+		// and has no throw arc to publish.
+		_positionalPersist = false;
+		_arcLaunchValid = false;
 		Vector3 chestWorld = _player.GlobalPosition + Vector3.Up * _aimHeight;
 		// Use the player's pitched forward so the main beam, spread, and
 		// ground circle anchor all follow the same elevation the next shot
@@ -405,14 +590,113 @@ public partial class AimingReticle : Node3D
 
 	void UpdatePositional(float maxRange, float dt)
 	{
+		// Positional placement has no throw arc to publish.
+		_arcLaunchValid = false;
 		Vector3 playerPos = _player.GlobalPosition;
 		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
 
-		// First Positional frame in this aim session — seed from a forward
-		// raycast so the cursor doesn't start at (0,0,0). Re-uses the
-		// directional helper to keep "first seed" and "mid-charge Dir → Pos"
-		// flip consistent (in the flip case the cursor was already set by
-		// the previous directional frame and skips this branch).
+		AdvanceGroundCursorXZ(playerPos, chestWorld, maxRange, dt);
+
+		// Drop Y to the ground at the (possibly clamped) cursor X/Z. Start
+		// the drop from chest height so we don't miss surfaces that are
+		// slightly above the player's feet. Misses leave Y at the last
+		// valid value rather than snapping to the player's feet, so a
+		// cursor swept briefly off a cliff edge doesn't jitter.
+		Vector3 dropFrom = new(_cursorWorldPos.X, chestWorld.Y, _cursorWorldPos.Z);
+		if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
+		{
+			_cursorWorldPos.Y = groundHit.Y;
+		}
+
+		// Face the player body toward the cursor so the sprite and
+		// ActorForward both point at where the throw / drop will land.
+		_player.SnapAimYawToward(_cursorWorldPos);
+
+		// Resolve the AoE/footprint ring radius for the active tier — fed
+		// to RenderReticle's existing ring-radius lerp so the change from
+		// the default outer radius eases in over RingTransitionSeconds.
+		// Cached so the fade-out path holds it through the alpha drop.
+		ItemAction tier = ResolveActiveTier(out _);
+		float positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
+		_lastPositionalRadius = positionalRadius;
+
+		// Positional has no concept of mob lock or aim distance line —
+		// the cursor is a free ground point. Cached state still kept up
+		// to date so the fade-out path renders without surprises if the
+		// player switches back to a directional tier later.
+		float dx = _cursorWorldPos.X - playerPos.X;
+		float dz = _cursorWorldPos.Z - playerPos.Z;
+		float lineLength = Mathf.Sqrt(dx * dx + dz * dz);
+		_lastLineLength = lineLength;
+		_lastMobTargeted = false;
+		_lastMobTargetOuter = _groundRingOuterRadius;
+
+		// Capture the cursor's character-relative XZ offset so the post-aim
+		// persistence window can re-anchor it to the player each frame (so the
+		// held cursor follows the player rather than staying pinned in world space).
+		_persistOffset = new Vector2(_cursorWorldPos.X - playerPos.X, _cursorWorldPos.Z - playerPos.Z);
+
+		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: positionalRadius, dt: dt);
+	}
+
+	// Arced aim — same range-clamped ground cursor input as Positional, but the
+	// cursor XZ is a THROW TARGET: build a fixed-shape hump (constant rise +
+	// lifetime) whose horizontal speed covers the aim distance, drive the dotted
+	// arc preview, and publish the launch velocity (ArcLaunchVelocity) so
+	// DoProjectile fires the exact previewed hump. Only the cursor XZ matters —
+	// the throw's vertical is fixed, and the real projectile bounces / detonates
+	// at the fuse, so there's no surface-Y resolution here.
+	void UpdateArced(float maxRange, float dt)
+	{
+		Vector3 playerPos = _player.GlobalPosition;
+		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
+
+		AdvanceGroundCursorXZ(playerPos, chestWorld, maxRange, dt);
+
+		_player.SnapAimYawToward(_cursorWorldPos);
+
+		// Origin matches DoProjectile's launch origin (ActorWorldPosition + 1m) so
+		// the previewed hump and the real throw share a starting point.
+		SolveArcToTarget(chestWorld, _cursorWorldPos);
+
+		float dx = _cursorWorldPos.X - playerPos.X;
+		float dz = _cursorWorldPos.Z - playerPos.Z;
+		_lastLineLength = Mathf.Sqrt(dx * dx + dz * dz);
+		_lastMobTargeted = false;
+		_lastMobTargetOuter = _groundRingOuterRadius;
+
+		_persistOffset = new Vector2(_cursorWorldPos.X - playerPos.X, _cursorWorldPos.Z - playerPos.Z);
+
+		RenderReticle(EAimType.Arced, _lastLineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: 0f, dt: dt);
+	}
+
+	// Shared Positional/Arced cursor input: seed the cursor on the first aiming
+	// frame, advance it from aim input (gamepad = rate, mouse = absolute disk
+	// position), then clamp it to a disk of radius maxRange around the player.
+	// Writes _cursorWorldPos.X/Z + _cursorValid and sets _positionalPersist for
+	// the gamepad post-aim window. Y resolution and any throw solve are the
+	// caller's job.
+	void AdvanceGroundCursorXZ(Vector3 playerPos, Vector3 chestWorld, float maxRange, float dt)
+	{
+		// First frame in this aim session — seed the cursor so it doesn't start at
+		// (0,0,0). Gamepad-with-stick-pushed throws straight to 50% range in the
+		// pressed direction; otherwise forward-raycast (also keeps the mid-charge
+		// Dir → Pos/Arced flip consistent — the flip case has a valid cursor and
+		// skips this).
+		if (!_cursorValid)
+		{
+			Vector2 seedDeflection = _player.AimDeflection01;
+			if (InputDevice.Current == InputDevice.EDevice.Gamepad
+				&& seedDeflection.LengthSquared() > 0f)
+			{
+				Vector2 seedDir = seedDeflection.Normalized();
+				float seedDist = maxRange * PositionalResetSeedFraction;
+				_cursorWorldPos.X = playerPos.X + seedDir.X * seedDist;
+				_cursorWorldPos.Z = playerPos.Z + seedDir.Y * seedDist;
+				_cursorWorldPos.Y = chestWorld.Y;
+				_cursorValid = true;
+			}
+		}
 		if (!_cursorValid)
 		{
 			Vector3 forward = _player.ActorForward.Normalized();
@@ -443,24 +727,38 @@ public partial class AimingReticle : Node3D
 			_cursorValid = true;
 		}
 
-		// Integrate per-frame deflection. AimDeflection01 is the player's
-		// aim input pre-rotated by camera yaw and normalized to [0, 1]
-		// magnitude, so the same code path works for gamepad and mouse.
-		// Speed scales with weapon range so short-range and long-range
-		// positional tiers both sweep edge-to-edge in the same wall time.
+		// Advance the cursor from aim input. AimDeflection01 is camera-yaw-rotated
+		// and clamped to [0, 1], but the two devices interpret it differently:
+		//
+		//  • Mouse: the value IS the virtual cursor's disk position — map it
+		//    straight onto the ground disk (ABSOLUTE; holding the mouse still
+		//    holds the cursor still).
+		//  • Gamepad: the right stick is a RATE input — cursor velocity is the raw
+		//    deflection scaled by range, at range * _positionalCursorSpeedFraction
+		//    m/s at full deflection.
 		Vector2 deflection = _player.AimDeflection01;
-		float deflectionLenSq = deflection.X * deflection.X + deflection.Y * deflection.Y;
-		if (deflectionLenSq > 0f && maxRange > 0f)
+		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
 		{
-			float metersPerSec = maxRange * PositionalCursorRangeFractionPerSecond;
-			float scale = metersPerSec * dt;
-			_cursorWorldPos.X += deflection.X * scale;
-			_cursorWorldPos.Z += deflection.Y * scale;
+			// Gamepad cursors persist after aim-off (see _Process); mouse cursors
+			// recenter, so only this path opts into persistence.
+			_positionalPersist = true;
+			if (deflection.LengthSquared() > 0f && maxRange > 0f)
+			{
+				float scale = maxRange * _positionalCursorSpeedFraction * dt;
+				_cursorWorldPos.X += deflection.X * scale;
+				_cursorWorldPos.Z += deflection.Y * scale;
+			}
+		}
+		else if (maxRange > 0f)
+		{
+			_positionalPersist = false;
+			_cursorWorldPos.X = playerPos.X + deflection.X * maxRange;
+			_cursorWorldPos.Z = playerPos.Z + deflection.Y * maxRange;
 		}
 
-		// Clamp to a disk of radius=maxRange around the player. Re-applied
-		// each frame so walking away from the cursor drags it along the
-		// disk edge rather than orphaning it past the weapon's reach.
+		// Clamp to a disk of radius=maxRange around the player. Re-applied each
+		// frame so walking away from the cursor drags it along the disk edge
+		// rather than orphaning it past the weapon's reach.
 		float dx = _cursorWorldPos.X - playerPos.X;
 		float dz = _cursorWorldPos.Z - playerPos.Z;
 		float horizDistSq = dx * dx + dz * dz;
@@ -471,40 +769,129 @@ public partial class AimingReticle : Node3D
 			_cursorWorldPos.X = playerPos.X + dx * pull;
 			_cursorWorldPos.Z = playerPos.Z + dz * pull;
 		}
+	}
 
-		// Drop Y to the ground at the (possibly clamped) cursor X/Z. Start
-		// the drop from chest height so we don't miss surfaces that are
-		// slightly above the player's feet. Misses leave Y at the last
-		// valid value rather than snapping to the player's feet, so a
-		// cursor swept briefly off a cliff edge doesn't jitter.
-		Vector3 dropFrom = new(_cursorWorldPos.X, chestWorld.Y, _cursorWorldPos.Z);
-		if (TryRaycastDown(dropFrom, _maxGroundDropDistance, out Vector3 groundHit))
+	// Vertical launch + timing for the fixed-shape hump, from the rise and gravity
+	// (the fuse plays no part — it only decides how long the projectile lives).
+	// Launch vertical speed v0y = √(2·g·rise); time to come down to `drop` meters
+	// BELOW the launch point (foot level) from −drop = v0y·t − ½g·t²:
+	//   arcDuration = (v0y + √(v0y² + 2·g·drop)) / g.
+	// Shared by the reticle preview and DoProjectile so the throw matches.
+	public static void ResolveArc(float rise, float gravity, float drop, out float launchVy, out float arcDuration)
+	{
+		launchVy = Mathf.Sqrt(2f * gravity * rise);
+		arcDuration = (launchVy + Mathf.Sqrt(launchVy * launchVy + 2f * gravity * drop)) / gravity;
+	}
+
+	// Build the arced throw from `origin` toward `target`: a fixed-shape hump that
+	// rises `rise` and bottoms out at the thrower's foot level at `lifetime`, with
+	// horizontal speed set so it covers the aim distance over that lifetime.
+	// Publishes the launch velocity (ArcLaunchVelocity) + derived gravity
+	// (ArcLaunchGravity) the real throw fires, and samples the trajectory into
+	// _arcPoints for the ribbon preview — truncated at the first terrain hit (the
+	// real projectile bounces on from there). No-op (clears _arcLaunchValid) when
+	// the active tier has no arced projectile event to read rise / lifetime from.
+	void SolveArcToTarget(Vector3 origin, Vector3 target)
+	{
+		_arcLaunchValid = false;
+		_arcPoints.Clear();
+
+		if (!TryGetArcParams(out float rise, out float gravity, out float fuse)
+			|| rise <= 0f || gravity <= 0f)
 		{
-			_cursorWorldPos.Y = groundHit.Y;
+			return;
 		}
 
-		// Face the player body toward the cursor so the sprite and
-		// ActorForward both point at where the throw / drop will land.
-		_player.SnapAimYawToward(_cursorWorldPos);
+		// Rise + gravity fix the vertical motion and the time the hump takes to
+		// reach foot level (the launch origin is the chest, _aimHeight above the
+		// feet); horizontal speed then covers the aim distance over that time.
+		ResolveArc(rise, gravity, _aimHeight, out float launchVy, out float arcDuration);
 
-		// Resolve the AoE/footprint ring radius for the active tier — fed
-		// to RenderReticle's existing ring-radius lerp so the change from
-		// the default outer radius eases in over RingTransitionSeconds.
-		// Cached so the fade-out path holds it through the alpha drop.
+		Vector3 bearing = HorizontalBearing(origin, target);
+		float dx = target.X - origin.X;
+		float dz = target.Z - origin.Z;
+		float horizDist = Mathf.Sqrt(dx * dx + dz * dz);
+		Vector3 horizVel = bearing * (horizDist / arcDuration);
+
+		_arcLaunchVelocity = horizVel + Vector3.Up * launchVy;
+		_arcLaunchGravity = gravity;
+		_arcLaunchValid = true;
+
+		// Sample the parabola p(t) = origin + horizVel·t + (v0y·t − ½g·t²)·up over
+		// the full FUSE (so the preview shows the post-arc fall onto lower ground),
+		// stopping at the first solid hit where the throw first makes contact.
+		float span = fuse > 0f ? fuse : arcDuration;
+		PhysicsDirectSpaceState3D space = GetWorld3D()?.DirectSpaceState;
+		Godot.Collections.Array<Rid> exclude = _player != null
+			? new Godot.Collections.Array<Rid> { _player.GetRid() }
+			: null;
+		_arcPoints.Add(origin);
+		Vector3 prevPoint = origin;
+		for (int i = 1; i <= ArcPreviewSamples; i++)
+		{
+			float t = span * i / ArcPreviewSamples;
+			float y = launchVy * t - 0.5f * gravity * t * t;
+			Vector3 p = origin + horizVel * t + Vector3.Up * y;
+			if (space != null)
+			{
+				using var q = PhysicsRayQueryParameters3D.Create(prevPoint, p, (uint)ECollisionLayer.Solid);
+				q.CollideWithBodies = true;
+				q.CollideWithAreas = false;
+				if (exclude != null)
+				{
+					q.Exclude = exclude;
+				}
+				var hit = space.IntersectRay(q);
+				if (hit.Count > 0)
+				{
+					_arcPoints.Add((Vector3)hit["position"]);
+					break;
+				}
+			}
+			_arcPoints.Add(p);
+			prevPoint = p;
+		}
+	}
+
+	// Unit horizontal (XZ) direction from origin toward target; +Z fallback when
+	// they share an XZ column (degenerate, straight-up throw).
+	static Vector3 HorizontalBearing(Vector3 origin, Vector3 target)
+	{
+		float dx = target.X - origin.X;
+		float dz = target.Z - origin.Z;
+		float d = Mathf.Sqrt(dx * dx + dz * dz);
+		return d > 1e-4f ? new Vector3(dx / d, 0f, dz / d) : new Vector3(0f, 0f, 1f);
+	}
+
+	// First arced projectile event on the active tier, supplying the arc rise, the
+	// arc gravity, and the fuse (total flight before detonation). False when the
+	// tier has no such event.
+	bool TryGetArcParams(out float rise, out float gravity, out float fuse)
+	{
+		rise = 0f;
+		gravity = 0f;
+		fuse = 0f;
 		ItemAction tier = ResolveActiveTier(out _);
-		float positionalRadius = Mathf.Max(0f, tier?.positionalAreaRadius ?? _groundRingOuterRadius);
-		_lastPositionalRadius = positionalRadius;
-
-		// Positional has no concept of mob lock or aim distance line —
-		// the cursor is a free ground point. Cached state still kept up
-		// to date so the fade-out path renders without surprises if the
-		// player switches back to a directional tier later.
-		float lineLength = Mathf.Sqrt(dx * dx + dz * dz);
-		_lastLineLength = lineLength;
-		_lastMobTargeted = false;
-		_lastMobTargetOuter = _groundRingOuterRadius;
-
-		RenderReticle(EAimType.Positional, lineLength, clippedAtSurface: false, mobTargeted: false, mobTargetOuter: _groundRingOuterRadius, positionalRadius: positionalRadius, dt: dt);
+		if (tier?.events == null)
+		{
+			return false;
+		}
+		for (int i = 0; i < tier.events.Count; i++)
+		{
+			ItemEvent ev = tier.events[i];
+			if (ev == null
+				|| (ev.type & EItemEventType.Projectile) == 0
+				|| !ev.projectileArcing
+				|| ev.projectileScene == null)
+			{
+				continue;
+			}
+			rise = ev.projectileArcRise;
+			gravity = ev.projectileGravity;
+			fuse = ev.projectileLifetimeSeconds;
+			return rise > 0f && gravity > 0f;
+		}
+		return false;
 	}
 
 	// Render path — used by both the live update and the fade-out path. The
@@ -527,7 +914,7 @@ public partial class AimingReticle : Node3D
 		// AoE radius; Directional uses the locked-mob silhouette or the
 		// default outer radius.
 		float targetOuter;
-		if (aimType == EAimType.Positional)
+		if (aimType == EAimType.Positional || aimType == EAimType.Arced)
 		{
 			targetOuter = positionalRadius;
 		}
@@ -556,15 +943,28 @@ public partial class AimingReticle : Node3D
 
 		if (_groundCircle != null)
 		{
-			_groundCircle.Visible = true;
-			Vector3 tint = mobTargeted
-				? new Vector3(_groundRingLockedColor.R, _groundRingLockedColor.G, _groundRingLockedColor.B)
-				: Vector3.One;
-			_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _currentOuterRadius);
-			_groundCircle.SetInstanceShaderParameter("ring_inner_radius", currentInner);
-			_groundCircle.SetInstanceShaderParameter("instance_color", tint);
-			_groundCircle.Position = ToLocal(_cursorWorldPos);
+			if (aimType == EAimType.Arced)
+			{
+				// Arced aim is visualized by the dotted hump alone — no ground ring.
+				_groundCircle.Visible = false;
+			}
+			else
+			{
+				_groundCircle.Visible = true;
+				Vector3 tint = mobTargeted
+					? new Vector3(_groundRingLockedColor.R, _groundRingLockedColor.G, _groundRingLockedColor.B)
+					: Vector3.One;
+				_groundCircle.SetInstanceShaderParameter("ring_outer_radius", _currentOuterRadius);
+				_groundCircle.SetInstanceShaderParameter("ring_inner_radius", currentInner);
+				_groundCircle.SetInstanceShaderParameter("instance_color", tint);
+				_groundCircle.Position = ToLocal(_cursorWorldPos);
+				UpdateGroundUndulation(_cursorWorldPos);
+			}
 		}
+
+		// Arc ribbon preview — only Arced populates _arcPoints; every other mode
+		// hides it.
+		RenderArcRibbon(aimType == EAimType.Arced);
 
 		if (!showForwardBeam)
 		{
@@ -649,6 +1049,177 @@ public partial class AimingReticle : Node3D
 		}
 	}
 
+	// Rebuilds the arc-preview ribbon (a connected triangle strip of camera-facing
+	// quads) along _arcPoints into the ImmediateMesh each frame. Each cross-pair
+	// is offset by `right = tangent × toCamera`, so the strip rolls around the arc
+	// to face the camera (the CPU analog of the billboard line shader). The
+	// ribbon's MeshInstance is top_level, so vertices are authored in world space.
+	void RenderArcRibbon(bool show)
+	{
+		if (_arcRibbon == null || _arcRibbon.Mesh is not ImmediateMesh mesh)
+		{
+			return;
+		}
+		mesh.ClearSurfaces();
+		if (!show || _arcPoints.Count < 2)
+		{
+			_arcRibbon.Visible = false;
+			return;
+		}
+
+		Camera3D cam = GetViewport()?.GetCamera3D();
+		Vector3 camPos = cam != null ? cam.GlobalPosition : _player.GlobalPosition + Vector3.Up * 8f;
+		float halfWidth = Mathf.Max(0.005f, _arcRibbonWidth * 0.5f);
+
+		// Fade the ribbon in over its first stretch from the launch point so it
+		// isn't visible right at the thrower's hand (same gradient the main beam
+		// uses). _arcPoints[0] is the launch origin.
+		_arcRibbon.SetInstanceShaderParameter("gradient_origin_world", _arcPoints[0]);
+		_arcRibbon.SetInstanceShaderParameter("gradient_start_distance", _arcGradientStartDistance);
+		_arcRibbon.SetInstanceShaderParameter("gradient_end_distance", _arcGradientEndDistance);
+
+		mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
+		int n = _arcPoints.Count;
+		for (int i = 0; i < n; i++)
+		{
+			Vector3 p = _arcPoints[i];
+			Vector3 tangent;
+			if (i == 0)
+			{
+				tangent = _arcPoints[1] - _arcPoints[0];
+			}
+			else if (i == n - 1)
+			{
+				tangent = _arcPoints[i] - _arcPoints[i - 1];
+			}
+			else
+			{
+				tangent = _arcPoints[i + 1] - _arcPoints[i - 1];
+			}
+			if (tangent.LengthSquared() < 1e-8f)
+			{
+				tangent = Vector3.Forward;
+			}
+			tangent = tangent.Normalized();
+			Vector3 right = tangent.Cross(camPos - p);
+			if (right.LengthSquared() < 1e-10f)
+			{
+				right = tangent.Cross(Vector3.Up);
+			}
+			if (right.LengthSquared() < 1e-10f)
+			{
+				right = Vector3.Right;
+			}
+			right = right.Normalized() * halfWidth;
+			mesh.SurfaceAddVertex(p - right);
+			mesh.SurfaceAddVertex(p + right);
+		}
+		mesh.SurfaceEnd();
+		_arcRibbon.Visible = true;
+	}
+
+	// Resolves the voxel-surface height under the ground ring into a small grid
+	// and hands it to the shader, which displaces the (subdivided) ring mesh's
+	// vertices to drape it over terrain. Centered on `cursorWorld`, covering an
+	// `_undulationPatchWorldSize` square. The whole feature is gated on
+	// reticle_undulate — when there's no voxel world (or it's disabled) we leave
+	// the shader on its flat path so nothing regresses.
+	void UpdateGroundUndulation(Vector3 cursorWorld)
+	{
+		World world = World.Current;
+		WorldState voxels = world?.WorldState;
+		if (!_undulationEnabled || _groundMaterial == null || voxels == null || world.player == null)
+		{
+			_groundMaterial?.SetShaderParameter("reticle_undulate", 0f);
+			_undulationValid = false;
+			return;
+		}
+
+		float size = _undulationPatchWorldSize;
+		float step = UndulationPatchRes > 1 ? size / (UndulationPatchRes - 1) : 1f;
+		// Snap the sample grid to fixed world positions (multiples of `step`) so
+		// the sampled height field is a stable function of world XZ. Without this
+		// the columns move with the cursor and the ring pops every time a sample
+		// crosses a voxel boundary; with it, sub-cell cursor motion changes
+		// nothing and a cell-crossing is a seamless window slide over the same
+		// world columns.
+		float originX = Mathf.Floor((cursorWorld.X - size * 0.5f) / step) * step;
+		float originZ = Mathf.Floor((cursorWorld.Z - size * 0.5f) / step) * step;
+		// Anchor the per-column surface search at the player's level so a hill
+		// above the player resolves to its top (scan up) and a cave floor / valley
+		// below resolves to the floor (scan down) — a single top-down query can't
+		// do both (it would catch a cave roof). Targeting refinement comes later;
+		// this is purely the ring's vertical profile.
+		float anchorY = world.player.GlobalPosition.Y;
+		int anchorVoxelY = Mathf.FloorToInt(anchorY);
+
+		// The patch mapping is world-stable, so always keep the shader pointed at
+		// the current snapped window even when we skip the (static-terrain) rescan.
+		_groundCircle.SetInstanceShaderParameter("reticle_patch_origin", new Vector2(originX, originZ));
+		_groundCircle.SetInstanceShaderParameter("reticle_patch_size", size);
+		_groundMaterial.SetShaderParameter("reticle_undulate", 1f);
+
+		// Re-scan only when the snapped grid or the player's voxel level changed —
+		// the voxel terrain is static, so the height field is otherwise identical.
+		if (_undulationValid
+			&& originX == _lastPatchOriginX
+			&& originZ == _lastPatchOriginZ
+			&& anchorVoxelY == _lastAnchorVoxelY)
+		{
+			return;
+		}
+		_lastPatchOriginX = originX;
+		_lastPatchOriginZ = originZ;
+		_lastAnchorVoxelY = anchorVoxelY;
+		_undulationValid = true;
+
+		for (int cz = 0; cz < UndulationPatchRes; cz++)
+		{
+			int vz = Mathf.FloorToInt(originZ + cz * step);
+			for (int cx = 0; cx < UndulationPatchRes; cx++)
+			{
+				int vx = Mathf.FloorToInt(originX + cx * step);
+				_undulationHeights[cz * UndulationPatchRes + cx] =
+					ScanColumnSurface(voxels, vx, vz, anchorY, cursorWorld.Y);
+			}
+		}
+		_groundMaterial.SetShaderParameter("reticle_heights", _undulationHeights);
+	}
+
+	// World Y of the ground surface at a voxel column, anchored near `anchorY`.
+	// If the anchor voxel is solid we scan UP to the top of that terrain; if it's
+	// air we scan DOWN to the floor below. Returns `fallback` when no surface is
+	// found within the scan window (e.g. an unloaded chunk).
+	float ScanColumnSurface(WorldState voxels, int vx, int vz, float anchorY, float fallback)
+	{
+		int ay = Mathf.FloorToInt(anchorY);
+		int maxScan = Mathf.Max(1, _undulationMaxScanVoxels);
+		if (VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay, vz)))
+		{
+			// Inside terrain — climb to the first air voxel; its base is the
+			// surface (top of the solid below it).
+			for (int k = 1; k <= maxScan; k++)
+			{
+				if (!VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay + k, vz)))
+				{
+					return ay + k;
+				}
+			}
+		}
+		else
+		{
+			// In open air — drop to the first solid voxel; its top is the surface.
+			for (int k = 1; k <= maxScan; k++)
+			{
+				if (VoxelTypeInfo.IsSolid(voxels.GetVoxelWorld(vx, ay - k, vz)))
+				{
+					return ay - k + 1;
+				}
+			}
+		}
+		return fallback;
+	}
+
 	// Writes the fade alpha into every reticle mesh's alpha_multiplier so
 	// the shader can scale ALPHA at fragment exit. Called every frame the
 	// reticle is at all visible (alpha > 0).
@@ -664,7 +1235,7 @@ public partial class AimingReticle : Node3D
 		// held across fade-out so the styling stays consistent as alpha
 		// drops to zero.
 		float groundScale;
-		if (_lastAimType == EAimType.Positional)
+		if (_lastAimType == EAimType.Positional || _lastAimType == EAimType.Arced)
 		{
 			groundScale = _groundRingPositionalAlphaScale;
 		}
@@ -678,6 +1249,7 @@ public partial class AimingReticle : Node3D
 		}
 		SetMeshAlpha(_groundCircle, alpha * groundScale);
 		SetMeshAlpha(_endKnob, alpha);
+		SetMeshAlpha(_arcRibbon, alpha);
 	}
 
 	static void SetMeshAlpha(MeshInstance3D mesh, float alpha)
@@ -800,6 +1372,13 @@ public partial class AimingReticle : Node3D
 		using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)(ECollisionLayer.Solid | ECollisionLayer.Water));
 		query.CollideWithBodies = true;
 		query.CollideWithAreas = true;
+		// Exclude the player's own body — when the cursor sweeps on top of the
+		// player, a drop ray from chest height would otherwise hit the player's
+		// collider and snap the cursor Y up to the body, popping it vertically.
+		if (_player != null)
+		{
+			query.Exclude = new Godot.Collections.Array<Rid> { _player.GetRid() };
+		}
 		var result = world3D.DirectSpaceState.IntersectRay(query);
 		if (result.Count == 0)
 		{
@@ -866,7 +1445,7 @@ public partial class AimingReticle : Node3D
 	{
 		ItemAction tier = ResolveActiveTier(out _);
 		if (tier == null) { return 0f; }
-		if (tier.aimType == EAimType.Positional)
+		if (tier.aimType == EAimType.Positional || tier.aimType == EAimType.Arced)
 		{
 			return tier.positionalRange;
 		}

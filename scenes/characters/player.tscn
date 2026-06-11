@@ -26,6 +26,7 @@
 [ext_resource type="Resource" uid="uid://uae0q98gi8unx" path="res://resources/data/characters/player_voice_male.tres" id="23_voicemale"]
 [ext_resource type="Script" uid="uid://dwqootag2ma1t" path="res://scripts/gameplay/AimingReticle.cs" id="24_aimreticle_script"]
 [ext_resource type="Material" uid="uid://w0qx7uc667j4" path="res://resources/materials/aiming_reticle.tres" id="25_aimreticle_mat"]
+[ext_resource type="Material" uid="uid://b7arcd0tdotm8" path="res://resources/materials/aiming_arc_dot.tres" id="25_arcdotmat"]
 [ext_resource type="Resource" uid="uid://dyby4gvspxr4s" path="res://resources/data/status_effects/status_wet.tres" id="26_statuswet"]
 [ext_resource type="Resource" uid="uid://d2x7m8nqkrjwa" path="res://resources/data/status_effects/status_wet_clothes.tres" id="26_statuswetclothes"]
 [ext_resource type="Resource" uid="uid://fy565pr1emwe" path="res://resources/data/status_effects/status_dirty.tres" id="27_statusdirty"]
@@ -49,6 +50,8 @@ material = ExtResource("25_aimreticle_mat")
 [sub_resource type="PlaneMesh" id="PlaneMesh_aim_circle"]
 material = ExtResource("25_aimreticle_mat")
 size = Vector2(4, 4)
+subdivide_width = 32
+subdivide_depth = 32
 
 [sub_resource type="SphereMesh" id="SphereMesh_aim_knob"]
 material = ExtResource("25_aimreticle_mat")
@@ -56,6 +59,8 @@ radius = 0.06
 height = 0.12
 radial_segments = 12
 rings = 6
+
+[sub_resource type="ImmediateMesh" id="ImmediateMesh_arc"]
 
 [node name="Player" type="CharacterBody3D" unique_id=251008422 node_paths=PackedStringArray("interactArea", "HudAnchor", "_hurtBox", "_audioListener", "_aimingReticle")]
 floor_max_angle = 1.0471976
@@ -135,13 +140,14 @@ script = ExtResource("5_7vyk4")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_1uit0")
 
-[node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob")]
+[node name="AimingReticle" type="Node3D" parent="." unique_id=2016263992 node_paths=PackedStringArray("_mainLine", "_spreadLineLeft", "_spreadLineRight", "_groundCircle", "_endKnob", "_arcRibbon")]
 script = ExtResource("24_aimreticle_script")
 _mainLine = NodePath("MainLine")
 _spreadLineLeft = NodePath("SpreadLineLeft")
 _spreadLineRight = NodePath("SpreadLineRight")
 _groundCircle = NodePath("GroundCircle")
 _endKnob = NodePath("EndKnob")
+_arcRibbon = NodePath("ArcRibbon")
 _groundRingOuterRadius = 0.25
 _groundRingInnerRadius = 0.0
 _groundRingLockedRadiusMultiplier = 2.0
@@ -167,6 +173,12 @@ mesh = SubResource("PlaneMesh_aim_circle")
 [node name="EndKnob" type="MeshInstance3D" parent="AimingReticle" unique_id=911384672]
 extra_cull_margin = 32.0
 mesh = SubResource("SphereMesh_aim_knob")
+
+[node name="ArcRibbon" type="MeshInstance3D" parent="AimingReticle" unique_id=911384673]
+top_level = true
+extra_cull_margin = 64.0
+material_override = ExtResource("25_arcdotmat")
+mesh = SubResource("ImmediateMesh_arc")
 
 [node name="HudAnchor" type="Node3D" parent="." unique_id=1151412001]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.0131006, 0)

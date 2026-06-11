@@ -1,0 +1,101 @@
+[gd_scene format=3 uid="uid://cd7shbrqf2xk1"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="3_fade"]
+[ext_resource type="AudioStream" uid="uid://c51b8l85ypv5" path="res://assets/audio/source/impact/sfx_bomb_explosion_01.wav" id="4_boom1"]
+[ext_resource type="AudioStream" uid="uid://j7gewm1b72a7" path="res://assets/audio/source/impact/sfx_bomb_explosion_02.wav" id="5_boom2"]
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_wave"]
+emission_shape = 1
+emission_sphere_radius = 0.3
+direction = Vector3(0, 1, 0)
+spread = 90.0
+flatness = 1.0
+initial_velocity_min = 7.0
+initial_velocity_max = 13.0
+gravity = Vector3(0, -3, 0)
+damping_min = 3.0
+damping_max = 6.0
+scale_min = 1.4
+scale_max = 2.8
+color = Color(1, 0.92, 0.6, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_wave"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.85, 0.45, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_wave"]
+material = SubResource("ShaderMaterial_wave")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_spark"]
+emission_shape = 1
+emission_sphere_radius = 0.35
+direction = Vector3(0, 1, 0)
+spread = 90.0
+flatness = 0.5
+initial_velocity_min = 4.0
+initial_velocity_max = 10.0
+gravity = Vector3(0, -4, 0)
+damping_min = 0.0
+damping_max = 1.0
+scale_min = 0.5
+scale_max = 1.0
+color = Color(1, 1, 0.8, 1)
+color_ramp = ExtResource("3_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_spark"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.95, 0.6, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_spark"]
+material = SubResource("ShaderMaterial_spark")
+size = Vector2(0.05, 0.05)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_boom"]
+playback_mode = 1
+random_pitch = 1.12
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("4_boom1")
+stream_1/stream = ExtResource("5_boom2")
+
+[node name="DashBurstFx" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Shockwave" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+emitting = false
+amount = 44
+lifetime = 0.4
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_wave")
+draw_pass_1 = SubResource("QuadMesh_wave")
+
+[node name="Sparks" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, 0)
+emitting = false
+amount = 24
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.6
+process_material = SubResource("ParticleProcessMaterial_spark")
+draw_pass_1 = SubResource("QuadMesh_spark")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_boom")
+volume_db = 1.0
+unit_size = 8.0
+max_distance = 40.0
+bus = &"World3D"

@@ -1,0 +1,106 @@
+[gd_scene format=3 uid="uid://bm0blastfx7k2"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_plit"]
+[ext_resource type="AudioStream" uid="uid://c51b8l85ypv5" path="res://assets/audio/source/impact/sfx_bomb_explosion_01.wav" id="3_boom1"]
+[ext_resource type="AudioStream" uid="uid://j7gewm1b72a7" path="res://assets/audio/source/impact/sfx_bomb_explosion_02.wav" id="4_boom2"]
+
+[sub_resource type="Gradient" id="Gradient_fade"]
+offsets = PackedFloat32Array(0, 0.12, 0.7, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_fade"]
+gradient = SubResource("Gradient_fade")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_fire"]
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 90.0
+flatness = 0.2
+initial_velocity_min = 6.0
+initial_velocity_max = 12.0
+gravity = Vector3(0, -6, 0)
+damping_min = 2.0
+damping_max = 4.0
+scale_min = 1.4
+scale_max = 2.6
+color = Color(1, 0.65, 0.2, 1)
+color_ramp = SubResource("GradientTexture1D_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_fire"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(1, 0.55, 0.18, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_fire"]
+material = SubResource("ShaderMaterial_fire")
+size = Vector2(0.12, 0.12)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_smoke"]
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3(0, 1, 0)
+spread = 60.0
+initial_velocity_min = 1.5
+initial_velocity_max = 4.0
+gravity = Vector3(0, 1.2, 0)
+damping_min = 0.5
+damping_max = 1.5
+scale_min = 1.8
+scale_max = 3.4
+color = Color(0.16, 0.14, 0.13, 1)
+color_ramp = SubResource("GradientTexture1D_fade")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_smoke"]
+render_priority = 0
+shader = ExtResource("2_plit")
+shader_parameter/albedo = Color(0.16, 0.14, 0.13, 0.85)
+shader_parameter/emission = Color(0, 0, 0, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_smoke"]
+material = SubResource("ShaderMaterial_smoke")
+size = Vector2(0.16, 0.16)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_boom"]
+playback_mode = 1
+random_pitch = 1.12
+random_volume_offset_db = 2.0
+streams_count = 2
+stream_0/stream = ExtResource("3_boom1")
+stream_1/stream = ExtResource("4_boom2")
+
+[node name="BombBlastFx" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Fire" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+emitting = false
+amount = 48
+lifetime = 0.5
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_fire")
+draw_pass_1 = SubResource("QuadMesh_fire")
+
+[node name="Smoke" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+emitting = false
+amount = 24
+lifetime = 0.95
+one_shot = true
+explosiveness = 1.0
+randomness = 0.5
+process_material = SubResource("ParticleProcessMaterial_smoke")
+draw_pass_1 = SubResource("QuadMesh_smoke")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_boom")
+volume_db = 4.0
+unit_size = 8.0
+max_distance = 45.0
+bus = &"World3D"

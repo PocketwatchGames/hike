@@ -423,6 +423,13 @@ public partial class PlayerData : Resource
 	// SkyExposure is the non-leaky vertical field, so a cave mouth's sideways
 	// light leak never registers as rain exposure.
 	[Export(PropertyHint.Range, "0.01,1,0.01")] public float rainShelterSkyThreshold = 0.5f;
+	// A carried torch is doused when the rain the player is actually exposed to
+	// (RainIntensity, gated by the same shelter ramp as wetness) reaches this
+	// strength — "heavy rain". Swimming douses unconditionally. Dousing is
+	// one-way: the player must relight manually once dry / out of the water, it
+	// never auto-relights when conditions ease. 1.0 disables rain dousing
+	// (only a full downpour would ever hit it).
+	[Export(PropertyHint.Range, "0.01,1,0.01")] public float torchDouseRainThreshold = 0.6f;
 	// Wind accelerates drying via evaporation. SampleWindSpeed already
 	// zeroes out under overhead cover, so this only contributes outdoors.
 	// Default 0.1 means the dry rate doubles at 10 m/s of wind and triples

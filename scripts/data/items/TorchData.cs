@@ -9,6 +9,12 @@ public partial class TorchData : ConsumableData
 	// scene rather than overriding here.
 	[Export] public PackedScene movingLightScene;
 
+	// One-shot steam/sizzle cue spawned on the player when this torch is doused
+	// by the environment (heavy rain / swimming) rather than snuffed by hand.
+	// Layers on top of the MovingLight's normal off-cue so a water douse reads
+	// distinctly wet. Optional — null falls back to just the off-cue.
+	[Export] public PackedScene douseEffectScene;
+
 	public override ItemState CreateState()
 	{
 		return new TorchState(this);

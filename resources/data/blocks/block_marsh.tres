@@ -1,6 +1,7 @@
 [gd_resource type="Resource" script_class="BlockData" format=3 uid="uid://d22rcvc2fr0jy"]
 
 [ext_resource type="Script" uid="uid://5fcg1eylatss" path="res://scripts/data/world/BlockData.cs" id="1_block"]
+[ext_resource type="Resource" uid="uid://b8mud3kq7wn2x" path="res://resources/data/items/consumables/mud.tres" id="2_mud"]
 
 [resource]
 script = ExtResource("1_block")
@@ -8,3 +9,4 @@ BlockName = &"Marsh"
 AtlasBaseIndex = 10
 MinimapColor = Color(0.3882353, 0.47843137, 0.2509804, 1)
 Porosity = 0.9
+DigItem = ExtResource("2_mud")

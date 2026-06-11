@@ -10,7 +10,6 @@
 [ext_resource type="Resource" uid="uid://td4nk2wwtqxx" path="res://resources/data/status_effects/status_heal.tres" id="5_aqdwl"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="7_5gdvb"]
-[ext_resource type="Texture2D" uid="uid://d1e6kk71hv51d" path="res://assets/textures/items/pickups/Potion_red.png" id="8_world"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/effects/drink_loop.tscn" id="9_drinkfx"]
 [ext_resource type="PackedScene" uid="uid://dggymyg888552" path="res://scenes/items/held/health_potion_held.tscn" id="10_held"]
 
@@ -51,4 +50,3 @@ maxStack = 5
 value = 10
 inventorySprite = ExtResource("7_5gdvb")
 heldModel = ExtResource("10_held")
-worldSprite = ExtResource("8_world")

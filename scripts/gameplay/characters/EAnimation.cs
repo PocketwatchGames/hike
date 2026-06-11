@@ -63,4 +63,9 @@ public enum EAnimation
     // digging.fbx, mapped per anim-set in unarmed.tres and baked into
     // human_anims.res by the PlayerAnimManifest rebuild.
     Digging = 36,
+    // Bomb throw one-shot (weapon "Active" timeline PlayAnim). Clip:
+    // polysplit/anims/throw.fbx, mapped in unarmed.tres (the bomb has no
+    // weapon animSet, so it resolves through the base/unarmed set) and baked
+    // into human_anims.res by the PlayerAnimManifest rebuild.
+    Throw = 37,
 }

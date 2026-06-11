@@ -2,6 +2,12 @@ public class WeaponState : ItemState
 {
 	public int ammo;
 
+	// Game-time (ms) at which the next passive ammo charge completes, for
+	// weapons with WeaponData.ammoRechargeSeconds > 0. 0 = no recharge in
+	// flight (either at max ammo, or auto-recharge disabled). Player.TickAmmoRecharge
+	// arms it the frame ammo drops below max and re-arms after each refill.
+	public ulong ammoRechargeReadyMs;
+
 	// Combo runtime — set to the activated ItemAction's comboIndex on each
 	// activation. comboExpireMs is when the chain breaks if not extended; the
 	// ActionRunner uses (now < comboExpireMs) at press time to target

@@ -352,7 +352,7 @@ public static class ItemEventHandlers
 	// per affected target. Does NOT re-enter the attack pipeline (it calls
 	// HurtBox.Hit directly), so an on-impact burst can't recursively re-trigger
 	// itself.
-	public static void ApplyAreaDamage(IActionActor attacker, DamageData damage, Vector3 center, float radius)
+	public static void ApplyAreaDamage(IActionActor attacker, DamageData damage, Vector3 center, float radius, bool radialKnockback = false)
 	{
 		if (attacker == null || damage == null || radius <= 0f)
 		{
@@ -388,14 +388,30 @@ public static class ItemEventHandlers
 			{
 				continue;
 			}
-			// Radial burst — no swing axis, so leave hitDirection zero (the
-			// receiver applies no knockback when it's zero; lightning authors
-			// no knockback anyway). The attacker node is the source so the
-			// receiver still attributes the hit correctly.
-			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, Vector3.Zero);
+			// Hit direction. Default is zero — the receiver applies no
+			// knockback when it's zero (an elite's lightning discharge authors
+			// none anyway). When `radialKnockback` is set (a shockwave like the
+			// fairy dash burst), push each target directly away from the blast
+			// center so the crowd scatters outward; a target sitting exactly on
+			// center falls back to zero (no usable axis). The attacker node is
+			// the source so the receiver still attributes the hit correctly.
+			Vector3 hitDir = Vector3.Zero;
+			if (radialKnockback)
+			{
+				Vector3 away = hurtBox.GlobalPosition - center;
+				away.Y = 0f;
+				if (away.LengthSquared() > 0.0001f)
+				{
+					hitDir = away.Normalized();
+				}
+			}
+			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, hitDir);
 			hurtBox.Hit(hit);
 		}
-		DebugDraw.Sphere(center, radius, new Color(0.6f, 0.85f, 1f, 0.3f), 0.15f);
+		if (CVars.debugAoe.Value)
+		{
+			DebugDraw.Sphere(center, radius, new Color(0.6f, 0.85f, 1f, 0.3f), 0.15f);
+		}
 	}
 
 	// Same-team filter for direct-hit handlers. Returns true when the hit
@@ -460,13 +476,14 @@ public static class ItemEventHandlers
 	// Mirrors DoHitscan's spread/range scaling so a single weapon can swap
 	// between hitscan and projectile without re-authoring its curves.
 	//
-	// Arcing (`projectileArcing = true`): no in-flight collision, gravity-
-	// driven arc, lands at the player's Positional aim cursor at exactly
-	// `projectileLifetimeSeconds`. Velocity is solved for from origin →
-	// cursor over the authored lifetime under world gravity — author sets
-	// lifetime + the arcing flag, the math finds the pitch/speed. Used for
-	// delivery-style attacks (rain of arrows, thrown explosive); pairs with
-	// an authored `impactEvent` that fires at the landing point.
+	// Arcing (`projectileArcing = true`): a gravity-driven, COLLISION-RESPECTING
+	// lob. For the player this fires the exact arc the Arced-aim reticle
+	// previewed (it solved launch speed + pitch and published the velocity);
+	// `projectileLifetimeSeconds` is the fuse cap, not an exact flight time. The
+	// projectile detonates on the first surface / creature it meets or at the
+	// fuse, whichever is first, so it can't pass through walls or bury itself.
+	// Used for delivery-style attacks (thrown explosive); pairs with an authored
+	// `impactEvent` that fires at the landing point.
 	public static void DoProjectile(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		if (ev.projectileScene == null)
@@ -487,7 +504,9 @@ public static class ItemEventHandlers
 		}
 
 		ItemAction tier = action.selectedTier;
-		Vector3 origin = actor.ActorWorldPosition + Vector3.Up;
+		// Projectiles launch from the actor's chest, ArcLaunchHeight above the feet
+		// — also the drop an arced hump uses to bottom out at foot level.
+		Vector3 origin = actor.ActorWorldPosition + Vector3.Up * ArcLaunchHeight;
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
@@ -515,33 +534,57 @@ public static class ItemEventHandlers
 		float lifetime;
 		float gravity = 0f;
 		bool noCollide = false;
+		bool bounce = false;
+		float bounciness = 0f;
+		float friction = 0f;
 		if (ev.projectileArcing)
 		{
-			// Arcing requires a positional aim cursor — without one (mob
-			// attacks, weapon with no AimingReticle) there's nowhere to aim,
-			// so the firing event silently no-ops. Position-aim tiers always
-			// have a valid cursor by the time release fires.
-			if (actor is not Player player || player.AimingReticle == null || !player.AimingReticle.HasAimWorldPosition)
+			// Arcing is a player throw — it needs the aiming reticle (mob attacks
+			// / weapons with no reticle have nowhere to lob, so the event no-ops).
+			if (actor is not Player player || player.AimingReticle == null)
 			{
 				return;
 			}
-			Vector3 target = player.AimingReticle.AimWorldPosition;
+			AimingReticle reticle = player.AimingReticle;
+			// lifetime is the FUSE; the hump's shape/feel is the (shorter) arc
+			// duration, so the lob keeps falling/bouncing past its landing.
 			lifetime = ev.projectileLifetimeSeconds;
-			if (lifetime <= 0f)
+			if (lifetime <= 0f || ev.projectileArcRise <= 0f || ev.projectileGravity <= 0f)
 			{
 				return;
 			}
-			gravity = ev.projectileGravity > 0f
-				? ev.projectileGravity
-				: (World.Current?.SimData?.Gravity ?? 9.8f);
-			// Solve ballistic launch: horizontal velocity is delta.xz / t;
-			// vertical solves dy = v0y*t - 0.5*g*t^2 → v0y = (dy + 0.5*g*t^2) / t.
-			Vector3 delta = target - origin;
-			float vx = delta.X / lifetime;
-			float vz = delta.Z / lifetime;
-			float vy = (delta.Y + 0.5f * gravity * lifetime * lifetime) / lifetime;
-			velocity = new Vector3(vx, vy, vz);
-			noCollide = true;
+			if (reticle.HasArcLaunch)
+			{
+				// Fire the EXACT hump the reticle previewed.
+				velocity = reticle.ArcLaunchVelocity;
+				gravity = reticle.ArcLaunchGravity;
+			}
+			else if (reticle.HasAimWorldPosition)
+			{
+				// Fallback when no Arced solve is published (e.g. fired the instant
+				// aim began): rebuild the same hump toward the aim cursor. `origin`
+				// is the chest (ArcLaunchHeight above the feet), so it drops that far
+				// to bottom out at foot level. Vertical + the timing the horizontal
+				// covers come from rise + gravity, not the fuse.
+				gravity = ev.projectileGravity;
+				AimingReticle.ResolveArc(ev.projectileArcRise, gravity, ArcLaunchHeight, out float launchVy, out float arcDuration);
+				Vector3 delta = reticle.AimWorldPosition - origin;
+				Vector3 horiz = new Vector3(delta.X, 0f, delta.Z);
+				float horizDist = horiz.Length();
+				Vector3 horizDir = horizDist > 1e-4f ? horiz / horizDist : Vector3.Zero;
+				velocity = horizDir * (horizDist / arcDuration) + Vector3.Up * launchVy;
+			}
+			else
+			{
+				return;
+			}
+			// Bounces off solids it meets before the fuse, then detonates at
+			// `lifetime` — so it can't pass through walls, and emergent hits (a
+			// grenade rebounding off a wall around a corner) just work.
+			noCollide = false;
+			bounce = true;
+			bounciness = ev.projectileBounciness;
+			friction = ev.projectileFriction;
 		}
 		else
 		{
@@ -573,7 +616,10 @@ public static class ItemEventHandlers
 			noCollide,
 			ev.impactEvent,
 			actor.ActorTeam,
-			hit.friendlyFire);
+			hit.friendlyFire,
+			bounce,
+			bounciness,
+			friction);
 	}
 
 	// Position-aware sub-dispatcher for projectile impactEvents (and any
@@ -1044,6 +1090,10 @@ public static class ItemEventHandlers
 	// fraction is 1.0. Tuned so an early-release bow shot is visibly
 	// inaccurate without being absurd. Per-tier accuracySpread01 scales this.
 	public const float MAX_SPREAD_HALF_ANGLE = 0.18f;
+
+	// Height above the actor's feet that projectiles launch from (the chest). For
+	// arced lobs it's also the drop used so the hump bottoms out at foot level.
+	private const float ArcLaunchHeight = 1f;
 
 	// Best-of priority for melee swings that overlap multiple hurtboxes:
 	// a real damageable hit beats an absorbed hit beats a prop ping.

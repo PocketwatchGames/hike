@@ -220,14 +220,16 @@ public partial class ItemEvent : Resource
 	// Optional looping audio-visual cue parented to the projectile for the
 	// duration of its flight (fire trail, shockwave, magic glow).
 	[Export] public PackedScene projectileLoopEffect;
-	// Arcing projectile: flies on a ballistic arc that lands at the player's
-	// positional aim cursor after exactly projectileLifetimeSeconds, with NO
-	// in-flight collision (passes through walls and mobs). On despawn, fires
-	// `impactEvent` at the landing position. Use for delivery-style attacks
-	// (rain of arrows, thrown explosive, smoke bottle). Requires the firing
-	// tier to use Positional aim — without an aim cursor the projectile won't
-	// spawn. projectileSpeed is ignored; the handler solves for initial
-	// velocity from origin, cursor, gravity, and lifetime.
+	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
+	// uses Arced aim, whose reticle builds the trajectory (see
+	// AimingReticle.UpdateArced) and publishes the launch velocity DoProjectile
+	// fires, so the thrown object traces the previewed arc. The hump rises
+	// projectileArcRise meters under projectileGravity and comes down to foot
+	// level, with horizontal speed set from the aim distance so it lands over the
+	// aimed point; it then bounces (projectileBounciness / projectileFriction) off
+	// solids until projectileLifetimeSeconds — the fuse, usually longer than the
+	// arc so it can fall onto lower ground — where it detonates and fires
+	// `impactEvent`. projectileSpeed is ignored. Use for thrown explosives.
 	private bool _projectileArcing;
 	[Export] public bool projectileArcing
 	{
@@ -243,14 +245,24 @@ public partial class ItemEvent : Resource
 			EmitChanged();
 		}
 	}
-	// Visual-only gravity override for arcing projectiles, in m/s² downward.
-	// 0 = fall back to the world's player-physics gravity (which is calibrated
-	// for the player and usually too weak to give a satisfying arc at short
-	// flight times). Higher values produce a taller, snappier arc at the same
-	// lifetime — for a flat-ground shot, the peak height above origin is
-	// roughly `gravity * lifetime² / 8`. Ignored when projectileArcing is
-	// false; flat projectiles don't accumulate gravity.
-	[Export] public float projectileGravity = 0f;
+	// Arced (lobbed) projectiles: peak vertical RISE in meters above the launch
+	// point at the top of the hump, and the gravity (m/s²) pulling it down.
+	// Together these fix the vertical motion — the launch vertical speed
+	// (√(2·g·rise)) and the time to come down to foot level — independent of the
+	// fuse (see AimingReticle.ResolveArc); horizontal speed is then set from the
+	// aim distance so the hump lands over the aimed point in that time.
+	// projectileLifetimeSeconds is ONLY the fuse (total flight before it
+	// detonates) — set it longer than the arc so the lob keeps falling/bouncing
+	// onto lower ground. Ignored when projectileArcing is false.
+	[Export] public float projectileArcRise = 1.25f;
+	[Export] public float projectileGravity = 14f;
+	// Arced projectiles bounce off solids they hit before the fuse expires.
+	// projectileBounciness is the NORMAL restitution (fraction of the into-surface
+	// speed kept on the rebound — higher = bouncier off walls); projectileFriction
+	// is the TANGENTIAL loss (fraction of the along-surface speed shed per hit —
+	// higher = rolls to a stop faster on the ground). Both ignored for flat flight.
+	[Export(PropertyHint.Range, "0,1,0.05")] public float projectileBounciness = 0.5f;
+	[Export(PropertyHint.Range, "0,1,0.05")] public float projectileFriction = 0.5f;
 	// Optional event fired at the projectile's despawn position. Runs through
 	// a position-aware sub-dispatcher (currently SpawnAreaEffect; other handlers
 	// require an actor / action context and would no-op here). The classic use
@@ -263,16 +275,18 @@ public partial class ItemEvent : Resource
 	public override void _ValidateProperty(Dictionary property)
 	{
 		string name = property["name"].AsString();
-		// Arcing-vs-flat split: projectileSpeed only applies to flat flight
-		// (arcing solves velocity from cursor + lifetime + gravity);
-		// projectileGravity only applies to arcing. Hide whichever doesn't
-		// apply to the current mode, even when the Projectile flag is set.
-		// Falls through to the flag-based hide below for the Projectile-off
-		// case (both stay hidden).
+		// Arcing-vs-flat split: projectileSpeed only applies to flat flight (an
+		// arced lob derives its vertical motion from rise + lifetime and its
+		// horizontal from the aim); projectileArcRise / projectileBounciness only
+		// apply to arcing. Hide whichever doesn't apply to the current mode, even
+		// when the Projectile flag is set. Falls through to the flag-based hide
+		// below for the Projectile-off case (all stay hidden).
 		if ((_type & EItemEventType.Projectile) != 0)
 		{
+			bool arcOnly = name == nameof(projectileArcRise) || name == nameof(projectileBounciness)
+				|| name == nameof(projectileGravity) || name == nameof(projectileFriction);
 			if ((name == nameof(projectileSpeed) && _projectileArcing)
-				|| (name == nameof(projectileGravity) && !_projectileArcing))
+				|| (arcOnly && !_projectileArcing))
 			{
 				HideProperty(property);
 				return;
@@ -319,7 +333,10 @@ public partial class ItemEvent : Resource
 				or nameof(projectileLifetimeSeconds)
 				or nameof(projectileLoopEffect)
 				or nameof(projectileArcing)
+				or nameof(projectileArcRise)
 				or nameof(projectileGravity)
+				or nameof(projectileBounciness)
+				or nameof(projectileFriction)
 				or nameof(impactEvent) => EItemEventType.Projectile,
 			nameof(areaEffectScene)
 				or nameof(areaDurationSeconds)

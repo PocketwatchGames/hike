@@ -20,4 +20,15 @@ public enum EAimType
 	// On entry from a Directional tier the cursor seeds from the previous
 	// forward-derived point so the ground circle doesn't jump.
 	Positional,
+	// Like Positional for INPUT (stick / mouse drives a range-clamped ground
+	// cursor), but the cursor is a THROW TARGET, not the effect point: the
+	// resolver solves a ballistic launch from the actor toward it (fixed launch
+	// speed, solved pitch — see BallisticArc), physics-marches the arc to find
+	// where it actually lands, and exposes the launch velocity so the thrown
+	// projectile flies the exact previewed arc. Visualization is the marched arc
+	// (dotted) plus a landing ring, not a flat ground ring. Vertical ambiguity at
+	// the cursor XZ resolves to the surface nearest the player's level. Used by
+	// lobbed weapons (thrown bomb); the landing can fall short of the cursor when
+	// the target is beyond throwing range.
+	Arced,
 }

@@ -10,6 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="5_sprite"]
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="6_sprite_lit"]
 [ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/moving_light_torch.tscn" id="7_moving"]
+[ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/effects/torch_douse.tscn" id="8_douse"]
 
 [sub_resource type="Resource" id="Resource_event_toggle"]
 script = ExtResource("4_event")
@@ -27,6 +28,7 @@ interruptOnDamage = false
 [resource]
 script = ExtResource("1_torch")
 movingLightScene = ExtResource("7_moving")
+douseEffectScene = ExtResource("8_douse")
 actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("6_sprite_lit")
 displayName = &"Torch"

@@ -10,7 +10,6 @@
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="7_5unc7"]
 [ext_resource type="Texture2D" uid="uid://dqxqpox2lo7gd" path="res://assets/textures/items/Potion_red.png" id="8_b3uw6"]
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="9_7l8j2"]
-[ext_resource type="Texture2D" uid="uid://d1e6kk71hv51d" path="res://assets/textures/items/pickups/Potion_red.png" id="10_nixa3"]
 [ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/effects/drink_loop.tscn" id="11_drinkfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
@@ -49,4 +48,3 @@ description = "Heals you right up!"
 maxStack = 5
 value = 25
 inventorySprite = ExtResource("8_b3uw6")
-worldSprite = ExtResource("10_nixa3")

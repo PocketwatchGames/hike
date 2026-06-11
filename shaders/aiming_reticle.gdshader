@@ -42,6 +42,28 @@ uniform vec4 line_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float max_alpha : hint_range(0.0, 1.0) = 0.5;
 uniform float occluded_alpha_scale : hint_range(0.0, 1.0) = 0.5;
 uniform float depth_bias : hint_range(0.0, 1.0) = 0.05;
+// When a fragment fails the manual occlusion z-test (scene geometry in front of
+// it) its color is mixed toward occluded_color by occluded_mix, in addition to
+// the occluded_alpha_scale dim — so the slice of the ring behind a wall / tree /
+// grass reads as a distinct "show-through" state rather than just fainter.
+uniform float occluded_mix : hint_range(0.0, 1.0) = 0.6;
+uniform vec3 occluded_color : source_color = vec3(0.4, 0.55, 1.0);
+// Floor on the slope cosine used to keep the draped ring's apparent thickness
+// constant (see fragment). Lower = thinner bands tolerated on steeper slopes
+// before the compensation is clamped; too low and a near-vertical band vanishes.
+uniform float ring_min_slope_cos : hint_range(0.05, 1.0) = 0.35;
+
+// Ground-ring terrain draping. reticle_heights is a RETICLE_PATCH_RES x
+// RETICLE_PATCH_RES grid of world-Y surface heights under the ring, resolved
+// per-frame on the CPU (AimingReticle.UpdateGroundUndulation) by scanning the
+// voxel column at each patch point. The ground-ring vertex path bilinearly
+// samples it to set each vertex's world Y, so the ring drapes over hills and
+// cave floors instead of sitting on one flat plane. reticle_undulate gates it
+// (0.0 = flat fallback; billboard lines never sample it). Array size MUST equal
+// RETICLE_PATCH_RES * RETICLE_PATCH_RES.
+const int RETICLE_PATCH_RES = 16;
+uniform float reticle_heights[256];
+uniform float reticle_undulate = 0.0;
 
 instance uniform vec3 line_start_world = vec3(0.0);
 instance uniform vec3 line_end_world = vec3(0.0);
@@ -57,6 +79,12 @@ instance uniform float gradient_end_distance = 0.0;
 
 instance uniform float ring_inner_radius = 0.0;
 instance uniform float ring_outer_radius = 0.0;
+
+// World-space mapping of the height patch for this instance: patch covers the
+// square [origin, origin + size] in world XZ. Set by AimingReticle alongside
+// reticle_heights when undulation is active.
+instance uniform vec2 reticle_patch_origin = vec2(0.0);
+instance uniform float reticle_patch_size = 1.0;
 
 // Per-instance color tint multiplied into the line/ring color. Defaults to
 // white so untreated meshes keep the material's line_color unchanged; the
@@ -99,8 +127,25 @@ void vertex() {
 		// authored "wide" (long axis = U) will need to be rotated on import.
 		line_uv = vec2((side + 1.0) * 0.5, t);
 	} else {
-		world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-		POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(world_pos, 1.0);
+		vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+		// Drape the ground ring over terrain: replace the vertex's world Y with
+		// the height sampled (bilinearly) from the reticle height-patch. The
+		// annulus mask below still uses the planar local_pos.xz, so only the
+		// vertical profile changes — the ring stays a clean circle in plan view.
+		if (reticle_undulate > 0.5) {
+			vec2 pp = (wp.xz - reticle_patch_origin) / max(reticle_patch_size, 1e-4);
+			pp = clamp(pp, 0.0, 1.0) * float(RETICLE_PATCH_RES - 1);
+			ivec2 c0 = ivec2(floor(pp));
+			ivec2 c1 = min(c0 + ivec2(1), ivec2(RETICLE_PATCH_RES - 1));
+			vec2 fr = pp - vec2(c0);
+			float h00 = reticle_heights[c0.y * RETICLE_PATCH_RES + c0.x];
+			float h10 = reticle_heights[c0.y * RETICLE_PATCH_RES + c1.x];
+			float h01 = reticle_heights[c1.y * RETICLE_PATCH_RES + c0.x];
+			float h11 = reticle_heights[c1.y * RETICLE_PATCH_RES + c1.x];
+			wp.y = mix(mix(h00, h10, fr.x), mix(h01, h11, fr.x), fr.y);
+		}
+		world_pos = wp;
+		POSITION = PROJECTION_MATRIX * VIEW_MATRIX * vec4(wp, 1.0);
 		local_pos = VERTEX;
 		side_uv = 0.0;
 		is_billboard = 0.0;
@@ -134,13 +179,26 @@ void fragment() {
 
 	if (ring_outer_radius > 0.0) {
 		float r = length(local_pos.xz);
+		// Keep the ring's apparent thickness ~constant on slopes. A flat annulus
+		// of fixed XZ width drapes onto more *surface* distance as the ground
+		// tilts (width / cos(slope)), so it reads as a fat band on steep terrain.
+		// Recover the slope from the draped geometry's screen-space derivatives
+		// and shrink the band's radial half-width by cos(slope) to compensate.
+		// (On flat ground / undulation off, cos_slope = 1 → unchanged.)
+		vec3 cr = cross(dFdx(world_pos), dFdy(world_pos));
+		float cl = length(cr);
+		float cos_slope = cl > 1e-6 ? clamp(abs(cr.y) / cl, ring_min_slope_cos, 1.0) : 1.0;
+		float mid = (ring_outer_radius + ring_inner_radius) * 0.5;
+		float half_w = (ring_outer_radius - ring_inner_radius) * 0.5 * cos_slope;
 		float aa_w = max(fwidth(r), 1e-5);
-		if (r > ring_outer_radius + aa_w || r < ring_inner_radius - aa_w) {
+		// Cap the AA span to the band so near-vertical draped triangles (huge
+		// fwidth) don't smear the thin band into a soft blob.
+		aa_w = min(aa_w, half_w);
+		float d = abs(r - mid);
+		if (d > half_w + aa_w) {
 			discard;
 		}
-		float outer_aa = 1.0 - smoothstep(ring_outer_radius - aa_w, ring_outer_radius, r);
-		float inner_aa = smoothstep(ring_inner_radius, ring_inner_radius + aa_w, r);
-		alpha *= outer_aa * inner_aa;
+		alpha *= 1.0 - smoothstep(half_w - aa_w, half_w + aa_w, d);
 	}
 
 	float scene_depth_raw = textureLod(DEPTH_TEXTURE, SCREEN_UV, 0.0).x;
@@ -152,10 +210,12 @@ void fragment() {
 	vec4 frag_view = INV_PROJECTION_MATRIX * frag_clip;
 	float frag_view_z = -frag_view.z / frag_view.w;
 
+	vec3 out_rgb = tex_rgb * instance_color;
 	if (frag_view_z > scene_view_z + depth_bias) {
 		alpha *= occluded_alpha_scale;
+		out_rgb = mix(out_rgb, occluded_color, occluded_mix);
 	}
 
-	ALBEDO = tex_rgb * instance_color;
+	ALBEDO = out_rgb;
 	ALPHA = alpha * alpha_multiplier;
 }
