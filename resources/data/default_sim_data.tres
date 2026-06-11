@@ -1,7 +1,7 @@
 [gd_resource type="Resource" script_class="SimData" format=3 uid="uid://vwejw0habed3"]
 
 [ext_resource type="Script" uid="uid://chvgahtb671mg" path="res://scripts/data/world/SimData.cs" id="1_1meao"]
-[ext_resource type="Material" uid="uid://dftmm0prnt7kq2" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
+[ext_resource type="Material" uid="uid://dhl426xulqxbf" path="res://resources/materials/footprint_multimesh.tres" id="1_atie7"]
 [ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="3_recipe_script"]
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
 [ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
@@ -10,6 +10,8 @@
 [ext_resource type="Resource" uid="uid://c5j8tk2pnawhx" path="res://resources/data/recipes/recipe_cure_poison_potion.tres" id="6_recipe_cure"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
 [ext_resource type="Resource" uid="uid://c8743nsy2v56" path="res://resources/data/recipes/recipe_succulent_grilled_goblin.tres" id="6_recipe_gg_hi"]
+[ext_resource type="Resource" uid="uid://cf8ryd2lapqx7" path="res://resources/data/status_effects/status_fairy_dash.tres" id="6_rmw2s"]
+[ext_resource type="Resource" path="res://resources/data/status_effects/status_flame_trail.tres" id="7_c5a0h"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="7_mob_script"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="8_mob_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/critter/kun_kun.tres" id="9_mob_kun_kun"]
@@ -23,8 +25,6 @@
 [ext_resource type="Resource" uid="uid://qhms7wphy46n" path="res://resources/data/items/loot/crown.tres" id="17_elite_loot"]
 [ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="18_fairy_loot"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="19_seffdata"]
-[ext_resource type="Resource" uid="uid://dh3yxk7q5oap2" path="res://resources/data/status_effects/status_dizzy.tres" id="20_dizzy"]
-[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="21_burning"]
 
 [resource]
 script = ExtResource("1_1meao")
@@ -35,7 +35,7 @@ EliteStatusEffect = ExtResource("15_elite_std")
 EliteCrownScene = ExtResource("16_elite_crown")
 EliteLoot = ExtResource("17_elite_loot")
 FairyLoot = ExtResource("18_fairy_loot")
-FairyLootStatusEffects = Array[ExtResource("19_seffdata")]([ExtResource("20_dizzy"), ExtResource("21_burning")])
+FairyLootStatusEffects = Array[ExtResource("19_seffdata")]([ExtResource("6_rmw2s"), ExtResource("7_c5a0h")])
 TalkAction = ExtResource("13_talk_action")
 GiveItemAction = ExtResource("14_give_action")
 SunMaxElevationDegrees = 65.0
