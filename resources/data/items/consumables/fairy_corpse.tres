@@ -9,22 +9,26 @@
 [ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/effects/eat_loop.tscn" id="5_eatfx"]
 [ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="6_inv"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_oe4u8"]
+[ext_resource type="Texture2D" uid="uid://cuu3l18dhf632" path="res://assets/textures/items/pickups/GemWhite.png" id="7_world"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="8_apply"]
-[ext_resource type="Resource" uid="uid://cf8ryd2lapqx7" path="res://resources/data/status_effects/status_fairy_dash.tres" id="9_fairydash"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
 type = 64
 animName = 22
 
-[sub_resource type="Resource" id="Resource_apply_fairydash"]
+[sub_resource type="Resource" id="Resource_charged_hold"]
+script = ExtResource("3_charged")
+chargeTime = 1.5
+chargeLoopEffect = ExtResource("5_eatfx")
+
+[sub_resource type="Resource" id="Resource_apply"]
 script = ExtResource("8_apply")
-statusEffect = ExtResource("9_fairydash")
 
 [sub_resource type="Resource" id="Resource_event_decrement"]
 script = ExtResource("4_event")
 type = 24
-effects = Array[ExtResource("3_4h0dy")]([SubResource("Resource_apply_fairydash")])
+effects = Array[ExtResource("3_4h0dy")]([SubResource("Resource_apply")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")

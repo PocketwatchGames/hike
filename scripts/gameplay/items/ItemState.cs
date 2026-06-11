@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 public class ItemState
 {
 	public virtual ItemData data => _data;
@@ -18,6 +20,15 @@ public class ItemState
 	// own status (e.g. wet armor cascading into the player's Wet meter, which
 	// arms the player-side effect and surfaces the splash + loop fx there).
 	public readonly StatusEffectController statusEffects = new StatusEffectController(null, null, null);
+
+	// Menu of status effects this specific item instance can bestow when used.
+	// Composed onto the state at drop/creation time from the loot source (e.g. a
+	// fairy corpse's possible boons) rather than baked into the shared ItemData,
+	// so the set is per-instance and can eventually be narrowed to the one the
+	// player chooses. An ApplyStatusEffect event with no fixed statusEffect
+	// applies one entry from this list (see ApplyStatusEffect.Apply). Empty for
+	// ordinary items, whose use-effects are authored directly on their events.
+	public readonly List<StatusEffectData> possibleStatusEffects = new List<StatusEffectData>();
 
 	public ItemState(ItemData d)
 	{

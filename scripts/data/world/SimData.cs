@@ -56,6 +56,16 @@ public partial class SimData : Resource
     // Null disables the trophy drop. See Mob.EjectLoot.
     [Export] public LootData EliteLoot;
 
+    // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate status
+    // effects from FairyLootStatusEffects, composed onto the corpse's per-
+    // instance ItemState when it spawns (World.SpawnLoot) so one can be applied
+    // on use and, eventually, chosen by the player. Centralized here — rather
+    // than on the loot entry in the fairy's .tres — so the boon pool is tuned
+    // in one place, mirroring the Elite loot/effect pairing above. Empty list
+    // (or null FairyLoot) = the corpse bestows nothing.
+    [Export] public ConsumableData FairyLoot;
+    [Export] public Array<StatusEffectData> FairyLootStatusEffects = new();
+
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
     // talking NPC species doesn't require copy-pasting Talk / GiveItem
