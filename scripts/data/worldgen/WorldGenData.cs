@@ -120,6 +120,14 @@ public partial class WorldGenData : Resource
     [Export] public Godot.Collections.Array<LoyaltyGift> NearSpawnVillagerLoyaltyGifts = new();
     [Export] public MobInventoryData[] NearSpawnVillagerInventory = [];
 
+    // Starter companion (pet) spawned next to the player at world start —
+    // already tamed, follows the player by default. Test-fixture placement
+    // like the villager above; folds into a proper taming flow later. Skipped
+    // if CompanionData is null. CompanionSpawn is the voxel XZ column to drop
+    // her on (near the default player spawn of 0,0).
+    [Export] public MobData CompanionData;
+    [Export] public Vector2I CompanionSpawn = new(2, 0);
+
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each
     // entry is a `.hikescene` file plus a world XZ anchor; WorldGen loads
     // and stamps them after terrain/cave/road generation but before the

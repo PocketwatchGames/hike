@@ -740,6 +740,24 @@ public static class WorldGen
             ws.AddEntity(villagerSim);
         }
 
+        // Starter companion (pet) placed right next to the default player
+        // spawn, already tamed. Reuses the bunny-rat (kun_kun) model via the
+        // companion MobData; her brain follows the player and toggles to stay
+        // on the player's command input. Test fixture — replaced by a taming
+        // flow once that exists. Dropped directly on the configured column
+        // (the spawn area is flat) if it's inside the world extent.
+        int companionSpawnX = genData.CompanionSpawn.X;
+        int companionSpawnZ = genData.CompanionSpawn.Y;
+        if (genData.CompanionData != null
+            && genData.CompanionData.MobScene != null
+            && companionSpawnX >= stoneWorldMinX && companionSpawnX <= stoneWorldMaxX
+            && companionSpawnZ >= stoneWorldMinZ && companionSpawnZ <= stoneWorldMaxZ)
+        {
+            int sy = heightMap.GetHeight(companionSpawnX, companionSpawnZ);
+            var pos = new Vector3(companionSpawnX + 0.5f, sy + 1.5f, companionSpawnZ + 0.5f);
+            ws.AddEntity(new MobSimState(pos, 0f, genData.CompanionData.MobScene, genData.CompanionData));
+        }
+
         // KnowledgeStone test fixtures, one per language component, scattered
         // across three zones so exercising the partial-learning flow means
         // travelling between biomes rather than walking down a row at spawn:

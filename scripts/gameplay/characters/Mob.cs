@@ -153,6 +153,21 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // agree on which language to scramble against.
     public LanguageData SpokenLanguage => _simState?.Language ?? mobData?.language;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
+    // True when this mob is the player's companion/pet (drives the follow/stay
+    // brain and World companion tracking).
+    public bool IsCompanion => mobData != null && mobData.isCompanion;
+    // Companion follow/stay command state, read by the companion brain's
+    // transition conditions. Backed by sim state so it persists across
+    // streaming. Toggled by the player's command input.
+    public bool StayCommanded
+    {
+        get => _simState != null && _simState.StayCommanded;
+        set { if (_simState != null) { _simState.StayCommanded = value; } }
+    }
+    public void ToggleStayCommand()
+    {
+        StayCommanded = !StayCommanded;
+    }
     // Per-instance merchant stock — the MerchantScreen reads this to
     // populate its shop side, filtering out secret entries. Null on mobs
     // that were never seeded with stock (any non-merchant mob).
@@ -502,10 +517,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public void OnSpawned(World world)
     {
         world.MobSpatialHash.Add(this);
+        if (IsCompanion)
+        {
+            world.RegisterCompanion(this);
+        }
         TreeExiting += () =>
         {
             SyncToSimState();
             world.MobSpatialHash.Remove(this);
+            if (IsCompanion)
+            {
+                world.UnregisterCompanion(this);
+            }
             // Release any encircle slot held against any target so the
             // ring doesn't keep a dead mob occupying a slot for the rest
             // of the encounter.

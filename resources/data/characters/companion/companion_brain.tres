@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://qgod6hcv2tcwi"]
+
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="3_transition"]
+[ext_resource type="Script" uid="uid://tf8y77n6ehu84" path="res://scripts/data/behaviors/FollowBehaviorData.cs" id="4_follow"]
+[ext_resource type="Script" uid="uid://x3y45pizfgmdm" path="res://scripts/data/behaviors/StayBehaviorData.cs" id="5_stay"]
+[ext_resource type="Script" uid="uid://hu58610r114h5" path="res://scripts/data/behaviors/conditions/CommandedStayCondition.cs" id="6_cmd_stay"]
+[ext_resource type="Script" uid="uid://r8lfuct4roe0u" path="res://scripts/data/behaviors/conditions/CommandedFollowCondition.cs" id="7_cmd_follow"]
+
+[sub_resource type="Resource" id="Resource_follow"]
+script = ExtResource("4_follow")
+followDistance = 3.0
+stopDistance = 2.0
+followSpeed = 1.0
+
+[sub_resource type="Resource" id="Resource_cond_stay"]
+script = ExtResource("6_cmd_stay")
+
+[sub_resource type="Resource" id="Resource_follow_to_stay"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_stay")
+destination = &"Stay"
+
+[sub_resource type="Resource" id="Resource_follow_node"]
+script = ExtResource("2_node")
+name = &"Follow"
+data = SubResource("Resource_follow")
+transitions = [SubResource("Resource_follow_to_stay")]
+
+[sub_resource type="Resource" id="Resource_stay"]
+script = ExtResource("5_stay")
+
+[sub_resource type="Resource" id="Resource_cond_follow"]
+script = ExtResource("7_cmd_follow")
+
+[sub_resource type="Resource" id="Resource_stay_to_follow"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_follow")
+destination = &"Follow"
+
+[sub_resource type="Resource" id="Resource_stay_node"]
+script = ExtResource("2_node")
+name = &"Stay"
+data = SubResource("Resource_stay")
+transitions = [SubResource("Resource_stay_to_follow")]
+
+[resource]
+script = ExtResource("1_brain")
+idleBehavior = &"Follow"
+behaviors = [SubResource("Resource_follow_node"), SubResource("Resource_stay_node")]
+metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

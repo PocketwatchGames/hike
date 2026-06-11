@@ -47,6 +47,11 @@ public class MobSimState : EntitySimState
     // a unique conversation onto a mob whose MobData is shared across many
     // spawns. Null = no conversation (Talk does nothing).
     public ConversationData Conversation;
+    // Companion command state: true = "stay" (hold position), false = "follow"
+    // the player. Toggled by the player's companion command input via the live
+    // Mob; lives on sim state so it survives chunk unload/reload. Only
+    // meaningful when MobData.isCompanion.
+    public bool StayCommanded;
     // Cumulative loyalty earned by gifting items to this mob. Increases by
     // the player's CalculatePersonalValue total each accepted Gift action on
     // the merchant screen; consumed as gifts cross their requiredLoyalty

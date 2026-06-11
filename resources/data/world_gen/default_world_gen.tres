@@ -25,6 +25,7 @@
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="18_itemcount"]
+[ext_resource type="Resource" uid="uid://0y5ufckbb0fmn" path="res://resources/data/characters/companion/companion.tres" id="19_companion"]
 
 [sub_resource type="Resource" id="Resource_chest_loot_numbers"]
 script = ExtResource("18_itemcount")
@@ -70,3 +71,4 @@ NearSpawnVillagerData = ExtResource("13_villager")
 NearSpawnVillagerConversation = ExtResource("14_v_conv")
 NearSpawnVillagerLoyaltyGifts = Array[ExtResource("15_loyaltygift")]([SubResource("Resource_villager_loyalty_grammar")])
 NearSpawnVillagerInventory = [SubResource("Resource_villager_stock_leather")]
+CompanionData = ExtResource("19_companion")
