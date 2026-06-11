@@ -2478,6 +2478,31 @@ public partial class Player : CharacterBody3D
 			_movingLight.Deactivate(freeWhenDone: true);
 			_movingLight = null;
 		}
+
+		RefreshCarriedTorchVisual();
+	}
+
+	private void OnActiveConsumableChanged(int _)
+	{
+		RefreshCarriedTorchVisual();
+	}
+
+	// Drives the visible in-hand torch prop off the active consumable: shows the
+	// torch model whenever the selected consumable is a torch, lit when that
+	// torch is active. HeldItemVisual hides the model on its own whenever a
+	// weapon is drawn, so this only sets the model + lit state. Called from
+	// RefreshCarriedLight (lit toggle / inventory change) and whenever the
+	// active consumable selection changes.
+	private void RefreshCarriedTorchVisual()
+	{
+		if (_heldVisual == null)
+		{
+			return;
+		}
+		ItemState active = _inventory?.GetActiveConsumable();
+		TorchData torchData = active?.data as TorchData;
+		_heldVisual.SetTorch(torchData?.heldTorchScene);
+		_heldVisual.SetTorchLit(torchData != null && active is ConsumableState cs && cs.isActive);
 	}
 
 	// Environment-driven counterpart to the manual ToggleMovingLight douse:
@@ -2544,6 +2569,9 @@ public partial class Player : CharacterBody3D
 		_inventory = new Inventory(this, data);
 		_inventory.onSlotChanged += OnInventorySlotChanged;
 		_inventory.onChanged += RefreshCarriedLight;
+		// Selecting a different consumable swaps what's shown in hand, so the
+		// held-torch prop has to refresh even when the inventory contents don't.
+		_inventory.onActiveConsumableChanged += OnActiveConsumableChanged;
 		_runner = new ActionRunner(this);
 		_statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
 		_scent = new ScentEmitter(this, world, data.scentStrength, data.scentDecayRate,

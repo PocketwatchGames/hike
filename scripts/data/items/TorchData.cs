@@ -14,6 +14,11 @@ public partial class TorchData : ConsumableData
 	// Layers on top of the MovingLight's normal off-cue so a water douse reads
 	// distinctly wet. Optional — null falls back to just the off-cue.
 	[Export] public PackedScene douseEffectScene;
+	// The visible in-hand torch prop (a HeldTorch scene) shown in the player's
+	// hand while this torch is the active consumable. Lit/unlit visual and the
+	// flame fx are driven by isActive. Distinct from movingLightScene, which is
+	// the invisible world-light deposit. Shared with the mob held torch.
+	[Export] public PackedScene heldTorchScene;
 
 	public override ItemState CreateState()
 	{

@@ -319,6 +319,11 @@ public partial class MobData : Resource
     // the conditions clear — same instantiate/free pattern and field name
     // as TorchData.movingLightScene. Null on torch-less species.
     [Export] public PackedScene movingLightScene;
+    // The visible in-hand torch prop (a HeldTorch scene) this mob holds while
+    // its torch is lit — the same model the player carries. Attached to the
+    // mob's off-hand via its HeldItemVisual. Null leaves the mob with just the
+    // invisible movingLightScene deposit (no held prop).
+    [Export] public PackedScene heldTorchScene;
 
     // Loot ejected from the mob's body when it dies. Each entry spawns
     // `count` Loot instances of `item`, fired outward from the mob's
