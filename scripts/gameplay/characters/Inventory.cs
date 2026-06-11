@@ -184,6 +184,19 @@ public class Inventory
 			return;
 		}
 
+		// Leaving the inventory entirely (dropped, sold, stashed) forfeits a
+		// weapon's in-world ammo — destroy the arrows it left lying around, no
+		// refund. The recharge timer keeps its deadline and refills the magazine
+		// if the weapon is ever re-acquired, so nothing is permanently lost, just
+		// the loose arrows. This is the single chokepoint for "weapon leaves the
+		// inventory" — equip/unequip/slot-moves don't route through Remove, so a
+		// holstered or re-slotted bow keeps its arrows. No-op for non-weapons and
+		// for a weapon with nothing outstanding.
+		if (item is WeaponState ws)
+		{
+			ws.DestroyOutstandingArrows();
+		}
+
 		EInventorySlot? equippedSlot = GetEquippedSlot(item);
 		if (equippedSlot.HasValue)
 		{
@@ -599,6 +612,67 @@ public class Inventory
 		return moved;
 	}
 
+	// Move an externally-sourced stack (e.g. from a chest) onto a SPECIFIC
+	// backpack slot — the drag-onto-slot gesture. `incoming` is a fresh,
+	// caller-owned stack:
+	//   - empty target       -> placed directly (the `incoming` ref is stored)
+	//   - same-kind stackable -> merged up to capacity (caller discards `incoming`)
+	//   - different occupant   -> swapped, but only on a full-stack move so the
+	//                            incoming stack isn't split; the displaced item is
+	//                            returned via `displaced` for the caller to hand
+	//                            back to the source container.
+	// Returns units consumed from `incoming` (0 = the slot refused it; the caller
+	// should fall back to a first-empty placement). `displaced` is non-null only
+	// on a swap.
+	public int TryAddExternalToBackpackSlot(ItemState incoming, bool fullMove, int index, out ItemState displaced)
+	{
+		displaced = null;
+		if (incoming == null || incoming.data == null || incoming.stackCount <= 0)
+		{
+			return 0;
+		}
+		if (index < 0 || index >= _backpack.Length)
+		{
+			return 0;
+		}
+		ItemState target = _backpack[index];
+		if (target == null)
+		{
+			_backpack[index] = incoming;
+			onChanged?.Invoke();
+			return incoming.stackCount;
+		}
+		if (incoming.data.IsStackable && target.IsSameKind(incoming))
+		{
+			int space = target.RemainingStackSpace();
+			int moved = Math.Min(space, incoming.stackCount);
+			if (moved <= 0)
+			{
+				return 0;
+			}
+			target.stackCount += moved;
+			onChanged?.Invoke();
+			return moved;
+		}
+		// Different occupant — only swap on a whole-stack move; a partial swap
+		// would orphan the remainder of the incoming stack.
+		if (!fullMove)
+		{
+			return 0;
+		}
+		// The displaced item leaves the inventory for the source container; forfeit
+		// a weapon's loose arrows exactly as Remove() would (the one other place a
+		// weapon exits the pack).
+		if (target is WeaponState ws)
+		{
+			ws.DestroyOutstandingArrows();
+		}
+		displaced = target;
+		_backpack[index] = incoming;
+		onChanged?.Invoke();
+		return incoming.stackCount;
+	}
+
 	// Move a consumable out of the hotbar back into the backpack. Mirror of
 	// TryMoveToConsumableSlot — used by the inventory screen's Unequip path
 	// for items that live in inactive hotbar slots (GetEquippedSlot only
@@ -707,6 +781,30 @@ public class Inventory
 		return GetEquippedSlot(item).HasValue;
 	}
 
+	// True if `item` is owned anywhere — an equip/consumable slot OR the
+	// backpack. Broader than IsEquipped: used for the arrow-pickup gate so a
+	// bow stashed in the backpack still reclaims its arrows. Non-allocating
+	// (safe to call from per-frame paths).
+	public bool Contains(ItemState item)
+	{
+		if (item == null)
+		{
+			return false;
+		}
+		if (IsEquipped(item))
+		{
+			return true;
+		}
+		for (int i = 0; i < _backpack.Length; i++)
+		{
+			if (_backpack[i] == item)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public EInventorySlot? GetEquippedSlot(ItemState item)
 	{
 		if (item == null)
@@ -773,6 +871,17 @@ public class Inventory
 
 	private void SetSlot(EInventorySlot slot, ItemState item)
 	{
+		// A weapon leaving an equip slot — unequipped to backpack, swapped out,
+		// or removed while equipped (Remove routes through here) — destroys any
+		// minions it summoned, so a summoner's minions never outlive the weapon
+		// being put away. Fire only on a genuine occupant change so re-setting
+		// the same item in place is a no-op. This is the single chokepoint all
+		// equip-slot writes funnel through (TryEquip / TryUnequip / Remove /
+		// TrySwapEquipSlots).
+		if (GetEquipped(slot) is WeaponState outgoing && outgoing != item)
+		{
+			outgoing.DestroyMinions();
+		}
 		switch (slot)
 		{
 			case EInventorySlot.ArmorHead: _armorHead = item; break;

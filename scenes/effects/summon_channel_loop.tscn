@@ -1,0 +1,99 @@
+[gd_scene format=3 uid="uid://b7smn1chloop2"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxloop"]
+[ext_resource type="AudioStream" uid="uid://bwc1qjsmwj8ow" path="res://assets/audio/source/weapons/sfx_player_lantern_lp.wav" id="2_hum_lp"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
+
+[sub_resource type="Gradient" id="Gradient_glow"]
+offsets = PackedFloat32Array(0, 0.06, 0.5, 1)
+colors = PackedColorArray(1, 1, 1, 0, 1, 1, 1, 1, 0.92, 0.92, 0.92, 1, 1, 1, 1, 0)
+
+[sub_resource type="GradientTexture1D" id="GradientTexture1D_glow"]
+gradient = SubResource("Gradient_glow")
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_summon_flame"]
+emission_shape = 1
+emission_sphere_radius = 0.5
+direction = Vector3(0, 1, 0)
+spread = 10.0
+initial_velocity_min = 2.5
+initial_velocity_max = 4.0
+gravity = Vector3(0, 1.0, 0)
+damping_min = 0.2
+damping_max = 0.6
+scale_min = 1.4
+scale_max = 2.4
+color = Color(0.65, 0.25, 0.95, 1)
+color_ramp = SubResource("GradientTexture1D_glow")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_summon_flame"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo_texture = ExtResource("tex_cloud_puff")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(0.65, 0.25, 0.95, 0.95)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_summon_flame"]
+material = SubResource("ShaderMaterial_summon_flame")
+size = Vector2(0.1, 0.1)
+
+[sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_summon_embers"]
+lifetime_randomness = 1.0
+emission_shape = 1
+emission_sphere_radius = 0.4
+direction = Vector3(0, 1, 0)
+spread = 130.0
+initial_velocity_max = 3.0
+gravity = Vector3(0, 4.5, 0)
+damping_max = 1.0
+scale_min = 0.5
+color_ramp = ExtResource("fade_grad")
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_summon_embers"]
+render_priority = 0
+shader = ExtResource("particle_lit_shader")
+shader_parameter/albedo = Color(0, 0, 0, 0)
+shader_parameter/emission = Color(0.85, 0.12, 0.35, 1)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="QuadMesh_summon_embers"]
+material = SubResource("ShaderMaterial_summon_embers")
+size = Vector2(0.06, 0.06)
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_summonloop"]
+playback_mode = 1
+random_pitch = 1.08
+random_volume_offset_db = 1.5
+streams_count = 1
+stream_0/stream = ExtResource("2_hum_lp")
+
+[node name="SummonChannelLoop" type="Node3D" unique_id=418827310]
+script = ExtResource("1_fxloop")
+_loop = true
+
+[node name="Flame" type="GPUParticles3D" parent="." unique_id=418827311]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+cast_shadow = 0
+amount = 70
+lifetime = 0.9
+randomness = 0.4
+process_material = SubResource("ParticleProcessMaterial_summon_flame")
+draw_pass_1 = SubResource("QuadMesh_summon_flame")
+
+[node name="Embers" type="GPUParticles3D" parent="." unique_id=418827312]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+amount = 28
+lifetime = 1.5
+randomness = 0.7
+process_material = SubResource("ParticleProcessMaterial_summon_embers")
+draw_pass_1 = SubResource("QuadMesh_summon_embers")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=418827313]
+stream = SubResource("AudioStreamRandomizer_summonloop")
+volume_db = 0.0
+unit_size = 6.0
+max_distance = 26.0
+bus = &"World3D"

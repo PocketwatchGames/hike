@@ -1,9 +1,10 @@
-[gd_resource type="Resource" script_class="MobData" format=3 uid="uid://0y5ufckbb0fmn"]
+[gd_resource type="Resource" script_class="MobData" format=3 uid="uid://d1mn7minb0dat"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://qgod6hcv2tcwi" path="res://resources/data/characters/companion/companion_brain.tres" id="2_brain"]
-[ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
+[ext_resource type="Resource" uid="uid://c5mn1brn4flw7" path="res://resources/data/characters/minion/minion_brain.tres" id="2_brain"]
+[ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
+[ext_resource type="Resource" uid="uid://b8mn7drn5sq2k" path="res://resources/data/status_effects/status_minion_drain.tres" id="5_drain"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("4_animdata")
@@ -59,11 +60,12 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 8: SubResource("Resource_anim_swim_idle"),
 18: SubResource("Resource_anim_hitstun")
 })
-displayName = &"Companion"
-hudScale = 0.5
+displayName = &"Minion"
+hudScale = 0.6
 team = 1
-isCompanion = true
 maxSpeed = 8.0
+spawnStatusEffect = ExtResource("5_drain")
+maxHealth = 30.0
 defaultBehavior = &"Follow"
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")

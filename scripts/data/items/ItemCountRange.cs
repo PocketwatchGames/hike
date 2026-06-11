@@ -16,6 +16,10 @@ public partial class ItemCountRange : Resource
     {
         int spread = Mathf.Max(0, countRange);
         int rolled = count + rng.Next(0, spread + 1);
-        return new ItemCount { item = item, count = rolled };
+        // Chest ranges author no mods (no statusEffects on this resource), so the
+        // resolved descriptor wraps just the item. If chests ever need modded
+        // loot, add a statusEffects list here and the serializer (which persists
+        // chest LootItems) will need to carry it too — see EntitySerializer.
+        return new ItemCount { descriptor = new ItemDescriptor { item = item }, count = rolled };
     }
 }

@@ -10,7 +10,7 @@ using Godot;
 // which fields to suppress, what unit suffix to use, etc.
 public static class StatList
 {
-	// Direct-hit damage block: Damage / Pierce / Knockback, plus one entry
+	// Direct-hit damage block: Damage / ArmorPenetration / Knockback, plus one entry
 	// per inflicted status effect and one per buildup contribution.
 	public static IEnumerable<(string name, string value)> BaseDamage(DamageData damage)
 	{
@@ -23,9 +23,9 @@ public static class StatList
 		{
 			yield return (names[EStatName.Damage], StatFormat.Number(damage.healthDamage));
 		}
-		if (damage.pierce > 0f)
+		if (damage.armorPenetration > 0f)
 		{
-			yield return (names[EStatName.Pierce], StatFormat.Percent(damage.pierce));
+			yield return (names[EStatName.ArmorPenetration], StatFormat.Percent(damage.armorPenetration));
 		}
 		if (damage.blunt > 0f)
 		{
@@ -262,9 +262,9 @@ public static class StatList
 		{
 			yield return (names[EStatName.Damage], StatFormat.Number(mod.healthDamage));
 		}
-		if ((mod.overrides & EDamageFields.Pierce) != 0 && mod.pierce > 0f)
+		if ((mod.overrides & EDamageFields.ArmorPenetration) != 0 && mod.armorPenetration > 0f)
 		{
-			yield return (names[EStatName.Pierce], StatFormat.Percent(mod.pierce));
+			yield return (names[EStatName.ArmorPenetration], StatFormat.Percent(mod.armorPenetration));
 		}
 		if ((mod.overrides & EDamageFields.Blunt) != 0 && mod.blunt > 0f)
 		{
@@ -330,7 +330,7 @@ public static class StatList
 			EStat.Fire => EStatName.Fire,
 			EStat.Blunt => EStatName.Blunt,
 			EStat.Dizzy => EStatName.Dizzy,
-			EStat.Pierce => EStatName.Pierce,
+			EStat.ArmorPenetration => EStatName.ArmorPenetration,
 			EStat.Electrical => EStatName.Electrical,
 			EStat.Ranged => EStatName.Ranged,
 			EStat.Melee => EStatName.Melee,

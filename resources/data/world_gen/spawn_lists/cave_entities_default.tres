@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
 [ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="4_loot_entry"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="5_11hbm"]
 [ext_resource type="Script" uid="uid://b62wjynnh78x4" path="res://scripts/data/spawn/TorchSpawnEntry.cs" id="5_torch_entry"]
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="6_goblin_data"]
@@ -30,9 +31,14 @@ InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.33
 SquareMetersPerSpawn = 200.0
 
+[sub_resource type="Resource" id="Desc_loot"]
+script = ExtResource("99_desc")
+item = ExtResource("5_11hbm")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
 [sub_resource type="Resource" id="Resource_loot"]
 script = ExtResource("4_loot_entry")
-Item = ExtResource("5_11hbm")
+Item = SubResource("Desc_loot")
 SquareMetersPerSpawn = 200.0
 
 [sub_resource type="Resource" id="Resource_osyot"]

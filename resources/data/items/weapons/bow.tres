@@ -93,7 +93,7 @@ metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 script = ExtResource("1_damage")
 tags = 1105
 healthDamage = 3.0
-pierce = 1.0
+armorPenetration = 1.0
 hitstun = 0.25
 knockbackDistance = 1.5
 knockbackTime = 0.25
@@ -121,7 +121,9 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
 
 [resource]
 script = ExtResource("2_weapon")
+rightHandSlot = true
 maxAmmo = 5
+ammoRechargeSeconds = 6.0
 arrowLootData = ExtResource("17_arrow")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"heavy": SubResource("Resource_oap68"),

@@ -71,7 +71,7 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
-				if (IsFriendlyFireBlocked(actor, hurtBox, hit.friendlyFire))
+				if (!hurtBox.CanBeHit(hit))
 				{
 					continue;
 				}
@@ -270,7 +270,7 @@ public static class ItemEventHandlers
 			if (collider is HurtBox hurtBox)
 			{
 				bool isSelf = selfHurtBox.HasValue && hurtBox.GetRid() == selfHurtBox.Value;
-				if (!isSelf && !IsFriendlyFireBlocked(actor, hurtBox, hit.friendlyFire))
+				if (!isSelf && hurtBox.CanBeHit(hit))
 				{
 					// Query before Hit so Lethal sees pre-damage state. See DoMelee.
 					hitResult = hurtBox.QueryHitType(hit);
@@ -384,10 +384,6 @@ public static class ItemEventHandlers
 			{
 				continue;
 			}
-			if (IsFriendlyFireBlocked(attacker, hurtBox, damage.friendlyFire))
-			{
-				continue;
-			}
 			// Hit direction. Default is zero — the receiver applies no
 			// knockback when it's zero (an elite's lightning discharge authors
 			// none anyway). When `radialKnockback` is set (a shockwave like the
@@ -405,7 +401,11 @@ public static class ItemEventHandlers
 					hitDir = away.Normalized();
 				}
 			}
-			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, hitDir);
+			HitInfo hit = new HitInfo(damage, attacker.AttackerNode, hitDir, attacker.ActorTeam);
+			if (!hurtBox.CanBeHit(hit))
+			{
+				continue;
+			}
 			hurtBox.Hit(hit);
 		}
 		if (CVars.debugAoe.Value)
@@ -414,24 +414,6 @@ public static class ItemEventHandlers
 		}
 	}
 
-	// Same-team filter for direct-hit handlers. Returns true when the hit
-	// should be skipped: friendlyFire is false AND the hurtbox belongs to a
-	// mob whose team matches the attacker's. Non-mob hurtboxes (player,
-	// environmental damageables) always pass through — the check only suppresses
-	// kin-on-kin damage. Mob owner walks up the hurtbox's parent chain.
-	public static bool IsFriendlyFireBlocked(IActionActor actor, HurtBox hurtBox, bool friendlyFire)
-	{
-		if (friendlyFire || actor == null || hurtBox == null)
-		{
-			return false;
-		}
-		Mob owner = FindOwningMob(hurtBox);
-		if (owner?.mobData == null)
-		{
-			return false;
-		}
-		return owner.mobData.team == actor.ActorTeam;
-	}
 
 	// Walks up from a HurtBox's tree position looking for the owning Mob.
 	// Mobs author the HurtBox as a child Area3D, so walking GetParent() will
@@ -562,17 +544,15 @@ public static class ItemEventHandlers
 			else if (reticle.HasAimWorldPosition)
 			{
 				// Fallback when no Arced solve is published (e.g. fired the instant
-				// aim began): rebuild the same hump toward the aim cursor. `origin`
-				// is the chest (ArcLaunchHeight above the feet), so it drops that far
-				// to bottom out at foot level. Vertical + the timing the horizontal
-				// covers come from rise + gravity, not the fuse.
+				// aim began): rebuild the same hump toward the aim cursor. Vertical is
+				// rise + gravity; horizontal covers the aim distance over the fuse.
 				gravity = ev.projectileGravity;
-				AimingReticle.ResolveArc(ev.projectileArcRise, gravity, ArcLaunchHeight, out float launchVy, out float arcDuration);
+				float launchVy = AimingReticle.ArcLaunchVerticalSpeed(ev.projectileArcRise, gravity);
 				Vector3 delta = reticle.AimWorldPosition - origin;
 				Vector3 horiz = new Vector3(delta.X, 0f, delta.Z);
 				float horizDist = horiz.Length();
 				Vector3 horizDir = horizDist > 1e-4f ? horiz / horizDist : Vector3.Zero;
-				velocity = horizDir * (horizDist / arcDuration) + Vector3.Up * launchVy;
+				velocity = horizDir * (horizDist / lifetime) + Vector3.Up * launchVy;
 			}
 			else
 			{
@@ -599,6 +579,34 @@ public static class ItemEventHandlers
 			lifetime = ev.projectileLifetimeSeconds * rangeScale;
 		}
 
+		// Compose this shot's weapon mods (loot / ItemDescriptor onto
+		// WeaponState.statusEffects): the event's authored pierce base maxed
+		// against every active mod that reaches this charge tier, and whether any
+		// such mod makes the shot detonate on contact. A mod reaches the shot when
+		// it's AllAttacks-scoped or its SpecificCharge index matches the firing
+		// tier (resolved by position in the weapon's action profile).
+		int pierceCount = Mathf.Max(0, ev.pierceCount);
+		bool detonateOnContact = false;
+		if (firingWeapon != null)
+		{
+			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
+			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
+			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
+		}
+
+		// "Fragile" weapon mod: a projectile that would normally bounce and wait
+		// out its fuse instead shatters on the first surface / creature it
+		// touches. Only meaningful when the projectile carries an impactEvent
+		// (the payload fired on completion, e.g. the explosion) — otherwise the
+		// bounce-and-fuse flight is left intact. Disabling bounce drops the
+		// projectile into its default collision-detonation path (the first solid
+		// OR hurtbox ends it and fires impactEvent there); the gravity arc is
+		// untouched. See StatusEffectData.projectilesDetonateOnContact.
+		if (bounce && ev.impactEvent != null && detonateOnContact)
+		{
+			bounce = false;
+		}
+
 		Projectile.Launch(
 			parent,
 			ev.projectileScene,
@@ -619,7 +627,29 @@ public static class ItemEventHandlers
 			hit.friendlyFire,
 			bounce,
 			bounciness,
-			friction);
+			friction,
+			pierceCount);
+	}
+
+	// Index of `tier` within the weapon's action profile (the charge-tier id
+	// used to scope weapon mods), or -1 if the weapon has no profile or the tier
+	// isn't found. Compared by reference — `tier` is one of the profile's own
+	// ItemAction instances.
+	private static int FindChargeIndex(WeaponState weapon, ItemAction tier)
+	{
+		Godot.Collections.Array<ItemAction> tiers = weapon?.data?.actionProfile?.chargedActions;
+		if (tiers == null)
+		{
+			return -1;
+		}
+		for (int i = 0; i < tiers.Count; i++)
+		{
+			if (tiers[i] == tier)
+			{
+				return i;
+			}
+		}
+		return -1;
 	}
 
 	// Position-aware sub-dispatcher for projectile impactEvents (and any
@@ -629,7 +659,7 @@ public static class ItemEventHandlers
 	// — the canonical "arcing arrow lands → spawn AoE at the landing point"
 	// path. Other handlers no-op silently; their authored fields on the
 	// nested event just get ignored.
-	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, WeaponData sourceWeaponData)
+	public static void DispatchAtPosition(ItemEvent ev, Vector3 position, Node parent, WeaponData sourceWeaponData, ETeam attackerTeam)
 	{
 		if (ev == null) { return; }
 		if ((ev.type & EItemEventType.SpawnAreaEffect) != 0 && ev.areaEffectScene != null)
@@ -647,7 +677,7 @@ public static class ItemEventHandlers
 					ResolveAreaPayload(ev, sourceWeaponData, null,
 						out ContinuousDamageData continuous,
 						out Godot.Collections.Array<IntervalDamageEntry> intervals);
-					cloud.Initialize(ev, continuous, intervals);
+					cloud.Initialize(ev, continuous, intervals, attackerTeam);
 				}
 				host.AddChild(instance);
 				instance.GlobalPosition = position;
@@ -697,10 +727,82 @@ public static class ItemEventHandlers
 			ResolveAreaPayload(ev, weaponData, mobData,
 				out ContinuousDamageData continuous,
 				out Godot.Collections.Array<IntervalDamageEntry> intervals);
-			cloud.Initialize(ev, continuous, intervals);
+			cloud.Initialize(ev, continuous, intervals, actor.ActorTeam);
 		}
 		parent.AddChild(instance);
 		instance.GlobalPosition = position;
+	}
+
+	// Summons ev.minionData at the actor's aim point (positional cursor when
+	// active, else the actor position) and hands it to the summoning weapon,
+	// which owns the minion's lifetime — recycling the oldest past its cap and
+	// destroying all of them when the weapon is unequipped/removed. The minion
+	// spawns on the player team (authored on its MobData) and self-drains via
+	// its MobData.spawnStatusEffect, so this handler only spawns + registers.
+	// Player-only — mob actors don't summon, and the weapon ownership requires a
+	// WeaponState in hand.
+	public static void DoSummonMinion(IActionActor actor, ItemEvent ev, ref PlayerAction action)
+	{
+		if (ev.minionData == null || actor is not Player)
+		{
+			return;
+		}
+		if (action.context.primaryItem is not WeaponState weapon)
+		{
+			return;
+		}
+		World world = World.Current;
+		if (world == null)
+		{
+			return;
+		}
+		Mob minion = world.SpawnMob(ev.minionData, ResolveAimPoint(actor));
+		if (minion != null)
+		{
+			weapon.AddMinion(minion);
+		}
+	}
+
+	// The actor's current aim point: the player's positional aim cursor when
+	// one is active, otherwise the actor's own world position. Shared by the
+	// positional-aim handlers (area effect, dig, summon) and ActionRunner's
+	// channeled-charge zone so they all read the same ground target.
+	public static Vector3 ResolveAimPoint(IActionActor actor)
+	{
+		if (actor is Player player && player.AimingReticle != null && player.AimingReticle.HasAimWorldPosition)
+		{
+			return player.AimingReticle.AimWorldPosition;
+		}
+		return actor.ActorWorldPosition;
+	}
+
+	// Spawns a channeled-charge zone (GasCloud) at the actor's aim point and
+	// returns it so ActionRunner can reposition + free it over the channel's
+	// lifetime. The scene's damage is authored in the .tscn; we only stamp the
+	// caster's team so the channel spares the caster + allies. Mirrors
+	// DoSpawnAreaEffect's parenting (World so it outlives the actor) and the
+	// before-AddChild Initialize ordering DamageZone requires.
+	public static GasCloud SpawnChannelZone(IActionActor actor, PackedScene scene, float radius)
+	{
+		if (scene == null)
+		{
+			return null;
+		}
+		Node parent = (Node)World.Current ?? actor.AttackerNode?.GetParent();
+		if (parent == null)
+		{
+			return null;
+		}
+		Node3D instance = scene.Instantiate<Node3D>();
+		if (instance is not GasCloud cloud)
+		{
+			instance.QueueFree();
+			return null;
+		}
+		cloud.InitializeChannel(actor.ActorTeam, radius);
+		parent.AddChild(cloud);
+		cloud.GlobalPosition = ResolveAimPoint(actor);
+		return cloud;
 	}
 
 	// Resolves an ItemEvent's SpawnAreaEffect payload against the firing
@@ -1073,7 +1175,7 @@ public static class ItemEventHandlers
 		// Hit direction = attacker's forward. Knockback uses this to push
 		// the target along the swing axis; senders that need a different
 		// direction (e.g. radial pop-up from a trap) build HitInfo directly.
-		HitInfo hit = new HitInfo(template, actor.AttackerNode, actor.ActorForward);
+		HitInfo hit = new HitInfo(template, actor.AttackerNode, actor.ActorForward, actor.ActorTeam);
 		// Source-side buffs / debuffs scale the swing's healthDamage at fire
 		// time. Only healthDamage is scaled — buildups / hitstun / knockback keep
 		// their authored CC pattern so a damage-only buff doesn't accidentally

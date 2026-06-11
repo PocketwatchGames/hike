@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b9mn7summonr1x"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
+[ext_resource type="PackedScene" uid="uid://c4mn7chzone8x" path="res://scenes/effects/summon_channel.tscn" id="7_channel"]
+[ext_resource type="Resource" uid="uid://d1mn7minb0dat" path="res://resources/data/characters/minion/minion.tres" id="8_minion"]
+[ext_resource type="PackedScene" uid="uid://mt0fme7pe5yp" path="res://scenes/items/held/scroll_held.tscn" id="9_held"]
+[ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="10_inv"]
+
+[sub_resource type="Resource" id="Resource_summon_event"]
+script = ExtResource("3_event")
+type = 851968
+minionData = ExtResource("8_minion")
+cameraShakeMagnitude = 0.3
+cameraShakeDuration = 0.35
+cameraShakeRange = 28.0
+screenFlashColor = Color(0.65, 0.2, 0.95, 1)
+screenFlashIntensity = 0.45
+screenFlashFadeSeconds = 0.4
+
+[sub_resource type="Resource" id="Resource_tier_summon"]
+script = ExtResource("4_action")
+displayName = &"Summon"
+chargeTime = 3.0
+activeDurationSeconds = 0.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_summon_event")])
+aimType = 1
+positionalRange = 10.0
+positionalAreaRadius = 2.5
+channelZoneScene = ExtResource("7_channel")
+channelBloodCostPerSecond = 4.0
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("6_profile")
+chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_summon")])
+autoActivateAtMax = true
+requireFullCharge = true
+queueWindowSeconds = 0.0
+
+[resource]
+script = ExtResource("2_weapon")
+rightHandSlot = true
+maxMinions = 1
+actionProfile = SubResource("Resource_profile")
+displayName = &"Summoner"
+description = "Channel your blood to open a wound in the world. Hold to bleed a damaging rift; hold to the brink to tear forth a minion bound to your blood."
+value = 60
+inventorySprite = ExtResource("10_inv")
+heldModel = ExtResource("9_held")
+wieldHand = 0

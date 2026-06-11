@@ -755,7 +755,12 @@ public static class WorldGen
         {
             int sy = heightMap.GetHeight(companionSpawnX, companionSpawnZ);
             var pos = new Vector3(companionSpawnX + 0.5f, sy + 1.5f, companionSpawnZ + 0.5f);
-            ws.AddEntity(new MobSimState(pos, 0f, genData.CompanionData.MobScene, genData.CompanionData));
+            // Already tamed — joins the player's side (effective team Friendly)
+            // so the player can't friendly-fire her. The wild authored team
+            // (Prey) is what a future taming flow would start from.
+            var companionSim = new MobSimState(pos, 0f, genData.CompanionData.MobScene, genData.CompanionData);
+            companionSim.Tamed = true;
+            ws.AddEntity(companionSim);
         }
 
         // KnowledgeStone test fixtures, one per language component, scattered
@@ -814,8 +819,8 @@ public static class WorldGen
                 for (int i = 0; i < genData.NearSpawnStashItems.Length; i++)
                 {
                     ItemCount entry = genData.NearSpawnStashItems[i];
-                    if (entry == null || entry.item == null || entry.count <= 0) { continue; }
-                    ItemState state = entry.item.CreateState();
+                    if (entry?.descriptor?.item == null || entry.count <= 0) { continue; }
+                    ItemState state = entry.descriptor.CreateState();
                     state.stackCount = entry.count;
                     stashSim.Contents.Add(state);
                 }

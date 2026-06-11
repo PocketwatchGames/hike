@@ -6,7 +6,7 @@
 
 [resource]
 script = ExtResource("1_arrow_data")
-removeTimeMs = 30000
+removeTimeMs = 0
 displayName = &"Arrow"
 inventorySprite = ExtResource("1_mw5lv")
 worldModel = ExtResource("4_model")

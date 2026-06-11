@@ -13,8 +13,8 @@ using Godot;
 // the HUD shows one rolled-up floating number per second instead of one per
 // physics frame.
 //
-// Pierce semantics differ from DamageData.pierce: here it's the FRACTION of
-// the per-frame damage that bypasses armor (HitInfo.armorBypassFraction),
+// Armor-penetration semantics differ from DamageData.armorPenetration: here it's the
+// FRACTION of the per-frame damage that bypasses armor (HitInfo.armorBypassFraction),
 // not a chance to bypass entirely. 0 = always absorbed by armor; 1 = always
 // straight to health; 0.3 = 30% bleeds through, 70% chips armor.
 [Tool]
@@ -43,13 +43,13 @@ public partial class ContinuousDamageData : Resource
 	[Export] public float healthDamage = 0f;
 
 	// Fraction of per-frame damage that bypasses armor and lands on health.
-	// Differs from DamageData.pierce (chance-based) — continuous damage
+	// Differs from DamageData.armorPenetration (chance-based) — continuous damage
 	// spreads the bypass across time instead of rolling per hit. Default 1
 	// (skip armor entirely) because the typical continuous source is an
 	// environmental DoT (fire, acid, poison gas) that shouldn't be stopped
 	// by a worn armor plate; author less to let an armor type soak some of
 	// the burn.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 1f;
 
 	// Anti-armor multiplier on the absorbed portion of the per-frame chip.
 	// Final armor chip is `absorbable * (1 + blunt)`. Symmetric with

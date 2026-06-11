@@ -192,7 +192,11 @@ public static class EntitySerializer
                 for (int i = 0; i < chestLootCount; i++)
                 {
                     ItemCount entry = chest.LootItems[i];
-                    WriteResource(w, entry?.item);
+                    // Chest loot carries no permanent mods (ItemCountRange, the
+                    // only producer, authors none), so only the item path + count
+                    // are persisted. If modded chest loot is ever added, the
+                    // descriptor's statusEffects must be written here too.
+                    WriteResource(w, entry?.descriptor?.item);
                     w.Write(entry?.count ?? 0);
                 }
                 // Persistent slot contents (stash-style chests). Distinct
@@ -464,7 +468,7 @@ public static class EntitySerializer
                 {
                     ItemData item = ReadResource<ItemData>(r);
                     int count = r.ReadInt32();
-                    lootItems[i] = new ItemCount { item = item, count = count };
+                    lootItems[i] = new ItemCount { descriptor = new ItemDescriptor { item = item }, count = count };
                 }
                 var chest = new ChestSimState(pos, scene)
                 {

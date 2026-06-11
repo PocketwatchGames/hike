@@ -1,0 +1,33 @@
+[gd_scene format=3 uid="uid://c4mn7chzone8x"]
+
+[ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
+[ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
+[ext_resource type="PackedScene" uid="uid://b7smn1chloop2" path="res://scenes/effects/summon_channel_loop.tscn" id="4_loop"]
+
+[sub_resource type="Resource" id="Resource_summon_continuous"]
+script = ExtResource("3_continuous")
+healthDamage = 6.0
+armorPenetration = 0.75
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_summon_zone"]
+radius = 2.5
+
+[node name="SummonChannel" type="Node3D" unique_id=441820100 node_paths=PackedStringArray("_dangerZone")]
+script = ExtResource("1_gas")
+lifetimeSeconds = 0.0
+_dangerZone = NodePath("DamageZone")
+
+[node name="DamageZone" type="Area3D" parent="." unique_id=441820101 node_paths=PackedStringArray("_shape")]
+collision_layer = 0
+collision_mask = 32
+script = ExtResource("2_dz")
+damageContinuous = SubResource("Resource_summon_continuous")
+_shape = NodePath("CollisionShape3D")
+metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone" unique_id=441820102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
+shape = SubResource("SphereShape3D_summon_zone")
+
+[node name="Loop" parent="." unique_id=441820103 instance=ExtResource("4_loop")]

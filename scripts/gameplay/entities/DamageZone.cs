@@ -38,12 +38,21 @@ public partial class DamageZone : Area3D
     // same .tscn template aren't disturbed.
     [Export] private CollisionShape3D _shape;
 
-    // When true, only HurtBoxes whose owner is a Mob take damage — the
-    // player (and any other non-Mob hurtboxes) are filtered out at enter
-    // time. Used by player-spawned AoEs (rain of arrows) that should never
-    // friendly-fire. Default false matches the existing fire / poison /
-    // campfire zones that damage everything that walks into them.
-    [Export] public bool enemiesOnly = false;
+    // Faction that "owns" this hazard, fed to the shared
+    // ItemEventHandlers.CanDamage rule at enter time. Only consulted when
+    // friendlyFire is false — a player-spawned AoE (rain of arrows, bomb) gets
+    // the firing actor's team via GasCloud so it spares the player and allies
+    // while still hitting enemies. Environmental hazards leave friendlyFire
+    // true and ignore this.
+    [Export] public ETeam attackerTeam = ETeam.Neutral;
+
+    // When true (default), the zone ignores team allegiance and damages every
+    // HurtBox that enters — what every environmental hazard wants (fire trap,
+    // campfire, poison cloud). Actor-spawned weapon AoEs set this false (via
+    // GasCloud) so the CanDamage team rule applies and they don't friendly-fire
+    // the player or allies. Replaces the old enemiesOnly mob-only filter with
+    // the project-wide damage rule.
+    [Export] public bool friendlyFire = true;
 
     private readonly List<HurtBox> _hurtBoxes = new();
     private float[] _intervalTimers;
@@ -132,8 +141,9 @@ public partial class DamageZone : Area3D
                     _hurtBoxes.RemoveAt(i);
                     continue;
                 }
-                HitInfo hit = new HitInfo(damageContinuous, this, dt);
-                hb.Hit(hit);
+                HitInfo hit = new HitInfo(damageContinuous, this, dt, attackerTeam: attackerTeam);
+                hit.friendlyFire = friendlyFire;
+                TryHit(hb, hit);
             }
         }
 
@@ -158,7 +168,7 @@ public partial class DamageZone : Area3D
                         _hurtBoxes.RemoveAt(i);
                         continue;
                     }
-                    hb.Hit(hit);
+                    TryHit(hb, hit);
                 }
             }
         }
@@ -179,7 +189,11 @@ public partial class DamageZone : Area3D
         for (int i = 0; i < n; i++)
         {
             IntervalDamageEntry entry = damageIntervals[i];
-            _intervalHits[i] = new HitInfo(entry?.damage, this);
+            _intervalHits[i] = new HitInfo(entry?.damage, this, attackerTeam: attackerTeam);
+            // Override the per-DamageData friendlyFire with the zone-level
+            // policy so the receiver's CanHit filter judges each tick against
+            // the hazard's own ally rule.
+            _intervalHits[i].friendlyFire = friendlyFire;
             // tickOnEnter applies the first hit at entry time and resets the
             // timer there. Without it, wait the full interval before the
             // first tick.
@@ -196,10 +210,9 @@ public partial class DamageZone : Area3D
         {
             return;
         }
-        if (enemiesOnly && ItemEventHandlers.FindOwningMob(hb) == null)
-        {
-            return;
-        }
+        // No team filtering here — every overlapping hurtbox is tracked and
+        // the per-tick TryHit consults the receiver's CanHit against the real
+        // HitInfo, so allies are spared at apply time (replaces enemiesOnly).
         if (_hurtBoxes.Contains(hb))
         {
             return;
@@ -224,9 +237,20 @@ public partial class DamageZone : Area3D
                 {
                     continue;
                 }
-                hb.Hit(_intervalHits[i]);
+                TryHit(hb, _intervalHits[i]);
                 _intervalTimers[i] = entry.tickInterval;
             }
+        }
+    }
+
+    // Apply a hit only if the receiver's HurtBox.CanHit filter accepts it
+    // (team allegiance etc.). The hazard's gate now lives here, per tick,
+    // against the actual HitInfo — there is no enter-time team filter.
+    private static void TryHit(HurtBox hb, in HitInfo hit)
+    {
+        if (hb.CanBeHit(hit))
+        {
+            hb.Hit(hit);
         }
     }
 

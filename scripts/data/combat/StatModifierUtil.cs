@@ -10,7 +10,7 @@ using Godot.Collections;
 //   * Mask fold (hit-side damage tags — Fire | Magical, etc.): caller passes
 //     the hit's tag mask, the helper folds any modifier whose single-bit
 //     stat overlaps the mask into a running multiplicative product. Used
-//     for healthDamage scaling, pierce-chance scaling, blunt-chip scaling,
+//     for healthDamage scaling, armor-penetration-chance scaling, blunt-chip scaling,
 //     knockback magnitude scaling, buildup scaling — receivers seed and
 //     accumulate per gameplay site.
 //
@@ -20,7 +20,7 @@ public static class StatModifierUtil
 {
 	// Subset of EStat values that scale a hit's healthDamage. Receivers AND
 	// this with hit.tags to determine which mask to compose against the
-	// damage-scaling site. Pierce / Blunt / Knockback / Dizzy intentionally
+	// damage-scaling site. ArmorPenetration / Blunt / Knockback / Dizzy intentionally
 	// don't participate in damage scaling — they have dedicated application
 	// sites (armor-bypass chance, armor-chip mult, knockback magnitude,
 	// buildup-meter feed) that scale their own thing instead.

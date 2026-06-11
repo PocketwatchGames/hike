@@ -31,7 +31,7 @@ public enum EStat
 	Fire = 1 << 1,
 	Blunt = 1 << 2,
 	Dizzy = 1 << 3,
-	Pierce = 1 << 4,
+	ArmorPenetration = 1 << 4,
 	Electrical = 1 << 5,
 	Ranged = 1 << 6,
 	Melee = 1 << 7,

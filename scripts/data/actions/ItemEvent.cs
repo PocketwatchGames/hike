@@ -186,6 +186,13 @@ public partial class ItemEvent : Resource
 	// entry and one slow status-stacking entry.
 	[Export] public Array<AreaIntervalSpec> areaIntervals = new();
 
+	// SummonMinion field. The MobData of the minion to summon at the actor's
+	// aim point (positional aim cursor when active, else the actor position).
+	// The minion spawns on the player team, follows the player, and self-drains
+	// via the drain status authored on its MobData. See
+	// ItemEventHandlers.DoSummonMinion.
+	[Export] public MobData minionData;
+
 	// Dig fields. The dig is centered on the player's positional aim cursor
 	// when one is active, else a point `digReach` meters in front of the
 	// actor. `digRadius` is how close a buried spot / burrowed mob must be to
@@ -220,16 +227,26 @@ public partial class ItemEvent : Resource
 	// Optional looping audio-visual cue parented to the projectile for the
 	// duration of its flight (fire trail, shockwave, magic glow).
 	[Export] public PackedScene projectileLoopEffect;
+	// How many creatures this projectile passes THROUGH before it stops. 0
+	// (default) is a normal shot: it stops on the first creature it hits. 1 means
+	// it punches through the first creature and stops on the second; N stops on
+	// the (N+1)'th. It damages every creature along the way, adding each to its
+	// own hit list so none is struck twice, and only stops (proc'ing its impact
+	// fx, arrow drop/stick, and impactEvent) once the budget is spent or it meets
+	// a solid surface. Weapon mods can raise this via
+	// StatusEffectData.projectilePierceCount; the effective count is the max.
+	// Only meaningful for flat (non-arcing) flight — arced lobs detonate at their
+	// fuse and don't pierce.
+	[Export] public int pierceCount = 0;
 	// Arcing projectile: a fixed-shape, COLLISION-RESPECTING lob. The firing tier
 	// uses Arced aim, whose reticle builds the trajectory (see
 	// AimingReticle.UpdateArced) and publishes the launch velocity DoProjectile
 	// fires, so the thrown object traces the previewed arc. The hump rises
-	// projectileArcRise meters under projectileGravity and comes down to foot
-	// level, with horizontal speed set from the aim distance so it lands over the
-	// aimed point; it then bounces (projectileBounciness / projectileFriction) off
-	// solids until projectileLifetimeSeconds — the fuse, usually longer than the
-	// arc so it can fall onto lower ground — where it detonates and fires
-	// `impactEvent`. projectileSpeed is ignored. Use for thrown explosives.
+	// projectileArcRise meters under projectileGravity (vertical), with horizontal
+	// speed = aimDistance / projectileLifetimeSeconds scaled within projectileMaxRange
+	// (the aim disk); it bounces (projectileBounciness / projectileFriction) off
+	// solids until projectileLifetimeSeconds — the fuse — where it detonates and
+	// fires `impactEvent`. projectileSpeed is ignored. Use for thrown explosives.
 	private bool _projectileArcing;
 	[Export] public bool projectileArcing
 	{
@@ -246,16 +263,20 @@ public partial class ItemEvent : Resource
 		}
 	}
 	// Arced (lobbed) projectiles: peak vertical RISE in meters above the launch
-	// point at the top of the hump, and the gravity (m/s²) pulling it down.
-	// Together these fix the vertical motion — the launch vertical speed
-	// (√(2·g·rise)) and the time to come down to foot level — independent of the
-	// fuse (see AimingReticle.ResolveArc); horizontal speed is then set from the
-	// aim distance so the hump lands over the aimed point in that time.
-	// projectileLifetimeSeconds is ONLY the fuse (total flight before it
-	// detonates) — set it longer than the arc so the lob keeps falling/bouncing
-	// onto lower ground. Ignored when projectileArcing is false.
+	// point at the top of the hump, and the gravity (m/s²) pulling it down. These
+	// fix ONLY the vertical motion (launch speed √(2·g·rise), then free fall) and
+	// are independent of the throw's horizontal range. Ignored when
+	// projectileArcing is false.
 	[Export] public float projectileArcRise = 1.25f;
 	[Export] public float projectileGravity = 14f;
+	// Arced (lobbed) projectiles: maximum HORIZONTAL (XZ) throw distance — the aim
+	// disk radius, and the XZ distance covered over projectileLifetimeSeconds at
+	// full aim. Horizontal launch speed = aimDistance / lifetime (aimDistance ≤
+	// this), so the reach scales with the fuse and is decoupled from gravity/rise
+	// (the vertical arc and the horizontal reach are set independently — the throw
+	// is NOT assumed to land when it returns to the player's foot level). Ignored
+	// when projectileArcing is false.
+	[Export] public float projectileMaxRange = 10f;
 	// Arced projectiles bounce off solids they hit before the fuse expires.
 	// projectileBounciness is the NORMAL restitution (fraction of the into-surface
 	// speed kept on the rebound — higher = bouncier off walls); projectileFriction
@@ -284,8 +305,10 @@ public partial class ItemEvent : Resource
 		if ((_type & EItemEventType.Projectile) != 0)
 		{
 			bool arcOnly = name == nameof(projectileArcRise) || name == nameof(projectileBounciness)
-				|| name == nameof(projectileGravity) || name == nameof(projectileFriction);
-			if ((name == nameof(projectileSpeed) && _projectileArcing)
+				|| name == nameof(projectileGravity) || name == nameof(projectileFriction)
+				|| name == nameof(projectileMaxRange);
+			bool flatOnly = name == nameof(projectileSpeed) || name == nameof(pierceCount);
+			if ((flatOnly && _projectileArcing)
 				|| (arcOnly && !_projectileArcing))
 			{
 				HideProperty(property);
@@ -332,9 +355,11 @@ public partial class ItemEvent : Resource
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)
 				or nameof(projectileLoopEffect)
+				or nameof(pierceCount)
 				or nameof(projectileArcing)
 				or nameof(projectileArcRise)
 				or nameof(projectileGravity)
+				or nameof(projectileMaxRange)
 				or nameof(projectileBounciness)
 				or nameof(projectileFriction)
 				or nameof(impactEvent) => EItemEventType.Projectile,
@@ -353,6 +378,7 @@ public partial class ItemEvent : Resource
 				or nameof(digNothingEffect)
 				or nameof(digCommonEffect)
 				or nameof(digTreasureEffect) => EItemEventType.Dig,
+			nameof(minionData) => EItemEventType.SummonMinion,
 			_ => 0,
 		};
 	}

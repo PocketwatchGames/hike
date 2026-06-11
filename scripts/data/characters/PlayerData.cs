@@ -244,7 +244,10 @@ public partial class PlayerData : Resource
 	[Export] public float waterCurrentDrag = 1f;
 
 	[ExportGroup("Inventory")]
-	[Export] public int backpackCapacity = 20;
+	// Must match the number of backpack ItemSlotPanels wired in
+	// inventory_panel.tscn — every data slot has to be visible, or items can
+	// land in an un-rendered slot and appear to vanish.
+	[Export] public int backpackCapacity = 12;
 	[Export] public int consumableSlotCount = 3;
 
 	[ExportGroup("Combat")]
@@ -261,7 +264,7 @@ public partial class PlayerData : Resource
 
 	// Inherent stat modifiers. Composed with equipped ArmorData.modifiers
 	// and active StatusEffectData.modifiers when the actor queries any
-	// stat (incoming-damage scale by tag, pierce / blunt / knockback
+	// stat (incoming-damage scale by tag, armor penetration / blunt / knockback
 	// magnitudes by tag, move speed, sense multipliers, temperature
 	// thresholds, etc.). 1.0 (or no entry) is neutral for multiplicative
 	// stats; 0 is neutral for additive stats. Vulnerabilities author

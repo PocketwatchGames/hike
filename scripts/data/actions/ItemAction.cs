@@ -164,6 +164,25 @@ public partial class ItemAction : Resource
 	[Export] public PackedScene chargeCancelEffect;
 	[Export] public PackedScene releaseEffect;
 
+	// Channeled-charge zone (summoner weapon). When set, ActionRunner spawns
+	// this scene at the aim point the moment this tier becomes selected during
+	// Charging, repositions it to the positional aim cursor every tick, and
+	// frees it when Charging ends (abort OR activation). The scene root is a
+	// GasCloud carrying a DamageZone + looping particle effect — its continuous
+	// damage is authored in the scene; the runner only stamps the actor's team
+	// (via GasCloud.InitializeChannel) so the channel hits enemies, not the
+	// caster. The zone's radius uses `positionalAreaRadius` above. Null on a
+	// tier means it has no channeled zone (the normal case). Pairs with
+	// EAimType.Positional and a long `chargeTime` (the hold IS the channel).
+	[Export] public PackedScene channelZoneScene;
+
+	// Channeled-charge blood cost, in blood (= HP for the player) per second,
+	// drained continuously while this tier is being charged. Distinct from
+	// `bloodCost` above, which is a one-time spend at activation. If the actor
+	// can't afford the next drain tick, ActionRunner aborts the charge. 0 (the
+	// default) = free to hold. Only meaningful alongside a long `chargeTime`.
+	[Export] public float channelBloodCostPerSecond = 0f;
+
 	// Per-tier impact one-shots layered on top of the per-event
 	// impactHealth/Armor/Lethal effects whenever the receiver flags the
 	// matching trigger condition (OnCrit when the mob was dizzy or

@@ -37,7 +37,7 @@ public partial class WeaponHud : BoxContainer
 	void Refresh(ulong nowMs, bool charging)
 	{
 		UpdateIcon();
-		UpdateCounter();
+		UpdateCounter(nowMs);
 		UpdateCooldown(nowMs);
 		UpdateBlockArmor(charging);
 	}
@@ -75,13 +75,13 @@ public partial class WeaponHud : BoxContainer
 		_icon.Texture = _item?.data?.inventorySprite;
 	}
 
-	void UpdateCounter()
+	void UpdateCounter(ulong nowMs)
 	{
 		if (_item is WeaponState weapon && weapon.data is WeaponData weaponData && weaponData.maxAmmo > 0)
 		{
 			_ammoGroup.Visible = true;
 			_ammoText.Text = weapon.ammo.ToString();
-			UpdateAmmoProgress(weapon, weaponData);
+			UpdateAmmoProgress(weapon, weaponData, nowMs);
 			return;
 		}
 		if (_item != null && _item.data != null && _item.data.IsStackable && _item.stackCount > 1)
@@ -94,25 +94,22 @@ public partial class WeaponHud : BoxContainer
 		_ammoGroup.Visible = false;
 	}
 
-	void UpdateAmmoProgress(WeaponState weapon, WeaponData weaponData)
+	// Progress toward the next ammo unit, driven by the weapon's single central
+	// recharge timer (the same one whether the weapon self-recharges like the
+	// bomb or reclaims arrows like the bow). 0 when at full ammo or the timer
+	// isn't currently armed.
+	void UpdateAmmoProgress(WeaponState weapon, WeaponData weaponData, ulong nowMs)
 	{
 		_ammoProgress.MinValue = 0;
 		_ammoProgress.MaxValue = 1;
-		if (weapon.ammo >= weaponData.maxAmmo)
+		ulong durationMs = (ulong)(weaponData.ammoRechargeSeconds * 1000f);
+		if (weapon.ammo >= weaponData.maxAmmo || weapon.ammoRechargeReadyMs == 0 || durationMs == 0)
 		{
 			_ammoProgress.Value = 0;
 			return;
 		}
-		float maxProgress = 0f;
-		foreach (IWeaponArrow arrow in weapon.outstandingArrows)
-		{
-			float p = arrow.GetReplenishProgress();
-			if (p > maxProgress)
-			{
-				maxProgress = p;
-			}
-		}
-		_ammoProgress.Value = maxProgress;
+		ulong remaining = weapon.ammoRechargeReadyMs > nowMs ? weapon.ammoRechargeReadyMs - nowMs : 0;
+		_ammoProgress.Value = Mathf.Clamp(1.0 - (double)remaining / durationMs, 0.0, 1.0);
 	}
 
 	void UpdateCooldown(ulong nowMs)

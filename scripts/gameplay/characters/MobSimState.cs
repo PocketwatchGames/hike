@@ -52,6 +52,15 @@ public class MobSimState : EntitySimState
     // Mob; lives on sim state so it survives chunk unload/reload. Only
     // meaningful when MobData.isCompanion.
     public bool StayCommanded;
+    // Whether this companion has been tamed. Companions are authored on a wild
+    // team (Prey) and only join the player's side once tamed — Mob.ActorTeam
+    // overrides a tamed companion's effective team to Friendly so the player
+    // can't friendly-fire it (see Teams.AreAllied) and it stops reading as
+    // stalkable prey. Set at spawn for the starter companion (already tamed);
+    // a future taming flow flips it at runtime. Like StayCommanded, this is a
+    // per-instance flag that survives chunk reload via the live MobSimState
+    // and is not written to the .hike world file.
+    public bool Tamed;
     // Cumulative loyalty earned by gifting items to this mob. Increases by
     // the player's CalculatePersonalValue total each accepted Gift action on
     // the merchant screen; consumed as gifts cross their requiredLoyalty

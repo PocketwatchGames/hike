@@ -110,14 +110,25 @@ public partial class StatusEffectData : Resource
 	[Export] public float damagePerSecond;
 
 	// Fraction of each damage tick that bypasses armor and lands directly on
-	// health, mirroring ContinuousDamageData.pierce. 1 (default) is "armor
+	// health, mirroring ContinuousDamageData.armorPenetration. 1 (default) is "armor
 	// doesn't soak this" — matches the historical status-DOT behavior where
 	// poison ticks always chipped HP regardless of armor. Author less than 1
 	// to let armor absorb a slice of the burn (e.g. Burning at 0.75 means
 	// 25% of each damagePerSecond chunk chips armor while 75% goes through).
 	// Ignored for heals (positive damagePerSecond * -1 sign means the delta
 	// is a heal — armor never blocks regeneration).
-	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 1f;
+
+	// Per-second MAX-health decay, applied in 1-second chunks like
+	// damagePerSecond. Positive shrinks the actor's maximum health (current
+	// health is clamped down to follow); the actor dies when its max reaches 0.
+	// Distinct from damagePerSecond: it routes through the max-health channel
+	// rather than the damage path, so it deals no hit and surfaces NO floating
+	// damage-over-time number. The home for a "withering" / summoned-minion
+	// self-expiry that drains the body away rather than wounding it. Only the
+	// Mob controller wires the max-health callback today; on actors without it
+	// this field is inert. 0 (default) = no max decay.
+	[Export] public float maxHealthDrainPerSecond = 0f;
 
 	// Default seconds the effect lasts once timed. 0 = situational; the
 	// gameplay system that armed the effect owns the lifetime and either
@@ -192,6 +203,38 @@ public partial class StatusEffectData : Resource
 	// scene = the effect leaves no trail.
 	[Export] public PackedScene trailZoneScene;
 	[Export(PropertyHint.Range, "0.05,2,0.01,or_greater")] public float trailDropInterval = 0.2f;
+
+	// --- Weapon modifiers ---
+	// These fields are meaningful only when the effect is composed onto a
+	// WEAPON (carried on the WeaponState's `statusEffects` controller — see
+	// LootSpawnEntry, which composes a spawned weapon's mods at loot creation),
+	// not on an actor. They're the seam for weapon customization: an effect
+	// authored as a mod changes how the wielding weapon behaves rather than
+	// touching the actor's stats / health.
+	//
+	// `projectilesDetonateOnContact` — projectiles the weapon fires that carry
+	// an impactEvent (an "effect on completion", e.g. the bomb's explosion)
+	// shatter on the first surface or creature they touch instead of bouncing
+	// and waiting out their fuse. The gravity arc is unchanged; only the
+	// bounce-and-fuse flight is replaced by detonate-on-contact (the projectile
+	// drops into its default collision path, which fires the impactEvent at the
+	// hit point). No effect on projectiles that carry no impactEvent. This is
+	// the "Fragile" mod (status_weapon_fragile). Read by ItemEventHandlers.
+	// DoProjectile off the firing weapon's controller.
+	[Export] public bool projectilesDetonateOnContact = false;
+
+	// `projectilePierceCount` — raises the pierce count of projectiles the
+	// weapon fires: the number of creatures a shot passes THROUGH (dealing
+	// damage to each) before it stops and proc's its removal effects (impact
+	// fx, arrow drop/stick, impactEvent). Composed as a max against the firing
+	// event's authored `pierceCount` and every other active mod, so a +pierce
+	// mod lifts a weak base but never lowers a stronger one. 0 (default) = this
+	// effect doesn't touch pierce. This is the "Charged Pierce" mod
+	// (status_weapon_charged_pierce). Read by ItemEventHandlers.DoProjectile.
+	// Whether this mod reaches every attack or only one charge tier is a
+	// per-composition concern carried by StatusEffectDescriptor.scope, not a
+	// property of the effect itself.
+	[Export] public int projectilePierceCount = 0;
 
 	// --- Buildup meter ---
 	// Damage data carries StatusEffectBuildup entries; each contribution

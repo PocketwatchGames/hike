@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://dw3fg1rqxn2va"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Fragile"
+description = "Lobbed projectiles shatter on contact, triggering their effect where they land instead of bouncing."
+category = 2
+modifiers = []
+duration = 0.0
+maxStack = 1
+projectilesDetonateOnContact = true
+removesOnApply = []

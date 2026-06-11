@@ -17,7 +17,6 @@ collision_layer = 0
 collision_mask = 32
 script = ExtResource("2_dz")
 _shape = NodePath("CollisionShape3D")
-enemiesOnly = true
 metadata/_custom_type_script = "uid://bcc4gtomm0vvk"
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="DamageZone"]

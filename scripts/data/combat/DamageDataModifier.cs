@@ -37,7 +37,7 @@ public partial class DamageDataModifier : Resource
 	[Export] public float hitstun;
 	[Export] public float knockbackDistance;
 	[Export] public float knockbackTime;
-	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration;
 	[Export] public float blunt;
 	// Appended to the running statusEffects list (NOT replacing it) when the
 	// AddStatusEffects bit is set. See EDamageFields.AddStatusEffects.
@@ -62,7 +62,7 @@ public partial class DamageDataModifier : Resource
 			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
 			nameof(knockbackTime) => EDamageFields.KnockbackTime,
 			nameof(addStatusEffects) => EDamageFields.AddStatusEffects,
-			nameof(pierce) => EDamageFields.Pierce,
+			nameof(armorPenetration) => EDamageFields.ArmorPenetration,
 			nameof(blunt) => EDamageFields.Blunt,
 			_ => EDamageFields.None,
 		};

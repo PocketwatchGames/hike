@@ -874,6 +874,10 @@ public partial class Player : CharacterBody3D
 		{
 			_hurtBox.OnHit = OnHurtBoxHit;
 			_hurtBox.GetHitType = GetHitType;
+			// Hit filter: the player is on the Player side, so allied hits
+			// (a tamed companion, a friendly NPC) can't land unless friendly-fire.
+			_hurtBox.CanHit = (hit) =>
+				hit.friendlyFire || !Teams.AreAllied(hit.attackerTeam, ETeam.Player);
 		}
 
 		_aimingReticle?.Initialize(this);
@@ -1021,7 +1025,7 @@ public partial class Player : CharacterBody3D
 	private EHitResult GetHitType(HitInfo hit)
 	{
 		// Receiver-side resistance fold. ApplyResistance scales healthDamage,
-		// pierce chance, blunt mult, and knockback magnitude in place using
+		// armor-penetration chance, blunt mult, and knockback magnitude in place using
 		// the diverse-site rules so the prediction below matches the actual
 		// apply in OnHurtBoxHit.
 		ApplyResistance(ref hit);
@@ -1029,7 +1033,7 @@ public partial class Player : CharacterBody3D
 		{
 			return EHitResult.None;
 		}
-		if (_armor > 0f && !hit.Pierced)
+		if (_armor > 0f && !hit.ArmorPenetrated)
 		{
 			return EHitResult.Armor;
 		}
@@ -1042,11 +1046,11 @@ public partial class Player : CharacterBody3D
 
 	// Fold receiver resistances onto the live hit in place. Damage tags
 	// (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
-	// healthDamage; Pierce scales the bypass-chance roll; Blunt scales the
+	// healthDamage; ArmorPenetration scales the bypass-chance roll; Blunt scales the
 	// (1 + blunt) armor-chip multiplier; Knockback scales knockbackDistance
 	// and knockbackTime. Each site only applies if the hit carries the
-	// corresponding tag — a non-Pierce hit is unaffected by Pierce-resist,
-	// etc. Modulating in place means hit.Pierced and the downstream armor /
+	// corresponding tag — a non-ArmorPenetration hit is unaffected by
+	// ArmorPenetration-resist, etc. Modulating in place means hit.ArmorPenetrated and the downstream armor /
 	// knockback formulas automatically pick up the receiver's resistances
 	// without each call site re-asking.
 	private void ApplyResistance(ref HitInfo hit)
@@ -1060,9 +1064,9 @@ public partial class Player : CharacterBody3D
 		{
 			hit.healthDamage *= ComposeMaskMul(damageTags);
 		}
-		if ((hit.tags & EStat.Pierce) != 0)
+		if ((hit.tags & EStat.ArmorPenetration) != 0)
 		{
-			hit.pierce *= ComposeMaskMul(EStat.Pierce);
+			hit.armorPenetration *= ComposeMaskMul(EStat.ArmorPenetration);
 		}
 		if ((hit.tags & EStat.Blunt) != 0)
 		{
@@ -1082,7 +1086,7 @@ public partial class Player : CharacterBody3D
 		{
 			return;
 		}
-		// Fold receiver resistances into the hit (damage / pierce-chance /
+		// Fold receiver resistances into the hit (damage / armor-penetration-chance /
 		// blunt mult / knockback magnitude) before any side effect fires.
 		// A {Damage, 0} modifier on an active dash i-frame status drops
 		// healthDamage to 0 here, and the early-return below skips interrupt
@@ -1116,15 +1120,15 @@ public partial class Player : CharacterBody3D
 		}
 		_sneaking = false;
 		// Armor handling. Bypass-aware split: a portion of `incomingDamage`
-		// skips armor entirely (discrete `Pierced` = full bypass; continuous
+		// skips armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
 		// `armorBypassFraction` = partial), the rest is "absorbable" and
 		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
 		// doesn't bleed into health on the absorbed portion — only the
 		// pre-resolved bypass lands. Recharge timer resets ONLY when the
-		// armor actually took a chip — a pure-pierce hit (continuous burn
-		// with pierce=1, etc.) shouldn't extend the depletion window since
+		// armor actually took a chip — a pure-penetration hit (continuous burn
+		// with armorPenetration=1, etc.) shouldn't extend the depletion window since
 		// it never touched the armor.
-		float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
+		float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
 		// Weapon block armor takes the absorbable slice FIRST while the player
@@ -1193,7 +1197,7 @@ public partial class Player : CharacterBody3D
 			GameCamera.Current?.Shake?.AddImpulse(0.12f, 0.15f, GlobalPosition, 0f, GlobalPosition);
 		}
 
-		// Floating-number HUD feedback. Armor chip and pierced health damage
+		// Floating-number HUD feedback. Armor chip and armor-penetrated health damage
 		// both show — total = whatever the bar actually moved (capped by what
 		// armor / health had to give). DoT hits route into the per-second
 		// accumulator so a fast-ticking burn / poison zone emits one rolled-up
@@ -2249,13 +2253,13 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Signed HP delta from a status-effect tick. Positive heals, negative
-	// damages. Pierce in [0, 1] controls the armor bypass on the damage
+	// damages. ArmorPenetration in [0, 1] controls the armor bypass on the damage
 	// branch — 1 (default for status effects) drops everything straight onto
 	// health, matching the historical "poison ignores armor" feel; less than
 	// 1 routes the absorbable slice through armor and chips the bar. Heals
 	// skip armor entirely. Doesn't run the OnHurtBoxHit hit pipeline —
 	// status ticks don't interrupt actions or pump per-frame impact fx.
-	private void ApplyStatusHealthDelta(float delta, float pierce)
+	private void ApplyStatusHealthDelta(float delta, float armorPenetration)
 	{
 		if (delta == 0f || _health <= 0f)
 		{
@@ -2275,11 +2279,11 @@ public partial class Player : CharacterBody3D
 		else
 		{
 			// Damage branch: split between armor chip (absorbable) and direct
-			// HP loss (bypassed) per the effect's pierce. Identical math to
+			// HP loss (bypassed) per the effect's armorPenetration. Identical math to
 			// the OnHurtBoxHit armor block, scoped down to the fields the
 			// status path mutates.
 			float damage = -delta;
-			float p = Mathf.Clamp(pierce, 0f, 1f);
+			float p = Mathf.Clamp(armorPenetration, 0f, 1f);
 			float bypassed = damage * p;
 			float absorbable = damage - bypassed;
 			// Charging guard soaks the absorbable slice before central armor,
@@ -2602,13 +2606,13 @@ public partial class Player : CharacterBody3D
 			{
 				foreach (ItemCount ic in spawnData.equippedInventory)
 				{
-					if (ic == null || ic.item == null || ic.count <= 0) { continue; }
-					int stackSize = ic.item.maxStack > 0 ? ic.item.maxStack : 1;
+					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
+					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
 					int remaining = ic.count;
 					while (remaining > 0)
 					{
 						int n = System.Math.Min(remaining, stackSize);
-						ItemState state = ic.item.CreateState();
+						ItemState state = ic.descriptor.CreateState();
 						state.stackCount = n;
 						_inventory.TryAdd(state);
 						TryAutoEquipFromBackpack(state);
@@ -2631,13 +2635,13 @@ public partial class Player : CharacterBody3D
 			{
 				foreach (ItemCount ic in spawnData.startingInventory)
 				{
-					if (ic == null || ic.item == null || ic.count <= 0) { continue; }
-					int stackSize = ic.item.maxStack > 0 ? ic.item.maxStack : 1;
+					if (ic?.descriptor?.item == null || ic.count <= 0) { continue; }
+					int stackSize = ic.descriptor.item.maxStack > 0 ? ic.descriptor.item.maxStack : 1;
 					int remaining = ic.count;
 					while (remaining > 0)
 					{
 						int n = System.Math.Min(remaining, stackSize);
-						ItemState state = ic.item.CreateState();
+						ItemState state = ic.descriptor.CreateState();
 						state.stackCount = n;
 						_inventory.TryAdd(state);
 						remaining -= n;
@@ -2782,7 +2786,7 @@ public partial class Player : CharacterBody3D
 	}
 
 	// Multiplicative compose across all sources for a tag mask — used at
-	// hit-application sites (damage / pierce chance / blunt chip / knockback
+	// hit-application sites (damage / armor-penetration chance / blunt chip / knockback
 	// magnitude). Walks every entry whose single-bit stat overlaps the mask
 	// and multiplies. The StatusEffectController routes through this
 	// callback when scaling buildup contributions and DoT damage ticks.
@@ -2924,7 +2928,7 @@ public partial class Player : CharacterBody3D
 	// any charge it eats the WHOLE absorbable slice (zeroing `absorbable` so
 	// the central-armor block downstream sees nothing) and reports how much
 	// the pool actually lost for HUD feedback. Re-arms the weapon's recharge
-	// delay on every mid-charge hit — even a fully-pierced hit with no
+	// delay on every mid-charge hit — even a fully-penetrating hit with no
 	// absorbable slice, and even when the pool is already empty — so a player
 	// taking fire can't regenerate their guard. No-op when not charging a
 	// guard-bearing weapon.
@@ -2976,17 +2980,39 @@ public partial class Player : CharacterBody3D
 		weapon.blockArmor = Mathf.Min(max, weapon.blockArmor + weapon.data.blockArmorRechargeSpeed * dt);
 	}
 
-	// Per-tick passive ammo regeneration for every equipped weapon that opts in
-	// (WeaponData.ammoRechargeSeconds > 0). Driven for both slots so a holstered
-	// weapon still refills. The timer is a single deadline (ammoRechargeReadyMs):
-	// armed the frame ammo drops below max, re-armed after each unit refills, and
-	// cleared at full — so it runs continuously while below max and firing never
-	// resets an in-flight charge. Additive with arrow-recovery refills (the bow
-	// leaves ammoRechargeSeconds 0 and uses only recovery).
+	// Per-tick ammo recharge for every weapon the player owns that opts in
+	// (WeaponData.ammoRechargeSeconds > 0) — the single, unified ammo timer.
+	// Driven for both equip slots AND the backpack so an unequipped weapon
+	// keeps reclaiming arrows / refilling while stashed. A weapon dropped on
+	// the ground isn't ticked at all, but ammoRechargeReadyMs is an absolute
+	// game-time deadline, so the first tick after it re-enters the inventory
+	// catches up every interval that elapsed while it was gone (see the
+	// catch-up loop in TickWeaponAmmoRecharge). The timer is a single deadline
+	// (ammoRechargeReadyMs): armed the frame ammo drops below max, advanced
+	// after each unit refills, and cleared at full — so it runs continuously
+	// while below max and firing never resets an in-flight charge.
+	// On each elapse it recovers one unit of ammo: a weapon that left arrows in
+	// the world (the bow) auto-reclaims its oldest outstanding arrow (which
+	// bumps ammo as it leaves play); a self-recharging weapon with no arrows
+	// (the bomb) just regenerates ammo from nothing.
 	private void TickAmmoRecharge(ulong now)
 	{
-		TickWeaponAmmoRecharge(_inventory?.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
-		TickWeaponAmmoRecharge(_inventory?.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
+		if (_inventory == null)
+		{
+			return;
+		}
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponLeft) as WeaponState, now);
+		TickWeaponAmmoRecharge(_inventory.GetEquipped(EInventorySlot.WeaponRight) as WeaponState, now);
+		// Unequipped weapons keep their recharge timers running so a holstered
+		// bow still reclaims its outstanding arrows (and a stashed bomb still
+		// refills). Equipped weapons live in the slot pointers only — they're
+		// not duplicated in the backpack — so this loop can't double-tick them.
+		// Indexed access over Backpack avoids per-frame enumerator allocation.
+		System.Collections.Generic.IReadOnlyList<ItemState> backpack = _inventory.Backpack;
+		for (int i = 0; i < backpack.Count; i++)
+		{
+			TickWeaponAmmoRecharge(backpack[i] as WeaponState, now);
+		}
 	}
 
 	private static void TickWeaponAmmoRecharge(WeaponState weapon, ulong now)
@@ -3008,19 +3034,45 @@ public partial class Player : CharacterBody3D
 			weapon.ammoRechargeReadyMs = 0;
 			return;
 		}
+		ulong interval = (ulong)(per * 1000f);
+		if (interval == 0)
+		{
+			interval = 1;
+		}
 		if (weapon.ammoRechargeReadyMs == 0)
 		{
-			weapon.ammoRechargeReadyMs = now + (ulong)(per * 1000f);
+			weapon.ammoRechargeReadyMs = now + interval;
 			return;
 		}
-		if (now < weapon.ammoRechargeReadyMs)
+		// Catch up one unit per elapsed interval. Normally the deadline is at
+		// most one interval in the past (per-frame ticking), so this loops once.
+		// But a weapon that went unticked — dropped on the ground, where it
+		// neither ticks nor holds any outstanding arrows — credits the whole
+		// elapsed time the instant it re-enters the inventory, advancing the
+		// deadline by a fixed interval each step so no time is dropped. Bounded
+		// by maxAmmo iterations (ammo strictly climbs to the cap).
+		while (now >= weapon.ammoRechargeReadyMs && weapon.ammo < max)
 		{
-			return;
+			// Recover one unit. Prefer reclaiming the oldest arrow still in the
+			// world (an equipped/holstered bow) — its removal routes back through
+			// OnArrowRemoved and bumps ammo; otherwise regenerate directly (the
+			// bomb, or a dropped bow whose arrows were forfeit). Net +1 either way.
+			if (weapon.outstandingArrows.Count > 0)
+			{
+				weapon.RecoverOldestArrow();
+			}
+			else
+			{
+				weapon.ammo++;
+			}
+			weapon.ammoRechargeReadyMs += interval;
 		}
-		weapon.ammo++;
-		// Re-arm for the next unit while still below max; clear at full so the
-		// HUD and gate see a stable count.
-		weapon.ammoRechargeReadyMs = weapon.ammo < max ? now + (ulong)(per * 1000f) : 0;
+		// Clear the deadline at full so the next depletion arms a fresh interval
+		// and the HUD / press-gate see a stable count.
+		if (weapon.ammo >= max)
+		{
+			weapon.ammoRechargeReadyMs = 0;
+		}
 	}
 
 	// IActionActor — press-time stamina gate. Non-mutating peek. Costs of 0

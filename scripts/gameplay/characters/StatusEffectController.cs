@@ -29,9 +29,9 @@ public class StatusEffectController
 
 	readonly Node3D _actor;
 	readonly World _world;
-	// (signed health delta, armor pierce in [0, 1]). Pierce is meaningful only
-	// for the damage path (delta < 0): it splits the chunk between armor chip
-	// and direct HP loss. Heals (delta > 0) ignore pierce.
+	// (signed health delta, armor penetration in [0, 1]). ArmorPenetration is
+	// meaningful only for the damage path (delta < 0): it splits the chunk
+	// between armor chip and direct HP loss. Heals (delta > 0) ignore it.
 	readonly Action<float, float> _applyHealthDelta;
 	// Lookup callback into the owning actor's full multiplicative composition
 	// across inherent data + equipped armor + this controller's own active
@@ -42,6 +42,12 @@ public class StatusEffectController
 	// a Burning DoT even though the controller never sees the hit that
 	// started it.
 	readonly Func<EStat, float> _composeMaskMul;
+	// (max-health drain amount). Reduces the actor's MAXIMUM health, clamping
+	// current health down to follow and killing the actor when max hits 0. Null
+	// on actors that don't model a drainable max (items, and the player today —
+	// only the Mob controller wires it). Kept separate from _applyHealthDelta so
+	// max decay never routes through the damage/DoT path (no floating number).
+	readonly Action<float> _applyMaxHealthDelta;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
 
@@ -52,12 +58,13 @@ public class StatusEffectController
 	// fx at and no health to chip away. `world` may also be null; the meter
 	// machinery falls back to a zero game-time which is fine for ContinuousArm
 	// (it doesn't read time) and degrades gracefully for ThresholdCross decay.
-	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null)
+	public StatusEffectController(Node3D actor, World world, Action<float, float> applyHealthDelta, Func<EStat, float> composeMaskMul = null, Action<float> applyMaxHealthDelta = null)
 	{
 		_actor = actor;
 		_world = world;
 		_applyHealthDelta = applyHealthDelta;
 		_composeMaskMul = composeMaskMul;
+		_applyMaxHealthDelta = applyMaxHealthDelta;
 	}
 
 	public bool Contains(StatusEffectState state) => state != null && _statusEffects.Contains(state);
@@ -101,6 +108,55 @@ public class StatusEffectController
 			}
 			return false;
 		}
+	}
+
+	// True when any active weapon mod that reaches charge tier `chargeIndex`
+	// carries the "fragile" mod (projectilesDetonateOnContact). Read by
+	// ItemEventHandlers.DoProjectile off the firing WeaponState's controller so a
+	// fragile-modded weapon's lobbed projectiles shatter on first contact instead
+	// of bouncing. A mod reaches the shot when it's AllAttacks-scoped or its
+	// SpecificCharge index matches the firing tier. First-true wins — same
+	// single-pass composition as Incapacitated.
+	public bool ProjectilesDetonateOnContact(int chargeIndex)
+	{
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			if (s?.data?.projectilesDetonateOnContact == true && ModReachesCharge(s, chargeIndex))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Largest projectile pierce count contributed by any active weapon mod that
+	// reaches charge tier `chargeIndex` (0 if none). DoProjectile maxes this
+	// against the firing event's authored base pierce. See
+	// ProjectilesDetonateOnContact for the reach rule.
+	public int ProjectilePierceCount(int chargeIndex)
+	{
+		int max = 0;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			StatusEffectData data = s?.data;
+			if (data != null && data.projectilePierceCount > max && ModReachesCharge(s, chargeIndex))
+			{
+				max = data.projectilePierceCount;
+			}
+		}
+		return max;
+	}
+
+	// A composed weapon mod reaches a given firing charge tier when it's scoped
+	// to every attack, or scoped to the specific tier being fired. A negative
+	// chargeIndex (the weapon has no resolvable firing tier) only matches
+	// AllAttacks mods.
+	private static bool ModReachesCharge(StatusEffectState state, int chargeIndex)
+	{
+		return state.weaponModScope == EWeaponModScope.AllAttacks
+			|| state.weaponModChargeIndex == chargeIndex;
 	}
 
 	// Composite vulnerability in [0, 1]. Composes per-effect contributions as
@@ -503,6 +559,22 @@ public class StatusEffectController
 		}
 	}
 
+	// Add a status effect as a WEAPON MODIFIER, stamping the descriptor's scope
+	// onto the live state so the firing path can filter by charge tier. Used by
+	// ItemDescriptor.ApplyTo when composing mods onto an item's `statusEffects`
+	// controller. Returns the created (or stack-refreshed) state, or null if
+	// `data` is null.
+	public StatusEffectState AddWeaponMod(StatusEffectData data, EWeaponModScope scope, int chargeIndex)
+	{
+		StatusEffectState state = Add(data);
+		if (state != null)
+		{
+			state.weaponModScope = scope;
+			state.weaponModChargeIndex = chargeIndex;
+		}
+		return state;
+	}
+
 	public StatusEffectState Add(StatusEffectData data)
 	{
 		if (data == null)
@@ -813,7 +885,15 @@ public class StatusEffectController
 						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
 						dps *= resistance;
 					}
-					_applyHealthDelta(-dps, s.data.pierce);
+					_applyHealthDelta(-dps, s.data.armorPenetration);
+				}
+				// Max-health decay (withering / summon self-expiry). Separate
+				// channel from the damage path above so it surfaces no DoT
+				// number; the actor's callback clamps current HP and handles
+				// death at zero max.
+				if (s.data.maxHealthDrainPerSecond != 0f && _applyMaxHealthDelta != null)
+				{
+					_applyMaxHealthDelta(s.data.maxHealthDrainPerSecond);
 				}
 			}
 			if (s.IsTimed && now >= s.expireTimeMs)
@@ -852,7 +932,7 @@ public class StatusEffectController
 	// Multiplicative fold across every active effect's StatModifier entries
 	// whose single-bit stat overlaps `mask`. Used for hit-side composition
 	// (a hit tagged Damage|Fire pulls in both the Damage and Fire entries)
-	// at the various application sites — damage scale, pierce-chance scale,
+	// at the various application sites — damage scale, armor-penetration-chance scale,
 	// blunt chip scale, knockback magnitude, buildup amount. Caller seeds
 	// with their inherent + equipment product; the controller adds the
 	// status-effect layer.

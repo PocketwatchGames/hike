@@ -36,7 +36,7 @@ amount = 0.4
 [sub_resource type="Resource" id="Resource_firetrap_continuous"]
 script = ExtResource("3_continuous")
 healthDamage = 16.0
-pierce = 0.75
+armorPenetration = 0.75
 buildups = Array[ExtResource("3_buildup")]([SubResource("Resource_firetrap_burning_buildup")])
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_firetrap_zone"]

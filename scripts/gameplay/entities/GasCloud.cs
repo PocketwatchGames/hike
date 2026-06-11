@@ -34,7 +34,8 @@ public partial class GasCloud : Node3D
     public void Initialize(
         ItemEvent ev,
         ContinuousDamageData continuous,
-        Godot.Collections.Array<IntervalDamageEntry> intervals)
+        Godot.Collections.Array<IntervalDamageEntry> intervals,
+        ETeam attackerTeam)
     {
         if (ev == null)
         {
@@ -44,7 +45,33 @@ public partial class GasCloud : Node3D
         {
             lifetimeSeconds = ev.areaDurationSeconds;
         }
+        // Actor-spawned weapon AoE: hand the firing actor's team to the danger
+        // zone and switch off its environmental "hit everyone" default, so the
+        // shared CanDamage rule spares the firer and their allies. (Trap-driven
+        // clouds via GasCloudDeployer never call this, keeping friendlyFire.)
+        if (_dangerZone != null)
+        {
+            _dangerZone.attackerTeam = attackerTeam;
+            _dangerZone.friendlyFire = false;
+        }
         _dangerZone?.OverrideAuthoring(continuous, intervals, ev.areaRadius);
+    }
+
+    // Channeled-zone variant used by the summoner weapon's ActionRunner. The
+    // zone's continuous/interval damage is authored in the scene; the runner
+    // only stamps the caster's team (so the channel spares the caster + allies
+    // and hits enemies) and an optional radius override. Like Initialize, must
+    // be called BEFORE AddChild — DamageZone reads these fields in its _Ready.
+    // The runner owns the lifetime (frees the node on charge end), so
+    // lifetimeSeconds stays at its authored 0 (persist).
+    public void InitializeChannel(ETeam attackerTeam, float radius)
+    {
+        if (_dangerZone != null)
+        {
+            _dangerZone.attackerTeam = attackerTeam;
+            _dangerZone.friendlyFire = false;
+            _dangerZone.OverrideAuthoring(null, null, radius);
+        }
     }
 
     public override void _Process(double delta)

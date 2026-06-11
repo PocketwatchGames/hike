@@ -14,12 +14,6 @@ public partial class World
         {
             return null;
         }
-        GameClient gc = GameClient.Current;
-        PackedScene scene = gc?.lootScene;
-        if (scene == null)
-        {
-            return null;
-        }
         var simState = new LootSimState(position, item);
         // The fairy corpse draws its candidate boons from SimData and carries
         // them on its per-instance state, so on use one of them can be applied
@@ -39,6 +33,33 @@ public partial class World
             }
             simState.Item = state;
         }
+        return FinishSpawnLoot(simState, position, impulse);
+    }
+
+    // Spawn loot from a pre-built ItemState — carries its stack count and any
+    // permanent mods already composed onto its `statusEffects` controller (mob
+    // loot that drops a modded item; see Mob.EjectLoot). The state IS the carried
+    // item, so pickup deposits it as-is rather than synthesizing a fresh one.
+    public Loot SpawnLoot(Vector3 position, Vector3 impulse, ItemState item)
+    {
+        if (item?.data == null)
+        {
+            return null;
+        }
+        var simState = new LootSimState(position, item.data) { Item = item };
+        return FinishSpawnLoot(simState, position, impulse);
+    }
+
+    // Shared tail for the SpawnLoot overloads: instantiate the Loot scene, place
+    // it in the world entity bookkeeping, and register it. Returns null if no
+    // loot scene is configured.
+    private Loot FinishSpawnLoot(LootSimState simState, Vector3 position, Vector3 impulse)
+    {
+        PackedScene scene = GameClient.Current?.lootScene;
+        if (scene == null)
+        {
+            return null;
+        }
         _worldState.AddEntity(simState);
         Loot loot = Loot.Create(this, simState, scene, impulse);
 
@@ -54,12 +75,12 @@ public partial class World
     }
 
     // Spawn an arrow drop at the impact point of a hitscan shot. The arrow
-    // binds back to the firing WeaponState — recovering it (player pickup,
-    // 30s LootData.removeTimeMs timeout) routes through ArrowLootSimState
-    // and returns 1 ammo to the source weapon. The weapon also tracks the
-    // arrow in its outstandingArrows list so the binding survives the
-    // player dropping the bow (the weapon instance lives in inventory and
-    // outlives the bow's equip state).
+    // binds back to the firing WeaponState — recovering it (player pickup, or
+    // the weapon's central ammoRechargeSeconds timer reclaiming it oldest-first)
+    // routes through ArrowLootSimState and returns 1 ammo to the source weapon.
+    // The weapon also tracks the arrow in its outstandingArrows list so the
+    // binding survives the player dropping the bow (the weapon instance lives
+    // in inventory and outlives the bow's equip state).
     public Loot SpawnArrowLoot(Vector3 position, Vector3 impulse, ArrowLootData data, WeaponState sourceWeapon)
     {
         if (data == null || sourceWeapon == null)
@@ -120,6 +141,35 @@ public partial class World
         RegisterEntity(pickup, entities, simState);
 
         return pickup;
+    }
+
+    // Spawn a mob from MobData at `position` right now and return the live Mob
+    // node — the on-demand analog of the chunk-streaming drain path, used for
+    // player summons (the summoner weapon). The sim state is registered in
+    // WorldState so the mob is bookkept and persisted like any other; the node
+    // is created synchronously via Mob.Create (which parents it + runs _Ready),
+    // then registered into the chunk's active-entity list. Caller is expected
+    // to be standing in a loaded chunk (a summon lands within aim range), so
+    // the target chunk is resident. Returns null if the MobData has no scene.
+    public Mob SpawnMob(MobData mobData, Vector3 position)
+    {
+        if (mobData?.MobScene == null)
+        {
+            return null;
+        }
+        var simState = new MobSimState(position, 0f, mobData.MobScene, mobData);
+        _worldState.AddEntity(simState);
+        Mob mob = Mob.Create(this, simState);
+
+        Vector3I coord = WorldToChunkCoord(position);
+        if (!_activeEntities.TryGetValue(coord, out List<Node3D> entities))
+        {
+            entities = new List<Node3D>();
+            _activeEntities[coord] = entities;
+        }
+        RegisterEntity(mob, entities, simState);
+
+        return mob;
     }
 
     // Dig at `position`: uncover the nearest un-excavated buried spot within

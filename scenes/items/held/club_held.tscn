@@ -1,14 +1,11 @@
 [gd_scene format=3 uid="uid://bs6g5vb3w6472"]
 
-[sub_resource type="StandardMaterial3D" id="Mat_club"]
-albedo_color = Color(0.45, 0.32, 0.18, 1)
-
-[sub_resource type="BoxMesh" id="Box_club"]
-material = SubResource("Mat_club")
-size = Vector3(0.1, 1, 0.1)
+[sub_resource type="CylinderMesh" id="CylinderMesh_4ty7l"]
+top_radius = 0.3
+bottom_radius = 0.1
 
 [node name="ClubHeld" type="Node3D" unique_id=521571708]
 
 [node name="Mesh" type="MeshInstance3D" parent="." unique_id=749498337]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.25, 0)
-mesh = SubResource("Box_club")
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.73168164, 0)
+mesh = SubResource("CylinderMesh_4ty7l")

@@ -48,6 +48,19 @@ public partial class Mob
         DespawnTorch();
     }
 
+    // Immediately and permanently remove this mob — active node AND persistent
+    // sim state, so it never respawns — with no death cascade (no loot, kill
+    // credit, or death fx). The silent counterpart to Die(). Used to destroy
+    // summoned minions when the summoner recycles them past its cap or the
+    // weapon is unequipped/removed. Safe to call more than once; QueueFree
+    // guards the node.
+    public void Despawn()
+    {
+        _world?.RemoveEntity(this);
+        _world?.WorldState?.RemoveEntity(_simState);
+        QueueFree();
+    }
+
     // Advance the vanish by one physics step. Returns true while vanishing so
     // the caller short-circuits the normal AI / locomotion path. On completion
     // the mob is dropped from the active scene AND from persistent sim state,

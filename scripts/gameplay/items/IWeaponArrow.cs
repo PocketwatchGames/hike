@@ -7,11 +7,12 @@
 // mob death) goes through DetachArrow so the count stays balanced.
 public interface IWeaponArrow
 {
-	// Fraction in [0, 1] of the way through the arrow's removeTimeMs
-	// timeout — 0 just after spawn, 1 about to time out and return ammo
-	// to the source weapon. The HUD uses the max across outstandingArrows
-	// to surface the next arrow that will replenish ammo. Returns 0 when
-	// the arrow has no timeout authored or the runtime age isn't
-	// currently trackable (e.g. loose loot whose chunk is unloaded).
-	float GetReplenishProgress();
+	// Force this arrow out of the world right now and return its 1 ammo to
+	// the source weapon (via WeaponState.OnArrowRemoved), exactly as a player
+	// pickup would. Called by the weapon's central ammo-recharge timer
+	// (Player.TickAmmoRecharge → WeaponState.RecoverOldestArrow) when the
+	// timer elapses, so the oldest outstanding arrow is auto-recovered. Both
+	// forms route through their normal removal path so the despawn outro and
+	// ammo accounting stay uniform with a hand pickup.
+	void Recover();
 }

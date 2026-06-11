@@ -4,68 +4,44 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_action"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_lphds"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="5_areaspec"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
 [ext_resource type="PackedScene" uid="uid://bm0bprojvl3ka" path="res://scenes/projectiles/bomb_projectile.tscn" id="7_proj"]
-[ext_resource type="PackedScene" uid="uid://bm0xpmaaoe20c" path="res://scenes/effects/bomb_explosion.tscn" id="8_explosion"]
 [ext_resource type="PackedScene" uid="uid://bm0xpllarge02" path="res://scenes/effects/bomb_explosion_large.tscn" id="8b_explosion_large"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_7xwph"]
+[ext_resource type="PackedScene" uid="uid://bm0xpmaaoe20c" path="res://scenes/effects/bomb_explosion.tscn" id="8_explosion"]
 [ext_resource type="PackedScene" uid="uid://bm0thrwfx02d" path="res://scenes/effects/bomb_throw.tscn" id="9_throw"]
 [ext_resource type="PackedScene" uid="uid://bm0held3mdl7" path="res://scenes/items/held/bomb_held.tscn" id="10_held"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_68y43"]
 [ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/Bomb.png" id="11_inv"]
 
 [sub_resource type="Resource" id="Resource_areaspec_blast"]
 script = ExtResource("5_areaspec")
 damageProfileKey = &"explosion"
 tickInterval = 5.0
-tickOnEnter = true
 
 [sub_resource type="Resource" id="Resource_impact_small"]
 script = ExtResource("3_event")
 type = 81920
+cameraShakeMagnitude = 0.22
+cameraShakeDuration = 0.3
+cameraShakeRange = 30.0
 areaEffectScene = ExtResource("8_explosion")
 areaRadius = 1.0
 areaDurationSeconds = 1.2
 areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
-cameraShakeMagnitude = 0.22
-cameraShakeDuration = 0.3
-cameraShakeRange = 30.0
-
-[sub_resource type="Resource" id="Resource_impact_large"]
-script = ExtResource("3_event")
-type = 81920
-areaEffectScene = ExtResource("8b_explosion_large")
-areaRadius = 2.5
-areaDurationSeconds = 1.2
-areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
-cameraShakeMagnitude = 0.38
-cameraShakeDuration = 0.4
-cameraShakeRange = 42.0
 
 [sub_resource type="Resource" id="Resource_proj_small"]
 script = ExtResource("3_event")
 type = 8260
 animName = 37
 projectileScene = ExtResource("7_proj")
-projectileLifetimeSeconds = 2.0
 projectileArcing = true
-projectileArcRise = 1.25
-projectileGravity = 14.0
-projectileBounciness = 0.5
-projectileFriction = 0.5
+projectileGravity = 20.0
+projectileMaxRange = 9.0
+projectileBounciness = 0.35
 impactEvent = SubResource("Resource_impact_small")
-
-[sub_resource type="Resource" id="Resource_proj_large"]
-script = ExtResource("3_event")
-type = 8260
-animName = 37
-projectileScene = ExtResource("7_proj")
-projectileLifetimeSeconds = 2.0
-projectileArcing = true
-projectileArcRise = 1.25
-projectileGravity = 14.0
-projectileBounciness = 0.5
-projectileFriction = 0.5
-impactEvent = SubResource("Resource_impact_large")
 
 [sub_resource type="Resource" id="Resource_tier_toss"]
 script = ExtResource("4_action")
@@ -75,9 +51,29 @@ cooldownSeconds = 0.7
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_proj_small")])
 aimType = 2
-positionalRange = 10.0
 positionalAreaRadius = 1.0
 releaseEffect = ExtResource("9_throw")
+
+[sub_resource type="Resource" id="Resource_impact_large"]
+script = ExtResource("3_event")
+type = 81920
+cameraShakeMagnitude = 0.38
+cameraShakeDuration = 0.4
+cameraShakeRange = 42.0
+areaEffectScene = ExtResource("8b_explosion_large")
+areaRadius = 2.5
+areaDurationSeconds = 1.2
+areaIntervals = Array[ExtResource("5_areaspec")]([SubResource("Resource_areaspec_blast")])
+
+[sub_resource type="Resource" id="Resource_proj_large"]
+script = ExtResource("3_event")
+type = 8260
+animName = 37
+projectileScene = ExtResource("7_proj")
+projectileArcing = true
+projectileGravity = 20.0
+projectileMaxRange = 9.0
+impactEvent = SubResource("Resource_impact_large")
 
 [sub_resource type="Resource" id="Resource_tier_heavy"]
 script = ExtResource("4_action")
@@ -86,7 +82,6 @@ cooldownSeconds = 1.0
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_proj_large")])
 aimType = 2
-positionalRange = 10.0
 positionalAreaRadius = 2.5
 releaseEffect = ExtResource("9_throw")
 
@@ -95,14 +90,6 @@ script = ExtResource("6_profile")
 chargedActions = Array[ExtResource("4_action")]([SubResource("Resource_tier_toss"), SubResource("Resource_tier_heavy")])
 autoActivateAtMax = false
 queueWindowSeconds = 0.0
-
-[sub_resource type="Resource" id="Resource_damage_primary"]
-script = ExtResource("1_damage")
-tags = 1
-healthDamage = 1.0
-statusEffects = []
-buildups = []
-modifiers = []
 
 [sub_resource type="Resource" id="Resource_damage_explosion"]
 script = ExtResource("1_damage")
@@ -115,16 +102,24 @@ statusEffects = []
 buildups = []
 modifiers = []
 
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("1_damage")
+tags = 1
+healthDamage = 1.0
+statusEffects = []
+buildups = []
+modifiers = []
+
 [resource]
 script = ExtResource("2_weapon")
-maxAmmo = 5
+rightHandSlot = true
+maxAmmo = 3
 ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"explosion": SubResource("Resource_damage_explosion"),
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")
-animSet = null
 displayName = &"Bomb"
 description = "Lob it onto a target. Boom."
 value = 40

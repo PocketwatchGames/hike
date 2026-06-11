@@ -27,7 +27,7 @@ layout_mode = 2
 
 [node name="Title" type="Label" parent="MarginContainer/HBoxContainer" unique_id=642038354]
 layout_mode = 2
-text = "Pierce"
+text = "Armor Penetration"
 horizontal_alignment = 1
 
 [node name="PanelContainer" type="PanelContainer" parent="MarginContainer/HBoxContainer" unique_id=1749277760]

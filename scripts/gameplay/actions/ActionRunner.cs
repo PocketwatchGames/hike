@@ -28,6 +28,14 @@ public class ActionRunner
 	private Fx _chargeLoop;
 	private PackedScene _chargeLoopScene;
 
+	// Channeled-charge zone (summoner weapon). Spawned when the selected tier
+	// carries a `channelZoneScene`, repositioned to the aim cursor each Charging
+	// tick, and freed on any Charging exit (abort OR activation). Owned exactly
+	// like _chargeLoop. `_lastChannelDrainMs` is the timestamp the per-second
+	// channel blood cost was last spent against (drained smoothly each tick).
+	private GasCloud _channelZone;
+	private ulong _lastChannelDrainMs;
+
 	public ActionRunner(IActionActor actor)
 	{
 		_actor = actor;
@@ -146,6 +154,10 @@ public class ActionRunner
 			ulong now = _actor.GameTimeMs;
 			WalkChargeEvents(now);
 			UpdateChargingTierSelection(now);
+			// Reposition + drain the channel zone before auto-activate, since the
+			// drain can abort the charge (out of blood) and auto-activate must not
+			// fire in that case. Both check the phase, so a mid-tick abort is safe.
+			TickChannel(now);
 			MaybeAutoActivate(now);
 			return;
 		}
@@ -267,6 +279,7 @@ public class ActionRunner
 		{
 			FireEventList(tier0.readyEvents);
 			StartChargeEffects(tier0);
+			TickChannel(now);
 		}
 
 		// Auto-activate path: if the profile's combo timeline has zero total
@@ -383,6 +396,7 @@ public class ActionRunner
 		}
 		FireChargeEndEvents();
 		StopChargeLoop();
+		StopChannelZone();
 		ItemEventHandlers.SpawnOnActor(_actor, tier?.releaseEffect);
 		float chargeElapsed = (now - _action.pressMs) / 1000f;
 		_action.phase = EActionPhase.Active;
@@ -455,6 +469,7 @@ public class ActionRunner
 	{
 		FireChargeEndEvents();
 		StopChargeLoop();
+		StopChannelZone();
 		if (_action.selectedTier != null)
 		{
 			ItemEventHandlers.SpawnOnActor(_actor, _action.selectedTier.chargeCancelEffect);
@@ -636,6 +651,10 @@ public class ActionRunner
 		{
 			ItemEventHandlers.DoApplyMotion(_actor, ev, ref _action);
 		}
+		if ((t & EItemEventType.SummonMinion) != 0)
+		{
+			ItemEventHandlers.DoSummonMinion(_actor, ev, ref _action);
+		}
 		if ((t & EItemEventType.DecrementStack) != 0)
 		{
 			ItemEventHandlers.DoDecrementStack(_actor, ev, ref _action);
@@ -802,6 +821,56 @@ public class ActionRunner
 			_chargeLoop.Stop();
 			_chargeLoop = null;
 			_chargeLoopScene = null;
+		}
+	}
+
+	// Drives the selected tier's channeled-charge zone during Charging: lazily
+	// spawns it the first tick the tier owns one, keeps it pinned to the aim
+	// cursor, and bleeds the per-second blood cost smoothly. Aborts the charge
+	// if the actor can't pay — callers must tolerate the phase flipping out of
+	// Charging mid-call. No-op for tiers without a channelZoneScene (the norm).
+	private void TickChannel(ulong now)
+	{
+		ItemAction tier = _action.selectedTier;
+		if (tier == null || tier.channelZoneScene == null)
+		{
+			return;
+		}
+		if (_channelZone == null)
+		{
+			_channelZone = ItemEventHandlers.SpawnChannelZone(_actor, tier.channelZoneScene, tier.positionalAreaRadius);
+			_lastChannelDrainMs = now;
+		}
+		if (_channelZone != null && Godot.GodotObject.IsInstanceValid(_channelZone))
+		{
+			_channelZone.GlobalPosition = ItemEventHandlers.ResolveAimPoint(_actor);
+		}
+		// Smooth per-second drain: spend exactly the blood accrued since the
+		// last tick. A whole-frame's worth is tiny, so abort only when even that
+		// can't be afforded (HasBlood is strict, so it never drains to ≤ 0).
+		float perSecond = tier.channelBloodCostPerSecond;
+		if (perSecond > 0f && now > _lastChannelDrainMs)
+		{
+			float cost = perSecond * (now - _lastChannelDrainMs) / 1000f;
+			if (!_actor.HasBlood(cost))
+			{
+				AbortCharging();
+				return;
+			}
+			_actor.DrainBlood(cost);
+			_lastChannelDrainMs = now;
+		}
+	}
+
+	private void StopChannelZone()
+	{
+		if (_channelZone != null)
+		{
+			if (Godot.GodotObject.IsInstanceValid(_channelZone))
+			{
+				_channelZone.QueueFree();
+			}
+			_channelZone = null;
 		}
 	}
 

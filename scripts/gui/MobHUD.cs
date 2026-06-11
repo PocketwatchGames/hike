@@ -182,13 +182,16 @@ public partial class MobHUD : Node2D
 			_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
 			// Hostiles and prey both surface the stealth (perception) and health
 			// bars — you stalk both. Other teams (friendly, neutral) show neither.
-			bool combatOrPrey = _mob.mobData.team == ETeam.Hostile || _mob.mobData.team == ETeam.Prey;
+			// Effective team so a tamed companion (authored Prey, Friendly once
+			// tamed) drops the stalk/health bars instead of reading as prey.
+			ETeam hudTeam = _mob.ActorTeam;
+			bool combatOrPrey = hudTeam == ETeam.Hostile || hudTeam == ETeam.Prey;
 			_perceptionBar.Visible = combatOrPrey && _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
 			// Health bar shows only when injured. Hostiles reveal it once engaged
 			// (triggered); prey reveal it whenever wounded, so you can track a
 			// hurt animal you're hunting. Other teams don't show one.
 			bool injured = _mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor;
-			bool healthEligible = _mob.mobData.team switch
+			bool healthEligible = hudTeam switch
 			{
 				ETeam.Hostile => _mob.triggered,
 				ETeam.Prey => true,

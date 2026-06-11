@@ -22,6 +22,22 @@ public partial class HurtBox : Area3D
     // Apply damage to the receiver. One-way: receiver doesn't report back.
     public Action<HitInfo> OnHit;
 
+    // Receiver-supplied hit filter. Given the incoming HitInfo, returns whether
+    // this receiver accepts the hit. Lets each receiver own its own rule
+    // against the hit's carried context — team allegiance today (a Mob answers
+    // from its effective team, the player from the Player team), but also
+    // stealth, damage tags, or anything else the HitInfo grows — instead of the
+    // attacker walking the tree to guess who owns the box. Unset on ownerless
+    // damageables (props, environmental hurtboxes) — see CanBeHit.
+    public Func<HitInfo, bool> CanHit;
+
+    // Safe wrapper for senders. A receiver that wires no CanHit filter accepts
+    // every hit (props, environmental damageables have no faction to defend).
+    public bool CanBeHit(HitInfo hit)
+    {
+        return CanHit == null || CanHit(hit);
+    }
+
     public EHitResult QueryHitType(HitInfo hit)
     {
         return GetHitType != null ? GetHitType(hit) : EHitResult.None;

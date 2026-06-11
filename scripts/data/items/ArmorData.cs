@@ -12,7 +12,7 @@ public partial class ArmorData : ItemData
 	//   { ColdResist,   +10  } — leather lining (additive threshold shift)
 	//   { Camouflage,   +5   } — wolf cloak (additive sense bonus)
 	//   { Noise,         0.8 } — padded boots (multiplicative)
-	//   { Pierce,        0.5 } — chainmail (halves pierce-bypass chance)
+	//   { ArmorPenetration, 0.5 } — chainmail (halves armor-penetration-bypass chance)
 	//   { Fire,          0.5 } — fire-warded plate (halves fire damage)
 	[Export] public Godot.Collections.Array<StatModifier> modifiers;
 

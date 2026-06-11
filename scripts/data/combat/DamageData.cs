@@ -16,7 +16,7 @@ public partial class DamageData : Resource
 	// Type tags carried by this hit (Fire, Melee, Magical, …). Receivers
 	// fold their per-tag StatModifier entries (inherent + armor + active
 	// status effects) against this mask at multiple sites: healthDamage
-	// scale (any damage tag), pierce-chance scale (EStat.Pierce only),
+	// scale (any damage tag), armor-penetration-chance scale (EStat.ArmorPenetration only),
 	// armor-chip scale (EStat.Blunt only), knockback magnitude (EStat.
 	// Knockback only). Default None means the hit is untyped — no modifier
 	// entry matches, so it lands at full strength. Author broadly: a basic
@@ -39,14 +39,14 @@ public partial class DamageData : Resource
 	// Chance (0..1) that the entire hit bypasses the receiver's armor pool
 	// and lands directly on health. 0 = always absorbed by armor (the legacy
 	// behavior); 1 = always bypasses. Rolled once when the HitInfo is built
-	// (HitInfo.pierceRoll) so the prediction in HurtBox.QueryHitType and the
-	// real apply in HurtBox.Hit always agree on whether this swing pierced.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float pierce = 0f;
+	// (HitInfo.armorPenetrationRoll) so the prediction in HurtBox.QueryHitType and the
+	// real apply in HurtBox.Hit always agree on whether this swing penetrated armor.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 0f;
 
 	// Multiplier on the healthDamage chip dealt to the receiver's armor pool —
 	// final armor chip is `healthDamage * (1 + blunt)`, clamped to remaining
 	// armor. 0 = baseline (chip == healthDamage); 1 = doubles the chip. Has
-	// no effect on the damage that bleeds through on a pierced hit.
+	// no effect on the damage that bleeds through on an armor-penetrating hit.
 	[Export] public float blunt = 0f;
 
 	// Seconds of hitstun applied to the receiver — short reaction lockout
@@ -97,13 +97,14 @@ public partial class DamageData : Resource
 	[Export] public bool dot = false;
 
 	// When false (default), direct-hit senders (Melee / Hitscan / Projectile
-	// handlers, status-effect AoE bursts) skip hurtboxes belonging to mobs on
-	// the attacker's own team — a goblin's swing can't hurt its kin, an elite's
-	// lightning discharge spares allies. Author true for damage meant to spill
-	// onto everyone regardless of team (a wild cleave, a friendly-fire
-	// fireball). The policy rides on the hit payload so every sender that
-	// builds a HitInfo from this template inherits it consistently. (Does NOT
-	// govern GasCloud / DamageZone hazards — those carry their own scene-level
-	// team filter.)
+	// handlers, status-effect AoE bursts) skip hurtboxes whose owner is allied
+	// with the attacker (ItemEventHandlers.CanDamage / Teams.AreAllied) — a
+	// goblin's swing can't hurt its kin, the player can't strike a friendly NPC
+	// or tamed companion. Author true for damage meant to spill onto everyone
+	// regardless of team (a wild cleave, a friendly-fire fireball). The policy
+	// rides on the hit payload so every sender that builds a HitInfo from this
+	// template inherits it consistently. DamageZone hazards apply the same
+	// CanDamage rule, but carry their own zone-level attackerTeam / friendlyFire
+	// fields rather than reading this one.
 	[Export] public bool friendlyFire = false;
 }

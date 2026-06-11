@@ -16,25 +16,31 @@ using Godot;
 //   - ReturnAmmoOnRemoval() is called by Mob._ExitTree if the mob is
 //     unloaded with the arrow still stuck (no death). Fires the standard
 //     OnArrowRemoved so the weapon recovers 1 ammo.
-//   - The same ArrowLootData.removeTimeMs that expires loose arrows on the
-//     ground also expires arrows still embedded in a live mob, so a missed
-//     pickup window doesn't permanently lock up an ammo slot.
+//   - Recover() is called by the weapon's central ammo-recharge timer when
+//     this is the oldest outstanding arrow — routes through the mob and
+//     returns 1 ammo, the same as a loose arrow being auto-reclaimed.
 [GlobalClass]
 public partial class ArrowStuck : Node3D, IWeaponArrow
 {
     private WeaponState _sourceWeapon;
     private ArrowLootData _data;
-    private float _ageSeconds;
 
     public WeaponState SourceWeapon => _sourceWeapon;
 
-    public float GetReplenishProgress()
+    // Auto-recovery by the weapon's central ammo-recharge timer. Routes
+    // through the mob (so it drops us from _stuckArrows before we free) which
+    // forwards to ReturnAmmoOnRemoval; if somehow unparented, return ammo
+    // directly. Returns 1 ammo to the source weapon and frees this node.
+    public void Recover()
     {
-        if (_data == null || _data.removeTimeMs <= 0)
+        if (GetParent() is Mob mob)
         {
-            return 0f;
+            mob.OnStuckArrowExpired(this);
         }
-        return Mathf.Clamp(_ageSeconds * 1000f / _data.removeTimeMs, 0f, 1f);
+        else
+        {
+            ReturnAmmoOnRemoval();
+        }
     }
 
     public static ArrowStuck Create(Mob mob, ArrowLootData data, WeaponState sourceWeapon, Vector3 worldHitPos, Vector3 hitDirection)
@@ -84,32 +90,6 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
             stuck.AddChild(sprite);
         }
         return stuck;
-    }
-
-    public override void _Process(double delta)
-    {
-        if (_data == null || _data.removeTimeMs <= 0)
-        {
-            return;
-        }
-        _ageSeconds += (float)delta;
-        if (_ageSeconds * 1000f < _data.removeTimeMs)
-        {
-            return;
-        }
-        // Notify the parent mob first so it can drop us from _stuckArrows
-        // before we free — otherwise its _ExitTree would later iterate a
-        // freed reference and double-fire ReturnAmmoOnRemoval. The mob
-        // forwards to ReturnAmmoOnRemoval itself, which returns ammo and
-        // frees this node.
-        if (GetParent() is Mob mob)
-        {
-            mob.OnStuckArrowExpired(this);
-        }
-        else
-        {
-            ReturnAmmoOnRemoval();
-        }
     }
 
     // Transition stuck → loose loot. Removes the stuck instance from the

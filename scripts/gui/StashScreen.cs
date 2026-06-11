@@ -623,7 +623,7 @@ public partial class StashScreen : Control
 		{
 			return;
 		}
-		bool moved = ExecuteSelectMove(destCategory);
+		bool moved = ExecuteSelectMove(dest, destCategory);
 		if (!moved)
 		{
 			// Leave the player in select mode so they can retry — but refresh
@@ -638,7 +638,7 @@ public partial class StashScreen : Control
 		UpdateButtonHint();
 	}
 
-	bool ExecuteSelectMove(EFocusedPanel destCategory)
+	bool ExecuteSelectMove(ItemSlotPanel dest, EFocusedPanel destCategory)
 	{
 		int amount = Mathf.Min(_selectedAmount, _selectedItem?.stackCount ?? 0);
 		if (amount <= 0) { return false; }
@@ -647,7 +647,7 @@ public partial class StashScreen : Control
 			case (EFocusedPanel.PlayerInventory, EFocusedPanel.Stash):
 				return MoveInventoryToStash(_selectedItem, amount);
 			case (EFocusedPanel.Stash, EFocusedPanel.PlayerInventory):
-				return MoveStashToInventory(_selectedSourceIndex, amount);
+				return MoveStashToInventory(dest, _selectedSourceIndex, amount);
 		}
 		return false;
 	}
@@ -745,7 +745,7 @@ public partial class StashScreen : Control
 		return true;
 	}
 
-	bool MoveStashToInventory(int slotIndex, int amount)
+	bool MoveStashToInventory(ItemSlotPanel dest, int slotIndex, int amount)
 	{
 		if (_contents == null || slotIndex < 0 || slotIndex >= _contents.Count || _player?.Inventory == null)
 		{
@@ -756,14 +756,51 @@ public partial class StashScreen : Control
 		{
 			return false;
 		}
+		Inventory inv = _player.Inventory;
 		int requested = Mathf.Min(amount, stashItem.stackCount);
-		// Create a fresh state for the receiving side — stash items are
-		// re-created from their ItemData on save/load anyway (see
-		// ChestSimState.Contents comment), so we don't carry subclass-specific
-		// fields like WeaponState.ammo across the move.
-		ItemState fresh = stashItem.data.CreateState();
-		fresh.stackCount = requested;
-		int added = _player.Inventory.TryAdd(fresh);
+		if (requested <= 0)
+		{
+			return false;
+		}
+		bool fullMove = requested >= stashItem.stackCount;
+
+		// If the player aimed at a specific backpack slot, honor it: swap with a
+		// different-kind occupant, merge into a same-kind stack, or fill it if
+		// empty. A refusal (full same-kind stack, or a partial drop onto a
+		// different-kind occupant) falls through to first-empty placement below.
+		int destIndex = _playerInventory != null ? _playerInventory.GetBackpackPanelIndex(dest) : -1;
+		if (destIndex >= 0)
+		{
+			// Fresh state for the receiving side — stash items are re-created from
+			// their ItemData on save/load anyway (see ChestSimState.Contents
+			// comment), so we don't carry subclass-specific fields like
+			// WeaponState.ammo across the move.
+			ItemState fresh = stashItem.data.CreateState();
+			fresh.stackCount = requested;
+			int placed = inv.TryAddExternalToBackpackSlot(fresh, fullMove, destIndex, out ItemState displaced);
+			if (placed > 0)
+			{
+				stashItem.stackCount -= placed;
+				if (displaced != null)
+				{
+					// Swap: the stash item moved in whole, so its slot now holds
+					// the inventory item it displaced.
+					_contents[slotIndex] = displaced;
+				}
+				else if (stashItem.stackCount <= 0)
+				{
+					_contents.RemoveAt(slotIndex);
+				}
+				return true;
+			}
+		}
+
+		// No targeted slot (or it refused the item): merge across existing stacks
+		// and land any remainder in the first empty backpack slot. Fails cleanly
+		// — leaving the item in the stash — if nothing fits.
+		ItemState addFresh = stashItem.data.CreateState();
+		addFresh.stackCount = requested;
+		int added = inv.TryAdd(addFresh);
 		if (added <= 0)
 		{
 			return false;

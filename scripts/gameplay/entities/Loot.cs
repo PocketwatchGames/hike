@@ -132,22 +132,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		}
 	}
 
-	// Fraction in [0, 1] of the way to the LootData.removeTimeMs expiry.
-	// 0 when no timeout is authored or removal has already started. Used
-	// by ArrowLootSimState to surface "time until ammo replenishes" on
-	// the weapon HUD.
-	public float GetReplenishProgress()
+	// Force this pickup to despawn now and fire its OnRemovedFromWorld hook,
+	// identical to a natural removeTimeMs expiry (same shrink/lift outro).
+	// Used by ArrowLootSimState.Recover so the weapon's central ammo-recharge
+	// timer can auto-reclaim the oldest outstanding arrow.
+	public void RecoverArrow()
 	{
-		if (_pickedUp || _removed)
-		{
-			return 0f;
-		}
-		ItemData data = _simState?.Item?.data ?? _simState?.Data;
-		if (data is not LootData lootData || lootData.removeTimeMs <= 0)
-		{
-			return 0f;
-		}
-		return Mathf.Clamp(_ageSeconds * 1000f / lootData.removeTimeMs, 0f, 1f);
+		Expire();
 	}
 
 	private void Expire()

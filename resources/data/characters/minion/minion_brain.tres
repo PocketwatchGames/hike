@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="BrainData" format=3 uid="uid://c5mn1brn4flw7"]
+
+[ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
+[ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
+[ext_resource type="Script" uid="uid://tf8y77n6ehu84" path="res://scripts/data/behaviors/FollowBehaviorData.cs" id="4_follow"]
+
+[sub_resource type="Resource" id="Resource_follow"]
+script = ExtResource("4_follow")
+followDistance = 3.0
+stopDistance = 2.0
+followSpeed = 1.0
+metadata/_custom_type_script = "uid://tf8y77n6ehu84"
+
+[sub_resource type="Resource" id="Resource_follow_node"]
+script = ExtResource("2_node")
+name = &"Follow"
+data = SubResource("Resource_follow")
+transitions = []
+metadata/_custom_type_script = "uid://d3xbi1dqweahm"
+
+[resource]
+script = ExtResource("1_brain")
+idleBehavior = &"Follow"
+behaviors = [SubResource("Resource_follow_node")]
+metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

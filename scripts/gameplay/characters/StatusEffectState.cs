@@ -30,6 +30,15 @@ public class StatusEffectState
 	// the effect authors a trail.
 	public float trailAccumulator;
 
+	// Weapon-modifier scope, stamped when this effect is composed onto an item
+	// as a weapon mod (StatusEffectController.AddWeaponMod from an
+	// ItemDescriptor). Default AllAttacks so ordinary status effects (poison,
+	// wet, ...) — which never set projectilePierceCount / detonate-on-contact —
+	// behave as weapon-global no-ops. SpecificCharge restricts the mod to the
+	// `weaponModChargeIndex` tier of the wielding weapon's ItemActionProfile.
+	public EWeaponModScope weaponModScope = EWeaponModScope.AllAttacks;
+	public int weaponModChargeIndex;
+
 	public StatusEffectState(StatusEffectData data, ulong nowMs)
 	{
 		this.data = data;

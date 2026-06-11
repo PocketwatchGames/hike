@@ -5,7 +5,7 @@
 public enum EStatName
 {
 	Damage,
-	Pierce,
+	ArmorPenetration,
 	Blunt,
 	Dizzy,
 	Knockback,

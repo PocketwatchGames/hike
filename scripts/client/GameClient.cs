@@ -13,7 +13,7 @@ public partial class GameClient : Node3D
 	public readonly Dictionary<EStatName, string> statNames = new Dictionary<EStatName, string>
 	{
 		{ EStatName.Damage, "Damage" },
-		{ EStatName.Pierce, "Pierce" },
+		{ EStatName.ArmorPenetration, "Armor Penetration" },
 		{ EStatName.Blunt, "Blunt" },
 		{ EStatName.Dizzy, "Dizzy" },
 		{ EStatName.Knockback, "Knockback" },

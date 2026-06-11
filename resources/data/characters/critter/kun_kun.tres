@@ -5,6 +5,7 @@
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_l8bhi"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="5_meat"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_pwfhx"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]
@@ -68,9 +69,14 @@ script = ExtResource("6_animdata")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("99_desc")
+item = ExtResource("5_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("4_lootcount")
-item = ExtResource("5_meat")
+descriptor = SubResource("Desc_loot_meat")
 count = 2
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 

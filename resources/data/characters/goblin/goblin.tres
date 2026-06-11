@@ -2,11 +2,12 @@
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_vvowg"]
 [ext_resource type="Resource" uid="uid://crudckd4dl15b" path="res://resources/data/characters/goblin/goblin_brain.tres" id="2_brain"]
-[ext_resource type="PackedScene" path="res://scenes/items/held/torch_held.tscn" id="3_heldtorch"]
+[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/torch_held.tscn" id="3_heldtorch"]
 [ext_resource type="PackedScene" uid="uid://b1k83q4aam63n" path="res://scenes/effects/moving_light_torch_goblin.tscn" id="3_torch"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_s0aos"]
 [ext_resource type="PackedScene" uid="uid://dkt7yn4dv0rla" path="res://scenes/characters/goblin.tscn" id="4_scene"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://bgbn5p2k4q7wt" path="res://resources/data/items/loot/goblin_meat.tres" id="6_meat"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="7_animdata"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_cxd6e"]
@@ -81,9 +82,14 @@ statusEffects = []
 buildups = []
 modifiers = []
 
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("99_desc")
+item = ExtResource("6_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("5_lootcount")
-item = ExtResource("6_meat")
+descriptor = SubResource("Desc_loot_meat")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_dbs3s"]

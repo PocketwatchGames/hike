@@ -17,21 +17,34 @@ public partial class WeaponData : ItemData
 	// exclusive — a melee weapon cannot be equipped in the ranged slot or
 	// vice versa. Equip / auto-equip / select-mode swap all read this so the
 	// rule lives in one place.
-	public EInventorySlot CanonicalSlot => maxAmmo > 0 ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
+	// Single source of truth for handedness: true = this weapon equips to the
+	// right-hand (ranged) slot, false = the left-hand (melee) slot. Handedness
+	// is exclusive — equip / auto-equip / select-mode swap all read CanonicalSlot
+	// so the rule lives in one place. Ranged weapons (bow, bomb) and positional
+	// casters (the summoner — the aiming reticle only resolves positional / arced
+	// aim for the right slot) set this true; melee weapons leave it false.
+	// Independent of whether the weapon bears ammo (maxAmmo) and of the visual
+	// wieldHand below.
+	[Export] public bool rightHandSlot = false;
+	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
 	// Optional drop spawned at every Hitscan impact point. When wired, each
 	// shot leaves a recoverable arrow in the world that returns 1 ammo when
-	// removed (player pickup or LootData.removeTimeMs timeout). Null = no
-	// drop, ammo decrements permanently.
+	// removed (player pickup, or auto-reclaimed oldest-first by the central
+	// ammoRechargeSeconds timer below). Null = no drop, ammo decrements
+	// permanently. Arrows themselves carry no self-expiry timer — set their
+	// LootData.removeTimeMs to 0; the weapon's central timer owns recovery.
 	[Export] public ArrowLootData arrowLootData;
 
-	// Seconds to passively regenerate one unit of ammo while below maxAmmo —
-	// a self-recharging magazine (e.g. bombs refill on their own). The timer
-	// runs continuously while ammo < maxAmmo and restarts after each refill, so
-	// a fully-spent weapon climbs back to full in `ammoRechargeSeconds * maxAmmo`
-	// seconds; firing never resets the in-progress charge. 0 (default) disables
-	// auto-recharge — weapons that refill only via arrow recovery / pickups
-	// (the bow) leave it at 0. Independent of and additive with arrowLootData
-	// recovery. See Player.TickAmmoRecharge.
+	// Seconds per unit of the weapon's single central ammo-recharge timer.
+	// While ammo < maxAmmo the deadline runs continuously and restarts after
+	// each refill, so a fully-spent weapon climbs back to full in
+	// `ammoRechargeSeconds * maxAmmo` seconds; firing never resets the
+	// in-progress charge, and topping back off by hand clears it. Each elapse
+	// recovers one unit: a weapon that drops arrows (arrowLootData set — the
+	// bow) auto-reclaims its oldest outstanding arrow; a self-recharging
+	// magazine (the bomb) regenerates ammo from nothing. 0 (default) disables
+	// the timer entirely — such an arrow weapon would then refill only via
+	// hand pickup. See Player.TickAmmoRecharge.
 	[Export] public float ammoRechargeSeconds = 0f;
 
 	// Named damage profiles fired by this weapon's events. Convention: the
@@ -115,6 +128,13 @@ public partial class WeaponData : ItemData
 	[Export] public WeaponAnimSet animSet;
 
 	[Export] public override int maxLevel { get; set; } = 5;
+
+	// Summoner weapon: how many minions this weapon may keep alive at once.
+	// WeaponState tracks its summoned minions; summoning past this cap recycles
+	// the oldest live minion first. 1 (default) = a single minion at a time;
+	// raise it to allow a small pack. Only meaningful for a weapon whose action
+	// timeline fires SummonMinion events.
+	[Export] public int maxMinions = 1;
 
 	[ExportGroup("Blocking")]
 	// Recharging "guard" armor that is active ONLY while the player is

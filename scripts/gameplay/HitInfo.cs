@@ -19,7 +19,7 @@ public struct HitInfo
 	// Type tags carried from the source template (DamageData.tags /
 	// ContinuousDamageData.tags). Receivers fold their per-tag StatModifier
 	// entries against this mask at multiple gameplay sites — damage scale,
-	// pierce-chance, armor chip, knockback magnitude — when applying.
+	// armor-penetration-chance, armor chip, knockback magnitude — when applying.
 	public EStat tags;
 	public float healthDamage;
 	public float hitstun;
@@ -31,17 +31,17 @@ public struct HitInfo
 	public float knockbackDistance;
 	public float knockbackTime;
 	// Chance (0..1) that this hit bypasses the receiver's armor pool and
-	// lands directly on health. See DamageData.pierce.
-	public float pierce;
+	// lands directly on health. See DamageData.armorPenetration.
+	public float armorPenetration;
 	// Anti-armor multiplier on the healthDamage chip — receivers compute
 	// armor chip as `healthDamage * (1 + blunt)`. See DamageData.blunt.
 	public float blunt;
 	// Random sample in [0,1) drawn once at construction. Receivers compare
-	// it against the final `pierce` (after modifiers fold) via `Pierced`
-	// instead of re-rolling, so HurtBox.QueryHitType and HurtBox.Hit always
-	// agree on whether the same swing pierced.
-	public float pierceRoll;
-	// Random sample in [0,1) for the crit decision. Same pattern as pierceRoll
+	// it against the final `armorPenetration` (after modifiers fold) via
+	// `ArmorPenetrated` instead of re-rolling, so HurtBox.QueryHitType and
+	// HurtBox.Hit always agree on whether the same swing penetrated armor.
+	public float armorPenetrationRoll;
+	// Random sample in [0,1) for the crit decision. Same pattern as armorPenetrationRoll
 	// — drawn once at construction so the attacker's QueryHitTriggers
 	// prediction and the receiver's Hit-time ApplyCrit agree on whether this
 	// swing crits even though crit is now probabilistic (driven by the
@@ -49,9 +49,9 @@ public struct HitInfo
 	public float critRoll;
 	// Fraction of healthDamage that bypasses armor and lands directly on
 	// health, with the remainder routed through armor chip. Set by the
-	// continuous-damage path (ContinuousDamageData.pierce) — spreads
+	// continuous-damage path (ContinuousDamageData.armorPenetration) — spreads
 	// armor bypass across time instead of rolling per hit. 0 = use the
-	// discrete `Pierced` path; > 0 = continuous-style split. Discrete
+	// discrete `ArmorPenetrated` path; > 0 = continuous-style split. Discrete
 	// hits leave this at 0.
 	public float armorBypassFraction;
 	public Godot.Collections.Array<StatusEffectData> statusEffects;
@@ -86,26 +86,35 @@ public struct HitInfo
 	// into a per-second accumulator instead of spawning a floating HUD
 	// number every frame.
 	public bool dot;
-	// Whether this hit may damage hurtboxes on the attacker's own team. Sourced
-	// from DamageData.friendlyFire so the direct-hit handlers' same-team skip
-	// (IsFriendlyFireBlocked) reads the policy off the payload rather than the
-	// delivering event. Continuous-damage hits leave it false.
+	// Whether this hit may damage hurtboxes allied with the attacker. Sourced
+	// from DamageData.friendlyFire (overridden by hazard-level policy on a
+	// DamageZone). Receivers read it off the payload via HurtBox.CanHit — true
+	// bypasses the team filter so the hit lands on everyone. Continuous-damage
+	// hits leave it false unless the sender overrides it.
 	public bool friendlyFire;
+	// Faction of whoever launched this hit. Set by the sender (melee/hitscan
+	// from the actor's team, projectiles from the firer's, DamageZone from the
+	// hazard's). Receivers consult it in their HurtBox.CanHit gate — the hit's
+	// own carried context is what lets a receiver decide by team without the
+	// attacker walking the receiver's tree. Defaults to Hostile when a sender
+	// doesn't set it (only matters for senders that actually gate).
+	public ETeam attackerTeam;
 	// Tracks whether `statusEffects` has been cloned away from the source
 	// template's array. The first AddStatusEffects fold allocates a fresh
 	// list so we don't mutate the authored DamageData; subsequent folds
 	// reuse the owned copy.
 	private bool _statusEffectsOwned;
 
-	public HitInfo(DamageData template, Node source, Vector3 hitDirection = default)
+	public HitInfo(DamageData template, Node source, Vector3 hitDirection = default, ETeam attackerTeam = ETeam.Hostile)
 	{
 		this.source = source;
 		this.hitDirection = hitDirection;
+		this.attackerTeam = attackerTeam;
 		_statusEffectsOwned = false;
-		// Roll pierce + crit once up-front so the prediction and the apply see
-		// the same outcome even though modifiers may shift the underlying
-		// fields between them.
-		pierceRoll = GD.Randf();
+		// Roll armor penetration + crit once up-front so the prediction and the
+		// apply see the same outcome even though modifiers may shift the
+		// underlying fields between them.
+		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
 		armorBypassFraction = 0f;
 		if (template != null)
@@ -115,7 +124,7 @@ public struct HitInfo
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
-			pierce = template.pierce;
+			armorPenetration = template.armorPenetration;
 			blunt = template.blunt;
 			statusEffects = template.statusEffects;
 			buildups = template.buildups;
@@ -130,7 +139,7 @@ public struct HitInfo
 			hitstun = 0f;
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
-			pierce = 0f;
+			armorPenetration = 0f;
 			blunt = 0f;
 			statusEffects = null;
 			buildups = null;
@@ -143,25 +152,26 @@ public struct HitInfo
 
 	// Continuous-damage constructor. Pre-scales healthDamage by `delta` so the
 	// receiver's discrete apply path lands a one-frame chunk; sets
-	// `armorBypassFraction` from the template's fractional pierce; flags
+	// `armorBypassFraction` from the template's fractional armorPenetration; flags
 	// `dot = true` so the HUD rollup kicks in. Buildups pass through unscaled
 	// — `buildupAmountMultiplier` is set to `delta` so the receiver scales
 	// per-second rates correctly at apply time without mutating the authored
 	// list. No modifiers or status effects — continuous damage authors its
 	// status cadence through interval entries on the same DamageZone.
-	public HitInfo(ContinuousDamageData template, Node source, float delta, Vector3 hitDirection = default)
+	public HitInfo(ContinuousDamageData template, Node source, float delta, Vector3 hitDirection = default, ETeam attackerTeam = ETeam.Hostile)
 	{
 		this.source = source;
 		this.hitDirection = hitDirection;
+		this.attackerTeam = attackerTeam;
 		_statusEffectsOwned = false;
-		pierceRoll = GD.Randf();
+		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
 		if (template != null)
 		{
 			tags = template.tags;
 			healthDamage = template.healthDamage * delta;
 			blunt = template.blunt;
-			armorBypassFraction = template.pierce;
+			armorBypassFraction = template.armorPenetration;
 			buildups = template.buildups;
 		}
 		else
@@ -175,7 +185,7 @@ public struct HitInfo
 		hitstun = 0f;
 		knockbackDistance = 0f;
 		knockbackTime = 0f;
-		pierce = 0f;
+		armorPenetration = 0f;
 		statusEffects = null;
 		modifiers = null;
 		dot = true;
@@ -187,9 +197,10 @@ public struct HitInfo
 	}
 
 	// True when the rolled chance landed inside the (possibly modifier-
-	// boosted) pierce window. `pierceRoll` is sampled in [0,1), so a pierce
-	// of 0 never fires and a pierce of 1 always fires.
-	public bool Pierced => pierceRoll < pierce;
+	// boosted) armor-penetration window. `armorPenetrationRoll` is sampled in
+	// [0,1), so an armorPenetration of 0 never fires and an armorPenetration
+	// of 1 always fires.
+	public bool ArmorPenetrated => armorPenetrationRoll < armorPenetration;
 
 	// Fold every modifier whose trigger equals `trigger` onto the live
 	// fields. Callers fire one trigger per condition crossing (OnCrit when
@@ -208,7 +219,7 @@ public struct HitInfo
 			if ((f & EDamageFields.Hitstun) != 0) { hitstun = mod.hitstun; }
 			if ((f & EDamageFields.KnockbackDistance) != 0) { knockbackDistance = mod.knockbackDistance; }
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }
-			if ((f & EDamageFields.Pierce) != 0) { pierce = mod.pierce; }
+			if ((f & EDamageFields.ArmorPenetration) != 0) { armorPenetration = mod.armorPenetration; }
 			if ((f & EDamageFields.Blunt) != 0) { blunt = mod.blunt; }
 			if ((f & EDamageFields.AddStatusEffects) != 0 && mod.addStatusEffects != null && mod.addStatusEffects.Count > 0)
 			{

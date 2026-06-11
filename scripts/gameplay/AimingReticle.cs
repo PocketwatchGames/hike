@@ -127,11 +127,13 @@ public partial class AimingReticle : Node3D
 
 	// Arced aim: world-space width of the previewed arc ribbon, in meters.
 	[Export(PropertyHint.Range, "0.02,0.5,0.01")] private float _arcRibbonWidth = 0.12f;
-	// Arced aim: distance (meters) from the launch point over which the ribbon
-	// fades in — fully transparent up to start, ramping to full alpha by end. Hides
-	// the ribbon right at the thrower's hand so it reads as leaving the throw.
-	[Export(PropertyHint.Range, "0,5,0.1")] private float _arcGradientStartDistance = 1f;
-	[Export(PropertyHint.Range, "0,6,0.1")] private float _arcGradientEndDistance = 2f;
+	// Arced aim: ribbon alpha fades IN over arc length [fadeInStart, fadeInEnd]
+	// from the launch point (transparent at the thrower's hand), and fades OUT over
+	// the last fadeOutDistance meters before the predicted landing. Per-vertex,
+	// measured along the simulated path.
+	[Export(PropertyHint.Range, "0,5,0.1")] private float _arcFadeInStart = 1f;
+	[Export(PropertyHint.Range, "0,6,0.1")] private float _arcFadeInEnd = 2f;
+	[Export(PropertyHint.Range, "0.1,5,0.1")] private float _arcFadeOutDistance = 1f;
 
 	// Linear ease from current outer radius to the new target whenever the
 	// target changes (lock on/off, or the targeted mob's clearance differs
@@ -242,11 +244,16 @@ public partial class AimingReticle : Node3D
 	Vector3 _arcLaunchVelocity;
 	float _arcLaunchGravity;
 	bool _arcLaunchValid;
-	readonly List<Vector3> _arcPoints = new(ArcPreviewSamples + 1);
+	readonly List<Vector3> _arcPoints = new(ArcSimMaxSteps + 8);
 
-	// Segment count the previewed arc (hump + post-arc fall over the fuse) is
-	// sampled into for the ribbon.
-	const int ArcPreviewSamples = 32;
+	// Preview path simulation: timestep (matches the projectile's physics tick so
+	// the predicted bounces line up with the real throw), step cap, the nudge off
+	// a surface after a bounce, and the speed below which a bounced projectile is
+	// treated as settled (so we stop simulating once it has rolled to rest).
+	const float ArcSimStep = 1f / 60f;
+	const int ArcSimMaxSteps = 150;
+	const float ArcSimSurfaceOffset = 0.03f;
+	const float ArcSettleSpeed = 0.5f;
 
 	// World position currently being aimed at — the ground circle anchor.
 	// Read by positional fire handlers (AoE drop target, throw destination)
@@ -771,70 +778,92 @@ public partial class AimingReticle : Node3D
 		}
 	}
 
-	// Vertical launch + timing for the fixed-shape hump, from the rise and gravity
-	// (the fuse plays no part — it only decides how long the projectile lives).
-	// Launch vertical speed v0y = √(2·g·rise); time to come down to `drop` meters
-	// BELOW the launch point (foot level) from −drop = v0y·t − ½g·t²:
-	//   arcDuration = (v0y + √(v0y² + 2·g·drop)) / g.
-	// Shared by the reticle preview and DoProjectile so the throw matches.
-	public static void ResolveArc(float rise, float gravity, float drop, out float launchVy, out float arcDuration)
+	// Launch vertical speed for the hump: v0y = √(2·g·rise) reaches a peak of
+	// `rise` above the launch point. Purely vertical — the horizontal reach is set
+	// separately from the aim distance + fuse. Shared by the reticle preview and
+	// DoProjectile so the throw matches.
+	public static float ArcLaunchVerticalSpeed(float rise, float gravity)
 	{
-		launchVy = Mathf.Sqrt(2f * gravity * rise);
-		arcDuration = (launchVy + Mathf.Sqrt(launchVy * launchVy + 2f * gravity * drop)) / gravity;
+		return Mathf.Sqrt(2f * gravity * rise);
 	}
 
 	// Build the arced throw from `origin` toward `target`: a fixed-shape hump that
-	// rises `rise` and bottoms out at the thrower's foot level at `lifetime`, with
-	// horizontal speed set so it covers the aim distance over that lifetime.
-	// Publishes the launch velocity (ArcLaunchVelocity) + derived gravity
-	// (ArcLaunchGravity) the real throw fires, and samples the trajectory into
-	// _arcPoints for the ribbon preview — truncated at the first terrain hit (the
-	// real projectile bounces on from there). No-op (clears _arcLaunchValid) when
-	// the active tier has no arced projectile event to read rise / lifetime from.
+	// rises by the event's rise under its gravity and bottoms out at the thrower's
+	// foot level, with horizontal speed set to cover the aim distance over that
+	// time. Publishes the launch velocity (ArcLaunchVelocity) + gravity
+	// (ArcLaunchGravity) the real throw fires, and simulates the FULL path —
+	// gravity plus bounces (restitution / friction), matching the projectile — over
+	// the fuse into _arcPoints, so the ribbon predicts the whole trajectory through
+	// its bounces to where it comes to rest / detonates. No-op (clears
+	// _arcLaunchValid) when the active tier has no arced projectile event.
 	void SolveArcToTarget(Vector3 origin, Vector3 target)
 	{
 		_arcLaunchValid = false;
 		_arcPoints.Clear();
 
-		if (!TryGetArcParams(out float rise, out float gravity, out float fuse)
-			|| rise <= 0f || gravity <= 0f)
+		ItemEvent arc = FindArcEvent();
+		if (arc == null || arc.projectileArcRise <= 0f || arc.projectileGravity <= 0f)
+		{
+			return;
+		}
+		float gravity = arc.projectileGravity;
+		float fuse = arc.projectileLifetimeSeconds;
+		float bounciness = arc.projectileBounciness;
+		float friction = arc.projectileFriction;
+		if (fuse <= 0f)
 		{
 			return;
 		}
 
-		// Rise + gravity fix the vertical motion and the time the hump takes to
-		// reach foot level (the launch origin is the chest, _aimHeight above the
-		// feet); horizontal speed then covers the aim distance over that time.
-		ResolveArc(rise, gravity, _aimHeight, out float launchVy, out float arcDuration);
+		// Vertical is rise + gravity; horizontal covers the aim distance over the
+		// FUSE (so the reach scales with maxRange/lifetime, not the time to return
+		// to foot level).
+		float launchVy = ArcLaunchVerticalSpeed(arc.projectileArcRise, gravity);
+
+		// "Fragile" weapon mod: the real throw skips bouncing and detonates on the
+		// first surface it meets (ItemEventHandlers.DoProjectile drops it into the
+		// non-bounce collision path). Mirror that here by ending the simulated path
+		// at the first solid hit instead of reflecting, so the dotted preview stops
+		// where the bomb will actually go off. Gated on an impactEvent (the payload
+		// on completion), matching DoProjectile's condition.
+		// Preview against weapon-global (AllAttacks) detonate mods only — the
+		// reticle doesn't track which charge tier the throw will commit to, and
+		// the only detonate mod in play (Fragile) is weapon-global. -1 matches
+		// AllAttacks-scoped mods and skips charge-specific ones.
+		WeaponState rightWeapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		bool detonateOnContact = arc.impactEvent != null
+			&& rightWeapon?.statusEffects.ProjectilesDetonateOnContact(-1) == true;
 
 		Vector3 bearing = HorizontalBearing(origin, target);
 		float dx = target.X - origin.X;
 		float dz = target.Z - origin.Z;
 		float horizDist = Mathf.Sqrt(dx * dx + dz * dz);
-		Vector3 horizVel = bearing * (horizDist / arcDuration);
+		Vector3 launchVel = bearing * (horizDist / fuse) + Vector3.Up * launchVy;
 
-		_arcLaunchVelocity = horizVel + Vector3.Up * launchVy;
+		_arcLaunchVelocity = launchVel;
 		_arcLaunchGravity = gravity;
 		_arcLaunchValid = true;
 
-		// Sample the parabola p(t) = origin + horizVel·t + (v0y·t − ½g·t²)·up over
-		// the full FUSE (so the preview shows the post-arc fall onto lower ground),
-		// stopping at the first solid hit where the throw first makes contact.
-		float span = fuse > 0f ? fuse : arcDuration;
+		// Step the trajectory exactly like Projectile (gravity before the move,
+		// reflect off solids with the same restitution/friction split), recording
+		// each point, until the fuse elapses or it settles after a bounce.
+		int maxSteps = Mathf.Min(ArcSimMaxSteps, Mathf.Max(1, Mathf.CeilToInt(fuse / ArcSimStep)));
 		PhysicsDirectSpaceState3D space = GetWorld3D()?.DirectSpaceState;
 		Godot.Collections.Array<Rid> exclude = _player != null
 			? new Godot.Collections.Array<Rid> { _player.GetRid() }
 			: null;
-		_arcPoints.Add(origin);
-		Vector3 prevPoint = origin;
-		for (int i = 1; i <= ArcPreviewSamples; i++)
+
+		Vector3 pos = origin;
+		Vector3 vel = launchVel;
+		_arcPoints.Add(pos);
+		bool bounced = false;
+		for (int step = 0; step < maxSteps; step++)
 		{
-			float t = span * i / ArcPreviewSamples;
-			float y = launchVy * t - 0.5f * gravity * t * t;
-			Vector3 p = origin + horizVel * t + Vector3.Up * y;
+			vel.Y -= gravity * ArcSimStep;
+			Vector3 next = pos + vel * ArcSimStep;
 			if (space != null)
 			{
-				using var q = PhysicsRayQueryParameters3D.Create(prevPoint, p, (uint)ECollisionLayer.Solid);
+				using var q = PhysicsRayQueryParameters3D.Create(pos, next, (uint)ECollisionLayer.Solid);
 				q.CollideWithBodies = true;
 				q.CollideWithAreas = false;
 				if (exclude != null)
@@ -844,12 +873,28 @@ public partial class AimingReticle : Node3D
 				var hit = space.IntersectRay(q);
 				if (hit.Count > 0)
 				{
-					_arcPoints.Add((Vector3)hit["position"]);
-					break;
+					Vector3 hitPos = (Vector3)hit["position"];
+					Vector3 normal = (Vector3)hit["normal"];
+					_arcPoints.Add(hitPos);
+					// Fragile: the throw detonates here — end the preview path.
+					if (detonateOnContact)
+					{
+						break;
+					}
+					Vector3 vNormal = vel.Dot(normal) * normal;
+					Vector3 vTangent = vel - vNormal;
+					vel = (-vNormal * bounciness) + (vTangent * (1f - friction));
+					pos = hitPos + normal * ArcSimSurfaceOffset;
+					bounced = true;
+					continue;
 				}
 			}
-			_arcPoints.Add(p);
-			prevPoint = p;
+			pos = next;
+			_arcPoints.Add(pos);
+			if (bounced && vel.LengthSquared() < ArcSettleSpeed * ArcSettleSpeed)
+			{
+				break;
+			}
 		}
 	}
 
@@ -863,35 +908,28 @@ public partial class AimingReticle : Node3D
 		return d > 1e-4f ? new Vector3(dx / d, 0f, dz / d) : new Vector3(0f, 0f, 1f);
 	}
 
-	// First arced projectile event on the active tier, supplying the arc rise, the
-	// arc gravity, and the fuse (total flight before detonation). False when the
-	// tier has no such event.
-	bool TryGetArcParams(out float rise, out float gravity, out float fuse)
+	// First arced projectile event on the active tier (the one the throw / preview
+	// reads rise, gravity, fuse, bounce, and friction from). Null when the tier has
+	// no such event.
+	ItemEvent FindArcEvent()
 	{
-		rise = 0f;
-		gravity = 0f;
-		fuse = 0f;
 		ItemAction tier = ResolveActiveTier(out _);
 		if (tier?.events == null)
 		{
-			return false;
+			return null;
 		}
 		for (int i = 0; i < tier.events.Count; i++)
 		{
 			ItemEvent ev = tier.events[i];
-			if (ev == null
-				|| (ev.type & EItemEventType.Projectile) == 0
-				|| !ev.projectileArcing
-				|| ev.projectileScene == null)
+			if (ev != null
+				&& (ev.type & EItemEventType.Projectile) != 0
+				&& ev.projectileArcing
+				&& ev.projectileScene != null)
 			{
-				continue;
+				return ev;
 			}
-			rise = ev.projectileArcRise;
-			gravity = ev.projectileGravity;
-			fuse = ev.projectileLifetimeSeconds;
-			return rise > 0f && gravity > 0f;
 		}
-		return false;
+		return null;
 	}
 
 	// Render path — used by both the live update and the fade-out path. The
@@ -1070,18 +1108,30 @@ public partial class AimingReticle : Node3D
 		Camera3D cam = GetViewport()?.GetCamera3D();
 		Vector3 camPos = cam != null ? cam.GlobalPosition : _player.GlobalPosition + Vector3.Up * 8f;
 		float halfWidth = Mathf.Max(0.005f, _arcRibbonWidth * 0.5f);
-
-		// Fade the ribbon in over its first stretch from the launch point so it
-		// isn't visible right at the thrower's hand (same gradient the main beam
-		// uses). _arcPoints[0] is the launch origin.
-		_arcRibbon.SetInstanceShaderParameter("gradient_origin_world", _arcPoints[0]);
-		_arcRibbon.SetInstanceShaderParameter("gradient_start_distance", _arcGradientStartDistance);
-		_arcRibbon.SetInstanceShaderParameter("gradient_end_distance", _arcGradientEndDistance);
-
-		mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
 		int n = _arcPoints.Count;
+
+		// Total path length for the tail fade (distance-along-the-arc, so a path
+		// that loops back near itself still fades only its true end).
+		float totalLen = 0f;
+		for (int i = 1; i < n; i++)
+		{
+			totalLen += _arcPoints[i].DistanceTo(_arcPoints[i - 1]);
+		}
+		float fadeInStart = _arcFadeInStart;
+		float fadeInSpan = Mathf.Max(1e-3f, _arcFadeInEnd - _arcFadeInStart);
+		float fadeOut = Mathf.Max(1e-3f, _arcFadeOutDistance);
+
+		// Per-vertex alpha (carried in COLOR.a, which the shader multiplies in):
+		// fade in from the launch over [fadeInStart, fadeInEnd] of arc length, fade
+		// out over the last fadeOutDistance before the end.
+		mesh.SurfaceBegin(Mesh.PrimitiveType.TriangleStrip);
+		float cumLen = 0f;
 		for (int i = 0; i < n; i++)
 		{
+			if (i > 0)
+			{
+				cumLen += _arcPoints[i].DistanceTo(_arcPoints[i - 1]);
+			}
 			Vector3 p = _arcPoints[i];
 			Vector3 tangent;
 			if (i == 0)
@@ -1111,7 +1161,13 @@ public partial class AimingReticle : Node3D
 				right = Vector3.Right;
 			}
 			right = right.Normalized() * halfWidth;
+
+			float aIn = Mathf.Clamp((cumLen - fadeInStart) / fadeInSpan, 0f, 1f);
+			float aOut = Mathf.Clamp((totalLen - cumLen) / fadeOut, 0f, 1f);
+			Color c = new Color(1f, 1f, 1f, aIn * aOut);
+			mesh.SurfaceSetColor(c);
 			mesh.SurfaceAddVertex(p - right);
+			mesh.SurfaceSetColor(c);
 			mesh.SurfaceAddVertex(p + right);
 		}
 		mesh.SurfaceEnd();
@@ -1445,7 +1501,13 @@ public partial class AimingReticle : Node3D
 	{
 		ItemAction tier = ResolveActiveTier(out _);
 		if (tier == null) { return 0f; }
-		if (tier.aimType == EAimType.Positional || tier.aimType == EAimType.Arced)
+		if (tier.aimType == EAimType.Arced)
+		{
+			// Arced disk radius = the throw's max horizontal range (off the event).
+			ItemEvent arc = FindArcEvent();
+			return arc != null ? arc.projectileMaxRange : tier.positionalRange;
+		}
+		if (tier.aimType == EAimType.Positional)
 		{
 			return tier.positionalRange;
 		}

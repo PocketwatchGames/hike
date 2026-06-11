@@ -32,15 +32,17 @@ public class ArrowLootSimState : LootSimState, IWeaponArrow
     public override bool CanPickup(Player player)
     {
         // No source weapon = no binding (post-load fallback) — treat as a
-        // normal pickup. Otherwise the player must currently have that
-        // specific WeaponState equipped. Dropping the weapon while arrows
-        // are still in the world locks the player out of recovering them
-        // by hand; the 30s timeout still returns ammo to the weapon.
+        // normal pickup. Otherwise the player must still own that specific
+        // WeaponState anywhere in the inventory — equipped OR holstered in the
+        // backpack. Recovered ammo lands on the bound WeaponState regardless
+        // of equip state, so a stashed bow still tops up. Only fully dropping
+        // the weapon out of the inventory locks recovery (its central recharge
+        // timer also pauses then); re-acquiring it resumes both.
         if (SourceWeapon == null)
         {
             return base.CanPickup(player);
         }
-        return player?.Inventory != null && player.Inventory.IsEquipped(SourceWeapon);
+        return player?.Inventory != null && player.Inventory.Contains(SourceWeapon);
     }
 
     public override bool ShouldDepositToInventory() => SourceWeapon == null;
@@ -50,8 +52,19 @@ public class ArrowLootSimState : LootSimState, IWeaponArrow
         SourceWeapon?.OnArrowRemoved(this);
     }
 
-    public float GetReplenishProgress()
+    public void Recover()
     {
-        return RuntimeNode is Loot loot ? loot.GetReplenishProgress() : 0f;
+        // Live in the world — run the normal despawn path (pickup outro +
+        // OnRemovedFromWorld → ammo bump). Mirrors a hand pickup / old timeout.
+        if (RuntimeNode is Loot loot && GodotObject.IsInstanceValid(loot))
+        {
+            loot.RecoverArrow();
+            return;
+        }
+        // Not currently spawned (its chunk is unloaded). Bump ammo and latch
+        // PickedUp directly so the arrow doesn't respawn when the chunk
+        // re-streams; there's no node to play an outro on.
+        PickedUp = true;
+        OnRemovedFromWorld();
     }
 }

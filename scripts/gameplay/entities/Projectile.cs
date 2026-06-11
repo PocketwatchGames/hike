@@ -97,6 +97,12 @@ public partial class Projectile : Node3D
 	// projectile passes through instead of detonating.
 	private ETeam _attackerTeam;
 	private bool _friendlyFire;
+	// Creatures this shot may still pass THROUGH. Starts at the composed pierce
+	// count (event base maxed against weapon mods). A hit while this is > 0 passes
+	// through (decrementing it, adding the struck hurtbox to _hurtBoxExclude so it
+	// isn't hit twice); a hit while it's 0 ends the projectile. 0 = a normal
+	// single-target shot that stops on the first creature.
+	private int _pierceRemaining;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -125,13 +131,15 @@ public partial class Projectile : Node3D
 		bool friendlyFire = false,
 		bool bounce = false,
 		float bounciness = 0f,
-		float friction = 0f)
+		float friction = 0f,
+		int pierceCount = 0)
 	{
 		if (scene == null || parent == null)
 		{
 			return null;
 		}
 		var inst = scene.Instantiate<Projectile>();
+		inst._pierceRemaining = Mathf.Max(0, pierceCount);
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -279,29 +287,50 @@ public partial class Projectile : Node3D
 					var hurtResult = spaceState.IntersectRay(hurtQuery);
 					if (hurtResult.Count > 0 && hurtResult["collider"].Obj is HurtBox hurtBox)
 					{
-						// Friendly-fire skip: same-team hurtbox is added to the
-						// exclude list and the projectile keeps flying. Falls
-						// through to the env-clip / continue branches below.
-						if (!_friendlyFire)
+						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
+						hit.friendlyFire = _friendlyFire;
+						// Team skip via the receiver's filter: an allied hurtbox is
+						// added to the exclude list and the projectile keeps flying.
+						// Falls through to the env-clip / continue branches below.
+						if (!hurtBox.CanBeHit(hit))
 						{
-							Mob owner = ItemEventHandlers.FindOwningMob(hurtBox);
-							if (owner?.mobData != null && owner.mobData.team == _attackerTeam)
+							if (_hurtBoxExclude == null)
 							{
-								if (_hurtBoxExclude == null)
-								{
-									_hurtBoxExclude = new Godot.Collections.Array<Rid>();
-								}
-								_hurtBoxExclude.Add(hurtBox.GetRid());
-								goto AfterHurtSweep;
+								_hurtBoxExclude = new Godot.Collections.Array<Rid>();
 							}
+							_hurtBoxExclude.Add(hurtBox.GetRid());
+							goto AfterHurtSweep;
 						}
 						Vector3 hitPos = (Vector3)hurtResult["position"];
-						var hit = new HitInfo(_damageData, _source, _velocity.Normalized());
 						EHitResult hitResult = hurtBox.QueryHitType(hit);
 						EDamageTriggerFlags hitTriggers = hurtBox.QueryHitTriggers(hit);
 						hurtBox.Hit(hit);
 						GlobalPosition = hitPos;
-						Despawn(hitResult, hitTriggers, hurtBox, hitPos);
+						// Record this creature so the shot can't strike it again as
+						// it passes through.
+						if (_hurtBoxExclude == null)
+						{
+							_hurtBoxExclude = new Godot.Collections.Array<Rid>();
+						}
+						_hurtBoxExclude.Add(hurtBox.GetRid());
+						if (_pierceRemaining <= 0)
+						{
+							// No pierce budget left — this hit ends the shot (impact
+							// fx, arrow drop/stick, impactEvent).
+							Despawn(hitResult, hitTriggers, hurtBox, hitPos);
+							return;
+						}
+						// Pierce through: spend a point of budget, show the impact,
+						// and keep flying from the hit point so the next tick
+						// continues the sweep (catching a wall or a further creature).
+						_pierceRemaining--;
+						SpawnImpactVisuals(hitResult, hitTriggers, hitPos);
+						if (_gravity != 0f && _velocity.LengthSquared() > 1e-6f)
+						{
+							Vector3 fwd = _velocity.Normalized();
+							Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
+							LookAt(hitPos + fwd, up);
+						}
 						return;
 					}
 				}
@@ -341,7 +370,7 @@ public partial class Projectile : Node3D
 	private void Despawn(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
 	{
 		ResolveImpact(result, triggers, hurtBox, position);
-		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent(), _impact.sourceWeapon?.data);
+		ItemEventHandlers.DispatchAtPosition(_impactEvent, position, GetParent(), _impact.sourceWeapon?.data, _attackerTeam);
 		StopLoopFx();
 		QueueFree();
 	}
@@ -366,15 +395,12 @@ public partial class Projectile : Node3D
 		_loopFx = null;
 	}
 
-	// Branch shared by every despawn path: pick the right impact fx for
-	// the hit type, then run the arrow-recovery logic. An arrow that
-	// landed on a living mob's health sticks; everything else (armor
-	// bounce, environment clip, end-of-range miss) drops loose loot at
-	// the projectile's last position so a shot into empty space — or one
-	// that glanced off armor — still returns recoverable ammo. Pierce is
-	// already folded in upstream: a pierced hit skips armor and resolves
-	// to EHitResult.Health, so it sticks like any other health hit.
-	private void ResolveImpact(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
+	// Spawn the impact one-shot for a hurtbox/environment hit plus any crit /
+	// backstab overlays the receiver flagged. Shared by the terminal despawn
+	// (ResolveImpact) and the pierce-through path, so every creature a piercing
+	// shot passes through gets the same blood/hit cue the final stop would.
+	// `triggers` is None for env clips and lifetime exits (no receiver to query).
+	private void SpawnImpactVisuals(EHitResult result, EDamageTriggerFlags triggers, Vector3 position)
 	{
 		PackedScene fx = result switch
 		{
@@ -389,9 +415,9 @@ public partial class Projectile : Node3D
 		{
 			Fx.Create(fx, parent, position);
 		}
-		// Crit / backstab overlays — only meaningful on a hurtbox-hit despawn
-		// (triggers is None for env / lifetime exits). Layered on top of the
-		// base impact fx selected above, matching the Melee / Hitscan paths.
+		// Crit / backstab overlays — only meaningful on a hurtbox hit (triggers
+		// is None for env / lifetime exits). Layered on top of the base impact
+		// fx selected above, matching the Melee / Hitscan paths.
 		if (parent != null && triggers != EDamageTriggerFlags.None)
 		{
 			if ((triggers & EDamageTriggerFlags.Crit) != 0 && _impact.crit != null)
@@ -403,6 +429,19 @@ public partial class Projectile : Node3D
 				Fx.Create(_impact.backstab, parent, position);
 			}
 		}
+	}
+
+	// Branch shared by every despawn path: pick the right impact fx for
+	// the hit type, then run the arrow-recovery logic. An arrow that
+	// landed on a living mob's health sticks; everything else (armor
+	// bounce, environment clip, end-of-range miss) drops loose loot at
+	// the projectile's last position so a shot into empty space — or one
+	// that glanced off armor — still returns recoverable ammo. Armor
+	// penetration is already folded in upstream: a penetrating hit skips armor and resolves
+	// to EHitResult.Health, so it sticks like any other health hit.
+	private void ResolveImpact(EHitResult result, EDamageTriggerFlags triggers, HurtBox hurtBox, Vector3 position)
+	{
+		SpawnImpactVisuals(result, triggers, position);
 
 		WeaponState weapon = _impact.sourceWeapon;
 		ArrowLootData arrowLootData = _impact.arrowLootData;

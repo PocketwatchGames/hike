@@ -25,16 +25,27 @@
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="18_itemcount"]
-[ext_resource type="Resource" uid="uid://0y5ufckbb0fmn" path="res://resources/data/characters/companion/companion.tres" id="19_companion"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
+[ext_resource type="Resource" uid="uid://0y5ufckbb0fmn" path="res://resources/data/characters/dog/dog.tres" id="19_companion"]
+
+[sub_resource type="Resource" id="Desc_chest_loot_numbers"]
+script = ExtResource("99_desc")
+item = ExtResource("11_s_numbers")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_chest_loot_numbers"]
 script = ExtResource("18_itemcount")
-item = ExtResource("11_s_numbers")
+descriptor = SubResource("Desc_chest_loot_numbers")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[sub_resource type="Resource" id="Desc_chest_loot_kunkun"]
+script = ExtResource("99_desc")
+item = ExtResource("12_s_kunkun")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_chest_loot_kunkun"]
 script = ExtResource("18_itemcount")
-item = ExtResource("12_s_kunkun")
+descriptor = SubResource("Desc_chest_loot_kunkun")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_villager_stock_leather"]

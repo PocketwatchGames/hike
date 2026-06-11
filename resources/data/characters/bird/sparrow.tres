@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_xf8iq"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_yluhv"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_5k01d"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="7_j2hnf"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_bjh47"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="9_bcxhy"]
@@ -73,9 +74,14 @@ name = &"run"
 affectedBySpeedMultiplier = true
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("99_desc")
+item = ExtResource("7_j2hnf")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
 [sub_resource type="Resource" id="Resource_loot_meat"]
 script = ExtResource("6_5k01d")
-item = ExtResource("7_j2hnf")
+descriptor = SubResource("Desc_loot_meat")
 count = 2
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 

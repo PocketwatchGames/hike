@@ -2,11 +2,17 @@
 
 [ext_resource type="Script" uid="uid://bagarwpxwvp1" path="res://scripts/data/buried/BuriedSpotData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="2_loot_entry"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://cdm4baa15wp3w" path="res://resources/data/items/loot/mushroom_blue.tres" id="3_loot"]
+
+[sub_resource type="Resource" id="Desc_loot"]
+script = ExtResource("99_desc")
+item = ExtResource("3_loot")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 
 [sub_resource type="Resource" id="Resource_loot_payload"]
 script = ExtResource("2_loot_entry")
-Item = ExtResource("3_loot")
+Item = SubResource("Desc_loot")
 
 [resource]
 script = ExtResource("1_data")

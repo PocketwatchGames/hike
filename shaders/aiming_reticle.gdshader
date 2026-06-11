@@ -217,5 +217,7 @@ void fragment() {
 	}
 
 	ALBEDO = out_rgb;
-	ALPHA = alpha * alpha_multiplier;
+	// COLOR.a carries the arc ribbon's per-vertex fade (in/out). Meshes without
+	// vertex colors get COLOR = (1,1,1,1), so this is a no-op for them.
+	ALPHA = alpha * alpha_multiplier * COLOR.a;
 }

@@ -16,3 +16,27 @@ public enum ETeam
 	// other factions while rallying only fellow prey.
 	Prey = 4,
 }
+
+public static class Teams
+{
+	// True when two teams are on the same side for friendly-fire purposes —
+	// neither should be able to land a non-friendly-fire hit on the other.
+	// Same team is always allied; on top of that, Player and Friendly form a
+	// single "player side" faction so the player can't hurt friendly NPCs or
+	// a tamed companion (whose effective team is Friendly once tamed) with a
+	// normal swing. Does NOT link any other pair — Hostile, Neutral, and Prey
+	// only ally with their own kind.
+	public static bool AreAllied(ETeam a, ETeam b)
+	{
+		if (a == b)
+		{
+			return true;
+		}
+		return IsPlayerSide(a) && IsPlayerSide(b);
+	}
+
+	private static bool IsPlayerSide(ETeam team)
+	{
+		return team == ETeam.Player || team == ETeam.Friendly;
+	}
+}

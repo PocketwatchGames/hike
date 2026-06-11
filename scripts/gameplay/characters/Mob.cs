@@ -453,6 +453,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _hurtBox.OnHit = Hit;
             _hurtBox.GetHitType = GetHitType;
             _hurtBox.GetHitTriggers = QueryHitTriggers;
+            // Hit filter: ActorTeam is read per-hit so a tamed companion's
+            // Friendly override (and any future runtime team change) applies.
+            _hurtBox.CanHit = (hit) =>
+                hit.friendlyFire || !Teams.AreAllied(hit.attackerTeam, ActorTeam);
             foreach (Node child in _hurtBox.GetChildren())
             {
                 if (child is CollisionShape3D shape)
@@ -548,7 +552,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // (for voxel queries), so construct here after both are wired.
         _navigator = new MobNavigator(this);
         _runner = new ActionRunner(this);
-        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul);
+        _statusEffects = new StatusEffectController(this, world, ApplyStatusHealthDelta, ComposeMaskMul, DrainMaxHealth);
         InitBehaviors();
         world.AddChild(this);
         // A mob loaded mid-burrow (from save data) needs its rigid body +
@@ -579,6 +583,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 _statusEffects.Add(_simState.EliteStatusEffect);
             }
             SpawnEliteCrown();
+        }
+
+        // Intrinsic spawn-time effect (e.g. a summoned minion's lifelong self-
+        // drain). Applied here alongside the elite effects so it's in place
+        // before vitals finalize and its start/loop Fx parent correctly. A
+        // fresh spawn only — a mob restored from save already carries it on its
+        // persisted status controller.
+        if (!_simState.RestoredFromSave && mobData?.spawnStatusEffect != null)
+        {
+            _statusEffects.Add(mobData.spawnStatusEffect);
         }
 
         // Finalize vitals now that every spawn-time modifier is in place —
@@ -819,7 +833,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     // Fold receiver resistances onto the live hit in place. Damage tags
     // (Damage / Fire / Magical / Poison / Electrical / Ranged / Melee) scale
-    // healthDamage; Pierce scales bypass-chance; Blunt scales the armor-chip
+    // healthDamage; ArmorPenetration scales bypass-chance; Blunt scales the armor-chip
     // multiplier; Knockback scales knockback distance and time. Mirrors the
     // Player-side ApplyResistance shape.
     private void ApplyResistance(ref HitInfo hit)
@@ -833,9 +847,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             hit.healthDamage *= ComposeMaskMul(damageTags);
         }
-        if ((hit.tags & EStat.Pierce) != 0)
+        if ((hit.tags & EStat.ArmorPenetration) != 0)
         {
-            hit.pierce *= ComposeMaskMul(EStat.Pierce);
+            hit.armorPenetration *= ComposeMaskMul(EStat.ArmorPenetration);
         }
         if ((hit.tags & EStat.Blunt) != 0)
         {
@@ -848,7 +862,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             hit.knockbackTime *= scale;
         }
     }
-    public ETeam ActorTeam => mobData?.team ?? ETeam.Hostile;
+    // Effective faction. A tamed companion overrides its authored wild team
+    // (Prey) to Friendly — joining the player's side for friendly-fire and
+    // HUD purposes (see Teams.AreAllied). All other mobs use MobData.team.
+    public ETeam ActorTeam => (_simState != null && _simState.Tamed) ? ETeam.Friendly : (mobData?.team ?? ETeam.Hostile);
 
     public void PlayOneShot(EAnimation anim)
     {
@@ -2194,6 +2211,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     burrowing = true;
                     burrowTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.burrowTime * 1000f);
                     SetBurrowed(true);
+                    // The mob is diving underground — any arrows lodged in it
+                    // can't follow it down, so they scatter at the surface
+                    // (same outward arc as a mob's death drop) where it dug in.
+                    EjectStuckArrows();
                 }
                 else if (burrowing && _world.GameTimeMs >= burrowTimeMs)
                 {
@@ -2383,10 +2404,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return EHitResult.None;
         }
-        // A pierced hit skips armor entirely and lands on health. Otherwise
-        // armor (when present) absorbs the whole hit, matching the legacy
-        // fully-absorbed semantics.
-        if (armor > 0f && !hit.Pierced)
+        // An armor-penetrating hit skips armor entirely and lands on health.
+        // Otherwise armor (when present) absorbs the whole hit, matching the
+        // legacy fully-absorbed semantics.
+        if (armor > 0f && !hit.ArmorPenetrated)
         {
             return EHitResult.Armor;
         }
@@ -2580,22 +2601,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             _simState.DamagedByPlayer = true;
         }
-        // Receiver-side resistance fold. Modulates healthDamage / pierce /
-        // blunt / knockback in place so all downstream uses (hit.Pierced,
+        // Receiver-side resistance fold. Modulates healthDamage / armorPenetration /
+        // blunt / knockback in place so all downstream uses (hit.ArmorPenetrated,
         // armor chip mult, knockback impulse) see the resistance-scaled
         // values without needing per-site composition.
         ApplyResistance(ref hit);
         float incoming = hit.healthDamage;
         // Armor handling. Bypass-aware split: a portion of `incoming` skips
-        // armor entirely (discrete `Pierced` = full bypass; continuous
+        // armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
         // `armorBypassFraction` = partial), the rest is "absorbable" and
         // piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
         // doesn't bleed into health on the absorbed portion — only the
         // pre-resolved bypass lands. Recharge timer resets ONLY when armor
-        // actually took a chip — a pure-pierce hit (continuous burn at
-        // pierce=1, etc.) shouldn't extend the depletion window since it
+        // actually took a chip — a pure-penetration hit (continuous burn at
+        // armorPenetration=1, etc.) shouldn't extend the depletion window since it
         // never touched the armor.
-        float bypassFraction = hit.Pierced ? 1f : hit.armorBypassFraction;
+        float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
         float bypassed = incoming * bypassFraction;
         float absorbable = incoming - bypassed;
         float armorAbsorbed = 0f;
@@ -2689,7 +2710,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SpawnVoice(_voice?.hurt);
         }
 
-        // Floating-number HUD feedback. Armor chip and pierced health damage
+        // Floating-number HUD feedback. Armor chip and armor-penetrated health damage
         // both show — total = whatever the bar actually moved (capped by what
         // armor / health had to give). DoT hits route into the per-second
         // accumulator; one-shot hits fire onDamage immediately. Mirrors the
@@ -2715,13 +2736,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
 
-    // Signed HP delta from a status-effect tick. Pierce in [0, 1] controls
+    // Signed HP delta from a status-effect tick. ArmorPenetration in [0, 1] controls
     // the armor split on the damage branch — 1 (the status-effect default)
     // drops the chunk straight onto health; less than 1 routes the
     // absorbable slice through armor and chips the bar. Heals skip armor
     // entirely. Skips Damage()'s blood / hurt-VO oneshots — those would spam
     // every tick.
-    private void ApplyStatusHealthDelta(float delta, float pierce)
+    private void ApplyStatusHealthDelta(float delta, float armorPenetration)
     {
         if (delta == 0f || !alive)
         {
@@ -2735,7 +2756,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         else
         {
             float damage = -delta;
-            float p = Mathf.Clamp(pierce, 0f, 1f);
+            float p = Mathf.Clamp(armorPenetration, 0f, 1f);
             float bypassed = damage * p;
             float absorbable = damage - bypassed;
             if (armor > 0f && absorbable > 0f)
@@ -2778,6 +2799,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 client.onDamage?.Invoke(hudPosition, -change, EHudTextType.DamageLight);
             }
+        }
+    }
+
+    // Status-effect MAX-health decay callback (see
+    // StatusEffectData.maxHealthDrainPerSecond). Shrinks the persisted MaxHealth,
+    // clamps current Health down to follow, and dies when the max is exhausted.
+    // Deliberately routes nothing through onDamage / the DoT path, so a withering
+    // summon drains away with no floating damage number — the shrinking health
+    // bar is the only feedback. Die() self-guards on !alive against re-entry.
+    private void DrainMaxHealth(float amount)
+    {
+        if (amount == 0f || !alive)
+        {
+            return;
+        }
+        _simState.MaxHealth = Mathf.Max(0f, _simState.MaxHealth - amount);
+        if (_simState.Health > _simState.MaxHealth)
+        {
+            _simState.Health = _simState.MaxHealth;
+        }
+        if (_simState.MaxHealth <= 0f)
+        {
+            Die();
         }
     }
 
@@ -3008,13 +3052,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             for (int i = 0; i < md.loot.Count; i++)
             {
                 ItemCount entry = md.loot[i];
-                if (entry?.item == null)
+                if (entry?.descriptor?.item == null)
                 {
                     continue;
                 }
                 for (int n = 0; n < entry.count; n++)
                 {
-                    EjectLootPiece(entry.item, horizontalSpeed, verticalSpeed, rng);
+                    EjectLootPiece(entry.descriptor, horizontalSpeed, verticalSpeed, rng);
                 }
             }
         }
@@ -3028,13 +3072,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // horizontal heading so a multi-drop carcass scatters rather than stacking.
     private void EjectLootPiece(ItemData item, float horizontalSpeed, float verticalSpeed, Random rng)
     {
+        _world.SpawnLoot(GlobalPosition + Vector3.Up, BuildLootImpulse(horizontalSpeed, verticalSpeed, rng), item);
+    }
+
+    // Descriptor variant — composes the entry's permanent mods onto a fresh
+    // state (e.g. a goblin that drops a Fragile bomb) and spawns that state so
+    // the dropped item carries the mod. Each piece is its own stackCount=1 state.
+    private void EjectLootPiece(ItemDescriptor descriptor, float horizontalSpeed, float verticalSpeed, Random rng)
+    {
+        _world.SpawnLoot(GlobalPosition + Vector3.Up, BuildLootImpulse(horizontalSpeed, verticalSpeed, rng), descriptor.CreateState());
+    }
+
+    // 45° upward arc on a random horizontal heading — shared so multi-drop
+    // carcasses scatter rather than stacking.
+    private static Vector3 BuildLootImpulse(float horizontalSpeed, float verticalSpeed, Random rng)
+    {
         float angle = (float)(rng.NextDouble() * Mathf.Pi * 2f);
-        var impulse = new Vector3(
+        return new Vector3(
             horizontalSpeed * Mathf.Cos(angle),
             verticalSpeed,
             horizontalSpeed * Mathf.Sin(angle)
         );
-        _world.SpawnLoot(GlobalPosition + Vector3.Up, impulse, item);
     }
 
     // Spawn an ArrowStuck child at the world-space hit point. Caller has
@@ -3057,11 +3115,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         sourceWeapon.RegisterArrow(stuck);
     }
 
-    // Called by ArrowStuck when its removeTimeMs elapses while still embedded
-    // in this (live) mob. Drops the arrow from _stuckArrows so the upcoming
-    // ReturnAmmoOnRemoval doesn't get re-fired by _ExitTree later. Mirrors
-    // the "lost with the mob" path: 1 ammo returns to the source weapon, no
-    // loose loot spawns.
+    // Called by ArrowStuck.Recover when the weapon's central ammo-recharge
+    // timer reclaims this arrow while it's still embedded in this (live) mob.
+    // Drops the arrow from _stuckArrows so the upcoming ReturnAmmoOnRemoval
+    // doesn't get re-fired by _ExitTree later. Mirrors the "lost with the mob"
+    // path: 1 ammo returns to the source weapon, no loose loot spawns.
     public void OnStuckArrowExpired(ArrowStuck stuck)
     {
         if (stuck == null)

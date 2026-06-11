@@ -218,11 +218,18 @@ public partial class MobData : Resource
     // resist (shorter effect) or skip the stun entirely (leave null). The
     // effect's own duration is the stun length.
     [Export] public StatusEffectData dugUpStun;
+    // Status effect applied to this mob the moment it spawns and never removed
+    // by the spawn path — the home for an intrinsic, lifelong effect. A summoned
+    // minion authors its self-expiry here: a StatusEffectData with
+    // maxHealthDrainPerSecond and duration=0, so its MAX health withers ~1/sec
+    // (no floating damage number) until it reaches 0 and the minion dies. Null
+    // on ordinary mobs.
+    [Export] public StatusEffectData spawnStatusEffect;
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
 
     // Inherent stat modifiers. Composed with active StatusEffectData.
-    // modifiers when the actor queries any stat. Damage / pierce / blunt /
+    // modifiers when the actor queries any stat. Damage / armor penetration / blunt /
     // knockback / buildup scaling all key on hit tags via this list;
     // vulnerabilities author multiplier > 1. Kun-kun's Dizzy vulnerability
     // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
