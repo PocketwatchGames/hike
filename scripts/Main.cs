@@ -21,7 +21,12 @@ public partial class Main : Node
 	// will be authored as part of the world manifest. Hardcoded here for now
 	// so a fresh boot deterministically reproduces the same world.
 	private const int DEFAULT_WORLD_SEED = 12345;
-	private static readonly Vector3I DEFAULT_WORLD_SIZE = new Vector3I(9, 3, 8);
+	// Horizontal footprint doubled (was 9x8 chunks). The shoreline ocean
+	// falloff in WorldGen.BuildHeightMap is anchored to the east world edge
+	// (distFromEastEdge = worldMaxX - wx), so doubling the X extent pushes the
+	// coast outward commensurately with the larger world — no separate
+	// coastline knob to retune. Vertical extent (Y) is unchanged.
+	private static readonly Vector3I DEFAULT_WORLD_SIZE = new Vector3I(18, 3, 16);
 
 	Node _currentScreen;
 
