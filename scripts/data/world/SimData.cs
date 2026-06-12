@@ -830,6 +830,21 @@ public partial class SimData : Resource
     // since spawn conditions (time of day, weather) change slowly.
     [Export(PropertyHint.Range, "0.5,30,0.5")] public float SpawnCleanupIntervalSeconds = 2f;
 
+    [ExportGroup("Companion")]
+    // The persistent companion follows the player but can fall outside the
+    // loaded world if the player outruns it (no resident collision under it).
+    // World's per-frame leash (World.TickCompanionLeash) then snaps it onto one
+    // of the player's recent footsteps instead of letting it fall through. These
+    // two knobs size that breadcrumb trail: a sample is recorded every
+    // CompanionRescueSampleSeconds and the last CompanionRescueHistoryCount
+    // samples are kept. The OLDEST still-loaded sample is chosen as the
+    // relocation target — furthest behind the player, so the pet pops back in
+    // off-screen. The trail must reach far enough back in world space to still
+    // land inside the loaded entity radius: count × sample-seconds × player
+    // speed should stay under that radius (~ENTITY_LOAD_RADIUS chunks).
+    [Export(PropertyHint.Range, "0.1,5,0.1")] public float CompanionRescueSampleSeconds = 1f;
+    [Export(PropertyHint.Range, "1,64,1")] public int CompanionRescueHistoryCount = 16;
+
     [ExportGroup("Footprints")]
     // Template material for the batched footprint MultiMesh. FootprintScatter
     // duplicates it once per actor footprint texture (binding that texture's

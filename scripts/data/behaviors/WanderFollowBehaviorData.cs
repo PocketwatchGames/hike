@@ -37,14 +37,14 @@ public partial class WanderFollowBehaviorData : BehaviorData
     // steps from the player don't disturb a resting dog.
     [Export] public float getUpRadius = 6.0f;
 
-    // If the player gets farther than this from the dog, the dog abandons its
-    // current wander / sniff / rest and beelines to the player, only resuming
-    // its wander once back within wanderRadius (the hysteresis release). Kept
-    // larger than wanderRadius so reaching the far edge of a normal wander leg
-    // doesn't trip it.
-    [Export] public float catchUpRadius = 12.0f;
+    // Distance from the current destination at which the dog moves at the full
+    // catchUpSpeed; closer in, the leg speed lerps down toward moveSpeed,
+    // reaching moveSpeed at the destination. Destinations are picked around the
+    // player, so a destination far from the dog means the player has pulled
+    // ahead — the dog speeds up to close the gap, with no separate beeline.
+    [Export] public float catchUpDistance = 12.0f;
 
-    // Normalized move speed (fraction of MobData.maxSpeed) while catching up —
+    // Normalized move speed (fraction of MobData.maxSpeed) on a long leg —
     // faster than the amble so the dog can actually close on a moving player.
     [Export(PropertyHint.Range, "0,1,0.01")] public float catchUpSpeed = 1.0f;
 

@@ -53,6 +53,21 @@ public partial class World
     // so SetPlayer's initial sync only enqueues the inner sphere.
     private bool _useInitialEntityRadius = true;
 
+    // Breadcrumb trail of recent player positions, sampled once per
+    // SimData.CompanionRescueSampleSeconds (oldest at index 0). When a chunk
+    // unloads with the live companion filed under it, RescueCompanion relocates
+    // the pet onto the oldest still-loaded crumb instead of destroying it — the
+    // oldest is furthest behind the player, so the pet re-appears off-screen.
+    private readonly List<Vector3> _playerPositionHistory = new();
+    private float _companionHistoryAccumulator;
+
+    // Live nodes for persistent (non-chunked) entities — the player's
+    // companion(s). Spawned once by SpawnPersistentEntities and never filed in
+    // _activeEntities, so chunk eviction can't free them. Tracked here so
+    // GetEntities<T> still surfaces them to perception / queries that walk all
+    // mobs, and so a runtime-tamed mob can be moved in via PromoteCompanionToPersistent.
+    private readonly List<Node3D> _persistentEntityNodes = new();
+
     private readonly struct PendingSpawn
     {
         public readonly Vector3I ChunkCoord;
@@ -189,11 +204,117 @@ public partial class World
         {
             return;
         }
-        foreach (Node3D node in entities)
+        DespawnChunkEntities(coord, entities);
+        _activeEntities.Remove(coord);
+    }
+
+    // Frees every entity node in an unloading chunk. The persistent companion is
+    // never filed in _activeEntities (it lives outside chunk streaming — see
+    // SpawnPersistentEntities / PromoteCompanionToPersistent), so it normally
+    // isn't here at all; the skip is belt-and-suspenders against a stray filing
+    // so chunk eviction can never destroy the pet. Shared by both despawn paths:
+    // the entity-radius shrink (UnloadEntitiesOutsideSet) and the chunk-mesh
+    // unload (OnChunkUnloaded).
+    private void DespawnChunkEntities(Vector3I coord, List<Node3D> nodes)
+    {
+        foreach (Node3D node in nodes)
         {
+            if (node is Mob mob && mob == _companion)
+            {
+                continue;
+            }
             node.QueueFree();
         }
-        _activeEntities.Remove(coord);
+    }
+
+    // Accumulates delta and records the player's position into the companion
+    // breadcrumb trail once per CompanionRescueSampleSeconds. Driven from
+    // World.Tick (so it freezes while paused). The trail is capped at
+    // CompanionRescueHistoryCount, dropping the oldest crumb past the cap.
+    // TickCompanionLeash relocates a stranded following pet onto the oldest crumb.
+    public void TickCompanionRescueHistory(float delta)
+    {
+        if (_player == null)
+        {
+            return;
+        }
+        SimData simData = _worldState?.SimData;
+        float interval = simData?.CompanionRescueSampleSeconds ?? 1f;
+        _companionHistoryAccumulator += delta;
+        if (_companionHistoryAccumulator < interval)
+        {
+            return;
+        }
+        _companionHistoryAccumulator = 0f;
+        _playerPositionHistory.Add(_player.GlobalPosition);
+        int cap = Mathf.Max(1, simData?.CompanionRescueHistoryCount ?? 16);
+        while (_playerPositionHistory.Count > cap)
+        {
+            _playerPositionHistory.RemoveAt(0);
+        }
+    }
+
+    // Per-frame leash that keeps the persistent companion inside the loaded
+    // world. The pet is never destroyed (it's not chunk-owned), but if the player
+    // outruns it the pet can end up in a chunk whose collision has unloaded (the
+    // entity radius is smaller than the chunk-mesh radius, so this only happens
+    // once it's beyond the mesh radius) and fall through the world. When the pet
+    // is off any resident chunk, snap it onto the oldest off-screen breadcrumb so
+    // it re-appears behind the player and resumes following. This applies whether
+    // following or on "stay" — a stay pet only ends up here once the player has
+    // abandoned it well past the loaded region, at which point catching up beats
+    // falling out of the world (refining stay-abandonment is a separate design).
+    public void TickCompanionLeash()
+    {
+        if (_companion == null || _player == null)
+        {
+            return;
+        }
+        Vector3I chunk = WorldToChunkCoord(_companion.GlobalPosition);
+        bool resident = _activeEntities.ContainsKey(chunk) && _chunkManager.IsChunkLoaded(chunk);
+        if (resident)
+        {
+            return;
+        }
+        if (TryFindCompanionRescuePosition(chunk, out Vector3 target))
+        {
+            _companion.Teleport(target);
+        }
+    }
+
+    // Picks the relocation target for a stranded following companion: the OLDEST
+    // breadcrumb (furthest behind the player, most likely off-screen) whose chunk
+    // is still loaded, active, and desired — and not the chunk it's stranded in.
+    // Falls back to the player's current position when no crumb qualifies.
+    private bool TryFindCompanionRescuePosition(Vector3I avoidChunk, out Vector3 position)
+    {
+        for (int i = 0; i < _playerPositionHistory.Count; i++)
+        {
+            Vector3 candidate = _playerPositionHistory[i];
+            Vector3I chunk = WorldToChunkCoord(candidate);
+            if (chunk == avoidChunk || !_desiredEntityChunks.Contains(chunk))
+            {
+                continue;
+            }
+            if (!_activeEntities.ContainsKey(chunk) || !_chunkManager.IsChunkLoaded(chunk))
+            {
+                continue;
+            }
+            position = candidate;
+            return true;
+        }
+        if (_player != null)
+        {
+            Vector3 playerPos = _player.GlobalPosition;
+            Vector3I chunk = WorldToChunkCoord(playerPos);
+            if (chunk != avoidChunk && _activeEntities.ContainsKey(chunk))
+            {
+                position = playerPos;
+                return true;
+            }
+        }
+        position = default;
+        return false;
     }
 
     // True once every entity-eligible chunk around the player has finished
@@ -370,6 +491,94 @@ public partial class World
                 }
             }
         }
+        // Persistent entities (the companion) aren't in _activeEntities but must
+        // still surface to perception, threat scans, and any all-mobs query.
+        foreach (Node3D entity in _persistentEntityNodes)
+        {
+            if (entity is T t)
+            {
+                yield return t;
+            }
+        }
+    }
+
+    // Spawns the live nodes for all persistent (non-chunked) entity states once,
+    // outside the chunk-streaming queue. Called from SetPlayer after the initial
+    // chunk-mesh sphere is ready (so the companion's spawn chunk has collision)
+    // and before the loading fade, so the pet is present on reveal rather than
+    // popping in. Idempotent: skips a state whose node is already live.
+    public void SpawnPersistentEntities()
+    {
+        if (_worldState == null)
+        {
+            return;
+        }
+        foreach (EntitySimState state in _worldState.PersistentEntities)
+        {
+            if (state.RuntimeNode != null)
+            {
+                continue;
+            }
+            Node3D entity = state.CreateEntity(this);
+            if (entity != null)
+            {
+                RegisterPersistentEntity(entity, state);
+            }
+        }
+    }
+
+    // RegisterEntity's analog for a persistent (non-chunked) entity: runs the
+    // OnSpawned hook and the RuntimeNode back-reference bookkeeping, but files the
+    // node in _persistentEntityNodes instead of a per-chunk _activeEntities list,
+    // so chunk eviction never frees it. Persistent entities are mobs (the
+    // companion), which contribute no path blockers, so that refcount path is
+    // intentionally omitted.
+    private void RegisterPersistentEntity(Node3D entity, EntitySimState state)
+    {
+        if (entity is IWorldEntity worldEntity)
+        {
+            worldEntity.OnSpawned(this);
+        }
+        if (state != null)
+        {
+            state.RuntimeNode = entity;
+        }
+        // Drop our tracking (and the RuntimeNode back-ref) whenever the node
+        // leaves the tree — companion death, or world teardown — so GetEntities
+        // never walks a freed object and a dead pet's state stops looking spawned.
+        entity.TreeExiting += () =>
+        {
+            _persistentEntityNodes.Remove(entity);
+            if (state != null && state.RuntimeNode == entity)
+            {
+                state.RuntimeNode = null;
+            }
+        };
+        _persistentEntityNodes.Add(entity);
+    }
+
+    // Runtime-taming migration: lift an already-live, chunk-streamed mob out of
+    // chunk ownership and into the persistent store, so the chunk it spawned in
+    // can evict without destroying the now-companion. Moves both the live node
+    // (out of _activeEntities into _persistentEntityNodes) and its sim state
+    // (WorldState.PromoteToPersistent). The node itself stays in the tree.
+    public void PromoteCompanionToPersistent(Mob companion)
+    {
+        if (companion == null)
+        {
+            return;
+        }
+        RemoveEntity(companion);
+        if (!_persistentEntityNodes.Contains(companion))
+        {
+            _persistentEntityNodes.Add(companion);
+            // This node was spawned via the chunk path (RegisterEntity), which
+            // added a RuntimeNode-clear TreeExiting but not a persistent-list
+            // cleanup — attach one now so a later death doesn't leave a freed
+            // reference for GetEntities to walk.
+            companion.TreeExiting += () => _persistentEntityNodes.Remove(companion);
+        }
+        _worldState?.PromoteToPersistent(companion.SimState);
     }
 
     public void RemoveEntity(Node3D entity)
@@ -395,10 +604,7 @@ public partial class World
         }
         foreach (Vector3I coord in toRemove)
         {
-            foreach (Node3D node in loaded[coord])
-            {
-                node.QueueFree();
-            }
+            DespawnChunkEntities(coord, loaded[coord]);
             loaded.Remove(coord);
             // Pending-spawn bookkeeping shares the chunk-coord key; drop
             // it so DrainSpawnQueue ignores any queue entries still

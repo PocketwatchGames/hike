@@ -23,6 +23,8 @@ using Godot;
 //     regions     : regionCount entries
 //       dataPath        : length-prefixed string (RegionData resource path;
 //                         empty string for border slots)
+//     persistentEntities : EntitySerializer entity list (non-chunked globals —
+//                          the player's companion)
 //     chunkCount   : uint32
 //   Index : chunkCount entries
 //     coord        : Vector3I (12 bytes)
@@ -92,7 +94,13 @@ public static class WorldFile
     // v22: Mob entity payload appended an Elite bool + EliteStatusEffect resource
     //      ref (after GiftCounts) — elite mobs render 25% larger and carry a
     //      signature status effect drawn at spawn from their zone's pool.
-    public const uint VERSION = 22;
+    // v23: header gained a persistent-entities section (an EntitySerializer entity
+    //      list) after the regions table, before chunkCount. These are non-chunked
+    //      always-resident entities — the player's companion — that are owned
+    //      globally rather than filed under a chunk, so chunk eviction can't
+    //      destroy them. Written/read with the same EntitySerializer as chunk
+    //      entity lists.
+    public const uint VERSION = 23;
 
     public struct IndexEntry
     {
@@ -121,6 +129,7 @@ public static class WorldFile
         public string SimDataPath;
         public ZoneEntry[] Zones;
         public RegionEntry[] Regions;
+        public List<EntitySimState> PersistentEntities;
         public uint ChunkCount;
     }
 
@@ -189,6 +198,10 @@ public static class WorldFile
         {
             w.Write(regions[i].Data != null ? regions[i].Data.ResourcePath : "");
         }
+        // Persistent (non-chunked) globals — the companion. Written before
+        // chunkCount so the index's fixed-size accounting (payloadStart below)
+        // stays correct; fs.Position after this naturally includes these bytes.
+        EntitySerializer.WriteList(w, worldState.PersistentEntities);
         w.Write((uint)coords.Count);
 
         // --- Index ---
@@ -250,6 +263,7 @@ public static class WorldFile
         {
             header.Regions[i] = new RegionEntry { DataPath = r.ReadString() };
         }
+        header.PersistentEntities = EntitySerializer.ReadList(r);
         header.ChunkCount = r.ReadUInt32();
         return header;
     }

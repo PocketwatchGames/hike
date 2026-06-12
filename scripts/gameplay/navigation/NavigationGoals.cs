@@ -21,6 +21,7 @@ public static class NavigationGoals
     // standoff where line-of-sight isn't required at the slot itself.
     public static Vector3 PickStandoffPoint(
         World world,
+        int verticalClearance,
         Vector3 targetPos,
         float distance,
         float slotAngle,
@@ -50,7 +51,7 @@ public static class NavigationGoals
             float angle = slotAngle + offsetSlots * stepRad;
             Vector3 candidate = targetPos + new Vector3(Mathf.Sin(angle), 0f, Mathf.Cos(angle)) * distance;
 
-            if (!IsStandable(ws, world, candidate, out Vector3 surfacePoint))
+            if (!IsStandable(ws, world, verticalClearance, candidate, out Vector3 surfacePoint))
             {
                 continue;
             }
@@ -59,7 +60,7 @@ public static class NavigationGoals
             // the same Y. A player shove sends the mob backwards along this
             // axis, so without this check the encircle ring places mobs
             // exactly where they can be punted off a ledge.
-            if (!HasStableBacking(ws, world, surfacePoint, targetPos))
+            if (!HasStableBacking(ws, world, verticalClearance, surfacePoint, targetPos))
             {
                 continue;
             }
@@ -80,7 +81,7 @@ public static class NavigationGoals
     // within a couple voxels of the requested Y. Snaps the returned
     // `surfacePoint` to that surface so callers can hand the navigator a
     // point that's actually on the ground rather than mid-air.
-    private static bool IsStandable(WorldState ws, World world, Vector3 worldPos, out Vector3 surfacePoint)
+    private static bool IsStandable(WorldState ws, World world, int verticalClearance, Vector3 worldPos, out Vector3 surfacePoint)
     {
         surfacePoint = worldPos;
         int wx = Mathf.FloorToInt(worldPos.X);
@@ -110,17 +111,39 @@ public static class NavigationGoals
             {
                 continue;
             }
-            // 2-voxel headroom check so the standoff point is in a slot
-            // the mob actually fits into.
-            if (!ws.IsInBounds(wx, wy + 1, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + 1, wz)))
+            // Headroom check so the standoff point is in a slot the mob
+            // actually fits into — verticalClearance voxels above the floor,
+            // matching WalkabilityGrid.SampleColumn (vc=1 needs none).
+            bool headroomBlocked = false;
+            for (int h = 1; h < verticalClearance; h++)
+            {
+                if (!ws.IsInBounds(wx, wy + h, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + h, wz)))
+                {
+                    headroomBlocked = true;
+                    break;
+                }
+            }
+            if (headroomBlocked)
             {
                 continue;
             }
             // Mirror WalkabilityGrid's entity-blocker rejection so standoff
             // slots can't land on a cell occupied by a tree or chest.
-            if (world != null && (world.IsPathBlocked(wx, wy, wz) || world.IsPathBlocked(wx, wy + 1, wz)))
+            if (world != null)
             {
-                continue;
+                bool entityBlocked = false;
+                for (int h = 0; h < verticalClearance; h++)
+                {
+                    if (world.IsPathBlocked(wx, wy + h, wz))
+                    {
+                        entityBlocked = true;
+                        break;
+                    }
+                }
+                if (entityBlocked)
+                {
+                    continue;
+                }
             }
             surfacePoint = new Vector3(wx + 0.5f, wy, wz + 0.5f);
             return true;
@@ -132,7 +155,7 @@ public static class NavigationGoals
     // is also a standable surface within ±1 voxel of slotSurface.Y. Used to
     // reject ring slots that sit at the literal edge of a cliff — the
     // mob arrives, idles, and the player walks into it and shoves it over.
-    private static bool HasStableBacking(WorldState ws, World world, Vector3 slotSurface, Vector3 targetPos)
+    private static bool HasStableBacking(WorldState ws, World world, int verticalClearance, Vector3 slotSurface, Vector3 targetPos)
     {
         Vector3 awayXZ = new Vector3(slotSurface.X - targetPos.X, 0f, slotSurface.Z - targetPos.Z);
         float len = awayXZ.Length();
@@ -141,7 +164,7 @@ public static class NavigationGoals
             return true;
         }
         Vector3 backCell = slotSurface + (awayXZ / len);
-        if (!IsStandable(ws, world, backCell, out Vector3 backSurface))
+        if (!IsStandable(ws, world, verticalClearance, backCell, out Vector3 backSurface))
         {
             return false;
         }

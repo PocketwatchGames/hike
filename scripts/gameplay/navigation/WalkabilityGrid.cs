@@ -57,8 +57,9 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
     public readonly bool canFly;
     public readonly float clearanceRadius;
     // Vertical clearance the mob needs above the surface to fit, in voxels.
-    // Hardcoded to 2 for now (most mobs are ≤2 voxels tall); breaking this
-    // out lets a future tall mob declare 3 without changing pathfinder code.
+    // From MobData.verticalClearance (default 2); a short mob declares 1 to
+    // duck into low slots, a tall one 3+. In the cache key so heights don't
+    // share standability samples.
     public readonly int verticalClearance;
 
     public TraversalProfile(MobData data)
@@ -72,7 +73,7 @@ public readonly struct TraversalProfile : System.IEquatable<TraversalProfile>
         swimDepthThreshold = data?.swimDepthThreshold ?? 2f;
         canFly = data?.canFly ?? false;
         clearanceRadius = data?.clearanceRadius ?? 0.4f;
-        verticalClearance = 2;
+        verticalClearance = data?.verticalClearance ?? 2;
     }
 
     // IEquatable so SharedWalkabilityCache can key on the profile without
@@ -116,6 +117,27 @@ public class WalkabilityGrid
     // path through, not a per-mob cap.
     public const int SurfaceSearchRadius = 12;
 
+    // Stacked walkable surfaces stored per (x,z) column. A flat-terrain column
+    // has one; an overhang/cave column has the floor AND the surface on the
+    // roof above it, etc. A* nodes are (i, j, layer) so a mob can path between
+    // these — follow the player down into a cave, across a bridge, under an
+    // arch. Bounds memory and A* node count; the sampler keeps the top-down
+    // highest this many per column (deeper extras dropped). 4 covers
+    // outdoor + cave-floor + a sub-level with room to spare in practice.
+    public const int MaxColumnLayers = 4;
+
+    // Minimum vertical voxel gap between two stored layers in one column;
+    // a candidate surface closer than this to the layer already stored above
+    // it is dropped (kept: the higher one). Collapses near-duplicate surfaces
+    // and bounds layer count per the "≤1 walkable surface per N-voxel span"
+    // budget. Real stand-in caves clear this easily (a 2-tall cave + roof puts
+    // its floor ≥3 below the outdoor surface).
+    public const int MinLayerSeparation = 2;
+
+    // Layered storage: column (i,j)'s layer L lives at
+    // (j*_size + i)*MaxColumnLayers + L. Walkable layers are packed from L=0
+    // (highest surface) downward; unused trailing slots are default (None).
+    // An out-of-bounds column tags slot 0 with CellFlags.OutOfBounds.
     private WalkabilityCell[] _cells;
     private int _size;
     private int _originX;
@@ -145,7 +167,7 @@ public class WalkabilityGrid
         _originZ = worldZ - half;
         _originY = worldY;
 
-        int total = size * size;
+        int total = size * size * MaxColumnLayers;
         if (_cells == null || _cells.Length < total)
         {
             _cells = new WalkabilityCell[total];
@@ -165,163 +187,216 @@ public class WalkabilityGrid
         int offsetI = _originX - entry.OriginX;
         int offsetJ = _originZ - entry.OriginZ;
         int srcSize = entry.Size;
+        int rowCells = size * MaxColumnLayers;
         for (int j = 0; j < size; j++)
         {
-            int srcRow = (offsetJ + j) * srcSize + offsetI;
-            int dstRow = j * size;
-            System.Array.Copy(entry.Cells, srcRow, _cells, dstRow, size);
+            int srcRow = ((offsetJ + j) * srcSize + offsetI) * MaxColumnLayers;
+            int dstRow = (j * size) * MaxColumnLayers;
+            System.Array.Copy(entry.Cells, srcRow, _cells, dstRow, rowCells);
         }
     }
 
-    public bool TryGetWorld(int wx, int wz, out WalkabilityCell cell)
+    // Number of walkable surfaces stacked in column (i,j). Layers are packed
+    // from 0 (highest), so this is the count of leading Walkable slots.
+    public int LayerCount(int i, int j)
     {
-        int i = wx - _originX;
-        int j = wz - _originZ;
-        if (i < 0 || i >= _size || j < 0 || j >= _size)
+        int baseIdx = (j * _size + i) * MaxColumnLayers;
+        int count = 0;
+        while (count < MaxColumnLayers && (_cells[baseIdx + count].flags & CellFlags.Walkable) != 0)
         {
-            cell = default;
-            return false;
+            count++;
         }
-        cell = _cells[j * _size + i];
-        return true;
+        return count;
     }
 
-    public WalkabilityCell Get(int i, int j)
+    public WalkabilityCell GetLayer(int i, int j, int layer)
     {
-        return _cells[j * _size + i];
+        return _cells[(j * _size + i) * MaxColumnLayers + layer];
     }
 
-    // Convert a cell index back to a world-space point at the cell's surface,
-    // centered horizontally in the cell.
-    public Vector3 CellToWorld(int i, int j)
+    // True if the column sits in an unloaded chunk — the pathfinder must not
+    // route through it. Distinct from "no walkable layer" (in-bounds but no
+    // standable surface in the search window).
+    public bool IsColumnOutOfBounds(int i, int j)
     {
-        WalkabilityCell c = _cells[j * _size + i];
+        return (_cells[(j * _size + i) * MaxColumnLayers].flags & CellFlags.OutOfBounds) != 0;
+    }
+
+    // Index of the walkable layer whose surface Y is nearest worldY, or -1 if
+    // the column has no walkable layer. Used to bind a world-space query point
+    // (the mob's feet, a goal) to the specific stacked surface it belongs to.
+    public int NearestLayer(int i, int j, float worldY)
+    {
+        int baseIdx = (j * _size + i) * MaxColumnLayers;
+        int best = -1;
+        float bestDist = float.MaxValue;
+        for (int layer = 0; layer < MaxColumnLayers; layer++)
+        {
+            WalkabilityCell c = _cells[baseIdx + layer];
+            if ((c.flags & CellFlags.Walkable) == 0)
+            {
+                break;
+            }
+            float d = Mathf.Abs(c.surfaceY - worldY);
+            if (d < bestDist)
+            {
+                bestDist = d;
+                best = layer;
+            }
+        }
+        return best;
+    }
+
+    // Convert a (cell, layer) back to a world-space point at that layer's
+    // surface, centered horizontally in the cell.
+    public Vector3 CellToWorld(int i, int j, int layer)
+    {
+        WalkabilityCell c = _cells[(j * _size + i) * MaxColumnLayers + layer];
         return new Vector3(_originX + i + 0.5f, c.surfaceY, _originZ + j + 0.5f);
     }
 
-    // Walks a column at (wx, wz) looking for the highest standable air voxel
-    // within SurfaceSearchRadius of anchorY. Returns a fully-populated cell:
-    // OutOfBounds if any sampled column voxel is outside the loaded window,
-    // Walkable+surfaceY if a surface is found, default (unwalkable) otherwise.
-    internal static WalkabilityCell SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz)
+    // Walks a column at (wx, wz) and fills up to MaxColumnLayers stacked
+    // walkable surfaces into cells[baseIdx .. baseIdx+MaxColumnLayers), packed
+    // from slot 0 (highest surface) downward. Surfaces closer than
+    // MinLayerSeparation collapse onto the higher one. If the column is in an
+    // unloaded chunk with no surface found above the gap, slot 0 is tagged
+    // OutOfBounds (hard "do not enter"); a column with no standable surface at
+    // all leaves every slot default (unwalkable).
+    //
+    // Top-down so the highest surface wins slot 0 — a mob on top of a wall
+    // resolves to the wall top, not the trench beside it — while lower slots
+    // capture the cave floor / underside of an overhang so A* can path onto
+    // them.
+    internal static void SampleColumn(WorldState ws, World world, in TraversalProfile profile, int wx, int anchorY, int wz, WalkabilityCell[] cells, int baseIdx)
     {
         using var _profCol = Profiler.Sample("WalkabilityGrid.SampleColumn");
-        WalkabilityCell cell = default;
 
-        // Search top-down so the highest surface within the window wins —
-        // a mob already on top of a wall pathfinds along the wall instead
-        // of dropping into the trench beside it.
-        for (int dy = SurfaceSearchRadius; dy >= -SurfaceSearchRadius; dy--)
+        for (int layer = 0; layer < MaxColumnLayers; layer++)
         {
-            int wy = anchorY + dy;
+            cells[baseIdx + layer] = default;
+        }
+
+        int found = 0;
+        int lastSurfaceY = int.MaxValue; // highest stored surface (for separation dedup)
+        int floorY = anchorY - SurfaceSearchRadius;
+        int wy = anchorY + SurfaceSearchRadius;
+
+        while (wy >= floorY)
+        {
             if (!ws.IsInBounds(wx, wy, wz))
             {
-                // Treat any unloaded column as a hard "do not enter" — the
-                // pathfinder must never route a mob into space we don't know.
-                cell.flags = CellFlags.OutOfBounds;
-                return cell;
+                // Unloaded voxel: everything below in this column is unknown.
+                // Keep whatever surfaces we found above it; if none, the whole
+                // column is do-not-enter.
+                if (found == 0)
+                {
+                    cells[baseIdx].flags = CellFlags.OutOfBounds;
+                }
+                return;
             }
             VoxelType here = ws.GetVoxelWorld(wx, wy, wz);
             if (VoxelTypeInfo.IsSolid(here))
             {
+                wy--;
                 continue;
             }
 
-            // We're in air or water. Need solid (or floor of bounds) below.
+            // Air or water. Need solid (or the floor of a water body) below.
             if (!ws.IsInBounds(wx, wy - 1, wz))
             {
-                cell.flags = CellFlags.OutOfBounds;
-                return cell;
-            }
-            VoxelType below = ws.GetVoxelWorld(wx, wy - 1, wz);
-
-            bool standsOnSolid = VoxelTypeInfo.IsSolid(below);
-            bool inWater = here == VoxelType.Water;
-
-            // Water surface: the cell is "walkable" only if the mob can swim.
-            // The top-down scan enters at `wy`, but that's only the actual
-            // water surface when the search anchor is above water — for a
-            // long path through a deep lake the anchor can be far below
-            // surface, dropping us mid-column. Walk back up to the true
-            // top water voxel so surfaceY lands on the surface, matching
-            // the player's swim-equilibrium height, not arbitrary underwater
-            // terrain. Cost splits wade vs swim by the mob's threshold so
-            // routes prefer a wading detour over a swim leg.
-            if (inWater)
-            {
-                if (!profile.canSwim)
+                if (found == 0)
                 {
-                    return cell;
+                    cells[baseIdx].flags = CellFlags.OutOfBounds;
                 }
-                int topY = wy;
-                while (ws.IsInBounds(wx, topY + 1, wz) && ws.GetVoxelWorld(wx, topY + 1, wz) == VoxelType.Water)
-                {
-                    topY++;
-                }
-                cell.surfaceY = (short)topY;
-                cell.flags = CellFlags.Walkable | CellFlags.Water;
-                int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
-                int probeY = topY - (thresholdVoxels - 1);
-                bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
-                cell.cost = swimming ? profile.swimCost : profile.waterCost;
-                return cell;
+                return;
             }
 
-            if (!standsOnSolid)
+            if (here == VoxelType.Water)
             {
+                // Only the top voxel of a water body is a surface; we hit it
+                // first scanning top-down. Find the body's bottom so we can
+                // skip past it (and price wade vs swim by depth).
+                int waterBottom = wy;
+                while (waterBottom - 1 >= floorY && ws.IsInBounds(wx, waterBottom - 1, wz)
+                    && ws.GetVoxelWorld(wx, waterBottom - 1, wz) == VoxelType.Water)
+                {
+                    waterBottom--;
+                }
+                if (profile.canSwim && (found == 0 || lastSurfaceY - wy >= MinLayerSeparation))
+                {
+                    int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
+                    int probeY = wy - (thresholdVoxels - 1);
+                    bool swimming = ws.IsInBounds(wx, probeY, wz) && ws.GetVoxelWorld(wx, probeY, wz) == VoxelType.Water;
+                    WalkabilityCell wc = default;
+                    wc.surfaceY = (short)wy;
+                    wc.flags = CellFlags.Walkable | CellFlags.Water;
+                    wc.cost = swimming ? profile.swimCost : profile.waterCost;
+                    cells[baseIdx + found] = wc;
+                    lastSurfaceY = wy;
+                    found++;
+                    if (found >= MaxColumnLayers)
+                    {
+                        return;
+                    }
+                }
+                // Jump below the water body so we don't re-enter it per voxel.
+                wy = waterBottom - 1;
                 continue;
             }
 
-            // Verify vertical clearance above the surface — a mob can't stand
-            // in a 1-voxel slot if it needs 2 voxels of headroom.
+            // Dry surface: air over solid.
+            if (!VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy - 1, wz)))
+            {
+                wy--;
+                continue;
+            }
+
+            // Vertical clearance above the surface — a mob can't stand in a
+            // slot shorter than the headroom it needs.
+            bool blocked = false;
             for (int h = 1; h < profile.verticalClearance; h++)
             {
-                if (!ws.IsInBounds(wx, wy + h, wz))
+                if (!ws.IsInBounds(wx, wy + h, wz) || VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + h, wz)))
                 {
-                    cell.flags = CellFlags.OutOfBounds;
-                    return cell;
-                }
-                if (VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(wx, wy + h, wz)))
-                {
-                    // Headroom blocked. Keep scanning lower — there might be
-                    // a deeper surface that does have clearance.
-                    standsOnSolid = false;
+                    blocked = true;
                     break;
                 }
             }
-            if (!standsOnSolid)
+            // Reject if a path-blocking entity (tree, chest) occupies a cell
+            // the mob would stand in.
+            if (!blocked && world != null)
             {
-                continue;
-            }
-
-            // Reject this surface if a path-blocking entity (e.g. tree, chest)
-            // occupies any cell the mob would stand in. Same continue-and-keep-
-            // scanning behavior as a headroom-blocked column so the mob can
-            // still find a deeper standable surface beneath an overhead prop.
-            if (world != null)
-            {
-                bool entityBlocked = false;
                 for (int h = 0; h < profile.verticalClearance; h++)
                 {
                     if (world.IsPathBlocked(wx, wy + h, wz))
                     {
-                        entityBlocked = true;
+                        blocked = true;
                         break;
                     }
                 }
-                if (entityBlocked)
-                {
-                    continue;
-                }
+            }
+            if (blocked)
+            {
+                wy--;
+                continue;
             }
 
-            cell.surfaceY = (short)wy;
-            cell.flags = CellFlags.Walkable;
-            cell.cost = 1f;
-            return cell;
+            if (found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
+            {
+                WalkabilityCell wc = default;
+                wc.surfaceY = (short)wy;
+                wc.flags = CellFlags.Walkable;
+                wc.cost = 1f;
+                cells[baseIdx + found] = wc;
+                lastSurfaceY = wy;
+                found++;
+                if (found >= MaxColumnLayers)
+                {
+                    return;
+                }
+            }
+            wy--;
         }
-
-        return cell;
     }
 }
 
@@ -361,9 +436,10 @@ public static class SharedWalkabilityCache
     private const long TtlMs = 10_000;
 
     // Hard cap to prevent unbounded growth as the player roams. Chosen
-    // generously — a 41-cell entry of WalkabilityCell (~16 bytes) is
-    // ~27 KB; 2048 entries = ~55 MB worst case. Eviction sweeps the
-    // oldest 25% when this trips so we don't thrash on the cap.
+    // generously — an entry is cacheSize² × MaxColumnLayers WalkabilityCells;
+    // realistic resident footprint (the few quanta around active mobs) is a
+    // small fraction of the cap. Eviction sweeps the oldest 25% when this
+    // trips so we don't thrash on the cap.
     private const int MaxEntries = 2048;
 
     public sealed class Entry
@@ -443,7 +519,7 @@ public static class SharedWalkabilityCache
         int cacheSize = cacheHalfExtent * 2 + 1;
         Entry entry = new Entry
         {
-            Cells = new WalkabilityCell[cacheSize * cacheSize],
+            Cells = new WalkabilityCell[cacheSize * cacheSize * WalkabilityGrid.MaxColumnLayers],
             // Center the cache on the quantum center so the worst-case
             // mob (at the quantum's far corner) still has halfExtent on
             // every side.
@@ -464,7 +540,8 @@ public static class SharedWalkabilityCache
             {
                 int wx = entry.OriginX + i;
                 int wz = entry.OriginZ + j;
-                entry.Cells[j * cacheSize + i] = WalkabilityGrid.SampleColumn(ws, world, profile, wx, anchorY, wz);
+                WalkabilityGrid.SampleColumn(ws, world, profile, wx, anchorY, wz,
+                    entry.Cells, (j * cacheSize + i) * WalkabilityGrid.MaxColumnLayers);
             }
         }
         _cache[key] = entry;

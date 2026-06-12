@@ -13,7 +13,6 @@ public partial class BehaviorWanderFollow : BehaviorBase
         Moving,   // trotting toward _destination
         Sniffing, // paused at a wander point
         Resting,  // lying down (idle) beside a stopped player
-        CatchUp,  // player got too far — beeline to them
     }
 
     private readonly WanderFollowBehaviorData _data;
@@ -68,34 +67,6 @@ public partial class BehaviorWanderFollow : BehaviorBase
         Vector3 playerPos = master.GlobalPosition;
         bool playerStopped = UpdatePlayerStillness(playerPos, time);
 
-        // High-priority catch-up interrupt: if the player has pulled farther
-        // than catchUpRadius, drop the current wander / sniff / rest and head
-        // straight to them. Release (back to normal wandering) once we're back
-        // within wanderRadius, so reaching the catch-up band and the orbit
-        // edge don't fight each other.
-        Vector3 toPlayer = playerPos - me.GlobalPosition;
-        toPlayer.Y = 0f;
-        float distSq = toPlayer.LengthSquared();
-        if (_phase != Phase.CatchUp && distSq > _data.catchUpRadius * _data.catchUpRadius)
-        {
-            _phase = Phase.CatchUp;
-            me.Navigator.Stop();
-            _hasDestination = false;
-        }
-        if (_phase == Phase.CatchUp)
-        {
-            if (distSq <= _data.wanderRadius * _data.wanderRadius)
-            {
-                _phase = Phase.Moving;
-            }
-            else
-            {
-                me.Navigator.Goto(playerPos, _data.arrivalDistance);
-                output.speed = _data.catchUpSpeed;
-                return new BehaviorOutput(EBehaviorResult.Running);
-            }
-        }
-
         switch (_phase)
         {
             case Phase.Resting:
@@ -140,7 +111,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
         }
 
         me.Navigator.Goto(_destination, _data.arrivalDistance);
-        output.speed = _data.moveSpeed;
+        output.speed = SpeedForLeg(me);
 
         if (me.Navigator.HasArrived || me.Navigator.IsBlocked)
         {
@@ -157,6 +128,19 @@ public partial class BehaviorWanderFollow : BehaviorBase
                 _phase = Phase.Sniffing;
             }
         }
+    }
+
+    // Move speed for the current leg, lerped from moveSpeed (at the
+    // destination) up to catchUpSpeed (catchUpDistance or more away). Because
+    // destinations are picked around the player, a destination far from the dog
+    // means the player has pulled ahead — so the dog ambles on short legs and
+    // speeds up to close a big gap, with no separate beeline state.
+    private float SpeedForLeg(Mob me)
+    {
+        Vector3 toDest = _destination - me.GlobalPosition;
+        toDest.Y = 0f;
+        float t = Mathf.Clamp(toDest.Length() / Mathf.Max(0.001f, _data.catchUpDistance), 0f, 1f);
+        return Mathf.Lerp(_data.moveSpeed, _data.catchUpSpeed, t);
     }
 
     private void RunSniffing(Mob me, ulong time, Vector3 playerPos, bool playerStopped, ref AIOutput output)

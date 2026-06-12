@@ -501,6 +501,17 @@ public partial class MobData : Resource
     // cell has enough horizontal room and to size the separation kernel.
     [Export] public float clearanceRadius = 0.4f;
 
+    // Vertical voxels of headroom the mob needs above a surface to stand on
+    // it. The default 2 matches a roughly player-height creature. A short mob
+    // (dog, rat, chicken) sets 1 so the pathfinder lets it duck into 1-voxel
+    // slots — low cave mouths, gaps under overhangs — that a 2-tall mob can't
+    // fit through; a future tall mob (moose, bear rearing) sets 3+. Read only
+    // by the walkability grid's headroom check, so it gates which cells the
+    // nav system treats as standable — it does NOT resize the physics capsule.
+    // Keep it truthful to the body's actual height. The shared walkability
+    // cache keys on it, so distinct heights don't share standability samples.
+    [Export] public int verticalClearance = 2;
+
     // ---- Water / swim profile ----
     // Per-mob swim physics. Defaults match PlayerData so a stock mob feels
     // the same in water as the player; override per-species to make a

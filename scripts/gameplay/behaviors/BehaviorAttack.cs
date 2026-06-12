@@ -156,12 +156,12 @@ public partial class BehaviorAttack : BehaviorBase
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
-            standoff = NavigationGoals.PickStandoffPoint(world, targetPos, standoffDistance, angleToTarget);
+            standoff = NavigationGoals.PickStandoffPoint(world, me.mobData.verticalClearance, targetPos, standoffDistance, angleToTarget);
         }
         else
         {
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
-            standoff = NavigationGoals.PickStandoffPoint(world, targetPos, standoffDistance, slotAngle);
+            standoff = NavigationGoals.PickStandoffPoint(world, me.mobData.verticalClearance, targetPos, standoffDistance, slotAngle);
         }
         me.Navigator.Goto(standoff, allowFalling: true);
         return new BehaviorOutput(EBehaviorResult.Running);

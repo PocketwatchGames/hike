@@ -459,6 +459,18 @@ public static class CVars
     // Off by default; toggle from the in-game console.
     public static CVarBool mobDebugPath = new CVarBool("mob_debug_path", false);
 
+    // When true, draws the mob-navigability grid in an 8m radius around the
+    // player via DebugDraw — green square = standable dry cell (at its surface
+    // Y), cyan = standable water cell, red cross = column the pathfinder
+    // rejects (e.g. too little headroom). The grid is sampled with the nearest
+    // loaded mob's traversal profile (its actual maxStepHeight / clearance), so
+    // walk the dog up to a spot and toggle this to see exactly what its
+    // pathfinder sees — the canonical tool for diagnosing "the mob won't path
+    // there but the player can walk there." Falls back to a default ground-
+    // walker profile when no mob is loaded. Off by default; toggle from the
+    // in-game console (`nav_grid 1`).
+    public static CVarBool navGridDebug = new CVarBool("nav_grid", false);
+
     // When true, MobHUD shows a two-line text overlay over each visible mob
     // breaking down PLAYER-perceives-MOB. Top line: V/H/S sense deltas
     // (smell is always 0 — player doesn't smell). Bottom line: L (light at

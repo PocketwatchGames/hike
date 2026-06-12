@@ -943,6 +943,45 @@ public class WorldState
         return false;
     }
 
+    // Persistent (non-chunked) entity states — the player's companion(s). Unlike
+    // _entities, these are NOT filed by chunk: they're always resident, spawned
+    // once at startup, never despawned by chunk eviction, and serialized in the
+    // world file's global section rather than inside a chunk blob. A mob starts
+    // life chunk-streamed (in _entities) and is moved here by PromoteToPersistent
+    // the moment it's tamed (see World.PromoteCompanionToPersistent).
+    private readonly List<EntitySimState> _persistentEntities = new();
+    public IReadOnlyList<EntitySimState> PersistentEntities => _persistentEntities;
+
+    public void AddPersistentEntity(EntitySimState entity)
+    {
+        if (!_persistentEntities.Contains(entity))
+        {
+            _persistentEntities.Add(entity);
+        }
+    }
+
+    public void RemovePersistentEntity(EntitySimState entity)
+    {
+        _persistentEntities.Remove(entity);
+    }
+
+    // Moves a chunk-filed entity into the persistent store — the runtime-taming
+    // transition. Searches the per-chunk buckets to remove it because the bucket
+    // is keyed by spawn chunk, which a mover (a wild mob that chased the player
+    // before being tamed) no longer matches by position. Searching only walks
+    // resident buckets and taming is rare, so the cost is irrelevant.
+    public void PromoteToPersistent(EntitySimState entity)
+    {
+        foreach (List<EntitySimState> bucket in _entities.Values)
+        {
+            if (bucket.Remove(entity))
+            {
+                break;
+            }
+        }
+        AddPersistentEntity(entity);
+    }
+
     // Zero out the DetailGroup / DetailStrength painting on every voxel
     // whose scattered sprite would sit within `radius` of `position`.
     // Detail sprites visually sit one voxel above their painted voxel

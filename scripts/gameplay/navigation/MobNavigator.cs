@@ -404,7 +404,7 @@ public class MobNavigator
             gj = Mathf.FloorToInt(surrogate.Z) - _grid.OriginZ;
             gi = Mathf.Clamp(gi, 0, size - 1);
             gj = Mathf.Clamp(gj, 0, size - 1);
-            if (!_grid.Get(gi, gj).Walkable)
+            if (_grid.LayerCount(gi, gj) == 0)
             {
                 if (!FindNearestWalkable(gi, gj, out gi, out gj))
                 {
@@ -414,9 +414,9 @@ public class MobNavigator
                     return;
                 }
             }
-            goal = _grid.CellToWorld(gi, gj);
+            goal = _grid.CellToWorld(gi, gj, _grid.NearestLayer(gi, gj, _goal.Y));
         }
-        else if (!_grid.Get(gi, gj).Walkable)
+        else if (_grid.LayerCount(gi, gj) == 0)
         {
             // Goal cell itself isn't walkable — search outward for the
             // nearest walkable cell so the mob can reach the closest
@@ -429,7 +429,7 @@ public class MobNavigator
                 _waypointIndex = 0;
                 return;
             }
-            goal = _grid.CellToWorld(gi, gj);
+            goal = _grid.CellToWorld(gi, gj, _grid.NearestLayer(gi, gj, _goal.Y));
         }
 
         var path = _pathfinder.Find(_grid, _profile, start, goal, _allowFalling);
@@ -475,7 +475,7 @@ public class MobNavigator
                     {
                         continue;
                     }
-                    if (_grid.Get(ni, nj).Walkable)
+                    if (_grid.LayerCount(ni, nj) > 0)
                     {
                         outI = ni;
                         outJ = nj;
@@ -514,7 +514,11 @@ public class MobNavigator
         {
             return false;
         }
-        if (!_grid.Get(ci, cj).Walkable)
+        // Start the walk on the stacked surface the mob is actually standing
+        // on, and carry that layer through each step so the stroll stays on
+        // the mob's level (the cave floor, not the roof above it).
+        int curLayer = _grid.NearestLayer(ci, cj, origin.Y);
+        if (curLayer < 0)
         {
             return false;
         }
@@ -535,14 +539,17 @@ public class MobNavigator
         int curI = ci;
         int curJ = cj;
 
-        Span<int> di = stackalloc int[8];
-        Span<int> dj = stackalloc int[8];
-        Span<float> weight = stackalloc float[8];
+        const int MaxCandidates = 8 * WalkabilityGrid.MaxColumnLayers;
+        Span<int> di = stackalloc int[MaxCandidates];
+        Span<int> dj = stackalloc int[MaxCandidates];
+        Span<int> layerPick = stackalloc int[MaxCandidates];
+        Span<float> weight = stackalloc float[MaxCandidates];
 
         for (int step = 0; step < targetSteps; step++)
         {
             int count = 0;
             float weightSum = 0f;
+            WalkabilityCell prev = _grid.GetLayer(curI, curJ, curLayer);
 
             for (int ddj = -1; ddj <= 1; ddj++)
             {
@@ -558,51 +565,54 @@ public class MobNavigator
                     {
                         continue;
                     }
-                    WalkabilityCell c = _grid.Get(ni, nj);
-                    if (!c.Walkable)
+                    // Consider each stacked surface in the neighbour column so
+                    // the walk can step between layers (down into a cave) just
+                    // like the pathfinder does.
+                    int nLayers = _grid.LayerCount(ni, nj);
+                    for (int nLayer = 0; nLayer < nLayers; nLayer++)
                     {
-                        continue;
-                    }
-                    if (c.IsWater && _profile.waterCost > 1f)
-                    {
-                        continue;
-                    }
-                    // No-fall rule: wander never selects a step that would
-                    // require dropping or climbing more than maxStepHeight.
-                    // The pathfinder enforces the same rule at routing
-                    // time, but filtering here keeps the random walk's
-                    // endpoint reachable both ways — the whole point of
-                    // disallowing falls during wander.
-                    WalkabilityCell prev = _grid.Get(curI, curJ);
-                    int dy = c.surfaceY - prev.surfaceY;
-                    if (!_profile.canClimb && Mathf.Abs(dy) > _profile.maxStepHeight)
-                    {
-                        continue;
-                    }
+                        WalkabilityCell c = _grid.GetLayer(ni, nj, nLayer);
+                        if (c.IsWater && _profile.waterCost > 1f)
+                        {
+                            continue;
+                        }
+                        // No-fall rule: wander never selects a step that would
+                        // require dropping or climbing more than maxStepHeight.
+                        // The pathfinder enforces the same rule at routing
+                        // time, but filtering here keeps the random walk's
+                        // endpoint reachable both ways — the whole point of
+                        // disallowing falls during wander.
+                        int dy = c.surfaceY - prev.surfaceY;
+                        if (!_profile.canClimb && Mathf.Abs(dy) > _profile.maxStepHeight)
+                        {
+                            continue;
+                        }
 
-                    Vector3 cellWorld = _grid.CellToWorld(ni, nj);
-                    Vector2 leashDelta = new Vector2(cellWorld.X - leashCenter.X, cellWorld.Z - leashCenter.Z);
-                    if (leashDelta.LengthSquared() > leashRadiusSq)
-                    {
-                        continue;
+                        Vector3 cellWorld = _grid.CellToWorld(ni, nj, nLayer);
+                        Vector2 leashDelta = new Vector2(cellWorld.X - leashCenter.X, cellWorld.Z - leashCenter.Z);
+                        if (leashDelta.LengthSquared() > leashRadiusSq)
+                        {
+                            continue;
+                        }
+
+                        // Direction of THIS step, used for forward-bias weight.
+                        // Diagonals normalized so the bias is by direction, not
+                        // by step length.
+                        float ndx = ddi;
+                        float ndz = ddj;
+                        float invLen = 1f / Mathf.Sqrt(ndx * ndx + ndz * ndz);
+                        ndx *= invLen;
+                        ndz *= invLen;
+                        float forwardDot = ndx * heading.X + ndz * heading.Z;
+                        float w = Mathf.Max(0.05f, 1f + WanderForwardBias * forwardDot) / Mathf.Max(c.cost, 0.01f);
+
+                        di[count] = ddi;
+                        dj[count] = ddj;
+                        layerPick[count] = nLayer;
+                        weight[count] = w;
+                        weightSum += w;
+                        count++;
                     }
-
-                    // Direction of THIS step, used for forward-bias weight.
-                    // Diagonals normalized so the bias is by direction, not
-                    // by step length.
-                    float ndx = ddi;
-                    float ndz = ddj;
-                    float invLen = 1f / Mathf.Sqrt(ndx * ndx + ndz * ndz);
-                    ndx *= invLen;
-                    ndz *= invLen;
-                    float forwardDot = ndx * heading.X + ndz * heading.Z;
-                    float w = Mathf.Max(0.05f, 1f + WanderForwardBias * forwardDot) / Mathf.Max(c.cost, 0.01f);
-
-                    di[count] = ddi;
-                    dj[count] = ddj;
-                    weight[count] = w;
-                    weightSum += w;
-                    count++;
                 }
             }
 
@@ -628,6 +638,7 @@ public class MobNavigator
 
             curI += di[picked];
             curJ += dj[picked];
+            curLayer = layerPick[picked];
 
             // Update heading to this step's direction so subsequent steps
             // bias forward off the new direction. Without this the walk
@@ -646,7 +657,7 @@ public class MobNavigator
             return false;
         }
 
-        Vector3 chosen = _grid.CellToWorld(curI, curJ);
+        Vector3 chosen = _grid.CellToWorld(curI, curJ, curLayer);
         Vector3 newHeading = chosen - origin;
         newHeading.Y = 0f;
         if (newHeading.LengthSquared() > 0.0001f)

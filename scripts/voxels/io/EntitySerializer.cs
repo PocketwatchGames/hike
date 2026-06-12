@@ -36,7 +36,7 @@ public static class EntitySerializer
     private const byte LegacyPropTypeAutoLoot = 2;
     private const byte LegacyPropTypeLoot = 3;
 
-    public static void WriteList(BinaryWriter w, List<EntitySimState> entities)
+    public static void WriteList(BinaryWriter w, IReadOnlyList<EntitySimState> entities)
     {
         if (entities == null)
         {
@@ -144,6 +144,16 @@ public static class EntitySerializer
                 // size and the same drawn effect rather than re-rolling.
                 w.Write(mob.Elite);
                 WriteResource(w, mob.EliteStatusEffect);
+                // Companion state — Tamed flips the mob to the player's side
+                // (effective team Friendly, so the player can't friendly-fire
+                // it) and re-registers it as the active companion on spawn;
+                // StayCommanded is its hold/follow toggle. Persisted so a tamed
+                // pet survives world-file save/load: a fresh WorldGen spawns the
+                // starter companion already tamed, but a reloaded world has to
+                // restore the flag or the dog comes back wild (huntable, not
+                // following).
+                w.Write(mob.Tamed);
+                w.Write(mob.StayCommanded);
                 break;
 
             case DoorSimState door:
@@ -385,6 +395,8 @@ public static class EntitySerializer
                 }
                 bool elite = r.ReadBoolean();
                 var eliteStatusEffect = ReadResource<StatusEffectData>(r);
+                bool tamed = r.ReadBoolean();
+                bool stayCommanded = r.ReadBoolean();
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -415,6 +427,8 @@ public static class EntitySerializer
                 mob.GiftCounts = giftCounts;
                 mob.Elite = elite;
                 mob.EliteStatusEffect = eliteStatusEffect;
+                mob.Tamed = tamed;
+                mob.StayCommanded = stayCommanded;
                 return mob;
             }
             case Tag.Door:

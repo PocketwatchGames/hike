@@ -760,7 +760,10 @@ public static class WorldGen
             // (Prey) is what a future taming flow would start from.
             var companionSim = new MobSimState(pos, 0f, genData.CompanionData.MobScene, genData.CompanionData);
             companionSim.Tamed = true;
-            ws.AddEntity(companionSim);
+            // Persistent (non-chunked): the companion is player-attached state,
+            // spawned once and never destroyed by chunk eviction. See
+            // World.SpawnPersistentEntities / WorldState.PersistentEntities.
+            ws.AddPersistentEntity(companionSim);
         }
 
         // KnowledgeStone test fixtures, one per language component, scattered

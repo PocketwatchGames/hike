@@ -18,6 +18,10 @@ public sealed class WorldFileChunkSource : IChunkSource
     public SimData SimData { get; }
     public ZoneState[] Zones { get; }
     public RegionState[] Regions { get; }
+    // Non-chunked always-resident entity states (the player's companion), read
+    // from the world file's global section. Main.LoadWorldFromFile files these
+    // into WorldState.PersistentEntities rather than a per-chunk bucket.
+    public List<EntitySimState> PersistentEntities { get; }
 
     private readonly Dictionary<Vector3I, WorldFile.IndexEntry> _index;
     private readonly FileStream _stream;
@@ -56,6 +60,8 @@ public sealed class WorldFileChunkSource : IChunkSource
                 Data = string.IsNullOrEmpty(entry.DataPath) ? null : GD.Load<RegionData>(entry.DataPath),
             };
         }
+
+        PersistentEntities = header.PersistentEntities ?? new List<EntitySimState>();
 
         _index = new Dictionary<Vector3I, WorldFile.IndexEntry>((int)header.ChunkCount);
         for (uint i = 0; i < header.ChunkCount; i++)

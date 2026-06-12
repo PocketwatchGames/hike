@@ -212,6 +212,9 @@ public partial class World : Node3D
         _lastEntityChunkCoord = center;
         RebuildDesiredEntityChunks(center);
         SyncEntitiesToDesired();
+        // Bring the persistent companion into the world once the spawn sphere's
+        // collision is ready (GameClient gates SetPlayer on IsSpawnChunkReady).
+        SpawnPersistentEntities();
     }
 
     // Advances simulation time. Called by GameClient each unpaused frame so the
@@ -253,6 +256,13 @@ public partial class World : Node3D
             CleanupOffConditionMobs();
         }
 
+        // Record the player's path, then leash the persistent companion: a
+        // following pet that fell outside the loaded world snaps onto a recent
+        // off-screen footstep; a stay-commanded one freezes until its chunk
+        // reloads (see TickCompanionRescueHistory / TickCompanionLeash).
+        TickCompanionRescueHistory((float)delta);
+        TickCompanionLeash();
+
         _heatField?.Tick();
     }
 
@@ -265,5 +275,10 @@ public partial class World : Node3D
 
         DrainSpawnQueue();
         UpdateEntityLoading(_player.GlobalPosition);
+
+        if (CVars.navGridDebug.Value)
+        {
+            NavGridDebug.Draw(this, _player.GlobalPosition);
+        }
     }
 }

@@ -64,9 +64,11 @@ public class MobSimState : EntitySimState
     // / Tame) — Mob.ActorTeam then overrides the effective team to Friendly so
     // the player can't friendly-fire it (see Teams.AreAllied) and it stops
     // reading as stalkable prey. Set at spawn for the starter companion
-    // (already tamed); MaybeTame flips it at runtime. Like StayCommanded, this
-    // is a per-instance flag that survives chunk reload via the live
-    // MobSimState and is not written to the .hike world file.
+    // (already tamed); MaybeTame flips it at runtime. Survives chunk reload via
+    // the live MobSimState and is serialized to the .hike world file (alongside
+    // StayCommanded) so a tamed pet stays tamed across a save/load — a fresh
+    // WorldGen spawns the starter companion tamed, but a reloaded world has no
+    // other way to know.
     public bool Tamed;
     // Cumulative loyalty earned by gifting items to this mob. Increases by
     // the player's CalculatePersonalValue total each accepted Gift action on

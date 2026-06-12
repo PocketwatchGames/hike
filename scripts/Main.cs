@@ -315,6 +315,13 @@ public partial class Main : Node
 		worldState.Zones = source.Zones;
 		worldState.Regions = source.Regions;
 
+		// Non-chunked globals (the companion) — filed into the persistent store
+		// rather than a chunk bucket, mirroring how WorldFile.Write emitted them.
+		foreach (EntitySimState e in source.PersistentEntities)
+		{
+			worldState.AddPersistentEntity(e);
+		}
+
 		foreach (Vector3I coord in source.EnumerateChunkCoords())
 		{
 			if (source.TryLoadChunk(coord, out ChunkState chunk, out System.Collections.Generic.List<EntitySimState> entities))

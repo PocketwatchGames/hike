@@ -17,11 +17,11 @@
 [ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/effects/sword_hit_solid.tscn" id="7_hitsolid"]
 [ext_resource type="PackedScene" uid="uid://dkxvi0v1okv8f" path="res://scenes/effects/sword_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://dkxvm42mjkv8f" path="res://scenes/effects/sword_attack_light.tscn" id="8_atklight"]
-[ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/effects/club_smear_heavy.tscn" id="9_smearheavy"]
-[ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/effects/club_smear_light.tscn" id="9_smearlight"]
 [ext_resource type="PackedScene" uid="uid://dmlri0vh6oc8f" path="res://scenes/effects/sword_charge_head.tscn" id="8_chghead"]
 [ext_resource type="PackedScene" uid="uid://dmlrncbt6oc8f" path="res://scenes/effects/sword_charge_loop.tscn" id="8_chgloop"]
 [ext_resource type="PackedScene" uid="uid://dmlruv4p6oc8f" path="res://scenes/effects/sword_charge_tail.tscn" id="8_chgtail"]
+[ext_resource type="PackedScene" uid="uid://dao14hlapsltn" path="res://scenes/effects/club_smear_heavy.tscn" id="9_smearheavy"]
+[ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/effects/club_smear_light.tscn" id="9_smearlight"]
 [ext_resource type="Texture2D" uid="uid://cfen4n77e6ynh" path="res://assets/textures/items/Club.png" id="15_3a20y"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="16_eda6u"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/held/club_held.tscn" id="17_held"]
@@ -63,7 +63,6 @@ range = 4.0
 nearWidth = 1.0
 farWidth = 5.0
 smearEffect = ExtResource("9_smearheavy")
-smearClockwise = true
 animName = 20
 cameraShakeMagnitude = 0.25
 cameraShakeDuration = 0.18

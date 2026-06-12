@@ -147,6 +147,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // cleaned up on this account.
     public ESpawnConditions spawnConditions => _simState.SpawnConditions;
     public MobData mobData => _simState.MobData;
+    // The persistent sim state backing this mob. Exposed so World's companion
+    // chunk-unload rescue can re-file the state under a new chunk (see
+    // World.RescueCompanion / WorldState.MoveEntityToChunk).
+    public MobSimState SimState => _simState;
     // Per-instance language override (set by WorldGen / world files) takes
     // precedence over MobData.language. Mirrors SpeakDialogue's resolution
     // order so dialogue and any other UI surface (merchant screen, etc.)
@@ -397,6 +401,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // to 1 and the fade plays out over VisibilityFadeTime.
     private float _visibility;
     private float _silhouette;
+
+    // Memory-silhouette position pin. Once _silhouette ramps fully to black the
+    // mob reads as a static "last seen here" marker, so we decouple _mesh from
+    // the still-simulating body (TopLevel) and freeze it at the world pose it
+    // had when it went black. _meshPinnedLocal stores the normal body-relative
+    // local transform to restore when the pin releases (LOS regained). See
+    // UpdateVisibility.
+    private bool _meshPinned;
+    private Transform3D _meshPinnedLocal;
 
     // Last values written through to Godot setters in _Process / PostTickMove.
     // Each Godot property assignment marshals into native — at high mob count
@@ -1210,6 +1223,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
         _simState.Tamed = true;
         _world?.RegisterCompanion(this);
+        // Lift this mob out of chunk streaming into the persistent store so it
+        // can't be destroyed when its spawn chunk evicts (it's now player-
+        // attached state, not world content). Starter pets spawn pre-tamed
+        // straight into that store, so they never hit this path.
+        _world?.PromoteCompanionToPersistent(this);
     }
 
     private void SpeakDialogue()
@@ -1751,6 +1769,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Relocate the body to a new world position in one shot: zero the velocity
+    // so the physics engine doesn't carry momentum across the jump, move the
+    // node, and write the new position straight into the persistent sim state.
+    // Used by the companion chunk-unload rescue (World.RescueCompanion) to move
+    // a pet that would otherwise be destroyed with its evicting chunk. Mirrors
+    // the perch-claim teleport pattern (LinearVelocity zero + GlobalPosition set).
+    public void Teleport(Vector3 worldPos)
+    {
+        LinearVelocity = Vector3.Zero;
+        GlobalPosition = worldPos;
+        if (_simState != null)
+        {
+            _simState.WorldPosition = Position;
+        }
+    }
+
     // Writes the node's current transform back into the persistent sim state so
     // that when this Mob is freed (chunk unload, save), the saved position is
     // current rather than the original spawn position.
@@ -1874,7 +1908,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             tooFarToPose = (GlobalPosition - _world.player.GlobalPosition).LengthSquared() > poseDist * poseDist;
         }
-        bool animProcessTarget = !CVars.mobAnimCull.Value || (withinVisibleTime && !tooFarToPose);
+        // Freeze the pose only once the memory silhouette has fully ramped to
+        // black, NOT the instant line of sight is lost. While _silhouette is
+        // still ramping the mob keeps skinning + moving so the fade reads as
+        // motion; freezing mid-ramp is what made an occluded mob slide as a
+        // static pose. A fully-black mob is pinned in place (below), so its
+        // frozen pose no longer slides with the live body.
+        bool fullyRemembered = _silhouette >= 1f;
+        bool animProcessTarget = !CVars.mobAnimCull.Value || (!fullyRemembered && !tooFarToPose);
         // Per-frame census → readable gauges (mob_count / mob_anim_active /
         // mob_anim_frozen). The first mob each process frame publishes the prior
         // frame's tally (one-frame lag) and resets.
@@ -1894,6 +1935,27 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _modelAnimator.SetPoseProcessing(animProcessTarget);
             _lastAnimProcess = animProcessTarget;
             _lastAnimProcessInit = true;
+        }
+        // Position pin, paired with the pose freeze above: a fully-black, still-
+        // alive mob is a "last seen here" memory marker. Decouple _mesh from the
+        // body (TopLevel) and hold the world pose it had when it went black, so
+        // the live body simulates on invisibly without dragging the frozen
+        // silhouette with it. Releasing (LOS regained, or death) re-parents the
+        // mesh, snapping it back onto the live body's true position.
+        bool shouldPin = fullyRemembered && alive;
+        if (shouldPin && !_meshPinned)
+        {
+            _meshPinnedLocal = _mesh.Transform;
+            Transform3D pinnedWorld = _mesh.GlobalTransform;
+            _mesh.TopLevel = true;
+            _mesh.GlobalTransform = pinnedWorld;
+            _meshPinned = true;
+        }
+        else if (!shouldPin && _meshPinned)
+        {
+            _mesh.TopLevel = false;
+            _mesh.Transform = _meshPinnedLocal;
+            _meshPinned = false;
         }
         if (HudAnchor != null && (!_lastHudVisibleInit || hudVisibleTarget != _lastHudVisible))
         {
@@ -2283,8 +2345,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             // in _Process stops the skeleton re-skinning; without this gate the
             // body would keep rotating to track the player under that frozen
             // pose, so the silhouette's facing would drift while its animation
-            // sat still. playerCanSee == withinVisibleTime, the same window.
-            if (!inBurrow && targetYaw.HasValue && playerCanSee)
+            // sat still. Player-side allies are exempt: they render fully lit
+            // regardless of line of sight (UpdateVisibility's withinVisibleTime
+            // ORs in playerSide), so freezing their facing on the narrower
+            // playerCanSee window would leave a companion visibly trotting one
+            // way while still facing its old heading whenever it slips behind
+            // the player. Mirror the rendering condition here so an always-shown
+            // mob always turns to face its movement direction.
+            bool facingShown = playerCanSee || Teams.AreAllied(ActorTeam, ETeam.Player);
+            if (!inBurrow && targetYaw.HasValue && facingShown)
             {
                 Vector3 currentRot = Rotation;
                 float yawDelta = Mathf.Wrap(targetYaw.Value - currentRot.Y, -Mathf.Pi, Mathf.Pi);

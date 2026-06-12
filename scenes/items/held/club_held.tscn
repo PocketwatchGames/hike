@@ -1,8 +1,14 @@
 [gd_scene format=3 uid="uid://bs6g5vb3w6472"]
 
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_4ty7l"]
+vertex_color_use_as_albedo = true
+albedo_color = Color(0.23, 0.18745, 0.1449, 1)
+
 [sub_resource type="CylinderMesh" id="CylinderMesh_4ty7l"]
-top_radius = 0.3
-bottom_radius = 0.1
+material = SubResource("StandardMaterial3D_4ty7l")
+top_radius = 0.1
+bottom_radius = 0.05
+height = 1.5
 
 [node name="ClubHeld" type="Node3D" unique_id=521571708]
 

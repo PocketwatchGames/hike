@@ -3,21 +3,27 @@
 [ext_resource type="Script" uid="uid://ctcx3rsnl61pe" path="res://scripts/data/characters/BrainData.cs" id="1_brain"]
 [ext_resource type="Script" uid="uid://d3xbi1dqweahm" path="res://scripts/data/behaviors/BehaviorNode.cs" id="2_node"]
 [ext_resource type="Script" uid="uid://bwn2kkju73s55" path="res://scripts/data/behaviors/BehaviorNodeTransition.cs" id="3_transition"]
-[ext_resource type="Script" path="res://scripts/data/behaviors/WanderFollowBehaviorData.cs" id="4_wanderfollow"]
+[ext_resource type="Script" uid="uid://dwf4n7q2k8xa3" path="res://scripts/data/behaviors/WanderFollowBehaviorData.cs" id="4_wanderfollow"]
 [ext_resource type="Script" uid="uid://wjwmd0h08ds1" path="res://scripts/data/behaviors/StayBehaviorData.cs" id="5_stay"]
 [ext_resource type="Script" uid="uid://d0rely3jht8qe" path="res://scripts/data/behaviors/conditions/CommandedStayCondition.cs" id="6_cmd_stay"]
 [ext_resource type="Script" uid="uid://crxxh354iuvys" path="res://scripts/data/behaviors/conditions/CommandedFollowCondition.cs" id="7_cmd_follow"]
-[ext_resource type="Script" path="res://scripts/data/behaviors/DogAttackBehaviorData.cs" id="8_dogattack"]
-[ext_resource type="Script" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
+[ext_resource type="Script" uid="uid://bd5idsuv0uxl6" path="res://scripts/data/behaviors/DogAttackBehaviorData.cs" id="8_dogattack"]
+[ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
 [ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/actions/dog_bite.tres" id="10_bite"]
-[ext_resource type="Script" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
-[ext_resource type="Script" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
+[ext_resource type="Script" uid="uid://cgbwte5du7wer" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
+[ext_resource type="Script" uid="uid://c4elpp1elpel0" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
 [ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/effects/dog_growl.tscn" id="13_growl"]
 
 [sub_resource type="Resource" id="Resource_wanderfollow"]
 script = ExtResource("4_wanderfollow")
+wanderRadius = 10.0
+moveSpeed = 0.85
+restApproachRadius = 6.0
+restMinDistance = 2.0
+getUpRadius = 10.0
+catchUpDistance = 10.0
 playerStillRadius = 0.4
-arrivalDistance = 0.6
+stopGraceSeconds = 1.0
 
 [sub_resource type="Resource" id="Resource_cond_alert"]
 script = ExtResource("9_threat")
