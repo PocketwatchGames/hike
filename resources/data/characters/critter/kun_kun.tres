@@ -113,6 +113,7 @@ dugUpStun = ExtResource("8_digstun")
 modifiers = Array[ExtResource("7_statmod")]([])
 dizzyResistance = 0.5
 maxSpeed = 8.0
+foliageSpeedModifier = 0.0
 exp = 1
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")

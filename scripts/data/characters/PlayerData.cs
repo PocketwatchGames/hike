@@ -36,6 +36,10 @@ public partial class PlayerData : Resource
 	[Export] public float coyoteTime = 0.25f;
 	[Export] public float moveSpeed = 7f;
 	[Export] public float sneakSpeed = 3f;
+	// How strongly foliage (bushes, tall grass) slows the player. The foliage's
+	// own speed multiplier applies at full strength at 1, is ignored at 0, and
+	// partially at intermediate values. Mirrors MobData.foliageSpeedModifier.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float foliageSpeedModifier = 1f;
 	// Linear horizontal acceleration (m/s²) toward the input target. Ground is
 	// sharp — most games snap; we ramp just enough to smooth the transition
 	// between speeds without making input feel floaty. Air is drifty so jumps

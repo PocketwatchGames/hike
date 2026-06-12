@@ -4384,9 +4384,13 @@ public partial class Player : CharacterBody3D
 	private void UpdateTerrainSpeed()
 	{
 		_terrainSpeed = 1f;
+		float modifier = data != null ? data.foliageSpeedModifier : 1f;
 		foreach (Foliage foliage in _foliageCollisions)
 		{
-			_terrainSpeed = Mathf.Min(_terrainSpeed, foliage.speed);
+			// Scale the foliage slow by this actor's susceptibility: 1 = full
+			// slow, 0 = unaffected, intermediate = partial.
+			float slowed = Mathf.Lerp(1f, foliage.speed, modifier);
+			_terrainSpeed = Mathf.Min(_terrainSpeed, slowed);
 		}
 	}
 

@@ -202,7 +202,10 @@ public partial class WorldDetailScatter : Node3D
                 // wet darken so sprites darken by the same fraction as the
                 // ground beneath them.
                 bucket.Mm.SetInstanceCustomData(slot, new Color(d.Normal.X, d.Normal.Y, d.Normal.Z, d.Porosity));
-                bucket.Mm.SetInstanceColor(slot, d.GroundTint);
+                // .rgb = ground tint (sprite root pull); .a = baked AO, read by
+                // detail_sprite.gdshader's ao_factor to shelter-darken in
+                // lockstep with the terrain (which packs AO into its COLOR.a).
+                bucket.Mm.SetInstanceColor(slot, new Color(d.GroundTint.R, d.GroundTint.G, d.GroundTint.B, d.Ao));
                 slot++;
             }
         }

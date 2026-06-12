@@ -116,6 +116,14 @@ public static class ChunkDetailScatter
                     // slope when viewed across it.
                     Vector3 normal = ComputeSurfaceNormal(chunkWx + x, chunkWy + y, chunkWz + z, getVoxel);
 
+                    // Baked hemisphere AO for the painted voxel, mirroring the
+                    // mesher's per-vertex bake (ChunkMesherDC.ComputeAo) so a
+                    // blade shelter-darkens in lockstep with the ground it sits
+                    // on. Shared by all instances on this voxel; carried per
+                    // instance in the MultiMesh color alpha and applied by
+                    // detail_sprite.gdshader's ao_factor. 0 = open (no change).
+                    float ao = ComputeAo(chunkWx + x, chunkWy + y, chunkWz + z, normal, getVoxel);
+
                     // Ground tint for rooting the sprite's base visually. All
                     // instances on this voxel share the same tint. AUTO-Terrain
                     // voxels inherit their kit's GroundTint (because the actual
@@ -242,7 +250,7 @@ public static class ChunkDetailScatter
                             list = new List<InstanceData>();
                             buckets[entry] = list;
                         }
-                        list.Add(new InstanceData { Transform = transform, Normal = normal, GroundTint = groundTint, Porosity = groundPorosity });
+                        list.Add(new InstanceData { Transform = transform, Normal = normal, GroundTint = groundTint, Porosity = groundPorosity, Ao = ao });
                     }
                 }
             }
@@ -322,6 +330,58 @@ public static class ChunkDetailScatter
         return h;
     }
 
+    // Hemisphere occlusion at a painted voxel, the scatter-side analog of
+    // ChunkMesherDC.ComputeAo (which bakes terrain AO into COLOR.a). Marches the
+    // outward-normal hemisphere from the air voxel above the surface and stops
+    // at the first solid within AO_STEPS, cosine-weighted by facing. Returns
+    // [0,1]: 0 = open flat ground (no occluder above → grass unaffected, matches
+    // the terrain), higher under canopy / overhangs / against tall neighbours.
+    // Uses VoxelType solidity (not the mesher's binary density field), which is
+    // the same surface the scatter already queries — close enough since AO is
+    // low-frequency and only needs to track the ground beneath the blade.
+    private const int AO_STEPS = 2;
+    private const float AO_MIN_FACING = 0.1f;
+    private static readonly Vector3[] AoDirs =
+    {
+        new Vector3( 1, 0, 0), new Vector3(-1, 0, 0),
+        new Vector3( 0, 1, 0), new Vector3( 0,-1, 0),
+        new Vector3( 0, 0, 1), new Vector3( 0, 0,-1),
+        new Vector3( 0.57735026f,  0.57735026f,  0.57735026f), new Vector3(-0.57735026f,  0.57735026f,  0.57735026f),
+        new Vector3( 0.57735026f, -0.57735026f,  0.57735026f), new Vector3(-0.57735026f, -0.57735026f,  0.57735026f),
+        new Vector3( 0.57735026f,  0.57735026f, -0.57735026f), new Vector3(-0.57735026f,  0.57735026f, -0.57735026f),
+        new Vector3( 0.57735026f, -0.57735026f, -0.57735026f), new Vector3(-0.57735026f, -0.57735026f, -0.57735026f),
+    };
+
+    private static float ComputeAo(int wx, int wy, int wz, Vector3 n, System.Func<int, int, int, VoxelType> getVoxel)
+    {
+        // Sample from the air voxel that hosts the sprite (one above the solid
+        // surface), so the march never immediately hits the voxel the blade
+        // grows out of.
+        var p = new Vector3(wx, wy + 1, wz);
+        float occ = 0f;
+        float totalW = 0f;
+        for (int i = 0; i < AoDirs.Length; i++)
+        {
+            Vector3 d = AoDirs[i];
+            float nd = d.Dot(n);
+            if (nd < AO_MIN_FACING)
+            {
+                continue;
+            }
+            totalW += nd;
+            for (int step = 1; step <= AO_STEPS; step++)
+            {
+                Vector3 sp = p + d * step;
+                if (VoxelTypeInfo.IsSolid(getVoxel(Mathf.RoundToInt(sp.X), Mathf.RoundToInt(sp.Y), Mathf.RoundToInt(sp.Z))))
+                {
+                    occ += nd * (1f - (float)(step - 1) / AO_STEPS);
+                    break;
+                }
+            }
+        }
+        return totalW > 1e-5f ? Mathf.Clamp(occ / totalW, 0f, 1f) : 0f;
+    }
+
     // Central-difference surface normal at world (wx, wy, wz). Looks at the
     // four cardinal neighbour columns, finds each one's surface height within
     // ±NORMAL_SCAN_RANGE of wy, and forms the gradient. Columns with no
@@ -369,5 +429,9 @@ public static class ChunkDetailScatter
         // Packed into the MultiMesh per-instance custom data's .w channel
         // (INSTANCE_CUSTOM.w) and folded into the detail shader's wet darken.
         public float Porosity;
+        // Baked hemisphere occlusion (0 = open, 1 = sheltered). Packed into the
+        // MultiMesh per-instance color alpha (INSTANCE_COLOR.a) and applied by
+        // the detail shader's ao_factor, mirroring the terrain's COLOR.a AO.
+        public float Ao;
     }
 }

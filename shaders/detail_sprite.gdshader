@@ -189,6 +189,14 @@ uniform float wind_strength : hint_range(0.0, 1.0) = 1.0;
 // material by DetailEntry.GetMaterial from the [Export] WetStrength field.
 uniform float wet_strength : hint_range(0.0, 1.0) = 1.0;
 
+// Baked-AO darkening strength, mirrors voxel_clip's `ao_strength` so grass
+// shelter-darkens in lockstep with the ground beneath it. The per-instance
+// occlusion (0 = open, 1 = sheltered) is computed at scatter time and carried
+// in INSTANCE_COLOR.a; this scales how strongly it darkens the lit blade.
+// Stamped by DetailEntry.GetMaterial from the `ao_strength` CVar (the same
+// value the terrain material reads) so the two stay matched.
+uniform float ao_strength : hint_range(0.0, 1.0) = 1.0;
+
 varying vec3 world_origin;
 // Fragment->light pass for cloud shadow composition (same trick sprite_lit
 // uses so a cloud + terrain shadow read as one shadow, not stacked).
@@ -456,12 +464,19 @@ void fragment() {
 	vec3 tinted = tex.rgb * fill_a_tint * fill_b_tint;
 
 	NORMAL = world_normal;
+	// Baked AO: multiplicative shelter/contact darkening on the lit blade, the
+	// same factor voxel_clip applies to terrain (ao=0 open → no change, ao=1
+	// sheltered → scaled down by ao_strength). The per-instance occlusion is in
+	// INSTANCE_COLOR.a (COLOR.a), computed at scatter time to match the ground.
+	// Without this, grass under canopy / against cliffs reads brighter than the
+	// shaded ground it sits on.
+	float ao_factor = 1.0 - COLOR.a * ao_strength;
 	// Same split as sprite_lit / voxel_clip so detail sprites and terrain
 	// shadow / get torchlit consistently:
 	//   ALBEDO   = direct sun color (ATTENUATION-scaled in light())
 	//   EMISSION = ambient sky bounce + block light (never shadowed)
-	ALBEDO = tinted * sun_lit * (1.0 - sun_ambient);
-	EMISSION = tinted * (block_lit + sun_lit * sun_ambient * cloud_dim);
+	ALBEDO = tinted * sun_lit * (1.0 - sun_ambient) * ao_factor;
+	EMISSION = tinted * (block_lit + sun_lit * sun_ambient * cloud_dim) * ao_factor;
 
 	// Eye adaptation (eye_adaptation.gdshaderinc): lift in low local light when
 	// dark-adapted, push toward blowout in bright. light_est = area illuminance

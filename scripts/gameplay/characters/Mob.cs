@@ -2217,6 +2217,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                     Vector3 velocityChange = desiredVelocity - new Vector3(currentVel.X, 0f, currentVel.Z);
                     ApplyImpulse(new Vector3(velocityChange.X, 0f, velocityChange.Z) * Mass);
 
+                    // The impulse above is horizontal only, so a voxel riser in
+                    // the path would wedge the capsule against its face and stall
+                    // the mob. Lift the body over climbable steps. Skipped while
+                    // swimming (buoyancy owns vertical) and during knockback /
+                    // motion darts (those force velocity later this tick and must
+                    // win — a step shouldn't redirect a lunge or knockback arc).
+                    if (!_swimming && _simState.KnockbackTime <= 0f && _simState.MotionTime <= 0f)
+                    {
+                        TryStepUp(dir);
+                    }
+
                     if (!targetYaw.HasValue)
                     {
                         targetYaw = Mathf.Atan2(dir.X, dir.Z);
@@ -2462,6 +2473,74 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             UpdateAnimation();
         }
+    }
+
+    // Step-up probe geometry. The body capsule's bottom sits at the mob's
+    // origin (GlobalPosition.Y), so probe heights are measured from the feet.
+    private const float StepFootProbeHeight = 0.15f;   // ankle ray — above the floor the mob already stands on
+    private const float StepLookahead = 0.25f;         // probe reach beyond the capsule radius
+    private const float StepClearanceMargin = 0.2f;    // headroom above the step top that must be open
+    private const float StepFallGate = -1.0f;          // don't climb while descending faster than this (m/s)
+
+    // Step-up assist for the RigidBody locomotion path (see the call site in
+    // _PhysicsProcess). A grounded mob is shoved purely horizontally toward its
+    // path target; this lets it clear an upward voxel riser the way the
+    // CharacterBody3D player's explicit step-up does, without giving up the
+    // RigidBody behaviours (crowd separation, knockback, corpse tumble, Freeze)
+    // that a full conversion would lose. Two forward rays: a low one detecting
+    // an obstacle directly ahead, and one at the step-top + margin confirming
+    // the space above is clear — a step, not an unclimbable wall. When both
+    // pass, drive the body upward at stepClimbSpeed; the rise self-terminates
+    // once the foot probe clears the riser, dropping the mob onto the ledge.
+    // Up-steps only — descending slopes are handled by gravity.
+    private void TryStepUp(Vector3 dir)
+    {
+        MobData data = _simState.MobData;
+        if (data == null || data.maxStepHeight <= 0 || data.stepClimbSpeed <= 0f)
+        {
+            return;
+        }
+        // A ledge drop or knockback arc shouldn't be mistaken for walking into
+        // a step — only assist when not significantly descending.
+        if (LinearVelocity.Y < StepFallGate)
+        {
+            return;
+        }
+
+        float radius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0.4f;
+        float reach = radius + StepLookahead;
+        Vector3 feet = GlobalPosition;
+
+        // Obstacle directly ahead at ankle height?
+        Vector3 footFrom = feet + Vector3.Up * StepFootProbeHeight;
+        if (!RaycastSolid(footFrom, footFrom + dir * reach))
+        {
+            return;
+        }
+
+        // Is the space above the step top open? If this also hits, the obstacle
+        // is taller than one step — a wall, not a curb — so refuse the lift.
+        float clearHeight = data.maxStepHeight + StepClearanceMargin;
+        Vector3 headFrom = feet + Vector3.Up * clearHeight;
+        if (RaycastSolid(headFrom, headFrom + dir * reach))
+        {
+            return;
+        }
+
+        // Climbable step: set vertical velocity directly (like ApplyKnockback)
+        // so the rise dominates gravity this tick. The horizontal impulse
+        // already applied carries the body forward onto the ledge as it clears.
+        Vector3 v = LinearVelocity;
+        LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
+    }
+
+    // Single forward ray against terrain/props only (Solid). Mobs live on the
+    // Mob layer, so this never self-hits or catches a neighbour — the step
+    // probe climbs geometry, not crowds.
+    private bool RaycastSolid(Vector3 from, Vector3 to)
+    {
+        using var query = PhysicsRayQueryParameters3D.Create(from, to, (uint)ECollisionLayer.Solid);
+        return GetWorld3D().DirectSpaceState.IntersectRay(query).Count > 0;
     }
 
     public void ApplyImpulse(Vector3 impulse)
@@ -3483,9 +3562,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private void UpdateTerrainSpeed()
     {
         _terrainSpeed = 1f;
+        float modifier = mobData != null ? mobData.foliageSpeedModifier : 1f;
         foreach (Foliage foliage in _foliageCollisions)
         {
-            _terrainSpeed = Mathf.Min(_terrainSpeed, foliage.speed);
+            // Scale the foliage slow by this mob's susceptibility: 1 = full
+            // slow, 0 = unaffected (kunkuns, sparrows), intermediate = partial
+            // (dogs at 0.5).
+            float slowed = Mathf.Lerp(1f, foliage.speed, modifier);
+            _terrainSpeed = Mathf.Min(_terrainSpeed, slowed);
         }
     }
 

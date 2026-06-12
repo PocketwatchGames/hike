@@ -349,6 +349,12 @@ public partial class MobData : Resource
     [Export] public float yellInvestigateCancelTime = 30f;
     [Export] public float yellInvestigatePauseTime = 3f;
     [Export] public float maxSpeed = 4f;
+    // How strongly foliage (bushes, tall grass) slows this mob. The foliage's
+    // own speed multiplier is applied at full strength at 1, ignored entirely
+    // at 0, and partially at intermediate values (e.g. dogs at 0.5 are only
+    // half-slowed). Light/flying creatures (kunkuns, sparrows) push through
+    // unhindered at 0.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float foliageSpeedModifier = 1f;
     // Maximum yaw rate (radians/sec) the body can rotate per physics tick.
     // Drives the yaw lerp in Mob._PhysicsProcess — agile creatures snap to
     // their facing target, lumbering mobs commit to a heading.
@@ -420,6 +426,15 @@ public partial class MobData : Resource
     // values are for goat/spider-like climbers. Used by the walkability grid
     // to decide which neighbour cells are reachable from the current cell.
     [Export] public int maxStepHeight = 1;
+
+    // Vertical speed (m/s) the body is driven upward at when the step-up assist
+    // clears a voxel riser directly ahead of its movement. The mob's locomotion
+    // is a purely-horizontal impulse, so without this the capsule wedges against
+    // an upward step and stalls; this lift lets gravity + forward motion carry
+    // it onto the ledge. High enough that the rise beats gravity for the tick;
+    // the lift self-terminates once the capsule rises above the step. 0 disables
+    // step-up entirely (a mob that should stall at any rise). See Mob.TryStepUp.
+    [Export] public float stepClimbSpeed = 4f;
 
     // Vertical voxels of drop the mob is willing to take when the pathfinder
     // is invoked with allowFalling=true (chase, follow). 0 = "never drop"
