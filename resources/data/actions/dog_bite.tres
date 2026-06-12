@@ -1,0 +1,43 @@
+[gd_resource type="Resource" script_class="ItemActionProfile" format=3 uid="uid://b7dn2qk4xw8mp"]
+
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="1_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="PackedScene" uid="uid://c8qd3n7rk5w2x" path="res://scenes/effects/dog_bite_attack.tscn" id="4_atkfx"]
+[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/effects/fists_hit_creature.tscn" id="5_hitfx"]
+[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/effects/fists_hit_solid.tscn" id="6_solidfx"]
+
+[sub_resource type="Resource" id="Resource_event_windup_anim"]
+script = ExtResource("3_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_lunge"]
+script = ExtResource("3_event")
+time = 150
+type = 1024
+motionSpeed = 12.0
+motionDuration = 0.2
+motionFreezeGravity = false
+
+[sub_resource type="Resource" id="Resource_event_bite"]
+script = ExtResource("3_event")
+time = 350
+type = 1
+range = 2.0
+farWidth = 2.0
+impactEnvironmentEffect = ExtResource("6_solidfx")
+impactHealthEffect = ExtResource("5_hitfx")
+impactArmorEffect = ExtResource("6_solidfx")
+impactLethalEffect = ExtResource("5_hitfx")
+
+[sub_resource type="Resource" id="Resource_action_bite"]
+script = ExtResource("2_action")
+displayName = &"Bite"
+activeDurationSeconds = 0.8
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
+releaseEffect = ExtResource("4_atkfx")
+
+[resource]
+script = ExtResource("1_profile")
+chargedActions = Array[ExtResource("2_action")]([SubResource("Resource_action_bite")])
+locksMovement = true

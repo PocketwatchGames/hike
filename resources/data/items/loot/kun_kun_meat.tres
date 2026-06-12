@@ -7,6 +7,7 @@
 script = ExtResource("1_loot_data")
 removeTimeMs = 60000
 displayName = &"Kun Kun Meat"
+typeTags = 1
 maxStack = 99
 value = 1
 inventorySprite = ExtResource("2_inv")

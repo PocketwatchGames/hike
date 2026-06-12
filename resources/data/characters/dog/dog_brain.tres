@@ -7,6 +7,36 @@
 [ext_resource type="Script" uid="uid://x3y45pizfgmdm" path="res://scripts/data/behaviors/StayBehaviorData.cs" id="5_stay"]
 [ext_resource type="Script" uid="uid://hu58610r114h5" path="res://scripts/data/behaviors/conditions/CommandedStayCondition.cs" id="6_cmd_stay"]
 [ext_resource type="Script" uid="uid://r8lfuct4roe0u" path="res://scripts/data/behaviors/conditions/CommandedFollowCondition.cs" id="7_cmd_follow"]
+[ext_resource type="Script" uid="uid://e8kdxur5k2tdx" path="res://scripts/data/behaviors/DogAttackBehaviorData.cs" id="8_dogattack"]
+[ext_resource type="Script" uid="uid://jk9kdk7u5tz04" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
+[ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/actions/dog_bite.tres" id="10_bite"]
+[ext_resource type="Script" uid="uid://vrc9roqmo796l" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
+[ext_resource type="Script" uid="uid://c4elpp1elpelz" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
+[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/effects/dog_growl.tscn" id="13_growl"]
+
+[sub_resource type="Resource" id="Resource_cond_wary"]
+script = ExtResource("9_threat")
+tier = 0
+requireNone = false
+
+[sub_resource type="Resource" id="Resource_cond_wary_none"]
+script = ExtResource("9_threat")
+tier = 0
+requireNone = true
+
+[sub_resource type="Resource" id="Resource_cond_alert"]
+script = ExtResource("9_threat")
+tier = 1
+requireNone = false
+
+[sub_resource type="Resource" id="Resource_cond_alert_none"]
+script = ExtResource("9_threat")
+tier = 1
+requireNone = true
+
+[sub_resource type="Resource" id="Resource_cond_master_far"]
+script = ExtResource("12_master")
+maxDistance = 12.0
 
 [sub_resource type="Resource" id="Resource_follow"]
 script = ExtResource("4_follow")
@@ -17,6 +47,16 @@ followSpeed = 1.0
 [sub_resource type="Resource" id="Resource_cond_stay"]
 script = ExtResource("6_cmd_stay")
 
+[sub_resource type="Resource" id="Resource_follow_to_attack"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_alert")
+destination = &"DogAttack"
+
+[sub_resource type="Resource" id="Resource_follow_to_wary"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_wary")
+destination = &"Wary"
+
 [sub_resource type="Resource" id="Resource_follow_to_stay"]
 script = ExtResource("3_transition")
 condition = SubResource("Resource_cond_stay")
@@ -26,13 +66,23 @@ destination = &"Stay"
 script = ExtResource("2_node")
 name = &"Follow"
 data = SubResource("Resource_follow")
-transitions = [SubResource("Resource_follow_to_stay")]
+transitions = [SubResource("Resource_follow_to_attack"), SubResource("Resource_follow_to_wary"), SubResource("Resource_follow_to_stay")]
 
 [sub_resource type="Resource" id="Resource_stay"]
 script = ExtResource("5_stay")
 
 [sub_resource type="Resource" id="Resource_cond_follow"]
 script = ExtResource("7_cmd_follow")
+
+[sub_resource type="Resource" id="Resource_stay_to_attack"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_alert")
+destination = &"DogAttack"
+
+[sub_resource type="Resource" id="Resource_stay_to_wary"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_wary")
+destination = &"Wary"
 
 [sub_resource type="Resource" id="Resource_stay_to_follow"]
 script = ExtResource("3_transition")
@@ -43,10 +93,57 @@ destination = &"Follow"
 script = ExtResource("2_node")
 name = &"Stay"
 data = SubResource("Resource_stay")
-transitions = [SubResource("Resource_stay_to_follow")]
+transitions = [SubResource("Resource_stay_to_attack"), SubResource("Resource_stay_to_wary"), SubResource("Resource_stay_to_follow")]
+
+[sub_resource type="Resource" id="Resource_wary"]
+script = ExtResource("11_wary")
+growlEffect = ExtResource("13_growl")
+growlIntervalSeconds = 2.5
+
+[sub_resource type="Resource" id="Resource_wary_to_attack"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_alert")
+destination = &"DogAttack"
+
+[sub_resource type="Resource" id="Resource_wary_to_follow_far"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_master_far")
+destination = &"Follow"
+
+[sub_resource type="Resource" id="Resource_wary_to_follow_clear"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_wary_none")
+destination = &"Follow"
+
+[sub_resource type="Resource" id="Resource_wary_node"]
+script = ExtResource("2_node")
+name = &"Wary"
+data = SubResource("Resource_wary")
+transitions = [SubResource("Resource_wary_to_attack"), SubResource("Resource_wary_to_follow_far"), SubResource("Resource_wary_to_follow_clear")]
+
+[sub_resource type="Resource" id="Resource_dogattack"]
+script = ExtResource("8_dogattack")
+maxAttackRange = 2.5
+desiredAttackRange = 1.5
+approachRange = 30.0
+attackCooldownSeconds = 1.0
+encircleSlotCount = 4
+encircleDistance = 2.0
+actionProfile = ExtResource("10_bite")
+
+[sub_resource type="Resource" id="Resource_attack_to_wary"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_alert_none")
+destination = &"Wary"
+
+[sub_resource type="Resource" id="Resource_dogattack_node"]
+script = ExtResource("2_node")
+name = &"DogAttack"
+data = SubResource("Resource_dogattack")
+transitions = [SubResource("Resource_attack_to_wary")]
 
 [resource]
 script = ExtResource("1_brain")
 idleBehavior = &"Follow"
-behaviors = [SubResource("Resource_follow_node"), SubResource("Resource_stay_node")]
+behaviors = [SubResource("Resource_follow_node"), SubResource("Resource_stay_node"), SubResource("Resource_wary_node"), SubResource("Resource_dogattack_node")]
 metadata/_custom_type_script = "uid://ctcx3rsnl61pe"

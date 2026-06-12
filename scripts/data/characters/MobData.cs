@@ -114,6 +114,14 @@ public partial class MobData : Resource
     [Export] public float PerceptionRelaxationSpeed = 0.1f;
     [Export] public float MinPerceptionDelta = 0.05f;
     [Export] public float PerceptionThresholdAlert = 1f;
+    // Lower awareness tier (below PerceptionThresholdAlert) at which the mob is
+    // "wary" of a perceived target — aware enough to react cautiously (turn,
+    // growl, bristle) but not yet fully triggered into combat. As perception
+    // accumulates it crosses this first, then PerceptionThresholdAlert. Read by
+    // graded-response behaviors: the companion brain enters BehaviorWary here
+    // and BehaviorDogAttack at PerceptionThresholdAlert. Applies to both the
+    // player perception slot and the threat-perception accumulation below.
+    [Export(PropertyHint.Range, "0,1,0.01")] public float PerceptionThresholdWary = 0.5f;
     // Contact strength (summed vision+hearing+smell perceptionDelta) above which
     // an already-triggered mob refreshes its fix on the player's true position
     // from ANY sense — so it turns to face a player it can only hear/smell.
@@ -157,6 +165,19 @@ public partial class MobData : Resource
     [Export] public float smellRange = 8f;
     [Export] public float smellRangePower = 0.5f;
 
+    [ExportGroup("Threat Perception")]
+    // When true, this mob also accumulates perception toward nearby triggered
+    // `threatTeam` mobs — using the same omnidirectional vision model + speeds +
+    // thresholds (Wary / Alert) as its player perception. Drives the companion
+    // guard reaction (BehaviorWary → BehaviorDogAttack). Off for ordinary mobs,
+    // which only perceive the player. The accumulation reuses VisionRange,
+    // VisionRangePower, VisionStrength, PerceptionIncreaseSpeed /
+    // PerceptionRelaxationSpeed, MinPerceptionDelta, and the two thresholds.
+    [Export] public bool scansForThreats = false;
+    // Faction a threat-scanning mob treats as enemies (a companion watches the
+    // Hostile faction). Only consulted when scansForThreats is true.
+    [Export] public ETeam threatTeam = ETeam.Hostile;
+
     [ExportGroup("Player Perceives Mob")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
     // gates the per-frame visibility (a still mob is harder to spot), which
@@ -194,11 +215,14 @@ public partial class MobData : Resource
     // shared across teams — the brain decides what to do, the team decides
     // who counts as a target.
     [Export] public ETeam team = ETeam.Hostile;
-    // Marks this mob as the player's companion/pet. The companion brain
-    // (follow/stay) reads command state off the live Mob, and World tracks the
-    // active companion so the player's command input can reach it. A starter
-    // slice — taming, naming, and multiple companions build on this flag.
-    [Export] public bool isCompanion = false;
+    // Loyalty threshold at which this mob becomes tamed and joins the player as
+    // a companion/pet. Once a mob's per-instance MobSimState.Loyalty crosses
+    // this value (mirrors LoyaltyGift.requiredLoyalty), Mob flips Tamed,
+    // registers as the player's command target, and its effective team becomes
+    // Friendly (see Mob.ActorTeam). 0 = NOT tameable — merchants/villagers leave
+    // this at 0 so they accrue gift-loyalty without ever becoming pets. A
+    // starter slice — naming and multiple companions build on this.
+    [Export] public float tameLoyalty = 0f;
     // Native language spoken by this mob. Acts as the default
     // ConversationContext.speakerLanguage for any branch whose own
     // `language` field is null — the player's learned components against
@@ -235,6 +259,35 @@ public partial class MobData : Resource
     // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
     // lands triple.
     [Export] public Godot.Collections.Array<StatModifier> modifiers;
+
+    // Per-species taste model. An ordered list of multiplier rules folded over
+    // an item's base value (ItemData.value) to produce the subjective worth
+    // this species places on it — see Mob.PerUnitValue / CalculatePersonalValue.
+    // Empty = the species values everything at face value. A dog authors a
+    // single whenMissing-Meat rule at multiplier 0 (anything that isn't meat is
+    // worthless); a villager layers several likes/dislikes. Each entry is an
+    // ItemTagPreference; rules compose multiplicatively in author order.
+    [Export] public Godot.Collections.Array<ItemTagPreference> itemPreferences = new();
+
+    // Folds itemPreferences over an item's base value, multiplying by every
+    // rule whose tag condition the item satisfies. Returns baseValue unchanged
+    // when the list is empty (the species has no opinions).
+    public float ApplyItemPreferences(float baseValue, EItemType itemTags)
+    {
+        if (itemPreferences == null)
+        {
+            return baseValue;
+        }
+        float v = baseValue;
+        foreach (ItemTagPreference pref in itemPreferences)
+        {
+            if (pref != null && pref.Matches(itemTags))
+            {
+                v *= pref.multiplier;
+            }
+        }
+        return v;
+    }
 
     // Per-species Dizzy resistance — a base trait every mob tunes, like
     // maxHealth / maxArmor (which are likewise direct fields with EStat

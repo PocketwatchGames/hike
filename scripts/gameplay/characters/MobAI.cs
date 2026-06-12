@@ -309,7 +309,7 @@ public partial class Mob
     private void UpdatePerception(float delta)
     {
         using var _profPerception = Profiler.Sample("Mob.UpdatePerception");
-        if (!alive || _world.player == null)
+        if (_world.player == null)
         {
             return;
         }
@@ -318,6 +318,24 @@ public partial class Mob
         if (mobData == null)
         {
             return;
+        }
+
+        // Dead mobs still run the player→mob pass below so the player can
+        // notice a corpse they walk up on — but a corpse that has already been
+        // seen (CorpseDiscovered) is latched permanently visible, so there's
+        // nothing left to accumulate: early-out to skip its per-corpse raycast
+        // entirely. The mob→player sensing block at the bottom is gated on
+        // `alive` (a corpse perceives nothing).
+        bool dead = !alive;
+        if (dead && _simState.DiscoveryState == EPlayerPerceptionState.CorpseDiscovered)
+        {
+            return;
+        }
+        // A resurrected mob drops the corpse latch back to a normal live
+        // discovery so the perception machinery below governs it again.
+        if (!dead && _simState.DiscoveryState == EPlayerPerceptionState.CorpseDiscovered)
+        {
+            _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
         }
 
         Vector3 toPlayer = _world.player.GlobalPosition - GlobalPosition;
@@ -406,52 +424,77 @@ public partial class Mob
             ptmDebug.speed = speedFactor;
             ptmDebug.camouflage = Mathf.Max(0f, 1f - camouflage);
             playerToMobDebug = ptmDebug;
-            _simState.PlayerPerception = perception.perception;
-            EPlayerPerceptionState prevDiscoveryState = _simState.DiscoveryState;
-            _simState.DiscoveryState = perception.state;
-
-            if (prevDiscoveryState != EPlayerPerceptionState.Discovered
-                && _simState.DiscoveryState == EPlayerPerceptionState.Discovered)
+            if (dead)
             {
-                _world.WorldState?.SimState?.DiscoverMob(mobData);
-            }
-
-            if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)
-            {
+                // Perception keeps functioning normally toward an UNDISCOVERED
+                // corpse — it rises as the player approaches and dampens (decays)
+                // when contact is lost, just like a live mob. But the instant the
+                // player actually lays eyes on it (activelyPerceived) we latch
+                // CorpseDiscovered. From there the early-out at the top of this
+                // method skips it forever and the visibility layer keeps it
+                // fully lit — a discovered body is never re-hidden and never
+                // dampens. We deliberately don't run the live memory/decay
+                // bookkeeping below: a corpse has no VisibleTime / MemoryTime window.
+                _simState.PlayerPerception = perception.perception;
                 if (result.activelyPerceived)
                 {
-                    _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
-                    _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
-                }
-                else
-                {
-                    if (LinearVelocity.LengthSquared() > 0.01f)
-                    {
-                        _simState.MemoryTimeMs = (ulong)Mathf.Min(_simState.MemoryTimeMs, _world.GameTimeMs + (ulong)(mobData.MemoryMovingTime * 1000));
-                    }
-                    if (_simState.PlayerPerception <= 0 && _world.GameTimeMs >= _simState.MemoryTimeMs)
-                    {
-                        _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
-                    }
+                    _simState.PlayerPerception = 1f;
+                    _simState.DiscoveryState = EPlayerPerceptionState.CorpseDiscovered;
+                    _world.WorldState?.SimState?.DiscoverMob(mobData);
                 }
             }
-            else if (_simState.DiscoveryState == EPlayerPerceptionState.Detected
-                && _simState.PlayerPerception < mobData.detectedThreshold)
+            else
             {
-                // Detected is a transient "noticed something" state with no
-                // memory window. PlayerPerception.Tick only does monotonic
-                // forward transitions, so once perception decays back below
-                // detectedThreshold (e.g. a kunkun burrows before being fully
-                // discovered and prominence drops to 0) we have to reset to
-                // Hidden ourselves — otherwise the MobHUD discovery bar sits
-                // on screen permanently with an empty fill.
-                _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
+                _simState.PlayerPerception = perception.perception;
+                EPlayerPerceptionState prevDiscoveryState = _simState.DiscoveryState;
+                _simState.DiscoveryState = perception.state;
+
+                if (prevDiscoveryState != EPlayerPerceptionState.Discovered
+                    && _simState.DiscoveryState == EPlayerPerceptionState.Discovered)
+                {
+                    _world.WorldState?.SimState?.DiscoverMob(mobData);
+                }
+
+                if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)
+                {
+                    if (result.activelyPerceived)
+                    {
+                        _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(mobData.MemoryStationaryTime * 1000);
+                        _simState.VisibleTimeMs = _world.GameTimeMs + (ulong)(_world.SimData.VisibleTime * 1000);
+                    }
+                    else
+                    {
+                        if (LinearVelocity.LengthSquared() > 0.01f)
+                        {
+                            _simState.MemoryTimeMs = (ulong)Mathf.Min(_simState.MemoryTimeMs, _world.GameTimeMs + (ulong)(mobData.MemoryMovingTime * 1000));
+                        }
+                        if (_simState.PlayerPerception <= 0 && _world.GameTimeMs >= _simState.MemoryTimeMs)
+                        {
+                            _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
+                        }
+                    }
+                }
+                else if (_simState.DiscoveryState == EPlayerPerceptionState.Detected
+                    && _simState.PlayerPerception < mobData.detectedThreshold)
+                {
+                    // Detected is a transient "noticed something" state with no
+                    // memory window. PlayerPerception.Tick only does monotonic
+                    // forward transitions, so once perception decays back below
+                    // detectedThreshold (e.g. a kunkun burrows before being fully
+                    // discovered and prominence drops to 0) we have to reset to
+                    // Hidden ourselves — otherwise the MobHUD discovery bar sits
+                    // on screen permanently with an empty fill.
+                    _simState.DiscoveryState = EPlayerPerceptionState.Hidden;
+                }
             }
 
         }
 
         // Mob to player — updates PerceptionTargets[0] for the singleplayer case.
         // In multiplayer this loop would walk the array and fill a slot per player.
+        // A corpse perceives nothing, so the whole sensing pass (and its
+        // raycasts) is skipped when dead.
+        if (alive)
         {
             ref PerceptionState target = ref _simState.PerceptionTargets[0];
             target.target = _world.player;
@@ -688,6 +731,85 @@ public partial class Mob
             // Mirror perception into aggro for multi-target selection in TickAI.
             target.aggro = target.perception;
         }
+
+        // Companion threat awareness — a second perception accumulation, toward
+        // the nearest enemy mob, using the same vision model as the player slot
+        // above. Gated on scansForThreats so ordinary mobs pay nothing.
+        if (alive && mobData.scansForThreats)
+        {
+            AccumulateThreatPerception(mobData, delta);
+        }
+    }
+
+    // Build perception toward the nearest triggered enemy (MobData.threatTeam)
+    // mob exactly as the mob→player block does — closeness^VisionRangePower over
+    // VisionRange, gated by line of sight, accumulated at PerceptionIncreaseSpeed
+    // and relaxed at PerceptionRelaxationSpeed, latching `triggered` at
+    // PerceptionThresholdAlert. The one deliberate difference from the player
+    // block is that this vision is omnidirectional (no facing cone): a vigilant
+    // guard dog scans all around, like the perched-lookout case above. The
+    // crossing of PerceptionThresholdWary / PerceptionThresholdAlert drives the
+    // companion brain's Wary / Attack tiers; ThreatScan supplies the candidate
+    // (already filtered to triggered, enemy-team, in range, with line of sight).
+    private void AccumulateThreatPerception(MobData mobData, float delta)
+    {
+        ref PerceptionState slot = ref _simState.ThreatPerception;
+        Mob enemy = ThreatScan.FindNearest(this, mobData.threatTeam, mobData.VisionRange);
+
+        // Target died (or was despawned) with no live replacement in range — drop
+        // the engagement immediately instead of letting perception relax toward a
+        // corpse, so the dog stops attacking / being wary the instant it kills.
+        // (A living target that's merely out of sight leaves `enemy` null too, but
+        // its corpse check fails, so the slow-relax memory below still applies.)
+        if (enemy == null && slot.target is Mob prev
+            && (!GodotObject.IsInstanceValid(prev) || !prev.alive))
+        {
+            slot.perception = 0f;
+            slot.triggered = false;
+            slot.canSee = false;
+            slot.target = null;
+            return;
+        }
+        slot.target = enemy;
+
+        bool canSee = enemy != null;
+        float perceptionDelta = 0f;
+        if (canSee)
+        {
+            // Fog/rain shorten the sightline, sampled at the enemy (the target).
+            float visionRange = mobData.VisionRange
+                * PlayerPerception.VisionRangeMultiplier(_world, enemy.GlobalPosition);
+            if (visionRange > 0f)
+            {
+                float distSq = (enemy.GlobalPosition - GlobalPosition).LengthSquared();
+                float closeness = Mathf.Pow(
+                    Mathf.Clamp(1f - distSq / (visionRange * visionRange), 0f, 1f),
+                    mobData.VisionRangePower);
+                perceptionDelta = closeness * mobData.VisionStrength;
+            }
+            slot.lastKnownPosition = enemy.GlobalPosition;
+        }
+        slot.canSee = canSee;
+
+        if (perceptionDelta > mobData.MinPerceptionDelta)
+        {
+            slot.perception = Mathf.Clamp(
+                slot.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
+                0f, 1f);
+            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert)
+            {
+                slot.triggered = true;
+            }
+        }
+        else
+        {
+            slot.perception = Mathf.Clamp(slot.perception - mobData.PerceptionRelaxationSpeed * delta, 0f, 1f);
+            if (slot.perception <= 0f)
+            {
+                slot.triggered = false;
+            }
+        }
+        slot.aggro = slot.perception;
     }
 
     // Throttled environment-light cache. SkyBrightness is the time-of-day /

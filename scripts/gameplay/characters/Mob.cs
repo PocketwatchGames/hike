@@ -154,8 +154,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public LanguageData SpokenLanguage => _simState?.Language ?? mobData?.language;
     public StringName defaultBehavior => _simState?.InitialBehavior ?? (mobData != null ? mobData.defaultBehavior : (StringName)"Idle");
     // True when this mob is the player's companion/pet (drives the follow/stay
-    // brain and World companion tracking).
-    public bool IsCompanion => mobData != null && mobData.isCompanion;
+    // brain and World companion tracking). Companion-ness IS being tamed: a mob
+    // becomes a companion the moment its loyalty crosses MobData.tameLoyalty
+    // (or it spawns pre-tamed, like the starter pet). See Tame / ActorTeam.
+    public bool IsCompanion => _simState != null && _simState.Tamed;
     // Companion follow/stay command state, read by the companion brain's
     // transition conditions. Backed by sim state so it persists across
     // streaming. Toggled by the player's command input.
@@ -177,6 +179,52 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float spawnRotationY => _simState.SpawnRotationY;
     public InvestigateState? investigation { get => _simState.Investigation; set => _simState.Investigation = value; }
     public bool yelled { get => _simState.Yelled; set => _simState.Yelled = value; }
+    // True when any perception slot has latched the combat-alert (triggered)
+    // state — i.e. this mob is actively engaged with a target. Read by
+    // companion threat acquisition (ThreatScan) so a dog only attacks enemies
+    // that are in combat, not ones idling unaware.
+    public bool IsTriggered
+    {
+        get
+        {
+            PerceptionState[] targets = _simState?.PerceptionTargets;
+            if (targets == null)
+            {
+                return false;
+            }
+            for (int i = 0; i < targets.Length; i++)
+            {
+                if (targets[i].triggered)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+    // ---- Companion threat awareness (MobData.scansForThreats) ----
+    // Accumulated by MobAI.AccumulateThreatPerception against the nearest enemy
+    // mob; read by the companion brain's tier conditions and BehaviorWary /
+    // BehaviorDogAttack so the wary/attack response and the target agree.
+    public Mob ThreatTarget
+    {
+        get
+        {
+            // Null out a dead / freed target so behaviors never swing at or stare
+            // down a corpse in the window between a kill (60Hz) and the next
+            // perception tick (~10Hz) clearing the slot. See AccumulateThreatPerception.
+            Mob t = _simState?.ThreatPerception.target as Mob;
+            return (t != null && GodotObject.IsInstanceValid(t) && t.alive) ? t : null;
+        }
+    }
+    // Perception has crossed the lower "wary" tier (but not necessarily Alert).
+    public bool ThreatWary => mobData != null && _simState != null
+        && _simState.ThreatPerception.perception >= mobData.PerceptionThresholdWary;
+    // Perception has latched the full alert/combat tier (>= PerceptionThresholdAlert).
+    public bool ThreatTriggered => _simState != null && _simState.ThreatPerception.triggered;
+    public bool ThreatCanSee => _simState != null && _simState.ThreatPerception.canSee;
+    public Vector3 ThreatLastKnownPosition => _simState?.ThreatPerception.lastKnownPosition ?? GlobalPosition;
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
     // A mob can only dig into solid ground beneath it — not while swimming
@@ -996,14 +1044,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // taste model (vegetarian villager, hoarder dragon) without changing
     // the SimState shape.
 
-    // Subjective worth (to this mob) of a single unit of `item`. Defaults
-    // to the item's authored value. Override in a derived mob type if a
-    // species values certain items differently. Items whose authored
-    // value is 0 are uninteresting to the mob — CalculatePersonalValue and
-    // AcceptableUnits short-circuit them to zero.
-    public virtual int PerUnitValue(ItemData item)
+    // Subjective worth (to this mob) of a single unit of `item`. Starts from
+    // the item's authored value and folds this species' taste model over it
+    // (MobData.itemPreferences, keyed on ItemData.typeTags) — so a dog values
+    // only Meat and a villager has layered likes/dislikes without any per-mob
+    // code. Items whose authored value is 0, or whose preference-folded value
+    // drops to 0, are uninteresting to the mob — CalculatePersonalValue and
+    // AcceptableUnits short-circuit them to zero. Still virtual so a derived
+    // mob type can replace the taste model wholesale if it ever needs to.
+    public virtual float PerUnitValue(ItemData item)
     {
-        return item != null ? item.value : 0;
+        if (item == null)
+        {
+            return 0f;
+        }
+        MobData md = mobData;
+        return md != null ? md.ApplyItemPreferences(item.value, item.typeTags) : item.value;
     }
 
     // How many units of `offered` worth of `item` the mob will value right
@@ -1040,7 +1096,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         foreach (ItemState s in items)
         {
             if (s == null || s.data == null) { continue; }
-            int value = PerUnitValue(s.data);
+            float value = PerUnitValue(s.data);
             if (value <= 0) { continue; }
             total += value * AcceptableUnits(s.data, s.stackCount);
         }
@@ -1094,6 +1150,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (loyaltyGained > 0f)
         {
             _simState.Loyalty += loyaltyGained;
+            MaybeTame();
         }
         if (items != null)
         {
@@ -1124,6 +1181,35 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
         }
         return awarded;
+    }
+
+    // Flips this mob to tamed once its loyalty crosses MobData.tameLoyalty.
+    // Call after any change to _simState.Loyalty. No-op for untameable mobs
+    // (tameLoyalty <= 0) and for mobs already tamed.
+    private void MaybeTame()
+    {
+        if (_simState == null || _simState.Tamed || mobData == null || mobData.tameLoyalty <= 0f)
+        {
+            return;
+        }
+        if (_simState.Loyalty >= mobData.tameLoyalty)
+        {
+            Tame();
+        }
+    }
+
+    // Makes this mob the player's companion: effective team flips to Friendly
+    // (Mob.ActorTeam reads _simState.Tamed) and it registers as World's command
+    // target. Used by MaybeTame at runtime; the starter pet spawns with Tamed
+    // already set and registers via OnSpawned instead.
+    public void Tame()
+    {
+        if (_simState == null || _simState.Tamed)
+        {
+            return;
+        }
+        _simState.Tamed = true;
+        _world?.RegisterCompanion(this);
     }
 
     private void SpeakDialogue()
@@ -1700,6 +1786,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             discovered = true;
         }
+        // Mobs on the player's side (minions, tamed pets, friendly NPCs) are
+        // never perception-gated — the player always knows where their own team
+        // is, so they stay fully visible regardless of line of sight / memory.
+        bool playerSide = Teams.AreAllied(ActorTeam, ETeam.Player);
+        if (playerSide)
+        {
+            discovered = true;
+        }
         // A fully burrowed mob is underground — it should vanish, not linger as
         // a black memory silhouette. Force the fade-out (the descent while
         // `burrowing` stays visible so the dig-in still reads). The dirt mound
@@ -1707,6 +1801,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (burrowed)
         {
             discovered = false;
+        }
+        // A corpse the player has actually laid eyes on (CorpseDiscovered) is
+        // pinned fully visible — full color, never the black memory silhouette
+        // and never dithered out. A motionless body, once seen, is something
+        // the player keeps seeing; perception toward it only ever rose (see
+        // Mob.UpdatePerception, which early-outs once this latch is set). Mirror
+        // the player-side treatment: force-visible and always "within visible
+        // time" so no silhouette ramps up.
+        bool corpseSeen = _simState.DiscoveryState == EPlayerPerceptionState.CorpseDiscovered;
+        if (corpseSeen)
+        {
+            discovered = true;
         }
         // Three-state visibility, driven off discovery:
         //   fully visible  → dithered to full, no silhouette
@@ -1716,7 +1822,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Step values move toward targets at 1 / VisibilityFadeTime per
         // second so both the pop-in and the transition to/from silhouette
         // are smooth rather than instant.
-        bool withinVisibleTime = _world.GameTimeMs < _simState.VisibleTimeMs;
+        // Player-side mobs read as fully lit, never the "remembered" black
+        // silhouette, since they're always actively seen by their own side.
+        bool withinVisibleTime = playerSide || corpseSeen || _world.GameTimeMs < _simState.VisibleTimeMs;
         float targetVisibility = discovered ? 1f : 0f;
         // Silhouette target only moves while we WANT to be visible — when
         // fading out, freeze it so a silhouetted mob whose memory just
@@ -3310,6 +3418,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         Fx.Create(scene, _world, GlobalPosition);
+    }
+
+    // Public hook for behaviors that need to emit a one-shot audio-visual cue at
+    // the mob (e.g. BehaviorWary's periodic growl). World-parented so it stays
+    // put as the mob keeps moving, matching the footstep / voice convention.
+    public void PlayWorldEffect(PackedScene scene)
+    {
+        SpawnWorldEffect(scene);
     }
 
     // Spawn a clip from this species' voice bank, applying its pitch shift.

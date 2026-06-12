@@ -132,6 +132,11 @@ public class Inventory
 			return 0;
 		}
 
+		// Entering the inventory marks the item as touched for the rest of its
+		// life (see ItemState.touched). Stamp before the merge so even units
+		// that fold into an existing stack count as handled.
+		item.touched = true;
+
 		int initialStack = item.stackCount;
 
 		if (item.data.IsStackable)
@@ -260,6 +265,10 @@ public class Inventory
 			return false;
 		}
 
+		// Equipping is an entry path too — Loot grants an obvious upgrade
+		// straight into an empty slot, bypassing TryAdd. Mark it touched.
+		item.touched = true;
+
 		ItemState prev = GetEquipped(slot);
 		if (prev == item)
 		{
@@ -361,6 +370,7 @@ public class Inventory
 			item.stackCount -= amount;
 			dropped = new ItemState(item.data);
 			dropped.stackCount = amount;
+			dropped.touched = item.touched;
 		}
 		else
 		{
@@ -526,6 +536,7 @@ public class Inventory
 		{
 			return 0;
 		}
+		fresh.touched = true;
 		if (targetIndex < 0 || targetIndex >= _consumableSlots.Length)
 		{
 			return 0;
@@ -589,6 +600,7 @@ public class Inventory
 			if (take <= 0) { return 0; }
 			ItemState fresh = source.data.CreateState();
 			fresh.stackCount = take;
+			fresh.touched = source.touched;
 			_backpack[targetIndex] = fresh;
 			moved = take;
 		}
@@ -635,6 +647,7 @@ public class Inventory
 		{
 			return 0;
 		}
+		incoming.touched = true;
 		ItemState target = _backpack[index];
 		if (target == null)
 		{

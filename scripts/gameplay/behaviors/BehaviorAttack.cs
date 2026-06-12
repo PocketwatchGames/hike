@@ -42,7 +42,7 @@ public partial class BehaviorAttack : BehaviorBase
 
         output.useTorch = me.ShouldUseTorch;
 
-        Player target = targetPerception.pawnTarget;
+        Node3D target = ResolveTarget(me, ref targetPerception, out bool canSee, out Vector3 targetPos, out Vector3 lastKnownPosition);
         if (target == null)
         {
             ReleaseSlot(me);
@@ -59,14 +59,11 @@ public partial class BehaviorAttack : BehaviorBase
         // processing flips _simState.Yelled when the yell actually fires;
         // MobAI clears it again when perception drops so the next engagement
         // yells again.
-        if (!me.yelled && targetPerception.canSee)
+        if (!me.yelled && canSee)
         {
             output.yell = true;
         }
 
-        
-
-        Vector3 targetPos = targetPerception.canSee ? target.GlobalPosition : targetPerception.lastKnownPosition;
         output.targetPos = targetPos;
 
         Vector3 diff = targetPos - me.weaponPosition;
@@ -89,7 +86,7 @@ public partial class BehaviorAttack : BehaviorBase
         // ActionRunner's rejectEffect doesn't fire on every tick of a target
         // standing one plateau above.
         bool inVerticalRange = Mathf.Abs(diff.Y) <= _data.maxVerticalAttackRange;
-        bool inRangeAndSeen = dist2d < _data.maxAttackRange && inVerticalRange && targetPerception.canSee;
+        bool inRangeAndSeen = dist2d < _data.maxAttackRange && inVerticalRange && canSee;
         if (inRangeAndSeen
             && _data.secondaryAttackProfile != null
             && time >= _secondaryCooldownUntilMs
@@ -134,7 +131,7 @@ public partial class BehaviorAttack : BehaviorBase
         // lets a chase drop off a ledge the mob can't climb back up.
         if (dist2d > _data.approachRange)
         {
-            me.Navigator.Goto(targetPerception.lastKnownPosition, allowFalling: true);
+            me.Navigator.Goto(lastKnownPosition, allowFalling: true);
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
@@ -168,6 +165,23 @@ public partial class BehaviorAttack : BehaviorBase
         }
         me.Navigator.Goto(standoff, allowFalling: true);
         return new BehaviorOutput(EBehaviorResult.Running);
+    }
+
+    // Resolve who this attack is engaging. The default is the mob's player
+    // perception slot — the standard "mob attacks the player" target. Subclasses
+    // override this to retarget the identical approach / encircle / swing logic
+    // at a different victim (BehaviorDogAttack picks the nearest triggered enemy
+    // mob). Returns the target Node3D (null = no valid target, attack idles),
+    // and writes whether it's currently visible (gates the swing + yell), the
+    // position to face / encircle, and the last-known position used as the far-
+    // approach goal.
+    protected virtual Node3D ResolveTarget(Mob me, ref PerceptionState targetPerception, out bool canSee, out Vector3 targetPos, out Vector3 lastKnownPosition)
+    {
+        Player player = targetPerception.pawnTarget;
+        canSee = targetPerception.canSee;
+        lastKnownPosition = targetPerception.lastKnownPosition;
+        targetPos = (canSee && player != null) ? player.GlobalPosition : targetPerception.lastKnownPosition;
+        return player;
     }
 
     private void ReleaseSlot(Mob me)

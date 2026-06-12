@@ -7,6 +7,7 @@
 script = ExtResource("2_4siyi")
 removeTimeMs = 60000
 displayName = &"Sparrow Meat"
+typeTags = 1
 maxStack = 99
 value = 1
 inventorySprite = ExtResource("1_aic71")

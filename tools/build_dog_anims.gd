@@ -34,6 +34,7 @@ const MAP := {
 	"fall":       ["idle.fbx", true],
 	"die":        ["die.fbx", false],
 	"hitstun":    ["hit.fbx", false],
+	"attack":     ["bite.fbx", false],
 }
 
 func _find(n, cls):

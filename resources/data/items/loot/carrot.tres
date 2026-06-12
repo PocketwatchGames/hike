@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="LootData" format=3 uid="uid://dq2wv8k7rmn3c"]
 
-[ext_resource type="Script" uid="uid://bmf1oavb2wilx" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
+[ext_resource type="Script" uid="uid://3oa4sob21cmwb" path="res://scripts/data/items/LootData.cs" id="1_loot_data"]
 [ext_resource type="Texture2D" uid="uid://dkrvrkib8xyld" path="res://assets/textures/items/Berries.png" id="2_icon"]
 
 [resource]

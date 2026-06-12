@@ -6,6 +6,7 @@
 [resource]
 script = ExtResource("1_loot_data")
 displayName = &"Goblin Meat"
+typeTags = 129
 maxStack = 99
 inventorySprite = ExtResource("2_inv")
 removeTimeMs = 60000

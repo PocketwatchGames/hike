@@ -10,6 +10,14 @@ public class ItemState
 	public ulong cooldownExpireMs;
 	public ulong cooldownDurationMs;
 
+	// Set once this item has ever entered the player's inventory (picked up,
+	// bought, cooked, withdrawn from a chest, starting gear — every Inventory
+	// acquisition path stamps it). Travels with the object like `statusEffects`
+	// — stays true after the item is dropped back into the world, so a
+	// re-encountered drop reads as "already handled" rather than pristine. Split
+	// stacks inherit it from their source. Never cleared.
+	public bool touched;
+
 	// Per-item status effects (wetness on a garment, a timed enchantment on
 	// a sword, etc.). Lives on the item so it travels with the object: a wet
 	// shirt unequipped into the backpack stays wet; an enchanted sword

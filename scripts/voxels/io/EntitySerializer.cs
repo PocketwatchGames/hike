@@ -613,7 +613,7 @@ public static class EntitySerializer
     }
 
     // ItemState wire format: ItemData resource path + the base ItemState
-    // fields (stackCount, cooldownExpireMs, cooldownDurationMs). Polymorphic
+    // fields (stackCount, cooldownExpireMs, cooldownDurationMs, touched). Polymorphic
     // subclass fields (WeaponState.ammo/level, ConsumableState.isActive,
     // ArmorState.exp/level) are not preserved — items round-trip through
     // ItemData.CreateState() which resets them to authored defaults. Extend
@@ -630,6 +630,7 @@ public static class EntitySerializer
         w.Write(item.stackCount);
         w.Write(item.cooldownExpireMs);
         w.Write(item.cooldownDurationMs);
+        w.Write(item.touched);
     }
 
     private static ItemState ReadItemState(BinaryReader r)
@@ -647,6 +648,7 @@ public static class EntitySerializer
         int stackCount = r.ReadInt32();
         ulong cooldownExpireMs = r.ReadUInt64();
         ulong cooldownDurationMs = r.ReadUInt64();
+        bool touched = r.ReadBoolean();
         if (data == null)
         {
             return null;
@@ -655,6 +657,7 @@ public static class EntitySerializer
         state.stackCount = stackCount;
         state.cooldownExpireMs = cooldownExpireMs;
         state.cooldownDurationMs = cooldownDurationMs;
+        state.touched = touched;
         return state;
     }
 

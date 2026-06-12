@@ -5,7 +5,13 @@ public enum EPlayerPerceptionState
 {
     Hidden,
     Detected,
-    Discovered
+    Discovered,
+    // Terminal state for a corpse the player has actually laid eyes on. A
+    // motionless dead body, once seen, stays seen — perception toward it only
+    // ever rose, so it never decays back to a memory silhouette or dithers
+    // out. Latched in Mob.UpdatePerception the first tick a dead mob is
+    // actively perceived; reset back to Discovered if the mob resurrects.
+    CorpseDiscovered
 }
 
 public class MobSimState : EntitySimState
@@ -50,16 +56,17 @@ public class MobSimState : EntitySimState
     // Companion command state: true = "stay" (hold position), false = "follow"
     // the player. Toggled by the player's companion command input via the live
     // Mob; lives on sim state so it survives chunk unload/reload. Only
-    // meaningful when MobData.isCompanion.
+    // meaningful when the mob is tamed (Tamed / Mob.IsCompanion).
     public bool StayCommanded;
-    // Whether this companion has been tamed. Companions are authored on a wild
-    // team (Prey) and only join the player's side once tamed — Mob.ActorTeam
-    // overrides a tamed companion's effective team to Friendly so the player
-    // can't friendly-fire it (see Teams.AreAllied) and it stops reading as
-    // stalkable prey. Set at spawn for the starter companion (already tamed);
-    // a future taming flow flips it at runtime. Like StayCommanded, this is a
-    // per-instance flag that survives chunk reload via the live MobSimState
-    // and is not written to the .hike world file.
+    // Whether this mob has been tamed and is now the player's companion.
+    // Tameable mobs are authored on a wild team (Prey) and only join the
+    // player's side once Loyalty crosses MobData.tameLoyalty (see Mob.MaybeTame
+    // / Tame) — Mob.ActorTeam then overrides the effective team to Friendly so
+    // the player can't friendly-fire it (see Teams.AreAllied) and it stops
+    // reading as stalkable prey. Set at spawn for the starter companion
+    // (already tamed); MaybeTame flips it at runtime. Like StayCommanded, this
+    // is a per-instance flag that survives chunk reload via the live
+    // MobSimState and is not written to the .hike world file.
     public bool Tamed;
     // Cumulative loyalty earned by gifting items to this mob. Increases by
     // the player's CalculatePersonalValue total each accepted Gift action on
@@ -177,6 +184,13 @@ public class MobSimState : EntitySimState
     // One perception slot per potential target. Currently sized to 1 (the player);
     // the array shape is kept so multiplayer can add slots without reshuffling.
     public PerceptionState[] PerceptionTargets = new PerceptionState[1];
+
+    // Companion threat awareness — the accumulating perception toward the
+    // nearest enemy (MobData.threatTeam) mob, built with the same vision model
+    // as the player slot above. Only updated when MobData.scansForThreats is
+    // set; drives the Wary / Attack tiers in the companion brain. `target`
+    // holds the enemy Mob currently being tracked (null when none in range).
+    public PerceptionState ThreatPerception;
 
     // UpdatePerception is throttled to PerceptionTickInterval seconds. Each frame
     // accumulates delta into PerceptionTickAccumulator; when it overflows the

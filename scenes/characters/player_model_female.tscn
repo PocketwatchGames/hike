@@ -6,7 +6,7 @@
 [ext_resource type="Material" uid="uid://bxk7m2n4qwp3d" path="res://resources/materials/model_lit_character_body.tres" id="4_modelmat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="5_modelanim"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="6_helditem"]
-[ext_resource type="Script" uid="uid://ae29eyjikf966" path="res://scripts/client/PixelSnap.cs" id="7_pixelsnap"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="7_pixelsnap"]
 [ext_resource type="Material" uid="uid://nsghx0dy6spm" path="res://resources/materials/model_lit_face_cutout.tres" id="8_facemat"]
 
 [node name="PlayerModelFemale" type="Node3D" node_paths=PackedStringArray("animator", "heldVisual")]

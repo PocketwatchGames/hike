@@ -43,6 +43,7 @@ locksMovement = true
 script = ExtResource("1_consumable")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Succulent Grilled Goblin"
+typeTags = 5
 unidentifiedDisplayName = &"Unknown Food"
 description = "Mushroom-cured. Goes down clean."
 maxStack = 5

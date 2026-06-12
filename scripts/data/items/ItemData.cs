@@ -26,6 +26,11 @@ public partial class ItemData : Resource
 	[Export] public int value = 0;
 	[Export] public Texture2D inventorySprite;
 
+	// Coarse classification flags driving mob taste preferences — a dog values
+	// Meat, a villager dislikes Gross. An item can carry several (a roast is
+	// Meat | Food). See EItemType and MobData.itemPreferences.
+	[Export] public EItemType typeTags = EItemType.None;
+
 	// Optional 3D prop shown in the player's hand while this item is the one
 	// being wielded / used — the sword that pops in when you swing, the potion
 	// that appears while you drink. Distinct from the 2D inventorySprite /

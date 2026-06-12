@@ -89,8 +89,9 @@ public partial class World : Node3D
     public Player player => _player;
 
     // The player's active companion (pet), if one is currently spawned. A Mob
-    // flagged MobData.isCompanion registers here on spawn so player command
-    // input (follow/stay toggle) can reach it without a scene-tree search.
+    // registers here when it becomes tamed (Mob.Tame, or on spawn if it spawned
+    // pre-tamed) so player command input (follow/stay toggle) can reach it
+    // without a scene-tree search.
     // Single companion for now; becomes a list when multiple pets are allowed.
     private Mob _companion;
     public Mob Companion => _companion;
