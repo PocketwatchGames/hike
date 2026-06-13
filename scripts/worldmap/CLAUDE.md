@@ -69,9 +69,24 @@ Keys: LMB paint / RMB erase · **Tab** cycle tool (+view) · **Q/E** cycle the
 tool's param · **R/F** active elevation / cross-section · **Space** 2D map ↔ 3D
 fly-over · **`[` `]`** brush size · **Ctrl+S** save layers + bake `.hike`.
 
+## In-world tint overlay (`WorldMapTintOverlay`, CVar-gated)
+
+Region/zone colours can be shown on the actual 3D chunks via the `worldmap_tint`
+CVar (`0` off / `1` region / `2` zone; `worldmap_tint_strength` blends).
+`WorldMapTintOverlay` builds a per-chunk-column colour LUT from `World.Current`
+and pushes four terrain-shader globals; `voxel_clip.gdshader` blends it into
+`base` before the ALBEDO/EMISSION split via `apply_worldmap_tint`
+(`shaders/worldmap_tint.gdshaderinc`). It follows the **ground-stain pattern**
+exactly: a strict no-op on a uniform branch when `worldmap_tint_strength <= 0`
+(the default + whenever the CVar is off), so the shipped game is byte-identical
+to pre-feature and pays nothing — the LUT is only built/uploaded while on. The
+globals are declared in `project.godot`'s `[shader_globals]` (with placeholders)
+so the shader always compiles (the `light_map` precedent). The painter calls
+`WorldMapTintOverlay.Refresh()` after region/zone strokes so the overlay tracks
+painting live. Works in-game too (set the CVar to inspect regions/zones).
+
 ## Not yet (future steps)
 
-In-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain shader),
-prop/interactive scatter brushes, and tiling the per-column images per
+Prop/interactive scatter brushes, and tiling the per-column images per
 chunk-footprint for streaming-scale worlds (see `scripts/voxels/CLAUDE.md`).
-The clip plane is parked far above the world (no player to occlude around).
+The preview clip plane is parked far above the world (no player to occlude).

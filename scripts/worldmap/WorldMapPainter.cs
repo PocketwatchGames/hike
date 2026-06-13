@@ -199,6 +199,13 @@ public partial class WorldMapPainter : Node3D
         ActiveTool.Paint(_ctx, brush, texel, erase);
         RebuildDisplay(ExpandToChunks(BrushRect(texel, ActiveTool.Radius)));
         PushDisplay();
+
+        // Keep the in-world tint overlay (CVar worldmap_tint) tracking edits.
+        // No-op cost when the overlay is off.
+        if (CVars.worldmapTint.Value != WorldMapTintOverlay.MODE_OFF)
+        {
+            WorldMapTintOverlay.Refresh();
+        }
     }
 
     private void SetPreview(bool preview)

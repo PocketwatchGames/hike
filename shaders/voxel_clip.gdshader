@@ -234,6 +234,15 @@ global uniform float ground_stain_strength;
 global uniform bool ground_stain_enabled;
 #include "res://shaders/ground_stain.gdshaderinc"
 
+// World-map authoring overlay — tints terrain by per-chunk region/zone colour
+// (CVar worldmap_tint). Strict no-op when worldmap_tint_strength <= 0 (the
+// default), so the shipped game is unaffected. See shaders/worldmap_tint.gdshaderinc.
+global uniform sampler2D worldmap_tint_tex : filter_nearest;
+global uniform vec2 worldmap_tint_origin;
+global uniform vec2 worldmap_tint_size;
+global uniform float worldmap_tint_strength;
+#include "res://shaders/worldmap_tint.gdshaderinc"
+
 // Eye adaptation — local "night eyes" tone curve, driven by the eye_adaptation
 // global. The dilation state is owned by the player sim (Player.EyeDilation) and
 // pushed by GameClient. Applied to the lit output below; exact no-op when
@@ -760,6 +769,8 @@ void fragment() {
 	// the ALBEDO/EMISSION split so they survive the always-on EMISSION term —
 	// a no-op when the stain projector is off or this fragment is unstained.
 	base = apply_ground_stain(base, world_vertex);
+	// World-map authoring overlay (CVar worldmap_tint) — no-op unless enabled.
+	base = apply_worldmap_tint(base, world_vertex);
 
 	// Baked AO: multiplicative shelter/contact darkening on the diffuse
 	// lighting only. ao=0 (open) leaves lighting untouched; ao=1 (buried)

@@ -433,6 +433,22 @@ ground_stain_enabled={
 "type": "bool",
 "value": true
 }
+worldmap_tint_tex={
+"type": "sampler2D",
+"value": "res://assets/textures/block_light_shadow_placeholder.tres"
+}
+worldmap_tint_origin={
+"type": "vec2",
+"value": Vector2(0, 0)
+}
+worldmap_tint_size={
+"type": "vec2",
+"value": Vector2(1, 1)
+}
+worldmap_tint_strength={
+"type": "float",
+"value": 0.0
+}
 foliage_camera_world={
 "type": "vec3",
 "value": Vector3(0, 0, 0)
