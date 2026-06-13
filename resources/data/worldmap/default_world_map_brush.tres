@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="WorldMapBrush" load_steps=2 format=3 uid="uid://8kjoldme1z4f"]
+
+[ext_resource type="Script" uid="uid://5snimn8syu1n" path="res://scripts/data/worldmap/WorldMapBrush.cs" id="1_brush"]
+
+[resource]
+script = ExtResource("1_brush")
+Op = 0
+Radius = 12.0
+Hardness = 0.4
+Flow = 0.5
+StrengthPerStep = 0.04
+NoiseAmount = 0.0
+NoiseFrequency = 0.05

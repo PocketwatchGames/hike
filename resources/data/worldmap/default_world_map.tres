@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="WorldMapData" load_steps=3 format=3 uid="uid://e8dg4qt8u74x"]
+
+[ext_resource type="Script" uid="uid://q4y79zjvwr2y" path="res://scripts/data/worldmap/WorldMapData.cs" id="1_wmd"]
+[ext_resource type="Resource" uid="uid://carn5t06puf34" path="res://resources/data/world_gen/default_world_gen.tres" id="2_gen"]
+
+[resource]
+script = ExtResource("1_wmd")
+GenData = ExtResource("2_gen")
+SizeChunksX = 18
+SizeChunksZ = 16
+FloorChunkY = -1
+CeilChunkY = 4
+SeaLevel = 0
+MaxElevationVoxels = 64.0
+ElevationImagePath = "res://resources/data/worldmap/elevation.exr"
+RegionImagePath = "res://resources/data/worldmap/region.png"
+OutputWorldPath = "res://resources/data/worldmap/painted_world.hike"

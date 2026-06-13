@@ -8,6 +8,7 @@ public partial class Main : Node
 	[Export] public PackedScene MainMenuScene;
 	[Export] public PackedScene GameScene;
 	[Export] public PackedScene EditorScene;
+	[Export] public PackedScene WorldMapPainterScene;
 	[Export] public WorldGenData DefaultWorldGenData;
 	// Loading overlay shown across the new-game / load-game sequence. Lives at
 	// the Main level (not inside game.tscn) so the screen is visible during
@@ -372,12 +373,39 @@ public partial class Main : Node
 		};
 	}
 
+	// Launch the world-map painting tool — the first step in the authoring
+	// chain. Mirrors StartEditor, but the painter owns its world via its
+	// WorldMapData document (which carries its own GenData), so the palettes
+	// are bound from that document before the 3D preview builds any chunk mesh
+	// (ChunkMesh.SetTerrains touches RenderingServer — main thread only, same
+	// as StartGame).
+	void StartPainter(WorldGenData worldGenData)
+	{
+		_currentScreen.QueueFree();
+
+		var painter = WorldMapPainterScene.Instantiate<WorldMapPainter>();
+		WorldGenData gen = painter.data?.GenData ?? worldGenData;
+		WorldGen.BindActivePalettes(gen);
+		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
+		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
+
+		_currentScreen = painter;
+		AddChild(painter);
+		painter.Init();
+		painter.onQuitToMenu += () =>
+		{
+			painter.QueueFree();
+			StartMainMenu();
+		};
+	}
+
 	void StartMainMenu()
 	{
 		_currentScreen = MainMenuScene.Instantiate<Node>();
 		(_currentScreen as GuiMainMenu).OnNewGame += NewGame;
 		(_currentScreen as GuiMainMenu).OnLoadGame += LoadGame;
 		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;
+		(_currentScreen as GuiMainMenu).OnStartPainter += StartPainter;
 		AddChild(_currentScreen);
 	}
 
