@@ -1,13 +1,14 @@
 using Godot;
 
-// Minimal status HUD for the world-map painter. Mirrors EditorHud — exported
-// labels assigned in the scene, simple setters driven by the painter.
+// Status HUD for the world-map painter. Exported labels assigned in the scene;
+// the painter pushes the active tool's name, parameters, brush size, and the
+// 2D/3D view state.
 [GlobalClass]
 public partial class WorldMapHud : CanvasLayer
 {
     [Export] public Label viewLabel;
-    [Export] public Label layerLabel;
-    [Export] public Label toolLabel;
+    [Export] public Label layerLabel;   // tool name
+    [Export] public Label toolLabel;    // tool status + active level
     [Export] public Label radiusLabel;
     [Export] public Label coordsLabel;
     [Export] public Label helpLabel;
@@ -16,7 +17,7 @@ public partial class WorldMapHud : CanvasLayer
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Paint | RMB: Erase/Lower | Tab: Layer | Space: 2D/3D | Q/E: Cycle Tool | [ ]: Brush Size | Ctrl+S: Save | Esc: Quit";
+            helpLabel.Text = "LMB: Paint | RMB: Erase | Tab: Tool | Space: 2D/3D | Q/E: Param | R/F: Level | [ ]: Brush | Ctrl+S: Save | Esc: Quit";
         }
     }
 
@@ -28,19 +29,19 @@ public partial class WorldMapHud : CanvasLayer
         }
     }
 
-    public void SetLayer(string layer)
+    public void SetTool(string name)
     {
         if (layerLabel != null)
         {
-            layerLabel.Text = $"Layer: {layer}";
+            layerLabel.Text = $"Tool: {name}";
         }
     }
 
-    public void SetTool(string tool)
+    public void SetStatus(string status)
     {
         if (toolLabel != null)
         {
-            toolLabel.Text = $"Tool: {tool}";
+            toolLabel.Text = status;
         }
     }
 
