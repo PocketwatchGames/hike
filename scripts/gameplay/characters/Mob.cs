@@ -1585,6 +1585,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         Vector3 pos = GlobalPosition;
         Vector3 currentVel = LinearVelocity;
 
+        // Local baked air current at the bird, sampled once for both the
+        // along-heading speed modulation and the carry blend below.
+        Vector3 wind = _world?.WorldState?.GetWindVelocityWorld(
+            Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) ?? Vector3.Zero;
+        Vector3 windXZ = new Vector3(wind.X, 0f, wind.Z);
+
         // Horizontal steering toward the path target (XZ only).
         Vector3 desiredHoriz = Vector3.Zero;
         if (aiOutput.pathTarget.HasValue)
@@ -1597,7 +1603,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 Vector3 dir = toTarget / dist;
                 float speedScale = Mathf.Clamp(dist / (arrivalDist + 1f), 0f, 1f);
-                desiredHoriz = dir * md.flySpeed * aiOutput.speed * speedScale * statusMoveMul;
+                // Head/tailwind modulation: the wind component ALONG the flight
+                // heading (dir · windXZ, m/s) scales cruise speed by windDragXZ
+                // per m/s, clamped symmetrically to ±windFlySpeedCap. A tailwind
+                // (positive dot) speeds the bird up, a headwind slows it down —
+                // at the default cap a headwind floors it at 50% of flySpeed.
+                float windAlong = dir.Dot(windXZ);
+                float windSpeedFactor = Mathf.Clamp(
+                    windAlong * md.windDragXZ, -md.windFlySpeedCap, md.windFlySpeedCap);
+                float effectiveFlySpeed = md.flySpeed * (1f + windSpeedFactor);
+                desiredHoriz = dir * effectiveFlySpeed * aiOutput.speed * speedScale * statusMoveMul;
                 if (!targetYaw.HasValue && dist > arrivalDist)
                 {
                     targetYaw = Mathf.Atan2(dir.X, dir.Z);
@@ -1605,12 +1620,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             }
         }
 
-        // Wind: blend the local baked air current into the desired horizontal
+        // Wind carry: blend the local air current into the desired horizontal
         // velocity so birds get carried / fight headwinds (windInfluence tunes
-        // how strongly per species).
-        Vector3 wind = _world?.WorldState?.GetWindVelocityWorld(
-            Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) ?? Vector3.Zero;
-        desiredHoriz += new Vector3(wind.X, 0f, wind.Z) * md.windInfluence;
+        // how strongly per species). Layered on top of the speed modulation
+        // above — windInfluence drifts the bird sideways with the wind while
+        // windDragXZ/windFlySpeedCap govern its along-heading propulsion.
+        desiredHoriz += windXZ * md.windInfluence;
 
         // Vertical: spring toward the look-ahead/ceiling-aware target altitude.
         float hoverH = aiOutput.flyAltitude ?? md.hoverHeight;
@@ -2249,6 +2264,28 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (_simState.KnockbackTime > 0f || _simState.MotionTime > 0f)
             {
                 linearDampTarget = 0f;
+            }
+            // Falling wind drift — parallels PlayerData.windDragXZ. While a
+            // non-flying mob is in genuine free fall with nothing else driving
+            // it (no flight / swim / path steering / knockback this tick, so the
+            // default LinearDamp is still in force), wind carries its horizontal
+            // velocity toward (sampled wind × windDragXZ). Applying an
+            // acceleration of (LinearDamp × drift) makes that drift the
+            // equilibrium of the engine's exponential damp, so the fall
+            // asymptotes to the drift target exactly like the player's airborne
+            // drift — no extra smoothing knob needed.
+            if (!inBurrow && !flying && linearDampTarget > 0f
+                && _simState.MobData.windDragXZ > 0f
+                && LinearVelocity.Y < -_simState.MobData.fallEnterSpeed)
+            {
+                Vector3 pos = GlobalPosition;
+                Vector3 wind = _world?.WorldState?.GetWindVelocityWorld(
+                    Mathf.FloorToInt(pos.X), Mathf.FloorToInt(pos.Y), Mathf.FloorToInt(pos.Z)) ?? Vector3.Zero;
+                Vector3 windDrift = new Vector3(wind.X, 0f, wind.Z) * _simState.MobData.windDragXZ;
+                if (windDrift.LengthSquared() > 0f)
+                {
+                    ApplyImpulse(linearDampTarget * windDrift * Mass * (float)delta);
+                }
             }
             if (linearDampTarget != _lastLinearDamp)
             {
