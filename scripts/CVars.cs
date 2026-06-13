@@ -1004,20 +1004,6 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("ground_stain_enabled", ((CVarBool)cvar).Value);
     });
 
-    // World-map authoring overlay: tints terrain by per-chunk region/zone colour
-    // (0 off / 1 region / 2 zone). Off by default — when off the shader hook is a
-    // strict no-op (worldmap_tint_strength == 0), so the shipped game is
-    // unaffected. Builds a per-chunk colour LUT from the live world on toggle.
-    public static CVarInt worldmapTint = new CVarInt("worldmap_tint", 0, (cvar) =>
-    {
-        WorldMapTintOverlay.SetMode(((CVarInt)cvar).Value);
-    });
-
-    public static CVarFloat worldmapTintStrength = new CVarFloat("worldmap_tint_strength", 0.7f, (cvar) =>
-    {
-        WorldMapTintOverlay.SetStrength(((CVarFloat)cvar).Value);
-    });
-
     // Discards every voxel_water fragment when set. Lets you check the
     // terrain stencil + cap pipeline without water front faces in the
     // way — particularly useful with `clip_debug 13` to see which screen
