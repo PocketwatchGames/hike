@@ -34,6 +34,7 @@ public partial class WorldMapData : Resource
     [Export] public string WaterImagePath = "";        // .exr, Rf, per column
     [Export] public string RegionImagePath = "";       // .png, R8, per chunk
     [Export] public string ZoneImagePath = "";         // .png, R8, per chunk
+    [Export] public string ScatterImagePath = "";      // .png, Rgba8, per column (R=kind, G=density)
     [Export] public string TunnelMaskPath = "";        // .bin, per voxel carve mask
 
     // Where BakeToWorldFile writes the packed world (res:// path).
@@ -103,6 +104,27 @@ public partial class WorldMapData : Resource
     public Image LoadOrCreateZone()
     {
         return LoadOrCreateChunkImage(ZoneImagePath);
+    }
+
+    // Scatter is a per-column RGBA8 image: R = kind id (0 = none), G = density.
+    public Image LoadOrCreateScatter()
+    {
+        Image img = TryLoad(ScatterImagePath);
+        if (img != null)
+        {
+            if (img.GetWidth() != ImageWidth || img.GetHeight() != ImageHeight)
+            {
+                img.Resize(ImageWidth, ImageHeight, Image.Interpolation.Nearest);
+            }
+            if (img.GetFormat() != Image.Format.Rgba8)
+            {
+                img.Convert(Image.Format.Rgba8);
+            }
+            return img;
+        }
+        Image blank = Image.CreateEmpty(ImageWidth, ImageHeight, false, Image.Format.Rgba8);
+        blank.Fill(new Color(0f, 0f, 0f, 1f));
+        return blank;
     }
 
     private Image LoadOrCreateColumnImage(string path)
@@ -200,6 +222,11 @@ public partial class WorldMapData : Resource
     public void SaveZone(Image img)
     {
         SavePng(ZoneImagePath, img, "zone");
+    }
+
+    public void SaveScatter(Image img)
+    {
+        SavePng(ScatterImagePath, img, "scatter");
     }
 
     public void SaveTunnels(byte[,,] tunnels)

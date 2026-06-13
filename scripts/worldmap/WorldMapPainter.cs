@@ -61,6 +61,7 @@ public partial class WorldMapPainter : Node3D
             new TunnelTool(),
             new RegionTool(),
             new ZoneTool(),
+            new ScatterTool(),
         };
         _toolIndex = 0;
 
@@ -205,6 +206,12 @@ public partial class WorldMapPainter : Node3D
     {
         _preview = preview;
         canvas.Visible = !preview;
+        // Re-sync scattered props/interactives into the 3D preview when entering
+        // it, so per-stroke scatter edits don't thrash the prop multimeshes.
+        if (preview)
+        {
+            _ctx.FlushScatterToPreview();
+        }
         UpdateHud();
     }
 

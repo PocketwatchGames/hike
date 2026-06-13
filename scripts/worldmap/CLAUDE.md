@@ -19,6 +19,8 @@ Layers:
 - **Water** — `.exr` `Rf`, per column (painted water-surface height; separate
   from the global ocean elevation).
 - **Region** / **Zone** — `.png` `R8`, per **chunk** (index → `ChunkState.RegionIndex` / `ZoneIndex`).
+- **Scatter** — `.png` `Rgba8`, per column (R = kind id, G = density); the bake
+  places `EntitySimState` props/interactives, serialized into the `.hike`.
 - **Tunnels** — `.bin`, per-voxel carve mask (`byte[px,ly,pz]`), too 3D to be a
   useful image; the carved result is captured in the baked `.hike`.
 
@@ -50,6 +52,15 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 | `TunnelTool` | carve at a cross-section | `CrossSectionY`, `CarveHeight` | white=land at slice, grey=2 below, blue=2 above, red=existing carve |
 | `RegionTool` | per-chunk region index | `RegionIndex` | region colours, **50% darker in ocean** |
 | `ZoneTool` | per-chunk zone index | `ZoneIndex` | zone colours, **brightness by elevation** |
+| `ScatterTool` | density of props/interactives | `Kind`, `Density` | dim terrain + scatter coverage by kind |
+
+`ScatterTool` paints a per-column `(kind, density)` raster; `WorldMapState.RescatterColumns`
+deterministically (hash-seeded) places one `EntitySimState` per column with
+probability == density on dry land, resolving the kind via `ScatterFactory`
+(props from the zone `SurfaceKit` scene lists, interactives from the zone spawn
+lists — the same resolution as `WorldEditor`). Sim states update live; the 3D
+preview nodes re-sync on `FlushScatterToPreview` (called when you enter preview,
+so per-stroke edits don't thrash the prop multimeshes).
 
 `WorldMapBrush` (`Resource`) is the shared, layer-agnostic stamp engine
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool
@@ -71,7 +82,8 @@ fly-over · **`[` `]`** brush size · **Ctrl+S** save layers + bake `.hike`.
 
 ## Not yet (future steps)
 
-In-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain shader),
+Point-placement of singular interactives (signposts/doors/specific chests),
+in-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain shader),
 prop/interactive scatter brushes, and tiling the per-column images per
 chunk-footprint for streaming-scale worlds (see `scripts/voxels/CLAUDE.md`).
 The clip plane is parked far above the world (no player to occlude around).

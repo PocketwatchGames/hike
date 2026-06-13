@@ -21,10 +21,17 @@ public class WorldMapState
     public Image Water;            // Rf, per column (water surface height)
     public Image Region;           // R8, per chunk (region index)
     public Image Zone;             // R8, per chunk (zone index)
+    public Image Scatter;          // Rgba8, per column (R = kind id, G = density)
     public byte[,,] Tunnels;       // [px, ly, pz] carve mask (1 = carved air)
 
     // Live ocean elevation in world voxels (the elevation tool edits this).
     public int SeaLevel;
+
+    // Scatter entity bookkeeping: the EntitySimState placed for each column
+    // (so a re-scatter can remove the old one), and the chunks whose live
+    // preview nodes need re-syncing on the next FlushScatterToPreview.
+    private readonly System.Collections.Generic.Dictionary<Vector2I, EntitySimState> _scatterEntities = new();
+    private readonly System.Collections.Generic.HashSet<Vector3I> _scatterDirtyChunks = new();
 
     public WorldMapState(WorldMapData data)
     {
@@ -34,6 +41,7 @@ public class WorldMapState
         Water = data.LoadOrCreateWater();
         Region = data.LoadOrCreateRegion();
         Zone = data.LoadOrCreateZone();
+        Scatter = data.LoadOrCreateScatter();
         Tunnels = data.LoadOrCreateTunnels();
     }
 
@@ -157,6 +165,11 @@ public class WorldMapState
         WorldState = ws;
         StampColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight), null);
 
+        // Scatter props/interactives into the fresh WorldState (World is null
+        // here, so this only adds sim states — the painter's initial entity
+        // load spawns the nodes).
+        RescatterColumns(new Rect2I(0, 0, Data.ImageWidth, Data.ImageHeight));
+
         int spawnH = TerrainHeight(-Data.WorldMinX, -Data.WorldMinZ);
         ws.Spawn = new Vector3(0.5f, spawnH + 2f, 0.5f);
 
@@ -270,6 +283,111 @@ public class WorldMapState
         }
     }
 
+    // Re-evaluate scatter for every column under a texel rect: drop the old
+    // entity (if any), then place a new one when the cell has a kind + the
+    // hash roll falls under its density, on dry land. Adds/removes sim states
+    // on WorldState; the live preview nodes re-sync in FlushScatterToPreview.
+    public void RescatterColumns(Rect2I texelRect)
+    {
+        int x0 = Mathf.Max(0, texelRect.Position.X);
+        int z0 = Mathf.Max(0, texelRect.Position.Y);
+        int x1 = Mathf.Min(Data.ImageWidth, texelRect.Position.X + texelRect.Size.X);
+        int z1 = Mathf.Min(Data.ImageHeight, texelRect.Position.Y + texelRect.Size.Y);
+        for (int px = x0; px < x1; px++)
+        {
+            for (int pz = z0; pz < z1; pz++)
+            {
+                RescatterColumn(px, pz);
+            }
+        }
+    }
+
+    private void RescatterColumn(int px, int pz)
+    {
+        var col = new Vector2I(px, pz);
+        if (_scatterEntities.TryGetValue(col, out EntitySimState old))
+        {
+            WorldState.RemoveEntity(old);
+            _scatterEntities.Remove(col);
+            MarkScatterChunk(old.WorldPosition);
+        }
+
+        Color cell = Scatter.GetPixel(px, pz);
+        int kindId = Mathf.RoundToInt(cell.R * 255f);
+        float density = cell.G;
+        if (kindId <= 0 || density <= 0f)
+        {
+            return;
+        }
+        // Dry land only — no scatter underwater or on the open-sea floor.
+        if (Underwater(px, pz) || TerrainHeight(px, pz) < SeaLevel)
+        {
+            return;
+        }
+        uint h = Hash(px, pz);
+        if (ToFloat01(h) >= density)
+        {
+            return;
+        }
+
+        int surfaceY = TerrainHeight(px, pz);
+        var pos = new Vector3(Data.WorldMinX + px + 0.5f, surfaceY + 1f, Data.WorldMinZ + pz + 0.5f);
+        EntitySimState sim = ScatterFactory.Create((EScatterKind)(kindId - 1), Data, ZoneIndexAt(px, pz), pos, h);
+        if (sim == null)
+        {
+            return;
+        }
+        WorldState.AddEntity(sim);
+        _scatterEntities[col] = sim;
+        MarkScatterChunk(pos);
+    }
+
+    // Re-sync the live preview entity nodes for chunks whose scatter changed.
+    // Called when entering the 3D preview, so per-stroke edits don't thrash the
+    // prop multimeshes.
+    public void FlushScatterToPreview()
+    {
+        if (World == null)
+        {
+            return;
+        }
+        foreach (Vector3I cc in _scatterDirtyChunks)
+        {
+            World.UnloadChunkEntities(cc);
+            World.LoadChunkEntities(cc);
+        }
+        _scatterDirtyChunks.Clear();
+    }
+
+    private void MarkScatterChunk(Vector3 worldPos)
+    {
+        if (World != null)
+        {
+            _scatterDirtyChunks.Add(World.WorldToChunkCoord(worldPos));
+        }
+    }
+
+    private int ZoneIndexAt(int px, int pz)
+    {
+        Vector2I ct = Data.ColumnTexelToChunkTexel(px, pz);
+        int idx = Mathf.RoundToInt(Zone.GetPixel(ct.X, ct.Y).R * 255f);
+        return ZoneCount > 0 ? Mathf.Clamp(idx, 0, ZoneCount - 1) : 0;
+    }
+
+    private static uint Hash(int x, int z)
+    {
+        unchecked
+        {
+            uint h = (uint)x * 0x9E3779B1u;
+            h ^= (uint)z * 0x85EBCA77u;
+            h = ((h >> 16) ^ h) * 0x045D9F3Bu;
+            h = ((h >> 16) ^ h) * 0x045D9F3Bu;
+            return (h >> 16) ^ h;
+        }
+    }
+
+    private static float ToFloat01(uint h) => (h & 0xFFFFFFu) / 16777216f;
+
     // Relight + remesh after voxel-changing edits.
     public void Commit(List<Vector3I> changed)
     {
@@ -288,6 +406,7 @@ public class WorldMapState
         Data.SaveWater(Water);
         Data.SaveRegion(Region);
         Data.SaveZone(Zone);
+        Data.SaveScatter(Scatter);
         Data.SaveTunnels(Tunnels);
         if (!string.IsNullOrEmpty(Data.OutputWorldPath))
         {
