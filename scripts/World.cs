@@ -92,7 +92,6 @@ public partial class World : Node3D
     // registers here when it becomes tamed (Mob.Tame, or on spawn if it spawned
     // pre-tamed) so player command input (follow/stay toggle) can reach it
     // without a scene-tree search.
-    // Single companion for now; becomes a list when multiple pets are allowed.
     private Mob _companion;
     public Mob Companion => _companion;
     public void RegisterCompanion(Mob companion) => _companion = companion;
@@ -139,10 +138,7 @@ public partial class World : Node3D
 
         // Spawned programmatically here rather than authored into game.tscn
         // because AmbienceController is pure logic — no [Export] node refs
-        // to wire and no audio assets yet. Once the global ambience layer
-        // AudioStreamPlayers (rain / wind / insect bed) get authored in the
-        // scene, they'll likely move under this node and AmbienceController
-        // will graduate to a scene-tree node with [Export] field references.
+        // to wire and no audio assets yet.
         _ambienceController = new AmbienceController();
         _ambienceController.Name = "AmbienceController";
         AddChild(_ambienceController);
@@ -162,9 +158,7 @@ public partial class World : Node3D
         // proportional to that intensity. Triggers a LightningFlasher
         // flash NOW on every strike and queues the audible clap to fire
         // after a per-strike audio-visual lag. Dormant when SimData has
-        // no thunder data wired up. Spawned here rather than as a child
-        // of AmbienceController so the scheduler can live across
-        // whatever future restructuring AmbienceController gets.
+        // no thunder data wired up.
         _thunderScheduler = new ThunderScheduler();
         _thunderScheduler.Name = "ThunderScheduler";
         AddChild(_thunderScheduler);

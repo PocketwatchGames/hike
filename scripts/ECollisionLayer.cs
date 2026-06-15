@@ -11,8 +11,7 @@ public enum ECollisionLayer
     // falls and rests against Environment without being caught by combat
     // hurt-rays or LOS checks) and Foliage's Area3D (rustle-on-overlap
     // trigger that detects via runtime mask, not via layer queries).
-    // Props (trees, etc.) live on Porous, not here — see that layer. Rename
-    // from Prop in 2026-05.
+    // Props (trees, etc.) live on Porous, not here — see that layer.
     Passive = 8,
     Mob = 16,
     HurtBox = 32,

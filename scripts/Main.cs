@@ -16,16 +16,12 @@ public partial class Main : Node
 	// game scene is instantiated.
 	[Export] public PackedScene LoadingScreenScene;
 
-	// Default worldgen run parameters. Once a save/lobby UI exists, the seed
-	// will come from there (or be rolled fresh per new game) and the size
-	// will be authored as part of the world manifest. Hardcoded here for now
-	// so a fresh boot deterministically reproduces the same world.
+	// Default worldgen run parameters. Fixed so a fresh boot deterministically
+	// reproduces the same world.
 	private const int DEFAULT_WORLD_SEED = 12345;
-	// Horizontal footprint doubled (was 9x8 chunks). The shoreline ocean
-	// falloff in WorldGen.BuildHeightMap is anchored to the east world edge
-	// (distFromEastEdge = worldMaxX - wx), so doubling the X extent pushes the
-	// coast outward commensurately with the larger world — no separate
-	// coastline knob to retune. Vertical extent (Y) is unchanged.
+	// The shoreline ocean falloff in WorldGen.BuildHeightMap is anchored to the
+	// east world edge (distFromEastEdge = worldMaxX - wx), so the X extent sets
+	// how far out the coast lands — no separate coastline knob to retune.
 	private static readonly Vector3I DEFAULT_WORLD_SIZE = new Vector3I(18, 3, 16);
 
 	Node _currentScreen;
@@ -89,9 +85,7 @@ public partial class Main : Node
 	{
 		// Upload the active world's terrain + detail palettes to the terrain
 		// shader / scatter system before any chunk mesh is built. Disk-loaded
-		// worlds currently share the same kit registry as WorldGen — a later
-		// .hike change will embed terrain paths in the file header so exported
-		// worlds can own their palette.
+		// worlds share the same kit registry as WorldGen.
 		//
 		// The kit palette is the deduplicated set of all SurfaceKit / CaveKit /
 		// SubmergedKit / ShoreKit refs across the zones (TerrainKitData[]); the

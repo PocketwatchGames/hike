@@ -402,8 +402,7 @@ public static class CVars
 
     // Post-process. Vignette cvars feed the post_process canvas_item shader;
     // GameClient pushes them each frame. Pixel-art scale controls the chunky
-    // pixel size (linear); 1 disables chunking. DOF removed — reintroduce
-    // inside the scene environment later if wanted.
+    // pixel size (linear); 1 disables chunking.
     public static CVarFloat vignetteRadius = new CVarFloat("vignette_radius", 0.55f);
     public static CVarFloat vignetteSoftness = new CVarFloat("vignette_softness", 0.45f);
     public static CVarFloat vignetteStrength = new CVarFloat("vignette_strength", 0.5f);
@@ -1178,11 +1177,8 @@ public static class CVars
         Godot.RenderingServer.GlobalShaderParameterSet("tree_silhouette_breakup_strength", ((CVarFloat)cvar).Value);
     });
 
-    // RGB tint applied to the sun visibility mask. Day/night will drive this:
-    // warm at dawn/dusk, cool at noon. Parsed from "r g b" floats. The shader
-    // sees a vec3 — the day/night sim will eventually call SetSunColor instead
-    // of going through this CVar each frame, so the parsing cost only matters
-    // for console tweaks.
+    // RGB tint applied to the sun visibility mask. Parsed from "r g b" floats;
+    // the shader sees a vec3.
     private static Godot.Vector3 _sunColorValue = new Godot.Vector3(1f, 0.96f, 0.88f);
     public static Godot.Vector3 SunColor => _sunColorValue;
     public static CVarString sunColor = new CVarString("sun_color", "1 0.96 0.88", (cvar) =>

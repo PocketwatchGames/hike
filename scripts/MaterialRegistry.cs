@@ -4,11 +4,9 @@ using Godot;
 // autoloads/material_registry.tscn (registered as a Godot autoload), so the
 // instance is in the scene tree before any scene's _Ready runs. Subclasses
 // of SpriteBase (LitSprite, FlatLitSprite) read their material template
-// from here at Apply() time instead of carrying a per-scene [Export]
-// MaterialTemplate slot — which means authors pick a high-level enum
+// from here at Apply() time: authors pick a high-level enum
 // ("Standard"/"Character") on the sprite node and the registry resolves
-// the actual ShaderMaterial. Keeps every scene from re-wiring the same
-// three-or-four standard templates by hand.
+// the actual ShaderMaterial.
 //
 // Editor: NOT [Tool], so Instance is null when scenes are open in the
 // editor. That's fine — every SpriteBase subclass returns from Apply()
