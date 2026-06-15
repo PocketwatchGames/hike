@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 // Carves tunnels at a horizontal cross-section. AdjustLevel moves the active
@@ -24,21 +23,13 @@ public class TunnelTool : IWorldMapTool
 
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
-        Rect2I rect = brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
+        brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             for (int i = 0; i < CarveHeight; i++)
             {
                 ctx.SetTunnel(px, pz, CrossSectionY + i, !erase);
             }
         });
-        if (rect.Size.X <= 0)
-        {
-            return;
-        }
-
-        var changed = new List<Vector3I>();
-        ctx.StampColumns(rect, changed);
-        ctx.Commit(changed);
     }
 
     public void Cycle(WorldMapState ctx, int dir)

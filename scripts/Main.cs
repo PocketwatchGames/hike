@@ -373,22 +373,16 @@ public partial class Main : Node
 		};
 	}
 
-	// Launch the world-map painting tool — the first step in the authoring
-	// chain. Mirrors StartEditor, but the painter owns its world via its
-	// WorldMapData document (which carries its own GenData), so the palettes
-	// are bound from that document before the 3D preview builds any chunk mesh
-	// (ChunkMesh.SetTerrains touches RenderingServer — main thread only, same
-	// as StartGame).
+	// Launch the world-map painting program — the first step in the authoring
+	// chain. A pure 2D map editor: it paints the WorldMapData layer document and
+	// bakes a WorldState / .hike on save. No live voxel world is built (the old
+	// 3D fly-over preview was removed; it can return later as an on-demand
+	// feature), so launching is instant and needs no palette / mesh binding.
 	void StartPainter(WorldGenData worldGenData)
 	{
 		_currentScreen.QueueFree();
 
 		var painter = WorldMapPainterScene.Instantiate<WorldMapPainter>();
-		WorldGenData gen = painter.data?.GenData ?? worldGenData;
-		WorldGen.BindActivePalettes(gen);
-		ChunkMesh.SetTerrains(WorldGen.ActiveTerrainPalette);
-		ChunkMesh.SetDetailGroups(WorldGen.ActiveDetailPalette);
-
 		_currentScreen = painter;
 		AddChild(painter);
 		painter.Init();

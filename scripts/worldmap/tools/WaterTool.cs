@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 // Paints standing water bodies (lakes, rivers) by writing a per-column water
@@ -29,18 +28,10 @@ public class WaterTool : IWorldMapTool
             ? 0f
             : Mathf.Clamp((ActiveLevel - ctx.SeaLevel) / ctx.Data.MaxElevationVoxels, 0f, 1f);
 
-        Rect2I rect = brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
+        brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             ctx.Water.SetPixel(px, pz, new Color(v01, 0f, 0f, 1f));
         });
-        if (rect.Size.X <= 0)
-        {
-            return;
-        }
-
-        var changed = new List<Vector3I>();
-        ctx.StampColumns(rect, changed);
-        ctx.Commit(changed);
     }
 
     public void Cycle(WorldMapState ctx, int dir)

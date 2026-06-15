@@ -14,8 +14,7 @@ public enum EScatterKind
 
 // Density brush for props + interactives. Paints a per-column (kind, density)
 // raster; the bake scatters one entity per column with probability == density,
-// deterministically (hash-seeded), on dry land. Editing density re-scatters the
-// affected columns live (into WorldState; the 3D preview re-syncs on Space).
+// deterministically (hash-seeded), on dry land.
 public class ScatterTool : IWorldMapTool
 {
     public string Name => "Scatter";
@@ -36,7 +35,7 @@ public class ScatterTool : IWorldMapTool
     public void Paint(WorldMapState ctx, WorldMapBrush brush, Vector2I texel, bool erase)
     {
         byte kindId = (byte)((int)Kind + 1);
-        Rect2I rect = brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
+        brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             if (erase)
             {
@@ -47,11 +46,6 @@ public class ScatterTool : IWorldMapTool
             float d = Mathf.Max(existing, Density * weight);
             ctx.Scatter.SetPixel(px, pz, new Color(kindId / 255f, d, 0f, 1f));
         });
-        if (rect.Size.X <= 0 || rect.Size.Y <= 0)
-        {
-            return;
-        }
-        ctx.RescatterColumns(rect);
     }
 
     public void Cycle(WorldMapState ctx, int dir)

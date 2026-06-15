@@ -1,15 +1,16 @@
 using System;
 using Godot;
 
-// In-game world-map painting mode — the first step in the authoring chain.
-// Hosts a live World preview and a 2D paint canvas. All behaviour is delegated
-// to the active IWorldMapTool: it owns the brush size + its parameters, paints
-// its layer, drives the live re-bake, and supplies the IWorldMapView that
-// colours the 2D map. Switching tools switches both the edit and the view.
+// In-game world-map painting program — the first step in the authoring chain.
+// A pure 2D map editor: it paints a layered raster *document* (WorldMapData) and
+// bakes it to a WorldState / .hike on save. It intentionally does NOT build a
+// live voxel world — every tool's view colours the 2D map directly from the
+// layer images, so painting stays cheap and the screen opens instantly. (A 3D
+// fly-over preview used to live here; it was removed and can return later as an
+// on-demand feature built only when the user asks for it.)
 [GlobalClass]
 public partial class WorldMapPainter : Node3D
 {
-    [Export] public GameCamera camera;
     [Export] public WorldMapCanvas canvas;
     [Export] public WorldMapHud hud;
     [Export] public WorldMapData data;
@@ -18,19 +19,12 @@ public partial class WorldMapPainter : Node3D
     public static WorldMapPainter Current;
     public Action onQuitToMenu;
 
-    private const float MOVE_SPEED = 30f;
-    // Clip plane parked far above the world so the preview shows everything.
-    private const float PREVIEW_CLIP = 100000f;
-
-    private World _world;
     private WorldMapState _ctx;
     private IWorldMapTool[] _tools;
     private int _toolIndex;
 
     private Image _display;
     private ImageTexture _displayTex;
-    private bool _preview;
-    private Vector3 _cursorPosition;
 
     private IWorldMapTool ActiveTool => _tools[_toolIndex];
 
@@ -39,20 +33,6 @@ public partial class WorldMapPainter : Node3D
         Current = this;
 
         _ctx = new WorldMapState(data);
-        _ctx.BuildWorld();
-        _cursorPosition = _ctx.WorldState.Spawn;
-
-        _world = new World();
-        AddChild(_world);
-        _ctx.World = _world;
-        _world.Initialize(_ctx.WorldState, _cursorPosition, camera, null, () => _cursorPosition);
-        _world.EnableEditorMode();
-        _world.UpdateEntityLoading(_cursorPosition);
-
-        camera.Init(this);
-        camera.ManualClipMode = true;
-        camera.SetInitialPosition(_cursorPosition);
-        camera.SetClip(PREVIEW_CLIP, _cursorPosition);
 
         _tools = new IWorldMapTool[]
         {
@@ -71,35 +51,9 @@ public partial class WorldMapPainter : Node3D
         canvas.SetDisplay(_displayTex, data.ImageWidth, data.ImageHeight);
         canvas.CursorRadiusTexels = ActiveTool.Radius;
         canvas.OnPaint = OnCanvasPaint;
+        canvas.OnHover = hud.SetCoords;
 
-        SetPreview(false);
         UpdateHud();
-    }
-
-    public override void _Process(double delta)
-    {
-        if (ConsoleUI.IsOpen)
-        {
-            return;
-        }
-        float dt = (float)delta;
-
-        if (_preview)
-        {
-            Vector2 input = Input.GetVector("MoveLeft", "MoveRight", "MoveUp", "MoveDown");
-            if (input.LengthSquared() > 0f)
-            {
-                float yaw = camera.Yaw;
-                Vector3 forward = new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
-                Vector3 right = new Vector3(forward.Z, 0, -forward.X);
-                _cursorPosition += (forward * input.Y + right * input.X) * MOVE_SPEED * dt;
-            }
-            _world.UpdateEntityLoading(_cursorPosition);
-        }
-
-        camera.UpdateCamera(delta, _cursorPosition, 0f);
-        camera.SetClip(PREVIEW_CLIP, _cursorPosition);
-        hud.SetCoords(_cursorPosition);
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -112,18 +66,6 @@ public partial class WorldMapPainter : Node3D
         if (e.IsActionPressed("TogglePause"))
         {
             onQuitToMenu?.Invoke();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-        if (e.IsActionPressed("CameraLeft"))
-        {
-            camera.RotateLeft();
-            GetViewport().SetInputAsHandled();
-            return;
-        }
-        if (e.IsActionPressed("CameraRight"))
-        {
-            camera.RotateRight();
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -141,7 +83,7 @@ public partial class WorldMapPainter : Node3D
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (e.IsActionPressed("EditorUp"))  // active elevation / cross-section up
+        if (e.IsActionPressed("EditorUp"))  // R — active elevation / cross-section up
         {
             ActiveTool.AdjustLevel(_ctx, 1);
             RebuildFull();
@@ -149,7 +91,7 @@ public partial class WorldMapPainter : Node3D
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (e.IsActionPressed("EditorDown"))
+        if (e.IsActionPressed("EditorDown"))  // F — active elevation / cross-section down
         {
             ActiveTool.AdjustLevel(_ctx, -1);
             RebuildFull();
@@ -175,10 +117,6 @@ public partial class WorldMapPainter : Node3D
                     UpdateHud();
                     GetViewport().SetInputAsHandled();
                     return;
-                case Key.Space:
-                    SetPreview(!_preview);
-                    GetViewport().SetInputAsHandled();
-                    return;
                 case Key.Bracketleft:
                     ActiveTool.Radius = Mathf.Max(0.5f, ActiveTool.Radius - 1f);
                     canvas.CursorRadiusTexels = ActiveTool.Radius;
@@ -200,19 +138,6 @@ public partial class WorldMapPainter : Node3D
         ActiveTool.Paint(_ctx, brush, texel, erase);
         RebuildDisplay(ExpandToChunks(BrushRect(texel, ActiveTool.Radius)));
         PushDisplay();
-    }
-
-    private void SetPreview(bool preview)
-    {
-        _preview = preview;
-        canvas.Visible = !preview;
-        // Re-sync scattered props/interactives into the 3D preview when entering
-        // it, so per-stroke scatter edits don't thrash the prop multimeshes.
-        if (preview)
-        {
-            _ctx.FlushScatterToPreview();
-        }
-        UpdateHud();
     }
 
     private void RebuildFull()
@@ -267,7 +192,6 @@ public partial class WorldMapPainter : Node3D
 
     private void UpdateHud()
     {
-        hud.SetView(_preview);
         hud.SetTool(ActiveTool.Name);
         string status = ActiveTool.StatusText(_ctx);
         string level = ActiveTool.LevelText(_ctx);

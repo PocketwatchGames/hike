@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 public enum EBrushOp
@@ -35,7 +34,7 @@ public class ElevationTool : IWorldMapTool
         int h = ctx.Data.ImageHeight;
         float target = ctx.Elevation01(texel.X, texel.Y);   // Flatten reference
 
-        Rect2I rect = brush.Stamp(texel, Radius, w, h, (px, pz, weight) =>
+        brush.Stamp(texel, Radius, w, h, (px, pz, weight) =>
         {
             float v = ctx.Elevation.GetPixel(px, pz).R;
             float k = brush.Flow * weight;
@@ -56,14 +55,6 @@ public class ElevationTool : IWorldMapTool
             }
             ctx.Elevation.SetPixel(px, pz, new Color(Mathf.Clamp(v, 0f, 1f), 0f, 0f, 1f));
         });
-        if (rect.Size.X <= 0)
-        {
-            return;
-        }
-
-        var changed = new List<Vector3I>();
-        ctx.StampColumns(rect, changed);
-        ctx.Commit(changed);
     }
 
     public void Cycle(WorldMapState ctx, int dir)
@@ -72,14 +63,11 @@ public class ElevationTool : IWorldMapTool
         Op = (EBrushOp)(((int)Op + dir + n) % n);
     }
 
-    // Ocean elevation. Changing it reshapes every column's water, so re-stamp
-    // the whole world.
+    // Ocean elevation. Changing it reshapes every column's water; the 2D views
+    // re-read SeaLevel on the painter's next full rebuild.
     public void AdjustLevel(WorldMapState ctx, int dir)
     {
         ctx.SeaLevel += dir;
-        var changed = new List<Vector3I>();
-        ctx.StampColumns(new Rect2I(0, 0, ctx.Data.ImageWidth, ctx.Data.ImageHeight), changed);
-        ctx.Commit(changed);
     }
 
     private static float BoxAverage(Image img, int px, int pz, int w, int h)

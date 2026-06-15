@@ -17,7 +17,7 @@ public partial class WorldMapHud : CanvasLayer
     {
         if (helpLabel != null)
         {
-            helpLabel.Text = "LMB: Paint | RMB: Erase | Tab: Tool | Space: 2D/3D | Q/E: Param | R/F: Level | [ ]: Brush | Ctrl+S: Save | Esc: Quit";
+            helpLabel.Text = "LMB: Paint | RMB: Erase | Tab: Tool | Q/E: Param | R/F: Level | [ ]: Brush | Ctrl+S: Save | Esc: Quit";
         }
     }
 
@@ -53,11 +53,11 @@ public partial class WorldMapHud : CanvasLayer
         }
     }
 
-    public void SetCoords(Vector3 pos)
+    public void SetCoords(Vector2I texel)
     {
         if (coordsLabel != null)
         {
-            coordsLabel.Text = $"Cursor: ({pos.X:F0}, {pos.Y:F0}, {pos.Z:F0})";
+            coordsLabel.Text = $"Texel: ({texel.X}, {texel.Y})";
         }
     }
 }

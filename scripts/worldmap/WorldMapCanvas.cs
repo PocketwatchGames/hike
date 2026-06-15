@@ -19,6 +19,9 @@ public partial class WorldMapCanvas : Control
     // (texel coord, isErase) — isErase is the right mouse button.
     public Action<Vector2I, bool> OnPaint;
 
+    // Texel coord under the cursor on mouse motion (for the HUD readout).
+    public Action<Vector2I> OnHover;
+
     private int _imgW;
     private int _imgH;
     private bool _painting;
@@ -71,6 +74,10 @@ public partial class WorldMapCanvas : Control
             if (_painting)
             {
                 PaintAt(mm.Position);
+            }
+            if (OnHover != null && TryTexel(mm.Position, out Vector2I hovered))
+            {
+                OnHover(hovered);
             }
             QueueRedraw();
         }

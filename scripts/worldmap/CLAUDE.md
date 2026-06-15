@@ -26,17 +26,20 @@ Layers:
 
 ## Runtime + bake (`WorldMapState`)
 
-The mutable runtime document: owns every layer's data, the baked `WorldState` +
-live `World` preview, the queries the tools/views read (`TerrainHeight`,
-`WaterSurface`, `Underwater`, `Ocean`, `SolidAt`, `IsTunnel`, `ColumnHeight`
-against the live `SeaLevel`), and the incremental re-bake. `StampColumns` stamps
-each column: tunnel-carve → `Air`, else `Terrain` up to `TerrainHeight`, else
-`Water` up to `WaterSurface`, else `Air`. The elevation+water images REPLACE
-WorldGen's noise height/water; WorldGen's other per-column logic (ramps, shore,
-kit blending) is out of scope — a clean focused stamp, not a fork. Same write
-seam as `WorldEditor`: `SetVoxelWorld` into pre-existing chunks → `Commit` runs
-`World.UpdateLighting` + `RebuildNearbyChunkMeshes`. Also holds the shared view
-palette (`Hypsometric`, `RegionColor`, `ZoneColor`).
+The mutable runtime document: owns every layer's data, the queries the
+tools/views read (`TerrainHeight`, `WaterSurface`, `Underwater`, `Ocean`,
+`SolidAt`, `IsTunnel`, `ColumnHeight` against the live `SeaLevel`), and the
+deterministic `BuildWorld` bake. **The painter edits only the 2D layer images —
+no live voxel `World` is kept.** The `WorldState` is materialized on demand:
+`BuildWorld` creates every chunk, stamps regions/zones, stamps all columns,
+scatters entities, and propagates sunlight, and is run only at bake/save time
+(`Save` → `WorldFile.Write`, and `WorldMapData`'s headless "Bake to .hike"
+button). `StampColumns` stamps each column: tunnel-carve → `Air`, else `Terrain`
+up to `TerrainHeight`, else `Water` up to `WaterSurface`, else `Air`. The
+elevation+water images REPLACE WorldGen's noise height/water; WorldGen's other
+per-column logic (ramps, shore, kit blending) is out of scope — a clean focused
+stamp, not a fork. Also holds the shared view palette (`Hypsometric`,
+`RegionColor`, `ZoneColor`).
 
 ## Tools + views (the extensible part)
 
@@ -58,9 +61,9 @@ stroke does AND how the 2D map is coloured — switch tool, switch view.
 deterministically (hash-seeded) places one `EntitySimState` per column with
 probability == density on dry land, resolving the kind via `ScatterFactory`
 (props from the zone `SurfaceKit` scene lists, interactives from the zone spawn
-lists — the same resolution as `WorldEditor`). Sim states update live; the 3D
-preview nodes re-sync on `FlushScatterToPreview` (called when you enter preview,
-so per-stroke edits don't thrash the prop multimeshes).
+lists — the same resolution as `WorldEditor`). This runs during the `BuildWorld`
+bake; the scatter brush itself only writes the per-column `(kind, density)`
+raster.
 
 `WorldMapBrush` (`Resource`) is the shared, layer-agnostic stamp engine
 (falloff/flow/noise + `Stamp(center, radius, w, h, apply)` callback); each tool
@@ -69,21 +72,28 @@ two interfaces and appending it to `WorldMapPainter._tools`.
 
 ## Host (`WorldMapPainter : Node3D`)
 
-In-game mode (mirrors `WorldEditor`: Node3D + `GameCamera` + live `World` in
-editor mode). Launched from the main menu (`GuiMainMenu.OnStartPainter` →
-`Main.StartPainter`, which binds palettes + `ChunkMesh.SetTerrains/SetDetailGroups`
-before the preview builds meshes — main-thread, same as `StartGame`). Holds the
-tool list + a colourised `Rgba8` display image fed to `WorldMapCanvas` (a dumb
-viewer: fits the image, draws the cursor, reports texel strokes via `OnPaint`).
+A **pure 2D in-game program** — no live `World`, no `GameCamera`, no chunk
+meshes. Launched from the main menu (`GuiMainMenu.OnStartPainter` →
+`Main.StartPainter`), which just instantiates + `Init()`s the scene, so it opens
+instantly. Holds the tool list + a colourised `Rgba8` display image fed to
+`WorldMapCanvas` (a dumb viewer: fits the image, draws the cursor, reports texel
+strokes via `OnPaint` and hover via `OnHover`). Each tool view reads the layer
+images directly, so nothing here needs the voxel world.
 
 Keys: LMB paint / RMB erase · **Tab** cycle tool (+view) · **Q/E** cycle the
-tool's param · **R/F** active elevation / cross-section · **Space** 2D map ↔ 3D
-fly-over · **`[` `]`** brush size · **Ctrl+S** save layers + bake `.hike`.
+tool's param · **R/F** active elevation / cross-section · **`[` `]`** brush size
+· **Ctrl+S** save layers + bake `.hike`.
 
 ## Not yet (future steps)
 
-Point-placement of singular interactives (signposts/doors/specific chests),
-in-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain shader),
-prop/interactive scatter brushes, and tiling the per-column images per
-chunk-footprint for streaming-scale worlds (see `scripts/voxels/CLAUDE.md`).
-The clip plane is parked far above the world (no player to occlude around).
+**On-demand 3D preview** — a fly-over of the baked world, built only when the
+user asks for it (and torn down on exit) rather than kept live while painting.
+This was the original design; it was removed because building/maintaining the
+full voxel `WorldState` made the tool slow to open and taxed every brush stroke.
+When it returns it should reuse `BuildWorld` to materialize a transient world,
+not re-couple the tools to a live one.
+
+Also: point-placement of singular interactives (signposts/doors/specific
+chests), in-world 3D region/zone tint overlay (a `ShaderGlobals` LUT + terrain
+shader), and tiling the per-column images per chunk-footprint for streaming-scale
+worlds (see `scripts/voxels/CLAUDE.md`).

@@ -24,22 +24,11 @@ public class RegionTool : IWorldMapTool
         int max = Mathf.Max(0, ctx.RegionCount - 1);
         byte value = (byte)(erase ? 0 : Mathf.Clamp(RegionIndex, 0, max));
 
-        int minCx = int.MaxValue, minCz = int.MaxValue, maxCx = int.MinValue, maxCz = int.MinValue;
-        bool any = false;
         brush.Stamp(texel, Radius, ctx.Data.ImageWidth, ctx.Data.ImageHeight, (px, pz, weight) =>
         {
             Vector2I ct = ctx.Data.ColumnTexelToChunkTexel(px, pz);
             ctx.Region.SetPixel(ct.X, ct.Y, new Color(value / 255f, 0f, 0f, 1f));
-            any = true;
-            minCx = Mathf.Min(minCx, ct.X);
-            minCz = Mathf.Min(minCz, ct.Y);
-            maxCx = Mathf.Max(maxCx, ct.X);
-            maxCz = Mathf.Max(maxCz, ct.Y);
         });
-        if (any)
-        {
-            ctx.RebakeRegion(new Rect2I(minCx, minCz, maxCx - minCx + 1, maxCz - minCz + 1));
-        }
     }
 
     public void Cycle(WorldMapState ctx, int dir)

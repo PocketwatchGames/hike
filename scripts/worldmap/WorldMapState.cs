@@ -2,8 +2,10 @@ using System.Collections.Generic;
 using Godot;
 
 // Runtime document + bake for the world-map painter. Owns every layer's mutable
-// data, the baked WorldState / live World preview, the column/region/zone/tunnel
-// queries the tools and views read, and the incremental re-bake the tools drive.
+// data, the column/region/zone/tunnel queries the tools and views read, and the
+// deterministic bake (BuildWorld) that turns the painted layers into a WorldState
+// / .hike. The painter edits only the 2D layer images; no live voxel world is
+// kept — the WorldState is materialized on demand at bake/save time.
 //
 // The elevation + water images REPLACE WorldGen's noise height/water; the rest
 // of WorldGen's per-column logic (ramps, shore, kit blending) is out of scope,
@@ -14,8 +16,7 @@ public class WorldMapState
     // first), which is also the per-voxel TerrainId default.
     public readonly WorldMapData Data;
 
-    public World World;            // live preview (set by the painter)
-    public WorldState WorldState;  // baked voxels
+    public WorldState WorldState;  // baked voxels (built on demand at bake time)
 
     public Image Elevation;        // Rf, per column (normalized height, truth)
     public Image Water;            // Rf, per column (water surface height)
@@ -27,11 +28,9 @@ public class WorldMapState
     // Live ocean elevation in world voxels (the elevation tool edits this).
     public int SeaLevel;
 
-    // Scatter entity bookkeeping: the EntitySimState placed for each column
-    // (so a re-scatter can remove the old one), and the chunks whose live
-    // preview nodes need re-syncing on the next FlushScatterToPreview.
+    // Scatter entity bookkeeping during a bake: the EntitySimState placed for
+    // each column, so a re-scatter of the same column removes the old one first.
     private readonly System.Collections.Generic.Dictionary<Vector2I, EntitySimState> _scatterEntities = new();
-    private readonly System.Collections.Generic.HashSet<Vector3I> _scatterDirtyChunks = new();
 
     public WorldMapState(WorldMapData data)
     {
@@ -240,53 +239,10 @@ public class WorldMapState
         }
     }
 
-    public void RebakeRegion(Rect2I chunkRect)
-    {
-        RebakeChunkIndex(chunkRect, Region, RegionCount, region: true);
-    }
-
-    public void RebakeZone(Rect2I chunkRect)
-    {
-        RebakeChunkIndex(chunkRect, Zone, ZoneCount, region: false);
-    }
-
-    private void RebakeChunkIndex(Rect2I chunkRect, Image img, int count, bool region)
-    {
-        int x0 = Mathf.Max(0, chunkRect.Position.X);
-        int z0 = Mathf.Max(0, chunkRect.Position.Y);
-        int x1 = Mathf.Min(Data.SizeChunksX, chunkRect.Position.X + chunkRect.Size.X);
-        int z1 = Mathf.Min(Data.SizeChunksZ, chunkRect.Position.Y + chunkRect.Size.Y);
-        for (int lcx = x0; lcx < x1; lcx++)
-        {
-            for (int lcz = z0; lcz < z1; lcz++)
-            {
-                int cx = Data.MinChunk.X + lcx;
-                int cz = Data.MinChunk.Z + lcz;
-                byte idx = ClampIndex((byte)Mathf.RoundToInt(img.GetPixel(lcx, lcz).R * 255f), count);
-                for (int cy = Data.MinChunk.Y; cy <= Data.MaxChunk.Y; cy++)
-                {
-                    ChunkState chunk = WorldState.GetChunk(new Vector3I(cx, cy, cz));
-                    if (chunk == null)
-                    {
-                        continue;
-                    }
-                    if (region)
-                    {
-                        chunk.RegionIndex = idx;
-                    }
-                    else
-                    {
-                        chunk.ZoneIndex = idx;
-                    }
-                }
-            }
-        }
-    }
-
     // Re-evaluate scatter for every column under a texel rect: drop the old
     // entity (if any), then place a new one when the cell has a kind + the
-    // hash roll falls under its density, on dry land. Adds/removes sim states
-    // on WorldState; the live preview nodes re-sync in FlushScatterToPreview.
+    // hash roll falls under its density, on dry land. Adds/removes sim states on
+    // WorldState during the bake.
     public void RescatterColumns(Rect2I texelRect)
     {
         int x0 = Mathf.Max(0, texelRect.Position.X);
@@ -309,7 +265,6 @@ public class WorldMapState
         {
             WorldState.RemoveEntity(old);
             _scatterEntities.Remove(col);
-            MarkScatterChunk(old.WorldPosition);
         }
 
         Color cell = Scatter.GetPixel(px, pz);
@@ -339,32 +294,6 @@ public class WorldMapState
         }
         WorldState.AddEntity(sim);
         _scatterEntities[col] = sim;
-        MarkScatterChunk(pos);
-    }
-
-    // Re-sync the live preview entity nodes for chunks whose scatter changed.
-    // Called when entering the 3D preview, so per-stroke edits don't thrash the
-    // prop multimeshes.
-    public void FlushScatterToPreview()
-    {
-        if (World == null)
-        {
-            return;
-        }
-        foreach (Vector3I cc in _scatterDirtyChunks)
-        {
-            World.UnloadChunkEntities(cc);
-            World.LoadChunkEntities(cc);
-        }
-        _scatterDirtyChunks.Clear();
-    }
-
-    private void MarkScatterChunk(Vector3 worldPos)
-    {
-        if (World != null)
-        {
-            _scatterDirtyChunks.Add(World.WorldToChunkCoord(worldPos));
-        }
     }
 
     private int ZoneIndexAt(int px, int pz)
@@ -388,18 +317,9 @@ public class WorldMapState
 
     private static float ToFloat01(uint h) => (h & 0xFFFFFFu) / 16777216f;
 
-    // Relight + remesh after voxel-changing edits.
-    public void Commit(List<Vector3I> changed)
-    {
-        if (changed == null || changed.Count == 0)
-        {
-            return;
-        }
-        World.UpdateLighting(changed);
-        Vector3I c = changed[0];
-        World.RebuildNearbyChunkMeshes(new Vector3(c.X, c.Y, c.Z), changed);
-    }
-
+    // Save the layer images, then bake a fresh WorldState from them and write the
+    // .hike. The bake is materialized on demand here (and in WorldMapData's
+    // headless "Bake to .hike" button) — the painter never holds a live world.
     public void Save()
     {
         Data.SaveElevation(Elevation);
@@ -412,6 +332,7 @@ public class WorldMapState
         {
             try
             {
+                BuildWorld();
                 WorldFile.Write(Data.OutputWorldPath, WorldState);
                 GD.Print($"WorldMapState: saved layers + baked world to {Data.OutputWorldPath}");
             }
