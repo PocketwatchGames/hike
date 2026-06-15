@@ -299,16 +299,17 @@ public static class StatList
 		{
 			yield return (names[EStatName.Duration], StatFormat.Seconds(effect.duration));
 		}
-		if (effect.damagePerSecond > 0f)
+		float dps = effect.dot?.damagePerSecond ?? 0f;
+		if (dps > 0f)
 		{
-			yield return (names[EStatName.Dps], StatFormat.Number(effect.damagePerSecond));
+			yield return (names[EStatName.Dps], StatFormat.Number(dps));
 		}
-		else if (effect.damagePerSecond < 0f)
+		else if (dps < 0f)
 		{
 			// Healing is authored as negative damagePerSecond — flip the sign
 			// so the player sees a positive heal-rate number under the Healing
 			// label rather than a "Damage: -3".
-			yield return (names[EStatName.Heal], StatFormat.Number(-effect.damagePerSecond));
+			yield return (names[EStatName.Heal], StatFormat.Number(-dps));
 		}
 		foreach (var entry in Modifiers(effect.modifiers))
 		{

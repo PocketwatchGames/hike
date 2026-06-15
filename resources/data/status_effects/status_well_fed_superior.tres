@@ -4,12 +4,17 @@
 [ext_resource type="Texture2D" uid="uid://o3u3kejjr03c" path="res://assets/textures/status_effects/candy.png" id="1_v78a8"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_well_fed_superior_start.tscn" id="3_startfx"]
 [ext_resource type="PackedScene" path="res://scenes/effects/status_well_fed_superior_end.tscn" id="4_endfx"]
+[ext_resource type="Script" uid="uid://bdot7k5n1xqa" path="res://scripts/data/effects/payloads/DamageOverTimeData.cs" id="5_dot"]
+
+[sub_resource type="Resource" id="dot"]
+script = ExtResource("5_dot")
+damagePerSecond = -0.02
 
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("1_v78a8")
 displayName = &"Well Fed"
-damagePerSecond = -0.02
+dot = SubResource("dot")
 duration = 720.0
 maxStack = 1
 startFx = ExtResource("3_startfx")

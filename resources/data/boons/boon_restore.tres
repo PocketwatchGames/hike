@@ -3,6 +3,9 @@
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_se"]
 [ext_resource type="Texture2D" uid="uid://ddce2ofirul1c" path="res://assets/textures/status_effects/heart.png" id="3_icon"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="4_poison"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="5_burning"]
+[ext_resource type="Resource" uid="uid://cfgrdp0ehape4" path="res://resources/data/status_effects/status_food_poisoning.tres" id="6_food"]
 
 [sub_resource type="Resource" id="se_restore"]
 script = ExtResource("2_se")
@@ -10,8 +13,8 @@ icon = ExtResource("3_icon")
 displayName = &"Restore"
 description = "A fairy's blessing — mends every wound and washes away all afflictions."
 instantaneous = true
-healsToFullOnApply = true
-clearsCureableEffectsOnApply = true
+instantHealPercent = 1.0
+removesOnApply = Array[ExtResource("2_se")]([ExtResource("4_poison"), ExtResource("5_burning"), ExtResource("6_food")])
 
 [resource]
 script = ExtResource("1_boon")

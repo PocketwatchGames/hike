@@ -1,44 +1,25 @@
 using Godot;
 using Godot.Collections;
 
-// How an effect's buildup meter relates to its applied state. Selects which
-// branch StatusEffectController takes when a contribution lands and gates
-// which authoring fields the editor surfaces (see _ValidateProperty).
-//
-//   ThresholdCross  — classic Dark-Souls-style: the meter fills, crosses 1.0,
-//                     applies a discrete instance, then auto-decays after a
-//                     quiet period. Used for damage-buildup effects (Dizzy,
-//                     Poison-from-hits, future Frozen-from-cold-hits).
-//
-//   ContinuousArm   — the meter IS the effect intensity in [0, 1]. Arms an
-//                     instance when the meter rises above armThreshold,
-//                     releases when it falls below disarmThreshold (hysteresis
-//                     prevents flapping). The armed instance's duration timer
-//                     stays paused — the meter, not a countdown, controls
-//                     lifecycle. External code drives the meter via signed
-//                     AddBuildup deltas (no auto-decay). Used for Wet, where
-//                     rain / water / drying are the source signals.
+// How a buildup meter becomes the applied effect. Selects the StatusEffectController
+// branch and gates which authoring fields the editor shows (see _ValidateProperty).
+//   ThresholdCross — meter fills, crosses 1.0, applies a discrete instance, then
+//                    auto-decays after a quiet period (Dizzy, hit-poison).
+//   ContinuousArm  — meter IS the intensity in [0,1]; arms above armThreshold,
+//                    releases below disarmThreshold (hysteresis). Externally driven
+//                    by signed AddBuildup deltas, no auto-decay (Wet).
 public enum EBuildupBehavior
 {
 	ThresholdCross = 0,
 	ContinuousArm = 1,
 }
 
-// How an effect is presented and how long it's meant to live. A single effect
-// authors exactly one category, but the type is [Flags] so removal/clear ops
-// can target a mask of categories (e.g. a cure consumable clears
-// Transient | Permanent while leaving Elite signatures alone). The HUD routes
-// by category: only Transient renders in the mob's fading status strip; the
-// first Elite-category effect rides the elite health-bar badge instead.
-//
-//   Transient  — ordinary timed / buildup-driven combat states (poison, wet,
-//                dizzy, food buffs). The default so existing effects keep
-//                showing in the status strip without re-authoring.
-//   Permanent  — long-term character quirks / afflictions the actor carries
-//                indefinitely (player traits, lasting injuries). Not yet
-//                surfaced in any HUD strip; reserved for the future panel.
-//   Elite      — an elite mob's signature aura. Shown only in the elite badge,
-//                never the strip.
+// Presentation + lifetime bucket. Author one bit; [Flags] so clear ops can target a
+// mask. HUD routes by category: only Transient shows in the mob status strip; the
+// first Elite effect rides the elite badge.
+//   Transient — ordinary timed / buildup combat states (default).
+//   Permanent — long-term quirks / afflictions (no HUD strip yet).
+//   Elite     — elite signature aura (badge only).
 [System.Flags]
 public enum EEffectCategory
 {
@@ -48,48 +29,29 @@ public enum EEffectCategory
 	Elite = 1 << 2,
 }
 
-// Authored data for a status effect held by a Player or Mob — icon, display
-// name, lifecycle, fx, and a list of StatModifier entries the runtime
-// composes into the actor's stat values while the effect is active.
-//
-// Most "this effect changes a stat" tunables now live as StatModifier entries
-// on `modifiers` (move speed, damage scale, sense modifiers, temperature
-// thresholds, etc.) — composed multiplicatively or additively per stat by
-// the receiver. Lifecycle / identity / payload fields stay top-level
-// because they don't fit the modifier shape.
+// Authored data for a status effect on a Player, Mob, or item. Stat changes live as
+// StatModifier entries on `modifiers`; feature payloads live in optional sub-resources
+// (`dot`, `attackImpact`, `dashBurst`, `trail`, `weaponMod`; null = absent). Fields are
+// split into editor [ExportGroup]s. A "character modifier" payload may sit on an item's
+// effect (e.g. a cloak granting a dash burst) — it modifies the wearer.
 [Tool]
 [GlobalClass]
 public partial class StatusEffectData : Resource
 {
 	[Export] public Texture2D icon;
 	[Export] public StringName displayName;
-	// Inspector multiline flavor text. Shown on per-target detail panels
-	// (ItemInfoPanel's status section, future actor inspectors) under the
-	// effect's name. Plain string — keep it short ("Wet. Slows drying.
-	// Lowers cold tolerance.") so it fits next to the progress bar.
+	// Inspector flavor text shown under the effect name on detail panels. Keep it short.
 	[Export(PropertyHint.MultilineText)] public string description = "";
 
-	// Presentation + lifecycle bucket. See EEffectCategory. Author exactly one
-	// bit; default Transient keeps existing effects in the mob status strip.
+	// ============================ Lifecycle ============================
+
+	// Presentation + lifetime bucket — author one bit. See EEffectCategory.
+	[ExportGroup("Lifecycle")]
 	[Export, CompactFlags] public EEffectCategory category = EEffectCategory.Transient;
 
-	// True for lingering afflictions a cure / blessing should be able to lift
-	// (poison, food poisoning, burning). Drives two things: a "restore"-style
-	// boon (clearsCureableEffectsOnApply) wipes every active cureable effect,
-	// and the fairy upgrade screen only offers a restorative boon when the
-	// player is injured OR carries at least one cureable effect. Default false:
-	// short-lived crowd control (dizzy) and environmental states the player
-	// walks out of on their own (cold, hot, wet, dirty) are NOT cureable — a
-	// blessing shouldn't waste itself wiping a state that clears itself.
-	[Export] public bool cureable = false;
-
-	// Type tags this effect carries. Used by the resistance / modifier system
-	// in two places: (1) buildup contributions feeding this effect scale by
-	// the receiver's matching StatModifier entries — kun-kun's Dizzy
-	// vulnerability lives there; (2) the per-second damagePerSecond DoT tick
-	// scales by the same lookup so a Burning effect's burn tick respects a
-	// Fire-resistant target. Default None = no tag-based scaling. Set Dizzy
-	// on the dizzy effect, Fire|Damage on Burning, Poison|Damage on Poisoned.
+	// Resistance/scaling tags. Buildup contributions feeding this effect and the
+	// per-second `dot` tick both scale by the receiver's matching StatModifier (e.g.
+	// Fire-resistance shrinks a Fire|Damage burn). None = no scaling.
 	private EStat _tags;
 	[Export, CompactFlags] public EStat tags
 	{
@@ -102,253 +64,105 @@ public partial class StatusEffectData : Resource
 		}
 	}
 
-	// Stat modifications granted to the actor while this effect is active.
-	// Composed multiplicatively (or additively, per StatModifierUtil.
-	// IsAdditive) with inherent and equipment modifiers when the actor's
-	// composed value for any stat is queried. Authoring examples:
-	//   { Damage,         0.0  } — dash i-frames (full damage immunity)
-	//   { MoveSpeed,      0.75 } — Cold slows movement
-	//   { ColdResist,    -25   } — Wet lowers cold threshold (additive)
-	//   { Camouflage,    +5    } — armor / cloak bonus (additive)
-	//   { Dizzy,          0.3  } — Dizzy buildup resistance (multiplicative)
-	[Export] public Godot.Collections.Array<StatModifier> modifiers;
-
-	// Per-second HP delta. Positive damages (poison), negative heals
-	// (regeneration). Applied in 1-second chunks via the state's tick
-	// accumulator so a 0.6 dps effect ticks as integer damage at the right
-	// average rate rather than fractional damage every physics frame.
-	[Export] public float damagePerSecond;
-
-	// Fraction of each damage tick that bypasses armor and lands directly on
-	// health, mirroring ContinuousDamageData.armorPenetration. 1 (default) is "armor
-	// doesn't soak this" — matches the historical status-DOT behavior where
-	// poison ticks always chipped HP regardless of armor. Author less than 1
-	// to let armor absorb a slice of the burn (e.g. Burning at 0.75 means
-	// 25% of each damagePerSecond chunk chips armor while 75% goes through).
-	// Ignored for heals (positive damagePerSecond * -1 sign means the delta
-	// is a heal — armor never blocks regeneration).
-	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration = 1f;
-
-	// Per-second MAX-health decay, applied in 1-second chunks like
-	// damagePerSecond. Positive shrinks the actor's maximum health (current
-	// health is clamped down to follow); the actor dies when its max reaches 0.
-	// Distinct from damagePerSecond: it routes through the max-health channel
-	// rather than the damage path, so it deals no hit and surfaces NO floating
-	// damage-over-time number. The home for a "withering" / summoned-minion
-	// self-expiry that drains the body away rather than wounding it. Only the
-	// Mob controller wires the max-health callback today; on actors without it
-	// this field is inert. 0 (default) = no max decay.
-	[Export] public float maxHealthDrainPerSecond = 0f;
-
-	// Default seconds the effect lasts once timed. 0 = situational; the
-	// gameplay system that armed the effect owns the lifetime and either
-	// removes the state directly (e.g. Wet, which lives as long as the
-	// player's wetness float stays above the disarm threshold) or arms a
-	// removal timer via StatusEffectState.ArmTimer when one is wanted.
+	// Seconds the effect lasts once timed. 0 = the arming system owns lifetime (e.g.
+	// Wet lives off the wetness meter; others arm a timer via StatusEffectState.ArmTimer).
 	[Export] public float duration;
 
-	// Cap on simultaneous instances of this effect on a single actor. When a
-	// new Add would push the count past this, the controller refreshes the
-	// oldest existing instance's timer instead of appending a fresh state.
-	// Default 99 is effectively "unbounded stacking" for poison-like effects;
-	// authored 1 on consumable/situational effects (Well Fed, Hydrated, Wet,
-	// Hot, Cold) so re-eating / re-drinking just extends the timer.
+	// Max simultaneous instances. A further Add refreshes the oldest instance's timer
+	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).
 	[Export] public int maxStack = 99;
 
-	// Audiovisual cues bound to the effect's lifecycle. `startFx` and `endFx`
-	// are one-shot Fx scenes spawned on the actor at apply / remove. `loopFx`
-	// is a looping Fx scene (Fx._loop = true) parented to the actor while the
-	// effect is active and Stop()'d when it's removed.
+	// When true, fire the On Apply payloads then keep NO lingering state (a one-shot
+	// blessing). False (default): added normally; modifiers / dot / duration apply over time.
+	[Export] public bool instantaneous = false;
+
+	// --- Buildup meter ---
+	// DamageData StatusEffectBuildup entries accumulate into a per-effect meter. How the
+	// meter applies is set by buildupBehavior (see EBuildupBehavior); the editor hides the
+	// tunables that don't apply.
+	[ExportSubgroup("Buildup")]
+	[Export] public EBuildupBehavior buildupBehavior = EBuildupBehavior.ThresholdCross;
+	// ThresholdCross: seconds of quiet before the meter starts decaying (fresh hits extend it).
+	[Export] public float buildupRemovalDelay = 0f;
+	// ThresholdCross: meter units drained per second after the delay. 0 = no decay.
+	[Export] public float buildupRemovalSpeed = 0f;
+	// ThresholdCross: zero the meter on a threshold cross instead of subtracting 1
+	// (non-stacking states like Dizzy).
+	[Export] public bool clearBuildupOnApply = false;
+	// ThresholdCross: EDamageTrigger fired on the hit that crosses the threshold, letting
+	// weapons react to landing the effect. None = none.
+	[Export] public EDamageTrigger applyTrigger = EDamageTrigger.None;
+	// ContinuousArm: meter level that arms the effect. HUD bar fills disarmThreshold→1.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float armThreshold = 0.5f;
+	// ContinuousArm: meter level that releases it. Must be < armThreshold (hysteresis).
+	[Export(PropertyHint.Range, "0,1,0.01")] public float disarmThreshold = 0.1f;
+
+	// ============================ Fx ============================
+	// startFx / endFx: one-shot Fx spawned on the actor at apply / remove. loopFx: looping
+	// Fx parented while active, stopped on remove.
+	[ExportGroup("Fx")]
 	[Export] public PackedScene startFx;
 	[Export] public PackedScene endFx;
 	[Export] public PackedScene loopFx;
 
-	// --- On-attack-impact burst ---
-	// When `attackImpactDamage` is set, every Melee / Hitscan attack the
-	// carrying actor lands fires a one-shot AoE damage burst centered on the
-	// hit's impact position — the elite lightning aura's "every strike
-	// crackles" payload. The burst is self-contained on the effect (not the
-	// actor's damage profiles), so any mob or the player deals it just by
-	// holding this status. Author `attackImpactDamage` with Electrical|Damage
-	// tags + healthDamage (knockback / hitstun optional). `attackImpactRadius`
-	// is the sphere radius in meters; `attackImpactFx` is the one-shot
-	// visual + sound spawned at the impact point (author it to read at the
-	// radius so the AoE reach is legible). Null damage AND null fx = the
-	// effect contributes no impact burst. Friendly fire is off — the burst
-	// skips hurtboxes on the carrier's own team, like a normal swing.
-	[Export] public DamageData attackImpactDamage;
-	[Export(PropertyHint.Range, "0.5,10,0.5,or_greater")] public float attackImpactRadius = 2f;
-	[Export] public PackedScene attackImpactFx;
+	// ============================ On Apply ============================
+	// One-shot behaviors that fire the moment this effect is applied to an actor.
 
-	// --- On-dash burst ---
-	// Direct analog of the attack-impact burst above, fired every time the
-	// carrying actor dashes (Player.ApplyMotion → StatusEffectController.
-	// TriggerDashBurst) instead of on each landed attack. The burst is a
-	// one-shot AoE centered on the dashing actor that pushes nearby targets
-	// directly away (radial knockback) and feeds whatever the payload's
-	// StatusEffectBuildup entries author — the fairy-corpse buff uses this to
-	// make a buffed dash scatter and dizzy the surrounding crowd. Self-
-	// contained on the effect (not the actor's damage profiles) like the
-	// attack-impact burst, so any actor deals it just by holding this status.
-	// Author `dashBurstDamage` with the knockback / Dizzy-buildup payload (it
-	// may carry zero healthDamage — knockback and buildup still apply);
-	// `dashBurstRadius` is the sphere radius in meters; `dashBurstFx` is the
-	// one-shot visual + sound spawned at the actor. Null damage AND null fx =
-	// the effect contributes no dash burst. Friendly fire is off — the burst
-	// skips the carrier's own hurtbox and (for mob carriers) their team.
-	[Export] public DamageData dashBurstDamage;
-	[Export(PropertyHint.Range, "0.5,10,0.5,or_greater")] public float dashBurstRadius = 3f;
-	[Export] public PackedScene dashBurstFx;
+	// Fraction of the actor's max health restored on apply. 0 (default) = no heal.
+	[ExportGroup("On Apply")]
+	[Export(PropertyHint.Range, "0,1,0.01")] public float instantHealPercent = 0f;
 
-	// --- Movement trail ---
-	// When `trailZoneScene` is set, the carrying actor drops a copy of that
-	// scene at its feet on a fixed interval while it's dashing or sprinting
-	// (Player.cs → StatusEffectController.TickMovementTrail). Author it as a
-	// self-expiring hazard — a `GasCloud` rooting a `DamageZone` + looping Fx,
-	// like `flame_trail.tscn` — so each dropped patch owns its own lifetime,
-	// damage ticking, and visuals; the controller just spawns and forgets. The
-	// fairy-corpse buff drops burning fairy-fire this way, leaving a damaging
-	// wake behind a sprint. `trailDropInterval` is the spacing in seconds
-	// between drops (smaller = denser, more overlap, more live patches). Null
-	// scene = the effect leaves no trail.
-	[Export] public PackedScene trailZoneScene;
-	[Export(PropertyHint.Range, "0.05,2,0.01,or_greater")] public float trailDropInterval = 0.2f;
-
-	// --- Instant payloads ---
-	// One-shot effects that fire the moment this status is applied to an actor,
-	// then (when `instantaneous` is set) leave nothing behind. This is how the
-	// fairy Restore blessing works — heal + cleanse with no lingering icon —
-	// without bespoke ItemEffect plumbing. The actor's AddStatusEffect runs them
-	// (Player.AddStatusEffect / Mob.AddStatusEffect); item-side controllers
-	// ignore them (no actor to heal).
-	//
-	// When true, the apply-time payloads below run and NO lingering state is
-	// kept — the effect is a one-shot blessing rather than a durational buff.
-	// When false (default) the effect is added to the controller as usual and
-	// its modifiers / DoT / duration apply over time.
-	[Export] public bool instantaneous = false;
-
-	// Heal the receiving actor to full health on apply (forgiving any blood
-	// drain, like a full potion). The Restore boon authors this.
-	[Export] public bool healsToFullOnApply = false;
-
-	// Remove every active `cureable` effect from the receiving actor on apply
-	// (and zero their buildup meters). The Restore boon authors this so one
-	// blessing both heals and cleanses.
-	[Export] public bool clearsCureableEffectsOnApply = false;
-
-	// --- Weapon modifiers ---
-	// These fields are meaningful only when the effect is composed onto a
-	// WEAPON (carried on the WeaponState's `statusEffects` controller — see
-	// LootSpawnEntry, which composes a spawned weapon's mods at loot creation),
-	// not on an actor. They're the seam for weapon customization: an effect
-	// authored as a mod changes how the wielding weapon behaves rather than
-	// touching the actor's stats / health.
-	//
-	// `projectilesDetonateOnContact` — projectiles the weapon fires that carry
-	// an impactEvent (an "effect on completion", e.g. the bomb's explosion)
-	// shatter on the first surface or creature they touch instead of bouncing
-	// and waiting out their fuse. The gravity arc is unchanged; only the
-	// bounce-and-fuse flight is replaced by detonate-on-contact (the projectile
-	// drops into its default collision path, which fires the impactEvent at the
-	// hit point). No effect on projectiles that carry no impactEvent. This is
-	// the "Fragile" mod (status_weapon_fragile). Read by ItemEventHandlers.
-	// DoProjectile off the firing weapon's controller.
-	[Export] public bool projectilesDetonateOnContact = false;
-
-	// `projectilePierceCount` — raises the pierce count of projectiles the
-	// weapon fires: the number of creatures a shot passes THROUGH (dealing
-	// damage to each) before it stops and proc's its removal effects (impact
-	// fx, arrow drop/stick, impactEvent). Composed as a max against the firing
-	// event's authored `pierceCount` and every other active mod, so a +pierce
-	// mod lifts a weak base but never lowers a stronger one. 0 (default) = this
-	// effect doesn't touch pierce. This is the "Charged Pierce" mod
-	// (status_weapon_charged_pierce). Read by ItemEventHandlers.DoProjectile.
-	// Whether this mod reaches every attack or only one charge tier is a
-	// per-composition concern carried by StatusEffectDescriptor.scope, not a
-	// property of the effect itself.
-	[Export] public int projectilePierceCount = 0;
-
-	// --- Buildup meter ---
-	// Damage data carries StatusEffectBuildup entries; each contribution
-	// accumulates into the receiver's meter for this effect. How the meter
-	// translates into the applied state is selected by `buildupBehavior`.
-	// See EBuildupBehavior for the two branches; the editor hides whichever
-	// tunables don't apply to the selected behavior.
-	[Export] public EBuildupBehavior buildupBehavior = EBuildupBehavior.ThresholdCross;
-
-	// --- ThresholdCross tunables ---
-	// Seconds after the last buildup contribution before decay starts. Fresh
-	// hits keep extending this window — only a quiet period drains the meter.
-	[Export] public float buildupRemovalDelay = 0f;
-	// Buildup units drained per second once the delay elapses. 0 = no decay
-	// (buildup persists until the meter is filled).
-	[Export] public float buildupRemovalSpeed = 0f;
-	// When true, crossing the threshold zeros the meter instead of subtracting
-	// 1. Used by non-stacking states (Dizzy) so a second apply isn't sitting
-	// "half-charged" the instant the first one lands.
-	[Export] public bool clearBuildupOnApply = false;
-	// Trigger fired on the hit whose buildup contribution crossed the
-	// threshold. Lets weapons author OnDizzy-style conditional modifiers (extra
-	// knockback when this hit lands the dizzy, etc.) without the receiver
-	// having to know about specific effects. Default None = no trigger fires.
-	[Export] public EDamageTrigger applyTrigger = EDamageTrigger.None;
-
-	// --- ContinuousArm tunables ---
-	// Meter value at or above which an instance is armed (the effect starts).
-	// Hysteresis with disarmThreshold prevents flapping when the meter brushes
-	// the boundary on a low-intensity signal (drizzle). The HUD progress bar
-	// fills from disarmThreshold (empty) to 1.0 (full) — set armThreshold low
-	// (or to disarmThreshold) to make the icon appear as soon as any meaningful
-	// signal lands.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float armThreshold = 0.5f;
-	// Meter value at or below which the armed instance is released. Must be
-	// strictly less than armThreshold for the hysteresis to do anything; a
-	// gap of ~5–10% of the [0, 1] range is usually enough.
-	[Export(PropertyHint.Range, "0,1,0.01")] public float disarmThreshold = 0.1f;
-
-	// --- Mutual exclusion ---
-	// Status effects to remove from the actor at the moment this effect is
-	// applied. Used for douse-style relationships — Wet lists Burning so
-	// stepping into water clears the burn the same frame the wet stack lands.
-	// Removal is deep: matching active instances are EndFx'd and dropped; the
-	// matching buildup meter is also zeroed so a partially-charged buildup
-	// doesn't immediately re-fire.
+	// Status effects removed from the actor on apply — douse relationships (Wet removes
+	// Burning) and cleanse blessings (Restore). Also zeroes the matching buildup meter.
+	// Applied even for `instantaneous` effects, which skip Add (where removal normally runs).
 	[Export] public Godot.Collections.Array<StatusEffectData> removesOnApply;
 
-	// --- Animation override ---
-	// Loop-animation slot to force on the actor while this effect is active.
-	// EAnimation.None (default, -1) means the effect doesn't touch animation
-	// and the actor's movement-state loop plays normally. Dizzy authors
-	// EAnimation.Dizzy so the mob holds the dizzy clip for the duration.
-	// First active effect with a non-None override wins (Mob's UpdateAnimation
-	// reads StatusEffectController.LoopAnimOverride); priority is implicit
-	// in effect-add order, which matches the rest of the controller's
-	// "iterate the list once" composition.
-	[Export] public EAnimation loopAnimOverride = EAnimation.None;
+	// ============================ Character Modifiers ============================
+	// What the effect does to the character carrying it. May sit on an item's effect (it
+	// modifies the wearer, composed across the actor's own + equipped-item effects).
 
-	// --- Behavior gates ---
-	// When true, this effect counts as an "incapacitating" state — the actor
-	// can't act (AI suppressed, no yell on hit) and any incoming hit clears
-	// every effect with this flag (the generalized wake-from-dizzy rule).
-	// Authored on Dizzy; future Frozen / Knocked-Down would also set it.
+	// Stat changes applied while active, composed with inherent + equipment modifiers.
+	// Per-stat additive or multiplicative (StatModifierUtil.IsAdditive) — e.g. MoveSpeed
+	// 0.75 (mult, Cold slow), ColdResist -25 (add), Damage 0.0 (mult, dash i-frames).
+	[ExportGroup("Character Modifiers")]
+	[Export] public Godot.Collections.Array<StatModifier> modifiers;
+
+	// Per-second health-over-time (damage / heal / max-health decay). Null = none.
+	// See DamageOverTimeData.
+	[Export] public DamageOverTimeData dot;
+
+	// On each landed Melee/Hitscan, fire a one-shot AoE burst at the impact point (elite
+	// lightning aura). Null = none. See AreaBurstData.
+	[Export] public AreaBurstData attackImpact;
+
+	// Like attackImpact but fired on dash, with radial knockback (fairy-corpse scatter).
+	// Null = none. See AreaBurstData.
+	[Export] public AreaBurstData dashBurst;
+
+	// While dashing/sprinting, drop a hazard patch at the actor's feet on an interval.
+	// Null = none. See MovementTrailData.
+	[Export] public MovementTrailData trail;
+
+	// Marks an "incapacitating" state: the actor can't act, and any incoming hit clears
+	// every effect with this flag (wake-from-dizzy). Authored on Dizzy.
 	[Export] public bool incapacitates = false;
 
-	// Per-effect contribution to the receiver's `Vulnerable` score in [0, 1].
-	// Composes across active effects as 1 - product(1 - v_i), i.e. multiple
-	// vulnerabilities chain as independent probabilities — the actor's total
-	// vulnerable is the chance "at least one effect makes the hit a crit."
-	// Kept as a top-level field because the probabilistic-union math doesn't
-	// fit the multiplicative / additive StatModifier shape. 0 (default) is
-	// neutral; 1 pins vulnerable at 1 regardless of other effects. Dizzy
-	// authors 1.0 so a dizzied mob is always crit on triggered hits.
+	// Forces a loop animation while active (Dizzy → EAnimation.Dizzy). None = no override.
+	// First active effect with an override wins.
+	[Export] public EAnimation loopAnimOverride = EAnimation.None;
+
+	// Per-effect crit-vulnerability in [0,1], composed across effects as 1 - prod(1 - v_i)
+	// (independent probabilities). Top-level because that math isn't a StatModifier. Dizzy
+	// authors 1.0 (always crit when triggered).
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vulnerable = 0f;
 
-	// Hide buildup tunables whose owning behavior isn't selected, and hide
-	// `duration` for ContinuousArm (the meter, not a timer, controls
-	// lifecycle). Storage is preserved while hidden, so flipping the behavior
-	// back doesn't lose previously-authored values. `[Tool]` is required for
-	// this to fire in the editor.
+	// Weapon-only payload — null on non-weapon effects. See WeaponModData.
+	// The empty [ExportGroup] resets grouping so this stays ungrouped.
+	[ExportGroup("")]
+	[Export] public WeaponModData weaponMod;
+
+	// Hide the buildup tunables that don't apply to the selected behavior, and hide
+	// `duration` for ContinuousArm. Storage is preserved while hidden. Needs [Tool].
 	public override void _ValidateProperty(Dictionary property)
 	{
 		string name = property["name"].AsString();

@@ -1538,15 +1538,40 @@ public partial class GameClient : Node3D
 			return true;
 		}
 		StatusEffectData effect = boon.statusEffect;
-		if (effect != null && (effect.healsToFullOnApply || effect.clearsCureableEffectsOnApply))
+		if (effect == null)
 		{
-			return _player.IsInjured || _player.HasCureableStatusEffect;
+			return true;
 		}
-		if (effect != null && !effect.instantaneous)
+		// A heal / cleanse boon is worth offering when it would do something: the
+		// player is injured, or carries one of the afflictions it would remove.
+		bool heals = effect.instantHealPercent > 0f;
+		bool cleanses = effect.removesOnApply != null && effect.removesOnApply.Count > 0;
+		if (heals || cleanses)
+		{
+			return _player.IsInjured || HasAny(effect.removesOnApply);
+		}
+		if (!effect.instantaneous)
 		{
 			return !_player.HasStatusEffect(effect);
 		}
 		return true;
+	}
+
+	// True when the player currently has any of `effects` active.
+	bool HasAny(Godot.Collections.Array<StatusEffectData> effects)
+	{
+		if (effects == null)
+		{
+			return false;
+		}
+		for (int i = 0; i < effects.Count; i++)
+		{
+			if (effects[i] != null && _player.HasStatusEffect(effects[i]))
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	// Tear down the boon-pick modal: hide it and either hand control back to the

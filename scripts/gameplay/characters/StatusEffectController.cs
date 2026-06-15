@@ -110,19 +110,14 @@ public class StatusEffectController
 		}
 	}
 
-	// True when any active weapon mod that reaches charge tier `chargeIndex`
-	// carries the "fragile" mod (projectilesDetonateOnContact). Read by
-	// ItemEventHandlers.DoProjectile off the firing WeaponState's controller so a
-	// fragile-modded weapon's lobbed projectiles shatter on first contact instead
-	// of bouncing. A mod reaches the shot when it's AllAttacks-scoped or its
-	// SpecificCharge index matches the firing tier. First-true wins — same
-	// single-pass composition as Incapacitated.
+	// True when any active weapon mod reaching charge tier `chargeIndex` sets
+	// projectilesDetonateOnContact (the "Fragile" mod).
 	public bool ProjectilesDetonateOnContact(int chargeIndex)
 	{
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
-			if (s?.data?.projectilesDetonateOnContact == true && ModReachesCharge(s, chargeIndex))
+			if (s?.data?.weaponMod?.projectilesDetonateOnContact == true && ModReachesCharge(s, chargeIndex))
 			{
 				return true;
 			}
@@ -130,20 +125,18 @@ public class StatusEffectController
 		return false;
 	}
 
-	// Largest projectile pierce count contributed by any active weapon mod that
-	// reaches charge tier `chargeIndex` (0 if none). DoProjectile maxes this
-	// against the firing event's authored base pierce. See
-	// ProjectilesDetonateOnContact for the reach rule.
+	// Largest projectilePierceCount among active weapon mods reaching charge tier
+	// `chargeIndex` (0 if none); DoProjectile maxes it against the event's base.
 	public int ProjectilePierceCount(int chargeIndex)
 	{
 		int max = 0;
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
-			StatusEffectData data = s?.data;
-			if (data != null && data.projectilePierceCount > max && ModReachesCharge(s, chargeIndex))
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.projectilePierceCount > max && ModReachesCharge(s, chargeIndex))
 			{
-				max = data.projectilePierceCount;
+				max = mod.projectilePierceCount;
 			}
 		}
 		return max;
@@ -202,50 +195,6 @@ public class StatusEffectController
 			{
 				bs.amount = 0f;
 				bs.armedInstance = null;
-			}
-		}
-	}
-
-	// True iff at least one active effect is flagged `cureable` (a lingering
-	// affliction worth lifting). Read by the fairy upgrade screen to decide
-	// whether a cleansing boon is worth offering. Single-pass scan like the
-	// other accumulators here.
-	public bool HasCureable
-	{
-		get
-		{
-			for (int i = 0; i < _statusEffects.Count; i++)
-			{
-				if (_statusEffects[i]?.data?.cureable == true)
-				{
-					return true;
-				}
-			}
-			return false;
-		}
-	}
-
-	// Drop every active `cureable` effect (and zero its buildup meter so a
-	// partially-charged affliction doesn't immediately re-apply). The cleanse
-	// half of the Restore boon — mirrors ClearIncapacitating / RemoveByCategory.
-	public void ClearCureable()
-	{
-		for (int i = _statusEffects.Count - 1; i >= 0; i--)
-		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null || !data.cureable)
-			{
-				continue;
-			}
-			EndFx(_statusEffects[i]);
-			_statusEffects.RemoveAt(i);
-		}
-		foreach (var kv in _buildups)
-		{
-			if (kv.Key != null && kv.Key.cureable && kv.Value != null)
-			{
-				kv.Value.amount = 0f;
-				kv.Value.armedInstance = null;
 			}
 		}
 	}
@@ -495,16 +444,9 @@ public class StatusEffectController
 	}
 
 
-	// Fire each active effect's on-attack-impact burst at `position`. Called by
-	// the Melee / Hitscan handlers (via IActionActor.TriggerAttackImpact) the
-	// instant an attack resolves its impact point, so an elite's lightning aura
-	// crackles an AoE everywhere the carrier strikes. `attacker` is threaded
-	// through for the area-damage query's team / hurtbox-mask / self-exclusion;
-	// the burst's damage, radius, and fx are authored on the effect itself, so
-	// the same effect serves mobs today and the player later without either
-	// needing a per-actor damage profile. The fx is world-parented at the
-	// impact point (like the start/end cues) so it stays put as the carrier
-	// keeps moving.
+	// Fire each active effect's attackImpact burst at `position`. Called by the
+	// Melee / Hitscan handlers when an attack resolves its impact point (elite
+	// lightning aura). `attacker` scopes the area-damage team / self-exclusion.
 	public void TriggerAttackImpact(IActionActor attacker, Vector3 position)
 	{
 		if (attacker == null)
@@ -513,32 +455,25 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null || (data.attackImpactDamage == null && data.attackImpactFx == null))
+			AreaBurstData burst = _statusEffects[i]?.data?.attackImpact;
+			if (burst == null || (burst.damage == null && burst.fx == null))
 			{
 				continue;
 			}
-			if (data.attackImpactFx != null && _world != null)
+			if (burst.fx != null && _world != null)
 			{
-				Fx.Create(data.attackImpactFx, _world, position);
+				Fx.Create(burst.fx, _world, position);
 			}
-			if (data.attackImpactDamage != null)
+			if (burst.damage != null)
 			{
-				ItemEventHandlers.ApplyAreaDamage(attacker, data.attackImpactDamage, position, data.attackImpactRadius);
+				ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
 			}
 		}
 	}
 
-	// Fire each active effect's on-dash burst centered on the dashing actor.
-	// Called from Player.ApplyMotion (the dash seed) the instant a dash begins,
-	// so any held status whose effect authors a dash burst scatters and dizzies
-	// the surrounding crowd. Mirror of TriggerAttackImpact, but the area damage
-	// is dealt with radial knockback so each caught target is shoved straight
-	// away from the actor rather than along a swing axis. The burst's damage
-	// (knockback + buildup payload), radius, and fx are authored on the effect
-	// itself — the same effect serves the player today and a mob later without
-	// either needing a per-actor profile. The fx is world-parented at the dash
-	// origin (like the attack-impact cue) so it stays put as the actor speeds off.
+	// Fire each active effect's dashBurst at the dashing actor. Called from
+	// Player.ApplyMotion when a dash begins. Like TriggerAttackImpact but the area
+	// damage uses radial knockback (targets shoved away from the actor).
 	public void TriggerDashBurst(IActionActor attacker, Vector3 position)
 	{
 		if (attacker == null)
@@ -547,30 +482,25 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			StatusEffectData data = _statusEffects[i]?.data;
-			if (data == null || (data.dashBurstDamage == null && data.dashBurstFx == null))
+			AreaBurstData burst = _statusEffects[i]?.data?.dashBurst;
+			if (burst == null || (burst.damage == null && burst.fx == null))
 			{
 				continue;
 			}
-			if (data.dashBurstFx != null && _world != null)
+			if (burst.fx != null && _world != null)
 			{
-				Fx.Create(data.dashBurstFx, _world, position);
+				Fx.Create(burst.fx, _world, position);
 			}
-			if (data.dashBurstDamage != null)
+			if (burst.damage != null)
 			{
-				ItemEventHandlers.ApplyAreaDamage(attacker, data.dashBurstDamage, position, data.dashBurstRadius, radialKnockback: true);
+				ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius, radialKnockback: true);
 			}
 		}
 	}
 
-	// Drop a movement-trail hazard patch for each active effect that authors a
-	// `trailZoneScene`, paced by the effect's `trailDropInterval`. Called every
-	// physics frame from the actor (Player) with `moving` = dashing OR sprinting
-	// and the actor's world `position`. While not moving, each effect's drop
-	// timer is held re-armed so the next step lays a patch promptly rather than
-	// after a stale partial interval. Each patch is a self-expiring GasCloud
-	// (damage ticking + visuals own their lifetime), parented to the World so it
-	// stays put as the actor speeds off — same parenting as DoSpawnAreaEffect.
+	// Drop a trail hazard patch for each active effect with a `trail`, paced by its
+	// dropInterval. Called per physics frame with `moving` = dashing OR sprinting.
+	// While not moving the timer is held armed so the next step lays a patch promptly.
 	public void TickMovementTrail(IActionActor actor, bool moving, Vector3 position, float dt)
 	{
 		if (_world == null || _statusEffects.Count == 0)
@@ -580,12 +510,12 @@ public class StatusEffectController
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState state = _statusEffects[i];
-			StatusEffectData data = state?.data;
-			if (data?.trailZoneScene == null)
+			MovementTrailData trail = state?.data?.trail;
+			if (trail?.zoneScene == null)
 			{
 				continue;
 			}
-			float interval = Mathf.Max(0.01f, data.trailDropInterval);
+			float interval = Mathf.Max(0.01f, trail.dropInterval);
 			if (!moving)
 			{
 				state.trailAccumulator = interval;
@@ -597,17 +527,14 @@ public class StatusEffectController
 				continue;
 			}
 			state.trailAccumulator = interval;
-			Node3D patch = data.trailZoneScene.Instantiate<Node3D>();
+			Node3D patch = trail.zoneScene.Instantiate<Node3D>();
 			_world.AddChild(patch);
 			patch.GlobalPosition = position;
 		}
 	}
 
-	// Add a status effect as a WEAPON MODIFIER, stamping the descriptor's scope
-	// onto the live state so the firing path can filter by charge tier. Used by
-	// ItemDescriptor.ApplyTo when composing mods onto an item's `statusEffects`
-	// controller. Returns the created (or stack-refreshed) state, or null if
-	// `data` is null.
+	// Add a status effect as a weapon mod, stamping the descriptor's scope/charge onto
+	// the live state so the firing path can filter by tier. Used by ItemDescriptor.ApplyTo.
 	public StatusEffectState AddWeaponMod(StatusEffectData data, EWeaponModScope scope, int chargeIndex)
 	{
 		StatusEffectState state = Add(data);
@@ -619,6 +546,39 @@ public class StatusEffectController
 		return state;
 	}
 
+	// Drop every active state (and zero the buildup meter) listed in `data`'s
+	// removesOnApply. Called by Add for lingering effects, and by the actor
+	// AddStatusEffect path for `instantaneous` effects (which skip Add but still
+	// need their cleanse to land). Null list = no-op.
+	public void ApplyRemovesOnApply(StatusEffectData data)
+	{
+		if (data?.removesOnApply == null)
+		{
+			return;
+		}
+		for (int j = 0; j < data.removesOnApply.Count; j++)
+		{
+			StatusEffectData removed = data.removesOnApply[j];
+			if (removed == null)
+			{
+				continue;
+			}
+			for (int i = _statusEffects.Count - 1; i >= 0; i--)
+			{
+				if (_statusEffects[i]?.data == removed)
+				{
+					EndFx(_statusEffects[i]);
+					_statusEffects.RemoveAt(i);
+				}
+			}
+			if (_buildups.TryGetValue(removed, out BuildupState bs))
+			{
+				bs.amount = 0f;
+				bs.armedInstance = null;
+			}
+		}
+	}
+
 	public StatusEffectState Add(StatusEffectData data)
 	{
 		if (data == null)
@@ -627,34 +587,10 @@ public class StatusEffectController
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
 		// Mutual-exclusion pass — drop any active states (and their charging
-		// buildup meters) listed in this effect's removesOnApply. Wet lists
-		// Burning so stepping into water clears the burn the moment the wet
-		// stack lands. Runs before the stack-cap branch so a same-frame
-		// re-add of `data` itself can't get tangled with its own removal.
-		if (data.removesOnApply != null)
-		{
-			for (int j = 0; j < data.removesOnApply.Count; j++)
-			{
-				StatusEffectData removed = data.removesOnApply[j];
-				if (removed == null)
-				{
-					continue;
-				}
-				for (int i = _statusEffects.Count - 1; i >= 0; i--)
-				{
-					if (_statusEffects[i]?.data == removed)
-					{
-						EndFx(_statusEffects[i]);
-						_statusEffects.RemoveAt(i);
-					}
-				}
-				if (_buildups.TryGetValue(removed, out BuildupState bs))
-				{
-					bs.amount = 0f;
-					bs.armedInstance = null;
-				}
-			}
-		}
+		// buildup meters) listed in this effect's removesOnApply. Runs before the
+		// stack-cap branch so a same-frame re-add of `data` itself can't get
+		// tangled with its own removal.
+		ApplyRemovesOnApply(data);
 		// Enforce data.maxStack by refreshing the oldest still-alive instance
 		// instead of appending. List order is insertion order (Tick prunes in
 		// place via RemoveAt) so the first match is the oldest. ArmTimer is a
@@ -907,11 +843,21 @@ public class StatusEffectController
 				_statusEffects.RemoveAt(i);
 				continue;
 			}
+			DamageOverTimeData dot = s.data.dot;
+			if (dot == null)
+			{
+				if (s.IsTimed && now >= s.expireTimeMs)
+				{
+					_statusEffects.RemoveAt(i);
+					EndFx(s);
+				}
+				continue;
+			}
 			s.tickAccumulator += dt;
 			while (s.tickAccumulator >= 1f)
 			{
 				s.tickAccumulator -= 1f;
-				if (s.data.damagePerSecond != 0f && _applyHealthDelta != null)
+				if (dot.damagePerSecond != 0f && _applyHealthDelta != null)
 				{
 					// Damage ticks (positive damagePerSecond) scale by the
 					// actor's full resistance to the effect's tags so a
@@ -923,21 +869,21 @@ public class StatusEffectController
 					// >1 vulnerability scaling a heal up either. Item-side
 					// controllers pass null _applyHealthDelta — items don't
 					// take damage from their own status effects.
-					float dps = s.data.damagePerSecond;
+					float dps = dot.damagePerSecond;
 					if (dps > 0f)
 					{
 						float resistance = _composeMaskMul?.Invoke(s.data.tags) ?? 1f;
 						dps *= resistance;
 					}
-					_applyHealthDelta(-dps, s.data.armorPenetration);
+					_applyHealthDelta(-dps, dot.armorPenetration);
 				}
 				// Max-health decay (withering / summon self-expiry). Separate
 				// channel from the damage path above so it surfaces no DoT
 				// number; the actor's callback clamps current HP and handles
 				// death at zero max.
-				if (s.data.maxHealthDrainPerSecond != 0f && _applyMaxHealthDelta != null)
+				if (dot.maxHealthDrainPerSecond != 0f && _applyMaxHealthDelta != null)
 				{
-					_applyMaxHealthDelta(s.data.maxHealthDrainPerSecond);
+					_applyMaxHealthDelta(dot.maxHealthDrainPerSecond);
 				}
 			}
 			if (s.IsTimed && now >= s.expireTimeMs)

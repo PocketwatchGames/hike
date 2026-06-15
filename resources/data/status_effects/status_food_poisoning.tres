@@ -2,12 +2,16 @@
 
 [ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="1_5gph6"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_flu34"]
+[ext_resource type="Script" uid="uid://bdot7k5n1xqa" path="res://scripts/data/effects/payloads/DamageOverTimeData.cs" id="3_dot"]
+
+[sub_resource type="Resource" id="dot"]
+script = ExtResource("3_dot")
+damagePerSecond = 1.0
 
 [resource]
 script = ExtResource("2_flu34")
 icon = ExtResource("1_5gph6")
 displayName = &"Poisoned"
-cureable = true
 tags = 257
-damagePerSecond = 1.0
+dot = SubResource("dot")
 duration = 30.0

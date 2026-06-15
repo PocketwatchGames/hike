@@ -121,10 +121,10 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
 
 [resource]
 script = ExtResource("2_weapon")
-rightHandSlot = true
 maxAmmo = 5
-ammoRechargeSeconds = 6.0
+rightHandSlot = true
 arrowLootData = ExtResource("17_arrow")
+ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"heavy": SubResource("Resource_oap68"),
 &"primary": SubResource("Resource_damage")

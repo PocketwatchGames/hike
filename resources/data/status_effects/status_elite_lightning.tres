@@ -1,18 +1,7 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://c1o5r0xwb6wdo"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_ubcps"]
 [ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="2_icon"]
-[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/effects/lightning_aura_burst.tscn" id="4_fx"]
-
-[sub_resource type="Resource" id="Resource_rwnou"]
-script = ExtResource("1_ubcps")
-tags = 33
-healthDamage = 6.0
-statusEffects = []
-buildups = []
-modifiers = []
-metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 
 [resource]
 script = ExtResource("1_data")
@@ -23,7 +12,5 @@ category = 4
 tags = 32
 modifiers = []
 maxStack = 1
-attackImpactDamage = SubResource("Resource_rwnou")
-attackImpactFx = ExtResource("4_fx")
 removesOnApply = []
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

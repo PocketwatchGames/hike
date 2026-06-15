@@ -1,6 +1,11 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cp3rcb0wq7mxn2"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+projectilePierceCount = 3
 
 [resource]
 script = ExtResource("1_data")
@@ -10,5 +15,5 @@ category = 2
 modifiers = []
 duration = 0.0
 maxStack = 1
-projectilePierceCount = 3
+weaponMod = SubResource("weaponMod")
 removesOnApply = []

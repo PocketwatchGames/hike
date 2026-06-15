@@ -2,14 +2,17 @@
 
 [ext_resource type="Script" uid="uid://b3hp50u2tdr83" path="res://scripts/data/items/ConsumableData.cs" id="1_consumable"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="2_xq7dn"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_poerf"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="5_icon"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/held/shovel_held.tscn" id="7_held"]
 [ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/effects/dig_loop.tscn" id="8_digloop"]
 [ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/effects/dig_nothing.tscn" id="9_dignothing"]
-[ext_resource type="PackedScene" uid="uid://dk3mwv9rq2n1x" path="res://scenes/effects/dig_common.tscn" id="10_digcommon"]
-[ext_resource type="PackedScene" uid="uid://b8trz5wq4mkpv" path="res://scenes/effects/dig_treasure.tscn" id="11_digtreasure"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_ooeoo"]
+[ext_resource type="PackedScene" uid="uid://dk3mwwarq2n1x" path="res://scenes/effects/dig_common.tscn" id="10_digcommon"]
+[ext_resource type="PackedScene" uid="uid://b8tr05wq4mkpv" path="res://scenes/effects/dig_treasure.tscn" id="11_digtreasure"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")
@@ -19,7 +22,6 @@ animName = 36
 [sub_resource type="Resource" id="Resource_event_dig"]
 script = ExtResource("4_event")
 type = 131072
-digRadius = 1.5
 digReach = 1.75
 digNothingEffect = ExtResource("9_dignothing")
 digCommonEffect = ExtResource("10_digcommon")
@@ -28,8 +30,8 @@ digTreasureEffect = ExtResource("11_digtreasure")
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
 chargeTime = 2.5
-chargeLoopEffect = ExtResource("8_digloop")
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_dig")])
+chargeLoopEffect = ExtResource("8_digloop")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
@@ -43,7 +45,6 @@ script = ExtResource("1_consumable")
 actionProfile = SubResource("Resource_profile")
 displayName = &"Shovel"
 description = "Dig up buried things. Aim at the ground and hold to dig."
-maxStack = 1
 value = 15
 inventorySprite = ExtResource("5_icon")
 heldModel = ExtResource("7_held")

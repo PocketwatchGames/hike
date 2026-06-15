@@ -1823,9 +1823,9 @@ public partial class Player : CharacterBody3D
 	// instance ticks independently. Returns the new state so the caller (e.g.
 	// the wet-after-swim trigger) can hold a handle and arm the timer later.
 	//
-	// First runs any instant payloads the effect authors (heal-to-full, cleanse
-	// cureable afflictions). An `instantaneous` effect (the Restore blessing) is
-	// a one-shot — its payload fires and no lingering state is kept.
+	// First runs any apply-time payloads (instant heal, removesOnApply cleanse).
+	// An `instantaneous` effect (the Restore blessing) is a one-shot — its
+	// payloads fire and no lingering state is kept.
 	public StatusEffectState AddStatusEffect(StatusEffectData data)
 	{
 		if (data == null)
@@ -1835,6 +1835,9 @@ public partial class Player : CharacterBody3D
 		ApplyInstantPayloads(data);
 		if (data.instantaneous)
 		{
+			// One-shot blessing: no lingering state, but still honor its
+			// removesOnApply cleanse (Add, which normally runs it, is skipped).
+			_statusEffects.ApplyRemovesOnApply(data);
 			return null;
 		}
 		return _statusEffects.Add(data);
@@ -1844,13 +1847,9 @@ public partial class Player : CharacterBody3D
 	// poison tick can't shave the freshly-restored HP.
 	void ApplyInstantPayloads(StatusEffectData data)
 	{
-		if (data.clearsCureableEffectsOnApply)
+		if (data.instantHealPercent > 0f)
 		{
-			_statusEffects.ClearCureable();
-		}
-		if (data.healsToFullOnApply)
-		{
-			Heal(MaxHealth);
+			Heal(MaxHealth * data.instantHealPercent);
 		}
 	}
 
@@ -1870,10 +1869,6 @@ public partial class Player : CharacterBody3D
 	// outstanding blood-drain debt). Read by the fairy upgrade screen to gate
 	// the restorative boon — there's no point offering a heal at full health.
 	public bool IsInjured => _health < MaxHealth || _drainedHealth > 0f;
-
-	// True when at least one active status effect is cureable. The other half of
-	// the restorative-boon gate (offer Restore when injured OR afflicted).
-	public bool HasCureableStatusEffect => _statusEffects.HasCureable;
 
 	// True when an instance of `data` is currently active. Read by the upgrade
 	// screen so a lasting buff the player already carries isn't offered again.

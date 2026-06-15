@@ -3093,27 +3093,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // Mirrors Player.AddStatusEffect: run any instant boon payloads first, then
-    // (unless the effect is a one-shot blessing) keep the lingering state. A mob
-    // can roll a fairy boon via the capricious random pick, so Restore heals it
-    // to full and cleanses its afflictions; the item-grant payload is inert
-    // (mobs have no inventory).
+    // Mirrors Player.AddStatusEffect: run apply-time payloads (heal, cleanse), then
+    // keep the lingering state unless the effect is instantaneous. A mob can roll a
+    // fairy boon via the random pick, so Restore heals + cleanses it.
     public StatusEffectState AddStatusEffect(StatusEffectData data)
     {
         if (data == null)
         {
             return null;
         }
-        if (data.clearsCureableEffectsOnApply)
+        if (data.instantHealPercent > 0f)
         {
-            _statusEffects.ClearCureable();
-        }
-        if (data.healsToFullOnApply)
-        {
-            health = maxHealth;
+            health = Mathf.Min(maxHealth, health + maxHealth * data.instantHealPercent);
         }
         if (data.instantaneous)
         {
+            // One-shot blessing: no lingering state, but still honor its
+            // removesOnApply cleanse (Add, which normally runs it, is skipped).
+            _statusEffects.ApplyRemovesOnApply(data);
             return null;
         }
         return _statusEffects.Add(data);

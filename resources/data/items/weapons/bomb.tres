@@ -112,8 +112,8 @@ modifiers = []
 
 [resource]
 script = ExtResource("2_weapon")
-rightHandSlot = true
 maxAmmo = 3
+rightHandSlot = true
 ammoRechargeSeconds = 6.0
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
 &"explosion": SubResource("Resource_damage_explosion"),
