@@ -548,17 +548,8 @@ public partial class WorldEditor : Node3D
             worldEntity.OnSpawned(_world);
         }
 
-        // Access internal entity list — World.ActiveEntities is readonly dict,
-        // but we need to add to it. Use the same approach as World.SpawnLoot:
-        // if the chunk list doesn't exist, the entity will be picked up when
-        // the chunk's entities are loaded. For now, call QueueFree on duplicate
-        // and let the next entity loading pass pick it up.
-        // Actually, we need direct access. Let's add to World via the public API.
-        // World already has SpawnLoot which does this. We'll add a general method.
-
-        // For now, add the node to the scene tree directly and let chunk entity
-        // loading manage it on the next pass. The entity is already in WorldState.
-        // Force a reload of this chunk's entities.
+        // The entity is already in WorldState; reload this chunk's entities so
+        // the newly added node is picked up by the normal loading pass.
         ReloadChunkEntities(coord);
     }
 
