@@ -1,18 +1,13 @@
 using Godot;
 
 // Generic IInteractive + IWorldEntity wrapper for a "find it, disarm it"
-// world object backed by one or more ITriggerable behaviors. Trap holds
-// the perception (Discoverable) + interact (InteractiveBox + disarm
-// actions) policy; the actual trap effect (spikes, dart, poison cloud,
-// mob spawn) is whatever ITriggerable nodes the .tscn wires up.
-//
-// What makes a "spike trap" vs a "poison gas trap" vs a "summon enemies
-// puzzle" is the .tscn composition — pick a TriggerSource (or omit it
-// for event-driven traps fired by chest opens / mob deaths), wire its
-// _targets at one or more ITriggerable behaviors, and set them as the
-// Trap's _triggerSource / _deployers. Trap doesn't care about the
-// specific behavior types — it just owns the disarm UX and forwards
-// "you're disarmed" calls down.
+// world object backed by one or more ITriggerable behaviors. Trap holds the
+// perception (Discoverable) + interact (InteractiveBox + disarm actions)
+// policy; the actual trap effect is whatever ITriggerable nodes the .tscn
+// wires up. What makes a "spike trap" vs a "poison gas trap" is the .tscn
+// composition — pick a TriggerSource (or omit it for event-driven traps
+// fired by chest opens / mob deaths), wire its _targets at one or more
+// ITriggerable behaviors, and set them as _triggerSource / _deployers.
 [GlobalClass]
 public partial class Trap : Node3D, IInteractive, IWorldEntity
 {
@@ -20,9 +15,8 @@ public partial class Trap : Node3D, IInteractive, IWorldEntity
     // event-driven traps (a chest's onOpen pings deployers directly).
     // Disarming the trap calls SetEnabled(false) on the source.
     [Export] private TriggerSource _triggerSource;
-    // Pure ITriggerable behaviors the disarm should silence. Stored as
-    // Node so authors can wire any class implementing the interface;
-    // Stop() is dispatched by interface check below.
+    // ITriggerable behaviors the disarm should silence. Stored as Node so
+    // authors can wire any class implementing the interface.
     [Export] private Godot.Collections.Array<Node> _deployers = new();
     [Export] private Area3D _interactBox;
     [Export] private Discoverable _discoverable;

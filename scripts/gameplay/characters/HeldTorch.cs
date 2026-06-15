@@ -5,8 +5,8 @@ using Godot;
 // unlit (charred) look and a lit (glowing) look, with the carried-light flame fx
 // parented to the head while lit. The MovingLight that actually deposits light
 // into the world is a SEPARATE node on the carrier root — this scene only draws
-// the prop and its flame particles, which used to ride the player/mob root and
-// have moved here so the flame reads as coming off the torch tip.
+// the prop and its flame particles, parented here so the flame reads as coming
+// off the torch tip.
 //
 // SetLit toggles the two head visuals and spawns/stops the loop fx. The flame
 // scene's particles are authored at ~0.85m up, which lands on the head when the
@@ -23,8 +23,7 @@ public partial class HeldTorch : Node3D
     // which aligns the fx's authored ~0.85m flame height with the torch head.
     [Export] public Node3D flameAnchor;
 
-    // The looping flame + ember + crackle effect (the same torch_loop scene the
-    // player-carried MovingLight used to spawn at the player root).
+    // The looping flame + ember + crackle effect (torch_loop scene).
     [Export] public PackedScene flameLoopScene;
 
     private Fx _flame;

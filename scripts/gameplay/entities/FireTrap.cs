@@ -13,11 +13,10 @@ public enum EFireTrapState
 // swamp" effect of pillars erupting around the player at unpredictable
 // times.
 //
-// Unlike Trap (TriggerSource + ITriggerable), FireTrap is not body-driven
-// and has no disarm interaction in this iteration; it's purely an
-// environmental obstacle the player navigates around. The damage zone is
-// gated by SetActive so the trap is harmless during Idle/Warning and only
-// dangerous during the Active window.
+// Unlike Trap (TriggerSource + ITriggerable), FireTrap is not body-driven and
+// has no disarm interaction — it's a purely environmental obstacle. The damage
+// zone is gated by SetActive so the trap is harmless during Idle/Warning and
+// only dangerous during the Active window.
 [GlobalClass]
 public partial class FireTrap : Node3D, IWorldEntity
 {

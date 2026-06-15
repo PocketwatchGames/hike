@@ -7,18 +7,11 @@ using Godot;
 // the debug CVar). Lives long enough to run a three-phase lifecycle —
 // warning → strike → fade — then frees itself.
 //
-// All authored content (bolt sprite, warning fx, strike fx, damage,
-// flash amplitude, etc.) lives on a LightningData resource passed in
-// at Create time. The C# class is just the runtime conductor.
+// All authored content (bolt sprite, warning fx, strike fx, damage, flash
+// amplitude, etc.) lives on a LightningData resource passed in at Create time.
 //
-// During the warning phase the strike WANDERS horizontally — a
-// continuous Perlin noise field drives a 2 m/s meander so the preview
-// hunts erratically across the ground. If a player or mob crosses
-// inside `targetingRadiusMeters` the wander locks onto the closest
-// target instead, biasing the strike toward whatever stepped into
-// the kill zone. Position changes propagate to the warning fx (a
-// child node) and the bolt automatically, so the visible preview
-// tracks the moving strike point.
+// During the warning phase the strike WANDERS horizontally (see UpdateWander),
+// locking onto a target if one crosses inside `targetingRadiusMeters`.
 [GlobalClass]
 public partial class LightningStrike : Node3D
 {

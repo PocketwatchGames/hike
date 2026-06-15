@@ -7,9 +7,8 @@ using Godot;
 // synthesizes a fresh ItemState from Data), player drops set it so pickup
 // deposits the original stack. RequireInteract latches the loot into "press to
 // pick up" mode regardless of inventory state — set on player-initiated drops
-// so freshly dropped piles don't immediately re-enter the inventory. Not
-// currently serialized — phase 1 doesn't persist inventory across save/load,
-// so RequireInteract is in-memory only.
+// so freshly dropped piles don't immediately re-enter the inventory.
+// RequireInteract is in-memory only (inventory is not yet serialized).
 public class LootSimState : EntitySimState
 {
     public readonly ItemData Data;

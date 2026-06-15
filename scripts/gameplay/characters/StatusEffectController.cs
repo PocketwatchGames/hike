@@ -176,8 +176,7 @@ public class StatusEffectController
 	}
 
 	// Drop every active state whose data flags `incapacitates`. Called from
-	// the hit pipeline as the generalized "any hit wakes a CC'd actor" rule
-	// — replaces the dizzy-specific RemoveAllOfType(_dizzyEffect) wake path.
+	// the hit pipeline as the generalized "any hit wakes a CC'd actor" rule.
 	// Their buildup meters are also zeroed so the very next hit doesn't
 	// immediately re-cross the threshold from residual charge.
 	public void ClearIncapacitating()
@@ -340,8 +339,7 @@ public class StatusEffectController
 			// the carrier hit — kun-kun's Dizzy vulnerability lifts any
 			// buildup feeding a Dizzy-tagged effect regardless of what hit
 			// landed it. effect.tags == None falls through to a 1x
-			// multiplier so untagged buildups behave like the pre-resistance
-			// system.
+			// multiplier (untagged buildups take no resistance scaling).
 			float resistance = _composeMaskMul?.Invoke(entry.effect.tags) ?? 1f;
 			bool applied = AddBuildup(entry.effect, entry.amount * hit.buildupAmountMultiplier * resistance);
 			if (applied && entry.effect.applyTrigger != EDamageTrigger.None)

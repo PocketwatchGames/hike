@@ -50,8 +50,7 @@ public partial class DamageZone : Area3D
     // HurtBox that enters — what every environmental hazard wants (fire trap,
     // campfire, poison cloud). Actor-spawned weapon AoEs set this false (via
     // GasCloud) so the CanDamage team rule applies and they don't friendly-fire
-    // the player or allies. Replaces the old enemiesOnly mob-only filter with
-    // the project-wide damage rule.
+    // the player or allies.
     [Export] public bool friendlyFire = true;
 
     private readonly List<HurtBox> _hurtBoxes = new();
@@ -212,7 +211,7 @@ public partial class DamageZone : Area3D
         }
         // No team filtering here — every overlapping hurtbox is tracked and
         // the per-tick TryHit consults the receiver's CanHit against the real
-        // HitInfo, so allies are spared at apply time (replaces enemiesOnly).
+        // HitInfo, so allies are spared at apply time.
         if (_hurtBoxes.Contains(hb))
         {
             return;
@@ -244,8 +243,8 @@ public partial class DamageZone : Area3D
     }
 
     // Apply a hit only if the receiver's HurtBox.CanHit filter accepts it
-    // (team allegiance etc.). The hazard's gate now lives here, per tick,
-    // against the actual HitInfo — there is no enter-time team filter.
+    // (team allegiance etc.). The hazard's gate lives here, per tick, against
+    // the actual HitInfo — there is no enter-time team filter.
     private static void TryHit(HurtBox hb, in HitInfo hit)
     {
         if (hb.CanBeHit(hit))

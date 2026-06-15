@@ -1,11 +1,9 @@
 using System.Collections.Generic;
 using Godot;
 
-// Batched renderer for transient footprint ground marks. Replaces the old
-// one-Node3D-per-print path (Footprint.cs + footprint_visible/discoverable
-// scenes): every print laid with the same actor texture collapses into a
-// single MultiMesh draw, with no per-print Node, no per-print _Process, and
-// one shared (per-texture) material instead of a unique material per print.
+// Batched renderer for transient footprint ground marks. Every print laid with
+// the same actor texture collapses into a single MultiMesh draw — one shared
+// per-texture material, no per-print Node or _Process.
 //
 // Structural sibling of WorldPropScatter — World owns one, created in
 // World.Initialize — but where WorldPropScatter batches static props that

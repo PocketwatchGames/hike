@@ -39,11 +39,8 @@ public class TorchSimState : EntitySimState
     }
 }
 
-// Campfires / cooking stations. Standalone from TorchSimState — campfires
-// share a similar lit/doused shape with wall torches but the persistent
-// cooking inputs and the cook-job timer are forge-specific. The runtime
-// Forge node owns its own lighting fx so there is no behavioral coupling
-// to Torch.
+// Campfires / cooking stations. Standalone from TorchSimState — the
+// persistent cooking inputs and cook-job timer are forge-specific.
 public class ForgeSimState : EntitySimState
 {
     // Number of cooking slots a forge exposes. Mirrored by the

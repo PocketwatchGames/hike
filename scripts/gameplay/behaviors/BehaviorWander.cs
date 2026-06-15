@@ -1,10 +1,8 @@
 using Godot;
 
-// Random patrol around the mob's current spot. Drives the navigator's
-// Wander state and lets it pick + validate points using the walkability
-// grid. The behavior itself only owns the "wander vs pause" cadence — the
-// "where can I actually go" logic moved into MobNavigator/WalkabilityGrid
-// so attack-reposition / encircle / investigate can all share it later.
+// Random patrol around the mob's spawn anchor. The behavior owns only the
+// "wander vs pause" cadence; point picking/validation against the
+// walkability grid lives in MobNavigator/WalkabilityGrid.
 public partial class BehaviorWander : BehaviorBase
 {
     private const float WanderRange = 15f;
@@ -50,10 +48,8 @@ public partial class BehaviorWander : BehaviorBase
             _wandering = true;
         }
 
-        // Tell the navigator we're wandering around the spawn anchor. Speed
-        // is reduced from default so wander reads as ambient idle motion
-        // rather than a deliberate trek; arrival/repath is the navigator's
-        // problem now.
+        // Reduced speed so wander reads as ambient idle motion rather than a
+        // deliberate trek.
         if (me.Navigator.HasArrived || me.Navigator.IsBlocked)
         {
             double pauseSeconds = GD.RandRange((double)_data.pauseTimeRange.X, (double)_data.pauseTimeRange.Y);

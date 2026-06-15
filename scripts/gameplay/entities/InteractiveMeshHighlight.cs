@@ -5,16 +5,12 @@ using Godot;
 // interactive (statue, sign, chest, the climbable tree's ladder rungs) is the
 // player's highlight target, its meshes are temporarily added to the
 // OutlineMaskLayer so GameCamera's off-screen mask camera renders their
-// silhouette; GameCamera's fullscreen composite quad then paints a crisp
-// constant-width ring around exactly those screen pixels — the same look as the
-// sprite outline, and (unlike an inverted-hull outline) correct on concave
-// models.
+// silhouette; GameCamera's composite quad then paints a constant-width ring
+// around those pixels — correct on concave models (unlike an inverted hull).
 //
-// Driven entirely by GameClient.ApplyHighlight/RemoveHighlight via SetSelected
-// when this interactive is the player's current highlight target — exactly when
-// the sprite outline overlay would appear. No per-frame probe, no proximity
-// logic, no per-mesh material (the meshes keep their normal lit material; only
-// their visual layer bit is toggled).
+// Driven by GameClient.ApplyHighlight/RemoveHighlight via SetSelected. No
+// per-frame probe and no per-mesh material — the meshes keep their normal lit
+// material; only their visual layer bit is toggled.
 //
 // Wiring: drop one as a direct child of the interactive root. Point `_meshes` at
 // the meshes that should highlight, and/or set `_collectFrom` to a node whose

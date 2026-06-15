@@ -331,12 +331,11 @@ public partial class Player : CharacterBody3D, IActionActor
 	}
 
 	// IActionActor — what ActionRunner and ItemEventHandlers read from the
-	// player. Position / Forward use the player's body transform; Forward
-	// matches the existing aim direction (basis Z axis, same as
-	// PlayerWeapon's old Melee/Hitscan code), composed with the live aim
-	// pitch so ranged hitscan / projectile fire along the auto-aimed
-	// elevation. The player body itself only rotates around Y — pitch lives
-	// purely in this composition so the model, capsule, and basis stay flat.
+	// player. Position / Forward use the player's body transform; Forward is the
+	// aim direction (basis Z axis) composed with the live aim pitch so ranged
+	// hitscan / projectile fire along the auto-aimed elevation. The player body
+	// itself only rotates around Y — pitch lives purely in this composition so
+	// the model, capsule, and basis stay flat.
 	public Vector3 ActorWorldPosition => GlobalPosition;
 	public Vector3 ActorForward
 	{
@@ -473,7 +472,7 @@ public partial class Player : CharacterBody3D, IActionActor
 				continue;
 			}
 			// LOS clip against environment — keeps the assist from acquiring
-			// a mob behind a wall. Cheaper than the old two-pass clip because
+			// a mob behind a wall.
 			// we already have the exact target point; if the env ray hits
 			// before reaching AimCenter, the mob is occluded.
 			using var envQuery = PhysicsRayQueryParameters3D.Create(origin, center, (uint)ECollisionLayer.Solid);

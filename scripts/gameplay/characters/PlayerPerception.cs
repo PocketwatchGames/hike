@@ -77,8 +77,8 @@ public static class PlayerPerception
 {
     public const float TickInterval = 0.1f;
 
-    // Eye-height for the LOS raycast on the player's side. Matches the
-    // value MobAI used so behavior is identical post-refactor.
+    // Eye-height for the LOS raycast on the player's side. Matches the value
+    // MobAI uses so player→mob and mob→player LOS behave identically.
     private const float PlayerEyeHeight = 1.5f;
 
     public static PerceptionTickResult Tick(

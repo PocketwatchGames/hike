@@ -6,10 +6,8 @@ using Godot;
 // WindParticleManager, which leases a pooled GpuParticles3D to nearby sources.
 // This keeps the live particle-system count flat even with thousands of
 // batch-rendered trees resident (see WorldPropScatter / MultimeshPropSprite).
-//
-// Not [Tool]: nothing runs in the editor. Mirrors the Perch node pattern — a
-// plain child Node3D whose transform is the meaningful authored data (the
-// emission anchor, e.g. the canopy center).
+// The node's transform is the authored data — the emission anchor (e.g. the
+// canopy center).
 [GlobalClass]
 public partial class WindEmitterSource : Node3D
 {

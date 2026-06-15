@@ -31,7 +31,7 @@ using Godot;
 //     player's head while the crown rises), and the skeleton grows to the
 //     stretched positions.
 //   * TWIG cards at each branch tip (bridge the bark to the leaves through the
-//     foliage cutaway). Moved out of FoliageMultiMesh, which is now leaf-only.
+//     foliage cutaway).
 //
 // Base-pivoted at the prop origin: Trunk-local == Foliage-local == prop-local,
 // so all cluster / skeleton math is in one space and the node never moves.

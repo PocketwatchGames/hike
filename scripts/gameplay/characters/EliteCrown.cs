@@ -3,16 +3,14 @@ using Godot;
 // Spinning, bobbing emissive halo that floats over an elite mob (see
 // Mob.IsElite). The mesh uses crown_lit.tres — the same model_lit_character +
 // model_xray render stack the mob body uses — so the crown dithers, silhouettes
-// and X-rays through cover exactly like the mob, but reads as a strong gold glow
-// when visible. Mob spawns one per elite, parents it under the mob's mesh
-// container above the head, drives its discovery presentation each frame via
+// and X-rays through cover exactly like the mob. Mob spawns one per elite,
+// parents it above the head, drives its discovery presentation each frame via
 // SetDiscoveryVisuals, and frees it on death.
 [GlobalClass]
 public partial class EliteCrown : Node3D
 {
-    // The halo mesh. Spun + bobbed in _Process and the target of the per-instance
-    // discovery uniforms. A child of this node so the root stays a clean anchor
-    // whose transform the Mob owns (head position).
+    // The halo mesh, child of this node so the root stays a clean anchor whose
+    // transform the Mob owns (head position).
     [Export] private MeshInstance3D _halo;
 
     // Full revolutions per minute of the in-place spin (about the vertical axis —

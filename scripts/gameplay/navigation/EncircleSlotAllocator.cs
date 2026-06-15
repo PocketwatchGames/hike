@@ -15,9 +15,7 @@ using Godot;
 // Design notes:
 // - Slot count is a property of the FIRST lease for a target. Mixed
 //   slot-count requests against the same target are rare in practice
-//   (one mob type per swarm) and silently use the existing ring. If
-//   you need multiple coexisting rings for the same target later,
-//   key by (target, ringId) instead of just target.
+//   (one mob type per swarm) and silently use the existing ring.
 // - Slot picking is greedy-by-angle: the requesting mob gets the free
 //   slot whose angle is closest to the mob's current angle around the
 //   target, so a mob already on the target's left side keeps its

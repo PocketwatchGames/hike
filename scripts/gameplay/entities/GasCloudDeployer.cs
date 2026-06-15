@@ -1,17 +1,11 @@
 using Godot;
 
-// Spawns a GasCloud (or any Node3D scene, really) at the deployer's
-// position when triggered. The companion to SpikeDeployer for hazard
-// firers that don't need TriggerSource.BodiesInArea — the cloud's own
-// DamageZone handles who gets hit. Wire it into a Chest's
-// _onOpenTargets, a Trap's _deployers, or any other firer.
+// Spawns a GasCloud (or any Node3D scene) at the deployer's position when
+// triggered. The cloud's own DamageZone handles who gets hit.
 //
-// The cloud is parented to the deployer's parent (typically the host
-// scene root, e.g. the chest) so it survives independently of the
-// deployer being pooled or re-streamed; if the host scene unloads,
-// everything goes together. World-parenting can be added later if
-// clouds need to outlive their host (set _parentToWorld true and
-// hand a World ref via OnSpawned-style plumbing).
+// The cloud is parented to the deployer's parent (typically the host scene
+// root, e.g. the chest) so it survives the deployer being pooled or
+// re-streamed; if the host scene unloads, everything goes together.
 [GlobalClass]
 public partial class GasCloudDeployer : Node3D, ITriggerable
 {

@@ -15,8 +15,7 @@ public class Inventory
 	// consumable slot. Fixed-size sparse array — `_backpack[i]` is the item
 	// at grid slot i, or null if that slot is empty. The sparse layout means
 	// the player can leave gaps when reorganizing (move an item to slot 5
-	// even if slot 3 is empty), which the prior List<ItemState> couldn't
-	// express without auto-compacting. BackpackCount is the non-null count;
+	// even if slot 3 is empty). BackpackCount is the non-null count;
 	// Backpack.Count is the array length (== backpackCapacity).
 	private readonly ItemState[] _backpack;
 

@@ -2738,8 +2738,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return EHitResult.None;
         }
         // An armor-penetrating hit skips armor entirely and lands on health.
-        // Otherwise armor (when present) absorbs the whole hit, matching the
-        // legacy fully-absorbed semantics.
+        // Otherwise armor (when present) absorbs the whole hit.
         if (armor > 0f && !hit.ArmorPenetrated)
         {
             return EHitResult.Armor;

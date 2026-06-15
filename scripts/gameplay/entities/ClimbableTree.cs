@@ -15,8 +15,7 @@ public partial class ClimbableTree : Node3D, IInteractive, IWorldEntity
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     // Stashed from GetActions so Complete (which only receives the action index)
-    // can act on the climbing player. Mirrors Loot._picker. No other runtime
-    // state — the tree is a stateless trigger.
+    // can act on the climbing player.
     private Player _climber;
 
     public void OnSpawned(World world) { }

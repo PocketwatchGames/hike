@@ -75,8 +75,7 @@ public partial class Discoverable : Node3D
 
     // Seconds for the discovery fade to traverse 0..1. Slightly longer than
     // Mob's 0.3s so a freshly-spawned chest reads as "you noticed it" rather
-    // than "it teleported in." Tunable per-instance later if any host wants
-    // a snappier or slower pop.
+    // than "it teleported in."
     private const float FadeTime = 0.4f;
     private float _visibility;
 

@@ -21,11 +21,9 @@ public partial class BehaviorAttack : BehaviorBase
         _data = data;
     }
 
-    // No-op cross-tick state to reset — the slot allocator on World owns
-    // the standoff slot across re-entries (see also OnExit-like cleanup
-    // in TryTransitions and Run when the target changes). Cooldown is
-    // intentionally NOT reset: behaviors that swap out (e.g. to Investigate
-    // and back) shouldn't grant a free attack on re-entry.
+    // Cooldown is intentionally NOT reset here: behaviors that swap out (e.g.
+    // to Investigate and back) shouldn't grant a free attack on re-entry. The
+    // encircle slot is released on exit/target-change, not on enter.
     public override void OnEnter(Mob me, ulong time)
     {
     }

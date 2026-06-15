@@ -25,7 +25,7 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _hudNode;
     // 3D chest lid hinge: a Node3D pivot placed at the lid's back-bottom edge
     // with the lid mesh parented under it. When set, the lid tweens open on
-    // Complete instead of swapping a sprite frame. Null on the old sprite chest.
+    // Complete instead of swapping a sprite frame. Null on sprite chests.
     [Export] private Node3D _lidHinge;
     [Export] private float _lidOpenAngleDeg = 100f;
     [Export] private float _lidOpenSeconds = 0.4f;
@@ -99,10 +99,10 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     private void UpdateVisuals(bool animateLid)
     {
         // Open/closed is the only state this method gates — perception
-        // visibility (Hidden vs Discovered) is now driven by the
-        // Discoverable's dither fade pushed into the sprite's Visibility
-        // uniform. _animator is null on the 3D (model) chest, which swings the
-        // lid hinge below instead of swapping sprite frames.
+        // visibility (Hidden vs Discovered) is driven by the Discoverable's
+        // dither fade pushed into the sprite's Visibility uniform. _animator is
+        // null on the 3D (model) chest, which swings the lid hinge below
+        // instead of swapping sprite frames.
         _animator?.Play(_open ? AnimOpen : AnimClosed);
         if (_lidHinge != null)
         {

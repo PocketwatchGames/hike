@@ -2,9 +2,8 @@ using Godot;
 
 // Runtime state of one in-flight action. Owned by ActionRunner; passed by
 // reference to event handlers so they can read pressMs / activateMs / etc.
-// `lastEventIndex` was previously per-weapon (WeaponState.lastWeaponEventIndex)
-// — it's now per-action because two activations of the same weapon need
-// independent timeline cursors.
+// `lastEventIndex` is per-action because two activations of the same weapon
+// need independent timeline cursors.
 public struct PlayerAction
 {
 	public EActionPhase phase;
@@ -29,7 +28,7 @@ public struct PlayerAction
 	public int lastEventIndex;
 
 	// Continuous charge fraction in [0, 1] sampled at activation, stashed for
-	// per-action curves (bow accuracy / range scaling — phase 3).
+	// per-action curves (e.g. bow accuracy / range scaling).
 	public float chargeT;
 
 	// Combo index this action is locked to for the duration of the charge.

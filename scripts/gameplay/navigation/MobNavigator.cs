@@ -180,14 +180,9 @@ public class MobNavigator
         if (_repathTimer <= 0f)
         {
             _repathTimer = _repathInterval + (float)GD.RandRange(-RepathJitterSeconds, RepathJitterSeconds);
-            // Repath cost is the suspect — the per-call avg of ~110µs at
-            // 16k calls/window dominates Mob.PhysicsProcess. Split into
-            // RefreshGrid (voxel sample of 33×33 grid + walkability
-            // resolve), WanderPick (random-walk goal selection — Wander
-            // only), and ReplanPath (A* from start to goal) so we can see
-            // which is actually expensive. RefreshGrid is the most likely
-            // hot spot at swarm density because it samples LocalGridSize²
-            // = 1089 columns of voxels every 0.4s per mob.
+            // RefreshGrid samples LocalGridSize² = 1089 voxel columns every
+            // 0.4s per mob — the hot spot at swarm density. Split out from
+            // WanderPick and ReplanPath so the profiler can attribute cost.
             using (Profiler.Sample("MobNavigator.RefreshGrid"))
             {
                 RefreshGrid();

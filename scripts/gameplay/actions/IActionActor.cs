@@ -1,7 +1,7 @@
 using Godot;
 
-// What the ActionRunner needs from its owner. Player and (phase 6) Mob both
-// implement this. The runner is otherwise actor-agnostic: it walks the
+// What the ActionRunner needs from its owner. Player and Mob both implement
+// this. The runner is otherwise actor-agnostic: it walks the
 // timeline, fires events, and asks the actor to resolve actor-specific bits
 // (position for queries, animation playback, hurt-box exclusion for raycasts).
 public interface IActionActor

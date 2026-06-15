@@ -47,7 +47,7 @@ public partial class ModelAnimator : Node
     // on the body texture, sword/shield/armor on a props texture). Meshes named
     // in secondaryMeshNames get this material; everything else gets
     // modelMaterial. Null (the common case — single-atlas characters like the
-    // player and bunny) means every mesh gets modelMaterial as before.
+    // player and bunny) means every mesh gets modelMaterial.
     [Export] public ShaderMaterial secondaryMaterial;
     [Export] public string[] secondaryMeshNames = Array.Empty<string>();
     // Names of MeshInstance3D nodes under `visual` to hide at startup. Imported
@@ -67,10 +67,8 @@ public partial class ModelAnimator : Node
     // These name the rig's anatomy parts that the player's armor / appearance
     // compositor (PlayerArmorVisual) builds its visible set from. They live on
     // the rig because the names are gender-specific (the Female rig prefixes its
-    // parts F_, the Male rig M_), so each gender's package scene authors its own
-    // — this is what replaced the old hardcoded F_ constants in PlayerArmorVisual
-    // and PlayerData. Left empty on non-player rigs (mobs), which never run the
-    // compositor.
+    // parts F_, the Male rig M_), so each gender's package scene authors its own.
+    // Left empty on non-player rigs (mobs), which never run the compositor.
 
     // Always visible regardless of equipment: head shell + facial features.
     [Export] public string[] baseMeshNames = Array.Empty<string>();

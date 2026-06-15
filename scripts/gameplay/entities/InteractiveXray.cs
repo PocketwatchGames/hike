@@ -66,14 +66,10 @@ public partial class InteractiveXray : Node3D
     private float _xrayAmount;
     private float _xrayTarget;
     private float _probeAccumulator;
-    // Host that the X-ray follows. Resolved from GetParent() in _Ready —
-    // every current InteractiveXray sits as a direct child of an
-    // IInteractive root (chest, loot, door, trap, campfire). When the host
-    // reports CanInteract() == false (chest opened, loot picked up, etc.),
-    // the probe is suppressed and the silhouette fades out — no point
-    // highlighting something the player can no longer act on. Null means
-    // "no host found" — the xray runs unconditionally, matching the old
-    // behavior so scenes without an IInteractive parent still work.
+    // Host that the X-ray follows, resolved from GetParent() in _Ready. When
+    // the host reports ShouldShowXray() == false (chest opened, loot picked
+    // up), the probe is suppressed and the silhouette fades out. Null means
+    // "no host found" — the xray then runs unconditionally.
     private IInteractive _interactive;
 
     public override void _Ready()

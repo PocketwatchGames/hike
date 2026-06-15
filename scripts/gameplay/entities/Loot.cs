@@ -54,8 +54,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	// Authored interaction list. The first entry's events should include an
 	// OpenInteractive event that triggers Complete() — that's how the runner
-	// signals "the loot has been collected." Break / Examine can be authored
-	// later as the design evolves.
+	// signals "the loot has been collected."
 	[Export] private Array<InteractiveAction> _actions = new();
 
 	private LootSimState _simState;
@@ -174,7 +173,7 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 		// visual outro as a player pickup, so an arrow timing out reads as
 		// "vanished" rather than "popped out of existence." OnPickedUpFinished
 		// runs QueueFree once the animation ends. No animation player → free
-		// immediately, matching the pre-animation behavior.
+		// immediately.
 		if (_animationPlayer != null)
 		{
 			_animationPlayer.AnimationFinished += OnPickedUpFinished;

@@ -19,8 +19,7 @@ public class MobSimState : EntitySimState
     // Per-item-type gift count cap. The third repeat saturates a mob's
     // interest; anything past that is rejected by Mob.WillAcceptGift. Lives
     // here (next to the GiftCounts field that enforces it) so the loyalty
-    // system has a single tunable. Per-mob overrides can live on MobData
-    // later if it turns out species need their own caps.
+    // system has a single tunable.
     public const int MaxGiftsPerItemType = 3;
 
     public readonly MobData MobData;

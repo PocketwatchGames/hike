@@ -1,10 +1,8 @@
 using Godot;
 
-// Simple lighting interactive. Tap-interact toggles the flame on/off,
-// which routes through SetLit so the animator, light, damage zone, warmth
-// zone, and fx all flip together. Wall torches use this class; campfires
-// have their own runtime entity (Forge) so this class stays focused on
-// lighting and doesn't grow cooking concerns.
+// Simple lighting interactive. Tap-interact toggles the flame on/off, flipping
+// the animator, light, damage zone, warmth zone, and fx together. Wall torches
+// use this class; campfires have their own runtime entity (Forge).
 [GlobalClass]
 public partial class Torch : Node3D, IInteractive, IWorldEntity
 {

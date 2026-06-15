@@ -154,8 +154,6 @@ public partial class WeatherLightningSpawner : Node
         float floor = data.weatherSpawnIntensityFloor;
         float ceiling = Mathf.Max(floor + 1e-3f, data.weatherSpawnIntensityForPeak);
         float t = Mathf.Clamp((intensity - floor) / (ceiling - floor), 0f, 1f);
-        // sqrt biases the curve toward the peak end so a modest
-        // above-floor storm doesn't sit at the atFloor interval.
         t = Mathf.Sqrt(t);
         float mean = Mathf.Lerp(data.weatherSpawnIntervalAtFloor, data.weatherSpawnIntervalAtPeak, t);
         if (mean < 0.1f) { mean = 0.1f; }

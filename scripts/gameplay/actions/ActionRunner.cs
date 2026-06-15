@@ -1,9 +1,8 @@
 using Godot;
 
-// Single-action runner shared by Player (phase 2) and Mob (phase 6). Holds
-// one in-flight PlayerAction plus an optional queued action that promotes
-// when the active one ends. Drives the press → Charging → Active → Ready
-// state machine.
+// Single-action runner shared by Player and Mob. Holds one in-flight
+// PlayerAction plus an optional queued action that promotes when the active
+// one ends. Drives the press → Charging → Active → Ready state machine.
 //
 // Multi-tier charging: tiers are walked highest-to-lowest in SelectTier.
 // During Charging, tier selection is recomputed each tick; when it changes,
@@ -319,8 +318,7 @@ public class ActionRunner
 	}
 
 	// Re-evaluates which tier is currently "selected" given charge elapsed.
-	// On a change, fires the new tier's readyEvents. (Phase 4 will add the
-	// outgoing tier's unreadyEvents and gate-failure fallback paths.)
+	// On a change, fires the new tier's readyEvents.
 	private void UpdateChargingTierSelection(ulong now)
 	{
 		ItemActionProfile profile = _action.profile;
@@ -356,9 +354,9 @@ public class ActionRunner
 		{
 			return;
 		}
-		// Auto-fire only the highest tier (and only when it's the selected
-		// tier — phase 4 adds the requirements gate that may keep selection
-		// at a lower tier even past the top's threshold).
+		// Auto-fire only the highest tier, and only when it's the selected
+		// tier (requirements/cost gating may hold selection at a lower tier
+		// even past the top's threshold).
 		int topIndex = profile.chargedActions.Count - 1;
 		if (_action.selectedTierIndex != topIndex)
 		{

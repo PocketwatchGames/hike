@@ -1,10 +1,7 @@
 using Godot;
 
 // One-shot footstep FX dispatch for Player / Mob. Stateless — callers
-// decide when to fire (an animation frame match drives the timing), this
-// just resolves the per-ground-type scene from the supplied dict (or uses
-// the single scene overload for the shallow-water variant where there's
-// no EGroundType dispatch) and spawns it through Fx.Create.
+// decide when to fire (an animation frame match drives the timing).
 //
 // Fx.Create parents the spawned node to the supplied `parent` and frees
 // it once all child CpuParticles3D stop emitting. To keep the puff put in

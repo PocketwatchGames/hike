@@ -3582,10 +3582,10 @@ public partial class Player : CharacterBody3D
 				// as the water branch above minus the current term. Ground uses
 				// groundAcceleration (sharp), air uses airAcceleration (drifty
 				// so jumps preserve momentum); releasing input decelerates at
-				// the same rate, so the ground branch replaces the old instant
-				// snap-to-stop. Airborne stacks windDrift onto the input target
-				// so wind nudges a hanging-in-air player without fighting their
-				// move intent — input + drift, water-current style.
+				// the same rate rather than snapping to a stop. Airborne stacks
+				// windDrift onto the input target so wind nudges a hanging-in-air
+				// player without fighting their move intent — input + drift,
+				// water-current style.
 				// Grip drops while skidding — uses the skid-specific acceleration
 				// instead of groundAcceleration so a sharp direction change
 				// commits to the existing velocity vector for a beat rather than

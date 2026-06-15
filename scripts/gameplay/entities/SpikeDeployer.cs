@@ -10,18 +10,14 @@ public enum ESpikeDeployerState
 }
 
 // Spike-deploy behavior, decoupled from any particular trigger. Receives
-// Trigger(Node) from a TriggerSource (the typical pressure-plate setup) or
-// any other firer (a chest's onOpen, a mob death, etc.) and runs the
-// authored timeline: warning audio → spikes pop → activeDuration → retract
-// → cooldown.
+// Trigger(Node) from a TriggerSource or any other firer and runs the authored
+// timeline: warning → spikes pop → activeDuration → retract → cooldown.
 //
 // Damage is one-shot per cycle: every body in the source's
-// TriggerSource.BodiesInArea at Spiked-enter takes one hit. If the source
-// is not a TriggerSource (e.g. fired by a chest's Complete), no body list
-// is available and the spikes pop without damaging anyone — the deployer
-// becomes a pure cosmetic effect in that case. If you need damage from a
-// non-body source, pair it with a separate TriggerSource sized over the
-// danger zone and chain them (chest → TriggerSource → SpikeDeployer).
+// TriggerSource.BodiesInArea at Spiked-enter takes one hit. A non-TriggerSource
+// firer (e.g. a chest's Complete) has no body list, so the spikes pop
+// cosmetically. For damage from a non-body source, chain a TriggerSource sized
+// over the danger zone (chest → TriggerSource → SpikeDeployer).
 [GlobalClass]
 public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
 {

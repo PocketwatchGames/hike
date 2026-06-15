@@ -200,11 +200,11 @@ public partial class LitSprite : SpriteBase
 
     // Push a per-sprite shader value into the per-instance render data of the
     // visible sprite + shadow proxy + water reflection (whichever exist).
-    // After the instance-uniform refactor every per-sprite value lives in
-    // RenderingServer instance data, NOT on the (now shared) materials, so
-    // multiple LitSprites can share one ShaderMaterial and Godot can batch
-    // their draws. RenderingServer silently ignores names a shader doesn't
-    // declare, so pushing silhouette to the shadow proxy is a harmless no-op.
+    // Per-sprite values live in RenderingServer instance data, NOT on the
+    // shared materials, so multiple LitSprites can share one ShaderMaterial and
+    // Godot can batch their draws. RenderingServer silently ignores names a
+    // shader doesn't declare, so pushing silhouette to the shadow proxy is a
+    // harmless no-op.
     protected override void PushAlignmentUniform(StringName name, Variant value)
     {
         base.PushAlignmentUniform(name, value);
@@ -534,12 +534,9 @@ public partial class LitSprite : SpriteBase
         _reflection.RegionRect = RegionRect;
 
         // Shared reflection material per (template, texture) — same batching
-        // win as the shadow proxy. _reflectionMaterial is kept around because
-        // UpdateReflection pushes water_y / source_world_pos to it; with the
-        // shared-material model those are now per-instance uniforms pushed via
-        // RenderingServer instead, so _reflectionMaterial only serves as the
-        // "do I currently have a reflection" flag and the shared-material
-        // reference for completeness.
+        // win as the shadow proxy. water_y / source_world_pos are per-instance
+        // uniforms pushed via RenderingServer, so _reflectionMaterial only
+        // serves as the "do I currently have a reflection" flag.
         ShaderMaterial sharedRefl = GetSharedMaterial(reflectionTemplate, Texture);
         if (sharedRefl != null)
         {

@@ -44,9 +44,7 @@ public partial class SpriteBase : Sprite3D
         set
         {
             // Short-circuit on equal value so the shader-uniform push is
-            // skipped for stable frames. Owners (Mob, Player, etc.) used to
-            // cache the last-applied value externally; doing it here means
-            // every caller benefits without having to remember to.
+            // skipped for stable frames.
             if (_visibility == value)
             {
                 return;

@@ -3,9 +3,8 @@ using System.Collections.Generic;
 using Godot;
 
 // Campfire / cooking station. Standalone from Torch — they share a similar
-// lit/doused shape in the editor (animator, light, warmth/damage zones,
-// on/off fx) but the cooking workflow is forge-specific so the two
-// classes don't share a base.
+// lit/doused shape in the editor (animator, light, warmth/damage zones, on/off
+// fx) but the cooking workflow is forge-specific.
 //
 // Interact verb dispatch:
 //   * EActionVerb.Cook on a lit forge → opens the CookingScreen against
@@ -50,8 +49,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     // Recipe scope for this station — Cooking.TryMatch only considers
     // recipes whose forgeType matches.
     [Export] private EForgeType _forgeType;
-    // How long (seconds) a single cook job takes. Per-recipe override comes
-    // later once the player can pick a target cook time.
+    // How long (seconds) a single cook job takes.
     [Export] private float _forgeTimeSeconds = 1.5f;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
@@ -312,7 +310,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     }
 
     // Gather every MeshInstance3D under the model container (meshes live inside
-    // instanced FBX sub-scenes). Mirrors InteractiveMeshHighlight's collection.
+    // instanced FBX sub-scenes).
     private void CollectModelMeshes(Node node)
     {
         foreach (Node child in node.GetChildren())

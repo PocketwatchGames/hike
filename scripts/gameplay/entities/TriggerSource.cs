@@ -8,14 +8,12 @@ using Godot;
 // targets that don't care (a PoisonCloudDeployer that just spawns at its
 // own position) ignore it.
 //
-// Also implements ITriggerable itself, so a TriggerSource can be chained
-// from another firer (chest opens → chest's onOpenTargets points at a
-// nearby spike trap's TriggerSource → pad runs its own body-detection
-// dispatch). This is what makes "open the chest, the spike trap in
-// front of you triggers" wireable without any new code.
+// Also implements ITriggerable itself, so a TriggerSource can be chained from
+// another firer (chest open → spike trap's TriggerSource → pad runs its own
+// body-detection dispatch).
 //
-// Cross-scene targeting is not supported. _targets is a same-scene
-// NodePath array; both source and targets must load with the same chunk.
+// Cross-scene targeting is not supported. _targets is a same-scene NodePath
+// array; both source and targets must load with the same chunk.
 [GlobalClass]
 public partial class TriggerSource : Area3D, ITriggerable
 {
@@ -42,9 +40,8 @@ public partial class TriggerSource : Area3D, ITriggerable
 
     public override void _Ready()
     {
-        // Same body filter the SpikeTrap had — anything that walks across
-        // an authored trap fires it. Environment is excluded so a stray
-        // voxel collider doesn't arm the trap.
+        // Player/Mob only — environment is excluded so a stray voxel collider
+        // doesn't arm the trap.
         CollisionMask |= (uint)(ECollisionLayer.Player | ECollisionLayer.Mob);
         BodyEntered += OnBodyEntered;
         BodyExited += OnBodyExited;
@@ -81,11 +78,9 @@ public partial class TriggerSource : Area3D, ITriggerable
         _bodiesInArea.Remove(body);
     }
 
-    // ITriggerable: fired by an external source (chest open, mob death,
-    // upstream TriggerSource). Just runs the same dispatch path as a body
-    // entry — targets see this TriggerSource as their source so any
-    // BodiesInArea reads still resolve to who's currently standing on
-    // the pad.
+    // Fired by an external source. Runs the same dispatch path as a body
+    // entry — targets see this TriggerSource as their source, so BodiesInArea
+    // reads still resolve to who's currently standing on the pad.
     public void Trigger(Node source)
     {
         TryFire();

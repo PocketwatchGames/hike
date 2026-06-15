@@ -6,49 +6,33 @@ using Godot;
 // `_inscriptionLanguage` components. Subsequent reads silently re-show the
 // legible text.
 //
-// The concepts and the inscription language are intentionally decoupled:
-// most stones teach their own inscription language (a LanguageTeachable for
-// `_inscriptionLanguage` lives in `_concepts`), but a stone written in a
-// language the player already knows can teach something else (a recipe, a
-// map region) — the inscription field still drives the scramble while the
-// concepts drive the grant. NPCs follow the same pattern through the
-// LearnConcept ItemEvent on a Talk action's completionEvents.
+// The concepts and the inscription language are decoupled: the inscription
+// field drives the scramble while the concepts drive the grant, so a stone
+// written in a known language can teach something else (a recipe, a map
+// region).
 //
-// Learning happens INSIDE Complete() rather than via a LearnConcept event in
-// the action's completionEvents because the read-and-reveal flow is tightly
-// coupled: we need an unambiguous "learn first, then display" ordering even
-// on a zero-duration interactive where every completionEvent fires in the
-// same call stack. Doing the learn inline guarantees that ordering without
-// depending on event-array iteration quirks. The LearnConcept ItemEvent
-// flag still exists for sources that can use the event-driven flow (scrolls,
-// NPC dialogue) — they don't have a parent Complete() to host the work.
+// Learning happens INSIDE Complete() rather than via a LearnConcept event so
+// the "learn first, then display" ordering is unambiguous even on a
+// zero-duration interactive where every completionEvent fires in one call
+// stack. The LearnConcept ItemEvent flag still serves sources with no parent
+// Complete() (scrolls, NPC dialogue).
 [GlobalClass]
 public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
 {
     [Export] private Node3D _hudNode;
-    // Authored interactive actions. The default action only needs an
-    // OpenInteractive event in its completionEvents — Complete() handles
-    // the learning + fx in code, before showing the inscription.
+    // The default action only needs an OpenInteractive event — Complete()
+    // handles the learning + fx in code, before showing the inscription.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
-    // Inscription shown on Read. Pre-learning it scrambles through
-    // TextScrambler keyed on `_inscriptionLanguage`; post-learning it shows raw.
+    // Inscription shown on Read. Scrambles through TextScrambler keyed on
+    // `_inscriptionLanguage` until learned, then shows raw.
     [Export(PropertyHint.MultilineText)] private string _text = "";
-    // Language the inscription is written in (drives the TextScrambler
-    // gating on display). Separate from what the stone teaches — most
-    // stones teach their own inscription language via a LanguageTeachable
-    // in `_concepts`, but the two fields are independent so a stone can
-    // teach a recipe / region while still presenting as inscribed text.
+    // Language the inscription is written in (drives the TextScrambler gating).
     [Export] private LanguageData _inscriptionLanguage;
-    // Concepts granted on read. Polymorphic — language pieces, recipes,
-    // map-region locations, future skills. Each concept's Teach() is called
-    // in order; _firstLearnEffect fires once if ANY return true (so a stone
-    // that teaches two concepts the player already has one of still gets
-    // the celebration when the second one lands).
+    // Concepts granted on read. Each concept's Teach() is called in order;
+    // _firstLearnEffect fires once if ANY return true.
     [Export] private Godot.Collections.Array<TeachableConcept> _concepts = new();
     // FX spawned on the player the first time this read newly grants any
-    // concept. Subsequent reads — including re-reads of the same stone, or
-    // reads of a stone whose entire concept set the player already knows —
-    // are silent.
+    // concept. Subsequent reads are silent.
     [Export] private PackedScene _firstLearnEffect;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
@@ -74,11 +58,8 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
             return;
         }
         Player player = gc?.Player;
-        // Learn first, then display. Each concept's Teach() returns true
-        // only when it newly granted something, so the firstLearnEffect
-        // gates on the OR across the concept array — a stone teaching two
-        // things the player already knows one of still gets the
-        // celebration when the second one lands.
+        // Learn first, then display. Teach() returns true only when it newly
+        // granted something, so firstLearnEffect gates on the OR across the array.
         bool learnedSomething = false;
         if (player != null && _concepts != null)
         {

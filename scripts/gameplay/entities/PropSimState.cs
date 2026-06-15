@@ -32,11 +32,10 @@ public class PropSimState : EntitySimState
             return;
         }
         // Trees have a CylinderShape3D collider with radius ~1.0–1.5m,
-        // physically covering 3×3 (or 5×5) voxel cells around the trunk.
-        // The older single-cell registration left A* routing mobs through
-        // the adjacent cells the cylinder still blocks; the rasterizer
-        // walks every Environment-layer collider on the entity and emits
-        // the union of their footprints.
+        // physically covering 3×3 (or 5×5) voxel cells around the trunk. The
+        // rasterizer walks every Environment-layer collider on the entity and
+        // emits the union of their footprints so A* doesn't route mobs through
+        // cells the cylinder blocks.
         PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
     }
 }

@@ -9,9 +9,7 @@ using Godot;
 // The node TYPE is the source of truth: porousness is "this collider is a
 // PorousBody," visible in the scene tree, not an invisible layer integer
 // remapped at spawn. A solid prop/interactive (a door, a building wall) uses a
-// plain StaticBody3D on the Environment layer instead. This replaced the old
-// PorousColliders.Apply spawn-time remap, which keyed off the magic "still on
-// layer 1" sentinel and meant the authored layer wasn't the runtime layer.
+// plain StaticBody3D on the Environment layer instead.
 //
 // [Tool] so the forced layer also shows in the editor inspector (the named
 // "Porous" checkbox), keeping the scene WYSIWYG. MeshAutoCollider bakes this

@@ -15,10 +15,8 @@ using Godot;
 //     this; persists per-slice-level so re-entering an explored cave keeps
 //     its previous reveal.
 //
-// Slice layers are never evicted — they're persistent state. For the target
-// huge world this needs a sliding window similar to the planned outdoor
-// streaming, but at current dev scale the dictionary stays small (only the
-// few slices the player has visited).
+// Slice layers are never evicted — they're persistent state (the dictionary
+// holds only the few slices the player has visited).
 public class MinimapSliceAtlas
 {
     private readonly Dictionary<int, SliceLayer> _layers = new();

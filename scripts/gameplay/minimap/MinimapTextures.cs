@@ -13,16 +13,8 @@ using Godot;
 //   _exploration  — R8, same dimensions. Reveal logic (circular outdoor,
 //                    shadowcast indoor) writes max(existing, falloff).
 //
-// Sized once at construction from WorldState.Min/Max. When the streaming
-// refactor lands and Min/Max go away, a sliding window replaces this
-// (the per-chunk apply / monotonic merge / flush all stay; only the
-// allocation strategy changes). Until then we pay one full-extent upload
-// per flush, which is fine for current world sizes.
-//
-// Slice-atlas (indoor) is intentionally omitted from this iteration —
-// outdoor is the more pressing path and shares no code with the slice
-// pipeline. A second textures owner will land alongside the slice
-// generation pass.
+// Sized once at construction from WorldState.Min/Max; one full-extent
+// upload per flush.
 public class MinimapTextures
 {
     public const int BytesPerSurfacePixel = 4; // RGBA8
@@ -268,10 +260,8 @@ public class MinimapTextures
         return (ushort)(_surfaceData[byteIdx] | (_surfaceData[byteIdx + 1] << 8));
     }
 
-    // Push CPU buffer changes to the GPU. Currently does a full-texture
-    // upload — region updates aren't exposed cleanly via ImageTexture in
-    // Godot 4. At current world sizes (≤80×80 px during dev) this is
-    // negligible; the streaming refactor will reduce extent dramatically.
+    // Push CPU buffer changes to the GPU. Full-texture upload — region
+    // updates aren't exposed cleanly via ImageTexture in Godot 4.
     public void Flush()
     {
         if (_surfaceDirty)

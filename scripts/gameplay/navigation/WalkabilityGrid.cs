@@ -6,11 +6,8 @@ using Godot;
 // a flag set, and a per-cell traversal cost given a TraversalProfile.
 //
 // This is the shared substrate the A* pathfinder, flow field, brownian
-// wander, and goal pickers all consult. It does NOT cache between calls in
-// phase 1 — every query rebuilds the requested window. A persistent cache
-// per chunk is straightforward to add later but isn't free in a streaming
-// world (chunk eviction has to invalidate cells), so we defer that until
-// profiling demands it.
+// wander, and goal pickers all consult. Per-call samples are served from
+// the process-wide SharedWalkabilityCache (below).
 //
 // Coordinate convention: cell (i,j) covers world XZ in
 //   [originX + i, originX + i + 1) x [originZ + j, originZ + j + 1)

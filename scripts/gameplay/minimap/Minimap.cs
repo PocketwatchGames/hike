@@ -11,10 +11,6 @@ using Godot;
 //   World.onChunkEntitiesLoaded    → stamp prop foliage for that chunk
 //                                    (entities aren't ready when the chunk
 //                                    mesh first loads — props arrive later).
-//
-// The slice-atlas (indoor) pipeline isn't implemented yet — outdoor only.
-// Mode toggle still picks a sensible default for the HUD shader so the
-// surface texture renders correctly until indoor data lands.
 [GlobalClass]
 public partial class Minimap : Node3D
 {

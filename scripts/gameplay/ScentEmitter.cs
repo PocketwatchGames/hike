@@ -12,10 +12,6 @@ using Godot;
 // Mobs that smell run their own raycast LOS gate when reading Crumbs, since
 // even with wall-blocked drift a crumb on the player's side of a thin wall
 // would otherwise leak straight through it.
-//
-// Pattern follows the plain-class emitters on Player (FootstepEmitter,
-// FootprintEmitter): no scene node, no [Export] fields — owner constructs
-// and ticks it.
 public class ScentEmitter
 {
     public struct Breadcrumb
