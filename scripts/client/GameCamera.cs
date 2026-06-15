@@ -73,9 +73,9 @@ public partial class GameCamera : Camera3D
 	private float _clipBlend = 1f;
 	private float _clipFadeT = 1f;
 	// Yaw is stored in RADIANS (consistent with Q/E rotations that use
-	// DegToRad(90)). Initial value = 45° → DegToRad(45). Previously was
-	// raw `45` which normalized to ~58.3° via 45 mod 2π, throwing off
-	// reflection-sun alignment expectations.
+	// DegToRad(90)). Initial value = 45° → DegToRad(45). A raw `45` here
+	// would normalize to ~58.3° via 45 mod 2π, throwing off reflection-sun
+	// alignment.
 	private float _yaw = Mathf.Pi / 4f;
 	private float _destYaw = Mathf.Pi / 4f;
 	// Captured at the start of each Q/E rotation so the eased progress

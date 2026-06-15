@@ -4,7 +4,7 @@ using Godot;
 // shafts, water ripples, cloud shadows, and precipitation. Every frame
 // it:
 //   1. Samples a blended ZoneData + WeatherData at the player's XZ
-//      via ZoneBlend (4-quadrant scaffolding on SimData for now).
+//      via ZoneBlend.
 //   2. Recomputes sun / moon orbit from WorldState.TimeOfDay01.
 //   3. Derives a full DerivedPalette from (zone, weather, sunElev,
 //      SimData tuning) via WeatherDerivation — this is where the
@@ -58,9 +58,6 @@ public partial class SkyController : Node3D
     // dimmer than daylight. Enables simultaneous sun+moon directional
     // shadows during dawn/dusk crossover.
     [Export] public DirectionalLight3D moonLight;
-    // Block-light shadow projector lives on its own node now —
-    // BlockLightShadowProjector under SceneViewport — and is no longer
-    // driven from SkyController. See scripts/client/BlockLightShadowProjector.cs.
 
     [ExportSubgroup("Preview")]
     // Editor preview only — no WorldState exists in the editor, so the
@@ -1782,8 +1779,7 @@ public partial class SkyController : Node3D
         ApplyPrecipitation();
     }
 
-    // Drives the floating dust-mote GPU particle system (MoteEffect) — the
-    // real-particle replacement for the old in-shader fog motes. Density
+    // Drives the floating dust-mote GPU particle system (MoteEffect). Density
     // (AmountRatio) is gated on RAW dust amount (`dust`, weather.dustAmount) —
     // NOT the humidity-folded value the shafts use — so dust motes appear only
     // in genuinely DUSTY air. Humid / foggy but clean air still shows god-rays

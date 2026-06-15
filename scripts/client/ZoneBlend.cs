@@ -12,10 +12,6 @@ using Godot;
 // blend BAND between two adjacent zones is wider than a single chunk
 // — the goal is a soft, several-chunk-wide transition rather than a
 // hard line at chunk boundaries.
-//
-// Sample() stays as the only seam between zone authoring and
-// downstream consumers. Once the editor lets you paint arbitrary zone
-// shapes, only the chunk → zone map changes; nothing here moves.
 public static class ZoneBlend
 {
     // Half-width of the smoothstep kernel, in chunks. The kernel reaches

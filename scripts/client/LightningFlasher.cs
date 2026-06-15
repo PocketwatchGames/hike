@@ -78,8 +78,6 @@ public partial class LightningFlasher : Node
             float t = (float)(_accumTime - e.StartTimeSec);
             if (t > e.DurationSec)
             {
-                // RemoveAtSwap pattern lives in LinqExtensions; this
-                // file isn't perf-critical so a plain RemoveAt is fine.
                 _envelopes.RemoveAt(i);
                 continue;
             }

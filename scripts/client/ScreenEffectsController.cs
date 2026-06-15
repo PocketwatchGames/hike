@@ -119,11 +119,6 @@ public partial class ScreenEffectsController : Node
 	// low-health overlay, so it fades out a few seconds after the last hit.
 	float _lowHealthEffectTimer;
 
-	// Bumps the damage flash by the hit fraction of max health, scaled by
-	// damageFlashScale and capped at 1. Stacks with whatever is already in
-	// the buffer (max-of) so a follow-up hit during a fade doesn't shrink
-	// the flash. Called from Player.OnHurtBoxHit (direct) and from
-	// _PhysicsProcess after each DOT HUD flush, via GameClient.FlashDamage.
 	public override void _EnterTree()
 	{
 		Current = this;
@@ -152,6 +147,11 @@ public partial class ScreenEffectsController : Node
 		}
 	}
 
+	// Bumps the damage flash by the hit fraction of max health, scaled by
+	// damageFlashScale and capped at 1. Stacks with whatever is already in
+	// the buffer (max-of) so a follow-up hit during a fade doesn't shrink
+	// the flash. Called from Player.OnHurtBoxHit (direct) and from
+	// _PhysicsProcess after each DOT HUD flush, via GameClient.FlashDamage.
 	public void FlashDamage(float amount)
 	{
 		Player player = GameClient.Current?.Player;
