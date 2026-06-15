@@ -237,10 +237,7 @@ public static class ChunkDetailScatter
                         // floor. Transforms are emitted in WORLD space — the
                         // global WorldDetailScatter manager places its
                         // MultiMeshInstance3Ds at world origin, so chunks
-                        // can no longer rely on a parent's world offset
-                        // (the prior per-chunk attach had MultiMeshInstance3D
-                        // as a child of ChunkMesh, whose Position was the
-                        // chunk world origin).
+                        // can't rely on a parent's world offset.
                         var worldPos = new Vector3(chunkWx + x + jx, chunkWy + y + 1f, chunkWz + z + jz);
                         var basis = Basis.Identity.Scaled(new Vector3(worldW, worldH, 1f));
                         var transform = new Transform3D(basis, worldPos);

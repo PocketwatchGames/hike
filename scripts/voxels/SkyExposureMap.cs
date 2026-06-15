@@ -8,8 +8,7 @@ using Godot;
 // (roof / overhang / cave ceiling / dense canopy) instead of the BFS sun mask,
 // whose horizontal leak bleeds drops into cave mouths. SkyExposure is stored
 // 0..LightEngine.MAX_LIGHT; encoded here to 0..255 so the GPU reads a smooth
-// 0..1. Full-world extent matches LightMap; the roadmap's sliding-window
-// refactor applies to both equally.
+// 0..1. Full-world extent matches LightMap.
 public class SkyExposureMap
 {
     private readonly int _width;

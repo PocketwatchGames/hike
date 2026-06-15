@@ -226,8 +226,7 @@ public static class WorldGen
 
     // ZoneIndex of the chunk owning (wx, wy, wz). Falls back to 0 if the
     // chunk isn't loaded — fine for pre-streaming worldgen which generates
-    // every chunk before this gets called. Streaming will need richer
-    // semantics here (a zone atlas keyed by world XZ).
+    // every chunk before this gets called.
     private static int ZoneIndexAtWorld(WorldState ws, int wx, int wy, int wz)
     {
         Vector3I cc = new Vector3I(
@@ -1004,9 +1003,7 @@ public static class WorldGen
     // forest south). The eastern strip of the coastal zones transitions
     // to ocean via the BuildHeightMap east-edge falloff. With fewer zones,
     // indices are clamped to the available range so worlds with 1 or 2
-    // zone templates still generate. The long-term plan is arbitrary
-    // zone polygons authored by the editor; only this function needs to
-    // change.
+    // zone templates still generate.
     private static byte PickZoneIndex(Vector3I chunkCoord, int zoneCount)
     {
         if (zoneCount <= 0) { return 0; }

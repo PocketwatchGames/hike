@@ -159,7 +159,7 @@ public static class SubsceneStamper
     // worldAnchorXZ specifies where the subscene's anchor lands in world XZ;
     // the Y is computed by averaging the topmost non-air, non-water voxel
     // in each (wx, wz) column over the footprint. No slope check, no
-    // overlap test — explicitly the dumb-simple placement; refine later.
+    // overlap test.
     public static Vector3 ComputeSurfaceAnchor(WorldState ws, SubsceneState sub, Vector2I worldAnchorXZ)
     {
         Vector3I size = sub.Size;

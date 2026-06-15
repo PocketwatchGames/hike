@@ -31,9 +31,8 @@ public class ChunkState
 
     // Index into WorldState.Zones[]. Picks the zone this chunk
     // belongs to — drives ZoneBlend.Sample's per-chunk weighting so
-    // an arbitrary zone shape (not just the legacy 4-quadrant layout)
-    // can be authored just by stamping different indices on chunks.
-    // Set by WorldGen (or a future editor) at world creation.
+    // an arbitrary zone shape can be authored just by stamping different
+    // indices on chunks. Set by WorldGen (or a future editor) at world creation.
     public byte ZoneIndex;
 
     // Index into WorldState.Regions[]. Picks the named region this
@@ -49,8 +48,7 @@ public class ChunkState
     // Per-voxel shape tag: stores VoxelTypeInfo.SharpAxes flags as a byte.
     // This is the shape channel — orthogonal to VoxelType (the material
     // channel). Worldgen writes it when placing voxels; the DC mesher reads
-    // it to decide per-axis Y/X/Z snapping. Declaring intent here replaces
-    // the mesher's old geometric heuristics (cliff-top probe, CaveCeilingReach).
+    // it to decide per-axis Y/X/Z snapping.
     // Authoring map:
     //   Building voxels (Stone/Wood/Barrier) → All    (fully blocky)
     //   Flat natural terrain / cave floor+ceiling → Y (snap vertical, smooth lateral)
@@ -154,10 +152,10 @@ public class ChunkState
 
     // Fog density: 0 = clear air, 255 = thickest fog. Two consumers:
     //   - LightEngine BFS uses this as extra per-step falloff so torches dim
-    //     faster in fog (step 5 of the roadmap).
+    //     faster in fog.
     //   - A Godot FogVolume binds this as its density texture so god rays /
     //     volumetric scattering carve correctly through caves vs foggy
-    //     clearings (step 6 of the roadmap).
+    //     clearings.
     // Chunk-local by design — an unloaded neighbor reads as 0, which is the
     // correct streaming default (no fog where there's no data).
     public readonly byte[,,] FogDensity;

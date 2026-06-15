@@ -890,13 +890,9 @@ public static class ChunkMesherDC
         // the surface and has ALL corner-position voxels in air; the solid
         // voxels that actually produced the sign change live one row below.
         // Voting across the 3x3x3 covers every voxel whose density contributes
-        // to any of this cell's 8 corners.
-        //
-        // The previous "first solid seen" rule scanned the same 27 voxels but
-        // accepted whichever lex-order match came first, so a wall-edge cell
-        // with self=Air picked up grass from a far non-cliff column. Majority
-        // weights each type by how much of the neighbourhood it occupies, so
-        // a cliff-face cell with dirt-heavy surroundings reads as dirt.
+        // to any of this cell's 8 corners. Majority weights each type by how
+        // much of the neighbourhood it occupies, so a cliff-face cell with
+        // dirt-heavy surroundings reads as dirt.
         Span<int> counts = stackalloc int[16];
         Span<int> terrainCounts = stackalloc int[256];
         Span<int> overlayCounts = stackalloc int[256];

@@ -5,8 +5,7 @@ using Godot;
 // ImageTexture3D that the fog raymarch shader samples via the fog_map
 // shader global. R8 format — one byte per voxel, 1/4 the memory of RGBA8,
 // and our shader reads .r directly so we control the sampling path. Full-
-// world extent matches LightMap; the sliding-window refactor from the
-// roadmap applies to both equally.
+// world extent matches LightMap.
 public class FogMap
 {
     private readonly int _width;

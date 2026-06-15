@@ -12,12 +12,9 @@ using Godot;
 // props are authored as scenes and register a node (MultimeshPropSprite)
 // at runtime, rather than being computed in bulk by the chunk mesher.
 //
-// Earlier iterations forked buckets on quantized forward_offset, but every
-// archetype has a unique forward_offset (tuned per-archetype to its
-// cylinder collider radius), so the fork was 1:1 with archetype count and
-// defeated atlas-level batching. forward_offset moved to per-instance
-// data (packed into INSTANCE_COLOR.b) so all archetypes sharing an atlas
-// collapse to one draw call per pass.
+// forward_offset is per-instance data (packed into INSTANCE_COLOR.b), not
+// a bucket key, so all archetypes sharing an atlas collapse to one draw
+// call per pass.
 //
 // Lifecycle:
 //   - World owns one instance, created in World.Initialize.
@@ -141,10 +138,7 @@ public partial class WorldPropScatter : Node3D
         public ShaderMaterial Material;
         // Member sprites — the bucket reads each one's snapshot at rebuild
         // time. Static props don't mutate after _Ready, so the snapshot is
-        // a single read; if a prop ever needs to dirty its slot (rare —
-        // most are static), it can call WorldPropScatter.MarkDirty(handle)
-        // which touches its bucket's dirty flag. Not implemented yet
-        // because no caller needs it.
+        // a single read.
         public List<MultimeshPropSprite> Members = new();
         public Action<CVar> OnVisibilityChanged;
     }
@@ -374,9 +368,7 @@ public partial class WorldPropScatter : Node3D
             MultimeshPropSprite s = bucket.Members[i];
             // Snapshot is precomputed in MultimeshPropSprite._Ready and held
             // on the sprite — see MultimeshPropSprite.Snapshot for the
-            // packing rationale. Reading per rebuild rather than caching
-            // copies in the bucket so a future "this prop moved" path can
-            // dirty its bucket and have the rebuild see the new values.
+            // packing rationale.
             MultimeshPropSprite.SnapshotData snap = s.Snapshot;
             bucket.Mm.SetInstanceTransform(i, snap.Transform);
             bucket.Mm.SetInstanceCustomData(i, new Color(snap.Normal.X, snap.Normal.Y, snap.Normal.Z, snap.Align));

@@ -21,9 +21,8 @@ using Godot;
 //             the calm-day direction can still read it from
 //             WindVelocityX/Y/Z.
 //   A       = WindFactor. 0 = sealed (deep cave / building interior),
-//             255 = full ambient wind. Existing damping multiplier
-//             unchanged from when wind_map was R8 — consumers that only
-//             need the factor read `.a` instead of the old `.r`.
+//             255 = full ambient wind. Consumers that only need the
+//             factor read `.a`.
 //
 // Sized to the full WorldState voxel extent so origin/inv_size match the
 // LightMap and FogMap convention: shader does

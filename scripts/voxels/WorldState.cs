@@ -866,9 +866,7 @@ public class WorldState
     // cache hits.
     //
     // Streaming caveat: this iterates every resident chunk, which the
-    // future streaming path can't do. When the .hike header grows a
-    // precomputed-centroid table this getter should source from there
-    // instead. The call sites (currently WorldMapScreen) won't change.
+    // future streaming path can't do.
     private Dictionary<RegionData, Vector2> _regionCentroidsXZ;
     public IReadOnlyDictionary<RegionData, Vector2> RegionCentroidsXZ
     {

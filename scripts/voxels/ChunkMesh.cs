@@ -252,8 +252,7 @@ public partial class ChunkMesh : Node3D
 
     // World-scoped detail palette cached statically so ChunkMesh.Create can
     // pass it to ChunkDetailScatter without threading it through every
-    // chunk-build call. Set once at world start (Main.StartGame); a future
-    // streaming refactor that swaps worlds should re-call SetDetailGroups.
+    // chunk-build call. Set once at world start (Main.StartGame).
     private static DetailGroupData[] _activeDetailGroups;
     public static DetailGroupData[] ActiveDetailGroups => _activeDetailGroups;
 

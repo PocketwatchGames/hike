@@ -6,10 +6,6 @@ using Godot;
 // IChunkSource backed by a single packed world file. Constructor reads the
 // header and full index into memory; TryLoadChunk seeks to the chunk's payload
 // and decodes it. The file handle stays open for the lifetime of the source.
-//
-// v1 callers (Main.cs boot loop) iterate EnumerateChunkCoords and call
-// TryLoadChunk for each chunk. Future streaming callers will only call
-// TryLoadChunk for chunks they actually need — no other change required.
 public sealed class WorldFileChunkSource : IChunkSource
 {
     public Vector3I Min { get; }

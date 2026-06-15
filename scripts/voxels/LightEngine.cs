@@ -210,8 +210,7 @@ public static class LightEngine
     //     each gets a larger share.
     //
     // Splitting them lets a moving light pay the O(reached voxels) flood only on
-    // voxel crossings and the cheaper shade per frame. Both allocate per call (a
-    // prototype concession; pool the buffers if GC churns). The optical-depth
+    // voxel crossings and the cheaper shade per frame. The optical-depth
     // path is the first (shortest-hop) BFS arrival — a fine approximation, not
     // the true minimal-optical-depth path (that would be Dijkstra).
 

@@ -82,10 +82,7 @@ public partial class MultimeshPropSprite : Sprite3D
     public Texture2D AtlasTexture { get; private set; }
 
     // Per-instance state captured at _Ready and held on the sprite. Read
-    // by WorldPropScatter.Rebuild on every dirty rebuild — kept on the
-    // sprite (not copied into the bucket) so a future "prop moved" path
-    // can mutate Snapshot and dirty its bucket without touching the
-    // bucket's internal storage.
+    // by WorldPropScatter.Rebuild on every dirty rebuild.
     public struct SnapshotData
     {
         // Translation = world position; column 0 length = world width;
@@ -99,10 +96,8 @@ public partial class MultimeshPropSprite : Sprite3D
         public Vector2I RegionOrigin;
         public Vector2I SpriteSize;
         // Per-instance camera-relative shift, packed into INSTANCE_COLOR.b
-        // by the bucket. Was a per-bucket uniform earlier in the migration,
-        // but every archetype tunes a unique value to its cylinder collider
-        // so a per-bucket fork was 1:1 with archetype count and defeated
-        // atlas-level batching.
+        // by the bucket (per-instance, not a bucket key, so archetypes
+        // sharing an atlas stay in one draw call).
         public float ForwardOffset;
         // Reflection-pass payload, baked at _Ready by a downward voxel
         // search. WaterY is the world Y of the water surface this sprite
@@ -429,10 +424,8 @@ public partial class MultimeshPropSprite : Sprite3D
     // sprite_lit uses via the `sprite_chunky` shader global. Sourced from
     // project settings here so multimesh-prop world size stays in lockstep
     // with sprite_lit-rendered mobs / loot at the same pixel density.
-    // Mirrors LitSprite.GetEditorPixelSize.
-    // Renamed off `GetPixelSize` to avoid hiding the inherited
-    // SpriteBase3D.GetPixelSize() — same value source as
-    // LitSprite.GetEditorPixelSize().
+    // Mirrors LitSprite.GetEditorPixelSize. Named GetWorldPixelSize (not
+    // GetPixelSize) to avoid hiding the inherited SpriteBase3D.GetPixelSize().
     private static float GetWorldPixelSize()
     {
         Variant entry = ProjectSettings.GetSetting("shader_globals/sprite_chunky");

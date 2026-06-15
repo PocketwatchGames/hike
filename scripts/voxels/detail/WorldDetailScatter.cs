@@ -4,12 +4,9 @@ using Godot;
 
 // Global manager for detail-sprite scatter MultiMeshInstance3Ds.
 //
-// Replaces the previous one-MultiMesh-per-(chunk, DetailEntry) layout with
-// one MultiMesh per DetailEntry, world-wide. ~250 chunks × 2-3 entries each
+// One MultiMesh per DetailEntry, world-wide. ~250 chunks × 2-3 entries each
 // ≈ 500-750 multimesh draw calls collapses to ~5-10 (one per unique
-// DetailEntry actually scattered in the loaded set). That's the structural
-// win — material was already shared across chunks via DetailEntry.GetMaterial,
-// only the multimesh geometry was per-chunk.
+// DetailEntry actually scattered in the loaded set).
 //
 // Lifecycle:
 //   - World owns a single instance via World.Initialize.
@@ -27,7 +24,7 @@ using Godot;
 public partial class WorldDetailScatter : Node3D
 {
     // Stamped onto MultiMesh names so they show up identifiably in the remote
-    // scene tree alongside the prior per-chunk debug names.
+    // scene tree.
     private const string MULTIMESH_NAME_PREFIX = "DetailScatterGlobal_";
 
     // Shared unit quad mirrors ChunkDetailScatter's. Centered at (0, 0.5, 0)
@@ -64,7 +61,7 @@ public partial class WorldDetailScatter : Node3D
     public override void _Ready()
     {
         // Cheap polling — Process only does work on frames where chunks
-        // changed. SetProcess(true) is the default; left explicit for clarity.
+        // changed.
         SetProcess(true);
     }
 
@@ -151,8 +148,7 @@ public partial class WorldDetailScatter : Node3D
         bucket.Mmi.Visible = CVars.detailsVisible.Value;
 
         // One CVar subscription per bucket. The bucket lives for the world's
-        // lifetime, so no per-chunk subscribe/unsubscribe churn (this is the
-        // other small win the global path enables).
+        // lifetime, so no per-chunk subscribe/unsubscribe churn.
         EntryBucket b = bucket;
         bucket.OnVisibilityChanged = (cvar) =>
         {
