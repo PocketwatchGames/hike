@@ -1,13 +1,17 @@
 using System.Collections.Generic;
 using Godot;
 
-// Shared companion target acquisition: the nearest alive, triggered mob on
-// `enemyTeam` within `range` (XZ) of `me` that `me` has a clear line of sight
-// to. "Perception" here is deliberately lightweight — sight range plus an
-// unobstructed ray — rather than the full accumulating MobAI perception model,
-// which only ever tracks the player. Both the brain transition
-// (ThreatPerceivedCondition) and the attack behavior (BehaviorDogAttack) call
-// this so acquisition and pursuit always agree on the target.
+// Shared companion target acquisition: among the alive, triggered mobs on
+// `enemyTeam` within `range` of `me` that `me` has a clear line of sight to,
+// the one holding the most aggro (see AggroTracker) — i.e. the enemy that has
+// dealt the most damage to `me` or, for a companion, to `me`'s master. Ties
+// (notably the no-damage-dealt-yet case, where every candidate sits at 0 aggro)
+// break toward the nearest, preserving the original proximity behavior until
+// someone draws blood. "Perception" here is deliberately lightweight — sight
+// range plus an unobstructed ray — rather than the full accumulating MobAI
+// perception model, which only ever tracks the player. Both the brain
+// transition (ThreatPerceivedCondition) and the attack behavior
+// (BehaviorDogAttack) call this so acquisition and pursuit always agree.
 public static class ThreatScan
 {
     // Eye / nose height the line-of-sight ray is cast from and to, matching the
@@ -36,6 +40,7 @@ public static class ThreatScan
         Vector3 origin = me.GlobalPosition + Vector3.Up * EyeHeight;
         PhysicsDirectSpaceState3D space = me.GetWorld3D().DirectSpaceState;
         Mob best = null;
+        float bestAggro = 0f;
         float bestDistSq = float.MaxValue;
         for (int i = 0; i < _scratch.Count; i++)
         {
@@ -48,14 +53,21 @@ public static class ThreatScan
             {
                 continue;
             }
+            // Rank by aggro, nearest as the tiebreak. Skip any candidate that
+            // can't beat the current best on (aggro desc, distance asc) — this
+            // also keeps the LOS raycast bounded to candidates that could win.
+            float aggro = me.GetAggro(candidate);
             float distSq = me.GlobalPosition.DistanceSquaredTo(candidate.GlobalPosition);
-            if (distSq >= bestDistSq)
+            if (best != null)
             {
-                continue;
+                bool wins = aggro > bestAggro || (aggro == bestAggro && distSq < bestDistSq);
+                if (!wins)
+                {
+                    continue;
+                }
             }
             // Line of sight — blocked by solid world geometry / props (same mask
-            // the mob-vision raycast uses). Only ray-test candidates that could
-            // still win (closer than the current best) so the scan stays cheap.
+            // the mob-vision raycast uses).
             Vector3 target = candidate.GlobalPosition + Vector3.Up * EyeHeight;
             using PhysicsRayQueryParameters3D query = PhysicsRayQueryParameters3D.Create(origin, target, (uint)ECollisionLayer.Solid);
             query.CollideWithAreas = false;
@@ -65,6 +77,7 @@ public static class ThreatScan
                 continue;
             }
             best = candidate;
+            bestAggro = aggro;
             bestDistSq = distSq;
         }
         _scratch.Clear();

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // ItemEffect that adds a StatusEffectState to the target actor. Slots into the
@@ -8,14 +9,58 @@ using Godot;
 public partial class ApplyStatusEffect : ItemEffect
 {
 	// Fixed effect this event always applies (health potion → Heal). Leave null
-	// to instead draw one effect from the using item's possibleStatusEffects
-	// menu (fairy corpse → one of its boons), so the applied effect is
-	// per-instance state rather than baked into the action data.
+	// to instead draw one boon from the using item's possibleBoons menu (fairy
+	// corpse → one of its boons), so the applied boon is per-instance state
+	// rather than baked into the action data.
 	[Export] public StatusEffectData statusEffect;
 
 	public override void Apply(IActionActor actor, in ActionContext context)
 	{
-		StatusEffectData effect = statusEffect ?? PickFromItem(context.primaryItem);
+		// Fixed effect — apply it straight away, no choice involved.
+		if (statusEffect != null)
+		{
+			ApplyEffectToActor(actor, statusEffect);
+			return;
+		}
+
+		ItemState item = context.primaryItem;
+		if (item == null || item.possibleBoons.Count == 0)
+		{
+			return;
+		}
+
+		// The player gets to choose: hand the item's whole boon menu to the
+		// UpgradeScreen via GameClient and apply whichever the player picks.
+		// Falls through to the random pick when no selection UI is available
+		// (and always for mobs — the fairy's gift to a creature is capricious).
+		if (actor is Player && GameClient.Current?.startUpgradeSelection != null)
+		{
+			var choices = new List<BoonData>(item.possibleBoons);
+			GameClient.Current.startUpgradeSelection.Invoke(choices, chosen => ApplyBoon(actor, chosen));
+			return;
+		}
+
+		ApplyBoon(actor, PickRandom(item));
+	}
+
+	// Apply a boon: its status effect (if any) to the actor, and its granted
+	// item (if any) into the player's pack. Either half may be absent — gold is
+	// item-only, the dash / restore boons are effect-only.
+	static void ApplyBoon(IActionActor actor, BoonData boon)
+	{
+		if (boon == null)
+		{
+			return;
+		}
+		ApplyEffectToActor(actor, boon.statusEffect);
+		if (boon.grantedItem != null && actor is Player player)
+		{
+			player.GrantItem(boon.grantedItem);
+		}
+	}
+
+	static void ApplyEffectToActor(IActionActor actor, StatusEffectData effect)
+	{
 		if (effect == null)
 		{
 			return;
@@ -30,17 +75,16 @@ public partial class ApplyStatusEffect : ItemEffect
 		}
 	}
 
-	// Select one entry from the item's per-instance possibility menu. Random for
-	// now — the fairy's gift is capricious — but this is the seam where the
-	// player's eventual choice plugs in (the UI narrows / orders the list and
-	// this picks the chosen entry).
-	private static StatusEffectData PickFromItem(ItemState item)
+	// Select one entry from the item's per-instance boon menu at random — the
+	// fairy's gift is capricious. Used for mobs and as the fallback when no
+	// selection UI is available.
+	private static BoonData PickRandom(ItemState item)
 	{
-		if (item == null || item.possibleStatusEffects.Count == 0)
+		if (item == null || item.possibleBoons.Count == 0)
 		{
 			return null;
 		}
-		int index = (int)(GD.Randi() % (uint)item.possibleStatusEffects.Count);
-		return item.possibleStatusEffects[index];
+		int index = (int)(GD.Randi() % (uint)item.possibleBoons.Count);
+		return item.possibleBoons[index];
 	}
 }

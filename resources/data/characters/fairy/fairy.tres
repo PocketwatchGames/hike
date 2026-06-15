@@ -9,7 +9,6 @@
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="5_corpse"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_ud1my"]
-[ext_resource type="Resource" uid="uid://dfryembr7k901" path="res://resources/data/items/consumables/fairy_ember.tres" id="6_ember"]
 
 [sub_resource type="Resource" id="Desc_loot_corpse"]
 script = ExtResource("99_desc")
@@ -19,15 +18,6 @@ metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
 [sub_resource type="Resource" id="Resource_loot_corpse"]
 script = ExtResource("4_lootcount")
 descriptor = SubResource("Desc_loot_corpse")
-
-[sub_resource type="Resource" id="Desc_loot_ember"]
-script = ExtResource("99_desc")
-item = ExtResource("6_ember")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_loot_ember"]
-script = ExtResource("4_lootcount")
-descriptor = SubResource("Desc_loot_ember")
 
 [resource]
 script = ExtResource("1_mobdata")
@@ -44,5 +34,5 @@ turnSpeed = 8.0
 exp = 2
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")
-loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_corpse"), SubResource("Resource_loot_ember")])
+loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_corpse")])
 despawnOnDeath = true

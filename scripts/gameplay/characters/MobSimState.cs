@@ -194,6 +194,14 @@ public class MobSimState : EntitySimState
     // holds the enemy Mob currently being tracked (null when none in range).
     public PerceptionState ThreatPerception;
 
+    // Damage-driven threat priority, one decaying aggro value per tracked enemy.
+    // A separate mechanic from perception above (awareness) — perception decides
+    // whether an enemy is engaged at all, aggro decides which engaged enemy to
+    // hit. Fed by Mob.Damage (attacker hurts this mob) and the player→companion
+    // relay (attacker hurts this mob's master); consumed by target selection.
+    // Transient combat state, intentionally not serialized.
+    public readonly AggroTracker Aggro = new();
+
     // UpdatePerception is throttled to PerceptionTickInterval seconds. Each frame
     // accumulates delta into PerceptionTickAccumulator; when it overflows the
     // interval, UpdatePerception runs with the accumulated delta and the

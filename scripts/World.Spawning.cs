@@ -15,24 +15,6 @@ public partial class World
             return null;
         }
         var simState = new LootSimState(position, item);
-        // The fairy corpse draws its candidate boons from SimData and carries
-        // them on its per-instance state, so on use one of them can be applied
-        // (and eventually chosen by the player). Eager-creating the state here
-        // mirrors the player-drop path (DropItem); all other loot leaves Item
-        // null and builds its state lazily at pickup. See ApplyStatusEffect.
-        SimData simData = SimData;
-        if (simData != null && item == simData.FairyLoot && simData.FairyLootStatusEffects.Count > 0)
-        {
-            ItemState state = item.CreateState();
-            foreach (StatusEffectData effect in simData.FairyLootStatusEffects)
-            {
-                if (effect != null)
-                {
-                    state.possibleStatusEffects.Add(effect);
-                }
-            }
-            simState.Item = state;
-        }
         return FinishSpawnLoot(simState, position, impulse);
     }
 
@@ -60,6 +42,7 @@ public partial class World
         {
             return null;
         }
+        ComposeFairyBoons(simState);
         _worldState.AddEntity(simState);
         Loot loot = Loot.Create(this, simState, scene, impulse);
 
@@ -72,6 +55,36 @@ public partial class World
         RegisterEntity(loot, entities, simState);
 
         return loot;
+    }
+
+    // Compose the fairy corpse's candidate boons onto its carried ItemState so
+    // one can be applied (and chosen by the player) on use. Lives in the shared
+    // spawn tail so every drop path gets it — a mob kill (ItemDescriptor loot,
+    // which already created the state), the bare-ItemData overload, and player
+    // drops — since the boons live on the per-instance state, not the shared
+    // ConsumableData. Eager-creates the state for the lazy (ItemData) path so
+    // pickup deposits the composed stack rather than synthesizing a fresh one.
+    // Idempotent: skips loot that isn't the fairy corpse or already has boons.
+    private void ComposeFairyBoons(LootSimState simState)
+    {
+        SimData simData = SimData;
+        if (simData == null || simState.Data != simData.FairyLoot || simData.FairyBoons.Count == 0)
+        {
+            return;
+        }
+        simState.Item ??= simData.FairyLoot.CreateState();
+        ItemState state = simState.Item;
+        if (state.possibleBoons.Count > 0)
+        {
+            return;
+        }
+        foreach (BoonData boon in simData.FairyBoons)
+        {
+            if (boon != null)
+            {
+                state.possibleBoons.Add(boon);
+            }
+        }
     }
 
     // Spawn an arrow drop at the impact point of a hitscan shot. The arrow

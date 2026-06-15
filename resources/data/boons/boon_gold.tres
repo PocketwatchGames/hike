@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://dgbn5q3p8wrx2"]
+
+[ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
+[ext_resource type="Texture2D" uid="uid://dat6u2bd4xsqf" path="res://assets/textures/items/GemYellow.png" id="2_icon"]
+[ext_resource type="Resource" uid="uid://dgldn4p2qx8wt" path="res://resources/data/items/loot/gold.tres" id="3_gold"]
+
+[resource]
+script = ExtResource("1_boon")
+displayName = &"Gold"
+description = "A fairy's parting gift of coin."
+icon = ExtResource("2_icon")
+grantedItem = ExtResource("3_gold")

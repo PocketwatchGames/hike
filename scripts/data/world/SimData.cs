@@ -56,15 +56,25 @@ public partial class SimData : Resource
     // Null disables the trophy drop. See Mob.EjectLoot.
     [Export] public LootData EliteLoot;
 
-    // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate status
-    // effects from FairyLootStatusEffects, composed onto the corpse's per-
-    // instance ItemState when it spawns (World.SpawnLoot) so one can be applied
-    // on use and, eventually, chosen by the player. Centralized here — rather
-    // than on the loot entry in the fairy's .tres — so the boon pool is tuned
-    // in one place, mirroring the Elite loot/effect pairing above. Empty list
-    // (or null FairyLoot) = the corpse bestows nothing.
+    // Fairy-loot boons. A fairy corpse (FairyLoot) draws its candidate boons
+    // from FairyBoons, composed onto the corpse's per-instance ItemState when it
+    // spawns (World.SpawnLoot) so one can be applied on use and chosen by the
+    // player. Centralized here — rather than on the loot entry in the fairy's
+    // .tres — so the boon pool is tuned in one place, mirroring the Elite
+    // loot/effect pairing above. Empty list (or null FairyLoot) = the corpse
+    // bestows nothing.
     [Export] public ConsumableData FairyLoot;
-    [Export] public Array<StatusEffectData> FairyLootStatusEffects = new();
+    [Export] public Array<BoonData> FairyBoons = new();
+
+    // Filler boon for the fairy upgrade screen. The screen only offers boons
+    // from FairyBoons that are currently VIABLE (a restorative boon is hidden at
+    // full health; a lasting buff is hidden when already active), so the choice
+    // count can fall below the three cards the screen wants. When it does, this
+    // boon pads the list out. Authored as the Gold boon — a never-wasted
+    // consolation — and deliberately NOT in FairyBoons so it's only ever offered
+    // as a filler, never a random roll. Null = no padding (the screen just shows
+    // however many viable boons remain).
+    [Export] public BoonData FairyBoonGold;
 
     // Shared interactive verbs auto-injected on any mob whose runtime
     // SimState carries a Conversation. Authored here once so adding a new
@@ -76,6 +86,15 @@ public partial class SimData : Resource
     [Export] public InteractiveAction TalkAction;
     [Export] public InteractiveAction GiveItemAction;
     [Export] public InteractiveAction TradeAction;
+
+    // Shared interactive verb auto-injected on any dead tamed companion's
+    // corpse (see Mob.CanRevive) so reviving doesn't require per-species
+    // authoring — give a mob a positive MobData.tameLoyalty and it becomes
+    // revivable once tamed and killed. Authored once here as a 3-second
+    // hold whose OpenInteractive completion event calls Mob.Complete →
+    // Revive(). Null disables companion revival entirely. The health a
+    // companion comes back with is per-species (MobData.reviveHealth).
+    [Export] public InteractiveAction ReviveAction;
 
     // Grammar's contribution to TextScrambler.ComputeComprehension. Final
     // understanding = translatedPct × ((1 - this) + orderPct × this), so:

@@ -1,0 +1,51 @@
+[gd_scene format=3 uid="uid://cswwkxng04vi2"]
+
+[ext_resource type="Script" uid="uid://ch1h30ktsvbkl" path="res://scripts/gui/UpgradePanel.cs" id="1_v8mrt"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="2_dvp55"]
+
+[node name="UpgradePanel" type="PanelContainer" unique_id=591619912 node_paths=PackedStringArray("_titleLabel", "_descriptionLabel", "_iconTextureRect", "_upgradeButton", "_statContainer")]
+clip_contents = true
+custom_minimum_size = Vector2(400, 0)
+script = ExtResource("1_v8mrt")
+_titleLabel = NodePath("MarginContainer/VBoxContainer/Label2")
+_descriptionLabel = NodePath("MarginContainer/VBoxContainer/Label")
+_iconTextureRect = NodePath("MarginContainer/VBoxContainer/Label2/TextureRect")
+_upgradeButton = NodePath("Button")
+_statContainer = NodePath("MarginContainer/VBoxContainer/HFlowContainer")
+_statScene = ExtResource("2_dvp55")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=297935947]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer" unique_id=2023982027]
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1373310275]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 32
+text = "Fire Trails"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="TextureRect" type="TextureRect" parent="MarginContainer/VBoxContainer/Label2" unique_id=977725917]
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 1
+offset_right = 64.0
+offset_bottom = 64.0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer/VBoxContainer" unique_id=1451995302]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/VBoxContainer" unique_id=1568564946]
+layout_mode = 2
+
+[node name="HFlowContainer" type="HFlowContainer" parent="MarginContainer/VBoxContainer" unique_id=1086822114]
+layout_mode = 2
+
+[node name="Button" type="Button" parent="." unique_id=2106987863]
+layout_mode = 2

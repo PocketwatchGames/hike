@@ -12,6 +12,7 @@
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="26_5drka"]
+[ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
@@ -79,7 +80,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
@@ -89,6 +90,7 @@ cookingScreen = NodePath("GUICanvas/CookingScreen")
 merchantScreen = NodePath("GUICanvas/MerchantScreen")
 stashScreen = NodePath("GUICanvas/StashScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
+upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
 sceneEnvironment = NodePath("SceneViewport/InnerEnv")
@@ -379,6 +381,9 @@ gameClient = NodePath("../..")
 visible = false
 
 [node name="StashScreen" parent="GUICanvas" unique_id=1337731578 instance=ExtResource("26_5drka")]
+
+[node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
+visible = false
 
 [node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]
 layer = 5

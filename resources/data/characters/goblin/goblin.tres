@@ -130,6 +130,9 @@ damageProfiles = Dictionary[StringName, ExtResource("8_damage")]({
 })
 armorRechargeDelay = 8.0
 armorRecoverTime = 3.0
+scansForThreats = true
+threatTeam = 1
+canTriggerMobs = false
 exp = 10
 brain = ExtResource("2_brain")
 MobScene = ExtResource("4_scene")

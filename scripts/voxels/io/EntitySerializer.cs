@@ -415,7 +415,6 @@ public static class EntitySerializer
                 mob.Armor = armor;
                 mob.PerceptionTargets[0].perception = targetPerception;
                 mob.PerceptionTargets[0].triggered = targetTriggered;
-                mob.PerceptionTargets[0].aggro = targetPerception;
                 mob.PlayerPerception = playerPerception;
                 mob.MemoryTimeMs = memoryTimeMs;
                 mob.DiscoveryState = perceptionState;

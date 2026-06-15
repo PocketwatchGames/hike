@@ -1,0 +1,54 @@
+[gd_scene format=3 uid="uid://bkn63m6xyu5a2"]
+
+[ext_resource type="Script" uid="uid://daws4xo6exgvf" path="res://scripts/gui/UpgradeScreen.cs" id="1_7qoa4"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="2_hgsk7"]
+[ext_resource type="PackedScene" uid="uid://cswwkxng04vi2" path="res://scenes/gui/upgrade_panel.tscn" id="2_pf4m6"]
+
+[node name="UpgradeScreen" type="Control" unique_id=1391817300 node_paths=PackedStringArray("_panelContainer")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_7qoa4")
+upgradePanelScene = ExtResource("2_pf4m6")
+_panelContainer = NodePath("MarginContainer/HBoxContainer")
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1767524930]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="ButtonHints" type="HBoxContainer" parent="MarginContainer" unique_id=1245740980]
+layout_mode = 2
+size_flags_vertical = 8
+theme_override_constants/separation = 30
+alignment = 1
+
+[node name="ButtonHintA" parent="MarginContainer/ButtonHints" unique_id=959365210 instance=ExtResource("2_hgsk7")]
+layout_mode = 2
+ActionName = "Equip"
+
+[node name="ButtonHintX" parent="MarginContainer/ButtonHints" unique_id=1258403697 instance=ExtResource("2_hgsk7")]
+layout_mode = 2
+ActionName = "Drop"
+InputAction = "X"
+
+[node name="ButtonHintY" parent="MarginContainer/ButtonHints" unique_id=2009547151 instance=ExtResource("2_hgsk7")]
+layout_mode = 2
+ActionName = "Use"
+InputAction = "Y"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=270012993]
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 100

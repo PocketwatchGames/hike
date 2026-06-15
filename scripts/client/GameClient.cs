@@ -72,6 +72,7 @@ public partial class GameClient : Node3D
 	[Export] public MerchantScreen merchantScreen;
 	[Export] public StashScreen stashScreen;
 	[Export] public DeathScreen deathScreen;
+	[Export] public UpgradeScreen upgradeScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
 	// Scene WorldEnvironment (SceneViewport/InnerEnv). Its built-in DEPTH fog
@@ -250,6 +251,12 @@ public partial class GameClient : Node3D
 	// and handles ui_accept advance/skip + player-input suppression while
 	// open.
 	public Action<ConversationData, ConversationContext> onConversation;
+	// Upgrade / boon pick. A consumable's ApplyStatusEffect event fires this
+	// with the menu of effects the item can bestow and a callback that applies
+	// the player's chosen one (e.g. the fairy corpse). The default subscriber
+	// (wired in Init) opens the UpgradeScreen modal; routing through an Action
+	// keeps the effect-data layer decoupled from the GUI, same as onConversation.
+	public Action<List<BoonData>, Action<BoonData>> startUpgradeSelection;
 	public Action<bool> onPauseToggled;
 	public Action onQuitToMenu;
 
@@ -411,6 +418,19 @@ public partial class GameClient : Node3D
 		{
 			merchantScreen.Visible = false;
 		}
+		if (stashScreen != null)
+		{
+			stashScreen.Visible = false;
+		}
+		if (deathScreen != null)
+		{
+			deathScreen.Visible = false;
+		}
+		if (upgradeScreen != null)
+		{
+			upgradeScreen.Visible = false;
+		}
+
 		_inputSuppressed = false;
 		_inputSuppressClearPending = false;
 
@@ -423,6 +443,7 @@ public partial class GameClient : Node3D
 		onDamage += OnDamageRequested;
 		onHeal += OnHealRequested;
 		onConversation += OnConversationRequested;
+		startUpgradeSelection += OnStartUpgradeSelection;
 
 		// The loading screen owned by Main is up and currently sitting on
 		// the chunk-fill phase (~60%). We keep gameplay input suppressed
@@ -1436,6 +1457,120 @@ public partial class GameClient : Node3D
 	void OnConversationRequested(ConversationData conversation, ConversationContext ctx)
 	{
 		hud?.ShowConversation(conversation, ctx);
+	}
+
+	// Default subscriber for startUpgradeSelection — opens the boon-pick modal
+	// with the offered effects and the consumable's apply-on-pick callback.
+	// GameClient owns modal visibility + input gating: it shows the picker and
+	// gates input/HUD/mouse here. The use is often triggered from the almanac/
+	// inventory modal, which would cover the picker, so hide it for the duration
+	// and bring it back once the pick resolves (after applying the boon) or the
+	// player backs out.
+	void OnStartUpgradeSelection(List<BoonData> upgrades, Action<BoonData> onComplete)
+	{
+		if (upgradeScreen == null)
+		{
+			return;
+		}
+		bool restoreAlmanac = almanacScreen != null && almanacScreen.Visible;
+		if (restoreAlmanac)
+		{
+			almanacScreen.Visible = false;
+		}
+		InputSuppressed = true;
+		if (hud != null) { hud.Visible = false; }
+		Input.MouseMode = Input.MouseModeEnum.Visible;
+		upgradeScreen.Visible = true;
+
+		upgradeScreen.Init(
+			chosen =>
+			{
+				onComplete?.Invoke(chosen);
+				CloseUpgradeScreen(restoreAlmanac);
+			},
+			() => CloseUpgradeScreen(restoreAlmanac),
+			FilterViableBoons(upgrades));
+	}
+
+	// Number of boon cards the fairy upgrade screen aims to show; the gold
+	// filler pads up to this when too few candidate boons are viable.
+	const int UpgradeChoiceCount = 3;
+
+	// Narrow the fairy corpse's candidate boons to the ones worth offering right
+	// now, then pad to three cards with the gold filler when too few remain.
+	// Keeps a restorative boon off the screen at full health and a lasting buff
+	// off the screen when already active (see IsBoonViable), so the player never
+	// burns a corpse on a no-op pick. The gold filler comes from SimData and is
+	// added at most once — it's deliberately absent from the random pool, so it
+	// only ever appears here as consolation, never as a random roll.
+	List<BoonData> FilterViableBoons(List<BoonData> candidates)
+	{
+		var viable = new List<BoonData>();
+		if (candidates != null)
+		{
+			for (int i = 0; i < candidates.Count; i++)
+			{
+				BoonData boon = candidates[i];
+				if (boon != null && IsBoonViable(boon))
+				{
+					viable.Add(boon);
+				}
+			}
+		}
+		BoonData gold = _world?.SimData?.FairyBoonGold;
+		if (viable.Count < UpgradeChoiceCount && gold != null && !viable.Contains(gold))
+		{
+			viable.Add(gold);
+		}
+		return viable;
+	}
+
+	// A boon is worth offering when it would actually do something for the
+	// player. Restorative boons (heal-to-full / cleanse) are pointless unless the
+	// player is injured or afflicted; a lasting status-effect buff is pointless
+	// if the player already carries it. An item-only boon (gold) has no lasting
+	// effect to already-have, so it's always viable. Data-driven so new boons
+	// slot in without touching this gate.
+	bool IsBoonViable(BoonData boon)
+	{
+		if (_player == null)
+		{
+			return true;
+		}
+		StatusEffectData effect = boon.statusEffect;
+		if (effect != null && (effect.healsToFullOnApply || effect.clearsCureableEffectsOnApply))
+		{
+			return _player.IsInjured || _player.HasCureableStatusEffect;
+		}
+		if (effect != null && !effect.instantaneous)
+		{
+			return !_player.HasStatusEffect(effect);
+		}
+		return true;
+	}
+
+	// Tear down the boon-pick modal: hide it and either hand control back to the
+	// almanac modal it was launched from (keeping input gated) or return to
+	// normal gameplay when it was used straight from the hotbar.
+	void CloseUpgradeScreen(bool restoreAlmanac)
+	{
+		if (upgradeScreen != null)
+		{
+			upgradeScreen.Visible = false;
+		}
+		if (restoreAlmanac && almanacScreen != null)
+		{
+			almanacScreen.Visible = true;
+			InputSuppressed = true;
+			if (hud != null) { hud.Visible = false; }
+			Input.MouseMode = Input.MouseModeEnum.Visible;
+		}
+		else
+		{
+			InputSuppressed = false;
+			if (hud != null) { hud.Visible = true; }
+			Input.MouseMode = Input.MouseModeEnum.Captured;
+		}
 	}
 
 	void OnPlayerInteractChanged(IInteractive interactive)

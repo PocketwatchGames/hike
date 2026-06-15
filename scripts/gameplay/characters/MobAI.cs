@@ -65,8 +65,13 @@ public enum EBehaviorResult
 public struct PerceptionState
 {
     public float perception;
-    public float aggro;
     public bool triggered;
+    // GameTimeMs at which `triggered` last latched from false to true — the
+    // start of this engagement. Stamped only on the rising edge so a sustained
+    // alert doesn't keep resetting it; used by TriggeredTimeoutCondition to bail
+    // a mob out (e.g. a fairy's escape) when it hasn't been killed within a
+    // window of first being triggered. Meaningless while `triggered` is false.
+    public ulong triggeredTimeMs;
     public bool canSee;
     public Vector3 lastKnownPosition;
     Node3D _target;
@@ -216,21 +221,29 @@ public partial class Mob
         // trigger has to wake the mob immediately so the distance-LOD
         // suspend extension in Mob.PhysicsProcess doesn't strand a mob
         // through a player approach.
+        // Pick the engaged target slot. Among the perception slots (the player
+        // in singleplayer), the triggered slot with the strongest awareness
+        // wins — this is the "who is this mob aware of" decision. The separate
+        // aggro mechanic (who has hurt it most) is applied downstream, in
+        // BehaviorAttack.ResolveTarget, where the player slot is weighed against
+        // the companion the mob is also tracking via ThreatPerception.
         PerceptionState targetPerception = default;
         PerceptionState[] targets = _simState.PerceptionTargets;
         bool triggered = false;
         float maxPerception = 0f;
+        float bestTriggeredPerception = -1f;
         for (int idx = 0; idx < targets.Length; idx++)
         {
             ref PerceptionState s = ref targets[idx];
             triggered |= s.triggered;
-            if (s.perception >= maxPerception)
+            if (s.perception > maxPerception)
             {
                 maxPerception = s.perception;
-                if (s.triggered && s.aggro >= targetPerception.aggro)
-                {
-                    targetPerception = s;
-                }
+            }
+            if (s.triggered && s.perception >= bestTriggeredPerception)
+            {
+                bestTriggeredPerception = s.perception;
+                targetPerception = s;
             }
         }
 
@@ -701,6 +714,10 @@ public partial class Mob
                 // mob into the alert state on its own.
                 if (canSee && target.perception >= mobData.PerceptionThresholdAlert)
                 {
+                    if (!target.triggered)
+                    {
+                        target.triggeredTimeMs = _world.GameTimeMs;
+                    }
                     target.triggered = true;
                 }
                 // Once alerted, strong-enough sensory contact — sight, hearing,
@@ -728,8 +745,15 @@ public partial class Mob
                     target.triggered = false;
                 }
             }
-            // Mirror perception into aggro for multi-target selection in TickAI.
-            target.aggro = target.perception;
+        }
+
+        // Bleed the per-enemy aggro meters down. Runs on the perception tick (so
+        // `delta` is the accumulated tick interval) and only while alive — a
+        // corpse holds no grudge. Decay also prunes entries whose target died or
+        // was freed so the table never hands a stale node to target selection.
+        if (alive)
+        {
+            _simState.Aggro.Decay(mobData.aggroReductionSpeed, delta);
         }
 
         // Companion threat awareness — a second perception accumulation, toward
@@ -796,7 +820,11 @@ public partial class Mob
             slot.perception = Mathf.Clamp(
                 slot.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
                 0f, 1f);
-            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert)
+            // Proactive mobs (canTriggerMobs) latch into combat on sight; reactive
+            // ones only build awareness here — they're triggered toward an enemy
+            // mob exclusively by being attacked (Mob.Hit sets the slot triggered
+            // directly, which this branch then preserves since it never clears it).
+            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert && mobData.canTriggerMobs)
             {
                 slot.triggered = true;
             }
@@ -809,7 +837,6 @@ public partial class Mob
                 slot.triggered = false;
             }
         }
-        slot.aggro = slot.perception;
     }
 
     // Throttled environment-light cache. SkyBrightness is the time-of-day /

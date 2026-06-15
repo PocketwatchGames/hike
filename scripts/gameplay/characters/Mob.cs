@@ -229,6 +229,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool ThreatTriggered => _simState != null && _simState.ThreatPerception.triggered;
     public bool ThreatCanSee => _simState != null && _simState.ThreatPerception.canSee;
     public Vector3 ThreatLastKnownPosition => _simState?.ThreatPerception.lastKnownPosition ?? GlobalPosition;
+
+    // ---- Aggro (per-enemy threat priority, MobSimState.Aggro) ----
+    // Damage-driven, decoupled from perception: who has hurt this mob (or its
+    // master) most. Added from Mob.Damage and the player→companion relay,
+    // decayed each perception tick, and read by target selection.
+    public void AddAggro(Node3D source, float amount) => _simState?.Aggro.Add(source, amount);
+    public float GetAggro(Node3D target) => _simState?.Aggro.Get(target) ?? 0f;
+
     public bool burrowed { get => _simState.Burrowed; set => _simState.Burrowed = value; }
     public bool burrowing { get => _simState.Burrowing; set => _simState.Burrowing = value; }
     // A mob can only dig into solid ground beneath it — not while swimming
@@ -948,8 +956,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // CanInteract / CanActorInteract gate the press itself.
     public Vector3 hudPosition => HudAnchor != null ? HudAnchor.GlobalPosition : GlobalPosition;
 
+    // A dead tamed companion surfaces the shared revive verb instead of its
+    // live actions. Gated on SimData.ReviveAction so a null authoring slot
+    // disables revival cleanly (CanInteract falls through to the live path,
+    // which is already false for a corpse).
+    private bool CanRevive => !alive && IsCompanion && _world?.SimData?.ReviveAction != null;
+
     public bool CanInteract()
     {
+        if (CanRevive)
+        {
+            return true;
+        }
         if (!alive || burrowed || burrowing)
         {
             return false;
@@ -966,12 +984,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // merged array per HUD refresh — neither input mutates at runtime.
     private Godot.Collections.Array<InteractiveAction> _resolvedActions;
     private bool _resolvedActionsBuilt;
+    private Godot.Collections.Array<InteractiveAction> _reviveActions;
 
-    public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
+    // Resolves the action list for the mob's current state. A dead companion
+    // returns the single shared revive verb; a live mob returns its authored
+    // actions merged with any conversation verbs. GetActions and Complete both
+    // route through here so the index Complete receives indexes the same list
+    // GetActions surfaced to the player.
+    private Godot.Collections.Array<InteractiveAction> ResolveActions()
     {
-        if (!CanActorInteract(player))
+        if (CanRevive)
         {
-            return null;
+            if (_reviveActions == null)
+            {
+                _reviveActions = new Godot.Collections.Array<InteractiveAction> { _world.SimData.ReviveAction };
+            }
+            return _reviveActions;
         }
         if (!_resolvedActionsBuilt)
         {
@@ -1003,7 +1031,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 }
             }
         }
-        Godot.Collections.Array<InteractiveAction> result = _resolvedActions ?? _interactiveActions;
+        return _resolvedActions ?? _interactiveActions;
+    }
+
+    public Godot.Collections.Array<InteractiveAction> GetActions(Player player)
+    {
+        if (!CanActorInteract(player))
+        {
+            return null;
+        }
+        Godot.Collections.Array<InteractiveAction> result = ResolveActions();
         if (result == null || result.Count == 0)
         {
             return null;
@@ -1013,7 +1050,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void Complete(int actionIndex)
     {
-        Godot.Collections.Array<InteractiveAction> actions = _resolvedActions ?? _interactiveActions;
+        Godot.Collections.Array<InteractiveAction> actions = ResolveActions();
         if (actions == null || actionIndex < 0 || actionIndex >= actions.Count)
         {
             return;
@@ -1033,6 +1070,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 break;
             case EActionVerb.Trade:
                 OpenMerchantScreen(trade: true, onClose: null);
+                break;
+            case EActionVerb.Revive:
+                Revive();
                 break;
         }
     }
@@ -2702,9 +2742,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             ref PerceptionState slot = ref _simState.PerceptionTargets[0];
             slot.target = attacker;
             slot.perception = 1f;
-            slot.aggro = 1f;
+            if (!slot.triggered)
+            {
+                slot.triggeredTimeMs = _world.GameTimeMs;
+            }
             slot.triggered = true;
             slot.lastKnownPosition = attacker.GlobalPosition;
+        }
+        // Struck by an enemy mob (e.g. the player's companion) — latch immediate
+        // threat awareness toward it so a threat-scanning mob retaliates without
+        // waiting for perception to accumulate, mirroring the player-slot edge
+        // above. Gated to the team this mob actually scans for, so the latch
+        // agrees with what AccumulateThreatPerception will track next tick;
+        // no-op for mobs that don't scan threats. Aggro is credited in Damage.
+        else if (hit.source is Mob mobAttacker
+            && _simState.MobData != null
+            && _simState.MobData.scansForThreats
+            && mobAttacker.ActorTeam == _simState.MobData.threatTeam)
+        {
+            ref PerceptionState slot = ref _simState.ThreatPerception;
+            slot.target = mobAttacker;
+            slot.perception = 1f;
+            slot.triggered = true;
+            slot.canSee = true;
+            slot.lastKnownPosition = mobAttacker.GlobalPosition;
         }
 
         Damage(hit);
@@ -2863,6 +2924,15 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // values without needing per-site composition.
         ApplyResistance(ref hit);
         float incoming = hit.healthDamage;
+        // Aggro: credit the attacker with (resisted) health damage * the hit's
+        // aggroMultiplier so this mob's target selection favors whoever has hurt
+        // it most. Uses the pre-armor figure — chipping armor is still aggression
+        // — and is independent of awareness/perception (the two are separate
+        // mechanics; see AggroTracker).
+        if (hit.source is Node3D aggroSource && hit.aggroMultiplier > 0f && incoming > 0f)
+        {
+            AddAggro(aggroSource, incoming * hit.aggroMultiplier);
+        }
         // Armor handling. Bypass-aware split: a portion of `incoming` skips
         // armor entirely (discrete `ArmorPenetrated` = full bypass; continuous
         // `armorBypassFraction` = partial), the rest is "absorbable" and
@@ -2986,7 +3056,31 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
+    // Mirrors Player.AddStatusEffect: run any instant boon payloads first, then
+    // (unless the effect is a one-shot blessing) keep the lingering state. A mob
+    // can roll a fairy boon via the capricious random pick, so Restore heals it
+    // to full and cleanses its afflictions; the item-grant payload is inert
+    // (mobs have no inventory).
+    public StatusEffectState AddStatusEffect(StatusEffectData data)
+    {
+        if (data == null)
+        {
+            return null;
+        }
+        if (data.clearsCureableEffectsOnApply)
+        {
+            _statusEffects.ClearCureable();
+        }
+        if (data.healsToFullOnApply)
+        {
+            health = maxHealth;
+        }
+        if (data.instantaneous)
+        {
+            return null;
+        }
+        return _statusEffects.Add(data);
+    }
 
     public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 
@@ -3278,6 +3372,42 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Bring a dead companion back to life — the resolution of the Revive
+    // interactive verb (see Complete). Undoes the state changes Die() made:
+    // restores the alive flag, the live collision layers (so the body moves
+    // and is targetable again), AxisLockAngularY, and health. The revive
+    // audiovisual cue is the InteractiveAction's completion-event fx; this
+    // method only touches gameplay state. AI resumes on its own — every AI /
+    // movement gate keys off `alive` per tick, so flipping it is enough.
+    private void Revive()
+    {
+        if (alive)
+        {
+            return;
+        }
+        alive = true;
+        // Mirror _Ready's live layer setup (and the auto-freeze live branch):
+        // back onto Mob / the live mask, hurtbox back onto HurtBox so attacks
+        // and the player's targeting see it as a live mob again.
+        CollisionLayer = (uint)ECollisionLayer.Mob;
+        CollisionMask = (uint)(ECollisionLayer.Solid | ECollisionLayer.Player | ECollisionLayer.Mob);
+        if (_hurtBox != null)
+        {
+            _hurtBox.CollisionLayer = (uint)ECollisionLayer.HurtBox;
+        }
+        AxisLockAngularY = true;
+        // Die() may have left the corpse pinned by the auto-freeze; unfreeze so
+        // it stands and the per-tick freeze logic re-evaluates from a live state.
+        Freeze = false;
+        _simState.Health = Mathf.Clamp(mobData?.reviveHealth ?? maxHealth, 1f, maxHealth);
+        // The corpse read as CorpseDiscovered; a revived companion is a live,
+        // known mob again.
+        _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
+        // Release the Die one-shot so UpdateAnimation resumes the live
+        // idle/locomotion loop instead of holding the death pose.
+        _oneShotAnim = null;
+    }
+
     // Mirrors Chest.Complete's loot ejection: each ItemCount entry on MobData
     // fires `count` Loot instances outward on a 45° upward arc. Random
     // horizontal angle per item so a multi-drop carcass scatters rather than
@@ -3476,7 +3606,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         ref PerceptionState slot = ref _simState.PerceptionTargets[0];
         slot.target = digger;
         slot.perception = 1f;
-        slot.aggro = 1f;
+        if (!slot.triggered)
+        {
+            slot.triggeredTimeMs = _world.GameTimeMs;
+        }
         slot.triggered = true;
         slot.lastKnownPosition = digger.GlobalPosition;
         // Brief per-species stun on emergence (dizzy) so the player gets a beat

@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="BoonData" format=3 uid="uid://crbn7q3k2p8wt"]
+
+[ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_se"]
+[ext_resource type="Texture2D" uid="uid://ddce2ofirul1c" path="res://assets/textures/status_effects/heart.png" id="3_icon"]
+
+[sub_resource type="Resource" id="se_restore"]
+script = ExtResource("2_se")
+icon = ExtResource("3_icon")
+displayName = &"Restore"
+description = "A fairy's blessing — mends every wound and washes away all afflictions."
+instantaneous = true
+healsToFullOnApply = true
+clearsCureableEffectsOnApply = true
+
+[resource]
+script = ExtResource("1_boon")
+statusEffect = SubResource("se_restore")

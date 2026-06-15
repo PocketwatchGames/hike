@@ -177,20 +177,34 @@ public partial class MobHUD : Node2D
 		}
 
 		bool stateHidden = !_mob.alive || _mob.playerPerceptionState == EPlayerPerceptionState.Hidden;
-		if (!stateHidden)
+		// Effective team so a tamed companion (authored Prey, Friendly once
+		// tamed) is treated as player-side rather than reading as prey.
+		ETeam hudTeam = _mob.ActorTeam;
+		bool playerSide = Teams.AreAllied(hudTeam, ETeam.Player);
+		// Health bar shows only when injured (health or armor below max).
+		bool injured = _mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor;
+		if (playerSide)
+		{
+			// A tamed companion is "ours" — there's no stalk/discovery framing,
+			// so it never shows the perception or discovery bars. Its health bar
+			// stays on screen whenever it's alive and wounded, regardless of
+			// perception state or line of sight, so the player can always see a
+			// hurt pet's health.
+			_discoveryBar.Visible = false;
+			_perceptionBar.Visible = false;
+			_healthBar.Visible = _mob.alive && !_mob.burrowed && injured;
+			_armorBar.Visible = _healthBar.Visible && _mob.armor > 0;
+		}
+		else if (!stateHidden)
 		{
 			_discoveryBar.Visible = _mob.playerPerceptionState == EPlayerPerceptionState.Detected;
 			// Hostiles and prey both surface the stealth (perception) and health
-			// bars — you stalk both. Other teams (friendly, neutral) show neither.
-			// Effective team so a tamed companion (authored Prey, Friendly once
-			// tamed) drops the stalk/health bars instead of reading as prey.
-			ETeam hudTeam = _mob.ActorTeam;
+			// bars — you stalk both. Other teams (neutral) show neither.
 			bool combatOrPrey = hudTeam == ETeam.Hostile || hudTeam == ETeam.Prey;
 			_perceptionBar.Visible = combatOrPrey && _mob.perception > 0 && !_mob.triggered && _mob.playerCanSee;
-			// Health bar shows only when injured. Hostiles reveal it once engaged
-			// (triggered); prey reveal it whenever wounded, so you can track a
-			// hurt animal you're hunting. Other teams don't show one.
-			bool injured = _mob.health < _mob.maxHealth || _mob.armor < _mob.maxArmor;
+			// Hostiles reveal the health bar once engaged (triggered); prey reveal
+			// it whenever wounded, so you can track a hurt animal you're hunting.
+			// Other teams don't show one.
 			bool healthEligible = hudTeam switch
 			{
 				ETeam.Hostile => _mob.triggered,

@@ -20,8 +20,16 @@ Per-mob hierarchical state machine driven by polymorphic Resource data.
 
 ## Perception
 
-- `MobSimState.PerceptionTargets[]` — one `PerceptionState` slot per potential target (currently sized 1 for the player; preserved as an array for future multiplayer). Each slot has `perception` (slow-accumulating awareness), `triggered` (latched binary; sets when perception hits `MobData.PerceptionThresholdAlert`, clears at 0), `aggro`, `canSee`, `lastKnownPosition`, and the target reference.
+- `MobSimState.PerceptionTargets[]` — one `PerceptionState` slot per potential target (currently sized 1 for the player; preserved as an array for future multiplayer). Each slot has `perception` (slow-accumulating awareness), `triggered` (latched binary; sets when perception hits `MobData.PerceptionThresholdAlert`, clears at 0), `canSee`, `lastKnownPosition`, and the target reference. A companion additionally tracks the nearest enemy mob in `MobSimState.ThreatPerception` (same struct, fed by `AccumulateThreatPerception`/`ThreatScan`, gated on `MobData.scansForThreats`).
 - `Mob.UpdatePerception()` is throttled via `MobSimState.PerceptionTickAccumulator` / `PerceptionTickInterval` (~10Hz, jittered per-mob at construction so raycasts don't clump on the same frame). Behaviors stay at 60Hz so combat reactions are responsive.
+
+## Aggro (target priority, separate from perception)
+
+Perception answers *who is this mob aware of*; **aggro** answers *which engaged enemy to hit*. They're independent mechanics keyed on the same enemies.
+
+- `MobSimState.Aggro` (`AggroTracker`) — a small per-mob table of decaying aggro values, one per tracked enemy. `Mob.Damage` credits the attacker `healthDamage * DamageData.aggroMultiplier`; `Player.OnHurtBoxHit` relays the same onto `World.Companion` so a pet prioritizes whoever is mauling its master. The table decays each perception tick by `MobData.aggroReductionSpeed` and prunes dead/freed targets. Transient — not serialized.
+- Selection: a hostile mob weighs the player (its perception slot) against the companion it tracks via `ThreatPerception` in `BehaviorAttack.ResolveTarget`, committing to the higher-aggro one (ties default to the player). A companion ranks hostiles by aggro in `ThreatScan.FindNearest` (nearest breaks ties). To make a hostile species track the companion, set `scansForThreats = true` + `threatTeam = Friendly` on its `MobData` and give its brain a `ThreatPerceivedCondition (Alert)` edge into its attack state (see `goblin.tres` / `goblin_brain.tres`).
+- `MobData.canTriggerMobs` gates whether *seeing* an enemy mob is enough to start a fight. `true` (default, the guard dog) = engage a perceived enemy on sight. `false` (the goblin) = build awareness only; the mob enters combat with an enemy mob solely by being attacked by it (`Mob.Hit` latches the threat slot directly, bypassing this gate) — it still triggers on the player normally and only weighs the companion as a target once being struck gives it aggro. The hit-latch is gated to `threatTeam` so the awareness edge agrees with what `AccumulateThreatPerception` tracks.
 
 ## Adding a new behavior
 

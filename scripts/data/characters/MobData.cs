@@ -177,6 +177,29 @@ public partial class MobData : Resource
     // Faction a threat-scanning mob treats as enemies (a companion watches the
     // Hostile faction). Only consulted when scansForThreats is true.
     [Export] public ETeam threatTeam = ETeam.Hostile;
+    // Whether merely perceiving an enemy (threatTeam) mob is enough to drag this
+    // mob into combat with it. true = proactive: threat perception crossing
+    // PerceptionThresholdAlert latches the threat slot triggered, so the mob
+    // engages a perceived enemy on sight (a guard dog hunting hostiles). false =
+    // reactive: the mob still accumulates threat perception toward the enemy (it
+    // becomes aware — can reach the Wary tier, turn, track) but never latches
+    // triggered from sight alone. It enters combat with that enemy only when the
+    // enemy attacks it (Mob.Hit latches the threat slot directly, bypassing this
+    // gate) — letting a goblin notice the player's companion without picking a
+    // fight until provoked. Independent of the player slot: a reactive mob still
+    // triggers on the player normally and only weighs the companion as a target
+    // once it has reason to (aggro from being struck). Only consulted when
+    // scansForThreats is true.
+    [Export] public bool canTriggerMobs = true;
+    // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
+    // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
+    // mob takes — or, for a companion, damage dealt to its master — adds aggro
+    // toward the attacker (health damage * DamageData.aggroMultiplier); the mob
+    // then targets whichever tracked enemy holds the most aggro. This value is
+    // how fast that focus fades once an attacker stops dealing damage, letting
+    // the mob fall back to picking its target by perception / proximity. Higher
+    // = more fickle focus; 0 = aggro never decays (a grudge held until death).
+    [Export] public float aggroReductionSpeed = 5f;
 
     [ExportGroup("Player Perceives Mob")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
@@ -251,6 +274,13 @@ public partial class MobData : Resource
     [Export] public StatusEffectData spawnStatusEffect;
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
+
+    // Health a tamed companion is restored to when the player revives its
+    // corpse (the Revive interactive — see Mob.Revive). An absolute value, not
+    // a fraction: a companion comes back wounded at the authored amount and is
+    // clamped to [1, maxHealth] so a revive never lands dead or over-full.
+    // Only consulted for revivable mobs (tameLoyalty > 0).
+    [Export] public float reviveHealth = 1f;
 
     // Inherent stat modifiers. Composed with active StatusEffectData.
     // modifiers when the actor queries any stat. Damage / armor penetration / blunt /

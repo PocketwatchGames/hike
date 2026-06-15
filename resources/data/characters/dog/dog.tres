@@ -113,8 +113,8 @@ damageProfiles = Dictionary[StringName, ExtResource("6_damage")]({
 })
 maxSpeed = 12.0
 foliageSpeedModifier = 0.5
-verticalClearance = 1
 defaultBehavior = &"WanderFollow"
 brain = ExtResource("2_brain")
 MobScene = ExtResource("3_scene")
+verticalClearance = 1
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

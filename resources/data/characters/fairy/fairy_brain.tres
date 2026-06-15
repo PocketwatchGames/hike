@@ -10,6 +10,7 @@
 [ext_resource type="Script" uid="uid://cq57gys23wvvh" path="res://scripts/data/behaviors/conditions/AggroAcquiredCondition.cs" id="8_aggro_acquired"]
 [ext_resource type="Script" uid="uid://bj36ge53ur48e" path="res://scripts/data/behaviors/conditions/AggroLostCondition.cs" id="9_aggro_lost"]
 [ext_resource type="Script" uid="uid://bthrbynd7k204" path="res://scripts/data/behaviors/conditions/ThreatBeyondDistanceCondition.cs" id="10_threat_beyond"]
+[ext_resource type="Script" uid="uid://al1bs6gsg0oa" path="res://scripts/data/behaviors/conditions/TriggeredTimeoutCondition.cs" id="11_timeout"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("4_idle")
@@ -54,6 +55,15 @@ script = ExtResource("3_transition")
 condition = SubResource("Resource_cond_threat_beyond")
 destination = &"Escape"
 
+[sub_resource type="Resource" id="Resource_cond_timeout"]
+script = ExtResource("11_timeout")
+seconds = 60.0
+
+[sub_resource type="Resource" id="Resource_flee_to_escape_timeout"]
+script = ExtResource("3_transition")
+condition = SubResource("Resource_cond_timeout")
+destination = &"Escape"
+
 [sub_resource type="Resource" id="Resource_cond_aggro_lost"]
 script = ExtResource("9_aggro_lost")
 
@@ -66,7 +76,7 @@ destination = &"Idle"
 script = ExtResource("2_node")
 name = &"Flee"
 data = SubResource("Resource_flee")
-transitions = [SubResource("Resource_flee_to_escape"), SubResource("Resource_flee_to_idle")]
+transitions = [SubResource("Resource_flee_to_escape"), SubResource("Resource_flee_to_escape_timeout"), SubResource("Resource_flee_to_idle")]
 
 [sub_resource type="Resource" id="Resource_escape"]
 script = ExtResource("7_escape")

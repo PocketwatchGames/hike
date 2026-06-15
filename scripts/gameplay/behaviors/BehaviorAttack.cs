@@ -167,17 +167,33 @@ public partial class BehaviorAttack : BehaviorBase
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 
-    // Resolve who this attack is engaging. The default is the mob's player
-    // perception slot — the standard "mob attacks the player" target. Subclasses
-    // override this to retarget the identical approach / encircle / swing logic
-    // at a different victim (BehaviorDogAttack picks the nearest triggered enemy
-    // mob). Returns the target Node3D (null = no valid target, attack idles),
-    // and writes whether it's currently visible (gates the swing + yell), the
-    // position to face / encircle, and the last-known position used as the far-
-    // approach goal.
+    // Resolve who this attack is engaging. The mob weighs the two enemies it can
+    // track — the player (its perception slot) and the companion it's scanning
+    // for via ThreatPerception — and commits to whichever holds the most aggro
+    // (who has hurt it most), defaulting to the player when aggro ties (e.g.
+    // before anyone has drawn blood). A mob that doesn't scan threats has no
+    // companion candidate and so always picks the player, unchanged. Subclasses
+    // override this entirely to retarget the identical approach / encircle /
+    // swing logic at a different victim (BehaviorDogAttack picks the highest-
+    // aggro triggered enemy mob). Returns the target Node3D (null = no valid
+    // target, attack idles), and writes whether it's currently visible (gates
+    // the swing + yell), the position to face / encircle, and the last-known
+    // position used as the far-approach goal.
     protected virtual Node3D ResolveTarget(Mob me, ref PerceptionState targetPerception, out bool canSee, out Vector3 targetPos, out Vector3 lastKnownPosition)
     {
         Player player = targetPerception.pawnTarget;
+        // The companion is only a candidate once threat perception has latched
+        // it (so the mob doesn't peel off to chase a dog it can't actually see).
+        Mob threat = me.ThreatTriggered ? me.ThreatTarget : null;
+        bool preferThreat = threat != null
+            && (player == null || me.GetAggro(threat) > me.GetAggro(player));
+        if (preferThreat)
+        {
+            canSee = me.ThreatCanSee;
+            lastKnownPosition = me.ThreatLastKnownPosition;
+            targetPos = canSee ? threat.GlobalPosition : lastKnownPosition;
+            return threat;
+        }
         canSee = targetPerception.canSee;
         lastKnownPosition = targetPerception.lastKnownPosition;
         targetPos = (canSee && player != null) ? player.GlobalPosition : targetPerception.lastKnownPosition;

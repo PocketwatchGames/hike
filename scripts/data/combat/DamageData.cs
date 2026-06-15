@@ -36,6 +36,15 @@ public partial class DamageData : Resource
 
 	[Export] public float healthDamage = 0f;
 
+	// Multiplier converting this hit's health damage into aggro on the receiver
+	// (and, when the receiver is the player, relayed onto their companion). A
+	// mob's target selection favors whoever has accrued the most aggro, so a
+	// high value makes an attack "taunt" — drawing focus out of proportion to
+	// its damage — while a low value lets a hard hit land without grabbing
+	// attention. 1 = aggro equals health damage; 0 = deals no aggro. Aggro
+	// bleeds off over time at the receiver's MobData.aggroReductionSpeed.
+	[Export] public float aggroMultiplier = 1f;
+
 	// Chance (0..1) that the entire hit bypasses the receiver's armor pool
 	// and lands directly on health. 0 = always absorbed by armor (the legacy
 	// behavior); 1 = always bypasses. Rolled once when the HitInfo is built

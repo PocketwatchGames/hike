@@ -7,6 +7,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("1_asibn")
 displayName = &"Poisoned"
+cureable = true
 tags = 257
 damagePerSecond = 1.0
 armorPenetration = 1.0

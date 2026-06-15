@@ -22,6 +22,11 @@ public struct HitInfo
 	// armor-penetration-chance, armor chip, knockback magnitude — when applying.
 	public EStat tags;
 	public float healthDamage;
+	// Multiplier converting healthDamage into aggro on the receiver (and, for a
+	// player receiver, relayed to their companion). Sourced from the DamageData
+	// template; the continuous-damage path defaults it to 1 so DoT zones still
+	// build threat. See DamageData.aggroMultiplier / AggroTracker.
+	public float aggroMultiplier;
 	public float hitstun;
 	// Knockback magnitude (m/s of velocity change) and lockout window;
 	// sourced from the DamageData template. The receiver multiplies this
@@ -121,6 +126,7 @@ public struct HitInfo
 		{
 			tags = template.tags;
 			healthDamage = template.healthDamage;
+			aggroMultiplier = template.aggroMultiplier;
 			hitstun = template.hitstun;
 			knockbackDistance = template.knockbackDistance;
 			knockbackTime = template.knockbackTime;
@@ -136,6 +142,7 @@ public struct HitInfo
 		{
 			tags = EStat.None;
 			healthDamage = 0f;
+			aggroMultiplier = 1f;
 			hitstun = 0f;
 			knockbackDistance = 0f;
 			knockbackTime = 0f;
@@ -182,6 +189,10 @@ public struct HitInfo
 			armorBypassFraction = 0f;
 			buildups = null;
 		}
+		// Continuous-damage hits build threat too — default the aggro multiplier
+		// to 1 (aggro tracks the per-frame health chunk) since ContinuousDamageData
+		// doesn't author its own. healthDamage is already delta-scaled above.
+		aggroMultiplier = 1f;
 		hitstun = 0f;
 		knockbackDistance = 0f;
 		knockbackTime = 0f;

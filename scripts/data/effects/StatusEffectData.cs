@@ -73,6 +73,16 @@ public partial class StatusEffectData : Resource
 	// bit; default Transient keeps existing effects in the mob status strip.
 	[Export, CompactFlags] public EEffectCategory category = EEffectCategory.Transient;
 
+	// True for lingering afflictions a cure / blessing should be able to lift
+	// (poison, food poisoning, burning). Drives two things: a "restore"-style
+	// boon (clearsCureableEffectsOnApply) wipes every active cureable effect,
+	// and the fairy upgrade screen only offers a restorative boon when the
+	// player is injured OR carries at least one cureable effect. Default false:
+	// short-lived crowd control (dizzy) and environmental states the player
+	// walks out of on their own (cold, hot, wet, dirty) are NOT cureable — a
+	// blessing shouldn't waste itself wiping a state that clears itself.
+	[Export] public bool cureable = false;
+
 	// Type tags this effect carries. Used by the resistance / modifier system
 	// in two places: (1) buildup contributions feeding this effect scale by
 	// the receiver's matching StatModifier entries — kun-kun's Dizzy
@@ -203,6 +213,29 @@ public partial class StatusEffectData : Resource
 	// scene = the effect leaves no trail.
 	[Export] public PackedScene trailZoneScene;
 	[Export(PropertyHint.Range, "0.05,2,0.01,or_greater")] public float trailDropInterval = 0.2f;
+
+	// --- Instant payloads ---
+	// One-shot effects that fire the moment this status is applied to an actor,
+	// then (when `instantaneous` is set) leave nothing behind. This is how the
+	// fairy Restore blessing works — heal + cleanse with no lingering icon —
+	// without bespoke ItemEffect plumbing. The actor's AddStatusEffect runs them
+	// (Player.AddStatusEffect / Mob.AddStatusEffect); item-side controllers
+	// ignore them (no actor to heal).
+	//
+	// When true, the apply-time payloads below run and NO lingering state is
+	// kept — the effect is a one-shot blessing rather than a durational buff.
+	// When false (default) the effect is added to the controller as usual and
+	// its modifiers / DoT / duration apply over time.
+	[Export] public bool instantaneous = false;
+
+	// Heal the receiving actor to full health on apply (forgiving any blood
+	// drain, like a full potion). The Restore boon authors this.
+	[Export] public bool healsToFullOnApply = false;
+
+	// Remove every active `cureable` effect from the receiving actor on apply
+	// (and zero their buildup meters). The Restore boon authors this so one
+	// blessing both heals and cleanses.
+	[Export] public bool clearsCureableEffectsOnApply = false;
 
 	// --- Weapon modifiers ---
 	// These fields are meaningful only when the effect is composed onto a

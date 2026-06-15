@@ -15,12 +15,28 @@
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/actions/goblin_battle_cry.tres" id="13_cry"]
 [ext_resource type="Script" uid="uid://b8actinv3wq5n" path="res://scripts/data/behaviors/conditions/HasActionableInvestigationCondition.cs" id="14_actionable"]
 [ext_resource type="Script" uid="uid://fl4vgm566vea" path="res://scripts/data/behaviors/LookAtBehaviorData.cs" id="15_lookat"]
+[ext_resource type="Script" uid="uid://jk9kdk7u5tz04" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="16_threat"]
 
 [sub_resource type="Resource" id="Resource_idle"]
 script = ExtResource("3_idle")
 
 [sub_resource type="Resource" id="Resource_cond_aggro_acquired"]
 script = ExtResource("6_aggro_acquired")
+
+[sub_resource type="Resource" id="Resource_cond_threat_alert"]
+script = ExtResource("16_threat")
+tier = 1
+requireNone = false
+
+[sub_resource type="Resource" id="Resource_idle_to_attack_threat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_threat_alert")
+destination = &"Attack"
+
+[sub_resource type="Resource" id="Resource_wander_to_attack_threat"]
+script = ExtResource("4_transition")
+condition = SubResource("Resource_cond_threat_alert")
+destination = &"Attack"
 
 [sub_resource type="Resource" id="Resource_idle_to_attack"]
 script = ExtResource("4_transition")
@@ -47,7 +63,7 @@ destination = &"LookAt"
 script = ExtResource("2_node")
 name = &"Idle"
 data = SubResource("Resource_idle")
-transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_investigate"), SubResource("Resource_idle_to_lookat")]
+transitions = [SubResource("Resource_idle_to_attack"), SubResource("Resource_idle_to_attack_threat"), SubResource("Resource_idle_to_investigate"), SubResource("Resource_idle_to_lookat")]
 
 [sub_resource type="Resource" id="Resource_attack"]
 script = ExtResource("5_attack")
@@ -95,7 +111,7 @@ destination = &"LookAt"
 script = ExtResource("2_node")
 name = &"Wander"
 data = SubResource("Resource_wander")
-transitions = [SubResource("Resource_wander_to_attack"), SubResource("Resource_wander_to_investigate"), SubResource("Resource_wander_to_lookat")]
+transitions = [SubResource("Resource_wander_to_attack"), SubResource("Resource_wander_to_attack_threat"), SubResource("Resource_wander_to_investigate"), SubResource("Resource_wander_to_lookat")]
 
 [sub_resource type="Resource" id="Resource_investigate"]
 script = ExtResource("9_investigate")

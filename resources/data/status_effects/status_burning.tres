@@ -9,6 +9,7 @@
 script = ExtResource("1_data")
 icon = ExtResource("4_icon")
 displayName = &"Burning"
+cureable = true
 tags = 3
 damagePerSecond = 2.0
 armorPenetration = 0.75

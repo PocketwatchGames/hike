@@ -206,6 +206,50 @@ public class StatusEffectController
 		}
 	}
 
+	// True iff at least one active effect is flagged `cureable` (a lingering
+	// affliction worth lifting). Read by the fairy upgrade screen to decide
+	// whether a cleansing boon is worth offering. Single-pass scan like the
+	// other accumulators here.
+	public bool HasCureable
+	{
+		get
+		{
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				if (_statusEffects[i]?.data?.cureable == true)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
+	// Drop every active `cureable` effect (and zero its buildup meter so a
+	// partially-charged affliction doesn't immediately re-apply). The cleanse
+	// half of the Restore boon — mirrors ClearIncapacitating / RemoveByCategory.
+	public void ClearCureable()
+	{
+		for (int i = _statusEffects.Count - 1; i >= 0; i--)
+		{
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null || !data.cureable)
+			{
+				continue;
+			}
+			EndFx(_statusEffects[i]);
+			_statusEffects.RemoveAt(i);
+		}
+		foreach (var kv in _buildups)
+		{
+			if (kv.Key != null && kv.Key.cureable && kv.Value != null)
+			{
+				kv.Value.amount = 0f;
+				kv.Value.armedInstance = null;
+			}
+		}
+	}
+
 	// First active effect's loopAnimOverride, or EAnimation.None when no
 	// effect authors one. The actor's UpdateAnimation reads this before
 	// falling through to its movement-state loop pick so Dizzy / future

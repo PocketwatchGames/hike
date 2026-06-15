@@ -1099,6 +1099,16 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 
+		// Relay aggro to the companion so it prioritizes whoever is mauling its
+		// master — even hits the companion never witnessed. Mirrors the mob-side
+		// attribution in Mob.Damage: pre-armor health damage * the hit's
+		// aggroMultiplier, credited toward the attacking mob in the companion's
+		// own aggro table (ThreatScan then ranks hostiles by it).
+		if (incomingDamage > 0f && hit.aggroMultiplier > 0f && hit.source is Mob masterAttacker)
+		{
+			_world?.Companion?.AddAggro(masterAttacker, incomingDamage * hit.aggroMultiplier);
+		}
+
 		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon
 		// authored to interrupt-on-damage would otherwise leave Charging here
 		// and the hit that ended the charge wouldn't be blocked. The guard was
@@ -1812,7 +1822,62 @@ public partial class Player : CharacterBody3D
 	// are intentional — the HUD shows them as one icon with a count, and each
 	// instance ticks independently. Returns the new state so the caller (e.g.
 	// the wet-after-swim trigger) can hold a handle and arm the timer later.
-	public StatusEffectState AddStatusEffect(StatusEffectData data) => _statusEffects.Add(data);
+	//
+	// First runs any instant payloads the effect authors (heal-to-full, cleanse
+	// cureable afflictions). An `instantaneous` effect (the Restore blessing) is
+	// a one-shot — its payload fires and no lingering state is kept.
+	public StatusEffectState AddStatusEffect(StatusEffectData data)
+	{
+		if (data == null)
+		{
+			return null;
+		}
+		ApplyInstantPayloads(data);
+		if (data.instantaneous)
+		{
+			return null;
+		}
+		return _statusEffects.Add(data);
+	}
+
+	// Fire the one-shot apply-time payloads on `data`. Cleanse before heal so a
+	// poison tick can't shave the freshly-restored HP.
+	void ApplyInstantPayloads(StatusEffectData data)
+	{
+		if (data.clearsCureableEffectsOnApply)
+		{
+			_statusEffects.ClearCureable();
+		}
+		if (data.healsToFullOnApply)
+		{
+			Heal(MaxHealth);
+		}
+	}
+
+	// Drop a single unit of `item` into the backpack, merging into an existing
+	// stack first (Inventory.TryAdd). A unit that doesn't fit is dropped silently
+	// — boons don't overflow into the world. Used by the Gold boon's item grant.
+	public void GrantItem(ItemData item)
+	{
+		if (_inventory == null || item == null)
+		{
+			return;
+		}
+		_inventory.TryAdd(item.CreateState());
+	}
+
+	// True when the player has lost any health (current below max, or has an
+	// outstanding blood-drain debt). Read by the fairy upgrade screen to gate
+	// the restorative boon — there's no point offering a heal at full health.
+	public bool IsInjured => _health < MaxHealth || _drainedHealth > 0f;
+
+	// True when at least one active status effect is cureable. The other half of
+	// the restorative-boon gate (offer Restore when injured OR afflicted).
+	public bool HasCureableStatusEffect => _statusEffects.HasCureable;
+
+	// True when an instance of `data` is currently active. Read by the upgrade
+	// screen so a lasting buff the player already carries isn't offered again.
+	public bool HasStatusEffect(StatusEffectData data) => _statusEffects.HasActive(data);
 
 	public void RemoveStatusEffect(StatusEffectState state) => _statusEffects.Remove(state);
 

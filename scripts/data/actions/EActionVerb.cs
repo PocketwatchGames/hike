@@ -41,4 +41,8 @@ public enum EActionVerb
 	// Complete parents the player onto the vehicle and suspends on-foot
 	// locomotion (see RideableVehicle / Player.Mount).
 	Mount,
+	// Revive a dead companion — surfaced only on a tamed mob's corpse (see
+	// Mob.CanRevive). The interactive's Complete restores the mob to life
+	// (alive flag, live collision layers, health), undoing Mob.Die().
+	Revive,
 }
