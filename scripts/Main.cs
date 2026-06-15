@@ -8,6 +8,7 @@ public partial class Main : Node
 	[Export] public PackedScene MainMenuScene;
 	[Export] public PackedScene GameScene;
 	[Export] public PackedScene EditorScene;
+	[Export] public PackedScene WorldMapPainterScene;
 	[Export] public WorldGenData DefaultWorldGenData;
 	// Loading overlay shown across the new-game / load-game sequence. Lives at
 	// the Main level (not inside game.tscn) so the screen is visible during
@@ -373,12 +374,33 @@ public partial class Main : Node
 		};
 	}
 
+	// Launch the world-map painting program — the first step in the authoring
+	// chain. A pure 2D map editor: it paints the WorldMapData layer document and
+	// bakes a WorldState / .hike on save. No live voxel world is built (the old
+	// 3D fly-over preview was removed; it can return later as an on-demand
+	// feature), so launching is instant and needs no palette / mesh binding.
+	void StartPainter(WorldGenData worldGenData)
+	{
+		_currentScreen.QueueFree();
+
+		var painter = WorldMapPainterScene.Instantiate<WorldMapPainter>();
+		_currentScreen = painter;
+		AddChild(painter);
+		painter.Init();
+		painter.onQuitToMenu += () =>
+		{
+			painter.QueueFree();
+			StartMainMenu();
+		};
+	}
+
 	void StartMainMenu()
 	{
 		_currentScreen = MainMenuScene.Instantiate<Node>();
 		(_currentScreen as GuiMainMenu).OnNewGame += NewGame;
 		(_currentScreen as GuiMainMenu).OnLoadGame += LoadGame;
 		(_currentScreen as GuiMainMenu).OnStartEditor += StartEditor;
+		(_currentScreen as GuiMainMenu).OnStartPainter += StartPainter;
 		AddChild(_currentScreen);
 	}
 

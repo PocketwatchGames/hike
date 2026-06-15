@@ -10,6 +10,7 @@ public partial class GuiMainMenu : Node
 	[Signal] public delegate void OnNewGameEventHandler(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData);
 	[Signal] public delegate void OnLoadGameEventHandler(string savePath);
 	[Signal] public delegate void OnStartEditorEventHandler(WorldGenData worldGenData);
+	[Signal] public delegate void OnStartPainterEventHandler(WorldGenData worldGenData);
 
 	public override void _Ready()
 	{
@@ -33,5 +34,10 @@ public partial class GuiMainMenu : Node
 	public void StartEditor()
 	{
 		EmitSignal(SignalName.OnStartEditor, worldGenData);
+	}
+
+	public void StartPainter()
+	{
+		EmitSignal(SignalName.OnStartPainter, worldGenData);
 	}
 }

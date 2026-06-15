@@ -1,0 +1,68 @@
+[gd_scene load_steps=6 format=3 uid="uid://6ts7a61xu00z"]
+
+[ext_resource type="Script" uid="uid://djesz7e6r3zs" path="res://scripts/worldmap/WorldMapPainter.cs" id="1_painter"]
+[ext_resource type="Script" uid="uid://r8m80ixy1m3t" path="res://scripts/worldmap/WorldMapCanvas.cs" id="3_canvas"]
+[ext_resource type="Script" uid="uid://3uruphfvq89k" path="res://scripts/worldmap/WorldMapHud.cs" id="4_hud"]
+[ext_resource type="Resource" uid="uid://e8dg4qt8u74x" path="res://resources/data/worldmap/default_world_map.tres" id="5_data"]
+[ext_resource type="Resource" uid="uid://8kjoldme1z4f" path="res://resources/data/worldmap/default_world_map_brush.tres" id="6_brush"]
+
+[node name="WorldMapPainter" type="Node3D" node_paths=PackedStringArray("canvas", "hud")]
+script = ExtResource("1_painter")
+canvas = NodePath("MapLayer/Canvas")
+hud = NodePath("Hud")
+data = ExtResource("5_data")
+brush = ExtResource("6_brush")
+
+[node name="MapLayer" type="CanvasLayer" parent="."]
+
+[node name="Canvas" type="Control" parent="MapLayer"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("3_canvas")
+
+[node name="Hud" type="CanvasLayer" parent="." node_paths=PackedStringArray("viewLabel", "layerLabel", "toolLabel", "radiusLabel", "coordsLabel", "helpLabel")]
+script = ExtResource("4_hud")
+viewLabel = NodePath("MarginContainer/VBoxContainer/ViewLabel")
+layerLabel = NodePath("MarginContainer/VBoxContainer/LayerLabel")
+toolLabel = NodePath("MarginContainer/VBoxContainer/ToolLabel")
+radiusLabel = NodePath("MarginContainer/VBoxContainer/RadiusLabel")
+coordsLabel = NodePath("MarginContainer/VBoxContainer/CoordsLabel")
+helpLabel = NodePath("MarginContainer/VBoxContainer/HelpLabel")
+
+[node name="MarginContainer" type="MarginContainer" parent="Hud"]
+anchors_preset = 0
+offset_right = 700.0
+offset_bottom = 200.0
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Hud/MarginContainer"]
+layout_mode = 2
+
+[node name="ViewLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "View: 2D Map"
+
+[node name="LayerLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Layer: Elevation"
+
+[node name="ToolLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Tool: Raise"
+
+[node name="RadiusLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Brush: 12.0"
+
+[node name="CoordsLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Texel: (0, 0)"
+
+[node name="HelpLabel" type="Label" parent="Hud/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "LMB: Paint | RMB: Erase | Tab: Tool | Q/E: Param | R/F: Level | [ ]: Brush | Ctrl+S: Save | Esc: Quit"
