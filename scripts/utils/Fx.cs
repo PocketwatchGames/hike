@@ -23,12 +23,9 @@ public partial class Fx : Node3D
 	bool _stopping;
 
 	// Live counts of Fx, AudioStreamPlayer3D, and GpuParticles3D currently in
-	// the world. Surface as Godot custom monitors below ("hike/fx/active",
-	// "hike/fx/active_audio", "hike/fx/active_particles") so the F3 overlay
-	// and the editor's Monitors tab show how many are alive at any moment.
-	// At 30fps with a footstep / idle-sound suspicion the question is
-	// usually "are we leaking" or "is the steady-state count higher than
-	// expected" — these monitors answer it directly.
+	// the world. Surfaced as Godot custom monitors below ("hike/fx/active",
+	// "hike/fx/active_audio", "hike/fx/active_particles") for the F3 overlay
+	// and the editor's Monitors tab.
 	private static int _activeFx;
 	private static int _activeAudio;
 	private static int _activeParticles;

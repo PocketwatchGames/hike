@@ -8,11 +8,6 @@ using System.Collections.Generic;
 // subtract each entry's weight in turn, and return the entry that drives the
 // running total to <= 0. ChooseAndRemove additionally drops the drawn entry,
 // giving sampling without replacement.
-//
-// Reusable: Clear() empties it without releasing the backing buffer, so a hot
-// loop can keep one instance and refill it per iteration instead of allocating
-// (see ChunkDetailScatter and WorldGen's prop scatter). Not a Godot Resource —
-// authored weighted data lives in WeightedScene, DetailEntry, etc.
 public class WeightedList<T>
 {
     private struct Entry
