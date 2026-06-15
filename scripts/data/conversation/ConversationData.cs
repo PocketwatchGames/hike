@@ -5,8 +5,7 @@ using Godot.Collections;
 // response groups alternate as nodes. A branch types its lines, then
 // hands off to its exitGroup; the player picks a response from the
 // group, which transitions to a new branch; and so on. Both node types
-// are referenced by name within this resource, so a future flowchart
-// editor can lay out the graph from `branches` + `responseGroups` alone.
+// are referenced by name within this resource.
 //
 // Flow:
 //   1. On conversation start, walk `entryBranches` in order. The first

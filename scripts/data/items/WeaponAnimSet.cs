@@ -4,8 +4,7 @@ using Godot.Collections;
 // A named set of animation bindings for one loadout. Two roles, same type:
 //
 //   - The BASE (unarmed) set — referenced by PlayerData.baseAnims — authors every
-//     slot the player can play. It is the single source of truth that used to live
-//     inline on PlayerData.
+//     slot the player can play. It is the single source of truth for the player.
 //   - Per-weapon override sets — referenced by WeaponData.animSet — author only the
 //     slots that weapon changes (its idle / run / charge poses / attacks / block).
 //     Any slot absent here falls back to the base set.

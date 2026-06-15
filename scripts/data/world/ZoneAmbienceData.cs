@@ -8,10 +8,6 @@ using Godot;
 // Layer arrays are sets, not slots — a zone can have any number of
 // each kind, and overlapping layers add. A null entry in any array is
 // safely ignored.
-//
-// Positional emitter palette is held here for step 6 (chunk-ambience
-// spawner); referenced now so the data shape is stable for zone
-// authoring.
 [GlobalClass]
 public partial class ZoneAmbienceData : Resource
 {

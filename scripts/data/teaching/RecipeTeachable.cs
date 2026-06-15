@@ -6,7 +6,7 @@ using Godot;
 // reads with its real name instead of "Unknown Food".
 //
 // Standard and high-quality variants of a dish are separate RecipeData
-// files in the new model, so a "scroll of grilled kun kun" teaches the
+// files, so a "scroll of grilled kun kun" teaches the
 // standard recipe; a hypothetical "scroll of succulent grilled kun kun"
 // would teach the high-quality recipe (with range=0 ingredients). Each
 // scroll points at exactly one recipe — no per-tier flag.

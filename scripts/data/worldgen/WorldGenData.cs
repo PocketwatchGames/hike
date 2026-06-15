@@ -53,12 +53,10 @@ public partial class WorldGenData : Resource
     [Export] public int CaveMinHeight = 3;
     [Export] public int DirtDepth = 3;
 
-    // Door / signpost / spike-trap scenes still live world-wide because they
+    // Door / signpost / spike-trap scenes live world-wide because they
     // aren't placed via the per-zone SpawnListData scan. Doors are placed by
     // the room-shell pass; signposts are one-per-quadrant; spike traps are
-    // editor-placed. Torch / campfire / chest / poison-chest scenes used to
-    // live here too — they moved into per-zone CaveEntities/SurfaceEntities
-    // (TorchSpawnEntry, CampfireSpawnEntry, ChestSpawnEntry).
+    // editor-placed.
     [Export] public PackedScene DoorScene;
     [Export] public PackedScene SpikeTrapScene;
     [Export] public PackedScene SignpostScene;

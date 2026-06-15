@@ -12,10 +12,6 @@ using Godot.Collections;
 // keeps the visible set stable regardless of which path the player took
 // to reach the group, instead of fluctuating with whatever lines the most
 // recent branch happened to contain.
-//
-// Maps cleanly onto a future bipartite flowchart editor: branches and
-// response groups are the two node types; edges go branch→group via
-// `Branch.exitGroup` and group→branch via `Response.destination`.
 [GlobalClass]
 public partial class ConversationResponseGroup : Resource
 {

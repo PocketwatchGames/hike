@@ -87,15 +87,12 @@ public partial class DamageData : Resource
 	// applyTrigger). Decay and clear-on-apply behavior live on the
 	// StatusEffectData itself, so the same buildup contribution behaves
 	// consistently across every DamageData that feeds the same effect.
-	// Replaces the legacy `stun` field — dizzy is now a normal status effect
-	// fed by buildup like any other.
 	[Export] public Godot.Collections.Array<StatusEffectBuildup> buildups;
 
 	// Conditional partial-override layers. Each modifier carries a trigger
 	// (OnCrit, OnDizzy, …) and a flag mask selecting which fields it touches;
 	// the receiver folds matching modifiers onto the live HitInfo at apply
-	// time. Replaces the old `critDamageData` / `knockbackDistanceOnStun`
-	// fields with a single extensible list.
+	// time.
 	[Export] public Godot.Collections.Array<DamageDataModifier> modifiers;
 
 	// Marks this hit template as a per-frame damage tick (DamageZone with a

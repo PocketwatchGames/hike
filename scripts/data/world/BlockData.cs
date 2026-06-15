@@ -1,10 +1,8 @@
 using Godot;
 
 // Per-block authored data: one BlockData represents one named tile group in
-// voxel_tiles.png (e.g. "Stone", "GrassTop", "DesertSand"). Replaces the flat
-// VoxelTypeInfo.TILE_* int constants + the parallel TileVariants dict +
-// MinimapTileColors named fields, so all per-block knobs live on one
-// inspector-pickable resource.
+// voxel_tiles.png (e.g. "Stone", "GrassTop", "DesertSand"). All per-block
+// knobs live on one inspector-pickable resource.
 //
 // AtlasBaseIndex is still the wire id at the storage/shader seam — the
 // per-voxel OverlayId byte and the shader's tile_variants[64] uniform are
@@ -24,9 +22,9 @@ public partial class BlockData : Resource
     [Export] public StringName BlockName;
 
     // The atlas layer in voxel_tiles.png / voxel_tiles_nrm_height.png belonging
-    // to this block. Each block is exactly one layer (the elevation-band /
-    // variant system was removed). Stable wire id — the per-voxel OverlayId byte
-    // is this index. When adding a block, append the next free index.
+    // to this block. Each block is exactly one layer. Stable wire id — the
+    // per-voxel OverlayId byte is this index. When adding a block, append the
+    // next free index.
     [Export] public int AtlasBaseIndex;
 
     // Flat-shaded color for this block on the minimap.

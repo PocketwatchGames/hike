@@ -12,7 +12,7 @@ using Godot.Collections;
 public partial class ItemAction : Resource
 {
 	// UI label shown in the inventory info panel and (later) the charge-tier
-	// HUD. Free-text per tier so weapons can name their tiers in flavor terms
+	// HUD. Per tier so weapons can name their tiers in flavor terms
 	// (Snap Shot / Rain of Arrows / Heavy Bash) rather than relying on a
 	// shared enum. Empty falls back to a generic "Action N" label.
 	[Export] public StringName displayName = "";

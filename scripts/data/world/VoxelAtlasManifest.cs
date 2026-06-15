@@ -11,8 +11,7 @@ using Godot;
 // ChunkMesh loads the baked voxel_tiles.png Texture2DArray, never this manifest
 // or the heavy source maps it points at. The headless mirror
 // tools/stitch_voxel_atlas.py parses THIS .tres, so the Python/CI path and the
-// editor button share one layer list (replacing the old duplicated LAYERS lists
-// in the Python tool and the GDScript editor plugin).
+// editor button share one layer list.
 //
 // When adding a layer: append an AtlasLayer with the next AtlasBaseIndex, then
 // bump slices/vertical in BOTH voxel_tiles.png.import and

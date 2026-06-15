@@ -5,12 +5,6 @@ using Godot;
 // colors, but the *weather* (cloud cover, wind, rain, etc.) blowing
 // across them stays the same. See WeatherDerivation for the full map
 // of (zone × weather × time-of-day) → visual output.
-//
-// For now this also owns a nested WeatherData so the 4-quadrant
-// bootstrap treats each quadrant as its own weather "biome". When
-// dynamic weather is added later, the nested weather becomes the
-// climate BASELINE and a global weather system layers on top
-// (e.g. a passing storm modulates cloudCover across all zones).
 [GlobalClass]
 public partial class ZoneData : Resource
 {

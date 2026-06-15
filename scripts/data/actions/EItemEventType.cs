@@ -91,5 +91,4 @@ public enum EItemEventType
 	// on the summoner's (zero-duration) Active timeline so the full-charge
 	// auto-activate fires it. See ItemEventHandlers.DoSummonMinion.
 	SummonMinion = 1 << 19,
-	// Reserved (later): SpawnParticle, StopParticle.
 }

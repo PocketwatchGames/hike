@@ -14,10 +14,8 @@ using Godot;
 // so an OpenShop action that closes the conversation will suppress the
 // unread branch or chooser entirely.
 //
-// Subclasses live in scripts/data/conversation/actions/ (e.g. OpenShopAction,
-// GiveItemsAction, SetFlagAction). The runtime calls Execute once per
-// traversal; idempotency / repeat-suppression is the subclass's
-// responsibility.
+// The runtime calls Execute once per traversal; idempotency /
+// repeat-suppression is the subclass's responsibility.
 [GlobalClass]
 public partial class ConversationAction : Resource
 {

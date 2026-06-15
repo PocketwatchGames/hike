@@ -26,10 +26,7 @@ public partial class MobSpawnEntry : SpawnEntryData
     [Export] public int ClusterCountMax = 1;
 
     // Mobs require flat terrain to keep physics from knocking them off step
-    // edges into the cliff face below — currently a diagnostic to test
-    // whether step-edge spawns are the source of "mob ended up inside a
-    // voxel"; if flat-only spawn doesn't fix the symptom, the cause is
-    // elsewhere (e.g. chunk collision not yet registered).
+    // edges into the cliff face below.
     public override bool RequireFlatTerrain => true;
 
     // Cave pockets pre-validate only the spawn column itself, so a wall-

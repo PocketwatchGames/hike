@@ -1,9 +1,6 @@
 using Godot;
 
-// Replaces the legacy ToBurrow rule:
-//   mobData.canBurrow && pawnTarget != null && distance(pawnTarget, weaponPosition) > hideRange
-// TODO: split into composable AndCondition + CanBurrowCondition + OutOfRangeCondition
-// once a second condition needs the same primitives.
+// Fires when the mob can burrow now and its target is beyond hideRange.
 [GlobalClass]
 public partial class CanBurrowAndOutOfRangeCondition : BehaviorTransitionData
 {

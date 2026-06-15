@@ -12,11 +12,6 @@ public partial class WeaponData : ItemData
 	// having to walk the profile.
 	[Export] public int maxAmmo = 0;
 
-	// Single canonical equip slot for this weapon. Ranged (ammo-bearing)
-	// weapons live in WeaponRight; melee weapons in WeaponLeft. Handedness is
-	// exclusive — a melee weapon cannot be equipped in the ranged slot or
-	// vice versa. Equip / auto-equip / select-mode swap all read this so the
-	// rule lives in one place.
 	// Single source of truth for handedness: true = this weapon equips to the
 	// right-hand (ranged) slot, false = the left-hand (melee) slot. Handedness
 	// is exclusive — equip / auto-equip / select-mode swap all read CanonicalSlot

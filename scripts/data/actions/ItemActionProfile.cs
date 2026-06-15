@@ -2,9 +2,9 @@ using Godot;
 using Godot.Collections;
 
 // Authored timeline for an item action. One profile per slot-driven verb on
-// a weapon, consumable, or interactive (phase 5). The runner consumes a
-// profile + context and runs the timeline; the input/AI/UI layer is what
-// chooses *which* profile to run.
+// a weapon, consumable, or interactive. The runner consumes a profile +
+// context and runs the timeline; the input/AI/UI layer chooses *which*
+// profile to run.
 [GlobalClass]
 public partial class ItemActionProfile : Resource
 {
@@ -39,8 +39,7 @@ public partial class ItemActionProfile : Resource
 
 	// If true and the player holds past the cumulative chargeTime of every
 	// tier on the current combo step, auto-fire the top tier (gated by its
-	// requirements when phase 4 lands). If false, the player must release
-	// to commit.
+	// requirements). If false, the player must release to commit.
 	[Export] public bool autoActivateAtMax = true;
 
 	// "Hold to completion": when true, releasing the input before the charge
@@ -61,8 +60,8 @@ public partial class ItemActionProfile : Resource
 	// by ItemAction.canInterrupt instead.
 	[Export] public bool interruptOnDamage = true;
 
-	// Phase 3 hook — the runner will queue an in-flight press if Active is
-	// within queueWindowSeconds of ending and the profile is queueable.
+	// The runner queues an in-flight press if Active is within
+	// queueWindowSeconds of ending and the profile is queueable.
 	[Export] public bool queueable = false;
 	[Export] public float queueWindowSeconds = 0.2f;
 

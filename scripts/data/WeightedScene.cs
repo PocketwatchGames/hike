@@ -5,8 +5,7 @@ using Godot;
 // Higher Weight = drawn more often, measured against the other entries in the
 // same list — the values are relative, not probabilities, so a list of
 // {2, 1, 1} picks the first scene half the time. Feed a list of these into a
-// WeightedList to draw one. Replaces the old "duplicate a scene N times to
-// weight it" idiom with an explicit number.
+// WeightedList to draw one.
 [GlobalClass]
 public partial class WeightedScene : Resource
 {
@@ -14,9 +13,8 @@ public partial class WeightedScene : Resource
     [Export] public float Weight = 1f;
 
     // Refill `list` with the non-null scenes in `entries`, keyed by their
-    // Weight. Centralizes the palette -> draw conversion shared by WorldGen's
-    // tree / tall-grass scatter and the editor's placement preview. Reuses the
-    // caller's list (cleared first) so hot scatter loops don't allocate.
+    // Weight. Reuses the caller's list (cleared first) so hot scatter loops
+    // don't allocate.
     public static void Fill(WeightedList<PackedScene> list, WeightedScene[] entries)
     {
         list.Clear();

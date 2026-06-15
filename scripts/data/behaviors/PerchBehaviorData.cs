@@ -1,8 +1,8 @@
 using Godot;
 
-// Tuning for BehaviorPerch — the grounded/resting state of a flying mob. No
-// knobs yet; the bird simply holds its perch (or stands) until a transition
-// (e.g. aggro acquired) pulls it into flight.
+// Tuning for BehaviorPerch — the grounded/resting state of a flying mob. The
+// bird holds its perch (or stands) until a transition (e.g. aggro acquired)
+// pulls it into flight.
 [GlobalClass]
 public partial class PerchBehaviorData : BehaviorData
 {

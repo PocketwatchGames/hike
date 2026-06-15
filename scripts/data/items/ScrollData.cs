@@ -32,9 +32,7 @@ public partial class ScrollData : ConsumableData
             return displayName.ToString();
         }
         // Hardcoded format — same StringName-as-display-text convention used
-        // elsewhere (RegionData / ItemData displayName comments call out the
-        // future Loc wiring). When Loc grows enough keys to be worth threading
-        // through here, swap this for Loc.Format(Loc.Keys.scroll_of, conceptName).
+        // elsewhere (RegionData / ItemData displayName).
         return $"Scroll of {conceptName}";
     }
 }
