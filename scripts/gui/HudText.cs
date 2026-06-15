@@ -53,7 +53,6 @@ public partial class HudText : Control
 		Position = screenPos + new Vector2(0, -verticalMovement * Mathf.Pow(t, 2));
 	}
 
-	// Called every frame. 'delta' is the elapsed time since the previous frame.
 	public override void _Process(double delta)
 	{
 		ulong timeMs = _world.GameTimeMs;
