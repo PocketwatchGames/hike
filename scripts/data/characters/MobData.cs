@@ -396,6 +396,13 @@ public partial class MobData : Resource
     // flicker into it.
     [Export] public float fallEnterSpeed = 1f;
     [Export] public float fallGraceTime = 0.4f;
+    // Wind pickup factor in [0, 1] while airborne — parallels PlayerData.
+    // windDragXZ. The drift target a falling mob is nudged toward each tick is
+    // (sampled wind velocity) × windDragXZ, so a mob in 15 m/s wind drifts
+    // toward 15 × windDragXZ m/s. Zero leaves falls perfectly vertical.
+    // Doubles as the per-(m/s) head/tailwind coefficient on flier cruise speed
+    // (see windFlySpeedCap).
+    [Export(PropertyHint.Range, "0,1,0.005")] public float windDragXZ = 0.075f;
     // Continuous movement noise this mob emits. Mapped from current speed:
     // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
     // Listeners (player + other mobs) check `decibels * hearingRange >
@@ -522,6 +529,13 @@ public partial class MobData : Resource
     // local wind velocity blended into the bird's desired velocity. 0 = wind
     // ignored, 1 = fully carried by the wind, >1 = exaggerated (kite-like).
     [Export(PropertyHint.Range, "0,2,0.05")] public float windInfluence = 0.5f;
+    // Head/tailwind modulation of cruise speed, layered on top of windInfluence.
+    // The component of wind ALONG the flight heading (dot of desired direction
+    // and the local wind) scales flySpeed by windDragXZ per m/s: a tailwind
+    // speeds the bird up, a headwind slows it down. windFlySpeedCap clamps that
+    // fractional contribution symmetrically, so at the default 0.5 a bird tops
+    // out at +50% with the wind and is floored at 50% slower straight into it.
+    [Export(PropertyHint.Range, "0,1,0.05")] public float windFlySpeedCap = 0.5f;
     // Voxels of terrain look-ahead along the flight direction: the target
     // altitude is lifted to clear the highest surface within this distance so
     // the bird rises over hills ahead instead of skimming into them.

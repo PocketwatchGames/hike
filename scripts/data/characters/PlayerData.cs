@@ -83,7 +83,7 @@ public partial class PlayerData : Resource
 	// is the asymptote of airDragXZ in the wind-relative frame. So a
 	// stationary airborne player in 15 m/s wind drifts toward 15 ×
 	// windDragXZ m/s. Mirrors waterCurrentDrag for water currents.
-	[Export] public float windDragXZ = 0.3f;
+	[Export] public float windDragXZ = 0.075f;
 	[Export] public float jumpSpeed = 18f;
 	[Export] public float jumpHoldGravityScale = 0.65f;
 
