@@ -25,8 +25,7 @@ public struct AmbienceState
     // Rough count of foliage instances (props + detail sprites) within
     // the listener's sample radius, normalized to [0, 1] against a
     // saturation cap. Multiplied by WindSpeed at the layer to produce
-    // rustle volume. Set by the density-sampling pass (step 5) — left
-    // at 0 until that lands.
+    // rustle volume. Set by the density-sampling pass.
     public float FoliageDensity;
 
     // Fraction of voxels in the listener's sample radius that are water,

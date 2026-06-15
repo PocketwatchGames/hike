@@ -3,9 +3,7 @@ using Godot;
 // Per-frame consumer of AmbienceState — pushes Reverb + LowPass parameters
 // to the ReverbSend bus so positional audio takes on the listener's room
 // character without each emitter doing anything special. Single bus,
-// parameter-tweened, instead of swapping presets — when transitions
-// sound swimmy we'd split into two parallel buses and crossfade between
-// them, but the cheap path is good enough for the first cut.
+// parameter-tweened, rather than swapping presets.
 //
 // All emitters under the World3D bus get processed; emitters under
 // Ambience2D bypass this entirely (those layers are envelope-only and
