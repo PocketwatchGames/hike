@@ -346,7 +346,11 @@ public partial class AimingReticle : Node3D
 
 		if (active)
 		{
-			float targetAlpha = IsRangedWeaponOnCooldown() ? _cooldownAlphaScale : 1f;
+			// On cooldown OR out of ammo → "not ready": keep the cursor tracking
+			// (ammo recharges over time, so the player pre-aims the next shot) but
+			// dim the reticle so it reads as unavailable rather than vanishing.
+			bool notReady = IsRangedWeaponOnCooldown() || IsRangedWeaponOutOfAmmo();
+			float targetAlpha = notReady ? _cooldownAlphaScale : 1f;
 			_currentAlpha = Mathf.MoveToward(_currentAlpha, targetAlpha, step);
 			UpdateReticle(dt);
 			// Actively aiming counts as activity — hold the persistence timer full.
@@ -453,19 +457,18 @@ public partial class AimingReticle : Node3D
 		_endYValid = false;
 	}
 
-	// Mirrors the gate Player uses in TryStartWeaponAction, minus the cooldown:
-	// a weapon must be equipped with an action profile, have ammo if it consumes
-	// any, and the action runner must not be running a DIFFERENT slot's action
-	// (charging the bow itself is fine — that's the reticle's whole point of
-	// existing during charge). Cooldown is checked separately (IsRangedWeaponOnCooldown)
-	// so the reticle can stay visible-but-dimmed through a cooldown instead of
-	// vanishing the moment a shot fires.
+	// Mirrors the gate Player uses in TryStartWeaponAction, minus cooldown AND
+	// ammo: a weapon must be equipped with an action profile, and the action
+	// runner must not be running a DIFFERENT slot's action (charging the bow
+	// itself is fine — that's the reticle's whole point of existing during
+	// charge). Cooldown (IsRangedWeaponOnCooldown) and ammo (IsRangedWeaponOutOfAmmo)
+	// are checked separately so the reticle stays visible-but-dimmed through both
+	// — ammo recharges over time, so the player keeps pre-aiming the next shot.
 	bool IsRangedWeaponEquipped()
 	{
 		if (_player?.Inventory == null) { return false; }
 		WeaponState weapon = _player.Inventory.GetWeapon(EInventorySlot.WeaponRight);
 		if (weapon?.data?.actionProfile == null) { return false; }
-		if (weapon.data.maxAmmo > 0 && weapon.ammo <= 0) { return false; }
 		ActionRunner runner = _player.Runner;
 		if (runner != null && runner.IsBusy && runner.Current.context.sourceSlot != EInventorySlot.WeaponRight)
 		{
@@ -480,6 +483,15 @@ public partial class AimingReticle : Node3D
 	{
 		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
 		return weapon != null && weapon.cooldownExpireMs > _player.GameTimeMs;
+	}
+
+	// True when the equipped ammo-consuming weapon is empty. Like cooldown, the
+	// reticle dims rather than hiding so the player can pre-aim while ammo
+	// recharges.
+	bool IsRangedWeaponOutOfAmmo()
+	{
+		WeaponState weapon = _player?.Inventory?.GetWeapon(EInventorySlot.WeaponRight);
+		return weapon?.data != null && weapon.data.maxAmmo > 0 && weapon.ammo <= 0;
 	}
 
 	// Fresh active update: resolve aim type → update cursor + cached state → render.
