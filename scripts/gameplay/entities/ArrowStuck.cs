@@ -56,15 +56,15 @@ public partial class ArrowStuck : Node3D, IWeaponArrow
         stuck.GlobalPosition = worldHitPos;
 
         // Embedded arrows use the same 3D model the in-flight Projectile fired
-        // (arrow data's worldModel → scenes/projectiles/arrow_model.tscn), so
+        // (arrow data's stuckModel → scenes/projectiles/arrow_model.tscn), so
         // the arrow stuck in the mob reads as the object that was shot rather
         // than the flat worldSprite billboard. Loose ground arrows keep the
         // sprite (Loot), so only this embedded case carries the model. Orient
         // it along the shot's travel direction the same way Projectile.Launch
         // aims the in-flight visual (LookAt points local -Z down the flight).
-        if (data.worldModel != null)
+        if (data.stuckModel != null)
         {
-            Node3D model = data.worldModel.Instantiate<Node3D>();
+            Node3D model = data.stuckModel.Instantiate<Node3D>();
             stuck.AddChild(model);
             if (hitDirection.LengthSquared() > 1e-6f)
             {

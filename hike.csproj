@@ -49,7 +49,7 @@
   <!-- Verifies scripting-variable references at build time so a typo'd or
        unregistered variable name surfaces as a warning during authoring.
        Non-blocking (ContinueOnError) so half-authored content never fails a
-       build/playtest; run `dotnet run --project tools/validate_script_vars`
+       build/playtest; run `dotnet run [dash dash]project tools/validate_script_vars`
        directly for a gate. -->
   <Target Name="ValidateScriptVars" BeforeTargets="CoreCompile">
     <Exec Command="dotnet run --project tools/validate_script_vars" ContinueOnError="true" />

@@ -9,4 +9,4 @@ script = ExtResource("1_arrow_data")
 removeTimeMs = 0
 displayName = &"Arrow"
 inventorySprite = ExtResource("1_mw5lv")
-worldModel = ExtResource("4_model")
+stuckModel = ExtResource("4_model")

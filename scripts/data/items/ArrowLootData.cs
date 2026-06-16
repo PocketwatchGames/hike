@@ -16,6 +16,8 @@ public partial class ArrowLootData : LootData
     // exact object that was fired rather than the flat worldSprite billboard.
     // Loose arrows that drop to the ground stay on worldSprite for parity with
     // every other Loot pickup; only the embedded case uses the model. Null
-    // falls back to the worldSprite billboard.
-    [Export] public PackedScene worldModel;
+    // falls back to the worldSprite billboard. Distinct from the inherited
+    // LootData.worldModel (the on-ground mesh) — an embedded arrow is not the
+    // same visual as a dropped one, so it gets its own slot.
+    [Export] public PackedScene stuckModel;
 }

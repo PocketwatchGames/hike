@@ -1352,12 +1352,12 @@ public static class ItemEventHandlers
 		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
 		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,
 		// and the Knockback mod adds shove + stagger to the hit.
-		if (action.context.primaryItem is WeaponState weapon)
+		if (action.context.primaryItem is WeaponState weapon2)
 		{
-			int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
-			hit.AddStatusEffects(weapon.statusEffects.WeaponModOnHitStatusEffects(chargeIndex));
-			hit.knockbackDistance += weapon.statusEffects.WeaponModKnockbackBonus(chargeIndex);
-			hit.knockbackTime += weapon.statusEffects.WeaponModKnockbackTimeBonus(chargeIndex);
+			int chargeIndex = FindChargeIndex(weapon2, action.selectedTier);
+			hit.AddStatusEffects(weapon2.statusEffects.WeaponModOnHitStatusEffects(chargeIndex));
+			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(chargeIndex);
+			hit.knockbackTime += weapon2.statusEffects.WeaponModKnockbackTimeBonus(chargeIndex);
 		}
 		return hit;
 	}
