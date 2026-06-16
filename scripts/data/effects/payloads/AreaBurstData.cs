@@ -3,6 +3,8 @@ using Godot;
 // A one-shot AoE burst a status effect fires off the carrying actor — used for both
 // the on-attack-impact burst (StatusEffectData.attackImpact) and the on-dash burst
 // (dashBurst, which the controller applies with radial knockback).
+// [Tool] so the editor can bind it under its [Tool] parent StatusEffectData.
+[Tool]
 [GlobalClass]
 public partial class AreaBurstData : Resource
 {

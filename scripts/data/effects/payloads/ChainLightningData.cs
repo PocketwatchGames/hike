@@ -6,6 +6,8 @@ using Godot;
 // alike. Wet targets take the bonus automatically through the receiver's
 // tag-resistance fold (status_wet's Electrical modifier). See
 // ItemEventHandlers.ApplyChainLightning.
+// [Tool] so the editor can bind it under its [Tool] parent StatusEffectData.
+[Tool]
 [GlobalClass]
 public partial class ChainLightningData : Resource
 {

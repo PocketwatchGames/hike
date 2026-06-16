@@ -2,6 +2,8 @@ using Godot;
 
 // Per-second health change a status effect drips while active, ticked in 1s chunks
 // by StatusEffectController.Tick. Null on StatusEffectData.dot = none.
+// [Tool] so the editor can bind it under its [Tool] parent StatusEffectData.
+[Tool]
 [GlobalClass]
 public partial class DamageOverTimeData : Resource
 {

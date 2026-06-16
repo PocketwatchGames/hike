@@ -15,6 +15,10 @@ public enum EAffixPosition
 // weapon (see ItemDescriptor / LootSpawnEntry), not an actor. New weapon-mod fields go
 // here, not on StatusEffectData; group co-dependent ones into a nested sub-resource and
 // independent ones with an [ExportGroup].
+// [Tool] so the editor can instantiate it as its real type when its [Tool] parent
+// StatusEffectData binds the weaponMod property — otherwise the editor loads it as a
+// base Resource and the parent's typed setter throws / leaves the field empty.
+[Tool]
 [GlobalClass]
 public partial class WeaponModData : Resource
 {
