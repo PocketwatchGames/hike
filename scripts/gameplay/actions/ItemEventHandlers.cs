@@ -602,12 +602,17 @@ public static class ItemEventHandlers
 		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
 		// it deals health damage, healing the firer back.
 		float lifestealFraction = 0f;
+		// On-hit enchants (a Flaming bow's Burning) the shot applies to each
+		// creature it strikes. The projectile rebuilds its HitInfo from the raw
+		// DamageData, so these are passed in rather than riding the ResolveHit hit.
+		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null;
 		if (firingWeapon != null)
 		{
 			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
 			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
+			onHitStatusEffects = firingWeapon.statusEffects.WeaponModOnHitStatusEffects(firingChargeIndex);
 		}
 
 		// "Fragile" weapon mod: a projectile that would normally bounce and wait
@@ -645,7 +650,8 @@ public static class ItemEventHandlers
 			bounciness,
 			friction,
 			pierceCount,
-			lifestealFraction);
+			lifestealFraction,
+			onHitStatusEffects);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
@@ -1223,6 +1229,12 @@ public static class ItemEventHandlers
 		if (mul != 1f)
 		{
 			hit.healthDamage *= mul;
+		}
+		// Weapon-mod on-hit enchants (a Flaming weapon's Burning) ride on top of
+		// the template's own statusEffects, scope-filtered to the firing tier.
+		if (action.context.primaryItem is WeaponState weapon)
+		{
+			hit.AddStatusEffects(weapon.statusEffects.WeaponModOnHitStatusEffects(FindChargeIndex(weapon, action.selectedTier)));
 		}
 		return hit;
 	}

@@ -107,6 +107,9 @@ public partial class Projectile : Node3D
 	// (_source) as healing. Composed at fire time from the weapon's vampiric mods.
 	// 0 = no lifesteal.
 	private float _lifestealFraction;
+	// On-hit status effects (weapon-mod enchants like Burning) appended to every
+	// creature this shot strikes. Null when the shot carries no enchant.
+	private Godot.Collections.Array<StatusEffectData> _onHitStatusEffects;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -137,7 +140,8 @@ public partial class Projectile : Node3D
 		float bounciness = 0f,
 		float friction = 0f,
 		int pierceCount = 0,
-		float lifestealFraction = 0f)
+		float lifestealFraction = 0f,
+		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -146,6 +150,7 @@ public partial class Projectile : Node3D
 		var inst = scene.Instantiate<Projectile>();
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
 		inst._lifestealFraction = lifestealFraction;
+		inst._onHitStatusEffects = onHitStatusEffects;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -295,6 +300,9 @@ public partial class Projectile : Node3D
 					{
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
+						// Weapon-mod on-hit enchants (Burning) the shot carries, on
+						// top of the DamageData's own statusEffects.
+						hit.AddStatusEffects(_onHitStatusEffects);
 						// Team skip via the receiver's filter: an allied hurtbox is
 						// added to the exclude list and the projectile keeps flying.
 						// Falls through to the env-clip / continue branches below.

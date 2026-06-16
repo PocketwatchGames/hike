@@ -160,6 +160,30 @@ public class StatusEffectController
 		return max;
 	}
 
+	// Status effects every active weapon mod reaching charge tier `chargeIndex`
+	// appends to the struck target on hit (a Flaming weapon's Burning, etc.).
+	// Returns null when no reaching mod authors any, so the common no-mod hot
+	// path allocates nothing.
+	public Godot.Collections.Array<StatusEffectData> WeaponModOnHitStatusEffects(int chargeIndex)
+	{
+		Godot.Collections.Array<StatusEffectData> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			Godot.Collections.Array<StatusEffectData> onHit = s?.data?.weaponMod?.onHitStatusEffects;
+			if (onHit == null || onHit.Count == 0 || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<StatusEffectData>();
+			for (int j = 0; j < onHit.Count; j++)
+			{
+				result.Add(onHit[j]);
+			}
+		}
+		return result;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches

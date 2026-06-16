@@ -20,4 +20,11 @@ public partial class WeaponModData : Resource
 	// attacker as healing (lifesteal). The "Vampiric" mod. 0 = no lifesteal.
 	[ExportGroup("Lifesteal")]
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vampiric = 0f;
+
+	// Status effects every landed attack appends to the struck target, on top of
+	// whatever the weapon's own DamageData authors. The "Flaming" mod (→ Burning)
+	// lives here. Folded into the outgoing hit by ResolveHit / the projectile path
+	// the same way DamageData.statusEffects is.
+	[ExportGroup("On-Hit Effects")]
+	[Export] public Godot.Collections.Array<StatusEffectData> onHitStatusEffects;
 }
