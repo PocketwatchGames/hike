@@ -27,4 +27,15 @@ public partial class WeaponModData : Resource
 	// the same way DamageData.statusEffects is.
 	[ExportGroup("On-Hit Effects")]
 	[Export] public Godot.Collections.Array<StatusEffectData> onHitStatusEffects;
+
+	// Extra knockback every landed attack imparts, on top of the weapon's own
+	// DamageData. The "Knockback" mod. Added (summed across reaching mods) to the
+	// outgoing hit's knockbackDistance; the hit direction is the attacker's facing
+	// (set by ResolveHit / the projectile's flight), so the shove goes the right way.
+	[ExportGroup("Knockback")]
+	[Export(PropertyHint.Range, "0,20,0.5,or_greater")] public float knockbackBonus = 0f;
+
+	// Extra stagger/lockout seconds added alongside knockbackBonus. 0 = shove the
+	// target without lengthening its knockback lockout window.
+	[Export(PropertyHint.Range, "0,2,0.05,or_greater")] public float knockbackTimeBonus = 0f;
 }

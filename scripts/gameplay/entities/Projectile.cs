@@ -113,6 +113,9 @@ public partial class Projectile : Node3D
 	// Chain-lightning mods (Shocking bow) that discharge from each creature this
 	// shot strikes. Null when the shot carries none.
 	private Godot.Collections.Array<ChainLightningData> _chainLightning;
+	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
+	private float _knockbackBonus;
+	private float _knockbackTimeBonus;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -145,7 +148,9 @@ public partial class Projectile : Node3D
 		int pierceCount = 0,
 		float lifestealFraction = 0f,
 		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null,
-		Godot.Collections.Array<ChainLightningData> chainLightning = null)
+		Godot.Collections.Array<ChainLightningData> chainLightning = null,
+		float knockbackBonus = 0f,
+		float knockbackTimeBonus = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -156,6 +161,8 @@ public partial class Projectile : Node3D
 		inst._lifestealFraction = lifestealFraction;
 		inst._onHitStatusEffects = onHitStatusEffects;
 		inst._chainLightning = chainLightning;
+		inst._knockbackBonus = knockbackBonus;
+		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -308,6 +315,11 @@ public partial class Projectile : Node3D
 						// Weapon-mod on-hit enchants (Burning) the shot carries, on
 						// top of the DamageData's own statusEffects.
 						hit.AddStatusEffects(_onHitStatusEffects);
+						// Knockback mod — extra shove + stagger. The shot's flight
+						// direction is already the hit direction, so the push aligns
+						// with the arrow's travel.
+						hit.knockbackDistance += _knockbackBonus;
+						hit.knockbackTime += _knockbackTimeBonus;
 						// Team skip via the receiver's filter: an allied hurtbox is
 						// added to the exclude list and the projectile keeps flying.
 						// Falls through to the env-clip / continue branches below.

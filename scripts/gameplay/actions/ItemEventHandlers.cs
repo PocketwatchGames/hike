@@ -716,6 +716,9 @@ public static class ItemEventHandlers
 		// Chain-lightning mods (Shocking bow) discharge from each creature the
 		// shot strikes.
 		Godot.Collections.Array<ChainLightningData> chainLightning = null;
+		// Knockback mod — extra shove + stagger added to each hit.
+		float knockbackBonus = 0f;
+		float knockbackTimeBonus = 0f;
 		if (firingWeapon != null)
 		{
 			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
@@ -724,6 +727,8 @@ public static class ItemEventHandlers
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
 			onHitStatusEffects = firingWeapon.statusEffects.WeaponModOnHitStatusEffects(firingChargeIndex);
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
+			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
+			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingChargeIndex);
 		}
 
 		// "Fragile" weapon mod: a projectile that would normally bounce and wait
@@ -763,7 +768,9 @@ public static class ItemEventHandlers
 			pierceCount,
 			lifestealFraction,
 			onHitStatusEffects,
-			chainLightning);
+			chainLightning,
+			knockbackBonus,
+			knockbackTimeBonus);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
@@ -1342,11 +1349,15 @@ public static class ItemEventHandlers
 		{
 			hit.healthDamage *= mul;
 		}
-		// Weapon-mod on-hit enchants (a Flaming weapon's Burning) ride on top of
-		// the template's own statusEffects, scope-filtered to the firing tier.
+		// Weapon-mod payloads scope-filtered to the firing tier: on-hit enchants
+		// (a Flaming weapon's Burning) ride on top of the template's statusEffects,
+		// and the Knockback mod adds shove + stagger to the hit.
 		if (action.context.primaryItem is WeaponState weapon)
 		{
-			hit.AddStatusEffects(weapon.statusEffects.WeaponModOnHitStatusEffects(FindChargeIndex(weapon, action.selectedTier)));
+			int chargeIndex = FindChargeIndex(weapon, action.selectedTier);
+			hit.AddStatusEffects(weapon.statusEffects.WeaponModOnHitStatusEffects(chargeIndex));
+			hit.knockbackDistance += weapon.statusEffects.WeaponModKnockbackBonus(chargeIndex);
+			hit.knockbackTime += weapon.statusEffects.WeaponModKnockbackTimeBonus(chargeIndex);
 		}
 		return hit;
 	}

@@ -204,6 +204,41 @@ public class StatusEffectController
 		return result;
 	}
 
+	// Summed extra knockback distance (m/s) from active weapon mods reaching
+	// charge tier `chargeIndex` (the Knockback mod); the melee/hitscan/projectile
+	// paths add it to the hit's knockbackDistance. 0 if none reach.
+	public float WeaponModKnockbackBonus(int chargeIndex)
+	{
+		float sum = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.knockbackBonus != 0f && ModReachesCharge(s, chargeIndex))
+			{
+				sum += mod.knockbackBonus;
+			}
+		}
+		return sum;
+	}
+
+	// Summed extra knockback lockout (seconds) from active weapon mods reaching
+	// charge tier `chargeIndex`; added to the hit's knockbackTime. 0 if none reach.
+	public float WeaponModKnockbackTimeBonus(int chargeIndex)
+	{
+		float sum = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.knockbackTimeBonus != 0f && ModReachesCharge(s, chargeIndex))
+			{
+				sum += mod.knockbackTimeBonus;
+			}
+		}
+		return sum;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches
