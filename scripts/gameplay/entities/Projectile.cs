@@ -103,6 +103,10 @@ public partial class Projectile : Node3D
 	// isn't hit twice); a hit while it's 0 ends the projectile. 0 = a normal
 	// single-target shot that stops on the first creature.
 	private int _pierceRemaining;
+	// Fraction of the health damage this shot deals that is returned to the firer
+	// (_source) as healing. Composed at fire time from the weapon's vampiric mods.
+	// 0 = no lifesteal.
+	private float _lifestealFraction;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -132,7 +136,8 @@ public partial class Projectile : Node3D
 		bool bounce = false,
 		float bounciness = 0f,
 		float friction = 0f,
-		int pierceCount = 0)
+		int pierceCount = 0,
+		float lifestealFraction = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -140,6 +145,7 @@ public partial class Projectile : Node3D
 		}
 		var inst = scene.Instantiate<Projectile>();
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
+		inst._lifestealFraction = lifestealFraction;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -313,6 +319,9 @@ public partial class Projectile : Node3D
 							_hurtBoxExclude = new Godot.Collections.Array<Rid>();
 						}
 						_hurtBoxExclude.Add(hurtBox.GetRid());
+						// Lifesteal leeches off every creature the shot wounds —
+						// both the terminal hit and each pierce-through.
+						ApplyLifesteal(hitResult, hit.healthDamage);
 						if (_pierceRemaining <= 0)
 						{
 							// No pierce budget left — this hit ends the shot (impact
@@ -358,6 +367,27 @@ public partial class Projectile : Node3D
 		if (_ageSeconds >= _maxLifetimeSeconds)
 		{
 			Despawn(EHitResult.None, EDamageTriggerFlags.None, null, GlobalPosition);
+		}
+	}
+
+	// Heal the firing actor by the composed vampiric fraction of the health
+	// damage this shot deals. Health/Lethal hits only — armor pings and prop
+	// hits don't leech. No-op when the shot carries no vampiric mod or the firer
+	// is gone; _source is the actor's AttackerNode, which is the IActionActor
+	// itself for both Player and Mob.
+	private void ApplyLifesteal(EHitResult result, float healthDamage)
+	{
+		if (_lifestealFraction <= 0f || healthDamage <= 0f)
+		{
+			return;
+		}
+		if (result != EHitResult.Health && result != EHitResult.Lethal)
+		{
+			return;
+		}
+		if (GodotObject.IsInstanceValid(_source) && _source is IActionActor actor)
+		{
+			actor.Heal(healthDamage * _lifestealFraction);
 		}
 	}
 

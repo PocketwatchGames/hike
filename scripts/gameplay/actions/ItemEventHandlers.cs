@@ -599,11 +599,15 @@ public static class ItemEventHandlers
 		// tier (resolved by position in the weapon's action profile).
 		int pierceCount = Mathf.Max(0, ev.pierceCount);
 		bool detonateOnContact = false;
+		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
+		// it deals health damage, healing the firer back.
+		float lifestealFraction = 0f;
 		if (firingWeapon != null)
 		{
 			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
 			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
+			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
 		}
 
 		// "Fragile" weapon mod: a projectile that would normally bounce and wait
@@ -640,7 +644,8 @@ public static class ItemEventHandlers
 			bounce,
 			bounciness,
 			friction,
-			pierceCount);
+			pierceCount,
+			lifestealFraction);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
