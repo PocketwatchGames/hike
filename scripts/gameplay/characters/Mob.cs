@@ -3119,6 +3119,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
     public void RemoveStatusEffectsByTagMask(EStat mask) => _statusEffects.RemoveByTagMask(mask);
 
+    // IActionActor — restore HP, clamped at maxHealth. Routes through the
+    // status-health path so a vampiric mob heal shows its floating heal number
+    // the same way a heal-over-time tick does. Heals skip armor (armorPenetration 1).
+    public void Heal(float amount)
+    {
+        if (amount <= 0f || !alive)
+        {
+            return;
+        }
+        ApplyStatusHealthDelta(amount, 1f);
+    }
+
     // Signed HP delta from a status-effect tick. ArmorPenetration in [0, 1] controls
     // the armor split on the damage branch — 1 (the status-effect default)
     // drops the chunk straight onto health; less than 1 routes the

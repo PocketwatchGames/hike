@@ -232,26 +232,39 @@ public struct HitInfo
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }
 			if ((f & EDamageFields.ArmorPenetration) != 0) { armorPenetration = mod.armorPenetration; }
 			if ((f & EDamageFields.Blunt) != 0) { blunt = mod.blunt; }
-			if ((f & EDamageFields.AddStatusEffects) != 0 && mod.addStatusEffects != null && mod.addStatusEffects.Count > 0)
+			if ((f & EDamageFields.AddStatusEffects) != 0)
 			{
-				if (!_statusEffectsOwned)
+				AddStatusEffects(mod.addStatusEffects);
+			}
+		}
+	}
+
+	// Append status effects to this hit (conditional-modifier adds, weapon-mod
+	// on-hit enchants like a Flaming weapon's Burning). Copies the source
+	// template's array on first write so the authored DamageData.statusEffects
+	// list is never mutated; subsequent appends reuse the owned copy.
+	public void AddStatusEffects(Godot.Collections.Array<StatusEffectData> extra)
+	{
+		if (extra == null || extra.Count == 0)
+		{
+			return;
+		}
+		if (!_statusEffectsOwned)
+		{
+			var copy = new Godot.Collections.Array<StatusEffectData>();
+			if (statusEffects != null)
+			{
+				for (int j = 0; j < statusEffects.Count; j++)
 				{
-					var copy = new Godot.Collections.Array<StatusEffectData>();
-					if (statusEffects != null)
-					{
-						for (int j = 0; j < statusEffects.Count; j++)
-						{
-							copy.Add(statusEffects[j]);
-						}
-					}
-					statusEffects = copy;
-					_statusEffectsOwned = true;
-				}
-				for (int j = 0; j < mod.addStatusEffects.Count; j++)
-				{
-					statusEffects.Add(mod.addStatusEffects[j]);
+					copy.Add(statusEffects[j]);
 				}
 			}
+			statusEffects = copy;
+			_statusEffectsOwned = true;
+		}
+		for (int j = 0; j < extra.Count; j++)
+		{
+			statusEffects.Add(extra[j]);
 		}
 	}
 }

@@ -103,6 +103,19 @@ public partial class Projectile : Node3D
 	// isn't hit twice); a hit while it's 0 ends the projectile. 0 = a normal
 	// single-target shot that stops on the first creature.
 	private int _pierceRemaining;
+	// Fraction of the health damage this shot deals that is returned to the firer
+	// (_source) as healing. Composed at fire time from the weapon's vampiric mods.
+	// 0 = no lifesteal.
+	private float _lifestealFraction;
+	// On-hit status effects (weapon-mod enchants like Burning) appended to every
+	// creature this shot strikes. Null when the shot carries no enchant.
+	private Godot.Collections.Array<StatusEffectData> _onHitStatusEffects;
+	// Chain-lightning mods (Shocking bow) that discharge from each creature this
+	// shot strikes. Null when the shot carries none.
+	private Godot.Collections.Array<ChainLightningData> _chainLightning;
+	// Knockback-mod shove (m/s) + stagger (s) added to each hit. 0 = none.
+	private float _knockbackBonus;
+	private float _knockbackTimeBonus;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -132,7 +145,12 @@ public partial class Projectile : Node3D
 		bool bounce = false,
 		float bounciness = 0f,
 		float friction = 0f,
-		int pierceCount = 0)
+		int pierceCount = 0,
+		float lifestealFraction = 0f,
+		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null,
+		Godot.Collections.Array<ChainLightningData> chainLightning = null,
+		float knockbackBonus = 0f,
+		float knockbackTimeBonus = 0f)
 	{
 		if (scene == null || parent == null)
 		{
@@ -140,6 +158,11 @@ public partial class Projectile : Node3D
 		}
 		var inst = scene.Instantiate<Projectile>();
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
+		inst._lifestealFraction = lifestealFraction;
+		inst._onHitStatusEffects = onHitStatusEffects;
+		inst._chainLightning = chainLightning;
+		inst._knockbackBonus = knockbackBonus;
+		inst._knockbackTimeBonus = knockbackTimeBonus;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -289,6 +312,14 @@ public partial class Projectile : Node3D
 					{
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
+						// Weapon-mod on-hit enchants (Burning) the shot carries, on
+						// top of the DamageData's own statusEffects.
+						hit.AddStatusEffects(_onHitStatusEffects);
+						// Knockback mod — extra shove + stagger. The shot's flight
+						// direction is already the hit direction, so the push aligns
+						// with the arrow's travel.
+						hit.knockbackDistance += _knockbackBonus;
+						hit.knockbackTime += _knockbackTimeBonus;
 						// Team skip via the receiver's filter: an allied hurtbox is
 						// added to the exclude list and the projectile keeps flying.
 						// Falls through to the env-clip / continue branches below.
@@ -313,6 +344,17 @@ public partial class Projectile : Node3D
 							_hurtBoxExclude = new Godot.Collections.Array<Rid>();
 						}
 						_hurtBoxExclude.Add(hurtBox.GetRid());
+						// Lifesteal leeches off every creature the shot wounds —
+						// both the terminal hit and each pierce-through.
+						ApplyLifesteal(hitResult, hit.healthDamage);
+						// Chain-lightning mods arc off the struck creature.
+						if (_chainLightning != null && GodotObject.IsInstanceValid(_source) && _source is IActionActor chainActor)
+						{
+							for (int ci = 0; ci < _chainLightning.Count; ci++)
+							{
+								ItemEventHandlers.ApplyChainLightning(chainActor, _chainLightning[ci], hitPos);
+							}
+						}
 						if (_pierceRemaining <= 0)
 						{
 							// No pierce budget left — this hit ends the shot (impact
@@ -358,6 +400,27 @@ public partial class Projectile : Node3D
 		if (_ageSeconds >= _maxLifetimeSeconds)
 		{
 			Despawn(EHitResult.None, EDamageTriggerFlags.None, null, GlobalPosition);
+		}
+	}
+
+	// Heal the firing actor by the composed vampiric fraction of the health
+	// damage this shot deals. Health/Lethal hits only — armor pings and prop
+	// hits don't leech. No-op when the shot carries no vampiric mod or the firer
+	// is gone; _source is the actor's AttackerNode, which is the IActionActor
+	// itself for both Player and Mob.
+	private void ApplyLifesteal(EHitResult result, float healthDamage)
+	{
+		if (_lifestealFraction <= 0f || healthDamage <= 0f)
+		{
+			return;
+		}
+		if (result != EHitResult.Health && result != EHitResult.Lethal)
+		{
+			return;
+		}
+		if (GodotObject.IsInstanceValid(_source) && _source is IActionActor actor)
+		{
+			actor.Heal(healthDamage * _lifestealFraction);
 		}
 	}
 

@@ -142,6 +142,103 @@ public class StatusEffectController
 		return max;
 	}
 
+	// Largest vampiric (lifesteal) fraction among active weapon mods reaching
+	// charge tier `chargeIndex` (0 if none); the melee/hitscan handlers heal the
+	// attacker by this fraction of the health damage a landed hit deals.
+	public float Vampiric(int chargeIndex)
+	{
+		float max = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.vampiric > max && ModReachesCharge(s, chargeIndex))
+			{
+				max = mod.vampiric;
+			}
+		}
+		return max;
+	}
+
+	// Status effects every active weapon mod reaching charge tier `chargeIndex`
+	// appends to the struck target on hit (a Flaming weapon's Burning, etc.).
+	// Returns null when no reaching mod authors any, so the common no-mod hot
+	// path allocates nothing.
+	public Godot.Collections.Array<StatusEffectData> WeaponModOnHitStatusEffects(int chargeIndex)
+	{
+		Godot.Collections.Array<StatusEffectData> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			Godot.Collections.Array<StatusEffectData> onHit = s?.data?.weaponMod?.onHitStatusEffects;
+			if (onHit == null || onHit.Count == 0 || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<StatusEffectData>();
+			for (int j = 0; j < onHit.Count; j++)
+			{
+				result.Add(onHit[j]);
+			}
+		}
+		return result;
+	}
+
+	// Chain-lightning payloads on active weapon mods reaching charge tier
+	// `chargeIndex` (the Shocking mod). Returns null when none reach, so the
+	// common no-mod hot path allocates nothing.
+	public Godot.Collections.Array<ChainLightningData> WeaponModChainLightning(int chargeIndex)
+	{
+		Godot.Collections.Array<ChainLightningData> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			ChainLightningData chain = s?.data?.chainLightning;
+			if (chain == null || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<ChainLightningData>();
+			result.Add(chain);
+		}
+		return result;
+	}
+
+	// Summed extra knockback distance (m/s) from active weapon mods reaching
+	// charge tier `chargeIndex` (the Knockback mod); the melee/hitscan/projectile
+	// paths add it to the hit's knockbackDistance. 0 if none reach.
+	public float WeaponModKnockbackBonus(int chargeIndex)
+	{
+		float sum = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.knockbackBonus != 0f && ModReachesCharge(s, chargeIndex))
+			{
+				sum += mod.knockbackBonus;
+			}
+		}
+		return sum;
+	}
+
+	// Summed extra knockback lockout (seconds) from active weapon mods reaching
+	// charge tier `chargeIndex`; added to the hit's knockbackTime. 0 if none reach.
+	public float WeaponModKnockbackTimeBonus(int chargeIndex)
+	{
+		float sum = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.knockbackTimeBonus != 0f && ModReachesCharge(s, chargeIndex))
+			{
+				sum += mod.knockbackTimeBonus;
+			}
+		}
+		return sum;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches
@@ -453,18 +550,27 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			AreaBurstData burst = _statusEffects[i]?.data?.attackImpact;
-			if (burst == null || (burst.damage == null && burst.fx == null))
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null)
 			{
 				continue;
 			}
-			if (burst.fx != null && _world != null)
+			AreaBurstData burst = data.attackImpact;
+			if (burst != null && (burst.damage != null || burst.fx != null))
 			{
-				Fx.Create(burst.fx, _world, position);
+				if (burst.fx != null && _world != null)
+				{
+					Fx.Create(burst.fx, _world, position);
+				}
+				if (burst.damage != null)
+				{
+					ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
+				}
 			}
-			if (burst.damage != null)
+			// Elite lightning aura: arc a chain off the impact point.
+			if (data.chainLightning != null)
 			{
-				ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
+				ItemEventHandlers.ApplyChainLightning(attacker, data.chainLightning, position);
 			}
 		}
 	}
