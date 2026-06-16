@@ -20,11 +20,23 @@ stat = 8388608
 value = 25.0
 metadata/_custom_type_script = "uid://bovyciaikopwb"
 
+[sub_resource type="Resource" id="m_fire"]
+script = ExtResource("m_script")
+stat = 2
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_lightning"]
+script = ExtResource("m_script")
+stat = 32
+value = 1.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
 [resource]
 script = ExtResource("1_data")
 icon = ExtResource("1_l86d8")
 displayName = &"Wet"
-modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("m_heat")])
+modifiers = Array[ExtResource("m_script")]([SubResource("m_cold"), SubResource("m_heat"), SubResource("m_fire"), SubResource("m_lightning")])
 maxStack = 1
 startFx = ExtResource("3_startfx")
 endFx = ExtResource("4_endfx")

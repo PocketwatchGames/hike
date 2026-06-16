@@ -184,6 +184,26 @@ public class StatusEffectController
 		return result;
 	}
 
+	// Chain-lightning payloads on active weapon mods reaching charge tier
+	// `chargeIndex` (the Shocking mod). Returns null when none reach, so the
+	// common no-mod hot path allocates nothing.
+	public Godot.Collections.Array<ChainLightningData> WeaponModChainLightning(int chargeIndex)
+	{
+		Godot.Collections.Array<ChainLightningData> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			ChainLightningData chain = s?.data?.chainLightning;
+			if (chain == null || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<ChainLightningData>();
+			result.Add(chain);
+		}
+		return result;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches
@@ -495,18 +515,27 @@ public class StatusEffectController
 		}
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
-			AreaBurstData burst = _statusEffects[i]?.data?.attackImpact;
-			if (burst == null || (burst.damage == null && burst.fx == null))
+			StatusEffectData data = _statusEffects[i]?.data;
+			if (data == null)
 			{
 				continue;
 			}
-			if (burst.fx != null && _world != null)
+			AreaBurstData burst = data.attackImpact;
+			if (burst != null && (burst.damage != null || burst.fx != null))
 			{
-				Fx.Create(burst.fx, _world, position);
+				if (burst.fx != null && _world != null)
+				{
+					Fx.Create(burst.fx, _world, position);
+				}
+				if (burst.damage != null)
+				{
+					ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
+				}
 			}
-			if (burst.damage != null)
+			// Elite lightning aura: arc a chain off the impact point.
+			if (data.chainLightning != null)
 			{
-				ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
+				ItemEventHandlers.ApplyChainLightning(attacker, data.chainLightning, position);
 			}
 		}
 	}

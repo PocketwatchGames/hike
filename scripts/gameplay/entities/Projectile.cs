@@ -110,6 +110,9 @@ public partial class Projectile : Node3D
 	// On-hit status effects (weapon-mod enchants like Burning) appended to every
 	// creature this shot strikes. Null when the shot carries no enchant.
 	private Godot.Collections.Array<StatusEffectData> _onHitStatusEffects;
+	// Chain-lightning mods (Shocking bow) that discharge from each creature this
+	// shot strikes. Null when the shot carries none.
+	private Godot.Collections.Array<ChainLightningData> _chainLightning;
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
@@ -141,7 +144,8 @@ public partial class Projectile : Node3D
 		float friction = 0f,
 		int pierceCount = 0,
 		float lifestealFraction = 0f,
-		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null)
+		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null,
+		Godot.Collections.Array<ChainLightningData> chainLightning = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -151,6 +155,7 @@ public partial class Projectile : Node3D
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
 		inst._lifestealFraction = lifestealFraction;
 		inst._onHitStatusEffects = onHitStatusEffects;
+		inst._chainLightning = chainLightning;
 		inst._damageData = damageData;
 		inst._source = source;
 		inst._velocity = velocity;
@@ -330,6 +335,14 @@ public partial class Projectile : Node3D
 						// Lifesteal leeches off every creature the shot wounds —
 						// both the terminal hit and each pierce-through.
 						ApplyLifesteal(hitResult, hit.healthDamage);
+						// Chain-lightning mods arc off the struck creature.
+						if (_chainLightning != null && GodotObject.IsInstanceValid(_source) && _source is IActionActor chainActor)
+						{
+							for (int ci = 0; ci < _chainLightning.Count; ci++)
+							{
+								ItemEventHandlers.ApplyChainLightning(chainActor, _chainLightning[ci], hitPos);
+							}
+						}
 						if (_pierceRemaining <= 0)
 						{
 							// No pierce budget left — this hit ends the shot (impact

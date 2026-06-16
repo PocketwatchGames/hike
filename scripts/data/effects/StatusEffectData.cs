@@ -139,6 +139,11 @@ public partial class StatusEffectData : Resource
 	// Null = none. See AreaBurstData.
 	[Export] public AreaBurstData dashBurst;
 
+	// On each landed attack, arc lightning between nearby enemies from the impact
+	// point. Fired by elite lightning auras (actor-side) and the Shocking weapon
+	// mod (item-side) through the same payload. Null = none. See ChainLightningData.
+	[Export] public ChainLightningData chainLightning;
+
 	// While dashing/sprinting, drop a hazard patch at the actor's feet on an interval.
 	// Null = none. See MovementTrailData.
 	[Export] public MovementTrailData trail;

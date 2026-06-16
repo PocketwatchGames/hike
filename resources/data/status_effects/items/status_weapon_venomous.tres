@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://b2pq7vn4mk8xc"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="3_poison"]
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+onHitStatusEffects = Array[ExtResource("1_data")]([ExtResource("3_poison")])
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Venomous"
+description = "Poisons struck targets, dealing damage over time that ignores armor."
+category = 2
+modifiers = []
+duration = 0.0
+maxStack = 1
+weaponMod = SubResource("weaponMod")
+removesOnApply = []

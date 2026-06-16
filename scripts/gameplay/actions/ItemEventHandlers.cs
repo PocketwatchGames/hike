@@ -130,6 +130,9 @@ public static class ItemEventHandlers
 		// etc.) fire at the swing's resolved impact point — the best hurtbox
 		// when one was hit, else the swing center. See StatusEffectController.
 		actor.TriggerAttackImpact(impactPos);
+		// Item-side weapon-mod discharges (a Shocking weapon's chain lightning)
+		// fire from the same impact point.
+		TriggerWeaponModChains(actor, action, impactPos);
 	}
 
 	// Spawn the Melee event's authored smear scene, sized to the live attack
@@ -348,6 +351,7 @@ public static class ItemEventHandlers
 		// Status-effect on-impact bursts fire at the resolved hit point —
 		// hurtbox, environment clip, or the ray's air end. See DoMelee.
 		actor.TriggerAttackImpact(hitPos);
+		TriggerWeaponModChains(actor, action, hitPos);
 
 		DebugDraw.Line(origin, hitPos, new Color(1f, 0f, 0f, 0.3f), 0.15f);
 	}
@@ -423,6 +427,109 @@ public static class ItemEventHandlers
 		if (CVars.debugAoe.Value)
 		{
 			DebugDraw.Sphere(center, radius, new Color(0.6f, 0.85f, 1f, 0.3f), 0.15f);
+		}
+	}
+
+	// Chain lightning: from `origin`, repeatedly find a random enemy hurtbox
+	// within `chainRange` of the current link and zap it, hopping up to
+	// `maxChains` times. Each link is chosen uniformly at random among all
+	// in-range targets not yet struck by THIS chain, so the arc forks
+	// unpredictably through a crowd. Damage is Electrical-tagged, so wet targets
+	// take the bonus via the receiver's tag-resistance fold. Shared by the
+	// Shocking weapon mod (player) and the elite lightning aura (goblins); team
+	// scoping rides on the attacker's AttackHurtboxMask + the receiver's CanBeHit,
+	// exactly like ApplyAreaDamage. Does not re-enter the attack pipeline.
+	public static void ApplyChainLightning(IActionActor attacker, ChainLightningData data, Vector3 origin)
+	{
+		if (attacker == null || data?.damage == null || data.maxChains <= 0 || data.chainRange <= 0f)
+		{
+			return;
+		}
+		World3D world3D = attacker.AttackerNode?.GetWorld3D();
+		if (world3D == null)
+		{
+			return;
+		}
+		Node fxHost = (Node)World.Current ?? attacker.AttackerNode?.GetParent();
+		Rid? selfHurtBox = attacker.SelfHurtBoxRid;
+		var struck = new System.Collections.Generic.HashSet<ulong>();
+		var sphere = new SphereShape3D { Radius = data.chainRange };
+		Vector3 current = origin;
+		for (int hop = 0; hop < data.maxChains; hop++)
+		{
+			var query = new PhysicsShapeQueryParameters3D
+			{
+				Shape = sphere,
+				Transform = new Transform3D(Basis.Identity, current),
+				CollisionMask = attacker.AttackHurtboxMask,
+				CollideWithAreas = true,
+				CollideWithBodies = false,
+			};
+			var results = world3D.DirectSpaceState.IntersectShape(query, maxResults: 32);
+			// Reservoir-sample one eligible target (k=1) so every in-range,
+			// not-yet-struck, hittable enemy is equally likely without allocating
+			// a candidate list.
+			HurtBox pick = null;
+			int seen = 0;
+			foreach (var result in results)
+			{
+				if (result["collider"].Obj is not HurtBox hurtBox)
+				{
+					continue;
+				}
+				Rid rid = hurtBox.GetRid();
+				if ((selfHurtBox.HasValue && rid == selfHurtBox.Value) || struck.Contains(rid.Id))
+				{
+					continue;
+				}
+				HitInfo probe = new HitInfo(data.damage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam);
+				if (!hurtBox.CanBeHit(probe))
+				{
+					continue;
+				}
+				seen++;
+				if (GD.Randi() % (uint)seen == 0)
+				{
+					pick = hurtBox;
+				}
+			}
+			if (pick == null)
+			{
+				break;
+			}
+			struck.Add(pick.GetRid().Id);
+			Vector3 targetPos = pick.GlobalPosition;
+			pick.Hit(new HitInfo(data.damage, attacker.AttackerNode, Vector3.Zero, attacker.ActorTeam));
+			if (data.fx != null && fxHost != null)
+			{
+				Fx.Create(data.fx, fxHost, targetPos);
+			}
+			if (CVars.debugAoe.Value)
+			{
+				DebugDraw.Line(current, targetPos, new Color(0.6f, 0.85f, 1f, 0.9f), 0.2f);
+			}
+			current = targetPos;
+		}
+	}
+
+	// Fire the firing weapon's item-side chain-lightning mods at `position` (a
+	// swing's impact point / a hitscan's hit point), scope-filtered to the firing
+	// charge tier. Actor-side auras (elite lightning) fire their own chains
+	// through TriggerAttackImpact instead.
+	private static void TriggerWeaponModChains(IActionActor actor, in PlayerAction action, Vector3 position)
+	{
+		if (action.context.primaryItem is not WeaponState weapon)
+		{
+			return;
+		}
+		Godot.Collections.Array<ChainLightningData> chains = weapon.statusEffects.WeaponModChainLightning(FindChargeIndex(weapon, action.selectedTier));
+		if (chains == null)
+		{
+			return;
+		}
+		for (int i = 0; i < chains.Count; i++)
+		{
+			ApplyChainLightning(actor, chains[i], position);
 		}
 	}
 
@@ -606,6 +713,9 @@ public static class ItemEventHandlers
 		// creature it strikes. The projectile rebuilds its HitInfo from the raw
 		// DamageData, so these are passed in rather than riding the ResolveHit hit.
 		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null;
+		// Chain-lightning mods (Shocking bow) discharge from each creature the
+		// shot strikes.
+		Godot.Collections.Array<ChainLightningData> chainLightning = null;
 		if (firingWeapon != null)
 		{
 			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
@@ -613,6 +723,7 @@ public static class ItemEventHandlers
 			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
 			onHitStatusEffects = firingWeapon.statusEffects.WeaponModOnHitStatusEffects(firingChargeIndex);
+			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
 		}
 
 		// "Fragile" weapon mod: a projectile that would normally bounce and wait
@@ -651,7 +762,8 @@ public static class ItemEventHandlers
 			friction,
 			pierceCount,
 			lifestealFraction,
-			onHitStatusEffects);
+			onHitStatusEffects,
+			chainLightning);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
