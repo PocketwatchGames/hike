@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3 uid="uid://dboss0defeat1"]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+Id = &"boss_dragon_defeated"
+Type = 0
+DefaultValue = 0
+Description = "Set true (1) once the player defeats the dragon boss. Permanent world state; read by NPC conversations and guard behaviors."

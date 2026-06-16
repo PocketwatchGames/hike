@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ScriptVariableRegistry" format=3 uid="uid://cscriptvarsreg"]
+
+[ext_resource type="Script" uid="uid://bn4svar0reg13" path="res://scripts/data/scripting/ScriptVariableRegistry.cs" id="1_reg"]
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="2_svd"]
+[ext_resource type="Resource" uid="uid://dboss0defeat1" path="res://resources/data/script_variables/var_boss_defeated.tres" id="3_boss"]
+[ext_resource type="Resource" uid="uid://dquest0stage2" path="res://resources/data/script_variables/var_main_quest_stage.tres" id="4_quest"]
+
+[resource]
+script = ExtResource("1_reg")
+Variables = Array[ExtResource("2_svd")]([ExtResource("3_boss"), ExtResource("4_quest")])

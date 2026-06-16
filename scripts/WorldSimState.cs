@@ -36,6 +36,13 @@ public class WorldSimState
     // bestiary entry stays. ContainsKey(mob) is the "is discovered?" test.
     public readonly Dictionary<MobData, MobBestiaryEntry> DiscoveredMobs = new();
 
+    // Central bank of named scripting variables — quest progress, world flags
+    // (boss defeated), counters — read/written by ScriptVarCondition /
+    // ScriptVarTransition / SetScriptVarAction to branch conversations and mob
+    // behaviors. Seeded from SimData.ScriptVariables at world creation (the
+    // WorldState constructor calls Initialize) and serialized by SaveGame.
+    public readonly ScriptVariableBank ScriptVars = new();
+
     // Fired the first time an item is identified. GameClient subscribes to
     // forward an announcement; UI surfaces that show item names refresh
     // through their existing onChanged paths and don't need this event.

@@ -36,6 +36,12 @@ public partial class SimData : Resource
     // can appear in the bestiary once spotted.
     [Export] public Array<MobData> Mobs = new();
 
+    // Central registry of named scripting variables (quest flags, world
+    // state). Seeded into WorldSimState.ScriptVars at world creation so
+    // ScriptVarCondition / ScriptVarTransition / SetScriptVarAction can branch
+    // conversations and behaviors by name. Null = no variables in this world.
+    [Export] public ScriptVariableRegistry ScriptVariables;
+
     // Status effect applied to every elite mob at spawn (in addition to the
     // zone-specific signature effect drawn from ZoneData.EliteStatusEffects).
     // Authored once here so the shared elite buff — larger health, etc. — is

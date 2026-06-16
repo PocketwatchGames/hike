@@ -11,7 +11,8 @@ public static class SaveGame
 	// we don't keep back-compat readers.
 	//   v1: header only.
 	//   v2: + player status-effect buildup section.
-	private const int SAVE_VERSION = 2;
+	//   v3: + scripting-variable bank (quest flags / world state).
+	private const int SAVE_VERSION = 3;
 
 	public static void Save(string filePath)
 	{
@@ -31,6 +32,17 @@ public static class SaveGame
 			? player.EnumerateStatusBuildupsForSave().ToList()
 			: new List<(StatusEffectData data, float amount)>();
 		WriteBuildupSection(w, playerBuildups);
+
+		// --- Scripting variables (v3+) ---
+		ScriptVariableBank bank = World.Current?.WorldState?.SimState?.ScriptVars;
+		if (bank != null)
+		{
+			bank.Serialize(w);
+		}
+		else
+		{
+			w.Write(0);
+		}
 	}
 
 	public static void Load(string filePath)
@@ -50,6 +62,12 @@ public static class SaveGame
 		{
 			var playerBuildups = ReadBuildupSection(r);
 			World.Current?.player?.RestoreStatusBuildups(playerBuildups);
+		}
+
+		// --- Scripting variables (v3+) ---
+		if (version >= 3)
+		{
+			World.Current?.WorldState?.SimState?.ScriptVars?.Deserialize(r);
 		}
 	}
 

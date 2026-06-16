@@ -46,4 +46,12 @@
           Outputs="scripts/localization/LocKeys.g.cs">
     <Exec Command="dotnet run --project tools/loc_generator -- resources/localization/english.tsv scripts/localization/LocKeys.g.cs" />
   </Target>
+  <!-- Verifies scripting-variable references at build time so a typo'd or
+       unregistered variable name surfaces as a warning during authoring.
+       Non-blocking (ContinueOnError) so half-authored content never fails a
+       build/playtest; run `dotnet run --project tools/validate_script_vars`
+       directly for a gate. -->
+  <Target Name="ValidateScriptVars" BeforeTargets="CoreCompile">
+    <Exec Command="dotnet run --project tools/validate_script_vars" ContinueOnError="true" />
+  </Target>
 </Project>
