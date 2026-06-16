@@ -218,6 +218,9 @@ public class WorldState
         Min = min;
         Max = max;
         SimData = simData;
+        // Seed the scripting-variable bank from the authored registry before
+        // any save data loads; harmless when no registry is authored.
+        SimState.ScriptVars.Initialize(simData?.ScriptVariables);
         TimeOfDay01 = simData?.InitialTimeOfDay ?? 0.3f;
         TimeOfDayAbsolute = TimeOfDay01;
         WeatherRng.Randomize();

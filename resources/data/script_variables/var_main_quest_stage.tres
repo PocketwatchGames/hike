@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ScriptVariableData" format=3 uid="uid://dquest0stage2"]
+
+[ext_resource type="Script" uid="uid://cq2svar0data8" path="res://scripts/data/scripting/ScriptVariableData.cs" id="1_svd"]
+
+[resource]
+script = ExtResource("1_svd")
+Id = &"main_quest_stage"
+Type = 1
+DefaultValue = 0
+Description = "Main quest progression: 0 = not started, 1 = accepted, 2 = in progress, 3 = complete. Branch conversations on stage thresholds."
