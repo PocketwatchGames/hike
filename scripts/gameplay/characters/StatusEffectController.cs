@@ -142,6 +142,24 @@ public class StatusEffectController
 		return max;
 	}
 
+	// Largest vampiric (lifesteal) fraction among active weapon mods reaching
+	// charge tier `chargeIndex` (0 if none); the melee/hitscan handlers heal the
+	// attacker by this fraction of the health damage a landed hit deals.
+	public float Vampiric(int chargeIndex)
+	{
+		float max = 0f;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			WeaponModData mod = s?.data?.weaponMod;
+			if (mod != null && mod.vampiric > max && ModReachesCharge(s, chargeIndex))
+			{
+				max = mod.vampiric;
+			}
+		}
+		return max;
+	}
+
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
 	// to every attack, or scoped to the specific tier being fired. A negative
 	// chargeIndex (the weapon has no resolvable firing tier) only matches

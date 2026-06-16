@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://b7vq2kx6n4ufd"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("2_mod")
+vampiric = 0.15
+
+[resource]
+script = ExtResource("1_data")
+displayName = &"Vampiric"
+description = "Heals the wielder for a fraction of the health damage each landed attack deals."
+category = 2
+modifiers = []
+duration = 0.0
+maxStack = 1
+weaponMod = SubResource("weaponMod")
+removesOnApply = []

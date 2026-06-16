@@ -62,6 +62,9 @@ public static class ItemEventHandlers
 		EHitResult bestResult = EHitResult.None;
 		EDamageTriggerFlags bestTriggers = EDamageTriggerFlags.None;
 		Vector3 impactPos = damagePos;
+		// Total health damage this swing lands on flesh — drives lifesteal. Armor
+		// pings and prop hits don't leech.
+		float healthDamageDealt = 0f;
 		foreach (var result in results)
 		{
 			var collider = result["collider"].Obj;
@@ -83,6 +86,10 @@ public static class ItemEventHandlers
 				EHitResult r = hurtBox.QueryHitType(hit);
 				EDamageTriggerFlags t = hurtBox.QueryHitTriggers(hit);
 				hurtBox.Hit(hit);
+				if (r == EHitResult.Health || r == EHitResult.Lethal)
+				{
+					healthDamageDealt += hit.healthDamage;
+				}
 				if (HitPriority(r) > HitPriority(bestResult))
 				{
 					bestResult = r;
@@ -91,6 +98,7 @@ public static class ItemEventHandlers
 				}
 			}
 		}
+		ApplyLifesteal(actor, action, healthDamageDealt);
 
 		// No hurtbox hit — fall back to environment so a swing into a wall
 		// still gets a thunk rather than reading as a whiff.
@@ -278,6 +286,10 @@ public static class ItemEventHandlers
 					hurtBox.Hit(hit);
 					hitPos = (Vector3)hurtResult["position"];
 					hitHurtBox = hurtBox;
+					if (hitResult == EHitResult.Health || hitResult == EHitResult.Lethal)
+					{
+						ApplyLifesteal(actor, action, hit.healthDamage);
+					}
 				}
 			}
 		}
@@ -629,6 +641,28 @@ public static class ItemEventHandlers
 			bounciness,
 			friction,
 			pierceCount);
+	}
+
+	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
+	// the health damage just dealt by a landed melee/hitscan hit. No-op for mob
+	// attacks (no WeaponState), zero damage, or a weapon carrying no vampiric mod
+	// that reaches the firing charge tier. Read off the weapon's composed mods
+	// the same way DoProjectile reads pierce / detonate.
+	private static void ApplyLifesteal(IActionActor actor, in PlayerAction action, float healthDamageDealt)
+	{
+		if (healthDamageDealt <= 0f)
+		{
+			return;
+		}
+		if (action.context.primaryItem is not WeaponState weapon)
+		{
+			return;
+		}
+		float fraction = weapon.statusEffects.Vampiric(FindChargeIndex(weapon, action.selectedTier));
+		if (fraction > 0f)
+		{
+			actor.Heal(healthDamageDealt * fraction);
+		}
 	}
 
 	// Index of `tier` within the weapon's action profile (the charge-tier id

@@ -51,6 +51,11 @@ public interface IActionActor
 	// returns ETeam.Player; mobs forward MobData.team.
 	ETeam ActorTeam { get; }
 
+	// Restore `amount` HP to this actor, clamped at MaxHealth. Used by the
+	// vampiric (lifesteal) weapon mod to leech a fraction of the health damage a
+	// landed attack deals back to the attacker. Symmetric with DrainBlood.
+	void Heal(float amount);
+
 	// Fire any status-effect-driven on-attack-impact payloads at `position`.
 	// Called by the Melee / Hitscan handlers the moment an attack resolves its
 	// impact point — an elite's lightning aura, a player's shock-enchant, etc.,

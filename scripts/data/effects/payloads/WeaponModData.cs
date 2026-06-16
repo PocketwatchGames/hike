@@ -15,4 +15,9 @@ public partial class WeaponModData : Resource
 	// Creatures a shot passes through (damaging each) before stopping, composed as a max
 	// against the event's base and other mods. The "Charged Pierce" mod. 0 = no change.
 	[Export] public int projectilePierceCount = 0;
+
+	// Fraction of the health damage each landed attack deals that is returned to the
+	// attacker as healing (lifesteal). The "Vampiric" mod. 0 = no lifesteal.
+	[ExportGroup("Lifesteal")]
+	[Export(PropertyHint.Range, "0,1,0.01")] public float vampiric = 0f;
 }
