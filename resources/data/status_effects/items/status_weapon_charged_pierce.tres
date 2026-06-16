@@ -6,6 +6,8 @@
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 projectilePierceCount = 3
+affix = &"of Piercing"
+affixPosition = 1
 
 [resource]
 script = ExtResource("1_data")

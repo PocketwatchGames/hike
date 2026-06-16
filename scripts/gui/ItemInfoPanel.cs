@@ -32,8 +32,8 @@ public partial class ItemInfoPanel : PanelContainer
 		if (_nameLabel != null)
 		{
 			_nameLabel.Text = worldSim != null
-				? worldSim.GetItemDisplayName(data)
-				: data.displayName.ToString();
+				? worldSim.GetItemDisplayName(item)
+				: WeaponNameGenerator.Compose(data.displayName.ToString(), item);
 		}
 		if (_descriptionLabel != null)
 		{

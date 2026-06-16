@@ -11,6 +11,8 @@ public static partial class Loc
 		villager_resp_trade,
 		villager_nothing_more,
 		villager_thanks,
-		villager_lets_do_it
+		villager_lets_do_it,
+		weapon_name_prefix,
+		weapon_name_suffix
 	}
 }

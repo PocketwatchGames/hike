@@ -180,4 +180,23 @@ public class WorldSimState
         }
         return data.displayName.ToString();
     }
+
+    // State-aware overload: composes the permanent weapon-mod affixes carried by
+    // the live item onto the base name (e.g. "Fragile bomb of Lightning"). Routes
+    // the noun through the ItemData overload above, so an unidentified item still
+    // shows only its placeholder — affixes are withheld until it's identified
+    // rather than leaking the reveal.
+    public string GetItemDisplayName(ItemState item)
+    {
+        if (item == null)
+        {
+            return string.Empty;
+        }
+        string baseName = GetItemDisplayName(item.data);
+        if (!IsItemIdentified(item.data))
+        {
+            return baseName;
+        }
+        return WeaponNameGenerator.Compose(baseName, item);
+    }
 }

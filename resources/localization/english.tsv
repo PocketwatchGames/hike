@@ -8,3 +8,5 @@ villager_resp_trade	Do you want to trade?
 villager_nothing_more	I have nothing more to say.
 villager_thanks	Thanks!
 villager_lets_do_it	Let's do it.
+weapon_name_prefix	%0 %1
+weapon_name_suffix	%0 %1
