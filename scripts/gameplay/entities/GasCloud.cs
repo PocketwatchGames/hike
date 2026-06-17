@@ -20,7 +20,12 @@ public partial class GasCloud : Node3D
     // a stray tick after the visuals are gone.
     [Export] private DamageZone _dangerZone;
 
-    private float _ageSeconds;
+    // GameTimeMs at which the cloud expires, armed on the first tick. On the sim
+    // clock (not wall-clock _Process frames) so the lifetime that bounds the
+    // damage zone slows with slow-mo and matches the codebase's duration
+    // convention.
+    private ulong _expireTimeMs;
+    private bool _armed;
 
     // Applies weapon-authored overrides from a SpawnAreaEffect ItemEvent.
     // `continuous` and `intervals` are pre-resolved by the caller (looked
@@ -80,8 +85,17 @@ public partial class GasCloud : Node3D
         {
             return;
         }
-        _ageSeconds += (float)delta;
-        if (_ageSeconds >= lifetimeSeconds)
+        World world = World.Current;
+        if (world == null)
+        {
+            return;
+        }
+        if (!_armed)
+        {
+            _expireTimeMs = world.GameTimeMs + (ulong)(lifetimeSeconds * 1000f);
+            _armed = true;
+        }
+        if (world.GameTimeMs >= _expireTimeMs)
         {
             Expire();
         }

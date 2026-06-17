@@ -38,6 +38,10 @@ public partial class LightningStrike : Node3D
     private LightningData _data;
     private World _world;
     private float _phaseTimer;
+    // GameTimeMs the warning phase fires the strike at (sim clock, so the
+    // telegraph timing slows under slow-mo and is frame-rate independent). The
+    // cosmetic Visible / Fading phases use _phaseTimer (wall clock) — see _Process.
+    private ulong _strikeTimeMs;
     private EPhase _phase;
     private Fx _warningFx;
     // Low-intensity rumble registered with GameCamera.Shake during the
@@ -103,7 +107,10 @@ public partial class LightningStrike : Node3D
         }
 
         _phase = EPhase.Warning;
-        _phaseTimer = _data.warningDurationSeconds;
+        // Warning→strike timing is gameplay-authoritative (it decides WHEN the
+        // damage lands), so it rides the sim clock; the post-strike bolt fade
+        // stays on wall-clock _phaseTimer since it's purely cosmetic.
+        _strikeTimeMs = (_world?.GameTimeMs ?? 0) + (ulong)(_data.warningDurationSeconds * 1000f);
         if (_data.warningFx != null)
         {
             _warningFx = Fx.Create(_data.warningFx, this, Vector3.Zero);
@@ -134,13 +141,13 @@ public partial class LightningStrike : Node3D
             return;
         }
 
-        _phaseTimer -= (float)delta;
-
         switch (_phase)
         {
             case EPhase.Warning:
+                // Telegraph timing on the sim clock; the wander keeps the strike
+                // homing each frame until the deadline.
                 UpdateWander((float)delta);
-                if (_phaseTimer <= 0f)
+                if ((_world?.GameTimeMs ?? 0) >= _strikeTimeMs)
                 {
                     FireStrike();
                     _phase = EPhase.Visible;
@@ -148,6 +155,7 @@ public partial class LightningStrike : Node3D
                 }
                 break;
             case EPhase.Visible:
+                _phaseTimer -= (float)delta;
                 if (_phaseTimer <= 0f)
                 {
                     _phase = EPhase.Fading;
@@ -155,6 +163,7 @@ public partial class LightningStrike : Node3D
                 }
                 break;
             case EPhase.Fading:
+                _phaseTimer -= (float)delta;
                 if (_data.boltFadeSeconds > 0f && _bolt != null)
                 {
                     float t = 1f - Mathf.Clamp(_phaseTimer / _data.boltFadeSeconds, 0f, 1f);

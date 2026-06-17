@@ -31,6 +31,14 @@ global uniform float night_vision;
 uniform float motion_blur_strength : hint_range(0.0, 1.0) = 0.0;
 uniform vec2 motion_blur_dir = vec2(1.0, 0.0);
 
+// Radial zoom blur, driven 0..1 by SlowMotionController during the death-cam
+// punch-in. Samples along the line from the screen centre toward each pixel
+// (scaling UVs inward) so the smear reads as a fast zoom rather than a
+// directional pan — the right shape for a camera lunging forward. When 0 the
+// loop is skipped. Takes precedence over the directional blur above; the two
+// don't co-occur in practice.
+uniform float radial_blur_strength : hint_range(0.0, 1.0) = 0.0;
+
 uniform float vignette_radius : hint_range(0.0, 1.0) = 0.55;
 uniform float vignette_softness : hint_range(0.0, 1.0) = 0.45;
 uniform float vignette_strength : hint_range(0.0, 1.0) = 0.5;
@@ -71,7 +79,24 @@ uniform vec3 low_health_pulse_color : source_color = vec3(0.5, 0.0, 0.0);
 void fragment()
 {
 	vec3 scene;
-	if (motion_blur_strength > 0.0)
+	if (radial_blur_strength > 0.0)
+	{
+		// Symmetric N-tap zoom blur: sample the framebuffer at UVs pulled
+		// progressively toward the centre. MAX_SCALE is the deepest inward
+		// pull at full strength (~10% toward centre).
+		const int RSAMPLES = 8;
+		const float MAX_SCALE = 0.1;
+		float pull = MAX_SCALE * radial_blur_strength;
+		vec2 toCenter = SCREEN_UV - 0.5;
+		vec3 accum = vec3(0.0);
+		for (int i = 0; i < RSAMPLES; i++)
+		{
+			float s = 1.0 - pull * (float(i) / float(RSAMPLES - 1));
+			accum += texture(screen_tex, 0.5 + toCenter * s).rgb;
+		}
+		scene = accum / float(RSAMPLES);
+	}
+	else if (motion_blur_strength > 0.0)
 	{
 		// Symmetric N-tap line blur along motion_blur_dir. Symmetric (not
 		// trailing) so the smear reads as "the world is moving" without
