@@ -113,7 +113,11 @@ public static class WorldFile
     //      regardless of Elite, where an elite's signature now lives — then a HUD
     //      badge icon (Texture2D resource ref, may be null). So a composed mob
     //      keeps its effects and badge across save/load.
-    public const uint VERSION = 25;
+    // v26: Mob entity payload appended a per-elite crown scene override
+    //      (EliteMobDescriptor.crownScene, PackedScene ref, may be null) after the
+    //      badge — so an elite that authors its own crown keeps it across
+    //      save/load instead of reverting to the shared SimData.EliteCrownScene.
+    public const uint VERSION = 26;
 
     public struct IndexEntry
     {

@@ -33,24 +33,18 @@ public partial class MobDescriptor : Resource
     [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Marks this as an elite variant (25% larger, crown, shared elite buff,
-    // crown-trophy loot). Elites are authored as their own *_elite.tres
-    // descriptor and given a rarer spawn entry — set this true there, pair it
-    // with a signature effect in `statusEffects` and a `badge`.
-    [Export] public bool elite;
+    // crown-trophy loot). Non-null = elite: point it at a shared elite_*.tres
+    // (an EliteMobDescriptor) that carries the signature status effects + HUD
+    // badge for that elite kind, so one signature is authored once and reused by
+    // every species/biome elite descriptor. Null = an ordinary (non-elite) mob.
+    [Export] public EliteMobDescriptor elite;
 
     // Status effects applied to every mob spawned from this descriptor, elite or
     // not — a per-instance buff/aura channel independent of the elite signature.
-    // Each is routed at spawn the same way the elite signature is: a weapon-mod
-    // effect composes onto the mob's weapons, any other is added to the mob's own
-    // status controller. Empty = none.
+    // Composed alongside the elite's StatusEffects at spawn (both lists apply).
+    // Each is routed the same way: a weapon-mod effect composes onto the mob's
+    // weapons, any other is added to the mob's own status controller. Empty = none.
     [Export] public Godot.Collections.Array<StatusEffectData> statusEffects = new();
-
-    // HUD badge icon for this composed mob — the marker MobHUD pins to the
-    // health bar (the descriptor's analog of the elite signature's icon). Set it
-    // alongside a signature effect in `statusEffects` so an authored
-    // `*_elite.tres` carries its own badge instead of drawing one from the zone
-    // pool. Null = no badge (MobHUD falls back to a zone-rolled elite's icon).
-    [Export] public Texture2D badge;
 
     // Build the runtime sim state for this composed mob at the given transform,
     // with the overrides stamped on. Returns null when the descriptor has no
@@ -67,14 +61,32 @@ public partial class MobDescriptor : Resource
         {
             state.Weapons = weapons;
         }
-        if (statusEffects != null && statusEffects.Count > 0)
+        // Compose this descriptor's own status effects with the elite signature's
+        // (if any) into one list so both apply at spawn.
+        var effects = new Godot.Collections.Array<StatusEffectData>();
+        if (statusEffects != null)
         {
-            state.StatusEffects = statusEffects;
+            foreach (StatusEffectData effect in statusEffects)
+            {
+                effects.Add(effect);
+            }
         }
-        state.Badge = badge;
-        if (elite)
+        if (elite != null)
         {
             state.Elite = true;
+            state.Badge = elite.badge;
+            state.EliteCrownScene = elite.crownScene;
+            if (elite.statusEffects != null)
+            {
+                foreach (StatusEffectData effect in elite.statusEffects)
+                {
+                    effects.Add(effect);
+                }
+            }
+        }
+        if (effects.Count > 0)
+        {
+            state.StatusEffects = effects;
         }
         return state;
     }

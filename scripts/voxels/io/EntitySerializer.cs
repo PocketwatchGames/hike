@@ -163,6 +163,9 @@ public static class EntitySerializer
                 WriteStatusEffectList(w, mob.StatusEffects);
                 // HUD badge icon (MobDescriptor.badge), resource ref, may be null.
                 WriteResource(w, mob.Badge);
+                // Per-elite crown scene override (EliteMobDescriptor.crownScene),
+                // scene ref, may be null (then SimData.EliteCrownScene is used).
+                WriteScene(w, mob.EliteCrownScene);
                 break;
 
             case DoorSimState door:
@@ -409,6 +412,7 @@ public static class EntitySerializer
                 var weapons = ReadWeaponList(r);
                 var statusEffects = ReadStatusEffectList(r);
                 var badge = ReadResource<Texture2D>(r);
+                var eliteCrownScene = ReadScene(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -443,6 +447,7 @@ public static class EntitySerializer
                 mob.Weapons = weapons;
                 mob.StatusEffects = statusEffects;
                 mob.Badge = badge;
+                mob.EliteCrownScene = eliteCrownScene;
                 return mob;
             }
             case Tag.Door:

@@ -129,9 +129,13 @@ public class MobSimState : EntitySimState
     // every node spawn (Mob.Initialize), since the status controller itself isn't
     // serialized — so these survive chunk eviction and .hike load.
     public Godot.Collections.Array<StatusEffectData> StatusEffects;
-    // HUD badge icon (MobDescriptor.badge), read once by MobHUD. Independent of
-    // Elite — a descriptor can badge any mob. Null = no badge.
+    // HUD badge icon (EliteMobDescriptor.badge, via the descriptor's elite
+    // reference), read once by MobHUD. Null = no badge.
     public Texture2D Badge;
+    // Per-elite crown scene override (EliteMobDescriptor.crownScene). Re-instanced
+    // at every spawn by Mob.SpawnEliteCrown. Null = use the shared
+    // SimData.EliteCrownScene. Only meaningful when Elite.
+    public PackedScene EliteCrownScene;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute

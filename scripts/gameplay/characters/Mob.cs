@@ -764,10 +764,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the head. Shares the mob's
     // render stack via crown_lit.tres, so it silhouettes / X-rays in lockstep —
     // the per-frame discovery push happens in _Process alongside the body's.
-    // No-op (and no marker) when SimData authors no crown scene.
+    // The elite's own descriptor (EliteMobDescriptor.crownScene) overrides the
+    // shared SimData.EliteCrownScene when set, so a signature can carry its own
+    // crown. No-op (and no marker) when neither authors a crown scene.
     private void SpawnEliteCrown()
     {
-        PackedScene scene = _world?.SimData?.EliteCrownScene;
+        PackedScene scene = _simState.EliteCrownScene ?? _world?.SimData?.EliteCrownScene;
         if (scene == null || _mesh == null)
         {
             return;

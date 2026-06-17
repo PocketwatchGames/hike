@@ -6,16 +6,12 @@
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="4_weapon"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="5_cry"]
 [ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="6_claw"]
-[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="7_se"]
-[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="8_lightning"]
-[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="9_badge"]
+[ext_resource type="Resource" uid="uid://c7lk9elitelight1" path="res://resources/data/world_gen/mob_descriptors/elites/elite_lightning.tres" id="7_elite"]
 
 [resource]
 script = ExtResource("1_desc")
 mob = ExtResource("2_mob")
 palette = ExtResource("3_palette")
 weapons = Array[ExtResource("4_weapon")]([ExtResource("5_cry"), ExtResource("6_claw")])
-elite = true
-statusEffects = Array[ExtResource("7_se")]([ExtResource("8_lightning")])
-badge = ExtResource("9_badge")
+elite = ExtResource("7_elite")
 metadata/_custom_type_script = "uid://lcwj9viyl1nwr"
