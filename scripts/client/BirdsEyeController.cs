@@ -99,10 +99,6 @@ public partial class BirdsEyeController : Node
 	// Height above the player's feet treated as the on-ground listener anchor
 	// (matches the AudioListener3D's authored local Y in player.tscn).
 	const float AUDIO_LISTENER_HEAD_HEIGHT = 1f;
-	// Screen-space motion-blur direction during fly-up. The camera rises in
-	// world; objects sweep downward on screen (Godot SCREEN_UV has Y=0 at top),
-	// so the blur trails toward +Y. Same convention as the camera's RotateLeft.
-	public static readonly Vector2 BlurDir = new Vector2(0f, 1f);
 
 	// Flat plane mesh that renders clouds from above when the camera clears the
 	// cloud layer. Parented to the camera at local (0,0,-6) so the mesh follows

@@ -33,6 +33,10 @@ public partial class DeathScreen : Control
 	GameClient _gameClient;
 	EState _state = EState.Hidden;
 	float _darkness;
+	// Wall-clock stamp for the fade. _Process delta is scaled by Engine.TimeScale,
+	// so during the slow-mo death cam it would stretch this overlay's fade (a 1s
+	// fade became ~5s at timeScale 0.2). The world stays slowed; this UI does not.
+	ulong _lastRealMs;
 	bool _audioBaselineCaptured;
 	int _world3DBusIdx = -1;
 	int _ambience2DBusIdx = -1;
@@ -68,6 +72,7 @@ public partial class DeathScreen : Control
 		Visible = true;
 		_darkness = 0f;
 		_state = EState.FadingOut;
+		_lastRealMs = Time.GetTicksMsec();
 		if (promptRoot != null)
 		{
 			promptRoot.Visible = false;
@@ -82,7 +87,12 @@ public partial class DeathScreen : Control
 			return;
 		}
 
-		float dt = (float)delta;
+		// Wall-clock delta (see _lastRealMs) so the slow-mo death cam's
+		// Engine.TimeScale doesn't stretch the fade. Advanced every frame —
+		// including the Prompt wait — so the FadingIn handoff starts fresh.
+		ulong nowMs = Time.GetTicksMsec();
+		float dt = (nowMs - _lastRealMs) / 1000f;
+		_lastRealMs = nowMs;
 		switch (_state)
 		{
 			case EState.FadingOut:

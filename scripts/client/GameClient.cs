@@ -387,6 +387,13 @@ public partial class GameClient : Node3D
 	// OnPlayerDiedInternal, released in RespawnPlayer; ticked in _Process.
 	[Export] public SlowMotionController slowMotion;
 
+	// Wall-clock stamp for the post-process pass. The screen effects are
+	// presentation, so they run on real time — the slow-mo death cam's
+	// Engine.TimeScale must not stretch flash decays or the death heartbeat
+	// (which is synced to the death-screen fade). The sim still gets the scaled
+	// _Process delta via World.Tick.
+	ulong _screenFxLastRealMs;
+
 	// World → screen-pixel projection for the HUD layers. Forwards to the
 	// viewport rig, which owns the sub-texel offset that aligns it with the
 	// upscaled render.
@@ -924,7 +931,14 @@ public partial class GameClient : Node3D
 		{
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
-		screenEffects?.Tick(deltaTime, birdsEye?.MotionBlur ?? 0f, BirdsEyeController.BlurDir, slowMotion?.RadialBlur ?? 0f);
+		// Bird's-eye fly-up and the slow-mo death cam are both zooms → radial channel.
+		float radialBlur = Mathf.Max(slowMotion?.RadialBlur ?? 0f, birdsEye?.MotionBlur ?? 0f);
+		// Drive the post-process on wall-clock time (see _screenFxLastRealMs) so
+		// slow-mo doesn't stretch its fades; the sim got the scaled delta above.
+		ulong screenFxNowMs = Time.GetTicksMsec();
+		double screenFxDelta = _screenFxLastRealMs == 0UL ? deltaTime : (screenFxNowMs - _screenFxLastRealMs) / 1000.0;
+		_screenFxLastRealMs = screenFxNowMs;
+		screenEffects?.Tick(screenFxDelta, radialBlur);
 
 		// Hide the per-interactive highlight outline while another fullscreen
 		// HUD (merchant, conversation, cooking, etc.) has InputSuppressed on.
