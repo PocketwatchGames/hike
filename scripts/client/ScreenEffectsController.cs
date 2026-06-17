@@ -198,11 +198,11 @@ public partial class ScreenEffectsController : Node
 		_lowHealthEffectTimer = 0f;
 	}
 
-	// Per-frame post-process update. `transitionBlur` / `transitionBlurDir`
-	// carry the bird's-eye fly-up smear (0 when not transitioning); the camera
-	// rotation blur is composited in via max-of. `radialBlur` is the
-	// slow-motion death-cam zoom blur (separate shader channel, 0 when idle).
-	public void Tick(double deltaTime, float transitionBlur, Vector2 transitionBlurDir, float radialBlur)
+	// Per-frame post-process update. `radialBlur` is the combined zoom-blur
+	// strength (slow-mo death cam + bird's-eye fly-up), driving the radial
+	// channel; the directional channel carries only the camera rotation blur,
+	// composited internally and gated by the rotationBlur CVar.
+	public void Tick(double deltaTime, float radialBlur)
 	{
 		if (postProcessMaterial == null) { return; }
 		GameClient client = GameClient.Current;
@@ -213,17 +213,14 @@ public partial class ScreenEffectsController : Node
 		postProcessMaterial.SetShaderParameter("vignette_softness", CVars.vignetteSoftness.Value);
 		postProcessMaterial.SetShaderParameter("vignette_strength", CVars.vignetteStrength.Value);
 
-		// Motion blur — combined max-of between the camera's rotation blur
-		// (decays over rotationBlurDuration after a Q/E press) and the supplied
-		// transition blur. The CVar gates only the rotation source so the
-		// bird's-eye effect runs even when rotation blur is disabled. When
-		// `motion_blur_strength` is 0 the shader skips the blur loop, so idle
-		// frames pay nothing.
+		// Directional motion blur is the camera rotation (Q/E spin) only,
+		// gated by the rotationBlur CVar. The bird's-eye zoom-out and the slow-mo
+		// death cam are zooms, so they drive the radial channel below instead.
+		// When a strength is 0 the shader skips that blur loop, so idle frames
+		// pay nothing.
 		float rotBlur = (CVars.rotationBlur.Value && camera != null) ? camera.RotationBlurStrength : 0f;
-		float blurStrength = Mathf.Max(rotBlur, transitionBlur);
-		Vector2 blurDir = transitionBlur > rotBlur || camera == null ? transitionBlurDir : camera.RotationBlurDir;
-		postProcessMaterial.SetShaderParameter("motion_blur_strength", blurStrength);
-		postProcessMaterial.SetShaderParameter("motion_blur_dir", blurDir);
+		postProcessMaterial.SetShaderParameter("motion_blur_strength", rotBlur);
+		postProcessMaterial.SetShaderParameter("motion_blur_dir", camera != null ? camera.RotationBlurDir : Vector2.Right);
 		postProcessMaterial.SetShaderParameter("radial_blur_strength", radialBlur);
 
 		float dt = (float)deltaTime;

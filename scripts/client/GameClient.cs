@@ -924,7 +924,9 @@ public partial class GameClient : Node3D
 		{
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
-		screenEffects?.Tick(deltaTime, birdsEye?.MotionBlur ?? 0f, BirdsEyeController.BlurDir, slowMotion?.RadialBlur ?? 0f);
+		// Bird's-eye fly-up and the slow-mo death cam are both zooms → radial channel.
+		float radialBlur = Mathf.Max(slowMotion?.RadialBlur ?? 0f, birdsEye?.MotionBlur ?? 0f);
+		screenEffects?.Tick(deltaTime, radialBlur);
 
 		// Hide the per-interactive highlight outline while another fullscreen
 		// HUD (merchant, conversation, cooking, etc.) has InputSuppressed on.

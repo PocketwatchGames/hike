@@ -81,17 +81,21 @@ void fragment()
 	vec3 scene;
 	if (radial_blur_strength > 0.0)
 	{
-		// Symmetric N-tap zoom blur: sample the framebuffer at UVs pulled
-		// progressively toward the centre. MAX_SCALE is the deepest inward
-		// pull at full strength (~10% toward centre).
+		// Radial zoom blur centred on screen: sample the framebuffer along the
+		// line through the centre, scaling UVs symmetrically inward AND outward
+		// around the current pixel. Symmetric so one path reads correctly for
+		// both a zoom-in (slow-mo death cam) and a zoom-out (bird's-eye fly-up).
+		// MAX_SPREAD is the total radial scale span at full strength (~10%).
 		const int RSAMPLES = 8;
-		const float MAX_SCALE = 0.1;
-		float pull = MAX_SCALE * radial_blur_strength;
+		const float MAX_SPREAD = 0.1;
+		float spread = MAX_SPREAD * radial_blur_strength;
 		vec2 toCenter = SCREEN_UV - 0.5;
 		vec3 accum = vec3(0.0);
 		for (int i = 0; i < RSAMPLES; i++)
 		{
-			float s = 1.0 - pull * (float(i) / float(RSAMPLES - 1));
+			// t in [-0.5, 0.5] → s in [1 - spread/2, 1 + spread/2].
+			float t = (float(i) / float(RSAMPLES - 1)) - 0.5;
+			float s = 1.0 + spread * t;
 			accum += texture(screen_tex, 0.5 + toCenter * s).rgb;
 		}
 		scene = accum / float(RSAMPLES);
