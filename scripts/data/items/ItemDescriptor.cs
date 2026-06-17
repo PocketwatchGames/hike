@@ -49,11 +49,32 @@ public partial class ItemDescriptor : Resource
 		for (int i = 0; i < statusEffects.Count; i++)
 		{
 			StatusEffectDescriptor desc = statusEffects[i];
-			if (desc?.effect != null)
+			if (desc?.effect == null)
 			{
-				state.statusEffects.AddWeaponMod(desc.effect, desc.scope, desc.chargeIndex);
+				continue;
 			}
+			if (!DeliveryAllows(desc.effect))
+			{
+				GD.PushWarning($"ItemDescriptor: mod '{desc.effect.ResourcePath}' requires delivery " +
+					$"{desc.effect.weaponMod.requiredDelivery} but '{item.ResourcePath}' is " +
+					$"{(item as WeaponData)?.delivery.ToString() ?? "not a weapon"} — skipping.");
+				continue;
+			}
+			state.statusEffects.AddWeaponMod(desc.effect, desc.scope, desc.chargeIndex);
 		}
+	}
+
+	// True unless the effect carries a weaponMod with a delivery requirement the
+	// target weapon doesn't satisfy. None requirement always passes; a mod with a
+	// requirement only attaches to a WeaponData sharing one of its delivery bits.
+	private bool DeliveryAllows(StatusEffectData effect)
+	{
+		EWeaponDelivery required = effect.weaponMod?.requiredDelivery ?? EWeaponDelivery.None;
+		if (required == EWeaponDelivery.None)
+		{
+			return true;
+		}
+		return item is WeaponData weapon && (weapon.delivery & required) != 0;
 	}
 
 	// True when this descriptor carries at least one mod — i.e. CreateState

@@ -44,6 +44,9 @@ public partial class Discoverable : Node3D
 
     // Optional worldspace HUD shown during Detected. Null = no callout.
     [Export] public PackedScene HudScene;
+    // Screen-space scale applied to the spawned HUD. Bump down for small
+    // targets (footprints) or up for large ones; mirrors MobData.hudScale.
+    [Export] public float hudScale = 1f;
     [Export] private Node3D _hudAnchor;
     // SpriteBase subclasses (LitSprite / FlatLitSprite) that should dither
     // in / out as discovery state changes. Wire any sprite that should

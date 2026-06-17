@@ -285,6 +285,13 @@ public partial class ModelAnimator : Node
     // style — applied once at spawn from Player. Names match the FBX node names.
     public void SetMeshRecolor(string[] meshNames, Color color)
     {
+        SetMeshRecolor(meshNames, color, 1f);
+    }
+
+    // amount < 1 tints toward `color` while keeping the texture's albedo
+    // variation (biome mob variants); amount 1 flat-replaces (player skin/hair).
+    public void SetMeshRecolor(string[] meshNames, Color color, float amount)
+    {
         if (meshNames == null || meshNames.Length == 0)
         {
             return;
@@ -308,7 +315,24 @@ public partial class ModelAnimator : Node
             if (Array.IndexOf(meshNames, mesh.Name.ToString()) >= 0)
             {
                 mesh.SetInstanceShaderParameter("recolor", rgb);
-                mesh.SetInstanceShaderParameter("recolor_amount", 1f);
+                mesh.SetInstanceShaderParameter("recolor_amount", amount);
+            }
+        }
+    }
+
+    // Apply a mob's biome-variant palette at spawn. Null = leave the authored
+    // textures untouched (the common case).
+    public void ApplyPalette(MobPalette palette)
+    {
+        if (palette?.recolors == null)
+        {
+            return;
+        }
+        foreach (MobRecolorEntry entry in palette.recolors)
+        {
+            if (entry != null)
+            {
+                SetMeshRecolor(entry.meshNames, entry.color, entry.amount);
             }
         }
     }

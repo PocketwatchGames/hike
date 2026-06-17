@@ -83,6 +83,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
 shape = SubResource("BoxShape3D_hurt")
 
 [node name="BlockCollider" type="StaticBody3D" parent="." unique_id=2032678811]
+collision_layer = 2048
 script = ExtResource("porous_body")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=5014140]
@@ -92,6 +93,7 @@ shape = SubResource("BoxShape3D_8mn7t")
 [node name="Discoverable" type="Node3D" parent="." unique_id=1756612000 node_paths=PackedStringArray("_fadeMeshRoot", "_interactBox")]
 script = ExtResource("8_disc")
 discoveredThreshold = 0.1
+hudScale = 0.5
 _fadeMeshRoot = NodePath("../ChestVisual")
 _interactBox = NodePath("../InteractiveBox")
 
@@ -102,7 +104,7 @@ _collectFrom = NodePath("../ChestVisual")
 [node name="HUDNode" type="Node3D" parent="." unique_id=692065589]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
 
-[node name="InteractiveXray" type="Node3D" parent="." node_paths=PackedStringArray("_meshRoots", "_discoverable")]
+[node name="InteractiveXray" type="Node3D" parent="." unique_id=713323148 node_paths=PackedStringArray("_meshRoots", "_discoverable")]
 script = ExtResource("13_xray")
 _meshRoots = [NodePath("../ChestVisual")]
 _discoverable = NodePath("../Discoverable")

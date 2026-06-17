@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://bf41ryidlefx0"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://cf41rym2gqidl" path="res://assets/audio/source/mobs/fairy/sfx_enemy_fairy_idle_lp.wav" id="2_idlelp"]
+
+[node name="FairyIdleLoop" type="Node3D"]
+script = ExtResource("1_fx")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_idlelp")
+volume_db = -16.0
+unit_size = 2.5
+max_distance = 12.0
+bus = &"World3D"

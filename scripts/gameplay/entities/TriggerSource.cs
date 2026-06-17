@@ -45,13 +45,19 @@ public partial class TriggerSource : Area3D, ITriggerable
         CollisionMask |= (uint)(ECollisionLayer.Player | ECollisionLayer.Mob);
         BodyEntered += OnBodyEntered;
         BodyExited += OnBodyExited;
+        // Only tick while a cooldown is counting down — the rest of the time
+        // the area's body signals do all the work, so an idle source costs
+        // nothing per frame. Re-enabled in TryFire when a cooldown starts.
+        SetPhysicsProcess(false);
     }
 
     public override void _PhysicsProcess(double delta)
     {
-        if (_cooldownTimer > 0f)
+        _cooldownTimer -= (float)delta;
+        if (_cooldownTimer <= 0f)
         {
-            _cooldownTimer -= (float)delta;
+            _cooldownTimer = 0f;
+            SetPhysicsProcess(false);
         }
     }
 
@@ -63,6 +69,13 @@ public partial class TriggerSource : Area3D, ITriggerable
     private void OnBodyEntered(Node3D body)
     {
         if (body == this)
+        {
+            return;
+        }
+        // Light/small mobs (MobData.triggersTraps == false) are invisible to
+        // body-driven traps — they neither arm the trap nor end up in the
+        // body list a sprung trap damages.
+        if (body is Mob mob && mob.mobData != null && !mob.mobData.triggersTraps)
         {
             return;
         }
@@ -103,9 +116,10 @@ public partial class TriggerSource : Area3D, ITriggerable
         {
             _spent = true;
         }
-        else
+        else if (cooldown > 0f)
         {
             _cooldownTimer = cooldown;
+            SetPhysicsProcess(true);
         }
     }
 }

@@ -46,4 +46,14 @@ public abstract class EntitySimState
     // runtime node, so shape-derived implementations (e.g. trees rasterizing
     // their cylinder collider) can read its CollisionShape3D directly.
     public virtual void GetPathBlockerCells(Node3D entity, System.Collections.Generic.List<Vector3I> outCells) { }
+
+    // Radius (meters) of the damaging "danger zone" around this entity that
+    // mobs avoid when wandering and never spawn inside. 0 = harmless (the
+    // default). Set by the spawning code (fire trap / campfire / spike trap)
+    // from authored tuning. Distinct from GetPathBlockerCells: a hazard cell
+    // is still walkable (a chasing mob can be lured across it) — it's only
+    // routed-around by wander/normal pathing, whereas a path-blocker cell is
+    // impassable to everyone. World refcounts the disc of cells this radius
+    // covers into its hazard grid on spawn (see World.RegisterEntity).
+    public float HazardRadius;
 }

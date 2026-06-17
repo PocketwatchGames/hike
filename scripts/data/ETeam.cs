@@ -15,6 +15,10 @@ public enum ETeam
 	// tactics, and its alarm calls draw a look (not an investigation) from
 	// other factions while rallying only fellow prey.
 	Prey = 4,
+	// Sentinel for "no team" — used ONLY as the default of MobData.threatTeam to
+	// mean "this mob does not scan for threats." Never assign it to a mob's own
+	// `team`; it allies with nothing (Teams.AreAllied) and isn't a combatant.
+	None = 5,
 }
 
 public static class Teams

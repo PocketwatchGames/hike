@@ -4,7 +4,10 @@ using Godot;
 [GlobalClass]
 public partial class MobSpawnEntry : SpawnEntryData
 {
-    [Export] public MobData Data;
+    // The composed mob to spawn — base species + per-instance overrides
+    // (palette, weapon, elite kind). Replaces the bare MobData this entry used
+    // to hold; see MobDescriptor.
+    [Export] public MobDescriptor Descriptor;
 
     // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty
     // means use the brain default. Combined with InitialBehaviorChance for
@@ -36,6 +39,48 @@ public partial class MobSpawnEntry : SpawnEntryData
     // they can settle into.
     public override bool RequireLateralClearance => true;
 
+    public override bool IsMobEntry => true;
+
+    // Authoritative spawn gate: sample the navigation walkability column with
+    // this mob's own traversal profile (body radius, step/headroom) and accept
+    // only if it yields a walkable surface at the spawn height. Catches spots
+    // the cheaper flat/lateral gates miss — a body too wide for the slot,
+    // diagonal walls, insufficient headroom — so a mob never spawns somewhere
+    // it then can't stand or navigate out of. world is null at worldgen, so
+    // this is a pure voxel-grid test (no path-blocker awareness needed — no
+    // entity nodes exist yet, and overlap is handled by MinSpacing).
+    public override bool IsSpawnPositionWalkable(WorldState ws, Vector3 position)
+    {
+        MobData data = Descriptor?.mob;
+        if (data == null)
+        {
+            // No profile to test against — defer to the other gates.
+            return true;
+        }
+        var profile = new TraversalProfile(data);
+        int wx = Mathf.FloorToInt(position.X);
+        int wz = Mathf.FloorToInt(position.Z);
+        int anchorY = Mathf.FloorToInt(position.Y);
+        var cells = new WalkabilityCell[WalkabilityGrid.MaxColumnLayers];
+        WalkabilityGrid.SampleColumn(ws, null, profile, wx, anchorY, wz, cells, 0);
+        // Layers are packed from slot 0 (highest surface) until the first
+        // non-walkable slot; accept if any standable layer sits at the spawn
+        // height (±1 voxel of float slack).
+        for (int layer = 0; layer < WalkabilityGrid.MaxColumnLayers; layer++)
+        {
+            WalkabilityCell c = cells[layer];
+            if (!c.Walkable)
+            {
+                break;
+            }
+            if (Mathf.Abs(c.surfaceY - anchorY) <= 1)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public override int RollCount(Random rng)
     {
         return rng.Next(ClusterCountMin, ClusterCountMax + 1);
@@ -43,24 +88,32 @@ public partial class MobSpawnEntry : SpawnEntryData
 
     public override void Spawn(WorldState ws, Vector3 position, Random rng, SpawnContext context)
     {
-        if (Data == null || Data.MobScene == null)
+        if (Descriptor == null)
         {
             return;
         }
-        var state = new MobSimState(
-            position,
-            (float)(rng.NextDouble() * Mathf.Pi * 2f),
-            Data.MobScene,
-            Data);
+        float rotationY = (float)(rng.NextDouble() * Mathf.Pi * 2f);
+        MobSimState state = Descriptor.CreateState(position, rotationY);
+        if (state == null)
+        {
+            return;
+        }
         state.SpawnConditions = spawnConditions;
         if (InitialBehavior != null && (string)InitialBehavior != ""
             && rng.NextDouble() < InitialBehaviorChance)
         {
             state.InitialBehavior = InitialBehavior;
         }
-        if (EliteChance > 0f && rng.NextDouble() < EliteChance)
+        // The descriptor may force elite (with its own signature); otherwise roll
+        // EliteChance here. Either way, an elite with no signature yet draws one
+        // from the zone pool — so a forced-elite descriptor keeps its chosen
+        // effect while a random elite still gets a zone-appropriate one.
+        if (!state.Elite && EliteChance > 0f && rng.NextDouble() < EliteChance)
         {
             state.Elite = true;
+        }
+        if (state.Elite && state.EliteStatusEffect == null)
+        {
             state.EliteStatusEffect = PickEliteStatusEffect(ws, position, rng);
         }
         ws.AddEntity(state);

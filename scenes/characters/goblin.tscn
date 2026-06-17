@@ -25,7 +25,7 @@
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
 [ext_resource type="Script" uid="uid://bqh3ld1tmv0sx" path="res://scripts/gameplay/characters/HeldItemVisual.cs" id="41_helditemvis"]
-[ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin_voice.tres" id="50_voice"]
+[ext_resource type="Resource" uid="uid://bnwa62mo5grh6" path="res://resources/data/characters/goblin/goblin_voice.tres" id="50_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_gby2u"]
 height = 2.5
@@ -104,7 +104,7 @@ visual = NodePath("../MeshContainer/GoblinModel")
 modelMaterial = ExtResource("28_goblinbodymat")
 secondaryMaterial = ExtResource("29_goblinpropsmat")
 secondaryMeshNames = PackedStringArray("SM_Sword", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad", "SM_DaggerLeft", "SM_DaggerRight", "SM_Stone", "SK_Slingshot")
-visibleMeshNames = PackedStringArray("SK_GoblinBody", "SM_Sword", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad")
+visibleMeshNames = PackedStringArray("SK_GoblinBody", "SM_Shield", "SM_ForearmArmorLeft", "SM_ForearmArmorRight", "SM_LegArmorLeft", "SM_LegArmorRight", "SK_ShoulderPad")
 
 [node name="HeldItemVisual" type="Node3D" parent="." unique_id=318847851 node_paths=PackedStringArray("visual")]
 script = ExtResource("41_helditemvis")

@@ -95,6 +95,14 @@ public partial class World
     // around props the voxel grid alone can't see.
     private readonly PathBlockerGrid _pathBlockers = new();
 
+    // Per-cell refcount of damaging-prop danger zones (fire traps, campfires,
+    // spike traps). Same refcounted-cell structure as _pathBlockers, but
+    // queried separately: a hazard cell is still walkable (a mob chasing the
+    // player can be lured across it) — only wander/normal pathing routes
+    // around it (WalkabilityGrid tags the cell, LocalPathfinder gates on its
+    // avoidHazards flag).
+    private readonly PathBlockerGrid _hazardCells = new();
+
     private bool _editorMode;
 
     public void UpdateEntityLoading(Vector3 center)
@@ -472,6 +480,29 @@ public partial class World
                     }
                 };
             }
+
+            // Hazard danger zone — refcounted the same way as blocker cells,
+            // but into the separate hazard grid (walkable, only wander/normal
+            // pathing avoids it). Authored radius lives on the sim state.
+            if (state.HazardRadius > 0f)
+            {
+                List<Vector3I> hazardCells = new();
+                PathBlockerRasterizer.RasterizeDisc(state.WorldPosition, state.HazardRadius, hazardCells);
+                if (hazardCells.Count > 0)
+                {
+                    for (int i = 0; i < hazardCells.Count; i++)
+                    {
+                        AddHazard(hazardCells[i]);
+                    }
+                    entity.TreeExiting += () =>
+                    {
+                        for (int i = 0; i < hazardCells.Count; i++)
+                        {
+                            RemoveHazard(hazardCells[i]);
+                        }
+                    };
+                }
+            }
         }
         entities.Add(entity);
     }
@@ -499,6 +530,28 @@ public partial class World
             {
                 yield return t;
             }
+        }
+    }
+
+    // Emit a discrete noise impulse at `position` and immediately raise nearby
+    // mobs' perception of `source` — the actor that made the noise. Distinct
+    // from the continuous movement-noise hearing each mob samples per
+    // perception tick: this is the one-shot "loud event" channel for weapon
+    // impacts, breaking objects, and the like. `decibels` scales each
+    // listener's audible radius exactly as movement decibels do (audible
+    // distance = decibels * hearingRange, wind/fog adjusted); the bump falls
+    // off with distance via the mob's authored hearing curve. A null `source`
+    // is a no-op for perception — no actor to attribute the noise to — so the
+    // caller must pass the responsible actor (e.g. the attacker) to alert mobs.
+    public void CreateNoiseEvent(Vector3 position, float decibels, Node3D source = null)
+    {
+        if (decibels <= 0f || source == null)
+        {
+            return;
+        }
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            mob.HearNoise(position, decibels, source);
         }
     }
 
@@ -629,5 +682,24 @@ public partial class World
     public bool IsPathBlocked(int wx, int wy, int wz)
     {
         return _pathBlockers.IsBlocked(wx, wy, wz);
+    }
+
+    // Hazard grid forwards — refcounted per-cell, keyed by world voxel. Same
+    // shape as the path-blocker forwards above, but a hazard cell stays
+    // walkable; WalkabilityGrid.SampleColumn tags it CellFlags.Hazard and only
+    // wander/normal pathfinding routes around it (attack pathing walks in).
+    public void AddHazard(Vector3I cell)
+    {
+        _hazardCells.Add(cell);
+    }
+
+    public void RemoveHazard(Vector3I cell)
+    {
+        _hazardCells.Remove(cell);
+    }
+
+    public bool IsHazard(int wx, int wy, int wz)
+    {
+        return _hazardCells.IsBlocked(wx, wy, wz);
     }
 }

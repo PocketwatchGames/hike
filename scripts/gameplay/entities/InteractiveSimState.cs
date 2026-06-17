@@ -43,6 +43,11 @@ public class TorchSimState : EntitySimState
 // persistent cooking inputs and cook-job timer are forge-specific.
 public class ForgeSimState : EntitySimState
 {
+    // Default hazard danger-zone radius (meters) — see EntitySimState.HazardRadius.
+    // Single source for the spawn entry's [Export] default and the .hike
+    // deserialization fallback so the two never diverge.
+    public const float DefaultHazardRadius = 1.25f;
+
     // Number of cooking slots a forge exposes. Mirrored by the
     // CookingPanel.tscn layout — adding a slot here requires adding a
     // matching ItemSlotPanel reference there.
@@ -195,6 +200,10 @@ public class BerryTreeSimState : EntitySimState
 
 public class TrapSimState : EntitySimState
 {
+    // Default hazard danger-zone radius (meters) — see EntitySimState.HazardRadius.
+    // Larger than the fire traps: the spike field is a ~3x3m square.
+    public const float DefaultHazardRadius = 2.5f;
+
     public bool Disarmed;
 
     public TrapSimState(Vector3 worldPosition, PackedScene scene)
@@ -303,6 +312,9 @@ public class ClimbableTreeSimState : EntitySimState
 
 public class FireTrapSimState : EntitySimState
 {
+    // Default hazard danger-zone radius (meters) — see EntitySimState.HazardRadius.
+    public const float DefaultHazardRadius = 1f;
+
     // Random per-instance offset (seconds) added to the trap's first Idle
     // window so neighbouring traps don't fire in lockstep. Rolled once at
     // creation and persisted through save/load — preserving the rhythm

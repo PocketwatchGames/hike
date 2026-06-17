@@ -25,7 +25,7 @@
 [ext_resource type="Material" uid="uid://dq3frbny1mat" path="res://resources/materials/forest_bunny_lit.tres" id="28_birdymat"]
 [ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="29_modelanim"]
 [ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="30_pixelsnap"]
-[ext_resource type="Resource" uid="uid://c5fmmvmcapg0m" path="res://resources/data/characters/sparrow_voice.tres" id="50_voice"]
+[ext_resource type="Resource" uid="uid://c5fmmvmcapg0m" path="res://resources/data/characters/sparrow/sparrow_voice.tres" id="50_voice"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_s1jhf"]
 radius = 0.35

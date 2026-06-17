@@ -1,15 +1,14 @@
-[gd_scene load_steps=3 format=3 uid="uid://ncybxa3beup5"]
+[gd_scene format=3 uid="uid://ncybxa3beup5"]
 
-[ext_resource type="Script" uid="uid://bw8smr4tqe2k9p" path="res://scripts/gameplay/effects/WeaponSmear.cs" id="1_smear"]
+[ext_resource type="Script" uid="uid://c43gjcx7h8cn0" path="res://scripts/gameplay/effects/WeaponSmear.cs" id="1_smear"]
 [ext_resource type="Material" uid="uid://cwsmrmat42rak" path="res://resources/materials/weapon_smear.tres" id="2_mat"]
 
-[node name="ClubSmearLight" type="Node3D" node_paths=PackedStringArray("_meshInstance")]
+[node name="ClubSmearLight" type="Node3D" unique_id=716140307 node_paths=PackedStringArray("_meshInstance")]
 script = ExtResource("1_smear")
 _meshInstance = NodePath("Mesh")
-_height = 0.3
 _entryTime = 0.04
 _exitStartTime = 0.1
 _exitTime = 0.24
 
-[node name="Mesh" type="MeshInstance3D" parent="."]
+[node name="Mesh" type="MeshInstance3D" parent="." unique_id=1696012243]
 material_override = ExtResource("2_mat")

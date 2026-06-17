@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="MobPalette" format=3 uid="uid://cswampgobpal0"]
+
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="1_pal"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_entry"]
+
+[sub_resource type="Resource" id="entry_body"]
+script = ExtResource("2_entry")
+meshNames = PackedStringArray("SK_GoblinBody")
+color = Color(0.36, 0.46, 0.3, 1)
+amount = 0.45
+metadata/_custom_type_script = "uid://opnoz9diest61"
+
+[resource]
+script = ExtResource("1_pal")
+recolors = [SubResource("entry_body")]
+metadata/_custom_type_script = "uid://j75mtm0w0qkch"

@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdkunkun0001"]
+
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="2_mob"]
+
+[resource]
+script = ExtResource("1_desc")
+mob = ExtResource("2_mob")
+metadata/_custom_type_script = "uid://lcwj9viyl1nwr"

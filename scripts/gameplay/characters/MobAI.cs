@@ -7,8 +7,9 @@ public struct AIOutput
     public float speed;
     // When non-null, Mob's tick will TryStart this action through its
     // ActionRunner (subject to the runner's busy / cooldown checks).
-    // attackContext supplies target / supportingItems / etc.; primaryItem
-    // is left null since mobs aren't backed by a WeaponState yet.
+    // attackContext supplies target / supportingItems / etc.; primaryItem is
+    // the mob's natural weapon (Mob.Weapon) when it carries weapon-mods (elites),
+    // else null — non-modded mobs source damage straight from MobData.
     public ItemActionProfile attackProfile;
     public ActionContext attackContext;
     public bool yell;
@@ -758,10 +759,60 @@ public partial class Mob
 
         // Companion threat awareness — a second perception accumulation, toward
         // the nearest enemy mob, using the same vision model as the player slot
-        // above. Gated on scansForThreats so ordinary mobs pay nothing.
-        if (alive && mobData.scansForThreats)
+        // above. A threatTeam of None means "don't scan" so ordinary mobs pay
+        // nothing.
+        if (alive && mobData.threatTeam != ETeam.None)
         {
             AccumulateThreatPerception(mobData, delta);
+        }
+    }
+
+    // Receive a discrete noise impulse (see World.CreateNoiseEvent). Reuses the
+    // exact hearing math the per-tick movement-noise contribution uses — audible
+    // distance = decibels * hearingRange (wind/fog adjusted), falling off with
+    // the authored hearingRangePower curve — but applies it as a one-shot
+    // perception bump rather than a delta-scaled accumulation. Only the
+    // perception slot tracking `source` rises (singleplayer: the player slot),
+    // so a noise from an actor this mob doesn't track goes unheard. Hearing
+    // alone never latches the combat-alert (triggered) state — that still
+    // requires line of sight, matching UpdatePerception — so a noise primes the
+    // meter and a follow-up sighting confirms it.
+    public void HearNoise(Vector3 position, float decibels, Node3D source)
+    {
+        if (!alive || source == null || decibels <= 0f)
+        {
+            return;
+        }
+        MobData mobData = _simState?.MobData;
+        if (mobData == null || mobData.hearingRange <= 0f || mobData.HearingStrength <= 0f)
+        {
+            return;
+        }
+        PerceptionState[] targets = _simState.PerceptionTargets;
+        if (targets == null)
+        {
+            return;
+        }
+        for (int i = 0; i < targets.Length; i++)
+        {
+            if (targets[i].target != source)
+            {
+                continue;
+            }
+            float maxAudibleDistance = decibels * mobData.hearingRange
+                * PlayerPerception.HearingRangeMultiplier(_world, GlobalPosition);
+            if (maxAudibleDistance <= 0f)
+            {
+                return;
+            }
+            float distSq = (position - GlobalPosition).LengthSquared();
+            if (distSq >= maxAudibleDistance * maxAudibleDistance)
+            {
+                return;
+            }
+            float falloff = Mathf.Pow(1f - Mathf.Sqrt(distSq) / maxAudibleDistance, mobData.hearingRangePower);
+            targets[i].perception = Mathf.Clamp(targets[i].perception + falloff * mobData.HearingStrength, 0f, 1f);
+            return;
         }
     }
 
@@ -820,11 +871,13 @@ public partial class Mob
             slot.perception = Mathf.Clamp(
                 slot.perception + perceptionDelta / (1.0f - mobData.MinPerceptionDelta) * mobData.PerceptionIncreaseSpeed * delta,
                 0f, 1f);
-            // Proactive mobs (canTriggerMobs) latch into combat on sight; reactive
-            // ones only build awareness here — they're triggered toward an enemy
-            // mob exclusively by being attacked (Mob.Hit sets the slot triggered
-            // directly, which this branch then preserves since it never clears it).
-            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert && mobData.canTriggerMobs)
+            // Latch into combat on sight only when the perceived enemy is itself
+            // flagged as triggering (enemy.mobData.canTriggerMobs) — a harmless
+            // target (a tamed pet) builds awareness here but never flips this mob
+            // triggered. Such a mob is then triggered toward the enemy only by
+            // being attacked (Mob.Hit sets the slot triggered directly, which
+            // this branch preserves since it never clears it).
+            if (canSee && slot.perception >= mobData.PerceptionThresholdAlert && enemy.mobData.canTriggerMobs)
             {
                 slot.triggered = true;
             }

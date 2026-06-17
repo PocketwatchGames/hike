@@ -23,6 +23,11 @@ public struct WalkabilityCell
     public bool Walkable => (flags & CellFlags.Walkable) != 0;
     public bool IsWater => (flags & CellFlags.Water) != 0;
     public bool OutOfBounds => (flags & CellFlags.OutOfBounds) != 0;
+    // The cell sits inside a damaging prop's danger zone (fire trap, campfire,
+    // spike trap). Purely informational on the cell — whether it's avoided is
+    // a per-query decision the pathfinder makes via its avoidHazards flag, so
+    // wander routes around it while a mob chasing the player still walks in.
+    public bool IsHazard => (flags & CellFlags.Hazard) != 0;
 }
 
 [System.Flags]
@@ -32,6 +37,7 @@ public enum CellFlags : byte
     Walkable = 1 << 0,    // Mob can stand here given its profile
     Water = 1 << 1,       // The standable surface is a water column (wading/swimming)
     OutOfBounds = 1 << 2, // Column is in an unloaded chunk; pathfinder must not cross
+    Hazard = 1 << 3,      // Inside a damaging prop's danger zone (see World hazard grid)
 }
 
 // Per-mob movement traits, derived from MobData. Held as a struct so it can
@@ -130,6 +136,18 @@ public class WalkabilityGrid
     // budget. Real stand-in caves clear this easily (a 2-tall cave + roof puts
     // its floor ≥3 below the outdoor surface).
     public const int MinLayerSeparation = 2;
+
+    // Soft wall-avoidance band beyond the mob's body radius. A candidate
+    // surface whose nearest wall is within (clearanceRadius + WallAvoidMargin)
+    // is still walkable but charged up to WallProximityCost extra, so A*
+    // prefers cells away from walls — this pulls a route onto a tunnel's
+    // centerline instead of scraping the wall (where separation jitter then
+    // jams the body into it). A HARD reject only happens when the body disk
+    // actually overlaps a wall (mob physically can't stand there). Global
+    // feel tuning shared across mobs, like the other consts here; the per-mob
+    // body size that drives the hard reject lives on MobData.clearanceRadius.
+    public const float WallAvoidMargin = 0.5f;
+    public const float WallProximityCost = 4f;
 
     // Layered storage: column (i,j)'s layer L lives at
     // (j*_size + i)*MaxColumnLayers + L. Walkable layers are packed from L=0
@@ -319,7 +337,8 @@ public class WalkabilityGrid
                 {
                     waterBottom--;
                 }
-                if (profile.canSwim && (found == 0 || lastSurfaceY - wy >= MinLayerSeparation))
+                if (profile.canSwim && (found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
+                    && ColumnFits(ws, profile, wx, wy, wz, out float waterWallCost))
                 {
                     int thresholdVoxels = Mathf.Max(1, Mathf.FloorToInt(profile.swimDepthThreshold));
                     int probeY = wy - (thresholdVoxels - 1);
@@ -327,7 +346,7 @@ public class WalkabilityGrid
                     WalkabilityCell wc = default;
                     wc.surfaceY = (short)wy;
                     wc.flags = CellFlags.Walkable | CellFlags.Water;
-                    wc.cost = swimming ? profile.swimCost : profile.waterCost;
+                    wc.cost = (swimming ? profile.swimCost : profile.waterCost) * waterWallCost;
                     cells[baseIdx + found] = wc;
                     lastSurfaceY = wy;
                     found++;
@@ -378,12 +397,29 @@ public class WalkabilityGrid
                 continue;
             }
 
-            if (found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
+            if ((found == 0 || lastSurfaceY - wy >= MinLayerSeparation)
+                && ColumnFits(ws, profile, wx, wy, wz, out float wallCost))
             {
+                // Tag (don't reject) cells inside a hazard's danger zone — the
+                // surface is still walkable, just flagged so wander/normal
+                // pathing can route around it. Same band as the blocker check.
+                CellFlags hazardFlag = CellFlags.None;
+                if (world != null)
+                {
+                    for (int h = 0; h < profile.verticalClearance; h++)
+                    {
+                        if (world.IsHazard(wx, wy + h, wz))
+                        {
+                            hazardFlag = CellFlags.Hazard;
+                            break;
+                        }
+                    }
+                }
+
                 WalkabilityCell wc = default;
                 wc.surfaceY = (short)wy;
-                wc.flags = CellFlags.Walkable;
-                wc.cost = 1f;
+                wc.flags = CellFlags.Walkable | hazardFlag;
+                wc.cost = wallCost;
                 cells[baseIdx + found] = wc;
                 lastSurfaceY = wy;
                 found++;
@@ -394,6 +430,84 @@ public class WalkabilityGrid
             }
             wy--;
         }
+    }
+
+    // Horizontal body-fit + wall-proximity test for a candidate surface whose
+    // standing voxel is (wx, wy, wz). The mob is modeled as a disk of radius
+    // profile.clearanceRadius centered in the cell; we scan the surrounding
+    // solid voxels across the mob's standing band [wy, wy+verticalClearance)
+    // and find the nearest one. Returns false (do-not-stand) if the disk
+    // overlaps any solid — the body physically can't fit. Otherwise returns
+    // true and sets wallCostMultiplier to a soft penalty (>=1) that grows as
+    // the nearest wall approaches within WallAvoidMargin of the body edge, so
+    // A* steers toward open centerlines without sealing narrow corridors.
+    //
+    // Distances are exact closest-point disk-vs-voxel-footprint tests, so the
+    // rule is self-tuning by body size: a 0.4 mob clears a wall-flush 1m cell
+    // (0.1m gap) but a 0.6 mob does not, and a 1-wide tunnel stays passable
+    // for the former because every cell is penalized equally.
+    private static bool ColumnFits(WorldState ws, in TraversalProfile profile, int wx, int wy, int wz, out float wallCostMultiplier)
+    {
+        wallCostMultiplier = 1f;
+        float radius = profile.clearanceRadius;
+        // Solids past this Chebyshev ring can't reach the disk or its margin.
+        int ring = Mathf.CeilToInt(radius + WallAvoidMargin);
+        int band = Mathf.Max(1, profile.verticalClearance);
+        float nearestGap = float.MaxValue; // body-edge-to-wall distance, min over neighbours
+
+        for (int ndz = -ring; ndz <= ring; ndz++)
+        {
+            for (int ndx = -ring; ndx <= ring; ndx++)
+            {
+                if (ndx == 0 && ndz == 0)
+                {
+                    continue; // own column: already known air at the surface
+                }
+                // Closest point of neighbour voxel [ndx,ndx+1]x[ndz,ndz+1]
+                // (cell-local coords) to the cell center at (0.5, 0.5).
+                float ddx = 0.5f - Mathf.Clamp(0.5f, ndx, ndx + 1);
+                float ddz = 0.5f - Mathf.Clamp(0.5f, ndz, ndz + 1);
+                float dist = Mathf.Sqrt(ddx * ddx + ddz * ddz);
+                float gap = dist - radius;
+                if (gap >= WallAvoidMargin)
+                {
+                    continue; // too far to fail the fit or contribute a penalty
+                }
+                bool solid = false;
+                for (int h = 0; h < band; h++)
+                {
+                    int sx = wx + ndx;
+                    int sy = wy + h;
+                    int sz = wz + ndz;
+                    // Unknown (unloaded) neighbours are treated as non-blocking;
+                    // column-level OutOfBounds already gates do-not-enter.
+                    if (ws.IsInBounds(sx, sy, sz) && VoxelTypeInfo.IsSolid(ws.GetVoxelWorld(sx, sy, sz)))
+                    {
+                        solid = true;
+                        break;
+                    }
+                }
+                if (!solid)
+                {
+                    continue;
+                }
+                if (gap < 0f)
+                {
+                    return false; // disk overlaps a wall — mob can't stand here
+                }
+                if (gap < nearestGap)
+                {
+                    nearestGap = gap;
+                }
+            }
+        }
+
+        if (nearestGap < WallAvoidMargin)
+        {
+            float t = 1f - nearestGap / WallAvoidMargin; // 1 at touching, 0 at margin edge
+            wallCostMultiplier = 1f + WallProximityCost * t;
+        }
+        return true;
     }
 }
 

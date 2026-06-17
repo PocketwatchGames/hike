@@ -193,7 +193,7 @@ public class StatusEffectController
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
-			ChainLightningData chain = s?.data?.chainLightning;
+			ChainLightningData chain = s?.data?.weaponMod?.chainLightning;
 			if (chain == null || !ModReachesCharge(s, chargeIndex))
 			{
 				continue;
@@ -540,8 +540,11 @@ public class StatusEffectController
 
 
 	// Fire each active effect's attackImpact burst at `position`. Called by the
-	// Melee / Hitscan handlers when an attack resolves its impact point (elite
-	// lightning aura). `attacker` scopes the area-damage team / self-exclusion.
+	// Melee / Hitscan handlers when an attack resolves its impact point — the
+	// actor-side on-attack aura (an AreaBurstData). `attacker` scopes the
+	// area-damage team / self-exclusion. (Chain lightning is NOT fired here: it's
+	// a weapon-mod payload that rides the primaryItem WeaponState through
+	// ItemEventHandlers.TriggerWeaponModChains, for player and elite mob alike.)
 	public void TriggerAttackImpact(IActionActor attacker, Vector3 position)
 	{
 		if (attacker == null)
@@ -566,11 +569,6 @@ public class StatusEffectController
 				{
 					ItemEventHandlers.ApplyAreaDamage(attacker, burst.damage, position, burst.radius);
 				}
-			}
-			// Elite lightning aura: arc a chain off the impact point.
-			if (data.chainLightning != null)
-			{
-				ItemEventHandlers.ApplyChainLightning(attacker, data.chainLightning, position);
 			}
 		}
 	}

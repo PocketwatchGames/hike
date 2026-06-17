@@ -1056,6 +1056,75 @@ public class WorldState
         return false;
     }
 
+    // True if any hazard entity's danger zone (HazardRadius) covers `position`.
+    // Used to keep mob spawns out of fire traps / campfires / spike traps.
+    // Walks the same 3x3x3 chunk neighborhood as HasEntityWithinRadius so a
+    // candidate near a chunk seam still sees a hazard just across it.
+    public bool HasHazardSpawnConflict(Vector3 position)
+    {
+        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    var coord = new Vector3I(centerCoord.X + dx, centerCoord.Y + dy, centerCoord.Z + dz);
+                    if (!_entities.TryGetValue(coord, out List<EntitySimState> list))
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        EntitySimState state = list[i];
+                        if (state.HazardRadius > 0f
+                            && state.WorldPosition.DistanceSquaredTo(position) < state.HazardRadius * state.HazardRadius)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // True if any mob sim state sits within `radius` of `position`. Used by
+    // hazard spawns to avoid dropping onto an already-placed mob (the reverse
+    // of HasHazardSpawnConflict, for order-independence).
+    public bool HasMobWithinRadius(Vector3 position, float radius)
+    {
+        if (radius <= 0f)
+        {
+            return false;
+        }
+        Vector3I centerCoord = World.WorldToChunkCoord(position);
+        float r2 = radius * radius;
+        for (int dx = -1; dx <= 1; dx++)
+        {
+            for (int dy = -1; dy <= 1; dy++)
+            {
+                for (int dz = -1; dz <= 1; dz++)
+                {
+                    var coord = new Vector3I(centerCoord.X + dx, centerCoord.Y + dy, centerCoord.Z + dz);
+                    if (!_entities.TryGetValue(coord, out List<EntitySimState> list))
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        if (list[i] is MobSimState
+                            && list[i].WorldPosition.DistanceSquaredTo(position) < r2)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public void OnVoxelsChanged(List<Vector3I> changedPositions)
     {
         LightEngine.OnVoxelsChanged(this, changedPositions);

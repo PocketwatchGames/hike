@@ -119,6 +119,14 @@ public class MobSimState : EntitySimState
     // effect on an elite is valid (the zone had no pool) — it's still 25% bigger.
     public bool Elite;
     public StatusEffectData EliteStatusEffect;
+    // Per-instance visual overrides composed by MobDescriptor at spawn so one
+    // MobData/MobScene can serve many biome variants. Null = fall back to the
+    // species defaults on MobData (palette / heldWeaponScene). Both are stable
+    // resource refs, persisted via EntitySerializer so a reloaded variant keeps
+    // its recolor and weapon rather than reverting to the base species.
+    public MobPalette Palette;
+    public PackedScene HeldWeaponScene;
+    public EHand HeldWeaponHand = EHand.Right;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
@@ -188,8 +196,8 @@ public class MobSimState : EntitySimState
 
     // Companion threat awareness — the accumulating perception toward the
     // nearest enemy (MobData.threatTeam) mob, built with the same vision model
-    // as the player slot above. Only updated when MobData.scansForThreats is
-    // set; drives the Wary / Attack tiers in the companion brain. `target`
+    // as the player slot above. Only updated when MobData.threatTeam is set
+    // (not None); drives the Wary / Attack tiers in the companion brain. `target`
     // holds the enemy Mob currently being tracked (null when none in range).
     public PerceptionState ThreatPerception;
 

@@ -21,8 +21,15 @@ public enum ESpikeDeployerState
 [GlobalClass]
 public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
 {
+    // AnimationPlayer clip names (see spike_trap.tscn). Stable internal
+    // identifiers, not tunables — the pose targets (rest -1.5, peek -1.25,
+    // out 0) and timing live in the animations themselves.
+    private const string AnimWarn = "warn";       // rest → peek
+    private const string AnimDeploy = "deploy";    // peek → out
+    private const string AnimRetract = "retract";  // out  → rest
+
     [Export] public SpikeTrapData data;
-    [Export] private Sprite3D _spikesSprite;
+    [Export] private AnimationPlayer _animator;
     [Export] private Discoverable _discoverable;
 
     public ESpikeDeployerState State => _state;
@@ -33,7 +40,19 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
 
     public override void _Ready()
     {
-        UpdateVisuals();
+        // Push the authored armed prominence onto the host Discoverable so the
+        // trap placement (SpikeTrapData) owns it rather than the scene.
+        if (_discoverable != null && data != null)
+        {
+            _discoverable.prominence = data.armedProminence;
+        }
+        // Rest fully retracted. The scene authors the Spikes node at the
+        // retracted Y too; seeking the retract clip to its end guarantees the
+        // pose if the entity respawns mid-world.
+        SnapRetracted();
+        // An armed, untriggered trap does no per-frame work — the TriggerSource
+        // Area3D wakes it via Trigger(). Only tick while a cycle is in flight.
+        SetPhysicsProcess(false);
     }
 
     public void Trigger(Node source)
@@ -43,6 +62,7 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
             return;
         }
         _activeSource = source;
+        SetPhysicsProcess(true);
         EnterWarning();
     }
 
@@ -51,7 +71,11 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         _state = ESpikeDeployerState.Idle;
         _stateTimer = 0f;
         _activeSource = null;
-        UpdateVisuals();
+        // Snap (not tween) to rest — a disarmed armed trap is already
+        // retracted, so playing the retract clip from its start would pop the
+        // spikes up to 0 first.
+        SnapRetracted();
+        SetPhysicsProcess(false);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -87,6 +111,7 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
     {
         _state = ESpikeDeployerState.Warning;
         _stateTimer = data?.warningDelay ?? 0f;
+        _animator?.Play(AnimWarn);
         if (data?.warningEffect != null)
         {
             Fx.Create(data.warningEffect, this, GlobalPosition);
@@ -97,12 +122,18 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
     {
         _state = ESpikeDeployerState.Spiked;
         _stateTimer = data?.activeDuration ?? 0f;
+        _animator?.Play(AnimDeploy);
         if (data?.emergeEffect != null)
         {
             Fx.Create(data.emergeEffect, this, GlobalPosition);
         }
+        // A sprung trap is conspicuous — bump prominence so the now-exposed
+        // trap stays easy to notice, then force the immediate discovery.
+        if (_discoverable != null && data != null)
+        {
+            _discoverable.prominence = data.firedProminence;
+        }
         _discoverable?.ForceDiscover();
-        UpdateVisuals();
         // Body list only available for TriggerSource sources. For
         // non-body firers (chest open) the deployer pops cosmetically.
         if (_activeSource is TriggerSource ts)
@@ -119,11 +150,11 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
     {
         _state = ESpikeDeployerState.Cooldown;
         _stateTimer = data?.resetTime ?? 0f;
+        _animator?.Play(AnimRetract);
         if (data?.retractEffect != null)
         {
             Fx.Create(data.retractEffect, this, GlobalPosition);
         }
-        UpdateVisuals();
     }
 
     private void EnterIdle()
@@ -131,7 +162,9 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         _state = ESpikeDeployerState.Idle;
         _stateTimer = 0f;
         _activeSource = null;
-        UpdateVisuals();
+        // Spikes already retracted by EnterCooldown — no pose change here.
+        // Cycle complete: go dormant until the next Trigger().
+        SetPhysicsProcess(false);
     }
 
     private void HitBody(Node3D body)
@@ -153,11 +186,14 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         }
     }
 
-    private void UpdateVisuals()
+    // Jump straight to the retracted rest pose (-1.5) without tweening up.
+    private void SnapRetracted()
     {
-        if (_spikesSprite != null)
+        if (_animator == null)
         {
-            _spikesSprite.Visible = _state == ESpikeDeployerState.Spiked;
+            return;
         }
+        _animator.Play(AnimRetract);
+        _animator.Seek(_animator.CurrentAnimationLength, true);
     }
 }

@@ -11,10 +11,13 @@ public enum EAffixPosition
 	Suffix = 1,
 }
 
-// Weapon-modifier payload — meaningful only when the owning effect is composed onto a
-// weapon (see ItemDescriptor / LootSpawnEntry), not an actor. New weapon-mod fields go
-// here, not on StatusEffectData; group co-dependent ones into a nested sub-resource and
-// independent ones with an [ExportGroup].
+// Weapon-modifier payload — the on-attack effects/modifiers a weapon mod adds, meaningful
+// only on a WeaponState (see ItemDescriptor / LootSpawnEntry). The player's modded weapons
+// and elite mobs carry these the same way: a mob is backed by a natural WeaponState
+// (Mob.Weapon) and the elite mob-mod composes its signature (e.g. Lightning) onto it, so
+// the payload always fires through a weapon, never as a body status effect.
+// New weapon-mod fields go here, not on StatusEffectData; group co-dependent ones into a
+// nested sub-resource and independent ones with an [ExportGroup].
 // [Tool] so the editor can instantiate it as its real type when its [Tool] parent
 // StatusEffectData binds the weaponMod property — otherwise the editor loads it as a
 // base Resource and the parent's typed setter throws / leaves the field empty.
@@ -22,6 +25,15 @@ public enum EAffixPosition
 [GlobalClass]
 public partial class WeaponModData : Resource
 {
+	// Weapon delivery methods this mod is allowed to attach to. None (default) =
+	// no restriction, applies to any weapon — the right default for mods that act
+	// on any landed hit (Vampiric, Flaming, Knockback). Set it only for a
+	// delivery-specific mod: Charged Pierce → Shot, Fragile → Shot | Thrown. A mod
+	// attaches when this is None or shares any bit with the weapon's
+	// WeaponData.delivery (see ItemDescriptor.ApplyTo).
+	[ExportGroup("Compatibility")]
+	[Export] public EWeaponDelivery requiredDelivery = EWeaponDelivery.None;
+
 	// Projectiles carrying an impactEvent shatter on first contact instead of bouncing
 	// out their fuse. The "Fragile" mod.
 	[ExportGroup("Projectile")]
@@ -53,6 +65,13 @@ public partial class WeaponModData : Resource
 	// Extra stagger/lockout seconds added alongside knockbackBonus. 0 = shove the
 	// target without lengthening its knockback lockout window.
 	[Export(PropertyHint.Range, "0,2,0.05,or_greater")] public float knockbackTimeBonus = 0f;
+
+	// On each landed attack, arc lightning between nearby enemies from the impact
+	// point. The "Shocking" weapon mod (player) and the elite "Lightning" signature
+	// (composed onto a mob's natural weapon) both ride this. Null = none. See
+	// ChainLightningData.
+	[ExportGroup("Chain Lightning")]
+	[Export] public ChainLightningData chainLightning;
 
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).

@@ -203,9 +203,7 @@ public partial class WorldGenData : Resource
 
     [ExportGroup("Overlay Scatter")]
     [Export] public float OverlayDirtFrequency = 0.2f;
-    [Export] public float OverlayFieldFrequency = 0.015f;
     [Export(PropertyHint.Range, "0,1,0.001")] public float OverlayDirtThreshold = 0.9f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float OverlayFieldThreshold = 0.10f;
     // Edge-overlay heuristic (the StampEdgeOverlays pass, currently disabled):
     // how far up/down to scan a neighbour column for its surface, and the
     // diff band that counts as a ramp/step rather than a flat or a cliff.

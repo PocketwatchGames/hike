@@ -4,100 +4,27 @@ using Godot.Collections;
 [GlobalClass]
 public partial class MobData : Resource
 {
-    // Per-EAnimation binding from logical slot to a concrete animation clip name
-    // plus retiming policy. Empty slots resolve to default-StringName and the
-    // animator silently skips them — author the dictionary in each mob .tres
-    // to wire each slot to its concrete clip. See AnimationData.
-    [Export] public Godot.Collections.Dictionary<EAnimation, AnimationData> animations = new();
-
-    // Look up the animation clip name for an EAnimation slot. Returns
-    // default StringName when the slot is unbound — callers route this
-    // through the animator's Play / HasAnimation, both of which no-op
-    // on unknown names, so an unbound slot is a silent skip rather than a
-    // hard error.
-    public StringName GetAnimationName(EAnimation anim)
-    {
-        return animations.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
-    }
-
-    // Returns whether the slot is authored to track statusAnimMul. Returns
-    // false for unbound slots — playing nothing at status-retimed speed is
-    // the same as playing nothing at authored speed.
-    public bool IsAnimationSpeedAffected(EAnimation anim)
-    {
-        return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
-    }
-
-    // Time-of-day window (normalized [0,1): 0 = midnight, 0.25 = sunrise,
-    // 0.5 = noon, 0.75 = sunset) during which this mob plays its idle anim-
-    // audio loop (the _idleLoopFx chirp/hum). Outside the window the idle
-    // loop is suppressed — a sparrow set to 0.15..0.65 chirps from before
-    // dawn to early afternoon and falls silent the rest of the day. When
-    // Start == End the window is the whole day (always active, the default).
-    // Start > End wraps past midnight (e.g. a nocturnal mob at 0.75..0.25).
-    // Only the idle loop is gated; the idle animation itself still plays.
-    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopStartTimeOfDay = 0f;
-    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopEndTimeOfDay = 0f;
-
-    // Blended rainAmount (0..1) above which the idle anim-audio loop falls
-    // silent — a skittish critter clams up once the weather turns from a
-    // drizzle into real rain. 1 = never suppressed by rain (the default; the
-    // loop plays in any weather). 0.2 ≈ "quiet in anything more than a
-    // drizzle". Same rainAmount signal the spawn gate reads
-    // (World.CurrentRainAmount).
-    [Export(PropertyHint.Range, "0,1,0.01")] public float IdleLoopMaxRain = 1f;
-
-    // Whether the idle anim-audio loop should be playing at the given
-    // normalized time of day. Handles the wrap-around window (Start > End)
-    // and treats Start == End as "always on".
-    public bool IsIdleLoopActiveAt(double timeOfDay01)
-    {
-        if (Mathf.IsEqualApprox(IdleLoopStartTimeOfDay, IdleLoopEndTimeOfDay))
-        {
-            return true;
-        }
-        if (IdleLoopStartTimeOfDay < IdleLoopEndTimeOfDay)
-        {
-            return timeOfDay01 >= IdleLoopStartTimeOfDay && timeOfDay01 < IdleLoopEndTimeOfDay;
-        }
-        // Wrap-around window spanning midnight.
-        return timeOfDay01 >= IdleLoopStartTimeOfDay || timeOfDay01 < IdleLoopEndTimeOfDay;
-    }
-
     // Player-facing name shown in the Bestiary, announcement banners, and any
     // future "Goblin attacks!" UI. Matches the StringName pattern other
     // *Data resources use for human-readable identity (ItemData, RegionData).
     [Export] public StringName displayName;
 
-    // Whether this species shows up in the bestiary and fires a discovery
-    // announcement the first time a player sees one. False for "common
-    // knowledge" species the player wouldn't catalogue — villagers,
-    // livestock, future named NPCs. Distinct from the per-instance
-    // EPlayerPerceptionState.Discovered, which still progresses normally
-    // on these mobs for AI / HUD purposes; this flag just controls the
-    // species-level bestiary entry.
-    [Export] public bool appearsInBestiary = true;
+    [ExportGroup("Team")]
+    // Faction this mob belongs to. Drives targeting / aggro filters elsewhere
+    // (a Friendly villager doesn't register as a threat, a Hostile creature
+    // attacks the player, a Neutral animal only retaliates). Behaviors are
+    // shared across teams — the brain decides what to do, the team decides
+    // who counts as a target.
+    [Export] public ETeam team = ETeam.Hostile;
+    // Faction this mob scans as enemies for the second "threat perception"
+    // channel (a companion watches the Hostile faction; a goblin watches the
+    // Friendly faction to notice the player's pet). ETeam.None (the default)
+    // means this mob does NOT scan for threats at all — ordinary mobs only
+    // perceive the player and pay nothing. Set a real team to enable the
+    // channel; it drives the companion brain's Wary / Attack tiers.
+    [Export] public ETeam threatTeam = ETeam.None;
 
-    // Cumulative kill thresholds for the bestiary entry's level. Entry i
-    // is the total kills required to reach level (i+1); the bestiary
-    // shows current level + progress to the next threshold. Empty list
-    // means the entry doesn't level (stays at level 0). At max level the
-    // bar fills and shows total kills instead of a target.
-    [Export] public Array<int> killsPerLevel = new();
-
-    // Portrait shown on the right-hand bestiary detail panel for this
-    // species. Authored at higher resolution than the in-world sprite —
-    // the bestiary's TextureRect controls final size. Null leaves the
-    // portrait slot empty (hidden).
-    [Export] public Texture2D bestiaryPortrait;
-
-    // Scale multiplier applied to the worldspace MobHUD once this species
-    // has been discovered or triggered. Smaller creatures use values <1
-    // so their callout doesn't dwarf them; bosses go >1. The pre-discovery
-    // perception meter always renders at a fixed small scale regardless.
-    [Export] public float hudScale = 1f;
-
-    [ExportGroup("Mob Perceives Player")]
+    [ExportGroup("Perception")]
     // How this mob's AI sees the player — sight cone reach and shape, the
     // accumulation curve that turns "in sight" into the triggered/alert
     // state in MobAI.UpdatePerception's mob-to-player block.
@@ -164,44 +91,20 @@ public partial class MobData : Resource
     // active visual contact crosses the perception threshold.
     [Export] public float smellRange = 8f;
     [Export] public float smellRangePower = 0.5f;
-
-    [ExportGroup("Threat Perception")]
-    // When true, this mob also accumulates perception toward nearby triggered
-    // `threatTeam` mobs — using the same omnidirectional vision model + speeds +
-    // thresholds (Wary / Alert) as its player perception. Drives the companion
-    // guard reaction (BehaviorWary → BehaviorDogAttack). Off for ordinary mobs,
-    // which only perceive the player. The accumulation reuses VisionRange,
-    // VisionRangePower, VisionStrength, PerceptionIncreaseSpeed /
-    // PerceptionRelaxationSpeed, MinPerceptionDelta, and the two thresholds.
-    [Export] public bool scansForThreats = false;
-    // Faction a threat-scanning mob treats as enemies (a companion watches the
-    // Hostile faction). Only consulted when scansForThreats is true.
-    [Export] public ETeam threatTeam = ETeam.Hostile;
-    // Whether merely perceiving an enemy (threatTeam) mob is enough to drag this
-    // mob into combat with it. true = proactive: threat perception crossing
-    // PerceptionThresholdAlert latches the threat slot triggered, so the mob
-    // engages a perceived enemy on sight (a guard dog hunting hostiles). false =
-    // reactive: the mob still accumulates threat perception toward the enemy (it
-    // becomes aware — can reach the Wary tier, turn, track) but never latches
-    // triggered from sight alone. It enters combat with that enemy only when the
-    // enemy attacks it (Mob.Hit latches the threat slot directly, bypassing this
-    // gate) — letting a goblin notice the player's companion without picking a
-    // fight until provoked. Independent of the player slot: a reactive mob still
-    // triggers on the player normally and only weighs the companion as a target
-    // once it has reason to (aggro from being struck). Only consulted when
-    // scansForThreats is true.
+    // Whether THIS mob, when perceived by another threat-scanning mob, is
+    // threatening enough to flip that mob's threat slot `triggered` from sight
+    // alone. true (default) = a normal threat: a mob whose threatTeam matches
+    // this one and which fully perceives it engages on sight. false = this mob
+    // can still be perceived (the scanner becomes aware, can go Wary, tracks it)
+    // but is never auto-attacked from perception alone — the scanner fights it
+    // only after being struck (Mob.Hit latches the threat slot directly,
+    // bypassing this gate). Set false on a tamed companion so wandering hostiles
+    // notice the pet without picking a fight unless provoked. Read off the
+    // *target* mob, so "harmlessness" travels with the creature. Only relevant
+    // for mobs that some other species scans via threatTeam.
     [Export] public bool canTriggerMobs = true;
-    // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
-    // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
-    // mob takes — or, for a companion, damage dealt to its master — adds aggro
-    // toward the attacker (health damage * DamageData.aggroMultiplier); the mob
-    // then targets whichever tracked enemy holds the most aggro. This value is
-    // how fast that focus fades once an attacker stops dealing damage, letting
-    // the mob fall back to picking its target by perception / proximity. Higher
-    // = more fickle focus; 0 = aggro never decays (a grudge held until death).
-    [Export] public float aggroReductionSpeed = 5f;
 
-    [ExportGroup("Player Perceives Mob")]
+    [ExportGroup("Perceivability")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
     // gates the per-frame visibility (a still mob is harder to spot), which
     // is folded into prominence at the call site along with tall-grass
@@ -231,13 +134,7 @@ public partial class MobData : Resource
     [Export] public float MemoryStationaryTime = 60f;
     [Export] public float MemoryMovingTime = 3f;
 
-    [ExportGroup("")]
-    // Faction this mob belongs to. Drives targeting / aggro filters elsewhere
-    // (a Friendly villager doesn't register as a threat, a Hostile creature
-    // attacks the player, a Neutral animal only retaliates). Behaviors are
-    // shared across teams — the brain decides what to do, the team decides
-    // who counts as a target.
-    [Export] public ETeam team = ETeam.Hostile;
+    [ExportGroup("Personality")]
     // Loyalty threshold at which this mob becomes tamed and joins the player as
     // a companion/pet. Once a mob's per-instance MobSimState.Loyalty crosses
     // this value (mirrors LoyaltyGift.requiredLoyalty), Mob flips Tamed,
@@ -253,6 +150,82 @@ public partial class MobData : Resource
     // this per-instance. Null = speaks the player's language unconditionally
     // (universal NPCs).
     [Export] public LanguageData language;
+    // Per-species taste model. An ordered list of multiplier rules folded over
+    // an item's base value (ItemData.value) to produce the subjective worth
+    // this species places on it — see Mob.PerUnitValue / CalculatePersonalValue.
+    // Empty = the species values everything at face value. A dog authors a
+    // single whenMissing-Meat rule at multiplier 0 (anything that isn't meat is
+    // worthless); a villager layers several likes/dislikes. Each entry is an
+    // ItemTagPreference; rules compose multiplicatively in author order.
+    [Export] public Godot.Collections.Array<ItemTagPreference> itemPreferences = new();
+
+    [ExportGroup("Health & Armor")]
+    [Export] public float maxHealth = 10f;
+    [Export] public float maxArmor = 0f;
+    // Health a tamed companion is restored to when the player revives its
+    // corpse (the Revive interactive — see Mob.Revive). An absolute value, not
+    // a fraction: a companion comes back wounded at the authored amount and is
+    // clamped to [1, maxHealth] so a revive never lands dead or over-full.
+    // Only consulted for revivable mobs (tameLoyalty > 0).
+    [Export] public float reviveHealth = 1f;
+    [Export] public float armorRechargeDelay = 6f;
+    [Export] public float armorRechargeSpeed = 1f;
+    [Export] public float armorRecoverTime = 30f;
+    // Inherent stat modifiers. Composed with active StatusEffectData.
+    // modifiers when the actor queries any stat. Damage / armor penetration / blunt /
+    // knockback / buildup scaling all key on hit tags via this list;
+    // vulnerabilities author multiplier > 1. Kun-kun's Dizzy vulnerability
+    // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
+    // lands triple.
+    [Export] public Godot.Collections.Array<StatModifier> modifiers;
+    // Per-species Dizzy resistance — a base trait every mob tunes, like
+    // maxHealth / maxArmor (which are likewise direct fields with EStat
+    // counterparts for situational deltas). The Dizzy buildup meter fills to
+    // 1.0 to land the effect; this is the buildup multiple required to get
+    // there — 1 is stock, 2 means "needs twice the buildup" (resistant), 0.5
+    // means "half the buildup" (easily dizzied). Folded into ComposeMaskMul as
+    // an inverse contribution scalar, so it composes with any situational
+    // { Dizzy, x } StatModifier (kun-kun's { Dizzy, 3 } vulnerability still
+    // stacks on top). Leave at 1 for no per-species adjustment.
+    [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
+    // Status effect applied to this mob the moment it spawns and never removed
+    // by the spawn path — the home for an intrinsic, lifelong effect. A summoned
+    // minion authors its self-expiry here: a StatusEffectData with
+    // maxHealthDrainPerSecond and duration=0, so its MAX health withers ~1/sec
+    // (no floating damage number) until it reaches 0 and the minion dies. Null
+    // on ordinary mobs.
+    [Export] public StatusEffectData spawnStatusEffect;
+
+    [ExportGroup("Combat")]
+    // Named damage profiles fired by this mob's attack actions. Mirrors
+    // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves
+    // against this dict when the attacker is a Mob instead of a weapon-
+    // carrying Player. Convention: "primary" is the default key for the
+    // mob's main attack; multi-attack species add additional keys
+    // (e.g. "claw" / "bite"). Empty dict = no damage on Melee/Hitscan
+    // events sourced from this mob.
+    [Export] public Dictionary<StringName, DamageData> damageProfiles = new();
+    // Per-second damage profiles for mob-spawned area effects (a fire
+    // elemental's aura, a poison breath cloud's continuous portion).
+    // Mirrors WeaponData.continuousProfiles; AreaIntervalSpec entries on
+    // an ItemEvent still resolve against `damageProfiles`.
+    [Export] public Dictionary<StringName, ContinuousDamageData> continuousProfiles = new();
+    // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
+    // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
+    // mob takes — or, for a companion, damage dealt to its master — adds aggro
+    // toward the attacker (health damage * DamageData.aggroMultiplier); the mob
+    // then targets whichever tracked enemy holds the most aggro. This value is
+    // how fast that focus fades once an attacker stops dealing damage, letting
+    // the mob fall back to picking its target by perception / proximity. Higher
+    // = more fickle focus; 0 = aggro never decays (a grudge held until death).
+    [Export] public float aggroReductionSpeed = 5f;
+    [Export] public bool dangerous = false;
+    // Exp awarded to each of the killing player's equipped weapons and armor
+    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
+    // effect kills (poison without an attributable source) do not award exp.
+    [Export] public int exp = 0;
+
+    [ExportGroup("Burrowing")]
     [Export] public bool canBurrow = false;
     // Seconds from the moment a mob starts burrowing to when it's fully
     // underground and uninteractable. During this window the mesh is sinking
@@ -265,107 +238,25 @@ public partial class MobData : Resource
     // resist (shorter effect) or skip the stun entirely (leave null). The
     // effect's own duration is the stun length.
     [Export] public StatusEffectData dugUpStun;
-    // Status effect applied to this mob the moment it spawns and never removed
-    // by the spawn path — the home for an intrinsic, lifelong effect. A summoned
-    // minion authors its self-expiry here: a StatusEffectData with
-    // maxHealthDrainPerSecond and duration=0, so its MAX health withers ~1/sec
-    // (no floating damage number) until it reaches 0 and the minion dies. Null
-    // on ordinary mobs.
-    [Export] public StatusEffectData spawnStatusEffect;
-    [Export] public float maxHealth = 10f;
-    [Export] public float maxArmor = 0f;
 
-    // Health a tamed companion is restored to when the player revives its
-    // corpse (the Revive interactive — see Mob.Revive). An absolute value, not
-    // a fraction: a companion comes back wounded at the authored amount and is
-    // clamped to [1, maxHealth] so a revive never lands dead or over-full.
-    // Only consulted for revivable mobs (tameLoyalty > 0).
-    [Export] public float reviveHealth = 1f;
-
-    // Inherent stat modifiers. Composed with active StatusEffectData.
-    // modifiers when the actor queries any stat. Damage / armor penetration / blunt /
-    // knockback / buildup scaling all key on hit tags via this list;
-    // vulnerabilities author multiplier > 1. Kun-kun's Dizzy vulnerability
-    // is { Dizzy, 3 } here — any buildup feeding a Dizzy-tagged effect
-    // lands triple.
-    [Export] public Godot.Collections.Array<StatModifier> modifiers;
-
-    // Per-species taste model. An ordered list of multiplier rules folded over
-    // an item's base value (ItemData.value) to produce the subjective worth
-    // this species places on it — see Mob.PerUnitValue / CalculatePersonalValue.
-    // Empty = the species values everything at face value. A dog authors a
-    // single whenMissing-Meat rule at multiplier 0 (anything that isn't meat is
-    // worthless); a villager layers several likes/dislikes. Each entry is an
-    // ItemTagPreference; rules compose multiplicatively in author order.
-    [Export] public Godot.Collections.Array<ItemTagPreference> itemPreferences = new();
-
-    // Folds itemPreferences over an item's base value, multiplying by every
-    // rule whose tag condition the item satisfies. Returns baseValue unchanged
-    // when the list is empty (the species has no opinions).
-    public float ApplyItemPreferences(float baseValue, EItemType itemTags)
-    {
-        if (itemPreferences == null)
-        {
-            return baseValue;
-        }
-        float v = baseValue;
-        foreach (ItemTagPreference pref in itemPreferences)
-        {
-            if (pref != null && pref.Matches(itemTags))
-            {
-                v *= pref.multiplier;
-            }
-        }
-        return v;
-    }
-
-    // Per-species Dizzy resistance — a base trait every mob tunes, like
-    // maxHealth / maxArmor (which are likewise direct fields with EStat
-    // counterparts for situational deltas). The Dizzy buildup meter fills to
-    // 1.0 to land the effect; this is the buildup multiple required to get
-    // there — 1 is stock, 2 means "needs twice the buildup" (resistant), 0.5
-    // means "half the buildup" (easily dizzied). Folded into ComposeMaskMul as
-    // an inverse contribution scalar, so it composes with any situational
-    // { Dizzy, x } StatModifier (kun-kun's { Dizzy, 3 } vulnerability still
-    // stacks on top). Leave at 1 for no per-species adjustment.
-    [Export(PropertyHint.Range, "0.1,10,0.1,or_greater")] public float dizzyResistance = 1f;
-
-    // Named damage profiles fired by this mob's attack actions. Mirrors
-    // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves
-    // against this dict when the attacker is a Mob instead of a weapon-
-    // carrying Player. Convention: "primary" is the default key for the
-    // mob's main attack; multi-attack species add additional keys
-    // (e.g. "claw" / "bite"). Empty dict = no damage on Melee/Hitscan
-    // events sourced from this mob.
-    [Export] public Dictionary<StringName, DamageData> damageProfiles = new();
-
-    // Per-second damage profiles for mob-spawned area effects (a fire
-    // elemental's aura, a poison breath cloud's continuous portion).
-    // Mirrors WeaponData.continuousProfiles; AreaIntervalSpec entries on
-    // an ItemEvent still resolve against `damageProfiles`.
-    [Export] public Dictionary<StringName, ContinuousDamageData> continuousProfiles = new();
-
-    public DamageData GetDamage(StringName key)
-    {
-        if (damageProfiles == null)
-        {
-            return null;
-        }
-        return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
-    }
-
-    public ContinuousDamageData GetContinuousDamage(StringName key)
-    {
-        if (continuousProfiles == null)
-        {
-            return null;
-        }
-        return continuousProfiles.TryGetValue(key, out ContinuousDamageData d) ? d : null;
-    }
-
-    [Export] public float armorRechargeDelay = 6f;
-    [Export] public float armorRechargeSpeed = 1f;
-    [Export] public float armorRecoverTime = 30f;
+    [ExportGroup("Audio")]
+    // Time-of-day window (normalized [0,1): 0 = midnight, 0.25 = sunrise,
+    // 0.5 = noon, 0.75 = sunset) during which this mob plays its idle anim-
+    // audio loop (the _idleLoopFx chirp/hum). Outside the window the idle
+    // loop is suppressed — a sparrow set to 0.15..0.65 chirps from before
+    // dawn to early afternoon and falls silent the rest of the day. When
+    // Start == End the window is the whole day (always active, the default).
+    // Start > End wraps past midnight (e.g. a nocturnal mob at 0.75..0.25).
+    // Only the idle loop is gated; the idle animation itself still plays.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopStartTimeOfDay = 0f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float IdleLoopEndTimeOfDay = 0f;
+    // Blended rainAmount (0..1) above which the idle anim-audio loop falls
+    // silent — a skittish critter clams up once the weather turns from a
+    // drizzle into real rain. 1 = never suppressed by rain (the default; the
+    // loop plays in any weather). 0.2 ≈ "quiet in anything more than a
+    // drizzle". Same rainAmount signal the spawn gate reads
+    // (World.CurrentRainAmount).
+    [Export(PropertyHint.Range, "0,1,0.01")] public float IdleLoopMaxRain = 1f;
     [Export] public float yellVolume = 15;
     // How this mob responds when it hears another mob's yell. yellVolume
     // is yeller-side (who hears me); these three are receiver-side (how
@@ -378,6 +269,143 @@ public partial class MobData : Resource
     [Export] public float yellInvestigateRange = 8f;
     [Export] public float yellInvestigateCancelTime = 30f;
     [Export] public float yellInvestigatePauseTime = 3f;
+    // Continuous movement noise this mob emits. Mapped from current speed:
+    // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
+    // Listeners (player + other mobs) check `decibels * hearingRange >
+    // distance` to hear, and add a hearing contribution to their perception
+    // delta when they do.
+    [Export] public float sneakDecibels = 1f;
+    [Export] public float runDecibels = 4f;
+
+    [ExportGroup("AI")]
+    [Export] public StringName defaultBehavior = "Idle";
+    [Export] public BrainData brain;
+
+    [ExportGroup("Bestiary")]
+    // Whether this species shows up in the bestiary and fires a discovery
+    // announcement the first time a player sees one. False for "common
+    // knowledge" species the player wouldn't catalogue — villagers,
+    // livestock, future named NPCs. Distinct from the per-instance
+    // EPlayerPerceptionState.Discovered, which still progresses normally
+    // on these mobs for AI / HUD purposes; this flag just controls the
+    // species-level bestiary entry.
+    [Export] public bool appearsInBestiary = true;
+    // Cumulative kill thresholds for the bestiary entry's level. Entry i
+    // is the total kills required to reach level (i+1); the bestiary
+    // shows current level + progress to the next threshold. Empty list
+    // means the entry doesn't level (stays at level 0). At max level the
+    // bar fills and shows total kills instead of a target.
+    [Export] public Array<int> killsPerLevel = new();
+    // Portrait shown on the right-hand bestiary detail panel for this
+    // species. Authored at higher resolution than the in-world sprite —
+    // the bestiary's TextureRect controls final size. Null leaves the
+    // portrait slot empty (hidden).
+    [Export] public Texture2D bestiaryPortrait;
+
+    [ExportGroup("Visuals")]
+    // Per-EAnimation binding from logical slot to a concrete animation clip name
+    // plus retiming policy. Empty slots resolve to default-StringName and the
+    // animator silently skips them — author the dictionary in each mob .tres
+    // to wire each slot to its concrete clip. See AnimationData.
+    [Export] public Godot.Collections.Dictionary<EAnimation, AnimationData> animations = new();
+    // Scale multiplier applied to the worldspace MobHUD once this species
+    // has been discovered or triggered. Smaller creatures use values <1
+    // so their callout doesn't dwarf them; bosses go >1. The pre-discovery
+    // perception meter always renders at a fixed small scale regardless.
+    [Export] public float hudScale = 1f;
+    // Scene instantiated for this mob type. Single source of truth — every
+    // place that previously paired a (PackedScene, MobData) reference
+    // (ZoneGenData goblin/kun_kun, MobSpawnEntry) now references MobData
+    // alone and reads MobScene from it.
+    [Export] public PackedScene MobScene;
+    // Per-instance recolor applied at spawn so one MobScene/FBX can serve many
+    // biome variants (e.g. swamp vs desert goblin) without a unique model each.
+    // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
+    [Export] public MobPalette palette;
+    // MovingLight scene this mob spawns when it lights its torch (dark
+    // ambient + discovered). Instantiated on demand in Mob and freed when
+    // the conditions clear — same instantiate/free pattern and field name
+    // as TorchData.movingLightScene. Null on torch-less species.
+    [Export] public PackedScene movingLightScene;
+    // The visible in-hand torch prop (a HeldTorch scene) this mob holds while
+    // its torch is lit — the same model the player carries. Attached to the
+    // mob's off-hand via its HeldItemVisual. Null leaves the mob with just the
+    // invisible movingLightScene deposit (no held prop).
+    [Export] public PackedScene heldTorchScene;
+    // Visible weapon prop instanced in-hand at spawn via HeldItemVisual — the
+    // mob analog of WeaponData.heldModel. Hide the rig's baked weapon mesh
+    // (ModelAnimator visibleMeshNames) so this replaces it rather than doubling
+    // up. Null leaves the mob with its baked mesh / empty hand.
+    [Export] public PackedScene heldWeaponScene;
+    [Export] public EHand heldWeaponHand = EHand.Right;
+
+    [ExportGroup("Loot & Death")]
+    // Loot ejected from the mob's body when it dies. Each entry spawns
+    // `count` Loot instances of `item`, fired outward from the mob's
+    // position with the same upward-arc impulse pattern chests use. Empty
+    // (or null entries) on a mob means no drops.
+    [Export] public Array<ItemCount> loot = new();
+    // Outward arc speed (m/s) applied to each piece of ejected loot when
+    // the mob dies — both authored drops in EjectLoot and any stuck arrows
+    // scattered with the corpse. Launched on a 45° upward arc; larger
+    // values scatter wider.
+    [Export] public float lootEjectSpeed = 5f;
+    // When true the mob leaves no corpse: once it dies (loot ejected, death
+    // fx fired) the body fades out in place over deathDespawnSeconds and is
+    // removed permanently (node + sim state). For ethereal creatures like the
+    // fairy, whose "body" is a glowing orb that should wink out rather than
+    // litter the ground. Reuses the escape-vanish path with zero ascent.
+    [Export] public bool despawnOnDeath = false;
+    [Export] public float deathDespawnSeconds = 0.5f;
+
+    [ExportGroup("Navigation")]
+    [ExportSubgroup("Traversal & Movement")]
+    // Read by the navigation system to decide which voxels this mob can walk
+    // through, climb, or swim in. A mob with default values is a plain ground
+    // walker that steps over 1-voxel curbs and avoids water.
+
+    // Vertical voxels of step-up the mob can enter without "climbing" — 1 lets
+    // a mob walk up a single-voxel ledge, 0 means it stops at any rise. Higher
+    // values are for goat/spider-like climbers. Used by the walkability grid
+    // to decide which neighbour cells are reachable from the current cell.
+    [Export] public int maxStepHeight = 1;
+    // Vertical speed (m/s) the body is driven upward at when the step-up assist
+    // clears a voxel riser directly ahead of its movement. The mob's locomotion
+    // is a purely-horizontal impulse, so without this the capsule wedges against
+    // an upward step and stalls; this lift lets gravity + forward motion carry
+    // it onto the ledge. High enough that the rise beats gravity for the tick;
+    // the lift self-terminates once the capsule rises above the step. 0 disables
+    // step-up entirely (a mob that should stall at any rise). See Mob.TryStepUp.
+    [Export] public float stepClimbSpeed = 4f;
+    // Vertical voxels of drop the mob is willing to take when the pathfinder
+    // is invoked with allowFalling=true (chase, follow). 0 = "never drop"
+    // (skittish mobs that refuse to leave their ledge). Wander always passes
+    // allowFalling=false regardless of this value, so even mobs with a high
+    // maxFallHeight don't accidentally wander themselves off a cliff.
+    [Export] public int maxFallHeight = 4;
+    // True if the mob can climb arbitrary vertical surfaces (spider). Skips
+    // the maxStepHeight check entirely and lets the pathfinder treat any
+    // adjacent solid as walkable.
+    [Export] public bool canClimb = false;
+    // True if the mob is heavy/large enough to set off body-driven traps
+    // (pressure-plate spike traps, etc). False = the trap's TriggerSource
+    // ignores it entirely, so it neither springs the trap nor is caught by
+    // one another body sprung. Small critters (dog, sparrow, kun-kun) set
+    // this false.
+    [Export] public bool triggersTraps = true;
+    // Mob's half-width for clearance checks. Used to validate that a path
+    // cell has enough horizontal room and to size the separation kernel.
+    [Export] public float clearanceRadius = 0.4f;
+    // Vertical voxels of headroom the mob needs above a surface to stand on
+    // it. The default 2 matches a roughly player-height creature. A short mob
+    // (dog, rat, chicken) sets 1 so the pathfinder lets it duck into 1-voxel
+    // slots — low cave mouths, gaps under overhangs — that a 2-tall mob can't
+    // fit through; a future tall mob (moose, bear rearing) sets 3+. Read only
+    // by the walkability grid's headroom check, so it gates which cells the
+    // nav system treats as standable — it does NOT resize the physics capsule.
+    // Keep it truthful to the body's actual height. The shared walkability
+    // cache keys on it, so distinct heights don't share standability samples.
+    [Export] public int verticalClearance = 2;
     [Export] public float maxSpeed = 4f;
     // How strongly foliage (bushes, tall grass) slows this mob. The foliage's
     // own speed multiplier is applied at full strength at 1, ignored entirely
@@ -403,118 +431,16 @@ public partial class MobData : Resource
     // Doubles as the per-(m/s) head/tailwind coefficient on flier cruise speed
     // (see windFlySpeedCap).
     [Export(PropertyHint.Range, "0,1,0.005")] public float windDragXZ = 0.075f;
-    // Continuous movement noise this mob emits. Mapped from current speed:
-    // 0 at rest, sneakDecibels at half maxSpeed, runDecibels at maxSpeed.
-    // Listeners (player + other mobs) check `decibels * hearingRange >
-    // distance` to hear, and add a hearing contribution to their perception
-    // delta when they do.
-    [Export] public float sneakDecibels = 1f;
-    [Export] public float runDecibels = 4f;
-    [Export] public StringName defaultBehavior = "Idle";
-    [Export] public bool dangerous = false;
-    // Exp awarded to each of the killing player's equipped weapons and armor
-    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
-    // effect kills (poison without an attributable source) do not award exp.
-    [Export] public int exp = 0;
-    [Export] public BrainData brain;
-    // Scene instantiated for this mob type. Single source of truth — every
-    // place that previously paired a (PackedScene, MobData) reference
-    // (ZoneGenData goblin/kun_kun, MobSpawnEntry) now references MobData
-    // alone and reads MobScene from it.
-    [Export] public PackedScene MobScene;
-    // MovingLight scene this mob spawns when it lights its torch (dark
-    // ambient + discovered). Instantiated on demand in Mob and freed when
-    // the conditions clear — same instantiate/free pattern and field name
-    // as TorchData.movingLightScene. Null on torch-less species.
-    [Export] public PackedScene movingLightScene;
-    // The visible in-hand torch prop (a HeldTorch scene) this mob holds while
-    // its torch is lit — the same model the player carries. Attached to the
-    // mob's off-hand via its HeldItemVisual. Null leaves the mob with just the
-    // invisible movingLightScene deposit (no held prop).
-    [Export] public PackedScene heldTorchScene;
 
-    // Loot ejected from the mob's body when it dies. Each entry spawns
-    // `count` Loot instances of `item`, fired outward from the mob's
-    // position with the same upward-arc impulse pattern chests use. Empty
-    // (or null entries) on a mob means no drops.
-    [Export] public Array<ItemCount> loot = new();
-
-    // Outward arc speed (m/s) applied to each piece of ejected loot when
-    // the mob dies — both authored drops in EjectLoot and any stuck arrows
-    // scattered with the corpse. Launched on a 45° upward arc; larger
-    // values scatter wider.
-    [Export] public float lootEjectSpeed = 5f;
-
-    // When true the mob leaves no corpse: once it dies (loot ejected, death
-    // fx fired) the body fades out in place over deathDespawnSeconds and is
-    // removed permanently (node + sim state). For ethereal creatures like the
-    // fairy, whose "body" is a glowing orb that should wink out rather than
-    // litter the ground. Reuses the escape-vanish path with zero ascent.
-    [Export] public bool despawnOnDeath = false;
-    [Export] public float deathDespawnSeconds = 0.5f;
-
-    // ---- Traversal profile ----
-    // Read by the navigation system to decide which voxels this mob can walk
-    // through, climb, or swim in. A mob with default values is a plain ground
-    // walker that steps over 1-voxel curbs and avoids water.
-
-    // Vertical voxels of step-up the mob can enter without "climbing" — 1 lets
-    // a mob walk up a single-voxel ledge, 0 means it stops at any rise. Higher
-    // values are for goat/spider-like climbers. Used by the walkability grid
-    // to decide which neighbour cells are reachable from the current cell.
-    [Export] public int maxStepHeight = 1;
-
-    // Vertical speed (m/s) the body is driven upward at when the step-up assist
-    // clears a voxel riser directly ahead of its movement. The mob's locomotion
-    // is a purely-horizontal impulse, so without this the capsule wedges against
-    // an upward step and stalls; this lift lets gravity + forward motion carry
-    // it onto the ledge. High enough that the rise beats gravity for the tick;
-    // the lift self-terminates once the capsule rises above the step. 0 disables
-    // step-up entirely (a mob that should stall at any rise). See Mob.TryStepUp.
-    [Export] public float stepClimbSpeed = 4f;
-
-    // Vertical voxels of drop the mob is willing to take when the pathfinder
-    // is invoked with allowFalling=true (chase, follow). 0 = "never drop"
-    // (skittish mobs that refuse to leave their ledge). Wander always passes
-    // allowFalling=false regardless of this value, so even mobs with a high
-    // maxFallHeight don't accidentally wander themselves off a cliff.
-    [Export] public int maxFallHeight = 4;
-
-    // True if the mob can climb arbitrary vertical surfaces (spider). Skips
-    // the maxStepHeight check entirely and lets the pathfinder treat any
-    // adjacent solid as walkable.
-    [Export] public bool canClimb = false;
-
-    // True if the mob can enter Water voxels at all. False = water is a hard
-    // wall (e.g. small flightless creatures); true = water is enterable but
-    // costs `waterCost` per cell. Amphibious mobs set canSwim=true,
-    // waterCost=1; mobs that hate water set canSwim=true, waterCost=5.
-    [Export] public bool canSwim = true;
-
-    // Pathfinder cost multiplier for water cells. 1 = neutral. Higher values
-    // mean the mob will detour around water if there's a dry path within
-    // cost*distance — so 5 means "swim only if dry path is 5x longer".
-    // Used for wading cells (water column shallower than swimDepthThreshold);
-    // deeper columns price through swimCost instead.
-    [Export] public float waterCost = 5f;
-
-    // Pathfinder cost multiplier for swim cells — water columns at least
-    // swimDepthThreshold voxels deep, where the mob has to swim rather than
-    // wade. Higher than waterCost so a mob picks a wading detour over a
-    // swim leg when both routes are otherwise equivalent.
-    [Export] public float swimCost = 15f;
-
+    [ExportSubgroup("Flight")]
     // True if the mob ignores ground entirely. Pathfinder runs in 3D for
     // these and steering applies a hover force toward terrain+hoverHeight.
     [Export] public bool canFly = false;
-
     // For fliers: preferred altitude above the terrain surface in voxels.
     // Steering layer pulls the mob toward this height when no goal demands
     // otherwise. A behavior may override per-trip via AIOutput.flyAltitude
     // (future low/medium/high cruise tiers).
     [Export] public float hoverHeight = 4f;
-
-    // ---- Flight profile (canFly only) ----
     // Horizontal cruise speed while airborne, m/s. Replaces maxSpeed for the
     // flight steering cap — birds travel faster than they hop on the ground.
     [Export] public float flySpeed = 9f;
@@ -541,22 +467,23 @@ public partial class MobData : Resource
     // the bird rises over hills ahead instead of skimming into them.
     [Export] public float flightLookAhead = 6f;
 
-    // Mob's half-width for clearance checks. Used to validate that a path
-    // cell has enough horizontal room and to size the separation kernel.
-    [Export] public float clearanceRadius = 0.4f;
-
-    // Vertical voxels of headroom the mob needs above a surface to stand on
-    // it. The default 2 matches a roughly player-height creature. A short mob
-    // (dog, rat, chicken) sets 1 so the pathfinder lets it duck into 1-voxel
-    // slots — low cave mouths, gaps under overhangs — that a 2-tall mob can't
-    // fit through; a future tall mob (moose, bear rearing) sets 3+. Read only
-    // by the walkability grid's headroom check, so it gates which cells the
-    // nav system treats as standable — it does NOT resize the physics capsule.
-    // Keep it truthful to the body's actual height. The shared walkability
-    // cache keys on it, so distinct heights don't share standability samples.
-    [Export] public int verticalClearance = 2;
-
-    // ---- Water / swim profile ----
+    [ExportSubgroup("Water / Swim")]
+    // True if the mob can enter Water voxels at all. False = water is a hard
+    // wall (e.g. small flightless creatures); true = water is enterable but
+    // costs `waterCost` per cell. Amphibious mobs set canSwim=true,
+    // waterCost=1; mobs that hate water set canSwim=true, waterCost=5.
+    [Export] public bool canSwim = true;
+    // Pathfinder cost multiplier for water cells. 1 = neutral. Higher values
+    // mean the mob will detour around water if there's a dry path within
+    // cost*distance — so 5 means "swim only if dry path is 5x longer".
+    // Used for wading cells (water column shallower than swimDepthThreshold);
+    // deeper columns price through swimCost instead.
+    [Export] public float waterCost = 5f;
+    // Pathfinder cost multiplier for swim cells — water columns at least
+    // swimDepthThreshold voxels deep, where the mob has to swim rather than
+    // wade. Higher than waterCost so a mob picks a wading detour over a
+    // swim leg when both routes are otherwise equivalent.
+    [Export] public float swimCost = 15f;
     // Per-mob swim physics. Defaults match PlayerData so a stock mob feels
     // the same in water as the player; override per-species to make a
     // bobbing leaf-fish very different from a heavy bear.
@@ -579,4 +506,77 @@ public partial class MobData : Resource
     // dragged toward the local water current. High = the river carries
     // the mob; low = it mostly swims under its own power.
     [Export] public float waterCurrentDrag = 2f;
+
+    // Look up the animation clip name for an EAnimation slot. Returns
+    // default StringName when the slot is unbound — callers route this
+    // through the animator's Play / HasAnimation, both of which no-op
+    // on unknown names, so an unbound slot is a silent skip rather than a
+    // hard error.
+    public StringName GetAnimationName(EAnimation anim)
+    {
+        return animations.TryGetValue(anim, out AnimationData d) && d != null ? d.name : default;
+    }
+
+    // Returns whether the slot is authored to track statusAnimMul. Returns
+    // false for unbound slots — playing nothing at status-retimed speed is
+    // the same as playing nothing at authored speed.
+    public bool IsAnimationSpeedAffected(EAnimation anim)
+    {
+        return animations.TryGetValue(anim, out AnimationData d) && d != null && d.affectedBySpeedMultiplier;
+    }
+
+    // Whether the idle anim-audio loop should be playing at the given
+    // normalized time of day. Handles the wrap-around window (Start > End)
+    // and treats Start == End as "always on".
+    public bool IsIdleLoopActiveAt(double timeOfDay01)
+    {
+        if (Mathf.IsEqualApprox(IdleLoopStartTimeOfDay, IdleLoopEndTimeOfDay))
+        {
+            return true;
+        }
+        if (IdleLoopStartTimeOfDay < IdleLoopEndTimeOfDay)
+        {
+            return timeOfDay01 >= IdleLoopStartTimeOfDay && timeOfDay01 < IdleLoopEndTimeOfDay;
+        }
+        // Wrap-around window spanning midnight.
+        return timeOfDay01 >= IdleLoopStartTimeOfDay || timeOfDay01 < IdleLoopEndTimeOfDay;
+    }
+
+    // Folds itemPreferences over an item's base value, multiplying by every
+    // rule whose tag condition the item satisfies. Returns baseValue unchanged
+    // when the list is empty (the species has no opinions).
+    public float ApplyItemPreferences(float baseValue, EItemType itemTags)
+    {
+        if (itemPreferences == null)
+        {
+            return baseValue;
+        }
+        float v = baseValue;
+        foreach (ItemTagPreference pref in itemPreferences)
+        {
+            if (pref != null && pref.Matches(itemTags))
+            {
+                v *= pref.multiplier;
+            }
+        }
+        return v;
+    }
+
+    public DamageData GetDamage(StringName key)
+    {
+        if (damageProfiles == null)
+        {
+            return null;
+        }
+        return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
+    }
+
+    public ContinuousDamageData GetContinuousDamage(StringName key)
+    {
+        if (continuousProfiles == null)
+        {
+            return null;
+        }
+        return continuousProfiles.TryGetValue(key, out ContinuousDamageData d) ? d : null;
+    }
 }

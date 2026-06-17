@@ -28,6 +28,13 @@ using Godot;
 // allowFalling is the per-call knob that lets behaviors opt into chase
 // drops while wander stays grounded. Wander always passes false.
 //
+// avoidHazards is the analogous knob for damaging-prop danger zones: when
+// true, cells flagged CellFlags.Hazard are treated as impassable so the
+// route detours around fire traps / campfires / spike traps. Attack pathing
+// passes false so a mob chasing the player walks straight in — the player
+// can lure it onto a trap. The hazard flag is baked into the shared grid the
+// same for everyone; only this gate differs per query.
+//
 // Heuristic: octile distance, admissible for 8-connected grids with the
 // above cardinal/diagonal costs. Search expands to a hard expansion budget
 // to bound worst-case cost when the goal is unreachable; on budget overrun
@@ -58,7 +65,7 @@ public class LocalPathfinder
     // Scratch path-cell list. Caller copies out before calling Find again.
     private readonly List<int> _scratch = new();
 
-    public List<Vector3> Find(WalkabilityGrid grid, in TraversalProfile profile, Vector3 startWorld, Vector3 goalWorld, bool allowFalling)
+    public List<Vector3> Find(WalkabilityGrid grid, in TraversalProfile profile, Vector3 startWorld, Vector3 goalWorld, bool allowFalling, bool avoidHazards)
     {
         int size = grid.Size;
         int layers = WalkabilityGrid.MaxColumnLayers;
@@ -154,6 +161,15 @@ public class LocalPathfinder
                     for (int nLayer = 0; nLayer < nLayers; nLayer++)
                     {
                         WalkabilityCell n = grid.GetLayer(ni, nj, nLayer);
+
+                        // Hazard avoidance (wander/normal pathing only). The
+                        // start cell can itself be a hazard — only neighbour
+                        // cells are gated here, so a mob standing in one can
+                        // still path out.
+                        if (avoidHazards && n.IsHazard)
+                        {
+                            continue;
+                        }
 
                         // Asymmetric vertical step rules. dy > 0: stepping up
                         // (or climbing); dy < 0: stepping down (or falling).

@@ -34,6 +34,19 @@ public static class PathBlockerRasterizer
         CollectFromNode(entity, floorY, outCells);
     }
 
+    // Footprint of a flat disc centered at `center` with the given radius, at
+    // the disc's floor row. Used by the hazard grid (a fire trap's danger
+    // zone, a campfire, a spike field) where the avoided region is an authored
+    // radius rather than a physical collider on the Solid layer.
+    public static void RasterizeDisc(Vector3 center, float radius, List<Vector3I> outCells)
+    {
+        if (radius <= 0f)
+        {
+            return;
+        }
+        RasterizeDisc(center.X, center.Z, radius, Mathf.FloorToInt(center.Y), outCells);
+    }
+
     private static void CollectFromNode(Node node, int floorY, List<Vector3I> outCells)
     {
         // Only solid-world bodies count as path blockers — terrain/walls
@@ -108,10 +121,20 @@ public static class PathBlockerRasterizer
                 RasterizeBox(worldXform, box.Size, floorY, outCells);
                 break;
             }
+            case ConcavePolygonShape3D concave:
+            {
+                // MeshAutoCollider bakes FBX props (rocks, the well, etc.) into
+                // a trimesh via Mesh.CreateTrimeshShape() — this is the common
+                // prop collider, NOT a rare case. Without this branch those
+                // props register zero blocker cells and mobs path straight
+                // through them.
+                RasterizeTrimesh(worldXform, concave.Data, floorY, outCells);
+                break;
+            }
         }
-        // Other shape types (ConcavePolygon, ConvexPolygon, Heightmap,
-        // Separation, World3D) are silently skipped — none are used as
-        // path blockers in this codebase. Add a case if that changes.
+        // Remaining shape types (ConvexPolygon, Heightmap, Separation, World3D)
+        // are silently skipped — none are used as path blockers in this
+        // codebase. Add a case if that changes.
     }
 
     private static bool YRangeOverlaps(float centerY, float halfHeight, int floorY)
@@ -187,5 +210,83 @@ public static class PathBlockerRasterizer
                 }
             }
         }
+    }
+
+    // Trimesh footprint: a triangle soup with no primitive silhouette, so we
+    // project every triangle onto XZ and union the cells they cover. For a
+    // closed mesh the top/bottom cap faces project over the interior, so the
+    // union fills the solid silhouette rather than tracing a hollow outline.
+    // Gated once on the whole shape's world-space Y AABB (does the prop occupy
+    // the mob's standing band at all); like every other shape here it then
+    // registers its footprint at the single floorY row. Runs at spawn, not
+    // per frame, so the per-triangle cost is fine.
+    private static void RasterizeTrimesh(Transform3D worldXform, Vector3[] verts, int floorY, List<Vector3I> outCells)
+    {
+        if (verts == null || verts.Length < 3)
+        {
+            return;
+        }
+
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+        for (int i = 0; i < verts.Length; i++)
+        {
+            float wy = (worldXform * verts[i]).Y;
+            minY = Mathf.Min(minY, wy);
+            maxY = Mathf.Max(maxY, wy);
+        }
+        if (!YRangeOverlaps((minY + maxY) * 0.5f, (maxY - minY) * 0.5f, floorY))
+        {
+            return;
+        }
+
+        // Many triangles cover the same cell; dedup here so the refcounted
+        // blocker list (and its mirror removal on TreeExiting) stays small.
+        var cells = new HashSet<Vector3I>();
+        // ConcavePolygonShape3D.Data is a flat soup: 3 consecutive verts per
+        // triangle, already triangulated.
+        for (int t = 0; t + 2 < verts.Length; t += 3)
+        {
+            Vector3 a = worldXform * verts[t];
+            Vector3 b = worldXform * verts[t + 1];
+            Vector3 c = worldXform * verts[t + 2];
+            RasterizeTriangleXz(a.X, a.Z, b.X, b.Z, c.X, c.Z, floorY, cells);
+        }
+        foreach (Vector3I cell in cells)
+        {
+            outCells.Add(cell);
+        }
+    }
+
+    // Fill cells whose center lies inside the XZ-projected triangle (a,b,c).
+    private static void RasterizeTriangleXz(float ax, float az, float bx, float bz, float cx, float cz, int floorY, HashSet<Vector3I> outCells)
+    {
+        int minX = Mathf.FloorToInt(Mathf.Min(ax, Mathf.Min(bx, cx)));
+        int maxX = Mathf.FloorToInt(Mathf.Max(ax, Mathf.Max(bx, cx)));
+        int minZ = Mathf.FloorToInt(Mathf.Min(az, Mathf.Min(bz, cz)));
+        int maxZ = Mathf.FloorToInt(Mathf.Max(az, Mathf.Max(bz, cz)));
+        for (int wx = minX; wx <= maxX; wx++)
+        {
+            for (int wz = minZ; wz <= maxZ; wz++)
+            {
+                if (PointInTriangleXz(wx + 0.5f, wz + 0.5f, ax, az, bx, bz, cx, cz))
+                {
+                    outCells.Add(new Vector3I(wx, floorY, wz));
+                }
+            }
+        }
+    }
+
+    // Half-plane sign test, winding-agnostic. A point on an edge (a zero
+    // cross) is treated as inside, so cells straddling a shared edge are
+    // claimed by both triangles — harmless after the HashSet dedup.
+    private static bool PointInTriangleXz(float px, float pz, float ax, float az, float bx, float bz, float cx, float cz)
+    {
+        float d1 = (px - bx) * (az - bz) - (ax - bx) * (pz - bz);
+        float d2 = (px - cx) * (bz - cz) - (bx - cx) * (pz - cz);
+        float d3 = (px - ax) * (cz - az) - (cx - ax) * (pz - az);
+        bool hasNeg = d1 < 0f || d2 < 0f || d3 < 0f;
+        bool hasPos = d1 > 0f || d2 > 0f || d3 > 0f;
+        return !(hasNeg && hasPos);
     }
 }

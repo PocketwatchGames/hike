@@ -7,7 +7,6 @@
 [ext_resource type="Resource" uid="uid://cccq1e0wvo1dr" path="res://resources/data/blocks/block_water.tres" id="5_water"]
 [ext_resource type="Resource" uid="uid://bm3lbwv3egjbs" path="res://resources/data/blocks/block_cobblestone.tres" id="6_cobble"]
 [ext_resource type="Resource" uid="uid://c07ky0t60tpta" path="res://resources/data/blocks/block_dirt_overlay.tres" id="7_dirt"]
-[ext_resource type="Resource" uid="uid://c0mpf4rb3xdx4" path="res://resources/data/blocks/block_field_overlay.tres" id="8_field"]
 [ext_resource type="Resource" uid="uid://d0b71mu3xq5cg" path="res://resources/data/blocks/block_desert_top.tres" id="9_desert_top"]
 [ext_resource type="Resource" uid="uid://chx6p8gf7rf1r" path="res://resources/data/blocks/block_desert_sand.tres" id="10_desert_sand"]
 [ext_resource type="Resource" uid="uid://dpbb3e3o8bi2w" path="res://resources/data/blocks/block_desert_wall.tres" id="11_desert_wall"]
@@ -17,6 +16,6 @@
 
 [resource]
 script = ExtResource("1_catalog")
-Blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("8_field"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
+Blocks = Array[ExtResource("2_block_script")]([ExtResource("3_stone"), ExtResource("4_grass"), ExtResource("5_water"), ExtResource("6_cobble"), ExtResource("7_dirt"), ExtResource("9_desert_top"), ExtResource("10_desert_sand"), ExtResource("11_desert_wall"), ExtResource("12_desert_cave"), ExtResource("13_marsh"), ExtResource("14_cave_floor")])
 DefaultFlatTile = ExtResource("4_grass")
 DefaultWallTile = ExtResource("3_stone")

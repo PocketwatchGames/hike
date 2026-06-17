@@ -104,13 +104,15 @@ displayName = &"Dog"
 hudScale = 0.5
 PerceptionThresholdAlert = 0.85
 PerceptionThresholdWary = 0.3
-scansForThreats = true
+threatTeam = 0
+canTriggerMobs = false
 team = 4
 modifiers = null
 itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
 damageProfiles = Dictionary[StringName, ExtResource("6_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
+triggersTraps = false
 maxSpeed = 12.0
 foliageSpeedModifier = 0.5
 defaultBehavior = &"WanderFollow"

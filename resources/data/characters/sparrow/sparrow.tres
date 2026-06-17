@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" uid="uid://bi4ak0i1a4rcb" path="res://scenes/characters/sparrow.tscn" id="1_2er1a"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_mky6i"]
-[ext_resource type="Resource" uid="uid://fvs72bqjuve5" path="res://resources/data/characters/bird/sparrow_brain.tres" id="3_mky6i"]
+[ext_resource type="Resource" uid="uid://fvs72bqjuve5" path="res://resources/data/characters/sparrow/sparrow_brain.tres" id="3_mky6i"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_xf8iq"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_yluhv"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_5k01d"]
@@ -125,6 +125,7 @@ hideRange = 8.0
 maxHealth = 5.0
 modifiers = Array[ExtResource("8_bjh47")]([SubResource("Resource_dizzy_vuln")])
 dizzyResistance = 0.30000000000000004
+triggersTraps = false
 maxSpeed = 8.0
 foliageSpeedModifier = 0.0
 runDecibels = 1.0

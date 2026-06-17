@@ -18,9 +18,17 @@ using Godot;
 //
 // Color key (matches the CVar doc):
 //   green square outline  — standable dry cell, drawn at its surface Y
+//   orange-tinted square  — standable but wall-proximate: the body fits yet
+//                           the cell is charged a wall-avoidance cost, so A*
+//                           routes through it only when there's no roomier
+//                           cell (green→orange tracks rising cost)
 //   cyan square outline   — standable water cell (wade/swim)
-//   red cross             — in-bounds column the pathfinder rejects
-//                           (no surface in range, or insufficient headroom)
+//   magenta square        — standable but inside a hazard danger zone (fire
+//                           trap / campfire / spike trap): wander and ordinary
+//                           goto route around it, only an attacking mob walks in
+//   red cross             — in-bounds column the pathfinder rejects (no
+//                           surface in range, insufficient headroom, or the
+//                           body disk can't clear the surrounding walls)
 // Out-of-bounds columns (unloaded chunks) are skipped to avoid clutter.
 public static class NavGridDebug
 {
@@ -36,7 +44,9 @@ public static class NavGridDebug
     private const float RejectCrossSize = 0.4f;
 
     private static readonly Color WalkableColor = new(0.2f, 0.9f, 0.2f);
+    private static readonly Color PenaltyColor = new(1f, 0.6f, 0.1f);
     private static readonly Color WaterColor = new(0.2f, 0.7f, 1f);
+    private static readonly Color HazardColor = new(1f, 0.2f, 1f);
     private static readonly Color RejectColor = new(1f, 0.2f, 0.2f);
 
     public static void Draw(World world, Vector3 playerPos)
@@ -78,7 +88,11 @@ public static class NavGridDebug
                         break;
                     }
                     anyLayer = true;
-                    Color c = cell.IsWater ? WaterColor : WalkableColor;
+                    // Hazard tint wins over water/cost so the danger zone is
+                    // unmistakable — it's the flag that changes pathing.
+                    Color c = cell.IsHazard ? HazardColor
+                        : cell.IsWater ? WaterColor
+                        : ColorForCost(cell.cost);
                     DrawCellSquare(cx, cell.surfaceY + SurfaceLift, cz, c);
                 }
                 if (!anyLayer)
@@ -106,6 +120,15 @@ public static class NavGridDebug
             }
         }
         return new TraversalProfile(nearest?.mobData);
+    }
+
+    // Dry walkable cells lerp green→orange as their wall-avoidance cost rises
+    // above the neutral 1.0, so the designer can see where the pathfinder is
+    // being pushed off walls.
+    private static Color ColorForCost(float cost)
+    {
+        float t = Mathf.Clamp((cost - 1f) / WalkabilityGrid.WallProximityCost, 0f, 1f);
+        return WalkableColor.Lerp(PenaltyColor, t);
     }
 
     // Four-segment outline of a cell footprint at height y, inset from the

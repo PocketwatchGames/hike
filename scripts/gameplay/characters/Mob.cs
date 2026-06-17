@@ -123,14 +123,36 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
-    // Elite marker + the elite's signature status effect. Read by MobHUD to
-    // badge the health bar with the effect's icon. The signature is the first
-    // active effect tagged EEffectCategory.Elite (applied at spawn from the
-    // zone pool); resolving from the live list rather than _simState keeps the
-    // HUD keyed on the same categorization the strip filter uses. Immutable
-    // after spawn, so the HUD samples it once at init.
+    // Elite marker + the elite's signature status effect, read by MobHUD to badge
+    // the health bar with the effect's icon. The signature is chosen at spawn from
+    // the zone pool and stored on MobSimState. A weapon-mod signature (Lightning)
+    // is composed onto the mob's natural weapon rather than added to the body, so
+    // the icon resolves from the chosen resource on sim state, not the live effect
+    // list. Immutable after spawn, so the HUD samples it once at init.
     public bool IsElite => _simState?.Elite ?? false;
-    public StatusEffectData EliteStatusEffect => _statusEffects?.FirstOfCategory(EEffectCategory.Elite);
+    public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
+
+    // The mob's natural weapon — null until the mob is given a weapon-mod (elites).
+    // Set as the attack action's primaryItem (BehaviorAttack) so the item-side
+    // weapon-mod path (chain lightning, pierce, on-hit enchants) fires for mobs
+    // exactly as it does for the player. Carries no WeaponData; damage still comes
+    // from MobData.damageProfiles. See AddWeaponMod.
+    private WeaponState _weapon;
+    public WeaponState Weapon => _weapon;
+
+    // Compose a permanent weapon-mod onto the mob's natural weapon, creating the
+    // backing WeaponState on first use. Mirrors how a player weapon carries mods
+    // (ItemDescriptor); the elite mob-mod uses this to attach its signature (e.g.
+    // Lightning) to the weapon instead of to the body.
+    public void AddWeaponMod(StatusEffectData effect, EWeaponModScope scope, int chargeIndex)
+    {
+        if (effect == null)
+        {
+            return;
+        }
+        _weapon ??= new WeaponState(null);
+        _weapon.statusEffects.AddWeaponMod(effect, scope, chargeIndex);
+    }
     // True when at least one active status effect flags `incapacitates`.
     // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
     // the flag; future Frozen / Knocked-Down would too without touching Mob.
@@ -207,7 +229,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
-    // ---- Companion threat awareness (MobData.scansForThreats) ----
+    // ---- Companion threat awareness (MobData.threatTeam) ----
     // Accumulated by MobAI.AccumulateThreatPerception against the nearest enemy
     // mob; read by the companion brain's tier conditions and BehaviorWary /
     // BehaviorDogAttack so the wary/attack response and the target agree.
@@ -543,9 +565,24 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (_modelAnimator != null)
         {
             _modelAnimator.SetActive(true);
+            // Biome-variant recolor: one model, many palettes (null = untouched).
+            // The descriptor's per-instance override wins; else the species default.
+            _modelAnimator.ApplyPalette(_simState.Palette ?? mobData?.palette);
             // Footfalls fire from a Call Method Track authored on the model's
             // movement clips (OnFootstep) at the exact foot-contact frame.
             _modelAnimator.OnFootstep += EmitFootstep;
+        }
+
+        // Held weapon prop, instanced in-hand at spawn (the mob analog of the
+        // player's HeldItemVisual.SetWeapon). The scene is latched even before
+        // the hand sockets finish their deferred build. Mobs whose baked weapon
+        // mesh is hidden rely on this for a visible weapon. The descriptor's
+        // per-instance override wins; else the species default on MobData.
+        PackedScene heldWeapon = _simState.HeldWeaponScene ?? mobData?.heldWeaponScene;
+        if (_heldVisual != null && heldWeapon != null)
+        {
+            EHand hand = _simState.HeldWeaponScene != null ? _simState.HeldWeaponHand : mobData.heldWeaponHand;
+            _heldVisual.SetWeapon(heldWeapon, hand);
         }
     }
 
@@ -646,10 +683,23 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 _statusEffects.Add(sharedElite);
             }
-            // Zone-specific signature effect (the one MobHUD shows as the icon).
-            if (_simState.EliteStatusEffect != null)
+            // Zone-specific signature. A weapon-mod signature (e.g. Lightning) is
+            // composed onto the mob's natural weapon — the same item-side path the
+            // player's modded weapons use — so its on-attack payload fires through
+            // the weapon, not as a body aura. A non-weapon signature (a body buff)
+            // is added to the mob's own controller as before. Either way the chosen
+            // resource lives on _simState for the HUD icon + save/load.
+            StatusEffectData signature = _simState.EliteStatusEffect;
+            if (signature != null)
             {
-                _statusEffects.Add(_simState.EliteStatusEffect);
+                if (signature.weaponMod != null)
+                {
+                    AddWeaponMod(signature, EWeaponModScope.AllAttacks, 0);
+                }
+                else
+                {
+                    _statusEffects.Add(signature);
+                }
             }
             SpawnEliteCrown();
         }
@@ -2793,7 +2843,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // no-op for mobs that don't scan threats. Aggro is credited in Damage.
         else if (hit.source is Mob mobAttacker
             && _simState.MobData != null
-            && _simState.MobData.scansForThreats
             && mobAttacker.ActorTeam == _simState.MobData.threatTeam)
         {
             ref PerceptionState slot = ref _simState.ThreatPerception;
@@ -3383,6 +3432,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // so a dead mob's lit torch would otherwise leak its light deposit
         // and loop FX.
         DespawnTorch();
+        // Hide the held weapon prop — a corpse shouldn't brandish its weapon.
+        _heldVisual?.SetWeaponConcealed(true);
         // Drop the elite crown — the marker is for live elites; a corpse keeps
         // no halo.
         if (_crown != null)

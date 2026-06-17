@@ -92,7 +92,7 @@ public partial class BehaviorAttack : BehaviorBase
                 || CountAlliesInRange(me, _data.secondaryAttackAllyRange) >= _data.secondaryAttackMinAllies))
         {
             output.attackProfile = _data.secondaryAttackProfile;
-            output.attackContext = new ActionContext { target = target };
+            output.attackContext = new ActionContext { target = target, primaryItem = me.Weapon };
             _secondaryCooldownUntilMs = time + (ulong)(_data.secondaryAttackCooldownSeconds * 1000f);
         }
         else if (inRangeAndSeen && time >= _weaponCooldownUntilMs && _data.actionProfile != null)
@@ -100,7 +100,7 @@ public partial class BehaviorAttack : BehaviorBase
             // In range — fire the primary. Populate the action runner request;
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
             output.attackProfile = _data.actionProfile;
-            output.attackContext = new ActionContext { target = target };
+            output.attackContext = new ActionContext { target = target, primaryItem = me.Weapon };
             _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
             // Hold position at the slot for a tick after the swing — fall
             // through to the standoff path below.
@@ -129,7 +129,9 @@ public partial class BehaviorAttack : BehaviorBase
         // lets a chase drop off a ledge the mob can't climb back up.
         if (dist2d > _data.approachRange)
         {
-            me.Navigator.Goto(lastKnownPosition, allowFalling: true);
+            // avoidHazards: false — a mob committed to the player ignores fire
+            // traps / campfires / spike traps so the player can lure it in.
+            me.Navigator.Goto(lastKnownPosition, allowFalling: true, avoidHazards: false);
             return new BehaviorOutput(EBehaviorResult.Running);
         }
 
@@ -161,7 +163,7 @@ public partial class BehaviorAttack : BehaviorBase
             float slotAngle = EncircleSlotAllocator.SlotAngle(slotIdx, _data.encircleSlotCount);
             standoff = NavigationGoals.PickStandoffPoint(world, me.mobData.verticalClearance, targetPos, standoffDistance, slotAngle);
         }
-        me.Navigator.Goto(standoff, allowFalling: true);
+        me.Navigator.Goto(standoff, allowFalling: true, avoidHazards: false);
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 

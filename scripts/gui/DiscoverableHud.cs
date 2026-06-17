@@ -26,6 +26,7 @@ public partial class DiscoverableHud : Node2D
         {
             parent.AddChild(this);
         }
+        Scale = new Vector2(discoverable.hudScale, discoverable.hudScale);
         _discoverable.TreeExiting += QueueFree;
         Update();
     }

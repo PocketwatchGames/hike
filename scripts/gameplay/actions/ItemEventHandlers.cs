@@ -514,8 +514,9 @@ public static class ItemEventHandlers
 
 	// Fire the firing weapon's item-side chain-lightning mods at `position` (a
 	// swing's impact point / a hitscan's hit point), scope-filtered to the firing
-	// charge tier. Actor-side auras (elite lightning) fire their own chains
-	// through TriggerAttackImpact instead.
+	// charge tier. Works for any attacker whose action carries a WeaponState as
+	// primaryItem — the player's modded weapons and elite mobs (whose signature
+	// Lightning mod is composed onto their natural weapon) alike.
 	private static void TriggerWeaponModChains(IActionActor actor, in PlayerAction action, Vector3 position)
 	{
 		if (action.context.primaryItem is not WeaponState weapon)
@@ -611,6 +612,12 @@ public static class ItemEventHandlers
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
+		// Mob projectiles source damage from MobData.damageProfiles — their natural
+		// WeaponState (carried for weapon-mods) has no WeaponData. Mirrors ResolveHit.
+		if (damageData == null && actor is Mob projMob)
+		{
+			damageData = projMob.mobData?.GetDamage(ev.damageProfileKey);
+		}
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
 		// Arrow-recovery binding is decided here at fire time: only populate
 		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
@@ -1323,12 +1330,16 @@ public static class ItemEventHandlers
 	// parameter needed here.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
+		// Prefer the firing weapon's damage profile; fall back to the mob's when the
+		// weapon yields none. A mob's natural WeaponState (set as primaryItem so its
+		// weapon-mods reach this hit) carries no WeaponData, so its damage always
+		// comes from MobData.damageProfiles via this fallback.
 		DamageData template = null;
 		if (action.context.primaryItem is WeaponState weapon)
 		{
 			template = weapon.data?.GetDamage(ev.damageProfileKey);
 		}
-		else if (actor is Mob mob)
+		if (template == null && actor is Mob mob)
 		{
 			template = mob.mobData?.GetDamage(ev.damageProfileKey);
 		}

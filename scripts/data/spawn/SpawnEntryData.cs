@@ -66,6 +66,28 @@ public partial class SpawnEntryData : Resource
     // (flat patch guarantees lateral air) — useful primarily inside caves.
     public virtual bool RequireLateralClearance => false;
 
+    // True iff this entry spawns a mob. Mob entries are kept out of hazard
+    // danger zones at spawn time (see TrySpawn). Defaults false; MobSpawnEntry
+    // overrides.
+    public virtual bool IsMobEntry => false;
+
+    // Radius (meters) of the damaging danger zone this entry's entity projects
+    // — set by hazard entries (fire trap, campfire, spike trap). 0 = harmless.
+    // Drives both the spawn keep-out (mobs won't spawn within it, and the
+    // hazard won't spawn onto an existing mob) and the runtime hazard grid
+    // (wander/normal pathing routes around it). Authored as a per-type
+    // [Export] on the hazard subclasses so it's designer-tunable.
+    public virtual float HazardSpawnRadius => 0f;
+
+    // Final standability gate, evaluated against the same navigation
+    // walkability sampler the mob navigator uses at runtime — so an entity
+    // only spawns where its profile could actually stand and path. Default
+    // true (the voxel air-over-solid + flat/lateral gates suffice for static
+    // props); MobSpawnEntry overrides to require a navgrid-walkable column.
+    // Runs at worldgen with no World node, so path-blocker cells aren't
+    // consulted here (entity overlap is already covered by MinSpacing).
+    public virtual bool IsSpawnPositionWalkable(WorldState ws, Vector3 position) => true;
+
     // Number of instances to scatter when this entry is a sub-entry of a
     // SpawnGroupData cluster. Default returns 1; subclasses that want
     // multi-instance scatter override (see MobSpawnEntry.ClusterCountMin/Max).
@@ -106,6 +128,23 @@ public partial class SpawnEntryData : Resource
             return false;
         }
         if (MinSpacing > 0f && ws.HasEntityWithinRadius(position, MinSpacing))
+        {
+            return false;
+        }
+        // Hazard keep-out, enforced symmetrically so it's order-independent: a
+        // mob never spawns inside a hazard's danger zone, and a hazard never
+        // drops onto an already-placed mob. Either way the two end up at least
+        // the hazard's radius apart. (Runtime attack pathing still lures mobs
+        // in — this gate is spawn-time only.)
+        if (IsMobEntry && ws.HasHazardSpawnConflict(position))
+        {
+            return false;
+        }
+        if (HazardSpawnRadius > 0f && ws.HasMobWithinRadius(position, HazardSpawnRadius))
+        {
+            return false;
+        }
+        if (!IsSpawnPositionWalkable(ws, position))
         {
             return false;
         }

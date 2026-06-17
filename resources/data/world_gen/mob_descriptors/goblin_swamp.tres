@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdgobswamp01"]
+
+[ext_resource type="Script" uid="uid://lcwj9viyl1nwr" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
+[ext_resource type="Resource" uid="uid://cswampgobpal0" path="res://resources/data/characters/goblin/goblin_palette_swamp.tres" id="3_palette"]
+
+[resource]
+script = ExtResource("1_desc")
+mob = ExtResource("2_mob")
+palette = ExtResource("3_palette")
+metadata/_custom_type_script = "uid://lcwj9viyl1nwr"

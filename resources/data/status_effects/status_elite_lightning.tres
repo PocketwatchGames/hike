@@ -5,6 +5,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
 [ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="4_chain"]
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/effects/lightning_aura_burst.tscn" id="5_fx"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="6_mod"]
 
 [sub_resource type="Resource" id="chainDamage"]
 script = ExtResource("3_damage")
@@ -12,14 +13,19 @@ tags = 33
 healthDamage = 12.0
 hitstun = 0.2
 statusEffects = []
+buildups = null
 modifiers = []
 
 [sub_resource type="Resource" id="chainLightning"]
 script = ExtResource("4_chain")
 damage = SubResource("chainDamage")
-maxChains = 3
 chainRange = 4.5
 fx = ExtResource("5_fx")
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("6_mod")
+onHitStatusEffects = null
+chainLightning = SubResource("chainLightning")
 
 [resource]
 script = ExtResource("1_data")
@@ -28,8 +34,8 @@ displayName = &"Lightning"
 description = "Elite lightning aura. Each strike discharges chaining electricity around the point of impact. Wet targets take extra damage."
 category = 4
 tags = 32
-modifiers = []
 maxStack = 1
-chainLightning = SubResource("chainLightning")
 removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")
 metadata/_custom_type_script = "uid://uqgkmpiv30t5"

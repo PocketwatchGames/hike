@@ -460,8 +460,13 @@ public static class CVars
 
     // When true, draws the mob-navigability grid in an 8m radius around the
     // player via DebugDraw — green square = standable dry cell (at its surface
-    // Y), cyan = standable water cell, red cross = column the pathfinder
-    // rejects (e.g. too little headroom). The grid is sampled with the nearest
+    // Y), orange-tinted square = standable but wall-proximate (charged a
+    // wall-avoidance cost so A* prefers roomier cells), cyan = standable water
+    // cell, magenta = standable but inside a hazard danger zone (fire trap /
+    // campfire / spike trap — wander routes around it, an attacking mob walks
+    // in), red cross = column the pathfinder rejects (too little headroom, no
+    // surface in range, or the body can't clear the surrounding walls). The
+    // grid is sampled with the nearest
     // loaded mob's traversal profile (its actual maxStepHeight / clearance), so
     // walk the dog up to a spot and toggle this to see exactly what its
     // pathfinder sees — the canonical tool for diagnosing "the mob won't path

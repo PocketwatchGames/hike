@@ -154,6 +154,12 @@ public static class EntitySerializer
                 // following).
                 w.Write(mob.Tamed);
                 w.Write(mob.StayCommanded);
+                // Per-instance visual overrides composed by MobDescriptor
+                // (palette recolor + held weapon). Resource/scene refs, may be
+                // null — persisted so a reloaded variant keeps its look.
+                WriteResource(w, mob.Palette);
+                WriteScene(w, mob.HeldWeaponScene);
+                w.Write((byte)mob.HeldWeaponHand);
                 break;
 
             case DoorSimState door:
@@ -397,6 +403,9 @@ public static class EntitySerializer
                 var eliteStatusEffect = ReadResource<StatusEffectData>(r);
                 bool tamed = r.ReadBoolean();
                 bool stayCommanded = r.ReadBoolean();
+                var palette = ReadResource<MobPalette>(r);
+                PackedScene heldWeaponScene = ReadScene(r);
+                var heldWeaponHand = (EHand)r.ReadByte();
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -428,6 +437,9 @@ public static class EntitySerializer
                 mob.EliteStatusEffect = eliteStatusEffect;
                 mob.Tamed = tamed;
                 mob.StayCommanded = stayCommanded;
+                mob.Palette = palette;
+                mob.HeldWeaponScene = heldWeaponScene;
+                mob.HeldWeaponHand = heldWeaponHand;
                 return mob;
             }
             case Tag.Door:
@@ -467,6 +479,9 @@ public static class EntitySerializer
                 var forge = new ForgeSimState(pos, scene);
                 forge.Active = active;
                 forge.AutoLightAtNight = autoLightAtNight;
+                // Per-type constant (not serialized) so disk-loaded campfires
+                // still project their mob-avoidance hazard zone.
+                forge.HazardRadius = ForgeSimState.DefaultHazardRadius;
                 return forge;
             }
             case Tag.Chest:
@@ -503,6 +518,7 @@ public static class EntitySerializer
                 bool disarmed = r.ReadBoolean();
                 var trap = new TrapSimState(pos, scene);
                 trap.Disarmed = disarmed;
+                trap.HazardRadius = TrapSimState.DefaultHazardRadius;
                 return trap;
             }
             case Tag.Signpost:
@@ -541,6 +557,7 @@ public static class EntitySerializer
                 float phaseOffset = r.ReadSingle();
                 var fire = new FireTrapSimState(pos, scene);
                 fire.PhaseOffsetSeconds = phaseOffset;
+                fire.HazardRadius = FireTrapSimState.DefaultHazardRadius;
                 return fire;
             }
             case Tag.Well:

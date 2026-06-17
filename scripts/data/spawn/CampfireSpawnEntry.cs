@@ -22,6 +22,13 @@ public partial class CampfireSpawnEntry : SpawnEntryData
     // clear can fire inline from this Spawn — no post-pass needed.
     [Export] public float DetailSuppressionRadius = 2f;
 
+    // Danger-zone radius mobs avoid while wandering and never spawn inside
+    // (the campfire's damage sphere is ~0.75m; pad it). Small enough that an
+    // encampment's scattered mobs still ring the fire — they just won't stand
+    // in it. Attack pathing ignores it so the player can lure mobs in.
+    [Export] public float HazardRadius = ForgeSimState.DefaultHazardRadius;
+    public override float HazardSpawnRadius => HazardRadius;
+
     // Campfires sit visually awkwardly on cliff edges and ramp adjacencies
     // (the bowl tilts, surrounding fuel/rocks intersect the step face).
     public override bool RequireFlatTerrain => true;
@@ -35,6 +42,7 @@ public partial class CampfireSpawnEntry : SpawnEntryData
         var campfire = new ForgeSimState(position, Scene);
         campfire.AutoLightAtNight = true;
         campfire.Active = false;
+        campfire.HazardRadius = HazardRadius;
         ws.AddEntity(campfire);
         ws.ClearDetailVoxelsWithin(position, DetailSuppressionRadius);
     }

@@ -4,6 +4,7 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="2_damage"]
 [ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="3_chain"]
 [ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/effects/lightning_aura_burst.tscn" id="4_fx"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="5_mod"]
 
 [sub_resource type="Resource" id="chainDamage"]
 script = ExtResource("2_damage")
@@ -19,6 +20,10 @@ maxChains = 3
 chainRange = 4.0
 fx = ExtResource("4_fx")
 
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("5_mod")
+chainLightning = SubResource("chainLightning")
+
 [resource]
 script = ExtResource("1_data")
 displayName = &"Shocking"
@@ -27,5 +32,5 @@ category = 2
 modifiers = []
 duration = 0.0
 maxStack = 1
-chainLightning = SubResource("chainLightning")
+weaponMod = SubResource("weaponMod")
 removesOnApply = []

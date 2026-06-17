@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://cv4428t0a53og"]
+
+[ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/MovingLight.cs" id="1_moving"]
+
+[node name="MovingLight" type="Node3D" unique_id=260811424]
+script = ExtResource("1_moving")
+Distance = 4.0
+Falloff = 2.0
+Brightness = 0.3
+LightColor = Color(1, 0, 1, 1)
+FlickerMin = 0.8
+FlickerHz = 5.0
+FadeOutDuration = 0.1

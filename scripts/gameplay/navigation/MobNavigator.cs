@@ -79,6 +79,11 @@ public class MobNavigator
     // to false unconditionally so a mob can't accidentally wander itself
     // off a cliff its goto-pathing would happily descend.
     private bool _allowFalling;
+    // Whether the current goal routes around damaging-prop danger zones
+    // (fire trap, campfire, spike trap). True for wander and ordinary goto
+    // so mobs don't stroll through hazards; the attack behavior sets it
+    // false so a mob chasing the player can be lured onto one.
+    private bool _avoidHazards = true;
     private Vector3 _wanderCenter;
     private float _wanderRadius;
     private Vector3 _lastWanderHeading = Vector3.Forward;
@@ -119,9 +124,9 @@ public class MobNavigator
     // the path should always be reversible. Mobs that refuse to fall at
     // all should keep maxFallHeight=0 in their MobData; behaviors don't
     // need to know per-mob.
-    public void Goto(Vector3 worldPos, float arrivalDistance = DefaultArrivalDistance, bool allowFalling = false)
+    public void Goto(Vector3 worldPos, float arrivalDistance = DefaultArrivalDistance, bool allowFalling = false, bool avoidHazards = true)
     {
-        if (_state == State.Goto && _goal.DistanceSquaredTo(worldPos) < 0.01f && _allowFalling == allowFalling)
+        if (_state == State.Goto && _goal.DistanceSquaredTo(worldPos) < 0.01f && _allowFalling == allowFalling && _avoidHazards == avoidHazards)
         {
             // Same goal & policy restated; don't reset arrival flags.
             return;
@@ -130,6 +135,7 @@ public class MobNavigator
         _goal = worldPos;
         _arrivalDistance = arrivalDistance;
         _allowFalling = allowFalling;
+        _avoidHazards = avoidHazards;
         _arrived = false;
         _blocked = false;
         _waypoints.Clear();
@@ -146,6 +152,8 @@ public class MobNavigator
         // — a wandering mob should never strand itself at the bottom of a
         // cliff its profile can't climb back up.
         _allowFalling = false;
+        // A wandering mob always routes around hazards.
+        _avoidHazards = true;
         _arrived = false;
         _blocked = false;
         _waypoints.Clear();
@@ -427,7 +435,7 @@ public class MobNavigator
             goal = _grid.CellToWorld(gi, gj, _grid.NearestLayer(gi, gj, _goal.Y));
         }
 
-        var path = _pathfinder.Find(_grid, _profile, start, goal, _allowFalling);
+        var path = _pathfinder.Find(_grid, _profile, start, goal, _allowFalling, _avoidHazards);
         if (path == null || path.Count == 0)
         {
             // A* either rejected the start cell (mob standing on something
@@ -568,6 +576,12 @@ public class MobNavigator
                     {
                         WalkabilityCell c = _grid.GetLayer(ni, nj, nLayer);
                         if (c.IsWater && _profile.waterCost > 1f)
+                        {
+                            continue;
+                        }
+                        // Never let the stroll endpoint land in (or the walk
+                        // step onto) a hazard cell — wander routes around them.
+                        if (c.IsHazard)
                         {
                             continue;
                         }

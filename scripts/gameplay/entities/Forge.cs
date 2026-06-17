@@ -198,6 +198,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             remainingSeconds = _forgeTimeSeconds,
             totalSeconds = _forgeTimeSeconds,
         };
+        SetPhysicsProcess(true);
         onForgeJobChanged?.Invoke(_simState.ActiveForgeJob);
     }
 
@@ -211,6 +212,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             return;
         }
         _simState.ActiveForgeJob = null;
+        SetPhysicsProcess(false);
         onForgeJobChanged?.Invoke(null);
     }
 
@@ -244,6 +246,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             wasNewDiscovery = wasNewDiscovery,
         };
         _simState.ActiveForgeJob = null;
+        SetPhysicsProcess(false);
         onForgeJobChanged?.Invoke(null);
 
         if (deliveryCallback != null)
@@ -349,6 +352,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         instance._damageZone?.SetActive(instance._active);
         instance._warmthZone?.SetActive(instance._active);
         instance.UpdateLoopEffect();
+
+        // Only tick while a cook job is running. A forge spawned mid-cook
+        // (restored from sim state) starts ticking; an idle one does nothing
+        // per frame until StartForgeJob re-enables it.
+        instance.SetPhysicsProcess(data.ActiveForgeJob != null);
 
         return instance;
     }

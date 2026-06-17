@@ -68,6 +68,21 @@ public sealed class SpawnContext
             {
                 continue;
             }
+            // Same symmetric hazard keep-out as SpawnEntryData.TrySpawn, so a
+            // camp's scattered mobs don't land on its campfire (and a scattered
+            // hazard sub-entry doesn't land on a mob already placed).
+            if (entry.IsMobEntry && ws.HasHazardSpawnConflict(candidate))
+            {
+                continue;
+            }
+            if (entry.HazardSpawnRadius > 0f && ws.HasMobWithinRadius(candidate, entry.HazardSpawnRadius))
+            {
+                continue;
+            }
+            if (!entry.IsSpawnPositionWalkable(ws, candidate))
+            {
+                continue;
+            }
             result = candidate;
             return true;
         }

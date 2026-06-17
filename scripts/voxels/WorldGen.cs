@@ -2490,7 +2490,6 @@ public static class WorldGen
     // mapping to the right block when new blocks are added ahead of them.
     private const byte OVERLAY_NONE = 0;
     private static readonly byte OVERLAY_DIRT = ResolveOverlayIndex("DirtOverlay");
-    private static readonly byte OVERLAY_FIELD = ResolveOverlayIndex("FieldOverlay");
 
     private static byte ResolveOverlayIndex(StringName blockName)
     {
@@ -2508,7 +2507,6 @@ public static class WorldGen
     // are authored on WorldGenData. The scatter SEEDS stay fixed here — they're
     // stable RNG salts (like the SEED_SALT_* channels), not feel knobs.
     private const int OVERLAY_DIRT_SEED = 4242;
-    private const int OVERLAY_FIELD_SEED = 7373;
 
     // Test placement for detail-sprite scatter. Each kit advertises its own
     // DefaultDetail group; this pass walks every surface voxel, reads the
@@ -2522,7 +2520,7 @@ public static class WorldGen
     // directly above. Selection is by kit.Purpose at sample time.
     private const int SUBSURFACE_NOISE_SEED = 9192;
 
-    // Noise-scatter dirt and field overlays on Surface-kit voxels.
+    // Noise-scatter dirt overlays on Surface-kit voxels.
     // Only top-surface voxels (solid with air above) are candidates so buried
     // geometry and cliff faces stay untouched. Kit gate restricts placement
     // to Surface kits — sand (underwater/cave) and cave palette stay clean.
@@ -2533,12 +2531,6 @@ public static class WorldGen
         dirtNoise.Seed = OVERLAY_DIRT_SEED;
         dirtNoise.Frequency = genData.OverlayDirtFrequency;
         dirtNoise.FractalOctaves = 2;
-
-        var fieldNoise = new FastNoiseLite();
-        fieldNoise.NoiseType = FastNoiseLite.NoiseTypeEnum.Perlin;
-        fieldNoise.Seed = OVERLAY_FIELD_SEED;
-        fieldNoise.Frequency = genData.OverlayFieldFrequency;
-        fieldNoise.FractalOctaves = 2;
 
         int worldMinY = ws.Min.Y * ChunkState.SIZE;
         int worldMaxY = ws.Max.Y * ChunkState.SIZE + ChunkState.SIZE - 1;
@@ -2562,12 +2554,6 @@ public static class WorldGen
                         continue;
                     }
 
-                    // Field wins — denser grass masks muddy ground beneath.
-                    if (fieldNoise.GetNoise2D(wx, wz) > genData.OverlayFieldThreshold)
-                    {
-                        ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_FIELD);
-                        continue;
-                    }
                     if (dirtNoise.GetNoise2D(wx, wz) > genData.OverlayDirtThreshold)
                     {
                         ws.SetOverlayIdWorld(wx, wy, wz, OVERLAY_DIRT);

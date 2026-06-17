@@ -100,7 +100,12 @@ public static class WorldFile
     //      globally rather than filed under a chunk, so chunk eviction can't
     //      destroy them. Written/read with the same EntitySerializer as chunk
     //      entity lists.
-    public const uint VERSION = 23;
+    // v24: Mob entity payload appended per-instance MobDescriptor overrides — a
+    //      MobPalette resource ref + held-weapon PackedScene ref + EHand byte
+    //      (after StayCommanded) — so composed biome variants (desert/swamp
+    //      goblins) keep their recolor and weapon across save/load instead of
+    //      reverting to the base species.
+    public const uint VERSION = 24;
 
     public struct IndexEntry
     {

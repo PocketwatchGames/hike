@@ -22,6 +22,13 @@ public partial class WeaponData : ItemData
 	// wieldHand below.
 	[Export] public bool rightHandSlot = false;
 	public EInventorySlot CanonicalSlot => rightHandSlot ? EInventorySlot.WeaponRight : EInventorySlot.WeaponLeft;
+
+	// How this weapon delivers its attacks. A capability set — a weapon may
+	// carry several bits (a melee weapon with a charged throw). Gates which
+	// weapon mods may attach: a mod's WeaponModData.requiredDelivery must be
+	// None or share a bit with this. Leave None only for a weapon that should
+	// accept no delivery-restricted mods.
+	[Export] public EWeaponDelivery delivery = EWeaponDelivery.None;
 	// Optional drop spawned at every Hitscan impact point. When wired, each
 	// shot leaves a recoverable arrow in the world that returns 1 ammo when
 	// removed (player pickup, or auto-reclaimed oldest-first by the central
