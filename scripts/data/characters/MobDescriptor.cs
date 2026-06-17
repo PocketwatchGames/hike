@@ -8,7 +8,7 @@ using Godot;
 // a spawn entry HAS-A descriptor; it is not a kind of one.
 //
 // CreateState stamps the overrides onto the MobSimState, which already owns the
-// per-instance override channel (EliteStatusEffect, Language, …) and serializes
+// per-instance override channel (StatusEffects, Language, …) and serializes
 // it — so a composed mob survives chunk eviction and save/load without a
 // bespoke species resource.
 [GlobalClass]
@@ -32,12 +32,25 @@ public partial class MobDescriptor : Resource
     // duplicate species file. Empty = a mob that never attacks.
     [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
-    // Force this spawn to be an elite carrying `eliteStatusEffect` as its
-    // signature. Leave `elite` false to let the spawn entry roll it
-    // (MobSpawnEntry.EliteChance), which draws a signature from the zone pool.
-    // A forced elite with a null effect is still elite (size only / zone draw).
+    // Marks this as an elite variant (25% larger, crown, shared elite buff,
+    // crown-trophy loot). Elites are authored as their own *_elite.tres
+    // descriptor and given a rarer spawn entry — set this true there, pair it
+    // with a signature effect in `statusEffects` and a `badge`.
     [Export] public bool elite;
-    [Export] public StatusEffectData eliteStatusEffect;
+
+    // Status effects applied to every mob spawned from this descriptor, elite or
+    // not — a per-instance buff/aura channel independent of the elite signature.
+    // Each is routed at spawn the same way the elite signature is: a weapon-mod
+    // effect composes onto the mob's weapons, any other is added to the mob's own
+    // status controller. Empty = none.
+    [Export] public Godot.Collections.Array<StatusEffectData> statusEffects = new();
+
+    // HUD badge icon for this composed mob — the marker MobHUD pins to the
+    // health bar (the descriptor's analog of the elite signature's icon). Set it
+    // alongside a signature effect in `statusEffects` so an authored
+    // `*_elite.tres` carries its own badge instead of drawing one from the zone
+    // pool. Null = no badge (MobHUD falls back to a zone-rolled elite's icon).
+    [Export] public Texture2D badge;
 
     // Build the runtime sim state for this composed mob at the given transform,
     // with the overrides stamped on. Returns null when the descriptor has no
@@ -54,10 +67,14 @@ public partial class MobDescriptor : Resource
         {
             state.Weapons = weapons;
         }
+        if (statusEffects != null && statusEffects.Count > 0)
+        {
+            state.StatusEffects = statusEffects;
+        }
+        state.Badge = badge;
         if (elite)
         {
             state.Elite = true;
-            state.EliteStatusEffect = eliteStatusEffect;
         }
         return state;
     }

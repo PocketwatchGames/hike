@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_lnvkt"]
 [ext_resource type="Resource" uid="uid://cmdgobdesert1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert.tres" id="2_ajkyq"]
+[ext_resource type="Resource" uid="uid://cmdgobdselt1" path="res://resources/data/world_gen/mob_descriptors/goblin_desert_elite.tres" id="2_desert_elite"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="3_3y2ux"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_epbtr"]
 [ext_resource type="Resource" uid="uid://cmdkunkun0001" path="res://resources/data/world_gen/mob_descriptors/kun_kun.tres" id="4_epbtr"]
@@ -17,8 +18,14 @@ script = ExtResource("3_3y2ux")
 Descriptor = ExtResource("2_ajkyq")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-EliteChance = 0.15
 SquareMetersPerSpawn = 1000.0
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("3_3y2ux")
+Descriptor = ExtResource("2_desert_elite")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 6667.0
 
 [sub_resource type="Resource" id="Resource_kunkun"]
 script = ExtResource("3_3y2ux")
@@ -40,4 +47,4 @@ SquareMetersPerSpawn = 600.0
 
 [resource]
 script = ExtResource("8_88i6m")
-Entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap")])
+Entries = Array[ExtResource("1_lnvkt")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), ExtResource("5_lnvkt"), SubResource("Resource_well"), SubResource("Resource_spiketrap")])

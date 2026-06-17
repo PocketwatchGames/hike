@@ -17,11 +17,6 @@ public partial class MobSpawnEntry : SpawnEntryData
     [Export] public StringName InitialBehavior;
     [Export(PropertyHint.Range, "0,1,0.01")] public float InitialBehaviorChance = 1f;
 
-    // Chance in [0, 1] that a spawned mob of this entry is an elite: 25% larger
-    // and carrying one random signature status effect drawn from the spawn
-    // zone's ZoneData.EliteStatusEffects pool. 0 (default) = never elite.
-    [Export(PropertyHint.Range, "0,1,0.01")] public float EliteChance = 0f;
-
     // When this entry is a sub-entry of a SpawnGroupData cluster, scatter
     // this many mobs around the anchor (e.g. 2..3 goblins per camp). Ignored
     // in per-column list contexts (one mob per scan hit).
@@ -104,44 +99,6 @@ public partial class MobSpawnEntry : SpawnEntryData
         {
             state.InitialBehavior = InitialBehavior;
         }
-        // The descriptor may force elite (with its own signature); otherwise roll
-        // EliteChance here. Either way, an elite with no signature yet draws one
-        // from the zone pool — so a forced-elite descriptor keeps its chosen
-        // effect while a random elite still gets a zone-appropriate one.
-        if (!state.Elite && EliteChance > 0f && rng.NextDouble() < EliteChance)
-        {
-            state.Elite = true;
-        }
-        if (state.Elite && state.EliteStatusEffect == null)
-        {
-            state.EliteStatusEffect = PickEliteStatusEffect(ws, position, rng);
-        }
         ws.AddEntity(state);
-    }
-
-    // Draw one random signature effect from the elite pool of the zone owning
-    // `position`. Resolves the zone via the chunk's stamped ZoneIndex — valid
-    // here because worldgen stamps ZoneIndex and the zone table on WorldState
-    // before the entity spawn passes run. Returns null when the chunk isn't
-    // resident or the zone has no pool authored; an elite with a null effect is
-    // still 25% larger, just without a status effect.
-    private static StatusEffectData PickEliteStatusEffect(WorldState ws, Vector3 position, Random rng)
-    {
-        if (ws == null)
-        {
-            return null;
-        }
-        ChunkState chunk = ws.GetChunk(World.WorldToChunkCoord(position));
-        if (chunk == null || ws.Zones == null || chunk.ZoneIndex >= ws.Zones.Length)
-        {
-            return null;
-        }
-        ZoneData zone = ws.Zones[chunk.ZoneIndex].Data;
-        Godot.Collections.Array<StatusEffectData> pool = zone?.EliteStatusEffects;
-        if (pool == null || pool.Count == 0)
-        {
-            return null;
-        }
-        return pool[rng.Next(pool.Count)];
     }
 }

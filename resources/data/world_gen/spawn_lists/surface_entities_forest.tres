@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Script" uid="uid://cqwdm8tvtwueu" path="res://scripts/data/spawn/BerryTreeSpawnEntry.cs" id="5_berry_entry"]
 [ext_resource type="Resource" uid="uid://cmdgoblin0001" path="res://resources/data/world_gen/mob_descriptors/goblin.tres" id="6_goblin_data"]
+[ext_resource type="Resource" uid="uid://cmdgobelite01" path="res://resources/data/world_gen/mob_descriptors/goblin_elite.tres" id="6_goblin_elite"]
 [ext_resource type="Resource" uid="uid://cmdkunkun0001" path="res://resources/data/world_gen/mob_descriptors/kun_kun.tres" id="7_kunkun_data"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="9_campfire_group"]
 [ext_resource type="PackedScene" uid="uid://23ids5pfkxv0" path="res://scenes/interactives/berry_tree.tscn" id="11_berry_scene"]
@@ -23,8 +24,15 @@ script = ExtResource("2_mob_entry")
 Descriptor = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-EliteChance = 0.15
 SquareMetersPerSpawn = 1000.0
+spawnConditions = 2
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("2_mob_entry")
+Descriptor = ExtResource("6_goblin_elite")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 6667.0
 spawnConditions = 2
 
 [sub_resource type="Resource" id="Resource_kunkun"]
@@ -79,4 +87,4 @@ SquareMetersPerSpawn = 3000.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_fairy")])
+Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_kunkun"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_berry"), SubResource("Resource_well"), SubResource("Resource_638lp"), SubResource("Resource_climbtree"), SubResource("Resource_fairy")])

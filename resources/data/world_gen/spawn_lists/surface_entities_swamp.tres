@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://dy4evm7tom40j" path="res://scripts/data/spawn/FireTrapSpawnEntry.cs" id="5_firetrap_entry"]
 [ext_resource type="Resource" uid="uid://chpmfha5lvycx" path="res://resources/data/items/loot/mushroom_purple.tres" id="5_nv7tv"]
 [ext_resource type="Resource" uid="uid://cmdgobswamp01" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp.tres" id="6_goblin_data"]
+[ext_resource type="Resource" uid="uid://cmdgobswelt1" path="res://resources/data/world_gen/mob_descriptors/goblin_swamp_elite.tres" id="6_goblin_elite"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="6_rcrho"]
 [ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="9_campfire_group"]
 [ext_resource type="PackedScene" uid="uid://clba532cprsy" path="res://scenes/interactives/fire_trap.tscn" id="11_firetrap_scene"]
@@ -17,8 +18,14 @@ script = ExtResource("2_mob_entry")
 Descriptor = ExtResource("6_goblin_data")
 InitialBehavior = &"Wander"
 InitialBehaviorChance = 0.25
-EliteChance = 0.35
 SquareMetersPerSpawn = 500.0
+
+[sub_resource type="Resource" id="Resource_goblin_elite"]
+script = ExtResource("2_mob_entry")
+Descriptor = ExtResource("6_goblin_elite")
+InitialBehavior = &"Wander"
+InitialBehaviorChance = 0.25
+SquareMetersPerSpawn = 1429.0
 
 [sub_resource type="Resource" id="Desc_loot"]
 script = ExtResource("99_desc")
@@ -37,4 +44,4 @@ SquareMetersPerSpawn = 250.0
 
 [resource]
 script = ExtResource("1_list")
-Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_firetrap")])
+Entries = Array[ExtResource("1_entry_base")]([SubResource("Resource_goblin_night"), SubResource("Resource_goblin_elite"), SubResource("Resource_loot"), ExtResource("9_campfire_group"), SubResource("Resource_firetrap")])

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdgobtbelt1"]
+
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
+[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="4_cry"]
+[ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="5_torch"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_se"]
+[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="7_lightning"]
+[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="8_badge"]
+
+[resource]
+script = ExtResource("1_desc")
+mob = ExtResource("2_mob")
+weapons = Array[ExtResource("3_weapon")]([ExtResource("4_cry"), ExtResource("5_torch")])
+elite = true
+statusEffects = Array[ExtResource("6_se")]([ExtResource("7_lightning")])
+badge = ExtResource("8_badge")
+metadata/_custom_type_script = "uid://lcwj9viyl1nwr"

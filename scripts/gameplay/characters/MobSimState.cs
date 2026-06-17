@@ -109,16 +109,12 @@ public class MobSimState : EntitySimState
     // the player has staged. Per-instance so a worldgen-authored shopkeeper
     // can trade while another mob sharing the same MobData stays gift-only.
     public bool WillTrade;
-    // Elite mobs are a rarer, tougher variant rolled once at spawn
-    // (MobSpawnEntry.EliteChance). They render 25% larger (Mob applies the
-    // scale) and carry a single signature status effect drawn at spawn from a
-    // pool associated with the zone they spawned in (ZoneData.EliteStatusEffects).
-    // Both fields are authored once — at worldgen or by the disk loader — and
-    // persist: EliteStatusEffect is a stable resource ref so a reloaded elite
-    // keeps its size and the same drawn effect rather than re-rolling. Null
-    // effect on an elite is valid (the zone had no pool) — it's still 25% bigger.
+    // Elite mobs are a rarer, tougher variant — 25% larger (Mob applies the
+    // scale), crowned, with the shared elite buff and crown-trophy loot. Authored
+    // on the spawning MobDescriptor (a dedicated *_elite.tres), so it persists as
+    // a plain flag; the signature effect + HUD badge ride StatusEffects / Badge
+    // below.
     public bool Elite;
-    public StatusEffectData EliteStatusEffect;
     // Per-instance overrides stamped at spawn so one MobData/MobScene serves many
     // variants. Null = fall back to the species defaults. Persisted via
     // EntitySerializer so a reloaded variant keeps these rather than reverting.
@@ -127,6 +123,15 @@ public class MobSimState : EntitySimState
     // descriptors over one species). Read by Mob.Weapons.
     public MobPalette Palette;
     public Godot.Collections.Array<WeaponData> Weapons;
+    // Per-instance status effects authored on the descriptor, applied to every
+    // mob it spawns regardless of Elite — the home for an elite's signature
+    // effect (e.g. the Lightning weapon-mod on a *_elite.tres). Re-applied at
+    // every node spawn (Mob.Initialize), since the status controller itself isn't
+    // serialized — so these survive chunk eviction and .hike load.
+    public Godot.Collections.Array<StatusEffectData> StatusEffects;
+    // HUD badge icon (MobDescriptor.badge), read once by MobHUD. Independent of
+    // Elite — a descriptor can badge any mob. Null = no badge.
+    public Texture2D Badge;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute

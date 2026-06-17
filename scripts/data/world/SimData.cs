@@ -42,11 +42,11 @@ public partial class SimData : Resource
     // conversations and behaviors by name. Null = no variables in this world.
     [Export] public ScriptVariableRegistry ScriptVariables;
 
-    // Status effect applied to every elite mob at spawn (in addition to the
-    // zone-specific signature effect drawn from ZoneData.EliteStatusEffects).
-    // Authored once here so the shared elite buff — larger health, etc. — is
-    // consistent across all zones rather than copy-pasted into every zone's
-    // pool. Null = no shared effect; elites still get their zone signature.
+    // Status effect applied to every elite mob at spawn, in addition to the
+    // signature effect(s) the elite's own descriptor authors (MobDescriptor
+    // .statusEffects). Authored once here so the shared elite buff — larger
+    // health, etc. — is consistent across all elites rather than copy-pasted into
+    // every *_elite.tres. Null = no shared effect.
     [Export] public StatusEffectData EliteStatusEffect;
 
     // Spinning, bobbing emissive halo floated over every elite mob (Mob.IsElite)

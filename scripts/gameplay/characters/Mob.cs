@@ -123,14 +123,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float health { get => _simState.Health; set => _simState.Health = value; }
     public float maxArmor => mobData?.maxArmor ?? 0f;
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
-    // Elite marker + the elite's signature status effect, read by MobHUD to badge
-    // the health bar with the effect's icon. The signature is chosen at spawn from
-    // the zone pool and stored on MobSimState. A weapon-mod signature (Lightning)
-    // is composed onto the mob's natural weapon rather than added to the body, so
-    // the icon resolves from the chosen resource on sim state, not the live effect
-    // list. Immutable after spawn, so the HUD samples it once at init.
+    // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
+    // shared elite buff, and crown-trophy loot; the signature effect rides
+    // StatusEffects and the HUD icon rides Badge. Immutable after spawn.
     public bool IsElite => _simState?.Elite ?? false;
-    public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
+    // HUD badge icon authored on the spawning MobDescriptor (null = none), read
+    // once by MobHUD at init.
+    public Texture2D Badge => _simState?.Badge;
 
     // Runtime WeaponState per WeaponData this mob attacks with (claw, battle cry,
     // bite, ...). Created lazily by GetWeapon the first time BehaviorAttack swings
@@ -682,41 +681,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             SetBurrowed(true);
         }
-        // Elite mobs carry a single signature status effect drawn at spawn from
-        // their zone's pool (MobSimState.EliteStatusEffect). Applied here, after
-        // AddChild above, so the mob is already in the tree and the effect's
-        // start/loop Fx parent and position correctly.
+        // Elite mobs get the shared elite buff + crown. The elite's own signature
+        // effect rides the descriptor StatusEffects list applied just below.
+        // Applied here, after AddChild above, so the mob is already in the tree and
+        // the effect's start/loop Fx parent and position correctly.
         if (_simState.Elite)
         {
-            // Shared elite buff applied to every elite regardless of zone. It's
-            // categorized Permanent (not Elite), so it never collides with the
-            // zone signature effect that MobHUD surfaces as the elite icon.
+            // Shared elite buff applied to every elite. It's categorized Permanent
+            // (not Elite), so it never collides with a signature Elite-category
+            // effect from the descriptor.
             StatusEffectData sharedElite = _world?.SimData?.EliteStatusEffect;
             if (sharedElite != null)
             {
                 _statusEffects.Add(sharedElite);
             }
-            // Zone-specific signature. A weapon-mod signature (e.g. Lightning) is
-            // composed onto the mob's natural weapon — the same item-side path the
-            // player's modded weapons use — so its on-attack payload fires through
-            // the weapon, not as a body aura. A non-weapon signature (a body buff)
-            // is added to the mob's own controller as before. Either way the chosen
-            // resource lives on _simState for the HUD icon + save/load.
-            StatusEffectData signature = _simState.EliteStatusEffect;
-            if (signature != null)
-            {
-                if (signature.weaponMod != null)
-                {
-                    // Stamped onto each weapon as GetWeapon creates it (no weapon
-                    // states exist yet at spawn — they're built on first attack).
-                    _eliteWeaponMod = signature;
-                }
-                else
-                {
-                    _statusEffects.Add(signature);
-                }
-            }
             SpawnEliteCrown();
+        }
+
+        // Per-instance status effects authored on the spawning MobDescriptor
+        // (MobSimState.StatusEffects) — a buff/aura channel independent of the
+        // elite signature, applied whether or not the mob is elite. Routed the
+        // same way (weapon-mod onto weapons, else onto the body) and re-applied
+        // every spawn since the status controller isn't serialized.
+        if (_simState.StatusEffects != null)
+        {
+            foreach (StatusEffectData effect in _simState.StatusEffects)
+            {
+                ApplySpawnStatusEffect(effect);
+            }
         }
 
         // Intrinsic spawn-time effect (e.g. a summoned minion's lifelong self-
@@ -741,6 +733,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _simState.MaxHealth = mobData.maxHealth + ComposeStat(EStat.MaxHealth);
             _simState.Health = _simState.MaxHealth;
             _simState.Armor = mobData.maxArmor + ComposeStat(EStat.MaxArmor);
+        }
+    }
+
+    // Apply one spawn-time status effect, routed by kind: a weapon-mod effect
+    // (e.g. Lightning) is composed onto the mob's natural weapons — the same
+    // item-side path the player's modded weapons use, so its on-attack payload
+    // fires through the weapon rather than as a body aura — while any other
+    // effect is added to the mob's own status controller. Null is a no-op.
+    private void ApplySpawnStatusEffect(StatusEffectData effect)
+    {
+        if (effect == null)
+        {
+            return;
+        }
+        if (effect.weaponMod != null)
+        {
+            // Stamped onto each weapon as GetWeapon creates it (no weapon states
+            // exist yet at spawn — they're built on first attack).
+            _eliteWeaponMod = effect;
+        }
+        else
+        {
+            _statusEffects.Add(effect);
         }
     }
 

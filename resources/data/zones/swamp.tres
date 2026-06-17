@@ -3,8 +3,6 @@
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]
 [ext_resource type="Resource" path="res://resources/audio/swamp_ambience.tres" id="3_ambience"]
-[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_se"]
-[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="5_e0"]
 
 [sub_resource type="Resource" id="Resource_weather"]
 script = ExtResource("2_weather")
@@ -27,4 +25,3 @@ WaterOpacity = 0.88235295
 DustAmount = 0.05
 weather = SubResource("Resource_weather")
 ambience = ExtResource("3_ambience")
-EliteStatusEffects = Array[ExtResource("4_se")]([ExtResource("5_e0")])

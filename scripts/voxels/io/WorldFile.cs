@@ -105,7 +105,15 @@ public static class WorldFile
     //      (after StayCommanded) — so composed biome variants (desert/swamp
     //      goblins) keep their recolor and weapon across save/load instead of
     //      reverting to the base species.
-    public const uint VERSION = 24;
+    // v25: Mob entity payload dropped the per-elite EliteStatusEffect resource ref
+    //      (the zone-pool signature is retired — elites are now authored as
+    //      dedicated *_elite.tres MobDescriptors) and appended two per-instance
+    //      MobDescriptor fields after Weapons: a status-effect list
+    //      (StatusEffectData resource refs) — buffs/auras applied to every spawn
+    //      regardless of Elite, where an elite's signature now lives — then a HUD
+    //      badge icon (Texture2D resource ref, may be null). So a composed mob
+    //      keeps its effects and badge across save/load.
+    public const uint VERSION = 25;
 
     public struct IndexEntry
     {

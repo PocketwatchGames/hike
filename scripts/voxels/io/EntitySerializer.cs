@@ -139,11 +139,9 @@ public static class EntitySerializer
                         w.Write(kvp.Value);
                     }
                 }
-                // Elite flag + the elite's signature status effect (resource
-                // ref, may be null). Persisted so a reloaded elite keeps its
-                // size and the same drawn effect rather than re-rolling.
+                // Elite flag (signature effect + badge ride StatusEffects / Badge
+                // below). Persisted so a reloaded elite keeps its size + crown.
                 w.Write(mob.Elite);
-                WriteResource(w, mob.EliteStatusEffect);
                 // Companion state — Tamed flips the mob to the player's side
                 // (effective team Friendly, so the player can't friendly-fire
                 // it) and re-registers it as the active companion on spawn;
@@ -159,6 +157,12 @@ public static class EntitySerializer
                 // persisted so a reloaded variant keeps its look and equipment.
                 WriteResource(w, mob.Palette);
                 WriteWeaponList(w, mob.Weapons);
+                // Per-instance descriptor status effects (MobDescriptor) — a
+                // buff/aura channel applied regardless of Elite. Resource-ref
+                // list, may be empty.
+                WriteStatusEffectList(w, mob.StatusEffects);
+                // HUD badge icon (MobDescriptor.badge), resource ref, may be null.
+                WriteResource(w, mob.Badge);
                 break;
 
             case DoorSimState door:
@@ -399,11 +403,12 @@ public static class EntitySerializer
                     }
                 }
                 bool elite = r.ReadBoolean();
-                var eliteStatusEffect = ReadResource<StatusEffectData>(r);
                 bool tamed = r.ReadBoolean();
                 bool stayCommanded = r.ReadBoolean();
                 var palette = ReadResource<MobPalette>(r);
                 var weapons = ReadWeaponList(r);
+                var statusEffects = ReadStatusEffectList(r);
+                var badge = ReadResource<Texture2D>(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -432,11 +437,12 @@ public static class EntitySerializer
                 mob.LoyaltyGifts = loyaltyGifts;
                 mob.GiftCounts = giftCounts;
                 mob.Elite = elite;
-                mob.EliteStatusEffect = eliteStatusEffect;
                 mob.Tamed = tamed;
                 mob.StayCommanded = stayCommanded;
                 mob.Palette = palette;
                 mob.Weapons = weapons;
+                mob.StatusEffects = statusEffects;
+                mob.Badge = badge;
                 return mob;
             }
             case Tag.Door:
@@ -667,6 +673,36 @@ public static class EntitySerializer
             weapons.Add(string.IsNullOrEmpty(path) ? null : GD.Load<WeaponData>(path));
         }
         return weapons;
+    }
+
+    // Per-instance descriptor status effects (MobSimState.StatusEffects): count +
+    // each StatusEffectData resource path. Null/empty writes a 0 count and reads
+    // back as null.
+    private static void WriteStatusEffectList(BinaryWriter w, Godot.Collections.Array<StatusEffectData> effects)
+    {
+        int count = effects?.Count ?? 0;
+        w.Write(count);
+        for (int i = 0; i < count; i++)
+        {
+            StatusEffectData e = effects[i];
+            w.Write(e != null ? e.ResourcePath : "");
+        }
+    }
+
+    private static Godot.Collections.Array<StatusEffectData> ReadStatusEffectList(BinaryReader r)
+    {
+        int count = r.ReadInt32();
+        if (count <= 0)
+        {
+            return null;
+        }
+        var effects = new Godot.Collections.Array<StatusEffectData>();
+        for (int i = 0; i < count; i++)
+        {
+            string path = r.ReadString();
+            effects.Add(string.IsNullOrEmpty(path) ? null : GD.Load<StatusEffectData>(path));
+        }
+        return effects;
     }
 
     // ItemState wire format: ItemData resource path + the base ItemState
