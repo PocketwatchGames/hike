@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://c8htr4n6qwb2t" path="res://scripts/gameplay/characters/HeldTorch.cs" id="1_torch"]
 [ext_resource type="PackedScene" uid="uid://co37ekycknxpo" path="res://scenes/effects/torch_loop.tscn" id="2_loop"]
+[ext_resource type="PackedScene" uid="uid://dmj3hp3rw122w" path="res://scenes/effects/moving_light_torch.tscn" id="3_movinglight"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_handle"]
 albedo_color = Color(0.45, 0.3, 0.18, 1)
@@ -35,6 +36,7 @@ script = ExtResource("1_torch")
 unlitHead = NodePath("UnlitHead")
 litHead = NodePath("LitHead")
 flameLoopScene = ExtResource("2_loop")
+movingLightScene = ExtResource("3_movinglight")
 
 [node name="Handle" type="MeshInstance3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.36, 0)

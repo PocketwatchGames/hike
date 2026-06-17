@@ -138,6 +138,40 @@ public partial class WeaponData : ItemData
 	// timeline fires SummonMinion events.
 	[Export] public int maxMinions = 1;
 
+	[ExportGroup("AI")]
+	// Mob AI engagement tuning — read by BehaviorAttack when a mob wields this
+	// weapon (see MobData.weapons). Ignored for player-held weapons (the player
+	// drives range / cadence through input + aim). Each tick the mob fires the
+	// highest-priority of its weapons whose gates below all pass.
+
+	// Preference when more than one of the mob's weapons can fire this tick —
+	// higher wins. A gated special (e.g. a battle cry) sits above the always-
+	// available basic attack so it's chosen whenever its conditions hold, and
+	// the basic attack carries it the rest of the time. Ties break toward the
+	// earlier weapon in MobData.weapons.
+	[Export] public int priority = 0;
+
+	// Distance at which the mob will fire this weapon (when it can see the target).
+	[Export] public float MaxAttackRange = 2.5f;
+	// Maximum absolute Y differential between mob and target this weapon fires at.
+	// Approach / encircle / pathfinding still use 2D distance, so the mob chases
+	// up or down to reach the target; this only prevents committing a swing while
+	// the target sits on a plateau above / pit below the weapon's vertical reach.
+	[Export] public float MaxVerticalAttackRange = 4f;
+	// Standoff distance the wielding mob holds from the target — it stops closing
+	// here so it can attack instead of slamming into the target.
+	[Export] public float desiredAttackRange = 1.75f;
+	// Cooldown (seconds) after the mob fires this weapon before it may fire it
+	// again. Tracked per-weapon so a long-cooldown cry doesn't stall the always-
+	// available basic attack between cries. (Distinct from the per-tier
+	// ItemAction.cooldownSeconds, which mob attack tiers leave at 0.)
+	[Export] public float cooldownSeconds = 1.5f;
+	// Minimum count of same-team mobs (including the wielder) within allyRange
+	// required to fire this weapon. 0 = no gate (always available); 2+ keeps a
+	// buff / battle cry from firing into an empty field. See BehaviorAttack.
+	[Export] public int minAllies = 0;
+	[Export] public float allyRange = 8f;
+
 	[ExportGroup("Blocking")]
 	// Recharging "guard" armor that is active ONLY while the player is
 	// charging this weapon. A blocked hit is soaked by this pool BEFORE the

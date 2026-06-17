@@ -103,6 +103,15 @@ public partial class MobData : Resource
     // *target* mob, so "harmlessness" travels with the creature. Only relevant
     // for mobs that some other species scans via threatTeam.
     [Export] public bool canTriggerMobs = true;
+    // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
+    // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
+    // mob takes — or, for a companion, damage dealt to its master — adds aggro
+    // toward the attacker (health damage * DamageData.aggroMultiplier); the mob
+    // then targets whichever tracked enemy holds the most aggro. This value is
+    // how fast that focus fades once an attacker stops dealing damage, letting
+    // the mob fall back to picking its target by perception / proximity. Higher
+    // = more fickle focus; 0 = aggro never decays (a grudge held until death).
+    [Export] public float aggroReductionSpeed = 5f;
 
     [ExportGroup("Perceivability")]
     // How the player sees this mob — fed into PlayerPerception.Tick. Movement
@@ -158,8 +167,19 @@ public partial class MobData : Resource
     // worthless); a villager layers several likes/dislikes. Each entry is an
     // ItemTagPreference; rules compose multiplicatively in author order.
     [Export] public Godot.Collections.Array<ItemTagPreference> itemPreferences = new();
+    [Export] public bool dangerous = false;
 
-    [ExportGroup("Health & Armor")]
+    [ExportGroup("Combat")]
+    // Weapons this mob attacks with. Mob attacks carry no damage data on MobData
+    // itself — each WeaponData holds its own action timeline, damage / continuous
+    // profiles, the in-hand held model, AND its AI engagement tuning (range /
+    // cooldown / ally gate / priority), exactly as a player weapon does. The
+    // attack behavior reads this list off the mob and fires the highest-priority
+    // weapon whose gates pass this tick (WeaponData.priority), and the mob's
+    // in-hand prop is the held model of its primary weapon. Author the weapons
+    // next to this resource. Empty = a mob that never attacks. See
+    // AttackBehaviorData / BehaviorAttack and ItemEventHandlers.ResolveHit.
+    [Export] public Godot.Collections.Array<WeaponData> weapons = new();
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
     // Health a tamed companion is restored to when the player revives its
@@ -195,35 +215,6 @@ public partial class MobData : Resource
     // (no floating damage number) until it reaches 0 and the minion dies. Null
     // on ordinary mobs.
     [Export] public StatusEffectData spawnStatusEffect;
-
-    [ExportGroup("Combat")]
-    // Named damage profiles fired by this mob's attack actions. Mirrors
-    // WeaponData.damageProfiles — ItemEvent.damageProfileKey resolves
-    // against this dict when the attacker is a Mob instead of a weapon-
-    // carrying Player. Convention: "primary" is the default key for the
-    // mob's main attack; multi-attack species add additional keys
-    // (e.g. "claw" / "bite"). Empty dict = no damage on Melee/Hitscan
-    // events sourced from this mob.
-    [Export] public Dictionary<StringName, DamageData> damageProfiles = new();
-    // Per-second damage profiles for mob-spawned area effects (a fire
-    // elemental's aura, a poison breath cloud's continuous portion).
-    // Mirrors WeaponData.continuousProfiles; AreaIntervalSpec entries on
-    // an ItemEvent still resolve against `damageProfiles`.
-    [Export] public Dictionary<StringName, ContinuousDamageData> continuousProfiles = new();
-    // Aggro bleed-off rate (aggro points per second) for this mob's per-enemy
-    // threat-priority meter (see AggroTracker / MobSimState.Aggro). Damage this
-    // mob takes — or, for a companion, damage dealt to its master — adds aggro
-    // toward the attacker (health damage * DamageData.aggroMultiplier); the mob
-    // then targets whichever tracked enemy holds the most aggro. This value is
-    // how fast that focus fades once an attacker stops dealing damage, letting
-    // the mob fall back to picking its target by perception / proximity. Higher
-    // = more fickle focus; 0 = aggro never decays (a grudge held until death).
-    [Export] public float aggroReductionSpeed = 5f;
-    [Export] public bool dangerous = false;
-    // Exp awarded to each of the killing player's equipped weapons and armor
-    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
-    // effect kills (poison without an attributable source) do not award exp.
-    [Export] public int exp = 0;
 
     [ExportGroup("Burrowing")]
     [Export] public bool canBurrow = false;
@@ -301,6 +292,10 @@ public partial class MobData : Resource
     // the bestiary's TextureRect controls final size. Null leaves the
     // portrait slot empty (hidden).
     [Export] public Texture2D bestiaryPortrait;
+    // Exp awarded to each of the killing player's equipped weapons and armor
+    // when this mob dies. Granted in Mob.Damage on the lethal hit; status-
+    // effect kills (poison without an attributable source) do not award exp.
+    [Export] public int exp = 0;
 
     [ExportGroup("Visuals")]
     // Per-EAnimation binding from logical slot to a concrete animation clip name
@@ -322,22 +317,13 @@ public partial class MobData : Resource
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
     // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
-    // MovingLight scene this mob spawns when it lights its torch (dark
-    // ambient + discovered). Instantiated on demand in Mob and freed when
-    // the conditions clear — same instantiate/free pattern and field name
-    // as TorchData.movingLightScene. Null on torch-less species.
-    [Export] public PackedScene movingLightScene;
-    // The visible in-hand torch prop (a HeldTorch scene) this mob holds while
-    // its torch is lit — the same model the player carries. Attached to the
-    // mob's off-hand via its HeldItemVisual. Null leaves the mob with just the
-    // invisible movingLightScene deposit (no held prop).
+    // The torch prop (a HeldTorch scene) this mob lights when it's dark and the
+    // player remembers it — the same model the player carries. The HeldTorch
+    // scene also carries its own world light (its movingLightScene), so this one
+    // reference brings both the visible prop and its deposit. Null on torch-less
+    // species. A prop-less light-emitter instead bakes a MovingLight straight into
+    // its mob scene (see the fairy), so it needs no field here.
     [Export] public PackedScene heldTorchScene;
-    // Visible weapon prop instanced in-hand at spawn via HeldItemVisual — the
-    // mob analog of WeaponData.heldModel. Hide the rig's baked weapon mesh
-    // (ModelAnimator visibleMeshNames) so this replaces it rather than doubling
-    // up. Null leaves the mob with its baked mesh / empty hand.
-    [Export] public PackedScene heldWeaponScene;
-    [Export] public EHand heldWeaponHand = EHand.Right;
 
     [ExportGroup("Loot & Death")]
     // Loot ejected from the mob's body when it dies. Each entry spawns
@@ -560,23 +546,5 @@ public partial class MobData : Resource
             }
         }
         return v;
-    }
-
-    public DamageData GetDamage(StringName key)
-    {
-        if (damageProfiles == null)
-        {
-            return null;
-        }
-        return damageProfiles.TryGetValue(key, out DamageData d) ? d : null;
-    }
-
-    public ContinuousDamageData GetContinuousDamage(StringName key)
-    {
-        if (continuousProfiles == null)
-        {
-            return null;
-        }
-        return continuousProfiles.TryGetValue(key, out ContinuousDamageData d) ? d : null;
     }
 }

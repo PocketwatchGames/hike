@@ -4,10 +4,13 @@ using Godot;
 public partial class BehaviorAttack : BehaviorBase
 {
     private readonly AttackBehaviorData _data;
-    private ulong _weaponCooldownUntilMs;
-    // Separate cooldown for the optional secondary attack so a long-cooldown
-    // utility profile (e.g. battle cry) doesn't share the primary's window.
-    private ulong _secondaryCooldownUntilMs;
+    // Per-weapon cooldown deadlines (game-time ms). Each of the mob's weapons
+    // fires on its own WeaponData.cooldownSeconds cadence, so a long-cooldown cry
+    // doesn't share the always-available basic attack's window.
+    private readonly Dictionary<WeaponData, ulong> _weaponCooldownUntilMs = new();
+    // Standoff fallback (meters) when neither encircleDistance nor any weapon
+    // authors a desired range — mirrors the old AttackBehaviorData default.
+    private const float DefaultStandoffDistance = 1.75f;
     // The target this attack session is leasing an encircle slot against.
     // Tracked so we can release the slot when the target changes (different
     // perception target) or the behavior exits.
@@ -73,35 +76,23 @@ public partial class BehaviorAttack : BehaviorBase
             output.yaw = Mathf.Atan2(dir2d.X, dir2d.Y);
         }
 
-        // In range — pick which attack to fire. The secondary wins when it's
-        // off cooldown AND its ally-count gate is satisfied (battle-cry style
-        // gating: don't yell if nobody's around to buff). Falls through to
-        // the primary otherwise. Both gates also require canSee + maxAttackRange
-        // so the goblin commits to combat distance regardless of which attack
-        // resolves. The vertical gate is checked here (not on the tier's
-        // requirements array) so we never even commit the attackProfile when
+        // In range — pick which weapon to fire. The mob's weapons (MobData.weapons)
+        // are tried in author order: the first that's off its own cooldown, within
+        // its own range, currently seen, and whose ally-count gate passes wins. So
+        // a gated special (a battle cry: long cooldown, minAllies > 0) listed first
+        // is preferred when its conditions hold and otherwise falls through to the
+        // always-available basic attack. Each weapon's vertical gate is checked
+        // here (not on the tier's requirements) so we never commit the profile when
         // out of vertical reach — that way the cooldown isn't bumped and
         // ActionRunner's rejectEffect doesn't fire on every tick of a target
         // standing one plateau above.
-        bool inVerticalRange = Mathf.Abs(diff.Y) <= _data.maxVerticalAttackRange;
-        bool inRangeAndSeen = dist2d < _data.maxAttackRange && inVerticalRange && canSee;
-        if (inRangeAndSeen
-            && _data.secondaryAttackProfile != null
-            && time >= _secondaryCooldownUntilMs
-            && (_data.secondaryAttackMinAllies <= 0
-                || CountAlliesInRange(me, _data.secondaryAttackAllyRange) >= _data.secondaryAttackMinAllies))
+        WeaponData chosen = ChooseWeapon(me, time, dist2d, diff.Y, canSee);
+        if (chosen != null)
         {
-            output.attackProfile = _data.secondaryAttackProfile;
-            output.attackContext = new ActionContext { target = target, primaryItem = me.Weapon };
-            _secondaryCooldownUntilMs = time + (ulong)(_data.secondaryAttackCooldownSeconds * 1000f);
-        }
-        else if (inRangeAndSeen && time >= _weaponCooldownUntilMs && _data.actionProfile != null)
-        {
-            // In range — fire the primary. Populate the action runner request;
             // Mob's _PhysicsProcess will TryStart the profile this same tick.
-            output.attackProfile = _data.actionProfile;
-            output.attackContext = new ActionContext { target = target, primaryItem = me.Weapon };
-            _weaponCooldownUntilMs = time + (ulong)(_data.attackCooldownSeconds * 1000f);
+            output.attackProfile = chosen.actionProfile;
+            output.attackContext = new ActionContext { target = target, primaryItem = me.GetWeapon(chosen) };
+            _weaponCooldownUntilMs[chosen] = time + (ulong)(chosen.cooldownSeconds * 1000f);
             // Hold position at the slot for a tick after the swing — fall
             // through to the standoff path below.
         }
@@ -152,7 +143,7 @@ public partial class BehaviorAttack : BehaviorBase
         // Keyed off targetPos, the ring sits on the last-known spot until the
         // mob reacquires line of sight, matching where it's facing.
         Vector3 standoff;
-        float standoffDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : _data.desiredAttackRange;
+        float standoffDistance = (_data.encircleDistance > 0f) ? _data.encircleDistance : ClosestDesiredRange(me);
         if (slotIdx < 0)
         {
             float angleToTarget = Mathf.Atan2(diff.X, diff.Z);
@@ -198,6 +189,73 @@ public partial class BehaviorAttack : BehaviorBase
         lastKnownPosition = targetPerception.lastKnownPosition;
         targetPos = (canSee && player != null) ? player.GlobalPosition : targetPerception.lastKnownPosition;
         return player;
+    }
+
+    // The highest-priority of the mob's weapons (WeaponData.priority) that can
+    // fire this tick: a runnable profile, within its own 2D + vertical range,
+    // currently seen, off its per-weapon cooldown, and with enough same-team
+    // allies nearby. Ties break toward the earlier weapon in the list. Returns
+    // null when nothing qualifies (out of range, on cooldown, or the mob has no
+    // weapons), in which case the mob just repositions.
+    private WeaponData ChooseWeapon(Mob me, ulong time, float dist2d, float diffY, bool canSee)
+    {
+        if (!canSee)
+        {
+            return null;
+        }
+        Godot.Collections.Array<WeaponData> weapons = me.mobData?.weapons;
+        if (weapons == null)
+        {
+            return null;
+        }
+        WeaponData chosen = null;
+        for (int i = 0; i < weapons.Count; i++)
+        {
+            WeaponData w = weapons[i];
+            if (w == null || w.actionProfile == null)
+            {
+                continue;
+            }
+            if (chosen != null && w.priority <= chosen.priority)
+            {
+                continue;
+            }
+            if (dist2d >= w.MaxAttackRange || Mathf.Abs(diffY) > w.MaxVerticalAttackRange)
+            {
+                continue;
+            }
+            if (_weaponCooldownUntilMs.TryGetValue(w, out ulong until) && time < until)
+            {
+                continue;
+            }
+            if (w.minAllies > 0 && CountAlliesInRange(me, w.allyRange) < w.minAllies)
+            {
+                continue;
+            }
+            chosen = w;
+        }
+        return chosen;
+    }
+
+    // Standoff fallback when encircleDistance isn't authored: the closest desired
+    // range among the mob's weapons, so the mob closes to within reach of all of
+    // them. Defaults when the mob has no weapons authoring a range.
+    private static float ClosestDesiredRange(Mob me)
+    {
+        Godot.Collections.Array<WeaponData> weapons = me.mobData?.weapons;
+        float best = float.MaxValue;
+        if (weapons != null)
+        {
+            for (int i = 0; i < weapons.Count; i++)
+            {
+                WeaponData w = weapons[i];
+                if (w != null && w.desiredAttackRange < best)
+                {
+                    best = w.desiredAttackRange;
+                }
+            }
+        }
+        return best == float.MaxValue ? DefaultStandoffDistance : best;
     }
 
     private void ReleaseSlot(Mob me)

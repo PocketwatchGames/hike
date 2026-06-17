@@ -612,12 +612,6 @@ public static class ItemEventHandlers
 
 		WeaponState firingWeapon = action.context.primaryItem as WeaponState;
 		DamageData damageData = firingWeapon?.data?.GetDamage(ev.damageProfileKey);
-		// Mob projectiles source damage from MobData.damageProfiles — their natural
-		// WeaponState (carried for weapon-mods) has no WeaponData. Mirrors ResolveHit.
-		if (damageData == null && actor is Mob projMob)
-		{
-			damageData = projMob.mobData?.GetDamage(ev.damageProfileKey);
-		}
 		Rid? excludeBody = (attacker is CollisionObject3D body) ? body.GetRid() : null;
 		// Arrow-recovery binding is decided here at fire time: only populate
 		// arrowLootData if the firing tier flags useAmmo. A non-ammo tier on
@@ -845,7 +839,7 @@ public static class ItemEventHandlers
 				// first.
 				if (instance is GasCloud cloud)
 				{
-					ResolveAreaPayload(ev, sourceWeaponData, null,
+					ResolveAreaPayload(ev, sourceWeaponData,
 						out ContinuousDamageData continuous,
 						out Godot.Collections.Array<IntervalDamageEntry> intervals);
 					cloud.Initialize(ev, continuous, intervals, attackerTeam);
@@ -894,8 +888,7 @@ public static class ItemEventHandlers
 		if (instance is GasCloud cloud)
 		{
 			WeaponData weaponData = (action.context.primaryItem as WeaponState)?.data;
-			MobData mobData = (actor as Mob)?.mobData;
-			ResolveAreaPayload(ev, weaponData, mobData,
+			ResolveAreaPayload(ev, weaponData,
 				out ContinuousDamageData continuous,
 				out Godot.Collections.Array<IntervalDamageEntry> intervals);
 			cloud.Initialize(ev, continuous, intervals, actor.ActorTeam);
@@ -977,24 +970,21 @@ public static class ItemEventHandlers
 	}
 
 	// Resolves an ItemEvent's SpawnAreaEffect payload against the firing
-	// entity's continuousProfiles / damageProfiles dictionaries. Weapon-
-	// driven hits prefer the WeaponData; mob-driven hits fall back to
-	// MobData. Either may be null — keys that miss yield no profile and
-	// are silently skipped. The returned `intervals` array contains one
-	// IntervalDamageEntry per AreaIntervalSpec whose key resolved to a
-	// non-null DamageData.
+	// weapon's continuousProfiles / damageProfiles dictionaries (the mob's
+	// attack weapon, for mob-spawned zones). weaponData may be null — keys
+	// that miss yield no profile and are silently skipped. The returned
+	// `intervals` array contains one IntervalDamageEntry per AreaIntervalSpec
+	// whose key resolved to a non-null DamageData.
 	private static void ResolveAreaPayload(
 		ItemEvent ev,
 		WeaponData weaponData,
-		MobData mobData,
 		out ContinuousDamageData continuous,
 		out Godot.Collections.Array<IntervalDamageEntry> intervals)
 	{
 		continuous = null;
 		if (!string.IsNullOrEmpty(ev.areaContinuousKey.ToString()))
 		{
-			continuous = weaponData?.GetContinuousDamage(ev.areaContinuousKey)
-				?? mobData?.GetContinuousDamage(ev.areaContinuousKey);
+			continuous = weaponData?.GetContinuousDamage(ev.areaContinuousKey);
 		}
 		intervals = null;
 		if (ev.areaIntervals != null && ev.areaIntervals.Count > 0)
@@ -1007,8 +997,7 @@ public static class ItemEventHandlers
 				{
 					continue;
 				}
-				DamageData damage = weaponData?.GetDamage(spec.damageProfileKey)
-					?? mobData?.GetDamage(spec.damageProfileKey);
+				DamageData damage = weaponData?.GetDamage(spec.damageProfileKey);
 				if (damage == null)
 				{
 					continue;
@@ -1321,27 +1310,19 @@ public static class ItemEventHandlers
 	}
 
 	// Build the HitInfo a Melee/Hitscan event should apply: looks up the
-	// event's damageProfileKey on the driving weapon's damageProfiles dict,
-	// or on the firing mob's MobData.damageProfiles when the actor is a Mob
-	// (mob attacks have no WeaponState). Source is the actor so receivers
-	// see the attacker. Returns a default HitInfo (no damage) if the lookup
-	// fails or there's no source — caller should early-out. Conditional
-	// crit / dizzy behavior rides on `template.modifiers`, no separate
-	// parameter needed here.
+	// event's damageProfileKey on the driving weapon's damageProfiles dict.
+	// Both player and mob attacks carry a WeaponState as primaryItem (the mob's
+	// is its authored attack weapon), so damage always comes from the weapon.
+	// Source is the actor so receivers see the attacker. Returns a default
+	// HitInfo (no damage) if the lookup fails or there's no source — caller
+	// should early-out. Conditional crit / dizzy behavior rides on
+	// `template.modifiers`, no separate parameter needed here.
 	private static HitInfo ResolveHit(ItemEvent ev, in PlayerAction action, IActionActor actor)
 	{
-		// Prefer the firing weapon's damage profile; fall back to the mob's when the
-		// weapon yields none. A mob's natural WeaponState (set as primaryItem so its
-		// weapon-mods reach this hit) carries no WeaponData, so its damage always
-		// comes from MobData.damageProfiles via this fallback.
 		DamageData template = null;
 		if (action.context.primaryItem is WeaponState weapon)
 		{
 			template = weapon.data?.GetDamage(ev.damageProfileKey);
-		}
-		if (template == null && actor is Mob mob)
-		{
-			template = mob.mobData?.GetDamage(ev.damageProfileKey);
 		}
 		if (template == null)
 		{

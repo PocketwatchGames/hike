@@ -121,9 +121,10 @@ public class MobSimState : EntitySimState
     public StatusEffectData EliteStatusEffect;
     // Per-instance visual overrides composed by MobDescriptor at spawn so one
     // MobData/MobScene can serve many biome variants. Null = fall back to the
-    // species defaults on MobData (palette / heldWeaponScene). Both are stable
-    // resource refs, persisted via EntitySerializer so a reloaded variant keeps
-    // its recolor and weapon rather than reverting to the base species.
+    // species defaults (palette on MobData; the held weapon prop from the mob's
+    // primary weapon's held model). Both are stable resource refs, persisted via
+    // EntitySerializer so a reloaded variant keeps its recolor and weapon rather
+    // than reverting to the base species.
     public MobPalette Palette;
     public PackedScene HeldWeaponScene;
     public EHand HeldWeaponHand = EHand.Right;

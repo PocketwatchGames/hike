@@ -9,7 +9,6 @@
 [ext_resource type="Script" uid="uid://crxxh354iuvys" path="res://scripts/data/behaviors/conditions/CommandedFollowCondition.cs" id="7_cmd_follow"]
 [ext_resource type="Script" uid="uid://bd5idsuv0uxl6" path="res://scripts/data/behaviors/DogAttackBehaviorData.cs" id="8_dogattack"]
 [ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
-[ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/actions/dog_bite.tres" id="10_bite"]
 [ext_resource type="Script" uid="uid://cgbwte5du7wer" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
 [ext_resource type="Script" uid="uid://c4elpp1elpel0" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
 [ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/effects/dog_growl.tscn" id="13_growl"]
@@ -117,11 +116,8 @@ transitions = [SubResource("Resource_wary_to_attack"), SubResource("Resource_war
 
 [sub_resource type="Resource" id="Resource_dogattack"]
 script = ExtResource("8_dogattack")
-desiredAttackRange = 1.5
-attackCooldownSeconds = 1.0
 encircleSlotCount = 4
 encircleDistance = 2.0
-actionProfile = ExtResource("10_bite")
 
 [sub_resource type="Resource" id="Resource_cond_alert_none"]
 script = ExtResource("9_threat")

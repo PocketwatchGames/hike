@@ -4,6 +4,8 @@ Covers `scripts/gameplay/MobAI.cs`, `scripts/data/behaviors/` (authored tuning),
 
 Per-mob hierarchical state machine driven by polymorphic Resource data.
 
+**Mob combat lives elsewhere.** `BehaviorAttack` fires real `WeaponData` weapons off `MobData.weapons` (not the brain), running the player's damage + weapon-mod path; `AttackBehaviorData` carries only behavior-level positioning. For weapon selection/priority gating, `primaryItem`, per-weapon cooldowns, held-model, and elite mob-mods, see [scripts/data/items/CLAUDE.md](../../data/items/CLAUDE.md).
+
 ## Data model (authored in `.tres`)
 
 - `BrainData` (`scripts/data/BrainData.cs`) — `idleBehavior` (StringName) + `Array<BehaviorNode> behaviors`. One brain per mob type, referenced from `MobData.brain`.

@@ -33,14 +33,25 @@ public partial class HeldItemVisual : Node3D
 	// wrist joints; override per rig if a different skeleton is used.
 	[Export] public StringName boneName = "R_wrist_joint";
 	[Export] public StringName leftBoneName = "L_wrist_joint";
+	// Bone the stowed (backpack) torch attaches to, with a fuzzy chest/spine/back
+	// fallback for rigs that name it differently. A rig with no match just hides
+	// the stowed torch instead of showing it on the back.
+	[Export] public StringName backpackBoneName = "chest_joint";
+	// Local placement of the stowed torch on the backpack socket. Tune per rig in
+	// the inspector — bone axes vary, so the default is only an over-shoulder
+	// starting guess.
+	[Export] public Vector3 backpackOffset = new(0.18f, 0.1f, -0.18f);
+	[Export] public Vector3 backpackRotationDegrees = new(0f, 0f, 25f);
 
 	private Node3D _weaponHolderRight;
 	private Node3D _weaponHolderLeft;
 	private Node3D _itemHolder;
-	// The held torch rides the off (left) hand so it can coexist with a baked
-	// mob weapon, but it's hidden whenever a weapon is actually drawn (see
-	// UpdateTorchVisibility), satisfying "show the torch when no weapon shows".
+	// The held torch rides the off (left) hand when actively held. A lit torch
+	// whose hand is busy (weapon / item drawn) or which isn't the actively-held
+	// one is stowed on the backpack socket instead, so it stays visible and keeps
+	// lighting. See UpdateTorchPlacement.
 	private Node3D _torchHolder;
+	private Node3D _backpackHolder;
 
 	// Desired scenes are latched even before the sockets exist so a SetWeapon
 	// that races the deferred build is applied once BuildSockets runs.
@@ -52,6 +63,12 @@ public partial class HeldItemVisual : Node3D
 	private Node3D _itemInstance;
 	private Node3D _torchInstance;
 	private bool _torchLit;
+	// Whether the current torch is the one the carrier is actively holding (true)
+	// vs a lit torch carried in reserve that should stow on the back (false).
+	private bool _torchInHand = true;
+	// Carrier root the torch's world light parents to while lit (passed through to
+	// HeldTorch.SetLit). Latched so a relight after a model swap reuses it.
+	private Node3D _torchLightParent;
 	private bool _weaponConcealed;
 
 	// The weapon holder for the hand currently selected. Null until built.
@@ -80,10 +97,58 @@ public partial class HeldItemVisual : Node3D
 		// The held torch rides the left hand alongside the left weapon holder.
 		_torchHolder = new Node3D { Name = "TorchHolder" };
 		_weaponHolderLeft.GetParent().AddChild(_torchHolder);
+		// Backpack socket for a stowed lit torch (off-bone so it stays visible +
+		// lighting while the hands are busy). Optional — rigs with no chest/spine
+		// bone just hide the stowed torch.
+		_backpackHolder = BuildBackpackHolder(skeleton);
 		// Apply anything latched before the sockets existed.
 		ApplyWeapon();
 		ApplyItem();
 		ApplyTorch();
+	}
+
+	// Builds the backpack socket + holder for the stowed torch. Returns null when
+	// the rig has no chest/spine/back bone, in which case a stowed torch is simply
+	// hidden. The holder carries the inspector-tunable offset/rotation.
+	private Node3D BuildBackpackHolder(Skeleton3D skeleton)
+	{
+		int bone = skeleton.FindBone(backpackBoneName);
+		if (bone < 0)
+		{
+			bone = FuzzyBackpackBone(skeleton);
+		}
+		if (bone < 0)
+		{
+			return null;
+		}
+		var socket = new BoneAttachment3D { Name = "BackpackSocket", BoneName = skeleton.GetBoneName(bone) };
+		skeleton.AddChild(socket);
+		var holder = new Node3D
+		{
+			Name = "BackpackHolder",
+			Position = backpackOffset,
+			RotationDegrees = backpackRotationDegrees,
+		};
+		socket.AddChild(holder);
+		return holder;
+	}
+
+	// First bone whose name reads as a torso anchor, in preference order. Used as
+	// the backpack attach point when the authored backpackBoneName isn't present.
+	private static int FuzzyBackpackBone(Skeleton3D skeleton)
+	{
+		string[] prefer = { "chest", "spine", "torso", "back", "neck" };
+		foreach (string key in prefer)
+		{
+			for (int i = 0; i < skeleton.GetBoneCount(); i++)
+			{
+				if (skeleton.GetBoneName(i).ToLower().Contains(key))
+				{
+					return i;
+				}
+			}
+		}
+		return -1;
 	}
 
 	// Builds a BoneAttachment3D for one wrist and returns its weapon holder.
@@ -191,31 +256,45 @@ public partial class HeldItemVisual : Node3D
 		{
 			_weaponHolderLeft.Visible = !concealed;
 		}
-		UpdateTorchVisibility();
+		UpdateTorchPlacement();
 	}
 
-	// Sets the persistent held-torch model (a HeldTorch scene). No-op when
-	// unchanged so the per-refresh call site can fire freely. Null clears it.
-	public void SetTorch(PackedScene model)
+	// Sets the persistent held-torch model (a HeldTorch scene). `inHand` marks
+	// whether the carrier is actively holding this torch (off-hand when free) vs
+	// carrying it lit in reserve (stowed on the back). Recreates the instance only
+	// when the model changes, so a placement-only change (inHand flip) doesn't
+	// re-spawn the torch and flicker its light. Null model clears the channel.
+	public void SetTorch(PackedScene model, bool inHand = true)
 	{
-		if (model == _torchScene)
-		{
-			return;
-		}
+		bool modelChanged = model != _torchScene;
 		_torchScene = model;
-		ApplyTorch();
+		_torchInHand = inHand;
+		if (modelChanged)
+		{
+			ApplyTorch();
+		}
+		else
+		{
+			UpdateTorchPlacement();
+		}
 	}
 
-	// Lights/extinguishes the held torch (swaps its head visual and toggles the
-	// flame fx). Latched so a lit state set before the model exists is applied
-	// once the torch instance is built.
-	public void SetTorchLit(bool lit)
+	// Lights/extinguishes the held torch (swaps its head visual, toggles the flame
+	// fx, and brings its world light up/down). lightParent is the carrier root the
+	// world light attaches to while lit. Latched so a lit state set before the
+	// model exists is applied once the torch instance is built.
+	public void SetTorchLit(bool lit, Node3D lightParent = null)
 	{
 		_torchLit = lit;
+		if (lightParent != null)
+		{
+			_torchLightParent = lightParent;
+		}
 		if (_torchInstance is HeldTorch torch)
 		{
-			torch.SetLit(lit);
+			torch.SetLit(lit, _torchLightParent);
 		}
+		UpdateTorchPlacement();
 	}
 
 	private void ApplyTorch()
@@ -227,24 +306,53 @@ public partial class HeldItemVisual : Node3D
 		SwapInstance(ref _torchInstance, _torchHolder, _torchScene);
 		if (_torchInstance is HeldTorch torch)
 		{
-			torch.SetLit(_torchLit);
+			torch.SetLit(_torchLit, _torchLightParent);
 		}
-		UpdateTorchVisibility();
+		UpdateTorchPlacement();
 	}
 
-	// The torch shows only when no weapon and no transient item are visible, so
-	// it reads as "what you're holding when your weapon is away". A concealed
-	// weapon (sheathed / unarmed pose) or an empty weapon channel both count as
-	// "no weapon shown".
-	private void UpdateTorchVisibility()
+	// Places the held torch: in the off-hand when it's the actively-held torch and
+	// the hand is free; stowed on the backpack socket when lit but the hand is busy
+	// (weapon / item drawn) or it's carried in reserve; hidden when unlit with no
+	// free hand. The HeldTorch instance is only reparented / hidden, never freed
+	// here, so its world light persists across placement changes while lit.
+	private void UpdateTorchPlacement()
 	{
-		if (_torchHolder == null)
+		if (_torchHolder == null || _torchInstance == null)
 		{
 			return;
 		}
 		bool weaponShown = !_weaponConcealed && _weaponInstance != null;
-		bool itemShown = _itemInstance != null;
-		_torchHolder.Visible = _torchInstance != null && !weaponShown && !itemShown;
+		bool handBusy = weaponShown || _itemInstance != null;
+		Node3D target;
+		if (_torchInHand && !handBusy)
+		{
+			target = _torchHolder;
+		}
+		else if (_torchLit)
+		{
+			// Stowed on the back (null on rigs without a back bone → hidden, but
+			// the instance stays alive so the light keeps burning).
+			target = _backpackHolder;
+		}
+		else
+		{
+			target = null;
+		}
+		if (target != null)
+		{
+			Node parent = _torchInstance.GetParent();
+			if (parent != target)
+			{
+				parent?.RemoveChild(_torchInstance);
+				target.AddChild(_torchInstance);
+			}
+			_torchInstance.Visible = true;
+		}
+		else
+		{
+			_torchInstance.Visible = false;
+		}
 	}
 
 	private void ApplyWeapon()
@@ -258,7 +366,7 @@ public partial class HeldItemVisual : Node3D
 			return;
 		}
 		SwapInstance(ref _weaponInstance, holder, _weaponScene);
-		UpdateTorchVisibility();
+		UpdateTorchPlacement();
 	}
 
 	private void ApplyItem()
@@ -268,7 +376,7 @@ public partial class HeldItemVisual : Node3D
 			return;
 		}
 		SwapInstance(ref _itemInstance, _itemHolder, _itemScene);
-		UpdateTorchVisibility();
+		UpdateTorchPlacement();
 	}
 
 	private static void SwapInstance(ref Node3D current, Node3D holder, PackedScene model)

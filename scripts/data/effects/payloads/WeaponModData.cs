@@ -13,9 +13,9 @@ public enum EAffixPosition
 
 // Weapon-modifier payload — the on-attack effects/modifiers a weapon mod adds, meaningful
 // only on a WeaponState (see ItemDescriptor / LootSpawnEntry). The player's modded weapons
-// and elite mobs carry these the same way: a mob is backed by a natural WeaponState
-// (Mob.Weapon) and the elite mob-mod composes its signature (e.g. Lightning) onto it, so
-// the payload always fires through a weapon, never as a body status effect.
+// and elite mobs carry these the same way: a mob wields real WeaponData weapons
+// (Mob.GetWeapon) and the elite mob-mod composes its signature (e.g. Lightning) onto every
+// one, so the payload always fires through a weapon, never as a body status effect.
 // New weapon-mod fields go here, not on StatusEffectData; group co-dependent ones into a
 // nested sub-resource and independent ones with an [ExportGroup].
 // [Tool] so the editor can instantiate it as its real type when its [Tool] parent

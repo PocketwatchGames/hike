@@ -1,0 +1,52 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dn07c6vp5x80j"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_yvnam"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="5_apply"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
+[ext_resource type="Resource" uid="uid://dwgxgxbii2arl" path="res://resources/data/status_effects/status_goblin_battle_cry_buff.tres" id="7_buff"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_64efa"]
+[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/effects/goblin_yell.tscn" id="8_yellfx"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_qhjrv"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="11_jav2o"]
+
+[sub_resource type="Resource" id="Resource_event_anim"]
+script = ExtResource("4_event")
+type = 64
+animName = 20
+
+[sub_resource type="Resource" id="Resource_apply_buff"]
+script = ExtResource("5_apply")
+statusEffect = ExtResource("7_buff")
+
+[sub_resource type="Resource" id="Resource_event_cry"]
+script = ExtResource("4_event")
+time = 400
+type = 32768
+effects = Array[ExtResource("6_effect")]([SubResource("Resource_apply_buff")])
+fx = ExtResource("8_yellfx")
+areaRadius = 8.0
+
+[sub_resource type="Resource" id="Resource_action_cry"]
+script = ExtResource("3_action")
+displayName = &"Battle Cry"
+activeDurationSeconds = 1.2
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_cry")])
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_cry")])
+locksMovement = true
+
+[resource]
+script = ExtResource("1_weapon")
+actionProfile = SubResource("Resource_profile")
+priority = 1
+MaxAttackRange = 5.0
+desiredAttackRange = 3.0
+cooldownSeconds = 12.0
+minAllies = 2
+displayName = &"Goblin Battle Cry"

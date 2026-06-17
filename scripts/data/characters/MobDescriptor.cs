@@ -20,8 +20,9 @@ public partial class MobDescriptor : Resource
     // (usually none). See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
 
-    // Held weapon prop override. Null = fall back to the species'
-    // MobData.heldWeaponScene. Set this to give a variant a different weapon.
+    // Held weapon prop override. Null = fall back to the held model of the mob's
+    // primary weapon (MobData.weapons). Set this to give a variant a different
+    // in-hand prop than its weapon would otherwise show.
     [Export] public PackedScene heldWeaponScene;
     [Export] public EHand heldWeaponHand = EHand.Right;
 

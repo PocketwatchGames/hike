@@ -534,7 +534,6 @@ public partial class Player : CharacterBody3D
 	// floating HUD number per second instead of one per physics frame.
 	// Non-DoT hits bypass this and fire onDamage / onHeal immediately.
 	readonly DotHudAccumulator _dotHud = new();
-	MovingLight _movingLight;
 	// One-shot animation latch — holds the resolved clip name currently playing
 	// as a one-shot (attack / jump / die / hitstun / weapon block); default = no
 	// one-shot, fall back to the state-driven loop. `_oneShotIsHitstun` gates the
@@ -2504,45 +2503,16 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
-	// Reconciles the player-carried MovingLight against the current inventory:
-	// if any carried consumable has isActive == true and a TorchData backing,
-	// a MovingLight from that torch's scene is attached as a child of the
-	// player (so it follows the transform); otherwise any existing light is
-	// torn down. The torch can live in the active hotbar slot OR any other
-	// inventory slot — a lit torch in the backpack still lights the area
-	// around the player. Called from the ToggleMovingLight event handler and
-	// any time the inventory changes (pickup, drop, slot rearrange).
+	// Reconciles the player's carried torch against the current inventory. The
+	// selected consumable, if a torch, is shown in-hand; otherwise any lit torch
+	// in another slot is shown stowed on the back so it keeps lighting (the torch
+	// can live in the active hotbar slot OR any other slot — a lit torch in the
+	// backpack still lights the area). The HeldTorch prop carries its own world
+	// light, so setting the prop + lit state is all the player does; placement
+	// (hand vs back vs hidden) is HeldItemVisual's job. Called from the
+	// ToggleMovingLight handler and any time the inventory changes.
 	public void RefreshCarriedLight()
 	{
-		PackedScene desiredScene = null;
-		if (_inventory != null)
-		{
-			foreach (ItemState item in _inventory.EnumerateAll())
-			{
-				if (item is ConsumableState cs && cs.isActive && cs.data is TorchData torchData)
-				{
-					desiredScene = torchData.movingLightScene;
-					break;
-				}
-			}
-		}
-
-		if (desiredScene != null)
-		{
-			if (_movingLight == null)
-			{
-				_movingLight = desiredScene.Instantiate<MovingLight>();
-				AddChild(_movingLight);
-			}
-		}
-		else if (_movingLight != null)
-		{
-			// Hand the node off to fade out and free itself; clear the field now
-			// so a quick re-light spawns a fresh light (a brief crossfade overlap).
-			_movingLight.Deactivate(freeWhenDone: true);
-			_movingLight = null;
-		}
-
 		RefreshCarriedTorchVisual();
 	}
 
@@ -2551,12 +2521,8 @@ public partial class Player : CharacterBody3D
 		RefreshCarriedTorchVisual();
 	}
 
-	// Drives the visible in-hand torch prop off the active consumable: shows the
-	// torch model whenever the selected consumable is a torch, lit when that
-	// torch is active. HeldItemVisual hides the model on its own whenever a
-	// weapon is drawn, so this only sets the model + lit state. Called from
-	// RefreshCarriedLight (lit toggle / inventory change) and whenever the
-	// active consumable selection changes.
+	// See RefreshCarriedLight. The light rides the held torch (HeldTorch.movingLightScene),
+	// parented to the player root via the lightParent passed here.
 	private void RefreshCarriedTorchVisual()
 	{
 		if (_heldVisual == null)
@@ -2564,9 +2530,37 @@ public partial class Player : CharacterBody3D
 			return;
 		}
 		ItemState active = _inventory?.GetActiveConsumable();
-		TorchData torchData = active?.data as TorchData;
-		_heldVisual.SetTorch(torchData?.heldTorchScene);
-		_heldVisual.SetTorchLit(torchData != null && active is ConsumableState cs && cs.isActive);
+		if (active?.data is TorchData activeTorch)
+		{
+			// Selected torch: held in hand (HeldItemVisual stows it on the back on
+			// its own if a weapon / item is also drawn), lit per its active state.
+			bool lit = active is ConsumableState cs && cs.isActive;
+			_heldVisual.SetTorch(activeTorch.heldTorchScene, inHand: true);
+			_heldVisual.SetTorchLit(lit, this);
+			return;
+		}
+		// No torch selected — a lit torch in any other slot stays visible (stowed)
+		// and lighting.
+		TorchData litTorch = FindLitTorch();
+		_heldVisual.SetTorch(litTorch?.heldTorchScene, inHand: false);
+		_heldVisual.SetTorchLit(litTorch != null, this);
+	}
+
+	// First lit (isActive) torch consumable anywhere in inventory, or null.
+	private TorchData FindLitTorch()
+	{
+		if (_inventory == null)
+		{
+			return null;
+		}
+		foreach (ItemState item in _inventory.EnumerateAll())
+		{
+			if (item is ConsumableState cs && cs.isActive && cs.data is TorchData td)
+			{
+				return td;
+			}
+		}
+		return null;
 	}
 
 	// Environment-driven counterpart to the manual ToggleMovingLight douse:

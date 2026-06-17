@@ -132,26 +132,38 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool IsElite => _simState?.Elite ?? false;
     public StatusEffectData EliteStatusEffect => _simState?.EliteStatusEffect;
 
-    // The mob's natural weapon — null until the mob is given a weapon-mod (elites).
-    // Set as the attack action's primaryItem (BehaviorAttack) so the item-side
-    // weapon-mod path (chain lightning, pierce, on-hit enchants) fires for mobs
-    // exactly as it does for the player. Carries no WeaponData; damage still comes
-    // from MobData.damageProfiles. See AddWeaponMod.
-    private WeaponState _weapon;
-    public WeaponState Weapon => _weapon;
+    // Runtime WeaponState per WeaponData this mob attacks with (claw, battle cry,
+    // bite, ...). Created lazily by GetWeapon the first time BehaviorAttack swings
+    // that weapon, then set as the attack action's primaryItem so the item-side
+    // damage + weapon-mod path (chain lightning, pierce, on-hit enchants) fires
+    // for mobs exactly as it does for the player. The weapons are authored next to
+    // the mob's data resource and referenced from the brain's AttackBehaviorData.
+    private readonly Dictionary<WeaponData, WeaponState> _weapons = new();
+    // Elite signature weapon-mod (or null) applied to every weapon this mob wields.
+    // Captured at spawn (Initialize) before any WeaponState exists, then composed
+    // onto each as GetWeapon creates it.
+    private StatusEffectData _eliteWeaponMod;
 
-    // Compose a permanent weapon-mod onto the mob's natural weapon, creating the
-    // backing WeaponState on first use. Mirrors how a player weapon carries mods
-    // (ItemDescriptor); the elite mob-mod uses this to attach its signature (e.g.
-    // Lightning) to the weapon instead of to the body.
-    public void AddWeaponMod(StatusEffectData effect, EWeaponModScope scope, int chargeIndex)
+    // Resolve — creating + caching on first use — the runtime WeaponState backing
+    // one of this mob's authored weapons. Null WeaponData yields null. A pending
+    // elite weapon-mod is composed onto the state on creation so its on-attack
+    // payload (e.g. Lightning) rides the mob's attacks.
+    public WeaponState GetWeapon(WeaponData data)
     {
-        if (effect == null)
+        if (data == null)
         {
-            return;
+            return null;
         }
-        _weapon ??= new WeaponState(null);
-        _weapon.statusEffects.AddWeaponMod(effect, scope, chargeIndex);
+        if (!_weapons.TryGetValue(data, out WeaponState state))
+        {
+            state = (WeaponState)data.CreateState();
+            if (_eliteWeaponMod != null)
+            {
+                state.statusEffects.AddWeaponMod(_eliteWeaponMod, EWeaponModScope.AllAttacks, 0);
+            }
+            _weapons[data] = state;
+        }
+        return state;
     }
     // True when at least one active status effect flags `incapacitates`.
     // Drives AI suppression and the no-yell-while-CC'd path. Dizzy authors
@@ -308,7 +320,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             SimData sim = ws?.SimData;
             float light = sim?.MobTorchLightThreshold ?? 0.20f;
             float douse = Mathf.Max(sim?.MobTorchDouseThreshold ?? 0.30f, light);
-            float threshold = _torch != null ? douse : light;
+            float threshold = _torchLit ? douse : light;
             if (_simState.AmbientLight < threshold) { return true; }
             if (ws == null) { return false; }
             double tod = ws.TimeOfDay01;
@@ -493,12 +505,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // already set doesn't trigger a spurious transition on first tick.
     private bool _lastMobPhysicsCvar = true;
 
-    // Active torch carrier light, instantiated from MobData.torch when the
-    // latest AIOutput requests useTorch and the player remembers this mob.
-    // Same instantiate / QueueFree pattern as Player.RefreshCarriedLight —
-    // the FX scenes (LightOn / LightOff / Loop) live on the carrier scene
-    // itself, so the mob just owns presence/lifetime, not styling.
-    private MovingLight _torch;
+    // Whether this mob is currently carrying a lit torch (ambient dark + the
+    // player remembers it). The visible prop AND its world light both ride the
+    // HeldTorch (MobData.heldTorchScene) via HeldItemVisual; this flag is just the
+    // on/off state the torch hysteresis (ShouldUseTorch) and lifecycle read.
+    private bool _torchLit;
 
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
@@ -576,14 +587,51 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Held weapon prop, instanced in-hand at spawn (the mob analog of the
         // player's HeldItemVisual.SetWeapon). The scene is latched even before
         // the hand sockets finish their deferred build. Mobs whose baked weapon
-        // mesh is hidden rely on this for a visible weapon. The descriptor's
-        // per-instance override wins; else the species default on MobData.
-        PackedScene heldWeapon = _simState.HeldWeaponScene ?? mobData?.heldWeaponScene;
+        // mesh is hidden rely on this for a visible weapon. A per-instance
+        // descriptor override (MobSimState.HeldWeaponScene, set by a variant)
+        // wins; otherwise the prop is the held model of the mob's primary weapon.
+        PackedScene heldWeapon = _simState.HeldWeaponScene;
+        EHand hand = _simState.HeldWeaponHand;
+        if (heldWeapon == null)
+        {
+            WeaponData primary = PrimaryHeldWeapon();
+            if (primary != null)
+            {
+                heldWeapon = primary.heldModel;
+                hand = primary.wieldHand;
+            }
+        }
         if (_heldVisual != null && heldWeapon != null)
         {
-            EHand hand = _simState.HeldWeaponScene != null ? _simState.HeldWeaponHand : mobData.heldWeaponHand;
             _heldVisual.SetWeapon(heldWeapon, hand);
         }
+    }
+
+    // The mob's weapon that supplies its in-hand prop: the highest-priority
+    // weapon (WeaponData.priority) that defines a held model. Null when the mob
+    // has no weapons or none carries a held model (an empty-handed / natural-
+    // attack creature).
+    private WeaponData PrimaryHeldWeapon()
+    {
+        Godot.Collections.Array<WeaponData> weapons = mobData?.weapons;
+        if (weapons == null)
+        {
+            return null;
+        }
+        WeaponData best = null;
+        for (int i = 0; i < weapons.Count; i++)
+        {
+            WeaponData w = weapons[i];
+            if (w == null || w.heldModel == null)
+            {
+                continue;
+            }
+            if (best == null || w.priority > best.priority)
+            {
+                best = w;
+            }
+        }
+        return best;
     }
 
     // Spawn one footstep + footprint at the current foot position, fired from
@@ -694,7 +742,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 if (signature.weaponMod != null)
                 {
-                    AddWeaponMod(signature, EWeaponModScope.AllAttacks, 0);
+                    // Stamped onto each weapon as GetWeapon creates it (no weapon
+                    // states exist yet at spawn — they're built on first attack).
+                    _eliteWeaponMod = signature;
                 }
                 else
                 {
@@ -2583,8 +2633,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             if (CVars.mobDebugTorch.Value)
             {
                 MobData md = _simState.MobData;
-                string mdState = md == null ? "null" : (md.movingLightScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.movingLightScene.ResourcePath}");
-                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} suspended={aiOutput.suspended} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torch != null} mobData={mdState}");
+                string mdState = md == null ? "null" : (md.heldTorchScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.heldTorchScene.ResourcePath}");
+                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} suspended={aiOutput.suspended} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torchLit} mobData={mdState}");
             }
             // Skip torch toggling on suspended ticks — TickAI early-returned
             // with a default-constructed AIOutput, so aiOutput.useTorch is
@@ -2596,18 +2646,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 if (aiOutput.useTorch && playerRemembers)
                 {
-                    if (_torch == null && _simState.MobData?.movingLightScene != null)
+                    if (!_torchLit && _heldVisual != null && _simState.MobData?.heldTorchScene != null)
                     {
-                        _torch = _simState.MobData.movingLightScene.Instantiate<MovingLight>();
-                        AddChild(_torch);
-                        // Show the held torch prop (lit) in the mob's hand. The
-                        // MovingLight is the invisible deposit; this is the visible
-                        // model that now carries the flame fx.
-                        if (_heldVisual != null && _simState.MobData.heldTorchScene != null)
-                        {
-                            _heldVisual.SetTorch(_simState.MobData.heldTorchScene);
-                            _heldVisual.SetTorchLit(true);
-                        }
+                        // Light the held torch: the HeldTorch prop carries its own
+                        // world light, parented to this mob root (passed to SetLit).
+                        _torchLit = true;
+                        _heldVisual.SetTorch(_simState.MobData.heldTorchScene);
+                        _heldVisual.SetTorchLit(true, this);
                     }
                 }
                 else
@@ -3382,19 +3427,17 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         LinearVelocity = new Vector3(v.X, y, v.Z);
     }
 
-    // Deactivate fires the LightOff fx authored on the MovingLight as the
-    // natural "torch goes out" cue, then QueueFree drops the node. No-op
-    // when no torch is held.
+    // Douse the held torch: SetTorchLit(false) fires the light's off-cue and fades
+    // it out (the HeldTorch owns the world light), then SetTorch(null) drops the
+    // visible prop. No-op when no torch is lit.
     private void DespawnTorch()
     {
-        if (_torch == null)
+        if (!_torchLit)
         {
             return;
         }
-        // Hand off so the light fades out and frees itself rather than cutting.
-        _torch.Deactivate(freeWhenDone: true);
-        _torch = null;
-        // Drop the visible held prop (its flame fx fades itself out via Stop).
+        _torchLit = false;
+        _heldVisual?.SetTorchLit(false);
         _heldVisual?.SetTorch(null);
     }
 

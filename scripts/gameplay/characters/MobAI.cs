@@ -8,8 +8,8 @@ public struct AIOutput
     // When non-null, Mob's tick will TryStart this action through its
     // ActionRunner (subject to the runner's busy / cooldown checks).
     // attackContext supplies target / supportingItems / etc.; primaryItem is
-    // the mob's natural weapon (Mob.Weapon) when it carries weapon-mods (elites),
-    // else null — non-modded mobs source damage straight from MobData.
+    // the WeaponState for the firing weapon (Mob.GetWeapon), which carries the
+    // damage profile and any weapon-mods (elite lightning).
     public ItemActionProfile attackProfile;
     public ActionContext attackContext;
     public bool yell;

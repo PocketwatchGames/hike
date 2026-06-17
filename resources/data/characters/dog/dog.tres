@@ -1,12 +1,12 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://cspmuy1rwr522"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
+[ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/characters/dog/dog_bite.tres" id="2_bite"]
 [ext_resource type="Resource" uid="uid://y1vs8nvs0tvg" path="res://resources/data/characters/dog/dog_brain.tres" id="2_brain"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="PackedScene" uid="uid://36x3mntrleh1" path="res://scenes/characters/dog.tscn" id="3_scene"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_3vn22"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_itempref"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="6_damage"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="7_qhaql"]
 
 [sub_resource type="Resource" id="Resource_anim_attack"]
@@ -56,18 +56,6 @@ script = ExtResource("4_animdata")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
-[sub_resource type="Resource" id="Resource_damage_primary"]
-script = ExtResource("6_damage")
-tags = 1157
-healthDamage = 5.0
-blunt = 0.2
-hitstun = 0.25
-knockbackDistance = 0.6
-knockbackTime = 0.15
-statusEffects = []
-buildups = []
-modifiers = []
-
 [sub_resource type="Resource" id="Resource_pref_reject_nonmeat"]
 script = ExtResource("5_itempref")
 tags = 1
@@ -89,6 +77,18 @@ metadata/_custom_type_script = "uid://y4932y96uyjcg"
 
 [resource]
 script = ExtResource("1_mobdata")
+displayName = &"Dog"
+team = 4
+threatTeam = 0
+PerceptionThresholdAlert = 0.85
+PerceptionThresholdWary = 0.3
+canTriggerMobs = false
+itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
+weapons = Array[ExtResource("2_weapon")]([ExtResource("2_bite")])
+maxHealth = 50.0
+modifiers = null
+defaultBehavior = &"WanderFollow"
+brain = ExtResource("2_brain")
 animations = Dictionary[int, ExtResource("4_animdata")]({
 0: SubResource("Resource_anim_attack"),
 1: SubResource("Resource_anim_dead"),
@@ -100,23 +100,10 @@ animations = Dictionary[int, ExtResource("4_animdata")]({
 8: SubResource("Resource_anim_swim_idle"),
 18: SubResource("Resource_anim_hitstun")
 })
-displayName = &"Dog"
 hudScale = 0.5
-PerceptionThresholdAlert = 0.85
-PerceptionThresholdWary = 0.3
-threatTeam = 0
-canTriggerMobs = false
-team = 4
-modifiers = null
-itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
-damageProfiles = Dictionary[StringName, ExtResource("6_damage")]({
-&"primary": SubResource("Resource_damage_primary")
-})
+MobScene = ExtResource("3_scene")
 triggersTraps = false
+verticalClearance = 1
 maxSpeed = 12.0
 foliageSpeedModifier = 0.5
-defaultBehavior = &"WanderFollow"
-brain = ExtResource("2_brain")
-MobScene = ExtResource("3_scene")
-verticalClearance = 1
 metadata/_custom_type_script = "uid://b1016kfgr80a5"
