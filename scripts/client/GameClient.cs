@@ -383,6 +383,10 @@ public partial class GameClient : Node3D
 	// BirdsEyeController.
 	[Export] public BirdsEyeController birdsEye;
 
+	// Cinematic slow-motion + zoom on player death. Triggered in
+	// OnPlayerDiedInternal, released in RespawnPlayer; ticked in _Process.
+	[Export] public SlowMotionController slowMotion;
+
 	// World → screen-pixel projection for the HUD layers. Forwards to the
 	// viewport rig, which owns the sub-texel offset that aligns it with the
 	// upscaled render.
@@ -906,6 +910,9 @@ public partial class GameClient : Node3D
 				followTime = camera.followTimeNormal;
 			}
 			camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
+			// Apply the slow-mo zoom override to camera.Size BEFORE the pixel-snap
+			// reads it (the rig sizes its texel grid off the live ortho Size).
+			slowMotion?.Update();
 			viewportRig?.SnapAndUpscale();
 			CullProps(camera.Clip);
 		}
@@ -917,7 +924,7 @@ public partial class GameClient : Node3D
 		{
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
-		screenEffects?.Tick(deltaTime, birdsEye?.MotionBlur ?? 0f, BirdsEyeController.BlurDir);
+		screenEffects?.Tick(deltaTime, birdsEye?.MotionBlur ?? 0f, BirdsEyeController.BlurDir, slowMotion?.RadialBlur ?? 0f);
 
 		// Hide the per-interactive highlight outline while another fullscreen
 		// HUD (merchant, conversation, cooking, etc.) has InputSuppressed on.
@@ -1642,6 +1649,10 @@ public partial class GameClient : Node3D
 		// uses its own lowHealthDeathSlowdownSeconds fallback.
 		screenEffects?.NotifyPlayerDied(deathScreen?.fadeOutSeconds ?? 0f);
 
+		// Punch into slow-motion + zoom and hold it through the death-screen
+		// fade; RespawnPlayer releases it.
+		slowMotion?.Trigger();
+
 		if (deathScreen != null)
 		{
 			deathScreen.Show(this);
@@ -1669,6 +1680,10 @@ public partial class GameClient : Node3D
 		}
 		_player.Respawn(_spawnPosition);
 		camera.SetInitialPosition(_spawnPosition);
+
+		// Ease back to real time + the resting zoom. The ease-out plays under the
+		// DeathScreen fade-in (revealing from black).
+		slowMotion?.Release();
 
 		// Clear the death wind-down so the heartbeat goes fully idle (health is
 		// restored, so the overlay ramp is 0); a fresh low-health episode will

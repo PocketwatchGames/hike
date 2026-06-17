@@ -38,6 +38,7 @@
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/effects/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://bi7rs3e700k6x" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
+[ext_resource type="Script" uid="uid://bs1owm0t10nfx7" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
@@ -80,7 +81,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
@@ -115,6 +116,7 @@ foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
 birdsEye = NodePath("BirdsEye")
+slowMotion = NodePath("SlowMotion")
 eyeAdaptKnee = 1.0
 
 [node name="FlyCamera" type="Node" parent="." unique_id=1919340182 node_paths=PackedStringArray("camera")]
@@ -137,6 +139,10 @@ sizeMultiplier = 5.0
 transitionSeconds = 1.0
 windAudio = NodePath("../BirdsEyeWindAudio")
 swooshAudio = NodePath("../BirdsEyeSwooshAudio")
+
+[node name="SlowMotion" type="Node" parent="." unique_id=205299914 node_paths=PackedStringArray("camera")]
+script = ExtResource("slow_motion_script")
+camera = NodePath("../SceneViewport/MainCamera")
 
 [node name="ViewportRig" type="Node" parent="." unique_id=664577166 node_paths=PackedStringArray("sceneViewport", "camera")]
 script = ExtResource("viewport_rig_script")

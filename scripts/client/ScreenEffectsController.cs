@@ -200,8 +200,9 @@ public partial class ScreenEffectsController : Node
 
 	// Per-frame post-process update. `transitionBlur` / `transitionBlurDir`
 	// carry the bird's-eye fly-up smear (0 when not transitioning); the camera
-	// rotation blur is composited in via max-of.
-	public void Tick(double deltaTime, float transitionBlur, Vector2 transitionBlurDir)
+	// rotation blur is composited in via max-of. `radialBlur` is the
+	// slow-motion death-cam zoom blur (separate shader channel, 0 when idle).
+	public void Tick(double deltaTime, float transitionBlur, Vector2 transitionBlurDir, float radialBlur)
 	{
 		if (postProcessMaterial == null) { return; }
 		GameClient client = GameClient.Current;
@@ -223,6 +224,7 @@ public partial class ScreenEffectsController : Node
 		Vector2 blurDir = transitionBlur > rotBlur || camera == null ? transitionBlurDir : camera.RotationBlurDir;
 		postProcessMaterial.SetShaderParameter("motion_blur_strength", blurStrength);
 		postProcessMaterial.SetShaderParameter("motion_blur_dir", blurDir);
+		postProcessMaterial.SetShaderParameter("radial_blur_strength", radialBlur);
 
 		float dt = (float)deltaTime;
 		if (_damageFlash > 0f && damageFlashFadeSeconds > 0f)

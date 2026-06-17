@@ -415,6 +415,10 @@ public static class CVars
     // overview should share the same gate.
     public static CVarBool rotationBlur = new CVarBool("rotation_blur", true);
 
+    // Master enable for the cinematic slow-motion "death cam" (SlowMotionController).
+    // When false, Trigger() is a no-op so the game never slows / zooms on death.
+    public static CVarBool slowMotion = new CVarBool("slow_motion", true);
+
     // Gates the bird's-eye volumetric cloud quad. When false, the cloud
     // mesh stays hidden during the overlook regardless of bird's-eye
     // state — useful on low-spec machines, for screenshotting without
