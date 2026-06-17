@@ -1,4 +1,6 @@
-[gd_scene format=3 uid="uid://mt0fme7pe5yp"]
+[gd_scene load_steps=4 format=3 uid="uid://mt0fme7pe5yp"]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_scroll"]
 albedo_color = Color(0.85, 0.78, 0.55, 1)
@@ -8,6 +10,7 @@ material = SubResource("Mat_scroll")
 size = Vector3(0.04, 0.3, 0.22)
 
 [node name="ScrollHeld" type="Node3D" unique_id=908892998]
+script = ExtResource("1_hw")
 
 [node name="Mesh" type="MeshInstance3D" parent="." unique_id=633189360]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)

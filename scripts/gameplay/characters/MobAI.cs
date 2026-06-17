@@ -27,14 +27,11 @@ public struct AIOutput
     // terrain, so future low/medium/high cruise tiers just vary this value.
     public bool airborne;
     public float? flyAltitude;
-    public bool useTorch;
     // True when TickAI early-returned because the mob is AI-suspended
     // (BehaviorIdle latches a 100ms suspend window once it's standing at
     // spawn so idle mobs can be physics-frozen). Downstream consumers of
     // AIOutput must treat all other fields as undefined and skip any
-    // edge-style processing — e.g. the torch block would otherwise tear
-    // down and re-instantiate _torch every suspend cycle since useTorch
-    // defaults to false on a fresh AIOutput.
+    // edge-style processing.
     public bool suspended;
     public InvestigateState? investigation;
     public bool resetInvestigation;

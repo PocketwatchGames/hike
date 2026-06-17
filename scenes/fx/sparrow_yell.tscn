@@ -5,7 +5,7 @@
 [ext_resource type="AudioStream" uid="uid://cky71308ejl0v" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_yell_02.wav" id="2_y02"]
 [ext_resource type="AudioStream" uid="uid://cl81ok0gt7a6u" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_yell_03.wav" id="2_y03"]
 [ext_resource type="AudioStream" uid="uid://ce7ekkhmynbrn" path="res://assets/audio/source/mobs/sparrow/sfx_enemy_sparrow_yell_04.wav" id="2_y04"]
-[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/effects/yell_particle.tscn" id="6_2fn4x"]
+[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/fx/yell_particle.tscn" id="6_2fn4x"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spyell"]
 playback_mode = 1

@@ -5,10 +5,10 @@
 [ext_resource type="Material" uid="uid://4vyuqfq66tgj" path="res://resources/materials/fairy_orb.tres" id="3_orbmat"]
 [ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="4_hurtbox"]
 [ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="5_mobhud"]
-[ext_resource type="PackedScene" uid="uid://bfrydeath7k30" path="res://scenes/effects/fairy_death.tscn" id="6_deathfx"]
-[ext_resource type="PackedScene" uid="uid://bf41ryidlefx0" path="res://scenes/effects/fairy_idle_loop.tscn" id="7_idlefx"]
-[ext_resource type="PackedScene" uid="uid://bf41ryglmmrx0" path="res://scenes/effects/fairy_glimmer.tscn" id="8_glimmer"]
-[ext_resource type="PackedScene" uid="uid://cv4428t0a53og" path="res://scenes/effects/moving_light_fairy.tscn" id="9_movinglight"]
+[ext_resource type="PackedScene" uid="uid://bfrydeath7k30" path="res://scenes/fx/fairy_death.tscn" id="6_deathfx"]
+[ext_resource type="PackedScene" uid="uid://bf41ryidlefx0" path="res://scenes/fx/fairy_idle_loop.tscn" id="7_idlefx"]
+[ext_resource type="PackedScene" uid="uid://bf41ryglmmrx0" path="res://scenes/fx/fairy_glimmer.tscn" id="8_glimmer"]
+[ext_resource type="PackedScene" uid="uid://cv4428t0a53og" path="res://scenes/fx/moving_light_fairy.tscn" id="9_movinglight"]
 
 [sub_resource type="SphereMesh" id="SphereMesh_orb"]
 radius = 0.15
@@ -52,10 +52,10 @@ light_color = Color(0.68, 0.45, 1, 1)
 light_energy = 1.5
 omni_range = 6.0
 
-[node name="Glimmer" parent="FairyOrb" instance=ExtResource("8_glimmer")]
+[node name="Glimmer" parent="FairyOrb" unique_id=1965900636 instance=ExtResource("8_glimmer")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
-[node name="MovingLight" parent="FairyOrb" instance=ExtResource("9_movinglight")]
+[node name="MovingLight" parent="FairyOrb" unique_id=653238035 instance=ExtResource("9_movinglight")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
 [node name="MeshContainer" type="Node3D" parent="." unique_id=897532595]

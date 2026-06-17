@@ -170,16 +170,11 @@ public partial class MobData : Resource
     [Export] public bool dangerous = false;
 
     [ExportGroup("Combat")]
-    // Weapons this mob attacks with. Mob attacks carry no damage data on MobData
-    // itself — each WeaponData holds its own action timeline, damage / continuous
-    // profiles, the in-hand held model, AND its AI engagement tuning (range /
-    // cooldown / ally gate / priority), exactly as a player weapon does. The
-    // attack behavior reads this list off the mob and fires the highest-priority
-    // weapon whose gates pass this tick (WeaponData.priority), and the mob's
-    // in-hand prop is the held model of its primary weapon. Author the weapons
-    // next to this resource. Empty = a mob that never attacks. See
-    // AttackBehaviorData / BehaviorAttack and ItemEventHandlers.ResolveHit.
-    [Export] public Godot.Collections.Array<WeaponData> weapons = new();
+    // NOTE: a mob's weapon loadout is NOT a species trait — it's spawn-time
+    // composition that lives on MobDescriptor.weapons (so the same species can
+    // be a claw goblin in the forest and a torch-bearer in a camp via two
+    // descriptors). CreateState stamps it onto MobSimState.Weapons; Mob.Weapons
+    // reads it from there. See MobDescriptor / BehaviorAttack.
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
     // Health a tamed companion is restored to when the player revives its
@@ -317,13 +312,6 @@ public partial class MobData : Resource
     // biome variants (e.g. swamp vs desert goblin) without a unique model each.
     // Null = use the authored textures as-is. See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
-    // The torch prop (a HeldTorch scene) this mob lights when it's dark and the
-    // player remembers it — the same model the player carries. The HeldTorch
-    // scene also carries its own world light (its movingLightScene), so this one
-    // reference brings both the visible prop and its deposit. Null on torch-less
-    // species. A prop-less light-emitter instead bakes a MovingLight straight into
-    // its mob scene (see the fairy), so it needs no field here.
-    [Export] public PackedScene heldTorchScene;
 
     [ExportGroup("Loot & Death")]
     // Loot ejected from the mob's body when it dies. Each entry spawns

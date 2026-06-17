@@ -3,10 +3,12 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="3_poison"]
+[ext_resource type="PackedScene" uid="uid://cv3n0mdr1pq7k" path="res://scenes/fx/weapon_venom_drip_loop.tscn" id="4_idle"]
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 onHitStatusEffects = Array[ExtResource("1_data")]([ExtResource("3_poison")])
+idleFx = ExtResource("4_idle")
 
 [resource]
 script = ExtResource("1_data")

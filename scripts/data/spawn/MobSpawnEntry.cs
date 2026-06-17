@@ -5,8 +5,8 @@ using Godot;
 public partial class MobSpawnEntry : SpawnEntryData
 {
     // The composed mob to spawn — base species + per-instance overrides
-    // (palette, weapon, elite kind). Replaces the bare MobData this entry used
-    // to hold; see MobDescriptor.
+    // (palette, elite kind). Replaces the bare MobData this entry used to hold;
+    // see MobDescriptor.
     [Export] public MobDescriptor Descriptor;
 
     // Optional override for the brain's idleBehavior (e.g. "Wander"). Empty

@@ -5,9 +5,9 @@
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="2_charged"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_sn2wd"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
-[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/effects/learn_language.tscn" id="4_learnfx"]
+[ext_resource type="PackedScene" uid="uid://bltjwssh6fblq" path="res://scenes/fx/learn_language.tscn" id="4_learnfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="5_7vgos"]
-[ext_resource type="PackedScene" uid="uid://bwh4veu2kt72u" path="res://scenes/effects/read_loop.tscn" id="6_readfx"]
+[ext_resource type="PackedScene" uid="uid://bwh4veu2kt72u" path="res://scenes/fx/read_loop.tscn" id="6_readfx"]
 
 [sub_resource type="Resource" id="Resource_scroll_event_anim"]
 script = ExtResource("3_event")

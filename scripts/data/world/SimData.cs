@@ -423,17 +423,6 @@ public partial class SimData : Resource
     // more ambient fill.
     [Export(PropertyHint.Range, "0,0.5,0.01")] public float NightAmbientHumidityLift = 0.05f;
 
-    [ExportSubgroup("Mob Torches")]
-    // Hysteresis pair for the mob "should I light my torch" decision. With a
-    // single threshold, ambient drifting around the cutoff (e.g. dawn/dusk,
-    // partial torchlight from another mob, weather variation) flickers the
-    // torch on/off every tick. The gap is the noise margin: while the torch
-    // is OFF, ambient must drop below the LIGHT threshold to ignite it;
-    // while ON, ambient must rise above the DOUSE threshold to extinguish.
-    // Light < Douse (enforced at read time in Mob.ShouldUseTorch).
-    [Export(PropertyHint.Range, "0,2,0.01")] public float MobTorchLightThreshold = 0.20f;
-    [Export(PropertyHint.Range, "0,2,0.01")] public float MobTorchDouseThreshold = 0.30f;
-
     [ExportSubgroup("Water")]
     // Reference wind speed (m/s) at which ripple_strength saturates to 1.
     // Curve is quadratic: (wind / ref)² — low wind barely perturbs the

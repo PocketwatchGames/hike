@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://gwbjofqi4jx6" path="res://assets/textures/status_effects/fire.png" id="2_icon"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_hot_start.tscn" id="3_startfx"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_hot_end.tscn" id="4_endfx"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_hot_loop.tscn" id="5_loopfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_hot_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_hot_end.tscn" id="4_endfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_hot_loop.tscn" id="5_loopfx"]
 
 [resource]
 script = ExtResource("1_data")

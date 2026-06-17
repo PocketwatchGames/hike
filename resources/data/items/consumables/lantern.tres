@@ -9,8 +9,8 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_n6qxs"]
 [ext_resource type="Texture2D" uid="uid://cpojv1vduc1fy" path="res://assets/textures/interactives/torch_01_unlit.png" id="5_sprite"]
 [ext_resource type="Texture2D" uid="uid://cjlgkfmdxqma5" path="res://assets/textures/interactives/torch_01_lit.png" id="6_sprite_lit"]
-[ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/effects/torch_douse.tscn" id="8_douse"]
-[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/torch_held.tscn" id="8_held"]
+[ext_resource type="PackedScene" uid="uid://wnfsb2rd2l6t" path="res://scenes/fx/torch_douse.tscn" id="8_douse"]
+[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/lantern_held.tscn" id="9_vmr08"]
 
 [sub_resource type="Resource" id="Resource_event_toggle"]
 script = ExtResource("4_event")
@@ -28,11 +28,11 @@ interruptOnDamage = false
 [resource]
 script = ExtResource("1_torch")
 douseEffectScene = ExtResource("8_douse")
-heldTorchScene = ExtResource("8_held")
+heldTorchScene = ExtResource("9_vmr08")
 actionProfile = SubResource("Resource_profile")
 activeSprite = ExtResource("6_sprite_lit")
-displayName = &"Torch"
-description = "A light in the darkness"
+displayName = &"Lantern"
+description = "A light in the darkness. Clips to your belt when lit."
 maxStack = 5
 value = 10
 inventorySprite = ExtResource("5_sprite")

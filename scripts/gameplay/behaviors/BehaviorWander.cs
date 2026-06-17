@@ -33,7 +33,6 @@ public partial class BehaviorWander : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        output.useTorch = me.ShouldUseTorch;
 
         // Pause window between wander legs. While paused we leave the
         // navigator idle so the mob's impulse code coasts to a stop.

@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="7_effect"]
 [ext_resource type="Script" uid="uid://xuxmdsbhvxsi" path="res://scripts/data/effects/TeleportToSpawnEffect.cs" id="8_teleport"]
-[ext_resource type="PackedScene" uid="uid://c4st1lkqam3rx" path="res://scenes/effects/cast_loop.tscn" id="9_castfx"]
+[ext_resource type="PackedScene" uid="uid://c4st1lkqam3rx" path="res://scenes/fx/cast_loop.tscn" id="9_castfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("6_event")

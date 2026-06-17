@@ -33,30 +33,37 @@ public partial class HeldItemVisual : Node3D
 	// wrist joints; override per rig if a different skeleton is used.
 	[Export] public StringName boneName = "R_wrist_joint";
 	[Export] public StringName leftBoneName = "L_wrist_joint";
-	// Bone the stowed (backpack) torch attaches to, with a fuzzy chest/spine/back
+	// Bone the lit lantern clips to (a belt slot), with a fuzzy waist/pelvis/hip
 	// fallback for rigs that name it differently. A rig with no match just hides
-	// the stowed torch instead of showing it on the back.
-	[Export] public StringName backpackBoneName = "chest_joint";
-	// Local placement of the stowed torch on the backpack socket. Tune per rig in
-	// the inspector — bone axes vary, so the default is only an over-shoulder
-	// starting guess.
-	[Export] public Vector3 backpackOffset = new(0.18f, 0.1f, -0.18f);
-	[Export] public Vector3 backpackRotationDegrees = new(0f, 0f, 25f);
+	// the lantern when it would otherwise hang on the belt.
+	[Export] public StringName beltBoneName = "waist_joint";
+	// Local placement of the lantern on the belt socket. Tune per rig in the
+	// inspector — bone axes vary, so the default is only a hip-side starting guess.
+	[Export] public Vector3 beltOffset = new(0.18f, 0f, 0.05f);
+	[Export] public Vector3 beltRotationDegrees = Vector3.Zero;
 
 	private Node3D _weaponHolderRight;
 	private Node3D _weaponHolderLeft;
 	private Node3D _itemHolder;
-	// The held torch rides the off (left) hand when actively held. A lit torch
-	// whose hand is busy (weapon / item drawn) or which isn't the actively-held
-	// one is stowed on the backpack socket instead, so it stays visible and keeps
-	// lighting. See UpdateTorchPlacement.
+	// The held torch/lantern rides the off (left) hand while it's the actively-held
+	// unlit prop. Once lit it clips to the belt socket so it stays visible and
+	// keeps lighting with the hands free. See UpdateTorchPlacement.
 	private Node3D _torchHolder;
-	private Node3D _backpackHolder;
+	private Node3D _beltHolder;
+	// Nearest PhysicsBody3D ancestor (the Mob / Player body) — the stable, body-
+	// level node a held torch's world light parents to so the deposit tracks the
+	// body rather than the swinging hand bone. Resolved once in BuildSockets.
+	private Node3D _carrierRoot;
 
 	// Desired scenes are latched even before the sockets exist so a SetWeapon
 	// that races the deferred build is applied once BuildSockets runs.
 	private PackedScene _weaponScene;
 	private EHand _weaponHand = EHand.Right;
+	// Idle Fx the wielded weapon's mods add to the in-hand model (a Flaming
+	// sword's flame). Latched so a SetWeaponIdleFx that races the deferred socket
+	// build — or arrives before the weapon instance swaps in — re-applies once
+	// the HeldWeapon instance exists. Re-pushed after every weapon swap.
+	private Godot.Collections.Array<PackedScene> _weaponIdleFx;
 	private PackedScene _itemScene;
 	private PackedScene _torchScene;
 	private Node3D _weaponInstance;
@@ -97,47 +104,51 @@ public partial class HeldItemVisual : Node3D
 		// The held torch rides the left hand alongside the left weapon holder.
 		_torchHolder = new Node3D { Name = "TorchHolder" };
 		_weaponHolderLeft.GetParent().AddChild(_torchHolder);
-		// Backpack socket for a stowed lit torch (off-bone so it stays visible +
-		// lighting while the hands are busy). Optional — rigs with no chest/spine
-		// bone just hide the stowed torch.
-		_backpackHolder = BuildBackpackHolder(skeleton);
+		// Belt socket for a lit lantern (hands-free, stays visible + lighting).
+		// Optional — rigs with no waist/pelvis bone just hide the belted lantern.
+		_beltHolder = BuildBeltHolder(skeleton);
+		// The body the carried-light deposits from (Mob / Player) — used to light a
+		// startLit weapon torch (a goblin's burning torch) so its world light
+		// tracks the body, not the hand.
+		_carrierRoot = FindCarrierRoot();
 		// Apply anything latched before the sockets existed.
 		ApplyWeapon();
+		ApplyWeaponIdleFx();
 		ApplyItem();
 		ApplyTorch();
 	}
 
-	// Builds the backpack socket + holder for the stowed torch. Returns null when
-	// the rig has no chest/spine/back bone, in which case a stowed torch is simply
+	// Builds the belt socket + holder for the lit lantern. Returns null when the
+	// rig has no waist/pelvis bone, in which case a belted lantern is simply
 	// hidden. The holder carries the inspector-tunable offset/rotation.
-	private Node3D BuildBackpackHolder(Skeleton3D skeleton)
+	private Node3D BuildBeltHolder(Skeleton3D skeleton)
 	{
-		int bone = skeleton.FindBone(backpackBoneName);
+		int bone = skeleton.FindBone(beltBoneName);
 		if (bone < 0)
 		{
-			bone = FuzzyBackpackBone(skeleton);
+			bone = FuzzyBeltBone(skeleton);
 		}
 		if (bone < 0)
 		{
 			return null;
 		}
-		var socket = new BoneAttachment3D { Name = "BackpackSocket", BoneName = skeleton.GetBoneName(bone) };
+		var socket = new BoneAttachment3D { Name = "BeltSocket", BoneName = skeleton.GetBoneName(bone) };
 		skeleton.AddChild(socket);
 		var holder = new Node3D
 		{
-			Name = "BackpackHolder",
-			Position = backpackOffset,
-			RotationDegrees = backpackRotationDegrees,
+			Name = "BeltHolder",
+			Position = beltOffset,
+			RotationDegrees = beltRotationDegrees,
 		};
 		socket.AddChild(holder);
 		return holder;
 	}
 
-	// First bone whose name reads as a torso anchor, in preference order. Used as
-	// the backpack attach point when the authored backpackBoneName isn't present.
-	private static int FuzzyBackpackBone(Skeleton3D skeleton)
+	// First bone whose name reads as a waist/hip anchor, in preference order. Used
+	// as the belt attach point when the authored beltBoneName isn't present.
+	private static int FuzzyBeltBone(Skeleton3D skeleton)
 	{
-		string[] prefer = { "chest", "spine", "torso", "back", "neck" };
+		string[] prefer = { "waist", "pelvis", "hip", "belt", "spine" };
 		foreach (string key in prefer)
 		{
 			for (int i = 0; i < skeleton.GetBoneCount(); i++)
@@ -231,6 +242,24 @@ public partial class HeldItemVisual : Node3D
 		ApplyWeapon();
 	}
 
+	// Sets the idle Fx played on the wielded weapon model (a weapon mod's
+	// held-weapon visual, e.g. a Flaming sword's flame). Routed to the in-hand
+	// HeldWeapon instance, which diffs the set so the per-press call site can
+	// fire freely. Null/empty clears the weapon's idle fx.
+	public void SetWeaponIdleFx(Godot.Collections.Array<PackedScene> scenes)
+	{
+		_weaponIdleFx = scenes;
+		ApplyWeaponIdleFx();
+	}
+
+	private void ApplyWeaponIdleFx()
+	{
+		if (_weaponInstance is HeldWeapon weapon)
+		{
+			weapon.SetIdleFx(_weaponIdleFx);
+		}
+	}
+
 	// Sets the transient consumable model. No-op when unchanged so the per-tick
 	// call site can fire freely. Null clears the item channel.
 	public void SetActiveItem(PackedScene model)
@@ -241,6 +270,18 @@ public partial class HeldItemVisual : Node3D
 		}
 		_itemScene = model;
 		ApplyItem();
+	}
+
+	// Extinguishes the held weapon if it's a lit torch — kills its world light and
+	// flame (not just the mesh). Called on mob death so a corpse's torch goes dark
+	// rather than burning on. Separate from SetWeaponConcealed, which only hides
+	// the mesh and is also used for transient anim poses that must keep the flame.
+	public void ExtinguishWeaponTorch()
+	{
+		if (_weaponInstance is HeldTorch torch)
+		{
+			torch.SetLit(false);
+		}
 	}
 
 	// Hides/shows the weapon model without discarding it (the potion-in-hand
@@ -311,11 +352,10 @@ public partial class HeldItemVisual : Node3D
 		UpdateTorchPlacement();
 	}
 
-	// Places the held torch: in the off-hand when it's the actively-held torch and
-	// the hand is free; stowed on the backpack socket when lit but the hand is busy
-	// (weapon / item drawn) or it's carried in reserve; hidden when unlit with no
-	// free hand. The HeldTorch instance is only reparented / hidden, never freed
-	// here, so its world light persists across placement changes while lit.
+	// Places the held torch/lantern: clipped to the belt whenever lit (hands-free,
+	// keeps lighting); held in the off-hand when it's the actively-held *unlit*
+	// prop; hidden otherwise. The HeldTorch instance is only reparented / hidden,
+	// never freed here, so its world light persists across placement changes.
 	private void UpdateTorchPlacement()
 	{
 		if (_torchHolder == null || _torchInstance == null)
@@ -325,15 +365,15 @@ public partial class HeldItemVisual : Node3D
 		bool weaponShown = !_weaponConcealed && _weaponInstance != null;
 		bool handBusy = weaponShown || _itemInstance != null;
 		Node3D target;
-		if (_torchInHand && !handBusy)
+		if (_torchLit)
+		{
+			// Lit → belt slot (null on rigs without a waist bone → hidden, but the
+			// instance stays alive so the light keeps burning).
+			target = _beltHolder;
+		}
+		else if (_torchInHand && !handBusy)
 		{
 			target = _torchHolder;
-		}
-		else if (_torchLit)
-		{
-			// Stowed on the back (null on rigs without a back bone → hidden, but
-			// the instance stays alive so the light keeps burning).
-			target = _backpackHolder;
 		}
 		else
 		{
@@ -366,7 +406,36 @@ public partial class HeldItemVisual : Node3D
 			return;
 		}
 		SwapInstance(ref _weaponInstance, holder, _weaponScene);
+		// A burning-torch weapon (HeldTorch.startLit) lights itself here, depositing
+		// its world light on the carrier body so it illuminates like a real torch.
+		// Deferred so the flame/light Fx spawn after the instancing AddChild storm.
+		if (_weaponInstance is HeldTorch weaponTorch && weaponTorch.startLit)
+		{
+			Node3D lightParent = _carrierRoot;
+			Callable.From(() => weaponTorch.SetLit(true, lightParent)).CallDeferred();
+		}
+		// A fresh instance starts with no idle fx; the caller re-pushes the new
+		// weapon's idle fx via SetWeaponIdleFx right after SetWeapon. (Replaying
+		// the latch here would briefly spawn the PREVIOUS weapon's flame on the
+		// new model before that correcting call lands.) The deferred socket-build
+		// path replays the latch itself — see BuildSockets.
 		UpdateTorchPlacement();
+	}
+
+	// Walks ancestors to the nearest PhysicsBody3D — the Mob / Player body that
+	// owns this visual. Null only if the visual isn't parented under a body yet.
+	private Node3D FindCarrierRoot()
+	{
+		Node n = GetParent();
+		while (n != null)
+		{
+			if (n is PhysicsBody3D body)
+			{
+				return body;
+			}
+			n = n.GetParent();
+		}
+		return null;
 	}
 
 	private void ApplyItem()

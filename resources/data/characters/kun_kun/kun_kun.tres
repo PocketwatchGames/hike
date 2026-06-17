@@ -3,15 +3,14 @@
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://syb6453ftgs8" path="res://resources/data/characters/kun_kun/kun_kun_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_l8bhi"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
 [ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="5_meat"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_pwfhx"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="7_fxemr"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="7_statmod"]
 [ext_resource type="Resource" uid="uid://cdg5stnk2wq8r" path="res://resources/data/status_effects/status_dig_stun.tres" id="8_digstun"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="11_752mf"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="12_ttkrx"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
@@ -84,6 +83,24 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [resource]
 script = ExtResource("1_mobdata")
+displayName = &"Kun-Kun"
+team = 4
+SmellStrength = 1.0
+smellRange = 16.0
+smellRangePower = 2.0
+visibilityMovementMin = 0.75
+visibilityMovementPower = 1.0
+prominence = 0.75
+modifiers = Array[ExtResource("7_statmod")]([])
+dizzyResistance = 0.5
+canBurrow = true
+burrowTime = 0.5
+hideRange = 8.0
+dugUpStun = ExtResource("8_digstun")
+IdleLoopMaxRain = 0.2
+brain = ExtResource("2_brain")
+killsPerLevel = Array[int]([3, 10, 25, 50])
+exp = 1
 animations = Dictionary[int, ExtResource("6_animdata")]({
 1: SubResource("Resource_anim_dead"),
 2: SubResource("Resource_anim_die"),
@@ -97,28 +114,10 @@ animations = Dictionary[int, ExtResource("6_animdata")]({
 12: SubResource("Resource_anim_burrowed"),
 18: SubResource("Resource_anim_hitstun")
 })
-IdleLoopMaxRain = 0.2
-displayName = &"Kun-Kun"
-killsPerLevel = Array[int]([3, 10, 25, 50])
 hudScale = 0.5
-SmellStrength = 1.0
-smellRange = 16.0
-smellRangePower = 2.0
-visibilityMovementMin = 0.75
-visibilityMovementPower = 1.0
-prominence = 0.75
-team = 4
-canBurrow = true
-burrowTime = 0.5
-hideRange = 8.0
-dugUpStun = ExtResource("8_digstun")
-modifiers = Array[ExtResource("7_statmod")]([])
-dizzyResistance = 0.5
+MobScene = ExtResource("3_scene")
+loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_meat")])
 triggersTraps = false
 maxSpeed = 8.0
 foliageSpeedModifier = 0.0
-exp = 1
-brain = ExtResource("2_brain")
-MobScene = ExtResource("3_scene")
-loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_meat")])
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

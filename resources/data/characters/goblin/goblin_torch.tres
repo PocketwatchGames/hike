@@ -1,0 +1,74 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://c0tanvr887mia"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_qdlo1"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_f83x5"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_seffect"]
+[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="7_burning"]
+[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="8_atkfx"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_iv4b3"]
+[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="9_hitfx"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_qssw7"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="10_solidfx"]
+[ext_resource type="PackedScene" uid="uid://c0tanvr8884cb" path="res://scenes/items/held/torch_held.tscn" id="11_held"]
+
+[sub_resource type="Resource" id="Resource_event_windup_anim"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_dart"]
+script = ExtResource("4_event")
+time = 200
+type = 1024
+motionSpeed = 14.0
+motionDuration = 0.25
+motionFreezeGravity = false
+
+[sub_resource type="Resource" id="Resource_event_strike"]
+script = ExtResource("4_event")
+time = 450
+type = 1
+farWidth = 3.0
+impactEnvironmentEffect = ExtResource("10_solidfx")
+impactHealthEffect = ExtResource("9_hitfx")
+impactArmorEffect = ExtResource("10_solidfx")
+impactLethalEffect = ExtResource("9_hitfx")
+
+[sub_resource type="Resource" id="Resource_action_torch"]
+script = ExtResource("3_action")
+displayName = &"Torch Swing"
+activeDurationSeconds = 1.0
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
+releaseEffect = ExtResource("8_atkfx")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_torch")])
+locksMovement = true
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 1157
+healthDamage = 8.0
+blunt = 0.5
+hitstun = 0.3
+knockbackDistance = 1.0
+knockbackTime = 0.2
+statusEffects = Array[ExtResource("6_seffect")]([ExtResource("7_burning")])
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+MaxAttackRange = 5.0
+desiredAttackRange = 3.0
+displayName = &"Goblin Torch"
+heldModel = ExtResource("11_held")

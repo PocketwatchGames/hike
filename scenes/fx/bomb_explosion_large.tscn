@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dgv1xdt06si" path="res://scripts/gameplay/entities/GasCloud.cs" id="1_gas"]
 [ext_resource type="Script" uid="uid://bcc4gtomm0vvk" path="res://scripts/gameplay/entities/DamageZone.cs" id="2_dz"]
-[ext_resource type="PackedScene" uid="uid://bm0blastfxlha" path="res://scenes/effects/bomb_blast_fx_large.tscn" id="3_blast"]
+[ext_resource type="PackedScene" uid="uid://bm0blastfxlha" path="res://scenes/fx/bomb_blast_fx_large.tscn" id="3_blast"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_bombzone"]
 radius = 2.5

@@ -4,7 +4,7 @@
 [ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="2_icon"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_damage"]
 [ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="4_chain"]
-[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/effects/lightning_aura_burst.tscn" id="5_fx"]
+[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="5_fx"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="6_mod"]
 
 [sub_resource type="Resource" id="chainDamage"]

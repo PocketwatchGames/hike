@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://dmj3hp3rw122w"]
 
 [ext_resource type="Script" uid="uid://de7or1xx11ad5" path="res://scripts/gameplay/MovingLight.cs" id="1_moving"]
-[ext_resource type="PackedScene" uid="uid://co37ekr23jxpo" path="res://scenes/effects/torch_light.tscn" id="2_torchon"]
-[ext_resource type="PackedScene" uid="uid://co37ed8hknxpo" path="res://scenes/effects/torch_extinguish.tscn" id="3_torchoff"]
+[ext_resource type="PackedScene" uid="uid://co37ekr23jxpo" path="res://scenes/fx/torch_light.tscn" id="2_torchon"]
+[ext_resource type="PackedScene" uid="uid://co37ed8hknxpo" path="res://scenes/fx/torch_extinguish.tscn" id="3_torchoff"]
 
 [node name="MovingLight" type="Node3D" unique_id=1552034072]
 script = ExtResource("1_moving")

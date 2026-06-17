@@ -45,7 +45,6 @@ public partial class Mob
         {
             _hurtBox.CollisionLayer = 0;
         }
-        DespawnTorch();
     }
 
     // Immediately and permanently remove this mob — active node AND persistent

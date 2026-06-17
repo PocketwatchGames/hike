@@ -21,7 +21,7 @@ public partial class LightningStrike : Node3D
     // — they're per-strike PackedScenes on LightningData spawned via
     // Fx.Create at runtime so a different LightningData can swap
     // them without re-authoring the strike scene.
-    private const string SCENE_PATH = "res://scenes/effects/lightning_strike.tscn";
+    private const string SCENE_PATH = "res://scenes/fx/lightning_strike.tscn";
 
     // Vertical raycast envelope used to keep the wandering strike
     // snapped to the ground each tick. Generous on both sides so

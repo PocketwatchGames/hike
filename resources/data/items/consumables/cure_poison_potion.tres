@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_1v8d1"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="6_effect"]
 [ext_resource type="Texture2D" uid="uid://cg3gcmvmdke8e" path="res://assets/textures/items/Potion_green.png" id="7_inv"]
-[ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/effects/drink_loop.tscn" id="9_drinkfx"]
+[ext_resource type="PackedScene" uid="uid://dr1nk2lk5q8wn" path="res://scenes/fx/drink_loop.tscn" id="9_drinkfx"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")

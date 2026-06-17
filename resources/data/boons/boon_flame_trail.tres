@@ -2,7 +2,7 @@
 
 [ext_resource type="Script" uid="uid://dbn1dataq8wrk" path="res://scripts/data/effects/BoonData.cs" id="1_boon"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_isaj8"]
-[ext_resource type="PackedScene" uid="uid://cf4lmtr00ax27" path="res://scenes/effects/flame_trail.tscn" id="3_0xn0e"]
+[ext_resource type="PackedScene" uid="uid://cf4lmtr00ax27" path="res://scenes/fx/flame_trail.tscn" id="3_0xn0e"]
 [ext_resource type="Script" uid="uid://dtrl3k8n5r2v" path="res://scripts/data/effects/payloads/MovementTrailData.cs" id="4_trail"]
 
 [sub_resource type="Resource" id="trail"]

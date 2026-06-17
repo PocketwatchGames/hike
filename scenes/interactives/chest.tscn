@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="5_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_iwux0"]
 [ext_resource type="Texture2D" uid="uid://74scss48uag0" path="res://assets/textures/interactions/open.png" id="6_open"]
-[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/effects/chest_open.tscn" id="7_chestopen"]
+[ext_resource type="PackedScene" uid="uid://mjlru2fr7241" path="res://scenes/fx/chest_open.tscn" id="7_chestopen"]
 [ext_resource type="Script" uid="uid://ccogud7ied6xv" path="res://scripts/gameplay/entities/Discoverable.cs" id="8_disc"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_i4oq8"]
 [ext_resource type="Script" uid="uid://bwg0gb8jp8ppd" path="res://scripts/gameplay/entities/MeshAutoCollider.cs" id="9_autocoll"]

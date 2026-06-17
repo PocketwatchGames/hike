@@ -73,6 +73,21 @@ public partial class WeaponModData : Resource
 	[ExportGroup("Chain Lightning")]
 	[Export] public ChainLightningData chainLightning;
 
+	// Looping Fx attached to the weapon model while this mod is on the wielded
+	// weapon — a Flaming sword's flame, a glowing enchant aura. Pushed onto the
+	// in-hand HeldWeapon scene (parented to its idleFxAnchor) whenever the weapon
+	// is drawn; it fades out when the weapon is swapped away. Author it as a loop
+	// Fx (_loop = true) so it sustains. Null = no held-weapon fx. Not charge-
+	// scoped — the idle visual rides the weapon at rest, independent of tier.
+	[ExportGroup("Visual Fx")]
+	[Export] public PackedScene idleFx;
+
+	// Looping Fx attached to every projectile this weapon fires while the mod
+	// reaches the firing charge tier — a Flaming bow's flaming arrows. Rides the
+	// projectile and fades at impact, exactly like the event's own
+	// projectileLoopEffect (layered on top of it). Null = no projectile fx.
+	[Export] public PackedScene projectileFx;
+
 	// ============================ Naming ============================
 	// How this mod names the weapons it's attached to (see WeaponNameGenerator).
 

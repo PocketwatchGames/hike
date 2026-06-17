@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://uae0q98gi8unx"]
 
 [ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
-[ext_resource type="PackedScene" uid="uid://dqsytkhv5j0zz" path="res://scenes/effects/player_hurt_vo_male.tscn" id="2_hurt"]
-[ext_resource type="PackedScene" uid="uid://pt7u8y1hyqc2v" path="res://scenes/effects/player_death_vo_male.tscn" id="3_death"]
-[ext_resource type="PackedScene" uid="uid://b8wq3vxn7m4kp" path="res://scenes/effects/out_of_breath.tscn" id="4_breath"]
+[ext_resource type="PackedScene" uid="uid://dqsytkhv5j0zz" path="res://scenes/fx/player_hurt_vo_male.tscn" id="2_hurt"]
+[ext_resource type="PackedScene" uid="uid://pt7u8y1hyqc2v" path="res://scenes/fx/player_death_vo_male.tscn" id="3_death"]
+[ext_resource type="PackedScene" uid="uid://b8wq3vxn7m4kp" path="res://scenes/fx/out_of_breath.tscn" id="4_breath"]
 
 [resource]
 script = ExtResource("1_voice")

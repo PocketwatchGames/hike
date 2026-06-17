@@ -690,16 +690,14 @@ public static class WorldGen
         // villager spawn rules exist.
         int villagerSpawnX = genData.NearSpawnVillagerSpawn.X;
         int villagerSpawnZ = genData.NearSpawnVillagerSpawn.Y;
-        if (genData.NearSpawnVillagerData != null
-            && genData.NearSpawnVillagerData.MobScene != null
+        if (genData.NearSpawnVillagerData?.mob?.MobScene != null
             && villagerSpawnX >= stoneWorldMinX && villagerSpawnX <= stoneWorldMaxX
             && villagerSpawnZ >= stoneWorldMinZ && villagerSpawnZ <= stoneWorldMaxZ)
         {
-            MobData villagerData = genData.NearSpawnVillagerData;
             Vector3I spot = FindFlatDryInZone(villagerSpawnX, villagerSpawnZ);
             int sy = heightMap.GetHeight(spot.X, spot.Z);
             var pos = new Vector3(spot.X + 0.5f, sy + 1.5f, spot.Z + 0.5f);
-            var villagerSim = new MobSimState(pos, 0f, villagerData.MobScene, villagerData);
+            MobSimState villagerSim = genData.NearSpawnVillagerData.CreateState(pos, 0f);
             // The villager test fixture speaks the same language the
             // KnowledgeStone fixtures teach, so reading the stones
             // progressively un-scrambles the dialogue too. Set per-
@@ -747,8 +745,7 @@ public static class WorldGen
         // (the spawn area is flat) if it's inside the world extent.
         int companionSpawnX = genData.CompanionSpawn.X;
         int companionSpawnZ = genData.CompanionSpawn.Y;
-        if (genData.CompanionData != null
-            && genData.CompanionData.MobScene != null
+        if (genData.CompanionData?.mob?.MobScene != null
             && companionSpawnX >= stoneWorldMinX && companionSpawnX <= stoneWorldMaxX
             && companionSpawnZ >= stoneWorldMinZ && companionSpawnZ <= stoneWorldMaxZ)
         {
@@ -757,7 +754,7 @@ public static class WorldGen
             // Already tamed — joins the player's side (effective team Friendly)
             // so the player can't friendly-fire her. The wild authored team
             // (Prey) is what a future taming flow would start from.
-            var companionSim = new MobSimState(pos, 0f, genData.CompanionData.MobScene, genData.CompanionData);
+            MobSimState companionSim = genData.CompanionData.CreateState(pos, 0f);
             companionSim.Tamed = true;
             // Persistent (non-chunked): the companion is player-attached state,
             // spawned once and never destroyed by chunk eviction. See

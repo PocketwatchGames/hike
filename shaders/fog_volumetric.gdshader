@@ -1079,7 +1079,7 @@ void fragment()
         // vanishes when it's clear and fades in with occlusion instead of
         // tinting every lit pixel. ×4 normalises lit·(1-lit) (max 0.25) so the
         // peak reaches the full wash. (Floating dust motes are now a separate
-        // GPU particle system — see MoteEffect / scenes/effects/motes.tscn.)
+        // GPU particle system — see MoteEffect / scenes/fx/motes.tscn.)
         float beam_lit = clamp(lit_frac, 0.0, 1.0) * shadow * 4.0 * wash;
         vec3 tint = shaft_color * (beam_lit * wash_tint_strength) * shaft_clip;
 

@@ -31,7 +31,6 @@ public partial class BehaviorLookAt : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        output.useTorch = me.ShouldUseTorch;
         output.speed = 0f;
 
         // No look position (cleared mid-look) or our window elapsed — clear

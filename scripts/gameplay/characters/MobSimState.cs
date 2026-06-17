@@ -119,15 +119,14 @@ public class MobSimState : EntitySimState
     // effect on an elite is valid (the zone had no pool) — it's still 25% bigger.
     public bool Elite;
     public StatusEffectData EliteStatusEffect;
-    // Per-instance visual overrides composed by MobDescriptor at spawn so one
-    // MobData/MobScene can serve many biome variants. Null = fall back to the
-    // species defaults (palette on MobData; the held weapon prop from the mob's
-    // primary weapon's held model). Both are stable resource refs, persisted via
-    // EntitySerializer so a reloaded variant keeps its recolor and weapon rather
-    // than reverting to the base species.
+    // Per-instance overrides stamped at spawn so one MobData/MobScene serves many
+    // variants. Null = fall back to the species defaults. Persisted via
+    // EntitySerializer so a reloaded variant keeps these rather than reverting.
+    // Both come from MobDescriptor: Palette is the biome recolor, Weapons is the
+    // loadout (e.g. a torch-bearing camp goblin vs a claw goblin — distinct
+    // descriptors over one species). Read by Mob.Weapons.
     public MobPalette Palette;
-    public PackedScene HeldWeaponScene;
-    public EHand HeldWeaponHand = EHand.Right;
+    public Godot.Collections.Array<WeaponData> Weapons;
     public bool Alive;
     // Burrow is a two-phase state machine: Burrowing is the descent window
     // after aiOutput.burrow first goes true, BurrowTimeMs is the absolute
@@ -235,11 +234,6 @@ public class MobSimState : EntitySimState
     // cached AmbientLight, and read by UpdatePerception to relieve the darkness
     // penalty on seeing the player. Not serialized; re-converges in ~seconds.
     public float EyeDilation;
-
-    // Torch light/douse thresholds live on SimData (MobTorchLightThreshold /
-    // MobTorchDouseThreshold) so they're tunable per-world and can carry a
-    // hysteresis gap between them — the gap kills the per-tick on/off
-    // flicker that happens when ambient hovers near a single threshold.
 
     public MobSimState(Vector3 worldPosition, float rotationY, PackedScene scene, MobData mobData)
         : this(worldPosition, rotationY, worldPosition, rotationY, scene, mobData)

@@ -10,7 +10,7 @@
 [ext_resource type="Resource" uid="uid://c7napd2qkx8vt" path="res://resources/data/items/loot/berry_purple.tres" id="6_5ksji"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="10_action"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="13_niy6d"]
-[ext_resource type="PackedScene" uid="uid://bwlfgrn1a2b3c" path="res://scenes/effects/wind_leaf_green.tscn" id="14_ar8je"]
+[ext_resource type="PackedScene" uid="uid://bwlfgrn1a2b3c" path="res://scenes/fx/wind_leaf_green.tscn" id="14_ar8je"]
 [ext_resource type="Shader" uid="uid://fke8klr1sk21" path="res://shaders/tree_cards_lit.gdshader" id="15_26kxx"]
 [ext_resource type="Texture2D" uid="uid://byfk88mc8he74" path="res://assets/models/trees/leaf_cluster_small.png" id="16_6s0x7"]
 [ext_resource type="QuadMesh" path="res://assets/models/trees/card_quad.tres" id="17_f6l6x"]

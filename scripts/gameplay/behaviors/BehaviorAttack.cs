@@ -41,7 +41,6 @@ public partial class BehaviorAttack : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        output.useTorch = me.ShouldUseTorch;
 
         Node3D target = ResolveTarget(me, ref targetPerception, out bool canSee, out Vector3 targetPos, out Vector3 lastKnownPosition);
         if (target == null)
@@ -76,7 +75,7 @@ public partial class BehaviorAttack : BehaviorBase
             output.yaw = Mathf.Atan2(dir2d.X, dir2d.Y);
         }
 
-        // In range — pick which weapon to fire. The mob's weapons (MobData.weapons)
+        // In range — pick which weapon to fire. The mob's weapons (Mob.Weapons)
         // are tried in author order: the first that's off its own cooldown, within
         // its own range, currently seen, and whose ally-count gate passes wins. So
         // a gated special (a battle cry: long cooldown, minAllies > 0) listed first
@@ -203,7 +202,7 @@ public partial class BehaviorAttack : BehaviorBase
         {
             return null;
         }
-        Godot.Collections.Array<WeaponData> weapons = me.mobData?.weapons;
+        Godot.Collections.Array<WeaponData> weapons = me.Weapons;
         if (weapons == null)
         {
             return null;
@@ -242,7 +241,7 @@ public partial class BehaviorAttack : BehaviorBase
     // them. Defaults when the mob has no weapons authoring a range.
     private static float ClosestDesiredRange(Mob me)
     {
-        Godot.Collections.Array<WeaponData> weapons = me.mobData?.weapons;
+        Godot.Collections.Array<WeaponData> weapons = me.Weapons;
         float best = float.MaxValue;
         if (weapons != null)
         {

@@ -5,7 +5,7 @@
 [ext_resource type="AudioStream" uid="uid://dcxjnyu8u2k5y" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_02.wav" id="2_y02"]
 [ext_resource type="AudioStream" uid="uid://cpkcl5xt4hku2" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_03.wav" id="2_y03"]
 [ext_resource type="AudioStream" uid="uid://b0hyr3wgog4wd" path="res://assets/audio/source/mobs/kunkun/sfx_enemy_kunkun_yell_04.wav" id="2_y04"]
-[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/effects/yell_particle.tscn" id="6_2fn4x"]
+[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/fx/yell_particle.tscn" id="6_2fn4x"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_kkyell"]
 playback_mode = 1

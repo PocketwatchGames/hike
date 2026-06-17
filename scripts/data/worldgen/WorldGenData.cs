@@ -112,8 +112,9 @@ public partial class WorldGenData : Resource
     // shared MobData would force every villager to hand out identical
     // rewards and stock identical merchandise), so they live here on the
     // worldgen-level placement entry rather than on MobData. Skipped if
-    // NearSpawnVillagerData is null.
-    [Export] public MobData NearSpawnVillagerData;
+    // NearSpawnVillagerData is null. A descriptor (not a bare MobData) so
+    // every direct-spawn mob shares the one composition channel.
+    [Export] public MobDescriptor NearSpawnVillagerData;
     [Export] public ConversationData NearSpawnVillagerConversation;
     [Export] public Godot.Collections.Array<LoyaltyGift> NearSpawnVillagerLoyaltyGifts = new();
     [Export] public MobInventoryData[] NearSpawnVillagerInventory = [];
@@ -122,8 +123,10 @@ public partial class WorldGenData : Resource
     // already tamed, follows the player by default. Test-fixture placement
     // like the villager above; folds into a proper taming flow later. Skipped
     // if CompanionData is null. CompanionSpawn is the voxel XZ column to drop
-    // her on (near the default player spawn of 0,0).
-    [Export] public MobData CompanionData;
+    // her on (near the default player spawn of 0,0). A descriptor (not a bare
+    // MobData) so the companion carries a weapon loadout — weapons live on
+    // MobDescriptor, not the species.
+    [Export] public MobDescriptor CompanionData;
     [Export] public Vector2I CompanionSpawn = new(2, 0);
 
     // Hand-authored subscene stamps (cottages, dungeons, landmarks). Each

@@ -720,6 +720,9 @@ public static class ItemEventHandlers
 		// Knockback mod — extra shove + stagger added to each hit.
 		float knockbackBonus = 0f;
 		float knockbackTimeBonus = 0f;
+		// Loop fx the mods attach to the shot (a Flaming bow's flaming arrows),
+		// layered on top of the event's own projectileLoopEffect.
+		Godot.Collections.Array<PackedScene> projectileFx = null;
 		if (firingWeapon != null)
 		{
 			int firingChargeIndex = FindChargeIndex(firingWeapon, tier);
@@ -730,6 +733,7 @@ public static class ItemEventHandlers
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
 			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
 			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingChargeIndex);
+			projectileFx = firingWeapon.statusEffects.WeaponModProjectileFx(firingChargeIndex);
 		}
 
 		// "Fragile" weapon mod: a projectile that would normally bounce and wait
@@ -771,7 +775,8 @@ public static class ItemEventHandlers
 			onHitStatusEffects,
 			chainLightning,
 			knockbackBonus,
-			knockbackTimeBonus);
+			knockbackTimeBonus,
+			projectileFx);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of

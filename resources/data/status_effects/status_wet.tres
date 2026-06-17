@@ -2,9 +2,9 @@
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Texture2D" uid="uid://cj438yq261kqe" path="res://assets/textures/status_effects/water.png" id="1_l86d8"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_start.tscn" id="3_startfx"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_end.tscn" id="4_endfx"]
-[ext_resource type="PackedScene" path="res://scenes/effects/status_wet_loop.tscn" id="5_loopfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_wet_start.tscn" id="3_startfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_wet_end.tscn" id="4_endfx"]
+[ext_resource type="PackedScene" path="res://scenes/fx/status_wet_loop.tscn" id="5_loopfx"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="6_burning"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
 

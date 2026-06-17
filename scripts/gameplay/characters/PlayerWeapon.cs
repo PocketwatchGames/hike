@@ -203,6 +203,9 @@ public partial class Player : CharacterBody3D, IActionActor
 			// model (re-swinging the same weapon). Tracked for the anim system so
 			// this weapon's WeaponAnimSet drives the stance / charge / attack poses.
 			_heldVisual?.SetWeapon(weapon.data.heldModel, weapon.data.wieldHand);
+			// Push any mod-authored idle fx (a Flaming sword's flame) onto the
+			// in-hand model. Recomputed per draw since the wielded weapon changed.
+			_heldVisual?.SetWeaponIdleFx(weapon.statusEffects?.WeaponModIdleFx());
 			_wieldedWeapon = weapon;
 			ValidateAnimSet(weapon.data.animSet, weapon.data.displayName);
 		}

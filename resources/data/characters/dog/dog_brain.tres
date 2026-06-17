@@ -11,7 +11,7 @@
 [ext_resource type="Script" uid="uid://bugs6hed1gail" path="res://scripts/data/behaviors/conditions/ThreatPerceivedCondition.cs" id="9_threat"]
 [ext_resource type="Script" uid="uid://cgbwte5du7wer" path="res://scripts/data/behaviors/DogWaryBehaviorData.cs" id="11_wary"]
 [ext_resource type="Script" uid="uid://c4elpp1elpel0" path="res://scripts/data/behaviors/conditions/MasterTooFarCondition.cs" id="12_master"]
-[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/effects/dog_growl.tscn" id="13_growl"]
+[ext_resource type="PackedScene" uid="uid://b2wq8m4kx7n3d" path="res://scenes/fx/dog_growl.tscn" id="13_growl"]
 
 [sub_resource type="Resource" id="Resource_wanderfollow"]
 script = ExtResource("4_wanderfollow")

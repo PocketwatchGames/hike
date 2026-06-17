@@ -3,10 +3,13 @@
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="2_mod"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="3_burning"]
+[ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/fx/flame_trail_loop.tscn" id="4_flame"]
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("2_mod")
 onHitStatusEffects = Array[ExtResource("1_data")]([ExtResource("3_burning")])
+idleFx = ExtResource("4_flame")
+projectileFx = ExtResource("4_flame")
 
 [resource]
 script = ExtResource("1_data")

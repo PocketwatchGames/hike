@@ -12,7 +12,7 @@
 [ext_resource type="Script" uid="uid://dsaesfmav28u8" path="res://scripts/gameplay/minimap/MinimapFoliageStamp.cs" id="12_0u0rf"]
 [ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="13_vagkl"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="14_l78e4"]
-[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="15_b66o7"]
+[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/fx/wind_leaf_red.tscn" id="15_b66o7"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]
 
 [sub_resource type="CylinderShape3D" id="CylinderShape3D_trunk"]

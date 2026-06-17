@@ -3984,6 +3984,9 @@ public partial class Player : CharacterBody3D
 			if (rangedModel != null)
 			{
 				_heldVisual.SetWeapon(rangedModel, ranged.data.wieldHand);
+				// Mod-authored idle fx (a Flaming bow's flame) rides the drawn bow
+				// for the whole aim, not just once a shot fires.
+				_heldVisual.SetWeaponIdleFx(ranged.statusEffects?.WeaponModIdleFx());
 				// The drawn bow becomes the wielded weapon, so its anim set drives
 				// the stance / charge poses while aiming and after aim ends.
 				_wieldedWeapon = ranged;

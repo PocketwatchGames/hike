@@ -186,12 +186,13 @@ public partial class ItemEvent : Resource
 	// entry and one slow status-stacking entry.
 	[Export] public Array<AreaIntervalSpec> areaIntervals = new();
 
-	// SummonMinion field. The MobData of the minion to summon at the actor's
-	// aim point (positional aim cursor when active, else the actor position).
-	// The minion spawns on the player team, follows the player, and self-drains
-	// via the drain status authored on its MobData. See
-	// ItemEventHandlers.DoSummonMinion.
-	[Export] public MobData minionData;
+	// SummonMinion field. The composed minion to summon at the actor's aim point
+	// (positional aim cursor when active, else the actor position). A descriptor
+	// (not a bare MobData) so the minion carries its weapon loadout — weapons are
+	// spawn composition on MobDescriptor, not a species trait. The minion spawns
+	// on the player team, follows the player, and self-drains via the drain status
+	// authored on its MobData. See ItemEventHandlers.DoSummonMinion.
+	[Export] public MobDescriptor minionData;
 
 	// Dig fields. The dig is centered on the player's positional aim cursor
 	// when one is active, else a point `digReach` meters in front of the

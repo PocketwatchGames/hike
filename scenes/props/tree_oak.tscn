@@ -11,7 +11,7 @@
 [ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="7_perch"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="8_wind"]
 [ext_resource type="Script" uid="uid://b7q3k2vn8dxf4" path="res://scripts/gameplay/trees/FoliageDetailData.cs" id="8_yhm1s"]
-[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="9_windleaf"]
+[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/fx/wind_leaf_red.tscn" id="9_windleaf"]
 [ext_resource type="Material" uid="uid://cmtbbo1hrg1ii" path="res://resources/materials/tree_bark_oak.tres" id="10_bark"]
 [ext_resource type="Texture2D" uid="uid://w04w7ebvfol2" path="res://assets/models/trees/twigs_branches.tga" id="12_twigs_tex"]
 [ext_resource type="Script" uid="uid://djr80hyhxcm7x" path="res://scripts/gameplay/trees/TreeTrunk.cs" id="13_trunk"]

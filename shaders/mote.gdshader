@@ -7,7 +7,7 @@ render_mode blend_mix, unshaded, depth_draw_never, cull_disabled, skip_vertex_tr
 //
 // A volumetric/cellular shader couldn't deliver the look — pixel specks that
 // travel large distances, each sparkling independently — so motes are now
-// real particles (scenes/effects/motes.tscn) and this shader just draws +
+// real particles (scenes/fx/motes.tscn) and this shader just draws +
 // gates each one:
 //   - Each particle is a fixed-pixel-size speck laid out in SCREEN PIXELS
 //     (like rain's streaks) so it stays 1-2 px regardless of the

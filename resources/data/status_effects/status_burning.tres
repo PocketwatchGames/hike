@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://bw8mvjr4c6l5q"]
 
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
-[ext_resource type="PackedScene" uid="uid://ca6w1oujti21a" path="res://scenes/effects/fire_column_ignite.tscn" id="2_startfx"]
-[ext_resource type="PackedScene" uid="uid://bc8qfslk1814k" path="res://scenes/effects/fire_column_loop.tscn" id="3_loopfx"]
+[ext_resource type="PackedScene" uid="uid://ca6w1oujti21a" path="res://scenes/fx/fire_column_ignite.tscn" id="2_startfx"]
+[ext_resource type="PackedScene" uid="uid://bc8qfslk1814k" path="res://scenes/fx/fire_column_loop.tscn" id="3_loopfx"]
 [ext_resource type="Texture2D" uid="uid://gwbjofqi4jx6" path="res://assets/textures/status_effects/fire.png" id="4_icon"]
 [ext_resource type="Script" uid="uid://bdot7k5n1xqa" path="res://scripts/data/effects/payloads/DamageOverTimeData.cs" id="5_dot"]
 
@@ -21,6 +21,6 @@ buildupRemovalDelay = 2.0
 buildupRemovalSpeed = 0.5
 startFx = ExtResource("2_startfx")
 loopFx = ExtResource("3_loopfx")
-removesOnApply = null
-modifiers = null
+removesOnApply = []
+modifiers = []
 dot = SubResource("dot")

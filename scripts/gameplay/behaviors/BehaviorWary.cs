@@ -32,7 +32,6 @@ public partial class BehaviorWary : BehaviorBase
             return new BehaviorOutput(EBehaviorResult.RunNewBehavior, destination);
         }
 
-        output.useTorch = me.ShouldUseTorch;
         output.speed = 0f;
 
         // Face the threat (its live position while seen, else last-known).

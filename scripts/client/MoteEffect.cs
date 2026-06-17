@@ -1,7 +1,7 @@
 using Godot;
 
 // Camera-parented floating dust-mote visuals — a GPU particle system
-// (scenes/effects/motes.tscn).
+// (scenes/fx/motes.tscn).
 // Modeled on RainEffect: the GPUParticles3D is a child of MainCamera for
 // scene-structure convenience, but each frame we override its world position
 // so the emission box stays anchored on the player (world-axis-aligned), and

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://c2bah8fqjr86q"]
+
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
+[ext_resource type="Resource" uid="uid://cdesrtgobpal0" path="res://resources/data/characters/goblin/goblin_palette_desert.tres" id="3_palette"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="4_weapon"]
+[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="5_cry"]
+[ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="6_torch"]
+
+[resource]
+script = ExtResource("1_desc")
+mob = ExtResource("2_mob")
+palette = ExtResource("3_palette")
+weapons = Array[ExtResource("4_weapon")]([ExtResource("5_cry"), ExtResource("6_torch")])
+metadata/_custom_type_script = "uid://lcwj9viyl1nwr"

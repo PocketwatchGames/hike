@@ -8,7 +8,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_effect"]
 [ext_resource type="Resource" uid="uid://ghi3ms3aq1lb" path="res://resources/data/status_effects/status_invulnerable.tres" id="6_invuln"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_myocs"]
-[ext_resource type="PackedScene" uid="uid://br5x8h2qkvr3m" path="res://scenes/effects/dash_start.tscn" id="7_dashfx"]
+[ext_resource type="PackedScene" uid="uid://br5x8h2qkvr3m" path="res://scenes/fx/dash_start.tscn" id="7_dashfx"]
 
 [sub_resource type="Resource" id="Resource_cbxbs"]
 script = ExtResource("4_apply")

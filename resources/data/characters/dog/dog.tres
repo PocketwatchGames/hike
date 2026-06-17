@@ -1,9 +1,7 @@
 [gd_resource type="Resource" script_class="MobData" format=3 uid="uid://cspmuy1rwr522"]
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
-[ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/characters/dog/dog_bite.tres" id="2_bite"]
 [ext_resource type="Resource" uid="uid://y1vs8nvs0tvg" path="res://resources/data/characters/dog/dog_brain.tres" id="2_brain"]
-[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
 [ext_resource type="PackedScene" uid="uid://36x3mntrleh1" path="res://scenes/characters/dog.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="5_itempref"]
@@ -84,7 +82,6 @@ PerceptionThresholdAlert = 0.85
 PerceptionThresholdWary = 0.3
 canTriggerMobs = false
 itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
-weapons = Array[ExtResource("2_weapon")]([ExtResource("2_bite")])
 maxHealth = 50.0
 modifiers = null
 defaultBehavior = &"WanderFollow"

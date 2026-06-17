@@ -6,7 +6,7 @@
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_4h0dy"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_charged"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
-[ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/effects/eat_loop.tscn" id="5_eatfx"]
+[ext_resource type="PackedScene" uid="uid://bh184fyx24l6c" path="res://scenes/fx/eat_loop.tscn" id="5_eatfx"]
 [ext_resource type="Texture2D" uid="uid://bwxddckhthk61" path="res://assets/textures/items/GemWhite.png" id="6_inv"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_oe4u8"]
 [ext_resource type="Script" uid="uid://c2r668erdip1g" path="res://scripts/data/effects/ApplyStatusEffect.cs" id="8_apply"]

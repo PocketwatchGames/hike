@@ -119,7 +119,10 @@ public partial class Projectile : Node3D
 	private Godot.Collections.Array<Rid> _hurtBoxExclude;
 	private Godot.Collections.Array<Rid> _bodyExclude;
 	private ProjectileImpact _impact;
-	private Fx _loopFx;
+	// Loop Fx riding the projectile: the event's authored projectileLoopEffect
+	// plus any weapon-mod projectileFx (a Flaming bow's flaming arrows). All are
+	// reparented out and Stop()ped at despawn so their trailing particles fade.
+	private readonly System.Collections.Generic.List<Fx> _loopFx = new();
 
 	public DamageData DamageData => _damageData;
 	public Node Source => _source;
@@ -150,7 +153,8 @@ public partial class Projectile : Node3D
 		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null,
 		Godot.Collections.Array<ChainLightningData> chainLightning = null,
 		float knockbackBonus = 0f,
-		float knockbackTimeBonus = 0f)
+		float knockbackTimeBonus = 0f,
+		Godot.Collections.Array<PackedScene> projectileFx = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -198,12 +202,32 @@ public partial class Projectile : Node3D
 			inst.LookAt(origin + fwd, up);
 		}
 		// Parent the loop fx to the projectile so its emitter follows the
-		// flight naturally. Despawn reparents it out and calls Stop() so
+		// flight naturally. Despawn reparents them out and calls Stop() so
 		// trailing particles can fade for their authored Lifetime after the
-		// projectile node frees.
+		// projectile node frees. The event's own loop plus any weapon-mod
+		// projectileFx (a Flaming bow) ride together.
 		if (loopEffect != null)
 		{
-			inst._loopFx = Fx.Create(loopEffect, inst, Vector3.Zero);
+			Fx fx = Fx.Create(loopEffect, inst, Vector3.Zero);
+			if (fx != null)
+			{
+				inst._loopFx.Add(fx);
+			}
+		}
+		if (projectileFx != null)
+		{
+			for (int i = 0; i < projectileFx.Count; i++)
+			{
+				if (projectileFx[i] == null)
+				{
+					continue;
+				}
+				Fx fx = Fx.Create(projectileFx[i], inst, Vector3.Zero);
+				if (fx != null)
+				{
+					inst._loopFx.Add(fx);
+				}
+			}
 		}
 		return inst;
 	}
@@ -438,24 +462,27 @@ public partial class Projectile : Node3D
 		QueueFree();
 	}
 
-	// Hand the loop fx off to the projectile's parent so its trailing
+	// Hand the loop fx off to the projectile's parent so their trailing
 	// particles can fade after our QueueFree resolves. Stop() flips
-	// Emitting=false and halts audio; the Fx node frees itself once the
+	// Emitting=false and halts audio; each Fx node frees itself once its
 	// longest particle Lifetime has elapsed.
 	private void StopLoopFx()
 	{
-		if (_loopFx == null || !GodotObject.IsInstanceValid(_loopFx))
-		{
-			_loopFx = null;
-			return;
-		}
 		Node parent = GetParent();
-		if (parent != null && _loopFx.GetParent() == this)
+		for (int i = 0; i < _loopFx.Count; i++)
 		{
-			_loopFx.Reparent(parent, true);
+			Fx fx = _loopFx[i];
+			if (fx == null || !GodotObject.IsInstanceValid(fx))
+			{
+				continue;
+			}
+			if (parent != null && fx.GetParent() == this)
+			{
+				fx.Reparent(parent, true);
+			}
+			fx.Stop();
 		}
-		_loopFx.Stop();
-		_loopFx = null;
+		_loopFx.Clear();
 	}
 
 	// Spawn the impact one-shot for a hurtbox/environment hit plus any crit /

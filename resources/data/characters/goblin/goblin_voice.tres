@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://bnwa62mo5grh6"]
 
 [ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
-[ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/effects/goblin_death_vo.tscn" id="2_death"]
-[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/effects/goblin_yell.tscn" id="3_yell"]
+[ext_resource type="PackedScene" uid="uid://b8ju2ueli8b0k" path="res://scenes/fx/goblin_death_vo.tscn" id="2_death"]
+[ext_resource type="PackedScene" uid="uid://b85f6kpli8b0k" path="res://scenes/fx/goblin_yell.tscn" id="3_yell"]
 
 [resource]
 script = ExtResource("1_voice")

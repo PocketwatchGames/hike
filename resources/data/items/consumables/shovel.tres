@@ -8,11 +8,11 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Texture2D" uid="uid://djbrh2y7f5jpj" path="res://assets/textures/items/Shovel.png" id="5_icon"]
 [ext_resource type="PackedScene" uid="uid://cwk3rn8qv2tba" path="res://scenes/items/held/shovel_held.tscn" id="7_held"]
-[ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/effects/dig_loop.tscn" id="8_digloop"]
-[ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/effects/dig_nothing.tscn" id="9_dignothing"]
+[ext_resource type="PackedScene" uid="uid://b2dgl8kq5wrxa" path="res://scenes/fx/dig_loop.tscn" id="8_digloop"]
+[ext_resource type="PackedScene" uid="uid://cqn7thwp82vd4" path="res://scenes/fx/dig_nothing.tscn" id="9_dignothing"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_ooeoo"]
-[ext_resource type="PackedScene" uid="uid://dk3mwwarq2n1x" path="res://scenes/effects/dig_common.tscn" id="10_digcommon"]
-[ext_resource type="PackedScene" uid="uid://b8tr05wq4mkpv" path="res://scenes/effects/dig_treasure.tscn" id="11_digtreasure"]
+[ext_resource type="PackedScene" uid="uid://dk3mwwarq2n1x" path="res://scenes/fx/dig_common.tscn" id="10_digcommon"]
+[ext_resource type="PackedScene" uid="uid://b8tr05wq4mkpv" path="res://scenes/fx/dig_treasure.tscn" id="11_digtreasure"]
 
 [sub_resource type="Resource" id="Resource_event_anim"]
 script = ExtResource("4_event")

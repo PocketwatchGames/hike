@@ -29,7 +29,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // stays where the hit landed even as the mob keeps moving.
     [Export] private PackedScene _bloodDamageFx;
     // One-shot death blood. Per-mob in the .tscn so each species can pick the
-    // appropriate small/medium/large variant from scenes/effects/.
+    // appropriate small/medium/large variant from scenes/fx/.
     [Export] private PackedScene _deathFx;
     // One-shot splash on the alive→in-water transition (voxel-detected).
     [Export] private PackedScene _waterEnterSplashFx;
@@ -295,38 +295,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public float skyBrightness => _simState.SkyBrightness;
     public float sunExposure => _simState.SunExposure;
     public float ambientLight => _simState.AmbientLight;
-    // Whether this mob's behaviors should request a torch this frame. True
-    // when local ambient is dark OR the world clock says it's night —
-    // skyBrightness can stay non-trivial under moonlight, so the time-of-day
-    // gate catches the "it's night and the mob isn't standing in a sunbeam"
-    // case where local ambient alone wouldn't cross the threshold.
-    //
-    // Hysteresis: the ambient comparison uses MobTorchLightThreshold while
-    // off and MobTorchDouseThreshold while on (Light < Douse), so ambient
-    // drifting near a single cutoff doesn't flicker the torch on/off every
-    // tick. Tunable from SimData.
-    public bool ShouldUseTorch
-    {
-        get
-        {
-            // A burrowed mob has no business holding a torch — its mesh is
-            // hidden, and the deposit would leak block light through solid
-            // geometry. Short-circuit so behaviors querying ShouldUseTorch
-            // (and the per-tick write to AIOutput.useTorch) douse on the
-            // burrow transition without each behavior having to special-
-            // case it.
-            if (burrowed || burrowing) { return false; }
-            WorldState ws = _world?.WorldState;
-            SimData sim = ws?.SimData;
-            float light = sim?.MobTorchLightThreshold ?? 0.20f;
-            float douse = Mathf.Max(sim?.MobTorchDouseThreshold ?? 0.30f, light);
-            float threshold = _torchLit ? douse : light;
-            if (_simState.AmbientLight < threshold) { return true; }
-            if (ws == null) { return false; }
-            double tod = ws.TimeOfDay01;
-            return tod < 0.25 || tod >= 0.75;
-        }
-    }
     public ulong burrowTimeMs { get => _simState.BurrowTimeMs; set => _simState.BurrowTimeMs = value; }
     public bool playerCanSee => _world.GameTimeMs < _simState.VisibleTimeMs;
     // Perception/triggered forward through the first perception slot (the player
@@ -505,12 +473,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // already set doesn't trigger a spurious transition on first tick.
     private bool _lastMobPhysicsCvar = true;
 
-    // Whether this mob is currently carrying a lit torch (ambient dark + the
-    // player remembers it). The visible prop AND its world light both ride the
-    // HeldTorch (MobData.heldTorchScene) via HeldItemVisual; this flag is just the
-    // on/off state the torch hysteresis (ShouldUseTorch) and lifecycle read.
-    private bool _torchLit;
-
     // Latched one-shot animation. Same model as Player: PlayOneShot pins the
     // animator on a non-looping clip; UpdateAnimation defers the loop pick
     // until the animator's Finished flips. Behaviors emit via
@@ -586,26 +548,29 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         // Held weapon prop, instanced in-hand at spawn (the mob analog of the
         // player's HeldItemVisual.SetWeapon). The scene is latched even before
-        // the hand sockets finish their deferred build. Mobs whose baked weapon
-        // mesh is hidden rely on this for a visible weapon. A per-instance
-        // descriptor override (MobSimState.HeldWeaponScene, set by a variant)
-        // wins; otherwise the prop is the held model of the mob's primary weapon.
-        PackedScene heldWeapon = _simState.HeldWeaponScene;
-        EHand hand = _simState.HeldWeaponHand;
-        if (heldWeapon == null)
+        // the hand sockets finish their deferred build. The prop is the held model
+        // of the mob's primary weapon — so a spawn loadout that swaps the claw for
+        // a burning torch (MobSimState.Weapons) shows the torch automatically.
+        WeaponData primary = PrimaryHeldWeapon();
+        if (_heldVisual != null && primary?.heldModel != null)
         {
-            WeaponData primary = PrimaryHeldWeapon();
-            if (primary != null)
+            _heldVisual.SetWeapon(primary.heldModel, primary.wieldHand);
+            // An elite signature with an idleFx (e.g. a Flaming elite's flame)
+            // shows on the in-hand prop. The mob's per-weapon WeaponState isn't
+            // built until its first attack, so read the captured elite mod
+            // directly rather than through a controller.
+            PackedScene eliteIdleFx = _eliteWeaponMod?.weaponMod?.idleFx;
+            if (eliteIdleFx != null)
             {
-                heldWeapon = primary.heldModel;
-                hand = primary.wieldHand;
+                _heldVisual.SetWeaponIdleFx(new Godot.Collections.Array<PackedScene> { eliteIdleFx });
             }
         }
-        if (_heldVisual != null && heldWeapon != null)
-        {
-            _heldVisual.SetWeapon(heldWeapon, hand);
-        }
     }
+
+    // The mob's weapon loadout, stamped onto MobSimState.Weapons at spawn from
+    // MobDescriptor.weapons (weapons are spawn composition, not a species trait).
+    // Read by BehaviorAttack and the held-prop pick. Null/empty = never attacks.
+    public Godot.Collections.Array<WeaponData> Weapons => _simState?.Weapons;
 
     // The mob's weapon that supplies its in-hand prop: the highest-priority
     // weapon (WeaponData.priority) that defines a held model. Null when the mob
@@ -613,7 +578,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // attack creature).
     private WeaponData PrimaryHeldWeapon()
     {
-        Godot.Collections.Array<WeaponData> weapons = mobData?.weapons;
+        Godot.Collections.Array<WeaponData> weapons = Weapons;
         if (weapons == null)
         {
             return null;
@@ -2043,6 +2008,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _lastMeshVisible = meshVisibleTarget;
             _lastMeshVisibleInit = true;
         }
+        // Status-effect loop fx parent to the mob root (a sibling of _mesh, not
+        // under it), so hiding the mesh doesn't hide them. Gate them on the body
+        // actually being seen as a live mesh — drawn AND within the line-of-sight
+        // window — so a culled or remembered-silhouette mob carries no live flame.
+        _statusEffects?.SetLoopFxVisible(meshVisibleTarget && withinVisibleTime);
         // Animation cull + cost diagnostic. freezable = not rendered AND in a
         // stationary loop (no footstep events to miss). mob_anim 0 freezes EVERY
         // mob (measures the total animation-cost ceiling); mob_anim_cull gates the
@@ -2619,47 +2589,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             UpdateBurrowMound(burrowed);
             _prevBurrowing = burrowing;
             _prevBurrowed = burrowed;
-
-
-            // Torch visibility is gated on the player's memory of this mob —
-            // once memory expires, the mob has left the player's awareness
-            // sphere and there's no point keeping its light deposit alive
-            // (the mob is also not visible, so the torch would have nothing
-            // to illuminate from the player's perspective). Same condition
-            // as the mesh-visibility gate in _Process. Death cleanup lives in
-            // Die() since this block doesn't run for dead mobs.
-            bool playerRemembers = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
-                && _simState.MemoryTimeMs > _world.GameTimeMs;
-            if (CVars.mobDebugTorch.Value)
-            {
-                MobData md = _simState.MobData;
-                string mdState = md == null ? "null" : (md.heldTorchScene == null ? "data:non-null,torch:null" : $"data:non-null,torch:{md.heldTorchScene.ResourcePath}");
-                GD.Print($"[mob_torch] {Name} ambient={_simState.AmbientLight:F3} useTorch={aiOutput.useTorch} suspended={aiOutput.suspended} discovery={_simState.DiscoveryState} memMs={_simState.MemoryTimeMs} now={_world.GameTimeMs} remembers={playerRemembers} torch={_torchLit} mobData={mdState}");
-            }
-            // Skip torch toggling on suspended ticks — TickAI early-returned
-            // with a default-constructed AIOutput, so aiOutput.useTorch is
-            // meaningless (always false). Without this gate, BehaviorIdle's
-            // 100ms suspend window would tear the torch down and re-create
-            // it ~6×/sec, flickering both the LightOn/LightOff fx and the
-            // block-light deposit.
-            if (!aiOutput.suspended)
-            {
-                if (aiOutput.useTorch && playerRemembers)
-                {
-                    if (!_torchLit && _heldVisual != null && _simState.MobData?.heldTorchScene != null)
-                    {
-                        // Light the held torch: the HeldTorch prop carries its own
-                        // world light, parented to this mob root (passed to SetLit).
-                        _torchLit = true;
-                        _heldVisual.SetTorch(_simState.MobData.heldTorchScene);
-                        _heldVisual.SetTorchLit(true, this);
-                    }
-                }
-                else
-                {
-                    DespawnTorch();
-                }
-            }
         }
         else
         {
@@ -2900,7 +2829,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
 
         Damage(hit);
 
-        if (hit.statusEffects != null)
+        // Skip on-hit status effects (a Flaming enchant's Burning) when the same
+        // blow just killed the mob. Damage() → Die() has already Cleared status
+        // effects and stopped their loop fx; a late Add would spawn an orphaned
+        // loop fx (the burning crackle) that burns forever on the corpse — Tick
+        // is alive-gated, so the effect wouldn't do anything anyway.
+        if (alive && hit.statusEffects != null)
         {
             for (int i = 0; i < hit.statusEffects.Count; i++)
             {
@@ -3427,20 +3361,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         LinearVelocity = new Vector3(v.X, y, v.Z);
     }
 
-    // Douse the held torch: SetTorchLit(false) fires the light's off-cue and fades
-    // it out (the HeldTorch owns the world light), then SetTorch(null) drops the
-    // visible prop. No-op when no torch is lit.
-    private void DespawnTorch()
-    {
-        if (!_torchLit)
-        {
-            return;
-        }
-        _torchLit = false;
-        _heldVisual?.SetTorchLit(false);
-        _heldVisual?.SetTorch(null);
-    }
-
     private void Die()
     {
         if (!alive)
@@ -3471,11 +3391,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // sim state intact). GameClient bridges this into bestiary kill
         // credit when DamagedByPlayer is set.
         GameClient.Current?.NotifyMobKilled(_simState.MobData, _simState.DamagedByPlayer);
-        // The per-frame torch gating in _PhysicsProcess only runs while alive,
-        // so a dead mob's lit torch would otherwise leak its light deposit
-        // and loop FX.
-        DespawnTorch();
-        // Hide the held weapon prop — a corpse shouldn't brandish its weapon.
+        // Hide the held weapon prop — a corpse shouldn't brandish its weapon — and
+        // douse it if it's a lit torch so the corpse goes dark instead of burning on.
+        _heldVisual?.ExtinguishWeaponTorch();
         _heldVisual?.SetWeaponConcealed(true);
         // Drop the elite crown — the marker is for live elites; a corpse keeps
         // no halo.

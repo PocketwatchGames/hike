@@ -5,7 +5,7 @@
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="3_continuous"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="4_buildup"]
 [ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="5_burning"]
-[ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/effects/flame_trail_loop.tscn" id="6_loop"]
+[ext_resource type="PackedScene" uid="uid://bf2lmtrlqawq3" path="res://scenes/fx/flame_trail_loop.tscn" id="6_loop"]
 
 [sub_resource type="Resource" id="Resource_trail_burning_buildup"]
 script = ExtResource("4_buildup")

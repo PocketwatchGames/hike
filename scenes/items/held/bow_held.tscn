@@ -1,4 +1,6 @@
-[gd_scene format=3 uid="uid://b6xvvkhj2thr"]
+[gd_scene load_steps=6 format=3 uid="uid://b6xvvkhj2thr"]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
 
 [sub_resource type="StandardMaterial3D" id="Mat_club"]
 albedo_color = Color(0.45, 0.32, 0.18, 1)
@@ -16,6 +18,7 @@ material = SubResource("Mat_club")
 size = Vector3(0.1, 0.25, 0.1)
 
 [node name="ClubHeld" type="Node3D" unique_id=189049250]
+script = ExtResource("1_hw")
 
 [node name="Mesh" type="MeshInstance3D" parent="." unique_id=260214687]
 mesh = SubResource("Box_club")

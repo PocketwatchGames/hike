@@ -156,21 +156,21 @@ public partial class World
         return pickup;
     }
 
-    // Spawn a mob from MobData at `position` right now and return the live Mob
-    // node — the on-demand analog of the chunk-streaming drain path, used for
+    // Spawn a mob from a MobDescriptor at `position` right now and return the live
+    // Mob node — the on-demand analog of the chunk-streaming drain path, used for
     // player summons (the summoner weapon). The sim state is registered in
     // WorldState so the mob is bookkept and persisted like any other; the node
     // is created synchronously via Mob.Create (which parents it + runs _Ready),
     // then registered into the chunk's active-entity list. Caller is expected
     // to be standing in a loaded chunk (a summon lands within aim range), so
-    // the target chunk is resident. Returns null if the MobData has no scene.
-    public Mob SpawnMob(MobData mobData, Vector3 position)
+    // the target chunk is resident. Returns null if the descriptor has no scene.
+    public Mob SpawnMob(MobDescriptor descriptor, Vector3 position)
     {
-        if (mobData?.MobScene == null)
+        MobSimState simState = descriptor?.CreateState(position, 0f);
+        if (simState == null)
         {
             return null;
         }
-        var simState = new MobSimState(position, 0f, mobData.MobScene, mobData);
         _worldState.AddEntity(simState);
         Mob mob = Mob.Create(this, simState);
 

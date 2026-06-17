@@ -647,7 +647,7 @@ public static class CVars
     public static CVarBool fxParticles = new CVarBool("fx_particles", true);
 
     // motes 0 → the camera-parented dust-mote GpuParticles3D (MoteEffect,
-    //           scenes/effects/motes.tscn, 4000 particles) hides itself, so
+    //           scenes/fx/motes.tscn, 4000 particles) hides itself, so
     //           the renderer skips its per-particle simulation + draw-pass
     //           shader (which samples light_map/cloud several times per speck).
     //           NOT covered by fx_particles — motes are a standalone scene

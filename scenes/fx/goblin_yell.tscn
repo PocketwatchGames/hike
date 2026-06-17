@@ -5,7 +5,7 @@
 [ext_resource type="AudioStream" uid="uid://b0vcgi5g2108p" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_yell_02.wav" id="2_y02"]
 [ext_resource type="AudioStream" uid="uid://bm26kwxyfthlf" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_yell_03.wav" id="2_y03"]
 [ext_resource type="AudioStream" uid="uid://c44k1vb6rpj86" path="res://assets/audio/source/mobs/goblin/sfx_enemy_scrab_elite_yell_04.wav" id="2_y04"]
-[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/effects/yell_particle.tscn" id="6_svkt4"]
+[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/fx/yell_particle.tscn" id="6_svkt4"]
 
 [sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_gobyell"]
 playback_mode = 1

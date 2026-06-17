@@ -140,15 +140,15 @@ public partial class WeaponData : ItemData
 
 	[ExportGroup("AI")]
 	// Mob AI engagement tuning — read by BehaviorAttack when a mob wields this
-	// weapon (see MobData.weapons). Ignored for player-held weapons (the player
-	// drives range / cadence through input + aim). Each tick the mob fires the
-	// highest-priority of its weapons whose gates below all pass.
+	// weapon (see MobDescriptor.weapons). Ignored for player-held weapons (the
+	// player drives range / cadence through input + aim). Each tick the mob fires
+	// the highest-priority of its weapons whose gates below all pass.
 
 	// Preference when more than one of the mob's weapons can fire this tick —
 	// higher wins. A gated special (e.g. a battle cry) sits above the always-
 	// available basic attack so it's chosen whenever its conditions hold, and
 	// the basic attack carries it the rest of the time. Ties break toward the
-	// earlier weapon in MobData.weapons.
+	// earlier weapon in the loadout (MobDescriptor.weapons).
 	[Export] public int priority = 0;
 
 	// Distance at which the mob will fire this weapon (when it can see the target).

@@ -20,11 +20,17 @@ public partial class MobDescriptor : Resource
     // (usually none). See MobPalette / ModelAnimator.
     [Export] public MobPalette palette;
 
-    // Held weapon prop override. Null = fall back to the held model of the mob's
-    // primary weapon (MobData.weapons). Set this to give a variant a different
-    // in-hand prop than its weapon would otherwise show.
-    [Export] public PackedScene heldWeaponScene;
-    [Export] public EHand heldWeaponHand = EHand.Right;
+    // Weapon loadout for mobs spawned from this descriptor — the home for a
+    // mob's weapons (NOT a species trait on MobData). Each WeaponData carries
+    // its own action timeline, damage / continuous profiles, in-hand held model,
+    // and AI engagement tuning (range / cooldown / ally gate / priority), exactly
+    // like a player weapon. CreateState stamps this onto MobSimState.Weapons;
+    // BehaviorAttack fires the highest-priority weapon whose gates pass and the
+    // in-hand prop is the primary weapon's held model. Because weapons live here,
+    // the SAME species fights differently per spawn context by authoring a second
+    // descriptor (a claw goblin vs a torch-bearing camp goblin) rather than a
+    // duplicate species file. Empty = a mob that never attacks.
+    [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Force this spawn to be an elite carrying `eliteStatusEffect` as its
     // signature. Leave `elite` false to let the spawn entry roll it
@@ -44,8 +50,10 @@ public partial class MobDescriptor : Resource
         }
         var state = new MobSimState(worldPosition, rotationY, mob.MobScene, mob);
         state.Palette = palette;
-        state.HeldWeaponScene = heldWeaponScene;
-        state.HeldWeaponHand = heldWeaponHand;
+        if (weapons != null && weapons.Count > 0)
+        {
+            state.Weapons = weapons;
+        }
         if (elite)
         {
             state.Elite = true;

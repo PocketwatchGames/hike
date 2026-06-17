@@ -2,16 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://bwc1qjsmwj8ow" path="res://assets/audio/source/weapons/sfx_player_lantern_lp.wav" id="2_llp"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
-
-[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_torchloop"]
-playback_mode = 1
-random_pitch = 1.0
-random_volume_offset_db = 0.0
-streams_count = 1
-stream_0/stream = ExtResource("2_llp")
-stream_0/weight = 1.0
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_torchflame"]
 emission_shape = 1
@@ -24,7 +16,6 @@ gravity = Vector3(0, 0.8, 0)
 damping_min = 0.6
 damping_max = 1.2
 scale_min = 0.5
-scale_max = 1.0
 color = Color(1, 0.78, 0.32, 1)
 color_ramp = ExtResource("fade_grad")
 
@@ -46,7 +37,7 @@ direction = Vector3(0, 1, 0)
 spread = 25.0
 initial_velocity_min = 0.4
 initial_velocity_max = 0.9
-gravity = Vector3(0, 1.0, 0)
+gravity = Vector3(0, 1, 0)
 damping_min = 0.2
 damping_max = 0.6
 scale_min = 0.3
@@ -64,29 +55,32 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_torchembers")
 size = Vector2(0.025, 0.025)
 
-[node name="TorchLoop" type="Node3D"]
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_torchloop"]
+playback_mode = 1
+streams_count = 1
+stream_0/stream = ExtResource("2_llp")
+
+[node name="TorchLoop" type="Node3D" unique_id=299494754]
 script = ExtResource("1_oneshot")
 _loop = true
 
-[node name="Flame" type="GPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.85, 0)
+[node name="Flame" type="GPUParticles3D" parent="." unique_id=2603148]
 amount = 14
 lifetime = 0.55
 randomness = 0.4
 process_material = SubResource("ParticleProcessMaterial_torchflame")
 draw_pass_1 = SubResource("QuadMesh_torchflame")
 
-[node name="Embers" type="GPUParticles3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+[node name="Embers" type="GPUParticles3D" parent="." unique_id=101837046]
 amount = 6
 lifetime = 1.2
 randomness = 0.6
 process_material = SubResource("ParticleProcessMaterial_torchembers")
 draw_pass_1 = SubResource("QuadMesh_torchembers")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1036662837]
 stream = SubResource("AudioStreamRandomizer_torchloop")
+volume_db = -4.0
 unit_size = 3.0
 max_distance = 16.0
-volume_db = -4.0
 bus = &"World3D"

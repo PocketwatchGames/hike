@@ -50,6 +50,11 @@ public class StatusEffectController
 	readonly Action<float> _applyMaxHealthDelta;
 	readonly List<StatusEffectState> _statusEffects = new();
 	readonly Dictionary<StatusEffectData, BuildupState> _buildups = new();
+	// Rendered-visibility gate for every loop fx, driven by the owning actor
+	// (Mob.UpdateVisibility) so a status loop hides when the body is culled by
+	// perception. Stays true for actors that never drive it (the player). Cached
+	// so Add can apply it to a loop spawned while the actor is already hidden.
+	bool _loopFxVisible = true;
 
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects;
 
@@ -237,6 +242,47 @@ public class StatusEffectController
 			}
 		}
 		return sum;
+	}
+
+	// Idle Fx scenes from every active weapon mod (the held-weapon visual a mod
+	// adds, e.g. a Flaming sword's flame). NOT charge-filtered — the idle fx
+	// rides the weapon at rest, independent of which tier would fire. Returns
+	// null when no mod authors one, so the common no-mod case allocates nothing.
+	public Godot.Collections.Array<PackedScene> WeaponModIdleFx()
+	{
+		Godot.Collections.Array<PackedScene> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			PackedScene fx = _statusEffects[i]?.data?.weaponMod?.idleFx;
+			if (fx == null)
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<PackedScene>();
+			result.Add(fx);
+		}
+		return result;
+	}
+
+	// Projectile-loop Fx scenes from active weapon mods reaching charge tier
+	// `chargeIndex` (a Flaming bow's flaming arrows). Layered on top of the
+	// event's own projectileLoopEffect by DoProjectile. Returns null when none
+	// reach, so the common no-mod hot path allocates nothing.
+	public Godot.Collections.Array<PackedScene> WeaponModProjectileFx(int chargeIndex)
+	{
+		Godot.Collections.Array<PackedScene> result = null;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			StatusEffectState s = _statusEffects[i];
+			PackedScene fx = s?.data?.weaponMod?.projectileFx;
+			if (fx == null || !ModReachesCharge(s, chargeIndex))
+			{
+				continue;
+			}
+			result ??= new Godot.Collections.Array<PackedScene>();
+			result.Add(fx);
+		}
+		return result;
 	}
 
 	// A composed weapon mod reaches a given firing charge tier when it's scoped
@@ -726,6 +772,12 @@ public class StatusEffectController
 		if (data.loopFx != null && _actor != null)
 		{
 			state.loopInstance = Fx.Create(data.loopFx, _actor, Vector3.Zero);
+			// Match the body's current cull state so an effect applied to an
+			// unseen mob doesn't pop its loop fx into view.
+			if (!_loopFxVisible && state.loopInstance != null)
+			{
+				state.loopInstance.Visible = false;
+			}
 		}
 		return state;
 	}
@@ -939,6 +991,13 @@ public class StatusEffectController
 		}
 		for (int i = _statusEffects.Count - 1; i >= 0; i--)
 		{
+			// A DoT tick below can kill the actor, whose death cascade clears this
+			// list mid-loop (Mob.Die → Clear). Re-clamp so the next read doesn't
+			// run off the now-shorter list.
+			if (i >= _statusEffects.Count)
+			{
+				continue;
+			}
 			StatusEffectState s = _statusEffects[i];
 			if (s.data == null)
 			{
@@ -990,8 +1049,15 @@ public class StatusEffectController
 			}
 			if (s.IsTimed && now >= s.expireTimeMs)
 			{
-				_statusEffects.RemoveAt(i);
-				EndFx(s);
+				// The damage tick above may have shifted or emptied the list (a
+				// kill cascade), so `i` can no longer point at `s` — remove by
+				// identity. -1 means a cascade already dropped it.
+				int idx = _statusEffects.IndexOf(s);
+				if (idx >= 0)
+				{
+					_statusEffects.RemoveAt(idx);
+					EndFx(s);
+				}
 			}
 		}
 	}
@@ -1044,6 +1110,30 @@ public class StatusEffectController
 			product = StatModifierUtil.FoldMask(mask, data.modifiers, product);
 		}
 		return product;
+	}
+
+	// Show / hide every active effect's loop fx, following the owning body's
+	// render-visibility. The Mob calls this from UpdateVisibility so a loop fx
+	// — parented to the actor root, a sibling of the mesh, not under it — hides
+	// when the mob is culled by perception instead of floating as orphaned
+	// particles where an unseen body stands. Audio is intentionally left running:
+	// AudioStreamPlayer3D already attenuates by distance, so an out-of-sight loop
+	// is quiet on its own without a second cull seam. No-op when unchanged.
+	public void SetLoopFxVisible(bool visible)
+	{
+		if (_loopFxVisible == visible)
+		{
+			return;
+		}
+		_loopFxVisible = visible;
+		for (int i = 0; i < _statusEffects.Count; i++)
+		{
+			Fx loop = _statusEffects[i]?.loopInstance;
+			if (loop != null && GodotObject.IsInstanceValid(loop))
+			{
+				loop.Visible = visible;
+			}
+		}
 	}
 
 	// Stop the loop fx and spawn the one-shot end cue. Called from both the

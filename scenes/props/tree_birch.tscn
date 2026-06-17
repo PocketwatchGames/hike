@@ -9,7 +9,7 @@
 [ext_resource type="Script" uid="uid://dsaesfmav28u8" path="res://scripts/gameplay/minimap/MinimapFoliageStamp.cs" id="6_mmstamp"]
 [ext_resource type="Script" uid="uid://drode7oaf6pqw" path="res://scripts/gameplay/entities/Perch.cs" id="7_perch"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="8_wind"]
-[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/effects/wind_leaf_red.tscn" id="9_windleaf"]
+[ext_resource type="PackedScene" uid="uid://bwlfred7g8iai" path="res://scenes/fx/wind_leaf_red.tscn" id="9_windleaf"]
 [ext_resource type="Material" uid="uid://b82h0vtdtdjii" path="res://resources/materials/tree_bark_birch.tres" id="10_bark"]
 [ext_resource type="Script" uid="uid://djr80hyhxcm7x" path="res://scripts/gameplay/trees/TreeTrunk.cs" id="12_trunk"]
 [ext_resource type="Script" uid="uid://b2fkvr3ckw3ze" path="res://scripts/gameplay/entities/PorousBody.cs" id="porous_body"]

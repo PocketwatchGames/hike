@@ -4,7 +4,7 @@
 [ext_resource type="Shader" uid="uid://fke8klr1sk21" path="res://shaders/tree_cards_lit.gdshader" id="2_rewqc"]
 [ext_resource type="Script" uid="uid://cg557k3hk1iey" path="res://scripts/gameplay/WindEmitterSource.cs" id="2_xlt47"]
 [ext_resource type="Texture2D" uid="uid://byfk88mc8he74" path="res://assets/models/trees/leaf_cluster_small.png" id="3_spj3j"]
-[ext_resource type="PackedScene" uid="uid://bwlfgrn1a2b3c" path="res://scenes/effects/wind_leaf_green.tscn" id="3_xlt47"]
+[ext_resource type="PackedScene" uid="uid://bwlfgrn1a2b3c" path="res://scenes/fx/wind_leaf_green.tscn" id="3_xlt47"]
 [ext_resource type="QuadMesh" path="res://assets/models/trees/card_quad.tres" id="4_xlt47"]
 [ext_resource type="Script" uid="uid://ws08cueclt1v" path="res://scripts/gameplay/trees/FoliageMultiMesh.cs" id="5_1bvfn"]
 [ext_resource type="Script" uid="uid://dalig6n7oy2sv" path="res://scripts/gameplay/trees/FoliageCluster.cs" id="6_kojdf"]

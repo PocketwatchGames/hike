@@ -1,18 +1,10 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://cetqhlokr0mrc"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
 [ext_resource type="AudioStream" uid="uid://bwc1qjsmwj8ow" path="res://assets/audio/source/weapons/sfx_player_lantern_lp.wav" id="2_llp"]
+[ext_resource type="Texture2D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
-[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
-
-[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_campfireloop"]
-playback_mode = 1
-random_pitch = 1.05
-random_volume_offset_db = 0.0
-streams_count = 1
-stream_0/stream = ExtResource("2_llp")
-stream_0/weight = 1.0
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campflame"]
 emission_shape = 1
@@ -24,7 +16,6 @@ initial_velocity_max = 1.4
 gravity = Vector3(0, 1.4, 0)
 damping_min = 0.4
 damping_max = 1.0
-scale_min = 1.0
 scale_max = 1.8
 color = Color(1, 0.74, 0.28, 1)
 color_ramp = ExtResource("fade_grad")
@@ -38,7 +29,7 @@ shader_parameter/use_vertex_color = true
 
 [sub_resource type="QuadMesh" id="QuadMesh_campflame"]
 material = SubResource("ShaderMaterial_campflame")
-size = Vector2(0.18, 0.18)
+size = Vector2(0.05, 0.05)
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_campembers"]
 emission_shape = 1
@@ -48,10 +39,8 @@ spread = 30.0
 initial_velocity_min = 0.8
 initial_velocity_max = 1.6
 gravity = Vector3(0, 1.6, 0)
-damping_min = 0.0
 damping_max = 0.3
 scale_min = 0.6
-scale_max = 1.0
 color_ramp = ExtResource("fade_grad")
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_campembers"]
@@ -91,11 +80,17 @@ shader_parameter/use_vertex_color = true
 material = SubResource("ShaderMaterial_campsmoke")
 size = Vector2(0.32, 0.32)
 
-[node name="CampfireLoop" type="Node3D"]
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_campfireloop"]
+playback_mode = 1
+random_pitch = 1.05
+streams_count = 1
+stream_0/stream = ExtResource("2_llp")
+
+[node name="CampfireLoop" type="Node3D" unique_id=56240429]
 script = ExtResource("1_oneshot")
 _loop = true
 
-[node name="Flame" type="GPUParticles3D" parent="."]
+[node name="Flame" type="GPUParticles3D" parent="." unique_id=1239124486]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.55, 0)
 amount = 28
 lifetime = 0.85
@@ -103,7 +98,7 @@ randomness = 0.45
 process_material = SubResource("ParticleProcessMaterial_campflame")
 draw_pass_1 = SubResource("QuadMesh_campflame")
 
-[node name="Embers" type="GPUParticles3D" parent="."]
+[node name="Embers" type="GPUParticles3D" parent="." unique_id=690430613]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 amount = 14
 lifetime = 1.6
@@ -111,7 +106,7 @@ randomness = 0.7
 process_material = SubResource("ParticleProcessMaterial_campembers")
 draw_pass_1 = SubResource("QuadMesh_campembers")
 
-[node name="Smoke" type="GPUParticles3D" parent="."]
+[node name="Smoke" type="GPUParticles3D" parent="." unique_id=144714412]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
 amount = 10
 lifetime = 2.4
@@ -119,9 +114,9 @@ randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_campsmoke")
 draw_pass_1 = SubResource("QuadMesh_campsmoke")
 
-[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=556714265]
 stream = SubResource("AudioStreamRandomizer_campfireloop")
+volume_db = -2.0
 unit_size = 5.0
 max_distance = 22.0
-volume_db = -2.0
 bus = &"World3D"

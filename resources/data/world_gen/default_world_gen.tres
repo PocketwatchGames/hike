@@ -19,14 +19,14 @@
 [ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="12_boat"]
 [ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="12_s_kunkun"]
 [ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
-[ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/human/friendly_villager.tres" id="13_villager"]
+[ext_resource type="Resource" uid="uid://cmdvillager001" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="13_villager"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/human/friendly_villager_conversation.tres" id="14_v_conv"]
 [ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="15_loyaltygift"]
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="18_itemcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
-[ext_resource type="Resource" uid="uid://0y5ufckbb0fmn" path="res://resources/data/characters/dog/dog.tres" id="19_companion"]
+[ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="19_companion"]
 
 [sub_resource type="Resource" id="Desc_chest_loot_numbers"]
 script = ExtResource("99_desc")

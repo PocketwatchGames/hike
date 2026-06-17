@@ -1,7 +1,0 @@
-[gd_scene format=3 uid="uid://c0tanvr8884cb"]
-
-[ext_resource type="PackedScene" uid="uid://pwi4ejb1gusx" path="res://scenes/items/held/torch_held.tscn" id="1_base"]
-[ext_resource type="PackedScene" uid="uid://b1k83q4aam63n" path="res://scenes/effects/moving_light_torch_goblin.tscn" id="2_goblinlight"]
-
-[node name="TorchHeld" instance=ExtResource("1_base")]
-movingLightScene = ExtResource("2_goblinlight")

@@ -32,6 +32,13 @@ public partial class HeldTorch : Node3D
     // than the hand bone. Null = a purely cosmetic torch that emits no light.
     [Export] public PackedScene movingLightScene;
 
+    // Marks a torch that should be lit from spawn — a torch used as a weapon's
+    // heldModel (a goblin's burning torch), which the weapon channel instances but
+    // never drives via SetLit. HeldItemVisual reads this and lights such a torch
+    // with the carrier root (so it casts world light too); this class doesn't
+    // self-light, since it has no carrier root of its own to deposit light from.
+    [Export] public bool startLit = false;
+
     private Fx _flame;
     private MovingLight _movingLight;
     private Node3D _lightParent;
@@ -41,6 +48,8 @@ public partial class HeldTorch : Node3D
     {
         // Seed the visual state; no fx/light spawns here (default is unlit) so
         // this is safe to run synchronously during the instancing AddChild storm.
+        // A startLit weapon torch is lit by HeldItemVisual once its carrier root
+        // is known (it can't deposit world light without one).
         ApplyLit();
     }
 

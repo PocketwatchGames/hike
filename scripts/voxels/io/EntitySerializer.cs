@@ -154,12 +154,11 @@ public static class EntitySerializer
                 // following).
                 w.Write(mob.Tamed);
                 w.Write(mob.StayCommanded);
-                // Per-instance visual overrides composed by MobDescriptor
-                // (palette recolor + held weapon). Resource/scene refs, may be
-                // null — persisted so a reloaded variant keeps its look.
+                // Per-instance overrides: palette recolor (MobDescriptor) + spawn
+                // weapon loadout (MobSpawnEntry). Resource refs, may be null —
+                // persisted so a reloaded variant keeps its look and equipment.
                 WriteResource(w, mob.Palette);
-                WriteScene(w, mob.HeldWeaponScene);
-                w.Write((byte)mob.HeldWeaponHand);
+                WriteWeaponList(w, mob.Weapons);
                 break;
 
             case DoorSimState door:
@@ -404,8 +403,7 @@ public static class EntitySerializer
                 bool tamed = r.ReadBoolean();
                 bool stayCommanded = r.ReadBoolean();
                 var palette = ReadResource<MobPalette>(r);
-                PackedScene heldWeaponScene = ReadScene(r);
-                var heldWeaponHand = (EHand)r.ReadByte();
+                var weapons = ReadWeaponList(r);
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -438,8 +436,7 @@ public static class EntitySerializer
                 mob.Tamed = tamed;
                 mob.StayCommanded = stayCommanded;
                 mob.Palette = palette;
-                mob.HeldWeaponScene = heldWeaponScene;
-                mob.HeldWeaponHand = heldWeaponHand;
+                mob.Weapons = weapons;
                 return mob;
             }
             case Tag.Door:
@@ -640,6 +637,36 @@ public static class EntitySerializer
             return null;
         }
         return GD.Load<T>(path);
+    }
+
+    // Weapon loadout (MobSimState.Weapons), stamped from MobDescriptor.weapons at
+    // spawn: count + each WeaponData resource path. Null/empty writes a 0 count
+    // and reads back as null (a mob that never attacks).
+    private static void WriteWeaponList(BinaryWriter w, Godot.Collections.Array<WeaponData> weapons)
+    {
+        int count = weapons?.Count ?? 0;
+        w.Write(count);
+        for (int i = 0; i < count; i++)
+        {
+            WeaponData wd = weapons[i];
+            w.Write(wd != null ? wd.ResourcePath : "");
+        }
+    }
+
+    private static Godot.Collections.Array<WeaponData> ReadWeaponList(BinaryReader r)
+    {
+        int count = r.ReadInt32();
+        if (count <= 0)
+        {
+            return null;
+        }
+        var weapons = new Godot.Collections.Array<WeaponData>();
+        for (int i = 0; i < count; i++)
+        {
+            string path = r.ReadString();
+            weapons.Add(string.IsNullOrEmpty(path) ? null : GD.Load<WeaponData>(path));
+        }
+        return weapons;
     }
 
     // ItemState wire format: ItemData resource path + the base ItemState

@@ -7,10 +7,10 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_l1sea"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
-[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/effects/goblin_attack.tscn" id="6_atkfx"]
-[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/effects/goblin_claw_hit.tscn" id="7_hitfx"]
+[ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="6_atkfx"]
+[ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="7_hitfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_12u36"]
-[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/effects/sword_hit_solid.tscn" id="8_solidfx"]
+[ext_resource type="PackedScene" uid="uid://dowqmi2imtyo2" path="res://scenes/fx/sword_hit_solid.tscn" id="8_solidfx"]
 [ext_resource type="PackedScene" uid="uid://bs6g5vb3w6472" path="res://scenes/items/held/club_held.tscn" id="9_held"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="10_rxhcv"]
 
@@ -66,7 +66,7 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 &"primary": SubResource("Resource_damage_primary")
 })
 actionProfile = SubResource("Resource_profile")
-heldModel = ExtResource("9_held")
 MaxAttackRange = 5.0
 desiredAttackRange = 3.0
 displayName = &"Goblin Claw"
+heldModel = ExtResource("9_held")

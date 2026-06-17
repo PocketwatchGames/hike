@@ -1,8 +1,8 @@
 [gd_resource type="Resource" script_class="VoiceData" format=3 uid="uid://bm2yf5vqo3fvx"]
 
 [ext_resource type="Script" uid="uid://6gpl01xr2q44v" path="res://scripts/data/characters/VoiceData.cs" id="1_voice"]
-[ext_resource type="PackedScene" uid="uid://dextdjcpcdj8k" path="res://scenes/effects/kunkun_death_vo.tscn" id="2_death"]
-[ext_resource type="PackedScene" uid="uid://deyfwm11cdj8k" path="res://scenes/effects/kunkun_yell.tscn" id="3_yell"]
+[ext_resource type="PackedScene" uid="uid://dextdjcpcdj8k" path="res://scenes/fx/kunkun_death_vo.tscn" id="2_death"]
+[ext_resource type="PackedScene" uid="uid://deyfwm11cdj8k" path="res://scenes/fx/kunkun_yell.tscn" id="3_yell"]
 
 [resource]
 script = ExtResource("1_voice")
