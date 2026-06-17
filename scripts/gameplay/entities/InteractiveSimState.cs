@@ -88,6 +88,10 @@ public class ForgeJob
 {
     public RecipeData recipe;
     public ItemData outputItem;
+    // Authoritative completion deadline on the sim clock (GameTimeMs).
+    // remainingSeconds is derived from it each tick purely for the cooking
+    // screen's progress bar.
+    public ulong endTimeMs;
     public float remainingSeconds;
     public float totalSeconds;
 

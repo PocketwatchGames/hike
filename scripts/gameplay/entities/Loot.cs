@@ -64,11 +64,13 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 	private Vector3 _initialImpulse;
 	private Player _picker;
 	private bool _playSpawnEffects;
-	// Elapsed time the pickup has been in the world, in seconds. Drives both
-	// the settle-timeout fallback (force pickup-ready if physics never rests)
-	// and the LootData.removeTimeMs despawn. Local to the live instance —
-	// re-enters at 0 if the chunk unloads and re-streams the loot.
-	private float _ageSeconds;
+	// GameTimeMs stamp captured the first frame the pickup ticks, so its
+	// pickup-ready delay and LootData.removeTimeMs despawn run on the sim clock
+	// (slow with slow-mo, frame-rate independent, matching the codebase's
+	// duration convention) rather than wall-clock frames. Local to the live
+	// instance — re-stamps at 0 age if the chunk unloads and re-streams the loot.
+	private ulong _spawnTimeMs;
+	private bool _spawnStamped;
 	// Water-physics state. _swimming flips when the loot's feet voxel is
 	// water; _gravityScaleSwimActive tracks whether engine gravity has been
 	// zeroed so ApplyWaterPhysics alone controls vertical motion (mirrors
@@ -110,22 +112,28 @@ public partial class Loot : RigidBody3D, IInteractive, IWorldEntity
 
 	public override void _Process(double delta)
 	{
-		if (_pickedUp || _removed)
+		if (_pickedUp || _removed || _world == null)
 		{
 			return;
 		}
-		_ageSeconds += (float)delta;
+		ulong now = _world.GameTimeMs;
+		if (!_spawnStamped)
+		{
+			_spawnTimeMs = now;
+			_spawnStamped = true;
+		}
+		ulong ageMs = now - _spawnTimeMs;
 		// Enable the interact area once the firing arc has cleared without
 		// freezing the body — pickup remains available even if the loot is
 		// still tumbling. Settle() (called from _IntegrateForces on rest)
 		// also sets Monitoring=true, so whichever path fires first wins.
 		if (_interactArea != null && !_interactArea.Monitoring
-			&& _pickupReadyDelaySeconds > 0f && _ageSeconds >= _pickupReadyDelaySeconds)
+			&& _pickupReadyDelaySeconds > 0f && ageMs >= (ulong)(_pickupReadyDelaySeconds * 1000f))
 		{
 			_interactArea.Monitoring = true;
 		}
 		ItemData data = _simState?.Item?.data ?? _simState?.Data;
-		if (data is LootData lootData && lootData.removeTimeMs > 0 && _ageSeconds * 1000f >= lootData.removeTimeMs)
+		if (data is LootData lootData && lootData.removeTimeMs > 0 && ageMs >= (ulong)lootData.removeTimeMs)
 		{
 			Expire();
 		}

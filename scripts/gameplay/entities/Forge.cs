@@ -15,8 +15,8 @@ using Godot;
 // Cook-job lifecycle:
 //   * StartForgeJob seeds the timer; items stay in ForgeSlots so a Cancel
 //     leaves the inputs intact.
-//   * _PhysicsProcess decrements remainingSeconds; on expiry,
-//     CompleteForgeJob drains the slots and routes the output either
+//   * _PhysicsProcess completes the job when the sim clock passes its
+//     GameTimeMs deadline; CompleteForgeJob drains the slots and routes the output either
 //     through deliveryCallback (set by the bound CookingScreen) or
 //     spawns Loot at the forge for the player to find later.
 //   * Dousing the flame (SetLit(false)) cancels any active job — items
@@ -165,13 +165,16 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        job.remainingSeconds -= (float)delta;
-        if (job.remainingSeconds <= 0f)
+        ulong now = World.Current?.GameTimeMs ?? 0;
+        if (now >= job.endTimeMs)
         {
             CompleteForgeJob();
         }
         else
         {
+            // Derive remainingSeconds from the deadline for the cooking screen's
+            // progress bar; the deadline (sim clock) is authoritative.
+            job.remainingSeconds = (job.endTimeMs - now) / 1000f;
             onForgeJobChanged?.Invoke(job);
         }
     }
@@ -197,6 +200,7 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
             outputItem = output,
             remainingSeconds = _forgeTimeSeconds,
             totalSeconds = _forgeTimeSeconds,
+            endTimeMs = (World.Current?.GameTimeMs ?? 0) + (ulong)(_forgeTimeSeconds * 1000f),
         };
         onForgeJobChanged?.Invoke(_simState.ActiveForgeJob);
     }
