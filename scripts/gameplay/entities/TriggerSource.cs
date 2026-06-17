@@ -58,6 +58,13 @@ public partial class TriggerSource : Area3D, ITriggerable
         {
             _cooldownTimer = 0f;
             SetPhysicsProcess(false);
+            // Cooldown finished. A body that stayed on the pad the whole time
+            // never raised a fresh BodyEntered, so re-fire here to retrigger
+            // for anyone still standing in the area.
+            if (_bodiesInArea.Count > 0)
+            {
+                TryFire();
+            }
         }
     }
 
