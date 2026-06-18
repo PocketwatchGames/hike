@@ -88,7 +88,9 @@ public partial class Hud : Control
 	// pre-notification behavior.
 	readonly Dictionary<StatusEffectData, StatusEffectHud> _statusEffectHuds = new();
 	readonly Dictionary<StatusEffectData, int> _statusEffectCounts = new();
-	readonly Dictionary<StatusEffectData, ulong> _statusEffectShortestRemainingMs = new();
+	// Smallest remaining-lifetime fraction [0,1] across the live instances of each
+	// data — the instance closest to expiring, used to drive the strip's timer bar.
+	readonly Dictionary<StatusEffectData, float> _statusEffectMinProgress = new();
 	// Per-effect buildup meters in [0, 1+]. Refilled each tick from the
 	// player's controller via FillStatusEffectBuildups. Entries here drive
 	// (a) the buildup progress bar on each strip widget and (b) the
@@ -789,9 +791,10 @@ public partial class Hud : Control
 	void UpdateStatusEffects(ulong now)
 	{
 		_statusEffectCounts.Clear();
-		_statusEffectShortestRemainingMs.Clear();
+		_statusEffectMinProgress.Clear();
 		_statusEffectsThisTick.Clear();
 
+		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -804,11 +807,11 @@ public partial class Hud : Control
 			_statusEffectCounts[s.data] = prevCount + 1;
 			if (s.IsTimed)
 			{
-				ulong remaining = s.RemainingMs(now);
-				if (!_statusEffectShortestRemainingMs.TryGetValue(s.data, out ulong prevShortest)
-					|| remaining < prevShortest)
+				float progress = s.RemainingProgress(now, nowTod);
+				if (!_statusEffectMinProgress.TryGetValue(s.data, out float prevProgress)
+					|| progress < prevProgress)
 				{
-					_statusEffectShortestRemainingMs[s.data] = remaining;
+					_statusEffectMinProgress[s.data] = progress;
 				}
 			}
 			// Over-head notification only fires on the active-effect edge —
@@ -871,13 +874,7 @@ public partial class Hud : Control
 				_statusEffectContainer.AddChild(hud);
 				_statusEffectHuds[data] = hud;
 			}
-			bool hasTimer = _statusEffectShortestRemainingMs.TryGetValue(data, out ulong shortestRemaining);
-			float progress = 0f;
-			if (hasTimer)
-			{
-				float totalMs = data.duration * 1000f;
-				progress = totalMs > 0f ? shortestRemaining / totalMs : 0f;
-			}
+			bool hasTimer = _statusEffectMinProgress.TryGetValue(data, out float progress);
 			// Continuous-state effects (currently wet; future thirst / hunger /
 			// cold / hot) can override the timer-based progress with a player-
 			// side value via Player.GetStatusEffectProgress. When non-null we

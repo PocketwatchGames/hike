@@ -243,7 +243,7 @@ public static class StatList
 			{
 				name = effect.ResourceName;
 			}
-			string value = effect.duration > 0f ? StatFormat.Seconds(effect.duration) : string.Empty;
+			string value = StatFormat.Duration(effect);
 			yield return (name, value);
 		}
 	}
@@ -295,9 +295,10 @@ public static class StatList
 			yield break;
 		}
 		Dictionary<EStatName, string> names = GameClient.Current.statNames;
-		if (effect.duration > 0f)
+		string duration = StatFormat.Duration(effect);
+		if (!string.IsNullOrEmpty(duration))
 		{
-			yield return (names[EStatName.Duration], StatFormat.Seconds(effect.duration));
+			yield return (names[EStatName.Duration], duration);
 		}
 		float dps = effect.dot?.damagePerSecond ?? 0f;
 		if (dps > 0f)
@@ -522,7 +523,7 @@ public static class StatList
 						{
 							effectName = sed.ResourceName;
 						}
-						string value = sed.duration > 0f ? StatFormat.Seconds(sed.duration) : string.Empty;
+						string value = StatFormat.Duration(sed);
 						yield return (effectName, value);
 					}
 				}

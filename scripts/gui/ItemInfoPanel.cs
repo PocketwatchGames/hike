@@ -101,10 +101,11 @@ public partial class ItemInfoPanel : PanelContainer
 				hasTimer = true;
 				buildup = 0f;
 			}
-			else if (state.IsTimed && data.duration > 0f)
+			else if (state.IsTimed)
 			{
 				ulong now = World.Current?.GameTimeMs ?? 0;
-				progress = Mathf.Clamp(state.RemainingMs(now) / (data.duration * 1000f), 0f, 1f);
+				double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
+				progress = state.RemainingProgress(now, nowTod);
 				hasTimer = true;
 				buildup = 0f;
 			}

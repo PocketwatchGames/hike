@@ -36,6 +36,42 @@ public static class StatFormat
 		return Number(seconds) + "s";
 	}
 
+	// Player-facing lifetime string for a status effect, dispatched by its
+	// EDurationType: "10s" for a Timed effect, "Until sunrise" (etc.) for a
+	// TimeOfDay effect, empty for Persistent or a Timed effect with no fixed
+	// duration (the arming system owns its lifetime — wet, etc.). Callers that
+	// emit a labeled row should skip it when this returns empty.
+	public static string Duration(StatusEffectData effect)
+	{
+		if (effect == null)
+		{
+			return string.Empty;
+		}
+		switch (effect.durationType)
+		{
+			case EDurationType.TimeOfDay:
+				return Loc.Format(Loc.Keys.status_duration_until, TimeOfDayLabel(effect.timeOfDayTarget));
+			case EDurationType.Timed:
+				return effect.duration > 0f ? Seconds(effect.duration) : string.Empty;
+			default:
+				return string.Empty;
+		}
+	}
+
+	// Localized name for a normalized time-of-day. The four cardinal points
+	// (matching WorldState's sunrise/noon/sunset/midnight) read as phase names;
+	// any other target falls back to a 24-hour clock string.
+	private static string TimeOfDayLabel(float timeOfDay01)
+	{
+		const float Tol = 0.01f;
+		if (Mathf.Abs(timeOfDay01 - 0.25f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunrise); }
+		if (Mathf.Abs(timeOfDay01 - 0.5f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_noon); }
+		if (Mathf.Abs(timeOfDay01 - 0.75f) < Tol) { return Loc.Get(Loc.Keys.time_of_day_sunset); }
+		if (timeOfDay01 < Tol || timeOfDay01 > 1f - Tol) { return Loc.Get(Loc.Keys.time_of_day_midnight); }
+		int totalMinutes = Mathf.RoundToInt(timeOfDay01 * 24f * 60f) % (24 * 60);
+		return (totalMinutes / 60).ToString("00") + ":" + (totalMinutes % 60).ToString("00");
+	}
+
 	public static string Percent(float fraction)
 	{
 		int pct = Mathf.Clamp(Mathf.RoundToInt(fraction * 100f), 0, 100);

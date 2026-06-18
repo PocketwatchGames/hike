@@ -1,3 +1,6 @@
+using Godot;
+using System;
+
 // Runtime instance of a status effect held by an actor (Player or Mob). One
 // per AddStatusEffect call — multiple instances of the same data stack as a
 // single HUD icon with a count and tick independently. Mirrors the
@@ -7,10 +10,20 @@ public class StatusEffectState
 {
 	public readonly StatusEffectData data;
 
-	// Game-time at which this effect expires. 0 = persistent (no timer);
-	// gameplay code (e.g. the wet-after-swim trigger) arms a timer later by
-	// writing here directly when the situational condition clears.
+	// Game-time (ms) at which a Timed effect expires. 0 = no ms timer
+	// (Persistent, TimeOfDay, or a paused situational timer — see PauseTimer).
 	public ulong expireTimeMs;
+
+	// Absolute time-of-day at which a TimeOfDay effect expires, in
+	// WorldState.TimeOfDayAbsolute units (the time_scale clock, NOT GameTimeMs,
+	// so "until sunrise" tracks the lighting cycle and survives fast-forward).
+	// 0 = not a TimeOfDay effect.
+	public double expireTimeOfDayAbsolute;
+
+	// Span from apply to expiry for a TimeOfDay effect (in TimeOfDayAbsolute /
+	// day units), captured at arm time so the HUD can render a 0..1 progress
+	// bar. 0 for non-TimeOfDay effects.
+	private double _timeOfDaySpan;
 
 	// Seconds since the last per-second damage tick. Counts up to 1.0, then
 	// the actor's TickStatusEffects applies one chunk of damagePerSecond and
@@ -39,36 +52,97 @@ public class StatusEffectState
 	public EWeaponModScope weaponModScope = EWeaponModScope.AllAttacks;
 	public int weaponModChargeIndex;
 
-	public StatusEffectState(StatusEffectData data, ulong nowMs)
+	public StatusEffectState(StatusEffectData data, ulong nowMs, double nowTimeOfDayAbsolute)
 	{
 		this.data = data;
-		if (data != null && data.duration > 0f)
-		{
-			expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
-		}
+		ArmTimer(nowMs, nowTimeOfDayAbsolute);
 	}
 
-	public bool IsTimed => expireTimeMs != 0;
+	// True when this instance carries an active expiry timer of any kind (ms or
+	// time-of-day). False for Persistent effects and paused situational timers.
+	public bool IsTimed => expireTimeMs != 0 || expireTimeOfDayAbsolute != 0;
 
-	public ulong RemainingMs(ulong nowMs) => expireTimeMs > nowMs ? expireTimeMs - nowMs : 0;
+	// Whether the effect has reached its expiry on whichever clock it uses.
+	public bool IsExpired(ulong nowMs, double nowTimeOfDayAbsolute)
+	{
+		if (expireTimeOfDayAbsolute != 0)
+		{
+			return nowTimeOfDayAbsolute >= expireTimeOfDayAbsolute;
+		}
+		return expireTimeMs != 0 && nowMs >= expireTimeMs;
+	}
+
+	// Fraction of lifetime remaining in [0, 1] for the HUD bar; 1 when the
+	// effect carries no timer (persistent). Spans both clocks.
+	public float RemainingProgress(ulong nowMs, double nowTimeOfDayAbsolute)
+	{
+		if (expireTimeOfDayAbsolute != 0)
+		{
+			if (_timeOfDaySpan <= 0.0)
+			{
+				return 0f;
+			}
+			double remaining = expireTimeOfDayAbsolute - nowTimeOfDayAbsolute;
+			return Mathf.Clamp((float)(remaining / _timeOfDaySpan), 0f, 1f);
+		}
+		if (expireTimeMs != 0)
+		{
+			float total = (data?.duration ?? 0f) * 1000f;
+			if (total <= 0f)
+			{
+				return 0f;
+			}
+			float remaining = expireTimeMs > nowMs ? expireTimeMs - nowMs : 0f;
+			return Mathf.Clamp(remaining / total, 0f, 1f);
+		}
+		return 1f;
+	}
 
 	// Pause / resume the expiry timer for situational effects (e.g. wet pauses
 	// while the player is in water and re-arms when they reach dry land).
-	// Pausing sets expireTimeMs to 0 (the same sentinel the constructor uses
-	// for `data.duration == 0`); arming writes a fresh now+duration so each
-	// dry-out runs the full window even if a previous countdown was partially
-	// elapsed before the player got wet again.
+	// Clears every clock; ArmTimer rebuilds whichever one data.durationType
+	// selects, so each dry-out runs the full window even if a previous countdown
+	// was partially elapsed before the player got wet again.
 	public void PauseTimer()
 	{
 		expireTimeMs = 0;
+		expireTimeOfDayAbsolute = 0;
+		_timeOfDaySpan = 0.0;
 	}
 
-	public void ArmTimer(ulong nowMs)
+	// (Re)arm the expiry per data.durationType. Timed → now + duration; TimeOfDay
+	// → the next crossing of data.timeOfDayTarget; Persistent (and Timed with
+	// duration 0) → no timer, so the arming system or explicit Remove owns
+	// lifetime.
+	public void ArmTimer(ulong nowMs, double nowTimeOfDayAbsolute)
 	{
-		if (data == null || data.duration <= 0f)
+		expireTimeMs = 0;
+		expireTimeOfDayAbsolute = 0;
+		_timeOfDaySpan = 0.0;
+		if (data == null)
 		{
 			return;
 		}
-		expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
+		switch (data.durationType)
+		{
+			case EDurationType.Timed:
+				if (data.duration > 0f)
+				{
+					expireTimeMs = nowMs + (ulong)(data.duration * 1000f);
+				}
+				break;
+			case EDurationType.TimeOfDay:
+				double dayStart = Math.Floor(nowTimeOfDayAbsolute);
+				double nowFraction = nowTimeOfDayAbsolute - dayStart;
+				// Target later today, else the same time tomorrow. `==` picks
+				// tomorrow so an effect armed exactly at the target time lasts a
+				// full day rather than expiring instantly.
+				double targetAbsolute = data.timeOfDayTarget > nowFraction
+					? dayStart + data.timeOfDayTarget
+					: dayStart + 1.0 + data.timeOfDayTarget;
+				expireTimeOfDayAbsolute = targetAbsolute;
+				_timeOfDaySpan = targetAbsolute - nowTimeOfDayAbsolute;
+				break;
+		}
 	}
 }

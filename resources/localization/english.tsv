@@ -10,3 +10,8 @@ villager_thanks	Thanks!
 villager_lets_do_it	Let's do it.
 weapon_name_prefix	%0 %1
 weapon_name_suffix	%0 %1
+status_duration_until	Until %0
+time_of_day_sunrise	sunrise
+time_of_day_noon	noon
+time_of_day_sunset	sunset
+time_of_day_midnight	midnight

@@ -13,6 +13,11 @@ public static partial class Loc
 		villager_thanks,
 		villager_lets_do_it,
 		weapon_name_prefix,
-		weapon_name_suffix
+		weapon_name_suffix,
+		status_duration_until,
+		time_of_day_sunrise,
+		time_of_day_noon,
+		time_of_day_sunset,
+		time_of_day_midnight
 	}
 }

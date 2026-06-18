@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" path="res://scenes/fx/dash_burst_fx.tscn" id="5_tytgw"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_mwms2"]
 [ext_resource type="Script" uid="uid://cbrs9m2w3pkx" path="res://scripts/data/effects/payloads/AreaBurstData.cs" id="7_burst"]
+[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="8_icon"]
 
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]
 script = ExtResource("2_vogpi")
@@ -29,10 +30,12 @@ fx = ExtResource("5_tytgw")
 
 [sub_resource type="Resource" id="Resource_4ob31"]
 script = ExtResource("6_mwms2")
+icon = ExtResource("8_icon")
 displayName = &"Fairy Dash"
 description = "Each dash unleashes a stunning shockwave."
 modifiers = []
-duration = 120.0
+durationType = 2
+timeOfDayTarget = 0.25
 maxStack = 1
 dashBurst = SubResource("dashBurst")
 removesOnApply = []

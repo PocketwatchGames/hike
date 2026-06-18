@@ -1149,16 +1149,33 @@ public partial class GameClient : Node3D
 	}
 
 
-	// Show/hide the in-world UI for the bird's-eye overview shot. Hides the HUD,
-	// the dust motes, and the rain, and drops any live interactive outline +
-	// floating prompt. The per-frame highlight gate and UpdateInteractHUD keep
-	// the outline/prompt from reappearing while IsBirdsEye is true.
-	public void SetBirdsEyeUiHidden(bool hidden)
+	// Master gameplay-HUD visibility toggle. Covers BOTH HUD roots: the
+	// screen-anchored overlay (`hud`, which contains the minimap widget) and the
+	// world-anchored `worldHUD` that parents the floating damage/heal numbers,
+	// mob/discoverable labels, and interact prompts. Hiding only `hud` leaves the
+	// world-anchored labels drawing, so any mode wanting a clean "no HUD" frame
+	// (bird's-eye now, cutscenes / photo mode later) should route through here
+	// rather than toggling `hud` directly.
+	public void SetHudHidden(bool hidden)
 	{
 		if (hud != null)
 		{
 			hud.Visible = !hidden;
 		}
+		if (worldHUD is CanvasItem worldHudLayer)
+		{
+			worldHudLayer.Visible = !hidden;
+		}
+	}
+
+	// Show/hide the in-world UI for the bird's-eye overview shot. Hides the full
+	// HUD (via SetHudHidden), the dust motes, and the rain, and drops any live
+	// interactive outline + floating prompt. The per-frame highlight gate and
+	// UpdateInteractHUD keep the outline/prompt from reappearing while
+	// IsBirdsEye is true.
+	public void SetBirdsEyeUiHidden(bool hidden)
+	{
+		SetHudHidden(hidden);
 		if (MoteEffect.Current != null)
 		{
 			MoteEffect.Current.Visible = !hidden;

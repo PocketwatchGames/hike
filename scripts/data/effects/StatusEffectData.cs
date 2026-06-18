@@ -14,6 +14,23 @@ public enum EBuildupBehavior
 	ContinuousArm = 1,
 }
 
+// How a (non-buildup-armed) effect's lifetime ends. Author one value; the
+// editor (_ValidateProperty) shows only the matching tunable.
+//   Timed      — expires `duration` seconds after apply (0 = no auto-expiry; the
+//                arming system or explicit Remove owns lifetime, e.g. Wet).
+//   Persistent — never expires on its own; gameplay code calls Remove.
+//   TimeOfDay  — expires at the next occurrence of `timeOfDayTarget`
+//                (0.25 = sunrise), so a boon can last "until sunrise" regardless
+//                of how long that is.
+// Timed is value 0 so existing effects authored before this field (no stored
+// durationType) keep their seconds-based behavior.
+public enum EDurationType
+{
+	Timed = 0,
+	Persistent = 1,
+	TimeOfDay = 2,
+}
+
 // Presentation + lifetime bucket. Author one bit; [Flags] so clear ops can target a
 // mask. HUD routes by category: only Transient shows in the mob status strip; the
 // first Elite effect rides the elite badge.
@@ -64,9 +81,17 @@ public partial class StatusEffectData : Resource
 		}
 	}
 
-	// Seconds the effect lasts once timed. 0 = the arming system owns lifetime (e.g.
+	// How this effect's lifetime ends (Timed / Persistent / TimeOfDay). See EDurationType.
+	[Export] public EDurationType durationType = EDurationType.Timed;
+
+	// Timed only: seconds the effect lasts. 0 = the arming system owns lifetime (e.g.
 	// Wet lives off the wetness meter; others arm a timer via StatusEffectState.ArmTimer).
 	[Export] public float duration;
+
+	// TimeOfDay only: normalized time-of-day the effect expires at (0 = midnight,
+	// 0.25 = sunrise, 0.5 = noon, 0.75 = sunset). The effect lasts until the next
+	// occurrence of this time. See WorldState.TimeOfDay01.
+	[Export(PropertyHint.Range, "0,1,0.001")] public float timeOfDayTarget = 0.25f;
 
 	// Max simultaneous instances. A further Add refreshes the oldest instance's timer
 	// instead of stacking. 1 makes re-applying just extend the timer (consumables, Wet).
@@ -173,7 +198,8 @@ public partial class StatusEffectData : Resource
 			nameof(buildupRemovalSpeed) => isContinuous,
 			nameof(clearBuildupOnApply) => isContinuous,
 			nameof(applyTrigger) => isContinuous,
-			nameof(duration) => isContinuous,
+			nameof(duration) => isContinuous || durationType != EDurationType.Timed,
+			nameof(timeOfDayTarget) => durationType != EDurationType.TimeOfDay,
 			nameof(armThreshold) => !isContinuous,
 			nameof(disarmThreshold) => !isContinuous,
 			_ => false,

@@ -20,7 +20,9 @@ public partial class PlayerStatsPanel : PanelContainer
 	// instance of that data expires; the per-frame path just pushes the
 	// fresh count + progress to the existing widgets.
 	readonly Dictionary<StatusEffectData, int> _counts = new();
-	readonly Dictionary<StatusEffectData, ulong> _shortestRemainingMs = new();
+	// Smallest remaining-lifetime fraction [0,1] across instances of each data
+	// (the one closest to expiring) — drives the panel's timer bar.
+	readonly Dictionary<StatusEffectData, float> _minProgress = new();
 	readonly Dictionary<StatusEffectData, StatusEffectInfoPanel> _panels = new();
 	readonly List<StatusEffectData> _toRemove = new();
 
@@ -147,8 +149,9 @@ public partial class PlayerStatsPanel : PanelContainer
 		}
 
 		_counts.Clear();
-		_shortestRemainingMs.Clear();
+		_minProgress.Clear();
 		ulong now = World.Current?.GameTimeMs ?? 0;
+		double nowTod = World.Current?.TimeOfDayAbsolute ?? 0.0;
 		IReadOnlyList<StatusEffectState> effects = _player.StatusEffects;
 		for (int i = 0; i < effects.Count; i++)
 		{
@@ -161,10 +164,10 @@ public partial class PlayerStatsPanel : PanelContainer
 			_counts[s.data] = prev + 1;
 			if (s.IsTimed)
 			{
-				ulong remaining = s.RemainingMs(now);
-				if (!_shortestRemainingMs.TryGetValue(s.data, out ulong prevR) || remaining < prevR)
+				float progress = s.RemainingProgress(now, nowTod);
+				if (!_minProgress.TryGetValue(s.data, out float prevProgress) || progress < prevProgress)
 				{
-					_shortestRemainingMs[s.data] = remaining;
+					_minProgress[s.data] = progress;
 				}
 			}
 		}
@@ -189,12 +192,7 @@ public partial class PlayerStatsPanel : PanelContainer
 		{
 			StatusEffectData data = kv.Key;
 			int count = kv.Value;
-			bool hasTimer = _shortestRemainingMs.TryGetValue(data, out ulong remaining);
-			float progress = 0f;
-			if (hasTimer && data.duration > 0f)
-			{
-				progress = remaining / (data.duration * 1000f);
-			}
+			bool hasTimer = _minProgress.TryGetValue(data, out float progress);
 			// Continuous-state effects (currently wet) override the timer-
 			// based progress with a player-side value.
 			float? custom = _player.GetStatusEffectProgress(data);

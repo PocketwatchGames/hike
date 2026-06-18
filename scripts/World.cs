@@ -22,6 +22,7 @@ public partial class World : Node3D
     public SimData SimData => _worldState.SimData;
     public WorldState WorldState => _worldState;
     public ulong GameTimeMs => _worldState.GameTimeMs;
+    public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
 
     // Spatial hash for cheap "mobs within radius" queries — used by
     // separation steering and (later) encircle-slot allocation. Lives on
