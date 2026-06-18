@@ -29,15 +29,16 @@ height = 0.9
 radius = 0.5
 height = 1.2
 
-[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_mob")
 _collisionShape = NodePath("MovementCollision")
 _modelAnimator = NodePath("ModelAnimator")
-_mesh = NodePath("MeshContainer")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-HudAnchor = NodePath("Node3D")
+HudAnchor = NodePath("Visuals/Node3D")
 HudScene = ExtResource("3_mobhud")
 _bloodDamageFx = ExtResource("12_blooddmg")
 _deathFx = ExtResource("13_deathsml")
@@ -56,14 +57,16 @@ _footprintTexture = ExtResource("8_dfn4c")
 _footprintSize = Vector2(0.35, 0.45)
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="MeshContainer" type="Node3D" parent="."]
+[node name="Visuals" type="Node3D" parent="."]
 
-[node name="DogModel" type="Node3D" parent="MeshContainer"]
+[node name="MeshContainer" type="Node3D" parent="Visuals"]
 
-[node name="dog" parent="MeshContainer/DogModel" instance=ExtResource("28_dogfbx")]
+[node name="DogModel" type="Node3D" parent="Visuals/MeshContainer"]
+
+[node name="dog" parent="Visuals/MeshContainer/DogModel" instance=ExtResource("28_dogfbx")]
 transform = Transform3D(0.8, 0, 0, 0, 0.8, 0, 0, 0, 0.8, 0, 0, 0)
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="MeshContainer/DogModel/dog"]
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Visuals/MeshContainer/DogModel/dog"]
 libraries/ = ExtResource("29_doganims")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="."]
@@ -90,15 +93,15 @@ _interactiveNode = NodePath("..")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.6, 0)
 shape = SubResource("CapsuleShape3D_hurt")
 
-[node name="Node3D" type="Node3D" parent="."]
+[node name="Node3D" type="Node3D" parent="Visuals"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
 [node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
 script = ExtResource("40_pixelsnap")
-_target = NodePath("../MeshContainer/DogModel")
+_target = NodePath("../Visuals/MeshContainer/DogModel")
 
 [node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("31_modelanim")
-player = NodePath("../MeshContainer/DogModel/dog/AnimationPlayer")
-visual = NodePath("../MeshContainer/DogModel")
+player = NodePath("../Visuals/MeshContainer/DogModel/dog/AnimationPlayer")
+visual = NodePath("../Visuals/MeshContainer/DogModel")
 modelMaterial = ExtResource("30_dogmat")

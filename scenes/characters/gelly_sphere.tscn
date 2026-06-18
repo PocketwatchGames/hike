@@ -1,0 +1,91 @@
+[gd_scene format=3 uid="uid://cij68e4w5vg7o"]
+
+[ext_resource type="Script" uid="uid://b71b1ywgyuwp" path="res://scripts/gameplay/characters/Mob.cs" id="1_mob"]
+[ext_resource type="Script" uid="uid://cnnlsnn46lhyi" path="res://scripts/gameplay/HurtBox.cs" id="2_hurtbox"]
+[ext_resource type="PackedScene" uid="uid://bl6a5qa4h47dj" path="res://scenes/hud/mob_hud.tscn" id="3_mobhud"]
+[ext_resource type="Texture2D" uid="uid://c4x127tddmkf3" path="res://assets/textures/characters/footprint.png" id="8_fp"]
+[ext_resource type="PackedScene" uid="uid://m4gdn08c2l4r" path="res://scenes/fx/footstep_grass.tscn" id="11_fstgrass"]
+[ext_resource type="PackedScene" uid="uid://buklbibdpbasp" path="res://scenes/fx/footstep_mud.tscn" id="11_fstmud"]
+[ext_resource type="PackedScene" uid="uid://bmec0afm0w028" path="res://scenes/fx/footstep_sand.tscn" id="11_fstsand"]
+[ext_resource type="PackedScene" uid="uid://7nfxgl33kg3n" path="res://scenes/fx/footstep_stone.tscn" id="11_fststone"]
+[ext_resource type="PackedScene" uid="uid://0gwx2qeenb5r" path="res://scenes/fx/footstep_water.tscn" id="11_fstwater"]
+[ext_resource type="PackedScene" uid="uid://s0t1uc6w6465" path="res://scenes/fx/blood_damage.tscn" id="12_blooddmg"]
+[ext_resource type="PackedScene" uid="uid://dj7kicjpkco3y" path="res://scenes/fx/blood_death_small.tscn" id="13_deathsml"]
+[ext_resource type="PackedScene" uid="uid://daohlmjuuje6s" path="res://scenes/fx/water_enter_splash.tscn" id="14_watenter"]
+[ext_resource type="PackedScene" uid="uid://dawinmdqs8e6s" path="res://scenes/fx/water_movement_loop.tscn" id="15_watloop"]
+[ext_resource type="PackedScene" uid="uid://c1bar1nfc3m53" path="res://scenes/fx/tall_grass_movement_loop.tscn" id="16_grassloop"]
+[ext_resource type="PackedScene" uid="uid://dnojv26t00bqk" path="res://assets/models/characters/gelly_sphere/gelly_sphere.fbx" id="20_gellyfbx"]
+[ext_resource type="Material" path="res://resources/materials/gelly_sphere_lit.tres" id="22_gellymat"]
+[ext_resource type="Script" uid="uid://y5ti8jcvqdvm" path="res://scripts/gameplay/characters/ModelAnimator.cs" id="30_modelanim"]
+[ext_resource type="Script" uid="uid://e3aeyjikga66" path="res://scripts/client/PixelSnap.cs" id="40_pixelsnap"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_move"]
+radius = 0.3
+height = 0.6
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_hurt"]
+radius = 0.35
+height = 0.7
+
+[node name="Mob" type="RigidBody3D" node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
+axis_lock_angular_x = true
+axis_lock_angular_z = true
+script = ExtResource("1_mob")
+_collisionShape = NodePath("MovementCollision")
+_modelAnimator = NodePath("ModelAnimator")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
+_hurtBox = NodePath("HurtBox")
+HudAnchor = NodePath("Visuals/Node3D")
+HudScene = ExtResource("3_mobhud")
+_bloodDamageFx = ExtResource("12_blooddmg")
+_deathFx = ExtResource("13_deathsml")
+_waterEnterSplashFx = ExtResource("14_watenter")
+_waterMovementLoopFx = ExtResource("15_watloop")
+_foliageMovementLoopFx = ExtResource("16_grassloop")
+_footstepEffects = Dictionary[int, PackedScene]({
+0: ExtResource("11_fstgrass"),
+1: ExtResource("11_fststone"),
+2: ExtResource("11_fstsand"),
+3: ExtResource("11_fstwater"),
+4: ExtResource("11_fstmud"),
+5: ExtResource("11_fststone")
+})
+_footprintTexture = ExtResource("8_fp")
+_footprintSize = Vector2(0.4, 0.4)
+metadata/_custom_type_script = "uid://b71b1ywgyuwp"
+
+[node name="Visuals" type="Node3D" parent="."]
+
+[node name="MeshContainer" type="Node3D" parent="Visuals"]
+
+[node name="GellySphereModel" type="Node3D" parent="Visuals/MeshContainer"]
+
+[node name="gelly_sphere" parent="Visuals/MeshContainer/GellySphereModel" instance=ExtResource("20_gellyfbx")]
+transform = Transform3D(0.6, 0, 0, 0, 0.6, 0, 0, 0, 0.6, 0, 0, 0)
+
+[node name="MovementCollision" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("CapsuleShape3D_move")
+
+[node name="HurtBox" type="Area3D" parent="."]
+collision_layer = 32
+collision_mask = 0
+script = ExtResource("2_hurtbox")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="HurtBox"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+shape = SubResource("CapsuleShape3D_hurt")
+
+[node name="Node3D" type="Node3D" parent="Visuals"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
+
+[node name="PixelSnap" type="Node" parent="." node_paths=PackedStringArray("_target")]
+script = ExtResource("40_pixelsnap")
+_target = NodePath("../Visuals/MeshContainer/GellySphereModel")
+
+[node name="ModelAnimator" type="Node" parent="." node_paths=PackedStringArray("player", "visual")]
+script = ExtResource("30_modelanim")
+player = NodePath("../Visuals/MeshContainer/GellySphereModel/gelly_sphere/AnimationPlayer")
+visual = NodePath("../Visuals/MeshContainer/GellySphereModel")
+modelMaterial = ExtResource("22_gellymat")

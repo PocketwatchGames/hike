@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MusicTrackData" format=3 uid="uid://d84szmqojfxf8"]
+
+[ext_resource type="Script" uid="uid://fdcqwbmthxrzl" path="res://scripts/data/audio/MusicTrackData.cs" id="1_script"]
+[ext_resource type="AudioStream" uid="uid://bqkmfl1l8m7hr" path="res://assets/audio/source/music/cinematic-suspense-series-episode-001-by-sascha-ende-from-filmmusic-io.mp3" id="2_stream"]
+
+[resource]
+script = ExtResource("1_script")
+stream = ExtResource("2_stream")
+displayName = "Cinematic Suspense (Loading)"

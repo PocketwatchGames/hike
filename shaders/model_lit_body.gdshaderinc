@@ -43,6 +43,18 @@ global uniform float cloud_altitude;
 // (Player.EyeDilation) via GameClient; exact no-op when eye_adaptation == 0.
 #include "res://shaders/eye_adaptation.gdshaderinc"
 
+// Ceiling cutaway: discard fragments above the animating camera clip so model
+// mobs / props vanish under a cutaway like terrain and sprites do (terrain via
+// voxel_clip, sprites via sprite_lit_common — same per-fragment test). Globals
+// owned by GameCamera; must be declared before the include.
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 // How strongly the wrap-lambert form term darkens surfaces facing away from
 // the sun. 0 = flat (lit purely by the volumetric light map, like a sprite);
 // 1 = full wrap-lambert. A middle value keeps the world-consistent lightmap
@@ -163,6 +175,12 @@ void vertex() {
 }
 
 void fragment() {
+	// Ceiling cutaway: drop fragments above the animating clip (per-fragment, so
+	// a mesh straddling the clip is cut at the plane). Runs before any other work.
+	if (clip_dither_should_discard(world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
+
 	// Discovery dither: 4x4 Bayer threshold keyed off integer FRAGCOORD so the
 	// pattern is stable at the screen-pixel level. `visibility >= 1` skips the
 	// compare entirely so static props pay nothing. Matches sprite_lit_common.

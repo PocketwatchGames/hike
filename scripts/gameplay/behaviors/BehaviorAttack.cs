@@ -48,6 +48,12 @@ public partial class BehaviorAttack : BehaviorBase
             ReleaseSlot(me);
             return new BehaviorOutput(EBehaviorResult.Running);
         }
+
+        // We have a target and are engaging it — this tick counts as combat for
+        // the player-facing CombatTracker (gated downstream by the mob being
+        // dangerous and player-perceived). Set after the transition / no-target
+        // early-outs so leaving the attack state doesn't read as combat.
+        output.combatBehavior = true;
         // Target changed since last tick — release the old slot before we
         // request a new one against the new target.
         if (_slotTarget != null && _slotTarget != target)

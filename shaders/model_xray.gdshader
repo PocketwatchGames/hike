@@ -43,6 +43,17 @@ uniform float xray_alpha : hint_range(0.0, 1.0) = 0.2;
 // well inside any meaningful occluder thickness while outside FP noise.
 uniform float xray_depth_bias : hint_range(0.0, 1.0) = 0.05;
 
+// Ceiling cutaway — same per-fragment discard as the base pass so the silhouette
+// doesn't leak above the clip while the lit mesh is cut away. Globals owned by
+// GameCamera; declared before the include (mirrors model_lit_body).
+global uniform float camera_clip;
+global uniform float camera_clip_prev;
+global uniform float camera_clip_blend;
+global uniform vec3 camera_clip_growth_center;
+global uniform float camera_clip_growth_max_radius;
+global uniform float camera_clip_growth_edge_softness;
+#include "res://shaders/clip_dither.gdshaderinc"
+
 // Instance-uniform order MUST match model_lit_body.gdshaderinc exactly for every
 // shared name (visibility / silhouette_amount / silhouette_tint), or Godot
 // assigns mismatched indices across the base + next_pass and routes pushes to
@@ -64,7 +75,20 @@ instance uniform float recolor_amount : hint_range(0.0, 1.0) = 0.0;
 // interactive only X-rays while the player is roughly looking at it.
 instance uniform float xray_amount : hint_range(0.0, 1.0) = 1.0;
 
+// Default vertex stage (MVP + automatic skinning) is kept — we only forward the
+// world position the cutaway test needs. Uniform-scale rig, so MODEL_MATRIX is
+// the right transform.
+varying vec3 world_pos;
+void vertex() {
+	world_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+}
+
 void fragment() {
+	// Ceiling cutaway: discard above the clip so the X-ray silhouette is cut away
+	// in lockstep with the lit base pass (which runs the identical test).
+	if (clip_dither_should_discard(world_pos, FRAGCOORD.xy)) {
+		discard;
+	}
 	// Early out when the per-instance fade has driven X-ray fully off.
 	if (xray_amount <= 0.001) {
 		discard;

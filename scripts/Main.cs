@@ -55,6 +55,7 @@ public partial class Main : Node
 	async void NewGame(Vector3 playerPosition, PackedScene playerScene, PlayerSpawnData playerSpawnData, WorldGenData worldGenData)
 	{
 		LoadingScreen loadingScreen = ShowLoadingScreen();
+		MusicManager.Instance?.SetLoading(true);
 		// Yield one frame so the overlay actually renders before the
 		// menu's QueueFree (deferred end-of-frame) AND the upcoming
 		// synchronous setup work. Without this, the screen could flash
@@ -276,6 +277,9 @@ public partial class Main : Node
 		GD.Print($"[Load] Scene loaded: {phaseSw.ElapsedMilliseconds}ms");
 		loadingScreen.SetProgress(0.6f, "Building world...");
 		(_currentScreen as GameClient).Init(playerPosition, playerScene, playerSpawnData, worldState, loadingScreen);
+		// Hand the persistent music director the fresh session so it can
+		// subscribe to combat/world events; it auto-detaches on quit.
+		MusicManager.Instance?.BindGame(_currentScreen as GameClient);
 		(_currentScreen as GameClient).onQuitToMenu += () =>
 		{
 			_currentScreen.QueueFree();
@@ -396,6 +400,9 @@ public partial class Main : Node
 
 	void StartMainMenu()
 	{
+		// Clears loading on every path back to the menu, including the
+		// worldgen / scene-load failure early-returns in StartGame.
+		MusicManager.Instance?.SetLoading(false);
 		_currentScreen = MainMenuScene.Instantiate<Node>();
 		(_currentScreen as GuiMainMenu).OnNewGame += NewGame;
 		(_currentScreen as GuiMainMenu).OnLoadGame += LoadGame;

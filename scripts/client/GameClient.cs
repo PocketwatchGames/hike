@@ -230,6 +230,10 @@ public partial class GameClient : Node3D
 	[Export(PropertyHint.Range, "2,32,0.5")] public float foliagePlayerFadeProbeRange = 8f;
 
 	public Action<Player> onPlayerSpawned;
+	// Fired from OnPlayerDiedInternal (GameClient's own player.onDied bridge),
+	// so subscribers get death reliably without racing the deferred player
+	// spawn the way subscribing to the player directly would.
+	public Action<Player> onPlayerDied;
 	// Floating world-space text request. Type picks which HudText scene is
 	// instantiated (color / fade timing / vertical drift are baked per scene).
 	// The default subscriber in Init forwards to OnHudTextRequested; callers
@@ -297,6 +301,23 @@ public partial class GameClient : Node3D
 		if (mob == null) { return; }
 		onMobKilled?.Invoke(mob, damagedByPlayer);
 	}
+
+	// Player combat state, aggregated by CombatTracker from per-mob reports:
+	// combat is on while a dangerous, player-perceived enemy is in an attack
+	// behavior, lingers combatExitGraceSeconds after the player runs away, and
+	// ends immediately when the last perceived threat is killed. These edge
+	// events are the seam for music and any other in-combat reaction.
+	public CombatTracker Combat { get; private set; }
+	public Action onCombatBegin;
+	public Action onCombatEnd;
+	// Fires alongside onCombatEnd when combat ends by killing the last threat
+	// (not by running away). Drives the victory music sting + finisher slow-mo.
+	public Action onCombatVictory;
+	public bool InCombat => Combat?.InCombat ?? false;
+	[Export(PropertyHint.Range, "0,30,0.5")] public float combatExitGraceSeconds = 5f;
+	// Wall-clock seconds to hold the finisher slow-mo before auto-releasing
+	// (combat victory has no respawn to release on, unlike the death cam).
+	[Export(PropertyHint.Range, "0,3,0.05")] public float combatVictorySlowMoSeconds = 0.5f;
 
 	// Region-entry hysteresis. Wiggling on a seam mustn't flicker the
 	// banner; an intentional crossing should fire within a step or two;
@@ -386,6 +407,11 @@ public partial class GameClient : Node3D
 	// Cinematic slow-motion + zoom on player death. Triggered in
 	// OnPlayerDiedInternal, released in RespawnPlayer; ticked in _Process.
 	[Export] public SlowMotionController slowMotion;
+	// Wall-clock deadline (Time.GetTicksMsec) to auto-release the finisher
+	// slow-mo, or 0 when none is pending. Wall-clock so the slow-mo it sets
+	// doesn't stretch its own hold. Cleared on death so the death cam (held
+	// until respawn) isn't released early by a leftover victory timer.
+	ulong _victorySlowMoReleaseMs;
 
 	// Wall-clock stamp for the post-process pass. The screen effects are
 	// presentation, so they run on real time — the slow-mo death cam's
@@ -463,6 +489,10 @@ public partial class GameClient : Node3D
 
 		var phaseSw = Stopwatch.StartNew();
 		_world = new World();
+		Combat = new CombatTracker(combatExitGraceSeconds);
+		Combat.onCombatBegin = () => onCombatBegin?.Invoke();
+		Combat.onCombatEnd = () => onCombatEnd?.Invoke();
+		Combat.onCombatVictory = OnCombatVictory;
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;
 		_world.onDiscoverableSpawned += OnDiscoverableSpawned;
@@ -828,6 +858,7 @@ public partial class GameClient : Node3D
 			return;
 		}
 		_world.Tick(deltaTime);
+		Combat?.Tick(_world.GameTimeMs);
 		UpdateRegion(deltaTime);
 		UpdateDebugSkyLight(deltaTime);
 
@@ -917,6 +948,14 @@ public partial class GameClient : Node3D
 				followTime = camera.followTimeNormal;
 			}
 			camera.UpdateCamera(deltaTime, _player.GlobalPosition, followTime);
+			// Auto-release the finisher slow-mo once its wall-clock hold elapses
+			// (the death cam, by contrast, holds until respawn).
+			if (_victorySlowMoReleaseMs != 0 && Time.GetTicksMsec() >= _victorySlowMoReleaseMs)
+			{
+				_victorySlowMoReleaseMs = 0;
+				slowMotion?.Release();
+				camera?.ClearFocus();
+			}
 			// Apply the slow-mo zoom override to camera.Size BEFORE the pixel-snap
 			// reads it (the rig sizes its texel grid off the live ortho Size).
 			slowMotion?.Update();
@@ -1650,6 +1689,21 @@ public partial class GameClient : Node3D
 		onPauseToggled?.Invoke(paused);
 	}
 
+	// CombatTracker victory bridge: combat ended by killing the last perceived
+	// threat. Forwards to subscribers (music plays its victory sting), punches
+	// the finisher slow-mo + zoom, and focuses the camera on the finishing
+	// blow's victim; all auto-release after combatVictorySlowMoSeconds.
+	void OnCombatVictory(Mob killedMob)
+	{
+		onCombatVictory?.Invoke();
+		slowMotion?.Trigger();
+		if (killedMob != null)
+		{
+			camera?.FocusOn(killedMob);
+		}
+		_victorySlowMoReleaseMs = Time.GetTicksMsec() + (ulong)(combatVictorySlowMoSeconds * 1000f);
+	}
+
 	// Player.onDied bridge. Suppress gameplay input for the entire death
 	// sequence (fade-out → prompt → fade-in); DeathScreen clears the gate
 	// at the end of its fade-in. Notify subscribers, then hand control to
@@ -1657,6 +1711,7 @@ public partial class GameClient : Node3D
 	void OnPlayerDiedInternal(Player player)
 	{
 		InputSuppressed = true;
+		onPlayerDied?.Invoke(player);
 
 		// Hand the heartbeat over to its death wind-down (latched live rate,
 		// eased to a stop synced to the DeathScreen fade). 0 → the controller
@@ -1664,8 +1719,13 @@ public partial class GameClient : Node3D
 		screenEffects?.NotifyPlayerDied(deathScreen?.fadeOutSeconds ?? 0f);
 
 		// Punch into slow-motion + zoom and hold it through the death-screen
-		// fade; RespawnPlayer releases it.
+		// fade; RespawnPlayer releases it. Cancel any pending finisher auto-
+		// release so it can't cut this hold short.
+		_victorySlowMoReleaseMs = 0;
 		slowMotion?.Trigger();
+		// A finisher focus could still be panning to a corpse when the player
+		// dies — snap framing intent back to the player for the death cam.
+		camera?.ClearFocus();
 
 		if (deathScreen != null)
 		{

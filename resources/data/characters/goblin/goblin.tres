@@ -80,6 +80,7 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 [resource]
 script = ExtResource("1_vvowg")
 displayName = &"Goblin"
+dangerous = true
 threatTeam = 1
 VisionRange = 20.0
 MinPerceptionDelta = 0.05

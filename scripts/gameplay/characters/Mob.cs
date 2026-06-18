@@ -10,6 +10,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // activates it as the live visual and subscribes its footstep hooks.
     [Export] private ModelAnimator _modelAnimator;
     [Export] private Node3D _mesh;
+    // Wrapper holding the model mesh AND the HudAnchor as siblings; this is the
+    // node frozen for the memory silhouette so the HUD anchor rides the freeze
+    // while _mesh.Visible can still toggle independently. Optional — species
+    // without a freezing model (e.g. the fairy orb) leave it null and the pin
+    // falls back to _mesh, preserving the live-tracking HUD.
+    [Export] private Node3D _visuals;
     // Optional in-hand prop renderer (hand-bone sockets). Only the held-torch
     // channel is used for mobs; null on species that never carry a held prop.
     [Export] private HeldItemVisual _heldVisual;
@@ -412,11 +418,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private float _silhouette;
 
     // Memory-silhouette position pin. Once _silhouette ramps fully to black the
-    // mob reads as a static "last seen here" marker, so we decouple _mesh from
-    // the still-simulating body (TopLevel) and freeze it at the world pose it
-    // had when it went black. _meshPinnedLocal stores the normal body-relative
-    // local transform to restore when the pin releases (LOS regained). See
-    // UpdateVisibility.
+    // mob reads as a static "last seen here" marker, so we decouple the visual
+    // subtree (the _visuals wrapper — model mesh AND HudAnchor as siblings —
+    // falling back to _mesh) from the still-simulating body (TopLevel) and freeze
+    // it at the world pose it had when it went black. Because HudAnchor lives
+    // under that frozen wrapper, the on-screen HUD tracks the silhouette for free.
+    // _meshPinnedLocal stores the normal body-relative local transform to restore
+    // when the pin releases (LOS regained). See UpdateVisibility.
     private bool _meshPinned;
     private Transform3D _meshPinnedLocal;
 
@@ -2079,24 +2087,26 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             _lastAnimProcessInit = true;
         }
         // Position pin, paired with the pose freeze above: a fully-black, still-
-        // alive mob is a "last seen here" memory marker. Decouple _mesh from the
-        // body (TopLevel) and hold the world pose it had when it went black, so
-        // the live body simulates on invisibly without dragging the frozen
-        // silhouette with it. Releasing (LOS regained, or death) re-parents the
-        // mesh, snapping it back onto the live body's true position.
+        // alive mob is a "last seen here" memory marker. Decouple the visual
+        // wrapper (_visuals — model mesh + HudAnchor — or _mesh on species without
+        // one) from the body (TopLevel) and hold the world pose it had when it
+        // went black, so the live body simulates on invisibly without dragging the
+        // frozen silhouette (or its HUD) with it. Releasing (LOS regained, or
+        // death) re-parents it, snapping back onto the live body's true position.
+        Node3D pinTarget = _visuals != null ? _visuals : _mesh;
         bool shouldPin = fullyRemembered && alive;
         if (shouldPin && !_meshPinned)
         {
-            _meshPinnedLocal = _mesh.Transform;
-            Transform3D pinnedWorld = _mesh.GlobalTransform;
-            _mesh.TopLevel = true;
-            _mesh.GlobalTransform = pinnedWorld;
+            _meshPinnedLocal = pinTarget.Transform;
+            Transform3D pinnedWorld = pinTarget.GlobalTransform;
+            pinTarget.TopLevel = true;
+            pinTarget.GlobalTransform = pinnedWorld;
             _meshPinned = true;
         }
         else if (!shouldPin && _meshPinned)
         {
-            _mesh.TopLevel = false;
-            _mesh.Transform = _meshPinnedLocal;
+            pinTarget.TopLevel = false;
+            pinTarget.Transform = _meshPinnedLocal;
             _meshPinned = false;
         }
         if (HudAnchor != null && (!_lastHudVisibleInit || hudVisibleTarget != _lastHudVisible))
@@ -2289,6 +2299,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             {
                 TickAI((float)delta, out aiOutput);
             }
+
+            ReportPlayerCombat(in aiOutput);
 
             // Drive the action runner from AIOutput. BehaviorAttack populates
             // attackProfile when in range and off cooldown; the runner gates
@@ -3408,6 +3420,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // sim state intact). GameClient bridges this into bestiary kill
         // credit when DamagedByPlayer is set.
         GameClient.Current?.NotifyMobKilled(_simState.MobData, _simState.DamagedByPlayer);
+        // End combat immediately if this was the last perceived threat (vs the
+        // run-away grace). Routed here with the live instance + time because
+        // NotifyMobKilled only carries MobData.
+        GameClient.Current?.Combat?.OnMobDied(this, _world.GameTimeMs);
         // Hide the held weapon prop — a corpse shouldn't brandish its weapon — and
         // douse it if it's a lit torch so the corpse goes dark instead of burning on.
         _heldVisual?.ExtinguishWeaponTorch();

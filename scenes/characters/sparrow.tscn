@@ -34,15 +34,16 @@ height = 0.9
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_kk0"]
 height = 1.5
 
-[node name="Mob" type="RigidBody3D" unique_id=1153493867 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_hurtBox", "HudAnchor")]
+[node name="Mob" type="RigidBody3D" unique_id=1153493867 node_paths=PackedStringArray("_collisionShape", "_modelAnimator", "_mesh", "_visuals", "_hurtBox", "HudAnchor")]
 axis_lock_angular_x = true
 axis_lock_angular_z = true
 script = ExtResource("1_vhwbc")
 _collisionShape = NodePath("MovementCollision")
 _modelAnimator = NodePath("ModelAnimator")
-_mesh = NodePath("MeshContainer")
+_mesh = NodePath("Visuals/MeshContainer")
+_visuals = NodePath("Visuals")
 _hurtBox = NodePath("HurtBox")
-HudAnchor = NodePath("Node3D")
+HudAnchor = NodePath("Visuals/Node3D")
 HudScene = ExtResource("2_7n4er")
 _bloodDamageFx = ExtResource("3_b85wh")
 _deathFx = ExtResource("4_us5sg")
@@ -67,13 +68,15 @@ _footstepEffects = Dictionary[int, PackedScene]({
 _footprintTexture = ExtResource("22_smeql")
 metadata/_custom_type_script = "uid://b71b1ywgyuwp"
 
-[node name="MeshContainer" type="Node3D" parent="." unique_id=1240639322]
+[node name="Visuals" type="Node3D" parent="."]
 
-[node name="SparrowModel" type="Node3D" parent="MeshContainer" unique_id=1169336104]
+[node name="MeshContainer" type="Node3D" parent="Visuals" unique_id=1240639322]
 
-[node name="forest_bunny" parent="MeshContainer/SparrowModel" unique_id=1302718041 instance=ExtResource("26_birdyfbx")]
+[node name="SparrowModel" type="Node3D" parent="Visuals/MeshContainer" unique_id=1169336104]
 
-[node name="AnimationPlayer2" type="AnimationPlayer" parent="MeshContainer/SparrowModel/forest_bunny" unique_id=1741754757]
+[node name="forest_bunny" parent="Visuals/MeshContainer/SparrowModel" unique_id=1302718041 instance=ExtResource("26_birdyfbx")]
+
+[node name="AnimationPlayer2" type="AnimationPlayer" parent="Visuals/MeshContainer/SparrowModel/forest_bunny" unique_id=1741754757]
 libraries/ = ExtResource("27_birdyanims")
 
 [node name="MovementCollision" type="CollisionShape3D" parent="." unique_id=1483172412]
@@ -89,16 +92,16 @@ script = ExtResource("25_46vmd")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
 shape = SubResource("CapsuleShape3D_kk0")
 
-[node name="Node3D" type="Node3D" parent="." unique_id=720373046]
+[node name="Node3D" type="Node3D" parent="Visuals" unique_id=720373046]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.1, 0)
 
 [node name="PixelSnap" type="Node" parent="." unique_id=2063083886 node_paths=PackedStringArray("_target")]
 script = ExtResource("30_pixelsnap")
-_target = NodePath("../MeshContainer/SparrowModel")
+_target = NodePath("../Visuals/MeshContainer/SparrowModel")
 
 [node name="ModelAnimator" type="Node" parent="." unique_id=1864542241 node_paths=PackedStringArray("player", "visual")]
 script = ExtResource("29_modelanim")
-player = NodePath("../MeshContainer/SparrowModel/forest_bunny/AnimationPlayer2")
-visual = NodePath("../MeshContainer/SparrowModel")
+player = NodePath("../Visuals/MeshContainer/SparrowModel/forest_bunny/AnimationPlayer2")
+visual = NodePath("../Visuals/MeshContainer/SparrowModel")
 modelMaterial = ExtResource("28_birdymat")
 metadata/_custom_type_script = "uid://y5ti8jcvqdvm"

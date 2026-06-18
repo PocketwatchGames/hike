@@ -26,6 +26,17 @@ public partial class GameCamera : Camera3D
 	[Export] public float followTimeAirAscending = 0.5f;
 	[Export] public float followTimeDashing = 1f;
 
+	[ExportGroup("Focus Subject")]
+	// Generic "point the camera at a subject" override (a killed mob, a future
+	// cinematic / dialogue target). FocusOn eases the framing anchor from the
+	// player follow target toward the subject; ClearFocus eases it back. The
+	// player still drives clip / shake / minimap — only the framing anchor moves.
+	// Exponential time constant for that ease, in and out.
+	[Export(PropertyHint.Range, "0.05,3,0.05")] public float focusBlendTime = 0.4f;
+	// How far toward the subject to pull the framing. 1 = center the subject
+	// outright; < 1 keeps the player partly in frame (a two-shot of both).
+	[Export(PropertyHint.Range, "0,1,0.05")] public float focusWeight = 0.85f;
+
 	private const float CLIP_EPSILON = 0.5f;
 	private const float CAP_PLANE_Y_BIAS = 0.5f;
 	// Player eye offset above the foot position. Other systems (minimap
@@ -86,6 +97,16 @@ public partial class GameCamera : Camera3D
 	private bool _rotating;
 	private Vector3 _followPosition;
 	private bool _followInitialized;
+	// Focus-subject override (see focusBlendTime / focusWeight). _focusNode is
+	// tracked live while valid so a moving subject stays framed; _focusPoint is
+	// the latched fallback so the framing holds (and the ease-back still has a
+	// source) after a corpse despawns or for a one-shot point focus. _focusBlend
+	// is the eased 0→1 mix toward the subject; _focusing is the held target state.
+	private Node3D _focusNode;
+	private Vector3 _focusPoint;
+	private bool _hasFocusPoint;
+	private float _focusBlend;
+	private bool _focusing;
 	private bool _clipAlways = false;
 	private MeshInstance3D _clipCapPlane;
 	private MeshInstance3D _waterCapPlane;
@@ -386,8 +407,10 @@ public partial class GameCamera : Camera3D
 			_followPosition = _followPosition.Lerp(target, followT);
 		}
 
+		Vector3 framingAnchor = ResolveFocusAnchor(_followPosition, (float)deltaTime);
+
 		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
-		GlobalPosition = _followPosition + GlobalTransform.Basis.Z * distance;
+		GlobalPosition = framingAnchor + GlobalTransform.Basis.Z * distance;
 
 		// Camera shake offset, applied before the chunky-pixel snap in
 		// GameClient._Process so the shake quantizes onto the snap grid
@@ -404,6 +427,72 @@ public partial class GameCamera : Camera3D
 		}
 
 		AdvanceClipFade((float)deltaTime);
+	}
+
+	// Point the camera at a live subject. The framing anchor eases from the
+	// player toward GetFollowTarget(subject) over focusBlendTime, tracking the
+	// node each frame while it stays valid. A fallback point is latched now so
+	// the framing survives the subject despawning (e.g. a corpse fading out).
+	public void FocusOn(Node3D subject)
+	{
+		_focusNode = subject;
+		if (subject != null && GodotObject.IsInstanceValid(subject))
+		{
+			_focusPoint = GetFollowTarget(subject.GlobalPosition);
+			_hasFocusPoint = true;
+		}
+		_focusing = subject != null;
+	}
+
+	// Point the camera at a fixed world point (no live tracking).
+	public void FocusOn(Vector3 worldPoint)
+	{
+		_focusNode = null;
+		_focusPoint = GetFollowTarget(worldPoint);
+		_hasFocusPoint = true;
+		_focusing = true;
+	}
+
+	// Ease the framing back to the player. The subject is kept as the lerp
+	// source until the blend reaches 0, then dropped in ResolveFocusAnchor.
+	public void ClearFocus()
+	{
+		_focusing = false;
+	}
+
+	// Blends the framing anchor between the player follow position and the
+	// active focus subject. No-op (returns playerAnchor) whenever idle, so the
+	// normal follow is byte-identical when nothing is focused.
+	private Vector3 ResolveFocusAnchor(Vector3 playerAnchor, float deltaTime)
+	{
+		// Track the live node while valid; otherwise fall back to the latched
+		// point so a despawned corpse still frames cleanly through the ease-out.
+		if (_focusNode != null && GodotObject.IsInstanceValid(_focusNode))
+		{
+			_focusPoint = GetFollowTarget(_focusNode.GlobalPosition);
+			_hasFocusPoint = true;
+		}
+
+		float targetBlend = _focusing && _hasFocusPoint ? focusWeight : 0f;
+		if (_focusBlend <= 0f && targetBlend <= 0f)
+		{
+			// Fully released: drop the subject so a stale node isn't held.
+			_focusNode = null;
+			_hasFocusPoint = false;
+			return playerAnchor;
+		}
+
+		float blendT = 1f - Mathf.Pow(0.01f, deltaTime / Mathf.Max(0.0001f, focusBlendTime));
+		_focusBlend = Mathf.Lerp(_focusBlend, targetBlend, blendT);
+		if (_focusBlend < 0.001f && targetBlend <= 0f)
+		{
+			_focusBlend = 0f;
+			_focusNode = null;
+			_hasFocusPoint = false;
+			return playerAnchor;
+		}
+
+		return playerAnchor.Lerp(_focusPoint, _focusBlend);
 	}
 
 	// Mirrors the main camera's pose and projection into the off-screen

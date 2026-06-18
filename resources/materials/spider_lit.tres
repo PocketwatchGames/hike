@@ -1,0 +1,19 @@
+[gd_resource type="ShaderMaterial" format=3]
+
+[ext_resource type="Material" path="res://resources/materials/model_xray.tres" id="1_xray"]
+[ext_resource type="Shader" path="res://shaders/model_lit_character.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" path="res://assets/models/characters/spider/spider.png" id="3_albedo"]
+
+[resource]
+render_priority = 0
+next_pass = ExtResource("1_xray")
+shader = ExtResource("2_shader")
+shader_parameter/albedo_tex = ExtResource("3_albedo")
+shader_parameter/form_strength = 0.55
+shader_parameter/color_tint = null
+shader_parameter/emission_tint = null
+shader_parameter/emission_strength = null
+shader_parameter/vertex_ao_strength = null
+shader_parameter/ao_base_y = null
+shader_parameter/ao_height = null
+shader_parameter/ao_contact_strength = null

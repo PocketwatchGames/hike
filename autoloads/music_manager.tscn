@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://dqm3v0n8xk2rf"]
+
+[ext_resource type="Script" uid="uid://o2hx41edeck97" path="res://scripts/audio/MusicManager.cs" id="1_script"]
+[ext_resource type="Resource" uid="uid://1wq9ka3ypwpzh" path="res://resources/data/audio/music/cue_menu.tres" id="2_cue_menu"]
+[ext_resource type="Resource" uid="uid://h0lm4dsgfhb8l" path="res://resources/data/audio/music/cue_loading.tres" id="3_cue_loading"]
+[ext_resource type="Resource" uid="uid://zsdou4w9vok9h" path="res://resources/data/audio/music/cue_combat.tres" id="4_cue_combat"]
+[ext_resource type="Resource" uid="uid://s3is7j9sgmg0i" path="res://resources/data/audio/music/cue_explore.tres" id="5_cue_explore"]
+[ext_resource type="Resource" uid="uid://3qkimq83uq6wv" path="res://resources/data/audio/music/sting_sunrise.tres" id="6_sting_sunrise"]
+[ext_resource type="Resource" uid="uid://ixzb4gyycmnc4" path="res://resources/data/audio/music/sting_sunset.tres" id="7_sting_sunset"]
+[ext_resource type="Resource" uid="uid://4bpt8o78bold5" path="res://resources/data/audio/music/sting_night.tres" id="8_sting_night"]
+[ext_resource type="Resource" uid="uid://c8f7s0iiecq91" path="res://resources/data/audio/music/sting_victory.tres" id="9_sting_victory"]
+[ext_resource type="Resource" uid="uid://7y9bnapg19sex" path="res://resources/data/audio/music/sting_death.tres" id="10_sting_death"]
+
+[node name="MusicManager" type="Node"]
+script = ExtResource("1_script")
+cues = [ExtResource("2_cue_menu"), ExtResource("3_cue_loading"), ExtResource("4_cue_combat"), ExtResource("5_cue_explore")]
+stings = [ExtResource("6_sting_sunrise"), ExtResource("7_sting_sunset"), ExtResource("8_sting_night"), ExtResource("9_sting_victory"), ExtResource("10_sting_death")]

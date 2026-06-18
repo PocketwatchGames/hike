@@ -124,7 +124,8 @@ _data = {
 
 [sub_resource type="Resource" id="Resource_trap_damage"]
 script = ExtResource("3_damage")
-healthDamage = 15.0
+healthDamage = 25.0
+armorPenetration = 0.5
 statusEffects = []
 buildups = []
 modifiers = []
@@ -132,6 +133,7 @@ modifiers = []
 [sub_resource type="Resource" id="Resource_trap_data"]
 script = ExtResource("2_data")
 damageData = SubResource("Resource_trap_damage")
+resetTime = 1.0
 warningEffect = ExtResource("16_warning")
 emergeEffect = ExtResource("17_emerge")
 

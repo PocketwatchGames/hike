@@ -17,6 +17,11 @@ public struct AIOutput
 //    public Actor target;
     public float pathSuccessDistance;
     public bool inCombat;
+    // Set true by combat behaviors (BehaviorAttack) when actively engaging a
+    // target. Distinct from inCombat above (mob-awareness, used for AI-tick
+    // LOD): this drives the player-facing CombatTracker via
+    // Mob.ReportPlayerCombat.
+    public bool combatBehavior;
     public bool burrow;
     // Flying mobs (MobData.canFly) only: when true, the mob is airborne this
     // tick — physics disables gravity and runs ApplyFlightPhysics (hover +
@@ -300,6 +305,24 @@ public partial class Mob
         }
 
         output.inCombat = maxPerception > 0 && mobData != null && mobData.dangerous;
+
+        // output.combatBehavior is set by the combat behaviors themselves during
+        // the Run loop above (BehaviorAttack), not here — Mob._PhysicsProcess
+        // combines it with dangerous + player-perception to feed the
+        // CombatTracker (see ReportPlayerCombat).
+    }
+
+    // Feed the player-facing CombatTracker each tick. Only a dangerous hostile
+    // the player currently perceives reports; `combatBehavior` says it's in an
+    // attack behavior right now. Dead mobs don't report (a fresh corpse you can
+    // still see mustn't keep combat alive) — Mob.Die routes the kill through
+    // CombatTracker.OnMobDied for the instant-end-on-kill rule.
+    private void ReportPlayerCombat(in AIOutput output)
+    {
+        if (!alive || mobData == null || !mobData.dangerous) { return; }
+        if (!playerCanSee) { return; }
+        if (Teams.AreAllied(ActorTeam, ETeam.Player)) { return; }
+        GameClient.Current?.Combat?.Report(this, output.combatBehavior, _world.GameTimeMs);
     }
 
     private void StartBehavior(StringName behaviorName)

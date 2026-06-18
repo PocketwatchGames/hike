@@ -38,8 +38,8 @@
 [ext_resource type="Material" uid="uid://b7yn6y1iuw3ht" path="res://resources/materials/post_process.tres" id="post_process_mat"]
 [ext_resource type="PackedScene" uid="uid://crv3c3c4y78as" path="res://scenes/fx/rain.tscn" id="rain_scene"]
 [ext_resource type="Script" uid="uid://bi7rs3e700k6x" path="res://scripts/client/ScreenEffectsController.cs" id="screen_effects_script"]
-[ext_resource type="Script" uid="uid://bs1owm0t10nfx7" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
 [ext_resource type="Script" uid="uid://cr67nu6ygwlfj" path="res://scripts/client/SkyController.cs" id="sky_controller_script"]
+[ext_resource type="Script" uid="uid://cselyavrn014a" path="res://scripts/client/SlowMotionController.cs" id="slow_motion_script"]
 [ext_resource type="Material" path="res://resources/materials/upscale.tres" id="upscale_mat"]
 [ext_resource type="Script" uid="uid://cjflrpaeqaulr" path="res://scripts/client/ViewportRig.cs" id="viewport_rig_script"]
 [ext_resource type="PackedScene" uid="uid://bwfoam4m5n6o7" path="res://scenes/fx/wind_foam.tscn" id="wind_foam_scene"]
@@ -115,6 +115,7 @@ foliagePlayerFadeRadius = 8.0
 foliagePlayerFadeAspectVertical = 1.0
 foliagePlayerFadeActivationRiseSeconds = 1.0
 foliagePlayerFadeActivationFallSeconds = 1.0
+combatVictorySlowMoSeconds = 1.5
 birdsEye = NodePath("BirdsEye")
 slowMotion = NodePath("SlowMotion")
 eyeAdaptKnee = 1.0

@@ -1,0 +1,62 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://dqv1rat42bvem"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="6_hitfx"]
+[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
+
+[sub_resource type="Resource" id="Resource_event_windup"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_lunge"]
+script = ExtResource("4_event")
+time = 150
+type = 1024
+motionSpeed = 10.0
+motionFreezeGravity = false
+
+[sub_resource type="Resource" id="Resource_event_bite"]
+script = ExtResource("4_event")
+time = 350
+type = 1
+impactEnvironmentEffect = ExtResource("7_solidfx")
+impactHealthEffect = ExtResource("6_hitfx")
+impactArmorEffect = ExtResource("7_solidfx")
+impactLethalEffect = ExtResource("6_hitfx")
+
+[sub_resource type="Resource" id="Resource_action_bite"]
+script = ExtResource("3_action")
+displayName = &"Bite"
+activeDurationSeconds = 0.8
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_bite")])
+locksMovement = true
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 1157
+healthDamage = 4.0
+blunt = 0.2
+hitstun = 0.25
+knockbackDistance = 0.6
+knockbackTime = 0.15
+statusEffects = []
+buildups = []
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+desiredAttackRange = 1.5
+cooldownSeconds = 1.2
+displayName = &"Spider Bite"

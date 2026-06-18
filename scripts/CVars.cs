@@ -44,6 +44,15 @@ public static class CVars
     // damage, status effects, hitstun, and knockback are all ignored.
     public static CVarBool invulnerable = new CVarBool("invulnerable", false);
 
+    // Logs MusicManager state transitions (bed track changes, stings, combat
+    // begin/end, death) so dynamic-music issues can be diagnosed from console.
+    public static CVarBool musicDebug = new CVarBool("music_debug", false);
+
+    // Console action: immediately play the death stinger with no combat / slow-
+    // mo / bed fade around it, to isolate a silent stinger (file/player) from
+    // its play context (masking, timescale).
+    public static CVar musicTestSting = new CVar("music_test_sting", (cvar) => MusicManager.Instance?.PlayTestSting());
+
     // When true, draws the off-screen cap-mask SubViewport texture as a
     // fullscreen overlay so you can see exactly what the cap shader is
     // sampling. White pixels = "cap should draw here", black = "no cap".

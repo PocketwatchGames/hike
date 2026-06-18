@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="MusicTrackData" format=3 uid="uid://bukwvjeiots3"]
+
+[ext_resource type="Script" uid="uid://bhwvb8pkwqv8t" path="res://scripts/data/audio/MusicTrackData.cs" id="1_script"]
+[ext_resource type="AudioStream" uid="uid://f0y8n4bkvnpr" path="res://assets/audio/source/music/flight-pack-1-46-segeln-by-sascha-ende-from-filmmusic-io.mp3" id="2_stream"]
+
+[resource]
+script = ExtResource("1_script")
+stream = ExtResource("2_stream")
+displayName = "Flight Pack (Explore)"
