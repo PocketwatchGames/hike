@@ -14,35 +14,35 @@ script = ExtResource("6_itempref")
 tags = 16
 whenMissing = false
 multiplier = 3.0
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_potion"]
 script = ExtResource("6_itempref")
 tags = 32
 whenMissing = false
 multiplier = 1.5
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_food"]
 script = ExtResource("6_itempref")
 tags = 4
 whenMissing = false
 multiplier = 1.5
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_weapon"]
 script = ExtResource("6_itempref")
 tags = 2
 whenMissing = false
 multiplier = 0.5
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_gross"]
 script = ExtResource("6_itempref")
 tags = 128
 whenMissing = false
 multiplier = 0.1
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_anim_idle"]
 script = ExtResource("4_animdata")

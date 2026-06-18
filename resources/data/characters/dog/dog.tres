@@ -59,19 +59,19 @@ script = ExtResource("5_itempref")
 tags = 1
 whenMissing = true
 multiplier = 0.0
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_love_meat"]
 script = ExtResource("5_itempref")
 tags = 1
 multiplier = 3.0
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [sub_resource type="Resource" id="Resource_pref_hate_gross"]
 script = ExtResource("5_itempref")
 tags = 128
 multiplier = 0.2
-metadata/_custom_type_script = "uid://y4932y96uyjcg"
+metadata/_custom_type_script = "uid://bxtvjnrohraru"
 
 [resource]
 script = ExtResource("1_mobdata")

@@ -1,8 +1,8 @@
 using Godot;
 
 // Categorizes an Announcement so the HUD can route it to the right surface.
-// Region announcements are dispatched to HudRegionBanner; everything else
-// renders on HudAnnouncementPanel. Append new entries — never reorder — so
+// Region announcements are dispatched to HudRegionBanner; every other type is
+// pushed as a line to the HudEventLog. Append new entries — never reorder — so
 // future announcement subclasses don't shift existing tags around.
 public enum EAnnouncementType
 {
@@ -15,13 +15,16 @@ public enum EAnnouncementType
 	MobDiscovered,
 	MobLevelUp,
 	GiftReceived,
+	// Generic event-log notice with no dedicated category — carries its full
+	// text in `title`. Used by interactive-action refusals ("Danger Nearby").
+	Notice,
 }
 
 // Carrier for a queued HUD announcement. Built by whoever discovers the
 // underlying knowledge / event (Forge, WorldSimState, Player, etc.) and
-// handed to GameClient.Announce, which forwards to the HUD's queue. The
-// HUD owns sequencing and dispatch — Region routes to HudRegionBanner,
-// every other type renders on HudAnnouncementPanel.
+// handed to GameClient.Announce, which forwards to the HUD. The HUD routes
+// Region to HudRegionBanner (a serialized full-width banner) and every other
+// type to HudEventLog as a fading line.
 //
 // Kept as a plain C# class (not a Resource) because instances are
 // constructed per-event and have no .tres authoring story.
@@ -29,8 +32,9 @@ public class Announcement
 {
 	public EAnnouncementType type;
 
-	// Two-line label content used by HudAnnouncementPanel. Region
-	// announcements ignore both and read region.displayName instead.
+	// Event-log line content. The log shows "[b]title[/b] subtitle"; a notice
+	// with no subtitle is just the title. Region announcements ignore both and
+	// read region.displayName instead.
 	public string title;
 	public string subtitle;
 

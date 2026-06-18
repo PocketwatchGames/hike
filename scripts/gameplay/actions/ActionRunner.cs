@@ -98,6 +98,16 @@ public class ActionRunner
 		{
 			return false;
 		}
+		// Interactives don't charge, so requirements are evaluated once here at
+		// press. A failing gate (e.g. NoDangerRequirement while a mob threatens
+		// the player) refuses the action outright — the caller sees `false` and
+		// nothing happens beyond the optional reject cue.
+		if (!EvaluateRequirements(action.requirements, context))
+		{
+			ItemEventHandlers.SpawnOnActor(_actor, action.rejectEffect);
+			AnnounceInteractiveRejection(action, context);
+			return false;
+		}
 		ulong now = _actor.GameTimeMs;
 		_action = new PlayerAction
 		{
@@ -753,13 +763,21 @@ public class ActionRunner
 
 	private bool RequirementsMet(ItemAction tier, in ActionContext context)
 	{
-		if (tier.requirements == null || tier.requirements.Count == 0)
+		return EvaluateRequirements(tier.requirements, context);
+	}
+
+	// Shared gate evaluation for both action shapes: ALL requirements must pass.
+	// Null / empty list passes. Used by weapon tier selection and the interactive
+	// press path alike.
+	private bool EvaluateRequirements(Godot.Collections.Array<ActionRequirement> requirements, in ActionContext context)
+	{
+		if (requirements == null || requirements.Count == 0)
 		{
 			return true;
 		}
-		for (int i = 0; i < tier.requirements.Count; i++)
+		for (int i = 0; i < requirements.Count; i++)
 		{
-			ActionRequirement req = tier.requirements[i];
+			ActionRequirement req = requirements[i];
 			if (req == null) { continue; }
 			if (!req.Evaluate(_actor, context))
 			{
@@ -767,6 +785,44 @@ public class ActionRunner
 			}
 		}
 		return true;
+	}
+
+	// Surface the first failed requirement's authored reason to the event log
+	// (via the same announcement bus region banners use). Interactive actions
+	// are only ever started by the player (PlayerWeapon.TryStartInteractiveAction),
+	// so the player's GameClient HUD is the correct, and only, destination —
+	// mob attacks never reach this path.
+	private void AnnounceInteractiveRejection(InteractiveAction action, in ActionContext context)
+	{
+		if (action.requirements == null)
+		{
+			return;
+		}
+		for (int i = 0; i < action.requirements.Count; i++)
+		{
+			ActionRequirement req = action.requirements[i];
+			if (req == null || req.Evaluate(_actor, context))
+			{
+				continue;
+			}
+			// No authored reason — this gate refuses silently (the reject Fx
+			// still played). Skip to the next failed requirement.
+			if (string.IsNullOrEmpty(req.rejectMessage.ToString()))
+			{
+				continue;
+			}
+			string msg = Loc.Get(req.rejectMessage);
+			if (string.IsNullOrEmpty(msg))
+			{
+				continue;
+			}
+			GameClient.Current?.Announce(new Announcement
+			{
+				type = EAnnouncementType.Notice,
+				title = msg,
+			});
+			return;
+		}
 	}
 
 	private static int IndexOf(ItemActionProfile profile, ItemAction tier)

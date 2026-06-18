@@ -1,0 +1,26 @@
+[gd_scene format=3 uid="uid://carxk5v82cy87"]
+
+[ext_resource type="Script" uid="uid://ocujd2obpoamo" path="res://scripts/gui/SleepOverlay.cs" id="1_sleep"]
+
+[node name="SleepOverlay" type="Control" node_paths=PackedStringArray("overlay")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("1_sleep")
+fadeOutSeconds = 1.5
+fadeInSeconds = 1.5
+overlay = NodePath("Overlay")
+
+[node name="Overlay" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0, 0, 0, 0)

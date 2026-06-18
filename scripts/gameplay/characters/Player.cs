@@ -596,6 +596,7 @@ public partial class Player : CharacterBody3D
 	// IActionActor — surfaces the swim state through a flat bool so action
 	// requirements don't take a hard dependency on EWaterState.
 	public bool IsSwimming => _waterState == EWaterState.Swimming;
+	public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 	public World World => _world;
 	public Inventory Inventory => _inventory;
 	public IReadOnlyDictionary<LanguageData, ELanguageComponents> LearnedLanguages => _learnedLanguages;
@@ -634,6 +635,12 @@ public partial class Player : CharacterBody3D
 	public float Stamina => _stamina;
 	public float MaxStamina => (data?.maxStamina ?? 0f) + ComposeStat(EStat.MaxStamina);
 	public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
+
+	// Catch up status effects by `dt` seconds in one call. Used by the sleep
+	// time-skip (World.AdvanceTime) to integrate DoT, expire timed/time-of-day
+	// effects, and drain buildup meters over a skipped span. Identical to the
+	// per-frame path so there's no separate catch-up logic to drift.
+	public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
 	// Save/load passthroughs for the per-effect buildup meters — the only
 	// status-effect state currently serialized. Active StatusEffectState

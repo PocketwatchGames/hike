@@ -1,0 +1,53 @@
+[gd_scene format=3 uid="uid://cvoui2mg0oxau"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="2_shader"]
+[ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="3_puff"]
+[ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="4_fade"]
+[ext_resource type="AudioStream" uid="uid://bkrypt7r72r7l" path="res://assets/audio/source/ui/sfx_ui_denied_01.wav" id="5_denied"]
+
+[sub_resource type="ParticleProcessMaterial" id="Proc"]
+emission_shape = 1
+emission_sphere_radius = 0.1
+direction = Vector3(0, 1, 0)
+spread = 35.0
+initial_velocity_min = 0.6
+initial_velocity_max = 1.2
+gravity = Vector3(0, -3, 0)
+damping_min = 1.5
+damping_max = 2.5
+scale_min = 0.3
+scale_max = 0.7
+color_ramp = ExtResource("4_fade")
+
+[sub_resource type="ShaderMaterial" id="Shader"]
+shader = ExtResource("2_shader")
+shader_parameter/albedo_texture = ExtResource("3_puff")
+shader_parameter/albedo = Color(0.6, 0.6, 0.62, 0.5)
+shader_parameter/emission = Color(0, 0, 0, 0)
+shader_parameter/use_vertex_color = true
+
+[sub_resource type="QuadMesh" id="Quad"]
+material = SubResource("Shader")
+size = Vector2(0.1, 0.1)
+
+[node name="InteractReject" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Puff" type="GPUParticles3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+emitting = false
+amount = 5
+lifetime = 0.45
+one_shot = true
+explosiveness = 1.0
+randomness = 0.4
+process_material = SubResource("Proc")
+draw_pass_1 = SubResource("Quad")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("5_denied")
+volume_db = -4.0
+unit_size = 4.0
+max_distance = 20.0
+bus = &"World3D"

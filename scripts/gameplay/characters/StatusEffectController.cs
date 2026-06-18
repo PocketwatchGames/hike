@@ -94,6 +94,26 @@ public class StatusEffectController
 		return false;
 	}
 
+	// True if any active effect is dealing positive damage-over-time (poison,
+	// burning, bleeding, ...). Heals are authored as negative damagePerSecond,
+	// so they don't count. Read by NoDamagingEffectRequirement to refuse "rest"
+	// actions while the actor is taking damage over time.
+	public bool HasDamagingEffect
+	{
+		get
+		{
+			for (int i = 0; i < _statusEffects.Count; i++)
+			{
+				StatusEffectState s = _statusEffects[i];
+				if (s?.data?.dot != null && s.data.dot.damagePerSecond > 0f)
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+	}
+
 	// True when any active effect's `incapacitates` flag is set. Read by Mob
 	// to suppress AI / yells while in a heavy CC state (dizzy today; future
 	// frozen / knocked-down compose freely without Mob needing to know about

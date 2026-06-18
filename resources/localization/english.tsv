@@ -15,3 +15,5 @@ time_of_day_sunrise	sunrise
 time_of_day_noon	noon
 time_of_day_sunset	sunset
 time_of_day_midnight	midnight
+danger_nearby	Danger Nearby
+too_hurt_to_rest	Too Hurt to Rest

@@ -18,6 +18,8 @@ public static partial class Loc
 		time_of_day_sunrise,
 		time_of_day_noon,
 		time_of_day_sunset,
-		time_of_day_midnight
+		time_of_day_midnight,
+		danger_nearby,
+		too_hurt_to_rest
 	}
 }

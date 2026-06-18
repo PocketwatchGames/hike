@@ -35,7 +35,7 @@ metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 [sub_resource type="Resource" id="SEDesc_fragile"]
 script = ExtResource("22_sedesc")
 effect = ExtResource("21_fragile")
-metadata/_custom_type_script = "uid://b2sdxefdesc4mqn"
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
 
 [sub_resource type="Resource" id="Desc_bomb"]
 script = ExtResource("20_desc")
@@ -88,12 +88,12 @@ script = ExtResource("22_sedesc")
 effect = ExtResource("23_pierce")
 scope = 1
 chargeIndex = 1
-metadata/_custom_type_script = "uid://b2sdxefdesc4mqn"
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
 
 [sub_resource type="Resource" id="SEDesc_flaming"]
 script = ExtResource("22_sedesc")
 effect = ExtResource("24_flaming")
-metadata/_custom_type_script = "uid://b2sdxefdesc4mqn"
+metadata/_custom_type_script = "uid://bf8kas4isp4rx"
 
 [sub_resource type="Resource" id="Desc_ntk62"]
 script = ExtResource("20_desc")

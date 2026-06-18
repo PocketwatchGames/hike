@@ -29,6 +29,7 @@ public partial class Hud : Control
 	// icon floats above the character's head. Children (queued
 	// StatusEffectIcons) inherit the position automatically.
 	[Export] Control _statusEffectNotificationAnchor;
+	[Export] HudEventLog _eventLog;
 	[Export] ProgressBar _healthBar;
 	// Layered UNDERNEATH _healthBar (placed earlier in the scene tree) with
 	// a transparent background and value = (Health + DrainedHealth) / MaxHealth,
@@ -53,7 +54,6 @@ public partial class Hud : Control
 	[Export] HudSignpostPanel _signpostPanel;
 	[Export] ConversationController _dialoguePanel;
 	[Export] HudRegionBanner _regionBanner;
-	[Export] HudAnnouncementPanel _announcementPanel;
 	[Export] TextureRect _minimapTexture;
 	[Export] ButtonHint _buttonHintTurnLeft;
 	[Export] ButtonHint _buttonHintTurnRight;
@@ -75,11 +75,11 @@ public partial class Hud : Control
 	float _lightningFlashFadeRate;
 	Player _player;
 	Inventory _inventory;
-	// FIFO of pending announcements. Anyone can fire many in a row
-	// (chained region crossings, a scroll that teaches several concepts at
-	// once); we serialize them so each gets its full visible window. The
-	// in-flight flag gates DispatchNext so the active surface's onDone
-	// callback is the only thing that advances the queue.
+	// FIFO of pending region banners. Chained region crossings can fire in a
+	// row; we serialize them so each gets its full visible window. The
+	// in-flight flag gates DispatchNext so the banner's onDone callback is the
+	// only thing that advances the queue. Non-region announcements bypass this
+	// entirely — they're pushed straight to the event log, which stacks lines.
 	readonly Queue<Announcement> _announcementQueue = new();
 	bool _announcementInFlight;
 	// Persistent strip above the health bar — one StatusEffectHud entry per
@@ -316,11 +316,36 @@ public partial class Hud : Control
 	void OnAnnouncement(Announcement a)
 	{
 		if (a == null) { return; }
-		_announcementQueue.Enqueue(a);
-		if (!_announcementInFlight)
+		// Region keeps its dedicated full-width banner, serialized through the
+		// queue so chained crossings each get their full window. Everything else
+		// is a fading line in the event log.
+		if (a.type == EAnnouncementType.Region)
 		{
-			DispatchNext();
+			_announcementQueue.Enqueue(a);
+			if (!_announcementInFlight)
+			{
+				DispatchNext();
+			}
+			return;
 		}
+		_eventLog?.Push(FormatEventLine(a));
+	}
+
+	// Compose a one-line event-log entry from an announcement's title/subtitle.
+	// Title is bolded; a notice with no subtitle is just its title text.
+	static string FormatEventLine(Announcement a)
+	{
+		string title = a.title ?? string.Empty;
+		string subtitle = a.subtitle ?? string.Empty;
+		if (string.IsNullOrEmpty(title))
+		{
+			return subtitle;
+		}
+		if (string.IsNullOrEmpty(subtitle))
+		{
+			return $"[b]{title}[/b]";
+		}
+		return $"[b]{title}[/b] {subtitle}";
 	}
 
 	void DispatchNext()
@@ -332,37 +357,22 @@ public partial class Hud : Control
 		}
 		Announcement next = _announcementQueue.Dequeue();
 		_announcementInFlight = true;
-		switch (next.type)
+		if (_regionBanner != null)
 		{
-			case EAnnouncementType.Region:
-				if (_regionBanner != null)
-				{
-					_regionBanner.Show(next.region, OnAnnouncementSurfaceDone);
-				}
-				else
-				{
-					OnAnnouncementSurfaceDone();
-				}
-				break;
-			default:
-				if (_announcementPanel != null)
-				{
-					_announcementPanel.Show(next, OnAnnouncementSurfaceDone);
-				}
-				else
-				{
-					OnAnnouncementSurfaceDone();
-				}
-				break;
+			_regionBanner.Show(next.region, OnAnnouncementSurfaceDone);
+		}
+		else
+		{
+			OnAnnouncementSurfaceDone();
 		}
 	}
 
 	void OnAnnouncementSurfaceDone()
 	{
-		// Defer the next dispatch — the surface that just finished is in
-		// the middle of its tween-complete callback chain, and starting
-		// the next presentation synchronously would re-enter Show on the
-		// same node before its current state has settled.
+		// Defer the next dispatch — the banner that just finished is in the
+		// middle of its tween-complete callback chain, and starting the next
+		// presentation synchronously would re-enter Show on the same node
+		// before its current state has settled.
 		Callable.From(DispatchNext).CallDeferred();
 	}
 

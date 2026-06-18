@@ -533,6 +533,23 @@ public partial class World
         }
     }
 
+    // True when any loaded mob is an active threat to the player — dangerous,
+    // hostile, and either triggered or currently visible (see
+    // Mob.IsThreateningPlayer). Drives NoDangerRequirement so "safe" interactives
+    // like cooking at a campfire refuse to start while danger is around. Cheap
+    // enough to call on demand at action-press time (mobs are few and loaded).
+    public bool IsDangerPresent()
+    {
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            if (mob.IsThreateningPlayer)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Emit a discrete noise impulse at `position` and immediately raise nearby
     // mobs' perception of `source` — the actor that made the noise. Distinct
     // from the continuous movement-noise hearing each mob samples per

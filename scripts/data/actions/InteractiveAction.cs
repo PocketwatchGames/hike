@@ -50,6 +50,12 @@ public partial class InteractiveAction : Resource
 	// work unchanged.
 	[Export] public Array<ActionRequirement> requirements = new();
 
+	// One-shot Fx spawned on the actor when a press is refused because a
+	// requirement failed (e.g. trying to sleep in a tent while poisoned or in
+	// danger). Mirrors ItemActionProfile.rejectEffect — author a "can't do that"
+	// cue here (head-shake sound, puff). Null = the refusal is silent.
+	[Export] public PackedScene rejectEffect;
+
 	// Apply a movement lock for the duration of the action. Picking a
 	// chest typically locks; grabbing a coin off the ground typically doesn't.
 	[Export] public bool locksMovement = false;

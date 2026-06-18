@@ -261,6 +261,72 @@ public partial class World : Node3D
         _heatField?.Tick();
     }
 
+    // Sleep / rest time-skip. Fast-forwards the simulation by `hours` in-world
+    // hours in a single call (vs Tick's per-frame slices), replaying the same
+    // status-effect tick path so timed effects expire, "till sunrise" boons
+    // lapse, and damage-over-time integrates over the skipped span. The player
+    // is advanced in one-second steps so an integrated DoT that turns lethal
+    // stops the skip at the instant of death — the player wakes (or dies) at
+    // that time rather than sleeping through the full duration. Loaded mobs are
+    // caught up in a single bulk step over the time the player actually
+    // survived. Returns the in-world hours actually advanced (< `hours` only if
+    // the player died mid-skip).
+    public double AdvanceTime(double hours)
+    {
+        if (hours <= 0.0 || _player == null || _worldState == null)
+        {
+            return 0.0;
+        }
+
+        // GameTimeMs and the day cycle advance together during normal play at a
+        // rate of DayLengthSeconds real-seconds per in-world day, so a 6-hour
+        // skip is (6/24) * DayLengthSeconds of GameTimeMs — keeping the two
+        // clocks consistent with how Tick advances them at timeScale 1. Status
+        // durations are authored against GameTimeMs, so they age by this amount.
+        float dayLength = _worldState.SimData?.DayLengthSeconds ?? 600f;
+        double totalSeconds = dayLength > 0f ? hours / 24.0 * dayLength : 0.0;
+        bool wasNight = WorldState.IsNight(_worldState.TimeOfDay01);
+
+        const double stepSeconds = 1.0;
+        double advanced = 0.0;
+        while (advanced < totalSeconds && !_player.IsDead)
+        {
+            double step = System.Math.Min(stepSeconds, totalSeconds - advanced);
+            AdvanceClocks(step, dayLength);
+            _player.TickStatusEffects((float)step);
+            advanced += step;
+        }
+
+        // Catch every loaded mob up over the span the player actually survived.
+        // A DoT that kills a mob here runs its normal death cascade inside Tick.
+        foreach (Mob mob in GetEntities<Mob>())
+        {
+            mob.TickStatusEffects((float)advanced);
+        }
+
+        bool isNight = WorldState.IsNight(_worldState.TimeOfDay01);
+        if (isNight != wasNight)
+        {
+            _wasNight = isNight;
+            RefreshTimeOfDayEntities();
+        }
+        CleanupOffConditionMobs();
+        return dayLength > 0f ? advanced / dayLength * 24.0 : 0.0;
+    }
+
+    private void AdvanceClocks(double seconds, float dayLength)
+    {
+        _worldState.GameTimeMs += (ulong)(seconds * 1000.0);
+        if (dayLength > 0f)
+        {
+            double todDelta = seconds / dayLength;
+            _worldState.TimeOfDayAbsolute += todDelta;
+            double tod = _worldState.TimeOfDay01 + todDelta;
+            tod -= System.Math.Floor(tod);
+            _worldState.TimeOfDay01 = tod;
+        }
+    }
+
     public override void _Process(double delta)
     {
         if (_player == null)

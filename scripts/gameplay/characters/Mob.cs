@@ -180,6 +180,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // vulnerable=1 so a dizzied mob always crits on a triggered hit.
     public float vulnerable => _statusEffects?.Vulnerable ?? 0f;
     public EPlayerPerceptionState playerPerceptionState { get => _simState.DiscoveryState; set => _simState.DiscoveryState = value; }
+    // True when this mob is an active threat to the player: alive, dangerous, and
+    // on a team hostile to the player, AND either triggered (it has noticed the
+    // player and gone on combat alert) or currently visible to the player. Read
+    // by World.IsDangerPresent to forbid "safe" actions like cooking while a
+    // threat is around. Mirrors the discovery test in the visibility update —
+    // Discovered with unexpired memory — so a dangerous mob the player has just
+    // seen (even if it ducked behind cover) still counts.
+    public bool IsThreateningPlayer
+    {
+        get
+        {
+            if (!alive || mobData == null || !mobData.dangerous)
+            {
+                return false;
+            }
+            if (Teams.AreAllied(ActorTeam, ETeam.Player))
+            {
+                return false;
+            }
+            PerceptionState[] targets = _simState.PerceptionTargets;
+            bool triggered = targets != null && targets.Length > 0 && targets[0].triggered;
+            bool visibleToPlayer = _simState.DiscoveryState == EPlayerPerceptionState.Discovered
+                && _simState.MemoryTimeMs > _world.GameTimeMs;
+            return triggered || visibleToPlayer;
+        }
+    }
     // Circumstances this mob required to spawn (see ESpawnConditions). Read by
     // World.CleanupOffConditionMobs to despawn a mob whose conditions have
     // lapsed once the player is far and unaware. None = unconditional, never
@@ -353,6 +379,11 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // future debug / HUD work. Wired in Initialize once `_world` is known.
     StatusEffectController _statusEffects;
     public IReadOnlyList<StatusEffectState> StatusEffects => _statusEffects.StatusEffects;
+
+    // Catch up status effects by `dt` seconds in one call — the sleep
+    // time-skip (World.AdvanceTime) bulk-ticks every loaded mob over the
+    // skipped span. Same path as the per-frame tick, just one coarse step.
+    public void TickStatusEffects(float dt) => _statusEffects?.Tick(dt);
 
     // Rolls up HitInfo.dot per-frame damage / heal into one onDamage / onHeal
     // invocation per second. Same shape as the player's accumulator — a fast
@@ -945,6 +976,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // (forbidSwimming passes, requireGrounded passes, requireAirborne fails).
     public bool IsGrounded => true;
     public bool IsSwimming => false;
+    public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 
     public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
 

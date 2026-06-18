@@ -291,6 +291,26 @@ public class WellSimState : EntitySimState
     }
 }
 
+// Rest tent. No persistent per-instance state — interacting runs a one-shot
+// time-skip on the GameClient (see Tent), nothing on the tent changes.
+public class TentSimState : EntitySimState
+{
+    public TentSimState(Vector3 worldPosition, PackedScene scene)
+        : base(worldPosition, scene)
+    {
+    }
+
+    public override Node3D CreateEntity(World world)
+    {
+        return Tent.Create(world, this);
+    }
+
+    public override void GetPathBlockerCells(Node3D entity, List<Vector3I> outCells)
+    {
+        PathBlockerRasterizer.Rasterize(entity, Mathf.FloorToInt(WorldPosition.Y), outCells);
+    }
+}
+
 // A tree the player can climb to perch in the canopy. Climbing hides the
 // player from mobs and lifts the camera into bird's-eye (see Player.
 // EnterClimbableTree). No persistent per-instance state — the tree is always

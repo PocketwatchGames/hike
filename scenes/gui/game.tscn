@@ -5,14 +5,14 @@
 [ext_resource type="PackedScene" uid="uid://c7r0drbmx8ob5" path="res://scenes/gui/hud.tscn" id="4_lbhrr"]
 [ext_resource type="PackedScene" uid="uid://dcyu4dmc4hiyw" path="res://scenes/gui/pause_menu.tscn" id="17_0v2ir"]
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
-[ext_resource type="PackedScene" uid="uid://chdk3bxannpan" path="res://scenes/gui/announcement_panel.tscn" id="19_announce"]
-[ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="19_banner"]
+[ext_resource type="Script" uid="uid://b1lq7xv8n3eyk" path="res://scripts/gui/HudEventLog.cs" id="19_eventlog"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
 [ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="21_hkfxp"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
 [ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="26_5drka"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
+[ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
@@ -81,7 +81,7 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "sleepOverlay", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
@@ -91,6 +91,7 @@ cookingScreen = NodePath("GUICanvas/CookingScreen")
 merchantScreen = NodePath("GUICanvas/MerchantScreen")
 stashScreen = NodePath("GUICanvas/StashScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
+sleepOverlay = NodePath("SleepCanvas/SleepOverlay")
 upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
 worldHUD = NodePath("GUICanvas/WorldHUD")
 sceneViewport = NodePath("SceneViewport")
@@ -373,12 +374,12 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="HUD" parent="GUICanvas" unique_id=993450555 node_paths=PackedStringArray("gameClient", "_regionBanner", "_announcementPanel") instance=ExtResource("4_lbhrr")]
+[node name="HUD" parent="GUICanvas" unique_id=993450555 node_paths=PackedStringArray("gameClient", "_eventLog") instance=ExtResource("4_lbhrr")]
 gameClient = NodePath("../..")
-_regionBanner = NodePath("../../AnnouncementCanvas/RegionBanner")
-_announcementPanel = NodePath("../../AnnouncementCanvas/AnnouncementPanel")
+_eventLog = NodePath("../../AnnouncementCanvas/MarginContainer/BottomLeft/EventLog")
 
 [node name="AlmanacScreen" parent="GUICanvas" unique_id=1182491772 instance=ExtResource("18_ofv2n")]
+visible = false
 
 [node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("21_hkfxp")]
 visible = false
@@ -388,6 +389,7 @@ gameClient = NodePath("../..")
 visible = false
 
 [node name="StashScreen" parent="GUICanvas" unique_id=1337731578 instance=ExtResource("26_5drka")]
+visible = false
 
 [node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
 visible = false
@@ -395,9 +397,35 @@ visible = false
 [node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]
 layer = 5
 
-[node name="RegionBanner" parent="AnnouncementCanvas" unique_id=1777277464 instance=ExtResource("19_banner")]
+[node name="MarginContainer" type="MarginContainer" parent="AnnouncementCanvas" unique_id=1208279306]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 20
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
 
-[node name="AnnouncementPanel" parent="AnnouncementCanvas" unique_id=1686959481 instance=ExtResource("19_announce")]
+[node name="BottomLeft" type="MarginContainer" parent="AnnouncementCanvas/MarginContainer" unique_id=670415586]
+layout_mode = 2
+
+[node name="EventLog" type="RichTextLabel" parent="AnnouncementCanvas/MarginContainer/BottomLeft" unique_id=435752276]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 8
+mouse_filter = 2
+theme_override_font_sizes/normal_font_size = 18
+theme_override_font_sizes/bold_font_size = 18
+theme_override_font_sizes/bold_italics_font_size = 18
+theme_override_font_sizes/italics_font_size = 18
+theme_override_font_sizes/mono_font_size = 18
+bbcode_enabled = true
+fit_content = true
+scroll_active = false
+script = ExtResource("19_eventlog")
 
 [node name="PauseCanvas" type="CanvasLayer" parent="." unique_id=1733053098]
 layer = 10
@@ -410,3 +438,8 @@ gameClient = NodePath("../..")
 layer = 15
 
 [node name="DeathScreen" parent="DeathCanvas" unique_id=491621629 instance=ExtResource("23_death")]
+
+[node name="SleepCanvas" type="CanvasLayer" parent="." unique_id=1469384849]
+layer = 16
+
+[node name="SleepOverlay" parent="SleepCanvas" unique_id=1377417289 instance=ExtResource("28_sleep")]

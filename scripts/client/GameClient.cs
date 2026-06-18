@@ -72,6 +72,7 @@ public partial class GameClient : Node3D
 	[Export] public MerchantScreen merchantScreen;
 	[Export] public StashScreen stashScreen;
 	[Export] public DeathScreen deathScreen;
+	[Export] public SleepOverlay sleepOverlay;
 	[Export] public UpgradeScreen upgradeScreen;
 	[Export] public Node worldHUD;
 	[Export] public SubViewport sceneViewport;
@@ -1780,6 +1781,45 @@ public partial class GameClient : Node3D
 		// restored, so the overlay ramp is 0); a fresh low-health episode will
 		// re-engage it from scratch.
 		screenEffects?.ResetOnRespawn();
+	}
+
+	// True while the player is dead — read by SleepOverlay to decide whether to
+	// wake the sleeper or hand the screen to the DeathScreen.
+	public bool PlayerIsDead => _player?.IsDead ?? false;
+
+	// True once the DeathScreen has fully faded to black (its Prompt hold). The
+	// SleepOverlay waits for this before releasing on a die-in-sleep so the swap
+	// between the two black overlays shows no frame of the world. No DeathScreen
+	// wired (test scaffolding) reads as opaque so the overlay never strands.
+	public bool DeathScreenOpaque => deathScreen == null || deathScreen.State == DeathScreen.EState.Prompt;
+
+	// Tent / rest entry point. Fades to black, skips world time, then fades
+	// back in (or hands off to the death sequence if a status effect proved
+	// lethal during the skip). Input stays suppressed for the whole sequence;
+	// SleepOverlay releases it via EndSleep on a clean wake, or leaves it to the
+	// DeathScreen on a die-in-sleep.
+	public void BeginSleep(double hours)
+	{
+		if (_player == null || sleepOverlay == null || sleepOverlay.Busy || InputSuppressed)
+		{
+			return;
+		}
+		InputSuppressed = true;
+		sleepOverlay.Show(this, hours);
+	}
+
+	// Called by SleepOverlay once the screen is fully black — the only moment
+	// the skip is visible-safe (so an integrated DoT death and its slow-mo
+	// death-cam happen behind the curtain).
+	public void PerformSleepAdvance(double hours)
+	{
+		_world?.AdvanceTime(hours);
+	}
+
+	// Called by SleepOverlay when a clean wake's fade-in completes.
+	public void EndSleep()
+	{
+		InputSuppressed = false;
 	}
 
 	public void Save()
