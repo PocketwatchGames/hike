@@ -1838,9 +1838,16 @@ public partial class GameClient : Node3D
 	// Called by SleepOverlay once the screen is fully black — the only moment
 	// the skip is visible-safe (so an integrated DoT death and its slow-mo
 	// death-cam happen behind the curtain).
+	// Time-of-day at the start of the last skip + the in-world hours it actually
+	// advanced, captured so the camp wake can pick the matching time-of-day music
+	// (MusicManager.OnCampSleepWake).
+	double _sleepTodBefore;
+	double _sleepHoursAdvanced;
+
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
-		_world?.AdvanceTime(hours);
+		_sleepTodBefore = _world?.WorldState?.TimeOfDay01 ?? 0.0;
+		_sleepHoursAdvanced = _world?.AdvanceTime(hours) ?? 0.0;
 		// Rest heals after the time-skip's status effects resolve, so a DoT that
 		// ran during the skip is applied first — and a player the skip killed is
 		// not revived by the rest heal.
@@ -1866,6 +1873,11 @@ public partial class GameClient : Node3D
 		if (wake != null)
 		{
 			wake.Invoke();
+			// Camp wake: play the time-of-day music for the threshold the skip
+			// crossed, else fall back to explore. The player is still in camp, so
+			// a time-of-day sting punctuates over the camp bed and explore resumes
+			// once they leave.
+			MusicManager.Instance?.OnCampSleepWake(_sleepTodBefore, _sleepHoursAdvanced);
 		}
 		else
 		{
