@@ -320,6 +320,20 @@ script = ExtResource("2_clip")
 Name = "throw"
 Loop = false
 
+[sub_resource type="Resource" id="clip_stab1"]
+resource_name = "stab1"
+script = ExtResource("2_clip")
+Name = "stab1"
+Loop = false
+Speed = 4.0
+
+[sub_resource type="Resource" id="clip_stab2"]
+resource_name = "stab2"
+script = ExtResource("2_clip")
+Name = "stab2"
+Loop = false
+Speed = 4.0
+
 [sub_resource type="Resource" id="Resource_u60mq"]
 script = ExtResource("2_clip")
 Name = "sitidle"
@@ -327,5 +341,5 @@ metadata/_custom_type_script = "uid://bstvhvkw6tq8u"
 
 [resource]
 script = ExtResource("1_panim")
-Clips = [SubResource("clip_idle"), SubResource("clip_run"), SubResource("clip_sprint"), SubResource("clip_fall"), SubResource("clip_jump"), SubResource("clip_attack1"), SubResource("clip_attack2"), SubResource("clip_land"), SubResource("Resource_cw8cl"), SubResource("Resource_bkwsj"), SubResource("Resource_4b76u"), SubResource("Resource_uh1qw"), SubResource("Resource_pcmhk"), SubResource("Resource_ib5l2"), SubResource("Resource_p38is"), SubResource("Resource_b2a4t"), SubResource("Resource_8vdgf"), SubResource("Resource_hfisr"), SubResource("Resource_a8krt"), SubResource("Resource_ys45c"), SubResource("Resource_6cd5o"), SubResource("Resource_xei7e"), SubResource("Resource_4goy6"), SubResource("Resource_bv0xc"), SubResource("clip_swordchargerun"), SubResource("Resource_xlls8"), SubResource("Resource_hqr28"), SubResource("Resource_46101"), SubResource("Resource_4h205"), SubResource("Resource_ingf0"), SubResource("Resource_ia155"), SubResource("Resource_lnqss"), SubResource("Resource_fxn4c"), SubResource("Resource_8pvgj"), SubResource("Resource_6hihe"), SubResource("Resource_fear7"), SubResource("Resource_arr8t"), SubResource("Resource_dsgwn"), SubResource("Resource_22aku"), SubResource("Resource_eg7ma"), SubResource("Resource_f2oaf"), SubResource("Resource_ce1v4"), SubResource("Resource_2v1a6"), SubResource("Resource_5r6kk"), SubResource("clip_throw"), SubResource("Resource_u60mq")]
+Clips = [SubResource("clip_idle"), SubResource("clip_run"), SubResource("clip_sprint"), SubResource("clip_fall"), SubResource("clip_jump"), SubResource("clip_attack1"), SubResource("clip_attack2"), SubResource("clip_land"), SubResource("Resource_cw8cl"), SubResource("Resource_bkwsj"), SubResource("Resource_4b76u"), SubResource("Resource_uh1qw"), SubResource("Resource_pcmhk"), SubResource("Resource_ib5l2"), SubResource("Resource_p38is"), SubResource("Resource_b2a4t"), SubResource("Resource_8vdgf"), SubResource("Resource_hfisr"), SubResource("Resource_a8krt"), SubResource("Resource_ys45c"), SubResource("Resource_6cd5o"), SubResource("Resource_xei7e"), SubResource("Resource_4goy6"), SubResource("Resource_bv0xc"), SubResource("clip_swordchargerun"), SubResource("Resource_xlls8"), SubResource("Resource_hqr28"), SubResource("Resource_46101"), SubResource("Resource_4h205"), SubResource("Resource_ingf0"), SubResource("Resource_ia155"), SubResource("Resource_lnqss"), SubResource("Resource_fxn4c"), SubResource("Resource_8pvgj"), SubResource("Resource_6hihe"), SubResource("Resource_fear7"), SubResource("Resource_arr8t"), SubResource("Resource_dsgwn"), SubResource("Resource_22aku"), SubResource("Resource_eg7ma"), SubResource("Resource_f2oaf"), SubResource("Resource_ce1v4"), SubResource("Resource_2v1a6"), SubResource("Resource_5r6kk"), SubResource("clip_throw"), SubResource("clip_stab1"), SubResource("clip_stab2"), SubResource("Resource_u60mq")]
 metadata/_custom_type_script = "uid://c7panmqf3xk2vd"

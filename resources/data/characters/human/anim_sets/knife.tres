@@ -1,0 +1,70 @@
+[gd_resource type="Resource" script_class="WeaponAnimSet" format=3 uid="uid://ctqy5r6q3jmsx"]
+
+[ext_resource type="Script" uid="uid://gd5bfwxfy08m" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
+[ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
+
+[sub_resource type="Resource" id="s_attack1"]
+script = ExtResource("2_animdata")
+name = &"stab1"
+
+[sub_resource type="Resource" id="s_idle"]
+script = ExtResource("2_animdata")
+name = &"swordidle"
+
+[sub_resource type="Resource" id="s_run"]
+script = ExtResource("2_animdata")
+name = &"swordrun"
+
+[sub_resource type="Resource" id="s_sneak"]
+script = ExtResource("2_animdata")
+name = &"swordwalk"
+
+[sub_resource type="Resource" id="s_attack2"]
+script = ExtResource("2_animdata")
+name = &"stab2"
+
+[sub_resource type="Resource" id="s_c1idle"]
+script = ExtResource("2_animdata")
+name = &"swordcharge1loop"
+
+[sub_resource type="Resource" id="s_c1walk"]
+script = ExtResource("2_animdata")
+name = &"swordwalk"
+
+[sub_resource type="Resource" id="s_c1run"]
+script = ExtResource("2_animdata")
+name = &"swordchargerun"
+
+[sub_resource type="Resource" id="s_c2idle"]
+script = ExtResource("2_animdata")
+name = &"swordcharge2loop"
+
+[sub_resource type="Resource" id="s_c2walk"]
+script = ExtResource("2_animdata")
+name = &"swordwalk"
+
+[sub_resource type="Resource" id="s_c2run"]
+script = ExtResource("2_animdata")
+name = &"swordchargerun"
+
+[sub_resource type="Resource" id="s_block"]
+script = ExtResource("2_animdata")
+name = &"swordblock"
+
+[resource]
+script = ExtResource("1_animset")
+overrides = Dictionary[int, ExtResource("2_animdata")]({
+0: SubResource("s_attack1"),
+4: SubResource("s_idle"),
+6: SubResource("s_run"),
+13: SubResource("s_sneak"),
+20: SubResource("s_attack2"),
+29: SubResource("s_c1idle"),
+30: SubResource("s_c1walk"),
+31: SubResource("s_c1run"),
+32: SubResource("s_c2idle"),
+33: SubResource("s_c2walk"),
+34: SubResource("s_c2run"),
+35: SubResource("s_block")
+})
+metadata/_custom_type_script = "uid://ebr0vht6y6v0e"

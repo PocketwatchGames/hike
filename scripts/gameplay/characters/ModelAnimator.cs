@@ -342,11 +342,16 @@ public partial class ModelAnimator : Node
         return player != null && name != default && player.HasAnimation(name);
     }
 
-    public void Play(StringName name)
+    // `restart` forces a re-fire of the SAME clip to replay from the start
+    // (one-shot attacks, hitstun, jump): mashing the knife's light attack maps
+    // to the same `stab1` slot every press and must interrupt itself. The
+    // looping locomotion pick leaves restart false so a held run/idle loop
+    // isn't yanked back to frame 0 every frame.
+    public void Play(StringName name, bool restart = false)
     {
         // Mirror LitSpriteAnimator: re-playing the current still-running clip
         // is a no-op so a held loop isn't restarted every frame.
-        if (CurrentAnimation == name && !Finished)
+        if (CurrentAnimation == name && !Finished && !restart)
         {
             return;
         }
@@ -355,12 +360,21 @@ public partial class ModelAnimator : Node
             GD.PushError($"ModelAnimator '{Name}': unknown animation '{name}'");
             return;
         }
+        bool sameClip = CurrentAnimation == name;
         CurrentAnimation = name;
         Finished = false;
         _stepAccum = 0.0;
         // Stepped mode hard-cuts (no cross-fade) to keep the stop-motion read;
         // smooth mode uses a short blend so state changes don't pop.
         player.Play(name, customBlend: quantizeFps > 0f ? 0.0 : 0.12);
+        // Godot's AnimationPlayer.Play() continues (doesn't rewind) when the
+        // clip is already current, so a same-clip restart must seek to 0
+        // explicitly. A different clip already starts at 0 — leave its blend-in
+        // alone.
+        if (restart && sameClip)
+        {
+            player.Seek(0.0, update: true);
+        }
         if (quantizeFps > 0f)
         {
             // Pause auto-advance — _Process drives the position in discrete

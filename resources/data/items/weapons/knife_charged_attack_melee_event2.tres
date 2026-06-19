@@ -1,0 +1,29 @@
+[gd_resource type="Resource" script_class="ItemEvent" format=3 uid="uid://dbvs03beygksr"]
+
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="1_i2ts3"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="2_r3dv8"]
+[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="3_jdpsq"]
+[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="4_0n58f"]
+[ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="5_0ns2k"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="6_ip2ny"]
+[ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="6_jdpsq"]
+[ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="7_r3dv8"]
+
+[resource]
+script = ExtResource("6_ip2ny")
+time = 200
+type = 65
+range = 2.2
+nearWidth = 0.4
+farWidth = 0.6
+smearEffect = ExtResource("7_r3dv8")
+damageProfileKey = &"heavy"
+motionSpeed = 5.0
+motionDuration = 0.1
+motionFreezeGravity = false
+cameraShakeMagnitude = 0.12
+impactMissEffect = ExtResource("6_jdpsq")
+impactEnvironmentEffect = ExtResource("3_jdpsq")
+impactHealthEffect = ExtResource("4_0n58f")
+impactArmorEffect = ExtResource("3_jdpsq")
+impactLethalEffect = ExtResource("5_0ns2k")

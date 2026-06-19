@@ -42,6 +42,9 @@ public partial class DamageDataModifier : Resource
 	// Appended to the running statusEffects list (NOT replacing it) when the
 	// AddStatusEffects bit is set. See EDamageFields.AddStatusEffects.
 	[Export] public Array<StatusEffectData> addStatusEffects;
+	// Appended to the running buildups list (NOT replacing it) when the
+	// AddBuildups bit is set. See EDamageFields.AddBuildups.
+	[Export] public Array<StatusEffectBuildup> addBuildups;
 
 	public override void _ValidateProperty(Dictionary property)
 	{
@@ -62,6 +65,7 @@ public partial class DamageDataModifier : Resource
 			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
 			nameof(knockbackTime) => EDamageFields.KnockbackTime,
 			nameof(addStatusEffects) => EDamageFields.AddStatusEffects,
+			nameof(addBuildups) => EDamageFields.AddBuildups,
 			nameof(armorPenetration) => EDamageFields.ArmorPenetration,
 			nameof(blunt) => EDamageFields.Blunt,
 			_ => EDamageFields.None,

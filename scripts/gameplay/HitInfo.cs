@@ -109,6 +109,9 @@ public struct HitInfo
 	// list so we don't mutate the authored DamageData; subsequent folds
 	// reuse the owned copy.
 	private bool _statusEffectsOwned;
+	// Same copy-on-first-write guard for `buildups` — the first AddBuildups
+	// fold clones the authored list before appending.
+	private bool _buildupsOwned;
 
 	public HitInfo(DamageData template, Node source, Vector3 hitDirection = default, ETeam attackerTeam = ETeam.Hostile)
 	{
@@ -116,6 +119,7 @@ public struct HitInfo
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
 		_statusEffectsOwned = false;
+		_buildupsOwned = false;
 		// Roll armor penetration + crit once up-front so the prediction and the
 		// apply see the same outcome even though modifiers may shift the
 		// underlying fields between them.
@@ -171,6 +175,7 @@ public struct HitInfo
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
 		_statusEffectsOwned = false;
+		_buildupsOwned = false;
 		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
 		if (template != null)
@@ -236,6 +241,10 @@ public struct HitInfo
 			{
 				AddStatusEffects(mod.addStatusEffects);
 			}
+			if ((f & EDamageFields.AddBuildups) != 0)
+			{
+				AddBuildups(mod.addBuildups);
+			}
 		}
 	}
 
@@ -265,6 +274,37 @@ public struct HitInfo
 		for (int j = 0; j < extra.Count; j++)
 		{
 			statusEffects.Add(extra[j]);
+		}
+	}
+
+	// Append buildup contributions to this hit (conditional-modifier adds like
+	// a backstab's extra dizzy buildup). Copies the source template's array on
+	// first write so the authored DamageData.buildups list is never mutated;
+	// subsequent appends reuse the owned copy. Folds fire before the receiver's
+	// ApplyHitBuildups pass (OnBackstab/OnCrit in Mob.Hit), so appended entries
+	// land on the same swing.
+	public void AddBuildups(Godot.Collections.Array<StatusEffectBuildup> extra)
+	{
+		if (extra == null || extra.Count == 0)
+		{
+			return;
+		}
+		if (!_buildupsOwned)
+		{
+			var copy = new Godot.Collections.Array<StatusEffectBuildup>();
+			if (buildups != null)
+			{
+				for (int j = 0; j < buildups.Count; j++)
+				{
+					copy.Add(buildups[j]);
+				}
+			}
+			buildups = copy;
+			_buildupsOwned = true;
+		}
+		for (int j = 0; j < extra.Count; j++)
+		{
+			buildups.Add(extra[j]);
 		}
 	}
 }

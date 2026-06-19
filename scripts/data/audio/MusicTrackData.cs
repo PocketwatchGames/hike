@@ -1,15 +1,12 @@
 using Godot;
 
-// One musical asset — the stream plus its mix metadata. Authored as a .tres
-// and referenced by MusicCueData / MusicStingData; never loaded by path from
-// code.
+// One musical asset — the stream plus its mix metadata. Authored as a .tres and
+// wired into a MusicManager track slot in the autoload scene; never loaded by
+// path from code.
 //
-// For beds, `stream` is normally an AudioStreamInteractive (Godot 4.3+): it
-// holds named clips and an authored transition table (beat/bar/marker aligned,
-// with fades), and MusicManager switches between its clips by name as the
-// resolved cue changes — the engine does the seamless transition. A plain
-// looping AudioStream also works (the manager just plays it; clip switches are
-// no-ops). For stings, a short one-shot stream is fine.
+// `stream` is a full top-level piece (MusicManager is single-layer and crossfades
+// between whole tracks). A looping AudioStream plays continuously; a non-looping
+// one is manually re-played by the manager so the ambient keeps going.
 [GlobalClass]
 public partial class MusicTrackData : Resource
 {

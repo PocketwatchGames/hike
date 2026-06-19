@@ -1,4 +1,4 @@
-[gd_scene load_steps=5 format=3 uid="uid://j4xvbnrud7p8y"]
+[gd_scene format=3 uid="uid://ce444jxc8syqg"]
 
 [ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
 

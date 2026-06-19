@@ -234,6 +234,11 @@ public partial class GameClient : Node3D
 	// so subscribers get death reliably without racing the deferred player
 	// spawn the way subscribing to the player directly would.
 	public Action<Player> onPlayerDied;
+	// Fired by RespawnPlayer after a death respawn (distinct from onPlayerSpawned,
+	// which fires once on the initial spawn — the player object is reused on
+	// respawn, so re-running onPlayerSpawned subscribers would double-bind). Music
+	// uses it to leave the death track for the current time-of-day ambient.
+	public Action<Player> onPlayerRespawned;
 	// Floating world-space text request. Type picks which HudText scene is
 	// instantiated (color / fade timing / vertical drift are baked per scene).
 	// The default subscriber in Init forwards to OnHudTextRequested; callers
@@ -1786,6 +1791,8 @@ public partial class GameClient : Node3D
 		// restored, so the overlay ramp is 0); a fresh low-health episode will
 		// re-engage it from scratch.
 		screenEffects?.ResetOnRespawn();
+
+		onPlayerRespawned?.Invoke(_player);
 	}
 
 	// True while the player is dead — read by SleepOverlay to decide whether to
@@ -1832,22 +1839,18 @@ public partial class GameClient : Node3D
 		}
 		_onSleepWake = onWake;
 		InputSuppressed = true;
+		// Camp music stops the moment the player sleeps; the wake plays the
+		// time-of-day ambient cue (MusicManager.OnCampSleepWake via EndSleep).
+		MusicManager.Instance?.OnCampSleepStart();
 		sleepOverlay.Show(this, hours, healFractionPerHour);
 	}
 
 	// Called by SleepOverlay once the screen is fully black — the only moment
 	// the skip is visible-safe (so an integrated DoT death and its slow-mo
 	// death-cam happen behind the curtain).
-	// Time-of-day at the start of the last skip + the in-world hours it actually
-	// advanced, captured so the camp wake can pick the matching time-of-day music
-	// (MusicManager.OnCampSleepWake).
-	double _sleepTodBefore;
-	double _sleepHoursAdvanced;
-
 	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
-		_sleepTodBefore = _world?.WorldState?.TimeOfDay01 ?? 0.0;
-		_sleepHoursAdvanced = _world?.AdvanceTime(hours) ?? 0.0;
+		_world?.AdvanceTime(hours);
 		// Rest heals after the time-skip's status effects resolve, so a DoT that
 		// ran during the skip is applied first — and a player the skip killed is
 		// not revived by the rest heal.
@@ -1873,11 +1876,8 @@ public partial class GameClient : Node3D
 		if (wake != null)
 		{
 			wake.Invoke();
-			// Camp wake: play the time-of-day music for the threshold the skip
-			// crossed, else fall back to explore. The player is still in camp, so
-			// a time-of-day sting punctuates over the camp bed and explore resumes
-			// once they leave.
-			MusicManager.Instance?.OnCampSleepWake(_sleepTodBefore, _sleepHoursAdvanced);
+			// Camp wake: play the ambient cue for the phase the player woke in.
+			MusicManager.Instance?.OnCampSleepWake();
 		}
 		else
 		{

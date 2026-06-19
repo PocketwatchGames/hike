@@ -1070,7 +1070,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         _oneShotAnim = anim;
-        _animator.Play(name);
+        // restart: a re-fired one-shot (e.g. repeated attacks on the same clip)
+        // must replay from the start rather than no-op on the in-flight clip.
+        _animator.Play(name, restart: true);
     }
 
     // IInteractive — only mobs with authored _interactiveActions surface as

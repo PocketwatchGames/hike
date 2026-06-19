@@ -29,7 +29,24 @@
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
-type = 65
+type = 1088
+range = 3.0
+nearWidth = 0.8
+farWidth = 4.0
+smearEffect = ExtResource("9_smearlight")
+smearClockwise = false
+motionSpeed = 10.0
+motionDuration = 0.1
+motionFreezeGravity = false
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_prwqy"]
+script = ExtResource("3_event")
+time = 50
+type = 1
 range = 3.0
 nearWidth = 0.8
 farWidth = 4.0
@@ -39,6 +56,7 @@ impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
+metadata/_custom_type_script = "uid://cmw4pa3roleml"
 
 [sub_resource type="Resource" id="Resource_req_no_swim"]
 script = ExtResource("4_state")
@@ -46,10 +64,11 @@ forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
-chargeTime = 0.4
-cooldownSeconds = 0.4
+chargeTime = 0.35
+activeDurationSeconds = 0.3
+cooldownSeconds = 0.3
 staminaCost = 10.0
-events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_light"), SubResource("Resource_prwqy")])
 comboWindowMs = 600
 requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atklight")
@@ -58,14 +77,17 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
-type = 65601
-range = 4.0
+type = 66625
+range = 5.0
 nearWidth = 1.0
-farWidth = 5.0
+farWidth = 8.0
 smearEffect = ExtResource("9_smearheavy")
 animName = 20
-cameraShakeMagnitude = 0.25
-cameraShakeDuration = 0.18
+damageProfileKey = &"charged"
+motionSpeed = 15.0
+motionFreezeGravity = false
+cameraShakeMagnitude = 1.0
+cameraShakeDuration = 0.4
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -73,8 +95,9 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
-cooldownSeconds = 0.8
-staminaCost = 10.0
+cooldownSeconds = 1.2
+staminaCost = 20.0
+bloodCost = 10.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
 requirements = Array[ExtResource("4_in4wh")]([SubResource("Resource_req_no_swim")])
 chargeStartEffect = ExtResource("8_chghead")
@@ -91,31 +114,72 @@ autoActivateAtMax = false
 queueable = true
 queueWindowSeconds = 0.2
 
+[sub_resource type="Resource" id="Resource_ec1wf"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 0.65
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="Resource_8wi14"]
+script = ExtResource("1_modifier")
+overrides = 1
+healthDamage = 10.0
+addStatusEffects = []
+addBuildups = []
+metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
+
+[sub_resource type="Resource" id="Resource_pdtsd"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 1.0
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="Resource_cgsei"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 256
+addStatusEffects = []
+addBuildups = Array[Object]([SubResource("Resource_pdtsd")])
+metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
+
+[sub_resource type="Resource" id="Resource_wqxq8"]
+script = ExtResource("1_damage")
+tags = 66693
+healthDamage = 6.0
+blunt = 0.75
+hitstun = 0.5
+knockbackDistance = 6.0
+knockbackTime = 0.4
+statusEffects = []
+buildups = Array[Object]([SubResource("Resource_ec1wf")])
+modifiers = Array[Object]([SubResource("Resource_8wi14"), SubResource("Resource_cgsei")])
+metadata/_custom_type_script = "uid://dvmit3ddkahg8"
+
 [sub_resource type="Resource" id="Resource_buildup_dizzy"]
 script = ExtResource("1_buildup")
 effect = ExtResource("1_dizzy")
-amount = 0.6
+amount = 0.4
 
 [sub_resource type="Resource" id="Resource_mod_crit"]
 script = ExtResource("1_modifier")
-overrides = 9
+overrides = 1
 healthDamage = 5.0
 knockbackDistance = 4.0
 addStatusEffects = []
+addBuildups = []
+
+[sub_resource type="Resource" id="Resource_buildup_dizzy_backstab"]
+script = ExtResource("1_buildup")
+effect = ExtResource("1_dizzy")
+amount = 1.0
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
-overrides = 1
+overrides = 256
 healthDamage = 6.0
 addStatusEffects = []
-
-[sub_resource type="Resource" id="Resource_mod_stun"]
-script = ExtResource("1_modifier")
-trigger = 1
-overrides = 8
-knockbackDistance = 4.0
-addStatusEffects = []
+addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -123,15 +187,16 @@ tags = 1157
 healthDamage = 3.0
 blunt = 0.5
 hitstun = 0.25
-knockbackDistance = 0.5
+knockbackDistance = 3.0
 knockbackTime = 0.25
 statusEffects = []
 buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy")])
-modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab"), SubResource("Resource_mod_stun")])
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 
 [resource]
 script = ExtResource("2_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"charged": SubResource("Resource_wqxq8"),
 &"primary": SubResource("Resource_damage")
 })
 actionProfile = SubResource("Resource_profile")

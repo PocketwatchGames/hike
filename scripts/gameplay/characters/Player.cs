@@ -1409,7 +1409,9 @@ public partial class Player : CharacterBody3D
 		_oneShotClip = name;
 		_oneShotIsHitstun = anim == EAnimation.Hitstun;
 		_oneShotOverridesCharge = overridesCharge;
-		_animator.Play(name);
+		// restart: a re-fired one-shot (mashing an attack that maps to the same
+		// clip) must replay from the start rather than no-op on the in-flight clip.
+		_animator.Play(name, restart: true);
 	}
 
 	// Resolve an EAnimation slot to a clip name, preferring the wielded weapon's

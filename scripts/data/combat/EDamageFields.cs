@@ -26,4 +26,8 @@ public enum EDamageFields
 	AddStatusEffects = 1 << 5,
 	ArmorPenetration = 1 << 6,
 	Blunt = 1 << 7,
+	// Like AddStatusEffects, APPENDS the modifier's buildup contributions to
+	// the running buildups list rather than overwriting it — a backstab that
+	// dumps a large dizzy-buildup chunk on top of the base per-hit buildup.
+	AddBuildups = 1 << 8,
 }

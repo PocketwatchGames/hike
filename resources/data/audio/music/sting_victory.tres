@@ -1,9 +1,0 @@
-[gd_resource type="Resource" script_class="MusicStingData" format=3 uid="uid://c8f7s0iiecq91"]
-
-[ext_resource type="Script" uid="uid://88vjh5zkpd8y9" path="res://scripts/data/audio/MusicStingData.cs" id="1_script"]
-[ext_resource type="Resource" uid="uid://q8f6a99rqhqsp" path="res://resources/data/audio/music/track_death.tres" id="2_track"]
-
-[resource]
-script = ExtResource("1_script")
-sting = 4
-track = ExtResource("2_track")
