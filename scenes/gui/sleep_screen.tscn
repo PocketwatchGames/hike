@@ -1,0 +1,73 @@
+[gd_scene format=3 uid="uid://bfjaekwc2fo4t"]
+
+[ext_resource type="Script" uid="uid://ciy17kjchyh8v" path="res://scripts/gui/SleepScreen.cs" id="1_sleep"]
+
+[node name="SleepScreen" type="Control" unique_id=615977979 node_paths=PackedStringArray("_oneHourButton", "_sixHourButton", "_untilHealedButton", "_untilSunButton")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_sleep")
+_oneHourButton = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Button")
+_sixHourButton = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Button2")
+_untilHealedButton = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Button3")
+_untilSunButton = NodePath("MarginContainer/HBoxContainer/MarginContainer/VBoxContainer/Button4")
+
+[node name="CenterContainer" type="CenterContainer" parent="." unique_id=696961615]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="." unique_id=1381539482]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1209401613]
+layout_mode = 2
+alignment = 1
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=61994767]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+size_flags_vertical = 4
+
+[node name="VBoxContainer" type="VBoxContainer" parent="MarginContainer/HBoxContainer/MarginContainer" unique_id=1140297022]
+layout_mode = 2
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=338000962]
+layout_mode = 2
+text = "Sleep"
+horizontal_alignment = 1
+
+[node name="Button" type="Button" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=135189955]
+layout_mode = 2
+text = "1 Hour"
+
+[node name="Button2" type="Button" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1132149196]
+layout_mode = 2
+text = "6 Hours"
+
+[node name="Button3" type="Button" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=1517081718]
+layout_mode = 2
+text = "Until Healed"
+
+[node name="Button4" type="Button" parent="MarginContainer/HBoxContainer/MarginContainer/VBoxContainer" unique_id=148784379]
+layout_mode = 2
+text = "Until Sunrise"
+
+[node name="MarginContainer2" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=971149405]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2
+
+[node name="MarginContainer3" type="MarginContainer" parent="MarginContainer/HBoxContainer" unique_id=2056147992]
+custom_minimum_size = Vector2(400, 0)
+layout_mode = 2

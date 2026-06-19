@@ -3,13 +3,13 @@
 [ext_resource type="PackedScene" uid="uid://bi4ak0i1a4rcb" path="res://scenes/characters/sparrow.tscn" id="1_2er1a"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_mky6i"]
 [ext_resource type="Resource" uid="uid://fvs72bqjuve5" path="res://resources/data/characters/sparrow/sparrow_brain.tres" id="3_mky6i"]
-[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="4_xf8iq"]
-[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_yluhv"]
+[ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="4_lbyg3"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_5k01d"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://uq5vwg0wvv0" path="res://resources/data/items/loot/sparrow_meat.tres" id="7_j2hnf"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="8_bjh47"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="8_ssqjg"]
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="9_bcxhy"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("2_mky6i")
@@ -93,6 +93,27 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 
 [resource]
 script = ExtResource("9_bcxhy")
+displayName = &"Sparrow"
+team = 4
+SmellStrength = 0.15
+smellRange = 16.0
+smellRangePower = 2.0
+visibilityMovementMin = 0.75
+visibilityMovementPower = 1.0
+prominence = 0.75
+maxHealth = 5.0
+modifiers = Array[ExtResource("8_bjh47")]([SubResource("Resource_dizzy_vuln")])
+dizzyResistance = 0.30000000000000004
+burrowTime = 0.0
+hideRange = 8.0
+IdleLoopStartTimeOfDay = 0.15
+IdleLoopEndTimeOfDay = 0.65
+IdleLoopMaxRain = 0.2
+runDecibels = 1.0
+defaultBehavior = &"Perch"
+brain = ExtResource("3_mky6i")
+killsPerLevel = Array[int]([3, 10, 25, 50])
+exp = 1
 animations = Dictionary[int, ExtResource("2_mky6i")]({
 1: SubResource("Resource_anim_dead"),
 2: SubResource("Resource_anim_die"),
@@ -107,32 +128,11 @@ animations = Dictionary[int, ExtResource("2_mky6i")]({
 18: SubResource("Resource_anim_hitstun"),
 26: SubResource("Resource_anim_fly")
 })
-IdleLoopStartTimeOfDay = 0.15
-IdleLoopEndTimeOfDay = 0.65
-IdleLoopMaxRain = 0.2
-displayName = &"Sparrow"
-killsPerLevel = Array[int]([3, 10, 25, 50])
 hudScale = 0.5
-SmellStrength = 0.15
-smellRange = 16.0
-smellRangePower = 2.0
-visibilityMovementMin = 0.75
-visibilityMovementPower = 1.0
-prominence = 0.75
-team = 4
-burrowTime = 0.0
-hideRange = 8.0
-maxHealth = 5.0
-modifiers = Array[ExtResource("8_bjh47")]([SubResource("Resource_dizzy_vuln")])
-dizzyResistance = 0.30000000000000004
+MobScene = ExtResource("1_2er1a")
+loot = Array[ExtResource("6_5k01d")]([SubResource("Resource_loot_meat")])
 triggersTraps = false
 maxSpeed = 8.0
 foliageSpeedModifier = 0.0
-runDecibels = 1.0
-defaultBehavior = &"Perch"
-exp = 1
-brain = ExtResource("3_mky6i")
-MobScene = ExtResource("1_2er1a")
-loot = Array[ExtResource("6_5k01d")]([SubResource("Resource_loot_meat")])
 canFly = true
 metadata/_custom_type_script = "uid://b1016kfgr80a5"

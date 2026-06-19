@@ -24,6 +24,11 @@ public partial class World : Node3D
     public ulong GameTimeMs => _worldState.GameTimeMs;
     public double TimeOfDayAbsolute => _worldState.TimeOfDayAbsolute;
 
+    // Halts the per-frame day/night clock advance in Tick while the player rests
+    // at a camp (set by CampScreen). The sim clock (GameTimeMs) and sleep's
+    // AdvanceTime skip are unaffected — only the ambient time-of-day holds.
+    public bool TimeOfDayFrozen;
+
     // Spatial hash for cheap "mobs within radius" queries — used by
     // separation steering and (later) encircle-slot allocation. Lives on
     // World rather than each Mob so multiple consumers share one index.
@@ -222,8 +227,11 @@ public partial class World : Node3D
         // Advance normalized time-of-day. time_scale lets the player
         // fast-forward the cycle without disturbing GameTimeMs (which
         // drives cooldowns and AI timers that should stay at real speed).
+        // Frozen while the player rests at a camp (CampScreen sets the flag) so
+        // the day/night clock holds. Sleeping still advances time — that runs
+        // through AdvanceTime, not this per-frame path.
         float dayLength = _worldState.SimData?.DayLengthSeconds ?? 600f;
-        if (dayLength > 0f)
+        if (dayLength > 0f && !TimeOfDayFrozen)
         {
             double todDelta = delta * CVars.timeScale.Value / dayLength;
             _worldState.TimeOfDayAbsolute += todDelta;

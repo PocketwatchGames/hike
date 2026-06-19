@@ -183,6 +183,12 @@ public partial class MobData : Resource
     // clamped to [1, maxHealth] so a revive never lands dead or over-full.
     // Only consulted for revivable mobs (tameLoyalty > 0).
     [Export] public float reviveHealth = 1f;
+    // Player health spent to revive this companion's corpse (the Revive
+    // interactive). The revive is refused at press when the player can't afford
+    // it (ReviveBloodRequirement) and the cost is drained as blood — drained
+    // health that regenerates over time — on completion. 0 = free revive. Only
+    // consulted for revivable mobs (tameLoyalty > 0).
+    [Export] public float reviveHealthCost = 0f;
     [Export] public float armorRechargeDelay = 6f;
     [Export] public float armorRechargeSpeed = 1f;
     [Export] public float armorRecoverTime = 30f;

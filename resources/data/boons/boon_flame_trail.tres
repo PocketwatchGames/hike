@@ -9,19 +9,17 @@
 [sub_resource type="Resource" id="trail"]
 script = ExtResource("4_trail")
 zoneScene = ExtResource("3_0xn0e")
-dropInterval = 0.2
 
 [sub_resource type="Resource" id="Resource_rh3lr"]
 script = ExtResource("2_isaj8")
 icon = ExtResource("5_icon")
 displayName = &"Flame Trail"
 description = "Your steps leave a wake of burning fire while you dash or sprint."
-modifiers = []
 durationType = 2
-timeOfDayTarget = 0.25
 maxStack = 1
-trail = SubResource("trail")
 removesOnApply = []
+modifiers = []
+trail = SubResource("trail")
 
 [resource]
 script = ExtResource("1_boon")

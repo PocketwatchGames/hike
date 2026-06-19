@@ -141,6 +141,30 @@ public partial class GameCamera : Camera3D
 	// smearing the model's color onto nearby terrain. Bit 2 is unshared.
 	public const uint OutlineMaskLayer = 1u << 2;
 
+	[ExportGroup("Camp Framing")]
+	// Resting at a campfire (CampScreen → SetCampMode) lowers the pitch toward
+	// campPitchDegrees and zooms the ortho view in by campZoomPixelSteps pixel-
+	// scale steps (same "+1 pixel size" zoom as SlowMotionController). A radial
+	// motion blur tracks the transition velocity, peaking as the camera leaves
+	// each resting point and tapering to 0 at the held framing.
+	[Export] public float campPitchDegrees = -30f;
+	[Export(PropertyHint.Range, "0,4,1")] public int campZoomPixelSteps = 1;
+	[Export(PropertyHint.Range, "0.05,3,0.05")] public float campTransitionSeconds = 0.5f;
+	[Export(PropertyHint.Range, "0,1,0.05")] public float campMotionBlurPeak = 0.8f;
+
+	// Camp framing state. _campActive is true from SetCampMode(true) until the
+	// ease-out fully completes; _campBlend is the raw 0..1 progress toward
+	// _campTarget; _campBaseSize is the resting ortho Size captured at engage so
+	// the zoom and its restore ride the same anchor.
+	private bool _campActive;
+	private float _campTarget;
+	private float _campBlend;
+	private float _campBaseSize = 1f;
+	private float _campRadialBlur;
+	// Radial zoom-blur from the camp transition, folded into the post-process
+	// alongside SlowMotion / BirdsEye by GameClient. 0 whenever idle.
+	public float CampRadialBlur => _campRadialBlur;
+
 	private readonly CameraShake _shake = new();
 	public CameraShake Shake => _shake;
 
@@ -391,6 +415,50 @@ public partial class GameCamera : Camera3D
 		}
 	}
 
+	// Enter / leave camp framing. Capturing the resting Size on engage lets the
+	// zoom-in and its later restore share one anchor even if Size is retuned
+	// while camped. Mirrors SlowMotionController's Trigger/Release shape.
+	public void SetCampMode(bool active)
+	{
+		_campTarget = active ? 1f : 0f;
+		if (active && !_campActive)
+		{
+			_campBaseSize = Size;
+			_campActive = true;
+		}
+	}
+
+	// Advances the camp pitch/zoom ease and the matching radial blur. Returns the
+	// eased blend (0 = resting framing, 1 = full camp framing) for the caller's
+	// pitch lerp. No-op returning 0 whenever camp is idle, so normal follow is
+	// byte-identical.
+	private float TickCamp(float deltaTime)
+	{
+		if (!_campActive)
+		{
+			return 0f;
+		}
+		float rate = campTransitionSeconds > 0f ? deltaTime / campTransitionSeconds : 1f;
+		_campBlend = Mathf.MoveToward(_campBlend, _campTarget, rate);
+		float eased = 1f - (1f - _campBlend) * (1f - _campBlend);
+
+		int basePixelScale = Mathf.Max(1, CVars.pixelScale.Value);
+		float zoomFactor = (basePixelScale + campZoomPixelSteps) / (float)basePixelScale;
+		Size = Mathf.Lerp(_campBaseSize, _campBaseSize / zoomFactor, eased);
+
+		// Heaviest as the camera leaves a resting point (blend near 0/1 extremes,
+		// where the ease-out moves fastest), 0 at the held framing.
+		_campRadialBlur = (1f - eased) * campMotionBlurPeak;
+
+		if (_campTarget <= 0f && _campBlend <= 0f)
+		{
+			Size = _campBaseSize;
+			_campRadialBlur = 0f;
+			_campActive = false;
+		}
+		return eased;
+	}
+
 	public void UpdateCamera(double deltaTime, Vector3 playerPosition, float followTime)
 	{
 		TickRotation((float)deltaTime);
@@ -409,7 +477,12 @@ public partial class GameCamera : Camera3D
 
 		Vector3 framingAnchor = ResolveFocusAnchor(_followPosition, (float)deltaTime);
 
-		GlobalRotation = new Vector3(_pitchRadians, _yaw, 0);
+		// Camp framing eases the pitch lower and the zoom in; TickCamp also drives
+		// the ortho Size and the camp motion blur. Returns the eased 0..1 blend so
+		// the pitch lerp lands in lockstep with the zoom.
+		float campEased = TickCamp((float)deltaTime);
+		float pitchDeg = Mathf.Lerp(pitchDegrees, campPitchDegrees, campEased);
+		GlobalRotation = new Vector3(Mathf.DegToRad(pitchDeg), _yaw, 0);
 		GlobalPosition = framingAnchor + GlobalTransform.Basis.Z * distance;
 
 		// Camera shake offset, applied before the chunky-pixel snap in

@@ -68,4 +68,5 @@ public enum EAnimation
     // weapon animSet, so it resolves through the base/unarmed set) and baked
     // into human_anims.res by the PlayerAnimManifest rebuild.
     Throw = 37,
+    SitIdle = 38,
 }

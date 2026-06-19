@@ -1,0 +1,103 @@
+[gd_scene format=3 uid="uid://blq0cn2x7hpke"]
+
+[ext_resource type="Script" uid="uid://d6oa42x0d3w2" path="res://scripts/gui/CampScreen.cs" id="1_camp"]
+[ext_resource type="PackedScene" uid="uid://bfjaekwc2fo4t" path="res://scenes/gui/sleep_screen.tscn" id="2_sleep"]
+[ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="3_cook"]
+[ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="4_stash"]
+[ext_resource type="PackedScene" uid="uid://v4mo1ix03sv0" path="res://scenes/gui/button_hint.tscn" id="5_hint"]
+
+[node name="CampScreen" type="Control" node_paths=PackedStringArray("_sleepScreen", "_cookingScreen", "_stashScreen", "_tabLeftButtonHint", "_tabRightButtonHint", "_sleepTab", "_cookTab", "_stashTab")]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_camp")
+_sleepScreen = NodePath("MarginContainer2/SleepScreen")
+_cookingScreen = NodePath("MarginContainer2/CookingScreen")
+_stashScreen = NodePath("MarginContainer2/StashScreen")
+_tabLeftButtonHint = NodePath("MarginContainer/HBoxContainer/TabLeft")
+_tabRightButtonHint = NodePath("MarginContainer/HBoxContainer/TabRight")
+_sleepTab = NodePath("MarginContainer/HBoxContainer/SleepTab")
+_cookTab = NodePath("MarginContainer/HBoxContainer/CookTab")
+_stashTab = NodePath("MarginContainer/HBoxContainer/StashTab")
+
+[node name="MarginContainer2" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 20
+theme_override_constants/margin_top = 50
+theme_override_constants/margin_right = 20
+theme_override_constants/margin_bottom = 20
+
+[node name="SleepScreen" parent="MarginContainer2" instance=ExtResource("2_sleep")]
+layout_mode = 2
+
+[node name="CookingScreen" parent="MarginContainer2" instance=ExtResource("3_cook")]
+visible = false
+layout_mode = 2
+
+[node name="StashScreen" parent="MarginContainer2" instance=ExtResource("4_stash")]
+visible = false
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_bottom = 40.0
+grow_horizontal = 2
+theme_override_constants/margin_top = 20
+
+[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer"]
+layout_mode = 2
+size_flags_horizontal = 4
+
+[node name="TabLeft" parent="MarginContainer/HBoxContainer" instance=ExtResource("5_hint")]
+layout_mode = 2
+InputAction = "TabLeft"
+
+[node name="SleepTab" type="PanelContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/SleepTab"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/SleepTab/MarginContainer"]
+layout_mode = 2
+text = "Sleep"
+
+[node name="CookTab" type="PanelContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/CookTab"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/CookTab/MarginContainer"]
+layout_mode = 2
+text = "Cook"
+
+[node name="StashTab" type="PanelContainer" parent="MarginContainer/HBoxContainer"]
+layout_mode = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="MarginContainer/HBoxContainer/StashTab"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_right = 10
+
+[node name="Label" type="Label" parent="MarginContainer/HBoxContainer/StashTab/MarginContainer"]
+layout_mode = 2
+text = "Stash"
+
+[node name="TabRight" parent="MarginContainer/HBoxContainer" instance=ExtResource("5_hint")]
+layout_mode = 2
+InputAction = "TabRight"

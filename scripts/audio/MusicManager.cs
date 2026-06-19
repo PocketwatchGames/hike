@@ -89,6 +89,10 @@ public partial class MusicManager : Node
     private bool _loading;
     private bool _playerDead;
     private bool _inCombat;
+    // Set while the player is resting at a campfire (camp screen open). Pushed in
+    // directly by CampScreen.Open/Close — like _loading, it's a screen state with
+    // no GameClient event of its own.
+    private bool _camping;
     // Explore is a one-shot triggered by region entry (its flight track is
     // imported non-looping). _exploreActive is set on entering a region while
     // nothing higher is playing, and cleared when the track finishes or a higher
@@ -146,6 +150,7 @@ public partial class MusicManager : Node
         _loading = false;
         _playerDead = false;
         _inCombat = false;
+        _camping = false;
         _exploreActive = false;
         _activeBedState = null;
         _prevTimeOfDay = double.NaN;
@@ -175,6 +180,7 @@ public partial class MusicManager : Node
         }
         _inCombat = false;
         _playerDead = false;
+        _camping = false;
         _exploreActive = false;
         _activeBedState = null;
         Log("unbound game");
@@ -185,6 +191,12 @@ public partial class MusicManager : Node
     public void SetLoading(bool loading)
     {
         _loading = loading;
+    }
+
+    // Pushed by CampScreen.Open/Close while the player rests at a campfire.
+    public void SetCamping(bool camping)
+    {
+        _camping = camping;
     }
 
     // (Re)spawn clears the death state so explore / combat beds resume.
@@ -334,6 +346,7 @@ public partial class MusicManager : Node
             case EMusicState.Loading: return _loading;
             case EMusicState.Explore: return _game != null && !_playerDead && _exploreActive;
             case EMusicState.Combat: return _game != null && !_playerDead && _inCombat;
+            case EMusicState.Camp: return _game != null && !_playerDead && _camping;
             case EMusicState.Death: return _playerDead;
             default: return false;
         }

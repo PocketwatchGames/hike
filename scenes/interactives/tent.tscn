@@ -1,14 +1,18 @@
 [gd_scene format=3 uid="uid://dxok7vpy16gs3"]
 
-[ext_resource type="Script" uid="uid://hnvzy4s82o5tr" path="res://scripts/gameplay/entities/Tent.cs" id="1_tent"]
+[ext_resource type="Script" uid="uid://dsh5e2v0iia20" path="res://scripts/gameplay/entities/Tent.cs" id="1_tent"]
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="2_event"]
 [ext_resource type="Script" uid="uid://ddmx167tqvo67" path="res://scripts/data/actions/InteractiveAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_38mg1"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_req"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_5837a"]
 [ext_resource type="Script" uid="uid://b7kq3xn2v9wdf" path="res://scripts/data/actions/requirements/NoDangerRequirement.cs" id="5_nodanger"]
-[ext_resource type="Script" uid="uid://umst219t488k7" path="res://scripts/data/actions/requirements/NoDamagingEffectRequirement.cs" id="6_nodamaging"]
+[ext_resource type="Script" uid="uid://bbrh4rolb8use" path="res://scripts/data/actions/requirements/NoDamagingEffectRequirement.cs" id="6_nodamaging"]
 [ext_resource type="Script" uid="uid://dvqe1m6ugtppd" path="res://scripts/gameplay/entities/InteractiveBox.cs" id="8_interactivebox"]
 [ext_resource type="Script" uid="uid://qffm2f5q1svb" path="res://scripts/gameplay/entities/InteractiveMeshHighlight.cs" id="17_meshhl"]
 [ext_resource type="PackedScene" uid="uid://cvoui2mg0oxau" path="res://scenes/fx/interact_reject.tscn" id="18_reject"]
+[ext_resource type="PackedScene" uid="uid://bhgq4eovp4e5l" path="res://assets/models/tent/SM_Prop_Camp_Tent_01.fbx" id="19_tentfbx"]
+[ext_resource type="Texture2D" uid="uid://ba2akoi7qnnje" path="res://assets/textures/interactions/sleep.png" id="20_sleep"]
 
 [sub_resource type="Resource" id="Resource_tent_event_sleep"]
 script = ExtResource("2_event")
@@ -25,10 +29,11 @@ rejectMessage = &"too_hurt_to_rest"
 [sub_resource type="Resource" id="Resource_tent_action_sleep"]
 script = ExtResource("3_action")
 displayName = &"Sleep"
+icon = ExtResource("20_sleep")
 completionEvents = Array[ExtResource("2_event")]([SubResource("Resource_tent_event_sleep")])
+durationSeconds = 1.5
 requirements = Array[ExtResource("4_req")]([SubResource("Resource_tent_req_nodanger"), SubResource("Resource_tent_req_nodamaging")])
 rejectEffect = ExtResource("18_reject")
-durationSeconds = 1.5
 locksMovement = true
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_tent_block"]
@@ -38,41 +43,37 @@ size = Vector3(2.2, 1.4, 2.6)
 height = 4.0
 radius = 2.5
 
-[sub_resource type="BoxMesh" id="BoxMesh_tent_placeholder"]
-size = Vector3(2.2, 1.4, 2.6)
-
-[node name="Tent" type="Node3D" node_paths=PackedStringArray("_hudNode")]
+[node name="Tent" type="Node3D" unique_id=580973435 node_paths=PackedStringArray("_hudNode")]
 script = ExtResource("1_tent")
 _actions = Array[ExtResource("3_action")]([SubResource("Resource_tent_action_sleep")])
 _hudNode = NodePath("HUDNode")
-_sleepHours = 6.0
+_healFractionPerHour = 0.1
 
-[node name="BlockCollider" type="StaticBody3D" parent="."]
+[node name="BlockCollider" type="StaticBody3D" parent="." unique_id=58394829]
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="BlockCollider" unique_id=40796895]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 shape = SubResource("BoxShape3D_tent_block")
 
-[node name="InteractiveBox" type="Area3D" parent="." node_paths=PackedStringArray("_interactiveNode")]
+[node name="InteractiveBox" type="Area3D" parent="." unique_id=1828362243 node_paths=PackedStringArray("_interactiveNode")]
 collision_layer = 4
 collision_mask = 0
 monitoring = false
 script = ExtResource("8_interactivebox")
 _interactiveNode = NodePath("..")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox"]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractiveBox" unique_id=944892648]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 shape = SubResource("CylinderShape3D_tent_interact")
 
-[node name="Model" type="Node3D" parent="."]
+[node name="Model" type="Node3D" parent="." unique_id=1849780723]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.069, 0)
 
-[node name="Placeholder" type="MeshInstance3D" parent="Model"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
-mesh = SubResource("BoxMesh_tent_placeholder")
+[node name="SM_Prop_Camp_Tent_01" parent="Model" unique_id=157996236 instance=ExtResource("19_tentfbx")]
 
-[node name="HUDNode" type="Node3D" parent="."]
+[node name="HUDNode" type="Node3D" parent="." unique_id=1521492370]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, 0)
 
-[node name="InteractiveMeshHighlight" type="Node3D" parent="." node_paths=PackedStringArray("_collectFrom")]
+[node name="InteractiveMeshHighlight" type="Node3D" parent="." unique_id=1597036498 node_paths=PackedStringArray("_collectFrom")]
 script = ExtResource("17_meshhl")
 _collectFrom = NodePath("../Model")

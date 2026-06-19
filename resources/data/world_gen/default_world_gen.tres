@@ -13,40 +13,17 @@
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
 [ext_resource type="Resource" uid="uid://ck46or2f3b77r" path="res://resources/data/languages/vyeshal.tres" id="6_gcffr"]
 [ext_resource type="PackedScene" uid="uid://csgnpsce4t7gb" path="res://scenes/interactives/signpost.tscn" id="7_signpost"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="8_ryrxb"]
 [ext_resource type="PackedScene" uid="uid://ck5nlyf58chsy" path="res://scenes/interactives/knowledge_stone.tscn" id="8_stone"]
-[ext_resource type="PackedScene" uid="uid://bjgdbkg42m5u8" path="res://scenes/interactives/chest_stash.tscn" id="9_chest"]
-[ext_resource type="Resource" uid="uid://csrlvynmra002" path="res://resources/data/items/scrolls/scroll_vyeshal_numbers.tres" id="11_s_numbers"]
 [ext_resource type="PackedScene" uid="uid://b8npx1masl5o6" path="res://scenes/vehicles/boat.tscn" id="12_boat"]
-[ext_resource type="Resource" uid="uid://csrlgrkkra006" path="res://resources/data/items/scrolls/scroll_grilled_kun_kun.tres" id="12_s_kunkun"]
+[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="12_campfire"]
 [ext_resource type="Resource" uid="uid://csrlvygmra001" path="res://resources/data/items/scrolls/scroll_vyeshal_grammar.tres" id="12_xi7uo"]
-[ext_resource type="Resource" uid="uid://cmdvillager001" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="13_villager"]
+[ext_resource type="Resource" uid="uid://c2p3sgve3qiuq" path="res://resources/data/world_gen/mob_descriptors/friendly_villager.tres" id="13_villager"]
 [ext_resource type="Resource" uid="uid://puiica1tfi3y" path="res://resources/data/characters/human/friendly_villager_conversation.tres" id="14_v_conv"]
 [ext_resource type="Script" uid="uid://3h0g6cv5drq7" path="res://scripts/data/characters/LoyaltyGift.cs" id="15_loyaltygift"]
 [ext_resource type="Resource" uid="uid://dyfigpb2rrs57" path="res://resources/data/items/armor/leather_armor.tres" id="16_leather"]
 [ext_resource type="Script" uid="uid://dkowx1ny0eu5e" path="res://scripts/data/characters/MobInventoryData.cs" id="17_stock"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="18_itemcount"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://cmddog000001" path="res://resources/data/world_gen/mob_descriptors/dog.tres" id="19_companion"]
-
-[sub_resource type="Resource" id="Desc_chest_loot_numbers"]
-script = ExtResource("99_desc")
-item = ExtResource("11_s_numbers")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_chest_loot_numbers"]
-script = ExtResource("18_itemcount")
-descriptor = SubResource("Desc_chest_loot_numbers")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
-[sub_resource type="Resource" id="Desc_chest_loot_kunkun"]
-script = ExtResource("99_desc")
-item = ExtResource("12_s_kunkun")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_chest_loot_kunkun"]
-script = ExtResource("18_itemcount")
-descriptor = SubResource("Desc_chest_loot_kunkun")
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="Resource_villager_stock_leather"]
 script = ExtResource("17_stock")
@@ -74,10 +51,8 @@ SignpostLanguage = ExtResource("6_gcffr")
 KnowledgeStoneScene = ExtResource("8_stone")
 KnowledgeStoneLanguage = ExtResource("6_gcffr")
 KnowledgeStoneText = "Vyeshal is difficult to read. But study, my friend, and you will learn it.."
-NearSpawnStashScene = ExtResource("9_chest")
-NearSpawnStashItems = [SubResource("Resource_chest_loot_numbers"), SubResource("Resource_chest_loot_kunkun")]
+NearSpawnCampfireScene = ExtResource("12_campfire")
 NearSpawnBoatScene = ExtResource("12_boat")
-OffCoastBoatScene = ExtResource("12_boat")
 NearSpawnVillagerData = ExtResource("13_villager")
 NearSpawnVillagerConversation = ExtResource("14_v_conv")
 NearSpawnVillagerLoyaltyGifts = Array[ExtResource("15_loyaltygift")]([SubResource("Resource_villager_loyalty_grammar")])

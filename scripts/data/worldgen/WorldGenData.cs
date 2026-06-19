@@ -81,22 +81,20 @@ public partial class WorldGenData : Resource
     [Export] public LanguageData KnowledgeStoneLanguage;
     [Export(PropertyHint.MultilineText)] public string KnowledgeStoneText = "";
 
-    // Single test-fixture stash chest placed near the default player spawn
-    // by WorldGen. The scene's `_isStash` flag drives the stash-screen
-    // interaction; NearSpawnStashItems is materialized into ItemStates and
-    // dropped into the chest's Contents at worldgen time so the player
-    // finds the stash pre-seeded with starter items. Skipped if
-    // NearSpawnStashScene is null. Temporary scaffolding — replaced when
-    // the editor has a real placement pass.
-    [Export] public PackedScene NearSpawnStashScene;
-    [Export] public ItemCount[] NearSpawnStashItems = [];
-
     // Single test-fixture climbable tree placed near the default player spawn
     // by WorldGen. Climbing it lifts the player into the bird's-eye overlook
     // and conceals them from mobs (see ClimbableTree / Player.
-    // EnterClimbableTree). Skipped if null. Temporary scaffolding alongside
-    // NearSpawnStashScene — the editor's placement pass replaces it.
+    // EnterClimbableTree). Skipped if null. Temporary scaffolding — the
+    // editor's placement pass replaces it.
     [Export] public PackedScene ClimbableTreeScene;
+
+    // Campfire fixtures placed by WorldGen: a "home" campfire on the spawn
+    // column (NearSpawnCampfireSpawn) plus one per remaining zone, each on a
+    // flat column rolled within that quadrant. Spawned lit so the player can
+    // immediately Camp at them (see Forge / CampScreen). Skipped if null.
+    // Temporary scaffolding — the editor's placement pass replaces it.
+    [Export] public PackedScene NearSpawnCampfireScene;
+    [Export] public Vector2I NearSpawnCampfireSpawn = new(0, 3);
 
     // Single test-fixture rideable boat. WorldGen drops it on the nearest water
     // surface it can find around spawn (see the near-spawn placement block);
@@ -234,7 +232,6 @@ public partial class WorldGenData : Resource
     // Near-spawn test-fixture placement (voxel XZ). Temporary scaffolding —
     // see the matching scene fields above.
     [Export] public Vector2I NearSpawnVillagerSpawn = new(32, 32);
-    [Export] public Vector2I NearSpawnStashSpawn = new(0, 3);
     // Ring-scan radius (in voxels) for the nearest water-topped column the
     // near-spawn boat is floated on.
     [Export] public int NearSpawnBoatSearchRadius = 48;

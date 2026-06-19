@@ -207,6 +207,14 @@ public partial class Player : CharacterBody3D
 	bool _hidden;
 	public bool IsHidden => _hidden;
 
+	// True while the camp screen (opened at a lit campfire) is up. Drives the
+	// SitIdle pose in UpdateAnimation; EnterCamp also conceals the player from
+	// mobs so a wandering threat can't attack through the modal. The model stays
+	// visible (the player sits by the fire) — distinct from the tree-climb
+	// conceal, which hides the model entirely.
+	bool _camping;
+	public bool IsCamping => _camping;
+
 	public void BeginBirdsEye()
 	{
 		if (_birdsEye)
@@ -281,6 +289,31 @@ public partial class Player : CharacterBody3D
 		_hidden = true;
 		SetModelVisible(false);
 		BeginBirdsEye();
+	}
+
+	// Entered from Forge.Complete (EActionVerb.Camp) when the camp screen opens
+	// at a lit campfire. Conceals the player from mobs (the camp action is gated
+	// by NoDangerRequirement, but time can pass / mobs can wander while the modal
+	// is up) and switches the loop pose to SitIdle. The model stays visible.
+	// ExitCamp, called when the camp screen closes, restores both.
+	public void EnterCamp()
+	{
+		if (_camping)
+		{
+			return;
+		}
+		_camping = true;
+		_hidden = true;
+	}
+
+	public void ExitCamp()
+	{
+		if (!_camping)
+		{
+			return;
+		}
+		_camping = false;
+		_hidden = false;
 	}
 
 	// Toggles the player's model subtree visibility (hide / birds-eye).
@@ -1533,6 +1566,12 @@ public partial class Player : CharacterBody3D
 		if (_health <= 0f)
 		{
 			loopAnim = EAnimation.Dead;
+		}
+		else if (_camping)
+		{
+			// Camp screen open at a campfire: sit by the fire. Movement is
+			// already gated (InputSuppressed) so the player is stationary.
+			loopAnim = EAnimation.SitIdle;
 		}
 		else if (_mount != null)
 		{
@@ -4380,10 +4419,12 @@ public partial class Player : CharacterBody3D
 
 	private void UpdateHighlightInteractive()
 	{
-		// Bird's-eye suppresses interactive highlighting entirely — no outline,
-		// no interact prompt while the camera is up. Clear any target held when
-		// the overview began so GameClient drops the outline + interact HUD.
-		if (_birdsEye)
+		// Bird's-eye and camp both suppress interactive highlighting entirely — no
+		// outline, no interact prompt. Clear any target held when the state began
+		// so GameClient drops the outline + interact HUD; this also runs every
+		// physics tick, so it keeps the campfire (which the player is standing in)
+		// from re-highlighting itself underneath the camp screen.
+		if (_birdsEye || _camping)
 		{
 			if (_highlightInteractive != null)
 			{

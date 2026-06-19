@@ -68,9 +68,8 @@ public partial class GameClient : Node3D
 	[Export] public FlyCamera flyCamera;
 	[Export] public Hud hud;
 	[Export] public AlmanacScreen almanacScreen;
-	[Export] public CookingScreen cookingScreen;
 	[Export] public MerchantScreen merchantScreen;
-	[Export] public StashScreen stashScreen;
+	[Export] public CampScreen campScreen;
 	[Export] public DeathScreen deathScreen;
 	[Export] public SleepOverlay sleepOverlay;
 	[Export] public UpgradeScreen upgradeScreen;
@@ -448,17 +447,13 @@ public partial class GameClient : Node3D
 		{
 			almanacScreen.Visible = false;
 		}
-		if (cookingScreen != null)
+		if (campScreen != null)
 		{
-			cookingScreen.Visible = false;
+			campScreen.Visible = false;
 		}
 		if (merchantScreen != null)
 		{
 			merchantScreen.Visible = false;
-		}
-		if (stashScreen != null)
-		{
-			stashScreen.Visible = false;
 		}
 		if (deathScreen != null)
 		{
@@ -971,8 +966,9 @@ public partial class GameClient : Node3D
 		{
 			camera.SyncCapMaskCamera(sceneViewport.Size);
 		}
-		// Bird's-eye fly-up and the slow-mo death cam are both zooms → radial channel.
-		float radialBlur = Mathf.Max(slowMotion?.RadialBlur ?? 0f, birdsEye?.MotionBlur ?? 0f);
+		// Bird's-eye fly-up, the slow-mo death cam, and the camp zoom-in are all
+		// zooms → radial channel.
+		float radialBlur = Mathf.Max(camera?.CampRadialBlur ?? 0f, Mathf.Max(slowMotion?.RadialBlur ?? 0f, birdsEye?.MotionBlur ?? 0f));
 		// Drive the post-process on wall-clock time (see _screenFxLastRealMs) so
 		// slow-mo doesn't stretch its fades; the sim got the scaled delta above.
 		ulong screenFxNowMs = Time.GetTicksMsec();
@@ -1729,6 +1725,11 @@ public partial class GameClient : Node3D
 	void OnPlayerDiedInternal(Player player)
 	{
 		InputSuppressed = true;
+		// A DoT killed the player mid-rest: SleepOverlay hands off to the death
+		// screen and never calls EndSleep, so drop the wake callback here rather
+		// than let it fire on the next rest. CampScreen's own onPlayerDied handler
+		// tears down its camp state.
+		_onSleepWake = null;
 		onPlayerDied?.Invoke(player);
 
 		// Hand the heartbeat over to its death wind-down (latched live rate,
@@ -1773,6 +1774,10 @@ public partial class GameClient : Node3D
 		_player.Respawn(_spawnPosition);
 		camera.SetInitialPosition(_spawnPosition);
 
+		// The companion respawns alongside the player at full health — revived if
+		// it had died, and relocated to the spawn point from wherever it was.
+		_world?.Companion?.RecallToPlayer(_spawnPosition);
+
 		// Ease back to real time + the resting zoom. The ease-out plays under the
 		// DeathScreen fade-in (revealing from black).
 		slowMotion?.Release();
@@ -1798,28 +1803,74 @@ public partial class GameClient : Node3D
 	// lethal during the skip). Input stays suppressed for the whole sequence;
 	// SleepOverlay releases it via EndSleep on a clean wake, or leaves it to the
 	// DeathScreen on a die-in-sleep.
-	public void BeginSleep(double hours)
+	public void BeginSleep(double hours, double healFractionPerHour)
 	{
 		if (_player == null || sleepOverlay == null || sleepOverlay.Busy || InputSuppressed)
 		{
 			return;
 		}
+		// Plain rest (tent): EndSleep releases the input gate on wake.
+		_onSleepWake = null;
 		InputSuppressed = true;
-		sleepOverlay.Show(this, hours);
+		sleepOverlay.Show(this, hours, healFractionPerHour);
+	}
+
+	// Wake callback for a modal-driven rest. When set, EndSleep hands the input
+	// gate back to the caller (which stays open across the sleep) instead of
+	// releasing it. Cleared on a clean wake and on death-in-sleep.
+	Action _onSleepWake;
+
+	// Camp-screen rest entry point. The camp modal stays open (just hidden) across
+	// the sleep, so we skip the modal guard BeginSleep uses for the tent path and
+	// keep input gated the whole time. onWake fires when the fade-in completes so
+	// the camp screen can re-show itself, still in camp state.
+	public void BeginSleepFromCamp(double hours, double healFractionPerHour, Action onWake)
+	{
+		if (_player == null || sleepOverlay == null || sleepOverlay.Busy)
+		{
+			return;
+		}
+		_onSleepWake = onWake;
+		InputSuppressed = true;
+		sleepOverlay.Show(this, hours, healFractionPerHour);
 	}
 
 	// Called by SleepOverlay once the screen is fully black — the only moment
 	// the skip is visible-safe (so an integrated DoT death and its slow-mo
 	// death-cam happen behind the curtain).
-	public void PerformSleepAdvance(double hours)
+	public void PerformSleepAdvance(double hours, double healFractionPerHour)
 	{
 		_world?.AdvanceTime(hours);
+		// Rest heals after the time-skip's status effects resolve, so a DoT that
+		// ran during the skip is applied first — and a player the skip killed is
+		// not revived by the rest heal.
+		if (_player != null && !_player.IsDead)
+		{
+			_player.Heal((float)(_player.MaxHealth * healFractionPerHour * hours));
+		}
+		// The companion wakes at the player's side, fully healed and revived if it
+		// had died — regardless of where it wandered or fell during the day.
+		if (_player != null)
+		{
+			_world?.Companion?.RecallToPlayer(_player.GlobalPosition);
+		}
 	}
 
-	// Called by SleepOverlay when a clean wake's fade-in completes.
+	// Called by SleepOverlay when a clean wake's fade-in completes. A modal-driven
+	// rest (camp) hands control back to its wake callback, which re-shows the
+	// still-open modal and keeps the input gate; a plain rest (tent) releases it.
 	public void EndSleep()
 	{
-		InputSuppressed = false;
+		Action wake = _onSleepWake;
+		_onSleepWake = null;
+		if (wake != null)
+		{
+			wake.Invoke();
+		}
+		else
+		{
+			InputSuppressed = false;
+		}
 	}
 
 	public void Save()

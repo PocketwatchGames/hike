@@ -83,6 +83,7 @@ PerceptionThresholdWary = 0.3
 canTriggerMobs = false
 itemPreferences = Array[ExtResource("5_itempref")]([SubResource("Resource_pref_reject_nonmeat"), SubResource("Resource_pref_love_meat"), SubResource("Resource_pref_hate_gross")])
 maxHealth = 50.0
+reviveHealthCost = 25.0
 modifiers = null
 defaultBehavior = &"WanderFollow"
 brain = ExtResource("2_brain")

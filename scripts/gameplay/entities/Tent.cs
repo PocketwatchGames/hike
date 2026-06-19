@@ -12,6 +12,9 @@ public partial class Tent : Node3D, IInteractive, IWorldEntity
     [Export] private Node3D _hudNode;
     // In-world hours a single rest advances. 6 by default per the design.
     [Export(PropertyHint.Range, "1,24,1")] private float _sleepHours = 6f;
+    // Fraction of max health restored per in-world hour slept. 0.2 → a full
+    // 6-hour rest heals to full.
+    [Export(PropertyHint.Range, "0,1,0.01")] private float _healFractionPerHour = 0.2f;
 
     private TentSimState _interactiveState;
     private World _world;
@@ -39,7 +42,7 @@ public partial class Tent : Node3D, IInteractive, IWorldEntity
     // state to mutate — it just starts the fade / time-skip on the GameClient.
     public void Complete(int actionIndex)
     {
-        GameClient.Current?.BeginSleep(_sleepHours);
+        GameClient.Current?.BeginSleep(_sleepHours, _healFractionPerHour);
     }
 
     public static Tent Create(World world, TentSimState data)

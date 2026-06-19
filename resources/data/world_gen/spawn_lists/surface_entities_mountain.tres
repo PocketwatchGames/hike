@@ -4,11 +4,11 @@
 [ext_resource type="Script" uid="uid://b3yy1yx4hje70" path="res://scripts/data/spawn/SpawnListData.cs" id="1_list"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
 [ext_resource type="Script" uid="uid://drxhdnq6x2ttv" path="res://scripts/data/spawn/LootSpawnEntry.cs" id="3_loot_entry"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 [ext_resource type="Resource" uid="uid://cmdgoblin0001" path="res://resources/data/world_gen/mob_descriptors/goblin.tres" id="5_goblin_data"]
 [ext_resource type="Resource" uid="uid://cmdgobelite01" path="res://resources/data/world_gen/mob_descriptors/goblin_elite.tres" id="5_goblin_elite"]
 [ext_resource type="Resource" uid="uid://cmdkunkun0001" path="res://resources/data/world_gen/mob_descriptors/kun_kun.tres" id="6_kunkun_data"]
-[ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/campfire_camp.tres" id="8_campfire_group"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="8_0a7v1"]
+[ext_resource type="Resource" uid="uid://dwp88tyqewry" path="res://resources/data/world_gen/spawn_groups/goblin_group.tres" id="8_campfire_group"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="9_loot_data"]
 [ext_resource type="Resource" uid="uid://cmdsparrow001" path="res://resources/data/world_gen/mob_descriptors/sparrow.tres" id="10_ub7y2"]
 [ext_resource type="Script" uid="uid://b7gskt20b7441" path="res://scripts/data/spawn/WellSpawnEntry.cs" id="10_well_entry"]
@@ -18,6 +18,7 @@
 [ext_resource type="Script" uid="uid://cruw4anaypwt" path="res://scripts/data/spawn/BuriedSpotSpawnEntry.cs" id="14_buried_entry"]
 [ext_resource type="PackedScene" uid="uid://b8rq2dnk7vxce" path="res://scenes/interactives/buried_spot.tscn" id="15_buried_scene"]
 [ext_resource type="Resource" uid="uid://daxn4tq8wpv2r" path="res://resources/data/buried/buried_carrot.tres" id="16_carrot_data"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 
 [sub_resource type="Resource" id="Resource_goblin_night"]
 script = ExtResource("2_mob_entry")

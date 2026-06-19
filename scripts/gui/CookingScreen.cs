@@ -108,6 +108,9 @@ public partial class CookingScreen : Control
 		_player = player;
 	}
 
+	// Cook tab of the camp screen. CampScreen owns all global gating
+	// (InputSuppressed, HUD, mouse, camp pose) — this screen just binds to the
+	// forge and toggles its own visibility, like an AlmanacScreen sub-screen.
 	public void Open(Player player, Forge forge = null, Action onClose = null)
 	{
 		if (player != null)
@@ -116,14 +119,6 @@ public partial class CookingScreen : Control
 		}
 		_forge = forge;
 		_onClose = onClose;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = true;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = false;
-			}
-		}
 		// Make sure a stale announcement from a prior cook isn't visible on
 		// re-open.
 		_cookingPanel?.HideAnnouncement();
@@ -144,14 +139,6 @@ public partial class CookingScreen : Control
 		ReturnInputsIfIdle();
 		DetachFromForge();
 		Visible = false;
-		if (gameClient != null)
-		{
-			gameClient.InputSuppressed = false;
-			if (gameClient.hud != null)
-			{
-				gameClient.hud.Visible = true;
-			}
-		}
 		Action cb = _onClose;
 		_onClose = null;
 		cb?.Invoke();
@@ -159,7 +146,6 @@ public partial class CookingScreen : Control
 
 	void OnVisibilityChanged()
 	{
-		Input.MouseMode = Visible ? Input.MouseModeEnum.Visible : Input.MouseModeEnum.Captured;
 		if (Visible)
 		{
 			_inventoryPanel?.Bind(_player);
@@ -344,15 +330,18 @@ public partial class CookingScreen : Control
 		}
 	}
 
+	// CampScreen owns ui_cancel for closing; intercept it here only while the
+	// count picker is open so the first cancel dismisses the picker rather than
+	// the whole camp screen.
 	public override void _UnhandledInput(InputEvent e)
 	{
 		if (!Visible)
 		{
 			return;
 		}
-		if (e.IsActionPressed("ui_cancel"))
+		if (e.IsActionPressed("ui_cancel") && _dropCountPanel != null && _dropCountPanel.Visible)
 		{
-			Close();
+			CloseCountPanel();
 			GetViewport().SetInputAsHandled();
 		}
 	}

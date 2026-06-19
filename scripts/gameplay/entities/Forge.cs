@@ -7,10 +7,10 @@ using Godot;
 // fx) but the cooking workflow is forge-specific.
 //
 // Interact verb dispatch:
-//   * EActionVerb.Cook on a lit forge → opens the CookingScreen against
-//     this forge. The screen drives StartForgeJob / CancelForgeJob via the
-//     Cook button and reads ForgeSlots / ActiveForgeJob each frame.
-//   * Anything else (or Cook on an unlit forge) → toggles the flame.
+//   * EActionVerb.Camp on a lit forge → opens the CampScreen, whose Cook tab
+//     binds to this forge. That tab drives StartForgeJob / CancelForgeJob and
+//     reads ForgeSlots / ActiveForgeJob each frame.
+//   * Light / Douse → toggles the flame.
 //
 // Cook-job lifecycle:
 //   * StartForgeJob seeds the timer; items stay in ForgeSlots so a Cancel
@@ -51,6 +51,11 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
     [Export] private EForgeType _forgeType;
     // How long (seconds) a single cook job takes.
     [Export] private float _forgeTimeSeconds = 1.5f;
+    // Health restored per in-world hour slept while resting at this fire
+    // (fraction of max). The camp screen's Sleep tab reads it for every rest
+    // duration — a future bed could set a higher rate than a plain campfire.
+    [Export(PropertyHint.Range, "0,1,0.01")] private float _healFractionPerHour = 0.1f;
+    public float HealFractionPerHour => _healFractionPerHour;
     public Vector3 hudPosition => _hudNode.GlobalPosition;
 
     private bool _active = true;
@@ -103,13 +108,13 @@ public partial class Forge : Node3D, IInteractive, IWorldEntity
         {
             return;
         }
-        if (action.verb == EActionVerb.Cook && _active)
+        if (action.verb == EActionVerb.Camp && _active)
         {
             GameClient gc = GameClient.Current;
             Player player = gc?.Player;
-            if (gc?.cookingScreen != null && player != null)
+            if (gc?.campScreen != null && player != null)
             {
-                gc.cookingScreen.Open(player, this);
+                gc.campScreen.Open(player, this);
             }
             return;
         }

@@ -3,10 +3,6 @@
 [ext_resource type="Script" uid="uid://gd5bfwxfy08m" path="res://scripts/data/items/WeaponAnimSet.cs" id="1_animset"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_animdata"]
 
-[sub_resource type="Resource" id="a_attack1"]
-script = ExtResource("2_animdata")
-name = &"attack1"
-
 [sub_resource type="Resource" id="a_dead"]
 script = ExtResource("2_animdata")
 name = &"dead"
@@ -121,10 +117,13 @@ name = &"digging"
 script = ExtResource("2_animdata")
 name = &"throw"
 
+[sub_resource type="Resource" id="a_sitidle"]
+script = ExtResource("2_animdata")
+name = &"sitidle"
+
 [resource]
 script = ExtResource("1_animset")
 overrides = Dictionary[int, ExtResource("2_animdata")]({
-0: SubResource("a_attack1"),
 1: SubResource("a_dead"),
 2: SubResource("a_die"),
 3: SubResource("a_fall"),
@@ -150,6 +149,7 @@ overrides = Dictionary[int, ExtResource("2_animdata")]({
 27: SubResource("a_boat_idle"),
 28: SubResource("a_boat_paddle"),
 36: SubResource("a_digging"),
-37: SubResource("a_throw")
+37: SubResource("a_throw"),
+38: SubResource("a_sitidle")
 })
 metadata/_custom_type_script = "uid://ebr0vht6y6v0e"

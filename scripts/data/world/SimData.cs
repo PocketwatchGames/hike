@@ -137,6 +137,12 @@ public partial class SimData : Resource
     // 0.5 = noon, 0.75 = sunset. Applied when a fresh game is started.
     [Export(PropertyHint.Range, "0,1,0.001")] public float InitialTimeOfDay = 0.3f;
 
+    // Normalized time-of-day of sunrise / sunset (0 = midnight, 0.5 = noon).
+    // Daytime is [SunriseTimeOfDay, SunsetTimeOfDay); the camp screen's "Until
+    // Sunrise/Sunset" rest reads these to pick its label and target time.
+    [Export(PropertyHint.Range, "0,1,0.001")] public float SunriseTimeOfDay = 0.25f;
+    [Export(PropertyHint.Range, "0,1,0.001")] public float SunsetTimeOfDay = 0.75f;
+
     // Sun's elevation above the horizon at noon. 90 = sun passes through
     // zenith; lower values produce a shallower arc (higher-latitude look).
     // Drives both visual sky placement AND the simulation-side

@@ -21,7 +21,6 @@ public partial class StashScreen : Control
 	[Export] private ItemInfoPanel _itemInfoPanelStash;
 	[Export] private ItemInfoPanel _itemInfoPanelInventory;
 
-	GameClient _gameClient;
 	Player _player;
 	List<ItemState> _contents;
 
@@ -114,21 +113,14 @@ public partial class StashScreen : Control
 		}
 	}
 
-	public void Open(Player player, Chest chest)
+	// Stash tab of the camp screen, bound to the global player stash list
+	// (WorldSimState.CampStash) reachable from any campfire. CampScreen owns all
+	// global gating (InputSuppressed, HUD, mouse, camp pose) — this screen just
+	// binds to the contents list and toggles its own visibility.
+	public void Open(Player player, List<ItemState> contents)
 	{
 		_player = player;
-		_contents = chest?.SimState?.Contents;
-		_gameClient = GameClient.Current;
-		if (_gameClient != null)
-		{
-			_gameClient.InputSuppressed = true;
-			if (_gameClient.hud != null)
-			{
-				_gameClient.hud.Visible = false;
-			}
-		}
-		Input.MouseMode = Input.MouseModeEnum.Visible;
-		_player?.ClearInteractive();
+		_contents = contents;
 		ClearSelection();
 		if (_playerInventory != null)
 		{
@@ -164,15 +156,6 @@ public partial class StashScreen : Control
 		ClearAllGhosts();
 		_playerInventory?.Unbind();
 		Visible = false;
-		if (_gameClient != null)
-		{
-			_gameClient.InputSuppressed = false;
-			if (_gameClient.hud != null)
-			{
-				_gameClient.hud.Visible = true;
-			}
-		}
-		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_focusedSlot = null;
 		_focusedItem = null;
 		_focusedPanel = EFocusedPanel.None;
@@ -188,17 +171,14 @@ public partial class StashScreen : Control
 		}
 		if (e.IsActionPressed("ui_cancel"))
 		{
-			// First ui_cancel cancels a pending selection (if any); a clean
-			// state closes the screen.
+			// CampScreen owns ui_cancel for closing; consume it here only to
+			// cancel a pending selection. A clean ui_cancel falls through to the
+			// camp screen, which closes the whole thing.
 			if (InSelectMode)
 			{
 				CancelSelect();
+				GetViewport().SetInputAsHandled();
 			}
-			else
-			{
-				Close();
-			}
-			GetViewport().SetInputAsHandled();
 			return;
 		}
 		// Tertiary (Use) on a stash slot — InventoryPanel handles its own

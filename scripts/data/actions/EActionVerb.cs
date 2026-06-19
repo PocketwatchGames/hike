@@ -11,9 +11,10 @@ public enum EActionVerb
 	// bubble anchored to the speaker. Authored as an InteractiveAction with
 	// verb=Talk on a friendly mob's _interactiveActions array.
 	Talk,
-	// Open the cooking screen against this interactive. Authored on lit
-	// campfires; Torch.Complete branches on this verb and asks GameClient
-	// for the shared CookingScreen instead of toggling the flame.
+	// Legacy direct-cook verb. Cooking now lives as a tab inside the camp
+	// screen (see Camp / CampScreen); lit campfires author Camp instead. Kept
+	// for save-data / combat-log stability and possible future standalone
+	// cook stations.
 	Cook,
 	// Ignite an unlit fire / torch / campfire — the interactive's Complete
 	// flips the active state on and runs the on-fx.
@@ -45,4 +46,7 @@ public enum EActionVerb
 	// Mob.CanRevive). The interactive's Complete restores the mob to life
 	// (alive flag, live collision layers, health), undoing Mob.Die().
 	Revive,
+	// Interact with a camp — opens the camp screen. Authored on campfire
+	// interactives.
+	Camp,
 }

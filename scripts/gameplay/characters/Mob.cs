@@ -1194,7 +1194,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
                 OpenMerchantScreen(trade: true, onClose: null);
                 break;
             case EActionVerb.Revive:
-                Revive();
+                PerformPlayerRevive();
                 break;
         }
     }
@@ -3494,6 +3494,32 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
     }
 
+    // Player health cost to revive this corpse, read by ReviveBloodRequirement
+    // (press-time affordability gate) and PerformPlayerRevive (the spend). 0
+    // when unauthored or no data.
+    public float ReviveHealthCost => mobData?.reviveHealthCost ?? 0f;
+
+    // Player-driven revive (the Revive interactive verb's completion). Spends
+    // the player's blood by reviveHealthCost, then restores the corpse.
+    // ReviveBloodRequirement already gated affordability at press, but the 3s
+    // channel can change the player's health (a hostile striking mid-revive),
+    // so re-check here — a now-unaffordable revive fizzles without draining or
+    // reviving. RecallForSleep calls Revive() directly, bypassing the cost.
+    private void PerformPlayerRevive()
+    {
+        float cost = ReviveHealthCost;
+        if (cost > 0f)
+        {
+            Player player = GameClient.Current?.Player;
+            if (player == null || !player.HasBlood(cost))
+            {
+                return;
+            }
+            player.DrainBlood(cost);
+        }
+        Revive();
+    }
+
     // Bring a dead companion back to life — the resolution of the Revive
     // interactive verb (see Complete). Undoes the state changes Die() made:
     // restores the alive flag, the live collision layers (so the body moves
@@ -3528,6 +3554,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Release the Die one-shot so UpdateAnimation resumes the live
         // idle/locomotion loop instead of holding the death pose.
         _oneShotAnim = null;
+    }
+
+    // Recall the companion to the player's side: revived if it died, healed to
+    // full, and teleported in — regardless of where it wandered or fell. Used by
+    // both the sleep time-skip and player respawn (free of the revive blood cost,
+    // unlike the Revive interactive).
+    public void RecallToPlayer(Vector3 worldPos)
+    {
+        if (!alive)
+        {
+            Revive();
+        }
+        Teleport(worldPos);
+        health = maxHealth;
     }
 
     // Mirrors Chest.Complete's loot ejection: each ItemCount entry on MobData

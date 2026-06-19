@@ -10,8 +10,9 @@
 [ext_resource type="Resource" uid="uid://4bpt8o78bold5" path="res://resources/data/audio/music/sting_night.tres" id="8_sting_night"]
 [ext_resource type="Resource" uid="uid://c8f7s0iiecq91" path="res://resources/data/audio/music/sting_victory.tres" id="9_sting_victory"]
 [ext_resource type="Resource" uid="uid://7y9bnapg19sex" path="res://resources/data/audio/music/sting_death.tres" id="10_sting_death"]
+[ext_resource type="Resource" path="res://resources/data/audio/music/cue_camp.tres" id="11_cue_camp"]
 
 [node name="MusicManager" type="Node"]
 script = ExtResource("1_script")
-cues = [ExtResource("2_cue_menu"), ExtResource("3_cue_loading"), ExtResource("4_cue_combat"), ExtResource("5_cue_explore")]
+cues = [ExtResource("2_cue_menu"), ExtResource("3_cue_loading"), ExtResource("4_cue_combat"), ExtResource("5_cue_explore"), ExtResource("11_cue_camp")]
 stings = [ExtResource("6_sting_sunrise"), ExtResource("7_sting_sunset"), ExtResource("8_sting_night"), ExtResource("9_sting_victory"), ExtResource("10_sting_death")]

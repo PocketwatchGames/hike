@@ -13,6 +13,9 @@ public enum EMusicState
     Explore,
     Combat,
     Death,
+    // Player is resting at a campfire (camp screen open). Set/cleared by
+    // CampScreen via MusicManager.SetCamping; plays the calm camp bed.
+    Camp,
 }
 
 // One row of the music cue table: "while the game is in <state> (optionally

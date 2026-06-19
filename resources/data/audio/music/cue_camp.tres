@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="MusicCueData" format=3]
+
+[ext_resource type="Script" uid="uid://a96obh4382g3d" path="res://scripts/data/audio/MusicCueData.cs" id="1_script"]
+[ext_resource type="Resource" path="res://resources/data/audio/music/track_camp.tres" id="2_track"]
+
+[resource]
+script = ExtResource("1_script")
+state = 6
+track = ExtResource("2_track")
+priority = 90

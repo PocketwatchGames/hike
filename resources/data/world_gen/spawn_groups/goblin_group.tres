@@ -4,16 +4,10 @@
 [ext_resource type="Script" uid="uid://rkgjwcusahdy" path="res://scripts/data/spawn/SpawnEntryData.cs" id="1_rvc63"]
 [ext_resource type="Script" uid="uid://dhkkrl6qof485" path="res://scripts/data/spawn/MobSpawnEntry.cs" id="2_mob_entry"]
 [ext_resource type="Script" uid="uid://bvw45khdp2pvo" path="res://scripts/data/spawn/ChestSpawnEntry.cs" id="3_chest_entry"]
-[ext_resource type="Script" uid="uid://c0bcoj5vlqohu" path="res://scripts/data/spawn/CampfireSpawnEntry.cs" id="4_campfire_entry"]
 [ext_resource type="Resource" uid="uid://cmdgobtorch01" path="res://resources/data/world_gen/mob_descriptors/goblin_torchbearer.tres" id="5_goblin_data"]
 [ext_resource type="PackedScene" uid="uid://4owmi6208pgj" path="res://scenes/interactives/chest.tscn" id="6_chest_scene"]
-[ext_resource type="PackedScene" uid="uid://4hqhwaeg3xwx" path="res://scenes/interactives/campfire.tscn" id="8_campfire_scene"]
 [ext_resource type="Script" uid="uid://ckoqq24nk8tsg" path="res://scripts/data/items/ItemCountRange.cs" id="9_itemrange"]
 [ext_resource type="Resource" uid="uid://b8q3p5krx0tww" path="res://resources/data/items/loot/mushroom_gold.tres" id="10_mushroom"]
-
-[sub_resource type="Resource" id="Resource_campfire_entry"]
-script = ExtResource("4_campfire_entry")
-Scene = ExtResource("8_campfire_scene")
 
 [sub_resource type="Resource" id="Resource_goblin_entry"]
 script = ExtResource("2_mob_entry")
@@ -39,5 +33,5 @@ spawnConditions = 2
 [resource]
 script = ExtResource("1_group")
 ScatterRadius = 5.0
-Entries = Array[ExtResource("1_rvc63")]([SubResource("Resource_campfire_entry"), SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
+Entries = Array[ExtResource("1_rvc63")]([SubResource("Resource_goblin_entry"), SubResource("Resource_chest_entry")])
 SquareMetersPerSpawn = 1000.0

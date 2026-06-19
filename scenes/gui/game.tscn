@@ -7,12 +7,11 @@
 [ext_resource type="PackedScene" uid="uid://dqghp00idjmuy" path="res://scenes/gui/almanac_screen.tscn" id="18_ofv2n"]
 [ext_resource type="Script" uid="uid://b1lq7xv8n3eyk" path="res://scripts/gui/HudEventLog.cs" id="19_eventlog"]
 [ext_resource type="PackedScene" uid="uid://bkaby86guis4d" path="res://scenes/interactives/loot.tscn" id="20_loot"]
-[ext_resource type="PackedScene" uid="uid://bvjwfiiuje7ra" path="res://scenes/gui/cooking_screen.tscn" id="21_hkfxp"]
 [ext_resource type="PackedScene" uid="uid://br0ewj5o2768g" path="res://scenes/gui/merchant_screen.tscn" id="22_merch"]
 [ext_resource type="PackedScene" uid="uid://cucs3jtx7rc61" path="res://scenes/gui/death_screen.tscn" id="23_death"]
-[ext_resource type="PackedScene" uid="uid://cx320q2n7tosj" path="res://scenes/gui/stash_screen.tscn" id="26_5drka"]
 [ext_resource type="PackedScene" uid="uid://bkn63m6xyu5a2" path="res://scenes/gui/upgrade_screen.tscn" id="27_upgrade"]
 [ext_resource type="PackedScene" path="res://scenes/gui/sleep_overlay.tscn" id="28_sleep"]
+[ext_resource type="PackedScene" uid="uid://blq0cn2x7hpke" path="res://scenes/gui/camp_screen.tscn" id="40_30f04"]
 [ext_resource type="AudioStream" uid="uid://csnkhro8jjgy1" path="res://assets/audio/source/player/sfx_birdseye_swoosh.wav" id="birdseye_swoosh_sfx"]
 [ext_resource type="AudioStream" uid="uid://bmnjiu1d5wjoc" path="res://assets/audio/source/ambience/wind/amb_birdseye_wind_loop.wav" id="birdseye_wind_sfx"]
 [ext_resource type="Script" uid="uid://bjcyjqjs04viu" path="res://scripts/client/BirdsEyeController.cs" id="birds_eye_script"]
@@ -81,15 +80,14 @@ volumetric_fog_density = 0.0
 volumetric_fog_albedo = Color(0.9, 0.9, 0.9, 1)
 volumetric_fog_sky_affect = 0.0
 
-[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "cookingScreen", "merchantScreen", "stashScreen", "deathScreen", "sleepOverlay", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
+[node name="GameClient" type="Node3D" unique_id=590494561 node_paths=PackedStringArray("camera", "flyCamera", "hud", "almanacScreen", "merchantScreen", "campScreen", "deathScreen", "sleepOverlay", "upgradeScreen", "worldHUD", "sceneViewport", "sceneEnvironment", "viewportRig", "screenEffects", "minimap", "heatField", "birdsEye", "slowMotion")]
 script = ExtResource("1_mu8e5")
 camera = NodePath("SceneViewport/MainCamera")
 flyCamera = NodePath("FlyCamera")
 hud = NodePath("GUICanvas/HUD")
 almanacScreen = NodePath("GUICanvas/AlmanacScreen")
-cookingScreen = NodePath("GUICanvas/CookingScreen")
 merchantScreen = NodePath("GUICanvas/MerchantScreen")
-stashScreen = NodePath("GUICanvas/StashScreen")
+campScreen = NodePath("GUICanvas/CampScreen")
 deathScreen = NodePath("DeathCanvas/DeathScreen")
 sleepOverlay = NodePath("SleepCanvas/SleepOverlay")
 upgradeScreen = NodePath("GUICanvas/UpgradeScreen")
@@ -381,17 +379,13 @@ _eventLog = NodePath("../../AnnouncementCanvas/MarginContainer/BottomLeft/EventL
 [node name="AlmanacScreen" parent="GUICanvas" unique_id=1182491772 instance=ExtResource("18_ofv2n")]
 visible = false
 
-[node name="CookingScreen" parent="GUICanvas" unique_id=1391817300 node_paths=PackedStringArray("gameClient") instance=ExtResource("21_hkfxp")]
-visible = false
-gameClient = NodePath("../..")
-
 [node name="MerchantScreen" parent="GUICanvas" unique_id=2099428519 instance=ExtResource("22_merch")]
 visible = false
 
-[node name="StashScreen" parent="GUICanvas" unique_id=1337731578 instance=ExtResource("26_5drka")]
+[node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
 visible = false
 
-[node name="UpgradeScreen" parent="GUICanvas" unique_id=1337731579 instance=ExtResource("27_upgrade")]
+[node name="CampScreen" parent="GUICanvas" unique_id=1625914699 instance=ExtResource("40_30f04")]
 visible = false
 
 [node name="AnnouncementCanvas" type="CanvasLayer" parent="." unique_id=1836062187]

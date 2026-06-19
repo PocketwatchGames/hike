@@ -10,12 +10,6 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     // player runs on press; lockpick / break can be authored as additional
     // entries for the radial UI.
     [Export] private Godot.Collections.Array<InteractiveAction> _actions = new();
-    // When true, this chest is a player stash: interaction opens the
-    // StashScreen against Contents instead of ejecting LootItems, and the
-    // chest stays openable across visits (Active is not cleared on
-    // Complete). Authored on the stash chest scene; loot chest scenes
-    // leave this false.
-    [Export] private bool _isStash;
     // Optional perception slot. When wired, the chest stays invisible and
     // non-interactable until Discovered — pops to fully visible once the
     // player notices it. No HUD beat (HudScene on the Discoverable should
@@ -41,16 +35,13 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     private static readonly StringName AnimClosed = "closed";
 
     private bool _open;
-    // Set the first time the chest is opened (loot OR stash). Loot chests also
-    // flip _open (and become non-interactable), but a stash stays reopenable
-    // forever, so this is the signal that suppresses the discovery X-ray once
-    // the player has found and used it — see ShouldShowXray.
+    // Set the first time the chest is opened. Suppresses the discovery X-ray
+    // once the player has found it — see ShouldShowXray.
     private bool _opened;
     private ChestSimState _interactiveState;
     private World _world;
 
     public ChestSimState SimState => _interactiveState;
-    public bool IsStash => _isStash;
 
     public override void _Ready()
     {
@@ -73,9 +64,8 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
     }
 
     // Stop X-raying once the player has opened the chest — they know where it is
-    // now. A loot chest is also covered by CanInteract() (it goes non-interactable
-    // on open), but a stash stays reopenable, so the explicit _opened flag is what
-    // suppresses the silhouette there.
+    // now (CanInteract() also goes false on open; the explicit _opened flag keeps
+    // the silhouette suppressed regardless).
     public bool ShouldShowXray()
     {
         return CanInteract() && !_opened;
@@ -123,24 +113,8 @@ public partial class Chest : Node3D, IInteractive, IWorldEntity
 
     public void Complete(int actionIndex)
     {
-        // Mark "found + used" so the discovery X-ray stops, for loot and stash
-        // alike (the loot branch below also flips _open).
+        // Mark "found + used" so the discovery X-ray stops.
         _opened = true;
-        if (_isStash)
-        {
-            // Stash chests don't eject loot and stay reopenable — interaction
-            // just hands the chest to the StashScreen, which mutates
-            // _interactiveState.Contents directly so changes persist across
-            // chunk eviction and save/load.
-            GameClient gc = GameClient.Current;
-            Player player = gc?.Player;
-            if (gc?.stashScreen != null && player != null)
-            {
-                gc.stashScreen.Open(player, this);
-            }
-            return;
-        }
-
         _open = true;
         _interactiveState.Active = false;
         UpdateVisuals(true);

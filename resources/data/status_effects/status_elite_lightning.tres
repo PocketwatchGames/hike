@@ -13,7 +13,7 @@ tags = 33
 healthDamage = 12.0
 hitstun = 0.2
 statusEffects = []
-buildups = null
+buildups = []
 modifiers = []
 
 [sub_resource type="Resource" id="chainLightning"]
@@ -24,7 +24,7 @@ fx = ExtResource("5_fx")
 
 [sub_resource type="Resource" id="weaponMod"]
 script = ExtResource("6_mod")
-onHitStatusEffects = null
+onHitStatusEffects = []
 chainLightning = SubResource("chainLightning")
 
 [resource]

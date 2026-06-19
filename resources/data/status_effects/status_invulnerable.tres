@@ -12,6 +12,6 @@ metadata/_custom_type_script = "uid://bovyciaikopwb"
 [resource]
 script = ExtResource("1_data")
 displayName = &"Invulnerable"
-modifiers = Array[ExtResource("m_script")]([SubResource("m_damage")])
 duration = 0.2
 removesOnApply = []
+modifiers = Array[ExtResource("m_script")]([SubResource("m_damage")])

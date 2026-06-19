@@ -36,6 +36,12 @@ public class WorldSimState
     // bestiary entry stays. ContainsKey(mob) is the "is discovered?" test.
     public readonly Dictionary<MobData, MobBestiaryEntry> DiscoveredMobs = new();
 
+    // Global player stash — a single shared store the player reaches from the
+    // Stash tab of any campfire's camp screen (there is no physical stash
+    // chest). Capped in practice by the camp StashScreen's slot count. Persisted
+    // by SaveGame alongside the other run-spanning progression here.
+    public readonly List<ItemState> CampStash = new();
+
     // Central bank of named scripting variables — quest progress, world flags
     // (boss defeated), counters — read/written by ScriptVarCondition /
     // ScriptVarTransition / SetScriptVarAction to branch conversations and mob

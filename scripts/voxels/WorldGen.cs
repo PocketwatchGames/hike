@@ -799,32 +799,47 @@ public static class WorldGen
             }
         }
 
-        // Near-spawn test stash. The chest_stash.tscn flips Chest._isStash so
-        // interaction opens the StashScreen; the authored item list is
-        // materialized into ItemStates and seeded into Contents (not
-        // LootItems) so the player finds the stash pre-loaded with starter
-        // items rather than ejecting them on first open.
-        int stashX = genData.NearSpawnStashSpawn.X;
-        int stashZ = genData.NearSpawnStashSpawn.Y;
-        if (genData.NearSpawnStashScene != null
-            && stashX >= stoneWorldMinX && stashX <= stoneWorldMaxX
-            && stashZ >= stoneWorldMinZ && stashZ <= stoneWorldMaxZ)
+        // Campfire fixtures: a home campfire on the spawn column (NE / mountain
+        // zone) plus one per remaining zone, each on a flat column rolled within
+        // its quadrant (NW desert, SE swamp, SW forest — same per-quadrant layout
+        // as the knowledge stones). Spawned lit so the player can immediately
+        // Camp; detail sprites are cleared from the footprint so logs/embers
+        // don't share it. Skipped if no campfire scene is authored.
+        if (genData.NearSpawnCampfireScene != null)
         {
-            int sy = heightMap.GetHeight(stashX, stashZ);
-            var pos = new Vector3(stashX + 0.5f, sy + 1f, stashZ + 0.5f);
-            var stashSim = new ChestSimState(pos, genData.NearSpawnStashScene);
-            if (genData.NearSpawnStashItems != null)
+            const float campfireDetailClearRadius = 2f;
+            void PlaceCampfire(Vector3I col)
             {
-                for (int i = 0; i < genData.NearSpawnStashItems.Length; i++)
+                int sy = heightMap.GetHeight(col.X, col.Z);
+                var pos = new Vector3(col.X + 0.5f, sy + 1f, col.Z + 0.5f);
+                var fire = new ForgeSimState(pos, genData.NearSpawnCampfireScene)
                 {
-                    ItemCount entry = genData.NearSpawnStashItems[i];
-                    if (entry?.descriptor?.item == null || entry.count <= 0) { continue; }
-                    ItemState state = entry.descriptor.CreateState();
-                    state.stackCount = entry.count;
-                    stashSim.Contents.Add(state);
-                }
+                    Active = true,
+                    AutoLightAtNight = false,
+                    HazardRadius = ForgeSimState.DefaultHazardRadius,
+                };
+                ws.AddEntity(fire);
+                ws.ClearDetailVoxelsWithin(pos, campfireDetailClearRadius);
             }
-            ws.AddEntity(stashSim);
+
+            // Home campfire — placed directly on the spawn column (the spawn area
+            // is flat) so it sits right next to the player.
+            int campX = genData.NearSpawnCampfireSpawn.X;
+            int campZ = genData.NearSpawnCampfireSpawn.Y;
+            if (campX >= stoneWorldMinX && campX <= stoneWorldMaxX
+                && campZ >= stoneWorldMinZ && campZ <= stoneWorldMaxZ)
+            {
+                PlaceCampfire(new Vector3I(campX, 0, campZ));
+            }
+
+            // One campfire per remaining zone, on a flat column within each quadrant.
+            var zoneCampfires = new (int x, int z)[] { (-32, 32), (32, -32), (-32, -32) };
+            foreach (var (zx, zz) in zoneCampfires)
+            {
+                if (zx < stoneWorldMinX || zx > stoneWorldMaxX
+                    || zz < stoneWorldMinZ || zz > stoneWorldMaxZ) { continue; }
+                PlaceCampfire(FindFlatDryInZone(zx, zz));
+            }
         }
 
         // Near-spawn test boat. Unlike the land fixtures above it must sit on

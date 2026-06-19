@@ -29,6 +29,7 @@ public partial class SleepOverlay : Control
 
 	GameClient _gameClient;
 	double _sleepHours;
+	double _healFractionPerHour;
 	EState _state = EState.Hidden;
 	float _darkness;
 	// Wall-clock stamp for the fade. _Process delta is scaled by Engine.TimeScale
@@ -45,7 +46,7 @@ public partial class SleepOverlay : Control
 		MouseFilter = MouseFilterEnum.Ignore;
 	}
 
-	public void Show(GameClient gameClient, double hours)
+	public void Show(GameClient gameClient, double hours, double healFractionPerHour)
 	{
 		if (_state != EState.Hidden)
 		{
@@ -53,6 +54,7 @@ public partial class SleepOverlay : Control
 		}
 		_gameClient = gameClient;
 		_sleepHours = hours;
+		_healFractionPerHour = healFractionPerHour;
 		_darkness = 0f;
 		_state = EState.FadingOut;
 		_lastRealMs = Time.GetTicksMsec();
@@ -78,7 +80,7 @@ public partial class SleepOverlay : Control
 				if (_darkness >= 1f)
 				{
 					// Fully black: do the skip now, then wake or hand off.
-					_gameClient?.PerformSleepAdvance(_sleepHours);
+					_gameClient?.PerformSleepAdvance(_sleepHours, _healFractionPerHour);
 					bool died = _gameClient?.PlayerIsDead ?? false;
 					_state = died ? EState.DeathHandoff : EState.FadingIn;
 				}
