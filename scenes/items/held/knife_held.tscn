@@ -1,0 +1,24 @@
+[gd_scene load_steps=5 format=3 uid="uid://j4xvbnrud7p8y"]
+
+[ext_resource type="Script" uid="uid://b7hwld3k9mxq4" path="res://scripts/gameplay/characters/HeldWeapon.cs" id="1_hw"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_blade"]
+metallic = 0.8
+roughness = 0.25
+
+[sub_resource type="BoxMesh" id="BoxMesh_blade"]
+material = SubResource("StandardMaterial3D_blade")
+size = Vector3(0.04, 0.45, 0.012)
+
+[sub_resource type="BoxMesh" id="BoxMesh_grip"]
+size = Vector3(0.05, 0.14, 0.05)
+
+[node name="KnifeHeld" type="Node3D"]
+script = ExtResource("1_hw")
+
+[node name="Grip" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_grip")
+
+[node name="Blade" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.295, 0)
+mesh = SubResource("BoxMesh_blade")
