@@ -44,6 +44,7 @@ impactBackstabEffect = ExtResource("7_hitkill")
 [sub_resource type="Resource" id="Resource_event_heavy"]
 script = ExtResource("3_event")
 type = 65601
+damageProfileKey = &"heavy"
 range = 2.2
 nearWidth = 0.4
 farWidth = 1.8
@@ -90,7 +91,20 @@ addStatusEffects = []
 script = ExtResource("1_damage")
 tags = 1157
 healthDamage = 1.5
-blunt = 0.1
+blunt = 0.0
+hitstun = 0.15
+knockbackDistance = 0.2
+knockbackTime = 0.15
+statusEffects = []
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+
+[sub_resource type="Resource" id="Resource_damage_heavy"]
+script = ExtResource("1_damage")
+tags = 1157
+healthDamage = 1.5
+armorPenetration = 0.85
+blunt = 0.0
 hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
@@ -101,7 +115,8 @@ modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), 
 [resource]
 script = ExtResource("2_weapon")
 damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
-&"primary": SubResource("Resource_damage")
+&"primary": SubResource("Resource_damage"),
+&"heavy": SubResource("Resource_damage_heavy")
 })
 actionProfile = SubResource("Resource_profile")
 animSet = ExtResource("20_animset")
