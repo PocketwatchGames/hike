@@ -1,0 +1,112 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://visf3yhm233za"]
+
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="1_damage"]
+[ext_resource type="Script" uid="uid://bjryk6qlmyyo4" path="res://scripts/data/combat/DamageDataModifier.cs" id="1_modifier"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="2_weapon"]
+[ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="3_area"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
+[ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_effect"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
+[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="7_hitcreature"]
+[ext_resource type="PackedScene" uid="uid://g2qnx2aoo0cy" path="res://scenes/fx/fists_kill.tscn" id="7_hitkill"]
+[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_hitsolid"]
+[ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/fx/fists_attack_heavy.tscn" id="8_atkheavy"]
+[ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
+[ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_req"]
+[ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_continuous"]
+[ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/Knife.png" id="15_sprite"]
+[ext_resource type="PackedScene" uid="uid://j4xvbnrud7p8y" path="res://scenes/items/held/knife_held.tscn" id="17_held"]
+[ext_resource type="Resource" uid="uid://bswd4n1msetq7" path="res://resources/data/characters/human/anim_sets/sword.tres" id="20_animset"]
+
+[sub_resource type="Resource" id="Resource_event_light"]
+script = ExtResource("3_event")
+type = 65
+range = 2.0
+nearWidth = 0.4
+farWidth = 1.6
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_charged_light"]
+script = ExtResource("4_charged")
+chargeTime = 0.0
+cooldownSeconds = 0.15
+staminaCost = 3.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
+comboWindowMs = 500
+releaseEffect = ExtResource("8_atklight")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_event_heavy"]
+script = ExtResource("3_event")
+type = 65601
+range = 2.2
+nearWidth = 0.4
+farWidth = 1.8
+animName = 20
+cameraShakeMagnitude = 0.12
+impactEnvironmentEffect = ExtResource("7_hitsolid")
+impactHealthEffect = ExtResource("7_hitcreature")
+impactArmorEffect = ExtResource("7_hitsolid")
+impactLethalEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_charged_heavy"]
+script = ExtResource("4_charged")
+chargeTime = 0.2
+cooldownSeconds = 0.3
+staminaCost = 6.0
+events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
+releaseEffect = ExtResource("8_atkheavy")
+impactCritEffect = ExtResource("7_hitkill")
+impactBackstabEffect = ExtResource("7_hitkill")
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("5_profile")
+chargedActions = Array[ExtResource("4_charged")]([SubResource("Resource_charged_light"), SubResource("Resource_charged_heavy")])
+autoActivateAtMax = false
+queueable = true
+queueWindowSeconds = 0.15
+
+[sub_resource type="Resource" id="Resource_mod_crit"]
+script = ExtResource("1_modifier")
+overrides = 9
+healthDamage = 3.0
+knockbackDistance = 1.0
+addStatusEffects = []
+
+[sub_resource type="Resource" id="Resource_mod_backstab"]
+script = ExtResource("1_modifier")
+trigger = 2
+overrides = 65
+healthDamage = 18.0
+armorPenetration = 1.0
+addStatusEffects = []
+
+[sub_resource type="Resource" id="Resource_damage"]
+script = ExtResource("1_damage")
+tags = 1157
+healthDamage = 1.5
+blunt = 0.1
+hitstun = 0.15
+knockbackDistance = 0.2
+knockbackTime = 0.15
+statusEffects = []
+buildups = []
+modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
+
+[resource]
+script = ExtResource("2_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("1_damage")]({
+&"primary": SubResource("Resource_damage")
+})
+actionProfile = SubResource("Resource_profile")
+animSet = ExtResource("20_animset")
+displayName = &"Knife"
+description = "A light, fast blade. Devastating when struck from behind."
+value = 60
+inventorySprite = ExtResource("15_sprite")
+heldModel = ExtResource("17_held")

@@ -21,6 +21,7 @@
 [ext_resource type="Resource" uid="uid://cp3rcb0wq7mxn2" path="res://resources/data/status_effects/items/status_weapon_charged_pierce.tres" id="23_pierce"]
 [ext_resource type="Resource" uid="uid://dq4mw8k2vx7nb" path="res://resources/data/status_effects/items/status_weapon_flaming.tres" id="24_flaming"]
 [ext_resource type="Resource" uid="uid://cwqfrv0c27v5x" path="res://resources/data/items/weapons/summoner.tres" id="30_summoner"]
+[ext_resource type="Resource" uid="uid://visf3yhm233za" path="res://resources/data/items/weapons/knife.tres" id="31_knife"]
 
 [sub_resource type="Resource" id="Desc_club"]
 script = ExtResource("20_desc")
@@ -136,10 +137,20 @@ script = ExtResource("3_itemcount")
 descriptor = SubResource("Desc_summoner")
 metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
+[sub_resource type="Resource" id="Desc_knife"]
+script = ExtResource("20_desc")
+item = ExtResource("31_knife")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_knife"]
+script = ExtResource("3_itemcount")
+descriptor = SubResource("Desc_knife")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
 [resource]
 script = ExtResource("1_pspawn")
 playerName = "Mischa"
 equippedInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_club"), SubResource("Resource_bomb"), SubResource("Resource_furcoat"), SubResource("Resource_afcr5")])
 startingConsumables = Array[ExtResource("2_consumable_script")]([ExtResource("6_torch"), ExtResource("7_potion"), ExtResource("17_shovel")])
-startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")])
+startingInventory = Array[ExtResource("3_itemcount")]([SubResource("Resource_knife"), SubResource("Resource_jl16k"), SubResource("Resource_ntk62"), SubResource("Resource_helmgosbark"), SubResource("Resource_helmglimp"), SubResource("Resource_summoner")])
 initialKnowledge = Array[ExtResource("3_teachable")]([SubResource("Resource_know_potion")])
