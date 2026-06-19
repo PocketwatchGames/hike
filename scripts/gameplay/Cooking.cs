@@ -15,6 +15,14 @@ using Godot.Collections;
 //     ingredients (low > 0) must appear in the inputs.
 //   * The inputs must contain NO ingredient kinds outside the recipe.
 //
+// Ingredient identity is matched up the ItemData.parent chain: a supplied
+// stack is credited to its item AND every ancestor, so a recipe input naming
+// a parent (e.g. goblin_meat) is satisfied by any descendant (forest /
+// desert goblin meat), while a recipe naming the descendant stays specific.
+// An item counts as "outside the recipe" only when neither it nor any of its
+// ancestors is named — so a subspecies meat the recipe never mentions is
+// still allowed when its parent species meat is an authored ingredient.
+//
 // Tier variation (standard vs high-quality output) is expressed by separate
 // RecipeData files, not by a per-match quality flag. When multiple recipes
 // match the same inputs, the recipe with the highest authored `priority`
@@ -39,7 +47,12 @@ public static class Cooking
 		{
 			return default;
 		}
+		// Credit each supplied stack to its item and every ancestor so an input
+		// naming any level of the chain sees the aggregated count. suppliedKinds
+		// tracks only the physically-supplied items, for the extra-ingredient
+		// rejection below (which must not trip on credited ancestors).
 		var totals = new System.Collections.Generic.Dictionary<ItemData, int>();
+		var suppliedKinds = new System.Collections.Generic.HashSet<ItemData>();
 		for (int i = 0; i < inputs.Count; i++)
 		{
 			ItemState s = inputs[i];
@@ -47,10 +60,14 @@ public static class Cooking
 			{
 				continue;
 			}
-			totals.TryGetValue(s.data, out int existing);
-			totals[s.data] = existing + s.stackCount;
+			suppliedKinds.Add(s.data);
+			foreach (ItemData kind in Chain(s.data))
+			{
+				totals.TryGetValue(kind, out int existing);
+				totals[kind] = existing + s.stackCount;
+			}
 		}
-		if (totals.Count == 0)
+		if (suppliedKinds.Count == 0)
 		{
 			return default;
 		}
@@ -60,7 +77,7 @@ public static class Cooking
 		for (int r = 0; r < recipes.Count; r++)
 		{
 			RecipeData recipe = recipes[r];
-			if (!Matches(recipe, totals, forgeType))
+			if (!Matches(recipe, totals, suppliedKinds, forgeType))
 			{
 				continue;
 			}
@@ -75,7 +92,7 @@ public static class Cooking
 		return bestRecipe != null ? new MatchResult(bestRecipe) : default;
 	}
 
-	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, EForgeType forgeType)
+	static bool Matches(RecipeData recipe, System.Collections.Generic.Dictionary<ItemData, int> totals, System.Collections.Generic.HashSet<ItemData> suppliedKinds, EForgeType forgeType)
 	{
 		if (recipe?.inputs == null || recipe.inputs.Count == 0)
 		{
@@ -106,25 +123,45 @@ public static class Cooking
 				return false;
 			}
 		}
-		// Reject if the player has piled in an ingredient kind this recipe
-		// doesn't author.
-		foreach (ItemData kind in totals.Keys)
+		// Reject if the player has piled in a supplied item this recipe doesn't
+		// author — at any level of its parent chain (a subspecies meat is fine
+		// when the recipe names its species meat).
+		foreach (ItemData kind in suppliedKinds)
 		{
-			bool found = false;
-			for (int i = 0; i < recipe.inputs.Count; i++)
-			{
-				if (recipe.inputs[i]?.item == kind)
-				{
-					found = true;
-					break;
-				}
-			}
-			if (!found)
+			if (!CoveredBy(recipe, kind))
 			{
 				return false;
 			}
 		}
 		return true;
+	}
+
+	// True if the supplied item or any of its ancestors is an authored
+	// ingredient of the recipe.
+	static bool CoveredBy(RecipeData recipe, ItemData kind)
+	{
+		foreach (ItemData d in Chain(kind))
+		{
+			for (int i = 0; i < recipe.inputs.Count; i++)
+			{
+				if (recipe.inputs[i]?.item == d)
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Walks an item's parent chain, the item itself first, guarding against
+	// authoring cycles.
+	static System.Collections.Generic.IEnumerable<ItemData> Chain(ItemData item)
+	{
+		var seen = new System.Collections.Generic.HashSet<ItemData>();
+		for (ItemData d = item; d != null && seen.Add(d); d = d.parent)
+		{
+			yield return d;
+		}
 	}
 
 	// Sum of per-ingredient range. Lower = more specific. A recipe with
