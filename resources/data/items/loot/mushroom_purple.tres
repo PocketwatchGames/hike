@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="2_ythwi"]
 [ext_resource type="Texture2D" uid="uid://bnhpbdnlt5ur0" path="res://assets/textures/items/MushroomPurple.png" id="3_ythwi"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/mushroom.tres" id="4_parent"]
 
 [resource]
 script = ExtResource("2_ythwi")
@@ -9,3 +10,4 @@ displayName = &"Purple Mushroom"
 maxStack = 99
 value = 1
 inventorySprite = ExtResource("3_ythwi")
+parent = ExtResource("4_parent")

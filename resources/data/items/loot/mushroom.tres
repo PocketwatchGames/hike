@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="ItemData" format=3]
+
+[ext_resource type="Script" uid="uid://ct3276hu7bc1v" path="res://scripts/data/items/ItemData.cs" id="1_item_data"]
+
+[resource]
+script = ExtResource("1_item_data")
+displayName = &"Mushroom"
+maxStack = 99
