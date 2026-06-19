@@ -48,7 +48,8 @@ locksMovement = true
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 1157
-healthDamage = 5.0
+healthDamage = 3.0
+aggroMultiplier = 0.5
 blunt = 0.2
 hitstun = 0.25
 knockbackDistance = 0.6
