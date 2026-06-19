@@ -31,6 +31,17 @@ public partial class ItemData : Resource
 	// Meat | Food). See EItemType and MobData.itemPreferences.
 	[Export] public EItemType typeTags = EItemType.None;
 
+	// Optional "is-a" link to a more general item, walked by the recipe matcher
+	// (Cooking.TryMatch): a recipe input naming a parent is satisfied by any
+	// descendant, while one naming the descendant stays specific. e.g.
+	// forest_goblin_meat.parent = goblin_meat lets a "needs goblin meat" recipe
+	// accept any goblin subspecies meat. The parent is itself a real item (a
+	// plain goblin can drop goblin_meat directly). This is ONLY a recipe
+	// substitution relationship — it does NOT inherit field values (sprite,
+	// value, etc. are authored per item). Chains may be any depth; cycles are
+	// guarded against. Keep a chain within one ItemData subclass.
+	[Export] public ItemData parent;
+
 	// Optional 3D prop shown in the player's hand while this item is the one
 	// being wielded / used — the sword that pops in when you swing, the potion
 	// that appears while you drink. Distinct from the 2D inventorySprite /
