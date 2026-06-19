@@ -199,6 +199,62 @@ public partial class MusicManager : Node
         _camping = camping;
     }
 
+    // Called when the player wakes from a camp sleep (GameClient.EndSleep). If the
+    // skipped span crossed a sunrise / sunset / nightfall threshold, punctuate the
+    // wake with that time-of-day sting — the same cue a natural crossing fires (a
+    // big sleep jump is otherwise ignored by PollTimeOfDayStings). Either way, arm
+    // the explore bed so ambient music resumes once camp ends. todBefore is the
+    // normalized time-of-day at sleep start; hoursAdvanced is the in-world span
+    // actually slept.
+    public void OnCampSleepWake(double todBefore, double hoursAdvanced)
+    {
+        // Explore is the fallback ambient bed after camp (lowest priority, so the
+        // camp bed keeps playing until the player leaves).
+        _exploreActive = true;
+
+        double span = hoursAdvanced / 24.0;
+        if (span <= 0.0)
+        {
+            return;
+        }
+        bool crossed = span >= 1.0
+            || ThresholdCrossed(todBefore, span, sunriseTimeOfDay)
+            || ThresholdCrossed(todBefore, span, sunsetTimeOfDay)
+            || ThresholdCrossed(todBefore, span, nightTimeOfDay);
+        if (!crossed)
+        {
+            return;
+        }
+        double tod = World.Current?.WorldState?.TimeOfDay01 ?? todBefore;
+        PlaySting(PhaseSting(tod));
+    }
+
+    // Does the forward arc of length `span` (in days) starting at todBefore pass
+    // the normalized threshold `t`? span >= 1 (handled by the caller) crosses
+    // everything; here span < 1.
+    private static bool ThresholdCrossed(double todBefore, double span, double t)
+    {
+        double d = t - todBefore;
+        d -= System.Math.Floor(d);
+        return d < span;
+    }
+
+    // The time-of-day sting matching the phase the wake time falls in: daytime →
+    // the morning cue, the brief dusk band → sunset, otherwise (deep night /
+    // pre-dawn) → night.
+    private EMusicSting PhaseSting(double tod)
+    {
+        if (tod >= sunriseTimeOfDay && tod < sunsetTimeOfDay)
+        {
+            return EMusicSting.Sunrise;
+        }
+        if (tod >= sunsetTimeOfDay && tod < nightTimeOfDay)
+        {
+            return EMusicSting.Sunset;
+        }
+        return EMusicSting.Night;
+    }
+
     // (Re)spawn clears the death state so explore / combat beds resume.
     private void OnPlayerSpawned(Player player)
     {
