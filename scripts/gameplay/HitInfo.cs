@@ -59,13 +59,13 @@ public struct HitInfo
 	// discrete `ArmorPenetrated` path; > 0 = continuous-style split. Discrete
 	// hits leave this at 0.
 	public float armorBypassFraction;
-	public Godot.Collections.Array<StatusEffectData> statusEffects;
-	// Per-hit buildup contributions sourced from DamageData.buildups /
-	// ContinuousDamageData.buildups. Receivers fold each entry into the per-
-	// effect buildup meter; the meter, decay timing, and apply trigger live on
-	// the StatusEffectData itself. Continuous-damage hits pre-scale `amount`
-	// by delta so the rate authored on ContinuousDamageData.buildups is
-	// integrated correctly when applied as a one-frame chunk.
+	// Per-hit effect contributions sourced from DamageData.buildups /
+	// ContinuousDamageData.buildups (plus modifier / weapon-mod folds). Receivers
+	// apply each entry immediately or fold it into the per-effect buildup meter
+	// per StatusEffectBuildup.applyImmediately; the meter, decay timing, and apply
+	// trigger live on the StatusEffectData itself. Continuous-damage hits pre-
+	// scale `amount` by delta so the rate authored on ContinuousDamageData.buildups
+	// is integrated correctly when applied as a one-frame chunk.
 	public Godot.Collections.Array<StatusEffectBuildup> buildups;
 	// Scalar applied to every buildup entry's `amount` at apply time. Discrete
 	// hits leave this at 1; the continuous-damage constructor sets it to the
@@ -104,13 +104,8 @@ public struct HitInfo
 	// attacker walking the receiver's tree. Defaults to Hostile when a sender
 	// doesn't set it (only matters for senders that actually gate).
 	public ETeam attackerTeam;
-	// Tracks whether `statusEffects` has been cloned away from the source
-	// template's array. The first AddStatusEffects fold allocates a fresh
-	// list so we don't mutate the authored DamageData; subsequent folds
-	// reuse the owned copy.
-	private bool _statusEffectsOwned;
-	// Same copy-on-first-write guard for `buildups` — the first AddBuildups
-	// fold clones the authored list before appending.
+	// Copy-on-first-write guard for `buildups` — the first AddBuildups fold
+	// clones the authored list before appending so the template is never mutated.
 	private bool _buildupsOwned;
 
 	public HitInfo(DamageData template, Node source, Vector3 hitDirection = default, ETeam attackerTeam = ETeam.Hostile)
@@ -118,7 +113,6 @@ public struct HitInfo
 		this.source = source;
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
-		_statusEffectsOwned = false;
 		_buildupsOwned = false;
 		// Roll armor penetration + crit once up-front so the prediction and the
 		// apply see the same outcome even though modifiers may shift the
@@ -136,7 +130,6 @@ public struct HitInfo
 			knockbackTime = template.knockbackTime;
 			armorPenetration = template.armorPenetration;
 			blunt = template.blunt;
-			statusEffects = template.statusEffects;
 			buildups = template.buildups;
 			modifiers = template.modifiers;
 			dot = template.dot;
@@ -152,7 +145,6 @@ public struct HitInfo
 			knockbackTime = 0f;
 			armorPenetration = 0f;
 			blunt = 0f;
-			statusEffects = null;
 			buildups = null;
 			modifiers = null;
 			dot = false;
@@ -174,7 +166,6 @@ public struct HitInfo
 		this.source = source;
 		this.hitDirection = hitDirection;
 		this.attackerTeam = attackerTeam;
-		_statusEffectsOwned = false;
 		_buildupsOwned = false;
 		armorPenetrationRoll = GD.Randf();
 		critRoll = GD.Randf();
@@ -202,7 +193,6 @@ public struct HitInfo
 		knockbackDistance = 0f;
 		knockbackTime = 0f;
 		armorPenetration = 0f;
-		statusEffects = null;
 		modifiers = null;
 		dot = true;
 		friendlyFire = false;
@@ -237,10 +227,6 @@ public struct HitInfo
 			if ((f & EDamageFields.KnockbackTime) != 0) { knockbackTime = mod.knockbackTime; }
 			if ((f & EDamageFields.ArmorPenetration) != 0) { armorPenetration = mod.armorPenetration; }
 			if ((f & EDamageFields.Blunt) != 0) { blunt = mod.blunt; }
-			if ((f & EDamageFields.AddStatusEffects) != 0)
-			{
-				AddStatusEffects(mod.addStatusEffects);
-			}
 			if ((f & EDamageFields.AddBuildups) != 0)
 			{
 				AddBuildups(mod.addBuildups);
@@ -248,41 +234,12 @@ public struct HitInfo
 		}
 	}
 
-	// Append status effects to this hit (conditional-modifier adds, weapon-mod
-	// on-hit enchants like a Flaming weapon's Burning). Copies the source
-	// template's array on first write so the authored DamageData.statusEffects
-	// list is never mutated; subsequent appends reuse the owned copy.
-	public void AddStatusEffects(Godot.Collections.Array<StatusEffectData> extra)
-	{
-		if (extra == null || extra.Count == 0)
-		{
-			return;
-		}
-		if (!_statusEffectsOwned)
-		{
-			var copy = new Godot.Collections.Array<StatusEffectData>();
-			if (statusEffects != null)
-			{
-				for (int j = 0; j < statusEffects.Count; j++)
-				{
-					copy.Add(statusEffects[j]);
-				}
-			}
-			statusEffects = copy;
-			_statusEffectsOwned = true;
-		}
-		for (int j = 0; j < extra.Count; j++)
-		{
-			statusEffects.Add(extra[j]);
-		}
-	}
-
-	// Append buildup contributions to this hit (conditional-modifier adds like
-	// a backstab's extra dizzy buildup). Copies the source template's array on
-	// first write so the authored DamageData.buildups list is never mutated;
-	// subsequent appends reuse the owned copy. Folds fire before the receiver's
-	// ApplyHitBuildups pass (OnBackstab/OnCrit in Mob.Hit), so appended entries
-	// land on the same swing.
+	// Append effect contributions to this hit (conditional-modifier adds like a
+	// backstab's extra dizzy buildup, weapon-mod on-hit enchants like a Flaming
+	// weapon's Burning). Copies the source template's array on first write so the
+	// authored DamageData.buildups list is never mutated; subsequent appends reuse
+	// the owned copy. Folds fire before the receiver's ApplyHitBuildups pass
+	// (OnBackstab/OnCrit in Mob.Hit), so appended entries land on the same swing.
 	public void AddBuildups(Godot.Collections.Array<StatusEffectBuildup> extra)
 	{
 		if (extra == null || extra.Count == 0)

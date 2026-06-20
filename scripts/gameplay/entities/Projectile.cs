@@ -107,9 +107,10 @@ public partial class Projectile : Node3D
 	// (_source) as healing. Composed at fire time from the weapon's vampiric mods.
 	// 0 = no lifesteal.
 	private float _lifestealFraction;
-	// On-hit status effects (weapon-mod enchants like Burning) appended to every
-	// creature this shot strikes. Null when the shot carries no enchant.
-	private Godot.Collections.Array<StatusEffectData> _onHitStatusEffects;
+	// On-hit effect contributions (weapon-mod enchants — Burning applied
+	// immediately, Poison buildup) added to every creature this shot strikes.
+	// Null when the shot carries no enchant.
+	private Godot.Collections.Array<StatusEffectBuildup> _onHitBuildups;
 	// Chain-lightning mods (Shocking bow) that discharge from each creature this
 	// shot strikes. Null when the shot carries none.
 	private Godot.Collections.Array<ChainLightningData> _chainLightning;
@@ -150,11 +151,11 @@ public partial class Projectile : Node3D
 		float friction = 0f,
 		int pierceCount = 0,
 		float lifestealFraction = 0f,
-		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null,
 		Godot.Collections.Array<ChainLightningData> chainLightning = null,
 		float knockbackBonus = 0f,
 		float knockbackTimeBonus = 0f,
-		Godot.Collections.Array<PackedScene> projectileFx = null)
+		Godot.Collections.Array<PackedScene> projectileFx = null,
+		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null)
 	{
 		if (scene == null || parent == null)
 		{
@@ -163,7 +164,7 @@ public partial class Projectile : Node3D
 		var inst = scene.Instantiate<Projectile>();
 		inst._pierceRemaining = Mathf.Max(0, pierceCount);
 		inst._lifestealFraction = lifestealFraction;
-		inst._onHitStatusEffects = onHitStatusEffects;
+		inst._onHitBuildups = onHitBuildups;
 		inst._chainLightning = chainLightning;
 		inst._knockbackBonus = knockbackBonus;
 		inst._knockbackTimeBonus = knockbackTimeBonus;
@@ -336,9 +337,10 @@ public partial class Projectile : Node3D
 					{
 						var hit = new HitInfo(_damageData, _source, _velocity.Normalized(), _attackerTeam);
 						hit.friendlyFire = _friendlyFire;
-						// Weapon-mod on-hit enchants (Burning) the shot carries, on
-						// top of the DamageData's own statusEffects.
-						hit.AddStatusEffects(_onHitStatusEffects);
+						// Weapon-mod on-hit effects (Burning applied immediately,
+						// Poison buildup) the shot carries, on top of the
+						// DamageData's own buildups.
+						hit.AddBuildups(_onHitBuildups);
 						// Knockback mod — extra shove + stagger. The shot's flight
 						// direction is already the hit direction, so the push aligns
 						// with the arrow's travel.

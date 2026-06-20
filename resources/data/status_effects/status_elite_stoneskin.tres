@@ -1,0 +1,23 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cnfhynpg06w6l"]
+
+[ext_resource type="Texture2D" uid="uid://b5t33j2cqwfih" path="res://assets/textures/status_effects/strength.png" id="1_mxkat"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_5utst"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="2_j1wj3"]
+
+[sub_resource type="Resource" id="Resource_m0eo0"]
+script = ExtResource("2_j1wj3")
+stat = 134217728
+value = 15.0
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("2_5utst")
+icon = ExtResource("1_mxkat")
+displayName = &"Stoneskin"
+description = "Stoneskin!"
+category = 4
+tags = 32
+maxStack = 1
+removesOnApply = []
+modifiers = [SubResource("Resource_m0eo0")]
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

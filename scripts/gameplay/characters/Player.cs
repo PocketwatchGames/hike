@@ -1133,7 +1133,7 @@ public partial class Player : CharacterBody3D
 		// that did nothing.
 		ApplyResistance(ref hit);
 		float incomingDamage = hit.healthDamage;
-		if (incomingDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
+		if (incomingDamage <= 0f && hit.buildups == null)
 		{
 			return;
 		}
@@ -1266,19 +1266,17 @@ public partial class Player : CharacterBody3D
 			}
 		}
 
-		if (hit.statusEffects != null)
+		// On-hit effects — immediate-apply entries land now, the rest funnel
+		// into the per-effect meter, folding any applyTrigger from a crossed
+		// threshold back onto the hit before hitstun/knockback resolution so an
+		// OnDizzy modifier can amplify those reads on the same hit that landed
+		// dizzy. Skipped when this hit was lethal (`_health` already reduced
+		// above): a dead player shouldn't accrue meters or catch fire/poison,
+		// matching the `_health > 0f` gate on the knockback reads below.
+		if (_health > 0f)
 		{
-			for (int i = 0; i < hit.statusEffects.Count; i++)
-			{
-				AddStatusEffect(hit.statusEffects[i]);
-			}
+			_statusEffects?.ApplyHitBuildups(ref hit);
 		}
-
-		// Buildup contributions — funnel each entry into the receiver's per-
-		// effect meter and fold any applyTrigger from a crossed threshold back
-		// onto the hit before hitstun/knockback resolution so an OnDizzy
-		// modifier can amplify those reads on the same hit that landed dizzy.
-		_statusEffects?.ApplyHitBuildups(ref hit);
 
 		// Hitstun + knockback: latch the flinch + knockback windows so
 		// per-frame ticks can count them down. Direction comes from the

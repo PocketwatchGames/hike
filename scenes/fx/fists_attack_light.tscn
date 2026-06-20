@@ -1,30 +1,6 @@
 [gd_scene format=3 uid="uid://l2a2i3yh3emq"]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_oneshot"]
-[ext_resource type="AudioStream" uid="uid://cbxbb1vr653eo" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_01.wav" id="2_a01"]
-[ext_resource type="AudioStream" uid="uid://c6hljhitxuouw" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_02.wav" id="2_a02"]
-[ext_resource type="AudioStream" uid="uid://dh3bghpyja2gg" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_03.wav" id="2_a03"]
-[ext_resource type="AudioStream" uid="uid://dblp07h5lvivk" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_04.wav" id="2_a04"]
-[ext_resource type="AudioStream" uid="uid://xitbl4mbpggw" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_05.wav" id="2_a05"]
-[ext_resource type="AudioStream" uid="uid://bl26cgfm0yspv" path="res://assets/audio/source/weapons/sfx_weapon_fist_attack_06.wav" id="2_a06"]
-
-[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_fistatklight"]
-playback_mode = 1
-random_pitch = 1.1
-random_volume_offset_db = 2.0
-streams_count = 6
-stream_0/stream = ExtResource("2_a01")
-stream_1/stream = ExtResource("2_a02")
-stream_2/stream = ExtResource("2_a03")
-stream_3/stream = ExtResource("2_a04")
-stream_4/stream = ExtResource("2_a05")
-stream_5/stream = ExtResource("2_a06")
 
 [node name="FistAttackLight" type="Node3D" unique_id=632207684]
 script = ExtResource("1_oneshot")
-
-[node name="Audio" type="AudioStreamPlayer3D" parent="." unique_id=1891670281]
-stream = SubResource("AudioStreamRandomizer_fistatklight")
-unit_size = 6.0
-max_distance = 35.0
-bus = &"World3D"

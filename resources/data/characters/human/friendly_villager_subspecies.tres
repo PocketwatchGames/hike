@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://cssvillager01"]
+
+[ext_resource type="Script" uid="uid://k6zxjx57f8xha" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
+[ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/human/friendly_villager.tres" id="2_mob"]
+
+[resource]
+script = ExtResource("1_sub")
+mob = ExtResource("2_mob")
+metadata/_custom_type_script = "uid://k6zxjx57f8xha"

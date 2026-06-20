@@ -865,6 +865,25 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "0.1,5,0.1")] public float CompanionRescueSampleSeconds = 1f;
     [Export(PropertyHint.Range, "1,64,1")] public int CompanionRescueHistoryCount = 16;
 
+    // Distance backstop for the catch-up rescue. A FOLLOWING companion (not one
+    // commanded to stay) that stays farther than CompanionRescueMaxDistance from
+    // the player for CompanionRescueMaxDistanceGraceSeconds is snapped onto the
+    // breadcrumb trail even while still on a resident chunk — so a dog that fell
+    // behind or wedged on geometry catches up at this gap instead of trailing
+    // off to the edge of the loaded world before the residency rescue fires.
+    // Keep above the follow behavior's catchUpRadius so the dog gets a chance to
+    // run the gap closed before teleporting.
+    [Export(PropertyHint.Range, "5,100,1")] public float CompanionRescueMaxDistance = 30f;
+    [Export(PropertyHint.Range, "0,10,0.1")] public float CompanionRescueMaxDistanceGraceSeconds = 1.5f;
+
+    // Where on the trail a rescued companion is placed: the YOUNGEST (most
+    // recent) still-loaded breadcrumb at least this far behind the player, so
+    // the pet reappears just off-screen behind them and can resume following —
+    // rather than at the far end of the trail, which would re-strand it the
+    // instant the player keeps moving. Falls back to the oldest loaded crumb
+    // when none is this far back (the player has barely moved).
+    [Export(PropertyHint.Range, "1,50,1")] public float CompanionRescueRelocateDistance = 15f;
+
     [ExportGroup("Footprints")]
     // Template material for the batched footprint MultiMesh. FootprintScatter
     // duplicates it once per actor footprint texture (binding that texture's

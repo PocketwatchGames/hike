@@ -70,7 +70,6 @@ script = ExtResource("1_modifier")
 overrides = 9
 healthDamage = 3.0
 knockbackDistance = 1.0
-addStatusEffects = []
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
@@ -79,7 +78,6 @@ trigger = 2
 overrides = 65
 healthDamage = 18.0
 armorPenetration = 1.0
-addStatusEffects = []
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage_heavy"]
@@ -90,7 +88,6 @@ armorPenetration = 0.85
 hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
-statusEffects = []
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 
@@ -101,7 +98,6 @@ healthDamage = 3.0
 hitstun = 0.15
 knockbackDistance = 0.2
 knockbackTime = 0.15
-statusEffects = []
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 

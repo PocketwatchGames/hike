@@ -48,6 +48,20 @@ public partial class WanderFollowBehaviorData : BehaviorData
     // faster than the amble so the dog can actually close on a moving player.
     [Export(PropertyHint.Range, "0,1,0.01")] public float catchUpSpeed = 1.0f;
 
+    // When a moving player pulls farther than this from the dog, the dog drops
+    // the leisurely wander/sniff cadence and beelines after the player's live
+    // position until it's back within this radius — then normal wandering (and
+    // sniffing) resume. Keep above wanderRadius so ordinary orbiting around the
+    // player doesn't trip it. Below SimData.CompanionRescueMaxDistance so the
+    // dog gets to run the gap closed before the teleport backstop fires.
+    [Export] public float catchUpRadius = 14.0f;
+
+    // During catch-up the chase goal is re-issued only after the player has
+    // moved this far from the current goal. Re-issuing resets the navigator's
+    // repath throttle, so tying this to roughly (player speed × repath interval)
+    // keeps the chase from forcing a full grid resample every frame.
+    [Export] public float catchUpRetargetDistance = 4.0f;
+
     // The player counts as "moving" until they've stayed within this radius of
     // a fixed anchor for stopGraceSeconds — debounces tiny position jitter.
     [Export] public float playerStillRadius = 0.4f;

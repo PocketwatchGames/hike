@@ -86,7 +86,6 @@ queueWindowSeconds = 0.0
 script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 5.0
-addStatusEffects = []
 metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
 [sub_resource type="Resource" id="Resource_oap68"]
@@ -97,7 +96,6 @@ armorPenetration = 1.0
 hitstun = 0.25
 knockbackDistance = 1.5
 knockbackTime = 0.25
-statusEffects = []
 buildups = []
 modifiers = Array[Object]([SubResource("Resource_sx562")])
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
@@ -106,7 +104,6 @@ metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 5.0
-addStatusEffects = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")
@@ -115,7 +112,6 @@ healthDamage = 3.0
 hitstun = 0.25
 knockbackDistance = 0.5
 knockbackTime = 0.25
-statusEffects = []
 buildups = []
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit")])
 

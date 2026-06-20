@@ -98,7 +98,6 @@ healthDamage = 8.0
 hitstun = 0.3
 knockbackDistance = 3.0
 knockbackTime = 0.3
-statusEffects = []
 buildups = []
 modifiers = []
 
@@ -106,7 +105,6 @@ modifiers = []
 script = ExtResource("1_damage")
 tags = 1
 healthDamage = 1.0
-statusEffects = []
 buildups = []
 modifiers = []
 

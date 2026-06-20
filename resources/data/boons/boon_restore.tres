@@ -15,7 +15,7 @@ description = "A fairy's blessing — mends every wound and washes away all affl
 instantaneous = true
 instantHealPercent = 1.0
 removesOnApply = Array[ExtResource("2_se")]([ExtResource("4_poison"), ExtResource("5_burning"), ExtResource("6_food")])
-modifiers = null
+modifiers = []
 
 [resource]
 script = ExtResource("1_boon")

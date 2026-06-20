@@ -38,10 +38,6 @@ public static class StatList
 		{
 			yield return (names[EStatName.Knockback], StatFormat.Number(damage.knockbackDistance));
 		}
-		foreach (var entry in StatusEffects(damage.statusEffects))
-		{
-			yield return entry;
-		}
 		foreach (var entry in Buildups(damage.buildups))
 		{
 			yield return entry;
@@ -105,10 +101,6 @@ public static class StatList
 				if (d == null)
 				{
 					continue;
-				}
-				foreach (var entry in StatusEffects(d.statusEffects))
-				{
-					yield return entry;
 				}
 				foreach (var entry in Buildups(d.buildups))
 				{
@@ -200,9 +192,10 @@ public static class StatList
 		yield return (GameClient.Current.statNames[EStatName.TargetRange], StatFormat.Meters(action.positionalRange));
 	}
 
-	// One entry per buildup contribution — name = "<effect>",
-	// value = amount as a fraction of the 1.0 apply threshold. Null entries
-	// and zero/negative amounts are skipped.
+	// One entry per on-hit effect contribution — name = "<effect>". An
+	// immediate-apply entry reads as the effect's authored duration (like a flat
+	// status effect); a meter entry reads as its amount (a fraction of the 1.0
+	// apply threshold). Null entries and zero-amount meter entries are skipped.
 	public static IEnumerable<(string name, string value)> Buildups(Godot.Collections.Array<StatusEffectBuildup> buildups)
 	{
 		if (buildups == null)
@@ -211,7 +204,7 @@ public static class StatList
 		}
 		foreach (StatusEffectBuildup entry in buildups)
 		{
-			if (entry == null || entry.effect == null || entry.amount <= 0f)
+			if (entry == null || entry.effect == null)
 			{
 				continue;
 			}
@@ -220,31 +213,14 @@ public static class StatList
 			{
 				effectName = entry.effect.ResourceName;
 			}
-			yield return (effectName, StatFormat.Number(entry.amount));
-		}
-	}
-
-	// One entry per status effect — name = effect display name, value =
-	// authored duration (or empty if 0, so the StatPanel value side hides).
-	public static IEnumerable<(string name, string value)> StatusEffects(Godot.Collections.Array<StatusEffectData> effects)
-	{
-		if (effects == null)
-		{
-			yield break;
-		}
-		foreach (StatusEffectData effect in effects)
-		{
-			if (effect == null)
+			if (entry.applyImmediately)
 			{
-				continue;
+				yield return (effectName, StatFormat.Duration(entry.effect));
 			}
-			string name = effect.displayName.ToString();
-			if (string.IsNullOrEmpty(name))
+			else if (entry.amount > 0f)
 			{
-				name = effect.ResourceName;
+				yield return (effectName, StatFormat.Number(entry.amount));
 			}
-			string value = StatFormat.Duration(effect);
-			yield return (name, value);
 		}
 	}
 
@@ -274,9 +250,9 @@ public static class StatList
 		{
 			yield return (names[EStatName.Knockback], StatFormat.Number(mod.knockbackDistance));
 		}
-		if ((mod.overrides & EDamageFields.AddStatusEffects) != 0)
+		if ((mod.overrides & EDamageFields.AddBuildups) != 0)
 		{
-			foreach (var entry in StatusEffects(mod.addStatusEffects))
+			foreach (var entry in Buildups(mod.addBuildups))
 			{
 				yield return entry;
 			}

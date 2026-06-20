@@ -1,15 +1,13 @@
 [gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdgobswamp01"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
-[ext_resource type="Resource" uid="uid://cswampgobpal0" path="res://resources/data/characters/goblin/goblin_palette_swamp.tres" id="3_palette"]
-[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="4_weapon"]
-[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="5_cry"]
-[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="6_claw"]
+[ext_resource type="Resource" uid="uid://cssgobswamp01" path="res://resources/data/characters/goblin/goblin_swamp.tres" id="2_sub"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
+[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="4_cry"]
+[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="5_claw"]
 
 [resource]
 script = ExtResource("1_desc")
-mob = ExtResource("2_mob")
-palette = ExtResource("3_palette")
-weapons = Array[ExtResource("4_weapon")]([ExtResource("5_cry"), ExtResource("6_claw")])
-metadata/_custom_type_script = "uid://lcwj9viyl1nwr"
+subSpecies = ExtResource("2_sub")
+weapons = Array[ExtResource("3_weapon")]([ExtResource("4_cry"), ExtResource("5_claw")])
+metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

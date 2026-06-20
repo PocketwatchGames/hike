@@ -7,8 +7,6 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="4_f83x5"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
-[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="6_seffect"]
-[ext_resource type="Resource" uid="uid://bw8mvjr4c6l5q" path="res://resources/data/status_effects/status_burning.tres" id="7_burning"]
 [ext_resource type="PackedScene" uid="uid://c8a6r5gxqwv3p" path="res://scenes/fx/goblin_attack.tscn" id="8_atkfx"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_iv4b3"]
 [ext_resource type="PackedScene" uid="uid://dn4p7m2qx8kjf" path="res://scenes/fx/goblin_claw_hit.tscn" id="9_hitfx"]
@@ -58,7 +56,6 @@ blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0
 knockbackTime = 0.2
-statusEffects = Array[ExtResource("6_seffect")]([ExtResource("7_burning")])
 buildups = []
 modifiers = []
 

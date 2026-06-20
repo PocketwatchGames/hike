@@ -185,22 +185,22 @@ public class StatusEffectController
 		return max;
 	}
 
-	// Status effects every active weapon mod reaching charge tier `chargeIndex`
-	// appends to the struck target on hit (a Flaming weapon's Burning, etc.).
-	// Returns null when no reaching mod authors any, so the common no-mod hot
-	// path allocates nothing.
-	public Godot.Collections.Array<StatusEffectData> WeaponModOnHitStatusEffects(int chargeIndex)
+	// Buildup contributions every active weapon mod reaching charge tier
+	// `chargeIndex` funnels into the struck target's meters (a Venomous mob's
+	// Poison buildup, etc.). Returns null when no reaching mod authors any, so
+	// the common no-mod hot path allocates nothing.
+	public Godot.Collections.Array<StatusEffectBuildup> WeaponModOnHitBuildups(int chargeIndex)
 	{
-		Godot.Collections.Array<StatusEffectData> result = null;
+		Godot.Collections.Array<StatusEffectBuildup> result = null;
 		for (int i = 0; i < _statusEffects.Count; i++)
 		{
 			StatusEffectState s = _statusEffects[i];
-			Godot.Collections.Array<StatusEffectData> onHit = s?.data?.weaponMod?.onHitStatusEffects;
+			Godot.Collections.Array<StatusEffectBuildup> onHit = s?.data?.weaponMod?.onHitBuildups;
 			if (onHit == null || onHit.Count == 0 || !ModReachesCharge(s, chargeIndex))
 			{
 				continue;
 			}
-			result ??= new Godot.Collections.Array<StatusEffectData>();
+			result ??= new Godot.Collections.Array<StatusEffectBuildup>();
 			for (int j = 0; j < onHit.Count; j++)
 			{
 				result.Add(onHit[j]);
@@ -479,12 +479,13 @@ public class StatusEffectController
 		}
 	}
 
-	// Apply every buildup contribution in `hit` to this actor's per-effect
-	// meters and fold each crossed-threshold effect's applyTrigger back onto
-	// the HitInfo. Receivers call this between armor resolution and the
-	// hitstun/knockback reads so an OnDizzy modifier can amplify those reads
-	// on the same hit that landed dizzy. Passed by ref because ApplyTrigger
-	// mutates the struct in-place; calling by value would discard the fold.
+	// Apply every effect contribution in `hit` to this actor — immediate-apply
+	// entries (applyImmediately) land the effect directly; the rest funnel into
+	// the per-effect buildup meter, folding each crossed-threshold effect's
+	// applyTrigger back onto the HitInfo. Receivers call this between armor
+	// resolution and the hitstun/knockback reads so an OnDizzy modifier can
+	// amplify those reads on the same hit that landed dizzy. Passed by ref
+	// because ApplyTrigger mutates the struct in-place; by value would discard it.
 	public void ApplyHitBuildups(ref HitInfo hit)
 	{
 		if (hit.buildups == null)
@@ -496,6 +497,14 @@ public class StatusEffectController
 			StatusEffectBuildup entry = hit.buildups[i];
 			if (entry == null || entry.effect == null)
 			{
+				continue;
+			}
+			// Immediate apply: land the effect now (Burning, Poison), bypassing
+			// the meter, `amount`, and applyTrigger. Same Add path a meter cross
+			// uses, so removesOnApply / maxStack / fx lifecycle all run.
+			if (entry.applyImmediately)
+			{
+				Add(entry.effect);
 				continue;
 			}
 			// Buildup contributions are tagged by the receiving effect, not

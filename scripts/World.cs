@@ -264,7 +264,7 @@ public partial class World : Node3D
         // off-screen footstep; a stay-commanded one freezes until its chunk
         // reloads (see TickCompanionRescueHistory / TickCompanionLeash).
         TickCompanionRescueHistory((float)delta);
-        TickCompanionLeash();
+        TickCompanionLeash((float)delta);
 
         _heatField?.Tick();
     }

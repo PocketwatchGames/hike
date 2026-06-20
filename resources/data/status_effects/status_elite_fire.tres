@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cpvymvxtv6f4r"]
+
+[ext_resource type="Texture2D" uid="uid://gwbjofqi4jx6" path="res://assets/textures/status_effects/fire.png" id="1_w4qmy"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_rhips"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_8fuyn"]
+[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="4_mwugp"]
+[ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="5_qtjkb"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="6_h1u71"]
+
+[sub_resource type="Resource" id="chainDamage"]
+script = ExtResource("3_8fuyn")
+tags = 33
+healthDamage = 12.0
+hitstun = 0.2
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="chainLightning"]
+script = ExtResource("5_qtjkb")
+damage = SubResource("chainDamage")
+chainRange = 4.5
+fx = ExtResource("4_mwugp")
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("6_h1u71")
+onHitBuildups = []
+chainLightning = SubResource("chainLightning")
+
+[resource]
+script = ExtResource("2_rhips")
+icon = ExtResource("1_w4qmy")
+displayName = &"Fire"
+description = "Fire!"
+category = 4
+tags = 32
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

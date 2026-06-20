@@ -21,7 +21,7 @@ public static class ItemEventHandlers
 		SpawnSmear(actor, ev, shapeRange, shapeNearWidth, shapeFarWidth);
 
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
+		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
 			return;
 		}
@@ -211,7 +211,7 @@ public static class ItemEventHandlers
 	public static void DoHitscan(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
+		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
 			return;
 		}
@@ -593,7 +593,7 @@ public static class ItemEventHandlers
 			return;
 		}
 		HitInfo hit = ResolveHit(ev, action, actor);
-		if (hit.healthDamage <= 0f && hit.statusEffects == null && hit.buildups == null)
+		if (hit.healthDamage <= 0f && hit.buildups == null)
 		{
 			return;
 		}
@@ -710,10 +710,11 @@ public static class ItemEventHandlers
 		// Vampiric (lifesteal) fraction this shot carries — applied in-flight when
 		// it deals health damage, healing the firer back.
 		float lifestealFraction = 0f;
-		// On-hit enchants (a Flaming bow's Burning) the shot applies to each
-		// creature it strikes. The projectile rebuilds its HitInfo from the raw
-		// DamageData, so these are passed in rather than riding the ResolveHit hit.
-		Godot.Collections.Array<StatusEffectData> onHitStatusEffects = null;
+		// On-hit effect contributions (a Flaming bow's Burning applied immediately,
+		// a Venomous shot's Poison buildup) the shot adds to each creature it
+		// strikes. The projectile rebuilds its HitInfo from the raw DamageData, so
+		// these are passed in rather than riding the ResolveHit hit.
+		Godot.Collections.Array<StatusEffectBuildup> onHitBuildups = null;
 		// Chain-lightning mods (Shocking bow) discharge from each creature the
 		// shot strikes.
 		Godot.Collections.Array<ChainLightningData> chainLightning = null;
@@ -729,7 +730,7 @@ public static class ItemEventHandlers
 			pierceCount = System.Math.Max(pierceCount, firingWeapon.statusEffects.ProjectilePierceCount(firingChargeIndex));
 			detonateOnContact = firingWeapon.statusEffects.ProjectilesDetonateOnContact(firingChargeIndex);
 			lifestealFraction = firingWeapon.statusEffects.Vampiric(firingChargeIndex);
-			onHitStatusEffects = firingWeapon.statusEffects.WeaponModOnHitStatusEffects(firingChargeIndex);
+			onHitBuildups = firingWeapon.statusEffects.WeaponModOnHitBuildups(firingChargeIndex);
 			chainLightning = firingWeapon.statusEffects.WeaponModChainLightning(firingChargeIndex);
 			knockbackBonus = firingWeapon.statusEffects.WeaponModKnockbackBonus(firingChargeIndex);
 			knockbackTimeBonus = firingWeapon.statusEffects.WeaponModKnockbackTimeBonus(firingChargeIndex);
@@ -772,11 +773,11 @@ public static class ItemEventHandlers
 			friction,
 			pierceCount,
 			lifestealFraction,
-			onHitStatusEffects,
 			chainLightning,
 			knockbackBonus,
 			knockbackTimeBonus,
-			projectileFx);
+			projectileFx,
+			onHitBuildups);
 	}
 
 	// Lifesteal: heal the attacker by the firing weapon's vampiric fraction of
@@ -1352,7 +1353,7 @@ public static class ItemEventHandlers
 		if (action.context.primaryItem is WeaponState weapon2)
 		{
 			int chargeIndex = FindChargeIndex(weapon2, action.selectedTier);
-			hit.AddStatusEffects(weapon2.statusEffects.WeaponModOnHitStatusEffects(chargeIndex));
+			hit.AddBuildups(weapon2.statusEffects.WeaponModOnHitBuildups(chargeIndex));
 			hit.knockbackDistance += weapon2.statusEffects.WeaponModKnockbackBonus(chargeIndex);
 			hit.knockbackTime += weapon2.statusEffects.WeaponModKnockbackTimeBonus(chargeIndex);
 		}

@@ -60,6 +60,10 @@ public partial class World
     // oldest is furthest behind the player, so the pet re-appears off-screen.
     private readonly List<Vector3> _playerPositionHistory = new();
     private float _companionHistoryAccumulator;
+    // Seconds the following companion has been beyond CompanionRescueMaxDistance.
+    // Drives the distance backstop in TickCompanionLeash; reset whenever the pet
+    // is back inside the gap or after a rescue.
+    private float _companionFarSeconds;
 
     // Live nodes for persistent (non-chunked) entities — the player's
     // companion(s). Spawned once by SpawnPersistentEntities and never filed in
@@ -272,7 +276,7 @@ public partial class World
     // following or on "stay" — a stay pet only ends up here once the player has
     // abandoned it well past the loaded region, at which point catching up beats
     // falling out of the world (refining stay-abandonment is a separate design).
-    public void TickCompanionLeash()
+    public void TickCompanionLeash(float delta)
     {
         if (_companion == null || _player == null)
         {
@@ -280,40 +284,104 @@ public partial class World
         }
         Vector3I chunk = WorldToChunkCoord(_companion.GlobalPosition);
         bool resident = _activeEntities.ContainsKey(chunk) && _chunkManager.IsChunkLoaded(chunk);
-        if (resident)
+
+        // Distance backstop: a FOLLOWING pet (a stay-commanded one is meant to
+        // hang back, so it's excluded — it only gets the residency rescue
+        // below) that's been beyond CompanionRescueMaxDistance for the grace
+        // window gets snapped forward even while still resident. Catches a dog
+        // that fell behind or wedged on geometry before it reaches the world
+        // edge. Grace debounces a brief lag (rounding a corner, a short stall).
+        bool farTriggered = false;
+        if (!_companion.StayCommanded)
+        {
+            SimData simData = _worldState?.SimData;
+            float maxDist = simData?.CompanionRescueMaxDistance ?? 30f;
+            Vector3 gap = _companion.GlobalPosition - _player.GlobalPosition;
+            gap.Y = 0f;
+            if (gap.LengthSquared() > maxDist * maxDist)
+            {
+                _companionFarSeconds += delta;
+                farTriggered = _companionFarSeconds >= (simData?.CompanionRescueMaxDistanceGraceSeconds ?? 1.5f);
+            }
+            else
+            {
+                _companionFarSeconds = 0f;
+            }
+        }
+        else
+        {
+            _companionFarSeconds = 0f;
+        }
+
+        if (resident && !farTriggered)
         {
             return;
         }
+        string reason = !resident ? "non-resident" : "too-far";
         if (TryFindCompanionRescuePosition(chunk, out Vector3 target))
         {
+            _companionFarSeconds = 0f;
+            if (CVars.companionDebug.Value)
+            {
+                float dist = _companion.GlobalPosition.DistanceTo(_player.GlobalPosition);
+                GD.Print($"[companion] leash RESCUE ({reason}): pet at chunk {chunk} (dist {dist:F1}m) -> teleport to {target} (crumbs={_playerPositionHistory.Count})");
+            }
             _companion.Teleport(target);
+        }
+        else if (CVars.companionDebug.Value)
+        {
+            float dist = _companion.GlobalPosition.DistanceTo(_player.GlobalPosition);
+            GD.Print($"[companion] leash STRANDED ({reason}): pet at chunk {chunk} (dist {dist:F1}m) but NO valid rescue crumb found (crumbs={_playerPositionHistory.Count}) — pet stays put");
         }
     }
 
-    // Picks the relocation target for a stranded following companion: the OLDEST
-    // breadcrumb (furthest behind the player, most likely off-screen) whose chunk
-    // is still loaded, active, and desired — and not the chunk it's stranded in.
-    // Falls back to the player's current position when no crumb qualifies.
+    // Picks the relocation target for a stranded/lost following companion.
+    // First choice: the YOUNGEST (most recent) usable crumb at least
+    // CompanionRescueRelocateDistance behind the player — closest to the player
+    // we can put the dog while keeping it off-screen, so a pet the player
+    // outran reappears just behind them and resumes following instead of at the
+    // far end of the trail (which re-strands it against a fast player). Falls
+    // back to the OLDEST usable crumb when none is that far back (player barely
+    // moved), then to the player's own position. A "usable" crumb sits in a
+    // chunk that's loaded, active, and desired — and not the avoided chunk.
     private bool TryFindCompanionRescuePosition(Vector3I avoidChunk, out Vector3 position)
     {
-        for (int i = 0; i < _playerPositionHistory.Count; i++)
+        Vector3 playerPos = _player?.GlobalPosition ?? Vector3.Zero;
+        float relocateDist = _worldState?.SimData?.CompanionRescueRelocateDistance ?? 15f;
+        float relocateDistSq = relocateDist * relocateDist;
+
+        // Newest -> oldest: first crumb at least relocateDist behind the player.
+        for (int i = _playerPositionHistory.Count - 1; i >= 0; i--)
         {
             Vector3 candidate = _playerPositionHistory[i];
-            Vector3I chunk = WorldToChunkCoord(candidate);
-            if (chunk == avoidChunk || !_desiredEntityChunks.Contains(chunk))
+            if (!IsCrumbUsable(candidate, avoidChunk))
             {
                 continue;
             }
-            if (!_activeEntities.ContainsKey(chunk) || !_chunkManager.IsChunkLoaded(chunk))
+            Vector3 d = candidate - playerPos;
+            d.Y = 0f;
+            if (d.LengthSquared() < relocateDistSq)
             {
                 continue;
             }
             position = candidate;
             return true;
         }
+
+        // Fallback: oldest usable crumb (furthest behind, most off-screen).
+        for (int i = 0; i < _playerPositionHistory.Count; i++)
+        {
+            Vector3 candidate = _playerPositionHistory[i];
+            if (!IsCrumbUsable(candidate, avoidChunk))
+            {
+                continue;
+            }
+            position = candidate;
+            return true;
+        }
+
         if (_player != null)
         {
-            Vector3 playerPos = _player.GlobalPosition;
             Vector3I chunk = WorldToChunkCoord(playerPos);
             if (chunk != avoidChunk && _activeEntities.ContainsKey(chunk))
             {
@@ -323,6 +391,18 @@ public partial class World
         }
         position = default;
         return false;
+    }
+
+    // A crumb is usable as a rescue target when its chunk is loaded, active, and
+    // currently desired — and isn't the chunk the pet is being rescued out of.
+    private bool IsCrumbUsable(Vector3 candidate, Vector3I avoidChunk)
+    {
+        Vector3I chunk = WorldToChunkCoord(candidate);
+        if (chunk == avoidChunk || !_desiredEntityChunks.Contains(chunk))
+        {
+            return false;
+        }
+        return _activeEntities.ContainsKey(chunk) && _chunkManager.IsChunkLoaded(chunk);
     }
 
     // True once every entity-eligible chunk around the player has finished

@@ -5,10 +5,10 @@ using System;
 // the modifier" so the base DamageData value flows through unchanged.
 //
 // Most bits replace the corresponding field on the live HitInfo. The
-// AddStatusEffects bit is the exception: it APPENDS the modifier's array
-// to the running statusEffects list rather than overwriting it, since the
-// typical authoring intent for crit/dizzy modifiers is "also apply bleed"
-// rather than "drop the base hit's status effects".
+// AddBuildups bit is the exception: it APPENDS the modifier's buildup
+// contributions to the running buildups list rather than overwriting it, since
+// the typical authoring intent for crit/dizzy modifiers is "also apply bleed"
+// rather than "drop the base hit's effects".
 //
 // Wire values are stable — append new bits, never reassign existing ones,
 // so existing .tres files keep loading.
@@ -23,11 +23,13 @@ public enum EDamageFields
 	Hitstun = 1 << 2,
 	KnockbackDistance = 1 << 3,
 	KnockbackTime = 1 << 4,
-	AddStatusEffects = 1 << 5,
+	// Bit 5 reserved — was AddStatusEffects (direct on-hit status effects),
+	// now unified into AddBuildups (a StatusEffectBuildup with applyImmediately).
+	// Kept reserved so legacy .tres with bit 5 set deserialize safely.
 	ArmorPenetration = 1 << 6,
 	Blunt = 1 << 7,
-	// Like AddStatusEffects, APPENDS the modifier's buildup contributions to
-	// the running buildups list rather than overwriting it — a backstab that
-	// dumps a large dizzy-buildup chunk on top of the base per-hit buildup.
+	// APPENDS the modifier's buildup contributions to the running buildups list
+	// (a backstab that dumps a large dizzy-buildup chunk on top of the base
+	// per-hit buildup, or an immediate-apply effect on crit).
 	AddBuildups = 1 << 8,
 }

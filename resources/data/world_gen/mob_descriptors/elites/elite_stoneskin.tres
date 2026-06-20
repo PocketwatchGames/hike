@@ -1,0 +1,14 @@
+[gd_resource type="Resource" script_class="EliteMobDescriptor" format=3 uid="uid://f5b02lyuvhbo"]
+
+[ext_resource type="Texture2D" uid="uid://w01e1nyfp28o" path="res://assets/textures/status_effects/bolt.png" id="1_f86ba"]
+[ext_resource type="PackedScene" uid="uid://d4nf6t08w1rye" path="res://scenes/characters/elite_crown.tscn" id="2_oa0fv"]
+[ext_resource type="Script" uid="uid://blohdqlbvypqy" path="res://scripts/data/characters/EliteMobDescriptor.cs" id="3_gelg7"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_p35r7"]
+[ext_resource type="Resource" uid="uid://c1o5r0xwb6wdo" path="res://resources/data/status_effects/status_elite_lightning.tres" id="5_a1a46"]
+
+[resource]
+script = ExtResource("3_gelg7")
+statusEffects = Array[ExtResource("4_p35r7")]([ExtResource("5_a1a46")])
+badge = ExtResource("1_f86ba")
+crownScene = ExtResource("2_oa0fv")
+metadata/_custom_type_script = "uid://b3lk8emobdesc01"

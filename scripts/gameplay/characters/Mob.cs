@@ -125,9 +125,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Canonical sim state lives in MobSimState. The Mob node is a view; these
     // properties forward through so call sites and animations stay terse.
     public bool alive { get => _simState.Alive; set => _simState.Alive = value; }
-    public float maxHealth => _simState.MaxHealth;
+    // Live cap — the drainable, persisted base (_simState.MaxHealth, shrunk by
+    // DrainMaxHealth's withering mechanic) plus any MaxHealth stat modifier from
+    // active status effects, so a buff applied mid-life raises the cap and HUD
+    // bar immediately. The per-frame clamp in Tick pulls current health down
+    // when the buff expires and this shrinks.
+    public float maxHealth => _simState.MaxHealth + ComposeStat(EStat.MaxHealth);
     public float health { get => _simState.Health; set => _simState.Health = value; }
-    public float maxArmor => mobData?.maxArmor ?? 0f;
+    // Live cap — base armor plus any MaxArmor stat modifier from active status
+    // effects (e.g. Stoneskin), so a buff applied mid-life raises the recharge
+    // ceiling and the HUD bar immediately. TickArmor clamps current armor down
+    // when the buff expires and this shrinks.
+    public float maxArmor => (mobData?.maxArmor ?? 0f) + ComposeStat(EStat.MaxArmor);
     public float armor { get => _simState.Armor; set => _simState.Armor = value; }
     // Elite marker, authored on the spawning MobDescriptor. Drives the crown,
     // shared elite buff, and crown-trophy loot; the signature effect rides
@@ -769,9 +778,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Health / MaxHealth / Armor it was persisted with.
         if (!_simState.RestoredFromSave)
         {
-            _simState.MaxHealth = mobData.maxHealth + ComposeStat(EStat.MaxHealth);
-            _simState.Health = _simState.MaxHealth;
-            _simState.Armor = mobData.maxArmor + ComposeStat(EStat.MaxArmor);
+            // Store the drainable BASE max only — the MaxHealth/MaxArmor stat
+            // modifiers fold in live through the maxHealth/maxArmor properties,
+            // so a buff gained or lost later moves the cap. Fill current vitals
+            // to the full modified cap at spawn.
+            _simState.MaxHealth = mobData.maxHealth;
+            _simState.Health = maxHealth;
+            _simState.Armor = maxArmor;
         }
     }
 
@@ -2288,6 +2301,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             TickArmor((float)delta);
             _statusEffects.Tick((float)delta);
+            // A +MaxHealth buff expiring (processed in the status tick above)
+            // shrinks the live cap; clamp current health down so it can't sit
+            // above max. Increases leave health alone — heals own the climb,
+            // mirroring the armor clamp in TickArmor.
+            if (health > maxHealth)
+            {
+                health = maxHealth;
+            }
             DotHudFlush dotFlush = _dotHud.Tick(_world?.GameTimeMs ?? 0, hudPosition);
             if (dotFlush.damage)
             {
@@ -2767,6 +2788,33 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         LinearVelocity = new Vector3(v.X, data.stepClimbSpeed, v.Z);
     }
 
+    // Diagnostic probe (companion_debug): reports what's directly ahead in
+    // `dir` using the same two rays TryStepUp uses. obstacleAhead = something at
+    // ankle height blocks forward motion; wallAbove = the space at
+    // maxStepHeight+margin is ALSO blocked, i.e. a wall the step-up refuses
+    // rather than a curb it would climb. So a stalled follower's log can tell
+    // "pathed into a wall" (both true → nav routed it badly) from "step too
+    // tall / step-up declined" (obstacleAhead only). dir need not be normalized.
+    public void ProbeForwardObstacle(Vector3 dir, out bool obstacleAhead, out bool wallAbove, out float maxStep)
+    {
+        obstacleAhead = false;
+        wallAbove = false;
+        maxStep = _simState?.MobData?.maxStepHeight ?? 0f;
+        dir.Y = 0f;
+        if (dir.LengthSquared() < 0.0001f)
+        {
+            return;
+        }
+        dir = dir.Normalized();
+        float radius = _collisionShape?.Shape is CapsuleShape3D cap ? cap.Radius : 0.4f;
+        float reach = radius + StepLookahead;
+        Vector3 feet = GlobalPosition;
+        Vector3 footFrom = feet + Vector3.Up * StepFootProbeHeight;
+        obstacleAhead = RaycastSolid(footFrom, footFrom + dir * reach);
+        Vector3 headFrom = feet + Vector3.Up * (maxStep + StepClearanceMargin);
+        wallAbove = RaycastSolid(headFrom, headFrom + dir * reach);
+    }
+
     // Single forward ray against terrain/props only (Solid). Mobs live on the
     // Mob layer, so this never self-hits or catches a neighbour — the step
     // probe climbs geometry, not crowds.
@@ -2891,19 +2939,6 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         }
 
         Damage(hit);
-
-        // Skip on-hit status effects (a Flaming enchant's Burning) when the same
-        // blow just killed the mob. Damage() → Die() has already Cleared status
-        // effects and stopped their loop fx; a late Add would spawn an orphaned
-        // loop fx (the burning crackle) that burns forever on the corpse — Tick
-        // is alive-gated, so the effect wouldn't do anything anyway.
-        if (alive && hit.statusEffects != null)
-        {
-            for (int i = 0; i < hit.statusEffects.Count; i++)
-            {
-                AddStatusEffect(hit.statusEffects[i]);
-            }
-        }
 
         // First-hit yell so nearby mobs converge to investigate. After
         // Damage so a killing or incapacitating blow doesn't yell — CC'd
@@ -3098,17 +3133,25 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // Any hit wakes an incapacitated mob (the crit swap in Hit() has
         // already amplified the damage payload before we got here). Generic
         // over every effect that flags `incapacitates` — dizzy today, future
-        // frozen / knocked-down without touching this branch. The buildup
-        // pass still runs after, so a single fat-buildup hit can wake AND
-        // re-apply on the same swing, which is consistent with the meter
-        // model.
+        // frozen / knocked-down without touching this branch. A non-lethal
+        // fat-buildup hit can wake AND re-apply on the same swing (the buildup
+        // pass below still runs), which is consistent with the meter model.
         _statusEffects.ClearIncapacitating();
 
-        // Buildup contributions — funnel into per-effect meters and fold any
-        // crossed-threshold effect's applyTrigger (Dizzy fires OnDizzy) back
-        // onto the hit before the hitstun/knockback reads below so authored
-        // "extra knockback on the hit that landed dizzy" overrides apply.
-        _statusEffects.ApplyHitBuildups(ref hit);
+        // Buildup contributions — funnel into per-effect meters / immediate
+        // applies and fold any crossed-threshold effect's applyTrigger (Dizzy
+        // fires OnDizzy) back onto the hit before the hitstun/knockback reads
+        // below so authored "extra knockback on the hit that landed dizzy"
+        // overrides apply. Skipped on a lethal hit: a corpse shouldn't accrue
+        // meters or catch fire/poison. Die() clears effects anyway, so this
+        // mainly avoids the wasted apply-then-wipe — and keeps a killing blow
+        // from firing an OnDizzy fold the dead mob can't use. Predicted from
+        // `health - incoming` (post-armor), mirroring the health<=0 Die check
+        // below, so survivors still get the full early fold.
+        if (health - incoming > 0f)
+        {
+            _statusEffects.ApplyHitBuildups(ref hit);
+        }
 
         // Hitstun + knockback: stack on top of any buildup handling above so a
         // sub-threshold buildup hit still flinches and shoves. Direction comes
@@ -3301,9 +3344,13 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         _simState.MaxHealth = Mathf.Max(0f, _simState.MaxHealth - amount);
-        if (_simState.Health > _simState.MaxHealth)
+        // Clamp against the live cap (base + active modifiers), not the raw base,
+        // so a +MaxHealth buff keeps its headroom while the base withers. Death
+        // still triggers when the drainable base is exhausted.
+        float liveMax = maxHealth;
+        if (_simState.Health > liveMax)
         {
-            _simState.Health = _simState.MaxHealth;
+            _simState.Health = liveMax;
         }
         if (_simState.MaxHealth <= 0f)
         {
@@ -3314,6 +3361,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     private void TickArmor(float dt)
     {
         float max = maxArmor;
+        // A shrinking cap (a +MaxArmor buff expiring) can leave current armor
+        // above max; clamp down before the recharge early-out so it can't
+        // strand there until the next hit. Increases leave armor alone — the
+        // recharge below owns the climb to the new max, matching the player.
+        if (armor > max)
+        {
+            armor = max;
+        }
         if (max <= 0f || armor >= max)
         {
             return;

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 // See WanderFollowBehaviorData for the design summary. This runtime owns the
@@ -24,12 +25,21 @@ public partial class BehaviorWanderFollow : BehaviorBase
     // rather than a wander point. Drives what happens on arrival and lets a
     // mid-leg change in the player's movement re-pick the right kind of goal.
     private bool _destIsRest;
+    // True while beelining after a player who pulled beyond catchUpRadius. Lets
+    // RunMoving re-issue the chase goal only as the player moves, and forces a
+    // fresh wander pick on the tick we catch back up.
+    private bool _catchingUp;
     private ulong _sniffUntilMs;
 
     // Player-stillness tracking. The player is "moving" until they've stayed
     // within playerStillRadius of _playerAnchor for stopGraceSeconds.
     private Vector3 _playerAnchor;
     private ulong _playerAnchorMs;
+
+    // Throttle for companion_debug logging (~once per second). Diagnostic only.
+    private ulong _nextDebugMs;
+    private Vector3 _lastDebugPos;
+    private bool _hasLastDebugPos;
 
     public BehaviorWanderFollow(WanderFollowBehaviorData data)
     {
@@ -44,6 +54,7 @@ public partial class BehaviorWanderFollow : BehaviorBase
         _phase = Phase.Moving;
         _hasDestination = false;
         _destIsRest = false;
+        _catchingUp = false;
         _sniffUntilMs = 0;
         Player master = me.World?.player;
         _playerAnchor = master?.GlobalPosition ?? me.GlobalPosition;
@@ -80,6 +91,46 @@ public partial class BehaviorWanderFollow : BehaviorBase
                 break;
         }
 
+        if (CVars.companionDebug.Value && time >= _nextDebugMs)
+        {
+            _nextDebugMs = time + 1000;
+            Vector3 pos = me.GlobalPosition;
+            Vector3 toPlayer = playerPos - pos;
+            toPlayer.Y = 0f;
+            Vector3 toDest = _destination - pos;
+            toDest.Y = 0f;
+            // moved = how far the dog actually translated since the last log.
+            // Near-zero moved while speed=1 (full catch-up) means the body is
+            // wedged — distinguish "jammed on geometry" (horizVel high, moved~0)
+            // from "no drive / over-damped" (horizVel~0).
+            Vector3 hv = me.LinearVelocity;
+            hv.Y = 0f;
+            float movedXz = new Vector2(pos.X - _lastDebugPos.X, pos.Z - _lastDebugPos.Z).Length();
+            string moved = _hasLastDebugPos ? $"{movedXz:F2}m" : "n/a";
+            _lastDebugPos = pos;
+            _hasLastDebugPos = true;
+            // Probe what's ahead toward the live steer target (next waypoint if
+            // any, else the destination) so a stall line shows WHY: both flags
+            // true = pathed into a wall (nav bug); obstacleAhead only = a step
+            // too tall / step-up declined. Only meaningful when actually moving.
+            IReadOnlyList<Vector3> wps = me.Navigator.Waypoints;
+            int wi = me.Navigator.WaypointIndex;
+            Vector3 steerTarget = (wps.Count > 0 && wi < wps.Count) ? wps[wi] : _destination;
+            string ahead = "n/a";
+            if (_phase == Phase.Moving)
+            {
+                me.ProbeForwardObstacle(steerTarget - pos, out bool obstacleAhead, out bool wallAbove, out float maxStep);
+                ahead = $"obstacleAhead={obstacleAhead} wallAbove={wallAbove} maxStep={maxStep:F2}";
+            }
+            // catchUpDistance is the gap at which the dog should be at full
+            // catchUpSpeed; player gap >> wanderRadius means it's falling behind.
+            GD.Print($"[companion] dog phase={_phase} catchUp={_catchingUp} playerGap={toPlayer.Length():F1}m " +
+                     $"playerStopped={playerStopped} hasDest={_hasDestination} destIsRest={_destIsRest} " +
+                     $"destGap={toDest.Length():F1}m speed={output.speed:F2} moved/s={moved} horizVel={hv.Length():F1} " +
+                     $"navArrived={me.Navigator.HasArrived} navBlocked={me.Navigator.IsBlocked} " +
+                     $"waypoints={wps.Count}@{wi} {ahead}");
+        }
+
         return new BehaviorOutput(EBehaviorResult.Running);
     }
 
@@ -101,6 +152,35 @@ public partial class BehaviorWanderFollow : BehaviorBase
 
     private void RunMoving(Mob me, ulong time, Vector3 playerPos, bool playerStopped, ref AIOutput output)
     {
+        // Catch-up: a moving player who pulled beyond catchUpRadius is chased
+        // directly — no wander point, no sniff — until the dog is back inside
+        // the radius. Re-issue the chase goal only as the player moves
+        // (catchUpRetargetDistance) so we don't reset the navigator's repath
+        // throttle every frame. SpeedForLeg gives full catchUpSpeed here since
+        // the goal is far.
+        Vector3 toPlayer = playerPos - me.GlobalPosition;
+        toPlayer.Y = 0f;
+        if (!playerStopped && toPlayer.LengthSquared() > _data.catchUpRadius * _data.catchUpRadius)
+        {
+            if (!_catchingUp || _destination.DistanceSquaredTo(playerPos) > _data.catchUpRetargetDistance * _data.catchUpRetargetDistance)
+            {
+                _destination = playerPos;
+                me.Navigator.Goto(_destination, _data.arrivalDistance);
+            }
+            _catchingUp = true;
+            _destIsRest = false;
+            _hasDestination = true;
+            output.speed = SpeedForLeg(me);
+            return;
+        }
+        // Back within catchUpRadius (or the player stopped) — drop the chase so
+        // the next pick is a fresh wander/rest goal and normal sniffing resumes.
+        if (_catchingUp)
+        {
+            _catchingUp = false;
+            _hasDestination = false;
+        }
+
         // Pick (or re-pick) a destination when we don't have one, or when the
         // player's stop/go state no longer matches the kind of goal we're
         // heading to — player stopped while we were wandering → go rest beside
@@ -146,7 +226,13 @@ public partial class BehaviorWanderFollow : BehaviorBase
     private void RunSniffing(Mob me, ulong time, Vector3 playerPos, bool playerStopped, ref AIOutput output)
     {
         output.speed = 0f;
-        if (time >= _sniffUntilMs)
+        // Cut the sniff short if the player has pulled far enough that we need
+        // to catch up — don't finish sniffing while they run off. RunMoving
+        // takes over the chase next tick.
+        Vector3 toPlayer = playerPos - me.GlobalPosition;
+        toPlayer.Y = 0f;
+        bool needCatchUp = !playerStopped && toPlayer.LengthSquared() > _data.catchUpRadius * _data.catchUpRadius;
+        if (time >= _sniffUntilMs || needCatchUp)
         {
             PickDestination(playerPos, playerStopped);
             _phase = Phase.Moving;

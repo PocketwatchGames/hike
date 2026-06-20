@@ -1,0 +1,51 @@
+[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://cssgobswamp01"]
+
+[ext_resource type="Script" uid="uid://dg67ducpbt6xq" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qy3ra"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_5qclj"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="4_sedata"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="5_wmod"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="7_poison"]
+
+[sub_resource type="Resource" id="entry_body"]
+script = ExtResource("2_qy3ra")
+meshNames = PackedStringArray("SK_GoblinBody")
+color = Color(0.92, 0.43240005, 0.57055336, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://opnoz9diest61"
+
+[sub_resource type="Resource" id="Resource_ihwyg"]
+script = ExtResource("3_5qclj")
+recolors = [SubResource("entry_body")]
+metadata/_custom_type_script = "uid://j75mtm0w0qkch"
+
+[sub_resource type="Resource" id="Resource_poison_buildup"]
+script = ExtResource("6_buildup")
+effect = ExtResource("7_poison")
+amount = 0.5
+metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
+
+[sub_resource type="Resource" id="Resource_venom_mod"]
+script = ExtResource("5_wmod")
+onHitBuildups = Array[ExtResource("6_buildup")]([SubResource("Resource_poison_buildup")])
+metadata/_custom_type_script = "uid://fwmd5k3q8x2n"
+
+[sub_resource type="Resource" id="Resource_venom_effect"]
+script = ExtResource("4_sedata")
+displayName = &"Venomous"
+description = "Swamp goblins' attacks build poison on the target."
+category = 2
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("Resource_venom_mod")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"
+
+[resource]
+script = ExtResource("1_sub")
+mob = ExtResource("2_mob")
+palette = SubResource("Resource_ihwyg")
+statusEffects = Array[ExtResource("4_sedata")]([SubResource("Resource_venom_effect")])
+metadata/_custom_type_script = "uid://k6zxjx57f8xha"

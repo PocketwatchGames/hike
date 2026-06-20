@@ -76,17 +76,12 @@ public partial class DamageData : Resource
 	// impulse. 0 = apply impulse but no lockout window.
 	[Export] public float knockbackTime = 0f;
 
-	// Status effects to append to the receiver on hit (poison, slow, burn,
-	// etc.). Each entry is added independently — receivers append a fresh
-	// StatusEffectState per entry, mirroring AddStatusEffect's behavior.
-	[Export] public Godot.Collections.Array<StatusEffectData> statusEffects;
-
-	// Buildup contributions added to the receiver's per-effect meters on hit.
-	// Each entry funnels `amount` into the meter for `effect`; crossing 1
-	// applies the effect (and folds any modifier authored against the effect's
-	// applyTrigger). Decay and clear-on-apply behavior live on the
-	// StatusEffectData itself, so the same buildup contribution behaves
-	// consistently across every DamageData that feeds the same effect.
+	// Effects this hit lands on the receiver. Each StatusEffectBuildup entry
+	// either applies immediately (applyImmediately — poison, slow, burn) or
+	// funnels `amount` into the receiver's per-effect meter, crossing 1 to apply
+	// (and fold any modifier authored against the effect's applyTrigger). Decay
+	// and clear-on-apply behavior live on the StatusEffectData itself, so the
+	// same contribution behaves consistently across every DamageData feeding it.
 	[Export] public Godot.Collections.Array<StatusEffectBuildup> buildups;
 
 	// Conditional partial-override layers. Each modifier carries a trigger

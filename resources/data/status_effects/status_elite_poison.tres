@@ -1,0 +1,40 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://cxepedheenls1"]
+
+[ext_resource type="Texture2D" uid="uid://c0bxf8os6dn5x" path="res://assets/textures/status_effects/skull.png" id="1_oyx1g"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="2_cwquf"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="3_g4gre"]
+[ext_resource type="PackedScene" uid="uid://dixwcnqy125hf" path="res://scenes/fx/lightning_aura_burst.tscn" id="4_hion6"]
+[ext_resource type="Script" uid="uid://ce8wqk3mxr7n2" path="res://scripts/data/effects/payloads/ChainLightningData.cs" id="5_752dn"]
+[ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="6_7k3ti"]
+
+[sub_resource type="Resource" id="chainDamage"]
+script = ExtResource("3_g4gre")
+tags = 33
+healthDamage = 12.0
+hitstun = 0.2
+buildups = []
+modifiers = []
+
+[sub_resource type="Resource" id="chainLightning"]
+script = ExtResource("5_752dn")
+damage = SubResource("chainDamage")
+chainRange = 4.5
+fx = ExtResource("4_hion6")
+
+[sub_resource type="Resource" id="weaponMod"]
+script = ExtResource("6_7k3ti")
+onHitBuildups = []
+chainLightning = SubResource("chainLightning")
+
+[resource]
+script = ExtResource("2_cwquf")
+icon = ExtResource("1_oyx1g")
+displayName = &"Poison"
+description = "Poison!"
+category = 4
+tags = 32
+maxStack = 1
+removesOnApply = []
+modifiers = []
+weaponMod = SubResource("weaponMod")
+metadata/_custom_type_script = "uid://uqgkmpiv30t5"

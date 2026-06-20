@@ -1,9 +1,9 @@
 [gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdsparrow001"]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="2_mob"]
+[ext_resource type="Resource" uid="uid://csssparrow001" path="res://resources/data/characters/sparrow/sparrow_forest.tres" id="2_sub"]
 
 [resource]
 script = ExtResource("1_desc")
-mob = ExtResource("2_mob")
-metadata/_custom_type_script = "uid://lcwj9viyl1nwr"
+subSpecies = ExtResource("2_sub")
+metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

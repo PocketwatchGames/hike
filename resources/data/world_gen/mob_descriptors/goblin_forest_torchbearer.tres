@@ -1,0 +1,13 @@
+[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://dfgqtsu27u73m"]
+
+[ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_m5a2e"]
+[ext_resource type="Resource" uid="uid://b36dkwda4evr6" path="res://resources/data/characters/goblin/goblin_forest.tres" id="2_m5a2e"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_s8nhy"]
+[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="4_ue42x"]
+[ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="5_12ehn"]
+
+[resource]
+script = ExtResource("1_m5a2e")
+subSpecies = ExtResource("2_m5a2e")
+weapons = Array[ExtResource("3_s8nhy")]([ExtResource("4_ue42x"), ExtResource("5_12ehn")])
+metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

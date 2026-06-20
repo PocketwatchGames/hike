@@ -16,7 +16,6 @@ healthDamage = 50.0
 hitstun = 0.5
 knockbackDistance = 6.0
 knockbackTime = 0.35
-statusEffects = []
 buildups = Array[ExtResource("2_buildup")]([SubResource("Resource_buildup_dizzy")])
 modifiers = []
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"

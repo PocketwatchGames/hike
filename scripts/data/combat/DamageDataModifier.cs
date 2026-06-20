@@ -39,11 +39,9 @@ public partial class DamageDataModifier : Resource
 	[Export] public float knockbackTime;
 	[Export(PropertyHint.Range, "0,1,0.01")] public float armorPenetration;
 	[Export] public float blunt;
-	// Appended to the running statusEffects list (NOT replacing it) when the
-	// AddStatusEffects bit is set. See EDamageFields.AddStatusEffects.
-	[Export] public Array<StatusEffectData> addStatusEffects;
 	// Appended to the running buildups list (NOT replacing it) when the
-	// AddBuildups bit is set. See EDamageFields.AddBuildups.
+	// AddBuildups bit is set — meter contributions and/or immediate-apply
+	// effects (StatusEffectBuildup.applyImmediately). See EDamageFields.AddBuildups.
 	[Export] public Array<StatusEffectBuildup> addBuildups;
 
 	public override void _ValidateProperty(Dictionary property)
@@ -64,7 +62,6 @@ public partial class DamageDataModifier : Resource
 			nameof(hitstun) => EDamageFields.Hitstun,
 			nameof(knockbackDistance) => EDamageFields.KnockbackDistance,
 			nameof(knockbackTime) => EDamageFields.KnockbackTime,
-			nameof(addStatusEffects) => EDamageFields.AddStatusEffects,
 			nameof(addBuildups) => EDamageFields.AddBuildups,
 			nameof(armorPenetration) => EDamageFields.ArmorPenetration,
 			nameof(blunt) => EDamageFields.Blunt,

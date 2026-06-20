@@ -56,7 +56,6 @@ blunt = 0.5
 hitstun = 0.3
 knockbackDistance = 1.0
 knockbackTime = 0.2
-statusEffects = []
 buildups = []
 modifiers = []
 

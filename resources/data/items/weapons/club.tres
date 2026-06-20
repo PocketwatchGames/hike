@@ -124,7 +124,6 @@ metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
 script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 10.0
-addStatusEffects = []
 addBuildups = []
 metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
@@ -138,7 +137,6 @@ metadata/_custom_type_script = "uid://b5h7q3xk1an2m"
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 256
-addStatusEffects = []
 addBuildups = Array[Object]([SubResource("Resource_pdtsd")])
 metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
@@ -150,7 +148,6 @@ blunt = 0.75
 hitstun = 0.5
 knockbackDistance = 6.0
 knockbackTime = 0.4
-statusEffects = []
 buildups = Array[Object]([SubResource("Resource_ec1wf")])
 modifiers = Array[Object]([SubResource("Resource_8wi14"), SubResource("Resource_cgsei")])
 metadata/_custom_type_script = "uid://dvmit3ddkahg8"
@@ -165,7 +162,6 @@ script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 5.0
 knockbackDistance = 4.0
-addStatusEffects = []
 addBuildups = []
 
 [sub_resource type="Resource" id="Resource_buildup_dizzy_backstab"]
@@ -178,7 +174,6 @@ script = ExtResource("1_modifier")
 trigger = 2
 overrides = 256
 healthDamage = 6.0
-addStatusEffects = []
 addBuildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy_backstab")])
 
 [sub_resource type="Resource" id="Resource_damage"]
@@ -189,7 +184,6 @@ blunt = 0.5
 hitstun = 0.25
 knockbackDistance = 3.0
 knockbackTime = 0.25
-statusEffects = []
 buildups = Array[ExtResource("1_buildup")]([SubResource("Resource_buildup_dizzy")])
 modifiers = Array[ExtResource("1_modifier")]([SubResource("Resource_mod_crit"), SubResource("Resource_mod_backstab")])
 

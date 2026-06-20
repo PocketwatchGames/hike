@@ -48,12 +48,14 @@ public partial class WeaponModData : Resource
 	[ExportGroup("Lifesteal")]
 	[Export(PropertyHint.Range, "0,1,0.01")] public float vampiric = 0f;
 
-	// Status effects every landed attack appends to the struck target, on top of
-	// whatever the weapon's own DamageData authors. The "Flaming" mod (→ Burning)
-	// lives here. Folded into the outgoing hit by ResolveHit / the projectile path
-	// the same way DamageData.statusEffects is.
+	// Effects every landed attack adds to the struck target, on top of whatever
+	// the weapon's own DamageData.buildups author. Each entry either feeds a
+	// buildup meter or applies immediately (StatusEffectBuildup.applyImmediately)
+	// — a Flaming mod's Burning applies immediately, a Venomous mob mod feeds
+	// Poison buildup so several hits accrue before it procs. Folded into the
+	// outgoing hit by ResolveHit / the projectile path like DamageData.buildups.
 	[ExportGroup("On-Hit Effects")]
-	[Export] public Godot.Collections.Array<StatusEffectData> onHitStatusEffects;
+	[Export] public Godot.Collections.Array<StatusEffectBuildup> onHitBuildups;
 
 	// Extra knockback every landed attack imparts, on top of the weapon's own
 	// DamageData. The "Knockback" mod. Added (summed across reaching mods) to the

@@ -47,6 +47,14 @@ public class MobNavigator
     // each path corner cleanly rather than cutting across.
     private const float WaypointAdvanceDistance = 0.6f;
 
+    // Pure-pursuit lookahead. The pathfinder emits one waypoint per grid cell
+    // (~1m apart), so steering at the immediate next waypoint kept the mob's
+    // arrival-speed ramp engaged the whole path and it crawled at a fraction of
+    // maxSpeed. Instead aim at the furthest waypoint still within this distance,
+    // so the mob holds full speed along the route; near the goal the lookahead
+    // collapses onto the final waypoint and the arrival ramp slows it normally.
+    private const float SteerLookaheadDistance = 3f;
+
     // Wander tuning. Brownian sampling: each repath when wandering, pick a
     // random walkable neighbour cell weighted by 1/cost and a forward bias
     // along the mob's current heading. This makes wander look like a
@@ -241,7 +249,22 @@ public class MobNavigator
         Vector3 steerTarget;
         if (_waypoints.Count > 0 && _waypointIndex < _waypoints.Count)
         {
-            steerTarget = _waypoints[_waypointIndex];
+            // Pure-pursuit: aim past the immediate waypoint to the furthest one
+            // still within SteerLookaheadDistance so the mob doesn't brake
+            // toward each ~1m cell waypoint. Waypoints run forward along the
+            // path, so stop at the first one beyond the lookahead.
+            int steerIndex = _waypointIndex;
+            for (int k = _waypointIndex + 1; k < _waypoints.Count; k++)
+            {
+                Vector3 wp = _waypoints[k];
+                Vector2 d = new Vector2(wp.X - mobPos.X, wp.Z - mobPos.Z);
+                if (d.Length() > SteerLookaheadDistance)
+                {
+                    break;
+                }
+                steerIndex = k;
+            }
+            steerTarget = _waypoints[steerIndex];
         }
         else
         {

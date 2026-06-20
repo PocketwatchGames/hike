@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://cssgoblin0001"]
+
+[ext_resource type="Script" uid="uid://dg67ducpbt6xq" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
+[ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qj4m5"]
+[ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_yikcu"]
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_a2v61"]
+
+[sub_resource type="Resource" id="Resource_ykwmj"]
+script = ExtResource("2_qj4m5")
+color = Color(0.9, 0.66899997, 0.40499997, 1)
+amount = 0.8
+metadata/_custom_type_script = "uid://c4f283lqo67wq"
+
+[sub_resource type="Resource" id="Resource_18has"]
+script = ExtResource("3_yikcu")
+recolors = [SubResource("Resource_ykwmj")]
+metadata/_custom_type_script = "uid://cicvni6fvcssx"
+
+[resource]
+script = ExtResource("1_sub")
+mob = ExtResource("2_mob")
+palette = SubResource("Resource_18has")
+metadata/_custom_type_script = "uid://k6zxjx57f8xha"

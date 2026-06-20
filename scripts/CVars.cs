@@ -460,6 +460,13 @@ public static class CVars
     //   [lightning] skip: no ground at (12.3, 0.0, -6.1)
     public static CVarBool lightningLog = new CVarBool("lightning_log", false);
 
+    // When true, prints companion-follow / breadcrumb-rescue diagnostics:
+    // BehaviorWanderFollow logs (throttled) its phase, distance-to-player,
+    // chosen destination and leg speed; World.TickCompanionLeash logs each
+    // time the pet goes non-resident and whether a rescue crumb was found.
+    // Use to diagnose the dog getting left behind / failing to catch up.
+    public static CVarBool companionDebug = new CVarBool("companion_debug", false);
+
     // When true, draws each alive mob's active path as line segments via
     // DebugDraw — green for upcoming waypoints, yellow for the current
     // segment from the mob to its next waypoint, red dot at the goal.
