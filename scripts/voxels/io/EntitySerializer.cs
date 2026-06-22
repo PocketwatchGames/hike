@@ -167,6 +167,19 @@ public static class EntitySerializer
                 // Per-elite crown scene override (EliteMobDescriptor.crownScene),
                 // scene ref, may be null (then SimData.EliteCrownScene is used).
                 WriteScene(w, mob.EliteCrownScene);
+                // Death loot (MobSimState.Loot), stamped from SubSpeciesData.loot
+                // at spawn. Mob loot carries no permanent mods, so only item path
+                // + count are persisted (mirrors the chest-loot recipe above). If
+                // modded mob loot is ever added, write the descriptor's
+                // statusEffects here too.
+                int mobLootCount = mob.Loot?.Count ?? 0;
+                w.Write(mobLootCount);
+                for (int i = 0; i < mobLootCount; i++)
+                {
+                    ItemCount entry = mob.Loot[i];
+                    WriteResource(w, entry?.descriptor?.item);
+                    w.Write(entry?.count ?? 0);
+                }
                 break;
 
             case DoorSimState door:
@@ -420,6 +433,14 @@ public static class EntitySerializer
                 var statusEffects = ReadStatusEffectList(r);
                 var badge = ReadResource<Texture2D>(r);
                 var eliteCrownScene = ReadScene(r);
+                int mobLootCount = r.ReadInt32();
+                Godot.Collections.Array<ItemCount> loot = mobLootCount > 0 ? new Godot.Collections.Array<ItemCount>() : null;
+                for (int i = 0; i < mobLootCount; i++)
+                {
+                    ItemData item = ReadResource<ItemData>(r);
+                    int count = r.ReadInt32();
+                    loot.Add(new ItemCount { descriptor = new ItemDescriptor { item = item }, count = count });
+                }
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
                 mob.RestoredFromSave = true;
@@ -455,6 +476,7 @@ public static class EntitySerializer
                 mob.StatusEffects = statusEffects;
                 mob.Badge = badge;
                 mob.EliteCrownScene = eliteCrownScene;
+                mob.Loot = loot;
                 return mob;
             }
             case Tag.Door:

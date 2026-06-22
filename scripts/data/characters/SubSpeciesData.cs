@@ -26,4 +26,13 @@ public partial class SubSpeciesData : Resource
     // other onto the mob's status controller (see Mob.ApplySpawnStatusEffect).
     // Empty = none.
     [Export] public Godot.Collections.Array<StatusEffectData> statusEffects = new();
+
+    // Loot ejected from the mob's body when it dies (was a MobData field; lives
+    // here so each zone variant drops its own spoils — e.g. a forest kun-kun
+    // drops kun_kun_forest_meat, a desert one kun_kun_desert_meat, both parented
+    // to the shared kun_kun_meat so "needs kun-kun meat" recipes still match).
+    // Each entry spawns `count` Loot instances of its descriptor, fired outward
+    // on the same upward arc chests use. MobDescriptor.CreateState stamps this
+    // onto MobSimState.Loot (read by Mob.EjectLoot); empty = no drops.
+    [Export] public Godot.Collections.Array<ItemCount> loot = new();
 }

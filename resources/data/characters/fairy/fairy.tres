@@ -4,20 +4,8 @@
 [ext_resource type="Resource" uid="uid://bfrybrain7k1a" path="res://resources/data/characters/fairy/fairy_brain.tres" id="2_brain"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_gns7t"]
 [ext_resource type="PackedScene" uid="uid://bfryscene7k07" path="res://scenes/characters/fairy.tscn" id="3_scene"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
-[ext_resource type="Resource" uid="uid://4vmr7jaq6thd" path="res://resources/data/items/consumables/fairy_corpse.tres" id="5_corpse"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_7a7q4"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="10_sf75a"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
-
-[sub_resource type="Resource" id="Desc_loot_corpse"]
-script = ExtResource("99_desc")
-item = ExtResource("5_corpse")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_loot_corpse"]
-script = ExtResource("4_lootcount")
-descriptor = SubResource("Desc_loot_corpse")
 
 [resource]
 script = ExtResource("1_mobdata")
@@ -32,7 +20,6 @@ killsPerLevel = Array[int]([3, 10, 25, 50])
 exp = 2
 hudScale = 0.5
 MobScene = ExtResource("3_scene")
-loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_corpse")])
 despawnOnDeath = true
 triggersTraps = false
 maxSpeed = 6.0

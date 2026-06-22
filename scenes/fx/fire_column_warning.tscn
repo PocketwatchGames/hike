@@ -1,7 +1,7 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxwarn"]
-[ext_resource type="AudioStream" uid="uid://bxreljms4dd5h" path="res://assets/audio/source/interactives/sfx_spikeTrap_trigger.wav" id="2_warn_trigger"]
+[ext_resource type="AudioStream" uid="uid://cat0ygawvbp3o" path="res://assets/audio/source/interactives/sfx_fireTrap_warning_surge.wav" id="2_warn_trigger"]
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Script" uid="uid://dkwu7lidv1kxj" path="res://scripts/client/ContinuousCameraShake.cs" id="4_shake"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_cloud_puff"]
@@ -49,10 +49,10 @@ draw_pass_1 = SubResource("QuadMesh_firewarn_smoke")
 
 [node name="Audio" type="AudioStreamPlayer3D" parent="."]
 stream = ExtResource("2_warn_trigger")
-unit_size = 6.0
-max_distance = 30.0
-volume_db = 0.0
-pitch_scale = 0.85
+unit_size = 4.0
+max_distance = 22.0
+volume_db = -3.0
+pitch_scale = 0.9
 bus = &"World3D"
 
 [node name="Shake" type="Node3D" parent="."]

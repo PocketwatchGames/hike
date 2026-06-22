@@ -1,7 +1,7 @@
-[gd_resource type="Resource" script_class="MobDescriptor" format=3 uid="uid://cmdkunkun0001"]
+[gd_resource type="Resource" script_class="MobDescriptor" format=3]
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
-[ext_resource type="Resource" uid="uid://csskunkun0001" path="res://resources/data/characters/kun_kun/kun_kun_forest.tres" id="2_sub"]
+[ext_resource type="Resource" path="res://resources/data/characters/sparrow/sparrow_mountain.tres" id="2_sub"]
 
 [resource]
 script = ExtResource("1_desc")

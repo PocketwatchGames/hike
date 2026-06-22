@@ -320,11 +320,11 @@ public partial class MobData : Resource
     [Export] public MobPalette palette;
 
     [ExportGroup("Loot & Death")]
-    // Loot ejected from the mob's body when it dies. Each entry spawns
-    // `count` Loot instances of `item`, fired outward from the mob's
-    // position with the same upward-arc impulse pattern chests use. Empty
-    // (or null entries) on a mob means no drops.
-    [Export] public Array<ItemCount> loot = new();
+    // NOTE: the loot drop list is NOT a species trait — it's a per-zone-variant
+    // concern that lives on SubSpeciesData.loot (so a forest vs desert kun-kun
+    // drops different meat). CreateState stamps it onto MobSimState.Loot;
+    // Mob.EjectLoot reads it from there. See SubSpeciesData / MobDescriptor.
+
     // Outward arc speed (m/s) applied to each piece of ejected loot when
     // the mob dies — both authored drops in EjectLoot and any stuck arrows
     // scattered with the corpse. Launched on a 45° upward arc; larger

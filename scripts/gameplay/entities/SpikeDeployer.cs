@@ -114,7 +114,10 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         _animator?.Play(AnimWarn);
         if (data?.warningEffect != null)
         {
-            Fx.Create(data.warningEffect, this, GlobalPosition);
+            // Vector3.Zero: the Fx parents to this deployer, so the position arg
+            // is a LOCAL offset. Passing GlobalPosition here would double the
+            // world coords and fling the sound/particles far out of earshot.
+            Fx.Create(data.warningEffect, this, Vector3.Zero);
         }
     }
 
@@ -125,7 +128,7 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         _animator?.Play(AnimDeploy);
         if (data?.emergeEffect != null)
         {
-            Fx.Create(data.emergeEffect, this, GlobalPosition);
+            Fx.Create(data.emergeEffect, this, Vector3.Zero);
         }
         // A sprung trap is conspicuous — bump prominence so the now-exposed
         // trap stays easy to notice, then force the immediate discovery.
@@ -153,7 +156,7 @@ public partial class SpikeDeployer : Node3D, ITriggerable, IDisarmable
         _animator?.Play(AnimRetract);
         if (data?.retractEffect != null)
         {
-            Fx.Create(data.retractEffect, this, GlobalPosition);
+            Fx.Create(data.retractEffect, this, Vector3.Zero);
         }
     }
 

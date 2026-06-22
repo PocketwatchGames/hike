@@ -10,11 +10,16 @@
 [ext_resource type="PackedScene" uid="uid://bm0bprojvl3ka" path="res://scenes/projectiles/bomb_projectile.tscn" id="7_proj"]
 [ext_resource type="PackedScene" uid="uid://bm0xpllarge02" path="res://scenes/fx/bomb_explosion_large.tscn" id="8b_explosion_large"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="8_7xwph"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="8_state"]
 [ext_resource type="PackedScene" uid="uid://bm0xpmaaoe20c" path="res://scenes/fx/bomb_explosion.tscn" id="8_explosion"]
 [ext_resource type="PackedScene" uid="uid://bm0thrwfx02d" path="res://scenes/fx/bomb_throw.tscn" id="9_throw"]
 [ext_resource type="PackedScene" uid="uid://bm0held3mdl7" path="res://scenes/items/held/bomb_held.tscn" id="10_held"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_68y43"]
 [ext_resource type="Texture2D" uid="uid://ck8w0sjssnkkb" path="res://assets/textures/items/Bomb.png" id="11_inv"]
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("8_state")
+forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_areaspec_blast"]
 script = ExtResource("5_areaspec")
@@ -50,6 +55,7 @@ chargeTime = 0.45
 cooldownSeconds = 0.7
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_proj_small")])
+requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
 positionalAreaRadius = 1.0
 releaseEffect = ExtResource("9_throw")
@@ -81,6 +87,7 @@ displayName = &"Heavy Bomb"
 cooldownSeconds = 1.0
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_proj_large")])
+requirements = Array[ExtResource("8_7xwph")]([SubResource("Resource_req_no_swim")])
 aimType = 2
 positionalAreaRadius = 2.5
 releaseEffect = ExtResource("9_throw")

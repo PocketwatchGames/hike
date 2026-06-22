@@ -41,4 +41,9 @@ public partial class FireTrapData : Resource
     // Looping fire-column fx (continuous flame + crackle) created on Active
     // enter and Stop()ped on Active exit so it winds down naturally.
     [Export] public PackedScene columnLoopEffect;
+
+    // Looping ambient bubbling fx played while the trap is dormant (Idle +
+    // Warning), Stop()ped when the column erupts and restarted on the next
+    // Idle. A short-range cue that hints at the buried geyser before it fires.
+    [Export] public PackedScene idleLoopEffect;
 }

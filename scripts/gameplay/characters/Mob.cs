@@ -984,11 +984,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     public bool HasBlood(float amount) => true;
     public void DrainBlood(float amount) { }
 
-    // Mob locomotion has no swim/airborne distinction yet — surface stable
-    // defaults so ActorStateRequirement evaluates cleanly on mob attacks
-    // (forbidSwimming passes, requireGrounded passes, requireAirborne fails).
+    // Mob locomotion has no airborne distinction yet, so IsGrounded is a
+    // stable default. IsSwimming reflects the real water state (_swimming,
+    // set in UpdateWaterState) so ActorStateRequirement.forbidSwimming gates
+    // mob attacks the same as the player's.
     public bool IsGrounded => true;
-    public bool IsSwimming => false;
+    public bool IsSwimming => _swimming;
     public bool HasDamagingStatusEffect => _statusEffects?.HasDamagingEffect ?? false;
 
     public float OutgoingDamageMultiplier => _statusEffects?.FoldStat(EStat.OutgoingDamage, 1f) ?? 1f;
@@ -3644,10 +3645,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         health = maxHealth;
     }
 
-    // Mirrors Chest.Complete's loot ejection: each ItemCount entry on MobData
-    // fires `count` Loot instances outward on a 45° upward arc. Random
-    // horizontal angle per item so a multi-drop carcass scatters rather than
-    // dropping in a tight stack.
+    // Mirrors Chest.Complete's loot ejection: each ItemCount entry (stamped onto
+    // the sim state from the spawning SubSpeciesData.loot) fires `count` Loot
+    // instances outward on a 45° upward arc. Random horizontal angle per item so
+    // a multi-drop carcass scatters rather than dropping in a tight stack.
     private void EjectLoot()
     {
         if (_world == null)
@@ -3655,7 +3656,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             return;
         }
         MobData md = mobData;
-        bool hasSpeciesLoot = md?.loot != null && md.loot.Count > 0;
+        Godot.Collections.Array<ItemCount> loot = _simState?.Loot;
+        bool hasSpeciesLoot = loot != null && loot.Count > 0;
         // Elites drop the shared crown trophy on top of their species loot —
         // the same halo (SimData.EliteCrownScene) that marked them alive, now a
         // collectible. Authored once on SimData so it's species-agnostic, and
@@ -3671,9 +3673,9 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         float verticalSpeed = ejectSpeed * Mathf.Sin(Mathf.Pi / 4f);
         if (hasSpeciesLoot)
         {
-            for (int i = 0; i < md.loot.Count; i++)
+            for (int i = 0; i < loot.Count; i++)
             {
-                ItemCount entry = md.loot[i];
+                ItemCount entry = loot[i];
                 if (entry?.descriptor?.item == null)
                 {
                     continue;

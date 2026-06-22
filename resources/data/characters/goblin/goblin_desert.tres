@@ -5,6 +5,19 @@
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_7btn7"]
 [ext_resource type="Script" uid="uid://dg67ducpbt6xq" path="res://scripts/data/characters/SubSpeciesData.cs" id="4_t3jks"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_iqflo"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="7_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/goblin_desert_meat.tres" id="8_meat"]
+
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("7_desc")
+item = ExtResource("8_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_meat"]
+script = ExtResource("6_lootcount")
+descriptor = SubResource("Desc_loot_meat")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("2_qpp1h")
@@ -22,3 +35,4 @@ metadata/_custom_type_script = "uid://j75mtm0w0qkch"
 script = ExtResource("4_t3jks")
 mob = ExtResource("1_3s3mn")
 palette = SubResource("Resource_db5yf")
+loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])

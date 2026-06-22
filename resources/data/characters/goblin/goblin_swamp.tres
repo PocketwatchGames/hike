@@ -8,6 +8,19 @@
 [ext_resource type="Script" uid="uid://fwmd5k3q8x2n" path="res://scripts/data/effects/payloads/WeaponModData.cs" id="5_wmod"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="7_poison"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="8_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="9_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/goblin_swamp_meat.tres" id="10_meat"]
+
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("9_desc")
+item = ExtResource("10_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_meat"]
+script = ExtResource("8_lootcount")
+descriptor = SubResource("Desc_loot_meat")
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
 
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("2_qy3ra")
@@ -48,4 +61,5 @@ script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 palette = SubResource("Resource_ihwyg")
 statusEffects = Array[ExtResource("4_sedata")]([SubResource("Resource_venom_effect")])
+loot = Array[ExtResource("8_lootcount")]([SubResource("Resource_loot_meat")])
 metadata/_custom_type_script = "uid://k6zxjx57f8xha"

@@ -1,0 +1,15 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fxbubble"]
+[ext_resource type="AudioStream" uid="uid://dsog70n5i1r5x" path="res://assets/audio/source/interactives/sfx_fireTrap_idle_bubble_lp.wav" id="2_bubble_lp"]
+
+[node name="FireColumnBubbleLoop" type="Node3D"]
+script = ExtResource("1_fxbubble")
+_loop = true
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = ExtResource("2_bubble_lp")
+volume_db = -3.0
+unit_size = 2.5
+max_distance = 10.0
+bus = &"World3D"

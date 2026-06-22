@@ -6,10 +6,15 @@
 [ext_resource type="Resource" uid="uid://cjvf30nl7ddfv" path="res://resources/data/recipes/recipe_health_potion.tres" id="4_recipe_hp"]
 [ext_resource type="Resource" uid="uid://c5j2h8n4q3pwt" path="res://resources/data/recipes/recipe_health_potion_superior.tres" id="4_recipe_hp_hi"]
 [ext_resource type="Resource" uid="uid://drcp4n7p2q8wt" path="res://resources/data/recipes/recipe_grilled_kun_kun.tres" id="5_recipe_gkk"]
-[ext_resource type="Resource" uid="uid://cak7m4n2p8qrx" path="res://resources/data/recipes/recipe_succulent_grilled_kun_kun.tres" id="5_recipe_gkk_hi"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_forest_kun_kun.tres" id="5_skk_forest"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_desert_kun_kun.tres" id="5_skk_desert"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_mountain_kun_kun.tres" id="5_skk_mountain"]
 [ext_resource type="Resource" uid="uid://c5j8tk2pnawhx" path="res://resources/data/recipes/recipe_cure_poison_potion.tres" id="6_recipe_cure"]
 [ext_resource type="Resource" uid="uid://drg5p3n4q2wxt" path="res://resources/data/recipes/recipe_grilled_goblin.tres" id="6_recipe_gg"]
-[ext_resource type="Resource" uid="uid://c8743nsy2v56" path="res://resources/data/recipes/recipe_succulent_grilled_goblin.tres" id="6_recipe_gg_hi"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_forest_goblin.tres" id="6_sgg_forest"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_desert_goblin.tres" id="6_sgg_desert"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_mountain_goblin.tres" id="6_sgg_mountain"]
+[ext_resource type="Resource" path="res://resources/data/recipes/recipe_succulent_grilled_swamp_goblin.tres" id="6_sgg_swamp"]
 [ext_resource type="Resource" uid="uid://crbn7q3k2p8wt" path="res://resources/data/boons/boon_restore.tres" id="21_boon_restore"]
 [ext_resource type="Resource" uid="uid://bdbn4p2qyawtk" path="res://resources/data/boons/boon_dash.tres" id="6_rmw2s"]
 [ext_resource type="Resource" uid="uid://cfbn6n3qk2p8w" path="res://resources/data/boons/boon_flame_trail.tres" id="7_c5a0h"]
@@ -33,7 +38,7 @@
 [resource]
 script = ExtResource("1_1meao")
 Gravity = 50.0
-Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_recipe_gkk_hi"), ExtResource("5_recipe_gkk"), ExtResource("6_recipe_gg_hi"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_cure")])
+Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_skk_forest"), ExtResource("5_skk_desert"), ExtResource("5_skk_mountain"), ExtResource("5_recipe_gkk"), ExtResource("6_sgg_forest"), ExtResource("6_sgg_desert"), ExtResource("6_sgg_mountain"), ExtResource("6_sgg_swamp"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_cure")])
 Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
 ScriptVariables = ExtResource("23_scriptvars")
 EliteStatusEffect = ExtResource("15_elite_std")

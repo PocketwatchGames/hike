@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="SubSpeciesData" format=3]
+
+[ext_resource type="Script" uid="uid://k6zxjx57f8xha" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
+[ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="3_lootcount"]
+[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="4_desc"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/kun_kun_mountain_meat.tres" id="5_meat"]
+
+[sub_resource type="Resource" id="Desc_loot_meat"]
+script = ExtResource("4_desc")
+item = ExtResource("5_meat")
+metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
+
+[sub_resource type="Resource" id="Resource_loot_meat"]
+script = ExtResource("3_lootcount")
+descriptor = SubResource("Desc_loot_meat")
+count = 2
+metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
+
+[resource]
+script = ExtResource("1_sub")
+mob = ExtResource("2_mob")
+loot = Array[ExtResource("3_lootcount")]([SubResource("Resource_loot_meat")])
+metadata/_custom_type_script = "uid://k6zxjx57f8xha"

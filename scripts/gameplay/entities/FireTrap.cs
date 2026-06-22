@@ -32,6 +32,7 @@ public partial class FireTrap : Node3D, IWorldEntity
     private EFireTrapState _state = EFireTrapState.Idle;
     private float _stateTimer;
     private Fx _columnLoop;
+    private Fx _idleLoop;
 
     public override void _Ready()
     {
@@ -49,6 +50,27 @@ public partial class FireTrap : Node3D, IWorldEntity
             // Editor-placed: roll a fresh phase offset so multiple traps in a
             // hand-authored scene don't fire in lockstep.
             _stateTimer = (float)GD.RandRange(0.0, data.maxPhaseOffsetSeconds);
+        }
+        // Trap starts Idle (no Enter call for the initial state), so kick off
+        // the bubbling here. Deferred so the Fx AddChild doesn't collide with
+        // this trap's own AddChild when Create-spawned (data.blocked > 0).
+        CallDeferred(MethodName.StartIdleLoop);
+    }
+
+    private void StartIdleLoop()
+    {
+        if (data?.idleLoopEffect != null && _idleLoop == null)
+        {
+            _idleLoop = Fx.Create(data.idleLoopEffect, this, Vector3.Zero);
+        }
+    }
+
+    private void StopIdleLoop()
+    {
+        if (_idleLoop != null)
+        {
+            _idleLoop.Stop();
+            _idleLoop = null;
         }
     }
 
@@ -96,6 +118,7 @@ public partial class FireTrap : Node3D, IWorldEntity
     {
         _state = EFireTrapState.Active;
         _stateTimer = data.activeSeconds;
+        StopIdleLoop();
         _damageZone?.SetActive(true);
         _warmthZone?.SetActive(true);
         _light?.SetActive(true);
@@ -121,6 +144,7 @@ public partial class FireTrap : Node3D, IWorldEntity
             _columnLoop.Stop();
             _columnLoop = null;
         }
+        StartIdleLoop();
     }
 
     public static FireTrap Create(World world, FireTrapSimState data)

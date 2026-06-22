@@ -14,7 +14,12 @@
 [ext_resource type="PackedScene" uid="uid://g2gnagaooy8y" path="res://scenes/fx/fists_attack_heavy.tscn" id="8_atkheavy"]
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_5mj5i"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("9_state")
+forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -34,6 +39,7 @@ cooldownSeconds = 0.35
 staminaCost = 5.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
+requirements = Array[ExtResource("9_5mj5i")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
@@ -56,6 +62,7 @@ script = ExtResource("4_charged")
 cooldownSeconds = 0.6
 staminaCost = 12.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
+requirements = Array[ExtResource("9_5mj5i")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atkheavy")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")

@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://l2a2i3yh3emq" path="res://scenes/fx/fists_attack_light.tscn" id="8_atklight"]
 [ext_resource type="PackedScene" uid="uid://ncybxa3beup5" path="res://scenes/fx/club_smear_light.tscn" id="8_lqdfk"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_req"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Resource" uid="uid://43fu3vtfud0d" path="res://resources/data/items/weapons/knife_charged_attack_melee_event1.tres" id="10_74twt"]
 [ext_resource type="Resource" uid="uid://dbvs03beygksr" path="res://resources/data/items/weapons/knife_charged_attack_melee_event2.tres" id="11_lqdfk"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_continuous"]
@@ -24,6 +25,10 @@
 [ext_resource type="Texture2D" uid="uid://e1r7kjk5qyau" path="res://assets/textures/items/Knife.png" id="15_sprite"]
 [ext_resource type="PackedScene" uid="uid://ce444jxc8syqg" path="res://scenes/items/held/knife_held.tscn" id="17_held"]
 [ext_resource type="Resource" uid="uid://ctqy5r6q3jmsx" path="res://resources/data/characters/human/anim_sets/knife.tres" id="20_animset"]
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("9_state")
+forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
@@ -44,6 +49,7 @@ cooldownSeconds = 0.05
 staminaCost = 3.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 500
+requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitkill")
@@ -54,6 +60,7 @@ activeDurationSeconds = 1.0
 cooldownSeconds = 0.25
 staminaCost = 25.0
 events = Array[ExtResource("3_event")]([ExtResource("10_74twt"), ExtResource("11_lqdfk"), ExtResource("12_qsf28"), ExtResource("13_v26lm"), ExtResource("14_0ohaa")])
+requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
 releaseEffect = ExtResource("8_atkheavy")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitkill")

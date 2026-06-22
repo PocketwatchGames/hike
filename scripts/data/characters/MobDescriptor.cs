@@ -61,6 +61,10 @@ public partial class MobDescriptor : Resource
         {
             state.Weapons = weapons;
         }
+        if (subSpecies.loot != null && subSpecies.loot.Count > 0)
+        {
+            state.Loot = subSpecies.loot;
+        }
         // Compose this subspecies' intrinsic status effects with the elite
         // signature's (if any) into one list so both apply at spawn.
         var effects = new Godot.Collections.Array<StatusEffectData>();

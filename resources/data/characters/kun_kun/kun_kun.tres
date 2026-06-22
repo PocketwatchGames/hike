@@ -3,14 +3,11 @@
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://syb6453ftgs8" path="res://resources/data/characters/kun_kun/kun_kun_brain.tres" id="2_brain"]
 [ext_resource type="PackedScene" uid="uid://11rjp0311ygl" path="res://scenes/characters/kun_kun.tscn" id="3_scene"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="4_lootcount"]
-[ext_resource type="Resource" uid="uid://ckmt8n5p3q07w" path="res://resources/data/items/loot/kun_kun_meat.tres" id="5_meat"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="6_animdata"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="7_fxemr"]
 [ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="7_statmod"]
 [ext_resource type="Resource" uid="uid://cdg5stnk2wq8r" path="res://resources/data/status_effects/status_dig_stun.tres" id="8_digstun"]
 [ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="11_752mf"]
-[ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="99_desc"]
 
 [sub_resource type="Resource" id="Resource_anim_dead"]
 script = ExtResource("6_animdata")
@@ -69,17 +66,6 @@ script = ExtResource("6_animdata")
 name = &"hitstun"
 metadata/_custom_type_script = "uid://jqeoac08u010"
 
-[sub_resource type="Resource" id="Desc_loot_meat"]
-script = ExtResource("99_desc")
-item = ExtResource("5_meat")
-metadata/_custom_type_script = "uid://c2qx7n8rkmdt5"
-
-[sub_resource type="Resource" id="Resource_loot_meat"]
-script = ExtResource("4_lootcount")
-descriptor = SubResource("Desc_loot_meat")
-count = 2
-metadata/_custom_type_script = "uid://rgsn3i1pdqkv"
-
 [resource]
 script = ExtResource("1_mobdata")
 displayName = &"Kun-Kun"
@@ -115,7 +101,6 @@ animations = Dictionary[int, ExtResource("6_animdata")]({
 })
 hudScale = 0.5
 MobScene = ExtResource("3_scene")
-loot = Array[ExtResource("4_lootcount")]([SubResource("Resource_loot_meat")])
 triggersTraps = false
 maxSpeed = 8.0
 foliageSpeedModifier = 0.0

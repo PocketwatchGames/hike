@@ -6,6 +6,7 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_jf0yv"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
@@ -24,6 +25,10 @@
 [ext_resource type="PackedScene" uid="uid://b8wq3n7rvtak2" path="res://scenes/fx/arrow_trail.tscn" id="19_arrowtrail"]
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
+
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
@@ -44,6 +49,7 @@ chargeTime = 0.7
 cooldownSeconds = 0.5
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
+requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
 chargedRangeScale = 2.0
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
@@ -70,6 +76,7 @@ displayName = &"Heavy Attack"
 cooldownSeconds = 0.5
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
+requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
 chargeStartEffect = ExtResource("8_chgtail")
 chargeLoopEffect = ExtResource("8_chgloop")
 releaseEffect = ExtResource("8_atkheavy")

@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="RecipeData" format=3]
+
+[ext_resource type="Script" uid="uid://7alstngwip3e" path="res://scripts/data/items/RecipeInput.cs" id="1_input"]
+[ext_resource type="Resource" path="res://resources/data/items/loot/goblin_mountain_meat.tres" id="2_meat"]
+[ext_resource type="Resource" uid="uid://dq2wv8k7rmn3c" path="res://resources/data/items/loot/carrot.tres" id="3_carrot"]
+[ext_resource type="Script" uid="uid://b54lj44c0ylpi" path="res://scripts/data/items/RecipeData.cs" id="4_recipe"]
+[ext_resource type="Resource" path="res://resources/data/items/consumables/succulent_grilled_mountain_goblin.tres" id="5_output"]
+
+[sub_resource type="Resource" id="Resource_input_meat"]
+script = ExtResource("1_input")
+item = ExtResource("2_meat")
+count = 2
+metadata/_custom_type_script = "uid://64jki9zhf4p5i"
+
+[sub_resource type="Resource" id="Resource_input_carrot"]
+script = ExtResource("1_input")
+item = ExtResource("3_carrot")
+count = 3
+metadata/_custom_type_script = "uid://64jki9zhf4p5i"
+
+[resource]
+script = ExtResource("4_recipe")
+outputItem = ExtResource("5_output")
+inputs = Array[ExtResource("1_input")]([SubResource("Resource_input_meat"), SubResource("Resource_input_carrot")])
+priority = 1
