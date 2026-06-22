@@ -106,14 +106,6 @@ public static class CVars
     // canopy density byte at that voxel.
     public static CVarBool debugSkyLight = new CVarBool("debug_sky_light", false);
 
-    // Max rate (Hz) the block-light LightMap re-uploads to the GPU. The upload
-    // is a full-texture push (ImageTexture3D has no partial update), so anything
-    // that dirties a chunk every frame — flicker, a moving torch — would force a
-    // full re-upload per frame. Throttling caps that to this rate; light updates
-    // lag at most 1/this seconds, invisible at 30 Hz. Raise toward the frame rate
-    // for snappier light, lower to spend less on the upload.
-    public static CVarFloat lightFlushHz = new CVarFloat("light_flush_hz", 30f);
-
     // Mouse aim sensitivity. Multiplies raw mouseMotion.Relative before
     // accumulating into the aim cursor (clamped to a fixed pixel radius in
     // GameClient). Higher = more cursor travel per pixel of mouse motion =

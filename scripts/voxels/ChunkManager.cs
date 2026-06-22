@@ -150,7 +150,6 @@ public partial class ChunkManager : Node3D
     // multi-hundred-ms surge.
     private bool _initialLoadPending = true;
     private Vector3I _lastPlayerChunkCoord;
-    private float _lightFlushTimer;
     // Cached "desired chunk set" gate (see ShouldRebuildDesired). The desired
     // set is an O(MAX_LOAD_DISTANCE³) frustum scan that only changes when the
     // player crosses a chunk boundary or the camera turns, so we snapshot those
@@ -373,22 +372,16 @@ public partial class ChunkManager : Node3D
         }
 
         // Drain any direct WorldState writes (e.g. MovingLight per-frame
-        // deposits) into LightMap, then flush. Throttled to light_flush_hz: the
-        // flush does a FULL-texture GPU upload (ImageTexture3D has no partial
-        // update), so a light that dirties a chunk every frame (flicker, a moving
-        // torch) would otherwise force a full re-upload per frame. Dirty chunks
-        // accumulate (deduped) in WorldState between flushes and batch into one
-        // upload here. Geometry/light-add paths still drain immediately; only the
-        // upload is rate-capped.
-        _lightFlushTimer += (float)delta;
-        if (_lightFlushTimer >= 1f / Mathf.Max(1f, CVars.lightFlushHz.Value))
+        // deposits) into LightMap, then flush every frame. The flush only
+        // re-uploads the chunks that actually changed (WindowedVolumeMap does a
+        // per-chunk RD region copy), so per-frame flushing is cheap — no rate
+        // cap needed. (The old light_flush_hz throttle existed only to batch the
+        // whole-window ImageTexture3D.Update the partial upload replaced; it just
+        // added lighting latency once that landed.)
+        using (Profiler.Sample("ChunkManager.LightFlush"))
         {
-            _lightFlushTimer = 0f;
-            using (Profiler.Sample("ChunkManager.LightFlush"))
-            {
-                DrainLightChunkDirty();
-                _lightMap.Flush(_worldData);
-            }
+            DrainLightChunkDirty();
+            _lightMap.Flush(_worldData);
         }
 
         using (Profiler.Sample("ChunkManager.SkyExposureFlush"))

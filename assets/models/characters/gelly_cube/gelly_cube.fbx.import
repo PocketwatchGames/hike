@@ -1742,7 +1742,7 @@ _subresources={
 "slice_59/save_to_file/path": "",
 "slice_59/start_frame": 0,
 "slice_6/end_frame": 500,
-"slice_6/loop_mode": 0,
+"slice_6/loop_mode": 1,
 "slice_6/name": "dead",
 "slice_6/save_to_file/enabled": false,
 "slice_6/save_to_file/fallback_path": "",
