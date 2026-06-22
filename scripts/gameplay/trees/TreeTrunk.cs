@@ -50,6 +50,12 @@ public partial class TreeTrunk : MeshInstance3D
     // the root-bulge extent; the actual skeleton height follows the clusters.
     [Export] public float TrunkHeight = 5.0f;
     [Export] public float BottomRadius = 0.35f;
+    // How far below the prop origin the trunk base is buried. The tree is
+    // anchored at a height tuned for a flat grass column's smoothed top, so on
+    // sloped or uneven terrain the origin can sit slightly above the visible
+    // surface on the downhill side; sinking the base keeps it embedded instead
+    // of floating with a gap between the trunk and its shadow.
+    [Export(PropertyHint.Range, "0,2,0.05")] public float GroundSink = 0.5f;
     // Radius at a branch tip (the thin end of every terminal branch).
     [Export] public float TopRadius = 0.06f;
     // Radial faceting (sides around each branch tube).
@@ -390,12 +396,16 @@ public partial class TreeTrunk : MeshInstance3D
         Strand root = new Strand { CapBase = CapBottom };
         strands.Add(root);
 
+        // Start the root below the origin so the base stays buried on uneven
+        // terrain (see GroundSink).
+        Vector3 baseStart = new Vector3(0f, -GroundSink, 0f);
+
         if (clusters.Count == 0)
         {
             // No clusters — a lone straight trunk.
             root.Segs.Add(new Segment
             {
-                A = Vector3.Zero,
+                A = baseStart,
                 B = new Vector3(0f, effHeight, 0f),
                 RadiusA = BottomRadius,
                 RadiusB = TopRadius,
@@ -404,7 +414,7 @@ public partial class TreeTrunk : MeshInstance3D
             });
             return strands;
         }
-        Grow(Vector3.Zero, new List<FoliageCluster>(clusters), BottomRadius, 0, baseSeed, root, strands, tips);
+        Grow(baseStart, new List<FoliageCluster>(clusters), BottomRadius, 0, baseSeed, root, strands, tips);
         return strands;
     }
 
