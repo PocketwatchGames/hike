@@ -61,7 +61,7 @@ render_mode ambient_light_disabled, depth_draw_opaque, cull_back;
 uniform sampler2D albedo_tex : source_color, filter_nearest;
 
 // World-lightmap globals (same set model_lit / sprite_lit / voxel_clip read).
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;

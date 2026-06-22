@@ -43,7 +43,7 @@ stencil_mode read, compare_equal, 4;
 uniform sampler2D sprite_texture : source_color, filter_nearest;
 
 // --- Lighting / sky globals (verbatim from sprite_reflection) ---
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
@@ -92,7 +92,7 @@ global uniform float reflection_pixel_jitter_max;
 // the reflection's water-surface intersection so prop reflections in
 // caves / indoors stop shimmering — same gating as voxel_water and
 // sprite_reflection so the three layers stay coherent.
-global uniform sampler3D wind_map : filter_linear;
+global uniform sampler3D wind_map : filter_linear, repeat_enable;
 global uniform vec3 wind_map_origin;
 global uniform vec3 wind_map_inv_size;
 

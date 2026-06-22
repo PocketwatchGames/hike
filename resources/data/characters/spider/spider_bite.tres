@@ -7,6 +7,8 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="6_hitfx"]
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="8_buildup"]
+[ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="9_poison"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -39,6 +41,11 @@ script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_bite")])
 locksMovement = true
 
+[sub_resource type="Resource" id="Resource_poison_buildup"]
+script = ExtResource("8_buildup")
+effect = ExtResource("9_poison")
+amount = 0.5
+
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")
 tags = 1157
@@ -47,7 +54,7 @@ blunt = 0.2
 hitstun = 0.25
 knockbackDistance = 0.6
 knockbackTime = 0.15
-buildups = []
+buildups = Array[ExtResource("8_buildup")]([SubResource("Resource_poison_buildup")])
 modifiers = []
 
 [resource]

@@ -32,7 +32,7 @@ global uniform float light_falloff_exp; // power applied to lightmap value (>1 =
 // RGBA8 light map: R = sunlight visibility mask 0..1 (single source, max-fill,
 // pow'd in this shader). GBA = per-color-channel block light, post-pow at
 // deposit time so overlapping lights add their perceptual brightness directly.
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 // Day/night-driven scalars for the sun. sun_intensity is overall brightness

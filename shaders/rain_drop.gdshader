@@ -40,14 +40,14 @@ render_mode blend_mix, unshaded, depth_draw_opaque, cull_disabled, skip_vertex_t
 // standalone (no LightMap registered); gate the clips on that so drops render
 // in the preview.
 
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
 // Non-leaky vertical sky-exposure field (same UVW convention as light_map).
 // Used to clip drops at the true overhead-cover line instead of the BFS sun
 // mask, which bleeds sideways into cave mouths. See ChunkState.SkyExposure.
-global uniform sampler3D sky_exposure_map : filter_linear;
+global uniform sampler3D sky_exposure_map : filter_linear, repeat_enable;
 global uniform vec3 sky_exposure_map_origin;
 global uniform vec3 sky_exposure_map_inv_size;
 global uniform float camera_clip;

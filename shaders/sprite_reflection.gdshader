@@ -41,7 +41,7 @@ stencil_mode read, compare_equal, 4;
 // texture share one material and batch. sprite_texture stays a regular
 // uniform since sampler2D can't be instance in Godot 4.
 uniform sampler2D sprite_texture : source_color, filter_nearest;
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
@@ -105,7 +105,7 @@ global uniform float ripple_strength;
 // indoors stop shimmering — without this gate they ignore the wind grid
 // and ripple in lockstep with the open-air reflection on the same
 // material.
-global uniform sampler3D wind_map : filter_linear;
+global uniform sampler3D wind_map : filter_linear, repeat_enable;
 global uniform vec3 wind_map_origin;
 global uniform vec3 wind_map_inv_size;
 

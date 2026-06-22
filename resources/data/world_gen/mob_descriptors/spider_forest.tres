@@ -4,9 +4,10 @@
 [ext_resource type="Resource" uid="uid://cssspider0001" path="res://resources/data/characters/spider/spider_forest.tres" id="2_sub"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
 [ext_resource type="Resource" uid="uid://dqv1rat42bvem" path="res://resources/data/characters/spider/spider_bite.tres" id="4_bite"]
+[ext_resource type="Resource" uid="uid://b4qht5mjwfjne" path="res://resources/data/characters/spider/spider_venom.tres" id="5_venom"]
 
 [resource]
 script = ExtResource("1_desc")
 subSpecies = ExtResource("2_sub")
-weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite")])
+weapons = Array[ExtResource("3_weapon")]([ExtResource("4_bite"), ExtResource("5_venom")])
 metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

@@ -21,6 +21,12 @@ public partial class ChunkManager : Node3D
     // for an "entering new area" stutter.
     private const int NEAR_LOAD_RADIUS_SQ = 3;
     private const int MAX_LOAD_DISTANCE = 10;
+    // Player-centric window for the five ImageTexture3D volume maps (light, sky
+    // exposure, fog, wind, water current). Diameter must STRICTLY exceed the
+    // resident diameter (2*MAX_LOAD_DISTANCE+1 = 21 chunks) so the toroidal
+    // texel-wrap boundary never lands inside the rendered region — see
+    // WindowedVolumeMap. The +2 margin (one chunk each side) provides that.
+    private const int LIGHT_WINDOW_DIAMETER_CHUNKS = MAX_LOAD_DISTANCE * 2 + 1 + 2;
     private const int MAX_REBUILDS_PER_FRAME = 3;
     // Per-frame caps on chunk-mesh generation. ChunkMesh.Create costs ~14ms
     // per chunk in MesherDC; without these caps the hitch detector was
@@ -170,15 +176,15 @@ public partial class ChunkManager : Node3D
     public void Initialize(WorldState worldData, Vector3 spawnPosition, Camera3D camera, ShaderMaterial fogMaterial, Func<Vector3> getPlayerPosition)
     {
         _worldData = worldData;
-        _lightMap = new LightMap(worldData);
-        _skyExposureMap = new SkyExposureMap(worldData);
-        _fogMap = new FogMap(worldData);
-        _windMap = new WindMap(worldData);
-        _waterCurrentMap = new WaterCurrentMap(worldData);
+        _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
+        _lightMap = new LightMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
+        _skyExposureMap = new SkyExposureMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
+        _fogMap = new FogMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
+        _windMap = new WindMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
+        _waterCurrentMap = new WaterCurrentMap(worldData, _lastPlayerChunkCoord, LIGHT_WINDOW_DIAMETER_CHUNKS);
         _fogMaterial = fogMaterial;
         _camera = camera;
         _getPlayerPosition = getPlayerPosition;
-        _lastPlayerChunkCoord = World.WorldToChunkCoord(spawnPosition);
 
         // IMPORTANT: register all global uniforms BEFORE touching any shader
         // material, because setting a parameter on a ShaderMaterial compiles
@@ -194,7 +200,7 @@ public partial class ChunkManager : Node3D
         // script editor. At runtime we swap in the real ImageTexture3D here.
         ShaderGlobals.Register("light_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _lightMap.Texture);
         ShaderGlobals.Register("light_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.Origin);
-        ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _lightMap.Size);
+        ShaderGlobals.Register("light_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _lightMap.InvSize);
         ShaderGlobals.Register("light_falloff_exp", RenderingServer.GlobalShaderParameterType.Float, 2f);
         // Night-vision degree for the screenspace effect in
         // shaders/post_process.gdshader. Seeded to 0 (off, exact no-op);
@@ -206,7 +212,7 @@ public partial class ChunkManager : Node3D
         // is swapped in here at runtime.
         ShaderGlobals.Register("sky_exposure_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _skyExposureMap.Texture);
         ShaderGlobals.Register("sky_exposure_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _skyExposureMap.Origin);
-        ShaderGlobals.Register("sky_exposure_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _skyExposureMap.Size);
+        ShaderGlobals.Register("sky_exposure_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _skyExposureMap.InvSize);
         // tree_lit.gdshader per-feature gates. Declared in project.godot's
         // [shader_globals] so the editor's script editor can compile the
         // shader on its own; seeded here with the current CVar value so a
@@ -236,7 +242,7 @@ public partial class ChunkManager : Node3D
         // PlaceholderTexture3D so the editor can compile shaders that read it.
         ShaderGlobals.Register("wind_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _windMap.Texture);
         ShaderGlobals.Register("wind_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _windMap.Origin);
-        ShaderGlobals.Register("wind_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _windMap.Size);
+        ShaderGlobals.Register("wind_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _windMap.InvSize);
         // Maps stored RGB (signed [-1, 1]) to world m/s when shaders decode
         // wind_map velocity. Must match WindGen.WIND_VELOCITY_SCALE — change
         // them together (or re-bake chunks) so disk values keep their
@@ -258,10 +264,13 @@ public partial class ChunkManager : Node3D
         _windAttractor.Name = "WindAttractor";
         _windAttractor.Texture = _windMap.Texture;
         // GpuParticlesAttractor3D.size is half-extents (the AABB is [-size, +size]
-        // around the node position), so divide by 2 and offset the position by
-        // half-size so the AABB lands at [WindMap.Origin, WindMap.Origin + WindMap.Size].
-        _windAttractor.Size = _windMap.Size * 0.5f;
-        _windAttractor.Position = _windMap.Origin + _windMap.Size * 0.5f;
+        // around the node position). The wind_map is now a toroidal window, so
+        // the attractor's AABB — which maps linearly to the texture [0,1] with NO
+        // wrap — must cover exactly one window tile aligned to the texel grid so
+        // its uv matches the toroidal texel layout. RepositionWindAttractor snaps
+        // it to the tile containing the player.
+        _windAttractor.Size = _windMap.WindowWorldSize * 0.5f;
+        RepositionWindAttractor();
         // Strength is the m/s² acceleration applied at peak signed wind (RGB
         // = 0 or 255). Defaults small because particles have low damping;
         // tunable live via CVars.particleWindStrength (polled in _Process).
@@ -273,7 +282,7 @@ public partial class ChunkManager : Node3D
         // swapped in here before the water material first compiles.
         ShaderGlobals.Register("water_current_map", RenderingServer.GlobalShaderParameterType.Sampler3D, _waterCurrentMap.Texture);
         ShaderGlobals.Register("water_current_map_origin", RenderingServer.GlobalShaderParameterType.Vec3, _waterCurrentMap.Origin);
-        ShaderGlobals.Register("water_current_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, Vector3.One / _waterCurrentMap.Size);
+        ShaderGlobals.Register("water_current_map_inv_size", RenderingServer.GlobalShaderParameterType.Vec3, _waterCurrentMap.InvSize);
         ShaderGlobals.Register("water_current_speed", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentSpeed.Value);
         ShaderGlobals.Register("water_current_phase_period", RenderingServer.GlobalShaderParameterType.Float, CVars.waterCurrentPhasePeriod.Value);
         ShaderGlobals.Register("water_currents_enabled", RenderingServer.GlobalShaderParameterType.Bool, CVars.waterCurrentsEnabled.Value);
@@ -312,7 +321,7 @@ public partial class ChunkManager : Node3D
         {
             _fogMaterial.SetShaderParameter("fog_map", _fogMap.Texture);
             _fogMaterial.SetShaderParameter("fog_map_origin", _fogMap.Origin);
-            _fogMaterial.SetShaderParameter("fog_map_inv_size", Vector3.One / _fogMap.Size);
+            _fogMaterial.SetShaderParameter("fog_map_inv_size", _fogMap.InvSize);
             _fogMaterial.SetShaderParameter("debug_mode", CVars.fogDebug.Value);
             _fogMaterial.SetShaderParameter("fog_enabled", CVars.fogEnabled.Value);
             _fogMaterial.SetShaderParameter("water_level", (float)WorldGen.WATER_LEVEL);
@@ -341,7 +350,23 @@ public partial class ChunkManager : Node3D
             ProcessMeshRebuildQueue();
         }
 
+        Vector3I prevPlayerChunk = _lastPlayerChunkCoord;
         _lastPlayerChunkCoord = World.WorldToChunkCoord(_getPlayerPosition());
+        if (_lastPlayerChunkCoord != prevPlayerChunk)
+        {
+            // Slide the toroidal volume-map windows to follow the player. Only
+            // the freshly-entered chunks are marked dirty (re-encoded in the
+            // Flush calls below); the rest of the window keeps its texels.
+            using (Profiler.Sample("ChunkManager.VolumeMapRecenter"))
+            {
+                _lightMap.Recenter(_lastPlayerChunkCoord);
+                _skyExposureMap.Recenter(_lastPlayerChunkCoord);
+                _fogMap.Recenter(_lastPlayerChunkCoord);
+                _windMap.Recenter(_lastPlayerChunkCoord);
+                _waterCurrentMap.Recenter(_lastPlayerChunkCoord);
+                RepositionWindAttractor();
+            }
+        }
         using (Profiler.Sample("ChunkManager.UpdateLoadedChunks"))
         {
             UpdateLoadedChunks();
@@ -362,32 +387,32 @@ public partial class ChunkManager : Node3D
             using (Profiler.Sample("ChunkManager.LightFlush"))
             {
                 DrainLightChunkDirty();
-                _lightMap.Flush(_worldData, _loadedChunks.Keys);
+                _lightMap.Flush(_worldData);
             }
         }
 
         using (Profiler.Sample("ChunkManager.SkyExposureFlush"))
         {
             DrainSkyExposureChunkDirty();
-            _skyExposureMap.Flush(_worldData, _loadedChunks.Keys);
+            _skyExposureMap.Flush(_worldData);
         }
 
         using (Profiler.Sample("ChunkManager.FogFlush"))
         {
             DrainFogChunkDirty();
-            _fogMap.Flush(_worldData, _loadedChunks.Keys);
+            _fogMap.Flush(_worldData);
         }
 
         using (Profiler.Sample("ChunkManager.WaterCurrentFlush"))
         {
             DrainWaterCurrentChunkDirty();
-            _waterCurrentMap.Flush(_worldData, _loadedChunks.Keys);
+            _waterCurrentMap.Flush(_worldData);
         }
 
         using (Profiler.Sample("ChunkManager.WindFlush"))
         {
             DrainWindChunkDirty();
-            _windMap.Flush(_worldData, _loadedChunks.Keys);
+            _windMap.Flush(_worldData);
         }
 
         if (_windAttractor != null)
@@ -435,6 +460,24 @@ public partial class ChunkManager : Node3D
     public void SetFogVolumetricEnabled(bool enabled)
     {
         _fogMaterial?.SetShaderParameter("fog_volumetric_enabled", enabled);
+    }
+
+    // Snaps the wind particle attractor's AABB to the toroidal wind_map tile
+    // containing the player. The attractor maps its box linearly to the texture
+    // [0,1] with no wrap, so the box must align to a window tile [k*W, (k+1)*W]
+    // for its uv to match the wrapped texel layout. Crossing a tile boundary
+    // jumps the box by one window (a one-frame wind discontinuity at the box
+    // edge — far from the player, negligible).
+    private void RepositionWindAttractor()
+    {
+        if (_windAttractor == null) { return; }
+        Vector3 wws = _windMap.WindowWorldSize;
+        Vector3 p = _getPlayerPosition();
+        Vector3 tileMin = new Vector3(
+            Mathf.Floor(p.X / wws.X) * wws.X,
+            Mathf.Floor(p.Y / wws.Y) * wws.Y,
+            Mathf.Floor(p.Z / wws.Z) * wws.Z);
+        _windAttractor.Position = tileMin + wws * 0.5f;
     }
 
     // Moves dirty marks from WorldState into LightMap. The actual encode +

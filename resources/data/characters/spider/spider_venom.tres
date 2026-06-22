@@ -1,0 +1,66 @@
+[gd_resource type="Resource" script_class="WeaponData" format=3 uid="uid://b4qht5mjwfjne"]
+
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="1_weapon"]
+[ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="2_profile"]
+[ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="3_action"]
+[ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="4_event"]
+[ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
+[ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
+[ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="7_slowed"]
+[ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="8_proj"]
+[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="9_hitfx"]
+[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="10_solidfx"]
+
+[sub_resource type="Resource" id="Resource_event_windup"]
+script = ExtResource("4_event")
+type = 64
+
+[sub_resource type="Resource" id="Resource_event_spit"]
+script = ExtResource("4_event")
+time = 300
+type = 8192
+impactEnvironmentEffect = ExtResource("10_solidfx")
+impactHealthEffect = ExtResource("9_hitfx")
+impactArmorEffect = ExtResource("10_solidfx")
+impactLethalEffect = ExtResource("9_hitfx")
+projectileScene = ExtResource("8_proj")
+projectileSpeed = 16.0
+projectileLifetimeSeconds = 0.7
+
+[sub_resource type="Resource" id="Resource_action_spit"]
+script = ExtResource("3_action")
+displayName = &"Venom Spit"
+activeDurationSeconds = 0.8
+events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
+
+[sub_resource type="Resource" id="Resource_profile"]
+script = ExtResource("2_profile")
+chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
+locksMovement = true
+
+[sub_resource type="Resource" id="Resource_slowed_buildup"]
+script = ExtResource("6_buildup")
+effect = ExtResource("7_slowed")
+amount = 0.5
+
+[sub_resource type="Resource" id="Resource_damage_primary"]
+script = ExtResource("5_damage")
+tags = 65
+healthDamage = 3.0
+hitstun = 0.2
+knockbackDistance = 0.3
+knockbackTime = 0.1
+buildups = Array[ExtResource("6_buildup")]([SubResource("Resource_slowed_buildup")])
+modifiers = []
+
+[resource]
+script = ExtResource("1_weapon")
+damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
+&"primary": SubResource("Resource_damage_primary")
+})
+actionProfile = SubResource("Resource_profile")
+displayName = &"Spider Venom"
+MaxAttackRange = 10.0
+MaxVerticalAttackRange = 4.0
+desiredAttackRange = 7.0
+cooldownSeconds = 2.5

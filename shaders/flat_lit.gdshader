@@ -17,7 +17,7 @@ render_mode ambient_light_disabled, depth_draw_opaque, cull_back;
 uniform vec3 color : source_color = vec3(0.8, 0.6, 0.3);
 
 // World-lightmap globals (same set model_lit reads).
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;

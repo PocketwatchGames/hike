@@ -60,7 +60,7 @@ uniform float canopy_height = 4.0;
 
 // -- Global uniforms shared with model_lit / sprite_lit / tree_cards_lit ----
 
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;

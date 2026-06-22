@@ -27,7 +27,7 @@ global uniform bool water_hide;
 // stays sharp at object edges instead of bleeding their colors into water.
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest_mipmap;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest_mipmap;
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;
@@ -167,7 +167,7 @@ global uniform vec3 wind_dir;
 // a cave roof. Same `(world_pos - origin) * inv_size` UVW convention as
 // light_map; texel resolution is 1/4 of voxel resolution so the gradient
 // at a cave mouth blends across roughly 4 world units.
-global uniform sampler3D wind_map : filter_linear;
+global uniform sampler3D wind_map : filter_linear, repeat_enable;
 global uniform vec3 wind_map_origin;
 global uniform vec3 wind_map_inv_size;
 // Stored wind-velocity range: a cell's RGB sample (decoded to [-1,1])
@@ -180,7 +180,7 @@ global uniform float wind_velocity_scale;
 // recover [-1, 1] (normalized world-XZ velocity). Same UVW convention as
 // wind_map. Sampled by ripple_normal to advect the ripple texture
 // in-line with per-cell water flow.
-global uniform sampler3D water_current_map : filter_linear;
+global uniform sampler3D water_current_map : filter_linear, repeat_enable;
 global uniform vec3 water_current_map_origin;
 global uniform vec3 water_current_map_inv_size;
 // Master toggle and tuning for water currents. `water_current_speed`

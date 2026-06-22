@@ -19,7 +19,7 @@
 uniform sampler2D albedo_tex : source_color, filter_nearest;
 
 // RGBA8 light map: R = sun mask, GBA = post-pow block light per RGB channel.
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 global uniform float light_falloff_exp;

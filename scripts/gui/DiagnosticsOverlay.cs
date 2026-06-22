@@ -12,6 +12,12 @@ public partial class DiagnosticsOverlay : CanvasLayer
     // visually wins when both are open.
     private const int OverlayLayer = 99;
 
+    // Process last in the frame (higher priority = later in Godot) so that when
+    // the hitch detector reads the live profiler accumulators they already hold
+    // every other node's _Process work for the just-elapsed frame. Without this
+    // the dump could miss work from nodes that process after the overlay.
+    private const int HitchProcessPriority = 1000;
+
     // Refresh cadence for the on-screen text. The profiler latches its own
     // rolling window separately (see CVars.profileWindow); this is just how
     // often we re-render the label string.
@@ -102,6 +108,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         // Run while the rest of the game is paused so we can still read the
         // counter while inspecting a paused frame.
         ProcessMode = ProcessModeEnum.Always;
+        ProcessPriority = HitchProcessPriority;
     }
 
     public override void _Process(double delta)
@@ -195,12 +202,19 @@ public partial class DiagnosticsOverlay : CanvasLayer
         if (_hitchSkipFirstFrame)
         {
             _hitchSkipFirstFrame = false;
+            IsolateNextFrame();
             return;
         }
 
         double frameMs = delta * 1000.0;
         if (frameMs < CVars.hitchThresholdMs.Value)
         {
+            // Non-hitch frame: clear the accumulators so the NEXT frame starts
+            // clean. With the overlay processing last (HitchProcessPriority),
+            // this makes every [HITCH] dump's table cover exactly the one
+            // hitched frame instead of every frame since the previous hitch —
+            // so total_ms/calls, not just max_ms, attribute the spike.
+            IsolateNextFrame();
             return;
         }
 
@@ -225,6 +239,19 @@ public partial class DiagnosticsOverlay : CanvasLayer
         Profiler.AppendTable(sb, Profiler.View.Live);
         Godot.GD.Print(sb.ToString());
         Profiler.Reset();
+    }
+
+    // Clears the live profiler accumulators so the next frame is measured in
+    // isolation. Only when the overlay is hidden — when it's visible, Profiler
+    // .Tick() owns the rolling window for the on-screen table and a per-frame
+    // reset would flatten it to single-frame noise. With the overlay hidden
+    // (the primary hitch-hunting mode) this gives clean single-frame dumps.
+    private void IsolateNextFrame()
+    {
+        if (!Visible)
+        {
+            Profiler.Reset();
+        }
     }
 
     private string BuildText()

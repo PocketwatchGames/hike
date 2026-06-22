@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://cssspider0001"]
+[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://dp601slikqhh"]
 
 [ext_resource type="Script" uid="uid://k6zxjx57f8xha" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="2_mob"]
@@ -8,7 +8,7 @@
 [sub_resource type="Resource" id="entry_body"]
 script = ExtResource("3_entry")
 meshNames = PackedStringArray("Body_LP", "Abdomen_LP", "Legs_LP", "Chelicera_LP", "Pedipalp_LP", "Spikes_LP")
-color = Color(0.3, 0.18, 0.1, 1)
+color = Color(0.78, 0.62, 0.4, 1)
 amount = 0.7
 metadata/_custom_type_script = "uid://c4f283lqo67wq"
 

@@ -26,7 +26,7 @@ render_mode unshaded, depth_test_disabled, depth_draw_never, blend_premul_alpha,
 // working: global uniforms declared in a shader but registered at runtime
 // error at editor load, which blocks inspector access to the material.
 // ChunkManager sets all three from C# once the FogMap is built.
-uniform sampler3D fog_map : repeat_disable, filter_linear;
+uniform sampler3D fog_map : repeat_enable, filter_linear;
 uniform vec3 fog_map_origin;
 uniform vec3 fog_map_inv_size;
 
@@ -36,7 +36,7 @@ uniform sampler2D depth_tex : hint_depth_texture;
 // Voxel LightMap (registered by ChunkManager). R = sun visibility [0..1],
 // GBA = accumulated block light RGB (torches, fill lights, etc.). Sampled
 // at each raymarch step to drive in-scattering.
-global uniform sampler3D light_map : filter_linear;
+global uniform sampler3D light_map : filter_linear, repeat_enable;
 global uniform vec3 light_map_origin;
 global uniform vec3 light_map_inv_size;
 // Vertical (top-down, non-leaky) sky-reach field, registered by ChunkManager
@@ -47,7 +47,7 @@ global uniform vec3 light_map_inv_size;
 // the clip removed solid that sits right above this floor. Sampling at the clip
 // height (rather than the surface) ignores cover BELOW the clip — tree canopy,
 // distant terrain — so only the genuinely clipped interior fades.
-global uniform sampler3D sky_exposure_map : filter_linear;
+global uniform sampler3D sky_exposure_map : filter_linear, repeat_enable;
 global uniform vec3 sky_exposure_map_origin;
 global uniform vec3 sky_exposure_map_inv_size;
 // Ceiling cutaway altitude + animation. Voxel/sprite shaders discard

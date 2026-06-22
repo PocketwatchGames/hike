@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="StatusEffectData" format=3 uid="uid://c2h2ti4r8qe07"]
+
+[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="1_data"]
+[ext_resource type="Texture2D" uid="uid://do6bg3xof6umu" path="res://assets/textures/status_effects/Malaise_Status.png" id="2_icon"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="m_script"]
+
+[sub_resource type="Resource" id="m_movespeed"]
+script = ExtResource("m_script")
+stat = 4096
+value = 0.5
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[sub_resource type="Resource" id="m_animspeed"]
+script = ExtResource("m_script")
+stat = 8192
+value = 0.6
+metadata/_custom_type_script = "uid://bovyciaikopwb"
+
+[resource]
+script = ExtResource("1_data")
+icon = ExtResource("2_icon")
+displayName = &"Slowed"
+description = "Movement and actions are sluggish."
+duration = 4.0
+maxStack = 1
+buildupRemovalDelay = 3.0
+buildupRemovalSpeed = 0.5
+clearBuildupOnApply = true
+removesOnApply = []
+modifiers = Array[ExtResource("m_script")]([SubResource("m_movespeed"), SubResource("m_animspeed")])
