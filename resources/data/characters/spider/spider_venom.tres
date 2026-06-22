@@ -7,9 +7,10 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="7_slowed"]
-[ext_resource type="PackedScene" uid="uid://bs7n2lawxq3rm" path="res://scenes/projectiles/bow_arrow.tscn" id="8_proj"]
-[ext_resource type="PackedScene" uid="uid://g2nh5baoo0ay" path="res://scenes/fx/fists_hit_creature.tscn" id="9_hitfx"]
-[ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="10_solidfx"]
+[ext_resource type="PackedScene" uid="uid://cf5ctsrokpy30" path="res://scenes/projectiles/venom_glob.tscn" id="8_proj"]
+[ext_resource type="PackedScene" uid="uid://btyxvmgnjfmtn" path="res://scenes/fx/venom_splat.tscn" id="9_splat"]
+[ext_resource type="PackedScene" uid="uid://cv3n0mdr1pq7k" path="res://scenes/fx/weapon_venom_drip_loop.tscn" id="10_trail"]
+[ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="11_spit"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -19,19 +20,21 @@ type = 64
 script = ExtResource("4_event")
 time = 300
 type = 8192
-impactEnvironmentEffect = ExtResource("10_solidfx")
-impactHealthEffect = ExtResource("9_hitfx")
-impactArmorEffect = ExtResource("10_solidfx")
-impactLethalEffect = ExtResource("9_hitfx")
+impactEnvironmentEffect = ExtResource("9_splat")
+impactHealthEffect = ExtResource("9_splat")
+impactArmorEffect = ExtResource("9_splat")
+impactLethalEffect = ExtResource("9_splat")
 projectileScene = ExtResource("8_proj")
 projectileSpeed = 16.0
 projectileLifetimeSeconds = 0.7
+projectileLoopEffect = ExtResource("10_trail")
 
 [sub_resource type="Resource" id="Resource_action_spit"]
 script = ExtResource("3_action")
 displayName = &"Venom Spit"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
+releaseEffect = ExtResource("11_spit")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
@@ -60,6 +63,7 @@ damageProfiles = Dictionary[StringName, ExtResource("5_damage")]({
 })
 actionProfile = SubResource("Resource_profile")
 displayName = &"Spider Venom"
+priority = 1
 MaxAttackRange = 10.0
 MaxVerticalAttackRange = 4.0
 desiredAttackRange = 7.0

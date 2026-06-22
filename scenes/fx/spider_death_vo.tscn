@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://gdvwkx7mgip1"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_01.wav" id="2_d01"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_02.wav" id="3_d02"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_03.wav" id="4_d03"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_death_04.wav" id="5_d04"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spiderdth"]
+playback_mode = 1
+random_pitch = 1.08
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_d01")
+stream_0/weight = 1.0
+stream_1/stream = ExtResource("3_d02")
+stream_1/weight = 1.0
+stream_2/stream = ExtResource("4_d03")
+stream_2/weight = 1.0
+stream_3/stream = ExtResource("5_d04")
+stream_3/weight = 1.0
+
+[node name="SpiderDeathVo" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_spiderdth")
+unit_size = 5.0
+max_distance = 35.0
+bus = &"World3D"

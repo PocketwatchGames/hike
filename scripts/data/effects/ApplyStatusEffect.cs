@@ -16,7 +16,9 @@ public partial class ApplyStatusEffect : ItemEffect
 
 	public override void Apply(IActionActor actor, in ActionContext context)
 	{
-		// Fixed effect — apply it straight away, no choice involved.
+		// Fixed effect — apply it straight away, no choice involved. Consumption
+		// is the owning event's separate DecrementStack bit (a health potion is
+		// spent the moment its release tick fires).
 		if (statusEffect != null)
 		{
 			ApplyEffectToActor(actor, statusEffect);
@@ -33,14 +35,27 @@ public partial class ApplyStatusEffect : ItemEffect
 		// UpgradeScreen via GameClient and apply whichever the player picks.
 		// Falls through to the random pick when no selection UI is available
 		// (and always for mobs — the fairy's gift to a creature is capricious).
+		//
+		// Consumption is committed to the player's PICK, not the press: the corpse
+		// is spent only when a boon is actually chosen (inside the selection
+		// callback), so backing out of the menu leaves it — still unidentified — in
+		// the pack. The owning event therefore carries NO DecrementStack bit; we
+		// consume here instead.
 		if (actor is Player && GameClient.Current?.startUpgradeSelection != null)
 		{
 			var choices = new List<BoonData>(item.possibleBoons);
-			GameClient.Current.startUpgradeSelection.Invoke(choices, chosen => ApplyBoon(actor, chosen));
+			GameClient.Current.startUpgradeSelection.Invoke(choices, chosen =>
+			{
+				ApplyBoon(actor, chosen);
+				ItemEventHandlers.ConsumeOneFromStack(actor, item);
+			});
 			return;
 		}
 
+		// No selection UI (and always for mobs): a random boon is applied and the
+		// item consumed immediately — there's no choice to wait on.
 		ApplyBoon(actor, PickRandom(item));
+		ItemEventHandlers.ConsumeOneFromStack(actor, item);
 	}
 
 	// Apply a boon: its status effect (if any) to the actor, and its granted

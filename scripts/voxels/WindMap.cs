@@ -23,32 +23,22 @@ public class WindMap : WindowedVolumeMap
     public WindMap(WorldState world, Vector3I centerChunk, int windowDiameterChunks)
         : base(world, centerChunk, windowDiameterChunks, ChunkState.ENV_SUBGRID_SIZE, BYTES_PER_PIXEL, Image.Format.Rgba8)
     {
-        // Seed velocity channels (RGB) to byte 128 = signed zero so unencoded
-        // cells decode to zero wind, not max-negative. Alpha (WindFactor)
-        // defaults to 0 = sealed, the safe pre-bake state.
-        for (int z = 0; z < _slicePixels.Length; z++)
-        {
-            byte[] slice = _slicePixels[z];
-            for (int i = 0; i < slice.Length; i += BYTES_PER_PIXEL)
-            {
-                slice[i + 0] = 128;
-                slice[i + 1] = 128;
-                slice[i + 2] = 128;
-                slice[i + 3] = 0;
-            }
-        }
         InitialEncodeAndUpload(world);
     }
 
-    protected override void EncodeChunkPixels(ChunkState chunk, int baseX, int baseY, int baseZ)
+    // Cells outside any resident chunk: velocity RGB = byte 128 (signed zero, so
+    // they decode to zero wind not max-negative), WindFactor alpha = 0 (sealed).
+    protected override byte[] DefaultPixel => new byte[] { 128, 128, 128, 0 };
+
+    protected override void EncodeChunkPixels(ChunkState chunk, byte[] dst)
     {
-        for (int sz = 0; sz < ChunkState.ENV_SUBGRID_SIZE; sz++)
+        const int cells = ChunkState.ENV_SUBGRID_SIZE;
+        for (int sz = 0; sz < cells; sz++)
         {
-            byte[] pixels = _slicePixels[baseZ + sz];
-            for (int sy = 0; sy < ChunkState.ENV_SUBGRID_SIZE; sy++)
+            for (int sy = 0; sy < cells; sy++)
             {
-                int rowOffset = ((baseY + sy) * _width + baseX) * BYTES_PER_PIXEL;
-                for (int sx = 0; sx < ChunkState.ENV_SUBGRID_SIZE; sx++)
+                int rowOffset = (sz * cells + sy) * cells * BYTES_PER_PIXEL;
+                for (int sx = 0; sx < cells; sx++)
                 {
                     int o = rowOffset + sx * BYTES_PER_PIXEL;
                     // Pre-multiply velocity by WindFactor so sealed cells read
@@ -58,10 +48,10 @@ public class WindMap : WindowedVolumeMap
                     int vx = chunk.WindVelocityX[sx, sy, sz];
                     int vy = chunk.WindVelocityY[sx, sy, sz];
                     int vz = chunk.WindVelocityZ[sx, sy, sz];
-                    pixels[o + 0] = (byte)(((vx - 128) * factor) / 255 + 128);
-                    pixels[o + 1] = (byte)(((vy - 128) * factor) / 255 + 128);
-                    pixels[o + 2] = (byte)(((vz - 128) * factor) / 255 + 128);
-                    pixels[o + 3] = factor;
+                    dst[o + 0] = (byte)(((vx - 128) * factor) / 255 + 128);
+                    dst[o + 1] = (byte)(((vy - 128) * factor) / 255 + 128);
+                    dst[o + 2] = (byte)(((vz - 128) * factor) / 255 + 128);
+                    dst[o + 3] = factor;
                 }
             }
         }

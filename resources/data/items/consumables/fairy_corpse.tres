@@ -21,7 +21,7 @@ script = ExtResource("8_apply")
 
 [sub_resource type="Resource" id="Resource_event_decrement"]
 script = ExtResource("4_event")
-type = 24
+type = 8
 effects = Array[ExtResource("3_4h0dy")]([SubResource("Resource_apply")])
 
 [sub_resource type="Resource" id="Resource_charged"]

@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://g2nxxtaoo0by" path="res://scenes/fx/fists_hit_solid.tscn" id="7_solidfx"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="8_buildup"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="9_poison"]
+[ext_resource type="PackedScene" uid="uid://c4qddyfo0jyu5" path="res://scenes/fx/spider_attack.tscn" id="10_attack"]
 
 [sub_resource type="Resource" id="Resource_event_windup"]
 script = ExtResource("4_event")
@@ -35,6 +36,7 @@ script = ExtResource("3_action")
 displayName = &"Bite"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
+releaseEffect = ExtResource("10_attack")
 
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")

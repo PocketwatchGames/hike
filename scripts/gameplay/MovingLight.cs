@@ -123,8 +123,12 @@ public partial class MovingLight : Node3D
             }
         }
         // Reshade on meaningful sub-voxel motion (smooth glide); skip below ~1/16
-        // voxel where the deposit delta is below the LightMap's byte quantization.
-        else
+        // voxel where the deposit delta is below the LightMap's byte quantization,
+        // and skip entirely for lights far from the player — the per-frame reshade
+        // (and its chunk re-dirty + LightMap upload) buys sub-voxel smoothness that
+        // isn't visible at distance. The crossing path above still updates the
+        // field, so a culled light snaps cleanly when it next changes voxel.
+        else if (WithinReshadeRange(world))
         {
             const float SHADE_MOTION_THRESHOLD = 1f / 16f;
             if (Mathf.Abs(sub.X - _lastShadeSub.X) >= SHADE_MOTION_THRESHOLD
@@ -184,6 +188,14 @@ public partial class MovingLight : Node3D
         Player p = world.player;
         if (p == null) { return true; }
         float cull = world.WorldState.SimData.BlockLightFlickerCullDistance;
+        return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
+    }
+
+    private bool WithinReshadeRange(World world)
+    {
+        Player p = world.player;
+        if (p == null) { return true; }
+        float cull = world.WorldState.SimData.BlockLightMovingReshadeCullDistance;
         return (p.GlobalPosition - GlobalPosition).LengthSquared() <= cull * cull;
     }
 

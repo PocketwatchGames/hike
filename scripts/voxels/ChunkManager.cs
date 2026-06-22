@@ -423,6 +423,18 @@ public partial class ChunkManager : Node3D
         }
     }
 
+    public override void _ExitTree()
+    {
+        // The windowed volume maps own RenderingDevice texture RIDs (not GC-
+        // managed), so release them explicitly or they leak GPU memory across
+        // game loads.
+        _lightMap?.Free();
+        _skyExposureMap?.Free();
+        _fogMap?.Free();
+        _windMap?.Free();
+        _waterCurrentMap?.Free();
+    }
+
     public void UpdateLighting(List<Vector3I> changedPositions)
     {
         _worldData.OnVoxelsChanged(changedPositions);

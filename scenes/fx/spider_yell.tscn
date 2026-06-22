@@ -1,0 +1,30 @@
+[gd_scene format=3 uid="uid://gr60u2aj50a3"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_05.wav" id="2_y05"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_06.wav" id="3_y06"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_07.wav" id="4_y07"]
+[ext_resource type="AudioStream" path="res://assets/audio/source/mobs/spider/spider_yell_08.wav" id="5_y08"]
+[ext_resource type="PackedScene" uid="uid://cllgx17yuurot" path="res://scenes/fx/yell_particle.tscn" id="6_yellpart"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_spideryell"]
+playback_mode = 1
+random_pitch = 1.1
+random_volume_offset_db = 2.0
+streams_count = 4
+stream_0/stream = ExtResource("2_y05")
+stream_1/stream = ExtResource("3_y06")
+stream_2/stream = ExtResource("4_y07")
+stream_3/stream = ExtResource("5_y08")
+
+[node name="SpiderYell" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_spideryell")
+volume_db = 3.0
+unit_size = 6.0
+max_distance = 40.0
+bus = &"World3D"
+
+[node name="Yell" parent="." instance=ExtResource("6_yellpart")]

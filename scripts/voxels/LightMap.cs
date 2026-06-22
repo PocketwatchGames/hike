@@ -12,15 +12,15 @@ public class LightMap : WindowedVolumeMap
         InitialEncodeAndUpload(world);
     }
 
-    protected override void EncodeChunkPixels(ChunkState chunk, int baseX, int baseY, int baseZ)
+    protected override void EncodeChunkPixels(ChunkState chunk, byte[] dst)
     {
-        for (int lz = 0; lz < ChunkState.SIZE; lz++)
+        const int cells = ChunkState.SIZE;
+        for (int lz = 0; lz < cells; lz++)
         {
-            byte[] pixels = _slicePixels[baseZ + lz];
-            for (int ly = 0; ly < ChunkState.SIZE; ly++)
+            for (int ly = 0; ly < cells; ly++)
             {
-                int rowOffset = ((baseY + ly) * _width + baseX) * 4;
-                for (int lx = 0; lx < ChunkState.SIZE; lx++)
+                int rowOffset = ((lz * cells + ly) * cells) * 4;
+                for (int lx = 0; lx < cells; lx++)
                 {
                     int sun = (chunk.GetSunlight(lx, ly, lz) * 255) / LightEngine.MAX_LIGHT;
                     chunk.GetBlockLight(lx, ly, lz, out int br, out int bg, out int bb);
@@ -28,10 +28,10 @@ public class LightMap : WindowedVolumeMap
                     if (bg > 255) { bg = 255; }
                     if (bb > 255) { bb = 255; }
                     int o = rowOffset + lx * 4;
-                    pixels[o + 0] = (byte)sun;
-                    pixels[o + 1] = (byte)br;
-                    pixels[o + 2] = (byte)bg;
-                    pixels[o + 3] = (byte)bb;
+                    dst[o + 0] = (byte)sun;
+                    dst[o + 1] = (byte)br;
+                    dst[o + 2] = (byte)bg;
+                    dst[o + 3] = (byte)bb;
                 }
             }
         }

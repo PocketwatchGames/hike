@@ -774,6 +774,16 @@ public partial class SimData : Resource
     // culls. Large enough to cover the visible play area.
     [Export(PropertyHint.Range, "4,128,1")] public float BlockLightFlickerCullDistance = 28f;
 
+    // MOVING-LIGHT RESHADE CULL DISTANCE (voxels). A moving light (carried torch)
+    // re-shades and re-deposits its footprint every frame for smooth sub-voxel
+    // motion — each reshade re-dirties its chunks and forces a LightMap upload.
+    // Beyond this distance from the player the per-frame reshade is skipped: the
+    // light still snaps to a fresh field on each voxel crossing (so it follows
+    // its carrier), it just stops paying the every-frame sub-voxel update where
+    // the smoothing isn't visible. Larger than the flicker cull because a torch
+    // lagging its carrier reads further out than a missing flicker pulse.
+    [Export(PropertyHint.Range, "4,160,1")] public float BlockLightMovingReshadeCullDistance = 40f;
+
     // Medium extinction (Beer-Lambert optical depth) added to the flood as it
     // passes through fog / foliage canopy. Each fully-dense voxel the light
     // crosses adds this much optical depth to the running total, and brightness

@@ -14,18 +14,18 @@ public class SkyExposureMap : WindowedVolumeMap
         InitialEncodeAndUpload(world);
     }
 
-    protected override void EncodeChunkPixels(ChunkState chunk, int baseX, int baseY, int baseZ)
+    protected override void EncodeChunkPixels(ChunkState chunk, byte[] dst)
     {
-        for (int lz = 0; lz < ChunkState.SIZE; lz++)
+        const int cells = ChunkState.SIZE;
+        for (int lz = 0; lz < cells; lz++)
         {
-            byte[] pixels = _slicePixels[baseZ + lz];
-            for (int ly = 0; ly < ChunkState.SIZE; ly++)
+            for (int ly = 0; ly < cells; ly++)
             {
-                int rowOffset = (baseY + ly) * _width + baseX;
-                for (int lx = 0; lx < ChunkState.SIZE; lx++)
+                int rowOffset = (lz * cells + ly) * cells;
+                for (int lx = 0; lx < cells; lx++)
                 {
                     int sky = (chunk.GetSkyExposure(lx, ly, lz) * 255) / LightEngine.MAX_LIGHT;
-                    pixels[rowOffset + lx] = (byte)sky;
+                    dst[rowOffset + lx] = (byte)sky;
                 }
             }
         }

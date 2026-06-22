@@ -1156,7 +1156,16 @@ public static class ItemEventHandlers
 
 	public static void DoDecrementStack(IActionActor actor, ItemEvent ev, ref PlayerAction action)
 	{
-		ItemState item = action.context.primaryItem;
+		ConsumeOneFromStack(actor, action.context.primaryItem);
+	}
+
+	// Consume one unit of `item` from the using actor's stack: identify-on-first-
+	// use, decrement, and remove from inventory at zero. The canonical "actually
+	// consumed" hook. Split out of DoDecrementStack so the boon path — which must
+	// hold off consuming until the player commits to a pick — can call it from its
+	// own selection callback rather than via the synchronous DecrementStack event.
+	public static void ConsumeOneFromStack(IActionActor actor, ItemState item)
+	{
 		if (item == null)
 		{
 			return;
