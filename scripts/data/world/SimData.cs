@@ -876,14 +876,6 @@ public partial class SimData : Resource
     [Export(PropertyHint.Range, "5,100,1")] public float CompanionRescueMaxDistance = 30f;
     [Export(PropertyHint.Range, "0,10,0.1")] public float CompanionRescueMaxDistanceGraceSeconds = 1.5f;
 
-    // Where on the trail a rescued companion is placed: the YOUNGEST (most
-    // recent) still-loaded breadcrumb at least this far behind the player, so
-    // the pet reappears just off-screen behind them and can resume following —
-    // rather than at the far end of the trail, which would re-strand it the
-    // instant the player keeps moving. Falls back to the oldest loaded crumb
-    // when none is this far back (the player has barely moved).
-    [Export(PropertyHint.Range, "1,50,1")] public float CompanionRescueRelocateDistance = 15f;
-
     [ExportGroup("Footprints")]
     // Template material for the batched footprint MultiMesh. FootprintScatter
     // duplicates it once per actor footprint texture (binding that texture's

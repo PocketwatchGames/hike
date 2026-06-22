@@ -1967,13 +1967,22 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // Used by the companion chunk-unload rescue (World.RescueCompanion) to move
     // a pet that would otherwise be destroyed with its evicting chunk. Mirrors
     // the perch-claim teleport pattern (LinearVelocity zero + GlobalPosition set).
-    public void Teleport(Vector3 worldPos)
+    //
+    // fadeIn drops _visibility to 0 so the body dithers back in over
+    // VisibilityFadeTime (the same pixelated reveal a discovered mob plays) —
+    // used by the companion catch-up rescue so a pet that lands on-screen
+    // resolves in rather than popping.
+    public void Teleport(Vector3 worldPos, bool fadeIn = false)
     {
         LinearVelocity = Vector3.Zero;
         GlobalPosition = worldPos;
         if (_simState != null)
         {
             _simState.WorldPosition = Position;
+        }
+        if (fadeIn)
+        {
+            _visibility = 0f;
         }
     }
 

@@ -47,13 +47,16 @@ public class MobNavigator
     // each path corner cleanly rather than cutting across.
     private const float WaypointAdvanceDistance = 0.6f;
 
-    // Pure-pursuit lookahead. The pathfinder emits one waypoint per grid cell
-    // (~1m apart), so steering at the immediate next waypoint kept the mob's
-    // arrival-speed ramp engaged the whole path and it crawled at a fraction of
-    // maxSpeed. Instead aim at the furthest waypoint still within this distance,
-    // so the mob holds full speed along the route; near the goal the lookahead
+    // String-pulling lookahead cap. The pathfinder emits one waypoint per grid
+    // cell (~1m apart), so steering at the immediate next waypoint kept the
+    // mob's arrival-speed ramp engaged the whole path and it crawled at a
+    // fraction of maxSpeed. Instead we skip ahead to the furthest waypoint still
+    // reachable by a clear straight line on the walkability grid (GridLineClear)
+    // — so the mob holds full speed and moves smoothly on open ground but hugs
+    // corners exactly where a wall is in the way. Near the goal the lookahead
     // collapses onto the final waypoint and the arrival ramp slows it normally.
-    private const float SteerLookaheadDistance = 3f;
+    // The LOS check makes a longer cap safe than blind distance would allow.
+    private const float SteerLookaheadDistance = 6f;
 
     // Wander tuning. Brownian sampling: each repath when wandering, pick a
     // random walkable neighbour cell weighted by 1/cost and a forward bias
@@ -249,16 +252,21 @@ public class MobNavigator
         Vector3 steerTarget;
         if (_waypoints.Count > 0 && _waypointIndex < _waypoints.Count)
         {
-            // Pure-pursuit: aim past the immediate waypoint to the furthest one
-            // still within SteerLookaheadDistance so the mob doesn't brake
-            // toward each ~1m cell waypoint. Waypoints run forward along the
-            // path, so stop at the first one beyond the lookahead.
+            // String-pull: skip ahead to the furthest waypoint reachable by a
+            // clear straight line on the walkability grid, capped at the
+            // lookahead distance. Waypoints run forward along the path, so the
+            // first one that's out of range OR not in line of sight ends the
+            // skip — the mob then hugs that corner instead of cutting it.
             int steerIndex = _waypointIndex;
             for (int k = _waypointIndex + 1; k < _waypoints.Count; k++)
             {
                 Vector3 wp = _waypoints[k];
                 Vector2 d = new Vector2(wp.X - mobPos.X, wp.Z - mobPos.Z);
                 if (d.Length() > SteerLookaheadDistance)
+                {
+                    break;
+                }
+                if (!GridLineClear(mobPos, wp))
                 {
                     break;
                 }
@@ -376,6 +384,97 @@ public class MobNavigator
             return steerTarget;
         }
         return new Vector3(steerTarget.X + ax * SeparationStrength, steerTarget.Y, steerTarget.Z + az * SeparationStrength);
+    }
+
+    // Line-of-sight test on the resident walkability grid: can the mob walk a
+    // straight line from `fromWorld` to `toWorld` without leaving walkable
+    // ground or crossing a step taller than it can climb? Used by the
+    // string-pulling lookahead to skip ahead only across cells it could
+    // actually traverse, so smoothing never cuts a corner into a wall.
+    //
+    // Traversal is a 2D DDA (Amanatides-Woo) that steps ONE axis per cell, so
+    // at a corner it passes through the orthogonal cell and rejects there if
+    // it's blocked — the same diagonal-pinch guard the pathfinder applies.
+    // Cheap: visits ~|di|+|dj| cells (a handful at this lookahead), all reads
+    // against the already-sampled grid. Conservative on anything it can't
+    // verify (off-grid, no walkable layer) — returns false and the caller
+    // falls back to per-waypoint steering.
+    private bool GridLineClear(Vector3 fromWorld, Vector3 toWorld)
+    {
+        int size = _grid.Size;
+        int oi = _grid.OriginX;
+        int oj = _grid.OriginZ;
+
+        int i = Mathf.FloorToInt(fromWorld.X) - oi;
+        int j = Mathf.FloorToInt(fromWorld.Z) - oj;
+        int i1 = Mathf.FloorToInt(toWorld.X) - oi;
+        int j1 = Mathf.FloorToInt(toWorld.Z) - oj;
+        if (!InGrid(i, j, size) || !InGrid(i1, j1, size))
+        {
+            return false;
+        }
+
+        int startLayer = _grid.NearestLayer(i, j, fromWorld.Y);
+        if (startLayer < 0)
+        {
+            return false;
+        }
+        float curSurfaceY = _grid.GetLayer(i, j, startLayer).surfaceY;
+
+        // Line in grid-local coords for the DDA.
+        float x0 = fromWorld.X - oi;
+        float z0 = fromWorld.Z - oj;
+        float dx = (toWorld.X - oi) - x0;
+        float dz = (toWorld.Z - oj) - z0;
+        int stepI = dx > 0f ? 1 : (dx < 0f ? -1 : 0);
+        int stepJ = dz > 0f ? 1 : (dz < 0f ? -1 : 0);
+        float adx = Mathf.Abs(dx);
+        float adz = Mathf.Abs(dz);
+        float tMaxX = stepI != 0 ? (stepI > 0 ? (i + 1 - x0) : (x0 - i)) / adx : float.MaxValue;
+        float tMaxZ = stepJ != 0 ? (stepJ > 0 ? (j + 1 - z0) : (z0 - j)) / adz : float.MaxValue;
+        float tDeltaX = stepI != 0 ? 1f / adx : float.MaxValue;
+        float tDeltaZ = stepJ != 0 ? 1f / adz : float.MaxValue;
+
+        // Bound the walk so a degenerate case can't spin; |di|+|dj| steps max.
+        int guard = Mathf.Abs(i1 - i) + Mathf.Abs(j1 - j) + 2;
+        while ((i != i1 || j != j1) && guard-- > 0)
+        {
+            if (tMaxX < tMaxZ)
+            {
+                i += stepI;
+                tMaxX += tDeltaX;
+            }
+            else
+            {
+                j += stepJ;
+                tMaxZ += tDeltaZ;
+            }
+            if (!InGrid(i, j, size))
+            {
+                return false;
+            }
+            int layer = _grid.NearestLayer(i, j, curSurfaceY);
+            if (layer < 0)
+            {
+                return false;
+            }
+            WalkabilityCell c = _grid.GetLayer(i, j, layer);
+            if (_avoidHazards && c.IsHazard)
+            {
+                return false;
+            }
+            if (!_profile.canClimb && Mathf.Abs(c.surfaceY - curSurfaceY) > _profile.maxStepHeight)
+            {
+                return false;
+            }
+            curSurfaceY = c.surfaceY;
+        }
+        return true;
+    }
+
+    private static bool InGrid(int i, int j, int size)
+    {
+        return i >= 0 && i < size && j >= 0 && j < size;
     }
 
     private void RefreshGrid()

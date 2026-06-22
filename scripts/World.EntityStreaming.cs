@@ -326,7 +326,7 @@ public partial class World
                 float dist = _companion.GlobalPosition.DistanceTo(_player.GlobalPosition);
                 GD.Print($"[companion] leash RESCUE ({reason}): pet at chunk {chunk} (dist {dist:F1}m) -> teleport to {target} (crumbs={_playerPositionHistory.Count})");
             }
-            _companion.Teleport(target);
+            _companion.Teleport(target, fadeIn: true);
         }
         else if (CVars.companionDebug.Value)
         {
@@ -336,31 +336,24 @@ public partial class World
     }
 
     // Picks the relocation target for a stranded/lost following companion.
-    // First choice: the YOUNGEST (most recent) usable crumb at least
-    // CompanionRescueRelocateDistance behind the player — closest to the player
-    // we can put the dog while keeping it off-screen, so a pet the player
-    // outran reappears just behind them and resumes following instead of at the
-    // far end of the trail (which re-strands it against a fast player). Falls
-    // back to the OLDEST usable crumb when none is that far back (player barely
-    // moved), then to the player's own position. A "usable" crumb sits in a
-    // chunk that's loaded, active, and desired — and not the avoided chunk.
+    // First choice: the YOUNGEST (most recent) usable crumb that is currently
+    // OFF-SCREEN — closest to the player we can put the dog without it popping
+    // in within view, so a pet the player outran reappears just behind the
+    // camera and trots back into frame on its own. Falls back to the OLDEST
+    // usable crumb when none is off-screen (e.g. the player spun around so the
+    // whole recent trail is in view), then to the player's own position. A
+    // "usable" crumb sits in a chunk that's loaded, active, and desired — and
+    // not the avoided chunk. The fade-in on Teleport covers the fallback cases
+    // where the chosen point is unavoidably on-screen.
     private bool TryFindCompanionRescuePosition(Vector3I avoidChunk, out Vector3 position)
     {
         Vector3 playerPos = _player?.GlobalPosition ?? Vector3.Zero;
-        float relocateDist = _worldState?.SimData?.CompanionRescueRelocateDistance ?? 15f;
-        float relocateDistSq = relocateDist * relocateDist;
 
-        // Newest -> oldest: first crumb at least relocateDist behind the player.
+        // Newest -> oldest: first usable crumb that's off the screen.
         for (int i = _playerPositionHistory.Count - 1; i >= 0; i--)
         {
             Vector3 candidate = _playerPositionHistory[i];
-            if (!IsCrumbUsable(candidate, avoidChunk))
-            {
-                continue;
-            }
-            Vector3 d = candidate - playerPos;
-            d.Y = 0f;
-            if (d.LengthSquared() < relocateDistSq)
+            if (!IsCrumbUsable(candidate, avoidChunk) || !IsOffScreen16x9(candidate))
             {
                 continue;
             }
@@ -368,7 +361,7 @@ public partial class World
             return true;
         }
 
-        // Fallback: oldest usable crumb (furthest behind, most off-screen).
+        // Fallback: oldest usable crumb (furthest behind, most likely off-screen).
         for (int i = 0; i < _playerPositionHistory.Count; i++)
         {
             Vector3 candidate = _playerPositionHistory[i];
@@ -403,6 +396,39 @@ public partial class World
             return false;
         }
         return _activeEntities.ContainsKey(chunk) && _chunkManager.IsChunkLoaded(chunk);
+    }
+
+    // Aspect ratio the on-screen test is fixed to, so the rescue's "off-screen"
+    // choice plays identically on any window (ultrawide, 4:3, …) rather than
+    // tracking the actual viewport.
+    private const float RescueViewAspect = 16f / 9f;
+
+    // True if a world point is outside a fixed 16:9 view of the main camera.
+    // The camera keeps a constant vertical extent (Godot's default KeepHeight),
+    // so we take that as the frame height and derive width = height * 16/9
+    // instead of using the real viewport aspect — making the result resolution-
+    // independent. Tested ~1m up (≈ the dog's body center) so a point at the
+    // bottom edge of frame still reads on-screen. No camera (headless) → off.
+    private static bool IsOffScreen16x9(Vector3 worldPos)
+    {
+        GameCamera cam = GameCamera.Current;
+        if (cam == null)
+        {
+            return true;
+        }
+        // Camera-local space: camera looks down -Z, so a point in front of it
+        // has depth = -local.Z > 0; local.X is right, local.Y is up.
+        Vector3 local = cam.GlobalTransform.AffineInverse() * (worldPos + Vector3.Up);
+        float depth = -local.Z;
+        if (depth <= cam.Near || depth >= cam.Far)
+        {
+            return true;
+        }
+        float halfH = cam.Projection == Camera3D.ProjectionType.Orthogonal
+            ? cam.Size * 0.5f
+            : Mathf.Tan(Mathf.DegToRad(cam.Fov) * 0.5f) * depth;
+        float halfW = halfH * RescueViewAspect;
+        return Mathf.Abs(local.X) > halfW || Mathf.Abs(local.Y) > halfH;
     }
 
     // True once every entity-eligible chunk around the player has finished
