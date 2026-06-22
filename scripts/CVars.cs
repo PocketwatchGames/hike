@@ -390,17 +390,16 @@ public static class CVars
         ws.TimeOfDayAbsolute = dayFloor + v;
     });
 
-    // Swap the MainCamera between orthographic and narrow-FOV perspective.
-    // Perspective mode is primarily a workaround so Godot's volumetric fog
-    // froxel pipeline actually renders — it's known to misbehave / produce
-    // nothing under ortho cameras in 4.x. FOV is chosen to roughly match the
-    // ortho view extent so gameplay framing stays identical.
-    public static CVarBool cameraPerspective = new CVarBool("camera_perspective", false, (cvar) =>
+    // Swaps the MainCamera between authored framing presets (CameraAngleSettings)
+    // for A/B testing angles: 0 = orthographic shipping framing, 1 = narrow
+    // perspective. Applied to the live camera only on change, so any inspector
+    // live-tuning of the resulting pitch/distance/fov sticks between swaps.
+    public static CVarInt cameraPreset = new CVarInt("camera_preset", 0, (cvar) =>
     {
         var client = GameClient.Current;
         if (client != null && client.camera != null)
         {
-            client.camera.ApplyProjection(((CVarBool)cvar).Value);
+            client.camera.ApplyAngleSettings(CameraAngleSettings.FromPreset(((CVarInt)cvar).Value));
         }
     });
 

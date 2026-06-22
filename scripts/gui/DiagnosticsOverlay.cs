@@ -222,7 +222,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
         sb.Append(" gap=").Append(gapMs.ToString("F1"));
         sb.Append(" gc_this_frame=").Append(dGc0).Append('/').Append(dGc1).Append('/').Append(dGc2);
         sb.Append('\n');
-        Profiler.AppendTable(sb, useLatched: false);
+        Profiler.AppendTable(sb, Profiler.View.Live);
         Godot.GD.Print(sb.ToString());
         Profiler.Reset();
     }
@@ -237,7 +237,7 @@ public partial class DiagnosticsOverlay : CanvasLayer
             AppendSlopeSection(sb);
         }
         sb.Append('\n');
-        Profiler.AppendTable(sb, useLatched: true);
+        Profiler.AppendTable(sb, Profiler.View.Latched);
         sb.Append("[/code]");
         return sb.ToString();
     }

@@ -2114,14 +2114,19 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             tooFarToPose = (GlobalPosition - _world.player.GlobalPosition).LengthSquared() > poseDist * poseDist;
         }
-        // Freeze the pose only once the memory silhouette has fully ramped to
-        // black, NOT the instant line of sight is lost. While _silhouette is
-        // still ramping the mob keeps skinning + moving so the fade reads as
-        // motion; freezing mid-ramp is what made an occluded mob slide as a
-        // static pose. A fully-black mob is pinned in place (below), so its
-        // frozen pose no longer slides with the live body.
+        // Animate only while the mob is actually being drawn as a live body:
+        // within the line-of-sight visible window, or mid-silhouette-fade (the
+        // fade reads as motion, so keep skinning while _silhouette ramps —
+        // freezing mid-ramp is what made an occluded mob slide as a static
+        // pose). Both the fully-remembered (silhouette ramped to black, pinned
+        // in place below) AND the never-seen case (silhouette stuck at 0, not
+        // within visible time — the bulk of mobs at spawn) then freeze; keying
+        // the freeze on fullyRemembered alone let every undiscovered offscreen
+        // mob keep skinning.
         bool fullyRemembered = _silhouette >= 1f;
-        bool animProcessTarget = !CVars.mobAnimCull.Value || (!fullyRemembered && !tooFarToPose);
+        bool fading = _silhouette > 0f && _silhouette < 1f;
+        bool animProcessTarget = !CVars.mobAnimCull.Value
+            || (!tooFarToPose && (withinVisibleTime || fading));
         // Per-frame census → readable gauges (mob_count / mob_anim_active /
         // mob_anim_frozen). The first mob each process frame publishes the prior
         // frame's tally (one-frame lag) and resets.

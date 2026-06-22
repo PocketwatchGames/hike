@@ -188,19 +188,18 @@ public partial class GameCamera : Camera3D
 	public MeshInstance3D WaterCapPlane => _waterCapPlane;
 	public bool ManualClipMode { get; set; } = false;
 
-	// Perspective FOV (degrees) that yields the same vertical view extent as
-	// the orthographic Size at distance = 80. tan(FOV/2) = Size / (2 * dist)
-	// → FOV = 2 * atan(20 / 160) ≈ 14.25°. Narrow enough that perspective
-	// distortion is barely noticeable while still letting Godot's volumetric
-	// fog froxel pipeline (which assumes perspective) render.
-	private const float PERSPECTIVE_FOV_FOR_ORTHO_MATCH = 14.25f;
-
-	public void ApplyProjection(bool perspective)
+	// Writes an angle preset's framing into the live camera fields. Called only
+	// on a camera_preset CVar change (and once at Init) — never per frame — so
+	// editing pitchDegrees / distance / Fov in the inspector while the game runs
+	// sticks until the next preset swap, leaving live tuning intact.
+	public void ApplyAngleSettings(CameraAngleSettings settings)
 	{
-		if (perspective)
+		pitchDegrees = settings.PitchDegrees;
+		distance = settings.Distance;
+		if (settings.Perspective)
 		{
 			Projection = ProjectionType.Perspective;
-			Fov = PERSPECTIVE_FOV_FOR_ORTHO_MATCH;
+			Fov = settings.Fov;
 		}
 		else
 		{
@@ -211,7 +210,7 @@ public partial class GameCamera : Camera3D
 	public void Init(Node parent)
 	{
 		Current = this;
-		ApplyProjection(CVars.cameraPerspective.Value);
+		ApplyAngleSettings(CameraAngleSettings.FromPreset(CVars.cameraPreset.Value));
 
 		// Main camera only sees the main scene layer; the cap-mask geometry
 		// (added per-chunk on CapMaskLayer) is invisible here.
@@ -934,5 +933,45 @@ public partial class GameCamera : Camera3D
 	public void SetClip(float clipY, Vector3 centerPos)
 	{
 		RequestClip(clipY, centerPos);
+	}
+}
+
+// A swappable bundle of camera framing settings for A/B testing angles, selected
+// by the camera_preset CVar and pushed into the live camera by
+// GameCamera.ApplyAngleSettings only on change — never per frame — so the fields
+// it writes stay live-tunable in the editor between swaps.
+public struct CameraAngleSettings
+{
+	public bool Perspective;
+	// Vertical FOV in degrees; used only when Perspective is true (orthographic
+	// framing is driven by the camera's Size, which presets leave untouched).
+	public float Fov;
+	public float Distance;
+	public float PitchDegrees;
+
+	// Preset 0 — the current shipping framing. Orthographic, pulled well back
+	// and angled shallow. The Fov here only matters if Godot's volumetric fog
+	// froxel pipeline (which assumes perspective) needs perspective to render;
+	// ~14.25° = 2*atan(20 / 160), matching the ortho view extent at this distance.
+	public static readonly CameraAngleSettings Orthographic = new CameraAngleSettings
+	{
+		Perspective = false,
+		Fov = 14.25f,
+		Distance = 80f,
+		PitchDegrees = -40f,
+	};
+
+	// Preset 1 — A/B alternative. Perspective, closer in, steeper pitch.
+	public static readonly CameraAngleSettings Perspective70 = new CameraAngleSettings
+	{
+		Perspective = true,
+		Fov = 70f,
+		Distance = 18f,
+		PitchDegrees = -55f,
+	};
+
+	public static CameraAngleSettings FromPreset(int index)
+	{
+		return index == 1 ? Perspective70 : Orthographic;
 	}
 }

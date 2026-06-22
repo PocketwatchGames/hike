@@ -65,6 +65,23 @@ public static class Profiler
 {
     public static bool Enabled => CVars.profile.Value;
 
+    // Which window a table render reports over. The three readout paths each
+    // want a different span:
+    //   Live       - the live accumulators since the last latch/reset. Hitch
+    //                log uses this so each [HITCH] dump reflects recent frames.
+    //   Latched    - the last full rolling window. F3 overlay uses this so
+    //                on-screen numbers update once per `profile_window`.
+    //   Cumulative - everything since the last manual Reset (`profile 1` /
+    //                `profile_dump`). Independent of the overlay's per-window
+    //                latch, so a manual dump reports the full time you waited
+    //                even while the overlay is also running and latching.
+    public enum View
+    {
+        Live,
+        Latched,
+        Cumulative,
+    }
+
     public sealed class Section
     {
         internal readonly string Name;
@@ -72,6 +89,15 @@ public static class Profiler
         internal long Total;
         internal long Max;
         internal int Calls;
+
+        // Cumulative tally since the last manual Reset, for the Cumulative
+        // view. LatchAndReset folds the live accumulators in here before
+        // zeroing them, so this survives the overlay's per-window resets;
+        // the manual dump reads CumulativeTotal + Total (the not-yet-folded
+        // live remainder). Cleared only by Reset.
+        internal long CumulativeTotal;
+        internal long CumulativeMax;
+        internal int CumulativeCalls;
 
         // Latched at the end of each rolling window by Profiler.Tick. The
         // overlay and the custom Godot monitor both read these — they update
@@ -153,6 +179,12 @@ public static class Profiler
     private static readonly List<Section> _sections = new();
     private static long _windowStartTicks;
 
+    // Start of the Cumulative window. Stamped only by Reset (i.e. `profile 1`
+    // and `profile_dump`), never by the overlay's per-window LatchAndReset, so
+    // a manual dump reports the full span since you enabled profiling
+    // regardless of whether the overlay is running.
+    private static long _manualWindowStartTicks;
+
     // Lightweight event counters — no Begin/End, just incremented at call
     // sites. Use for "how many of X happened in this window" metrics like
     // entity-spawn counts per chunk-load. Surfaced under engine monitors,
@@ -160,6 +192,10 @@ public static class Profiler
     // gives a stable print order across windows.
     private static readonly Dictionary<string, int> _counters = new();
     private static readonly Dictionary<string, int> _latchedCounters = new();
+    // Cumulative counter tallies since the last manual Reset, folded from
+    // _counters on each LatchAndReset (parallel to Section.CumulativeTotal) so
+    // the Cumulative view's counters survive the overlay's per-window resets.
+    private static readonly Dictionary<string, int> _cumulativeCounters = new();
     private static readonly List<string> _counterNames = new();
 
     // Per-frame gauges — last-value-wins snapshots (vs counters' running sum),
@@ -177,6 +213,13 @@ public static class Profiler
     private static int _windowGcBaseline0;
     private static int _windowGcBaseline1;
     private static int _windowGcBaseline2;
+
+    // GC baseline for the Cumulative view — seeded only on Reset, so the manual
+    // dump reports collections since `profile 1` rather than since the
+    // overlay's last window roll.
+    private static int _manualGcBaseline0;
+    private static int _manualGcBaseline1;
+    private static int _manualGcBaseline2;
 
     public static Section MakeSection(string name)
     {
@@ -208,6 +251,7 @@ public static class Profiler
         {
             _counters[name] = 0;
             _latchedCounters[name] = 0;
+            _cumulativeCounters[name] = 0;
             _counterNames.Add(name);
             current = 0;
         }
@@ -329,6 +373,14 @@ public static class Profiler
             s.LatchedMax = s.Max;
             s.LatchedCalls = s.Calls;
             s.LatchedWindowSec = elapsedSec;
+            // Fold the live window into the cumulative tally before zeroing, so
+            // the manual dump's Cumulative view spans the overlay's resets.
+            s.CumulativeTotal += s.Total;
+            if (s.Max > s.CumulativeMax)
+            {
+                s.CumulativeMax = s.Max;
+            }
+            s.CumulativeCalls += s.Calls;
             s.Total = 0;
             s.Max = 0;
             s.Calls = 0;
@@ -343,6 +395,7 @@ public static class Profiler
         {
             string n = _counterNames[i];
             _latchedCounters[n] = _counters[n];
+            _cumulativeCounters[n] += _counters[n];
             _counters[n] = 0;
         }
         // Gauges latch their current (last-set) value but are NOT reset — they
@@ -358,38 +411,46 @@ public static class Profiler
         _windowStartTicks = now;
     }
 
+    // Manual dump (console `profile_dump`) reports the Cumulative view so the
+    // window spans the full time since `profile 1` even while the overlay is
+    // running and latching.
     public static void Dump()
     {
-        Godot.GD.Print(FormatTable(useLatched: false));
+        Godot.GD.Print(FormatTable(View.Cumulative));
     }
 
-    // Builds the same one-line-per-section table that Dump prints. The
-    // overlay calls this every refresh with useLatched=true so on-screen
-    // numbers reflect the previous full window rather than a partial one
-    // that resets every frame.
-    public static string FormatTable(bool useLatched)
+    // Builds the same one-line-per-section table that Dump prints. The overlay
+    // calls this every refresh with View.Latched so on-screen numbers reflect
+    // the previous full window rather than a partial one that resets every
+    // frame; the hitch log uses View.Live for a recent-frames snapshot.
+    public static string FormatTable(View view)
     {
         StringBuilder sb = new StringBuilder();
-        AppendTable(sb, useLatched);
+        AppendTable(sb, view);
         return sb.ToString();
     }
 
-    public static void AppendTable(StringBuilder sb, bool useLatched)
+    public static void AppendTable(StringBuilder sb, View view)
     {
         long now = Stopwatch.GetTimestamp();
         double tickToMs = 1000.0 / Stopwatch.Frequency;
 
         sb.Append("[profile]");
-        if (useLatched)
+        if (view == View.Latched)
         {
             sb.Append(" (latched window)");
         }
         else
         {
-            double elapsedSec = _windowStartTicks == 0L
+            long startTicks = view == View.Cumulative ? _manualWindowStartTicks : _windowStartTicks;
+            double elapsedSec = startTicks == 0L
                 ? 0.0
-                : (now - _windowStartTicks) / (double)Stopwatch.Frequency;
+                : (now - startTicks) / (double)Stopwatch.Frequency;
             sb.Append(' ').Append(elapsedSec.ToString("F2")).Append("s window");
+            if (view == View.Cumulative)
+            {
+                sb.Append(" (since profile reset)");
+            }
         }
         sb.Append('\n');
         sb.Append("  section                          calls   total_ms   avg_us  max_ms  per_frame_ms\n");
@@ -398,7 +459,7 @@ public static class Profiler
         // stays scannable. Manual dump / hitch dump path (useLatched=false)
         // always shows everything — those are one-shot debug snapshots where
         // missing rows would be confusing.
-        double minPerFrameMs = useLatched ? CVars.profileMinPerFrameMs.Value : 0.0;
+        double minPerFrameMs = view == View.Latched ? CVars.profileMinPerFrameMs.Value : 0.0;
 
         for (int i = 0; i < _sections.Count; i++)
         {
@@ -407,12 +468,23 @@ public static class Profiler
             long max;
             int calls;
             double windowSec;
-            if (useLatched)
+            if (view == View.Latched)
             {
                 total = s.LatchedTotal;
                 max = s.LatchedMax;
                 calls = s.LatchedCalls;
                 windowSec = s.LatchedWindowSec;
+            }
+            else if (view == View.Cumulative)
+            {
+                // Cumulative tally plus the live remainder not yet folded by a
+                // latch (or all of it, when the overlay isn't running).
+                total = s.CumulativeTotal + s.Total;
+                max = s.Max > s.CumulativeMax ? s.Max : s.CumulativeMax;
+                calls = s.CumulativeCalls + s.Calls;
+                windowSec = _manualWindowStartTicks == 0L
+                    ? 0.0
+                    : (now - _manualWindowStartTicks) / (double)Stopwatch.Frequency;
             }
             else
             {
@@ -444,7 +516,7 @@ public static class Profiler
               .Append(' ').Append(perFrame.ToString("F3").PadLeft(13))
               .Append('\n');
         }
-        AppendEngineMonitors(sb, useLatched);
+        AppendEngineMonitors(sb, view);
     }
 
     // Engine monitors that explain frames the C# sections don't account for.
@@ -453,7 +525,7 @@ public static class Profiler
     // whether render submission is the cost (each shadow-casting sprite
     // counts as a separate draw); PHYSICS_3D_ACTIVE_OBJECTS / COLLISION_PAIRS
     // show whether Jolt's broadphase + narrowphase is the cost.
-    private static void AppendEngineMonitors(StringBuilder sb, bool useLatched)
+    private static void AppendEngineMonitors(StringBuilder sb, View view)
     {
         sb.Append("  --- engine monitors (instantaneous) ---\n");
         AppendMonitor(sb, "fps", Godot.Performance.Monitor.TimeFps, "F1");
@@ -481,9 +553,14 @@ public static class Profiler
         // the dozens-per-window is the smoking gun for per-frame allocations
         // in hot paths; gen2 collections are rare and expensive (correlates
         // strongly with frame hitches when they happen).
-        int gcWin0 = System.GC.CollectionCount(0) - _windowGcBaseline0;
-        int gcWin1 = System.GC.CollectionCount(1) - _windowGcBaseline1;
-        int gcWin2 = System.GC.CollectionCount(2) - _windowGcBaseline2;
+        // Cumulative view counts collections since the manual reset; Live and
+        // Latched count since the overlay's last window roll.
+        int gcBase0 = view == View.Cumulative ? _manualGcBaseline0 : _windowGcBaseline0;
+        int gcBase1 = view == View.Cumulative ? _manualGcBaseline1 : _windowGcBaseline1;
+        int gcBase2 = view == View.Cumulative ? _manualGcBaseline2 : _windowGcBaseline2;
+        int gcWin0 = System.GC.CollectionCount(0) - gcBase0;
+        int gcWin1 = System.GC.CollectionCount(1) - gcBase1;
+        int gcWin2 = System.GC.CollectionCount(2) - gcBase2;
         sb.Append("  ").Append("gc_gen0_window".PadRight(32)).Append(gcWin0.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("gc_gen1_window".PadRight(32)).Append(gcWin1.ToString().PadLeft(12)).Append('\n');
         sb.Append("  ").Append("gc_gen2_window".PadRight(32)).Append(gcWin2.ToString().PadLeft(12)).Append('\n');
@@ -492,14 +569,27 @@ public static class Profiler
         for (int i = 0; i < _counterNames.Count; i++)
         {
             string n = _counterNames[i];
-            int v = useLatched ? _latchedCounters[n] : _counters[n];
+            int v;
+            if (view == View.Latched)
+            {
+                v = _latchedCounters[n];
+            }
+            else if (view == View.Cumulative)
+            {
+                v = _cumulativeCounters[n] + _counters[n];
+            }
+            else
+            {
+                v = _counters[n];
+            }
             sb.Append("  ").Append(n.PadRight(32)).Append(v.ToString().PadLeft(12)).Append('\n');
         }
-        // Per-frame gauges (instantaneous readings, not per-window sums).
+        // Per-frame gauges (instantaneous readings, not per-window sums) — no
+        // cumulative concept, so non-Latched views show the current value.
         for (int i = 0; i < _gaugeNames.Count; i++)
         {
             string n = _gaugeNames[i];
-            long v = useLatched ? _latchedGauges[n] : _gauges[n];
+            long v = view == View.Latched ? _latchedGauges[n] : _gauges[n];
             sb.Append("  ").Append(n.PadRight(32)).Append(v.ToString().PadLeft(12)).Append('\n');
         }
     }
@@ -519,15 +609,24 @@ public static class Profiler
             s.Max = 0;
             s.Calls = 0;
             s.ActiveStart = 0;
+            s.CumulativeTotal = 0;
+            s.CumulativeMax = 0;
+            s.CumulativeCalls = 0;
         }
         for (int i = 0; i < _counterNames.Count; i++)
         {
             _counters[_counterNames[i]] = 0;
+            _cumulativeCounters[_counterNames[i]] = 0;
         }
+        long now = Stopwatch.GetTimestamp();
         _windowGcBaseline0 = System.GC.CollectionCount(0);
         _windowGcBaseline1 = System.GC.CollectionCount(1);
         _windowGcBaseline2 = System.GC.CollectionCount(2);
-        _windowStartTicks = Stopwatch.GetTimestamp();
+        _manualGcBaseline0 = _windowGcBaseline0;
+        _manualGcBaseline1 = _windowGcBaseline1;
+        _manualGcBaseline2 = _windowGcBaseline2;
+        _windowStartTicks = now;
+        _manualWindowStartTicks = now;
     }
 
     public static void DumpAndReset()
