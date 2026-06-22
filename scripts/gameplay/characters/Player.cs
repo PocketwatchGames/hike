@@ -215,6 +215,55 @@ public partial class Player : CharacterBody3D
 	bool _camping;
 	public bool IsCamping => _camping;
 
+	// Latches true once the player has actively entered a fight this combat:
+	// taken damage from a mob, dealt weapon damage to a mob (any weapon, melee /
+	// hitscan / projectile — all route through Mob.Damage), or swung a weapon
+	// while a triggered hostile was within _combatEngageRange (TryEngageCombatFromWeaponUse,
+	// so the latch flips on a committed miss too). A guard companion reads this
+	// (via ThreatPerceivedCondition.requirePlayerCombat) to hold at a wary growl
+	// until the player chooses to fight rather than picking fights on the player's
+	// behalf. Reset on combat end (GameClient subscribes to CombatTracker.onCombatEnd).
+	public bool CombatEngaged { get; private set; }
+	public void NotifyCombatEngaged() { CombatEngaged = true; }
+	public void ResetCombatEngaged() { CombatEngaged = false; }
+
+	// Radius around the player within which a swung weapon counts as committing to
+	// a fight with any triggered (combat-alert) hostile — flips CombatEngaged even
+	// on a miss. The player's "I'm clearly fighting this" bubble; companion-agnostic.
+	[Export] private float _combatEngageRange = 12f;
+	private readonly List<Mob> _combatEngageScratch = new();
+
+	// Called when the player commits a weapon action. Latches CombatEngaged if a
+	// triggered, dangerous hostile is within _combatEngageRange, so a guard
+	// companion escalates the instant the player swings near a threat.
+	public void TryEngageCombatFromWeaponUse()
+	{
+		if (CombatEngaged || _world?.MobSpatialHash == null)
+		{
+			return;
+		}
+		_combatEngageScratch.Clear();
+		_world.MobSpatialHash.QueryRadius(GlobalPosition, _combatEngageRange, _combatEngageScratch);
+		for (int i = 0; i < _combatEngageScratch.Count; i++)
+		{
+			Mob m = _combatEngageScratch[i];
+			if (m == null || !m.alive || m.mobData == null || !m.mobData.dangerous)
+			{
+				continue;
+			}
+			if (Teams.AreAllied(m.ActorTeam, ETeam.Player))
+			{
+				continue;
+			}
+			if (m.IsTriggered)
+			{
+				NotifyCombatEngaged();
+				break;
+			}
+		}
+		_combatEngageScratch.Clear();
+	}
+
 	public void BeginBirdsEye()
 	{
 		if (_birdsEye)
@@ -1146,6 +1195,13 @@ public partial class Player : CharacterBody3D
 		if (incomingDamage > 0f && hit.aggroMultiplier > 0f && hit.source is Mob masterAttacker)
 		{
 			_world?.Companion?.AddAggro(masterAttacker, incomingDamage * hit.aggroMultiplier);
+		}
+
+		// Taking damage from a mob counts as entering combat — releases a guard
+		// companion to escalate from wary to attacking (see Player.CombatEngaged).
+		if (incomingDamage > 0f && hit.source is Mob)
+		{
+			NotifyCombatEngaged();
 		}
 
 		// Capture the charging weapon's guard BEFORE TryInterrupt — a weapon

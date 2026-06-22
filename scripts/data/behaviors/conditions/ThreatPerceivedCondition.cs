@@ -23,10 +23,23 @@ public partial class ThreatPerceivedCondition : BehaviorTransitionData
     [Export] public EThreatTier tier = EThreatTier.Wary;
     // Invert the test: fire when the tier is NOT met (the "threat cleared" edge).
     [Export] public bool requireNone = false;
+    // Also require that the player has actively entered combat (taken damage from
+    // a mob, or hit one with a weapon — see Player.CombatEngaged). Gates the
+    // escalate-to-attack edge so a guard companion holds at a wary growl until the
+    // player chooses to fight. Ignored when requireNone is set (a "cleared" edge).
+    [Export] public bool requirePlayerCombat = false;
 
     public override bool Evaluate(Mob me, ref PerceptionState targetPerception)
     {
         bool met = tier == EThreatTier.Alert ? me.ThreatTriggered : me.ThreatWary;
-        return requireNone ? !met : met;
+        if (requireNone)
+        {
+            return !met;
+        }
+        if (requirePlayerCombat && !(me.World?.player?.CombatEngaged ?? false))
+        {
+            return false;
+        }
+        return met;
     }
 }

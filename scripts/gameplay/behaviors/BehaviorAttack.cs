@@ -263,7 +263,7 @@ public partial class BehaviorAttack : BehaviorBase
         return best == float.MaxValue ? DefaultStandoffDistance : best;
     }
 
-    private void ReleaseSlot(Mob me)
+    protected void ReleaseSlot(Mob me)
     {
         if (_slotTarget == null)
         {

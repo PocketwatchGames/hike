@@ -492,7 +492,13 @@ public partial class GameClient : Node3D
 		_world = new World();
 		Combat = new CombatTracker(combatExitGraceSeconds);
 		Combat.onCombatBegin = () => onCombatBegin?.Invoke();
-		Combat.onCombatEnd = () => onCombatEnd?.Invoke();
+		Combat.onCombatEnd = () =>
+		{
+			// The next peaceful encounter again requires the player to choose the
+			// fight before a guard companion will attack (Player.CombatEngaged).
+			_player?.ResetCombatEngaged();
+			onCombatEnd?.Invoke();
+		};
 		Combat.onCombatVictory = OnCombatVictory;
 		_world.onMobSpawned += OnMobSpawned;
 		_world.onMobRemoved += OnMobRemoved;

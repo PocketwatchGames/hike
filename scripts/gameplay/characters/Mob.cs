@@ -3085,9 +3085,12 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // can't grant credit on their own — but a player setting a mob
         // on fire and then walking away still earns credit because the
         // initial player hit already flipped the flag.
-        if (hit.source is Player)
+        if (hit.source is Player attackingPlayer)
         {
             _simState.DamagedByPlayer = true;
+            // The player swinging at a mob counts as entering combat — releases a
+            // guard companion to escalate from wary to attacking (Player.CombatEngaged).
+            attackingPlayer.NotifyCombatEngaged();
         }
         // Receiver-side resistance fold. Modulates healthDamage / armorPenetration /
         // blunt / knockback in place so all downstream uses (hit.ArmorPenetrated,

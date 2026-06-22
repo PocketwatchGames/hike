@@ -9,5 +9,15 @@ using Godot;
 [GlobalClass]
 public partial class DogAttackBehaviorData : AttackBehaviorData
 {
+    // Leash to the master: if the player gets farther than this (meters) while the
+    // dog is chasing a threat, it breaks off the fight and runs back toward the
+    // player, resuming the attack only once it's back within range. A companion
+    // stays with its master rather than running down a threat across the map.
+    // <= 0 disables the leash.
+    [Export] public float masterBreakoffDistance = 16f;
+    // Move speed (normalized, 1 = full) while running back to the master after a
+    // breakoff — a brisk return so the dog doesn't dawdle out in the open.
+    [Export] public float breakoffReturnSpeed = 1f;
+
     public override BehaviorBase CreateRuntime() => new BehaviorDogAttack(this);
 }

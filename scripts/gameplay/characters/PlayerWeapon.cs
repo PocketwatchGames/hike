@@ -198,6 +198,9 @@ public partial class Player : CharacterBody3D, IActionActor
 		};
 		if (_runner.TryStart(weapon.data.actionProfile, context))
 		{
+			// Swinging near a triggered hostile commits the player to the fight,
+			// releasing a guard companion to attack even before any hit lands.
+			TryEngageCombatFromWeaponUse();
 			// The wielded weapon pops into the hand and persists there; using
 			// the other weapon next swaps it. No-op when it's already the held
 			// model (re-swinging the same weapon). Tracked for the anim system so
