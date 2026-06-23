@@ -3132,34 +3132,30 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // `armorBypassFraction` = partial), the rest is "absorbable" and
         // piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
         // doesn't bleed into health on the absorbed portion — only the
-        // pre-resolved bypass lands. Recharge timer resets ONLY when armor
-        // actually took a chip — a pure-penetration hit (continuous burn at
-        // armorPenetration=1, etc.) shouldn't extend the depletion window since it
-        // never touched the armor.
+        // pre-resolved bypass lands. The recharge window resets on any
+        // absorbable hit that touches armor, including blows that land while
+        // armor is already depleted (a sustained beating keeps the recover
+        // window from starting). A pure-penetration hit (armorPenetration=1,
+        // etc.) never touches armor and so doesn't extend the window.
         float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
         float bypassed = incoming * bypassFraction;
         float absorbable = incoming - bypassed;
         float armorAbsorbed = 0f;
-        if (armor > 0f && absorbable > 0f)
+        if (absorbable > 0f && armor > 0f)
         {
             float armorDamage = absorbable * (1f + hit.blunt);
             float armorBefore = armor;
             armor = Mathf.Max(0f, armor - armorDamage);
             armorAbsorbed = armorBefore - armor;
-            ulong now = _world?.GameTimeMs ?? 0;
-            if (armor <= 0f && armorDamage > 0f)
-            {
-                _simState.ArmorDepleted = true;
-                _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
-                SpawnWorldEffect(_armorDepletedFx);
-            }
-            else
-            {
-                _simState.ArmorDepleted = false;
-                _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRechargeDelay * 1000f);
-            }
-            _simState.ArmorRecharging = false;
+            RefreshArmorRecharge(armor > 0f);
             incoming = bypassed;
+        }
+        else if (absorbable > 0f && maxArmor > 0f)
+        {
+            // Armor already depleted but the mob still has armor capacity: the
+            // hit lands fully on health (incoming unchanged), yet we push the
+            // recover window out so repeated blows don't let armor refill.
+            RefreshArmorRecharge(false);
         }
 
         // Any hit wakes an incapacitated mob (the crit swap in Hit() has
@@ -3320,22 +3316,18 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
             float p = Mathf.Clamp(armorPenetration, 0f, 1f);
             float bypassed = damage * p;
             float absorbable = damage - bypassed;
-            if (armor > 0f && absorbable > 0f)
+            // A DoT that bypasses armor (poison / heal, armorPenetration=1) has
+            // absorbable==0 and never enters here, so it can't stall recovery.
+            // One that chips armor (burn, armorPenetration<1) refreshes the
+            // recharge window exactly like a direct hit.
+            if (absorbable > 0f && armor > 0f)
             {
                 armor = Mathf.Max(0f, armor - absorbable);
-                ulong nowMs = _world?.GameTimeMs ?? 0;
-                if (armor <= 0f)
-                {
-                    _simState.ArmorDepleted = true;
-                    _simState.ArmorRechargeStartMs = nowMs + (ulong)(mobData.armorRecoverTime * 1000f);
-                    SpawnWorldEffect(_armorDepletedFx);
-                }
-                else
-                {
-                    _simState.ArmorDepleted = false;
-                    _simState.ArmorRechargeStartMs = nowMs + (ulong)(mobData.armorRechargeDelay * 1000f);
-                }
-                _simState.ArmorRecharging = false;
+                RefreshArmorRecharge(armor > 0f);
+            }
+            else if (absorbable > 0f && maxArmor > 0f)
+            {
+                RefreshArmorRecharge(false);
             }
             health = Mathf.Max(0f, health - bypassed);
             if (health <= 0f)
@@ -3388,6 +3380,34 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             Die();
         }
+    }
+
+    // Pushes the armor recharge window out whenever damage actually touches
+    // armor — a direct hit OR a status DoT that chips it (e.g. burn). Damage
+    // that fully bypasses armor (poison / heals, armorPenetration=1) never gets
+    // here, so it can't stall recovery. `hasArmorLeft` true => a chip landed but
+    // armor survived, use the short delay; false => armor is (or already was)
+    // empty, use the long recover window and fire the depleted one-shot on the
+    // transition. Called even when armor was already at zero so sustained armor
+    // damage keeps the recover window from starting mid-fight.
+    private void RefreshArmorRecharge(bool hasArmorLeft)
+    {
+        ulong now = _world?.GameTimeMs ?? 0;
+        if (hasArmorLeft)
+        {
+            _simState.ArmorDepleted = false;
+            _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRechargeDelay * 1000f);
+        }
+        else
+        {
+            if (!_simState.ArmorDepleted)
+            {
+                _simState.ArmorDepleted = true;
+                SpawnWorldEffect(_armorDepletedFx);
+            }
+            _simState.ArmorRechargeStartMs = now + (ulong)(mobData.armorRecoverTime * 1000f);
+        }
+        _simState.ArmorRecharging = false;
     }
 
     private void TickArmor(float dt)

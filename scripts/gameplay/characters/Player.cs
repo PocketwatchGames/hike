@@ -1246,10 +1246,11 @@ public partial class Player : CharacterBody3D
 		// `armorBypassFraction` = partial), the rest is "absorbable" and
 		// piles onto the armor chip scaled by `1 + hit.blunt`. Overflow
 		// doesn't bleed into health on the absorbed portion — only the
-		// pre-resolved bypass lands. Recharge timer resets ONLY when the
-		// armor actually took a chip — a pure-penetration hit (continuous burn
-		// with armorPenetration=1, etc.) shouldn't extend the depletion window since
-		// it never touched the armor.
+		// pre-resolved bypass lands. The recharge window resets on any
+		// absorbable hit that touches armor, including blows that land while
+		// armor is already depleted (a sustained beating keeps the recover
+		// window from starting). A pure-penetration hit (armorPenetration=1,
+		// etc.) never touches armor and so doesn't extend the window.
 		float bypassFraction = hit.ArmorPenetrated ? 1f : hit.armorBypassFraction;
 		float bypassed = incomingDamage * bypassFraction;
 		float absorbable = incomingDamage - bypassed;
@@ -1258,7 +1259,7 @@ public partial class Player : CharacterBody3D
 		// shield. When the guard eats the slice, only the pre-resolved bypass
 		// continues past it (matching the central-armor "overflow doesn't
 		// bleed" rule below). AbsorbWeaponBlock also re-arms the weapon's
-		// recharge delay on any mid-charge hit, even at zero guard.
+		// recharge delay on any guard-touching hit, even at zero guard.
 		float blockAbsorbed = AbsorbWeaponBlock(blockWeapon, ref absorbable, hit.blunt);
 		if (blockAbsorbed > 0f)
 		{
@@ -1269,26 +1270,21 @@ public partial class Player : CharacterBody3D
 			PlayOneShot(EAnimation.Block, overridesCharge: true);
 		}
 		float armorAbsorbed = 0f;
-		if (_armor > 0f && absorbable > 0f)
+		if (absorbable > 0f && _armor > 0f)
 		{
 			float armorDamage = absorbable * (1f + hit.blunt);
 			float armorBefore = _armor;
 			_armor = Mathf.Max(0f, _armor - armorDamage);
 			armorAbsorbed = armorBefore - _armor;
-			ulong now = _world?.GameTimeMs ?? 0;
-			if (_armor <= 0f && armorDamage > 0f)
-			{
-				_armorDepleted = true;
-				_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
-				SpawnWorldEffect(_armorDepletedFx);
-			}
-			else
-			{
-				_armorDepleted = false;
-				_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
-			}
-			_armorRecharging = false;
+			RefreshArmorRecharge(_armor > 0f);
 			incomingDamage = bypassed;
+		}
+		else if (absorbable > 0f && MaxArmor > 0f)
+		{
+			// Armor already depleted but the player has armor capacity: the hit
+			// lands fully on health (incomingDamage unchanged), yet we push the
+			// recover window out so repeated blows don't let armor refill.
+			RefreshArmorRecharge(false);
 		}
 
 		bool wasAlive = _health > 0f;
@@ -2464,29 +2460,26 @@ public partial class Player : CharacterBody3D
 			float p = Mathf.Clamp(armorPenetration, 0f, 1f);
 			float bypassed = damage * p;
 			float absorbable = damage - bypassed;
-			// Charging guard soaks the absorbable slice before central armor,
-			// and any mid-charge DoT tick re-arms its recharge delay. Blunt
-			// isn't modeled on status ticks, so the chip is unscaled here.
-			// Status ticks don't interrupt actions, so querying the guard at
-			// the call site is safe (no TryInterrupt ordering concern).
+			// Charging guard soaks the absorbable slice before central armor.
+			// A DoT that chips the guard (burn) re-arms its recharge delay; one
+			// that bypasses it (poison, absorbable==0) leaves it alone, same as
+			// central armor. Blunt isn't modeled on status ticks, so the chip is
+			// unscaled here. Status ticks don't interrupt actions, so querying
+			// the guard at the call site is safe (no TryInterrupt ordering concern).
 			AbsorbWeaponBlock(GetChargingBlockWeapon(), ref absorbable, 0f);
+			// A DoT that bypasses armor (poison / heal, armorPenetration=1) has
+			// armorDamage==0 and never enters here, so it can't stall recovery.
+			// One that chips armor (burn, armorPenetration<1) refreshes the
+			// recharge window exactly like a direct hit.
 			float armorDamage = absorbable;
-			if (_armor > 0f && armorDamage > 0f)
+			if (armorDamage > 0f && _armor > 0f)
 			{
 				_armor = Mathf.Max(0f, _armor - armorDamage);
-				ulong now = _world?.GameTimeMs ?? 0;
-				if (_armor <= 0f)
-				{
-					_armorDepleted = true;
-					_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
-					SpawnWorldEffect(_armorDepletedFx);
-				}
-				else
-				{
-					_armorDepleted = false;
-					_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
-				}
-				_armorRecharging = false;
+				RefreshArmorRecharge(_armor > 0f);
+			}
+			else if (armorDamage > 0f && MaxArmor > 0f)
+			{
+				RefreshArmorRecharge(false);
 			}
 			_health = Mathf.Max(0f, _health - bypassed);
 		}
@@ -3051,6 +3044,34 @@ public partial class Player : CharacterBody3D
 		}
 	}
 
+	// Pushes the armor recharge window out whenever damage actually touches
+	// armor — a direct hit OR a status DoT that chips it (e.g. burn). Damage
+	// that fully bypasses armor (poison / heals, armorPenetration=1) never gets
+	// here, so it can't stall recovery. `hasArmorLeft` true => a chip landed but
+	// armor survived, use the short delay; false => armor is (or already was)
+	// empty, use the long recover window and fire the depleted one-shot on the
+	// transition. Called even when armor was already at zero so sustained armor
+	// damage keeps the recover window from starting mid-fight.
+	private void RefreshArmorRecharge(bool hasArmorLeft)
+	{
+		ulong now = _world?.GameTimeMs ?? 0;
+		if (hasArmorLeft)
+		{
+			_armorDepleted = false;
+			_armorRechargeStartMs = now + (ulong)(data.armorRechargeDelay * 1000f);
+		}
+		else
+		{
+			if (!_armorDepleted)
+			{
+				_armorDepleted = true;
+				SpawnWorldEffect(_armorDepletedFx);
+			}
+			_armorRechargeStartMs = now + (ulong)(data.armorRecoverTime * 1000f);
+		}
+		_armorRecharging = false;
+	}
+
 	private void TickArmor(float dt)
 	{
 		// MaxArmor (not the raw _maxArmor equipment sum) so a MaxArmor stat
@@ -3100,20 +3121,22 @@ public partial class Player : CharacterBody3D
 	// weapon's guard before the player's central armor. While the guard has
 	// any charge it eats the WHOLE absorbable slice (zeroing `absorbable` so
 	// the central-armor block downstream sees nothing) and reports how much
-	// the pool actually lost for HUD feedback. Re-arms the weapon's recharge
-	// delay on every mid-charge hit — even a fully-penetrating hit with no
-	// absorbable slice, and even when the pool is already empty — so a player
-	// taking fire can't regenerate their guard. No-op when not charging a
-	// guard-bearing weapon.
+	// the pool actually lost for HUD feedback. The guard recharge follows the
+	// same rule as central armor: any guard-touchable hit (absorbable > 0)
+	// resets the recharge delay — even one that lands while the pool is already
+	// empty — while a fully-bypassing hit (poison / armor-penetrating,
+	// absorbable == 0) never touches the guard and so leaves its recovery
+	// alone. The guard only engages while its weapon is being charged (null
+	// weapon no-ops here), so a player not actively guarding never resets it.
 	private float AbsorbWeaponBlock(WeaponState weapon, ref float absorbable, float blunt)
 	{
-		if (weapon == null)
+		if (weapon == null || absorbable <= 0f)
 		{
 			return 0f;
 		}
 		ulong now = _world?.GameTimeMs ?? 0;
 		weapon.blockArmorRechargeStartMs = now + (ulong)(weapon.data.blockArmorRechargeDelay * 1000f);
-		if (weapon.blockArmor <= 0f || absorbable <= 0f)
+		if (weapon.blockArmor <= 0f)
 		{
 			return 0f;
 		}
