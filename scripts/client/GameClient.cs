@@ -300,11 +300,11 @@ public partial class GameClient : Node3D
 	// DamagedByPlayer flag piped through so subscribers can decide whether
 	// the player earned credit (bestiary kill count, future quest counters).
 	// GameClient subscribes its own bestiary bridge in Init.
-	public Action<MobData, bool> onMobKilled;
-	public void NotifyMobKilled(MobData mob, bool damagedByPlayer)
+	public Action<SpeciesData, bool> onMobKilled;
+	public void NotifyMobKilled(SpeciesData species, bool damagedByPlayer)
 	{
-		if (mob == null) { return; }
-		onMobKilled?.Invoke(mob, damagedByPlayer);
+		if (species == null) { return; }
+		onMobKilled?.Invoke(species, damagedByPlayer);
 	}
 
 	// Player combat state, aggregated by CombatTracker from per-mob reports:
@@ -523,7 +523,7 @@ public partial class GameClient : Node3D
 		{
 			sim.onItemIdentified += OnSimItemIdentified;
 			sim.onRecipeDiscovered += OnSimRecipeDiscovered;
-			sim.onMobDiscovered += OnSimMobDiscovered;
+			sim.onSpeciesDiscovered += OnSimSpeciesDiscovered;
 		}
 		onMobKilled += OnMobKilled;
 
@@ -646,42 +646,53 @@ public partial class GameClient : Node3D
 		});
 	}
 
-	void OnMobKilled(MobData mob, bool damagedByPlayer)
+	void OnMobKilled(SpeciesData species, bool damagedByPlayer)
 	{
-		if (!damagedByPlayer || mob == null) { return; }
+		if (!damagedByPlayer || species?.mob == null) { return; }
 		WorldSimState sim = _world?.WorldState?.SimState;
 		if (sim == null) { return; }
 
 		// Snapshot the entry's level before the kill is recorded so we can
 		// announce on threshold-crossing edges. A first-kill entry hasn't
 		// been created yet — TryGetValue leaves kills at 0, which maps to
-		// level 0 in ComputeLevel.
-		int prevKills = sim.DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry prev) ? prev.Kills : 0;
-		sim.RecordMobKill(mob);
-		int newKills = sim.DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry next) ? next.Kills : prevKills;
+		// level 0 in ComputeLevel. Level thresholds are shared per type
+		// (MobData.killsPerLevel); the kill count is the per-species total.
+		int prevKills = sim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry prev) ? prev.Kills : 0;
+		sim.RecordSpeciesKill(species);
+		int newKills = sim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry next) ? next.Kills : prevKills;
 
-		int prevLevel = MobBestiaryEntry.ComputeLevel(prevKills, mob.killsPerLevel);
-		int newLevel = MobBestiaryEntry.ComputeLevel(newKills, mob.killsPerLevel);
+		int prevLevel = MobBestiaryEntry.ComputeLevel(prevKills, species.mob.killsPerLevel);
+		int newLevel = MobBestiaryEntry.ComputeLevel(newKills, species.mob.killsPerLevel);
 		if (newLevel > prevLevel)
 		{
 			Announce(new Announcement
 			{
 				type = EAnnouncementType.MobLevelUp,
 				title = "Bestiary Level Up",
-				subtitle = $"{mob.displayName} Level {newLevel}",
+				subtitle = $"{SpeciesDisplayName(species)} Level {newLevel}",
 			});
 		}
 	}
 
-	void OnSimMobDiscovered(MobData mob)
+	void OnSimSpeciesDiscovered(SpeciesData species)
 	{
-		if (mob == null) { return; }
+		if (species == null) { return; }
 		Announce(new Announcement
 		{
 			type = EAnnouncementType.MobDiscovered,
 			title = "Creature Discovered",
-			subtitle = mob.displayName.ToString(),
+			subtitle = SpeciesDisplayName(species),
 		});
+	}
+
+	// Bestiary row label for a species: its own displayName when authored,
+	// else the base mob's (the page title). Shared by the discovery + level-up
+	// announcements so both read with the variant name.
+	static string SpeciesDisplayName(SpeciesData species)
+	{
+		if (species == null) { return string.Empty; }
+		string name = species.displayName?.ToString();
+		return string.IsNullOrEmpty(name) ? species.mob?.displayName.ToString() ?? string.Empty : name;
 	}
 
 	void OnPlayerLanguageLearned(LanguageData language, ELanguageComponents addedComponents)

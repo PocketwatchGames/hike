@@ -1,16 +1,16 @@
 using Godot;
-using Godot.Collections;
+using System.Collections.Generic;
 
-// Bestiary tab rendered inside AlmanacScreen. Lists every mob type the
-// player has discovered this run (WorldSimState.DiscoveredMobs) — one row
-// per discovered mob species. Row ordering tracks SimData.Mobs so authors
-// control the list shape rather than the order matching the order things
-// were encountered in this run. Focusing a row populates the right-hand
-// detail panel with that mob's information (name, level, kill progress).
+// Bestiary tab rendered inside AlmanacScreen. One PAGE per discovered mob type
+// (SimData.Mobs order controls page order): the left list is type buttons, and
+// selecting one fills the right panel with the type's name/portrait plus one
+// BestiarySpeciesPanel per discovered species of that type (grouped from
+// WorldSimState.DiscoveredSpecies by SpeciesData.mob). A type only gets a page
+// once at least one of its species is discovered.
 //
-// View only — mobs are discovered by perceiving them past
-// MobData.discoveredThreshold (see MobAI and Mob.Yell), and kills are
-// counted in WorldSimState.RecordMobKill on each player-credited death.
+// View only — species are discovered by perceiving a mob past
+// MobData.discoveredThreshold (see MobAI and Mob.Discover), and kills are
+// counted in WorldSimState.RecordSpeciesKill on each player-credited death.
 // The Almanac wrapper owns InputSuppressed / hud-visibility / ui_cancel
 // handling; this screen just rebuilds when its tab is shown.
 [GlobalClass]
@@ -22,31 +22,30 @@ public partial class BestiaryScreen : Control
 	[Export] Control _mobPanel;
 	[Export] Label _mobNameLabel;
 	[Export] TextureRect _mobPortrait;
-	[Export] Label _mobLevelLabel;
-	[Export] ProgressBar _mobKillProgressBar;
-	[Export] Label _mobKillProgressLabel;
 	[Export] Label _noMobsLabel;
+	[Export] PackedScene _mobSpeciesScene;
+	[Export] Control _mobSpeciesContainer;
 
-	// One-shot focus hint set by AlmanacScreen.Open when the caller wants
-	// a specific row preselected (announcement shortcut). Consumed and
-	// cleared on the next Rebuild so subsequent opens (no focus arg) fall
-	// back to the first discovered row.
-	MobData _pendingFocusMob;
+	// One-shot focus hint set by AlmanacScreen.Open when the caller wants a
+	// specific species' page preselected (announcement shortcut). Consumed and
+	// cleared on the next Rebuild so subsequent opens (no focus arg) fall back
+	// to the first discovered page.
+	SpeciesData _pendingFocusSpecies;
 
 	public void Initialize(GameClient gameClient)
 	{
 		_gameClient = gameClient;
 	}
 
-	public void SetPendingFocus(MobData mob)
+	public void SetPendingFocus(SpeciesData species)
 	{
-		_pendingFocusMob = mob;
+		_pendingFocusSpecies = species;
 	}
 
 	public override void _Ready()
 	{
 		VisibilityChanged += OnVisibilityChanged;
-		ShowMobDetail(null);
+		ShowPageDetail(null);
 	}
 
 	void OnVisibilityChanged()
@@ -57,10 +56,10 @@ public partial class BestiaryScreen : Control
 		}
 	}
 
-	// Walk SimData.Mobs, keep only the ones the player has discovered, and
-	// stamp out one button per mob. The container also owns the "No
-	// Creatures Discovered!" label as a sibling child — we only free
-	// Button-typed children so the label survives.
+	// Walk SimData.Mobs (page order), keep only the types with at least one
+	// discovered species, and stamp out one button per page. The container also
+	// owns the "No Creatures Discovered!" label as a sibling child — we only
+	// free Button-typed children so the label survives.
 	void Rebuild()
 	{
 		if (_mobListContainer == null)
@@ -78,28 +77,28 @@ public partial class BestiaryScreen : Control
 		SimData simData = _gameClient?.World?.SimData;
 		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
 		Button firstButton = null;
-		MobData firstMob = null;
+		MobData firstType = null;
 		Button focusButton = null;
-		MobData focusMob = null;
-		MobData pending = _pendingFocusMob;
-		_pendingFocusMob = null;
+		MobData focusType = null;
+		MobData pendingType = _pendingFocusSpecies?.mob;
+		_pendingFocusSpecies = null;
 		if (simData != null && worldSim != null && simData.Mobs != null)
 		{
 			for (int i = 0; i < simData.Mobs.Count; i++)
 			{
-				MobData mob = simData.Mobs[i];
-				if (mob == null || !worldSim.DiscoveredMobs.ContainsKey(mob))
+				MobData type = simData.Mobs[i];
+				if (type == null || !TypeHasDiscoveredSpecies(worldSim, type))
 				{
 					continue;
 				}
-				Button b = CreateMobButton(mob);
-				if (firstButton == null) { firstButton = b; firstMob = mob; }
-				if (pending != null && mob == pending) { focusButton = b; focusMob = mob; }
+				Button b = CreatePageButton(type);
+				if (firstButton == null) { firstButton = b; firstType = type; }
+				if (pendingType != null && type == pendingType) { focusButton = b; focusType = type; }
 			}
 		}
 
 		Button targetButton = focusButton ?? firstButton;
-		MobData targetMob = focusButton != null ? focusMob : firstMob;
+		MobData targetType = focusButton != null ? focusType : firstType;
 		bool any = targetButton != null;
 		if (_noMobsLabel != null)
 		{
@@ -107,21 +106,20 @@ public partial class BestiaryScreen : Control
 		}
 		if (any)
 		{
-			// Populate the right-hand detail synchronously so the panel shows
-			// the chosen entry immediately. The deferred GrabFocus moves
-			// keyboard focus onto the button at end-of-frame; relying on its
-			// FocusEntered signal to fill the panel would leave a blank state
-			// in the meantime.
-			ShowMobDetail(targetMob);
+			// Populate the right-hand detail synchronously so the panel shows the
+			// chosen page immediately. The deferred GrabFocus moves keyboard
+			// focus onto the button at end-of-frame; relying on its FocusEntered
+			// signal to fill the panel would leave a blank state in the meantime.
+			ShowPageDetail(targetType);
 			targetButton.CallDeferred(Control.MethodName.GrabFocus);
 		}
 		else
 		{
-			ShowMobDetail(null);
+			ShowPageDetail(null);
 		}
 	}
 
-	Button CreateMobButton(MobData mob)
+	Button CreatePageButton(MobData type)
 	{
 		if (_mobButtonScene == null || _mobListContainer == null)
 		{
@@ -132,114 +130,98 @@ public partial class BestiaryScreen : Control
 		{
 			return null;
 		}
-		button.Text = mob.displayName.ToString();
+		button.Text = type.displayName.ToString();
 		button.Icon = null;
-		MobData captured = mob;
-		button.FocusEntered += () => ShowMobDetail(captured);
-		// Mouse hover grabs focus so the right-hand info view tracks the
-		// cursor the same way D-pad navigation does.
+		MobData captured = type;
+		button.FocusEntered += () => ShowPageDetail(captured);
+		// Mouse hover grabs focus so the right-hand info view tracks the cursor
+		// the same way D-pad navigation does.
 		button.MouseEntered += button.GrabFocus;
 		_mobListContainer.AddChild(button);
 		return button;
 	}
 
-	// Bind the right-hand info panel to a single mob row. mob = null clears
-	// everything (used at construction and when no mobs are discovered).
-	void ShowMobDetail(MobData mob)
+	// Bind the right-hand page to a single mob type: its name + portrait, then a
+	// BestiarySpeciesPanel for each of its discovered species. type = null clears
+	// everything (used at construction and when no species are discovered).
+	void ShowPageDetail(MobData type)
 	{
 		if (_mobPanel != null)
 		{
-			_mobPanel.Visible = mob != null;
+			_mobPanel.Visible = type != null;
 		}
 		if (_mobNameLabel != null)
 		{
-			_mobNameLabel.Text = mob != null ? mob.displayName.ToString() : string.Empty;
+			_mobNameLabel.Text = type != null ? type.displayName.ToString() : string.Empty;
 		}
 		if (_mobPortrait != null)
 		{
-			Texture2D portrait = mob?.bestiaryPortrait;
+			Texture2D portrait = type?.bestiaryPortrait;
 			_mobPortrait.Texture = portrait;
 			_mobPortrait.Visible = portrait != null;
 		}
-		UpdateLevelProgress(mob);
+		RebuildSpeciesPanels(type);
 	}
 
-	// Compute the level + progress-bar fill from the per-species kill count
-	// against MobData.killsPerLevel. Empty thresholds = the entry doesn't
-	// level (stays at level 0, bar tracks total kills with no target).
-	// At max level the bar is full and the label collapses to total kills.
-	void UpdateLevelProgress(MobData mob)
+	void RebuildSpeciesPanels(MobData type)
 	{
+		if (_mobSpeciesContainer == null)
+		{
+			return;
+		}
+		foreach (Node child in _mobSpeciesContainer.GetChildren())
+		{
+			if (child is BestiarySpeciesPanel)
+			{
+				child.QueueFree();
+			}
+		}
 		WorldSimState worldSim = _gameClient?.World?.WorldState?.SimState;
-		int kills = 0;
-		if (mob != null && worldSim != null
-			&& worldSim.DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry entry))
+		if (type == null || worldSim == null || _mobSpeciesScene == null)
 		{
-			kills = entry.Kills;
+			return;
 		}
+		foreach (SpeciesData species in DiscoveredSpeciesForType(worldSim, type))
+		{
+			worldSim.DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry entry);
+			BestiarySpeciesPanel panel = _mobSpeciesScene.Instantiate<BestiarySpeciesPanel>();
+			_mobSpeciesContainer.AddChild(panel);
+			panel.Populate(species, entry);
+		}
+	}
 
-		Array<int> thresholds = mob?.killsPerLevel;
-		int level = MobBestiaryEntry.ComputeLevel(kills, thresholds);
-		int prevThreshold = 0;
-		int nextThreshold = 0;
-		bool atMax;
-		if (thresholds == null || thresholds.Count == 0)
+	static bool TypeHasDiscoveredSpecies(WorldSimState worldSim, MobData type)
+	{
+		foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kvp in worldSim.DiscoveredSpecies)
 		{
-			// Unleveled species — bar shows the running kill total with no
-			// target. Treated as "at max" so the bar fills (there's no next
-			// rank to chase) and the label shows just the number.
-			atMax = true;
-		}
-		else
-		{
-			atMax = level >= thresholds.Count;
-			if (level > 0)
+			if (kvp.Key?.mob == type)
 			{
-				prevThreshold = thresholds[level - 1];
-			}
-			if (!atMax)
-			{
-				nextThreshold = thresholds[level];
+				return true;
 			}
 		}
+		return false;
+	}
 
-		if (_mobLevelLabel != null)
+	// Discovered species of one type, ordered by display label so rows are
+	// stable across opens rather than tracking dictionary iteration order.
+	static List<SpeciesData> DiscoveredSpeciesForType(WorldSimState worldSim, MobData type)
+	{
+		var list = new List<SpeciesData>();
+		foreach (KeyValuePair<SpeciesData, MobBestiaryEntry> kvp in worldSim.DiscoveredSpecies)
 		{
-			_mobLevelLabel.Text = mob != null ? $"Level: {level}" : string.Empty;
-		}
-		if (_mobKillProgressBar != null)
-		{
-			_mobKillProgressBar.MinValue = 0;
-			if (atMax)
+			if (kvp.Key?.mob == type)
 			{
-				_mobKillProgressBar.MaxValue = 1;
-				_mobKillProgressBar.Value = 1;
-			}
-			else
-			{
-				// Bar spans this level's range only — fills 0 → 1 between
-				// the previous threshold and the next, so each level-up
-				// resets the visible bar instead of inching toward the
-				// final tier across the whole entry's lifetime.
-				int span = Mathf.Max(1, nextThreshold - prevThreshold);
-				_mobKillProgressBar.MaxValue = span;
-				_mobKillProgressBar.Value = kills - prevThreshold;
+				list.Add(kvp.Key);
 			}
 		}
-		if (_mobKillProgressLabel != null)
-		{
-			if (mob == null)
-			{
-				_mobKillProgressLabel.Text = string.Empty;
-			}
-			else if (atMax)
-			{
-				_mobKillProgressLabel.Text = kills.ToString();
-			}
-			else
-			{
-				_mobKillProgressLabel.Text = $"{kills}/{nextThreshold}";
-			}
-		}
+		list.Sort((a, b) => string.Compare(Label(a), Label(b), System.StringComparison.OrdinalIgnoreCase));
+		return list;
+	}
+
+	static string Label(SpeciesData species)
+	{
+		if (species == null) { return string.Empty; }
+		string name = species.displayName?.ToString();
+		return string.IsNullOrEmpty(name) ? species.mob?.displayName.ToString() ?? string.Empty : name;
 	}
 }

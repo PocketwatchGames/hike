@@ -1,6 +1,6 @@
-[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://dp601slikqhh"]
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://dp601slikqhh"]
 
-[ext_resource type="Script" uid="uid://k6zxjx57f8xha" path="res://scripts/data/characters/SubSpeciesData.cs" id="1_sub"]
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="2_mob"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="3_entry"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="4_palette"]
@@ -20,5 +20,6 @@ metadata/_custom_type_script = "uid://cicvni6fvcssx"
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
+displayName = &"Desert Spider"
 palette = SubResource("palette")
-metadata/_custom_type_script = "uid://k6zxjx57f8xha"
+metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

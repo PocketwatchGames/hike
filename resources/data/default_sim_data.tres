@@ -23,6 +23,9 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="8_mob_goblin"]
 [ext_resource type="Resource" uid="uid://b8kcdhsqios2o" path="res://resources/data/characters/kun_kun/kun_kun.tres" id="9_mob_kun_kun"]
 [ext_resource type="Resource" uid="uid://cnpc1villdata" path="res://resources/data/characters/human/friendly_villager.tres" id="10_mob_villager"]
+[ext_resource type="Resource" uid="uid://diu5w5w5evqxv" path="res://resources/data/characters/spider/spider.tres" id="24_mob_spider"]
+[ext_resource type="Resource" uid="uid://cnn41vlfh87us" path="res://resources/data/characters/sparrow/sparrow.tres" id="25_mob_sparrow"]
+[ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="26_mob_dog"]
 [ext_resource type="Resource" uid="uid://cc52pkmouqeuk" path="res://resources/audio/thunder_distant.tres" id="11_thunder_distant"]
 [ext_resource type="Resource" uid="uid://bln1dat1pqrst" path="res://resources/data/weather/lightning_storm.tres" id="12_lightning"]
 [ext_resource type="Resource" uid="uid://dvbajkb2qcbeg" path="res://resources/data/actions/talk_action.tres" id="13_talk_action"]
@@ -39,7 +42,7 @@
 script = ExtResource("1_1meao")
 Gravity = 50.0
 Recipes = Array[ExtResource("3_recipe_script")]([ExtResource("4_recipe_hp_hi"), ExtResource("4_recipe_hp"), ExtResource("5_skk_forest"), ExtResource("5_skk_desert"), ExtResource("5_skk_mountain"), ExtResource("5_recipe_gkk"), ExtResource("6_sgg_forest"), ExtResource("6_sgg_desert"), ExtResource("6_sgg_mountain"), ExtResource("6_sgg_swamp"), ExtResource("6_recipe_gg"), ExtResource("6_recipe_cure")])
-Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager")])
+Mobs = Array[ExtResource("7_mob_script")]([ExtResource("8_mob_goblin"), ExtResource("9_mob_kun_kun"), ExtResource("10_mob_villager"), ExtResource("24_mob_spider"), ExtResource("25_mob_sparrow"), ExtResource("26_mob_dog")])
 ScriptVariables = ExtResource("23_scriptvars")
 EliteStatusEffect = ExtResource("15_elite_std")
 EliteCrownScene = ExtResource("16_elite_crown")

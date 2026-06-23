@@ -999,15 +999,20 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the shared controller so mobs and the player run identical logic.
     public void TriggerAttackImpact(Vector3 position) => _statusEffects?.TriggerAttackImpact(this, position);
 
-    // Compose a single stat across inherent MobData modifiers and active
-    // status-effect modifiers. Mobs don't currently equip armor, so the
-    // shape is one source list (MobData) + the controller's contribution.
+    // Compose a single stat across inherent MobData modifiers, the species
+    // variant's own modifiers, and active status-effect modifiers. Mobs don't
+    // currently equip armor, so the shape is two source lists (the base MobData
+    // and the SpeciesData variant) + the controller's contribution.
     public float ComposeStat(EStat stat)
     {
         float value = StatModifierUtil.NeutralValue(stat);
         if (mobData?.modifiers != null)
         {
             value = StatModifierUtil.Fold(stat, mobData.modifiers, value);
+        }
+        if (_simState?.Species?.modifiers != null)
+        {
+            value = StatModifierUtil.Fold(stat, _simState.Species.modifiers, value);
         }
         value = _statusEffects?.FoldStat(stat, value) ?? value;
         return value;
@@ -1022,6 +1027,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         if (mobData?.modifiers != null)
         {
             product = StatModifierUtil.FoldMask(mask, mobData.modifiers, product);
+        }
+        if (_simState?.Species?.modifiers != null)
+        {
+            product = StatModifierUtil.FoldMask(mask, _simState.Species.modifiers, product);
         }
         product = _statusEffects?.FoldMask(mask, product) ?? product;
         // Per-species Dizzy resistance (MobData.dizzyResistance). The buildup
@@ -3526,10 +3535,10 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         // subscribers see a consistent snapshot (mob still in the world,
         // sim state intact). GameClient bridges this into bestiary kill
         // credit when DamagedByPlayer is set.
-        GameClient.Current?.NotifyMobKilled(_simState.MobData, _simState.DamagedByPlayer);
+        GameClient.Current?.NotifyMobKilled(_simState.Species, _simState.DamagedByPlayer);
         // End combat immediately if this was the last perceived threat (vs the
         // run-away grace). Routed here with the live instance + time because
-        // NotifyMobKilled only carries MobData.
+        // NotifyMobKilled only carries the species.
         GameClient.Current?.Combat?.OnMobDied(this, _world.GameTimeMs);
         // Hide the held weapon prop — a corpse shouldn't brandish its weapon — and
         // douse it if it's a lit torch so the corpse goes dark instead of burning on.
@@ -3646,7 +3655,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // Mirrors Chest.Complete's loot ejection: each ItemCount entry (stamped onto
-    // the sim state from the spawning SubSpeciesData.loot) fires `count` Loot
+    // the sim state from the spawning SpeciesData.loot) fires `count` Loot
     // instances outward on a 45° upward arc. Random horizontal angle per item so
     // a multi-drop carcass scatters rather than dropping in a tight stack.
     private void EjectLoot()
@@ -3869,7 +3878,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     {
         _simState.PlayerPerception = 1;
         _simState.DiscoveryState = EPlayerPerceptionState.Discovered;
-        _world.WorldState?.SimState?.DiscoverMob(_simState.MobData);
+        _world.WorldState?.SimState?.DiscoverSpecies(_simState.Species);
         _simState.MemoryTimeMs = _world.GameTimeMs + (ulong)(_simState.MobData.MemoryStationaryTime * 1000);
     }
 

@@ -1,9 +1,9 @@
-[gd_resource type="Resource" script_class="SubSpeciesData" format=3 uid="uid://b36dkwda4evr6"]
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://b36dkwda4evr6"]
 
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="1_1qua3"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_xekq3"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_cs641"]
-[ext_resource type="Script" uid="uid://dg67ducpbt6xq" path="res://scripts/data/characters/SubSpeciesData.cs" id="4_v4w2x"]
+[ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="4_v4w2x"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_q4wxy"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_q8v8q"]
 [ext_resource type="Resource" uid="uid://cpsn4k2p3qr5w" path="res://resources/data/status_effects/status_poison.tres" id="7_pgd46"]
@@ -59,7 +59,8 @@ metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 [resource]
 script = ExtResource("4_v4w2x")
 mob = ExtResource("1_1qua3")
+displayName = &"Forest Goblin"
 palette = SubResource("Resource_ihwyg")
 statusEffects = Array[ExtResource("5_q4wxy")]([SubResource("Resource_venom_effect")])
 loot = Array[ExtResource("9_lootcount")]([SubResource("Resource_loot_meat")])
-metadata/_custom_type_script = "uid://k6zxjx57f8xha"
+metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

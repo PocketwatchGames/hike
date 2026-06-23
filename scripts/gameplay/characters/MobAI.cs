@@ -474,7 +474,7 @@ public partial class Mob
                 {
                     _simState.PlayerPerception = 1f;
                     _simState.DiscoveryState = EPlayerPerceptionState.CorpseDiscovered;
-                    _world.WorldState?.SimState?.DiscoverMob(mobData);
+                    _world.WorldState?.SimState?.DiscoverSpecies(_simState.Species);
                 }
             }
             else
@@ -486,7 +486,7 @@ public partial class Mob
                 if (prevDiscoveryState != EPlayerPerceptionState.Discovered
                     && _simState.DiscoveryState == EPlayerPerceptionState.Discovered)
                 {
-                    _world.WorldState?.SimState?.DiscoverMob(mobData);
+                    _world.WorldState?.SimState?.DiscoverSpecies(_simState.Species);
                 }
 
                 if (_simState.DiscoveryState == EPlayerPerceptionState.Discovered)

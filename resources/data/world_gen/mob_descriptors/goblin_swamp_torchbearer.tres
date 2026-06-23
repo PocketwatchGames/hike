@@ -8,6 +8,6 @@
 
 [resource]
 script = ExtResource("1_4b8ka")
-subSpecies = ExtResource("2_dyxlt")
+species = ExtResource("2_dyxlt")
 weapons = Array[ExtResource("3_to5lv")]([ExtResource("4_5a2jw"), ExtResource("5_4b8ka")])
 metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

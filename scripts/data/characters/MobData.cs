@@ -320,10 +320,10 @@ public partial class MobData : Resource
     [Export] public MobPalette palette;
 
     [ExportGroup("Loot & Death")]
-    // NOTE: the loot drop list is NOT a species trait — it's a per-zone-variant
-    // concern that lives on SubSpeciesData.loot (so a forest vs desert kun-kun
+    // NOTE: the loot drop list is NOT a base-species trait — it's a per-variant
+    // concern that lives on SpeciesData.loot (so a forest vs desert kun-kun
     // drops different meat). CreateState stamps it onto MobSimState.Loot;
-    // Mob.EjectLoot reads it from there. See SubSpeciesData / MobDescriptor.
+    // Mob.EjectLoot reads it from there. See SpeciesData / MobDescriptor.
 
     // Outward arc speed (m/s) applied to each piece of ejected loot when
     // the mob dies — both authored drops in EjectLoot and any stuck arrows

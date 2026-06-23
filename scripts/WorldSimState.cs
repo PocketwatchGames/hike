@@ -28,13 +28,15 @@ public class WorldSimState
     // always identified and never appear in this set.
     public readonly HashSet<ItemData> IdentifiedItems = new();
 
-    // Mob types the player has discovered, keyed by the shared MobData
-    // resource so every individual goblin contributes to one bestiary
-    // entry. The value carries the running per-species progress (kills,
-    // future sightings / drop logs). The entry persists once added — the
-    // per-mob EPlayerPerceptionState can decay back to Hidden, but the
-    // bestiary entry stays. ContainsKey(mob) is the "is discovered?" test.
-    public readonly Dictionary<MobData, MobBestiaryEntry> DiscoveredMobs = new();
+    // Species variants the player has discovered, keyed by the shared
+    // SpeciesData resource so every individual forest-goblin contributes to one
+    // bestiary row (and each biome variant of a type is tracked separately). The
+    // value carries the running per-species progress (kills, future sightings /
+    // drop logs). The entry persists once added — the per-mob
+    // EPlayerPerceptionState can decay back to Hidden, but the bestiary entry
+    // stays. ContainsKey(species) is the "is discovered?" test; the bestiary
+    // groups these rows into pages by SpeciesData.mob.
+    public readonly Dictionary<SpeciesData, MobBestiaryEntry> DiscoveredSpecies = new();
 
     // Global player stash — a single shared store the player reaches from the
     // Stash tab of any campfire's camp screen (there is no physical stash
@@ -60,10 +62,10 @@ public class WorldSimState
     // whose standard variant they already had.
     public event Action<RecipeData> onRecipeDiscovered;
 
-    // Fired the first time a mob type enters DiscoveredMobs. GameClient
+    // Fired the first time a species enters DiscoveredSpecies. GameClient
     // subscribes to forward an announcement; the bestiary refreshes through
     // its own VisibilityChanged path.
-    public event Action<MobData> onMobDiscovered;
+    public event Action<SpeciesData> onSpeciesDiscovered;
 
     public bool IsItemIdentified(ItemData data)
     {
@@ -127,42 +129,44 @@ public class WorldSimState
         return true;
     }
 
-    // Records a mob-type discovery and fires onMobDiscovered. Returns true
-    // on first discovery; subsequent calls for the same mob type are silent.
-    // Called from the two paths that transition a mob's per-instance
-    // DiscoveryState to Discovered (perception threshold in MobAI, yell
-    // promotion in Mob). Mobs whose MobData.appearsInBestiary is false
+    // Records a species discovery and fires onSpeciesDiscovered. Returns true
+    // on first discovery; subsequent calls for the same species are silent.
+    // Called from the paths that transition a mob's per-instance DiscoveryState
+    // to Discovered (perception threshold in MobAI, corpse spotting, yell
+    // promotion in Mob). Species whose base MobData.appearsInBestiary is false
     // (villagers, livestock) skip the bestiary entry and the announcement
     // entirely — they're "common knowledge" and shouldn't pop a banner the
-    // first time the player sees one.
-    public bool DiscoverMob(MobData mob)
+    // first time the player sees one. A null species (editor-placed mob with no
+    // variant) is a silent no-op.
+    public bool DiscoverSpecies(SpeciesData species)
     {
-        if (mob == null || !mob.appearsInBestiary || DiscoveredMobs.ContainsKey(mob))
+        if (species == null || species.mob == null || !species.mob.appearsInBestiary
+            || DiscoveredSpecies.ContainsKey(species))
         {
             return false;
         }
-        DiscoveredMobs[mob] = new MobBestiaryEntry();
-        onMobDiscovered?.Invoke(mob);
+        DiscoveredSpecies[species] = new MobBestiaryEntry();
+        onSpeciesDiscovered?.Invoke(species);
         return true;
     }
 
-    // Records a confirmed player kill against the given mob species. If
-    // the species hasn't been discovered yet this also creates the entry
-    // and fires onMobDiscovered (killing a mob you never properly spotted
-    // still earns the bestiary row + the discovery announcement). Mobs
-    // whose MobData.appearsInBestiary is false silently no-op — villagers
-    // killed in error don't show up in the bestiary either.
-    public void RecordMobKill(MobData mob)
+    // Records a confirmed player kill against the given species. If the species
+    // hasn't been discovered yet this also creates the entry and fires
+    // onSpeciesDiscovered (killing a mob you never properly spotted still earns
+    // the bestiary row + the discovery announcement). Species whose base
+    // MobData.appearsInBestiary is false (or a null species) silently no-op —
+    // villagers killed in error don't show up in the bestiary either.
+    public void RecordSpeciesKill(SpeciesData species)
     {
-        if (mob == null || !mob.appearsInBestiary)
+        if (species == null || species.mob == null || !species.mob.appearsInBestiary)
         {
             return;
         }
-        if (!DiscoveredMobs.TryGetValue(mob, out MobBestiaryEntry entry))
+        if (!DiscoveredSpecies.TryGetValue(species, out MobBestiaryEntry entry))
         {
             entry = new MobBestiaryEntry();
-            DiscoveredMobs[mob] = entry;
-            onMobDiscovered?.Invoke(mob);
+            DiscoveredSpecies[species] = entry;
+            onSpeciesDiscovered?.Invoke(species);
         }
         entry.Kills++;
     }

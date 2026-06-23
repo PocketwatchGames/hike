@@ -29,11 +29,12 @@ public partial class SimData : Resource
     // RecipeData reference. Adding a recipe = adding it here.
     [Export] public Array<RecipeData> Recipes = new();
 
-    // Master mob library. BestiaryScreen iterates this list, filtering to
-    // the entries the player has discovered (WorldSimState.DiscoveredMobs),
-    // so the bestiary's row ordering tracks the authored order here rather
-    // than discovery order. Adding a new mob species = adding it here so it
-    // can appear in the bestiary once spotted.
+    // Master mob-type library — one entry per bestiary PAGE. BestiaryScreen
+    // iterates this list for stable page ordering, then groups the player's
+    // discovered species (WorldSimState.DiscoveredSpecies) under the matching
+    // page by SpeciesData.mob. Authored order here controls page order rather
+    // than discovery order. Adding a new mob type = adding its base MobData here
+    // so its species can appear in the bestiary once spotted.
     [Export] public Array<MobData> Mobs = new();
 
     // Central registry of named scripting variables (quest flags, world

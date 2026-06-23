@@ -44,7 +44,7 @@ public partial class AlmanacScreen : Control
 		Visible = false;
 	}
 
-	public void Open(EAlmanacTab tab, GameClient gameClient, MobData focusMob = null, Action onClose = null)
+	public void Open(EAlmanacTab tab, GameClient gameClient, SpeciesData focusSpecies = null, Action onClose = null)
 	{
 		_gameClient = gameClient;
 		_onClose = onClose;
@@ -59,7 +59,7 @@ public partial class AlmanacScreen : Control
 		// Rebuild. Only the Bestiary tab uses it today; other tabs can
 		// add their own typed focus params here if needed without changing
 		// the Open() surface that callers use.
-		_bestiaryScreen?.SetPendingFocus(focusMob);
+		_bestiaryScreen?.SetPendingFocus(focusSpecies);
 		if (_gameClient != null)
 		{
 			_gameClient.InputSuppressed = true;

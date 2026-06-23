@@ -91,6 +91,11 @@ public static class EntitySerializer
                 WriteVec3(w, mob.WorldPosition);
                 WriteScene(w, mob.Scene);
                 WriteResource(w, mob.MobData);
+                // Species variant ref (bestiary identity + recolor/loot/modifier
+                // source). May be null for editor-placed mobs built from a bare
+                // MobData. Adding this field changed the Mob wire layout — old
+                // .hike files predating it must be re-exported.
+                WriteResource(w, mob.Species);
                 w.Write(mob.RotationY);
                 WriteVec3(w, mob.SpawnPosition);
                 w.Write(mob.SpawnRotationY);
@@ -167,7 +172,7 @@ public static class EntitySerializer
                 // Per-elite crown scene override (EliteMobDescriptor.crownScene),
                 // scene ref, may be null (then SimData.EliteCrownScene is used).
                 WriteScene(w, mob.EliteCrownScene);
-                // Death loot (MobSimState.Loot), stamped from SubSpeciesData.loot
+                // Death loot (MobSimState.Loot), stamped from SpeciesData.loot
                 // at spawn. Mob loot carries no permanent mods, so only item path
                 // + count are persisted (mirrors the chest-loot recipe above). If
                 // modded mob loot is ever added, write the descriptor's
@@ -373,6 +378,7 @@ public static class EntitySerializer
                 Vector3 pos = ReadVec3(r);
                 PackedScene scene = ReadScene(r);
                 var mobData = ReadResource<MobData>(r);
+                var species = ReadResource<SpeciesData>(r);
                 float rotationY = r.ReadSingle();
                 Vector3 spawnPos = ReadVec3(r);
                 float spawnRotationY = r.ReadSingle();
@@ -443,6 +449,7 @@ public static class EntitySerializer
                 }
 
                 var mob = new MobSimState(pos, rotationY, spawnPos, spawnRotationY, scene, mobData);
+                mob.Species = species;
                 mob.RestoredFromSave = true;
                 mob.Language = language;
                 if (!string.IsNullOrEmpty(initialBehavior))

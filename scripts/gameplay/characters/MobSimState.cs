@@ -115,6 +115,15 @@ public class MobSimState : EntitySimState
     // a plain flag; the signature effect + HUD badge ride StatusEffects / Badge
     // below.
     public bool Elite;
+    // The species variant this mob IS — the bestiary identity (discovery /
+    // kill-leveling key, see WorldSimState.DiscoveredSpecies) and the source of
+    // its recolor / loot / per-variant stat modifiers. Stamped from
+    // MobDescriptor at spawn and persisted via EntitySerializer so the variant
+    // identity survives chunk eviction and .hike load. The base MobData (this.
+    // MobData) is reachable via Species.mob; they agree when Species is set.
+    // Null only for legacy/editor-placed mobs built straight from a bare
+    // MobData — those don't contribute to the bestiary.
+    public SpeciesData Species;
     // Per-instance overrides stamped at spawn so one MobData/MobScene serves many
     // variants. Null = fall back to the species defaults. Persisted via
     // EntitySerializer so a reloaded variant keeps these rather than reverting.
@@ -129,7 +138,7 @@ public class MobSimState : EntitySimState
     // every node spawn (Mob.Initialize), since the status controller itself isn't
     // serialized — so these survive chunk eviction and .hike load.
     public Godot.Collections.Array<StatusEffectData> StatusEffects;
-    // Loot ejected on death, stamped from SubSpeciesData.loot at spawn so a
+    // Loot ejected on death, stamped from SpeciesData.loot at spawn so a
     // zone variant drops its own spoils (loot is no longer a MobData field).
     // Null = no drops. Persisted via EntitySerializer (item path + count per
     // entry) so a reloaded mob still drops; descriptor mods on loot aren't

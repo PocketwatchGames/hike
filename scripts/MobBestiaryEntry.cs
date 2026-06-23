@@ -1,5 +1,5 @@
-// One row's worth of player-progress data for a discovered mob species,
-// stored in WorldSimState.DiscoveredMobs keyed by MobData. Holds the
+// One row's worth of player-progress data for a discovered species variant,
+// stored in WorldSimState.DiscoveredSpecies keyed by SpeciesData. Holds the
 // per-species kill count today; future bestiary fields (sightings, lore
 // flags, drop log) live here so the dictionary stays one entry per
 // species.
