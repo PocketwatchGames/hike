@@ -38,7 +38,7 @@ public partial class ItemActionPanel : PanelContainer
 		// Damage stats lead the row — that's what the player optimizes for.
 		// AoE actions show DPS / radius / duration instead of direct damage,
 		// since they spawn an area effect rather than dealing a hit.
-		ItemEvent areaEvent = FindAreaEffectEvent(action);
+		ItemEvent areaEvent = StatList.FindAreaEffectEvent(action);
 		DamageData damage = null;
 		if (areaEvent != null)
 		{
@@ -47,7 +47,7 @@ public partial class ItemActionPanel : PanelContainer
 		}
 		else
 		{
-			ItemEvent damageEvent = FindDamageEvent(action);
+			ItemEvent damageEvent = StatList.FindDamageEvent(action);
 			damage = weapon?.GetDamage(damageEvent?.damageProfileKey ?? new StringName("primary"));
 			AddStats(StatList.BaseDamage(damage));
 			AddStats(StatList.Range(action, damageEvent));
@@ -132,58 +132,5 @@ public partial class ItemActionPanel : PanelContainer
 		{
 			panel.AddStat(name, value);
 		}
-	}
-
-	// Walks the action's events and returns the first one that actually
-	// deals damage (Melee, Hitscan, or Projectile). That event's authored
-	// damage override (if any) wins over the weapon-level default — same
-	// resolution order the runtime uses in ItemEventHandlers.
-	private static ItemEvent FindDamageEvent(ItemAction action)
-	{
-		if (action?.events == null)
-		{
-			return null;
-		}
-		const EItemEventType damageFlags = EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile;
-		foreach (ItemEvent ev in action.events)
-		{
-			if (ev == null)
-			{
-				continue;
-			}
-			if ((ev.type & damageFlags) != 0)
-			{
-				return ev;
-			}
-		}
-		return null;
-	}
-
-	// Walks the action's events (and any projectile impactEvent chained off
-	// them) looking for a SpawnAreaEffect entry. Used to switch the action
-	// stat row into AoE mode — Rain of Arrows reads its DPS / radius /
-	// duration from the impactEvent on its arcing projectile.
-	private static ItemEvent FindAreaEffectEvent(ItemAction action)
-	{
-		if (action?.events == null)
-		{
-			return null;
-		}
-		foreach (ItemEvent ev in action.events)
-		{
-			if (ev == null)
-			{
-				continue;
-			}
-			if ((ev.type & EItemEventType.SpawnAreaEffect) != 0)
-			{
-				return ev;
-			}
-			if (ev.impactEvent != null && (ev.impactEvent.type & EItemEventType.SpawnAreaEffect) != 0)
-			{
-				return ev.impactEvent;
-			}
-		}
-		return null;
 	}
 }

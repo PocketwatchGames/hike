@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://b36dkwda4evr6"]
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://dloxi31ilii31"]
 
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="1_1qua3"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_xekq3"]
@@ -13,7 +13,7 @@
 [ext_resource type="Resource" path="res://resources/data/items/loot/goblin_forest_meat.tres" id="11_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="12_wd"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="13_cry"]
-[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="14_claw"]
+[ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="14_torch"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("10_desc")
@@ -62,9 +62,9 @@ metadata/_custom_type_script = "uid://uqgkmpiv30t5"
 [resource]
 script = ExtResource("4_v4w2x")
 mob = ExtResource("1_1qua3")
-displayName = &"Forest Goblin"
+displayName = &"Forest Torchbearer"
 palette = SubResource("Resource_ihwyg")
 statusEffects = Array[ExtResource("5_q4wxy")]([SubResource("Resource_venom_effect")])
 loot = Array[ExtResource("9_lootcount")]([SubResource("Resource_loot_meat")])
-weapons = Array[ExtResource("12_wd")]([ExtResource("13_cry"), ExtResource("14_claw")])
+weapons = Array[ExtResource("12_wd")]([ExtResource("13_cry"), ExtResource("14_torch")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

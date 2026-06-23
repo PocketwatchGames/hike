@@ -1,16 +1,15 @@
-[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://cssgobdesert1"]
+[gd_resource type="Resource" script_class="SpeciesData" format=3 uid="uid://xngb2hoxl8ug"]
 
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="1_3s3mn"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qpp1h"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_7btn7"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="4_t3jks"]
-[ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_iqflo"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="7_desc"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/goblin_desert_meat.tres" id="8_meat"]
 [ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="9_wd"]
 [ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="10_cry"]
-[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="11_claw"]
+[ext_resource type="Resource" uid="uid://c0tanvr887mia" path="res://resources/data/characters/goblin/goblin_torch.tres" id="11_torch"]
 
 [sub_resource type="Resource" id="Desc_loot_meat"]
 script = ExtResource("7_desc")
@@ -37,7 +36,7 @@ metadata/_custom_type_script = "uid://j75mtm0w0qkch"
 [resource]
 script = ExtResource("4_t3jks")
 mob = ExtResource("1_3s3mn")
-displayName = &"Desert Goblin"
+displayName = &"Desert Torchbearer"
 palette = SubResource("Resource_db5yf")
 loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
-weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_claw")])
+weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_torch")])

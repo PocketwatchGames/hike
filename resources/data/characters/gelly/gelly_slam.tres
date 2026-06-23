@@ -23,6 +23,7 @@ impactLethalEffect = ExtResource("6_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_slam"]
 script = ExtResource("3_action")
+speedMultiplierActive = 0.0
 displayName = &"Slam"
 activeDurationSeconds = 0.7
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_slam")])
@@ -30,7 +31,6 @@ events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), Su
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_slam")])
-locksMovement = true
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")

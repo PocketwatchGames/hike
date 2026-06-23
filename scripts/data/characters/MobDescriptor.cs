@@ -1,10 +1,9 @@
 using Godot;
 
 // A spawn-facing composed mob: a reusable SpeciesData (base species + recolor +
-// intrinsic stat modifiers + status effects) paired with per-descriptor
-// overrides (held weapons, elite kind). Spawn sources hold a MobDescriptor
-// instead of a bare MobData so biome/loadout variants — a claw goblin vs a
-// torch-bearing camp goblin — reuse one SpeciesData (and its MobScene) instead
+// intrinsic stat modifiers + status effects + weapons) paired with a
+// per-descriptor elite override. Spawn sources hold a MobDescriptor instead of a
+// bare MobData so biome variants reuse one SpeciesData (and its MobScene) instead
 // of a duplicated species file. This is the mob analog of ItemDescriptor
 // (composition, not inheritance): a spawn entry HAS-A descriptor; it is not a
 // kind of one.
@@ -21,18 +20,6 @@ public partial class MobDescriptor : Resource
     // descriptors so the plain and elite (and torchbearer) variants of a swamp
     // goblin all point at one goblin_swamp SpeciesData. See SpeciesData.
     [Export] public SpeciesData species;
-
-    // Weapon loadout for mobs spawned from this descriptor — the home for a
-    // mob's weapons (NOT a species trait on MobData). Each WeaponData carries
-    // its own action timeline, damage / continuous profiles, in-hand held model,
-    // and AI engagement tuning (range / cooldown / ally gate / priority), exactly
-    // like a player weapon. CreateState stamps this onto MobSimState.Weapons;
-    // BehaviorAttack fires the highest-priority weapon whose gates pass and the
-    // in-hand prop is the primary weapon's held model. Because weapons live here,
-    // the SAME species fights differently per spawn context by authoring a
-    // second descriptor (a claw goblin vs a torch-bearing camp goblin) rather
-    // than a duplicate species file. Empty = a mob that never attacks.
-    [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Marks this as an elite variant (25% larger, crown, shared elite buff,
     // crown-trophy loot). Non-null = elite: point it at a shared elite_*.tres
@@ -61,9 +48,9 @@ public partial class MobDescriptor : Resource
         // key) as well as the source of its recolor / loot / stat modifiers.
         state.Species = species;
         state.Palette = species.palette;
-        if (weapons != null && weapons.Count > 0)
+        if (species.weapons != null && species.weapons.Count > 0)
         {
-            state.Weapons = weapons;
+            state.Weapons = species.weapons;
         }
         if (species.loot != null && species.loot.Count > 0)
         {

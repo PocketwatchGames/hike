@@ -19,7 +19,7 @@ type = 64
 script = ExtResource("4_event")
 time = 150
 type = 1024
-motionSpeed = 10.0
+motionForwardSpeed = 10.0
 motionFreezeGravity = false
 
 [sub_resource type="Resource" id="Resource_event_bite"]
@@ -33,6 +33,7 @@ impactLethalEffect = ExtResource("6_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_bite"]
 script = ExtResource("3_action")
+speedMultiplierActive = 0.0
 displayName = &"Bite"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
@@ -41,7 +42,6 @@ releaseEffect = ExtResource("10_attack")
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_bite")])
-locksMovement = true
 
 [sub_resource type="Resource" id="Resource_poison_buildup"]
 script = ExtResource("8_buildup")

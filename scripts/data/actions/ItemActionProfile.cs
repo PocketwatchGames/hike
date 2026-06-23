@@ -52,10 +52,6 @@ public partial class ItemActionProfile : Resource
 	// filled charge still has a way to fire.
 	[Export] public bool requireFullCharge = false;
 
-	// Apply a movement lock for the duration of the action (Charging + Active).
-	// Drinking a potion locks; weapon swings typically don't.
-	[Export] public bool locksMovement = false;
-
 	// Damage-during-charge interrupt policy. Active-phase interrupt is gated
 	// by ItemAction.canInterrupt instead.
 	[Export] public bool interruptOnDamage = true;

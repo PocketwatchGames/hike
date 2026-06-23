@@ -692,7 +692,7 @@ public static class EntitySerializer
         return GD.Load<T>(path);
     }
 
-    // Weapon loadout (MobSimState.Weapons), stamped from MobDescriptor.weapons at
+    // Weapon loadout (MobSimState.Weapons), stamped from SpeciesData.weapons at
     // spawn: count + each WeaponData resource path. Null/empty writes a 0 count
     // and reads back as null (a mob that never attacks).
     private static void WriteWeaponList(BinaryWriter w, Godot.Collections.Array<WeaponData> weapons)

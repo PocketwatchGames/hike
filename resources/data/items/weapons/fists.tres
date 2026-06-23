@@ -17,10 +17,6 @@
 [ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="9_state"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="12_fgw35"]
 
-[sub_resource type="Resource" id="Resource_req_no_swim"]
-script = ExtResource("9_state")
-forbidSwimming = true
-
 [sub_resource type="Resource" id="Resource_event_light"]
 script = ExtResource("3_event")
 type = 65
@@ -32,14 +28,20 @@ impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
 impactLethalEffect = ExtResource("7_hitkill")
 
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("9_state")
+forbidSwimming = true
+
 [sub_resource type="Resource" id="Resource_charged_light"]
 script = ExtResource("4_charged")
 chargeTime = 0.3
-cooldownSeconds = 0.35
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.1
 staminaCost = 5.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_light")])
 comboWindowMs = 600
 requirements = Array[ExtResource("9_5mj5i")]([SubResource("Resource_req_no_swim")])
+speedMultiplierActive = 0.0
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
@@ -59,10 +61,13 @@ impactLethalEffect = ExtResource("7_hitkill")
 
 [sub_resource type="Resource" id="Resource_charged_heavy"]
 script = ExtResource("4_charged")
-cooldownSeconds = 0.6
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.35
 staminaCost = 12.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_heavy")])
 requirements = Array[ExtResource("9_5mj5i")]([SubResource("Resource_req_no_swim")])
+speedMultiplierCharging = 0.75
+speedMultiplierActive = 0.0
 releaseEffect = ExtResource("8_atkheavy")
 impactCritEffect = ExtResource("7_hitkill")
 impactBackstabEffect = ExtResource("7_hitcreature")
@@ -79,12 +84,14 @@ script = ExtResource("1_modifier")
 overrides = 9
 healthDamage = 3.0
 knockbackDistance = 2.0
+addBuildups = null
 
 [sub_resource type="Resource" id="Resource_mod_backstab"]
 script = ExtResource("1_modifier")
 trigger = 2
 overrides = 1
 healthDamage = 4.0
+addBuildups = null
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")

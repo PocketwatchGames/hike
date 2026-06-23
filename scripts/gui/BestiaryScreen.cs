@@ -24,6 +24,8 @@ public partial class BestiaryScreen : Control
 	[Export] TextureRect _mobPortrait;
 	[Export] Label _noMobsLabel;
 	[Export] PackedScene _mobSpeciesScene;
+	[Export] Control _mobStatsContainer;
+	[Export] PackedScene _statScene;
 	[Export] Control _mobSpeciesContainer;
 
 	// One-shot focus hint set by AlmanacScreen.Open when the caller wants a
@@ -160,7 +162,36 @@ public partial class BestiaryScreen : Control
 			_mobPortrait.Texture = portrait;
 			_mobPortrait.Visible = portrait != null;
 		}
+		RebuildStatPanels(type);
 		RebuildSpeciesPanels(type);
+	}
+
+	// Fill the stats container with one StatPanel per base-species stat (health,
+	// armor, speed, vision) — the bestiary mirror of PlayerStatsPanel. type =
+	// null just clears the existing panels.
+	void RebuildStatPanels(MobData type)
+	{
+		if (_mobStatsContainer == null)
+		{
+			return;
+		}
+		foreach (Node child in _mobStatsContainer.GetChildren())
+		{
+			if (child is StatPanel)
+			{
+				child.QueueFree();
+			}
+		}
+		if (type == null || _statScene == null)
+		{
+			return;
+		}
+		foreach ((string name, string value) in StatList.MobStats(type))
+		{
+			StatPanel stat = _statScene.Instantiate<StatPanel>();
+			_mobStatsContainer.AddChild(stat);
+			stat.SetText(name, value);
+		}
 	}
 
 	void RebuildSpeciesPanels(MobData type)

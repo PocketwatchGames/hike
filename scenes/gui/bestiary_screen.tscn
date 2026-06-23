@@ -3,8 +3,9 @@
 [ext_resource type="Script" uid="uid://o5h18pefbo0i" path="res://scripts/gui/BestiaryScreen.cs" id="1_2ltib"]
 [ext_resource type="PackedScene" uid="uid://dn1uamwxkqjal" path="res://scenes/gui/recipe_button.tscn" id="2_mob_btn"]
 [ext_resource type="PackedScene" uid="uid://qvberi15sbq3" path="res://scenes/gui/bestiary_species_panel.tscn" id="3_shh7v"]
+[ext_resource type="PackedScene" uid="uid://be6nv1qgj2e24" path="res://scenes/gui/stat_panel.tscn" id="4_stat0"]
 
-[node name="BestiaryScreen" type="Control" unique_id=361542241 node_paths=PackedStringArray("_mobListContainer", "_mobPanel", "_mobNameLabel", "_mobPortrait", "_noMobsLabel", "_mobSpeciesContainer")]
+[node name="BestiaryScreen" type="Control" unique_id=361542241 node_paths=PackedStringArray("_mobListContainer", "_mobPanel", "_mobNameLabel", "_mobPortrait", "_noMobsLabel", "_mobStatsContainer", "_mobSpeciesContainer")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -19,6 +20,8 @@ _mobNameLabel = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginCont
 _mobPortrait = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/Portrait")
 _noMobsLabel = NodePath("HBoxContainer/PanelContainer/MarginContainer/VBoxContainer/Label")
 _mobSpeciesScene = ExtResource("3_shh7v")
+_mobStatsContainer = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/HFlowContainer")
+_statScene = ExtResource("4_stat0")
 _mobSpeciesContainer = NodePath("HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer/VBoxContainer")
 
 [node name="HBoxContainer" type="HBoxContainer" parent="." unique_id=1036400828]
@@ -80,6 +83,9 @@ layout_mode = 2
 size_flags_horizontal = 4
 expand_mode = 1
 stretch_mode = 5
+
+[node name="HFlowContainer" type="HFlowContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=1347750535]
+layout_mode = 2
 
 [node name="VBoxContainer" type="VBoxContainer" parent="HBoxContainer/VBoxContainer/PanelContainer2/MarginContainer/VBoxContainer" unique_id=1261620362]
 layout_mode = 2

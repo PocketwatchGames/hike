@@ -615,8 +615,8 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     }
 
     // The mob's weapon loadout, stamped onto MobSimState.Weapons at spawn from
-    // MobDescriptor.weapons (weapons are spawn composition, not a species trait).
-    // Read by BehaviorAttack and the held-prop pick. Null/empty = never attacks.
+    // SpeciesData.weapons (weapons are a per-variant species trait). Read by
+    // BehaviorAttack and the held-prop pick. Null/empty = never attacks.
     public Godot.Collections.Array<WeaponData> Weapons => _simState?.Weapons;
 
     // The mob's weapon that supplies its in-hand prop: the highest-priority
@@ -956,9 +956,14 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // holds that vector for `duration` seconds even if BehaviorAttack keeps
     // rotating the body to track the player. Zero duration no-ops so a
     // profile authoring a motionless event doesn't pin the body.
-    public void ApplyMotion(float speed, float duration, bool freezeGravity)
+    // `direction` is ignored: a mob always lunges along its facing. While an
+    // attack runs its body is movement-locked, so its move input is ~zero and
+    // Movement would resolve back to facing anyway.
+    public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
     {
-        if (duration <= 0f || speed <= 0f)
+        // A negative forwardSpeed reverses the vector (a hop-back); only a
+        // zero speed or zero duration is a true no-op.
+        if (duration <= 0f || forwardSpeed == 0f)
         {
             return;
         }
@@ -968,7 +973,7 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
         {
             return;
         }
-        _simState.MotionVelocity = forward.Normalized() * speed;
+        _simState.MotionVelocity = forward.Normalized() * forwardSpeed;
         _simState.MotionTime = duration;
         _simState.MotionFreezeGravity = freezeGravity;
     }

@@ -16,9 +16,12 @@ public interface IActionActor
 
 	// Kick off a motion phase. The runner fires this from an ApplyMotion event;
 	// the actor's physics layer owns direction resolution, terrain interaction,
-	// and end-of-motion behavior. Actors that don't drive motion from authored
-	// events (basic mobs today) may no-op.
-	void ApplyMotion(float speed, float duration, bool freezeGravity);
+	// and end-of-motion behavior. `direction` selects whether the base axis is
+	// the actor's facing or its move input; forwardSpeed is signed along that
+	// resolved axis — negative drives the actor backward (hop-back / recoil).
+	// Actors that don't drive motion from authored events (basic mobs today)
+	// may no-op.
+	void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction);
 
 	// Stamina gate for ItemAction.staminaCost. HasStamina is a non-mutating
 	// peek used at press time to refuse an action the actor can't afford.

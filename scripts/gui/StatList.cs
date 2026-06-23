@@ -433,6 +433,29 @@ public static class StatList
 		}
 	}
 
+	// Composite base-species readout for the bestiary detail page. Mirrors
+	// PlayerStats — the core character-sheet dials a player would compare
+	// across creatures: health, armor (only when the species has any), move
+	// speed, and sight range. Weapon and loot loadouts are spawn-time
+	// composition (MobDescriptor / SpeciesData), not base traits, so they're
+	// intentionally excluded.
+	public static IEnumerable<(string name, string value)> MobStats(MobData mob)
+	{
+		if (mob == null)
+		{
+			yield break;
+		}
+		Dictionary<EStatName, string> names = GameClient.Current.statNames;
+
+		yield return (names[EStatName.Health], StatFormat.Number(mob.maxHealth));
+		if (mob.maxArmor > 0f)
+		{
+			yield return (names[EStatName.Armor], StatFormat.Number(mob.maxArmor));
+		}
+		yield return (names[EStatName.MoveSpeed], StatFormat.Number(mob.maxSpeed));
+		yield return (names[EStatName.Vision], StatFormat.Meters(mob.VisionRange));
+	}
+
 	// Per-armor readout: max armor capacity + every modifier the piece
 	// authors. Resistances and sense modifiers are suppressed at their
 	// neutral values (0 additive, 1 multiplicative) so a plain piece of
@@ -519,5 +542,106 @@ public static class StatList
 		}
 		EStatName key = data.arrowLootData != null ? EStatName.Ammo : EStatName.Charges;
 		yield return (GameClient.Current.statNames[key], weapon.ammo + " / " + data.maxAmmo);
+	}
+
+	// Compact combat readout for one mob weapon (bestiary). Summarizes the
+	// first action that actually attacks: an AoE action's DPS / radius /
+	// duration + target range, or a direct hit's damage / range / on-hit
+	// effects. A non-attacking weapon (a pure buff like a battle cry) yields
+	// nothing, so the caller can skip it.
+	public static IEnumerable<(string name, string value)> WeaponSummary(WeaponData weapon)
+	{
+		if (weapon?.actionProfile?.chargedActions == null)
+		{
+			yield break;
+		}
+		foreach (ItemAction action in weapon.actionProfile.chargedActions)
+		{
+			if (action == null)
+			{
+				continue;
+			}
+			ItemEvent areaEvent = FindAreaEffectEvent(action);
+			if (areaEvent != null)
+			{
+				foreach (var entry in AreaEffect(areaEvent, weapon))
+				{
+					yield return entry;
+				}
+				foreach (var entry in TargetRange(action))
+				{
+					yield return entry;
+				}
+				yield break;
+			}
+			ItemEvent damageEvent = FindDamageEvent(action);
+			if (damageEvent == null)
+			{
+				continue;
+			}
+			DamageData damage = weapon.GetDamage(damageEvent.damageProfileKey ?? new StringName("primary"));
+			foreach (var entry in BaseDamage(damage))
+			{
+				yield return entry;
+			}
+			foreach (var entry in Range(action, damageEvent))
+			{
+				yield return entry;
+			}
+			yield break;
+		}
+	}
+
+	// Walks an action's events and returns the first one that actually deals
+	// damage (Melee, Hitscan, or Projectile). That event's authored damage
+	// override (if any) wins over the weapon-level default — same resolution
+	// order the runtime uses in ItemEventHandlers.
+	public static ItemEvent FindDamageEvent(ItemAction action)
+	{
+		if (action?.events == null)
+		{
+			return null;
+		}
+		const EItemEventType damageFlags = EItemEventType.Melee | EItemEventType.Hitscan | EItemEventType.Projectile;
+		foreach (ItemEvent ev in action.events)
+		{
+			if (ev == null)
+			{
+				continue;
+			}
+			if ((ev.type & damageFlags) != 0)
+			{
+				return ev;
+			}
+		}
+		return null;
+	}
+
+	// Walks an action's events (and any projectile impactEvent chained off
+	// them) looking for a SpawnAreaEffect entry. Used to switch a stat row
+	// into AoE mode — Rain of Arrows reads its DPS / radius / duration from
+	// the impactEvent on its arcing projectile.
+	public static ItemEvent FindAreaEffectEvent(ItemAction action)
+	{
+		if (action?.events == null)
+		{
+			return null;
+		}
+		foreach (ItemEvent ev in action.events)
+		{
+			if (ev == null)
+			{
+				continue;
+			}
+			if ((ev.type & EItemEventType.SpawnAreaEffect) != 0)
+			{
+				return ev;
+			}
+			if (ev.impactEvent != null && (ev.impactEvent.type & EItemEventType.SpawnAreaEffect) != 0)
+			{
+				return ev.impactEvent;
+			}
+		}
+		return null;
 	}
 }

@@ -584,24 +584,36 @@ public partial class Player : CharacterBody3D, IActionActor
 		PlayOneShot(anim);
 	}
 
-	// Seeded from an ApplyMotion event in the dash action profile. Direction
-	// preference: active move input first (lets the player dash sideways or
-	// backward independent of facing); fall back to facing rotation so a
-	// stationary dash still goes somewhere. The dash state machine in
-	// _PhysicsProcess consumes these fields.
-	public void ApplyMotion(float speed, float duration, bool freezeGravity)
+	// Seeded from an ApplyMotion event. Direction resolves per the event's
+	// EMotionDirection: Movement prefers active move input (lets a dash go
+	// sideways / backward independent of facing) and falls back to facing
+	// when there's no input; Facing always commits to body yaw (a weapon
+	// lunge strikes where the player aims, not where the stick is pushed).
+	// A negative forwardSpeed (a hop-back / recoil event) is folded into
+	// _dashDir so the body travels the reverse axis while _dashSpeed stays a
+	// positive magnitude — this keeps the wall-slide reprojection, head-on
+	// test, and speed-line emitter (all keyed off _dashDir as the true travel
+	// heading) correct. The dash state machine in _PhysicsProcess consumes
+	// these fields.
+	public void ApplyMotion(float forwardSpeed, float duration, bool freezeGravity, EMotionDirection direction)
 	{
+		Vector3 facing = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
 		Vector3 dir;
-		if (_inputMove.LengthSquared() > 0f)
+		if (direction == EMotionDirection.Movement && _inputMove.LengthSquared() > 0f)
 		{
 			dir = _inputMove.Normalized();
 		}
 		else
 		{
-			dir = new Vector3(Mathf.Sin(Rotation.Y), 0f, Mathf.Cos(Rotation.Y));
+			dir = facing;
+		}
+		if (forwardSpeed < 0f)
+		{
+			dir = -dir;
+			forwardSpeed = -forwardSpeed;
 		}
 		_dashDir = dir;
-		_dashSpeed = speed;
+		_dashSpeed = forwardSpeed;
 		_dashTimeRemaining = duration;
 		_dashFreezeGravity = freezeGravity;
 		// A dash has just begun — let any held status effect (e.g. the fairy-

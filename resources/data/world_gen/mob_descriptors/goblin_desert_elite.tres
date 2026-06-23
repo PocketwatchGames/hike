@@ -3,13 +3,9 @@
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_desc"]
 [ext_resource type="Resource" uid="uid://f5b02lyuvhbo" path="res://resources/data/world_gen/mob_descriptors/elites/elite_stoneskin.tres" id="1_lcugc"]
 [ext_resource type="Resource" uid="uid://cssgobdesert1" path="res://resources/data/characters/goblin/goblin_desert.tres" id="2_sub"]
-[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_weapon"]
-[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="4_cry"]
-[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="5_claw"]
 
 [resource]
 script = ExtResource("1_desc")
 species = ExtResource("2_sub")
-weapons = Array[ExtResource("3_weapon")]([ExtResource("4_cry"), ExtResource("5_claw")])
 elite = ExtResource("1_lcugc")
 metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

@@ -6,9 +6,9 @@
 [ext_resource type="Script" uid="uid://cmw4pa3roleml" path="res://scripts/data/actions/ItemEvent.cs" id="3_event"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="3_kw5rh"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="4_1lc6q"]
-[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://dk8raobkwkxje" path="res://scripts/data/actions/ItemAction.cs" id="4_charged"]
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_jf0yv"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="4_state"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="5_profile"]
 [ext_resource type="PackedScene" uid="uid://dxxldcqs8hb6v" path="res://scenes/fx/bow_hit_creature.tscn" id="7_hitcreature"]
 [ext_resource type="PackedScene" uid="uid://dbkwlsxhbirtn" path="res://scenes/fx/bow_kill.tscn" id="7_hitkill"]
@@ -26,10 +26,6 @@
 [ext_resource type="PackedScene" uid="uid://b6xvvkhj2thr" path="res://scenes/items/held/bow_held.tscn" id="20_kwtcm"]
 [ext_resource type="Resource" uid="uid://cbow4n1msetla" path="res://resources/data/characters/human/anim_sets/bow.tres" id="21_animset"]
 
-[sub_resource type="Resource" id="Resource_req_no_swim"]
-script = ExtResource("4_state")
-forbidSwimming = true
-
 [sub_resource type="Resource" id="Resource_event_snap"]
 script = ExtResource("3_event")
 type = 8260
@@ -42,15 +38,21 @@ projectileSpeed = 24.0
 projectileLifetimeSeconds = 0.25
 projectileLoopEffect = ExtResource("19_arrowtrail")
 
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("4_state")
+forbidSwimming = true
+
 [sub_resource type="Resource" id="Resource_charged_snap"]
 script = ExtResource("4_charged")
 displayName = &"Light Attack"
 chargeTime = 0.7
-cooldownSeconds = 0.5
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.25
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_snap")])
 requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
 chargedRangeScale = 2.0
+speedMultiplierActive = 0.5
 chargeStartEffect = ExtResource("8_chghead")
 releaseEffect = ExtResource("8_atklight")
 impactCritEffect = ExtResource("7_hitkill")
@@ -58,9 +60,10 @@ impactBackstabEffect = ExtResource("7_hitcreature")
 
 [sub_resource type="Resource" id="Resource_event_full"]
 script = ExtResource("3_event")
-type = 8260
+type = 9284
 animName = 20
 damageProfileKey = &"heavy"
+motionForwardSpeed = -10.0
 impactEnvironmentEffect = ExtResource("7_hitsolid")
 impactHealthEffect = ExtResource("7_hitcreature")
 impactArmorEffect = ExtResource("7_hitsolid")
@@ -73,10 +76,13 @@ projectileLoopEffect = ExtResource("19_arrowtrail")
 [sub_resource type="Resource" id="Resource_charged_full"]
 script = ExtResource("4_charged")
 displayName = &"Heavy Attack"
-cooldownSeconds = 0.5
+activeDurationSeconds = 0.25
+cooldownSeconds = 0.25
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
 requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])
+speedMultiplierCharging = 0.4
+speedMultiplierActive = 0.0
 chargeStartEffect = ExtResource("8_chgtail")
 chargeLoopEffect = ExtResource("8_chgloop")
 releaseEffect = ExtResource("8_atkheavy")
@@ -93,6 +99,7 @@ queueWindowSeconds = 0.0
 script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 5.0
+addBuildups = []
 metadata/_custom_type_script = "uid://bjryk6qlmyyo4"
 
 [sub_resource type="Resource" id="Resource_oap68"]
@@ -111,6 +118,7 @@ metadata/_custom_type_script = "uid://dvmit3ddkahg8"
 script = ExtResource("1_modifier")
 overrides = 1
 healthDamage = 5.0
+addBuildups = []
 
 [sub_resource type="Resource" id="Resource_damage"]
 script = ExtResource("1_damage")

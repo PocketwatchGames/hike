@@ -22,7 +22,7 @@ type = 64
 script = ExtResource("4_event")
 time = 200
 type = 1024
-motionSpeed = 14.0
+motionForwardSpeed = 14.0
 motionDuration = 0.25
 motionFreezeGravity = false
 
@@ -38,6 +38,7 @@ impactLethalEffect = ExtResource("9_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_torch"]
 script = ExtResource("3_action")
+speedMultiplierActive = 0.0
 displayName = &"Torch Swing"
 activeDurationSeconds = 1.0
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_dart"), SubResource("Resource_event_strike")])
@@ -46,7 +47,6 @@ releaseEffect = ExtResource("8_atkfx")
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_torch")])
-locksMovement = true
 
 [sub_resource type="Resource" id="Resource_damage_primary"]
 script = ExtResource("5_damage")

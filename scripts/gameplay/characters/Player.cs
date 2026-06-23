@@ -3573,11 +3573,19 @@ public partial class Player : CharacterBody3D
 		}
 		float statusMoveMul = _statusEffects?.FoldStat(EStat.MoveSpeed, 1f) ?? 1f;
 		speed *= statusMoveMul;
+		// An in-flight action scales movement by its current phase's multiplier:
+		// the held tier's charge slowdown (heavy club / ranged draw) while
+		// Charging, its active-phase root (drinking, dash, mob strike) while
+		// Active. 1 when idle, so this is a no-op outside an action.
+		if (_runner != null)
+		{
+			speed *= _runner.MovementSpeedMultiplier;
+		}
 		// Anim retiming is gated to movement-loop anims only — see
 		// UpdateAnimation, which writes effectSpeedMultiplier per-frame based
 		// on the currently-picked loopAnim. Attack / hitstun / death anims
 		// play at authored speed regardless of status.
-		if (_curInteractive != null || (_runner != null && _runner.LocksMovement) || _birdsEye)
+		if (_curInteractive != null || _birdsEye)
 		{
 			speed = 0;
 		}
@@ -4252,10 +4260,10 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Bird's-eye lock drops every action press for the duration of the
-		// overview shot. Movement velocity is already gated by the
-		// _runner.LocksMovement check farther down, but we still need to drop
-		// jump / dash / weapon presses so a held button while the camera is
-		// up can't punch through the lock. ui_cancel is handled by GameClient
+		// overview shot. Movement velocity is already gated by the _birdsEye
+		// speed=0 check farther down, but we still need to drop jump / dash /
+		// weapon presses so a held button while the camera is up can't punch
+		// through the lock. ui_cancel is handled by GameClient
 		// since it shares ESC with TogglePause and needs to consume the input
 		// before TogglePause sees it.
 		if (_birdsEye)

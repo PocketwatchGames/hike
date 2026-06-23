@@ -12,8 +12,9 @@ using Godot;
 // WorldSimState.DiscoveredSpecies). The base MobData (reached via `mob`) is the
 // shared template AND the bestiary "page" that groups a type's species; this
 // SpeciesData is one "row" on that page. A MobDescriptor HAS-A SpeciesData plus
-// its own weapons and elite override (the species-side analog of
-// EliteMobDescriptor).
+// its own elite override (the species-side analog of EliteMobDescriptor). A
+// pure loadout variant (a claw goblin vs a torch-bearing one) is its own
+// SpeciesData, since weapons are a species trait — and thus its own bestiary row.
 [GlobalClass]
 public partial class SpeciesData : Resource
 {
@@ -49,6 +50,18 @@ public partial class SpeciesData : Resource
     // other onto the mob's status controller (see Mob.ApplySpawnStatusEffect).
     // Empty = none.
     [Export] public Godot.Collections.Array<StatusEffectData> statusEffects = new();
+
+    // Weapon loadout for mobs of this species — the home for a mob's weapons
+    // (NOT a base trait on MobData). Each WeaponData carries its own action
+    // timeline, damage / continuous profiles, in-hand held model, and AI
+    // engagement tuning (range / cooldown / ally gate / priority), exactly like a
+    // player weapon. MobDescriptor.CreateState stamps this onto
+    // MobSimState.Weapons; BehaviorAttack fires the highest-priority weapon whose
+    // gates pass and the in-hand prop is the primary weapon's held model. Because
+    // weapons are a species trait, a loadout variant (a claw goblin vs a
+    // torch-bearing one) is authored as its own SpeciesData — a distinct bestiary
+    // row. Empty = a mob that never attacks.
+    [Export] public Godot.Collections.Array<WeaponData> weapons = new();
 
     // Loot ejected from the mob's body when it dies (was a MobData field; lives
     // here so each zone variant drops its own spoils — e.g. a forest kun-kun

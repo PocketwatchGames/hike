@@ -2,9 +2,12 @@
 
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://cspmuy1rwr522" path="res://resources/data/characters/dog/dog.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_wd"]
+[ext_resource type="Resource" uid="uid://b7dn2qk4xw8mp" path="res://resources/data/characters/dog/dog_bite.tres" id="4_bite"]
 
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Dog"
+weapons = Array[ExtResource("3_wd")]([ExtResource("4_bite")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

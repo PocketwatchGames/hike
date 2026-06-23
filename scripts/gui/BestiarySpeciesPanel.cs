@@ -4,11 +4,12 @@ using System.Collections.Generic;
 
 // One row on a bestiary page: a single discovered species variant. Shows its
 // name, portrait, level + kill progress (per-species kills against the shared
-// MobData.killsPerLevel thresholds), and the stat deltas that distinguish it —
+// MobData.killsPerLevel thresholds), the stat deltas that distinguish it —
 // its own SpeciesData.modifiers plus the modifiers carried by its permanent
-// statusEffects — rendered as (name, value) rows via StatList into StatPanels.
-// Instanced by BestiaryScreen, one per discovered species under the selected
-// page (grouped by SpeciesData.mob).
+// statusEffects — and a compact readout of each weapon in its loadout
+// (SpeciesData.weapons), all rendered as (name, value) rows via StatList into
+// StatPanels. Instanced by BestiaryScreen, one per discovered species under the
+// selected page (grouped by SpeciesData.mob).
 [GlobalClass]
 public partial class BestiarySpeciesPanel : PanelContainer
 {
@@ -136,15 +137,41 @@ public partial class BestiarySpeciesPanel : PanelContainer
 				AddStats(StatList.StatusEffectInfo(effect));
 			}
 		}
+		// Each weapon in the loadout: a name-only header row (StatPanel hides
+		// the value box when it's empty) followed by its combat stats. Weapons
+		// that don't attack (a pure buff cry) summarize to nothing and are
+		// skipped so they leave no orphan header.
+		if (species.weapons != null)
+		{
+			foreach (WeaponData weapon in species.weapons)
+			{
+				if (weapon == null)
+				{
+					continue;
+				}
+				var summary = new List<(string name, string value)>(StatList.WeaponSummary(weapon));
+				if (summary.Count == 0)
+				{
+					continue;
+				}
+				AddStat(weapon.displayName.ToString(), string.Empty);
+				AddStats(summary);
+			}
+		}
 	}
 
 	void AddStats(IEnumerable<(string name, string value)> entries)
 	{
 		foreach (var (name, value) in entries)
 		{
-			StatPanel stat = _statPanelScene.Instantiate<StatPanel>();
-			_statPanelContainer.AddChild(stat);
-			stat.SetText(name, value);
+			AddStat(name, value);
 		}
+	}
+
+	void AddStat(string name, string value)
+	{
+		StatPanel stat = _statPanelScene.Instantiate<StatPanel>();
+		_statPanelContainer.AddChild(stat);
+		stat.SetText(name, value);
 	}
 }

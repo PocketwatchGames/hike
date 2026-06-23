@@ -127,9 +127,9 @@ public class MobSimState : EntitySimState
     // Per-instance overrides stamped at spawn so one MobData/MobScene serves many
     // variants. Null = fall back to the species defaults. Persisted via
     // EntitySerializer so a reloaded variant keeps these rather than reverting.
-    // Both come from MobDescriptor: Palette is the biome recolor, Weapons is the
-    // loadout (e.g. a torch-bearing camp goblin vs a claw goblin — distinct
-    // descriptors over one species). Read by Mob.Weapons.
+    // Both come from the SpeciesData: Palette is the biome recolor, Weapons is the
+    // loadout (a torch-bearing goblin vs a claw goblin — each its own species).
+    // Read by Mob.Weapons.
     public MobPalette Palette;
     public Godot.Collections.Array<WeaponData> Weapons;
     // Per-instance status effects authored on the descriptor, applied to every

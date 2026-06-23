@@ -26,6 +26,7 @@ effects = Array[ExtResource("3_4h0dy")]([SubResource("Resource_apply")])
 
 [sub_resource type="Resource" id="Resource_charged"]
 script = ExtResource("3_charged")
+speedMultiplierCharging = 0.0
 chargeTime = 1.5
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_decrement")])
 chargeLoopEffect = ExtResource("5_eatfx")
@@ -35,7 +36,6 @@ script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_charged")]([SubResource("Resource_charged")])
 chargeEvents = Array[ExtResource("4_event")]([SubResource("Resource_event_anim")])
 requireFullCharge = true
-locksMovement = true
 
 [resource]
 script = ExtResource("1_consumable")

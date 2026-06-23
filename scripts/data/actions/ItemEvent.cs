@@ -103,14 +103,23 @@ public partial class ItemEvent : Resource
 	[Export] public StringName damageProfileKey = new("primary");
 
 	// ApplyMotion fields. Speed in m/s and duration in seconds describe the
-	// motion phase the actor should enter; the actor resolves direction
-	// (input/facing/etc) and any per-actor scaling (e.g. swim speed). When
-	// freezeGravity is true, the actor zeros vertical velocity and suppresses
-	// gravity for the duration — the dash hang. Sword-lunge style events
-	// leave it false so gravity still applies.
-	[Export] public float motionSpeed = 30f;
+	// motion phase the actor should enter; the actor resolves the base
+	// direction (input/facing/etc) and any per-actor scaling (e.g. swim
+	// speed). motionForwardSpeed is signed along that resolved direction:
+	// positive lunges forward (the default), negative drives the actor
+	// backward (a hop-back / recoil) along the same axis. When freezeGravity
+	// is true, the actor zeros vertical velocity and suppresses gravity for
+	// the duration — the dash hang. Sword-lunge style events leave it false
+	// so gravity still applies.
+	[Export] public float motionForwardSpeed = 30f;
 	[Export] public float motionDuration = 0.2f;
 	[Export] public bool motionFreezeGravity = true;
+	// Which axis motionForwardSpeed drives along. Facing (default) commits the
+	// motion to the actor's body yaw — correct for weapon lunges / recoils.
+	// Movement follows active move input (falling back to facing) so a dash
+	// can travel independent of facing. Mobs always lunge along facing and
+	// ignore this.
+	[Export] public EMotionDirection motionDirection = EMotionDirection.Facing;
 
 	// LearnLanguage fields. `language` is the LanguageData to grant on.
 	// `languageComponents` is the bitset of pieces (Grammar / Numbers /
@@ -342,7 +351,7 @@ public partial class ItemEvent : Resource
 			nameof(animName) => EItemEventType.PlayAnim,
 			nameof(fx) => EItemEventType.OpenInteractive | EItemEventType.ApplyAreaStatusEffect,
 			nameof(reagent) or nameof(consumeAmount) => EItemEventType.ConsumeFromInventory,
-			nameof(motionSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) => EItemEventType.ApplyMotion,
+			nameof(motionForwardSpeed) or nameof(motionDuration) or nameof(motionFreezeGravity) or nameof(motionDirection) => EItemEventType.ApplyMotion,
 			nameof(language) or nameof(languageComponents) => EItemEventType.LearnLanguage,
 			nameof(firstLearnEffect) => EItemEventType.LearnLanguage | EItemEventType.LearnConcept,
 			nameof(concept) => EItemEventType.LearnConcept,

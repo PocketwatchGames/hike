@@ -144,6 +144,20 @@ public partial class ItemAction : Resource
 	[Export] public float chargedRangeScale = 1f;
 	[Export] public float chargedAccuracyScale = 1f;
 
+	// Movement-speed multipliers the actor retains while this is the selected
+	// tier, split by phase and mutually exclusive (only one phase is live at a
+	// time). 1 (default) = full speed; 0 = fully rooted. `speedMultiplierCharging`
+	// applies during Charging (a heavy club / ranged draw slows the player; a
+	// drinking consumable roots at 0). `speedMultiplierActive` applies during
+	// Active (the swing / strike / dart) and replaces the old per-profile
+	// `locksMovement` — mob attacks set it to 0 to own the body through windup,
+	// strike, and recovery. NOTE: the "is movement locked" boolean
+	// (ActionRunner.LocksMovement, consumed by mob path-skip, footstep
+	// suppression, and the charge-anim override) is derived as multiplier <= 0,
+	// so a near-zero value (e.g. 0.01) slows but does NOT count as locked.
+	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierCharging = 1f;
+	[Export(PropertyHint.Range, "0,1,0.01")] public float speedMultiplierActive = 1f;
+
 	// Per-tier charge audio/effect lifecycle, managed by ActionRunner. Each is
 	// a PackedScene wrapping an Fx.
 	//

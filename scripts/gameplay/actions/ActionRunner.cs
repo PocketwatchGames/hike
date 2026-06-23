@@ -60,9 +60,42 @@ public class ActionRunner
 			return ComputeChargeT(_action.profile, _action.selectedTier, _action.selectedTierIndex, elapsed);
 		}
 	}
-	public bool LocksMovement => _action.IsBusy && (
-		(_action.profile != null && _action.profile.locksMovement)
-		|| (_action.interactiveAction != null && _action.interactiveAction.locksMovement));
+	// Movement-speed multiplier the in-flight action imposes on the actor THIS
+	// phase: the selected tier's speedMultiplierCharging while Charging, its
+	// speedMultiplierActive while Active (1 = unaffected, 0 = fully rooted).
+	// Charging and Active are mutually exclusive so only one ever applies.
+	// Interactives have no charge tiers — they carry their own boolean lock.
+	public float MovementSpeedMultiplier
+	{
+		get
+		{
+			if (!_action.IsBusy)
+			{
+				return 1f;
+			}
+			if (_action.interactiveAction != null)
+			{
+				return _action.interactiveAction.locksMovement ? 0f : 1f;
+			}
+			ItemAction tier = _action.selectedTier;
+			if (tier == null)
+			{
+				return 1f;
+			}
+			return _action.phase switch
+			{
+				EActionPhase.Charging => tier.speedMultiplierCharging,
+				EActionPhase.Active => tier.speedMultiplierActive,
+				_ => 1f,
+			};
+		}
+	}
+
+	// True when the current action fully roots the actor this phase. Derived
+	// from MovementSpeedMultiplier, so a partial slowdown (e.g. a 0.4 club
+	// charge) does NOT count as locked — only a 0 multiplier does. Consumed by
+	// mob path-skip, footstep suppression, and the consumable charge-anim pose.
+	public bool LocksMovement => MovementSpeedMultiplier <= 0f;
 
 	// Begin a new action. Returns true if started OR queued. Returns false
 	// if the runner is busy in a state where queueing isn't possible (mid-

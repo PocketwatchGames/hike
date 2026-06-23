@@ -6,17 +6,13 @@
 [ext_resource type="Script" uid="uid://b0aim8x4d2h1m" path="res://scripts/data/actions/AreaIntervalSpec.cs" id="4_m30y4"]
 [ext_resource type="Script" uid="uid://urfubfyfd34p" path="res://scripts/data/effects/ItemEffect.cs" id="5_il2g8"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="6_fcrvo"]
-[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="6_state"]
 [ext_resource type="Script" uid="uid://1gsdh71q41bn" path="res://scripts/data/actions/ItemActionProfile.cs" id="6_profile"]
+[ext_resource type="Script" uid="uid://cw3xkqqamn5tr" path="res://scripts/data/actions/requirements/ActorStateRequirement.cs" id="6_state"]
 [ext_resource type="PackedScene" uid="uid://c4mn7ch0one8x" path="res://scenes/fx/summon_channel.tscn" id="7_channel"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="8_4hxt3"]
 [ext_resource type="PackedScene" uid="uid://mt0fme7pe5yp" path="res://scenes/items/held/scroll_held.tscn" id="9_held"]
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="9_xlfev"]
 [ext_resource type="Texture2D" uid="uid://bpipsawp1f6tc" path="res://assets/textures/items/Scroll.png" id="10_inv"]
-
-[sub_resource type="Resource" id="Resource_req_no_swim"]
-script = ExtResource("6_state")
-forbidSwimming = true
 
 [sub_resource type="Resource" id="Resource_summon_event"]
 script = ExtResource("3_event")
@@ -28,14 +24,21 @@ screenFlashColor = Color(0.65, 0.2, 0.95, 1)
 screenFlashIntensity = 0.45
 screenFlashFadeSeconds = 0.4
 
+[sub_resource type="Resource" id="Resource_req_no_swim"]
+script = ExtResource("6_state")
+forbidSwimming = true
+
 [sub_resource type="Resource" id="Resource_tier_summon"]
 script = ExtResource("4_action")
 displayName = &"Summon"
 chargeTime = 3.0
+activeDurationSeconds = 0.5
 events = Array[ExtResource("3_event")]([SubResource("Resource_summon_event")])
 requirements = Array[ExtResource("6_fcrvo")]([SubResource("Resource_req_no_swim")])
 aimType = 1
 positionalAreaRadius = 2.5
+speedMultiplierCharging = 0.75
+speedMultiplierActive = 0.0
 channelZoneScene = ExtResource("7_channel")
 channelBloodCostPerSecond = 4.0
 

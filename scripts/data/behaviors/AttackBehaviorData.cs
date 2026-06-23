@@ -2,8 +2,8 @@ using Godot;
 
 // Behavior-level positioning for a mob engaging a target. The mob's weapons —
 // which attack to fire and at what range / cooldown / ally count — come from the
-// spawn descriptor (MobDescriptor.weapons, via Mob.Weapons), each WeaponData
-// carrying its own AI engagement tuning; BehaviorAttack reads them off the mob.
+// species (SpeciesData.weapons, via Mob.Weapons), each WeaponData carrying its
+// own AI engagement tuning; BehaviorAttack reads them off the mob.
 // This data holds only the chase / encircle geometry that's the same regardless
 // of which weapon swings.
 [GlobalClass]

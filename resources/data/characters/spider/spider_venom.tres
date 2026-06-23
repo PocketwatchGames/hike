@@ -31,6 +31,7 @@ projectileLoopEffect = ExtResource("10_trail")
 
 [sub_resource type="Resource" id="Resource_action_spit"]
 script = ExtResource("3_action")
+speedMultiplierActive = 0.0
 displayName = &"Venom Spit"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup"), SubResource("Resource_event_spit")])
@@ -39,7 +40,6 @@ releaseEffect = ExtResource("11_spit")
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_spit")])
-locksMovement = true
 
 [sub_resource type="Resource" id="Resource_slowed_buildup"]
 script = ExtResource("6_buildup")

@@ -32,6 +32,7 @@ areaRadius = 8.0
 
 [sub_resource type="Resource" id="Resource_action_cry"]
 script = ExtResource("3_action")
+speedMultiplierActive = 0.0
 displayName = &"Battle Cry"
 activeDurationSeconds = 1.2
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_anim"), SubResource("Resource_event_cry")])
@@ -39,7 +40,6 @@ events = Array[ExtResource("4_event")]([SubResource("Resource_event_anim"), SubR
 [sub_resource type="Resource" id="Resource_profile"]
 script = ExtResource("2_profile")
 chargedActions = Array[ExtResource("3_action")]([SubResource("Resource_action_cry")])
-locksMovement = true
 
 [resource]
 script = ExtResource("1_weapon")

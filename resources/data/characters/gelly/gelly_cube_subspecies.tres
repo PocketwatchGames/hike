@@ -2,9 +2,12 @@
 
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="1_sub"]
 [ext_resource type="Resource" uid="uid://c8xx8isjcaxdl" path="res://resources/data/characters/gelly/gelly_cube.tres" id="2_mob"]
+[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_wd"]
+[ext_resource type="Resource" uid="uid://f2ndl4f70s5y" path="res://resources/data/characters/gelly/gelly_slam.tres" id="4_slam"]
 
 [resource]
 script = ExtResource("1_sub")
 mob = ExtResource("2_mob")
 displayName = &"Gelatinous Cube"
+weapons = Array[ExtResource("3_wd")]([ExtResource("4_slam")])
 metadata/_custom_type_script = "uid://bo0x78pb2x4nh"

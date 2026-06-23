@@ -2,12 +2,8 @@
 
 [ext_resource type="Script" uid="uid://dl3s3rohhmwe8" path="res://scripts/data/characters/MobDescriptor.cs" id="1_5r46w"]
 [ext_resource type="Resource" uid="uid://b36dkwda4evr6" path="res://resources/data/characters/goblin/goblin_forest.tres" id="2_5r46w"]
-[ext_resource type="Script" uid="uid://dfbdsehg1sfpm" path="res://scripts/data/items/WeaponData.cs" id="3_eq8c8"]
-[ext_resource type="Resource" uid="uid://dn07c6vp5x80j" path="res://resources/data/characters/goblin/goblin_battle_cry.tres" id="4_lq1yx"]
-[ext_resource type="Resource" uid="uid://tnrdlqgbiugo" path="res://resources/data/characters/goblin/goblin_claw.tres" id="5_bbw43"]
 
 [resource]
 script = ExtResource("1_5r46w")
 species = ExtResource("2_5r46w")
-weapons = Array[ExtResource("3_eq8c8")]([ExtResource("4_lq1yx"), ExtResource("5_bbw43")])
 metadata/_custom_type_script = "uid://dl3s3rohhmwe8"

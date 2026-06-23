@@ -170,11 +170,11 @@ public partial class MobData : Resource
     [Export] public bool dangerous = false;
 
     [ExportGroup("Combat")]
-    // NOTE: a mob's weapon loadout is NOT a species trait — it's spawn-time
-    // composition that lives on MobDescriptor.weapons (so the same species can
-    // be a claw goblin in the forest and a torch-bearer in a camp via two
-    // descriptors). CreateState stamps it onto MobSimState.Weapons; Mob.Weapons
-    // reads it from there. See MobDescriptor / BehaviorAttack.
+    // NOTE: a mob's weapon loadout is NOT a base-template trait — it lives on the
+    // per-variant SpeciesData.weapons (so a claw goblin and a torch-bearer are
+    // distinct species sharing this MobData). MobDescriptor.CreateState stamps it
+    // onto MobSimState.Weapons; Mob.Weapons reads it from there. See SpeciesData /
+    // BehaviorAttack.
     [Export] public float maxHealth = 10f;
     [Export] public float maxArmor = 0f;
     // Health a tamed companion is restored to when the player revives its

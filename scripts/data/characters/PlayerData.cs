@@ -323,7 +323,7 @@ public partial class PlayerData : Resource
 	[Export] public float dashStaminaCost = 25f;
 	[Export] public float dashCooldown = 0.35f;
 	[Export] public float dashMaxFallSpeed = 8f;
-	// Underwater speed scalar applied to the dash event's motionSpeed. 1.0
+	// Underwater speed scalar applied to the dash event's motionForwardSpeed. 1.0
 	// matches dry land; lower values give a slower swim-dash so the player
 	// can't rocket through water.
 	[Export] public float dashSwimSpeedScale = 0.5f;
