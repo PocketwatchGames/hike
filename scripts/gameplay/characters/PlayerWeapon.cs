@@ -542,13 +542,21 @@ public partial class Player : CharacterBody3D, IActionActor
 		// reaches the true target pitch at full lock.
 		_aimPitchRadians = t01 * bestPitch;
 	}
-	// Normalized aim input deflection in world XZ (already camera-yaw-rotated
-	// at the input boundary). Magnitude is 0..1 for both gamepad (raw axis
-	// length) and mouse (the virtual aim cursor's offset divided by the disk
-	// radius before being passed in via ProcessMouseMotion). Directional aim
-	// only cares about direction (atan2); Positional aim integrates this as
-	// a rate input so the magnitude matters.
-	public Vector2 AimDeflection01 => new Vector2(_inputLook.X, _inputLook.Z);
+	// Device-tagged aim input for the reticle's positional cursor, snapshotted
+	// once per reticle frame. The active device travels WITH the value so
+	// AimingReticle interprets it correctly without re-querying
+	// InputDevice.Current at each read site (the value's MEANING is
+	// device-dependent — gamepad is a rate basis, mouse is consumed motion —
+	// which is exactly the context a bare Vector2 loses). Camera-yaw-rotated at
+	// the input boundary. Directional aim doesn't read this — its heading flows
+	// through the player's body facing (_inputLook) — so this serves only the
+	// positional/arced path. "Consume" because the mouse value is a per-frame
+	// motion delta that this read clears; the gamepad value is an idempotent
+	// re-sample of the stick.
+	public AimInput ConsumeAimInput()
+	{
+		return new AimInput(InputDevice.Current, new Vector2(_inputLook.X, _inputLook.Z));
+	}
 
 	// Snap the player's body yaw to face `worldPos`. Used by the aiming
 	// reticle when a charge tier transitions from Positional to Directional
@@ -622,3 +630,16 @@ public partial class Player : CharacterBody3D, IActionActor
 		_statusEffects?.TriggerDashBurst(this, GlobalPosition);
 	}
 }
+
+// Device-tagged aim input consumed by AimingReticle's positional cursor. The
+// device is carried alongside the value because the positional cursor advances
+// the two devices by DIFFERENT accumulation laws — and only the device tells
+// the reticle which to apply:
+//   • Gamepad: Value is the right-stick deflection (camera-yaw-rotated, 0..1).
+//     A RATE basis — the cursor integrates it as velocity (× range × speed × dt),
+//     so it keeps moving while the stick is held. Range-coupled by design.
+//   • Mouse: Value is the cursor's world-XZ delta accumulated since the last
+//     reticle frame (camera-yaw-rotated, meters). An absolute DELTA the cursor
+//     adds directly — it moves only when the mouse moves, and the gain is
+//     range-independent (range only clamps the result).
+public readonly record struct AimInput(InputDevice.EDevice Device, Vector2 Value);

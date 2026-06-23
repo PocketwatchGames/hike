@@ -185,7 +185,7 @@ public partial class AimingReticle : Node3D
 
 	// Canonical world-space aim cursor (the ground circle's position).
 	// Directional aim writes the dropped endpoint of the forward raycast;
-	// Positional aim integrates Player.AimDeflection01 into this each frame.
+	// Positional aim integrates Player.ConsumeAimInput() into this each frame.
 	// Held continuous across mid-charge mode flips so the ground circle
 	// glides instead of teleporting between modes. Exposed to downstream
 	// consumers (positional fire handlers) via AimWorldPosition.
@@ -337,6 +337,13 @@ public partial class AimingReticle : Node3D
 		float dt = (float)delta;
 		float step = dt / FadeDurationSeconds;
 
+		// Snapshot the device-tagged aim input ONCE per frame. This is the single
+		// consume point for the mouse motion-delta accumulator (every other read
+		// is gamepad, which is idempotent), so reading it here — before any
+		// branch — guarantees the delta is cleared exactly once whether we end up
+		// active, persisting, or fading out.
+		AimInput aim = _player.ConsumeAimInput();
+
 		// Active = aiming with a ranged weapon equipped. Cooldown does NOT drop
 		// us out of active — the cursor keeps tracking input so the player can
 		// pre-aim the next shot; it just dims to _cooldownAlphaScale (a shot can't
@@ -352,7 +359,7 @@ public partial class AimingReticle : Node3D
 			bool notReady = IsRangedWeaponOnCooldown() || IsRangedWeaponOutOfAmmo();
 			float targetAlpha = notReady ? _cooldownAlphaScale : 1f;
 			_currentAlpha = Mathf.MoveToward(_currentAlpha, targetAlpha, step);
-			UpdateReticle(dt);
+			UpdateReticle(aim, dt);
 			// Actively aiming counts as activity — hold the persistence timer full.
 			_persistTimer = 0f;
 		}
@@ -366,8 +373,8 @@ public partial class AimingReticle : Node3D
 			// reticle); a ranged attack re-enters the `active` branch, which also
 			// refills it. Only after the full window with neither does the cursor
 			// reset, so the next aim re-seeds (first deflection → 50% range).
-			bool stickMoved = InputDevice.Current == InputDevice.EDevice.Gamepad
-				&& _player.AimDeflection01.LengthSquared() > 0f;
+			bool stickMoved = aim.Device == InputDevice.EDevice.Gamepad
+				&& aim.Value.LengthSquared() > 0f;
 			_persistTimer = stickMoved ? 0f : _persistTimer + dt;
 
 			if (_persistTimer >= _positionalPersistSeconds)
@@ -498,7 +505,7 @@ public partial class AimingReticle : Node3D
 	// Handles the Pos ↔ Dir transition by snapping player yaw toward the cursor
 	// on Pos → Dir BEFORE running the directional raycast, so the same-frame
 	// forward fires through the previous positional cursor.
-	void UpdateReticle(float dt)
+	void UpdateReticle(AimInput aim, float dt)
 	{
 		EAimType aimType = ResolveActiveAimType();
 		float maxRange = ResolveActiveAimRange();
@@ -518,11 +525,11 @@ public partial class AimingReticle : Node3D
 		}
 		else if (aimType == EAimType.Arced)
 		{
-			UpdateArced(maxRange, dt);
+			UpdateArced(aim, maxRange, dt);
 		}
 		else
 		{
-			UpdatePositional(maxRange, dt);
+			UpdatePositional(aim, maxRange, dt);
 		}
 		_lastAimType = aimType;
 	}
@@ -607,14 +614,14 @@ public partial class AimingReticle : Node3D
 		RenderReticle(EAimType.Directional, lineLength, clippedAtSurface, mobTargeted, mobTargetOuter, positionalRadius: 0f, dt: dt);
 	}
 
-	void UpdatePositional(float maxRange, float dt)
+	void UpdatePositional(AimInput aim, float maxRange, float dt)
 	{
 		// Positional placement has no throw arc to publish.
 		_arcLaunchValid = false;
 		Vector3 playerPos = _player.GlobalPosition;
 		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
 
-		AdvanceGroundCursorXZ(playerPos, chestWorld, maxRange, dt);
+		AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
 
 		// Drop Y to the ground at the (possibly clamped) cursor X/Z. Start
 		// the drop from chest height so we don't miss surfaces that are
@@ -665,12 +672,12 @@ public partial class AimingReticle : Node3D
 	// DoProjectile fires the exact previewed hump. Only the cursor XZ matters —
 	// the throw's vertical is fixed, and the real projectile bounces / detonates
 	// at the fuse, so there's no surface-Y resolution here.
-	void UpdateArced(float maxRange, float dt)
+	void UpdateArced(AimInput aim, float maxRange, float dt)
 	{
 		Vector3 playerPos = _player.GlobalPosition;
 		Vector3 chestWorld = playerPos + Vector3.Up * _aimHeight;
 
-		AdvanceGroundCursorXZ(playerPos, chestWorld, maxRange, dt);
+		AdvanceGroundCursorXZ(aim, playerPos, chestWorld, maxRange, dt);
 
 		_player.SnapAimYawToward(_cursorWorldPos);
 
@@ -695,20 +702,20 @@ public partial class AimingReticle : Node3D
 	// Writes _cursorWorldPos.X/Z + _cursorValid and sets _positionalPersist for
 	// the gamepad post-aim window. Y resolution and any throw solve are the
 	// caller's job.
-	void AdvanceGroundCursorXZ(Vector3 playerPos, Vector3 chestWorld, float maxRange, float dt)
+	void AdvanceGroundCursorXZ(AimInput aim, Vector3 playerPos, Vector3 chestWorld, float maxRange, float dt)
 	{
 		// First frame in this aim session — seed the cursor so it doesn't start at
 		// (0,0,0). Gamepad-with-stick-pushed throws straight to 50% range in the
 		// pressed direction; otherwise forward-raycast (also keeps the mid-charge
 		// Dir → Pos/Arced flip consistent — the flip case has a valid cursor and
-		// skips this).
+		// skips this). Mouse always raycast-seeds: its value is a motion delta,
+		// not a direction, so there's nothing to seed from.
 		if (!_cursorValid)
 		{
-			Vector2 seedDeflection = _player.AimDeflection01;
-			if (InputDevice.Current == InputDevice.EDevice.Gamepad
-				&& seedDeflection.LengthSquared() > 0f)
+			if (aim.Device == InputDevice.EDevice.Gamepad
+				&& aim.Value.LengthSquared() > 0f)
 			{
-				Vector2 seedDir = seedDeflection.Normalized();
+				Vector2 seedDir = aim.Value.Normalized();
 				float seedDist = maxRange * PositionalResetSeedFraction;
 				_cursorWorldPos.X = playerPos.X + seedDir.X * seedDist;
 				_cursorWorldPos.Z = playerPos.Z + seedDir.Y * seedDist;
@@ -746,8 +753,8 @@ public partial class AimingReticle : Node3D
 			_cursorValid = true;
 		}
 
-		// Advance the cursor from aim input. AimDeflection01 is camera-yaw-rotated
-		// and clamped to [0, 1], but the two devices interpret it differently:
+		// Advance the cursor from aim input. The device tag (carried on `aim`)
+		// selects the accumulation law:
 		//
 		//  • Mouse: the value IS the virtual cursor's disk position — map it
 		//    straight onto the ground disk (ABSOLUTE; holding the mouse still
@@ -755,8 +762,8 @@ public partial class AimingReticle : Node3D
 		//  • Gamepad: the right stick is a RATE input — cursor velocity is the raw
 		//    deflection scaled by range, at range * _positionalCursorSpeedFraction
 		//    m/s at full deflection.
-		Vector2 deflection = _player.AimDeflection01;
-		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
+		Vector2 deflection = aim.Value;
+		if (aim.Device == InputDevice.EDevice.Gamepad)
 		{
 			// Gamepad cursors persist after aim-off (see _Process); mouse cursors
 			// recenter, so only this path opts into persistence.
