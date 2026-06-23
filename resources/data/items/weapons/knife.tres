@@ -60,6 +60,7 @@ script = ExtResource("4_charged")
 activeDurationSeconds = 1.0
 cooldownSeconds = 0.25
 staminaCost = 25.0
+bloodCost = 10.0
 events = Array[ExtResource("3_event")]([ExtResource("10_74twt"), ExtResource("11_lqdfk"), ExtResource("12_qsf28"), ExtResource("13_v26lm"), ExtResource("14_0ohaa")])
 requirements = Array[ExtResource("9_req")]([SubResource("Resource_req_no_swim")])
 speedMultiplierCharging = 0.65

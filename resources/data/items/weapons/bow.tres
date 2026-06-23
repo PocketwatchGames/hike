@@ -78,6 +78,7 @@ script = ExtResource("4_charged")
 displayName = &"Heavy Attack"
 activeDurationSeconds = 0.25
 cooldownSeconds = 0.25
+bloodCost = 10.0
 useAmmo = true
 events = Array[ExtResource("3_event")]([SubResource("Resource_event_full")])
 requirements = Array[ExtResource("4_1lc6q")]([SubResource("Resource_req_no_swim")])

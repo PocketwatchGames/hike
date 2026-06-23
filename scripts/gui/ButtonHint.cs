@@ -67,6 +67,22 @@ public partial class ButtonHint : BoxContainer
 		}
 	}
 
+	// Optional literal glyph shown on keyboard/mouse instead of resolving
+	// InputAction. Use when the K&M control is a RANGE of keys that no single
+	// action glyph expresses — e.g. the consumable hotbar's "1-4". Ignored on
+	// gamepad, which still resolves its own glyph from the input action.
+	string _glyphOverrideKeyboard = string.Empty;
+	[Export]
+	public string GlyphOverrideKeyboard
+	{
+		get => _glyphOverrideKeyboard;
+		set
+		{
+			_glyphOverrideKeyboard = value ?? string.Empty;
+			UpdateButtonText();
+		}
+	}
+
 	public override void _Ready()
 	{
 		ApplyActionName();
@@ -92,6 +108,7 @@ public partial class ButtonHint : BoxContainer
 		_inputAction = inputAction ?? string.Empty;
 		_inputActionGamepad = string.Empty;
 		_inputActionModifier = string.Empty;
+		_glyphOverrideKeyboard = string.Empty;
 		ActionName = hint;
 		UpdateButtonText();
 	}
@@ -101,6 +118,7 @@ public partial class ButtonHint : BoxContainer
 		_inputAction = inputAction ?? string.Empty;
 		_inputActionGamepad = inputActionGamepad ?? string.Empty;
 		_inputActionModifier = inputActionModifier ?? string.Empty;
+		_glyphOverrideKeyboard = string.Empty;
 		ActionName = hint;
 		UpdateButtonText();
 	}
@@ -145,6 +163,10 @@ public partial class ButtonHint : BoxContainer
 
 	string ResolveGlyph(InputDevice.EDevice device)
 	{
+		if (device == InputDevice.EDevice.KeyboardMouse && !string.IsNullOrEmpty(_glyphOverrideKeyboard))
+		{
+			return _glyphOverrideKeyboard;
+		}
 		if (device == InputDevice.EDevice.Gamepad && !string.IsNullOrEmpty(_inputActionGamepad))
 		{
 			return InputGlyph.Resolve(_inputActionGamepad, device);

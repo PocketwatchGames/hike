@@ -112,6 +112,13 @@ public static class CVars
     // more responsive. 1.0 ≈ raw pixels.
     public static CVarFloat mouseSensitivity = new CVarFloat("mouse_sensitivity", 1.0f);
 
+    // Hold duration (seconds) shared by the context-button hold gestures:
+    // holding Interact past this opens a multi-action interactive's options
+    // menu (a shorter tap runs the default action), and holding
+    // ConsumableCycleRight past it opens the consumable quick-select wheel (a
+    // shorter tap cycles to the next consumable).
+    public static CVarFloat contextButtonHoldTime = new CVarFloat("context_button_hold_time", 0.3f);
+
     // Typewriter speed (characters per second) for the dialogue HUD.
     // DialogueController advances revealed-char count by dt × this value;
     // ui_accept while typing skips to the end of the current line and a

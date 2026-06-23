@@ -12,6 +12,7 @@
 [ext_resource type="Texture2D" uid="uid://bb3gxsajwf7l6" path="res://assets/textures/gui/minimap_border.png" id="7_ggjrh"]
 [ext_resource type="Texture2D" uid="uid://dbdfb2i05edbk" path="res://assets/textures/weather/day_cold_clear.png" id="8_6101d"]
 [ext_resource type="Texture2D" uid="uid://dqyckjku6gox3" path="res://assets/textures/weather/night_cold_cloudy.png" id="9_is1ux"]
+[ext_resource type="PackedScene" uid="uid://blg3pgh6i7iea" path="res://scenes/gui/item_slot_panel.tscn" id="11_1hqqq"]
 [ext_resource type="PackedScene" path="res://scenes/gui/region_banner.tscn" id="13_is1ux"]
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_drain_bg"]
@@ -76,7 +77,7 @@ corner_radius_bottom_right = 6
 corner_radius_bottom_left = 6
 corner_detail = 6
 
-[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_lightningFlashOverlay")]
+[node name="HUD" type="Control" unique_id=1776361746 node_paths=PackedStringArray("_weaponLeftHud", "_weaponRightHud", "_consumableHud", "_weaponLeftButtonHint", "_weaponRightButtonHint", "_consumableButtonHint", "_selectConsumableButtonHint", "_statusEffectContainer", "_statusEffectNotificationAnchor", "_healthBar", "_drainedHealthBar", "_armorBar", "_blockArmorBar", "_staminaBar", "_signpostPanel", "_dialoguePanel", "_regionBanner", "_minimapTexture", "_buttonHintTurnLeft", "_buttonHintTurnRight", "_buttonHintIndoors", "_buttonHintMap", "_weatherDay", "_weatherNight", "_weatherContainer", "_itemWheel", "_itemSlots", "_lightningFlashOverlay")]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -88,10 +89,11 @@ _statusEffectHudScene = ExtResource("2_ueg55")
 _statusEffectIconScene = ExtResource("2_icon")
 _weaponLeftHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeft")
 _weaponRightHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRight")
-_consumableHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
+_consumableHud = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/HBoxContainer/Consumable")
 _weaponLeftButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer2/WeaponLeftHint")
 _weaponRightButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer3/WeaponRightHint")
-_consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/ConsumableHint")
+_consumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/ConsumableHint")
+_selectConsumableButtonHint = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/SelectConsumableHint")
 _statusEffectContainer = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/StatusEffects")
 _statusEffectNotificationAnchor = NodePath("StatusEffectNotificationAnchor")
 _healthBar = NodePath("ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer/HealthBar")
@@ -110,6 +112,8 @@ _buttonHintMap = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/HBoxC
 _weatherDay = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherDay")
 _weatherNight = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather/WeatherNight")
 _weatherContainer = NodePath("ScreenMarginContainer/BottomRight/VBoxContainer/Minimap/Weather")
+_itemWheel = NodePath("ScreenMarginContainer/ItemWheel")
+_itemSlots = [NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot1"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot2"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot3"), NodePath("ScreenMarginContainer/ItemWheel/Control/BeltSlot4")]
 _lightningFlashOverlay = NodePath("LightningFlashOverlay")
 
 [node name="ScreenMarginContainer" type="MarginContainer" parent="." unique_id=154166433]
@@ -205,28 +209,24 @@ theme_override_constants/margin_left = -15
 layout_mode = 2
 alignment = 1
 
-[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1248536501]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=930250512]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="SelectConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=959365210 instance=ExtResource("3_ueg55")]
+layout_mode = 2
+size_flags_vertical = 0
+
+[node name="VBoxContainer" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer" unique_id=1248536501]
 layout_mode = 2
 
-[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=1270863702]
+[node name="HBoxContainer" type="HBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1270863702]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=152494817]
-layout_mode = 2
-text = "<"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="Consumable" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
+[node name="Consumable" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=1708530212 instance=ExtResource("2_qxonp")]
 layout_mode = 2
 
-[node name="Label2" type="Label" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer/HBoxContainer" unique_id=517743968]
-layout_mode = 2
-text = ">"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="ConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/VBoxContainer" unique_id=959365210 instance=ExtResource("3_ueg55")]
+[node name="ConsumableHint" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer/HBoxContainer/VBoxContainer" unique_id=1815689833 instance=ExtResource("3_ueg55")]
 layout_mode = 2
 
 [node name="VBoxContainer2" type="VBoxContainer" parent="ScreenMarginContainer/BottomMiddle/VBoxContainer/MarginContainer2/HBoxContainer" unique_id=1533866589]
@@ -367,6 +367,65 @@ size_flags_vertical = 0
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 0
+
+[node name="CenterContainer" type="CenterContainer" parent="ScreenMarginContainer" unique_id=532188045]
+custom_minimum_size = Vector2(400, 400)
+layout_mode = 2
+
+[node name="ItemWheel" type="MarginContainer" parent="ScreenMarginContainer" unique_id=366444203]
+custom_minimum_size = Vector2(400, 400)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+
+[node name="Control" type="Control" parent="ScreenMarginContainer/ItemWheel" unique_id=1028974244]
+layout_mode = 2
+
+[node name="BeltSlot1" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=982744505 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -40.0
+offset_right = 40.0
+offset_bottom = 80.0
+grow_horizontal = 2
+
+[node name="BeltSlot2" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1045897119 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 6
+anchor_left = 1.0
+anchor_top = 0.5
+anchor_right = 1.0
+anchor_bottom = 0.5
+offset_left = -80.0
+offset_top = -40.0
+offset_bottom = 40.0
+grow_horizontal = 0
+grow_vertical = 2
+
+[node name="BeltSlot3" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=1824214992 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 7
+anchor_left = 0.5
+anchor_top = 1.0
+anchor_right = 0.5
+anchor_bottom = 1.0
+offset_left = -40.0
+offset_top = -80.0
+offset_right = 40.0
+grow_horizontal = 2
+grow_vertical = 0
+
+[node name="BeltSlot4" parent="ScreenMarginContainer/ItemWheel/Control" unique_id=2130838496 instance=ExtResource("11_1hqqq")]
+layout_mode = 1
+anchors_preset = 4
+anchor_top = 0.5
+anchor_bottom = 0.5
+offset_top = -40.0
+offset_right = 80.0
+offset_bottom = 40.0
+grow_vertical = 2
 
 [node name="StatusEffectNotificationAnchor" type="Control" parent="." unique_id=1924019998]
 layout_mode = 1

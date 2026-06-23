@@ -33,6 +33,7 @@ script = ExtResource("4_action")
 displayName = &"Summon"
 chargeTime = 3.0
 activeDurationSeconds = 0.5
+bloodCost = 20.0
 events = Array[ExtResource("3_event")]([SubResource("Resource_summon_event")])
 requirements = Array[ExtResource("6_fcrvo")]([SubResource("Resource_req_no_swim")])
 aimType = 1

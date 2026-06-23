@@ -891,7 +891,19 @@ public partial class Player : CharacterBody3D
 	public Action onInteractMenuOpenRequested;
 	bool _interactPressActive;
 	ulong _interactHoldStartMs;
-	const ulong InteractHoldDurationMs = 500;
+	// Shared hold threshold (milliseconds) for the context-button hold gestures
+	// — interact-options and the consumable wheel — sourced from the
+	// context_button_hold_time cvar (authored in seconds).
+	float ContextButtonHoldMs => CVars.contextButtonHoldTime.Value * 1000f;
+
+	// Consumable quick-select wheel. Holding ConsumableCycleRight past
+	// ContextButtonHoldMs opens the HUD item wheel; the right stick then
+	// highlights a belt slot and release selects it. A tap (release before the
+	// threshold) falls back to cycling to the next consumable. Times on the sim
+	// clock to match the InteractHold hold-to-open gesture above.
+	bool _consumableWheelPressActive;
+	ulong _consumableWheelPressStartMs;
+	bool _consumableWheelOpen;
 
 	public void CloseInteractMenu()
 	{
@@ -4157,7 +4169,7 @@ public partial class Player : CharacterBody3D
 		if (_interactPressActive)
 		{
 			ulong elapsed = now > _interactHoldStartMs ? now - _interactHoldStartMs : 0;
-			InteractHoldProgress = Mathf.Clamp((float)elapsed / InteractHoldDurationMs, 0f, 1f);
+			InteractHoldProgress = Mathf.Clamp(elapsed / ContextButtonHoldMs, 0f, 1f);
 			bool stillHeld = Input.IsActionPressed("Interact");
 			if (!stillHeld)
 			{
@@ -4173,7 +4185,7 @@ public partial class Player : CharacterBody3D
 					}
 				}
 			}
-			else if (elapsed >= InteractHoldDurationMs)
+			else if (elapsed >= ContextButtonHoldMs)
 			{
 				_interactPressActive = false;
 				InteractMenuOpen = true;
@@ -4211,6 +4223,61 @@ public partial class Player : CharacterBody3D
 	{
 		_inputMove = Vector3.Zero;
 		_inputLook = Vector3.Zero;
+	}
+
+	// Consumable quick-select wheel input. A tap of ConsumableCycleRight cycles
+	// to the next consumable (on release); holding past ConsumableWheelHoldMs
+	// opens the HUD item wheel instead, where the right stick highlights a belt
+	// slot and release selects it. Runs after the right-stick look block in
+	// ProcessInput so it can claim the stick (zeroing _inputLook) for wheel
+	// navigation while the wheel is open.
+	void HandleConsumableWheelInput()
+	{
+		Hud hud = Hud.Current;
+		ulong now = _world?.GameTimeMs ?? 0;
+
+		if (Input.IsActionJustPressed("ConsumableCycleRight"))
+		{
+			_consumableWheelPressActive = true;
+			_consumableWheelPressStartMs = now;
+		}
+
+		if (_consumableWheelPressActive && Input.IsActionPressed("ConsumableCycleRight"))
+		{
+			if (!_consumableWheelOpen && now - _consumableWheelPressStartMs >= ContextButtonHoldMs)
+			{
+				_consumableWheelOpen = true;
+				hud?.ShowItemWheel();
+			}
+			if (_consumableWheelOpen && hud != null)
+			{
+				Vector2 stick = new(
+					Input.GetActionStrength("LookRight") - Input.GetActionStrength("LookLeft"),
+					Input.GetActionStrength("LookDown") - Input.GetActionStrength("LookUp"));
+				hud.UpdateItemWheelHighlight(stick);
+				// The right stick drives the wheel, not character facing, while
+				// the wheel is open.
+				_inputLook = Vector3.Zero;
+			}
+		}
+
+		if (_consumableWheelPressActive && Input.IsActionJustReleased("ConsumableCycleRight"))
+		{
+			_consumableWheelPressActive = false;
+			if (_consumableWheelOpen)
+			{
+				int index = hud?.CloseItemWheelAndGetSelection() ?? -1;
+				if (index >= 0)
+				{
+					_inventory?.SelectConsumable(index);
+				}
+				_consumableWheelOpen = false;
+			}
+			else
+			{
+				_inventory?.CycleConsumable(+1);
+			}
+		}
 	}
 
 	public void ProcessInput(float cameraYaw)
@@ -4306,7 +4373,7 @@ public partial class Player : CharacterBody3D
 		}
 
 		// Handle interact input. Multi-action interactives split tap vs hold:
-		// a tap (release before InteractHoldDurationMs) runs the default
+		// a tap (release before ContextButtonHoldMs) runs the default
 		// action; a hold past the threshold raises the options modal via
 		// onInteractMenuOpenRequested. Single-action interactives still run
 		// on JustPressed so the snappy feel is preserved.
@@ -4335,10 +4402,7 @@ public partial class Player : CharacterBody3D
 		{
 			_inventory?.CycleConsumable(-1);
 		}
-		if (Input.IsActionJustPressed("ConsumableCycleRight"))
-		{
-			_inventory?.CycleConsumable(+1);
-		}
+		HandleConsumableWheelInput();
 		if (Input.IsActionJustPressed("ConsumableSelect1"))
 		{
 			_inventory?.SelectConsumable(0);
