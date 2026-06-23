@@ -110,8 +110,8 @@ public partial class AimingReticle : Node3D
 	// (so a half-pushed stick sweeps at half speed — velocity, not a ramped
 	// speed). At full deflection the cursor covers
 	// range * _positionalCursorSpeedFraction meters per second. Mouse aim ignores
-	// this — it maps the virtual cursor's disk position straight onto the ground
-	// disk (see UpdatePositional), so holding the mouse still holds the cursor.
+	// this — it integrates a world-unit motion delta (aimCursorMetersPerPixel) so
+	// holding the mouse still holds the cursor, range-independent.
 	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _positionalCursorSpeedFraction = 2f;
 	// How long a gamepad positional cursor lingers after aim stops before it
 	// resets. The cursor stays visible and fades to zero across this window;
@@ -697,8 +697,8 @@ public partial class AimingReticle : Node3D
 	}
 
 	// Shared Positional/Arced cursor input: seed the cursor on the first aiming
-	// frame, advance it from aim input (gamepad = rate, mouse = absolute disk
-	// position), then clamp it to a disk of radius maxRange around the player.
+	// frame, advance it from aim input (gamepad = rate, mouse = world-unit delta),
+	// then clamp it to a disk of radius maxRange around the player.
 	// Writes _cursorWorldPos.X/Z + _cursorValid and sets _positionalPersist for
 	// the gamepad post-aim window. Y resolution and any throw solve are the
 	// caller's job.
@@ -754,32 +754,32 @@ public partial class AimingReticle : Node3D
 		}
 
 		// Advance the cursor from aim input. The device tag (carried on `aim`)
-		// selects the accumulation law:
+		// selects the accumulation law — both integrate onto the cursor, but by
+		// different rules:
 		//
-		//  • Mouse: the value IS the virtual cursor's disk position — map it
-		//    straight onto the ground disk (ABSOLUTE; holding the mouse still
-		//    holds the cursor still).
 		//  • Gamepad: the right stick is a RATE input — cursor velocity is the raw
 		//    deflection scaled by range, at range * _positionalCursorSpeedFraction
-		//    m/s at full deflection.
-		Vector2 deflection = aim.Value;
+		//    m/s at full deflection. Keeps moving while the stick is held.
+		//  • Mouse: aim.Value is the world-unit cursor DELTA accumulated since the
+		//    last frame (range-independent) — add it straight. Moves only when the
+		//    mouse moves; range only clamps (below).
 		if (aim.Device == InputDevice.EDevice.Gamepad)
 		{
 			// Gamepad cursors persist after aim-off (see _Process); mouse cursors
 			// recenter, so only this path opts into persistence.
 			_positionalPersist = true;
-			if (deflection.LengthSquared() > 0f && maxRange > 0f)
+			if (aim.Value.LengthSquared() > 0f && maxRange > 0f)
 			{
 				float scale = maxRange * _positionalCursorSpeedFraction * dt;
-				_cursorWorldPos.X += deflection.X * scale;
-				_cursorWorldPos.Z += deflection.Y * scale;
+				_cursorWorldPos.X += aim.Value.X * scale;
+				_cursorWorldPos.Z += aim.Value.Y * scale;
 			}
 		}
-		else if (maxRange > 0f)
+		else
 		{
 			_positionalPersist = false;
-			_cursorWorldPos.X = playerPos.X + deflection.X * maxRange;
-			_cursorWorldPos.Z = playerPos.Z + deflection.Y * maxRange;
+			_cursorWorldPos.X += aim.Value.X;
+			_cursorWorldPos.Z += aim.Value.Y;
 		}
 
 		// Clamp to a disk of radius=maxRange around the player. Re-applied each

@@ -555,7 +555,16 @@ public partial class Player : CharacterBody3D, IActionActor
 	// re-sample of the stick.
 	public AimInput ConsumeAimInput()
 	{
-		return new AimInput(InputDevice.Current, new Vector2(_inputLook.X, _inputLook.Z));
+		if (InputDevice.Current == InputDevice.EDevice.Gamepad)
+		{
+			// Stick deflection (rate basis); re-sampled each frame, nothing to clear.
+			return new AimInput(InputDevice.EDevice.Gamepad, new Vector2(_inputLook.X, _inputLook.Z));
+		}
+		// Mouse: hand off the accumulated motion delta and reset, so the next frame
+		// starts fresh (a frame with no motion contributes zero, not a stale repeat).
+		Vector2 delta = new(_mouseAimWorldDelta.X, _mouseAimWorldDelta.Z);
+		_mouseAimWorldDelta = Vector3.Zero;
+		return new AimInput(InputDevice.EDevice.KeyboardMouse, delta);
 	}
 
 	// Snap the player's body yaw to face `worldPos`. Used by the aiming

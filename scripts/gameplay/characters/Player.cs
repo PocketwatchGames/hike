@@ -940,6 +940,11 @@ public partial class Player : CharacterBody3D
 
 	Vector3 _inputMove = Vector3.Zero;
 	Vector3 _inputLook = Vector3.Zero;
+	// Mouse positional-aim cursor delta (world XZ, meters), accumulated across
+	// motion events and cleared each time the reticle consumes it. Distinct from
+	// _inputLook (facing): the mouse drives the ground cursor by displacement, not
+	// by an absolute disk position. Gamepad leaves this zero (it's a rate device).
+	Vector3 _mouseAimWorldDelta = Vector3.Zero;
 
 	void SetCurInteractive(IInteractive value, int actionIndex = 0)
 	{
@@ -4121,15 +4126,23 @@ public partial class Player : CharacterBody3D
 		_heldVisual.SetWeaponConcealed(itemModel != null || animHides);
 	}
 
-	// Aim deflection from the mouse path. `deflection01` is the virtual aim
-	// cursor's offset from center divided by the disk radius — already in
-	// [0, 1] magnitude so it matches the gamepad right-stick convention and
-	// Positional aim sees a consistent rate input regardless of device.
-	// Directional aim only reads the direction (atan2) so the magnitude
-	// change is invisible there.
-	public void ProcessMouseMotion(Vector2 deflection01, float cameraYaw)
+	// Mouse FACING input (Directional aim). `deflection01` is the virtual aim
+	// cursor's offset from center divided by the disk radius; only its angle
+	// drives the body yaw, so the radius (hence magnitude) is just a feel knob.
+	public void ProcessMouseLook(Vector2 deflection01, float cameraYaw)
 	{
 		_inputLook = new Vector3(deflection01.X, 0, deflection01.Y).Rotated(Vector3.Up, cameraYaw);
+	}
+
+	// Mouse POSITIONAL input (Positional/Arced aim). `deltaScreen` is a world-unit
+	// cursor displacement in screen axes (meters); rotated into world XZ and
+	// accumulated until the reticle consumes it (ConsumeAimInput). Range-independent
+	// by construction — the reticle adds it straight to the cursor, range only
+	// clamps. Separate from _inputLook because facing and the ground cursor are
+	// genuinely different quantities (a heading vs a point), gated differently.
+	public void AddMouseAimDelta(Vector2 deltaScreen, float cameraYaw)
+	{
+		_mouseAimWorldDelta += new Vector3(deltaScreen.X, 0, deltaScreen.Y).Rotated(Vector3.Up, cameraYaw);
 	}
 
 	void HandleInteractInput()
@@ -4223,6 +4236,7 @@ public partial class Player : CharacterBody3D
 	{
 		_inputMove = Vector3.Zero;
 		_inputLook = Vector3.Zero;
+		_mouseAimWorldDelta = Vector3.Zero;
 	}
 
 	// Consumable quick-select wheel input. A tap of ConsumableCycleRight cycles
@@ -4292,7 +4306,7 @@ public partial class Player : CharacterBody3D
 
 		// Look input. Gamepad: every frame from the right-stick axes (stick
 		// centered → _inputLook = Zero, so the rotation block falls back to
-		// move direction). KBM: ProcessMouseMotion only writes _inputLook
+		// move direction). KBM: ProcessMouseLook only writes _inputLook
 		// while Aim is held (GameClient gates the motion event), but a stale
 		// _inputLook can survive an Aim release until the next mouse event,
 		// so explicitly zero it on KBM frames without Aim to guarantee the
