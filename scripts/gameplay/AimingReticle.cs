@@ -109,16 +109,16 @@ public partial class AimingReticle : Node3D
 	// tier's range per second, scaled directly by the analog stick deflection
 	// (so a half-pushed stick sweeps at half speed — velocity, not a ramped
 	// speed). At full deflection the cursor covers
-	// range * _positionalCursorSpeedFraction meters per second. Mouse aim ignores
-	// this — it integrates a world-unit motion delta (aimCursorMetersPerPixel) so
+	// range * _gamepadPositionalSpeedFraction meters per second. Mouse aim ignores
+	// this — it integrates a world-unit motion delta (mousePositionalMetersPerPixel) so
 	// holding the mouse still holds the cursor, range-independent.
-	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _positionalCursorSpeedFraction = 2f;
+	[Export(PropertyHint.Range, "0.1,8,0.1")] private float _gamepadPositionalSpeedFraction = 4f;
 	// How long a gamepad positional cursor lingers after aim stops before it
 	// resets. The cursor stays visible and fades to zero across this window;
 	// moving the aim stick or firing the ranged weapon refills it. A follow-up
 	// attack within the window fires at the held cursor; after it expires the
 	// next aim re-seeds (first deflection → 50% range). Mouse aim ignores this.
-	[Export(PropertyHint.Range, "0,30,0.5")] private float _positionalPersistSeconds = 6f;
+	[Export(PropertyHint.Range, "0,30,0.5")] private float _gamepadPositionalPersistSeconds = 6f;
 	// Alpha the reticle dims to (relative to its normal alpha) while the ranged
 	// weapon is on cooldown but the player is still aiming. The cursor keeps
 	// tracking input so the player can pre-aim the next shot; it just reads as
@@ -149,7 +149,7 @@ public partial class AimingReticle : Node3D
 	// Fraction of the active tier's range the gamepad cursor jumps to on the
 	// first stick deflection after a reset (see UpdatePositional's seed). 0.5 =
 	// halfway out toward the disk edge in the pressed direction.
-	const float PositionalResetSeedFraction = 0.5f;
+	const float GamepadPositionalSeedFraction = 0.5f;
 
 	// Ground-ring height-patch resolution. MUST match RETICLE_PATCH_RES in
 	// aiming_reticle.gdshader (and the shader's reticle_heights[] array size,
@@ -200,7 +200,7 @@ public partial class AimingReticle : Node3D
 	bool _positionalPersist;
 	// Seconds since the gamepad positional cursor last saw activity (aiming,
 	// stick movement, or a ranged attack). Counts up only during the persistence
-	// window; reaching _positionalPersistSeconds resets the cursor.
+	// window; reaching _gamepadPositionalPersistSeconds resets the cursor.
 	float _persistTimer;
 	// Character-relative XZ offset of the cursor from the player, captured each
 	// active gamepad positional frame. The persistence window re-derives the
@@ -368,7 +368,7 @@ public partial class AimingReticle : Node3D
 			// Gamepad positional persistence window: aim stopped, but the cursor
 			// sticks around so a quick follow-up ranged attack still fires at it
 			// (it stays valid → HasAimWorldPosition true). It remains visible and
-			// fades linearly to zero across _positionalPersistSeconds. Moving the
+			// fades linearly to zero across _gamepadPositionalPersistSeconds. Moving the
 			// aim stick is "activity" that refills the timer (re-brightening the
 			// reticle); a ranged attack re-enters the `active` branch, which also
 			// refills it. Only after the full window with neither does the cursor
@@ -377,7 +377,7 @@ public partial class AimingReticle : Node3D
 				&& aim.Value.LengthSquared() > 0f;
 			_persistTimer = stickMoved ? 0f : _persistTimer + dt;
 
-			if (_persistTimer >= _positionalPersistSeconds)
+			if (_persistTimer >= _gamepadPositionalPersistSeconds)
 			{
 				_cursorValid = false;
 				_positionalPersist = false;
@@ -385,8 +385,8 @@ public partial class AimingReticle : Node3D
 			}
 			else
 			{
-				_currentAlpha = _positionalPersistSeconds > 0f
-					? Mathf.Max(0f, 1f - _persistTimer / _positionalPersistSeconds)
+				_currentAlpha = _gamepadPositionalPersistSeconds > 0f
+					? Mathf.Max(0f, 1f - _persistTimer / _gamepadPositionalPersistSeconds)
 					: 0f;
 				// Character-relative: re-anchor the held cursor to the current
 				// player position using the offset captured while aiming, so it
@@ -716,7 +716,7 @@ public partial class AimingReticle : Node3D
 				&& aim.Value.LengthSquared() > 0f)
 			{
 				Vector2 seedDir = aim.Value.Normalized();
-				float seedDist = maxRange * PositionalResetSeedFraction;
+				float seedDist = maxRange * GamepadPositionalSeedFraction;
 				_cursorWorldPos.X = playerPos.X + seedDir.X * seedDist;
 				_cursorWorldPos.Z = playerPos.Z + seedDir.Y * seedDist;
 				_cursorWorldPos.Y = chestWorld.Y;
@@ -758,7 +758,7 @@ public partial class AimingReticle : Node3D
 		// different rules:
 		//
 		//  • Gamepad: the right stick is a RATE input — cursor velocity is the raw
-		//    deflection scaled by range, at range * _positionalCursorSpeedFraction
+		//    deflection scaled by range, at range * _gamepadPositionalSpeedFraction
 		//    m/s at full deflection. Keeps moving while the stick is held.
 		//  • Mouse: aim.Value is the world-unit cursor DELTA accumulated since the
 		//    last frame (range-independent) — add it straight. Moves only when the
@@ -770,7 +770,7 @@ public partial class AimingReticle : Node3D
 			_positionalPersist = true;
 			if (aim.Value.LengthSquared() > 0f && maxRange > 0f)
 			{
-				float scale = maxRange * _positionalCursorSpeedFraction * dt;
+				float scale = maxRange * _gamepadPositionalSpeedFraction * dt;
 				_cursorWorldPos.X += aim.Value.X * scale;
 				_cursorWorldPos.Z += aim.Value.Y * scale;
 			}

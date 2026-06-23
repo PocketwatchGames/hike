@@ -113,7 +113,7 @@ public partial class GameClient : Node3D
 	// low-health overlay + heartbeat). GameClient ticks it in _Process and
 	// forwards damage / death events; see ScreenEffectsController.
 	[Export] public ScreenEffectsController screenEffects;
-	[ExportGroup("Aim Cursor")]
+	[ExportGroup("Mouse Aim")]
 	// Directional-aim saturation radius (pixels) for the virtual aim-stick. ONLY
 	// affects Directional aim: aim direction is atan2(disk), magnitude-independent,
 	// so the radius purely sets how far the mouse travels before the deflection
@@ -121,18 +121,18 @@ public partial class GameClient : Node3D
 	// (a flick to the opposite heading unwinds less). Kept range-INDEPENDENT so
 	// every weapon steers with the same wrist motion. Positional aim no longer
 	// reads this — it integrates a world-unit motion delta instead (see
-	// aimCursorMetersPerPixel).
-	[Export(PropertyHint.Range, "20,1200,1")] public float aimCursorRadiusPx = 150f;
+	// mousePositionalMetersPerPixel).
+	[Export(PropertyHint.Range, "20,1200,1")] public float mouseDirectionalDiskRadiusPx = 250f;
 	// Positional-aim sensitivity: world meters the ground cursor travels per pixel
 	// of raw mouse motion (× mouse_sensitivity). Range-INDEPENDENT so the cursor
 	// "feels like a screen cursor" regardless of weapon reach — range only clamps
 	// the result to its disk. Gamepad ignores this (it's a range-relative rate).
-	[Export(PropertyHint.Range, "0.002,0.1,0.002")] public float aimCursorMetersPerPixel = 0.02f;
+	[Export(PropertyHint.Range, "0.002,0.1,0.002")] public float mousePositionalMetersPerPixel = 0.02f;
 	// Below this magnitude the accumulator is treated as "at rest" and the
 	// player's aim FACING is left alone (Directional only). Stops sub-pixel jitter
 	// from continuously re-aiming near disk-center, where the angle is ill-defined.
 	// Does not gate the positional delta — that integrates from raw motion.
-	[Export(PropertyHint.Range, "0,50,0.5")] public float aimCursorDeadzonePx = 5f;
+	[Export(PropertyHint.Range, "0,50,0.5")] public float mouseDirectionalDeadzonePx = 5f;
 
 	[ExportGroup("Subsystems")]
 	// Authored as embedded child scenes in game.tscn — their tuning lives on
@@ -1273,20 +1273,20 @@ public partial class GameClient : Node3D
 			// range-independent ("feels like a screen cursor"). Accumulated from
 			// every motion event regardless of the directional disk's deadzone,
 			// and consumed (cleared) once per reticle frame.
-			_player.AddMouseAimDelta(motion * aimCursorMetersPerPixel, camera.Yaw);
+			_player.AddMouseAimDelta(motion * mousePositionalMetersPerPixel, camera.Yaw);
 
 			// Directional aim: the same motion drives a virtual aim-stick clamped
 			// to a (small, range-independent) disk; only its ANGLE matters for
 			// facing. Past the deadzone so a near-center accumulator doesn't jitter
 			// the heading.
 			_mousePosition += motion;
-			if (_mousePosition.LengthSquared() > aimCursorRadiusPx * aimCursorRadiusPx)
+			if (_mousePosition.LengthSquared() > mouseDirectionalDiskRadiusPx * mouseDirectionalDiskRadiusPx)
 			{
-				_mousePosition = _mousePosition.Normalized() * aimCursorRadiusPx;
+				_mousePosition = _mousePosition.Normalized() * mouseDirectionalDiskRadiusPx;
 			}
-			if (_mousePosition.LengthSquared() >= aimCursorDeadzonePx * aimCursorDeadzonePx)
+			if (_mousePosition.LengthSquared() >= mouseDirectionalDeadzonePx * mouseDirectionalDeadzonePx)
 			{
-				Vector2 deflection01 = _mousePosition / aimCursorRadiusPx;
+				Vector2 deflection01 = _mousePosition / mouseDirectionalDiskRadiusPx;
 				_player.ProcessMouseLook(deflection01, camera.Yaw);
 			}
 		}
