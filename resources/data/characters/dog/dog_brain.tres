@@ -119,7 +119,6 @@ transitions = [SubResource("Resource_wary_to_attack"), SubResource("Resource_war
 script = ExtResource("8_dogattack")
 encircleSlotCount = 4
 encircleDistance = 2.0
-masterBreakoffDistance = 16.0
 
 [sub_resource type="Resource" id="Resource_cond_alert_none"]
 script = ExtResource("9_threat")

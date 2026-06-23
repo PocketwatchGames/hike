@@ -51,32 +51,42 @@ public partial class BestiarySpeciesPanel : PanelContainer
 
 	// Compute the level + progress-bar fill from the per-species kill count
 	// against the shared MobData.killsPerLevel. Empty thresholds = the entry
-	// doesn't level (stays at level 0, bar tracks total kills with no target).
-	// At max level the bar is full and the label collapses to total kills.
+	// doesn't level — the level label and progress bar/label are hidden
+	// entirely. At max level the bar is full and the label collapses to total
+	// kills.
 	void UpdateLevelProgress(int kills, Array<int> thresholds)
 	{
+		// Species that don't level (no thresholds) hide the whole progression
+		// row rather than showing a meaningless full bar.
+		bool levels = thresholds != null && thresholds.Count > 0;
+		if (_mobLevelLabel != null)
+		{
+			_mobLevelLabel.Visible = levels;
+		}
+		if (_mobKillProgressBar != null)
+		{
+			_mobKillProgressBar.Visible = levels;
+		}
+		if (_mobKillProgressLabel != null)
+		{
+			_mobKillProgressLabel.Visible = levels;
+		}
+		if (!levels)
+		{
+			return;
+		}
+
 		int level = MobBestiaryEntry.ComputeLevel(kills, thresholds);
 		int prevThreshold = 0;
 		int nextThreshold = 0;
-		bool atMax;
-		if (thresholds == null || thresholds.Count == 0)
+		bool atMax = level >= thresholds.Count;
+		if (level > 0)
 		{
-			// Unleveled species — bar shows the running kill total with no
-			// target. Treated as "at max" so the bar fills (there's no next
-			// rank to chase) and the label shows just the number.
-			atMax = true;
+			prevThreshold = thresholds[level - 1];
 		}
-		else
+		if (!atMax)
 		{
-			atMax = level >= thresholds.Count;
-			if (level > 0)
-			{
-				prevThreshold = thresholds[level - 1];
-			}
-			if (!atMax)
-			{
-				nextThreshold = thresholds[level];
-			}
+			nextThreshold = thresholds[level];
 		}
 
 		if (_mobLevelLabel != null)

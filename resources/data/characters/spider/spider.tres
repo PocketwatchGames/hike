@@ -2,10 +2,10 @@
 
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://1cq5ykh52tde" path="res://resources/data/characters/creatures/creature_hostile_brain.tres" id="2_brain"]
+[ext_resource type="Texture2D" uid="uid://bhhvbkjjt3fmt" path="res://assets/textures/portraits/spider.png" id="3_aefbr"]
 [ext_resource type="PackedScene" uid="uid://cer2ljg1m0qc4" path="res://scenes/characters/spider.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="4_aefbr"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="4_animdata"]
-[ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="5_jtyvm"]
 
 [sub_resource type="Resource" id="anim_attack"]
 script = ExtResource("4_animdata")
@@ -59,6 +59,7 @@ displayName = &"Spider"
 maxHealth = 12.0
 modifiers = null
 brain = ExtResource("2_brain")
+bestiaryPortrait = ExtResource("3_aefbr")
 exp = 2
 animations = Dictionary[int, ExtResource("4_animdata")]({
 0: SubResource("anim_attack"),

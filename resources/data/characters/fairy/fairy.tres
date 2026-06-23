@@ -3,9 +3,9 @@
 [ext_resource type="Script" uid="uid://b1016kfgr80a5" path="res://scripts/data/characters/MobData.cs" id="1_mobdata"]
 [ext_resource type="Resource" uid="uid://bfrybrain7k1a" path="res://resources/data/characters/fairy/fairy_brain.tres" id="2_brain"]
 [ext_resource type="Script" uid="uid://jqeoac08u010" path="res://scripts/data/AnimationData.cs" id="2_gns7t"]
+[ext_resource type="Texture2D" uid="uid://hbuua0cpeohi" path="res://assets/textures/portraits/fairy.png" id="3_r2e8e"]
 [ext_resource type="PackedScene" uid="uid://bfryscene7k07" path="res://scenes/characters/fairy.tscn" id="3_scene"]
 [ext_resource type="Script" uid="uid://bxtvjnrohraru" path="res://scripts/data/items/ItemTagPreference.cs" id="6_7a7q4"]
-[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="10_sf75a"]
 
 [resource]
 script = ExtResource("1_mobdata")
@@ -17,6 +17,7 @@ maxHealth = 4.0
 modifiers = null
 brain = ExtResource("2_brain")
 killsPerLevel = Array[int]([3, 10, 25, 50])
+bestiaryPortrait = ExtResource("3_r2e8e")
 exp = 2
 hudScale = 0.5
 MobScene = ExtResource("3_scene")
