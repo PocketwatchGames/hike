@@ -4,6 +4,7 @@
 [ext_resource type="Shader" uid="uid://byak3jq7vpm2t" path="res://shaders/particle_lit.gdshader" id="particle_lit_shader"]
 [ext_resource type="Texture2D" uid="uid://cqx4n8vp2rk7d" path="res://assets/textures/effects/cloud_puff.png" id="tex_puff"]
 [ext_resource type="GradientTexture1D" uid="uid://cd005yffmhmxs" path="res://resources/gradients/fade_in_fast_out_slow.tres" id="fade_grad"]
+[ext_resource type="AudioStream" uid="uid://bbn72ox775x6a" path="res://assets/audio/source/rewards/sfx_knowledge_gained.wav" id="5_gained"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_learnsparkle"]
 emission_shape = 1
@@ -55,6 +56,10 @@ shader_parameter/emission = Color(0, 0, 0, 0)
 material = SubResource("ShaderMaterial_learnring")
 size = Vector2(0.18, 0.18)
 
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_gained"]
+streams_count = 1
+stream_0/stream = ExtResource("5_gained")
+
 [node name="LearnLanguage" type="Node3D"]
 script = ExtResource("1_oneshot")
 
@@ -79,3 +84,10 @@ explosiveness = 0.7
 randomness = 0.5
 process_material = SubResource("ParticleProcessMaterial_learnring")
 draw_pass_1 = SubResource("QuadMesh_learnring")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_gained")
+volume_db = -3.0
+unit_size = 6.0
+max_distance = 30.0
+bus = &"World3D"

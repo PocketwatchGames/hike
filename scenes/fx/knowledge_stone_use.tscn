@@ -1,0 +1,19 @@
+[gd_scene format=3 uid="uid://due3oqhb0clen"]
+
+[ext_resource type="Script" uid="uid://dal1ab13gblx7" path="res://scripts/utils/Fx.cs" id="1_fx"]
+[ext_resource type="AudioStream" uid="uid://dgwccgw1sv86b" path="res://assets/audio/source/interactives/sfx_knowledge_stone_use_01.wav" id="2_use"]
+
+[sub_resource type="AudioStreamRandomizer" id="AudioStreamRandomizer_ksuse"]
+random_pitch = 1.03
+streams_count = 1
+stream_0/stream = ExtResource("2_use")
+
+[node name="KnowledgeStoneUse" type="Node3D"]
+script = ExtResource("1_fx")
+
+[node name="Audio" type="AudioStreamPlayer3D" parent="."]
+stream = SubResource("AudioStreamRandomizer_ksuse")
+volume_db = -2.0
+unit_size = 5.0
+max_distance = 28.0
+bus = &"World3D"

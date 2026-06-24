@@ -1,7 +1,8 @@
 [gd_resource type="Resource" script_class="WorldGenData" format=3 uid="uid://bhodwg1042kim"]
 
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="2_37agf"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="15_7nyke"]
+[ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="8_ekrki"]
+[ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="15_7nyke"]
 [ext_resource type="Resource" uid="uid://c2slw3bih2n7x" path="res://resources/data/world_gen/zone_gen/swamp_highlands_gen.tres" id="17_hnhxf"]
 [ext_resource type="Resource" uid="uid://c3262urh41m8s" path="res://resources/data/world_gen/zone_gen/swamp_village_gen.tres" id="17_se4m7"]
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="18_8e3k4"]
@@ -12,6 +13,8 @@
 [resource]
 script = ExtResource("23_7umo2")
 SimData = ExtResource("18_8e3k4")
-Zones = [ExtResource("21_1tdd7"), ExtResource("17_se4m7"), ExtResource("18_se4m7"), ExtResource("17_hnhxf")]
+Zones = [ExtResource("21_1tdd7"), ExtResource("17_se4m7"), ExtResource("18_se4m7"), ExtResource("17_hnhxf"), ExtResource("8_ekrki")]
 Regions = [ExtResource("15_7nyke")]
 DoorScene = ExtResource("2_37agf")
+HubZoneIndex = 4
+HubRadiusChunks = 2

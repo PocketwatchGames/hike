@@ -722,7 +722,8 @@ public static class ItemEventHandlers
 		float knockbackBonus = 0f;
 		float knockbackTimeBonus = 0f;
 		// Loop fx the mods attach to the shot (a Flaming bow's flaming arrows),
-		// layered on top of the event's own projectileLoopEffect.
+		// layered on top of any intrinsic trail authored as a child Fx of the
+		// projectile scene.
 		Godot.Collections.Array<PackedScene> projectileFx = null;
 		if (firingWeapon != null)
 		{
@@ -754,7 +755,6 @@ public static class ItemEventHandlers
 			parent,
 			ev.projectileScene,
 			lifetime,
-			ev.projectileLoopEffect,
 			origin,
 			velocity,
 			damageData,

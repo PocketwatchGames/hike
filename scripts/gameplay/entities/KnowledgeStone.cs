@@ -34,12 +34,21 @@ public partial class KnowledgeStone : Node3D, IInteractive, IWorldEntity
     // FX spawned on the player the first time this read newly grants any
     // concept. Subsequent reads are silent.
     [Export] private PackedScene _firstLearnEffect;
+    // Looping holy ambience (sound + rising particle column) spawned as a child
+    // when the stone enters the world; freed with the stone on chunk unload.
+    [Export] private PackedScene _ambientLoopEffect;
 
     public Vector3 hudPosition => _hudNode != null ? _hudNode.GlobalPosition : GlobalPosition;
 
     private KnowledgeStoneSimState _simState;
 
-    public void OnSpawned(World world) { }
+    public void OnSpawned(World world)
+    {
+        if (_ambientLoopEffect != null)
+        {
+            Fx.Create(_ambientLoopEffect, this, Vector3.Zero);
+        }
+    }
 
     public bool CanInteract() => true;
     public bool CanActorInteract(Player player) => CanInteract();

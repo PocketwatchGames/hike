@@ -9,10 +9,9 @@
 [ext_resource type="Script" uid="uid://dvmit3ddkahg8" path="res://scripts/data/combat/DamageData.cs" id="5_damage"]
 [ext_resource type="Script" uid="uid://b5h7q3xk1an2m" path="res://scripts/data/effects/StatusEffectBuildup.cs" id="6_buildup"]
 [ext_resource type="Resource" uid="uid://c2h2ti4r8qe07" path="res://resources/data/status_effects/status_slowed.tres" id="7_slowed"]
-[ext_resource type="PackedScene" path="res://scenes/projectiles/venom_glob.tscn" id="8_proj"]
+[ext_resource type="PackedScene" uid="uid://1p5y5en8utg4" path="res://scenes/projectiles/venom_glob.tscn" id="8_proj"]
 [ext_resource type="Script" uid="uid://djnuloo7jgw0k" path="res://scripts/data/actions/ActionRequirement.cs" id="9_28nm0"]
 [ext_resource type="PackedScene" path="res://scenes/fx/venom_splat.tscn" id="9_splat"]
-[ext_resource type="PackedScene" uid="uid://cv3n0mdr1pq7k" path="res://scenes/fx/weapon_venom_drip_loop.tscn" id="10_trail"]
 [ext_resource type="Script" uid="uid://dd4u1l732brym" path="res://scripts/data/combat/ContinuousDamageData.cs" id="11_opuky"]
 [ext_resource type="PackedScene" uid="uid://dsgde212y3j3m" path="res://scenes/fx/spider_spit.tscn" id="11_spit"]
 
@@ -31,7 +30,6 @@ impactLethalEffect = ExtResource("9_splat")
 projectileScene = ExtResource("8_proj")
 projectileSpeed = 16.0
 projectileLifetimeSeconds = 0.7
-projectileLoopEffect = ExtResource("10_trail")
 
 [sub_resource type="Resource" id="Resource_action_spit"]
 script = ExtResource("3_action")

@@ -286,7 +286,7 @@ public class StatusEffectController
 
 	// Projectile-loop Fx scenes from active weapon mods reaching charge tier
 	// `chargeIndex` (a Flaming bow's flaming arrows). Layered on top of the
-	// event's own projectileLoopEffect by DoProjectile. Returns null when none
+	// intrinsic trail authored as a child Fx of the projectile scene. Returns null when none
 	// reach, so the common no-mod hot path allocates nothing.
 	public Godot.Collections.Array<PackedScene> WeaponModProjectileFx(int chargeIndex)
 	{

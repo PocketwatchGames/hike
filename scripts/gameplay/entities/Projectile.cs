@@ -132,7 +132,6 @@ public partial class Projectile : Node3D
 		Node parent,
 		PackedScene scene,
 		float maxLifetimeSeconds,
-		PackedScene loopEffect,
 		Vector3 origin,
 		Vector3 velocity,
 		DamageData damageData,
@@ -202,17 +201,20 @@ public partial class Projectile : Node3D
 			Vector3 up = Mathf.Abs(fwd.Dot(Vector3.Up)) > 0.99f ? Vector3.Right : Vector3.Up;
 			inst.LookAt(origin + fwd, up);
 		}
-		// Parent the loop fx to the projectile so its emitter follows the
-		// flight naturally. Despawn reparents them out and calls Stop() so
-		// trailing particles can fade for their authored Lifetime after the
-		// projectile node frees. The event's own loop plus any weapon-mod
-		// projectileFx (a Flaming bow) ride together.
-		if (loopEffect != null)
+		// Loop fx riding the projectile come from two sources, both joining the
+		// same _loopFx teardown: intrinsic trails authored as child Fx of the
+		// projectile scene (adopted here), and compositional weapon-mod fx (a
+		// Flaming bow) injected via projectileFx below. Despawn reparents them out
+		// and calls Stop() so trailing particles fade for their authored Lifetime
+		// after the projectile frees — without that a scene-child trail would be
+		// freed instantly by our QueueFree and snap off at impact. Safe to scan
+		// here: the AddChild above already ran the children's Fx._Ready (which
+		// starts their emission).
+		foreach (Node child in inst.GetChildren())
 		{
-			Fx fx = Fx.Create(loopEffect, inst, Vector3.Zero);
-			if (fx != null)
+			if (child is Fx childFx)
 			{
-				inst._loopFx.Add(fx);
+				inst._loopFx.Add(childFx);
 			}
 		}
 		if (projectileFx != null)

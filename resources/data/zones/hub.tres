@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="ZoneData" format=3]
+[gd_resource type="Resource" script_class="ZoneData" format=3 uid="uid://0s8pv7vuphq0"]
 
 [ext_resource type="Script" uid="uid://c76q17gvh24x6" path="res://scripts/data/world/ZoneData.cs" id="1_region"]
 [ext_resource type="Script" uid="uid://d25sc6n2mi728" path="res://scripts/data/world/WeatherData.cs" id="2_weather"]

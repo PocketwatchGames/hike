@@ -4,13 +4,13 @@
 [ext_resource type="Resource" uid="uid://vwejw0habed3" path="res://resources/data/default_sim_data.tres" id="2_sim"]
 [ext_resource type="Resource" uid="uid://wwpw4gcdk0vs" path="res://resources/data/world_gen/zone_gen/desert_gen.tres" id="2_zone_desert"]
 [ext_resource type="Resource" uid="uid://wwpw4geql0vs" path="res://resources/data/world_gen/zone_gen/forest_gen.tres" id="2_zone_forest"]
+[ext_resource type="Resource" uid="uid://dhg7c42lgnit2" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="2_zone_hub"]
 [ext_resource type="Resource" uid="uid://wwpw4glsf0vs" path="res://resources/data/world_gen/zone_gen/mountain_gen.tres" id="2_zone_mountain"]
 [ext_resource type="Resource" uid="uid://wwpw4grvh0vs" path="res://resources/data/world_gen/zone_gen/swamp_gen.tres" id="2_zone_swamp"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/zone_gen/hub_gen.tres" id="2_zone_hub"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_desert.tres" id="3_region_desert"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
-[ext_resource type="Resource" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
+[ext_resource type="Resource" uid="uid://c0mthwo8voc3w" path="res://resources/data/world_gen/region_gen/region_gen_desert.tres" id="3_region_desert"]
+[ext_resource type="Resource" uid="uid://d2rxg8txuelf0" path="res://resources/data/world_gen/region_gen/region_gen_forest.tres" id="3_region_forest"]
+[ext_resource type="Resource" uid="uid://dql8txwkuxpdg" path="res://resources/data/world_gen/region_gen/region_gen_mountain.tres" id="3_region_mountain"]
+[ext_resource type="Resource" uid="uid://bbelkvnbtjkl6" path="res://resources/data/world_gen/region_gen/region_gen_swamp.tres" id="3_region_swamp"]
 [ext_resource type="PackedScene" uid="uid://bk5u04vwxlhas" path="res://scenes/interactives/door.tscn" id="4_door"]
 
 [resource]
@@ -20,5 +20,4 @@ Zones = [ExtResource("2_zone_mountain"), ExtResource("2_zone_desert"), ExtResour
 Regions = [ExtResource("3_region_mountain"), ExtResource("3_region_desert"), ExtResource("3_region_swamp"), ExtResource("3_region_forest")]
 DoorScene = ExtResource("4_door")
 HubZoneIndex = 4
-HubRadiusChunks = 1
-SpawnColumn = Vector2i(0, 0)
+HubRadiusChunks = 2

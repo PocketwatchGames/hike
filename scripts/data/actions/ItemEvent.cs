@@ -234,9 +234,6 @@ public partial class ItemEvent : Resource
 	// projectile despawns at the cursor at exactly this many seconds after
 	// launch, and projectileSpeed is ignored (velocity is solved for).
 	[Export] public float projectileLifetimeSeconds = 1f;
-	// Optional looping audio-visual cue parented to the projectile for the
-	// duration of its flight (fire trail, shockwave, magic glow).
-	[Export] public PackedScene projectileLoopEffect;
 	// How many creatures this projectile passes THROUGH before it stops. 0
 	// (default) is a normal shot: it stops on the first creature it hits. 1 means
 	// it punches through the first creature and stops on the second; N stops on
@@ -364,7 +361,6 @@ public partial class ItemEvent : Resource
 			nameof(projectileScene)
 				or nameof(projectileSpeed)
 				or nameof(projectileLifetimeSeconds)
-				or nameof(projectileLoopEffect)
 				or nameof(pierceCount)
 				or nameof(projectileArcing)
 				or nameof(projectileArcRise)
