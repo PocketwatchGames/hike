@@ -35,10 +35,10 @@ impactLethalEffect = ExtResource("7_hitfx")
 
 [sub_resource type="Resource" id="Resource_action_bite"]
 script = ExtResource("3_action")
-speedMultiplierActive = 0.0
 displayName = &"Bite"
 activeDurationSeconds = 0.8
 events = Array[ExtResource("4_event")]([SubResource("Resource_event_windup_anim"), SubResource("Resource_event_lunge"), SubResource("Resource_event_bite")])
+speedMultiplierActive = 0.0
 releaseEffect = ExtResource("6_atkfx")
 
 [sub_resource type="Resource" id="Resource_profile"]
@@ -51,9 +51,6 @@ tags = 1157
 healthDamage = 3.0
 aggroMultiplier = 0.5
 blunt = 0.2
-hitstun = 0.25
-knockbackDistance = 0.6
-knockbackTime = 0.15
 buildups = []
 modifiers = []
 

@@ -58,6 +58,7 @@ script = ExtResource("1_mobdata")
 displayName = &"Gelatinous Sphere"
 modifiers = null
 brain = ExtResource("2_brain")
+killsPerLevel = Array[int]([5, 15, 30, 50, 100])
 bestiaryPortrait = ExtResource("3_cb7ji")
 exp = 2
 animations = Dictionary[int, ExtResource("4_animdata")]({

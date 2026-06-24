@@ -325,12 +325,16 @@ public partial class Mob : RigidBody3D, IWorldEntity, IActionActor, IInteractive
     // the visual telegraph and the assist always agree. Hidden / Detected
     // mobs aren't yet "real" to the player's awareness so neither path should
     // acknowledge them; direct hits remain possible because the actual
-    // hitscan/projectile code doesn't gate on this. Takes the weapon so
-    // future weapon-specific targeting rules (e.g. a weapon that can lock
-    // burrowed prey) can land here without churn at the call sites.
+    // hitscan/projectile code doesn't gate on this. Player-side mobs (a tamed
+    // companion's effective team is Friendly) are excluded — a normal swing
+    // can't hurt them, so the assist must not pull toward them. Takes the
+    // weapon so future weapon-specific targeting rules (e.g. a weapon that can
+    // lock burrowed prey) can land here without churn at the call sites.
     public bool CanTarget(WeaponData weapon)
     {
-        return alive && !burrowed && playerPerceptionState == EPlayerPerceptionState.Discovered;
+        return alive && !burrowed
+            && playerPerceptionState == EPlayerPerceptionState.Discovered
+            && !Teams.AreAllied(ActorTeam, ETeam.Player);
     }
     public float skyBrightness => _simState.SkyBrightness;
     public float sunExposure => _simState.SunExposure;

@@ -3,8 +3,10 @@
 [ext_resource type="Resource" uid="uid://culi48vuetet7" path="res://resources/data/characters/goblin/goblin.tres" id="1_3s3mn"]
 [ext_resource type="Script" uid="uid://c4f283lqo67wq" path="res://scripts/data/characters/MobRecolorEntry.cs" id="2_qpp1h"]
 [ext_resource type="Script" uid="uid://cicvni6fvcssx" path="res://scripts/data/characters/MobPalette.cs" id="3_7btn7"]
+[ext_resource type="Script" uid="uid://bf8kas4isp4rx" path="res://scripts/data/items/StatusEffectDescriptor.cs" id="4_1cymu"]
 [ext_resource type="Script" uid="uid://bo0x78pb2x4nh" path="res://scripts/data/characters/SpeciesData.cs" id="4_t3jks"]
 [ext_resource type="Script" uid="uid://uqgkmpiv30t5" path="res://scripts/data/effects/StatusEffectData.cs" id="5_iqflo"]
+[ext_resource type="Script" uid="uid://bovyciaikopwb" path="res://scripts/data/combat/StatModifier.cs" id="6_0kcdn"]
 [ext_resource type="Script" uid="uid://rgsn3i1pdqkv" path="res://scripts/data/items/ItemCount.cs" id="6_lootcount"]
 [ext_resource type="Script" uid="uid://c2qx7n8rkmdt5" path="res://scripts/data/items/ItemDescriptor.cs" id="7_desc"]
 [ext_resource type="Resource" path="res://resources/data/items/loot/goblin_desert_meat.tres" id="8_meat"]
@@ -39,5 +41,5 @@ script = ExtResource("4_t3jks")
 mob = ExtResource("1_3s3mn")
 displayName = &"Desert Goblin"
 palette = SubResource("Resource_db5yf")
-loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
 weapons = Array[ExtResource("9_wd")]([ExtResource("10_cry"), ExtResource("11_claw")])
+loot = Array[ExtResource("6_lootcount")]([SubResource("Resource_loot_meat")])
